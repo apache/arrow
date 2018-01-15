@@ -42,6 +42,8 @@
 #include "arrow/util/parallel.h"
 #include "arrow/visitor_inline.h"
 
+#include "arrow/compute/api.h"
+
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
@@ -56,6 +58,8 @@ namespace py {
 
 using internal::kPandasTimestampNull;
 using internal::kNanosecondsInDay;
+
+using compute::Datum;
 
 // ----------------------------------------------------------------------
 // Utility code
@@ -86,6 +90,7 @@ struct WrapBytes<FixedSizeBinaryArray> {
 
 static inline bool ListTypeSupported(const DataType& type) {
   switch (type.id()) {
+    case Type::NA:
     case Type::UINT8:
     case Type::INT8:
     case Type::UINT16:
@@ -96,6 +101,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::UINT64:
     case Type::FLOAT:
     case Type::DOUBLE:
+    case Type::BINARY:
     case Type::STRING:
     case Type::TIMESTAMP:
       // The above types are all supported.
@@ -235,19 +241,14 @@ class PandasBlock {
       block_arr = PyArray_SimpleNewFromDescr(1, block_dims, descr);
     }
 
-    if (block_arr == NULL) {
-      // TODO(wesm): propagating Python exception
-      return Status::OK();
-    }
+    RETURN_IF_PYERROR();
 
     PyArray_ENABLEFLAGS(reinterpret_cast<PyArrayObject*>(block_arr), NPY_ARRAY_OWNDATA);
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
-    if (placement_arr == NULL) {
-      // TODO(wesm): propagating Python exception
-      return Status::OK();
-    }
+
+    RETURN_IF_PYERROR();
 
     block_arr_.reset(block_arr);
     placement_arr_.reset(placement_arr);
@@ -278,11 +279,18 @@ class PandasBlock {
 };
 
 template <typename T>
+inline const T* GetPrimitiveValues(const Array& arr) {
+  const auto& prim_arr = static_cast<const PrimitiveArray&>(arr);
+  const T* raw_values = reinterpret_cast<const T*>(prim_arr.values()->data());
+  return raw_values + arr.offset();
+}
+
+template <typename T>
 inline void ConvertIntegerWithNulls(PandasOptions options, const ChunkedArray& data,
                                     double* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const T*>(arr.raw_values());
+    const auto& arr = *data.chunk(c);
+    const T* in_values = GetPrimitiveValues<T>(arr);
     // Upcast to double, set NaN as appropriate
 
     for (int i = 0; i < arr.length(); ++i) {
@@ -295,8 +303,8 @@ template <typename T>
 inline void ConvertIntegerNoNullsSameType(PandasOptions options, const ChunkedArray& data,
                                           T* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const T*>(arr.raw_values());
+    const auto& arr = *data.chunk(c);
+    const T* in_values = GetPrimitiveValues<T>(arr);
     memcpy(out_values, in_values, sizeof(T) * arr.length());
     out_values += arr.length();
   }
@@ -306,8 +314,8 @@ template <typename InType, typename OutType>
 inline void ConvertIntegerNoNullsCast(PandasOptions options, const ChunkedArray& data,
                                       OutType* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const InType*>(arr.raw_values());
+    const auto& arr = *data.chunk(c);
+    const InType* in_values = GetPrimitiveValues<InType>(arr);
     for (int64_t i = 0; i < arr.length(); ++i) {
       *out_values = in_values[i];
     }
@@ -318,14 +326,13 @@ static Status ConvertBooleanWithNulls(PandasOptions options, const ChunkedArray&
                                       PyObject** out_values) {
   PyAcquireGIL lock;
   for (int c = 0; c < data.num_chunks(); c++) {
-    const std::shared_ptr<Array> arr = data.chunk(c);
-    auto bool_arr = static_cast<BooleanArray*>(arr.get());
+    const auto& arr = static_cast<const BooleanArray&>(*data.chunk(c));
 
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      if (bool_arr->IsNull(i)) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsNull(i)) {
         Py_INCREF(Py_None);
         *out_values++ = Py_None;
-      } else if (bool_arr->Value(i)) {
+      } else if (arr.Value(i)) {
         // True
         Py_INCREF(Py_True);
         *out_values++ = Py_True;
@@ -342,10 +349,9 @@ static Status ConvertBooleanWithNulls(PandasOptions options, const ChunkedArray&
 static void ConvertBooleanNoNulls(PandasOptions options, const ChunkedArray& data,
                                   uint8_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
-    const std::shared_ptr<Array> arr = data.chunk(c);
-    auto bool_arr = static_cast<BooleanArray*>(arr.get());
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      *out_values++ = static_cast<uint8_t>(bool_arr->Value(i));
+    const auto& arr = static_cast<const BooleanArray&>(*data.chunk(c));
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      *out_values++ = static_cast<uint8_t>(arr.Value(i));
     }
   }
 }
@@ -356,17 +362,17 @@ inline Status ConvertBinaryLike(PandasOptions options, const ChunkedArray& data,
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   PyAcquireGIL lock;
   for (int c = 0; c < data.num_chunks(); c++) {
-    auto arr = static_cast<ArrayType*>(data.chunk(c).get());
+    const auto& arr = static_cast<const ArrayType&>(*data.chunk(c));
 
     const uint8_t* data_ptr;
     int32_t length;
     const bool has_nulls = data.null_count() > 0;
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      if (has_nulls && arr->IsNull(i)) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (has_nulls && arr.IsNull(i)) {
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        data_ptr = arr->GetValue(i, &length);
+        data_ptr = arr.GetValue(i, &length);
         *out_values = WrapBytes<ArrayType>::Wrap(data_ptr, length);
         if (*out_values == nullptr) {
           PyErr_Clear();
@@ -476,7 +482,7 @@ inline Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
             Py_INCREF(Py_None);
             field_value.reset(Py_None);
           }
-          // PyDict_SetItemString does not steal the value reference
+          // PyDict_SetItemString increments reference count
           auto setitem_result =
               PyDict_SetItemString(dict_item.obj(), name.c_str(), field_value.obj());
           RETURN_IF_PYERROR();
@@ -525,13 +531,25 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
         PyObject* start = PyLong_FromLongLong(arr->value_offset(i) + chunk_offset);
         PyObject* end = PyLong_FromLongLong(arr->value_offset(i + 1) + chunk_offset);
         PyObject* slice = PySlice_New(start, end, NULL);
+        Py_XDECREF(start);
+        Py_XDECREF(end);
+
+        if (ARROW_PREDICT_FALSE(slice == nullptr)) {
+          // Fall out of loop, will return from RETURN_IF_PYERROR
+          break;
+        }
         *out_values = PyObject_GetItem(numpy_array, slice);
-        Py_DECREF(start);
-        Py_DECREF(end);
-        Py_DECREF(slice);
+
+        if (*out_values == nullptr) {
+          // Fall out of loop, will return from RETURN_IF_PYERROR
+          break;
+        }
+
+        Py_XDECREF(slice);
       }
       ++out_values;
     }
+    RETURN_IF_PYERROR();
 
     chunk_offset += arr->values()->length();
   }
@@ -543,14 +561,12 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
 template <typename T>
 inline void ConvertNumericNullable(const ChunkedArray& data, T na_value, T* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const T*>(arr.raw_values());
-
-    const uint8_t* valid_bits = arr.null_bitmap_data();
+    const auto& arr = *data.chunk(c);
+    const T* in_values = GetPrimitiveValues<T>(arr);
 
     if (arr.null_count() > 0) {
       for (int64_t i = 0; i < arr.length(); ++i) {
-        *out_values++ = BitUtil::BitNotSet(valid_bits, i) ? na_value : in_values[i];
+        *out_values++ = arr.IsNull(i) ? na_value : in_values[i];
       }
     } else {
       memcpy(out_values, in_values, sizeof(T) * arr.length());
@@ -563,8 +579,8 @@ template <typename InType, typename OutType>
 inline void ConvertNumericNullableCast(const ChunkedArray& data, OutType na_value,
                                        OutType* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const InType*>(arr.raw_values());
+    const auto& arr = *data.chunk(c);
+    const InType* in_values = GetPrimitiveValues<InType>(arr);
 
     for (int64_t i = 0; i < arr.length(); ++i) {
       *out_values++ = arr.IsNull(i) ? na_value : static_cast<OutType>(in_values[i]);
@@ -572,11 +588,11 @@ inline void ConvertNumericNullableCast(const ChunkedArray& data, OutType na_valu
   }
 }
 
-template <typename InType, int64_t SHIFT>
+template <typename T, int64_t SHIFT>
 inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const InType*>(arr.raw_values());
+    const auto& arr = *data.chunk(c);
+    const T* in_values = GetPrimitiveValues<T>(arr);
 
     for (int64_t i = 0; i < arr.length(); ++i) {
       *out_values++ = arr.IsNull(i) ? kPandasTimestampNull
@@ -616,14 +632,6 @@ static Status ConvertTimes(PandasOptions options, const ChunkedArray& data,
   return Status::OK();
 }
 
-static Status RawDecimalToString(const uint8_t* bytes, int precision, int scale,
-                                 std::string* result) {
-  DCHECK_NE(result, nullptr);
-  Decimal128 decimal(bytes);
-  *result = decimal.ToString(precision, scale);
-  return Status::OK();
-}
-
 static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
                               PyObject** out_values) {
   PyAcquireGIL lock;
@@ -634,20 +642,14 @@ static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
   PyObject* Decimal = Decimal_ref.obj();
 
   for (int c = 0; c < data.num_chunks(); c++) {
-    auto* arr(static_cast<arrow::DecimalArray*>(data.chunk(c).get()));
-    auto type(std::dynamic_pointer_cast<arrow::DecimalType>(arr->type()));
-    const int precision = type->precision();
-    const int scale = type->scale();
+    const auto& arr = static_cast<const arrow::Decimal128Array&>(*data.chunk(c));
 
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      if (arr->IsNull(i)) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsNull(i)) {
         Py_INCREF(Py_None);
         *out_values++ = Py_None;
       } else {
-        const uint8_t* raw_value = arr->GetValue(i);
-        std::string decimal_string;
-        RETURN_NOT_OK(RawDecimalToString(raw_value, precision, scale, &decimal_string));
-        *out_values++ = internal::DecimalFromString(Decimal, decimal_string);
+        *out_values++ = internal::DecimalFromString(Decimal, arr.FormatValue(i));
         RETURN_IF_PYERROR();
       }
     }
@@ -694,6 +696,7 @@ class ObjectBlock : public PandasBlock {
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->id()) {
+        CONVERTLISTSLIKE_CASE(FloatType, NA)
         CONVERTLISTSLIKE_CASE(UInt8Type, UINT8)
         CONVERTLISTSLIKE_CASE(Int8Type, INT8)
         CONVERTLISTSLIKE_CASE(UInt16Type, UINT16)
@@ -705,6 +708,7 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
         CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
+        CONVERTLISTSLIKE_CASE(BinaryType, BINARY)
         CONVERTLISTSLIKE_CASE(StringType, STRING)
         CONVERTLISTSLIKE_CASE(ListType, LIST)
         default: {
@@ -864,7 +868,7 @@ class BoolBlock : public PandasBlock {
     uint8_t* out_buffer =
         reinterpret_cast<uint8_t*>(block_data_) + rel_placement * num_rows_;
 
-    ConvertBooleanNoNulls(options_, *col->data().get(), out_buffer);
+    ConvertBooleanNoNulls(options_, *col->data(), out_buffer);
     placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
@@ -892,7 +896,7 @@ class DatetimeBlock : public PandasBlock {
     int64_t* out_buffer =
         reinterpret_cast<int64_t*>(block_data_) + rel_placement * num_rows_;
 
-    const ChunkedArray& data = *col.get()->data();
+    const ChunkedArray& data = *col->data();
 
     if (type == Type::DATE32) {
       // Convert from days since epoch to datetime64[ns]
@@ -966,9 +970,10 @@ class CategoricalBlock : public PandasBlock {
         "CategoricalBlock allocation happens when calling Write");
   }
 
-  template <int ARROW_INDEX_TYPE>
+  template <typename ArrowType>
   Status WriteIndices(const std::shared_ptr<Column>& col) {
-    using TRAITS = internal::arrow_traits<ARROW_INDEX_TYPE>;
+    using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+    using TRAITS = internal::arrow_traits<ArrowType::type_id>;
     using T = typename TRAITS::T;
     constexpr int npy_type = TRAITS::npy_type;
 
@@ -977,10 +982,22 @@ class CategoricalBlock : public PandasBlock {
     // Sniff the first chunk
     const std::shared_ptr<Array> arr_first = data.chunk(0);
     const auto& dict_arr_first = static_cast<const DictionaryArray&>(*arr_first);
-    const auto& indices_first =
-        static_cast<const PrimitiveArray&>(*dict_arr_first.indices());
+    const auto& indices_first = static_cast<const ArrayType&>(*dict_arr_first.indices());
+
+    auto CheckIndices = [](const ArrayType& arr, int64_t dict_length) {
+      const T* values = arr.raw_values();
+      for (int64_t i = 0; i < arr.length(); ++i) {
+        if (arr.IsValid(i) && (values[i] < 0 || values[i] >= dict_length)) {
+          std::stringstream ss;
+          ss << "Out of bounds dictionary index: " << static_cast<int64_t>(values[i]);
+          return Status::Invalid(ss.str());
+        }
+      }
+      return Status::OK();
+    };
 
     if (data.num_chunks() == 1 && indices_first.null_count() == 0) {
+      RETURN_NOT_OK(CheckIndices(indices_first, dict_arr_first.dictionary()->length()));
       RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
     } else {
       if (options_.zero_copy_only) {
@@ -998,9 +1015,10 @@ class CategoricalBlock : public PandasBlock {
         const std::shared_ptr<Array> arr = data.chunk(c);
         const auto& dict_arr = static_cast<const DictionaryArray&>(*arr);
 
-        const auto& indices = static_cast<const PrimitiveArray&>(*dict_arr.indices());
+        const auto& indices = static_cast<const ArrayType&>(*dict_arr.indices());
         auto in_values = reinterpret_cast<const T*>(indices.raw_values());
 
+        RETURN_NOT_OK(CheckIndices(indices, dict_arr.dictionary()->length()));
         // Null is -1 in CategoricalBlock
         for (int i = 0; i < arr->length(); ++i) {
           *out_values++ = indices.IsNull(i) ? -1 : in_values[i];
@@ -1016,8 +1034,13 @@ class CategoricalBlock : public PandasBlock {
     std::shared_ptr<Column> converted_col;
     if (options_.strings_to_categorical &&
         (col->type()->id() == Type::STRING || col->type()->id() == Type::BINARY)) {
-      RETURN_NOT_OK(EncodeColumnToDictionary(static_cast<const Column&>(*col), pool_,
-                                             &converted_col));
+      compute::FunctionContext ctx(pool_);
+
+      Datum out;
+      RETURN_NOT_OK(compute::DictionaryEncode(&ctx, Datum(col->data()), &out));
+      DCHECK_EQ(out.kind(), Datum::CHUNKED_ARRAY);
+      converted_col =
+          std::make_shared<Column>(field(col->name(), out.type()), out.chunked_array());
     } else {
       converted_col = col;
     }
@@ -1026,16 +1049,16 @@ class CategoricalBlock : public PandasBlock {
 
     switch (dict_type.index_type()->id()) {
       case Type::INT8:
-        RETURN_NOT_OK(WriteIndices<Type::INT8>(converted_col));
+        RETURN_NOT_OK(WriteIndices<Int8Type>(converted_col));
         break;
       case Type::INT16:
-        RETURN_NOT_OK(WriteIndices<Type::INT16>(converted_col));
+        RETURN_NOT_OK(WriteIndices<Int16Type>(converted_col));
         break;
       case Type::INT32:
-        RETURN_NOT_OK(WriteIndices<Type::INT32>(converted_col));
+        RETURN_NOT_OK(WriteIndices<Int32Type>(converted_col));
         break;
       case Type::INT64:
-        RETURN_NOT_OK(WriteIndices<Type::INT64>(converted_col));
+        RETURN_NOT_OK(WriteIndices<Int64Type>(converted_col));
         break;
       default: {
         std::stringstream ss;
@@ -1078,7 +1101,7 @@ class CategoricalBlock : public PandasBlock {
   Status AllocateNDArrayFromIndices(int npy_type, const PrimitiveArray& indices) {
     npy_intp block_dims[1] = {num_rows_};
 
-    auto in_values = reinterpret_cast<const T*>(indices.raw_values());
+    const T* in_values = GetPrimitiveValues<T>(indices);
     void* data = const_cast<T*>(in_values);
 
     PyAcquireGIL lock;
@@ -1091,13 +1114,11 @@ class CategoricalBlock : public PandasBlock {
 
     PyObject* block_arr = PyArray_NewFromDescr(&PyArray_Type, descr, 1, block_dims,
                                                nullptr, data, NPY_ARRAY_CARRAY, nullptr);
+    RETURN_IF_PYERROR();
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
-    if (placement_arr == NULL) {
-      // TODO(wesm): propagating Python exception
-      return Status::OK();
-    }
+    RETURN_IF_PYERROR();
 
     block_arr_.reset(block_arr);
     placement_arr_.reset(placement_arr);
@@ -1411,6 +1432,7 @@ class ArrowDeserializer {
     PyAcquireGIL lock;
 
     result_ = NewArray1DFromType(col_->type().get(), type, col_->length(), nullptr);
+    RETURN_IF_PYERROR();
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
     return Status::OK();
   }
@@ -1420,8 +1442,7 @@ class ArrowDeserializer {
                                std::shared_ptr<Array> arr) {
     typedef typename internal::arrow_traits<TYPE>::T T;
 
-    const auto& prim_arr = static_cast<const PrimitiveArray&>(*arr);
-    auto in_values = reinterpret_cast<const T*>(prim_arr.raw_values());
+    const T* in_values = GetPrimitiveValues<T>(*arr);
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
     void* data = const_cast<T*>(in_values);
@@ -1519,8 +1540,8 @@ class ArrowDeserializer {
     constexpr int64_t kShift = traits::npy_shift;
 
     for (int c = 0; c < data_.num_chunks(); c++) {
-      const auto& arr = static_cast<const PrimitiveArray&>(*data_.chunk(c));
-      auto in_values = reinterpret_cast<const c_type*>(arr.raw_values());
+      const auto& arr = *data_.chunk(c);
+      const c_type* in_values = GetPrimitiveValues<c_type>(arr);
 
       for (int64_t i = 0; i < arr.length(); ++i) {
         *out_values++ = arr.IsNull(i) ? na_value : static_cast<T>(in_values[i]) / kShift;
@@ -1590,7 +1611,7 @@ class ArrowDeserializer {
     return VisitObjects(ConvertFixedSizeBinary);
   }
 
-  Status Visit(const DecimalType& type) { return VisitObjects(ConvertDecimals); }
+  Status Visit(const Decimal128Type& type) { return VisitObjects(ConvertDecimals); }
 
   Status Visit(const Time32Type& type) { return VisitObjects(ConvertTimes<Time32Type>); }
 
@@ -1635,8 +1656,9 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(TimestampType, TIMESTAMP)
       CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
+      CONVERTVALUES_LISTSLIKE_CASE(BinaryType, BINARY)
       CONVERTVALUES_LISTSLIKE_CASE(StringType, STRING)
-      CONVERTVALUES_LISTSLIKE_CASE(DecimalType, DECIMAL)
+      CONVERTVALUES_LISTSLIKE_CASE(Decimal128Type, DECIMAL)
       CONVERTVALUES_LISTSLIKE_CASE(ListType, LIST)
       default: {
         std::stringstream ss;

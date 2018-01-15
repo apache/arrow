@@ -35,17 +35,17 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.NullableIntVector;
-import org.apache.arrow.vector.NullableTinyIntVector;
-import org.apache.arrow.vector.NullableVarCharVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import org.apache.arrow.vector.stream.ArrowStreamReader;
-import org.apache.arrow.vector.stream.ArrowStreamWriter;
+import org.apache.arrow.vector.ipc.ArrowStreamReader;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -92,7 +92,7 @@ public class EchoServerTest {
 
   private void testEchoServer(int serverPort,
                               Field field,
-                              NullableTinyIntVector vector,
+                              TinyIntVector vector,
                               int batches)
       throws UnknownHostException, IOException {
     VectorSchemaRoot root = new VectorSchemaRoot(asList(field), asList((FieldVector) vector), 0);
@@ -104,10 +104,10 @@ public class EchoServerTest {
       for (int i = 0; i < batches; i++) {
         vector.allocateNew(16);
         for (int j = 0; j < 8; j++) {
-          vector.getMutator().set(j, j + i);
-          vector.getMutator().set(j + 8, 0, (byte) (j + i));
+          vector.set(j, j + i);
+          vector.set(j + 8, 0, (byte) (j + i));
         }
-        vector.getMutator().setValueCount(16);
+        vector.setValueCount(16);
         root.setRowCount(16);
         writer.writeBatch();
       }
@@ -115,15 +115,15 @@ public class EchoServerTest {
 
       assertEquals(new Schema(asList(field)), reader.getVectorSchemaRoot().getSchema());
 
-      NullableTinyIntVector readVector = (NullableTinyIntVector) reader.getVectorSchemaRoot()
+      TinyIntVector readVector = (TinyIntVector) reader.getVectorSchemaRoot()
           .getFieldVectors().get(0);
       for (int i = 0; i < batches; i++) {
         Assert.assertTrue(reader.loadNextBatch());
         assertEquals(16, reader.getVectorSchemaRoot().getRowCount());
-        assertEquals(16, readVector.getAccessor().getValueCount());
+        assertEquals(16, readVector.getValueCount());
         for (int j = 0; j < 8; j++) {
-          assertEquals(j + i, readVector.getAccessor().get(j));
-          assertTrue(readVector.getAccessor().isNull(j + 8));
+          assertEquals(j + i, readVector.get(j));
+          assertTrue(readVector.isNull(j + 8));
         }
       }
       Assert.assertFalse(reader.loadNextBatch());
@@ -140,8 +140,8 @@ public class EchoServerTest {
         "testField",
         new FieldType(true, new ArrowType.Int(8, true), null, null),
         Collections.<Field>emptyList());
-    NullableTinyIntVector vector =
-        new NullableTinyIntVector("testField", FieldType.nullable(TINYINT.getType()), alloc);
+    TinyIntVector vector =
+        new TinyIntVector("testField", FieldType.nullable(TINYINT.getType()), alloc);
     Schema schema = new Schema(asList(field));
 
     // Try an empty stream, just the header.
@@ -158,31 +158,29 @@ public class EchoServerTest {
   public void testFlatDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(1L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         NullableIntVector writeVector =
-             new NullableIntVector(
+         IntVector writeVector =
+             new IntVector(
                  "varchar",
                  new FieldType(true, MinorType.INT.getType(), writeEncoding, null),
                  allocator);
-         NullableVarCharVector writeDictionaryVector =
-             new NullableVarCharVector(
+         VarCharVector writeDictionaryVector =
+             new VarCharVector(
                  "dict",
                  FieldType.nullable(VARCHAR.getType()),
                  allocator)) {
       writeVector.allocateNewSafe();
-      NullableIntVector.Mutator mutator = writeVector.getMutator();
-      mutator.set(0, 0);
-      mutator.set(1, 1);
-      mutator.set(3, 2);
-      mutator.set(4, 1);
-      mutator.set(5, 2);
-      mutator.setValueCount(6);
+      writeVector.set(0, 0);
+      writeVector.set(1, 1);
+      writeVector.set(3, 2);
+      writeVector.set(4, 1);
+      writeVector.set(5, 2);
+      writeVector.setValueCount(6);
 
       writeDictionaryVector.allocateNewSafe();
-      NullableVarCharVector.Mutator dictionaryMutator = writeDictionaryVector.getMutator();
-      dictionaryMutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      dictionaryMutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      dictionaryMutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-      dictionaryMutator.setValueCount(3);
+      writeDictionaryVector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.set(2, "baz".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.setValueCount(3);
 
       List<Field> fields = ImmutableList.of(writeVector.getField());
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);
@@ -210,23 +208,21 @@ public class EchoServerTest {
         Assert.assertNotNull(readEncoding);
         Assert.assertEquals(1L, readEncoding.getId());
 
-        FieldVector.Accessor accessor = readVector.getAccessor();
-        Assert.assertEquals(6, accessor.getValueCount());
-        Assert.assertEquals(0, accessor.getObject(0));
-        Assert.assertEquals(1, accessor.getObject(1));
-        Assert.assertEquals(null, accessor.getObject(2));
-        Assert.assertEquals(2, accessor.getObject(3));
-        Assert.assertEquals(1, accessor.getObject(4));
-        Assert.assertEquals(2, accessor.getObject(5));
+        Assert.assertEquals(6, readVector.getValueCount());
+        Assert.assertEquals(0, readVector.getObject(0));
+        Assert.assertEquals(1, readVector.getObject(1));
+        Assert.assertEquals(null, readVector.getObject(2));
+        Assert.assertEquals(2, readVector.getObject(3));
+        Assert.assertEquals(1, readVector.getObject(4));
+        Assert.assertEquals(2, readVector.getObject(5));
 
         Dictionary dictionary = reader.lookup(1L);
         Assert.assertNotNull(dictionary);
-        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary
-            .getVector()).getAccessor();
-        Assert.assertEquals(3, dictionaryAccessor.getValueCount());
-        Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
-        Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
-        Assert.assertEquals(new Text("baz"), dictionaryAccessor.getObject(2));
+        VarCharVector dictionaryVector = ((VarCharVector) dictionary.getVector());
+        Assert.assertEquals(3, dictionaryVector.getValueCount());
+        Assert.assertEquals(new Text("foo"), dictionaryVector.getObject(0));
+        Assert.assertEquals(new Text("bar"), dictionaryVector.getObject(1));
+        Assert.assertEquals(new Text("baz"), dictionaryVector.getObject(2));
       }
     }
   }
@@ -235,17 +231,17 @@ public class EchoServerTest {
   public void testNestedDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(2L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         NullableVarCharVector writeDictionaryVector =
-             new NullableVarCharVector("dictionary", FieldType.nullable(VARCHAR.getType()), allocator);
+         VarCharVector writeDictionaryVector =
+             new VarCharVector("dictionary", FieldType.nullable(VARCHAR.getType()), allocator);
          ListVector writeVector = ListVector.empty("list", allocator)) {
 
       // data being written:
       // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
 
       writeDictionaryVector.allocateNew();
-      writeDictionaryVector.getMutator().set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      writeDictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      writeDictionaryVector.getMutator().setValueCount(2);
+      writeDictionaryVector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.setValueCount(2);
 
       writeVector.addOrGetVector(new FieldType(true, MinorType.INT.getType(), writeEncoding, null));
       writeVector.allocateNew();
@@ -297,19 +293,17 @@ public class EchoServerTest {
         Assert.assertEquals(2L, encoding.getId());
         Assert.assertEquals(new Int(32, true), encoding.getIndexType());
 
-        ListVector.Accessor accessor = readVector.getAccessor();
-        Assert.assertEquals(3, accessor.getValueCount());
-        Assert.assertEquals(Arrays.asList(0, 1), accessor.getObject(0));
-        Assert.assertEquals(Arrays.asList(0), accessor.getObject(1));
-        Assert.assertEquals(Arrays.asList(1), accessor.getObject(2));
+        Assert.assertEquals(3, readVector.getValueCount());
+        Assert.assertEquals(Arrays.asList(0, 1), readVector.getObject(0));
+        Assert.assertEquals(Arrays.asList(0), readVector.getObject(1));
+        Assert.assertEquals(Arrays.asList(1), readVector.getObject(2));
 
         Dictionary readDictionary = reader.lookup(2L);
         Assert.assertNotNull(readDictionary);
-        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector)
-            readDictionary.getVector()).getAccessor();
-        Assert.assertEquals(2, dictionaryAccessor.getValueCount());
-        Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
-        Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
+        VarCharVector dictionaryVector = ((VarCharVector) readDictionary.getVector());
+        Assert.assertEquals(2, dictionaryVector.getValueCount());
+        Assert.assertEquals(new Text("foo"), dictionaryVector.getObject(0));
+        Assert.assertEquals(new Text("bar"), dictionaryVector.getObject(1));
       }
     }
   }

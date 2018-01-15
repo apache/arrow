@@ -25,6 +25,7 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
+#include <arrow-glib/table.hpp>
 
 #include <arrow-glib/output-stream.hpp>
 
@@ -163,6 +164,30 @@ garrow_record_batch_writer_write_record_batch(GArrowRecordBatchWriter *writer,
   return garrow_error_check(error,
                             status,
                             "[record-batch-writer][write-record-batch]");
+}
+
+/**
+ * garrow_record_batch_writer_write_table:
+ * @writer: A #GArrowRecordBatchWriter.
+ * @table: The table to be written.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.8.0
+ */
+gboolean
+garrow_record_batch_writer_write_table(GArrowRecordBatchWriter *writer,
+                                       GArrowTable *table,
+                                       GError **error)
+{
+  auto arrow_writer = garrow_record_batch_writer_get_raw(writer);
+  auto arrow_table = garrow_table_get_raw(table);
+
+  auto status = arrow_writer->WriteTable(*arrow_table);
+  return garrow_error_check(error,
+                            status,
+                            "[record-batch-writer][write-table]");
 }
 
 /**

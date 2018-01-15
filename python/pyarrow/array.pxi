@@ -77,7 +77,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
 
 
-cdef DataType _ensure_type(object type):
+cdef inline DataType _ensure_type(object type):
     if type is None:
         return None
     elif not isinstance(type, DataType):
@@ -162,6 +162,7 @@ def array(object obj, type=None, mask=None,
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, ordered=values.ordered,
+                from_pandas=from_pandas,
                 memory_pool=memory_pool)
         else:
             values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
@@ -227,6 +228,15 @@ cdef CFunctionContext* _context() nogil:
     return _global_ctx.ctx.get()
 
 
+cdef wrap_datum(const CDatum& datum):
+    if datum.kind() == DatumType_ARRAY:
+        return pyarrow_wrap_array(MakeArray(datum.array()))
+    elif datum.kind() == DatumType_CHUNKED_ARRAY:
+        return pyarrow_wrap_chunked_array(datum.chunked_array())
+    else:
+        raise ValueError("Unable to wrap Datum in a Python object")
+
+
 cdef class Array:
 
     cdef void init(self, const shared_ptr[CArray]& sp_array):
@@ -268,6 +278,29 @@ cdef class Array:
                               options, &result))
 
         return pyarrow_wrap_array(result)
+
+    def unique(self):
+        """
+        Compute distinct elements in array
+        """
+        cdef shared_ptr[CArray] result
+
+        with nogil:
+            check_status(Unique(_context(), CDatum(self.sp_array), &result))
+
+        return pyarrow_wrap_array(result)
+
+    def dictionary_encode(self):
+        """
+        Compute dictionary-encoded representation of array
+        """
+        cdef CDatum out
+
+        with nogil:
+            check_status(DictionaryEncode(_context(), CDatum(self.sp_array),
+                                          &out))
+
+        return wrap_datum(out)
 
     @staticmethod
     def from_pandas(obj, mask=None, type=None, MemoryPool memory_pool=None):
@@ -596,7 +629,7 @@ cdef class FixedSizeBinaryArray(Array):
     pass
 
 
-cdef class DecimalArray(FixedSizeBinaryArray):
+cdef class Decimal128Array(FixedSizeBinaryArray):
     pass
 
 
@@ -630,6 +663,58 @@ cdef class ListArray(Array):
         return pyarrow_wrap_array(out)
 
 
+cdef class UnionArray(Array):
+
+    @staticmethod
+    def from_dense(Array types, Array value_offsets, list children):
+        """
+        Construct dense UnionArray from arrays of int8 types, int32 offsets and
+        children arrays
+
+        Parameters
+        ----------
+        types : Array (int8 type)
+        value_offsets : Array (int32 type)
+        children : list
+
+        Returns
+        -------
+        union_array : UnionArray
+        """
+        cdef shared_ptr[CArray] out
+        cdef vector[shared_ptr[CArray]] c
+        cdef Array child
+        for child in children:
+            c.push_back(child.sp_array)
+        with nogil:
+            check_status(CUnionArray.MakeDense(
+                deref(types.ap), deref(value_offsets.ap), c, &out))
+        return pyarrow_wrap_array(out)
+
+    @staticmethod
+    def from_sparse(Array types, list children):
+        """
+        Construct sparse UnionArray from arrays of int8 types and children
+        arrays
+
+        Parameters
+        ----------
+        types : Array (int8 type)
+        children : list
+
+        Returns
+        -------
+        union_array : UnionArray
+        """
+        cdef shared_ptr[CArray] out
+        cdef vector[shared_ptr[CArray]] c
+        cdef Array child
+        for child in children:
+            c.push_back(child.sp_array)
+        with nogil:
+            check_status(CUnionArray.MakeSparse(deref(types.ap), c, &out))
+        return pyarrow_wrap_array(out)
+
 cdef class StringArray(Array):
     pass
 
@@ -648,6 +733,9 @@ cdef class DictionaryArray(Array):
         else:
             return box_scalar(dictionary.type, dictionary.sp_array,
                               index.as_py())
+
+    def dictionary_encode(self):
+        return self
 
     property dictionary:
 
@@ -671,7 +759,7 @@ cdef class DictionaryArray(Array):
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, ordered=False,
-                    MemoryPool memory_pool=None):
+                    from_pandas=False, MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
         non-negative integers) and corresponding array of dictionary values
@@ -682,15 +770,20 @@ cdef class DictionaryArray(Array):
         dictionary : ndarray or pandas.Series
         mask : ndarray or pandas.Series, boolean type
             True values indicate that indices are actually null
+        from_pandas : boolean, default False
+            If True, the indices should be treated as though they originated in
+            a pandas.Categorical (null encoded as -1)
         ordered : boolean, default False
             Set to True if the category values are ordered
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise uses default pool
 
         Returns
         -------
         dict_array : DictionaryArray
         """
         cdef:
-            Array arrow_indices, arrow_dictionary
+            Array _indices, _dictionary
             DictionaryArray result
             shared_ptr[CDataType] c_type
             shared_ptr[CArray] c_result
@@ -699,29 +792,28 @@ cdef class DictionaryArray(Array):
             if mask is not None:
                 raise NotImplementedError(
                     "mask not implemented with Arrow array inputs yet")
-            arrow_indices = indices
+            _indices = indices
         else:
-            if mask is None:
-                mask = indices == -1
-            else:
-                mask = mask | (indices == -1)
-            arrow_indices = Array.from_pandas(indices, mask=mask,
-                                              memory_pool=memory_pool)
+            if from_pandas:
+                if mask is None:
+                    mask = indices == -1
+                else:
+                    mask = mask | (indices == -1)
+            _indices = array(indices, mask=mask, memory_pool=memory_pool)
 
         if isinstance(dictionary, Array):
-            arrow_dictionary = dictionary
+            _dictionary = dictionary
         else:
-            arrow_dictionary = Array.from_pandas(dictionary,
-                                                 memory_pool=memory_pool)
+            _dictionary = array(dictionary, memory_pool=memory_pool)
 
-        if not isinstance(arrow_indices, IntegerArray):
+        if not isinstance(_indices, IntegerArray):
             raise ValueError('Indices must be integer type')
 
         cdef c_bool c_ordered = ordered
 
-        c_type.reset(new CDictionaryType(arrow_indices.type.sp_type,
-                                         arrow_dictionary.sp_array, c_ordered))
-        c_result.reset(new CDictionaryArray(c_type, arrow_indices.sp_array))
+        c_type.reset(new CDictionaryType(_indices.type.sp_type,
+                                         _dictionary.sp_array, c_ordered))
+        c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
 
         result = DictionaryArray()
         result.init(c_result)
@@ -784,11 +876,12 @@ cdef dict _array_classes = {
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,
+    _Type_UNION: UnionArray,
     _Type_BINARY: BinaryArray,
     _Type_STRING: StringArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
-    _Type_DECIMAL: DecimalArray,
+    _Type_DECIMAL: Decimal128Array,
     _Type_STRUCT: StructArray,
 }
 

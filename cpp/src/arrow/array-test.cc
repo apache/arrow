@@ -263,6 +263,8 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_TRUE(result->Equals(*expected));
   }
 
+  int64_t FlipValue(int64_t value) const { return ~value; }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::unique_ptr<BuilderType> builder_;
@@ -272,44 +274,64 @@ class TestPrimitiveBuilder : public TestBuilder {
   vector<uint8_t> valid_bytes_;
 };
 
-#define PTYPE_DECL(CapType, c_type)               \
-  typedef CapType##Array ArrayType;               \
-  typedef CapType##Builder BuilderType;           \
-  typedef CapType##Type Type;                     \
-  typedef c_type T;                               \
-                                                  \
-  static std::shared_ptr<DataType> type() {       \
-    return std::shared_ptr<DataType>(new Type()); \
+/// \brief uint8_t isn't a valid template parameter to uniform_int_distribution, so
+/// we use SampleType to determine which kind of integer to use to sample.
+template <typename T,
+          typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
+struct UniformIntSampleType {
+  using type = T;
+};
+
+template <>
+struct UniformIntSampleType<uint8_t> {
+  using type = uint16_t;
+};
+
+template <>
+struct UniformIntSampleType<int8_t> {
+  using type = int16_t;
+};
+
+#define PTYPE_DECL(CapType, c_type)     \
+  typedef CapType##Array ArrayType;     \
+  typedef CapType##Builder BuilderType; \
+  typedef CapType##Type Type;           \
+  typedef c_type T;                     \
+                                        \
+  static std::shared_ptr<DataType> type() { return std::make_shared<Type>(); }
+
+#define PINT_DECL(CapType, c_type)                                                       \
+  struct P##CapType {                                                                    \
+    PTYPE_DECL(CapType, c_type)                                                          \
+    static void draw(int64_t N, vector<T>* draws) {                                      \
+      using sample_type = typename UniformIntSampleType<c_type>::type;                   \
+      const T lower = std::numeric_limits<T>::min();                                     \
+      const T upper = std::numeric_limits<T>::max();                                     \
+      test::randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper), \
+                    draws);                                                              \
+    }                                                                                    \
   }
 
-#define PINT_DECL(CapType, c_type, LOWER, UPPER)    \
+#define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)  \
   struct P##CapType {                               \
     PTYPE_DECL(CapType, c_type)                     \
     static void draw(int64_t N, vector<T>* draws) { \
-      test::randint<T>(N, LOWER, UPPER, draws);     \
+      test::random_real(N, 0, LOWER, UPPER, draws); \
     }                                               \
   }
 
-#define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)     \
-  struct P##CapType {                                  \
-    PTYPE_DECL(CapType, c_type)                        \
-    static void draw(int64_t N, vector<T>* draws) {    \
-      test::random_real<T>(N, 0, LOWER, UPPER, draws); \
-    }                                                  \
-  }
+PINT_DECL(UInt8, uint8_t);
+PINT_DECL(UInt16, uint16_t);
+PINT_DECL(UInt32, uint32_t);
+PINT_DECL(UInt64, uint64_t);
 
-PINT_DECL(UInt8, uint8_t, 0, UINT8_MAX);
-PINT_DECL(UInt16, uint16_t, 0, UINT16_MAX);
-PINT_DECL(UInt32, uint32_t, 0, UINT32_MAX);
-PINT_DECL(UInt64, uint64_t, 0, UINT64_MAX);
+PINT_DECL(Int8, int8_t);
+PINT_DECL(Int16, int16_t);
+PINT_DECL(Int32, int32_t);
+PINT_DECL(Int64, int64_t);
 
-PINT_DECL(Int8, int8_t, INT8_MIN, INT8_MAX);
-PINT_DECL(Int16, int16_t, INT16_MIN, INT16_MAX);
-PINT_DECL(Int32, int32_t, INT32_MIN, INT32_MAX);
-PINT_DECL(Int64, int64_t, INT64_MIN, INT64_MAX);
-
-PFLOAT_DECL(Float, float, -1000, 1000);
-PFLOAT_DECL(Double, double, -1000, 1000);
+PFLOAT_DECL(Float, float, -1000.0f, 1000.0f);
+PFLOAT_DECL(Double, double, -1000.0, 1000.0);
 
 struct PBoolean {
   PTYPE_DECL(Boolean, uint8_t)
@@ -322,6 +344,11 @@ void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
 
   test::random_null_bytes(N, 0.5, draws_.data());
   test::random_null_bytes(N, pct_null, valid_bytes_.data());
+}
+
+template <>
+int64_t TestPrimitiveBuilder<PBoolean>::FlipValue(int64_t value) const {
+  return !value;
 }
 
 template <>
@@ -374,10 +401,6 @@ typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PIn
     Primitives;
 
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
-
-#define DECL_T() typedef typename TestFixture::T T;
-
-#define DECL_TYPE() typedef typename TestFixture::Type Type;
 
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   DECL_TYPE();
@@ -454,8 +477,8 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   const int64_t first_valid_idx = std::distance(valid_bytes.begin(), first_valid);
   // This should be true with a very high probability, but might introduce flakiness
   ASSERT_LT(first_valid_idx, size - 1);
-  draws[first_valid_idx] =
-      static_cast<T>(~*reinterpret_cast<int64_t*>(&draws[first_valid_idx]));
+  draws[first_valid_idx] = static_cast<T>(
+      this->FlipValue(*reinterpret_cast<int64_t*>(&draws[first_valid_idx])));
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &unequal_array));
 
   // test normal equality
@@ -724,8 +747,8 @@ void CheckSliceApproxEquals() {
   vector<T> draws2;
 
   const uint32_t kSeed = 0;
-  test::random_real<T>(kSize, kSeed, 0, 100, &draws1);
-  test::random_real<T>(kSize, kSeed + 1, 0, 100, &draws2);
+  test::random_real(kSize, kSeed, 0.0, 100.0, &draws1);
+  test::random_real(kSize, kSeed + 1, 0.0, 100.0, &draws2);
 
   // Make the draws equal in the sliced segment, but unequal elsewhere (to
   // catch not using the slice offset)
@@ -2739,9 +2762,8 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   template <size_t BYTE_WIDTH = 16>
   void TestCreate(int32_t precision, const DecimalVector& draw,
                   const std::vector<uint8_t>& valid_bytes, int64_t offset) const {
-    auto type = std::make_shared<DecimalType>(precision, 4);
-
-    auto builder = std::make_shared<DecimalBuilder>(type);
+    auto type = std::make_shared<Decimal128Type>(precision, 4);
+    auto builder = std::make_shared<Decimal128Builder>(type);
 
     size_t null_count = 0;
 
@@ -2772,7 +2794,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
         BitUtil::BytesToBits(valid_bytes, default_memory_pool(), &expected_null_bitmap));
 
     int64_t expected_null_count = test::null_count(valid_bytes);
-    auto expected = std::make_shared<DecimalArray>(
+    auto expected = std::make_shared<Decimal128Array>(
         type, size, expected_data, expected_null_bitmap, expected_null_count);
 
     std::shared_ptr<Array> lhs = out->Slice(offset);

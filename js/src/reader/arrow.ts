@@ -15,68 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { flatbuffers } from 'flatbuffers';
-import * as Schema_ from '../format/Schema_generated';
-import * as Message_ from '../format/Message_generated';
-
-import { readFile } from './file';
-import { readStream } from './stream';
-import { readVector } from './vector';
+import { readJSON } from './json';
+import { readBuffers, readBuffersAsync } from './buffer';
+import { readVectors, readVectorsAsync } from './vector';
 import { Vector } from '../vector/vector';
-import { readDictionary } from './dictionary';
 
-import ByteBuffer = flatbuffers.ByteBuffer;
-export import Schema = Schema_.org.apache.arrow.flatbuf.Schema;
-export import RecordBatch = Message_.org.apache.arrow.flatbuf.RecordBatch;
-export type Dictionaries = { [k: string]: Vector<any> };
-export type IteratorState = { nodeIndex: number; bufferIndex: number };
+export { readJSON };
+export { readBuffers, readBuffersAsync };
+export { readVectors, readVectorsAsync };
 
-export function* readRecords(...bytes: ByteBuffer[]) {
-    try {
-        yield* readFile(...bytes);
-    } catch (e) {
-        try {
-            yield* readStream(...bytes);
-        } catch (e) {
-            throw new Error('Invalid Arrow buffer');
-        }
+export function* read(sources: Iterable<Uint8Array | Buffer | string> | object | string) {
+    let input: any = sources;
+    let batches: Iterable<Vector[]>;
+    if (typeof input === 'string') {
+        try { input = JSON.parse(input); }
+        catch (e) { input = sources; }
     }
+    if (!input || typeof input !== 'object') {
+        batches = (typeof input === 'string') ? readVectors(readBuffers([input])) : [];
+    } else {
+        batches = (typeof input[Symbol.iterator] === 'function')
+            ? readVectors(readBuffers(input))
+            : readVectors(readJSON(input));
+    }
+    yield* batches;
 }
 
-export function* readBuffers(...bytes: Array<Uint8Array | Buffer | string>) {
-    const dictionaries: Dictionaries = {};
-    const byteBuffers = bytes.map(toByteBuffer);
-    for (let { schema, batch } of readRecords(...byteBuffers)) {
-        let vectors: Vector<any>[] = [];
-        let state = { nodeIndex: 0, bufferIndex: 0 };
-        let index = -1, fieldsLength = schema.fieldsLength();
-        if (batch.id) {
-            // A dictionary batch only contain a single vector. Traverse each
-            // field and its children until we find one that uses this dictionary
-            while (++index < fieldsLength) {
-                let vector = readDictionary(schema.fields(index), batch, state, dictionaries);
-                if (vector) {
-                    dictionaries[batch.id] = dictionaries[batch.id] && dictionaries[batch.id].concat(vector) || vector;
-                    break;
-                }
-            }
-        } else {
-            while (++index < fieldsLength) {
-                vectors[index] = readVector(schema.fields(index), batch, state, dictionaries);
-            }
-            yield vectors;
-        }
+export async function* readAsync(sources: AsyncIterable<Uint8Array | Buffer | string>) {
+    for await (let vectors of readVectorsAsync(readBuffersAsync(sources))) {
+        yield vectors;
     }
-}
-
-function toByteBuffer(bytes?: Uint8Array | Buffer | string) {
-    let arr: Uint8Array = bytes as any || new Uint8Array(0);
-    if (typeof bytes === 'string') {
-        arr = new Uint8Array(bytes.length);
-        for (let i = -1, n = bytes.length; ++i < n;) {
-            arr[i] = bytes.charCodeAt(i);
-        }
-        return new ByteBuffer(arr);
-    }
-    return new ByteBuffer(arr);
 }

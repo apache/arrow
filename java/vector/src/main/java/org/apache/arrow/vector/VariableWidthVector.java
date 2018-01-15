@@ -35,17 +35,5 @@ public interface VariableWidthVector extends ValueVector {
    */
   int getByteCapacity();
 
-  VariableWidthMutator getMutator();
-
-  VariableWidthAccessor getAccessor();
-
-  interface VariableWidthAccessor extends Accessor {
-    int getValueLength(int index);
-  }
-
   int getCurrentSizeInBytes();
-
-  interface VariableWidthMutator extends Mutator {
-    void setValueLengthSafe(int index, int length);
-  }
 }

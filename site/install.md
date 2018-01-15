@@ -20,17 +20,18 @@ limitations under the License.
 {% endcomment %}
 -->
 
-## Current Version: 0.7.1
+## Current Version: 0.8.0
 
-### Released: 1 October 2017
+### Released: 18 December 2017
 
 See the [release notes][10] for more about what's new.
 
 ### Source release
 
-* **Source Release**: [apache-arrow-0.7.1.tar.gz][6]
-* **Verification**: [sha512][3], [asc][7]
-* [Git tag 0e21f84][2]
+* **Source Release**: [apache-arrow-0.8.0.tar.gz][6]
+* **Verification**: [sha512][3], [asc][7] ([verification instructions][12])
+* [Git tag 1d689e5][2]
+* [PGP keys for release signatures][11]
 
 ### Java Packages
 
@@ -52,8 +53,8 @@ Install them with:
 
 
 ```shell
-conda install arrow-cpp=0.7.* -c conda-forge
-conda install pyarrow==0.7.* -c conda-forge
+conda install arrow-cpp=0.8.* -c conda-forge
+conda install pyarrow=0.8.* -c conda-forge
 ```
 
 ### Python Wheels on PyPI (Unofficial)
@@ -61,10 +62,10 @@ conda install pyarrow==0.7.* -c conda-forge
 We have provided binary wheels on PyPI for Linux, macOS, and Windows:
 
 ```shell
-pip install pyarrow==0.7.*
+pip install pyarrow==0.8.*
 ```
 
-We recommend pinning `0.7.*` in `requirements.txt` to install the latest patch
+We recommend pinning `0.8.*` in `requirements.txt` to install the latest patch
 release.
 
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
@@ -75,23 +76,25 @@ with the wheel.
 We have provided APT and Yum repositories for Apache Arrow C++ and
 Apache Arrow GLib (C). Here are supported platforms:
 
-* Debian GNU/Linux Jessie
+* Debian GNU/Linux stretch
+* Ubuntu 14.04 LTS
 * Ubuntu 16.04 LTS
-* Ubuntu 16.10
 * Ubuntu 17.04
+* Ubuntu 17.10
+* CentOS 6
 * CentOS 7
 
-Debian GNU/Linux Jessie:
+Debian GNU/Linux:
 
 ```shell
-sudo apt update
 sudo apt install -y -V apt-transport-https
-cat <<APT_LINE | sudo tee /etc/apt/sources.list.d/groonga.list
-deb https://packages.groonga.org/debian/ jessie main
-deb-src https://packages.groonga.org/debian/ jessie main
+sudo apt install -y -V lsb-release
+cat <<APT_LINE | sudo tee /etc/apt/sources.list.d/red-data-tools.list
+deb https://packages.red-data-tools.org/debian/ $(lsb_release --codename --short) main
+deb-src https://packages.red-data-tools.org/debian/ $(lsb_release --codename --short) main
 APT_LINE
-sudo apt update
-sudo apt install -y -V --allow-unauthenticated groonga-keyring
+sudo apt update --allow-insecure-repositories
+sudo apt install -y -V --allow-unauthenticated red-data-tools-keyring
 sudo apt update
 sudo apt install -y -V libarrow-dev # For C++
 sudo apt install -y -V libarrow-glib-dev # For GLib (C)
@@ -100,8 +103,14 @@ sudo apt install -y -V libarrow-glib-dev # For GLib (C)
 Ubuntu:
 
 ```shell
-sudo apt install -y software-properties-common
-sudo add-apt-repository -y ppa:groonga/ppa
+sudo apt install -y -V apt-transport-https
+sudo apt install -y -V lsb-release
+cat <<APT_LINE | sudo tee /etc/apt/sources.list.d/red-data-tools.list
+deb https://packages.red-data-tools.org/ubuntu/ $(lsb_release --codename --short) universe
+deb-src https://packages.red-data-tools.org/ubuntu/ $(lsb_release --codename --short) universe
+APT_LINE
+sudo apt update --allow-insecure-repositories || sudo apt update
+sudo apt install -y -V --allow-unauthenticated red-data-tools-keyring
 sudo apt update
 sudo apt install -y -V libarrow-dev # For C++
 sudo apt install -y -V libarrow-glib-dev # For GLib (C)
@@ -110,7 +119,7 @@ sudo apt install -y -V libarrow-glib-dev # For GLib (C)
 CentOS:
 
 ```shell
-sudo yum install -y https://packages.groonga.org/centos/groonga-release-1.3.0-1.noarch.rpm
+sudo yum install -y https://packages.red-data-tools.org/centos/red-data-tools-release-1.0.0-1.noarch.rpm
 sudo yum install -y --enablerepo=epel arrow-devel # For C++
 sudo yum install -y --enablerepo=epel arrow-glib-devel # For GLib (C)
 ```
@@ -136,26 +145,15 @@ These repositories are managed at
 [red-data-tools/arrow-packages][9]. If you have any feedback, please
 send it to the project instead of Apache Arrow project.
 
-### Nightly Development Builds
-
-To assist with development and debugging, some nightly builds are
-available. These builds are not releases and not necessarily produced on ASF
-infrastructure. They are to be used strictly for development.
-
-* **conda packages** for C++ and Python (Linux only)
-
-```
-conda install arrow-cpp -c twosigma
-conda install pyarrow -c twosigma
-```
-
-[1]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.7.1/
-[2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.7.1
-[3]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.7.1/apache-arrow-0.7.1.tar.gz.sha512
-[4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.7.1%22
+[1]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.8.0/
+[2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.8.0
+[3]: https://www.apache.org/dist/arrow/arrow-0.8.0/apache-arrow-0.8.0.tar.gz.sha512
+[4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.8.0%22
 [5]: http://conda-forge.github.io
-[6]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.7.1/apache-arrow-0.7.1.tar.gz
-[7]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.7.1/apache-arrow-0.7.1.tar.gz.asc
+[6]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.8.0/apache-arrow-0.8.0.tar.gz
+[7]: https://www.apache.org/dist/arrow/arrow-0.8.0/apache-arrow-0.8.0.tar.gz.asc
 [8]: https://github.com/red-data-tools/parquet-glib
 [9]: https://github.com/red-data-tools/arrow-packages
-[10]: http://arrow.apache.org/release/0.7.1.html
+[10]: http://arrow.apache.org/release/0.8.0.html
+[11]: http://www.apache.org/dist/arrow/KEYS
+[12]: https://www.apache.org/dyn/closer.cgi#verify

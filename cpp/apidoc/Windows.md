@@ -41,8 +41,12 @@ conda config --add channels conda-forge
 Now, you can bootstrap a build environment
 
 ```shell
-conda create -n arrow-dev cmake git boost-cpp flatbuffers rapidjson cmake thrift-cpp snappy zlib brotli gflags lz4-c zstd
+conda create -n arrow-dev cmake git boost-cpp flatbuffers rapidjson cmake thrift-cpp snappy zlib brotli gflags lz4-c zstd -c conda-forge
 ```
+
+***Note:***
+> *Make sure to get the `conda-forge` build of `gflags` as the
+  naming of the library differs from that in the `defaults` channel*
 
 Activate just created conda environment with pre-installed packages from
 previous step:
@@ -51,20 +55,16 @@ previous step:
 activate arrow-dev
 ```
 
-We are using [cmake][4] tool to support Windows builds.
+We are using the [cmake][4] tool to support Windows builds.
 To allow cmake to pick up 3rd party dependencies, you should set
 `ARROW_BUILD_TOOLCHAIN` environment variable to contain `Library` folder
 path of new created on previous step `arrow-dev` conda environment.
-For instance, if `Miniconda` was installed to default destination, `Library`
-folder path for `arrow-dev` conda environment will be as following:
 
+To set `ARROW_BUILD_TOOLCHAIN` environment variable visible only for current terminal
+session you can run following. `%CONDA_PREFIX` is set by conda to the current environment
+root by the `activate` script.
 ```shell
-C:\Users\YOUR_USER_NAME\Miniconda3\envs\arrow-dev\Library
-```
-
-To set `ARROW_BUILD_TOOLCHAIN` environment variable visible only for current terminal session you can run following:
-```shell
-set ARROW_BUILD_TOOLCHAIN=C:\Users\YOUR_USER_NAME\Miniconda3\envs\arrow-dev\Library
+set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 ```
 
 To validate value of `ARROW_BUILD_TOOLCHAIN` environment variable you can run following terminal command:

@@ -28,10 +28,10 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.SchemaChangeCallBack;
-import org.apache.arrow.vector.NullableFloat8Vector;
-import org.apache.arrow.vector.NullableFloat4Vector;
-import org.apache.arrow.vector.NullableBigIntVector;
-import org.apache.arrow.vector.NullableIntVector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
@@ -456,7 +456,7 @@ public class TestComplexWriter {
         unionWriter.writeFloat4((float) i);
       }
     }
-    vector.getMutator().setValueCount(COUNT);
+    vector.setValueCount(COUNT);
     UnionReader unionReader = new UnionReader(vector);
     for (int i = 0; i < COUNT; i++) {
       unionReader.setPosition(i);
@@ -834,7 +834,7 @@ public class TestComplexWriter {
     TransferPair tp = mapVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
     MapVector toMapVector = (MapVector) tp.getTo();
-    JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toMapVector.getAccessor().getObject(0);
+    JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toMapVector.getObject(0);
     JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
     assertEquals(1, object.get(0));
     assertEquals(2, object.get(1));
@@ -885,10 +885,10 @@ public class TestComplexWriter {
       singleMapWriter.end();
     }
 
-    NullableIntVector intVector = (NullableIntVector)parent.getChild("intField");
-    NullableBigIntVector bigIntVector = (NullableBigIntVector)parent.getChild("bigIntField");
-    NullableFloat4Vector float4Vector = (NullableFloat4Vector)parent.getChild("float4Field");
-    NullableFloat8Vector float8Vector = (NullableFloat8Vector)parent.getChild("float8Field");
+    IntVector intVector = (IntVector)parent.getChild("intField");
+    BigIntVector bigIntVector = (BigIntVector)parent.getChild("bigIntField");
+    Float4Vector float4Vector = (Float4Vector)parent.getChild("float4Field");
+    Float8Vector float8Vector = (Float8Vector)parent.getChild("float8Field");
 
     assertEquals(initialCapacity, singleMapWriter.getValueCapacity());
     assertEquals(initialCapacity, intVector.getValueCapacity());

@@ -82,7 +82,9 @@ class build_ext(_build_ext):
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
                      ('with-parquet', None, 'build the Parquet extension'),
+                     ('with-static-parquet', None, 'link parquet statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
+                     ('with-orc', None, 'build the ORC extension'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
@@ -102,14 +104,21 @@ class build_ext(_build_ext):
 
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
+        self.with_static_parquet = strtobool(
+            os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
+        self.with_static_boost = strtobool(
+            os.environ.get('PYARROW_WITH_STATIC_BOOST', '1'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
+        self.with_orc = strtobool(
+            os.environ.get('PYARROW_WITH_ORC', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
         '_parquet',
+        '_orc',
         'plasma']
 
     def _run_cmake(self):
@@ -144,9 +153,16 @@ class build_ext(_build_ext):
 
         if self.with_parquet:
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
+        if self.with_static_parquet:
+            cmake_options.append('-DPYARROW_PARQUET_USE_SHARED=off')
+        if not self.with_static_boost:
+            cmake_options.append('-DPYARROW_BOOST_USE_SHARED=on')
 
         if self.with_plasma:
             cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
+
+        if self.with_orc:
+            cmake_options.append('-DPYARROW_BUILD_ORC=on')
 
         if len(self.cmake_cxxflags) > 0:
             cmake_options.append('-DPYARROW_CXXFLAGS="{0}"'
@@ -225,7 +241,7 @@ class build_ext(_build_ext):
             move_shared_libs(build_prefix, build_lib, "arrow_python")
             if self.with_plasma:
                 move_shared_libs(build_prefix, build_lib, "plasma")
-            if self.with_parquet:
+            if self.with_parquet and not self.with_static_parquet:
                 move_shared_libs(build_prefix, build_lib, "parquet")
 
         print('Bundling includes: ' + pjoin(build_prefix, 'include'))
@@ -274,6 +290,8 @@ class build_ext(_build_ext):
         if name == '_parquet' and not self.with_parquet:
             return True
         if name == 'plasma' and not self.with_plasma:
+            return True
+        if name == '_orc' and not self.with_orc:
             return True
         return False
 
@@ -390,6 +408,16 @@ if sys.version_info.major == 2:
     install_requires.append('futures')
 
 
+def parse_version(root):
+    from setuptools_scm import version_from_scm
+    import setuptools_scm.git
+    describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --match 'apache-arrow-[0-9]*'"
+    version = setuptools_scm.git.parse(root, describe)
+    if not version:
+        return version_from_scm(root)
+    else:
+        return version
+
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
@@ -408,7 +436,7 @@ setup(
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
-    use_scm_version={"root": "..", "relative_to": __file__},
+    use_scm_version={"root": "..", "relative_to": __file__, "parse": parse_version},
     setup_requires=['setuptools_scm', 'cython >= 0.23'],
     install_requires=install_requires,
     tests_require=['pytest'],

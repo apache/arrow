@@ -18,12 +18,13 @@
 # under the License.
 
 sources = files(
-  'array.cpp',
   'array-builder.cpp',
+  'basic-array.cpp',
   'basic-data-type.cpp',
   'buffer.cpp',
   'chunked-array.cpp',
   'column.cpp',
+  'composite-array.cpp',
   'composite-data-type.cpp',
   'error.cpp',
   'field.cpp',
@@ -59,10 +60,12 @@ c_headers = files(
   'array.h',
   'array-builder.h',
   'arrow-glib.h',
+  'basic-array.h',
   'basic-data-type.h',
   'buffer.h',
   'chunked-array.h',
   'column.h',
+  'composite-array.h',
   'composite-data-type.h',
   'data-type.h',
   'error.h',
@@ -102,6 +105,7 @@ cpp_headers = files(
   'array.hpp',
   'array-builder.hpp',
   'arrow-glib.hpp',
+  'basic-array.hpp',
   'basic-data-type.hpp',
   'buffer.hpp',
   'chunked-array.hpp',
@@ -179,22 +183,23 @@ pkgconfig.generate(filebase: meson.project_name(),
                    name: 'Apache Arrow GLib',
                    description: 'C API for Apache Arrow based on GLib',
                    version: version,
-                   requires: ['gobject-2.0', 'arrow'],
+                   requires: ['gio-2.0', 'arrow'],
                    libraries: [libarrow_glib],
                    subdirs: ['arrow-glib'])
 
-gnome.generate_gir(libarrow_glib,
-                   sources: sources + c_headers + enums,
-                   namespace: 'Arrow',
-                   nsversion: api_version,
-                   identifier_prefix: 'GArrow',
-                   symbol_prefix: 'garrow',
-                   export_packages: 'arrow-glib',
-                   includes: [
-                     'GObject-2.0',
-                     'Gio-2.0',
-                   ],
-                   install: true,
-                   extra_args: [
-                     '--warn-all',
-                   ])
+arrow_glib_gir = gnome.generate_gir(libarrow_glib,
+                                    sources: sources + c_headers + enums,
+                                    namespace: 'Arrow',
+                                    nsversion: api_version,
+                                    identifier_prefix: 'GArrow',
+                                    symbol_prefix: 'garrow',
+                                    export_packages: 'arrow-glib',
+                                    includes: [
+                                      'GObject-2.0',
+                                      'Gio-2.0',
+                                    ],
+                                    install: true,
+                                    extra_args: [
+                                      '--warn-all',
+                                    ])
+arrow_glib_gir_dependency = declare_dependency(sources: arrow_glib_gir)

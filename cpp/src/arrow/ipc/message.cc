@@ -67,20 +67,7 @@ class Message::MessageImpl {
   }
 
   MetadataVersion version() const {
-    switch (message_->version()) {
-      case flatbuf::MetadataVersion_V1:
-        // Arrow 0.1
-        return MetadataVersion::V1;
-      case flatbuf::MetadataVersion_V2:
-        // Arrow 0.2
-        return MetadataVersion::V2;
-      case flatbuf::MetadataVersion_V3:
-        // Arrow >= 0.3
-        return MetadataVersion::V3;
-      // Add cases as other versions become available
-      default:
-        return MetadataVersion::V3;
-    }
+    return internal::GetMetadataVersion(message_->version());
   }
 
   const void* header() const { return message_->header(); }
@@ -249,11 +236,35 @@ Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
 // ----------------------------------------------------------------------
 // Implement InputStream message reader
 
-Status InputStreamMessageReader::ReadNextMessage(std::unique_ptr<Message>* message) {
-  return ReadMessage(stream_, message);
+/// \brief Implementation of MessageReader that reads from InputStream
+class InputStreamMessageReader : public MessageReader {
+ public:
+  explicit InputStreamMessageReader(io::InputStream* stream) : stream_(stream) {}
+
+  explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& owned_stream)
+      : InputStreamMessageReader(owned_stream.get()) {
+    owned_stream_ = owned_stream;
+  }
+
+  ~InputStreamMessageReader() {}
+
+  Status ReadNextMessage(std::unique_ptr<Message>* message) {
+    return ReadMessage(stream_, message);
+  }
+
+ private:
+  io::InputStream* stream_;
+  std::shared_ptr<io::InputStream> owned_stream_;
+};
+
+std::unique_ptr<MessageReader> MessageReader::Open(io::InputStream* stream) {
+  return std::unique_ptr<MessageReader>(new InputStreamMessageReader(stream));
 }
 
-InputStreamMessageReader::~InputStreamMessageReader() {}
+std::unique_ptr<MessageReader> MessageReader::Open(
+    const std::shared_ptr<io::InputStream>& owned_stream) {
+  return std::unique_ptr<MessageReader>(new InputStreamMessageReader(owned_stream));
+}
 
 }  // namespace ipc
 }  // namespace arrow

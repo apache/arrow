@@ -18,10 +18,14 @@
 Apache Arrow (Python)
 =====================
 
-Arrow is a columnar in-memory analytics layer designed to accelerate big data.
-It houses a set of canonical in-memory representations of flat and hierarchical
-data along with multiple language-bindings for structure manipulation. It also
-provides IPC and common algorithm implementations.
+Apache Arrow is a cross-language development platform for in-memory data. It
+specifies a standardized language-independent columnar memory format for flat
+and hierarchical data, organized for efficient analytic operations on modern
+hardware. It also provides computational libraries and zero-copy streaming
+messaging and interprocess communication.
+
+The Arrow Python bindings have first-class integration with NumPy, pandas, and
+built-in Python objects.
 
 This is the documentation of the Python API of Apache Arrow. For more details
 on the format and other language bindings see

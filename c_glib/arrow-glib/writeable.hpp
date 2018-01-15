@@ -26,13 +26,13 @@
 /**
  * GArrowWriteableInterface:
  *
- * It wraps `arrow::io::Writeable`.
+ * It wraps `arrow::io::Writable`.
  */
 struct _GArrowWriteableInterface
 {
   GTypeInterface parent_iface;
 
-  std::shared_ptr<arrow::io::Writeable> (*get_raw)(GArrowWriteable *file);
+  std::shared_ptr<arrow::io::Writable> (*get_raw)(GArrowWriteable *file);
 };
 
-std::shared_ptr<arrow::io::Writeable> garrow_writeable_get_raw(GArrowWriteable *writeable);
+std::shared_ptr<arrow::io::Writable> garrow_writeable_get_raw(GArrowWriteable *writeable);

@@ -70,7 +70,7 @@ else:
 
 
 if PY2:
-    import cPickle
+    import cPickle as builtin_pickle
 
     try:
         from cdecimal import Decimal
@@ -103,7 +103,12 @@ if PY2:
 
     def frombytes(o):
         return o
+
+    def unichar(s):
+        return unichr(s)
 else:
+    import pickle as builtin_pickle
+
     unicode_type = str
     def lzip(*x):
         return list(zip(*x))
@@ -130,6 +135,9 @@ else:
 
     def frombytes(o):
         return o.decode('utf8')
+
+    def unichar(s):
+        return chr(s)
 
 try:
     import cloudpickle as pickle

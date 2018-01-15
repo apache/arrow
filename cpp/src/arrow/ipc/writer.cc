@@ -32,6 +32,7 @@
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -149,8 +150,6 @@ class RecordBatchSerializer : public ArrayVisitor {
 
     buffer_meta_.reserve(buffers_.size());
 
-    const int32_t kNoPageId = -1;
-
     // Construct the buffer metadata for the record batch header
     for (size_t i = 0; i < buffers_.size(); ++i) {
       const Buffer* buffer = buffers_[i].get();
@@ -163,15 +162,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         padding = BitUtil::RoundUpToMultipleOf8(size) - size;
       }
 
-      // TODO(wesm): We currently have no notion of shared memory page id's,
-      // but we've included it in the metadata IDL for when we have it in the
-      // future. Use page = -1 for now
-      //
-      // Note that page ids are a bespoke notion for Arrow and not a feature we
-      // are using from any OS-level shared memory. The thought is that systems
-      // may (in the future) associate integer page id's with physical memory
-      // pages (according to whatever is the desired shared memory mechanism)
-      buffer_meta_.push_back({kNoPageId, offset, size + padding});
+      buffer_meta_.push_back({offset, size + padding});
       offset += size + padding;
     }
 
@@ -349,7 +340,7 @@ class RecordBatchSerializer : public ArrayVisitor {
   VISIT_FIXED_WIDTH(Time32Array)
   VISIT_FIXED_WIDTH(Time64Array)
   VISIT_FIXED_WIDTH(FixedSizeBinaryArray)
-  VISIT_FIXED_WIDTH(DecimalArray)
+  VISIT_FIXED_WIDTH(Decimal128Array)
 
 #undef VISIT_FIXED_WIDTH
 
@@ -518,12 +509,9 @@ class DictionaryWriter : public RecordBatchSerializer {
     dictionary_id_ = dictionary_id;
 
     // Make a dummy record batch. A bit tedious as we have to make a schema
-    std::vector<std::shared_ptr<Field>> fields = {
-        arrow::field("dictionary", dictionary->type())};
-    auto schema = std::make_shared<Schema>(fields);
-    RecordBatch batch(schema, dictionary->length(), {dictionary});
-
-    return RecordBatchSerializer::Write(batch, dst, metadata_length, body_length);
+    auto schema = arrow::schema({arrow::field("dictionary", dictionary->type())});
+    auto batch = RecordBatch::Make(schema, dictionary->length(), {dictionary});
+    return RecordBatchSerializer::Write(*batch, dst, metadata_length, body_length);
   }
 
  private:
@@ -572,9 +560,18 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
                           pool, kMaxNestingDepth, true);
 }
 
-static Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
-                                     const Tensor& tensor, uint8_t* scratch_space,
-                                     io::OutputStream* dst) {
+namespace {
+
+Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
+                         int32_t* metadata_length, int64_t* body_length) {
+  std::shared_ptr<Buffer> metadata;
+  RETURN_NOT_OK(internal::WriteTensorMessage(tensor, 0, &metadata));
+  return internal::WriteMessage(*metadata, dst, metadata_length);
+}
+
+Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
+                              const Tensor& tensor, uint8_t* scratch_space,
+                              io::OutputStream* dst) {
   if (dim_index == tensor.ndim() - 1) {
     const uint8_t* data_ptr = tensor.raw_data() + offset;
     const int64_t stride = tensor.strides()[dim_index];
@@ -592,16 +589,37 @@ static Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_siz
   return Status::OK();
 }
 
-Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
-                         int32_t* metadata_length, int64_t* body_length) {
-  RETURN_NOT_OK(AlignStreamPosition(dst));
-  std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(internal::WriteTensorMessage(tensor, 0, &metadata));
-  return internal::WriteMessage(*metadata, dst, metadata_length);
+Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
+                           std::unique_ptr<Tensor>* out) {
+  const auto& type = static_cast<const FixedWidthType&>(*tensor.type());
+  const int elem_size = type.bit_width() / 8;
+
+  // TODO(wesm): Do we care enough about this temporary allocation to pass in
+  // a MemoryPool to this function?
+  std::shared_ptr<Buffer> scratch_space;
+  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(),
+                               tensor.shape()[tensor.ndim() - 1] * elem_size,
+                               &scratch_space));
+
+  std::shared_ptr<ResizableBuffer> contiguous_data;
+  RETURN_NOT_OK(
+      AllocateResizableBuffer(pool, tensor.size() * elem_size, &contiguous_data));
+
+  io::BufferOutputStream stream(contiguous_data);
+  RETURN_NOT_OK(WriteStridedTensorData(0, 0, elem_size, tensor,
+                                       scratch_space->mutable_data(), &stream));
+
+  out->reset(new Tensor(tensor.type(), contiguous_data, tensor.shape()));
+
+  return Status::OK();
 }
+
+}  // namespace
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length) {
+  RETURN_NOT_OK(AlignStreamPosition(dst));
+
   if (tensor.is_contiguous()) {
     RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length, body_length));
     auto data = tensor.data();
@@ -629,6 +647,22 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     return WriteStridedTensorData(0, 0, elem_size, tensor, scratch_space->mutable_data(),
                                   dst);
   }
+}
+
+Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
+                        std::unique_ptr<Message>* out) {
+  const Tensor* tensor_to_write = &tensor;
+  std::unique_ptr<Tensor> temp_tensor;
+
+  if (!tensor.is_contiguous()) {
+    RETURN_NOT_OK(GetContiguousTensor(tensor, pool, &temp_tensor));
+    tensor_to_write = temp_tensor.get();
+  }
+
+  std::shared_ptr<Buffer> metadata;
+  RETURN_NOT_OK(internal::WriteTensorMessage(*tensor_to_write, 0, &metadata));
+  out->reset(new Message(metadata, tensor_to_write->data()));
+  return Status::OK();
 }
 
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
@@ -663,8 +697,12 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size) {
 
 RecordBatchWriter::~RecordBatchWriter() {}
 
-Status RecordBatchWriter::WriteTable(const Table& table) {
+Status RecordBatchWriter::WriteTable(const Table& table, int64_t max_chunksize) {
   TableBatchReader reader(table);
+
+  if (max_chunksize > 0) {
+    reader.set_chunksize(max_chunksize);
+  }
 
   std::shared_ptr<RecordBatch> batch;
   while (true) {
@@ -677,6 +715,8 @@ Status RecordBatchWriter::WriteTable(const Table& table) {
 
   return Status::OK();
 }
+
+Status RecordBatchWriter::WriteTable(const Table& table) { return WriteTable(table, -1); }
 
 // ----------------------------------------------------------------------
 // Stream writer implementation
@@ -699,7 +739,7 @@ class StreamBookKeeper {
   }
 
   // Write data and update position
-  Status Write(const uint8_t* data, int64_t nbytes) {
+  Status Write(const void* data, int64_t nbytes) {
     RETURN_NOT_OK(sink_->Write(data, nbytes));
     position_ += nbytes;
     return Status::OK();
@@ -788,7 +828,7 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl : public StreamBookKe
 
     // Write 0 EOS message
     const int32_t kEos = 0;
-    return Write(reinterpret_cast<const uint8_t*>(&kEos), sizeof(int32_t));
+    return Write(&kEos, sizeof(int32_t));
   }
 
   Status CheckStarted() {
@@ -876,8 +916,7 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
 
   Status Start() override {
     // It is only necessary to align to 8-byte boundary at the start of the file
-    RETURN_NOT_OK(Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
-                        strlen(kArrowMagicBytes)));
+    RETURN_NOT_OK(Write(kArrowMagicBytes, strlen(kArrowMagicBytes)));
     RETURN_NOT_OK(Align());
 
     // We write the schema at the start of the file (and the end). This also
@@ -901,12 +940,10 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
       return Status::Invalid("Invalid file footer");
     }
 
-    RETURN_NOT_OK(
-        Write(reinterpret_cast<const uint8_t*>(&footer_length), sizeof(int32_t)));
+    RETURN_NOT_OK(Write(&footer_length, sizeof(int32_t)));
 
     // Write magic bytes to end file
-    return Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
-                 strlen(kArrowMagicBytes));
+    return Write(kArrowMagicBytes, strlen(kArrowMagicBytes));
   }
 };
 

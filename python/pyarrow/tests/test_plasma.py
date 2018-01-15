@@ -102,7 +102,8 @@ def assert_get_object_equal(unit_test, client1, client2, object_id,
 
 def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
                        use_valgrind=False, use_profiler=False,
-                       stdout_file=None, stderr_file=None):
+                       stdout_file=None, stderr_file=None,
+                       use_one_memory_mapped_file=False):
     """Start a plasma store process.
     Args:
         use_valgrind (bool): True if the plasma store should be started inside
@@ -113,6 +114,8 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
             no redirection should happen, then this should be None.
         stderr_file: A file handle opened for writing to redirect stderr to. If
             no redirection should happen, then this should be None.
+        use_one_memory_mapped_file: If True, then the store will use only a
+            single memory-mapped file.
     Return:
         A tuple of the name of the plasma store socket and the process ID of
             the plasma store process.
@@ -124,6 +127,8 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
     command = [plasma_store_executable,
                "-s", plasma_store_name,
                "-m", str(plasma_store_memory)]
+    if use_one_memory_mapped_file:
+        command += ["-f"]
     if use_valgrind:
         pid = subprocess.Popen(["valgrind",
                                 "--track-origins=yes",
@@ -147,10 +152,14 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
 class TestPlasmaClient(object):
 
     def setup_method(self, test_method):
+        use_one_memory_mapped_file = (test_method ==
+                                      self.test_use_one_memory_mapped_file)
+
         import pyarrow.plasma as plasma
         # Start Plasma store.
         plasma_store_name, self.p = start_plasma_store(
-            use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
+            use_valgrind=os.getenv("PLASMA_VALGRIND") == "1",
+            use_one_memory_mapped_file=use_one_memory_mapped_file)
         # Connect to Plasma.
         self.plasma_client = plasma.connect(plasma_store_name, "", 64)
         # For the eviction test
@@ -301,12 +310,14 @@ class TestPlasmaClient(object):
         serialization_context = pa.SerializationContext()
         serialization_context.register_type(CustomType, 20*b"\x00")
 
-        object_id = self.plasma_client.put(val, None, serialization_context)
+        object_id = self.plasma_client.put(
+            val, None, serialization_context=serialization_context)
 
         with pytest.raises(pa.ArrowSerializationError):
             result = self.plasma_client.get(object_id)
 
-        result = self.plasma_client.get(object_id, -1, serialization_context)
+        result = self.plasma_client.get(
+            object_id, -1, serialization_context=serialization_context)
         assert result.val == val.val
 
     def test_store_arrow_objects(self):
@@ -351,7 +362,7 @@ class TestPlasmaClient(object):
         # Read the DataFrame.
         [data] = self.plasma_client.get_buffers([object_id])
         reader = pa.RecordBatchStreamReader(pa.BufferReader(data))
-        result = reader.get_next_batch().to_pandas()
+        result = reader.read_next_batch().to_pandas()
 
         pd.util.testing.assert_frame_equal(df, result)
 
@@ -720,3 +731,27 @@ class TestPlasmaClient(object):
             assert object_ids[i] == recv_objid
             assert -1 == recv_dsize
             assert -1 == recv_msize
+
+    def test_use_one_memory_mapped_file(self):
+        # Fill the object store up with a large number of small objects and let
+        # them go out of scope.
+        for _ in range(100):
+            create_object(
+                self.plasma_client,
+                np.random.randint(1, DEFAULT_PLASMA_STORE_MEMORY // 20), 0)
+        # Create large objects that require the full object store size, and
+        # verify that they fit.
+        for _ in range(2):
+            create_object(self.plasma_client, DEFAULT_PLASMA_STORE_MEMORY, 0)
+        # Verify that an object that is too large does not fit.
+        with pytest.raises(pa.lib.PlasmaStoreFull):
+            create_object(self.plasma_client, DEFAULT_PLASMA_STORE_MEMORY + 1,
+                          0)
+
+
+@pytest.mark.plasma
+def test_object_id_size():
+    import pyarrow.plasma as plasma
+    with pytest.raises(ValueError):
+        plasma.ObjectID("hello")
+    plasma.ObjectID(20 * b"0")

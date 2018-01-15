@@ -319,13 +319,21 @@ def test_type_schema_pickling():
             pa.field('a', 'int8'),
             pa.field('b', 'string')
         ]),
+        pa.union([
+            pa.field('a', pa.int8()),
+            pa.field('b', pa.int16())
+        ], pa.lib.UnionMode_SPARSE),
+        pa.union([
+            pa.field('a', pa.int8()),
+            pa.field('b', pa.int16())
+        ], pa.lib.UnionMode_DENSE),
         pa.time32('s'),
         pa.time64('us'),
         pa.date32(),
         pa.date64(),
         pa.timestamp('ms'),
         pa.timestamp('ns'),
-        pa.decimal(12, 2),
+        pa.decimal128(12, 2),
         pa.field('a', 'string', metadata={b'foo': b'bar'})
     ]
 

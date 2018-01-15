@@ -20,6 +20,7 @@ package org.apache.arrow.vector.types.pojo;
 
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
 import java.util.Iterator;
@@ -39,10 +40,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.schema.TypeLayout;
-import org.apache.arrow.vector.schema.VectorLayout;
+import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class Field {
@@ -58,7 +59,6 @@ public class Field {
   private final String name;
   private final FieldType fieldType;
   private final List<Field> children;
-  private final TypeLayout typeLayout;
 
   @JsonCreator
   private Field(
@@ -67,16 +67,14 @@ public class Field {
       @JsonProperty("type") ArrowType type,
       @JsonProperty("dictionary") DictionaryEncoding dictionary,
       @JsonProperty("children") List<Field> children,
-      @JsonProperty("typeLayout") TypeLayout typeLayout,
       @JsonProperty("metadata") Map<String, String> metadata) {
-    this(name, new FieldType(nullable, type, dictionary, metadata), children, typeLayout);
+    this(name, new FieldType(nullable, type, dictionary, metadata), children);
   }
 
   private Field(String name, FieldType fieldType, List<Field> children, TypeLayout typeLayout) {
     this.name = name;
     this.fieldType = checkNotNull(fieldType);
     this.children = children == null ? ImmutableList.<Field>of() : ImmutableList.copyOf(children);
-    this.typeLayout = checkNotNull(typeLayout);
   }
 
   // deprecated, use FieldType or static constructor instead
@@ -115,13 +113,11 @@ public class Field {
       }
       dictionary = new DictionaryEncoding(dictionaryFB.id(), dictionaryFB.isOrdered(), indexType);
     }
-    ImmutableList.Builder<org.apache.arrow.vector.schema.VectorLayout> layout = ImmutableList.builder();
-    for (int i = 0; i < field.layoutLength(); ++i) {
-      layout.add(new org.apache.arrow.vector.schema.VectorLayout(field.layout(i)));
-    }
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     for (int i = 0; i < field.childrenLength(); i++) {
-      childrenBuilder.add(convertField(field.children(i)));
+      Field childField = convertField(field.children(i));
+      childField = mutateOriginalNameIfNeeded(field, childField);
+      childrenBuilder.add(childField);
     }
     List<Field> children = childrenBuilder.build();
     ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
@@ -131,14 +127,27 @@ public class Field {
       metadataBuilder.put(key == null ? "" : key, value == null ? "" : value);
     }
     Map<String, String> metadata = metadataBuilder.build();
-    return new Field(name, nullable, type, dictionary, children, new TypeLayout(layout.build()), metadata);
+    return new Field(name, nullable, type, dictionary, children, metadata);
   }
 
-  public void validate() {
-    TypeLayout expectedLayout = TypeLayout.getTypeLayout(getType());
-    if (!expectedLayout.equals(typeLayout)) {
-      throw new IllegalArgumentException("Deserialized field does not match expected vectors. expected: " + expectedLayout + " got " + typeLayout);
+  /**
+   * Helper method to ensure backward compatibility with schemas generated prior to ARROW-1347, ARROW-1663
+   * @param field
+   * @param originalChildField original field which name might be mutated
+   * @return original or mutated field
+   */
+  private static Field mutateOriginalNameIfNeeded(org.apache.arrow.flatbuf.Field field, Field originalChildField) {
+    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
+        && originalChildField.getName().equals("[DEFAULT]")) {
+      return
+        new Field(DATA_VECTOR_NAME,
+          originalChildField.isNullable(),
+          originalChildField.getType(),
+          originalChildField.getDictionary(),
+          originalChildField.getChildren(),
+          originalChildField.getMetadata());
     }
+    return originalChildField;
   }
 
   public int getField(FlatBufferBuilder builder) {
@@ -159,12 +168,6 @@ public class Field {
       childrenData[i] = children.get(i).getField(builder);
     }
     int childrenOffset = org.apache.arrow.flatbuf.Field.createChildrenVector(builder, childrenData);
-    int[] buffersData = new int[typeLayout.getVectors().size()];
-    for (int i = 0; i < buffersData.length; i++) {
-      VectorLayout vectorLayout = typeLayout.getVectors().get(i);
-      buffersData[i] = vectorLayout.writeTo(builder);
-    }
-    int layoutOffset = org.apache.arrow.flatbuf.Field.createLayoutVector(builder, buffersData);
     int[] metadataOffsets = new int[getMetadata().size()];
     Iterator<Entry<String, String>> metadataIterator = getMetadata().entrySet().iterator();
     for (int i = 0; i < metadataOffsets.length; i++) {
@@ -185,7 +188,6 @@ public class Field {
     org.apache.arrow.flatbuf.Field.addTypeType(builder, getType().getTypeID().getFlatbufID());
     org.apache.arrow.flatbuf.Field.addType(builder, typeOffset);
     org.apache.arrow.flatbuf.Field.addChildren(builder, childrenOffset);
-    org.apache.arrow.flatbuf.Field.addLayout(builder, layoutOffset);
     org.apache.arrow.flatbuf.Field.addCustomMetadata(builder, metadataOffset);
     if (dictionary != null) {
       org.apache.arrow.flatbuf.Field.addDictionary(builder, dictionaryOffset);
@@ -217,10 +219,6 @@ public class Field {
 
   public List<Field> getChildren() {
     return children;
-  }
-
-  public TypeLayout getTypeLayout() {
-    return typeLayout;
   }
 
   @JsonInclude(Include.NON_EMPTY)

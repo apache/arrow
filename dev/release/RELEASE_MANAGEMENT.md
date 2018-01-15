@@ -63,7 +63,7 @@ in the `_release` subdirectory. The new contents of the new entry will go into
 a new Markdown file of the form `X.Y.Z.md`. You can start by copying one of the
 other release entries.
 
-Generate a web-friendly changelog by running
+Generate a web-friendly changelog by running (python3)
 
 ```
 dev/release/changelog.py $VERSION 1

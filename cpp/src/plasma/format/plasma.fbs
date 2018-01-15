@@ -21,6 +21,8 @@ enum MessageType:int {
   // Create a new object.
   PlasmaCreateRequest = 1,
   PlasmaCreateReply,
+  PlasmaAbortRequest,
+  PlasmaAbortReply,
   // Seal an object.
   PlasmaSealRequest,
   PlasmaSealReply,
@@ -74,7 +76,11 @@ enum PlasmaError:int {
   // Trying to access an object that doesn't exist.
   ObjectNonexistent,
   // Trying to create an object but there isn't enough space in the store.
-  OutOfMemory
+  OutOfMemory,
+  // Trying to delete an object but it's not sealed.
+  ObjectNotSealed,
+  // Trying to delete an object but it's in use.
+  ObjectInUse
 }
 
 // Plasma store messages
@@ -111,6 +117,16 @@ table PlasmaCreateReply {
   plasma_object: PlasmaObjectSpec;
   // Error that occurred for this call.
   error: PlasmaError;
+}
+
+table PlasmaAbortRequest {
+  // ID of the object to be aborted.
+  object_id: string;
+}
+
+table PlasmaAbortReply {
+  // ID of the object that was aborted.
+  object_id: string;
 }
 
 table PlasmaSealRequest {

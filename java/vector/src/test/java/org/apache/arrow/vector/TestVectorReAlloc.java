@@ -28,6 +28,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Assert;
@@ -52,14 +53,13 @@ public class TestVectorReAlloc {
   @Test
   public void testFixedType() {
     try (final UInt4Vector vector = new UInt4Vector("", allocator)) {
-      final UInt4Vector.Mutator m = vector.getMutator();
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
       assertEquals(512, vector.getValueCapacity());
 
       try {
-        m.set(512, 0);
+        vector.set(512, 0);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
@@ -68,32 +68,31 @@ public class TestVectorReAlloc {
       vector.reAlloc();
       assertEquals(1024, vector.getValueCapacity());
 
-      m.set(512, 100);
-      assertEquals(100, vector.getAccessor().get(512));
+      vector.set(512, 100);
+      assertEquals(100, vector.get(512));
     }
   }
 
   @Test
   public void testNullableType() {
-    try (final NullableVarCharVector vector = new NullableVarCharVector("", allocator)) {
-      final NullableVarCharVector.Mutator m = vector.getMutator();
+    try (final VarCharVector vector = new VarCharVector("", allocator)) {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
       assertEquals(512, vector.getValueCapacity());
 
       try {
-        m.set(512, "foo".getBytes(StandardCharsets.UTF_8));
+        vector.set(512, "foo".getBytes(StandardCharsets.UTF_8));
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }
 
       vector.reAlloc();
-      assertEquals(1023, vector.getValueCapacity());
+      assertEquals(1024, vector.getValueCapacity());
 
-      m.set(512, "foo".getBytes(StandardCharsets.UTF_8));
-      assertEquals("foo", new String(vector.getAccessor().get(512), StandardCharsets.UTF_8));
+      vector.set(512, "foo".getBytes(StandardCharsets.UTF_8));
+      assertEquals("foo", new String(vector.get(512), StandardCharsets.UTF_8));
     }
   }
 
@@ -105,10 +104,10 @@ public class TestVectorReAlloc {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
-      assertEquals(1023, vector.getValueCapacity()); // TODO this doubles for some reason...
+      assertEquals(1023, vector.getValueCapacity());
 
       try {
-        vector.getOffsetVector().getAccessor().get(2014);
+        vector.getInnerValueCountAt(2014);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
@@ -116,14 +115,14 @@ public class TestVectorReAlloc {
 
       vector.reAlloc();
       assertEquals(2047, vector.getValueCapacity()); // note: size - 1
-      assertEquals(0, vector.getOffsetVector().getAccessor().get(2014));
+      assertEquals(0, vector.getOffsetBuffer().getInt(2014 * ListVector.OFFSET_WIDTH));
     }
   }
 
   @Test
   public void testMapType() {
     try (final NullableMapVector vector = NullableMapVector.empty("", allocator)) {
-      vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), NullableIntVector.class);
+      vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
 
       vector.setInitialCapacity(512);
       vector.allocateNew();
@@ -131,7 +130,7 @@ public class TestVectorReAlloc {
       assertEquals(512, vector.getValueCapacity());
 
       try {
-        vector.getAccessor().getObject(513);
+        vector.getObject(513);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
@@ -139,7 +138,7 @@ public class TestVectorReAlloc {
 
       vector.reAlloc();
       assertEquals(1024, vector.getValueCapacity());
-      assertNull(vector.getAccessor().getObject(513));
+      assertNull(vector.getObject(513));
     }
   }
 }

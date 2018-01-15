@@ -18,6 +18,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
+
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -26,7 +28,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.complex.impl.NullReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -38,8 +40,6 @@ import io.netty.buffer.ArrowBuf;
 
 public class ZeroVector implements FieldVector {
   public final static ZeroVector INSTANCE = new ZeroVector();
-
-  private final String name = "[DEFAULT]";
 
   private final TransferPair defaultPair = new TransferPair() {
     @Override
@@ -60,41 +60,6 @@ public class ZeroVector implements FieldVector {
     }
   };
 
-  private final Accessor defaultAccessor = new Accessor() {
-    @Override
-    public Object getObject(int index) {
-      return null;
-    }
-
-    @Override
-    public int getValueCount() {
-      return 0;
-    }
-
-    @Override
-    public boolean isNull(int index) {
-      return true;
-    }
-
-    @Override
-    public int getNullCount() {
-      return 0;
-    }
-  };
-
-  private final Mutator defaultMutator = new Mutator() {
-    @Override
-    public void setValueCount(int valueCount) {
-    }
-
-    @Override
-    public void reset() {
-    }
-
-    @Override
-    public void generateTestData(int values) {
-    }
-  };
 
   public ZeroVector() {
   }
@@ -108,8 +73,12 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
+  public void reset() {
+  }
+
+  @Override
   public Field getField() {
-    return new Field(name, FieldType.nullable(new Null()), null);
+    return new Field(DATA_VECTOR_NAME, FieldType.nullable(new Null()), null);
   }
 
   @Override
@@ -187,16 +156,6 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
-  public Accessor getAccessor() {
-    return defaultAccessor;
-  }
-
-  @Override
-  public Mutator getMutator() {
-    return defaultMutator;
-  }
-
-  @Override
   public FieldReader getReader() {
     return NullReader.INSTANCE;
   }
@@ -259,4 +218,19 @@ public class ZeroVector implements FieldVector {
   public ArrowBuf getOffsetBuffer() {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public int getValueCount() { return 0; }
+
+  @Override
+  public void setValueCount(int valueCount) { }
+
+  @Override
+  public Object getObject(int index) { return null; }
+
+  @Override
+  public int getNullCount() { return 0; }
+
+  @Override
+  public boolean isNull(int index) { return false; }
 }

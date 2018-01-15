@@ -24,9 +24,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.arrow.vector.schema.ArrowFieldNode;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.schema.VectorLayout;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 
 import com.google.common.collect.Iterators;
@@ -71,9 +70,9 @@ public class VectorLoader {
     checkArgument(nodes.hasNext(),
         "no more field nodes for for field " + field + " and vector " + vector);
     ArrowFieldNode fieldNode = nodes.next();
-    List<VectorLayout> typeLayout = field.getTypeLayout().getVectors();
-    List<ArrowBuf> ownBuffers = new ArrayList<>(typeLayout.size());
-    for (int j = 0; j < typeLayout.size(); j++) {
+    List<BufferLayout> bufferLayouts = TypeLayout.getTypeLayout(field.getType()).getBufferLayouts();
+    List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayouts.size());
+    for (int j = 0; j < bufferLayouts.size(); j++) {
       ownBuffers.add(buffers.next());
     }
     try {

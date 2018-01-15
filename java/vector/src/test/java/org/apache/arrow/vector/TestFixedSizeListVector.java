@@ -26,6 +26,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -52,16 +53,15 @@ public class TestFixedSizeListVector {
   @Test
   public void testIntType() {
     try (FixedSizeListVector vector = FixedSizeListVector.empty("list", 2, allocator)) {
-      NullableIntVector nested = (NullableIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
-      NullableIntVector.Mutator mutator = nested.getMutator();
+      IntVector nested = (IntVector) vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
-        vector.getMutator().setNotNull(i);
-        mutator.set(i * 2, i);
-        mutator.set(i * 2 + 1, i + 10);
+        vector.setNotNull(i);
+        nested.set(i * 2, i);
+        nested.set(i * 2 + 1, i + 10);
       }
-      vector.getMutator().setValueCount(10);
+      vector.setValueCount(10);
 
       UnionFixedSizeListReader reader = vector.getReader();
       for (int i = 0; i < 10; i++) {
@@ -80,18 +80,17 @@ public class TestFixedSizeListVector {
   @Test
   public void testFloatTypeNullable() {
     try (FixedSizeListVector vector = FixedSizeListVector.empty("list", 2, allocator)) {
-      NullableFloat4Vector nested = (NullableFloat4Vector) vector.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
-      NullableFloat4Vector.Mutator mutator = nested.getMutator();
+      Float4Vector nested = (Float4Vector) vector.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
         if (i % 2 == 0) {
-          vector.getMutator().setNotNull(i);
-          mutator.set(i * 2, i + 0.1f);
-          mutator.set(i * 2 + 1, i + 10.1f);
+          vector.setNotNull(i);
+          nested.set(i * 2, i + 0.1f);
+          nested.set(i * 2 + 1, i + 10.1f);
         }
       }
-      vector.getMutator().setValueCount(10);
+      vector.setValueCount(10);
 
       UnionFixedSizeListReader reader = vector.getReader();
       for (int i = 0; i < 10; i++) {
@@ -115,24 +114,22 @@ public class TestFixedSizeListVector {
   @Test
   public void testNestedInList() {
     try (ListVector vector = ListVector.empty("list", allocator)) {
-      ListVector.Mutator mutator = vector.getMutator();
       FixedSizeListVector tuples = (FixedSizeListVector) vector.addOrGetVector(FieldType.nullable(new ArrowType.FixedSizeList(2))).getVector();
-      FixedSizeListVector.Mutator tupleMutator = tuples.getMutator();
-      NullableIntVector.Mutator innerMutator = (NullableIntVector.Mutator) tuples.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector().getMutator();
+      IntVector innerVector = (IntVector) tuples.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
         if (i % 2 == 0) {
-          int position = mutator.startNewValue(i);
+          int position = vector.startNewValue(i);
           for (int j = 0; j < i % 7; j++) {
-            tupleMutator.setNotNull(position + j);
-            innerMutator.set((position + j) * 2, j);
-            innerMutator.set((position + j) * 2 + 1, j + 1);
+            tuples.setNotNull(position + j);
+            innerVector.set((position + j) * 2, j);
+            innerVector.set((position + j) * 2 + 1, j + 1);
           }
-          mutator.endValue(i, i % 7);
+          vector.endValue(i, i % 7);
         }
       }
-      mutator.setValueCount(10);
+      vector.setValueCount(10);
 
       UnionListReader reader = vector.getReader();
       for (int i = 0; i < 10; i++) {
@@ -160,25 +157,25 @@ public class TestFixedSizeListVector {
   public void testTransferPair() {
     try (FixedSizeListVector from = new FixedSizeListVector("from", allocator, 2, null, null);
          FixedSizeListVector to = new FixedSizeListVector("to", allocator, 2, null, null)) {
-      NullableFloat4Vector nested = (NullableFloat4Vector) from.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
-      NullableFloat4Vector.Mutator mutator = nested.getMutator();
+      Float4Vector nested = (Float4Vector) from.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
       from.allocateNew();
 
       for (int i = 0; i < 10; i++) {
         if (i % 2 == 0) {
-          from.getMutator().setNotNull(i);
-          mutator.set(i * 2, i + 0.1f);
-          mutator.set(i * 2 + 1, i + 10.1f);
+          from.setNotNull(i);
+          nested.set(i * 2, i + 0.1f);
+          nested.set(i * 2 + 1, i + 10.1f);
         }
       }
-      from.getMutator().setValueCount(10);
+      from.setValueCount(10);
 
       TransferPair pair = from.makeTransferPair(to);
 
       pair.copyValueSafe(0, 1);
       pair.copyValueSafe(2, 2);
       to.copyFromSafe(4, 3, from);
-      to.getMutator().setValueCount(10);
+
+      to.setValueCount(10);
 
       UnionFixedSizeListReader reader = to.getReader();
 
@@ -220,4 +217,17 @@ public class TestFixedSizeListVector {
       }
     }
   }
+
+  @Test
+  public void testConsistentChildName() throws Exception {
+    try (FixedSizeListVector listVector = FixedSizeListVector.empty("sourceVector", 2, allocator)) {
+      String emptyListStr = listVector.getField().toString();
+      Assert.assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
+
+      listVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
+      String emptyVectorStr = listVector.getField().toString();
+      Assert.assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
+    }
+  }
+
 }

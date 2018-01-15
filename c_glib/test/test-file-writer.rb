@@ -16,15 +16,21 @@
 # under the License.
 
 class TestFileWriter < Test::Unit::TestCase
+  include Helper::Buildable
+
   def test_write_record_batch
+    data = [true]
+    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+    schema = Arrow::Schema.new([field])
+
     tempfile = Tempfile.open("arrow-ipc-file-writer")
     output = Arrow::FileOutputStream.new(tempfile.path, false)
     begin
-      field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-      schema = Arrow::Schema.new([field])
       file_writer = Arrow::RecordBatchFileWriter.new(output, schema)
       begin
-        record_batch = Arrow::RecordBatch.new(schema, 0, [])
+        record_batch = Arrow::RecordBatch.new(schema,
+                                              data.size,
+                                              [build_boolean_array(data)])
         file_writer.write_record_batch(record_batch)
       ensure
         file_writer.close
@@ -36,8 +42,43 @@ class TestFileWriter < Test::Unit::TestCase
     input = Arrow::MemoryMappedInputStream.new(tempfile.path)
     begin
       file_reader = Arrow::RecordBatchFileReader.new(input)
-      assert_equal(["enabled"],
+      assert_equal([field.name],
                    file_reader.schema.fields.collect(&:name))
+      assert_equal(Arrow::RecordBatch.new(schema,
+                                          data.size,
+                                          [build_boolean_array(data)]),
+                   file_reader.read_record_batch(0))
+    ensure
+      input.close
+    end
+  end
+
+  def test_write_table
+    tempfile = Tempfile.open("arrow-ipc-file-writer")
+    output = Arrow::FileOutputStream.new(tempfile.path, false)
+
+    array = build_boolean_array([true, false, true])
+    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+    schema = Arrow::Schema.new([field])
+    column = Arrow::Column.new(field, array)
+
+    begin
+      file_writer = Arrow::RecordBatchFileWriter.new(output, schema)
+      begin
+        table = Arrow::Table.new(schema, [column])
+        file_writer.write_table(table)
+      ensure
+        file_writer.close
+      end
+    ensure
+      output.close
+    end
+
+    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
+    begin
+      file_reader = Arrow::RecordBatchFileReader.new(input)
+      assert_equal(Arrow::RecordBatch.new(schema, array.length, [array]),
+                   file_reader.read_record_batch(0))
     ensure
       input.close
     end

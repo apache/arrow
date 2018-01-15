@@ -45,10 +45,12 @@ libarrow_glib_la_headers =			\
 	array.h					\
 	array-builder.h				\
 	arrow-glib.h				\
+	basic-array.h				\
 	basic-data-type.h			\
 	buffer.h				\
 	chunked-array.h				\
 	column.h				\
+	composite-array.h			\
 	composite-data-type.h			\
 	data-type.h				\
 	error.h					\
@@ -86,12 +88,13 @@ libarrow_glib_la_generated_sources =		\
 	$(libarrow_glib_la_generated_headers)
 
 libarrow_glib_la_sources =			\
-	array.cpp				\
 	array-builder.cpp			\
+	basic-array.cpp				\
 	basic-data-type.cpp			\
 	buffer.cpp				\
 	chunked-array.cpp			\
 	column.cpp				\
+	composite-array.cpp			\
 	composite-data-type.cpp			\
 	error.cpp				\
 	field.cpp				\
@@ -125,6 +128,7 @@ libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
 	array-builder.hpp			\
 	arrow-glib.hpp				\
+	basic-array.hpp				\
 	basic-data-type.hpp			\
 	buffer.hpp				\
 	chunked-array.hpp			\
@@ -203,20 +207,27 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA =				\
 	arrow-glib.pc
 
-# GObject Introspection
+if HAVE_INTROSPECTION
 -include $(INTROSPECTION_MAKEFILE)
 INTROSPECTION_GIRS =
 INTROSPECTION_SCANNER_ARGS =
+INTROSPECTION_SCANNER_ENV =
+if USE_ARROW_BUILD_DIR
+INTROSPECTION_SCANNER_ENV +=			\
+	LD_LIBRARY_PATH=$(ARROW_LIB_DIR):$${PKG_CONFIG_PATH}
+endif
+if OS_MACOS
+INTROSPECTION_SCANNER_ENV +=			\
+	ARCHFLAGS=
+endif
 INTROSPECTION_COMPILER_ARGS =
 
-if HAVE_INTROSPECTION
 Arrow-1.0.gir: libarrow-glib.la
 Arrow_1_0_gir_PACKAGES =			\
-	gobject-2.0				\
 	gio-2.0
-Arrow_1_0_gir_EXPORT_PACKAGES = arrow
+Arrow_1_0_gir_EXPORT_PACKAGES =			\
+	arrow-glib
 Arrow_1_0_gir_INCLUDES =			\
-	GObject-2.0				\
 	Gio-2.0
 Arrow_1_0_gir_CFLAGS =				\
 	$(AM_CPPFLAGS)

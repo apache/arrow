@@ -38,7 +38,7 @@ RandomAccessFile::RandomAccessFile()
     : impl_(new RandomAccessFile::RandomAccessFileImpl()) {}
 
 Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                uint8_t* out) {
+                                void* out) {
   std::lock_guard<std::mutex> lock(impl_->lock_);
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, bytes_read, out);
@@ -51,12 +51,11 @@ Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
   return Read(nbytes, out);
 }
 
-Status Writeable::Write(const std::string& data) {
-  return Write(reinterpret_cast<const uint8_t*>(data.c_str()),
-               static_cast<int64_t>(data.size()));
+Status Writable::Write(const std::string& data) {
+  return Write(data.c_str(), static_cast<int64_t>(data.size()));
 }
 
-Status Writeable::Flush() { return Status::OK(); }
+Status Writable::Flush() { return Status::OK(); }
 
 }  // namespace io
 }  // namespace arrow

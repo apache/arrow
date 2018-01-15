@@ -49,6 +49,10 @@ pkgconfig = import('pkgconfig')
 root_inc = include_directories('.')
 
 subdir('arrow-glib')
+arrow_gpu_dependency = dependency('arrow-gpu', required: false)
+if arrow_gpu_dependency.found()
+  subdir('arrow-gpu-glib')
+endif
 subdir('example')
 
 if get_option('enable_gtk_doc')
@@ -58,4 +62,7 @@ endif
 run_test = find_program('test/run-test.sh')
 test('unit test',
      run_test,
-     env: ['ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(meson.build_root())])
+     env: [
+       'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(meson.build_root()),
+       'ARROW_GPU_GLIB_TYPELIB_DIR=@0@/arrow-gpu-glib'.format(meson.build_root()),
+     ])

@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,8 +18,10 @@
 
 package org.apache.arrow.vector;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.memory.BufferAllocator;
@@ -54,7 +56,6 @@ public abstract class BaseValueVector implements ValueVector {
 
   @Override
   public void clear() {
-    getMutator().reset();
   }
 
   @Override
@@ -65,42 +66,6 @@ public abstract class BaseValueVector implements ValueVector {
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
     return getTransferPair(name, allocator);
-  }
-
-  public abstract static class BaseAccessor implements ValueVector.Accessor {
-    protected BaseAccessor() {
-    }
-
-    @Override
-    public boolean isNull(int index) {
-      return false;
-    }
-
-    @Override
-    // override this in case your implementation is faster, see BitVector
-    public int getNullCount() {
-      int nullCount = 0;
-      for (int i = 0; i < getValueCount(); i++) {
-        if (isNull(i)) {
-          nullCount++;
-        }
-      }
-      return nullCount;
-    }
-  }
-
-  public abstract static class BaseMutator implements ValueVector.Mutator {
-    protected BaseMutator() {
-    }
-
-    @Override
-    public void generateTestData(int values) {
-    }
-
-    //TODO: consider making mutator stateless(if possible) on another issue.
-    @Override
-    public void reset() {
-    }
   }
 
   @Override
@@ -121,6 +86,23 @@ public abstract class BaseValueVector implements ValueVector {
   @Override
   public BufferAllocator getAllocator() {
     return allocator;
+  }
+
+  protected void compareTypes(BaseValueVector target, String caller) {
+    if (this.getMinorType() != target.getMinorType()) {
+      throw new UnsupportedOperationException(caller + " should have vectors of exact same type");
+    }
+  }
+
+  protected ArrowBuf releaseBuffer(ArrowBuf buffer) {
+    buffer.release();
+    buffer = allocator.getEmpty();
+    return buffer;
+  }
+
+  /* number of bytes for the validity buffer for the given valueCount */
+  protected static int getValidityBufferSizeFromCount(final int valueCount) {
+    return (int) Math.ceil(valueCount / 8.0);
   }
 }
 

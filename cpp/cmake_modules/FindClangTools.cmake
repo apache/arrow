@@ -49,16 +49,47 @@ else()
   message("clang-tidy found at ${CLANG_TIDY_BIN}")
 endif()
 
-find_program(CLANG_FORMAT_BIN
-  NAMES clang-format-4.0
-  clang-format-3.9
-  clang-format-3.8
-  clang-format-3.7
-  clang-format-3.6
-  clang-format
-  PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin
-        NO_DEFAULT_PATH
-)
+if (CLANG_FORMAT_VERSION)
+    find_program(CLANG_FORMAT_BIN
+      NAMES clang-format-${CLANG_FORMAT_VERSION}
+      PATHS
+            ${ClangTools_PATH}
+            $ENV{CLANG_TOOLS_PATH}
+            /usr/local/bin /usr/bin
+            NO_DEFAULT_PATH
+    )
+
+    # If not found yet, search alternative locations
+    if (("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND") AND APPLE)
+        # Homebrew ships older LLVM versions in /usr/local/opt/llvm@version/
+        STRING(REGEX REPLACE "^([0-9]+)\\.[0-9]+" "\\1" CLANG_FORMAT_MAJOR_VERSION "${CLANG_FORMAT_VERSION}")
+        STRING(REGEX REPLACE "^[0-9]+\\.([0-9]+)" "\\1" CLANG_FORMAT_MINOR_VERSION "${CLANG_FORMAT_VERSION}")
+        if ("${CLANG_FORMAT_MINOR_VERSION}" STREQUAL "0")
+            find_program(CLANG_FORMAT_BIN
+              NAMES clang-format
+              PATHS /usr/local/opt/llvm@${CLANG_FORMAT_MAJOR_VERSION}/bin
+                    NO_DEFAULT_PATH
+            )
+        else()
+            find_program(CLANG_FORMAT_BIN
+              NAMES clang-format
+              PATHS /usr/local/opt/llvm@${CLANG_FORMAT_VERSION}/bin
+                    NO_DEFAULT_PATH
+            )
+        endif()
+    endif()
+else()
+    find_program(CLANG_FORMAT_BIN
+      NAMES clang-format-4.0
+      clang-format-3.9
+      clang-format-3.8
+      clang-format-3.7
+      clang-format-3.6
+      clang-format
+      PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin
+            NO_DEFAULT_PATH
+    )
+endif()
 
 if ( "${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND" )
   set(CLANG_FORMAT_FOUND 0)

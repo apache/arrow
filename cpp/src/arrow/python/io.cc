@@ -76,7 +76,7 @@ class PythonFile {
     return Status::OK();
   }
 
-  Status Write(const uint8_t* data, int64_t nbytes) {
+  Status Write(const void* data, int64_t nbytes) {
     PyObject* py_data =
         PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), nbytes);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
@@ -130,7 +130,7 @@ Status PyReadableFile::Tell(int64_t* position) const {
   return file_->Tell(position);
 }
 
-Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
   PyAcquireGIL lock;
   PyObject* bytes_obj;
   ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
@@ -155,7 +155,7 @@ Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 }
 
 Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                              uint8_t* out) {
+                              void* out) {
   std::lock_guard<std::mutex> guard(file_->lock());
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, bytes_read, out);
@@ -208,7 +208,7 @@ Status PyOutputStream::Tell(int64_t* position) const {
   return Status::OK();
 }
 
-Status PyOutputStream::Write(const uint8_t* data, int64_t nbytes) {
+Status PyOutputStream::Write(const void* data, int64_t nbytes) {
   PyAcquireGIL lock;
   position_ += nbytes;
   return file_->Write(data, nbytes);

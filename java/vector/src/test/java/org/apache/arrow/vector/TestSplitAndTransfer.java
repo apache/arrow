@@ -24,8 +24,7 @@ import static org.junit.Assert.assertTrue;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
-import org.apache.arrow.vector.NullableVarCharVector;
-import org.apache.arrow.vector.NullableVarCharVector.Accessor;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.TransferPair;
 
 import org.junit.After;
@@ -46,40 +45,38 @@ public class TestSplitAndTransfer {
         allocator.close();
     }
 
-    @Test /* NullableVarCharVector */
+    @Test /* VarCharVector */
     public void test() throws Exception {
-        try(final NullableVarCharVector varCharVector = new NullableVarCharVector("myvector", allocator)) {
+        try(final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
             varCharVector.allocateNew(10000, 1000);
 
             final int valueCount = 500;
             final String[] compareArray = new String[valueCount];
 
-            final NullableVarCharVector.Mutator mutator = varCharVector.getMutator();
             for (int i = 0; i < valueCount; i += 3) {
                 final String s = String.format("%010d", i);
-                mutator.set(i, s.getBytes());
+                varCharVector.set(i, s.getBytes());
                 compareArray[i] = s;
             }
-            mutator.setValueCount(valueCount);
+            varCharVector.setValueCount(valueCount);
 
             final TransferPair tp = varCharVector.getTransferPair(allocator);
-            final NullableVarCharVector newVarCharVector = (NullableVarCharVector) tp.getTo();
-            final Accessor accessor = newVarCharVector.getAccessor();
+            final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
             final int[][] startLengths = {{0, 201}, {201, 200}, {401, 99}};
 
             for (final int[] startLength : startLengths) {
                 final int start = startLength[0];
                 final int length = startLength[1];
                 tp.splitAndTransfer(start, length);
-                newVarCharVector.getMutator().setValueCount(length);
+                newVarCharVector.setValueCount(length);
                 for (int i = 0; i < length; i++) {
                     final boolean expectedSet = ((start + i) % 3) == 0;
                     if (expectedSet) {
                         final byte[] expectedValue = compareArray[start + i].getBytes();
-                        assertFalse(accessor.isNull(i));
-                        assertArrayEquals(expectedValue, accessor.get(i));
+                        assertFalse(newVarCharVector.isNull(i));
+                        assertArrayEquals(expectedValue, newVarCharVector.get(i));
                     } else {
-                        assertTrue(accessor.isNull(i));
+                        assertTrue(newVarCharVector.isNull(i));
                     }
                 }
                 newVarCharVector.clear();

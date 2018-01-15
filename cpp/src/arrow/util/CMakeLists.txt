@@ -34,15 +34,16 @@ install(FILES
   cpu-info.h
   decimal.h
   hash-util.h
+  hash.h
   key_value_metadata.h
   logging.h
   macros.h
   parallel.h
-  random.h
   rle-encoding.h
   sse-util.h
   stl.h
   type_traits.h
+  variant.h
   visibility.h
   DESTINATION include/arrow/util)
 
@@ -56,11 +57,16 @@ if (ARROW_BUILD_BENCHMARKS)
     target_link_libraries(arrow_benchmark_main
       benchmark
     )
+  elseif(MSVC)
+    target_link_libraries(arrow_benchmark_main
+      benchmark
+      Shlwapi.lib
+  )
   else()
-	  target_link_libraries(arrow_benchmark_main
+    target_link_libraries(arrow_benchmark_main
       benchmark
       pthread
-	  )
+    )
   endif()
 
   # TODO(wesm): Some benchmarks include gtest.h
@@ -73,3 +79,7 @@ ADD_ARROW_TEST(decimal-test)
 ADD_ARROW_TEST(key-value-metadata-test)
 ADD_ARROW_TEST(rle-encoding-test)
 ADD_ARROW_TEST(stl-util-test)
+
+ADD_ARROW_BENCHMARK(bit-util-benchmark)
+
+add_subdirectory(variant)

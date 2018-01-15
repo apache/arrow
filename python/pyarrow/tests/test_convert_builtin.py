@@ -178,6 +178,25 @@ class TestConvertSequence(unittest.TestCase):
         assert arr[2].as_py() == datetime.date(1970, 1, 1)
         assert arr[3].as_py() == datetime.date(2040, 2, 26)
 
+    def test_date32(self):
+        data = [datetime.date(2000, 1, 1), None]
+        arr = pa.array(data, type=pa.date32())
+
+        data2 = [10957, None]
+        arr2 = pa.array(data2, type=pa.date32())
+
+        for x in [arr, arr2]:
+            assert len(x) == 2
+            assert x.type == pa.date32()
+            assert x.null_count == 1
+            assert x[0].as_py() == datetime.date(2000, 1, 1)
+            assert x[1] is pa.NA
+
+        # Overflow
+        data3 = [2**32, None]
+        with pytest.raises(pa.ArrowException):
+            pa.array(data3, type=pa.date32())
+
     def test_timestamp(self):
         data = [
             datetime.datetime(2007, 7, 13, 1, 23, 34, 123456),
@@ -293,9 +312,16 @@ class TestConvertSequence(unittest.TestCase):
         with self.assertRaises(pa.ArrowException):
             pa.array(data)
 
+    def test_mixed_types_with_specified_type_fails(self):
+        data = ['-10', '-5', {'a': 1}, '0', '5', '10']
+
+        type = pa.string()
+        with self.assertRaises(pa.ArrowInvalid):
+            pa.array(data, type=type)
+
     def test_decimal(self):
         data = [decimal.Decimal('1234.183'), decimal.Decimal('8094.234')]
-        type = pa.decimal(precision=7, scale=3)
+        type = pa.decimal128(precision=7, scale=3)
         arr = pa.array(data, type=type)
         assert arr.to_pylist() == data
 
@@ -303,32 +329,32 @@ class TestConvertSequence(unittest.TestCase):
         data = [
             decimal.Decimal('1234234983.183'), decimal.Decimal('80943244.234')
         ]
-        type = pa.decimal(precision=13, scale=3)
+        type = pa.decimal128(precision=13, scale=3)
         arr = pa.array(data, type=type)
         assert arr.to_pylist() == data
 
     def test_decimal_no_scale(self):
         data = [decimal.Decimal('1234234983'), decimal.Decimal('8094324')]
-        type = pa.decimal(precision=10)
+        type = pa.decimal128(precision=10)
         arr = pa.array(data, type=type)
         assert arr.to_pylist() == data
 
     def test_decimal_negative(self):
         data = [decimal.Decimal('-1234.234983'), decimal.Decimal('-8.094324')]
-        type = pa.decimal(precision=10, scale=6)
+        type = pa.decimal128(precision=10, scale=6)
         arr = pa.array(data, type=type)
         assert arr.to_pylist() == data
 
     def test_decimal_no_whole_part(self):
         data = [decimal.Decimal('-.4234983'), decimal.Decimal('.0103943')]
-        type = pa.decimal(precision=7, scale=7)
+        type = pa.decimal128(precision=7, scale=7)
         arr = pa.array(data, type=type)
         assert arr.to_pylist() == data
 
     def test_decimal_large_integer(self):
         data = [decimal.Decimal('-394029506937548693.42983'),
                 decimal.Decimal('32358695912932.01033')]
-        type = pa.decimal(precision=23, scale=5)
+        type = pa.decimal128(precision=23, scale=5)
         arr = pa.array(data, type=type)
         assert arr.to_pylist() == data
 

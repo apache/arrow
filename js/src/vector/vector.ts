@@ -15,67 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Schema_ from '../format/Schema_generated';
-export import Type = Schema_.org.apache.arrow.flatbuf.Type;
-export import Field = Schema_.org.apache.arrow.flatbuf.Field;
+import * as Schema_ from '../format/fb/Schema';
+import Type = Schema_.org.apache.arrow.flatbuf.Type;
 
-export function sliceToRangeArgs(length: number, start: number, end?: number) {
-    let total = length, from = start || 0;
-    let to = end === end && typeof end == 'number' ? end : total;
-    if (to < 0) { to = total + to; }
-    if (from < 0) { from = total - (from * -1) % total; }
-    if (to < from) { from = to; to = start; }
-    total = !isFinite(total = (to - from)) || total < 0 ? 0 : total;
-    return [from, total];
+export interface Vector<T = any> extends Iterable<T | null> {
+    readonly name: string;
+    readonly type: string;
+    readonly length: number;
+    readonly nullable: boolean;
+    readonly nullCount: number;
+    readonly metadata: Map<string, string>;
+    get(index: number): T | null;
+    concat(...vectors: Vector<T>[]): Vector<T>;
+    slice<R = T[]>(start?: number, end?: number): R;
 }
 
-export class Vector<T> implements Iterable<T> {
-    static defaultName = '';
-    static defaultProps = new Map();
-    static defaultType = Type[Type.NONE];
-    static create<T = any>(field: Field, length: number, ...args: any[]) {
-        let vector = new this<T>(...args), m;
-        vector.length = length;
-        vector.name = field.name();
-        vector.type = Type[field.typeType()];
-        if ((m = field.customMetadataLength()) > 0) {
-            let entry, i = 0, data = vector.props = new Map();
-            do {
-                entry = field.customMetadata(i);
-                data[entry.key()] = entry.value();
-            } while (++i < m);
+export class Vector<T = any> implements Vector<T> {
+    slice<R = T[]>(start?: number, end?: number): R {
+        let { length } = this, from = start! | 0;
+        let to = end === undefined ? length : Math.max(end | 0, from);
+        let result = new Array<T | null>(to - Math.min(from, to));
+        for (let i = -1, n = result.length; ++i < n;) {
+            result[i] = this.get(i + from);
         }
-        return vector;
-    }
-    static from<T = any>(source: Vector<T>, length: number, ...args: any[]) {
-        let vector = new this<T>(...args);
-        vector.length = length;
-        source.name !== Vector.defaultName && (vector.name = source.name);
-        source.type !== Vector.defaultType && (vector.type = source.type);
-        source.props !== Vector.defaultProps && (vector.props = source.props);
-        return vector;
-    }
-    public name: string;
-    public type: string;
-    public length: number;
-    public stride: number;
-    public props: Map<PropertyKey, any>;
-    protected validity: Vector<boolean>;
-    get(index: number): T { return null; }
-    concat(vector: Vector<T>) { return vector; }
-    slice<R = T>(start?: number, end?: number, batch?: number) {
-        const { stride } = this;
-        const [offset, length] = sliceToRangeArgs(
-            stride * this.length, stride * (start || 0), stride * end
-        );
-        return this.range<R>(offset, length, batch);
-    }
-    protected range<R = T>(index: number, length: number, batch?: number) {
-        const result = new Array<R>(length);
-        for (let i = -1, n = this.length; ++i < length;) {
-            result[i] = this.get((i + index) % n) as any;
-        }
-        return result as Iterable<R>;
+        return result as any;
     }
     *[Symbol.iterator]() {
         for (let i = -1, n = this.length; ++i < n;) {
@@ -84,8 +47,9 @@ export class Vector<T> implements Iterable<T> {
     }
 }
 
-Vector.prototype.length = 0;
-Vector.prototype.stride = 1;
-Vector.prototype.name = Vector.defaultName;
-Vector.prototype.type = Vector.defaultType;
-Vector.prototype.props = Vector.defaultProps;
+(Vector.prototype as any).name = '';
+(Vector.prototype as any).stride = 1;
+(Vector.prototype as any).nullable = !1;
+(Vector.prototype as any).nullCount = 0;
+(Vector.prototype as any).metadata = new Map();
+(Vector.prototype as any).type = Type[Type.NONE];

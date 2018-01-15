@@ -18,7 +18,6 @@
 # Headers: top level
 install(FILES
   api.h
-  cast.h
   context.h
   kernel.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute")
@@ -36,3 +35,6 @@ install(
 #######################################
 
 ADD_ARROW_TEST(compute-test)
+ADD_ARROW_BENCHMARK(compute-benchmark)
+
+add_subdirectory(kernels)

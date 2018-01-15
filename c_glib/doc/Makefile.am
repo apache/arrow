@@ -16,4 +16,4 @@
 # under the License.
 
 SUBDIRS =                                       \
-        reference
+	reference

@@ -43,6 +43,8 @@
 #endif
 
 #if defined(_MSC_VER)
+#include <intrin.h>
+#pragma intrinsic(_BitScanReverse)
 #define ARROW_BYTE_SWAP64 _byteswap_uint64
 #define ARROW_BYTE_SWAP32 _byteswap_ulong
 #else
@@ -137,13 +139,10 @@ static inline void SetArrayBit(uint8_t* bits, int i, bool is_set) {
 }
 
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
-  // TODO: speed up. See https://graphics.stanford.edu/~seander/bithacks.html
+  // https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
-  if (bit_is_set) {
-    SetBit(bits, i);
-  } else {
-    ClearBit(bits, i);
-  }
+  bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
+                 kBitmask[i % 8];
 }
 
 // Returns the minimum number of bits needed to represent the value of 'x'
@@ -294,6 +293,25 @@ static inline int Log2(uint64_t x) {
   int result = 1;
   while (x >>= 1) ++result;
   return result;
+}
+
+/// \brief Count the number of leading zeros in a 32 bit integer.
+static inline int64_t CountLeadingZeros(uint32_t value) {
+// DCHECK_NE(value, 0);
+#if defined(__clang__) || defined(__GNUC__)
+  return static_cast<int64_t>(__builtin_clz(value));
+#elif defined(_MSC_VER)
+  unsigned long index;                                         // NOLINT
+  _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
+  return 31LL - static_cast<int64_t>(index);
+#else
+  int64_t bitpos = 0;
+  while (value != 0) {
+    value >>= 1;
+    ++bitpos;
+  }
+  return 32LL - bitpos;
+#endif
 }
 
 /// Swaps the byte order (i.e. endianess)

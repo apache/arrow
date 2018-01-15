@@ -133,20 +133,6 @@ struct Type {
   };
 };
 
-enum class BufferType : char { DATA, OFFSET, TYPE, VALIDITY };
-
-class BufferDescr {
- public:
-  BufferDescr(BufferType type, int bit_width) : type_(type), bit_width_(bit_width) {}
-
-  BufferType type() const { return type_; }
-  int bit_width() const { return bit_width_; }
-
- private:
-  BufferType type_;
-  int bit_width_;
-};
-
 class ARROW_EXPORT DataType {
  public:
   explicit DataType(Type::type id) : id_(id) {}
@@ -176,8 +162,6 @@ class ARROW_EXPORT DataType {
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
-  virtual std::vector<BufferDescr> GetBufferLayout() const = 0;
-
   Type::type id() const { return id_; }
 
  protected:
@@ -201,8 +185,6 @@ class ARROW_EXPORT FixedWidthType : public DataType {
   using DataType::DataType;
 
   virtual int bit_width() const = 0;
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
@@ -319,8 +301,6 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   std::string ToString() const override;
 
   std::string name() const override { return "null"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
@@ -425,8 +405,6 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 // BinaryType type is represents lists of 1-byte values.
@@ -439,8 +417,6 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "binary"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 
  protected:
   // Allow subclasses to change the logical type.
@@ -460,8 +436,6 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
@@ -494,50 +468,57 @@ class ARROW_EXPORT StructType : public NestedType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
-  static constexpr Type::type type_id = Type::DECIMAL;
-
-  explicit DecimalType(int32_t precision, int32_t scale)
-      : FixedSizeBinaryType(16, Type::DECIMAL), precision_(precision), scale_(scale) {}
-
-  Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override;
-  std::string name() const override { return "decimal"; }
+  explicit DecimalType(int32_t byte_width, int32_t precision, int32_t scale)
+      : FixedSizeBinaryType(byte_width, Type::DECIMAL),
+        precision_(precision),
+        scale_(scale) {}
 
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
 
- private:
+ protected:
   int32_t precision_;
   int32_t scale_;
 };
 
-enum class UnionMode : char { SPARSE, DENSE };
+class ARROW_EXPORT Decimal128Type : public DecimalType {
+ public:
+  static constexpr Type::type type_id = Type::DECIMAL;
+
+  explicit Decimal128Type(int32_t precision, int32_t scale)
+      : DecimalType(16, precision, scale) {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+  std::string name() const override { return "decimal"; }
+};
+
+struct UnionMode {
+  enum type { SPARSE, DENSE };
+};
 
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-            const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
+            const std::vector<uint8_t>& type_codes,
+            UnionMode::type mode = UnionMode::SPARSE);
 
   std::string ToString() const override;
   std::string name() const override { return "union"; }
   Status Accept(TypeVisitor* visitor) const override;
 
-  std::vector<BufferDescr> GetBufferLayout() const override;
-
   const std::vector<uint8_t>& type_codes() const { return type_codes_; }
 
-  UnionMode mode() const { return mode_; }
+  UnionMode::type mode() const { return mode_; }
 
  private:
-  UnionMode mode_;
+  UnionMode::type mode_;
 
   // The type id used in the data to indicate each data type in the union. For
   // example, the first type in the union might be denoted by the id 5 (instead
@@ -842,7 +823,12 @@ struct_(const std::vector<std::shared_ptr<Field>>& fields);
 /// \brief Create an instance of Union type
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
+       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create and instance of Union type
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create an instance of Dictionary type
 std::shared_ptr<DataType> ARROW_EXPORT

@@ -26,98 +26,28 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_INPUT_STREAM                \
-  (garrow_input_stream_get_type())
-#define GARROW_INPUT_STREAM(obj)                        \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_INPUT_STREAM, \
-                              GArrowInputStream))
-#define GARROW_INPUT_STREAM_CLASS(klass)                \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_INPUT_STREAM,    \
-                           GArrowInputStreamClass))
-#define GARROW_IS_INPUT_STREAM(obj)                             \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_INPUT_STREAM))
-#define GARROW_IS_INPUT_STREAM_CLASS(klass)             \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_INPUT_STREAM))
-#define GARROW_INPUT_STREAM_GET_CLASS(obj)              \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_INPUT_STREAM,  \
-                             GArrowInputStreamClass))
-
-typedef struct _GArrowInputStream         GArrowInputStream;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowInputStreamClass    GArrowInputStreamClass;
-#endif
-
-/**
- * GArrowInputStream:
- *
- * It wraps `arrow::io::InputStream`.
- */
-struct _GArrowInputStream
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
+#define GARROW_TYPE_INPUT_STREAM (garrow_input_stream_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowInputStream,
+                         garrow_input_stream,
+                         GARROW,
+                         INPUT_STREAM,
+                         GObject)
 struct _GArrowInputStreamClass
 {
   GObjectClass parent_class;
 };
-#endif
-
-GType garrow_input_stream_get_type(void) G_GNUC_CONST;
-
 
 #define GARROW_TYPE_SEEKABLE_INPUT_STREAM       \
   (garrow_seekable_input_stream_get_type())
-#define GARROW_SEEKABLE_INPUT_STREAM(obj)                               \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
-                              GARROW_TYPE_SEEKABLE_INPUT_STREAM,        \
-                              GArrowSeekableInputStream))
-#define GARROW_SEEKABLE_INPUT_STREAM_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_SEEKABLE_INPUT_STREAM,   \
-                           GArrowSeekableInputStreamClass))
-#define GARROW_IS_SEEKABLE_INPUT_STREAM(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
-                              GARROW_TYPE_SEEKABLE_INPUT_STREAM))
-#define GARROW_IS_SEEKABLE_INPUT_STREAM_CLASS(klass)            \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_SEEKABLE_INPUT_STREAM))
-#define GARROW_SEEKABLE_INPUT_STREAM_GET_CLASS(obj)             \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_SEEKABLE_INPUT_STREAM, \
-                             GArrowSeekableInputStreamClass))
-
-typedef struct _GArrowSeekableInputStream         GArrowSeekableInputStream;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowSeekableInputStreamClass    GArrowSeekableInputStreamClass;
-#endif
-
-/**
- * GArrowSeekableInputStream:
- *
- * It wraps `arrow::io::RandomAccessFile`.
- */
-struct _GArrowSeekableInputStream
-{
-  /*< private >*/
-  GArrowInputStream parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
+G_DECLARE_DERIVABLE_TYPE(GArrowSeekableInputStream,
+                         garrow_seekable_input_stream,
+                         GARROW,
+                         SEEKABLE_INPUT_STREAM,
+                         GArrowInputStream)
 struct _GArrowSeekableInputStreamClass
 {
   GArrowInputStreamClass parent_class;
 };
-#endif
-
-GType garrow_seekable_input_stream_get_type(void) G_GNUC_CONST;
 
 guint64 garrow_seekable_input_stream_get_size(GArrowSeekableInputStream *input_stream,
                                               GError **error);
@@ -133,49 +63,15 @@ GArrowTensor *garrow_seekable_input_stream_read_tensor(GArrowSeekableInputStream
 
 #define GARROW_TYPE_BUFFER_INPUT_STREAM         \
   (garrow_buffer_input_stream_get_type())
-#define GARROW_BUFFER_INPUT_STREAM(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_BUFFER_INPUT_STREAM,  \
-                              GArrowBufferInputStream))
-#define GARROW_BUFFER_INPUT_STREAM_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_BUFFER_INPUT_STREAM,     \
-                           GArrowBufferInputStreamClass))
-#define GARROW_IS_BUFFER_INPUT_STREAM(obj)                      \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_BUFFER_INPUT_STREAM))
-#define GARROW_IS_BUFFER_INPUT_STREAM_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_BUFFER_INPUT_STREAM))
-#define GARROW_BUFFER_INPUT_STREAM_GET_CLASS(obj)               \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_BUFFER_INPUT_STREAM,   \
-                             GArrowBufferInputStreamClass))
-
-typedef struct _GArrowBufferInputStream         GArrowBufferInputStream;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowBufferInputStreamClass    GArrowBufferInputStreamClass;
-#endif
-
-/**
- * GArrowBufferInputStream:
- *
- * It wraps `arrow::io::BufferReader`.
- */
-struct _GArrowBufferInputStream
-{
-  /*< private >*/
-  GArrowSeekableInputStream parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
+G_DECLARE_DERIVABLE_TYPE(GArrowBufferInputStream,
+                         garrow_buffer_input_stream,
+                         GARROW,
+                         BUFFER_INPUT_STREAM,
+                         GArrowSeekableInputStream)
 struct _GArrowBufferInputStreamClass
 {
   GArrowSeekableInputStreamClass parent_class;
 };
-#endif
-
-GType garrow_buffer_input_stream_get_type(void) G_GNUC_CONST;
 
 GArrowBufferInputStream *garrow_buffer_input_stream_new(GArrowBuffer *buffer);
 

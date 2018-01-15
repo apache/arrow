@@ -28,9 +28,15 @@ class Status;
 
 class DataType;
 class Array;
+struct ArrayData;
 class ArrayBuilder;
 class Field;
 class Tensor;
+
+class ChunkedArray;
+class Column;
+class RecordBatch;
+class Table;
 
 class Buffer;
 class MemoryPool;
@@ -68,9 +74,9 @@ class StructType;
 class StructArray;
 class StructBuilder;
 
-class DecimalType;
-class DecimalArray;
-class DecimalBuilder;
+class Decimal128Type;
+class Decimal128Array;
+class Decimal128Builder;
 
 class UnionType;
 class UnionArray;

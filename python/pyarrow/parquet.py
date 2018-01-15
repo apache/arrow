@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import defaultdict
 import os
 import inspect
 import json
@@ -54,6 +55,24 @@ class ParquetFile(object):
         self.reader = ParquetReader()
         self.reader.open(source, metadata=metadata)
         self.common_metadata = common_metadata
+        self._nested_paths_by_prefix = self._build_nested_paths()
+
+    def _build_nested_paths(self):
+        paths = self.reader.column_paths
+
+        result = defaultdict(list)
+
+        def _visit_piece(i, key, rest):
+            result[key].append(i)
+
+            if len(rest) > 0:
+                nested_key = '.'.join((key, rest[0]))
+                _visit_piece(i, nested_key, rest[1:])
+
+        for i, path in enumerate(paths):
+            _visit_piece(i, path[0], path[1:])
+
+        return result
 
     @property
     def metadata(self):
@@ -75,7 +94,9 @@ class ParquetFile(object):
         Parameters
         ----------
         columns: list
-            If not None, only these columns will be read from the row group.
+            If not None, only these columns will be read from the row group. A
+            column name may be a prefix of a nested field, e.g. 'a' will select
+            'a.b', 'a.c', and 'a.d.e'
         nthreads : int, default 1
             Number of columns to read in parallel. If > 1, requires that the
             underlying file source is threadsafe
@@ -100,7 +121,9 @@ class ParquetFile(object):
         Parameters
         ----------
         columns: list
-            If not None, only these columns will be read from the file.
+            If not None, only these columns will be read from the file. A
+            column name may be a prefix of a nested field, e.g. 'a' will select
+            'a.b', 'a.c', and 'a.d.e'
         nthreads : int, default 1
             Number of columns to read in parallel. If > 1, requires that the
             underlying file source is threadsafe
@@ -143,7 +166,11 @@ class ParquetFile(object):
         if column_names is None:
             return None
 
-        indices = list(map(self.reader.column_name_idx, column_names))
+        indices = []
+
+        for name in column_names:
+            if name in self._nested_paths_by_prefix:
+                indices.extend(self._nested_paths_by_prefix[name])
 
         if use_pandas_metadata:
             file_keyvalues = self.metadata.metadata
@@ -260,7 +287,7 @@ schema : arrow Schema
         self.is_open = True
 
     def __del__(self):
-        if self.is_open:
+        if getattr(self, 'is_open', False):
             self.close()
 
     def write_table(self, table, row_group_size=None):
@@ -421,10 +448,6 @@ class ParquetDatasetPiece(object):
         return table
 
 
-def _is_parquet_file(path):
-    return path.endswith('parq') or path.endswith('parquet')
-
-
 class PartitionSet(object):
     """A data structure for cataloguing the observed Parquet partitions at a
     particular level. So if we have
@@ -556,14 +579,14 @@ class ParquetManifest(object):
         filtered_files = []
         for path in files:
             full_path = self.pathsep.join((base_path, path))
-            if _is_parquet_file(path):
-                filtered_files.append(full_path)
-            elif path.endswith('_common_metadata'):
+            if path.endswith('_common_metadata'):
                 self.common_metadata_path = full_path
             elif path.endswith('_metadata'):
                 self.metadata_path = full_path
-            elif not self._should_silently_exclude(path):
+            elif self._should_silently_exclude(path):
                 print('Ignoring path: {0}'.format(full_path))
+            else:
+                filtered_files.append(full_path)
 
         # ARROW-1079: Filter out "private" directories starting with underscore
         filtered_directories = [self.pathsep.join((base_path, x))
@@ -573,7 +596,7 @@ class ParquetManifest(object):
         filtered_files.sort()
         filtered_directories.sort()
 
-        if len(files) > 0 and len(filtered_directories) > 0:
+        if len(filtered_files) > 0 and len(filtered_directories) > 0:
             raise ValueError('Found files in an intermediate '
                              'directory: {0}'.format(base_path))
         elif len(filtered_directories) > 0:
@@ -841,7 +864,9 @@ def read_table(source, columns=None, nthreads=1, metadata=None,
         name or directory name. For passing Python file objects or byte
         buffers, see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
-        If not None, only these columns will be read from the file.
+        If not None, only these columns will be read from the file. A column
+        name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
+        'a.c', and 'a.d.e'
     nthreads : int, default 1
         Number of columns to read in parallel. Requires that the underlying
         file source is threadsafe
@@ -879,7 +904,9 @@ def read_pandas(source, columns=None, nthreads=1, metadata=None):
         name. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
-        If not None, only these columns will be read from the file.
+        If not None, only these columns will be read from the file. A column
+        name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
+        'a.c', and 'a.d.e'
     nthreads : int, default 1
         Number of columns to read in parallel. Requires that the underlying
         file source is threadsafe
@@ -939,6 +966,14 @@ where: string or pyarrow.io.NativeFile
 """.format(_parquet_writer_arg_docs)
 
 
+def _mkdir_if_not_exists(fs, path):
+    if fs._isfilestore() and not fs.exists(path):
+        try:
+            fs.mkdir(path)
+        except OSError:
+            assert fs.exists(path)
+
+
 def write_to_dataset(table, root_path, partition_cols=None,
                      filesystem=None, preserve_index=True, **kwargs):
     """
@@ -985,8 +1020,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     else:
         fs = _ensure_filesystem(filesystem)
 
-    if fs._isfilestore() and not fs.exists(root_path):
-        fs.mkdir(root_path)
+    _mkdir_if_not_exists(fs, root_path)
 
     if partition_cols is not None and len(partition_cols) > 0:
         df = table.to_pandas()
@@ -1004,8 +1038,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             subtable = Table.from_pandas(subgroup,
                                          preserve_index=preserve_index)
             prefix = "/".join([root_path, subdir])
-            if fs._isfilestore() and not fs.exists(prefix):
-                fs.mkdir(prefix)
+            _mkdir_if_not_exists(fs, prefix)
             outfile = compat.guid() + ".parquet"
             full_path = "/".join([prefix, outfile])
             with fs.open(full_path, 'wb') as f:

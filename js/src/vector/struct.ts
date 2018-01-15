@@ -16,24 +16,112 @@
 // under the License.
 
 import { Vector } from './vector';
-import { BitVector, ValidityArgs } from './typed';
+import { VirtualVector } from './virtual';
 
-export class StructVector extends Vector<any[]> {
-    protected vectors: Vector<any>[];
-    constructor(validity: ValidityArgs, ...vectors: Vector<any>[]) {
+export class StructVector<T = any> extends Vector<StructRow<T>> {
+    readonly length: number;
+    readonly columns: Vector[];
+    constructor(argv: { columns: Vector[] }) {
         super();
-        this.vectors = vectors;
-        this.length = Math.max(0, ...vectors.map((v) => v.length));
-        validity && (this.validity = BitVector.from(validity));
+        this.columns = argv.columns || [];
+    }
+    get(index: number): StructRow<T> {
+        return new StructRow(this, index);
+    }
+    col(name: string) {
+        return this.columns.find((col) => col.name === name) || null;
+    }
+    key(index: number) {
+        return this.columns[index] ? this.columns[index].name : null;
+    }
+    select(...columns: string[]) {
+        return new StructVector({ columns: columns.map((name) => this.col(name)!) });
+    }
+    concat(...structs: Vector<StructRow<T>>[]): Vector<StructRow<T>> {
+        return new VirtualVector(Array, this, ...structs as any[]);
+    }
+    toString(options?: any) {
+        const index = typeof options === 'object' ? options && !!options.index
+                    : typeof options === 'boolean' ? !!options
+                    : false;
+        const { length } = this;
+        if (length <= 0) { return ''; }
+        const rows = new Array(length + 1);
+        const maxColumnWidths = [] as number[];
+        rows[0] = this.columns.map((_, i) => this.key(i));
+        index && rows[0].unshift('Index');
+        for (let i = -1, n = rows.length - 1; ++i < n;) {
+            rows[i + 1] = [...this.get(i)!];
+            index && rows[i + 1].unshift(i);
+        }
+        // Pass one to convert to strings and count max column widths
+        for (let i = -1, n = rows.length; ++i < n;) {
+            const row = rows[i];
+            for (let j = -1, k = row.length; ++j < k;) {
+                const val = row[j] = stringify(row[j]);
+                maxColumnWidths[j] = !maxColumnWidths[j]
+                    ? val.length
+                    : Math.max(maxColumnWidths[j], val.length);
+            }
+        }
+        // Pass two to pad each one to max column width
+        for (let i = -1, n = rows.length; ++i < n;) {
+            const row = rows[i];
+            for (let j = -1, k = row.length; ++j < k;) {
+                row[j] = leftPad(row[j], ' ', maxColumnWidths[j]);
+            }
+            rows[i] = row.join(', ');
+        }
+        return rows.join('\n');
+    }
+}
+
+export class StructRow<T = any> extends Vector<T> {
+    readonly row: number;
+    readonly length: number;
+    readonly table: StructVector<T>;
+    [Symbol.toStringTag]() { return 'Row'; }
+    constructor(table: StructVector<T>, row: number) {
+        super();
+        this.row = row;
+        this.table = table;
+        this.length = table.columns.length;
     }
     get(index: number) {
-        return this.validity.get(index) ? this.vectors.map((v) => v.get(index)) : null;
+        const col = this.table.columns[index];
+        return col ? col.get(this.row) as T : null;
     }
-    concat(vector: StructVector) {
-        return StructVector.from(this,
-            this.length + vector.length,
-            this.validity.concat(vector.validity),
-            ...this.vectors.map((v, i) => v.concat(vector.vectors[i]))
-        );
+    col(key: string) {
+        const col = this.table.col(key);
+        return col ? col.get(this.row) as T : null;
     }
+    *[Symbol.iterator]() {
+        const { row } = this;
+        for (const col of this.table.columns) {
+            yield col ? col.get(row) : null;
+        }
+    }
+    concat(...rows: Vector<T>[]): Vector<T> {
+        return new VirtualVector(Array, this, ...rows as any[]);
+    }
+    toArray() { return [...this]; }
+    toJSON() { return this.toArray(); }
+    toString() { return JSON.stringify(this); }
+    toObject(): Record<string, T> {
+        const { row } = this, map = Object.create(null);
+        for (const col of this.table.columns) {
+            if (col && col.name) {
+                map[col.name] = col.get(row);
+            }
+        }
+        return map;
+    }
+}
+
+function leftPad(str: string, fill: string, n: number) {
+    return (new Array(n + 1).join(fill) + str).slice(-1 * n);
+}
+
+function stringify(x: any) {
+    return Array.isArray(x) ? JSON.stringify(x) : ArrayBuffer.isView(x) ? `[${x}]` : `${x}`;
 }

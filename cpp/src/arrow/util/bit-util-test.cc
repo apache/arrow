@@ -165,19 +165,20 @@ TEST(BitUtilTests, TestCopyBitmap) {
   memset(buffer->mutable_data(), 0, kBufferSize);
   test::random_bytes(kBufferSize, 0, buffer->mutable_data());
 
-  const int num_bits = kBufferSize * 8;
-
   const uint8_t* src = buffer->data();
 
+  std::vector<int64_t> lengths = {kBufferSize * 8 - 4, kBufferSize * 8};
   std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
-  for (int64_t offset : offsets) {
-    const int64_t copy_length = num_bits - offset;
+  for (int64_t num_bits : lengths) {
+    for (int64_t offset : offsets) {
+      const int64_t copy_length = num_bits - offset;
 
-    std::shared_ptr<Buffer> copy;
-    ASSERT_OK(CopyBitmap(default_memory_pool(), src, offset, copy_length, &copy));
+      std::shared_ptr<Buffer> copy;
+      ASSERT_OK(CopyBitmap(default_memory_pool(), src, offset, copy_length, &copy));
 
-    for (int64_t i = 0; i < copy_length; ++i) {
-      ASSERT_EQ(BitUtil::GetBit(src, i + offset), BitUtil::GetBit(copy->data(), i));
+      for (int64_t i = 0; i < copy_length; ++i) {
+        ASSERT_EQ(BitUtil::GetBit(src, i + offset), BitUtil::GetBit(copy->data(), i));
+      }
     }
   }
 }

@@ -41,6 +41,7 @@ Makefile.in
 /arrow-glib/enums.h
 /arrow-glib/stamp-*
 /arrow-glib/*.pc
+/arrow-gpu-glib/*.pc
 /example/build
 /example/read-batch
 /example/read-stream

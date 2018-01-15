@@ -31,14 +31,15 @@
 #include "arrow/ipc/json.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
 namespace arrow {
 namespace ipc {
+namespace internal {
 namespace json {
 
 void TestSchemaRoundTrip(const Schema& schema) {
@@ -46,7 +47,7 @@ void TestSchemaRoundTrip(const Schema& schema) {
   rj::Writer<rj::StringBuffer> writer(sb);
 
   writer.StartObject();
-  ASSERT_OK(internal::WriteSchema(schema, &writer));
+  ASSERT_OK(WriteSchema(schema, &writer));
   writer.EndObject();
 
   std::string json_schema = sb.GetString();
@@ -55,7 +56,7 @@ void TestSchemaRoundTrip(const Schema& schema) {
   d.Parse(json_schema);
 
   std::shared_ptr<Schema> out;
-  if (!internal::ReadSchema(d, default_memory_pool(), &out).ok()) {
+  if (!ReadSchema(d, default_memory_pool(), &out).ok()) {
     FAIL() << "Unable to read JSON schema: " << json_schema;
   }
 
@@ -70,7 +71,7 @@ void TestArrayRoundTrip(const Array& array) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
-  ASSERT_OK(internal::WriteArray(name, array, &writer));
+  ASSERT_OK(WriteArray(name, array, &writer));
 
   std::string array_as_json = sb.GetString();
 
@@ -82,7 +83,7 @@ void TestArrayRoundTrip(const Array& array) {
   }
 
   std::shared_ptr<Array> out;
-  ASSERT_OK(internal::ReadArray(default_memory_pool(), d, array.type(), &out));
+  ASSERT_OK(ReadArray(default_memory_pool(), d, array.type(), &out));
 
   // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *out, array);
@@ -222,8 +223,8 @@ void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
   std::vector<int8_t> v1_values;
   std::vector<int32_t> v2_values;
 
-  test::randint<int8_t>(num_rows, 0, 100, &v1_values);
-  test::randint<int32_t>(num_rows, 0, 100, &v2_values);
+  test::randint(num_rows, 0, 100, &v1_values);
+  test::randint(num_rows, 0, 100, &v2_values);
 
   std::shared_ptr<Array> v1;
   ArrayFromVector<Int8Type, int8_t>(is_valid, v1_values, &v1);
@@ -269,7 +270,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
     std::vector<std::shared_ptr<Array>> arrays;
 
     MakeBatchArrays(schema, num_rows, &arrays);
-    auto batch = std::make_shared<RecordBatch>(schema, num_rows, arrays);
+    auto batch = RecordBatch::Make(schema, num_rows, arrays);
     batches.push_back(batch);
     ASSERT_OK(writer->WriteRecordBatch(*batch));
   }
@@ -415,5 +416,6 @@ TEST_P(TestJsonRoundTrip, RoundTrip) {
 INSTANTIATE_TEST_CASE_P(TestJsonRoundTrip, TestJsonRoundTrip, BATCH_CASES());
 
 }  // namespace json
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

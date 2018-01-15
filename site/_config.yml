@@ -30,6 +30,7 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - _docs/format/*
+  - ruby
   - asf-site
   - scripts
   - README.md

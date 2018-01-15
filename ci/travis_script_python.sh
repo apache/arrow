@@ -63,6 +63,8 @@ cmake -GNinja \
       -DARROW_BUILD_UTILITIES=off \
       -DARROW_PLASMA=on \
       -DARROW_PYTHON=on \
+      -DARROW_ORC=on \
+      -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       $ARROW_CPP_DIR
 
@@ -78,13 +80,16 @@ if [ "$PYTHON_VERSION" == "2.7" ]; then
   pip install futures
 fi
 
+export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
+
 pip install -r requirements.txt
-python setup.py build_ext --with-parquet --with-plasma \
+python setup.py build_ext --with-parquet --with-plasma --with-orc\
        install --single-version-externally-managed --record=record.text
 popd
 
 python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
+python -c "import pyarrow.orc"
 
 if [ $TRAVIS_OS_NAME == "linux" ]; then
   export PLASMA_VALGRIND=1

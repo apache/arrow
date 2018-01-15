@@ -29,10 +29,10 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/hash.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -123,6 +123,18 @@ class ARROW_EXPORT ArrayBuilder {
 
   std::shared_ptr<DataType> type() const { return type_; }
 
+  // Unsafe operations (don't check capacity/don't resize)
+
+  // Append to null bitmap.
+  void UnsafeAppendToBitmap(bool is_valid) {
+    if (is_valid) {
+      BitUtil::SetBit(null_bitmap_data_, length_);
+    } else {
+      ++null_count_;
+    }
+    ++length_;
+  }
+
  protected:
   ArrayBuilder() {}
 
@@ -142,18 +154,6 @@ class ARROW_EXPORT ArrayBuilder {
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
 
   void Reset();
-
-  // Unsafe operations (don't check capacity/don't resize)
-
-  // Append to null bitmap.
-  void UnsafeAppendToBitmap(bool is_valid) {
-    if (is_valid) {
-      BitUtil::SetBit(null_bitmap_data_, length_);
-    } else {
-      ++null_count_;
-    }
-    ++length_;
-  }
 
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
@@ -753,10 +753,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   BufferBuilder byte_builder_;
 };
 
-class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
+class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
  public:
-  explicit DecimalBuilder(const std::shared_ptr<DataType>& type,
-                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit Decimal128Builder(const std::shared_ptr<DataType>& type,
+                             MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   using FixedSizeBinaryBuilder::Append;
 
@@ -764,6 +764,8 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
+
+using DecimalBuilder = Decimal128Builder;
 
 // ----------------------------------------------------------------------
 // Struct
@@ -810,17 +812,6 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
 // ----------------------------------------------------------------------
 // Dictionary builder
-
-// Based on Apache Parquet-cpp's DictEncoder
-
-// Initially 1024 elements
-static constexpr int kInitialHashTableSize = 1 << 10;
-
-typedef int32_t hash_slot_t;
-static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
-
-// The maximum load factor for the hash table before resizing.
-static constexpr double kMaxHashTableLoad = 0.7;
 
 namespace internal {
 
@@ -886,23 +877,26 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  protected:
   Status DoubleTableSize();
   Scalar GetDictionaryValue(int64_t index);
-  int HashValue(const Scalar& value);
+  int64_t HashValue(const Scalar& value);
   bool SlotDifferent(hash_slot_t slot, const Scalar& value);
   Status AppendDictionary(const Scalar& value);
 
-  std::shared_ptr<PoolBuffer> hash_table_;
+  std::shared_ptr<Buffer> hash_table_;
   int32_t* hash_slots_;
 
   /// Size of the table. Must be a power of 2.
-  int hash_table_size_;
+  int64_t hash_table_size_;
 
   // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
   // hash_table_size_, but uses far fewer CPU cycles
-  int mod_bitmask_;
+  int64_t mod_bitmask_;
 
   typename TypeTraits<T>::BuilderType dict_builder_;
   AdaptiveIntBuilder values_builder_;
   int32_t byte_width_;
+
+  /// Size at which we decide to resize
+  int64_t hash_table_load_threshold_;
 };
 
 template <>
@@ -974,25 +968,6 @@ class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType
 Status ARROW_EXPORT MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                                 std::unique_ptr<ArrayBuilder>* out);
 
-Status ARROW_EXPORT MakeDictionaryBuilder(MemoryPool* pool,
-                                          const std::shared_ptr<DataType>& type,
-                                          std::shared_ptr<ArrayBuilder>* out);
-
-/// \brief Convert Array to encoded DictionaryArray form
-///
-/// \param[in] input The Array to be encoded
-/// \param[in] pool MemoryPool to allocate memory for the hash table
-/// \param[out] out Array encoded to DictionaryArray
-Status ARROW_EXPORT EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
-                                            std::shared_ptr<Array>* out);
-
-/// \brief Convert a Column's data internally to DictionaryArray
-///
-/// \param[in] input The ChunkedArray to be encoded
-/// \param[in] pool MemoryPool to allocate memory for the hash table
-/// \param[out] out Column with data converted to DictionaryArray
-Status ARROW_EXPORT EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
-                                             std::shared_ptr<Column>* out);
 }  // namespace arrow
 
 #endif  // ARROW_BUILDER_H_

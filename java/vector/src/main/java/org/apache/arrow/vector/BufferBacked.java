@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector;
 
-import org.apache.arrow.vector.schema.ArrowFieldNode;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 
 import io.netty.buffer.ArrowBuf;
 

@@ -20,7 +20,7 @@ SUBDIRS =                                       \
 
 DOC_MODULE = arrow-glib
 
-DOC_MAIN_SGML_FILE = $(DOC_MODULE)-docs.sgml
+DOC_MAIN_SGML_FILE = $(DOC_MODULE)-docs.xml
 
 DOC_SOURCE_DIR =				\
 	$(top_srcdir)/arrow-glib
@@ -50,6 +50,17 @@ AM_CFLAGS =					\
 
 GTKDOC_LIBS =						\
 	$(top_builddir)/arrow-glib/libarrow-glib.la
+
+if HAVE_ARROW_GPU
+DOC_SOURCE_DIR +=				\
+	$(top_srcdir)/arrow-gpu-glib
+HFILE_GLOB +=					\
+	$(top_srcdir)/arrow-gpu-glib/*.h
+CFILE_GLOB +=					\
+	$(top_srcdir)/arrow-gpu-glib/*.cpp
+GTKDOC_LIBS +=							\
+	$(top_builddir)/arrow-gpu-glib/libarrow-gpu-glib.la
+endif
 
 include $(srcdir)/gtk-doc.make
 

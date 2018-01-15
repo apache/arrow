@@ -38,8 +38,10 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
         rapidjson \
         flatbuffers \
         gflags \
+        gtest \
         lz4-c \
         snappy \
+        ccache \
         zstd \
         brotli \
         zlib \
@@ -53,9 +55,6 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   conda update -y -p $CPP_TOOLCHAIN ca-certificates -c defaults
 fi
 
-if [ $TRAVIS_OS_NAME == "osx" ]; then
-  brew update && brew bundle --file=cpp/Brewfile
-fi
 
 mkdir $ARROW_CPP_BUILD_DIR
 pushd $ARROW_CPP_BUILD_DIR
@@ -85,6 +84,10 @@ if [ $ARROW_TRAVIS_PLASMA == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PLASMA=ON"
 fi
 
+if [ $ARROW_TRAVIS_ORC == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_ORC=ON"
+fi
+
 if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_TEST_MEMCHECK=ON"
 fi
@@ -92,12 +95,14 @@ fi
 if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_LINUX_FLAGS \
-          -DBUILD_WARNING_LEVEL=CHECKIN \
+          -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+          -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
           $ARROW_CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \
-          -DBUILD_WARNING_LEVEL=CHECKIN \
+          -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+          -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
           $ARROW_CPP_DIR
 fi
 

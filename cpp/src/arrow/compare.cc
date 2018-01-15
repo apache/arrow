@@ -152,7 +152,7 @@ class RangeEqualsVisitor {
   bool CompareUnions(const UnionArray& left) const {
     const auto& right = static_cast<const UnionArray&>(right_);
 
-    const UnionMode union_mode = left.mode();
+    const UnionMode::type union_mode = left.mode();
     if (union_mode != right.mode()) {
       return false;
     }
@@ -255,7 +255,7 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DecimalArray& left) {
+  Status Visit(const Decimal128Array& left) {
     return Visit(static_cast<const FixedSizeBinaryArray&>(left));
   }
 
@@ -312,8 +312,16 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
   const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
   const int byte_width = size_meta.bit_width() / CHAR_BIT;
 
-  const uint8_t* left_data = left.values() ? left.raw_values() : nullptr;
-  const uint8_t* right_data = right.values() ? right.raw_values() : nullptr;
+  const uint8_t* left_data = nullptr;
+  const uint8_t* right_data = nullptr;
+
+  if (left.values()) {
+    left_data = left.values()->data() + left.offset() * byte_width;
+  }
+
+  if (right.values()) {
+    right_data = right.values()->data() + right.offset() * byte_width;
+  }
 
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
@@ -615,8 +623,8 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DecimalType& left) {
-    const auto& right = static_cast<const DecimalType&>(right_);
+  Status Visit(const Decimal128Type& left) {
+    const auto& right = static_cast<const Decimal128Type&>(right_);
     result_ = left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }

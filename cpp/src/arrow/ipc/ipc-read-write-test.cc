@@ -197,8 +197,8 @@ class IpcTestFixture : public io::MemoryMapFixture {
     std::vector<std::shared_ptr<Field>> fields = {f0};
     auto schema = std::make_shared<Schema>(fields);
 
-    RecordBatch batch(schema, 0, {array});
-    CheckRoundtrip(batch, buffer_size);
+    auto batch = RecordBatch::Make(schema, 0, {array});
+    CheckRoundtrip(*batch, buffer_size);
   }
 
  protected:
@@ -243,7 +243,7 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   std::unique_ptr<Message> message;
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
 
-  ASSERT_EQ(MetadataVersion::V3, message->metadata_version());
+  ASSERT_EQ(MetadataVersion::V4, message->metadata_version());
 }
 
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
@@ -292,13 +292,13 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   auto CheckArray = [this](const std::shared_ptr<Array>& array) {
     auto f0 = field("f0", array->type());
     auto schema = ::arrow::schema({f0});
-    RecordBatch batch(schema, array->length(), {array});
-    auto sliced_batch = batch.Slice(0, 5);
+    auto batch = RecordBatch::Make(schema, array->length(), {array});
+    auto sliced_batch = batch->Slice(0, 5);
 
     int64_t full_size;
     int64_t sliced_size;
 
-    ASSERT_OK(GetRecordBatchSize(batch, &full_size));
+    ASSERT_OK(GetRecordBatchSize(*batch, &full_size));
     ASSERT_OK(GetRecordBatchSize(*sliced_batch, &sliced_size));
     ASSERT_TRUE(sliced_size < full_size) << sliced_size << " " << full_size;
 
@@ -411,8 +411,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 
     *schema = ::arrow::schema({f0});
 
-    std::vector<std::shared_ptr<Array>> arrays = {array};
-    *batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
+    *batch = RecordBatch::Make(*schema, batch_length, {array});
 
     std::stringstream ss;
     ss << "test-write-past-max-recursion-" << g_file_number++;
@@ -632,7 +631,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   std::vector<std::shared_ptr<Field>> fields = {f0};
   auto schema = std::make_shared<Schema>(fields);
 
-  RecordBatch batch(schema, length, {array});
+  auto batch = RecordBatch::Make(schema, length, {array});
 
   std::string path = "test-write-large-record_batch";
 
@@ -641,8 +640,8 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
 
   std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoLargeRoundTrip(batch, false, &result));
-  CheckReadResult(*result, batch);
+  ASSERT_OK(DoLargeRoundTrip(*batch, false, &result));
+  CheckReadResult(*result, *batch);
 
   ASSERT_EQ(length, result->num_rows());
 }
@@ -727,7 +726,7 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   int64_t size = 24;
 
   std::vector<int64_t> values;
-  test::randint<int64_t>(size, 0, 100, &values);
+  test::randint(size, 0, 100, &values);
 
   auto data = test::GetBufferFromVector(values);
 
@@ -748,7 +747,7 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
 
   std::vector<int64_t> values;
-  test::randint<int64_t>(24, 0, 100, &values);
+  test::randint(24, 0, 100, &values);
 
   auto data = test::GetBufferFromVector(values);
   Tensor tensor(int64(), data, {4, 3}, {48, 16});

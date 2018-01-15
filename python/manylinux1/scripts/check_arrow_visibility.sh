@@ -17,10 +17,13 @@
 # under the License.
 
 nm -D -C /arrow-dist/lib64/libarrow.so > nm_arrow.log
+grep ' T ' nm_arrow.log | grep -v arrow > visible_symbols.log
 
-if [[ `grep ' T ' nm_arrow.log | grep -v arrow | wc -l` -eq 2 ]]
+if [[ `cat visible_symbols.log | wc -l` -eq 2 ]]
 then
     exit 0
 fi
+
+cat visible_symbols.log
 
 exit 1

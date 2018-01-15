@@ -48,6 +48,7 @@ set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
+set(CLANG_FORMAT_VERSION "4.0")
 find_package(ClangTools)
 if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
@@ -116,6 +117,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_GPU
     "Build the Arrow GPU extensions (requires CUDA installation)"
+    OFF)
+
+  option(ARROW_ORC
+    "Build the Arrow ORC adapter"
     OFF)
 
   option(ARROW_JEMALLOC
@@ -209,6 +214,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
       "Lz4 static lib suffix used on Windows with MSVC (default _static)")
     set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "ZStd static lib suffix used on Windows with MSVC (default _static)")
+
+    option(ARROW_USE_STATIC_CRT
+      "Build Arrow with statically linked CRT"
+      OFF)
   endif()
 endif()
 
@@ -219,6 +228,17 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
   set(ARROW_WITH_ZSTD ON)
+endif()
+
+if (MSVC)
+  # ORC doesn't build on windows
+  set(ARROW_ORC OFF)
+endif()
+
+if(ARROW_ORC)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_SNAPPY ON)
+  set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(NOT ARROW_BUILD_TESTS)
@@ -413,6 +433,7 @@ if (UNIX)
             (item MATCHES "xxhash.h") OR
             (item MATCHES "xxhash.cc") OR
             (item MATCHES "config.h") OR
+            (item MATCHES "util/variant") OR
             (item MATCHES "zmalloc.h") OR
             (item MATCHES "ae.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
@@ -435,11 +456,9 @@ endif (UNIX)
 # "make format" and "make check-format" targets
 ############################################################
 
-set(CLANG_FORMAT_VERSION 4.0)
-
 # runs clang format and updates files in place.
 add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-  ${CLANG_FORMAT_VERSION}
+  ${CLANG_FORMAT_BIN}
   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
   ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -447,7 +466,7 @@ add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
 
 # TODO(wesm): Make this work in run_clang_format.py
 add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-   ${CLANG_FORMAT_VERSION}
+   ${CLANG_FORMAT_BIN}
    ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
    ${CMAKE_CURRENT_SOURCE_DIR}/src 1)
 
@@ -519,6 +538,13 @@ if (ARROW_WITH_GRPC)
     grpc_grp
     grpc_grpc
     grpc_grpcpp
+    ${ARROW_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_ORC)
+  SET(ARROW_STATIC_LINK_LIBS
+    orc
+    protobuf
     ${ARROW_STATIC_LINK_LIBS})
 endif()
 

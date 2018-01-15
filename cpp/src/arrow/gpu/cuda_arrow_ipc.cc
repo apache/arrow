@@ -27,8 +27,8 @@
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/util/visibility.h"
 
 #include "arrow/gpu/cuda_context.h"

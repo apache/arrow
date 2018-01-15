@@ -18,6 +18,7 @@
 #ifndef ARROW_TEST_UTIL_H_
 #define ARROW_TEST_UTIL_H_
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -34,12 +35,11 @@
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/random.h"
 
 #define ASSERT_RAISES(ENUM, expr) \
   do {                            \
@@ -47,7 +47,7 @@
     if (!s.Is##ENUM()) {          \
       FAIL() << s.ToString();     \
     }                             \
-  } while (0)
+  } while (false)
 
 #define ASSERT_OK(expr)         \
   do {                          \
@@ -55,7 +55,7 @@
     if (!s.ok()) {              \
       FAIL() << s.ToString();   \
     }                           \
-  } while (0)
+  } while (false)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
@@ -63,15 +63,15 @@
   do {                          \
     ::arrow::Status s = (expr); \
     EXPECT_TRUE(s.ok());        \
-  } while (0)
+  } while (false)
 
 #define ABORT_NOT_OK(s)                  \
   do {                                   \
     ::arrow::Status _s = (s);            \
     if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-      exit(-1);                          \
+      exit(EXIT_FAILURE);                \
     }                                    \
-  } while (0);
+  } while (false);
 
 namespace arrow {
 
@@ -79,27 +79,22 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 namespace test {
 
-template <typename T>
-void randint(int64_t N, T lower, T upper, std::vector<T>* out) {
-  Random rng(random_seed());
-  uint64_t draw;
-  uint64_t span = upper - lower;
-  T val;
-  for (int64_t i = 0; i < N; ++i) {
-    draw = rng.Uniform64(span);
-    val = static_cast<T>(draw + lower);
-    out->push_back(val);
-  }
+template <typename T, typename U>
+void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
+  const int random_seed = 0;
+  std::mt19937 gen(random_seed);
+  std::uniform_int_distribution<T> d(lower, upper);
+  out->resize(N, static_cast<T>(0));
+  std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
 }
 
-template <typename T>
+template <typename T, typename U>
 void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
-                 std::vector<T>* out) {
+                 std::vector<U>* out) {
   std::mt19937 gen(seed);
   std::uniform_real_distribution<T> d(min_value, max_value);
-  for (int64_t i = 0; i < n; ++i) {
-    out->push_back(d(gen));
-  }
+  out->resize(n, static_cast<T>(0));
+  std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
 }
 
 template <typename T>
@@ -115,7 +110,8 @@ inline Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* poo
 
   auto buffer = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(buffer->Resize(nbytes));
-  memcpy(buffer->mutable_data(), values.data(), nbytes);
+  auto immutable_data = reinterpret_cast<const uint8_t*>(values.data());
+  std::copy(immutable_data, immutable_data + nbytes, buffer->mutable_data());
 
   *result = buffer;
   return Status::OK();
@@ -143,56 +139,131 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
 static inline void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
-  Random rng(random_seed());
-  for (int64_t i = 0; i < n; ++i) {
-    null_bytes[i] = rng.NextDoubleFraction() > pct_null;
-  }
+  const int random_seed = 0;
+  std::mt19937 gen(random_seed);
+  std::uniform_real_distribution<double> d(0.0, 1.0);
+  std::generate(null_bytes, null_bytes + n,
+                [&d, &gen, &pct_null] { return d(gen) > pct_null; });
 }
 
 static inline void random_is_valid(int64_t n, double pct_null,
                                    std::vector<bool>* is_valid) {
-  Random rng(random_seed());
-  for (int64_t i = 0; i < n; ++i) {
-    is_valid->push_back(rng.NextDoubleFraction() > pct_null);
-  }
+  const int random_seed = 0;
+  std::mt19937 gen(random_seed);
+  std::uniform_real_distribution<double> d(0.0, 1.0);
+  is_valid->resize(n, false);
+  std::generate(is_valid->begin(), is_valid->end(),
+                [&d, &gen, &pct_null] { return d(gen) > pct_null; });
 }
 
 static inline void random_bytes(int64_t n, uint32_t seed, uint8_t* out) {
   std::mt19937 gen(seed);
-  std::uniform_int_distribution<int> d(0, 255);
-
-  for (int64_t i = 0; i < n; ++i) {
-    out[i] = static_cast<uint8_t>(d(gen) & 0xFF);
-  }
+  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
+  std::generate(out, out + n, [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
 }
 
-static inline void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
+static int32_t DecimalSize(int32_t precision) {
+  DCHECK_GE(precision, 1) << "decimal precision must be greater than or equal to 1, got "
+                          << precision;
+  DCHECK_LE(precision, 38) << "decimal precision must be less than or equal to 38, got "
+                           << precision;
+
+  switch (precision) {
+    case 1:
+    case 2:
+      return 1;  // 127
+    case 3:
+    case 4:
+      return 2;  // 32,767
+    case 5:
+    case 6:
+      return 3;  // 8,388,607
+    case 7:
+    case 8:
+    case 9:
+      return 4;  // 2,147,483,427
+    case 10:
+    case 11:
+      return 5;  // 549,755,813,887
+    case 12:
+    case 13:
+    case 14:
+      return 6;  // 140,737,488,355,327
+    case 15:
+    case 16:
+      return 7;  // 36,028,797,018,963,967
+    case 17:
+    case 18:
+      return 8;  // 9,223,372,036,854,775,807
+    case 19:
+    case 20:
+    case 21:
+      return 9;  // 2,361,183,241,434,822,606,847
+    case 22:
+    case 23:
+      return 10;  // 604,462,909,807,314,587,353,087
+    case 24:
+    case 25:
+    case 26:
+      return 11;  // 154,742,504,910,672,534,362,390,527
+    case 27:
+    case 28:
+      return 12;  // 39,614,081,257,132,168,796,771,975,167
+    case 29:
+    case 30:
+    case 31:
+      return 13;  // 10,141,204,801,825,835,211,973,625,643,007
+    case 32:
+    case 33:
+      return 14;  // 2,596,148,429,267,413,814,265,248,164,610,047
+    case 34:
+    case 35:
+      return 15;  // 664,613,997,892,457,936,451,903,530,140,172,287
+    case 36:
+    case 37:
+    case 38:
+      return 16;  // 170,141,183,460,469,231,731,687,303,715,884,105,727
+    default:
+      DCHECK(false);
+      break;
+  }
+  return -1;
+}
+
+static inline void random_decimals(int64_t n, uint32_t seed, int32_t precision,
+                                   uint8_t* out) {
   std::mt19937 gen(seed);
-  std::uniform_int_distribution<int> d(65, 122);
+  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
+  const int32_t required_bytes = DecimalSize(precision);
+  constexpr int32_t byte_width = 16;
+  std::fill(out, out + byte_width * n, '\0');
 
-  for (int64_t i = 0; i < n; ++i) {
-    out[i] = static_cast<uint8_t>(d(gen) & 0xFF);
+  for (int64_t i = 0; i < n; ++i, out += byte_width) {
+    std::generate(out, out + required_bytes,
+                  [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
+
+    // sign extend if the sign bit is set for the last byte generated
+    // 0b10000000 == 0x80 == 128
+    if ((out[required_bytes - 1] & '\x80') != 0) {
+      std::fill(out + required_bytes, out + byte_width, '\xFF');
+    }
   }
 }
 
-template <typename T>
-void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, T* out) {
+template <typename T, typename U>
+void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out) {
   DCHECK(out || (n == 0));
   std::mt19937 gen(seed);
   std::uniform_int_distribution<T> d(min_value, max_value);
-  for (int64_t i = 0; i < n; ++i) {
-    out[i] = static_cast<T>(d(gen));
-  }
+  std::generate(out, out + n, [&d, &gen] { return static_cast<U>(d(gen)); });
+}
+
+static inline void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
+  rand_uniform_int(n, seed, static_cast<int32_t>('A'), static_cast<int32_t>('z'), out);
 }
 
 static inline int64_t null_count(const std::vector<uint8_t>& valid_bytes) {
-  int64_t result = 0;
-  for (size_t i = 0; i < valid_bytes.size(); ++i) {
-    if (valid_bytes[i] == 0) {
-      ++result;
-    }
-  }
-  return result;
+  return static_cast<int64_t>(std::count(valid_bytes.cbegin(), valid_bytes.cend(), '\0'));
 }
 
 Status MakeRandomInt32PoolBuffer(int64_t length, MemoryPool* pool,
@@ -293,13 +364,17 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
     }                                                                                  \
   } while (false)
 
+#define DECL_T() typedef typename TestFixture::T T;
+
+#define DECL_TYPE() typedef typename TestFixture::Type Type;
+
 void AssertArraysEqual(const Array& expected, const Array& actual) {
   ASSERT_ARRAYS_EQUAL(expected, actual);
 }
 
 #define ASSERT_BATCHES_EQUAL(LEFT, RIGHT)    \
   do {                                       \
-    if (!LEFT.ApproxEquals(RIGHT)) {         \
+    if (!(LEFT).ApproxEquals(RIGHT)) {       \
       std::stringstream ss;                  \
       ss << "Left:\n";                       \
       ASSERT_OK(PrettyPrint(LEFT, 0, &ss));  \

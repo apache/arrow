@@ -113,3 +113,11 @@ Studio 2015):
 ```
 dev/release/verify-release-candidate.bat apache-arrow-0.7.0.tar.gz
 ```
+
+### Verifying the JavaScript release
+
+For JavaScript-specific releases, use a different verification script:
+
+```shell
+bash dev/release/js-verify-release-candidate.sh 0.7.0 0
+```

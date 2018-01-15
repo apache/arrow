@@ -42,7 +42,7 @@ sudo apt-get install cmake \
 On OS X, you can use [Homebrew][1]:
 
 ```shell
-brew update && brew bundle --file=cpp/Brewfile
+brew update && brew bundle --file=c_glib/Brewfile
 ```
 
 If you are developing on Windows, see the [Windows developer guide][2].
@@ -68,6 +68,14 @@ Simple release build:
     make unittest
 
 Detailed unit test logs will be placed in the build directory under `build/test-logs`.
+
+On some Linux distributions, running the test suite might require setting an
+explicit locale. If you see any locale-related errors, try setting the
+environment variable (which requires the `locales` package or equivalent):
+
+```
+export LC_ALL="en_US.UTF-8"
+```
 
 ### Statically linking to Arrow on Windows
 
@@ -136,6 +144,13 @@ The CUDA toolchain used to build the library can be customized by using the
 
 This library is still in Alpha stages, and subject to API changes without
 deprecation warnings.
+
+### Building Apache ORC integration (optional)
+
+The optional arrow reader for the Apache ORC format (found in the
+`arrow::adapters::orc` namespace) can be built by passing `-DARROW_ORC=on`.
+This is currently not supported on windows. Note that this functionality is
+still in Alpha stages, and subject to API changes without deprecation warnings.
 
 ### API documentation
 

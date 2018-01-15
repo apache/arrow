@@ -84,7 +84,7 @@ from conda-forge:
    conda create -y -q -n pyarrow-dev \
          python=3.6 numpy six setuptools cython pandas pytest \
          cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
-         brotli jemalloc lz4-c zstd -c conda-forge
+         gflags brotli jemalloc lz4-c zstd -c conda-forge
    source activate pyarrow-dev
 
 
@@ -108,7 +108,7 @@ building Arrow C++:
 
 .. code-block:: shell
 
-   brew update && brew bundle --file=python/Brewfile
+   brew update && brew bundle --file=arrow/python/Brewfile
 
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
 dependencies will be automatically built by Arrow's third-party toolchain.
@@ -175,6 +175,9 @@ Now build and install the Arrow C++ libraries:
 If you don't want to build and install the Plasma in-memory object store,
 you can omit the ``-DARROW_PLASMA=on`` flag.
 
+To add support for the experimental Apache ORC integration, include
+``-DARROW_ORC=on`` in these flags.
+
 Now, optionally build and install the Apache Parquet libraries in your
 toolchain:
 
@@ -205,6 +208,9 @@ Now, build pyarrow:
 If you did not build parquet-cpp, you can omit ``--with-parquet`` and if
 you did not build with plasma, you can omit ``--with-plasma``.
 
+If you built with the experimental Apache ORC integration, include
+``--with-orc`` in these flags.
+
 You should be able to run the unit tests with:
 
 .. code-block:: shell
@@ -230,7 +236,7 @@ You should be able to run the unit tests with:
 
    ====================== 181 passed, 17 skipped in 0.98 seconds ===========
 
-You can build a wheel by running:
+To build a self-contained wheel (include Arrow C++ and Parquet C++), one can set `--bundle-arrow-cpp`:
 
 .. code-block:: shell
 
@@ -256,16 +262,11 @@ First, starting from fresh clones of Apache Arrow and parquet-cpp:
 
 .. code-block:: shell
 
-   conda create -n arrow-dev cmake git boost-cpp ^
-         flatbuffers snappy zlib brotli thrift-cpp rapidjson
-   activate arrow-dev
-
-As one git housekeeping item, we must run this command in our Arrow clone:
-
-.. code-block:: shell
-
-   cd arrow
-   git config core.symlinks true
+   conda create -y -q -n pyarrow-dev ^
+         python=3.6 numpy six setuptools cython pandas pytest ^
+         cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib ^
+         gflags brotli lz4-c zstd -c conda-forge
+   activate pyarrow-dev
 
 Now, we build and install Arrow C++ libraries
 
@@ -279,7 +280,7 @@ Now, we build and install Arrow C++ libraries
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_BUILD_TYPE=Release ^
          -DARROW_BUILD_TESTS=on ^
-         -DARROW_CXXFLAGS="/WX" ^
+         -DARROW_CXXFLAGS="/WX /MP" ^
          -DARROW_PYTHON=on ..
    cmake --build . --target INSTALL --config Release
    cd ..\..

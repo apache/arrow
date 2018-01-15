@@ -393,6 +393,57 @@ void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[])
   update_object_get_requests(object_id);
 }
 
+int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
+  auto entry = get_object_table_entry(&store_info_, object_id);
+  ARROW_CHECK(entry != NULL) << "To abort an object it must be in the object table.";
+  ARROW_CHECK(entry->state != PLASMA_SEALED)
+      << "To abort an object it must not have been sealed.";
+  auto it = entry->clients.find(client);
+  if (it == entry->clients.end()) {
+    // If the client requesting the abort is not the creator, do not
+    // perform the abort.
+    return 0;
+  } else {
+    // The client requesting the abort is the creator. Free the object.
+    dlfree(entry->pointer);
+    store_info_.objects.erase(object_id);
+    return 1;
+  }
+}
+
+int PlasmaStore::delete_object(ObjectID& object_id) {
+  auto entry = get_object_table_entry(&store_info_, object_id);
+  // TODO(rkn): This should probably not fail, but should instead throw an
+  // error. Maybe we should also support deleting objects that have been
+  // created but not sealed.
+  if (entry == NULL) {
+    // To delete an object it must be in the object table.
+    return PlasmaError_ObjectNonexistent;
+  }
+
+  if (entry->state != PLASMA_SEALED) {
+    // To delete an object it must have been sealed.
+    return PlasmaError_ObjectNotSealed;
+  }
+
+  if (entry->clients.size() != 0) {
+    // To delete an object, there must be no clients currently using it.
+    return PlasmaError_ObjectInUse;
+  }
+
+  eviction_policy_.remove_object(object_id);
+
+  dlfree(entry->pointer);
+  store_info_.objects.erase(object_id);
+  // Inform all subscribers that the object has been deleted.
+  ObjectInfoT notification;
+  notification.object_id = object_id.binary();
+  notification.is_deletion = true;
+  push_notification(&notification);
+
+  return PlasmaError_OK;
+}
+
 void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
   for (const auto& object_id : object_ids) {
     ARROW_LOG(DEBUG) << "deleting object " << object_id.hex();
@@ -442,8 +493,21 @@ void PlasmaStore::disconnect_client(int client_fd) {
   ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
   // If this client was using any objects, remove it from the appropriate
   // lists.
+  // TODO(swang): Avoid iteration through the object table.
+  auto client = it->second.get();
+  std::vector<ObjectID> unsealed_objects;
   for (const auto& entry : store_info_.objects) {
-    remove_client_from_object_clients(entry.second.get(), it->second.get());
+    if (entry.second->state == PLASMA_SEALED) {
+      remove_client_from_object_clients(entry.second.get(), client);
+    } else {
+      // Add unsealed objects to a temporary list of object IDs. Do not perform
+      // the abort here, since it potentially modifies the object table.
+      unsealed_objects.push_back(entry.first);
+    }
+  }
+  // If the client was creating any objects, abort them.
+  for (const auto& entry : unsealed_objects) {
+    abort_object(entry, client);
   }
 
   // Note, the store may still attempt to send a message to the disconnected
@@ -582,24 +646,36 @@ Status PlasmaStore::process_message(Client* client) {
         warn_if_sigpipe(send_fd(client->fd, object.handle.store_fd), client->fd);
       }
     } break;
+    case MessageType_PlasmaAbortRequest: {
+      RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
+      ARROW_CHECK(abort_object(object_id, client) == 1) << "To abort an object, the only "
+                                                           "client currently using it "
+                                                           "must be the creator.";
+      HANDLE_SIGPIPE(SendAbortReply(client->fd, object_id), client->fd);
+    } break;
     case MessageType_PlasmaGetRequest: {
       std::vector<ObjectID> object_ids_to_get;
       int64_t timeout_ms;
       RETURN_NOT_OK(ReadGetRequest(input, input_size, object_ids_to_get, &timeout_ms));
       process_get_request(client, object_ids_to_get, timeout_ms);
     } break;
-    case MessageType_PlasmaReleaseRequest:
+    case MessageType_PlasmaReleaseRequest: {
       RETURN_NOT_OK(ReadReleaseRequest(input, input_size, &object_id));
       release_object(object_id, client);
-      break;
-    case MessageType_PlasmaContainsRequest:
+    } break;
+    case MessageType_PlasmaDeleteRequest: {
+      RETURN_NOT_OK(ReadDeleteRequest(input, input_size, &object_id));
+      int error_code = delete_object(object_id);
+      HANDLE_SIGPIPE(SendDeleteReply(client->fd, object_id, error_code), client->fd);
+    } break;
+    case MessageType_PlasmaContainsRequest: {
       RETURN_NOT_OK(ReadContainsRequest(input, input_size, &object_id));
       if (contains_object(object_id) == OBJECT_FOUND) {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 1), client->fd);
       } else {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 0), client->fd);
       }
-      break;
+    } break;
     case MessageType_PlasmaSealRequest: {
       unsigned char digest[kDigestSize];
       RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
@@ -638,12 +714,22 @@ class PlasmaStoreRunner {
   PlasmaStoreRunner() {}
 
   void Start(char* socket_name, int64_t system_memory, std::string directory,
-             bool hugepages_enabled) {
+             bool hugepages_enabled, bool use_one_memory_mapped_file) {
     // Create the event loop.
     loop_.reset(new EventLoop);
     store_.reset(
         new PlasmaStore(loop_.get(), system_memory, directory, hugepages_enabled));
     plasma_config = store_->get_plasma_store_info();
+
+    // If the store is configured to use a single memory-mapped file, then we
+    // achieve that by mallocing and freeing a single large amount of space.
+    // that maximum allowed size up front.
+    if (use_one_memory_mapped_file) {
+      void* pointer = plasma::dlmemalign(BLOCK_SIZE, system_memory);
+      ARROW_CHECK(pointer != NULL);
+      plasma::dlfree(pointer);
+    }
+
     int socket = bind_ipc_sock(socket_name, true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
@@ -678,14 +764,15 @@ void HandleSignal(int signal) {
 }
 
 void start_server(char* socket_name, int64_t system_memory, std::string plasma_directory,
-                  bool hugepages_enabled) {
+                  bool hugepages_enabled, bool use_one_memory_mapped_file) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
 
   g_runner.reset(new PlasmaStoreRunner());
   signal(SIGTERM, HandleSignal);
-  g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled);
+  g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled,
+                  use_one_memory_mapped_file);
 }
 
 }  // namespace plasma
@@ -695,9 +782,11 @@ int main(int argc, char* argv[]) {
   // Directory where plasma memory mapped files are stored.
   std::string plasma_directory;
   bool hugepages_enabled = false;
+  // True if a single large memory-mapped file should be created at startup.
+  bool use_one_memory_mapped_file = false;
   int64_t system_memory = -1;
   int c;
-  while ((c = getopt(argc, argv, "s:m:d:h")) != -1) {
+  while ((c = getopt(argc, argv, "s:m:d:hf")) != -1) {
     switch (c) {
       case 'd':
         plasma_directory = std::string(optarg);
@@ -717,6 +806,9 @@ int main(int argc, char* argv[]) {
                         << "GB of memory.";
         break;
       }
+      case 'f':
+        use_one_memory_mapped_file = true;
+        break;
       default:
         exit(-1);
     }
@@ -770,5 +862,6 @@ int main(int argc, char* argv[]) {
   // available.
   plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::start_server(socket_name, system_memory, plasma_directory, hugepages_enabled);
+  plasma::start_server(socket_name, system_memory, plasma_directory, hugepages_enabled,
+                       use_one_memory_mapped_file);
 }

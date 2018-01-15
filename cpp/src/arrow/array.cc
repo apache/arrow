@@ -36,6 +36,20 @@
 
 namespace arrow {
 
+std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
+                                           int64_t length,
+                                           std::vector<std::shared_ptr<Buffer>>&& buffers,
+                                           int64_t null_count, int64_t offset) {
+  return std::make_shared<ArrayData>(type, length, std::move(buffers), null_count,
+                                     offset);
+}
+
+std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
+                                           int64_t length, int64_t null_count,
+                                           int64_t offset) {
+  return std::make_shared<ArrayData>(type, length, null_count, offset);
+}
+
 // ----------------------------------------------------------------------
 // Base array class
 
@@ -89,10 +103,10 @@ static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_
   length = std::min(data.length - offset, length);
   offset += data.offset;
 
-  auto new_data = data.ShallowCopy();
+  auto new_data = data.Copy();
   new_data->length = length;
   new_data->offset = offset;
-  new_data->null_count = kUnknownNullCount;
+  new_data->null_count = data.null_count != 0 ? kUnknownNullCount : 0;
   return new_data;
 }
 
@@ -112,8 +126,7 @@ std::string Array::ToString() const {
 }
 
 NullArray::NullArray(int64_t length) {
-  BufferVector buffers = {nullptr};
-  SetData(std::make_shared<ArrayData>(null(), length, std::move(buffers), length));
+  SetData(ArrayData::Make(null(), length, {nullptr}, length));
 }
 
 // ----------------------------------------------------------------------
@@ -123,15 +136,17 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
                                const std::shared_ptr<Buffer>& data,
                                const std::shared_ptr<Buffer>& null_bitmap,
                                int64_t null_count, int64_t offset) {
-  BufferVector buffers = {null_bitmap, data};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
+  SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
 }
+
+#ifndef ARROW_NO_DEPRECATED_API
 
 const uint8_t* PrimitiveArray::raw_values() const {
   return raw_values_ +
          offset() * static_cast<const FixedWidthType&>(*type()).bit_width() / CHAR_BIT;
 }
+
+#endif
 
 template <typename T>
 NumericArray<T>::NumericArray(const std::shared_ptr<ArrayData>& data)
@@ -165,9 +180,8 @@ ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
                      const std::shared_ptr<Array>& values,
                      const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                      int64_t offset) {
-  BufferVector buffers = {null_bitmap, value_offsets};
   auto internal_data =
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset);
+      ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
   SetData(internal_data);
 }
@@ -219,9 +233,8 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
   }
 
   auto list_type = list(values.type());
-  auto internal_data =
-      std::make_shared<ArrayData>(list_type, num_offsets - 1, std::move(buffers),
-                                  offsets.null_count(), offsets.offset());
+  auto internal_data = ArrayData::Make(list_type, num_offsets - 1, std::move(buffers),
+                                       offsets.null_count(), offsets.offset());
   internal_data->child_data.push_back(values.data());
 
   *out = std::make_shared<ListArray>(internal_data);
@@ -276,9 +289,8 @@ BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
                          const std::shared_ptr<Buffer>& data,
                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                          int64_t offset) {
-  BufferVector buffers = {null_bitmap, value_offsets, data};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
+  SetData(ArrayData::Make(type, length, {null_bitmap, value_offsets, data}, null_count,
+                          offset));
 }
 
 StringArray::StringArray(const std::shared_ptr<ArrayData>& data) {
@@ -314,15 +326,15 @@ const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
 // ----------------------------------------------------------------------
 // Decimal
 
-DecimalArray::DecimalArray(const std::shared_ptr<ArrayData>& data)
+Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data)
     : FixedSizeBinaryArray(data) {
   DCHECK_EQ(data->type->id(), Type::DECIMAL);
 }
 
-std::string DecimalArray::FormatValue(int64_t i) const {
-  const auto& type_ = static_cast<const DecimalType&>(*type());
-  Decimal128 value(GetValue(i));
-  return value.ToString(type_.precision(), type_.scale());
+std::string Decimal128Array::FormatValue(int64_t i) const {
+  const auto& type_ = static_cast<const Decimal128Type&>(*type());
+  const Decimal128 value(GetValue(i));
+  return value.ToString(type_.scale());
 }
 
 // ----------------------------------------------------------------------
@@ -338,9 +350,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
                          const std::vector<std::shared_ptr<Array>>& children,
                          std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                          int64_t offset) {
-  BufferVector buffers = {null_bitmap};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
+  SetData(ArrayData::Make(type, length, {null_bitmap}, null_count, offset));
   for (const auto& child : children) {
     data_->child_data.push_back(child->data());
   }
@@ -384,13 +394,66 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::shared_ptr<Buffer>& value_offsets,
                        const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                        int64_t offset) {
-  BufferVector buffers = {null_bitmap, type_ids, value_offsets};
-  auto internal_data =
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset);
+  auto internal_data = ArrayData::Make(
+      type, length, {null_bitmap, type_ids, value_offsets}, null_count, offset);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
   SetData(internal_data);
+}
+
+Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
+                             const std::vector<std::shared_ptr<Array>>& children,
+                             std::shared_ptr<Array>* out) {
+  if (value_offsets.length() == 0) {
+    return Status::Invalid("UnionArray offsets must have non-zero length");
+  }
+
+  if (value_offsets.type_id() != Type::INT32) {
+    return Status::Invalid("UnionArray offsets must be signed int32");
+  }
+
+  if (type_ids.type_id() != Type::INT8) {
+    return Status::Invalid("UnionArray type_ids must be signed int8");
+  }
+
+  if (value_offsets.null_count() != 0) {
+    return Status::Invalid("MakeDense does not allow NAs in value_offsets");
+  }
+
+  BufferVector buffers = {type_ids.null_bitmap(),
+                          static_cast<const UInt8Array&>(type_ids).values(),
+                          static_cast<const Int32Array&>(value_offsets).values()};
+  auto union_type = union_(children, UnionMode::DENSE);
+  auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
+                                       type_ids.null_count(), type_ids.offset());
+  for (const auto& child : children) {
+    internal_data->child_data.push_back(child->data());
+  }
+  *out = std::make_shared<UnionArray>(internal_data);
+  return Status::OK();
+}
+
+Status UnionArray::MakeSparse(const Array& type_ids,
+                              const std::vector<std::shared_ptr<Array>>& children,
+                              std::shared_ptr<Array>* out) {
+  if (type_ids.type_id() != Type::INT8) {
+    return Status::Invalid("UnionArray type_ids must be signed int8");
+  }
+  BufferVector buffers = {type_ids.null_bitmap(),
+                          static_cast<const UInt8Array&>(type_ids).values(), nullptr};
+  auto union_type = union_(children, UnionMode::SPARSE);
+  auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
+                                       type_ids.null_count(), type_ids.offset());
+  for (const auto& child : children) {
+    internal_data->child_data.push_back(child->data());
+    if (child->length() != type_ids.length()) {
+      return Status::Invalid(
+          "Sparse UnionArray must have len(child) == len(type_ids) for all children");
+    }
+  }
+  *out = std::make_shared<UnionArray>(internal_data);
+  return Status::OK();
 }
 
 std::shared_ptr<Array> UnionArray::child(int i) const {
@@ -423,14 +486,14 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
     : dict_type_(static_cast<const DictionaryType*>(type.get())) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
   DCHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
-  auto data = indices->data()->ShallowCopy();
+  auto data = indices->data()->Copy();
   data->type = type;
   SetData(data);
 }
 
 void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
-  auto indices_data = data_->ShallowCopy();
+  auto indices_data = data_->Copy();
   indices_data->type = dict_type_->index_type();
   std::shared_ptr<Array> result;
   indices_ = MakeArray(indices_data);
@@ -459,7 +522,7 @@ struct ValidateVisitor {
 
   Status Visit(const PrimitiveArray&) { return Status::OK(); }
 
-  Status Visit(const DecimalArray&) { return Status::OK(); }
+  Status Visit(const Decimal128Array&) { return Status::OK(); }
 
   Status Visit(const BinaryArray&) {
     // TODO(wesm): what to do here?

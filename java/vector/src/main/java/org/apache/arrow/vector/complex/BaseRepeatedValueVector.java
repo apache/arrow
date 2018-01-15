@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,6 +21,7 @@ package org.apache.arrow.vector.complex;
 import java.util.Collections;
 import java.util.Iterator;
 
+import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseValueVector;
@@ -28,9 +29,12 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 import com.google.common.base.Preconditions;
@@ -41,12 +45,14 @@ import io.netty.buffer.ArrowBuf;
 public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
 
   public final static FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
-  public final static String OFFSETS_VECTOR_NAME = "$offsets$";
   public final static String DATA_VECTOR_NAME = "$data$";
 
-  protected final UInt4Vector offsets;
+  public final static byte OFFSET_WIDTH = 4;
+  protected ArrowBuf offsetBuffer;
   protected FieldVector vector;
   protected final CallBack callBack;
+  protected int valueCount;
+  protected int offsetAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
 
   protected BaseRepeatedValueVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, DEFAULT_DATA_VECTOR, callBack);
@@ -54,42 +60,72 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   protected BaseRepeatedValueVector(String name, BufferAllocator allocator, FieldVector vector, CallBack callBack) {
     super(name, allocator);
-    this.offsets = new UInt4Vector(OFFSETS_VECTOR_NAME, allocator);
+    this.offsetBuffer = allocator.getEmpty();
     this.vector = Preconditions.checkNotNull(vector, "data vector cannot be null");
     this.callBack = callBack;
+    this.valueCount = 0;
   }
 
   @Override
   public boolean allocateNewSafe() {
-    /* boolean to keep track if all the memory allocation were successful
-     * Used in the case of composite vectors when we need to allocate multiple
-     * buffers for multiple vectors. If one of the allocations failed we need to
-     * clear all the memory that we allocated
-     */
-    boolean success = false;
+    boolean dataAlloc = false;
     try {
-      if (!offsets.allocateNewSafe()) {
-        return false;
-      }
-      success = vector.allocateNewSafe();
+      allocateOffsetBuffer(offsetAllocationSizeInBytes);
+      dataAlloc = vector.allocateNewSafe();
+    } catch (Exception e) {
+      e.printStackTrace();
+      clear();
+      return false;
     } finally {
-      if (!success) {
+      if (!dataAlloc) {
         clear();
       }
     }
-    offsets.zeroVector();
-    return success;
+    return dataAlloc;
+  }
+
+  protected void allocateOffsetBuffer(final long size) {
+    final int curSize = (int) size;
+    offsetBuffer = allocator.buffer(curSize);
+    offsetBuffer.readerIndex(0);
+    offsetAllocationSizeInBytes = curSize;
+    offsetBuffer.setZero(0, offsetBuffer.capacity());
   }
 
   @Override
   public void reAlloc() {
-    offsets.reAlloc();
+    reallocOffsetBuffer();
     vector.reAlloc();
   }
 
+  protected void reallocOffsetBuffer() {
+    final int currentBufferCapacity = offsetBuffer.capacity();
+    long baseSize = offsetAllocationSizeInBytes;
+
+    if (baseSize < (long) currentBufferCapacity) {
+      baseSize = (long) currentBufferCapacity;
+    }
+
+    long newAllocationSize = baseSize * 2L;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+
+    if (newAllocationSize > MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Unable to expand the buffer");
+    }
+
+    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
+    newBuf.setBytes(0, offsetBuffer, 0, currentBufferCapacity);
+    final int halfNewCapacity = newBuf.capacity() / 2;
+    newBuf.setZero(halfNewCapacity, halfNewCapacity);
+    offsetBuffer.release(1);
+    offsetBuffer = newBuf;
+    offsetAllocationSizeInBytes = (int) newAllocationSize;
+  }
+
   @Override
+  @Deprecated
   public UInt4Vector getOffsetVector() {
-    return offsets;
+    throw new UnsupportedOperationException("There is no inner offset vector");
   }
 
   @Override
@@ -99,25 +135,33 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   public void setInitialCapacity(int numRecords) {
-    offsets.setInitialCapacity(numRecords + 1);
-    vector.setInitialCapacity(numRecords * RepeatedValueVector.DEFAULT_REPEAT_PER_RECORD);
+    offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
+    if (vector instanceof BaseFixedWidthVector || vector instanceof BaseVariableWidthVector) {
+      vector.setInitialCapacity(numRecords * RepeatedValueVector.DEFAULT_REPEAT_PER_RECORD);
+    } else {
+     vector.setInitialCapacity(numRecords);
+    }
   }
 
   @Override
   public int getValueCapacity() {
-    final int offsetValueCapacity = Math.max(offsets.getValueCapacity() - 1, 0);
+    final int offsetValueCapacity = Math.max(getOffsetBufferValueCapacity() - 1, 0);
     if (vector == DEFAULT_DATA_VECTOR) {
       return offsetValueCapacity;
     }
     return Math.min(vector.getValueCapacity(), offsetValueCapacity);
   }
 
+  protected int getOffsetBufferValueCapacity() {
+    return (int) ((offsetBuffer.capacity() * 1.0) / OFFSET_WIDTH);
+  }
+
   @Override
   public int getBufferSize() {
-    if (getAccessor().getValueCount() == 0) {
+    if (getValueCount() == 0) {
       return 0;
     }
-    return offsets.getBufferSize() + vector.getBufferSize();
+    return ((valueCount + 1) * OFFSET_WIDTH) + vector.getBufferSize();
   }
 
   @Override
@@ -126,7 +170,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       return 0;
     }
 
-    return offsets.getBufferSizeFor(valueCount + 1) + vector.getBufferSizeFor(valueCount);
+    return ((valueCount + 1) * OFFSET_WIDTH) + vector.getBufferSizeFor(valueCount);
   }
 
   @Override
@@ -136,14 +180,28 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   public void clear() {
-    offsets.clear();
+    offsetBuffer = releaseBuffer(offsetBuffer);
     vector.clear();
+    valueCount = 0;
     super.clear();
   }
 
   @Override
+  public void reset() {
+    offsetBuffer.setZero(0, offsetBuffer.capacity());
+    vector.reset();
+    valueCount = 0;
+  }
+
+  @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    final ArrowBuf[] buffers = ObjectArrays.concat(offsets.getBuffers(false), vector.getBuffers(false), ArrowBuf.class);
+    final ArrowBuf[] buffers;
+    if (getBufferSize() == 0) {
+      buffers = new ArrowBuf[0];
+    } else {
+      buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer}, vector.getBuffers(false),
+              ArrowBuf.class);
+    }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
         buffer.retain();
@@ -167,15 +225,15 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       // returned vector must have the same field
       created = true;
       if (callBack != null &&
-          // not a schema change if changing from ZeroVector to ZeroVector
-          (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
+              // not a schema change if changing from ZeroVector to ZeroVector
+              (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
         callBack.doWork();
       }
     }
 
     if (vector.getField().getType().getTypeID() != fieldType.getType().getTypeID()) {
       final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
-          fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
+              fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
       throw new SchemaChangeRuntimeException(msg);
     }
 
@@ -187,54 +245,49 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     vector = v;
   }
 
-  public abstract class BaseRepeatedAccessor extends BaseValueVector.BaseAccessor implements RepeatedAccessor {
 
-    @Override
-    public int getValueCount() {
-      return Math.max(offsets.getAccessor().getValueCount() - 1, 0);
-    }
-
-    @Override
-    public int getInnerValueCount() {
-      return vector.getAccessor().getValueCount();
-    }
-
-    @Override
-    public int getInnerValueCountAt(int index) {
-      return offsets.getAccessor().get(index + 1) - offsets.getAccessor().get(index);
-    }
-
-    @Override
-    public boolean isNull(int index) {
-      return false;
-    }
-
-    @Override
-    public boolean isEmpty(int index) {
-      return false;
-    }
+  @Override
+  public int getValueCount() {
+    return valueCount;
   }
 
-  public abstract class BaseRepeatedMutator extends BaseValueVector.BaseMutator implements RepeatedMutator {
-
-    @Override
-    public int startNewValue(int index) {
-      while (offsets.getValueCapacity() <= index) {
-        offsets.reAlloc();
-      }
-      int offset = offsets.getAccessor().get(index);
-      offsets.getMutator().setSafe(index + 1, offset);
-      setValueCount(index + 1);
-      return offset;
-    }
-
-    @Override
-    public void setValueCount(int valueCount) {
-      // TODO: populate offset end points
-      offsets.getMutator().setValueCount(valueCount == 0 ? 0 : valueCount + 1);
-      final int childValueCount = valueCount == 0 ? 0 : offsets.getAccessor().get(valueCount);
-      vector.getMutator().setValueCount(childValueCount);
-    }
+  /* returns the value count for inner data vector for this list vector */
+  public int getInnerValueCount() {
+    return vector.getValueCount();
   }
 
+
+  /* returns the value count for inner data vector at a particular index */
+  public int getInnerValueCountAt(int index) {
+    return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH) -
+            offsetBuffer.getInt(index * OFFSET_WIDTH);
+  }
+
+  public boolean isNull(int index) {
+    return false;
+  }
+
+  public boolean isEmpty(int index) {
+    return false;
+  }
+
+  public int startNewValue(int index) {
+    while (index >= getOffsetBufferValueCapacity()) {
+      reallocOffsetBuffer();
+    }
+    int offset = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, offset);
+    setValueCount(index + 1);
+    return offset;
+  }
+
+  public void setValueCount(int valueCount) {
+    this.valueCount = valueCount;
+    while (valueCount > getOffsetBufferValueCapacity()) {
+      reallocOffsetBuffer();
+    }
+    final int childValueCount = valueCount == 0 ? 0 :
+            offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+    vector.setValueCount(childValueCount);
+  }
 }

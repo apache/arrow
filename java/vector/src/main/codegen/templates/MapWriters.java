@@ -184,7 +184,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   }
 
   public void setValueCount(int count) {
-    container.getMutator().setValueCount(count);
+    container.setValueCount(count);
   }
 
   @Override
@@ -199,7 +199,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   public void start() {
     <#if mode == "Single">
     <#else>
-    container.getMutator().setIndexDefined(idx());
+    container.setIndexDefined(idx());
     </#if>
   }
 
@@ -214,7 +214,6 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
   <#assign vectName = capName />
-  <#assign vectName = "Nullable${capName}" />
 
   <#if minor.typeParams?? >
   @Override

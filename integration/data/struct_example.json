@@ -16,19 +16,7 @@
               "bitWidth": 32
             },
             "nullable": true,
-            "children": [],
-            "typeLayout": {
-              "vectors": [
-                {
-                  "type": "VALIDITY",
-                  "typeBitWidth": 1
-                },
-                {
-                  "type": "DATA",
-                  "typeBitWidth": 32
-                }
-              ]
-            }
+            "children": []
           },
           {
             "name": "f2",
@@ -36,33 +24,9 @@
               "name": "utf8"
             },
             "nullable": true,
-            "children": [],
-            "typeLayout": {
-              "vectors": [
-                {
-                  "type": "VALIDITY",
-                  "typeBitWidth": 1
-                },
-                {
-                  "type": "OFFSET",
-                  "typeBitWidth": 32
-                },
-                {
-                  "type": "DATA",
-                  "typeBitWidth": 8
-                }
-              ]
-            }
+            "children": []
           }
-        ],
-        "typeLayout": {
-          "vectors": [
-            {
-              "type": "VALIDITY",
-              "typeBitWidth": 1
-            }
-          ]
-        }
+        ]
       }
     ]
   },

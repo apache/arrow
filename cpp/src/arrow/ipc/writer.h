@@ -65,6 +65,12 @@ class ARROW_EXPORT RecordBatchWriter {
   /// \return Status
   Status WriteTable(const Table& table);
 
+  /// \brief Write Table with a particular chunksize
+  /// \param[in] table table to write
+  /// \param[in] max_chunksize maximum chunk size for table chunks
+  /// \return Status
+  Status WriteTable(const Table& table, int64_t max_chunksize);
+
   /// \brief Perform any logic necessary to finish the stream
   ///
   /// \return Status
@@ -238,6 +244,17 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 /// \return Status
 ARROW_EXPORT
 Status GetTensorSize(const Tensor& tensor, int64_t* size);
+
+/// \brief EXPERIMENTAL: Convert arrow::Tensor to a Message with minimal memory
+/// allocation
+///
+/// \param[in] tensor the Tensor to write
+/// \param[in] pool MemoryPool to allocate space for metadata
+/// \param[out] out the resulting Message
+/// \return Status
+ARROW_EXPORT
+Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
+                        std::unique_ptr<Message>* out);
 
 /// \brief EXPERIMENTAL: Write arrow::Tensor as a contiguous message
 ///

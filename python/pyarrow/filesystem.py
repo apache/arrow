@@ -275,8 +275,11 @@ class DaskFileSystem(FileSystem):
         return self.fs.exists(path)
 
     @implements(FileSystem.mkdir)
-    def mkdir(self, path):
-        return self.fs.mkdir(path)
+    def mkdir(self, path, create_parents=True):
+        if create_parents:
+            return self.fs.mkdirs(path)
+        else:
+            return self.fs.mkdir(path)
 
     @implements(FileSystem.open)
     def open(self, path, mode='rb'):

@@ -230,9 +230,9 @@ struct TypeTraits<DoubleType> {
 };
 
 template <>
-struct TypeTraits<DecimalType> {
-  using ArrayType = DecimalArray;
-  using BuilderType = DecimalBuilder;
+struct TypeTraits<Decimal128Type> {
+  using ArrayType = Decimal128Array;
+  using BuilderType = Decimal128Builder;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -428,6 +428,10 @@ static inline bool is_binary_like(Type::type type_id) {
       break;
   }
   return false;
+}
+
+static inline bool is_dictionary(Type::type type_id) {
+  return type_id == Type::DICTIONARY;
 }
 
 }  // namespace arrow

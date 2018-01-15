@@ -22,10 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.vector.ValueVector.Accessor;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.schema.ArrowVectorType;
+import org.apache.arrow.vector.BufferLayout.BufferType;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 public class VectorUnloader {
 
@@ -53,10 +52,9 @@ public class VectorUnloader {
   }
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    Accessor accessor = vector.getAccessor();
-    nodes.add(new ArrowFieldNode(accessor.getValueCount(), includeNullCount ? accessor.getNullCount() : -1));
+    nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
-    List<ArrowVectorType> expectedBuffers = vector.getField().getTypeLayout().getVectorTypes();
+    List<BufferType> expectedBuffers = TypeLayout.getTypeLayout(vector.getField().getType()).getBufferTypes();
     if (fieldBuffers.size() != expectedBuffers.size()) {
       throw new IllegalArgumentException(String.format(
           "wrong number of buffers for field %s in vector %s. found: %s",

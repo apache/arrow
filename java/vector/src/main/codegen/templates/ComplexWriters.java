@@ -39,11 +39,9 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class ${eName}WriterImpl extends AbstractFieldWriter {
 
-  private final Nullable${name}Vector.Mutator mutator;
-  final Nullable${name}Vector vector;
+  final ${name}Vector vector;
 
-  public ${eName}WriterImpl(Nullable${name}Vector vector) {
-    this.mutator = vector.getMutator();
+  public ${eName}WriterImpl(${name}Vector vector) {
     this.vector = vector;
   }
 
@@ -81,17 +79,17 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
 
   public void write(${minor.class?cap_first}Holder h) {
     mutator.addSafe(idx(), h);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setValueCount(idx()+1);
   }
 
-  public void write(Nullable${minor.class?cap_first}Holder h) {
+  public void write(${minor.class?cap_first}Holder h) {
     mutator.addSafe(idx(), h);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setValueCount(idx()+1);
   }
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     mutator.addSafe(idx(), <#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setValueCount(idx()+1);
   }
 
   public void setPosition(int idx) {
@@ -103,33 +101,36 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
   <#else>
 
   public void write(${minor.class}Holder h) {
-    mutator.setSafe(idx(), h);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx()+1);
   }
 
   public void write(Nullable${minor.class}Holder h) {
-    mutator.setSafe(idx(), h);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx()+1);
   }
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-    mutator.setSafe(idx()<#if mode == "Nullable">, 1</#if><#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setSafe(idx(), 1<#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
+    vector.setValueCount(idx()+1);
   }
-  <#if minor.class == "Decimal">
 
+  <#if minor.class == "Decimal">
   public void write${minor.class}(${friendlyType} value) {
-    mutator.setSafe(idx(), value);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setSafe(idx(), value);
+    vector.setValueCount(idx()+1);
+  }
+
+  public void writeBigEndianBytesToDecimal(byte[] value) {
+    vector.setBigEndianSafe(idx(), value);
+    vector.setValueCount(idx()+1);
   }
   </#if>
-  <#if mode == "Nullable">
 
   public void writeNull() {
-    mutator.setNull(idx());
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setNull(idx());
+    vector.setValueCount(idx()+1);
   }
-  </#if>
   </#if>
 }
 
@@ -150,6 +151,8 @@ public interface ${eName}Writer extends BaseWriter {
 <#if minor.class == "Decimal">
 
   public void write${minor.class}(${friendlyType} value);
+
+  public void writeBigEndianBytesToDecimal(byte[] value);
 </#if>
 }
 

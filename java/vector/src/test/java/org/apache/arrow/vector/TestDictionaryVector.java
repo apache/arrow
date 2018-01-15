@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
+import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.junit.Assert.assertEquals;
 
 import java.nio.charset.StandardCharsets;
@@ -54,47 +54,45 @@ public class TestDictionaryVector {
   @Test
   public void testEncodeStrings() {
     // Create a new value vector
-    try (final NullableVarCharVector vector = newNullableVarCharVector("foo", allocator);
-         final NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", allocator);) {
-      final NullableVarCharVector.Mutator m = vector.getMutator();
+    try (final VarCharVector vector = newVarCharVector("foo", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
       vector.allocateNew(512, 5);
 
       // set some values
-      m.setSafe(0, zero, 0, zero.length);
-      m.setSafe(1, one, 0, one.length);
-      m.setSafe(2, one, 0, one.length);
-      m.setSafe(3, two, 0, two.length);
-      m.setSafe(4, zero, 0, zero.length);
-      m.setValueCount(5);
+      vector.setSafe(0, zero, 0, zero.length);
+      vector.setSafe(1, one, 0, one.length);
+      vector.setSafe(2, one, 0, one.length);
+      vector.setSafe(3, two, 0, two.length);
+      vector.setSafe(4, zero, 0, zero.length);
+      vector.setValueCount(5);
 
       // set some dictionary values
-      final NullableVarCharVector.Mutator m2 = dictionaryVector.getMutator();
       dictionaryVector.allocateNew(512, 3);
-      m2.setSafe(0, zero, 0, zero.length);
-      m2.setSafe(1, one, 0, one.length);
-      m2.setSafe(2, two, 0, two.length);
-      m2.setValueCount(3);
+      dictionaryVector.setSafe(0, zero, 0, zero.length);
+      dictionaryVector.setSafe(1, one, 0, one.length);
+      dictionaryVector.setSafe(2, two, 0, two.length);
+      dictionaryVector.setValueCount(3);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
       try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
-        assertEquals(NullableIntVector.class, encoded.getClass());
+        assertEquals(IntVector.class, encoded.getClass());
 
-        NullableIntVector.Accessor indexAccessor = ((NullableIntVector) encoded).getAccessor();
-        assertEquals(5, indexAccessor.getValueCount());
-        assertEquals(0, indexAccessor.get(0));
-        assertEquals(1, indexAccessor.get(1));
-        assertEquals(1, indexAccessor.get(2));
-        assertEquals(2, indexAccessor.get(3));
-        assertEquals(0, indexAccessor.get(4));
+        IntVector index = ((IntVector)encoded);
+        assertEquals(5, index.getValueCount());
+        assertEquals(0, index.get(0));
+        assertEquals(1, index.get(1));
+        assertEquals(1, index.get(2));
+        assertEquals(2, index.get(3));
+        assertEquals(0, index.get(4));
 
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
           assertEquals(vector.getClass(), decoded.getClass());
-          assertEquals(vector.getAccessor().getValueCount(), decoded.getAccessor().getValueCount());
+          assertEquals(vector.getValueCount(), ((VarCharVector)decoded).getValueCount());
           for (int i = 0; i < 5; i++) {
-            assertEquals(vector.getAccessor().getObject(i), decoded.getAccessor().getObject(i));
+            assertEquals(vector.getObject(i), ((VarCharVector)decoded).getObject(i));
           }
         }
       }
@@ -104,43 +102,42 @@ public class TestDictionaryVector {
   @Test
   public void testEncodeLargeVector() {
     // Create a new value vector
-    try (final NullableVarCharVector vector = newNullableVarCharVector("foo", allocator);
-         final NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", allocator);) {
-      final NullableVarCharVector.Mutator m = vector.getMutator();
+    try (final VarCharVector vector = newVarCharVector("foo", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
       vector.allocateNew();
 
       int count = 10000;
 
       for (int i = 0; i < 10000; ++i) {
-        vector.getMutator().setSafe(i, data[i % 3], 0, data[i % 3].length);
+        vector.setSafe(i, data[i % 3], 0, data[i % 3].length);
       }
-      vector.getMutator().setValueCount(count);
+      vector.setValueCount(count);
 
       dictionaryVector.allocateNew(512, 3);
-      dictionaryVector.getMutator().setSafe(0, zero, 0, zero.length);
-      dictionaryVector.getMutator().setSafe(1, one, 0, one.length);
-      dictionaryVector.getMutator().setSafe(2, two, 0, two.length);
-      dictionaryVector.getMutator().setValueCount(3);
+      dictionaryVector.setSafe(0, zero, 0, zero.length);
+      dictionaryVector.setSafe(1, one, 0, one.length);
+      dictionaryVector.setSafe(2, two, 0, two.length);
+      dictionaryVector.setValueCount(3);
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
 
       try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
-        assertEquals(NullableIntVector.class, encoded.getClass());
+        assertEquals(IntVector.class, encoded.getClass());
 
-        NullableIntVector.Accessor indexAccessor = ((NullableIntVector) encoded).getAccessor();
-        assertEquals(count, indexAccessor.getValueCount());
+        IntVector index = ((IntVector) encoded);
+        assertEquals(count, index.getValueCount());
         for (int i = 0; i < count; ++i) {
-          assertEquals(i % 3, indexAccessor.get(i));
+          assertEquals(i % 3, index.get(i));
         }
 
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
           assertEquals(vector.getClass(), decoded.getClass());
-          assertEquals(vector.getAccessor().getValueCount(), decoded.getAccessor().getValueCount());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < count; ++i) {
-            assertEquals(vector.getAccessor().getObject(i), decoded.getAccessor().getObject(i));
+            assertEquals(vector.getObject(i), decoded.getObject(i));
           }
         }
       }

@@ -21,6 +21,7 @@ import pytest
 
 from collections import namedtuple, OrderedDict, defaultdict
 import datetime
+import os
 import string
 import sys
 
@@ -209,12 +210,23 @@ def make_serialization_context():
 serialization_context = make_serialization_context()
 
 
-def serialization_roundtrip(value, f):
+def serialization_roundtrip(value, f, ctx=serialization_context):
     f.seek(0)
-    pa.serialize_to(value, f, serialization_context)
+    pa.serialize_to(value, f, ctx)
     f.seek(0)
-    result = pa.deserialize_from(f, None, serialization_context)
+    result = pa.deserialize_from(f, None, ctx)
     assert_equal(value, result)
+
+    _check_component_roundtrip(value)
+
+
+def _check_component_roundtrip(value):
+    # Test to/from components
+    serialized = pa.serialize(value)
+    components = serialized.to_components()
+    from_comp = pa.SerializedPyObject.from_components(components)
+    recons = from_comp.deserialize()
+    assert_equal(value, recons)
 
 
 @pytest.yield_fixture(scope='session')
@@ -235,6 +247,7 @@ def test_primitive_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for obj in PRIMITIVE_OBJECTS:
             serialization_roundtrip(obj, mmap)
+            serialization_roundtrip(obj, mmap, pa.pandas_serialization_context)
 
 
 def test_serialize_to_buffer():
@@ -338,7 +351,7 @@ def test_serialization_callback_numpy():
         return serialized_obj
 
     pa._default_serialization_context.register_type(
-        DummyClass, "DummyClass", pickle=False,
+        DummyClass, "DummyClass",
         custom_serializer=serialize_dummy_class,
         custom_deserializer=deserialize_dummy_class)
 
@@ -357,7 +370,7 @@ def test_buffer_serialization():
         return serialized_obj
 
     pa._default_serialization_context.register_type(
-        BufferClass, "BufferClass", pickle=False,
+        BufferClass, "BufferClass",
         custom_serializer=serialize_buffer_class,
         custom_deserializer=deserialize_buffer_class)
 
@@ -416,3 +429,129 @@ def test_serialization_callback_error():
     with pytest.raises(pa.DeserializationCallbackError) as err:
         serialized_object.deserialize(deserialization_context)
     assert err.value.type_id == 20*b"\x00"
+
+
+def test_fallback_to_subclasses():
+
+    class SubFoo(Foo):
+        def __init__(self):
+            Foo.__init__(self)
+
+    # should be able to serialize/deserialize an instance
+    # if a base class has been registered
+    serialization_context = pa.SerializationContext()
+    serialization_context.register_type(Foo, "Foo")
+
+    subfoo = SubFoo()
+    # should fallbact to Foo serializer
+    serialized_object = pa.serialize(subfoo, serialization_context)
+
+    reconstructed_object = serialized_object.deserialize(
+        serialization_context
+    )
+    assert type(reconstructed_object) == Foo
+
+
+class Serializable(object):
+    pass
+
+
+def serialize_serializable(obj):
+    return {"type": type(obj), "data": obj.__dict__}
+
+
+def deserialize_serializable(obj):
+    val = obj["type"].__new__(obj["type"])
+    val.__dict__.update(obj["data"])
+    return val
+
+
+class SerializableClass(Serializable):
+    def __init__(self):
+        self.value = 3
+
+
+def test_serialize_subclasses():
+
+    # This test shows how subclasses can be handled in an idiomatic way
+    # by having only a serializer for the base class
+
+    # This technique should however be used with care, since pickling
+    # type(obj) with couldpickle will include the full class definition
+    # in the serialized representation.
+    # This means the class definition is part of every instance of the
+    # object, which in general is not desirable; registering all subclasses
+    # with register_type will result in faster and more memory
+    # efficient serialization.
+
+    serialization_context.register_type(
+        Serializable, "Serializable",
+        custom_serializer=serialize_serializable,
+        custom_deserializer=deserialize_serializable)
+
+    a = SerializableClass()
+    serialized = pa.serialize(a)
+
+    deserialized = serialized.deserialize()
+    assert type(deserialized).__name__ == SerializableClass.__name__
+    assert deserialized.value == 3
+
+
+def test_serialize_to_components_invalid_cases():
+    buf = pa.frombuffer(b'hello')
+
+    components = {
+        'num_tensors': 0,
+        'num_buffers': 1,
+        'data': [buf]
+    }
+
+    with pytest.raises(pa.ArrowException):
+        pa.deserialize_components(components)
+
+    components = {
+        'num_tensors': 1,
+        'num_buffers': 0,
+        'data': [buf, buf]
+    }
+
+    with pytest.raises(pa.ArrowException):
+        pa.deserialize_components(components)
+
+
+@pytest.mark.skipif(os.name == 'nt', reason="deserialize_regex not pickleable")
+def test_deserialize_in_different_process():
+    from multiprocessing import Process, Queue
+    import re
+
+    regex = re.compile(r"\d+\.\d*")
+
+    serialization_context = pa.SerializationContext()
+    serialization_context.register_type(type(regex), "Regex", pickle=True)
+
+    serialized = pa.serialize(regex, serialization_context)
+    serialized_bytes = serialized.to_buffer().to_pybytes()
+
+    def deserialize_regex(serialized, q):
+        import pyarrow as pa
+        q.put(pa.deserialize(serialized))
+
+    q = Queue()
+    p = Process(target=deserialize_regex, args=(serialized_bytes, q))
+    p.start()
+    assert q.get().pattern == regex.pattern
+    p.join()
+
+
+def test_deserialize_buffer_in_different_process():
+    import tempfile
+    import subprocess
+
+    f = tempfile.NamedTemporaryFile(delete=False)
+    b = pa.serialize(pa.frombuffer(b'hello')).to_buffer()
+    f.write(b.to_pybytes())
+    f.close()
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    python_file = os.path.join(dir_path, 'deserialize_buffer.py')
+    subprocess.check_call(['python', python_file, f.name])

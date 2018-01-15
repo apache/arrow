@@ -615,9 +615,9 @@ the the types array indicates that a slot contains a different type at the index
 ## Dictionary encoding
 
 When a field is dictionary encoded, the values are represented by an array of Int32 representing the index of the value in the dictionary.
-The Dictionary is received as a DictionaryBatch whose id is referenced by a dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field table.
-The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its index in the DictionaryBatch.
-When a Schema references a Dictionary id, it must send a DictionaryBatch for this id before any RecordBatch.
+The Dictionary is received as one or more DictionaryBatches with the id referenced by a dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field table.
+The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its index in the DictionaryBatches.
+When a Schema references a Dictionary id, it must send at least one DictionaryBatch for this id.
 
 As an example, you could have the following data:
 ```

@@ -24,12 +24,14 @@ set(GFLAGS_VERSION "2.2.0")
 set(GTEST_VERSION "1.8.0")
 set(GBENCHMARK_VERSION "1.1.0")
 set(FLATBUFFERS_VERSION "1.7.1")
-set(JEMALLOC_VERSION "4.4.0")
+set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
 set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
 set(LZ4_VERSION "1.7.5")
 set(ZSTD_VERSION "1.2.0")
+set(PROTOBUF_VERSION "2.6.0")
 set(GRPC_VERSION "94582910ad7f82ad447ecc72e6548cb669e4f7a9") # v1.6.5
+set(ORC_VERSION "cf00b67795717ab3eb04e950780ed6d104109017")
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
@@ -130,6 +132,9 @@ endif()
 
 set(Boost_DEBUG TRUE)
 set(Boost_USE_MULTITHREADED ON)
+if (MSVC AND ARROW_USE_STATIC_CRT)
+  set(Boost_USE_STATIC_RUNTIME ON)
+endif()
 set(Boost_ADDITIONAL_VERSIONS
   "1.65.0" "1.65"
   "1.64.0" "1.64"
@@ -204,11 +209,11 @@ else()
     else()
       find_package(Boost COMPONENTS system filesystem REQUIRED)
       if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-	set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-	set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+        set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+        set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
       else()
-	set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-	set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+        set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+        set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
       endif()
       set(BOOST_SYSTEM_LIBRARY boost_system_shared)
       set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
@@ -222,11 +227,11 @@ else()
     else()
       find_package(Boost COMPONENTS system filesystem REQUIRED)
       if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-	set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-	set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+        set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+        set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
       else()
-	set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-	set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+        set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+        set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
       endif()
       set(BOOST_SYSTEM_LIBRARY boost_system_static)
       set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
@@ -272,8 +277,10 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     set(GTEST_VENDORED 1)
     set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                          -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
-                         -Dgtest_force_shared_crt=ON
                          -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
+    if (MSVC AND NOT ARROW_USE_STATIC_CRT)
+      set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
+    endif()
 
     ExternalProject_Add(googletest_ep
       URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
@@ -320,6 +327,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                           -DBUILD_TESTING=OFF
                           -BUILD_CONFIG_TESTS=OFF
                           -DINSTALL_HEADERS=ON
+                          -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
+                          -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
                           -DCMAKE_CXX_FLAGS=${GFLAGS_CMAKE_CXX_FLAGS})
 
     ExternalProject_Add(gflags_ep
@@ -434,6 +443,8 @@ if (ARROW_IPC)
       "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
       "-DFLATBUFFERS_BUILD_TESTS=OFF"
+      "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
+      "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
       ${EP_LOG_OPTIONS})
 
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
@@ -471,8 +482,8 @@ if (ARROW_JEMALLOC)
     set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(JEMALLOC_VENDORED 1)
     ExternalProject_Add(jemalloc_ep
-      URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
-      CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_"
+      URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
+      CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" && touch doc/jemalloc.html && touch doc/jemalloc.3
       ${EP_LOG_OPTIONS}
       BUILD_IN_SOURCE 1
       BUILD_COMMAND ${MAKE}
@@ -550,6 +561,8 @@ if (ARROW_WITH_ZLIB)
     set(ZLIB_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                         -DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}
                         -DCMAKE_C_FLAGS=${EP_C_FLAGS}
+                        -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
+                        -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
                         -DBUILD_SHARED_LIBS=OFF)
 
     ExternalProject_Add(zlib_ep
@@ -599,7 +612,9 @@ if (ARROW_WITH_SNAPPY)
     if (MSVC)
       set(SNAPPY_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                             "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-                            "-DCMAKE_C_FLAGS=${EX_C_FLAGS}"
+                            "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
+                            "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
+                            "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
                             "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
       set(SNAPPY_UPDATE_COMMAND ${CMAKE_COMMAND} -E copy
                         ${CMAKE_SOURCE_DIR}/cmake_modules/SnappyCMakeLists.txt
@@ -659,7 +674,9 @@ if (ARROW_WITH_BROTLI)
     set(BROTLI_STATIC_LIBRARY_COMMON "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_LIBRARY_ARCHITECTURE}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(BROTLI_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                           "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-                          "-DCMAKE_C_FLAGS=${EX_C_FLAGS}"
+                          "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+                          "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
+                          "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
                           -DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}
                           -DCMAKE_INSTALL_LIBDIR=lib/${CMAKE_LIBRARY_ARCHITECTURE}
                           -DBUILD_SHARED_LIBS=OFF)
@@ -706,12 +723,21 @@ if (ARROW_WITH_LZ4)
 
   if("${LZ4_HOME}" STREQUAL "")
     set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
+    set(LZ4_HOME "${LZ4_BUILD_DIR}")
     set(LZ4_INCLUDE_DIR "${LZ4_BUILD_DIR}/lib")
 
     if (MSVC)
+      if (ARROW_USE_STATIC_CRT)
+        if (${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+          set(LZ4_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreadedDebug")
+        else()
+          set(LZ4_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreaded")
+        endif()
+      endif()
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
-      set(LZ4_BUILD_COMMAND BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /t:Build ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
-      set(LZ4_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/lz4_msbuild_wholeprogramoptimization_param.patch)
+      set(LZ4_BUILD_COMMAND BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140
+                                          ${LZ4_RUNTIME_LIBRARY_LINKAGE} /t:Build ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
+      set(LZ4_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/lz4_msbuild_gl_runtimelibrary_params.patch)
     else()
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
       set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh)
@@ -753,9 +779,18 @@ if (ARROW_WITH_ZSTD)
     set(ZSTD_INCLUDE_DIR "${ZSTD_BUILD_DIR}/lib")
 
     if (MSVC)
+      if (ARROW_USE_STATIC_CRT)
+        if (${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+          set(ZSTD_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreadedDebug")
+        else()
+          set(ZSTD_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreaded")
+        endif()
+      endif()
       set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/libzstd_static.lib")
-      set(ZSTD_BUILD_COMMAND BUILD_COMMAND msbuild ${ZSTD_BUILD_DIR}/build/VS2010/zstd.sln /t:Build /v:minimal /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /p:OutDir=${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/ /p:SolutionDir=${ZSTD_BUILD_DIR}/build/VS2010/ )
-      set(ZSTD_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/zstd_msbuild_wholeprogramoptimization_param.patch)
+      set(ZSTD_BUILD_COMMAND BUILD_COMMAND msbuild ${ZSTD_BUILD_DIR}/build/VS2010/zstd.sln /t:Build /v:minimal /p:Configuration=${CMAKE_BUILD_TYPE}
+                             ${ZSTD_RUNTIME_LIBRARY_LINKAGE} /p:Platform=x64 /p:PlatformToolset=v140
+                             /p:OutDir=${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/ /p:SolutionDir=${ZSTD_BUILD_DIR}/build/VS2010/ )
+      set(ZSTD_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/zstd_msbuild_gl_runtimelibrary_params.patch)
     else()
       set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/lib/libzstd.a")
       set(ZSTD_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-zstd-lib.sh)
@@ -802,7 +837,7 @@ if (ARROW_WITH_GRPC)
     set(GRPC_STATIC_LIBRARY_GRPCPP "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                           "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-                          "-DCMAKE_C_FLAGS=${EX_C_FLAGS}"
+                          "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
                           -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
                           -DBUILD_SHARED_LIBS=OFF)
 
@@ -832,4 +867,74 @@ if (ARROW_WITH_GRPC)
     add_dependencies(grpc_grpcpp grpc_ep)
   endif()
 
+endif()
+
+if (ARROW_ORC)
+  # protobuf
+  if ("${PROTOBUF_HOME}" STREQUAL "")
+    set (PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")
+    set (PROTOBUF_HOME "${PROTOBUF_PREFIX}")
+    set (PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
+    set (PROTOBUF_STATIC_LIB "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set (PROTOBUF_SRC_URL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
+
+    ExternalProject_Add(protobuf_ep
+      CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
+      BUILD_IN_SOURCE 1
+      URL ${PROTOBUF_SRC_URL}
+      LOG_DOWNLOAD 1
+      LOG_CONFIGURE 1
+      LOG_BUILD 1
+      LOG_INSTALL 1
+      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}")
+
+    set (PROTOBUF_VENDORED 1)
+  else ()
+    find_package (Protobuf REQUIRED)
+    set (PROTOBUF_VENDORED 0)
+  endif ()
+
+  include_directories (SYSTEM ${PROTOBUF_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(protobuf
+    STATIC_LIB ${PROTOBUF_STATIC_LIB})
+
+  if (PROTOBUF_VENDORED)
+    add_dependencies (protobuf protobuf_ep)
+  endif ()
+
+  # orc
+  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+  set(ORC_HOME "${ORC_PREFIX}")
+  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+  set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
+  # ${LZ4_HOME}/include, which forces us to specify the include directory
+  # manually as well.
+  set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                      -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
+                      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+                      -DBUILD_LIBHDFSPP=OFF
+                      -DBUILD_JAVA=OFF
+                      -DBUILD_TOOLS=OFF
+                      -DBUILD_CPP_TESTS=OFF
+                      -DINSTALL_VENDORED_LIBS=OFF
+                      -DPROTOBUF_HOME=${PROTOBUF_HOME}
+                      -DLZ4_HOME=${LZ4_HOME}
+                      -DLZ4_INCLUDE_DIR=${LZ4_INCLUDE_DIR}
+                      -DSNAPPY_HOME=${SNAPPY_HOME}
+                      -DZLIB_HOME=${ZLIB_HOME})
+
+  ExternalProject_Add(orc_ep
+    GIT_REPOSITORY "https://github.com/apache/orc"
+    GIT_TAG ${ORC_VERSION}
+    BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+    CMAKE_ARGS ${ORC_CMAKE_ARGS})
+
+  include_directories(SYSTEM ${ORC_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(orc
+    STATIC_LIB ${ORC_STATIC_LIB})
+
+  add_dependencies(orc_ep protobuf lz4_static snappy zlib)
+  add_dependencies(orc orc_ep)
 endif()

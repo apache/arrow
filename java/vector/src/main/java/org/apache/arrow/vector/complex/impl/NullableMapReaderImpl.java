@@ -52,6 +52,6 @@ public class NullableMapReaderImpl extends SingleMapReaderImpl {
 
   @Override
   public boolean isSet() {
-    return !nullableMapVector.getAccessor().isNull(idx());
+    return !nullableMapVector.isNull(idx());
   }
 }

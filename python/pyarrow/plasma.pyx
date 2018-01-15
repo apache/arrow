@@ -30,7 +30,7 @@ import collections
 import pyarrow
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status
-from pyarrow.includes.libarrow cimport (CMutableBuffer, CBuffer,
+from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
 
@@ -81,7 +81,7 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Create(const CUniqueID& object_id, int64_t data_size,
                        const uint8_t* metadata, int64_t metadata_size,
-                       uint8_t** data)
+                       const shared_ptr[CBuffer]* data)
 
         CStatus Get(const CUniqueID* object_ids, int64_t num_objects,
                     int64_t timeout_ms, CObjectBuffer* object_buffers)
@@ -118,9 +118,9 @@ cdef extern from "plasma/client.h" nogil:
 
     cdef struct CObjectBuffer" plasma::ObjectBuffer":
         int64_t data_size
-        uint8_t* data
+        shared_ptr[CBuffer] data
         int64_t metadata_size
-        uint8_t* metadata
+        shared_ptr[CBuffer] metadata
 
 
 def make_object_id(object_id):
@@ -136,6 +136,9 @@ cdef class ObjectID:
         CUniqueID data
 
     def __cinit__(self, object_id):
+        if not isinstance(object_id, bytes) or len(object_id) != 20:
+            raise ValueError("Object ID must by 20 bytes,"
+                             " is " + str(object_id))
         self.data = CUniqueID.from_binary(object_id)
 
     def __richcmp__(ObjectID self, ObjectID object_id, operation):
@@ -245,10 +248,8 @@ cdef class PlasmaClient:
             check_status(self.client.get().Get(ids.data(), ids.size(),
                          timeout_ms, result[0].data()))
 
-    cdef _make_plasma_buffer(self, ObjectID object_id, uint8_t* data,
+    cdef _make_plasma_buffer(self, ObjectID object_id, shared_ptr[CBuffer] buffer,
                              int64_t size):
-        cdef shared_ptr[CBuffer] buffer
-        buffer.reset(new CBuffer(data, size))
         result = PlasmaBuffer(object_id, self)
         result.init(buffer)
         return result
@@ -296,12 +297,12 @@ cdef class PlasmaClient:
                 not be created because the plasma store is unable to evict
                 enough objects to create room for it.
         """
-        cdef uint8_t* data
+        cdef shared_ptr[CBuffer] data
         with nogil:
             check_status(self.client.get().Create(object_id.data, data_size,
                                                   <uint8_t*>(metadata.data()),
                                                   metadata.size(), &data))
-        return self._make_mutable_plasma_buffer(object_id, data, data_size)
+        return self._make_mutable_plasma_buffer(object_id, data.get().mutable_data(), data_size)
 
     def get_buffers(self, object_ids, timeout_ms=-1):
         """
@@ -370,7 +371,7 @@ cdef class PlasmaClient:
                                          object_buffers[i].metadata_size))
         return result
 
-    def put(self, object value, ObjectID object_id=None,
+    def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,
             serialization_context=None):
         """
         Store a Python value into the object store.
@@ -382,6 +383,9 @@ cdef class PlasmaClient:
         object_id : ObjectID, default None
             If this is provided, the specified object ID will be used to refer
             to the object.
+        memcopy_threads : int, default 6
+            The number of threads to use to write the serialized object into
+            the object store for large objects.
         serialization_context : pyarrow.SerializationContext, default None
             Custom serialization and deserialization context.
 
@@ -394,7 +398,7 @@ cdef class PlasmaClient:
         serialized = pyarrow.serialize(value, serialization_context)
         buffer = self.create(target_id, serialized.total_bytes)
         stream = pyarrow.FixedSizeBufferWriter(buffer)
-        stream.set_memcopy_threads(4)
+        stream.set_memcopy_threads(memcopy_threads)
         serialized.write_to(stream)
         self.seal(target_id)
         return target_id

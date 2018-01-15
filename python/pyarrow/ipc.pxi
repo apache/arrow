@@ -125,9 +125,11 @@ cdef class MessageReader:
     def open_stream(source):
         cdef MessageReader result = MessageReader()
         cdef shared_ptr[InputStream] in_stream
+        cdef unique_ptr[CMessageReader] reader
         get_input_stream(source, &in_stream)
         with nogil:
-            result.reader.reset(new CInputStreamMessageReader(in_stream))
+            reader = CMessageReader.Open(in_stream)
+            result.reader.reset(reader.release())
 
         return result
 
@@ -202,7 +204,7 @@ cdef class _RecordBatchWriter:
             check_status(self.writer.get()
                          .WriteRecordBatch(deref(batch.batch), 1))
 
-    def write_table(self, Table table):
+    def write_table(self, Table table, chunksize=None):
         """
         Write RecordBatch to stream
 
@@ -210,8 +212,16 @@ cdef class _RecordBatchWriter:
         ----------
         batch : RecordBatch
         """
+        cdef:
+            # Chunksize must be > 0 to have any impact
+            int64_t c_chunksize = -1
+
+        if chunksize is not None:
+            c_chunksize = chunksize
+
         with nogil:
-            check_status(self.writer.get().WriteTable(table.table[0]))
+            check_status(self.writer.get().WriteTable(table.table[0],
+                                                      c_chunksize))
 
     def close(self):
         """

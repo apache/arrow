@@ -16,15 +16,21 @@
 # under the License.
 
 class TestGIOInputStream < Test::Unit::TestCase
+  include Helper::Buildable
+
   def test_reader_backend
+    data = [true]
+    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+    schema = Arrow::Schema.new([field])
+
     tempfile = Tempfile.open("arrow-gio-input-stream")
     output = Arrow::FileOutputStream.new(tempfile.path, false)
     begin
-      field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-      schema = Arrow::Schema.new([field])
       file_writer = Arrow::RecordBatchFileWriter.new(output, schema)
       begin
-        record_batch = Arrow::RecordBatch.new(schema, 0, [])
+        record_batch = Arrow::RecordBatch.new(schema,
+                                              data.size,
+                                              [build_boolean_array(data)])
         file_writer.write_record_batch(record_batch)
       ensure
         file_writer.close
@@ -38,8 +44,12 @@ class TestGIOInputStream < Test::Unit::TestCase
     input = Arrow::GIOInputStream.new(input_stream)
     begin
       file_reader = Arrow::RecordBatchFileReader.new(input)
-      assert_equal(["enabled"],
+      assert_equal([field.name],
                    file_reader.schema.fields.collect(&:name))
+      assert_equal(Arrow::RecordBatch.new(schema,
+                                          data.size,
+                                          [build_boolean_array(data)]),
+                   file_reader.read_record_batch(0))
     ensure
       input.close
     end

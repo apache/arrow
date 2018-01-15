@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 
+set -ex
+
 # Set up environment and output directory for C++ libraries
 cd /apache-arrow
 rm -rf dist
@@ -25,8 +27,6 @@ export ARROW_HOME=$(pwd)/dist
 export PARQUET_HOME=$(pwd)/dist
 CONDA_BASE=/home/ubuntu/miniconda
 export LD_LIBRARY_PATH=$(pwd)/dist/lib:${CONDA_BASE}/lib:${LD_LIBRARY_PATH}
-export THRIFT_HOME=${CONDA_BASE}
-export BOOST_ROOT=${CONDA_BASE}
 export PATH=${CONDA_BASE}/bin:${PATH}
 
 # Prepare the asf-site before copying api docs
@@ -41,9 +41,13 @@ popd
 # Make Python documentation (Depends on C++ )
 # Build Arrow C++
 source activate pyarrow-dev
-rm -rf arrow/cpp/build
-mkdir arrow/cpp/build
-pushd arrow/cpp/build
+
+export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
+export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
+
+rm -rf arrow/cpp/build_docs
+mkdir arrow/cpp/build_docs
+pushd arrow/cpp/build_docs
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_PYTHON=on \
@@ -55,9 +59,9 @@ make install
 popd
 
 # Build Parquet C++
-rm -rf parquet-cpp/build
-mkdir parquet-cpp/build
-pushd parquet-cpp/build
+rm -rf parquet-cpp/build_docs
+mkdir parquet-cpp/build_docs
+pushd parquet-cpp/build_docs
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
       -DPARQUET_BUILD_BENCHMARKS=off \

@@ -16,36 +16,33 @@
 // under the License.
 
 import { Vector } from './vector';
+import { VirtualVector } from './virtual';
 
 export class DictionaryVector<T> extends Vector<T> {
-    protected data: Vector<T>;
-    protected keys: Vector<number>;
-    constructor(index: Vector<number>, dictionary: Vector<T>) {
+    readonly length: number;
+    readonly data: Vector<T>;
+    readonly keys: Vector<number>;
+    constructor(argv: { data: Vector<T>, keys: Vector<number> }) {
         super();
-        this.keys = index;
-        this.data = dictionary;
-        this.length = index && index.length || 0;
-    }
-    index(index: number) {
-        return this.keys.get(index);
-    }
-    value(index: number) {
-        return this.data.get(index);
+        this.data = argv.data;
+        this.keys = argv.keys;
+        this.length = this.keys.length;
     }
     get(index: number) {
-        return this.value(this.index(index));
+        return this.getValue(this.getKey(index)!);
     }
-    concat(vector: DictionaryVector<T>) {
-        return DictionaryVector.from(this,
-            this.length + vector.length,
-            this.keys.concat(vector.keys),
-            this.data
-        );
+    getKey(index: number) {
+        return this.keys.get(index);
+    }
+    getValue(key: number) {
+        return this.data.get(key);
+    }
+    concat(...vectors: Vector<T>[]): Vector<T> {
+        return new VirtualVector(Array, this, ...vectors);
     }
     *[Symbol.iterator]() {
-        let { data } = this;
-        for (const loc of this.keys) {
-            yield data.get(loc);
+        for (let i = -1, n = this.length; ++i < n;) {
+            yield this.get(i);
         }
     }
 }

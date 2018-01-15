@@ -16,12 +16,90 @@
 # under the License.
 
 from collections import OrderedDict, defaultdict
+import six
 import sys
 
 import numpy as np
 
-from pyarrow import serialize_pandas, deserialize_pandas
-from pyarrow.lib import _default_serialization_context
+from pyarrow.compat import builtin_pickle
+from pyarrow.lib import _default_serialization_context, frombuffer
+
+try:
+    import cloudpickle
+except ImportError:
+    cloudpickle = builtin_pickle
+
+
+# ----------------------------------------------------------------------
+# Set up serialization for numpy with dtype object (primitive types are
+# handled efficiently with Arrow's Tensor facilities, see
+# python_to_arrow.cc)
+
+def _serialize_numpy_array_list(obj):
+    return obj.tolist(), obj.dtype.str
+
+
+def _deserialize_numpy_array_list(data):
+    return np.array(data[0], dtype=np.dtype(data[1]))
+
+
+def _pickle_to_buffer(x):
+    pickled = builtin_pickle.dumps(x, protocol=builtin_pickle.HIGHEST_PROTOCOL)
+    return frombuffer(pickled)
+
+
+def _load_pickle_from_buffer(data):
+    as_memoryview = memoryview(data)
+    if six.PY2:
+        return builtin_pickle.loads(as_memoryview.tobytes())
+    else:
+        return builtin_pickle.loads(as_memoryview)
+
+
+_serialize_numpy_array_pickle = _pickle_to_buffer
+_deserialize_numpy_array_pickle = _load_pickle_from_buffer
+
+
+# ----------------------------------------------------------------------
+# pandas-specific serialization matters
+
+def _register_custom_pandas_handlers(context):
+    # ARROW-1784, faster path for pandas-only visibility
+
+    try:
+        import pandas as pd
+    except ImportError:
+        return
+
+    import pyarrow.pandas_compat as pdcompat
+
+    def _serialize_pandas_dataframe(obj):
+        return pdcompat.dataframe_to_serialized_dict(obj)
+
+    def _deserialize_pandas_dataframe(data):
+        return pdcompat.serialized_dict_to_dataframe(data)
+
+    def _serialize_pandas_series(obj):
+        return _serialize_pandas_dataframe(pd.DataFrame({obj.name: obj}))
+
+    def _deserialize_pandas_series(data):
+        deserialized = _deserialize_pandas_dataframe(data)
+        return deserialized[deserialized.columns[0]]
+
+    context.register_type(
+        pd.Series, 'pd.Series',
+        custom_serializer=_serialize_pandas_series,
+        custom_deserializer=_deserialize_pandas_series)
+
+    context.register_type(
+        pd.Index, 'pd.Index',
+        custom_serializer=_pickle_to_buffer,
+        custom_deserializer=_load_pickle_from_buffer)
+
+    context.register_type(
+        pd.DataFrame, 'pd.DataFrame',
+        custom_serializer=_serialize_pandas_dataframe,
+        custom_deserializer=_deserialize_pandas_dataframe)
 
 
 def register_default_serialization_handlers(serialization_context):
@@ -69,53 +147,12 @@ def register_default_serialization_handlers(serialization_context):
         type(lambda: 0), "function",
         pickle=True)
 
-    # ----------------------------------------------------------------------
-    # Set up serialization for numpy with dtype object (primitive types are
-    # handled efficiently with Arrow's Tensor facilities, see
-    # python_to_arrow.cc)
-
-    def _serialize_numpy_array(obj):
-        return obj.tolist(), obj.dtype.str
-
-    def _deserialize_numpy_array(data):
-        return np.array(data[0], dtype=np.dtype(data[1]))
+    serialization_context.register_type(type, "type", pickle=True)
 
     serialization_context.register_type(
         np.ndarray, 'np.array',
-        custom_serializer=_serialize_numpy_array,
-        custom_deserializer=_deserialize_numpy_array)
-
-    # ----------------------------------------------------------------------
-    # Set up serialization for pandas Series and DataFrame
-
-    try:
-        import pandas as pd
-
-        def _serialize_pandas_series(obj):
-            return serialize_pandas(pd.DataFrame({obj.name: obj}))
-
-        def _deserialize_pandas_series(data):
-            deserialized = deserialize_pandas(data)
-            return deserialized[deserialized.columns[0]]
-
-        def _serialize_pandas_dataframe(obj):
-            return serialize_pandas(obj)
-
-        def _deserialize_pandas_dataframe(data):
-            return deserialize_pandas(data)
-
-        serialization_context.register_type(
-            pd.Series, 'pd.Series',
-            custom_serializer=_serialize_pandas_series,
-            custom_deserializer=_deserialize_pandas_series)
-
-        serialization_context.register_type(
-            pd.DataFrame, 'pd.DataFrame',
-            custom_serializer=_serialize_pandas_dataframe,
-            custom_deserializer=_deserialize_pandas_dataframe)
-    except ImportError:
-        # no pandas
-        pass
+        custom_serializer=_serialize_numpy_array_list,
+        custom_deserializer=_deserialize_numpy_array_list)
 
     # ----------------------------------------------------------------------
     # Set up serialization for pytorch tensors
@@ -140,5 +177,14 @@ def register_default_serialization_handlers(serialization_context):
         # no torch
         pass
 
+    _register_custom_pandas_handlers(serialization_context)
+
 
 register_default_serialization_handlers(_default_serialization_context)
+
+pandas_serialization_context = _default_serialization_context.clone()
+
+pandas_serialization_context.register_type(
+    np.ndarray, 'np.array',
+    custom_serializer=_serialize_numpy_array_pickle,
+    custom_deserializer=_deserialize_numpy_array_pickle)

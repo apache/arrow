@@ -165,7 +165,9 @@ test_glib() {
   make -j$NPROC
   make install
 
-  NO_MAKE=yes test/run-test.sh
+  GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0 \
+                 NO_MAKE=yes \
+                 test/run-test.sh
 
   popd
 }
@@ -173,7 +175,18 @@ test_glib() {
 test_js() {
   pushd js
   npm install
-  npm run validate
+  # clean, lint, and build JS source
+  npx run-s clean:all lint build
+  npm run test
+
+  # create initial integration test data
+  # npm run create:testdata
+
+  # run once to write the snapshots
+  # npm test -- -t ts -u --integration
+
+  # run again to test all builds against the snapshots
+  # npm test -- --integration
   popd
 }
 
@@ -229,13 +242,14 @@ fetch_archive $DIST_NAME
 tar xvzf ${DIST_NAME}.tar.gz
 cd ${DIST_NAME}
 
+test_package_java
 setup_miniconda
 test_and_install_cpp
+test_integration
+test_glib
 install_parquet_cpp
 test_python
-test_glib
-test_package_java
-test_integration
+
 test_js
 
 echo 'Release candidate looks good!'

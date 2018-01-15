@@ -78,7 +78,7 @@ public class SingleMapReaderImpl extends AbstractFieldReader {
 
   @Override
   public Object readObject() {
-    return vector.getAccessor().getObject(idx());
+    return vector.getObject(idx());
   }
 
   @Override

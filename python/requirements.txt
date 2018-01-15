@@ -1,4 +1,4 @@
 pytest
-cloudpickle
+cloudpickle>=0.4.0
 numpy>=1.10.0
 six

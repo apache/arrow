@@ -37,8 +37,8 @@
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/util.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
@@ -307,7 +307,7 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
     arrays[i] = std::move(arr);
   }
 
-  *out = std::make_shared<RecordBatch>(schema, num_rows, std::move(arrays));
+  *out = RecordBatch::Make(schema, num_rows, std::move(arrays));
   return Status::OK();
 }
 
@@ -480,14 +480,12 @@ Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_read
 
 Status RecordBatchStreamReader::Open(io::InputStream* stream,
                                      std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
-  return Open(std::move(message_reader), out);
+  return Open(MessageReader::Open(stream), out);
 }
 
 Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
                                      std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
-  return Open(std::move(message_reader), out);
+  return Open(MessageReader::Open(stream), out);
 }
 
 std::shared_ptr<Schema> RecordBatchStreamReader::schema() const {
@@ -550,20 +548,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   int num_record_batches() const { return footer_->recordBatches()->size(); }
 
   MetadataVersion version() const {
-    switch (footer_->version()) {
-      case flatbuf::MetadataVersion_V1:
-        // Arrow 0.1
-        return MetadataVersion::V1;
-      case flatbuf::MetadataVersion_V2:
-        // Arrow 0.2
-        return MetadataVersion::V2;
-      case flatbuf::MetadataVersion_V3:
-        // Arrow 0.3
-        return MetadataVersion::V3;
-      // Add cases as other versions become available
-      default:
-        return MetadataVersion::V3;
-    }
+    return internal::GetMetadataVersion(footer_->version());
   }
 
   FileBlock record_batch(int i) const {
@@ -730,14 +715,17 @@ Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
 
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  return ReadTensor(*message, out);
+}
 
+Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out) {
   std::shared_ptr<DataType> type;
   std::vector<int64_t> shape;
   std::vector<int64_t> strides;
   std::vector<std::string> dim_names;
-  RETURN_NOT_OK(internal::GetTensorMetadata(*message->metadata(), &type, &shape, &strides,
+  RETURN_NOT_OK(internal::GetTensorMetadata(*message.metadata(), &type, &shape, &strides,
                                             &dim_names));
-  *out = std::make_shared<Tensor>(type, message->body(), shape, strides, dim_names);
+  *out = std::make_shared<Tensor>(type, message.body(), shape, strides, dim_names);
   return Status::OK();
 }
 

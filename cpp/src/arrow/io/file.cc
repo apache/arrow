@@ -22,6 +22,21 @@
 
 #define _FILE_OFFSET_BITS 64
 
+// define max read/write count
+#if defined(_MSC_VER)
+#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
+#else
+
+#ifdef __APPLE__
+// due to macOS bug, we need to set read/write max
+#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
+#else
+// see notes on Linux read/write manpage
+#define ARROW_MAX_IO_CHUNKSIZE 0x7ffff000
+#endif
+
+#endif
+
 #include "arrow/io/file.h"
 
 #if _WIN32 || _WIN64
@@ -238,39 +253,64 @@ static inline Status FileSeek(int fd, int64_t pos) {
   return Status::OK();
 }
 
-static inline Status FileRead(int fd, uint8_t* buffer, int64_t nbytes,
+static inline Status FileRead(const int fd, uint8_t* buffer, const int64_t nbytes,
                               int64_t* bytes_read) {
+  *bytes_read = 0;
+
+  while (*bytes_read != -1 && *bytes_read < nbytes) {
+    int64_t chunksize =
+        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - *bytes_read);
 #if defined(_MSC_VER)
-  if (nbytes > INT32_MAX) {
-    return Status::IOError("Unable to read > 2GB blocks yet");
-  }
-  *bytes_read = static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(nbytes)));
+    int64_t ret = static_cast<int64_t>(
+        _read(fd, buffer + *bytes_read, static_cast<uint32_t>(chunksize)));
 #else
-  *bytes_read = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(nbytes)));
+    int64_t ret = static_cast<int64_t>(
+        read(fd, buffer + *bytes_read, static_cast<size_t>(chunksize)));
 #endif
 
+    if (ret != -1) {
+      *bytes_read += ret;
+      if (ret < chunksize) {
+        // EOF
+        break;
+      }
+    } else {
+      *bytes_read = ret;
+    }
+  }
+
   if (*bytes_read == -1) {
-    // TODO(wesm): errno to string
-    return Status::IOError("Error reading bytes from file");
+    return Status::IOError(std::string("Error reading bytes from file: ") +
+                           std::string(strerror(errno)));
   }
 
   return Status::OK();
 }
 
-static inline Status FileWrite(int fd, const uint8_t* buffer, int64_t nbytes) {
-  int ret;
+static inline Status FileWrite(const int fd, const uint8_t* buffer,
+                               const int64_t nbytes) {
+  int ret = 0;
+  int64_t bytes_written = 0;
+
+  while (ret != -1 && bytes_written < nbytes) {
+    int64_t chunksize =
+        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_written);
 #if defined(_MSC_VER)
-  if (nbytes > INT32_MAX) {
-    return Status::IOError("Unable to write > 2GB blocks to file yet");
-  }
-  ret = static_cast<int>(_write(fd, buffer, static_cast<uint32_t>(nbytes)));
+    ret = static_cast<int>(
+        _write(fd, buffer + bytes_written, static_cast<uint32_t>(chunksize)));
 #else
-  ret = static_cast<int>(write(fd, buffer, static_cast<size_t>(nbytes)));
+    ret = static_cast<int>(
+        write(fd, buffer + bytes_written, static_cast<size_t>(chunksize)));
 #endif
 
+    if (ret != -1) {
+      bytes_written += ret;
+    }
+  }
+
   if (ret == -1) {
-    // TODO(wesm): errno to string
-    return Status::IOError("Error writing bytes to file");
+    return Status::IOError(std::string("Error writing bytes from file: ") +
+                           std::string(strerror(errno)));
   }
   return Status::OK();
 }
@@ -354,11 +394,11 @@ class OSFile {
     return Status::OK();
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-    return FileRead(fd_, out, nbytes, bytes_read);
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+    return FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes, bytes_read);
   }
 
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
     std::lock_guard<std::mutex> guard(lock_);
     RETURN_NOT_OK(Seek(position));
     return Read(nbytes, bytes_read, out);
@@ -373,12 +413,12 @@ class OSFile {
 
   Status Tell(int64_t* pos) const { return FileTell(fd_, pos); }
 
-  Status Write(const uint8_t* data, int64_t length) {
+  Status Write(const void* data, int64_t length) {
     std::lock_guard<std::mutex> guard(lock_);
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
-    return FileWrite(fd_, data, length);
+    return FileWrite(fd_, reinterpret_cast<const uint8_t*>(data), length);
   }
 
   int fd() const { return fd_; }
@@ -464,13 +504,13 @@ Status ReadableFile::Close() { return impl_->Close(); }
 
 Status ReadableFile::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
-Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
   std::lock_guard<std::mutex> guard(impl_->lock());
   return impl_->Read(nbytes, bytes_read, out);
 }
 
 Status ReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                            uint8_t* out) {
+                            void* out) {
   return impl_->ReadAt(position, nbytes, bytes_read, out);
 }
 
@@ -530,7 +570,7 @@ Status FileOutputStream::Close() { return impl_->Close(); }
 
 Status FileOutputStream::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
-Status FileOutputStream::Write(const uint8_t* data, int64_t length) {
+Status FileOutputStream::Write(const void* data, int64_t length) {
   return impl_->Write(data, length);
 }
 
@@ -670,7 +710,7 @@ Status MemoryMappedFile::Close() {
   return Status::OK();
 }
 
-Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
   nbytes = std::max<int64_t>(
       0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
   if (nbytes > 0) {
@@ -695,7 +735,7 @@ Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 }
 
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                uint8_t* out) {
+                                void* out) {
   std::lock_guard<std::mutex> guard(memory_map_->lock());
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, bytes_read, out);
@@ -710,7 +750,7 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
 
 bool MemoryMappedFile::supports_zero_copy() const { return true; }
 
-Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nbytes) {
   std::lock_guard<std::mutex> guard(memory_map_->lock());
 
   if (!memory_map_->opened() || !memory_map_->writable()) {
@@ -721,7 +761,7 @@ Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t 
   return WriteInternal(data, nbytes);
 }
 
-Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
+Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
   std::lock_guard<std::mutex> guard(memory_map_->lock());
 
   if (!memory_map_->opened() || !memory_map_->writable()) {
@@ -733,7 +773,7 @@ Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
   return WriteInternal(data, nbytes);
 }
 
-Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
+Status MemoryMappedFile::WriteInternal(const void* data, int64_t nbytes) {
   memcpy(memory_map_->head(), data, static_cast<size_t>(nbytes));
   memory_map_->advance(nbytes);
   return Status::OK();

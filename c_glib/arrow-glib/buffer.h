@@ -19,43 +19,20 @@
 
 #pragma once
 
-#include <glib-object.h>
+#include <arrow-glib/gobject-type.h>
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_BUFFER \
-  (garrow_buffer_get_type())
-#define GARROW_BUFFER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), GARROW_TYPE_BUFFER, GArrowBuffer))
-#define GARROW_BUFFER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), GARROW_TYPE_BUFFER, GArrowBufferClass))
-#define GARROW_IS_BUFFER(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_BUFFER))
-#define GARROW_IS_BUFFER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_BUFFER))
-#define GARROW_BUFFER_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS((obj), GARROW_TYPE_BUFFER, GArrowBufferClass))
-
-typedef struct _GArrowBuffer         GArrowBuffer;
-typedef struct _GArrowBufferClass    GArrowBufferClass;
-
-/**
- * GArrowBuffer:
- *
- * It wraps `arrow::Buffer`.
- */
-struct _GArrowBuffer
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_BUFFER (garrow_buffer_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowBuffer,
+                         garrow_buffer,
+                         GARROW,
+                         BUFFER,
+                         GObject)
 struct _GArrowBufferClass
 {
   GObjectClass parent_class;
 };
-
-GType          garrow_buffer_get_type     (void) G_GNUC_CONST;
 
 GArrowBuffer  *garrow_buffer_new          (const guint8 *data,
                                            gint64 size);
@@ -80,49 +57,16 @@ GArrowBuffer  *garrow_buffer_slice        (GArrowBuffer *buffer,
                                            gint64 size);
 
 
-#define GARROW_TYPE_MUTABLE_BUFFER              \
-  (garrow_mutable_buffer_get_type())
-#define GARROW_MUTABLE_BUFFER(obj)                              \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_MUTABLE_BUFFER,       \
-                              GArrowMutableBuffer))
-#define GARROW_MUTABLE_BUFFER_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_MUTABLE_BUFFER,  \
-                           GArrowMutableBufferClass))
-#define GARROW_IS_MUTABLE_BUFFER(obj)                                   \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_MUTABLE_BUFFER))
-#define GARROW_IS_MUTABLE_BUFFER_CLASS(klass)                           \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_MUTABLE_BUFFER))
-#define GARROW_MUTABLE_BUFFER_GET_CLASS(obj)                    \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_MUTABLE_BUFFER,        \
-                             GArrowMutableBufferClass))
-
-typedef struct _GArrowMutableBuffer         GArrowMutableBuffer;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowMutableBufferClass    GArrowMutableBufferClass;
-#endif
-
-/**
- * GArrowMutableBuffer:
- *
- * It wraps `arrow::MutableBuffer`.
- */
-struct _GArrowMutableBuffer
-{
-  /*< private >*/
-  GArrowBuffer parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
+#define GARROW_TYPE_MUTABLE_BUFFER (garrow_mutable_buffer_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMutableBuffer,
+                         garrow_mutable_buffer,
+                         GARROW,
+                         MUTABLE_BUFFER,
+                         GArrowBuffer)
 struct _GArrowMutableBufferClass
 {
   GArrowBufferClass parent_class;
 };
-#endif
-
-GType garrow_mutable_buffer_get_type(void) G_GNUC_CONST;
 
 GArrowMutableBuffer *garrow_mutable_buffer_new  (guint8 *data,
                                                  gint64 size);

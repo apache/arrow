@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pytest
+
 import pyarrow as pa
 import pyarrow.types as types
 
@@ -56,7 +58,7 @@ def test_is_null():
 
 
 def test_is_decimal():
-    assert types.is_decimal(pa.decimal(19, 4))
+    assert types.is_decimal(pa.decimal128(19, 4))
     assert not types.is_decimal(pa.int32())
 
 
@@ -85,15 +87,16 @@ def test_is_nested_or_struct():
     assert not types.is_nested(pa.int32())
 
 
-# TODO(wesm): Union types not yet implemented in pyarrow
+def test_is_union():
+    assert types.is_union(pa.union([pa.field('a', pa.int32()),
+                                    pa.field('b', pa.int8()),
+                                    pa.field('c', pa.string())],
+                                   pa.lib.UnionMode_SPARSE))
+    assert not types.is_union(pa.list_(pa.int32()))
 
-# def test_is_union():
-#     assert types.is_union(pa.union([pa.field('a', pa.int32()),
-#                                     pa.field('b', pa.int8()),
-#                                     pa.field('c', pa.string())]))
-#     assert not types.is_union(pa.list_(pa.int32()))
 
 # TODO(wesm): is_map, once implemented
+
 
 def test_is_binary_string():
     assert types.is_binary(pa.binary())
@@ -136,3 +139,48 @@ def test_is_temporal_date_time_timestamp():
 def test_timestamp_type():
     # See ARROW-1683
     assert isinstance(pa.timestamp('ns'), pa.TimestampType)
+
+
+def test_types_hashable():
+    types = [
+        pa.null(),
+        pa.int32(),
+        pa.time32('s'),
+        pa.time64('us'),
+        pa.date32(),
+        pa.timestamp('us'),
+        pa.string(),
+        pa.binary(),
+        pa.binary(10),
+        pa.list_(pa.int32()),
+        pa.struct([pa.field('a', pa.int32()),
+                   pa.field('b', pa.int8()),
+                   pa.field('c', pa.string())])
+    ]
+
+    in_dict = {}
+    for i, type_ in enumerate(types):
+        assert hash(type_) == hash(type_)
+        in_dict[type_] = i
+        assert in_dict[type_] == i
+
+
+@pytest.mark.parametrize('t,check_func', [
+    (pa.date32(), types.is_date32),
+    (pa.date64(), types.is_date64),
+    (pa.time32('s'), types.is_time32),
+    (pa.time64('ns'), types.is_time64),
+    (pa.int8(), types.is_int8),
+    (pa.int16(), types.is_int16),
+    (pa.int32(), types.is_int32),
+    (pa.int64(), types.is_int64),
+    (pa.uint8(), types.is_uint8),
+    (pa.uint16(), types.is_uint16),
+    (pa.uint32(), types.is_uint32),
+    (pa.uint64(), types.is_uint64),
+    (pa.float16(), types.is_float16),
+    (pa.float32(), types.is_float32),
+    (pa.float64(), types.is_float64)
+])
+def test_exact_primitive_types(t, check_func):
+    assert check_func(t)

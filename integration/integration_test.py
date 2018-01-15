@@ -28,6 +28,7 @@ import string
 import subprocess
 import tempfile
 import uuid
+import errno
 
 import numpy as np
 
@@ -65,24 +66,16 @@ def rands(nchars):
     return ''.join(np.random.choice(RANDS_CHARS, nchars))
 
 
-if six.PY2:
-    def frombytes(o):
-        return o
+def tobytes(o):
+    if isinstance(o, six.text_type):
+        return o.encode('utf8')
+    return o
 
-    def tobytes(o):
-        if isinstance(o, unicode):
-            return o.encode('utf8')
-        else:
-            return o
-else:
-    def tobytes(o):
-        if isinstance(o, str):
-            return o.encode('utf8')
-        else:
-            return o
 
-    def frombytes(o):
+def frombytes(o):
+    if isinstance(o, six.binary_type):
         return o.decode('utf8')
+    return o
 
 
 # from the merge_arrow_pr.py script
@@ -118,8 +111,7 @@ class DataType(object):
             ('name', self.name),
             ('type', self._get_type()),
             ('nullable', self.nullable),
-            ('children', self._get_children()),
-            ('typeLayout', self._get_type_layout())
+            ('children', self._get_children())
         ])
 
     def _make_is_valid(self, size):
@@ -165,19 +157,11 @@ class PrimitiveType(DataType):
     def _get_children(self):
         return []
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', self.bit_width)])])])
-
 
 class PrimitiveColumn(Column):
 
     def __init__(self, name, count, is_valid, values):
-        Column.__init__(self, name, count)
+        super(PrimitiveColumn, self).__init__(name, count)
         self.is_valid = is_valid
         self.values = values
 
@@ -191,23 +175,33 @@ class PrimitiveColumn(Column):
         ]
 
 
-TEST_INT_MIN = - 2**31 + 1
-TEST_INT_MAX = 2**31 - 1
+TEST_INT_MAX = 2 ** 31 - 1
+TEST_INT_MIN = ~TEST_INT_MAX
+
 
 class IntegerType(PrimitiveType):
 
     def __init__(self, name, is_signed, bit_width, nullable=True,
                  min_value=TEST_INT_MIN,
                  max_value=TEST_INT_MAX):
-        PrimitiveType.__init__(self, name, nullable=nullable)
+        super(IntegerType, self).__init__(name, nullable=nullable)
         self.is_signed = is_signed
         self.bit_width = bit_width
         self.min_value = min_value
         self.max_value = max_value
 
-    @property
-    def numpy_type(self):
-        return ('int' if self.is_signed else 'uint') + str(self.bit_width)
+    def _get_generated_data_bounds(self):
+        signed_iinfo = np.iinfo('int' + str(self.bit_width))
+        if self.is_signed:
+            min_value, max_value = signed_iinfo.min, signed_iinfo.max
+        else:
+            # ARROW-1837 Remove this hack and restore full unsigned integer
+            # range
+            min_value, max_value = 0, signed_iinfo.max
+
+        lower_bound = max(min_value, self.min_value)
+        upper_bound = min(max_value, self.max_value)
+        return lower_bound, upper_bound
 
     def _get_type(self):
         return OrderedDict([
@@ -217,9 +211,7 @@ class IntegerType(PrimitiveType):
         ])
 
     def generate_column(self, size, name=None):
-        iinfo = np.iinfo(self.numpy_type)
-        lower_bound = max(iinfo.min, self.min_value)
-        upper_bound = min(iinfo.max, self.max_value)
+        lower_bound, upper_bound = self._get_generated_data_bounds()
         return self.generate_range(size, lower_bound, upper_bound, name=name)
 
     def generate_range(self, size, lower, upper, name=None):
@@ -238,10 +230,21 @@ class DateType(IntegerType):
     DAY = 0
     MILLISECOND = 1
 
+    # 1/1/1 to 12/31/9999
+    _ranges = {
+        DAY: [-719162, 2932896],
+        MILLISECOND: [-62135596800000, 253402214400000]
+    }
+
     def __init__(self, name, unit, nullable=True):
-        self.unit = unit
         bit_width = 32 if unit == self.DAY else 64
-        IntegerType.__init__(self, name, True, bit_width, nullable=nullable)
+
+        min_value, max_value = self._ranges[unit]
+        super(DateType, self).__init__(
+            name, True, bit_width, nullable=nullable,
+            min_value=min_value, max_value=max_value
+        )
+        self.unit = unit
 
     def _get_type(self):
         return OrderedDict([
@@ -267,10 +270,20 @@ class TimeType(IntegerType):
         'ns': 64
     }
 
+    _ranges = {
+        's': [0, 86400],
+        'ms': [0, 86400000],
+        'us': [0, 86400000000],
+        'ns': [0, 86400000000000]
+    }
+
     def __init__(self, name, unit='s', nullable=True):
+        min_val, max_val = self._ranges[unit]
+        super(TimeType, self).__init__(name, True, self.BIT_WIDTHS[unit],
+                                       nullable=nullable,
+                                       min_value=min_val,
+                                       max_value=max_val)
         self.unit = unit
-        IntegerType.__init__(self, name, True, self.BIT_WIDTHS[unit],
-                             nullable=nullable)
 
     def _get_type(self):
         return OrderedDict([
@@ -282,10 +295,23 @@ class TimeType(IntegerType):
 
 class TimestampType(IntegerType):
 
+    # 1/1/1 to 12/31/9999
+    _ranges = {
+        's': [-62135596800, 253402214400],
+        'ms': [-62135596800000, 253402214400000],
+        'us': [-62135596800000000, 253402214400000000],
+
+        # Physical range for int64, ~584 years and change
+        'ns': [np.iinfo('int64').min, np.iinfo('int64').max]
+    }
+
     def __init__(self, name, unit='s', tz=None, nullable=True):
+        min_val, max_val = self._ranges[unit]
+        super(TimestampType, self).__init__(name, True, 64, nullable=nullable,
+                                            min_value=min_val,
+                                            max_value=max_val)
         self.unit = unit
         self.tz = tz
-        IntegerType.__init__(self, name, True, 64, nullable=nullable)
 
     def _get_type(self):
         fields = [
@@ -302,7 +328,7 @@ class TimestampType(IntegerType):
 class FloatingPointType(PrimitiveType):
 
     def __init__(self, name, bit_width, nullable=True):
-        PrimitiveType.__init__(self, name, nullable=nullable)
+        super(FloatingPointType, self).__init__(name, nullable=nullable)
 
         self.bit_width = bit_width
         self.precision = {
@@ -331,13 +357,30 @@ class FloatingPointType(PrimitiveType):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
-class DecimalType(PrimitiveType):
-    def __init__(self, name, bit_width, precision, scale, nullable=True):
-        PrimitiveType.__init__(self, name, nullable=True)
+DECIMAL_PRECISION_TO_VALUE = {
+    key: (1 << (8 * i - 1)) - 1 for i, key in enumerate(
+        [1, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 32, 34, 36],
+        start=1,
+    )
+}
 
-        self.bit_width = bit_width
+
+def decimal_range_from_precision(precision):
+    assert 1 <= precision <= 38
+    try:
+        max_value = DECIMAL_PRECISION_TO_VALUE[precision]
+    except KeyError:
+        return decimal_range_from_precision(precision - 1)
+    else:
+        return ~max_value, max_value
+
+
+class DecimalType(PrimitiveType):
+    def __init__(self, name, precision, scale, bit_width=128, nullable=True):
+        super(DecimalType, self).__init__(name, nullable=True)
         self.precision = precision
         self.scale = scale
+        self.bit_width = bit_width
 
     @property
     def numpy_type(self):
@@ -350,16 +393,9 @@ class DecimalType(PrimitiveType):
             ('scale', self.scale),
         ])
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', self.bit_width)])])])
-
     def generate_column(self, size, name=None):
-        values = [random.randint(0, 2**self.bit_width - 1) for x in range(size)]
+        min_value, max_value = decimal_range_from_precision(self.precision)
+        values = [random.randint(min_value, max_value) for _ in range(size)]
 
         is_valid = self._make_is_valid(size)
         if name is None:
@@ -369,14 +405,12 @@ class DecimalType(PrimitiveType):
 
 class DecimalColumn(PrimitiveColumn):
 
-    def __init__(self, name, count, is_valid, values, bit_width):
-        PrimitiveColumn.__init__(self, name, count, is_valid, values)
+    def __init__(self, name, count, is_valid, values, bit_width=128):
+        super(DecimalColumn, self).__init__(name, count, is_valid, values)
         self.bit_width = bit_width
-        self.hex_width = bit_width / 4
 
     def _encode_value(self, x):
-        hex_format_str = '%%0%dx' % self.hex_width
-        return (hex_format_str % x).upper()
+        return str(x)
 
 
 class BooleanType(PrimitiveType):
@@ -409,16 +443,6 @@ class BinaryType(PrimitiveType):
 
     def _get_type(self):
         return OrderedDict([('name', 'binary')])
-
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'OFFSET'),
-                           ('typeBitWidth', 32)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', 8)])])])
 
     def generate_column(self, size, name=None):
         K = 7
@@ -478,7 +502,7 @@ class JsonSchema(object):
 class BinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
-        return frombytes(binascii.hexlify(x))
+        return frombytes(binascii.hexlify(x).upper())
 
     def _get_buffers(self):
         offset = 0
@@ -510,7 +534,7 @@ class StringColumn(BinaryColumn):
 class ListType(DataType):
 
     def __init__(self, name, value_type, nullable=True):
-        DataType.__init__(self, name, nullable=nullable)
+        super(ListType, self).__init__(name, nullable=nullable)
         self.value_type = value_type
 
     def _get_type(self):
@@ -520,14 +544,6 @@ class ListType(DataType):
 
     def _get_children(self):
         return [self.value_type.get_json()]
-
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'OFFSET'),
-                           ('typeBitWidth', 32)])])])
 
     def generate_column(self, size, name=None):
         MAX_LIST_SIZE = 4
@@ -553,7 +569,7 @@ class ListType(DataType):
 class ListColumn(Column):
 
     def __init__(self, name, count, is_valid, offsets, values):
-        Column.__init__(self, name, count)
+        super(ListColumn, self).__init__(name, count)
         self.is_valid = is_valid
         self.offsets = offsets
         self.values = values
@@ -571,7 +587,7 @@ class ListColumn(Column):
 class StructType(DataType):
 
     def __init__(self, name, field_types, nullable=True):
-        DataType.__init__(self, name, nullable=nullable)
+        super(StructType, self).__init__(name, nullable=nullable)
         self.field_types = field_types
 
     def _get_type(self):
@@ -581,12 +597,6 @@ class StructType(DataType):
 
     def _get_children(self):
         return [type_.get_json() for type_ in self.field_types]
-
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)])])])
 
     def generate_column(self, size, name=None):
         is_valid = self._make_is_valid(size)
@@ -620,7 +630,7 @@ class Dictionary(object):
 class DictionaryType(DataType):
 
     def __init__(self, name, index_type, dictionary, nullable=True):
-        DataType.__init__(self, name, nullable=nullable)
+        super(DictionaryType, self).__init__(name, nullable=nullable)
         assert isinstance(index_type, IntegerType)
         assert isinstance(dictionary, Dictionary)
 
@@ -638,12 +648,8 @@ class DictionaryType(DataType):
                 ('id', self.dictionary.id_),
                 ('indexType', self.index_type._get_type()),
                 ('isOrdered', self.dictionary.ordered)
-            ])),
-            ('typeLayout', self.index_type._get_type_layout())
+            ]))
         ])
-
-    def _get_type_layout(self):
-        return self.index_type._get_type_layout()
 
     def generate_column(self, size, name=None):
         if name is None:
@@ -655,7 +661,7 @@ class DictionaryType(DataType):
 class StructColumn(Column):
 
     def __init__(self, name, count, is_valid, field_values):
-        Column.__init__(self, name, count)
+        super(StructColumn, self).__init__(name, count)
         self.is_valid = is_valid
         self.field_values = field_values
 
@@ -742,7 +748,7 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None):
     return JsonFile(name, schema, batches, dictionaries)
 
 
-def generate_primitive_case(batch_sizes):
+def generate_primitive_case(batch_sizes, name='primitive'):
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
              'float32', 'float64', 'binary', 'utf8']
@@ -753,16 +759,17 @@ def generate_primitive_case(batch_sizes):
         fields.append(get_field(type_ + "_nullable", type_, True))
         fields.append(get_field(type_ + "_nonnullable", type_, False))
 
-    return _generate_file("primitive", fields, batch_sizes)
+    return _generate_file(name, fields, batch_sizes)
 
 
 def generate_decimal_case():
     fields = [
-        DecimalType('f1', 128, 24, 10, True),
-        DecimalType('f2', 128, 32, -10, True)
+        DecimalType(name='f{}'.format(i), precision=precision, scale=2)
+        for i, precision in enumerate(range(3, 39))
     ]
 
-    batch_sizes = [7, 10]
+    possible_batch_sizes = 7, 10
+    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
 
     return _generate_file('decimal', fields, batch_sizes)
 
@@ -830,8 +837,8 @@ def get_generated_json_files():
         return
 
     file_objs = [
-        generate_primitive_case([7, 10]),
-        generate_primitive_case([0, 0, 0]),
+        generate_primitive_case([17, 20], name='primitive'),
+        generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
         generate_datetime_case(),
         generate_nested_case(),
@@ -861,14 +868,15 @@ class IntegrationRunner(object):
         self.debug = debug
 
     def run(self):
-        for producer, consumer in itertools.product(self.testers,
-                                                    self.testers):
+        for producer, consumer in itertools.product(filter(lambda t: t.PRODUCER, self.testers),
+                                                    filter(lambda t: t.CONSUMER, self.testers)):
             self._compare_implementations(producer, consumer)
 
     def _compare_implementations(self, producer, consumer):
         print('##########################################################')
-        print('{0} producing, {1} consuming'.format(producer.name,
-                                                       consumer.name))
+        print(
+            '{0} producing, {1} consuming'.format(producer.name, consumer.name)
+        )
         print('##########################################################')
 
         for json_path in self.json_files:
@@ -901,6 +909,8 @@ class IntegrationRunner(object):
 
 
 class Tester(object):
+    PRODUCER = False
+    CONSUMER = False
 
     def __init__(self, debug=False):
         self.debug = debug
@@ -919,6 +929,8 @@ class Tester(object):
 
 
 class JavaTester(Tester):
+    PRODUCER = True
+    CONSUMER = True
 
     _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(
@@ -970,6 +982,8 @@ class JavaTester(Tester):
 
 
 class CPPTester(Tester):
+    PRODUCER = True
+    CONSUMER = True
 
     EXE_PATH = os.environ.get(
         'ARROW_CPP_EXE_PATH',
@@ -1017,6 +1031,41 @@ class CPPTester(Tester):
             print(cmd)
         os.system(cmd)
 
+class JSTester(Tester):
+    PRODUCER = False
+    CONSUMER = True
+
+    INTEGRATION_EXE = os.path.join(ARROW_HOME, 'js/bin/integration.js')
+
+    name = 'JS'
+
+    def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
+        cmd = [self.INTEGRATION_EXE]
+
+        if arrow_path is not None:
+            cmd.extend(['-a', arrow_path])
+
+        if json_path is not None:
+            cmd.extend(['-j', json_path])
+
+        cmd.extend(['--mode', command])
+
+        if self.debug:
+            print(' '.join(cmd))
+
+        run_cmd(cmd)
+
+    def validate(self, json_path, arrow_path):
+        return self._run(arrow_path, json_path, 'VALIDATE')
+
+    def stream_to_file(self, stream_path, file_path):
+        # Just copy stream to file, we can read the stream directly
+        cmd = ['cp', stream_path, file_path]
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        os.system(cmd)
+
 
 def get_static_json_files():
     glob_pattern = os.path.join(ARROW_HOME, 'integration', 'data', '*.json')
@@ -1024,7 +1073,7 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
+    testers = [CPPTester(debug=debug), JavaTester(debug=debug), JSTester(debug=debug)]
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
     json_files = static_json_files + generated_json_files
@@ -1033,11 +1082,34 @@ def run_all_tests(debug=False):
     runner.run()
     print('-- All tests passed!')
 
+
+def write_js_test_json(directory):
+    generate_nested_case().write(os.path.join(directory, 'nested.json'))
+    generate_decimal_case().write(os.path.join(directory, 'decimal.json'))
+    generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
+    (generate_dictionary_case()
+     .write(os.path.join(directory, 'dictionary.json')))
+    (generate_primitive_case([7, 10])
+     .write(os.path.join(directory, 'primitive.json')))
+    (generate_primitive_case([0, 0, 0])
+     .write(os.path.join(directory, 'primitive-empty.json')))
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arrow integration test CLI')
+    parser.add_argument('--write_generated_json', dest='generated_json_path',
+                        action='store', default=False,
+                        help='Generate test JSON')
     parser.add_argument('--debug', dest='debug', action='store_true',
                         default=False,
                         help='Run executables in debug mode as relevant')
-
     args = parser.parse_args()
-    run_all_tests(debug=args.debug)
+    if args.generated_json_path:
+        try:
+            os.makedirs(args.generated_json_path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        write_js_test_json(args.generated_json_path)
+    else:
+        run_all_tests(debug=args.debug)

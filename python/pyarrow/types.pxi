@@ -69,6 +69,9 @@ cdef class DataType:
             )
         return frombytes(self.type.ToString())
 
+    def __hash__(self):
+        return hash(str(self))
+
     def __reduce__(self):
         return self.__class__, (), self.__getstate__()
 
@@ -186,7 +189,32 @@ cdef class UnionType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
+        self.child_types = [
+            pyarrow_wrap_data_type(type.get().child(i).get().type())
+            for i in range(self.num_children)]
 
+    property num_children:
+
+        def __get__(self):
+            return self.type.num_children()
+
+    property mode:
+
+        def __get__(self):
+            cdef CUnionType* type = <CUnionType*> self.sp_type.get()
+            return type.mode()
+
+    def __getitem__(self, i):
+        return self.child_types[i]
+
+    def __getstate__(self):
+        children = [pyarrow_wrap_field(self.type.child(i))
+                    for i in range(self.num_children)]
+        return children, self.mode
+
+    def __setstate__(self, state):
+        cdef DataType reconstituted = union(*state)
+        self.init(reconstituted.sp_type)
 
 cdef class TimestampType(DataType):
 
@@ -262,28 +290,28 @@ cdef class FixedSizeBinaryType(DataType):
             return self.fixed_size_binary_type.byte_width()
 
 
-cdef class DecimalType(FixedSizeBinaryType):
+cdef class Decimal128Type(FixedSizeBinaryType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
-        self.decimal_type = <const CDecimalType*> type.get()
+        self.decimal128_type = <const CDecimal128Type*> type.get()
 
     def __getstate__(self):
         return (self.precision, self.scale)
 
     def __setstate__(self, state):
-        cdef DataType reconstituted = decimal(*state)
+        cdef DataType reconstituted = decimal128(*state)
         self.init(reconstituted.sp_type)
 
     property precision:
 
         def __get__(self):
-            return self.decimal_type.precision()
+            return self.decimal128_type.precision()
 
     property scale:
 
         def __get__(self):
-            return self.decimal_type.scale()
+            return self.decimal128_type.scale()
 
 
 cdef class Field:
@@ -925,9 +953,9 @@ def float64():
     return primitive_type(_Type_DOUBLE)
 
 
-cpdef DataType decimal(int precision, int scale=0):
+cpdef DataType decimal128(int precision, int scale=0):
     """
-    Create decimal type with precision and scale
+    Create decimal type with precision and scale and 128bit width
 
     Parameters
     ----------
@@ -936,10 +964,10 @@ cpdef DataType decimal(int precision, int scale=0):
 
     Returns
     -------
-    decimal_type : DecimalType
+    decimal_type : Decimal128Type
     """
     cdef shared_ptr[CDataType] decimal_type
-    decimal_type.reset(new CDecimalType(precision, scale))
+    decimal_type.reset(new CDecimal128Type(precision, scale))
     return pyarrow_wrap_data_type(decimal_type)
 
 
@@ -1054,6 +1082,31 @@ def struct(fields):
 
     struct_type.reset(new CStructType(c_fields))
     return pyarrow_wrap_data_type(struct_type)
+
+
+def union(children_fields, mode):
+    """
+    Create UnionType from children fields.
+    """
+    cdef:
+        Field child_field
+        vector[shared_ptr[CField]] c_fields
+        vector[uint8_t] type_codes
+        shared_ptr[CDataType] union_type
+        int i
+
+    for i, child_field in enumerate(children_fields):
+        type_codes.push_back(i)
+        c_fields.push_back(child_field.sp_field)
+
+        if mode == UnionMode_SPARSE:
+            union_type.reset(new CUnionType(c_fields, type_codes,
+                                            _UnionMode_SPARSE))
+        else:
+            union_type.reset(new CUnionType(c_fields, type_codes,
+                                            _UnionMode_DENSE))
+
+    return pyarrow_wrap_data_type(union_type)
 
 
 cdef dict _type_aliases = {

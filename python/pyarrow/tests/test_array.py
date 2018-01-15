@@ -235,6 +235,28 @@ def test_list_from_arrays():
     assert result.equals(expected)
 
 
+def test_union_from_dense():
+    binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
+    int64 = pa.array([1, 2, 3], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+    value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
+
+    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64])
+
+    assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+
+
+def test_union_from_sparse():
+    binary = pa.array([b'a', b' ', b'b', b'c', b' ', b' ', b'd'],
+                      type='binary')
+    int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+
+    result = pa.UnionArray.from_sparse(types, [binary, int64])
+
+    assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+
+
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
 
@@ -273,6 +295,18 @@ def test_cast_integers_safe():
             in_arr.cast(out_type)
 
 
+def test_cast_column():
+    arrays = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
+
+    col = pa.column('foo', arrays)
+
+    target = pa.float64()
+    casted = col.cast(target)
+
+    expected = pa.column('foo', [x.cast(target) for x in arrays])
+    assert casted.equals(expected)
+
+
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting
     unsafe_cases = [
@@ -297,7 +331,11 @@ def test_cast_timestamp_unit():
     s_nyc = s.dt.tz_localize('tzlocal()').dt.tz_convert('America/New_York')
 
     us_with_tz = pa.timestamp('us', tz='America/New_York')
+
     arr = pa.Array.from_pandas(s_nyc, type=us_with_tz)
+
+    # ARROW-1906
+    assert arr.type == us_with_tz
 
     arr2 = pa.Array.from_pandas(s, type=pa.timestamp('us'))
 
@@ -328,6 +366,86 @@ def test_cast_signed_to_unsigned():
         _check_cast_case(case)
 
 
+def test_unique_simple():
+    cases = [
+        (pa.array([1, 2, 3, 1, 2, 3]), pa.array([1, 2, 3])),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.array(['foo', 'bar']))
+    ]
+    for arr, expected in cases:
+        result = arr.unique()
+        assert result.equals(expected)
+
+
+def test_dictionary_encode_simple():
+    cases = [
+        (pa.array([1, 2, 3, None, 1, 2, 3]),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, 1, 2, None, 0, 1, 2], type='int32'),
+             [1, 2, 3])),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, None, 1, 0], type='int32'),
+             ['foo', 'bar']))
+    ]
+    for arr, expected in cases:
+        result = arr.dictionary_encode()
+        assert result.equals(expected)
+
+
+def test_cast_time32_to_int():
+    arr = pa.array(np.array([0, 1, 2], dtype='int32'),
+                   type=pa.time32('s'))
+    expected = pa.array([0, 1, 2], type='i4')
+
+    result = arr.cast('i4')
+    assert result.equals(expected)
+
+
+def test_cast_time64_to_int():
+    arr = pa.array(np.array([0, 1, 2], dtype='int64'),
+                   type=pa.time64('us'))
+    expected = pa.array([0, 1, 2], type='i8')
+
+    result = arr.cast('i8')
+    assert result.equals(expected)
+
+
+def test_cast_timestamp_to_int():
+    arr = pa.array(np.array([0, 1, 2], dtype='int64'),
+                   type=pa.timestamp('us'))
+    expected = pa.array([0, 1, 2], type='i8')
+
+    result = arr.cast('i8')
+    assert result.equals(expected)
+
+
+def test_cast_date32_to_int():
+    arr = pa.array([0, 1, 2], type='i4')
+
+    result1 = arr.cast('date32')
+    result2 = result1.cast('i4')
+
+    expected1 = pa.array([
+        datetime.date(1970, 1, 1),
+        datetime.date(1970, 1, 2),
+        datetime.date(1970, 1, 3)
+    ]).cast('date32')
+
+    assert result1.equals(expected1)
+    assert result2.equals(arr)
+
+
+def test_cast_date64_to_int():
+    arr = pa.array(np.array([0, 1, 2], dtype='int64'),
+                   type=pa.date64())
+    expected = pa.array([0, 1, 2], type='i8')
+
+    result = arr.cast('i8')
+
+    assert result.equals(expected)
+
+
 def test_simple_type_construction():
     result = pa.lib.TimestampType()
     with pytest.raises(TypeError):
@@ -356,7 +474,7 @@ def test_simple_type_construction():
         (pa.binary(length=4), 'bytes'),
         (pa.string(), 'unicode'),
         (pa.list_(pa.list_(pa.int16())), 'list[list[int16]]'),
-        (pa.decimal(18, 3), 'decimal'),
+        (pa.decimal128(18, 3), 'decimal'),
         (pa.timestamp('ms'), 'datetime'),
         (pa.timestamp('us', 'UTC'), 'datetimetz'),
         (pa.time32('s'), 'time'),
@@ -379,6 +497,14 @@ def test_array_conversions_no_sentinel_values():
                     type='float32')
     assert arr3.type == 'float32'
     assert arr3.null_count == 0
+
+
+def test_array_from_numpy_datetimeD():
+    arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
+
+    result = pa.array(arr)
+    expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
+    assert result.equals(expected)
 
 
 def test_array_from_numpy_ascii():

@@ -21,42 +21,55 @@ from pandas.util.testing import assert_frame_equal
 import pandas as pd
 import pytest
 
-from pyarrow.compat import unittest
 import pyarrow as pa
 
 
-class TestColumn(unittest.TestCase):
+def test_column_basics():
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+    column = table.column(0)
+    assert column.name == 'a'
+    assert column.length() == 5
+    assert len(column) == 5
+    assert column.shape == (5,)
+    assert column.to_pylist() == [-10, -5, 0, 5, 10]
 
-    def test_basics(self):
-        data = [
-            pa.array([-10, -5, 0, 5, 10])
-        ]
-        table = pa.Table.from_arrays(data, names=['a'])
-        column = table.column(0)
-        assert column.name == 'a'
-        assert column.length() == 5
-        assert len(column) == 5
-        assert column.shape == (5,)
-        assert column.to_pylist() == [-10, -5, 0, 5, 10]
 
-    def test_from_array(self):
-        arr = pa.array([0, 1, 2, 3, 4])
+def test_column_factory_function():
+    # ARROW-1575
+    arr = pa.array([0, 1, 2, 3, 4])
+    arr2 = pa.array([5, 6, 7, 8])
 
-        col1 = pa.Column.from_array('foo', arr)
-        col2 = pa.Column.from_array(pa.field('foo', arr.type), arr)
+    col1 = pa.Column.from_array('foo', arr)
+    col2 = pa.Column.from_array(pa.field('foo', arr.type), arr)
 
-        assert col1.equals(col2)
+    assert col1.equals(col2)
 
-    def test_pandas(self):
-        data = [
-            pa.array([-10, -5, 0, 5, 10])
-        ]
-        table = pa.Table.from_arrays(data, names=['a'])
-        column = table.column(0)
-        series = column.to_pandas()
-        assert series.name == 'a'
-        assert series.shape == (5,)
-        assert series.iloc[0] == -10
+    col3 = pa.column('foo', [arr, arr2])
+    chunked_arr = pa.chunked_array([arr, arr2])
+    col4 = pa.column('foo', chunked_arr)
+    assert col3.equals(col4)
+
+    col5 = pa.column('foo', arr.to_pandas())
+    assert col5.equals(pa.column('foo', arr))
+
+    # Type mismatch
+    with pytest.raises(ValueError):
+        pa.Column.from_array(pa.field('foo', pa.string()), arr)
+
+
+def test_column_to_pandas():
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+    column = table.column(0)
+    series = column.to_pandas()
+    assert series.name == 'a'
+    assert series.shape == (5,)
+    assert series.iloc[0] == -10
 
 
 def test_recordbatch_basics():
@@ -200,6 +213,31 @@ def test_recordbatchlist_schema_equals():
         pa.Table.from_batches([batch1, batch2])
 
 
+def test_table_to_batches():
+    df1 = pd.DataFrame({'a': list(range(10))})
+    df2 = pd.DataFrame({'a': list(range(10, 30))})
+
+    batch1 = pa.RecordBatch.from_pandas(df1, preserve_index=False)
+    batch2 = pa.RecordBatch.from_pandas(df2, preserve_index=False)
+
+    table = pa.Table.from_batches([batch1, batch2, batch1])
+
+    expected_df = pd.concat([df1, df2, df1], ignore_index=True)
+
+    batches = table.to_batches()
+    assert len(batches) == 3
+
+    assert_frame_equal(pa.Table.from_batches(batches).to_pandas(),
+                       expected_df)
+
+    batches = table.to_batches(chunksize=15)
+    assert list(map(len, batches)) == [10, 15, 5, 10]
+
+    assert_frame_equal(table.to_pandas(), expected_df)
+    assert_frame_equal(pa.Table.from_batches(batches).to_pandas(),
+                       expected_df)
+
+
 def test_table_basics():
     data = [
         pa.array(range(5)),
@@ -272,6 +310,20 @@ def test_table_remove_column():
     t2 = table.remove_column(0)
     expected = pa.Table.from_arrays(data[1:], names=('b', 'c'))
     assert t2.equals(expected)
+
+
+def test_table_remove_column_empty():
+    # ARROW-1865
+    data = [
+        pa.array(range(5)),
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+
+    t2 = table.remove_column(0)
+    assert len(t2) == len(table)
+
+    t3 = t2.add_column(0, table[0])
+    assert t3.equals(table)
 
 
 def test_concat_tables():

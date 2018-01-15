@@ -67,6 +67,10 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   public void write${minor.class}(${friendlyType} value) {
     fail("${name}");
   }
+
+  public void writeBigEndianBytesToDecimal(byte[] value) {
+    fail("${name}");
+  }
   </#if>
 
   </#list></#list>

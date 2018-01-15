@@ -51,12 +51,14 @@ matrix:
     os: linux
     group: deprecated
     before_script:
-    - export CC="gcc-4.9"
-    - export CXX="g++-4.9"
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
+    - export ARROW_TRAVIS_ORC=1
     - export ARROW_TRAVIS_CLANG_FORMAT=1
+    - export ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - export CC="clang-4.0"
+    - export CXX="clang++-4.0"
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
@@ -74,6 +76,8 @@ matrix:
     before_script:
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_PLASMA=1
+    - export ARROW_TRAVIS_ORC=1
+    - export ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - travis_wait 50 $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
@@ -87,7 +91,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh
   - language: java
     os: linux
-    jdk: openjdk8
+    jdk: openjdk7
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
   - language: java
@@ -103,12 +107,14 @@ matrix:
   - language: java
     os: linux
     env: ARROW_TEST_GROUP=integration
-    jdk: openjdk7
+    jdk: openjdk8
     before_script:
     - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - export CC="clang-4.0"
     - export CXX="clang++-4.0"
+    - nvm install node
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
@@ -151,6 +157,7 @@ matrix:
     rvm: 2.2
     env: BUILD_SYSTEM=autotools
     before_script:
+    - brew update && brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
