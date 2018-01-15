@@ -1223,7 +1223,7 @@ Status BinaryBuilder::Resize(int64_t capacity) {
   DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
   // one more then requested for offsets
   RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
-  RETURN_NOT_OK(value_data_builder_.Resize(capacity));
+  RETURN_NOT_OK(value_data_builder_.Resize(capacity * sizeof(int64_t)));
   return ArrayBuilder::Resize(capacity);
 }
 
