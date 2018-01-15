@@ -180,7 +180,7 @@ function createDataFrameCountByTest(table, column) {
         async: true,
         name: `name: '${column}', length: ${table.length}, type: ${table.columns[colidx].type}`,
         fn() {
-            table.countBy(col(column));
+            table.countBy(column);
         }
     };
 }

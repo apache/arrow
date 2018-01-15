@@ -115,7 +115,7 @@ export class Table implements DataFrame {
         return this.lengths.reduce((acc, val) => acc + val);
     }
     countBy(count_by: (Col|string)): CountByResult {
-        if (count_by instanceof String) {
+        if (!(count_by instanceof Col)) {
             count_by = new Col(count_by);
         }
 
@@ -216,7 +216,7 @@ class FilteredDataFrame implements DataFrame {
     }
 
     countBy(count_by: (Col|string)): CountByResult {
-        if (count_by instanceof String) {
+        if (!(count_by instanceof Col)) {
             count_by = new Col(count_by);
         }
 
