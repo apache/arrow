@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Table, TableRow } from './table';
-import { lit, col } from './predicate';
+import { Table, TableRow, CountByResult } from './table';
+import { lit, col, Col, Value } from './predicate';
 import { Vector } from './vector/vector';
 import { Utf8Vector } from './vector/utf8';
 import { DictionaryVector } from './vector/dictionary';
@@ -54,8 +54,8 @@ Table['fromAsync'] = Table.fromAsync;
 BoolVector['pack'] = BoolVector.pack;
 
 export { read, readAsync };
-export { Table, TableRow };
-export { lit, col };
+export { Table, TableRow, CountByResult };
+export { lit, col, Col, Value };
 export { Vector, StructRow };
 export { Uint64, Int64, Int128 };
 export { NumericVectorConstructor } from './vector/numeric';
@@ -94,9 +94,11 @@ try {
         // string indexers tell closure compiler not to rename these properties
         Arrow['lit'] = lit;
         Arrow['col'] = col;
+        Arrow['Col'] = Col;
         Arrow['read'] = read;
-        Arrow['readAsync'] = readAsync;
+        Arrow['Value'] = Value;
         Arrow['Table'] = Table;
+        Arrow['readAsync'] = readAsync;
         Arrow['Vector'] = Vector;
         Arrow['StructRow'] = StructRow;
         Arrow['BoolVector'] = BoolVector;
@@ -120,6 +122,7 @@ try {
         Arrow['Float32Vector'] = Float32Vector;
         Arrow['Float64Vector'] = Float64Vector;
         Arrow['DecimalVector'] = DecimalVector;
+        Arrow['CountByResult'] = CountByResult;
         Arrow['TimestampVector'] = TimestampVector;
         Arrow['DictionaryVector'] = DictionaryVector;
         Arrow['FixedSizeListVector'] = FixedSizeListVector;

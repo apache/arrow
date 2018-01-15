@@ -54,6 +54,16 @@ Table.prototype.toString;
 Table.prototype.lengths;
 /** @type {?} */
 Table.prototype.batches;
+/** @type {?} */
+Table.prototype.countBy;
+/** @type {?} */
+Table.prototype.scan;
+/** @type {?} */
+Table.prototype.get;
+
+let CountByResult = function() {};
+/** @type {?} */
+CountByResult.prototype.asJSON;
 
 let Vector = function() {};
 /** @type {?} */

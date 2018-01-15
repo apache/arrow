@@ -42,7 +42,7 @@ export interface DataFrame {
     filter(predicate: Predicate): DataFrame;
     scan(next: NextFunc): void;
     count(): number;
-    countBy(col: (Col|string)): Table;
+    countBy(col: (Col|string)): CountByResult;
 }
 
 function columnsFromBatches(batches: Vector[][]) {
@@ -87,7 +87,7 @@ export class Table implements DataFrame {
     }
     get(idx: number): TableRow {
         let batch = 0;
-        while (idx > this.lengths[batch] && batch < this.lengths.length) {
+        while (idx >= this.lengths[batch] && batch < this.lengths.length) {
             idx -= this.lengths[batch++];
         }
 
@@ -114,7 +114,7 @@ export class Table implements DataFrame {
     count(): number {
         return this.lengths.reduce((acc, val) => acc + val);
     }
-    countBy(count_by: (Col|string)): Table {
+    countBy(count_by: (Col|string)): CountByResult {
         if (count_by instanceof String) {
             count_by = new Col(count_by);
         }
@@ -146,7 +146,7 @@ export class Table implements DataFrame {
             }
         }
 
-        return new Table({batches: [[keys, new Uint32Vector({data: counts})]]})
+        return new CountByResult(keys, new Uint32Vector({data: counts}))
     }
     *[Symbol.iterator]() {
         for (let batch = -1; ++batch < this.lengths.length;) {
@@ -215,7 +215,7 @@ class FilteredDataFrame implements DataFrame {
         );
     }
 
-    countBy(count_by: (Col|string)): Table {
+    countBy(count_by: (Col|string)): CountByResult {
         if (count_by instanceof String) {
             count_by = new Col(count_by);
         }
@@ -246,6 +246,22 @@ class FilteredDataFrame implements DataFrame {
             }
         }
 
-        return new Table({batches: [[keys, new Uint32Vector({data: counts})]]})
+        return new CountByResult(keys, new Uint32Vector({data: counts}))
+    }
+}
+
+export class CountByResult extends Table implements DataFrame {
+    constructor(readonly keys: Vector, readonly counts: Vector<number|null>) {
+        super({batches: [[keys, counts]]});
+    }
+
+    asJSON(): Object {
+        let result: {[key: string]: number|null} = {};
+
+        for (let i = -1; ++i < this.length;) {
+            result[this.keys.get(i)] = this.counts.get(i);
+        }
+
+        return result;
     }
 }
