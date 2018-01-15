@@ -149,7 +149,7 @@ void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObjec
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                             uint8_t* metadata, int64_t metadata_size,
-                            std::shared_ptr<Buffer>* data) {
+                            std::shared_ptr<MutableBuffer>* data) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
                    << data_size << " and metadata size " << metadata_size;
   RETURN_NOT_OK(SendCreateRequest(store_conn_, object_id, data_size, metadata_size));
