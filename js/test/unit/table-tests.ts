@@ -26,90 +26,90 @@ const {
 describe(`Table`, () => {
     describe(`single record batch`, () => {
         const table = Table.from({
-          "schema": {
-            "fields": [
+          'schema': {
+            'fields': [
               {
-                "name": "f32",
-                "type": {
-                  "name": "floatingpoint",
-                  "precision": "SINGLE"
+                'name': 'f32',
+                'type': {
+                  'name': 'floatingpoint',
+                  'precision': 'SINGLE'
                 },
-                "nullable": false,
-                "children": [],
+                'nullable': false,
+                'children': [],
               },
               {
-                "name": "i32",
-                "type": {
-                  "name": "int",
-                  "isSigned": true,
-                  "bitWidth": 32
+                'name': 'i32',
+                'type': {
+                  'name': 'int',
+                  'isSigned': true,
+                  'bitWidth': 32
                 },
-                "nullable": false,
-                "children": [],
+                'nullable': false,
+                'children': [],
               },
               {
-                "name": "dictionary",
-                "type": {
-                  "name": "utf8"
+                'name': 'dictionary',
+                'type': {
+                  'name': 'utf8'
                 },
-                "nullable": false,
-                "children": [],
-                "dictionary": {
-                  "id": 0,
-                  "indexType": {
-                    "name": "int",
-                    "isSigned": true,
-                    "bitWidth": 8
+                'nullable': false,
+                'children': [],
+                'dictionary': {
+                  'id': 0,
+                  'indexType': {
+                    'name': 'int',
+                    'isSigned': true,
+                    'bitWidth': 8
                   },
-                  "isOrdered": false
+                  'isOrdered': false
                 }
               }
             ]
           },
-          "dictionaries": [{
-            "id": 0,
-            "data": {
-              "count": 3,
-              "columns": [
+          'dictionaries': [{
+            'id': 0,
+            'data': {
+              'count': 3,
+              'columns': [
                 {
-                  "name": "DICT0",
-                  "count": 3,
-                  "VALIDITY": [],
-                  "OFFSET": [
+                  'name': 'DICT0',
+                  'count': 3,
+                  'VALIDITY': [],
+                  'OFFSET': [
                     0,
                     1,
                     2,
                     3
                   ],
-                  "DATA": [
-                    "a",
-                    "b",
-                    "c",
+                  'DATA': [
+                    'a',
+                    'b',
+                    'c',
                   ]
                 }
               ]
             }
           }],
-          "batches": [{
-            "count": 7,
-            "columns": [
+          'batches': [{
+            'count': 7,
+            'columns': [
               {
-                "name": "f32",
-                "count": 7,
-                "VALIDITY": [],
-                "DATA": [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3]
+                'name': 'f32',
+                'count': 7,
+                'VALIDITY': [],
+                'DATA': [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3]
               },
               {
-                "name": "i32",
-                "count": 7,
-                "VALIDITY": [],
-                "DATA": [-1, 1, -1, 1, -1, 1, -1]
+                'name': 'i32',
+                'count': 7,
+                'VALIDITY': [],
+                'DATA': [-1, 1, -1, 1, -1, 1, -1]
               },
               {
-                "name": "dictionary",
-                "count": 7,
-                "VALIDITY": [],
-                "DATA": [0, 1, 2, 0, 1, 2, 0]
+                'name': 'dictionary',
+                'count': 7,
+                'VALIDITY': [],
+                'DATA': [0, 1, 2, 0, 1, 2, 0]
               }
             ]
           }]
@@ -125,7 +125,7 @@ describe(`Table`, () => {
             [new Float32Array([ 0.1])[0], -1, 'b'],
             [new Float32Array([ 0.2])[0],  1, 'c'],
             [new Float32Array([ 0.3])[0], -1, 'a']
-        ]
+        ];
         test(`has the correct length`, () => {
             expect(table.length).toEqual(values.length);
         });
@@ -143,7 +143,7 @@ describe(`Table`, () => {
         test(`scans expected values`, () => {
             let expected_idx = 0;
             table.scan((idx, cols) => {
-                expect(cols.map((c)=>c.get(idx))).toEqual(values[expected_idx++]);
+                expect(cols.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
             });
         });
         test(`count() returns the correct length`, () => {
@@ -179,137 +179,140 @@ describe(`Table`, () => {
                 'c': 1,
             });
         });
+        test(`countBy on non dictionary column throws error`, () => {
+            expect(() => { table.countBy('i32'); }).toThrow();
+        });
     });
     describe(`multiple record batches`, () => {
         const table = Table.from({
-          "schema": {
-            "fields": [
+          'schema': {
+            'fields': [
               {
-                "name": "f32",
-                "type": {
-                  "name": "floatingpoint",
-                  "precision": "SINGLE"
+                'name': 'f32',
+                'type': {
+                  'name': 'floatingpoint',
+                  'precision': 'SINGLE'
                 },
-                "nullable": false,
-                "children": [],
+                'nullable': false,
+                'children': [],
               },
               {
-                "name": "i32",
-                "type": {
-                  "name": "int",
-                  "isSigned": true,
-                  "bitWidth": 32
+                'name': 'i32',
+                'type': {
+                  'name': 'int',
+                  'isSigned': true,
+                  'bitWidth': 32
                 },
-                "nullable": false,
-                "children": [],
+                'nullable': false,
+                'children': [],
               },
               {
-                "name": "dictionary",
-                "type": {
-                  "name": "utf8"
+                'name': 'dictionary',
+                'type': {
+                  'name': 'utf8'
                 },
-                "nullable": false,
-                "children": [],
-                "dictionary": {
-                  "id": 0,
-                  "indexType": {
-                    "name": "int",
-                    "isSigned": true,
-                    "bitWidth": 8
+                'nullable': false,
+                'children': [],
+                'dictionary': {
+                  'id': 0,
+                  'indexType': {
+                    'name': 'int',
+                    'isSigned': true,
+                    'bitWidth': 8
                   },
-                  "isOrdered": false
+                  'isOrdered': false
                 }
               }
             ]
           },
-          "dictionaries": [{
-            "id": 0,
-            "data": {
-              "count": 3,
-              "columns": [
+          'dictionaries': [{
+            'id': 0,
+            'data': {
+              'count': 3,
+              'columns': [
                 {
-                  "name": "DICT0",
-                  "count": 3,
-                  "VALIDITY": [],
-                  "OFFSET": [
+                  'name': 'DICT0',
+                  'count': 3,
+                  'VALIDITY': [],
+                  'OFFSET': [
                     0,
                     1,
                     2,
                     3
                   ],
-                  "DATA": [
-                    "a",
-                    "b",
-                    "c",
+                  'DATA': [
+                    'a',
+                    'b',
+                    'c',
                   ]
                 }
               ]
             }
           }],
-          "batches": [{
-            "count": 3,
-            "columns": [
+          'batches': [{
+            'count': 3,
+            'columns': [
               {
-                "name": "f32",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [-0.3, -0.2, -0.1]
+                'name': 'f32',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [-0.3, -0.2, -0.1]
               },
               {
-                "name": "i32",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [-1, 1, -1]
+                'name': 'i32',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [-1, 1, -1]
               },
               {
-                "name": "dictionary",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [0, 1, 2]
+                'name': 'dictionary',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [0, 1, 2]
               }
             ]
           }, {
-            "count": 3,
-            "columns": [
+            'count': 3,
+            'columns': [
               {
-                "name": "f32",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [0, 0.1, 0.2]
+                'name': 'f32',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [0, 0.1, 0.2]
               },
               {
-                "name": "i32",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [1, -1, 1]
+                'name': 'i32',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [1, -1, 1]
               },
               {
-                "name": "dictionary",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [0, 1, 2]
+                'name': 'dictionary',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [0, 1, 2]
               }
             ]
           }, {
-            "count": 3,
-            "columns": [
+            'count': 3,
+            'columns': [
               {
-                "name": "f32",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [0.3, 0.2, 0.1]
+                'name': 'f32',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [0.3, 0.2, 0.1]
               },
               {
-                "name": "i32",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [-1, 1, -1]
+                'name': 'i32',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [-1, 1, -1]
               },
               {
-                "name": "dictionary",
-                "count": 3,
-                "VALIDITY": [],
-                "DATA": [0, 1, 2]
+                'name': 'dictionary',
+                'count': 3,
+                'VALIDITY': [],
+                'DATA': [0, 1, 2]
               }
             ]
           }]
@@ -327,7 +330,7 @@ describe(`Table`, () => {
             [new Float32Array([ 0.3])[0], -1, 'a'],
             [new Float32Array([ 0.2])[0],  1, 'b'],
             [new Float32Array([ 0.1])[0], -1, 'c'],
-        ]
+        ];
         test(`has the correct length`, () => {
             expect(table.length).toEqual(values.length);
         });
@@ -345,7 +348,7 @@ describe(`Table`, () => {
         test(`scans expected values`, () => {
             let expected_idx = 0;
             table.scan((idx, cols) => {
-                expect(cols.map((c)=>c.get(idx))).toEqual(values[expected_idx++]);
+                expect(cols.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
             });
         });
         test(`count() returns the correct length`, () => {
@@ -380,6 +383,9 @@ describe(`Table`, () => {
                 'b': 2,
                 'c': 1,
             });
+        });
+        test(`countBy on non dictionary column throws error`, () => {
+            expect(() => { table.countBy('i32'); }).toThrow();
         });
     });
 });

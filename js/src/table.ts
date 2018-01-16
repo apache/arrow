@@ -54,14 +54,17 @@ function columnsFromBatches(batches: Vector[][]) {
 
 export class Table implements DataFrame {
     static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
-        let batches: Vector<any>[][] = [[]];
+        let batches: Vector[][] = [];
         if (sources) {
-            batches = Array.from(read(sources));
+            batches = [];
+            for (let batch of read(sources)) {
+                batches.push(batch);
+            }
         }
         return new Table({ batches });
     }
     static async fromAsync(sources?: AsyncIterable<Uint8Array | Buffer | string>) {
-        let batches: Vector<any>[][] = [[]];
+        let batches: Vector[][] = [];
         if (sources) {
             batches = [];
             for await (let batch of readAsync(sources)) {
@@ -119,18 +122,17 @@ export class Table implements DataFrame {
             count_by = new Col(count_by);
         }
 
-        // the last batch will have the most complete dictionary, use it's data
-        // vector as our count by keys
+        // Assume that all dictionary batches are deltas, which means that the
+        // last record batch has the most complete dictionary
         count_by.bind(this.batches[this.batches.length - 1]);
         if (!(count_by.vector instanceof DictionaryVector)) {
-            throw new Error("countBy currently only supports dictionary-encoded columns");
+            throw new Error('countBy currently only supports dictionary-encoded columns');
         }
 
-        let keys: Vector = (count_by.vector as DictionaryVector<any>).data;
+        let data: Vector = (count_by.vector as DictionaryVector<any>).data;
         // TODO: Adjust array byte width based on overall length
         // (e.g. if this.length <= 255 use Uint8Array, etc...)
-        let counts: Uint32Array = new Uint32Array(keys.length);
-
+        let counts: Uint32Array = new Uint32Array(data.length);
 
         for (let batch = -1; ++batch < this.lengths.length;) {
             const length = this.lengths[batch];
@@ -138,15 +140,16 @@ export class Table implements DataFrame {
             // load batches
             const columns = this.batches[batch];
             count_by.bind(columns);
+            const keys: Vector = (count_by.vector as DictionaryVector<any>).keys;
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                let key = (count_by.vector as DictionaryVector<any>).getKey(idx)
+                let key = keys.get(idx);
                 if (key !== null) { counts[key]++; }
             }
         }
 
-        return new CountByResult(keys, new Uint32Vector({data: counts}))
+        return new CountByResult(data, new Uint32Vector({data: counts}));
     }
     *[Symbol.iterator]() {
         for (let batch = -1; ++batch < this.lengths.length;) {
@@ -220,16 +223,17 @@ class FilteredDataFrame implements DataFrame {
             count_by = new Col(count_by);
         }
 
-        // the last batch will have the most complete dictionary, use it's data
-        // vector as our count by keys
+        // Assume that all dictionary batches are deltas, which means that the
+        // last record batch has the most complete dictionary
         count_by.bind(this.parent.batches[this.parent.batches.length - 1]);
         if (!(count_by.vector instanceof DictionaryVector)) {
-            throw new Error("countBy currently only supports dictionary-encoded columns");
+            throw new Error('countBy currently only supports dictionary-encoded columns');
         }
 
-        let keys: Vector = (count_by.vector as DictionaryVector<any>).data;
-        let counts: Uint32Array = new Uint32Array(keys.length);
-
+        const data: Vector = (count_by.vector as DictionaryVector<any>).data;
+        // TODO: Adjust array byte width based on overall length
+        // (e.g. if this.length <= 255 use Uint8Array, etc...)
+        const counts: Uint32Array = new Uint32Array(data.length);
 
         for (let batch = -1; ++batch < this.parent.lengths.length;) {
             const length = this.parent.lengths[batch];
@@ -238,28 +242,29 @@ class FilteredDataFrame implements DataFrame {
             const columns = this.parent.batches[batch];
             const predicate = this.predicate.bind(columns);
             count_by.bind(columns);
+            const keys: Vector = (count_by.vector as DictionaryVector<any>).keys;
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                let key = (count_by.vector as DictionaryVector<any>).getKey(idx)
+                let key = keys.get(idx);
                 if (key !== null && predicate(idx, columns)) { counts[key]++; }
             }
         }
 
-        return new CountByResult(keys, new Uint32Vector({data: counts}))
+        return new CountByResult(data, new Uint32Vector({data: counts}));
     }
 }
 
 export class CountByResult extends Table implements DataFrame {
-    constructor(readonly keys: Vector, readonly counts: Vector<number|null>) {
-        super({batches: [[keys, counts]]});
+    constructor(readonly values: Vector, readonly counts: Vector<number|null>) {
+        super({batches: [[values, counts]]});
     }
 
     asJSON(): Object {
         let result: {[key: string]: number|null} = {};
 
         for (let i = -1; ++i < this.length;) {
-            result[this.keys.get(i)] = this.counts.get(i);
+            result[this.values.get(i)] = this.counts.get(i);
         }
 
         return result;
