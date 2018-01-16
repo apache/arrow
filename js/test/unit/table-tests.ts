@@ -161,19 +161,19 @@ describe(`Table`, () => {
         test(`countBy on dictionary returns the correct counts`, () => {
             // Make sure countBy works both with and without the Col wrapper
             // class
-            expect(table.countBy(col('dictionary')).asJSON()).toEqual({
+            expect(table.countBy(col('dictionary')).toJSON()).toEqual({
                 'a': 3,
                 'b': 2,
                 'c': 2,
             });
-            expect(table.countBy('dictionary').asJSON()).toEqual({
+            expect(table.countBy('dictionary').toJSON()).toEqual({
                 'a': 3,
                 'b': 2,
                 'c': 2,
             });
         });
         test(`countBy on dictionary with filter returns the correct counts`, () => {
-            expect(table.filter(col('i32').eq(1)).countBy('dictionary').asJSON()).toEqual({
+            expect(table.filter(col('i32').eq(1)).countBy('dictionary').toJSON()).toEqual({
                 'a': 1,
                 'b': 1,
                 'c': 1,
@@ -366,19 +366,19 @@ describe(`Table`, () => {
         test(`countBy on dictionary returns the correct counts`, () => {
             // Make sure countBy works both with and without the Col wrapper
             // class
-            expect(table.countBy(col('dictionary')).asJSON()).toEqual({
+            expect(table.countBy(col('dictionary')).toJSON()).toEqual({
                 'a': 3,
                 'b': 3,
                 'c': 3,
             });
-            expect(table.countBy('dictionary').asJSON()).toEqual({
+            expect(table.countBy('dictionary').toJSON()).toEqual({
                 'a': 3,
                 'b': 3,
                 'c': 3,
             });
         });
         test(`countBy on dictionary with filter returns the correct counts`, () => {
-            expect(table.filter(col('i32').eq(1)).countBy(col('dictionary')).asJSON()).toEqual({
+            expect(table.filter(col('i32').eq(1)).countBy(col('dictionary')).toJSON()).toEqual({
                 'a': 1,
                 'b': 2,
                 'c': 1,

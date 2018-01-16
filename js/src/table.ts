@@ -260,7 +260,7 @@ export class CountByResult extends Table implements DataFrame {
         super({batches: [[values, counts]]});
     }
 
-    asJSON(): Object {
+    toJSON(): Object {
         let result: {[key: string]: number|null} = {};
 
         for (let i = -1; ++i < this.length;) {
