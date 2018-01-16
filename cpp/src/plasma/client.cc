@@ -54,8 +54,6 @@
 
 namespace plasma {
 
-using arrow::MutableBuffer;
-
 // Number of threads used for memcopy and hash computations.
 constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
@@ -236,8 +234,20 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
   std::vector<ObjectID> received_object_ids(num_objects);
   std::vector<PlasmaObject> object_data(num_objects);
   PlasmaObject* object;
+  std::vector<int> store_file_descriptors;
+  std::vector<int64_t> mmap_sizes;
   RETURN_NOT_OK(ReadGetReply(buffer.data(), buffer.size(), received_object_ids.data(),
-                             object_data.data(), num_objects));
+                             object_data.data(), num_objects, store_file_descriptors,
+                             mmap_sizes));
+
+  // We mmap all of the file descriptors here so that we can avoid look them up
+  // in the subsequent loop based on just the store file descriptor and without
+  // having to know the relevant file descriptor received from recv_fd.
+  for (size_t i = 0; i < store_file_descriptors.size(); i++) {
+    int fd = recv_fd(store_conn_);
+    ARROW_CHECK(fd >= 0);
+    lookup_or_mmap(fd, store_file_descriptors[i], mmap_sizes[i]);
+  }
 
   for (int i = 0; i < num_objects; ++i) {
     DCHECK(received_object_ids[i] == object_ids[i]);
@@ -246,12 +256,6 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       // If the object was already in use by the client, then the store should
       // have returned it.
       DCHECK_NE(object->data_size, -1);
-      // We won't use this file descriptor, but the store sent us one, so we
-      // need to receive it and then close it right away so we don't leak file
-      // descriptors.
-      int fd = recv_fd(store_conn_);
-      close(fd);
-      ARROW_CHECK(fd >= 0);
       // We've already filled out the information for this object, so we can
       // just continue.
       continue;
@@ -259,12 +263,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
     // If we are here, the object was not currently in use, so we need to
     // process the reply from the object store.
     if (object->data_size != -1) {
-      // The object was retrieved. The user will be responsible for releasing
-      // this object.
-      int fd = recv_fd(store_conn_);
-      uint8_t* data =
-          lookup_or_mmap(fd, object->handle.store_fd, object->handle.mmap_size);
-      ARROW_CHECK(fd >= 0);
+      uint8_t* data = lookup_mmapped_file(object->handle.store_fd);
       // Finish filling out the return values.
       object_buffers[i].data =
           std::make_shared<Buffer>(data + object->data_offset, object->data_size);

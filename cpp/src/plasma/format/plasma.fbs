@@ -156,9 +156,17 @@ table PlasmaGetReply {
   // objects if not all requested objects are stored and sealed
   // in the local Plasma store.
   object_ids: [string];
-  // Plasma object information, in the same order as their IDs.
+  // Plasma object information, in the same order as their IDs. The number of
+  // elements in both object_ids and plasma_objects arrays must agree.
   plasma_objects: [PlasmaObjectSpec];
-  // The number of elements in both object_ids and plasma_objects arrays must agree.
+  // A list of the file descriptors in the store that correspond to the file
+  // descriptors being sent to the client. The length of this list is the number
+  // of file descriptors that the store will send to the client after this
+  // message.
+  store_file_descriptors: [int];
+  // Size in bytes of the segment for each store file descriptor (needed to call
+  // mmap). This list must have the same length as store_file_descriptors.
+  mmap_sizes: [long];
 }
 
 table PlasmaReleaseRequest {

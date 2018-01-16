@@ -389,24 +389,30 @@ Status ReadGetRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_
 Status SendGetReply(
     int sock, ObjectID object_ids[],
     std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher>& plasma_objects,
-    int64_t num_objects) {
+    int64_t num_objects, const std::vector<int>& store_file_descriptors,
+    const std::vector<int64_t>& mmap_sizes) {
   flatbuffers::FlatBufferBuilder fbb;
   std::vector<PlasmaObjectSpec> objects;
 
-  for (int i = 0; i < num_objects; ++i) {
+  ARROW_CHECK(store_file_descriptors.size() == mmap_sizes.size());
+
+  for (int64_t i = 0; i < num_objects; ++i) {
     const PlasmaObject& object = plasma_objects[object_ids[i]];
     objects.push_back(PlasmaObjectSpec(object.handle.store_fd, object.handle.mmap_size,
                                        object.data_offset, object.data_size,
                                        object.metadata_offset, object.metadata_size));
   }
-  auto message =
-      CreatePlasmaGetReply(fbb, to_flatbuffer(&fbb, object_ids, num_objects),
-                           fbb.CreateVectorOfStructs(objects.data(), num_objects));
+  auto message = CreatePlasmaGetReply(
+      fbb, to_flatbuffer(&fbb, object_ids, num_objects),
+      fbb.CreateVectorOfStructs(objects.data(), num_objects),
+      fbb.CreateVector(store_file_descriptors), fbb.CreateVector(mmap_sizes));
   return PlasmaSend(sock, MessageType_PlasmaGetReply, &fbb, message);
 }
 
 Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
-                    PlasmaObject plasma_objects[], int64_t num_objects) {
+                    PlasmaObject plasma_objects[], int64_t num_objects,
+                    std::vector<int>& store_file_descriptors,
+                    std::vector<int64_t>& mmap_sizes) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaGetReply>(data);
   DCHECK(verify_flatbuffer(message, data, size));
@@ -421,6 +427,11 @@ Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
     plasma_objects[i].data_size = object->data_size();
     plasma_objects[i].metadata_offset = object->metadata_offset();
     plasma_objects[i].metadata_size = object->metadata_size();
+  }
+  ARROW_CHECK(message->store_file_descriptors()->size() == message->mmap_sizes()->size());
+  for (uoffset_t i = 0; i < message->store_file_descriptors()->size(); i++) {
+    store_file_descriptors.push_back(message->store_file_descriptors()->Get(i));
+    mmap_sizes.push_back(message->mmap_sizes()->Get(i));
   }
   return Status::OK();
 }

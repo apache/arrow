@@ -158,13 +158,21 @@ TEST(PlasmaSerialization, GetReply) {
   std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher> plasma_objects;
   plasma_objects[object_ids[0]] = random_plasma_object();
   plasma_objects[object_ids[1]] = random_plasma_object();
-  ARROW_CHECK_OK(SendGetReply(fd, object_ids, plasma_objects, 2));
+  std::vector<int> store_file_descriptors = {1, 2, 3};
+  std::vector<int64_t> mmap_sizes = {100, 200, 300};
+  ARROW_CHECK_OK(SendGetReply(fd, object_ids, plasma_objects, 2, store_file_descriptors,
+                              mmap_sizes));
+
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaGetReply);
   ObjectID object_ids_return[2];
   PlasmaObject plasma_objects_return[2];
+  std::vector<int> store_file_descriptors_return;
+  std::vector<int64_t> mmap_sizes_return;
   memset(&plasma_objects_return, 0, sizeof(plasma_objects_return));
   ARROW_CHECK_OK(ReadGetReply(data.data(), data.size(), object_ids_return,
-                              &plasma_objects_return[0], 2));
+                              &plasma_objects_return[0], 2, store_file_descriptors_return,
+                              mmap_sizes_return));
+
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
@@ -173,6 +181,8 @@ TEST(PlasmaSerialization, GetReply) {
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
                    sizeof(PlasmaObject)),
             0);
+  ASSERT_TRUE(store_file_descriptors == store_file_descriptors_return);
+  ASSERT_TRUE(mmap_sizes == mmap_sizes_return);
   close(fd);
 }
 

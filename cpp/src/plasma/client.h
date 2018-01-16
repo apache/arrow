@@ -31,8 +31,9 @@
 #include "arrow/util/visibility.h"
 #include "plasma/common.h"
 
-using arrow::Status;
 using arrow::Buffer;
+using arrow::MutableBuffer;
+using arrow::Status;
 
 namespace plasma {
 

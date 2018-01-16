@@ -81,10 +81,13 @@ Status ReadGetRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_
 Status SendGetReply(
     int sock, ObjectID object_ids[],
     std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher>& plasma_objects,
-    int64_t num_objects);
+    int64_t num_objects, const std::vector<int>& store_file_descriptors,
+    const std::vector<int64_t>& mmap_sizes);
 
 Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
-                    PlasmaObject plasma_objects[], int64_t num_objects);
+                    PlasmaObject plasma_objects[], int64_t num_objects,
+                    std::vector<int>& store_file_descriptors,
+                    std::vector<int64_t>& mmap_sizes);
 
 /* Plasma Release message functions. */
 
