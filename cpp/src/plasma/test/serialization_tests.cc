@@ -104,9 +104,10 @@ TEST(PlasmaSerialization, CreateReply) {
   ARROW_CHECK_OK(ReadCreateReply(data.data(), data.size(), &object_id2, &object2,
                                  &store_fd, &mmap_size));
   ASSERT_EQ(object_id1, object_id2);
-  ASSERT_EQ(memcmp(&object1, &object2, sizeof(object1)), 0);
   ASSERT_EQ(store_fd, object1.handle.store_fd);
   ASSERT_EQ(mmap_size, object1.handle.mmap_size);
+  object1.handle.mmap_size = -1;  // This value is always set to -1.
+  ASSERT_EQ(memcmp(&object1, &object2, sizeof(object1)), 0);
   close(fd);
 }
 
@@ -179,9 +180,11 @@ TEST(PlasmaSerialization, GetReply) {
 
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
+  plasma_objects[object_ids[0]].handle.mmap_size = -1;  // This value is always set to -1.
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
                    sizeof(PlasmaObject)),
             0);
+  plasma_objects[object_ids[1]].handle.mmap_size = -1;  // This value is always set to -1.
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
                    sizeof(PlasmaObject)),
             0);
