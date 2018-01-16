@@ -7,12 +7,14 @@ layout: default
         <p class="lead">Powering Columnar In-Memory Analytics</p>
         <p>
           <a class="btn btn-lg btn-success" href="mailto:dev-subscribe@arrow.apache.org" role="button">Join Mailing List</a>
-          <a class="btn btn-lg btn-primary" href="{{ site.baseurl }}/install/" role="button">Install (0.8.0 Release - December 18, 2017)</a>
+          <a class="btn btn-lg btn-primary" href="{{ site.baseurl }}/install/" role="button">Install ({{site.data.versions['current'].number}} Release - {{site.data.versions['current'].date}})</a>
         </p>
       </div>
       <h4><a href="{{ site.baseurl }}/blog/"><strong>See Latest News</strong></a></h4>
       <div class="row">
         <div class="col-lg-4">
+        <p>Apache Arrow is an open source development platform for columnar in-memory data structures and processing. It defines a language-independent physical memory layout, enabling zero-copy, zero-deserialization interchange of flat and nested columnar data amongst a variety of systems such as Python, R, Apache Spark, ODBC protocols, and proprietary systems that utilize the open source components.</p>
+
           <h2>Fast</h2>
           <p>Apache Arrow&#8482; enables execution engines to take advantage of
  the latest SIMD (Single input multiple data) operations included in modern
@@ -46,29 +48,31 @@ layout: default
      </div> <!-- close "row" div -->
 
 <h2>Performance Advantage of Columnar In-Memory</h2>
-<div align="center">
-  <img src="img/simd.png" alt="SIMD" style="width:60%" />
-</div>
-<h2>Advantages of a Common Data Layer</h2>
-
 <div class="row">
-<div class="col-lg-4" style="width:50%">
-<img src="img/copy2.png" alt="common data layer" style="width:100%" />
-<ul>
-    <li>Each system has its own internal memory format</li>
-    <li>70-80% computation wasted on serialization and deserialization</li>
-    <li>Similar functionality implemented in multiple projects</li>
-</ul>
+  <div class="col-lg-4" style="width:50%">
+    <img src="img/simd.png" alt="SIMD" style="width:100%" />
+  </div>
 </div>
-<div class="col-lg-4" style="width:50%">
-<img src="img/shared2.png" alt="common data layer" style="width:100%" />
-<ul>
-    <li>All systems utilize the same memory format</li>
-    <li>No overhead for cross-system communication</li>
-    <li>Projects can share functionality (eg, Parquet-to-Arrow reader)</li>
-</ul>
+
+<h2>Advantages of a Common Data Layer</h2>
+<div class="row">
+  <div class="col-lg-4" style="width:50%">
+    <img src="img/copy2.png" alt="common data layer" style="width:100%" />
+    <ul>
+      <li>Each system has its own internal memory format</li>
+      <li>70-80% computation wasted on serialization and deserialization</li>
+      <li>Similar functionality implemented in multiple projects</li>
+  </ul>
+  </div>
+  <div class="col-lg-4" style="width:50%">
+    <img src="img/shared2.png" alt="common data layer" style="width:100%" />
+    <ul>
+      <li>All systems utilize the same memory format</li>
+      <li>No overhead for cross-system communication</li>
+      <li>Projects can share functionality (eg, Parquet-to-Arrow reader)</li>
+    </ul>
+  </div>
 </div>
-</div>
-    </div> <!-- /container -->
+</div> <!-- /container -->
   </body>
 </html>
