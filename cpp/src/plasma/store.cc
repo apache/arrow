@@ -221,28 +221,28 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
 
 void PlasmaStore::return_from_get(GetRequest* get_req) {
   // Figure out how many file descriptors we need to send.
-  std::unordered_set<int> file_descriptors_to_send;
-  std::vector<int> store_file_descriptors;
+  std::unordered_set<int> fds_to_send;
+  std::vector<int> store_fds;
   std::vector<int64_t> mmap_sizes;
   for (const auto& object_id : get_req->object_ids) {
     PlasmaObject& object = get_req->objects[object_id];
     int fd = object.handle.store_fd;
-    if (object.data_size != -1 && file_descriptors_to_send.count(fd) == 0) {
-      file_descriptors_to_send.insert(fd);
-      store_file_descriptors.push_back(fd);
+    if (object.data_size != -1 && fds_to_send.count(fd) == 0) {
+      fds_to_send.insert(fd);
+      store_fds.push_back(fd);
       mmap_sizes.push_back(object.handle.mmap_size);
     }
   }
 
   // Send the get reply to the client.
   Status s = SendGetReply(get_req->client->fd, &get_req->object_ids[0], get_req->objects,
-                          get_req->object_ids.size(), store_file_descriptors, mmap_sizes);
+                          get_req->object_ids.size(), store_fds, mmap_sizes);
   warn_if_sigpipe(s.ok() ? 0 : -1, get_req->client->fd);
   // If we successfully sent the get reply message to the client, then also send
   // the file descriptors.
   if (s.ok()) {
     // Send all of the file descriptors for the present objects.
-    for (int store_fd : store_file_descriptors) {
+    for (int store_fd : store_fds) {
       int error_code = send_fd(get_req->client->fd, store_fd);
       // If we failed to send the file descriptor, loop until we have sent it
       // successfully. TODO(rkn): This is problematic for two reasons. First

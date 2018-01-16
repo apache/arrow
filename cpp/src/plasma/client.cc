@@ -155,7 +155,10 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaCreateReply, &buffer));
   ObjectID id;
   PlasmaObject object;
-  RETURN_NOT_OK(ReadCreateReply(buffer.data(), buffer.size(), &id, &object));
+  int store_fd;
+  int64_t mmap_size;
+  RETURN_NOT_OK(
+      ReadCreateReply(buffer.data(), buffer.size(), &id, &object, &store_fd, &mmap_size));
   // If the CreateReply included an error, then the store will not send a file
   // descriptor.
   int fd = recv_fd(store_conn_);
@@ -165,9 +168,7 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   // The metadata should come right after the data.
   ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
   *data = std::make_shared<MutableBuffer>(
-      lookup_or_mmap(fd, object.handle.store_fd, object.handle.mmap_size) +
-          object.data_offset,
-      data_size);
+      lookup_or_mmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
   // If plasma_create is being called from a transfer, then we will not copy the
   // metadata here. The metadata will be written along with the data streamed
   // from the transfer.
@@ -234,19 +235,18 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
   std::vector<ObjectID> received_object_ids(num_objects);
   std::vector<PlasmaObject> object_data(num_objects);
   PlasmaObject* object;
-  std::vector<int> store_file_descriptors;
+  std::vector<int> store_fds;
   std::vector<int64_t> mmap_sizes;
   RETURN_NOT_OK(ReadGetReply(buffer.data(), buffer.size(), received_object_ids.data(),
-                             object_data.data(), num_objects, store_file_descriptors,
-                             mmap_sizes));
+                             object_data.data(), num_objects, store_fds, mmap_sizes));
 
   // We mmap all of the file descriptors here so that we can avoid look them up
   // in the subsequent loop based on just the store file descriptor and without
   // having to know the relevant file descriptor received from recv_fd.
-  for (size_t i = 0; i < store_file_descriptors.size(); i++) {
+  for (size_t i = 0; i < store_fds.size(); i++) {
     int fd = recv_fd(store_conn_);
     ARROW_CHECK(fd >= 0);
-    lookup_or_mmap(fd, store_file_descriptors[i], mmap_sizes[i]);
+    lookup_or_mmap(fd, store_fds[i], mmap_sizes[i]);
   }
 
   for (int i = 0; i < num_objects; ++i) {

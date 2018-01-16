@@ -99,9 +99,14 @@ TEST(PlasmaSerialization, CreateReply) {
   ObjectID object_id2;
   PlasmaObject object2;
   memset(&object2, 0, sizeof(object2));
-  ARROW_CHECK_OK(ReadCreateReply(data.data(), data.size(), &object_id2, &object2));
+  int store_fd;
+  int64_t mmap_size;
+  ARROW_CHECK_OK(ReadCreateReply(data.data(), data.size(), &object_id2, &object2,
+                                 &store_fd, &mmap_size));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(memcmp(&object1, &object2, sizeof(object1)), 0);
+  ASSERT_EQ(store_fd, object1.handle.store_fd);
+  ASSERT_EQ(mmap_size, object1.handle.mmap_size);
   close(fd);
 }
 
@@ -158,19 +163,18 @@ TEST(PlasmaSerialization, GetReply) {
   std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher> plasma_objects;
   plasma_objects[object_ids[0]] = random_plasma_object();
   plasma_objects[object_ids[1]] = random_plasma_object();
-  std::vector<int> store_file_descriptors = {1, 2, 3};
+  std::vector<int> store_fds = {1, 2, 3};
   std::vector<int64_t> mmap_sizes = {100, 200, 300};
-  ARROW_CHECK_OK(SendGetReply(fd, object_ids, plasma_objects, 2, store_file_descriptors,
-                              mmap_sizes));
+  ARROW_CHECK_OK(SendGetReply(fd, object_ids, plasma_objects, 2, store_fds, mmap_sizes));
 
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaGetReply);
   ObjectID object_ids_return[2];
   PlasmaObject plasma_objects_return[2];
-  std::vector<int> store_file_descriptors_return;
+  std::vector<int> store_fds_return;
   std::vector<int64_t> mmap_sizes_return;
   memset(&plasma_objects_return, 0, sizeof(plasma_objects_return));
   ARROW_CHECK_OK(ReadGetReply(data.data(), data.size(), object_ids_return,
-                              &plasma_objects_return[0], 2, store_file_descriptors_return,
+                              &plasma_objects_return[0], 2, store_fds_return,
                               mmap_sizes_return));
 
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
@@ -181,7 +185,7 @@ TEST(PlasmaSerialization, GetReply) {
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
                    sizeof(PlasmaObject)),
             0);
-  ASSERT_TRUE(store_file_descriptors == store_file_descriptors_return);
+  ASSERT_TRUE(store_fds == store_fds_return);
   ASSERT_TRUE(mmap_sizes == mmap_sizes_return);
   close(fd);
 }
