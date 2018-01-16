@@ -25,7 +25,7 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/util/compiler-util.h"
+#include "arrow/util/macros.h"
 
 #include "parquet/util/visibility.h"
 
