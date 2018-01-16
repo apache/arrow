@@ -14,18 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM ubuntu:14.04
-# Prerequsites for apt-add-repository
-RUN apt-get update && apt-get install -y \
-    software-properties-common python-software-properties
+FROM ubuntu:16.04
 # Basic OS dependencies
-RUN apt-add-repository -y ppa:ubuntu-toolchain-r/test && \
-    apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
         wget \
         rsync \
         git \
-        gcc-4.9 \
-        g++-4.9 \
+        gcc \
+        g++ \
         build-essential
 # This will install conda in /home/ubuntu/miniconda
 RUN wget -O /tmp/miniconda.sh \

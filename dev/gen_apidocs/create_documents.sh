@@ -27,6 +27,7 @@ export ARROW_HOME=$(pwd)/dist
 export PARQUET_HOME=$(pwd)/dist
 CONDA_BASE=/home/ubuntu/miniconda
 export LD_LIBRARY_PATH=$(pwd)/dist/lib:${CONDA_BASE}/lib:${LD_LIBRARY_PATH}
+export PKG_CONFIG_PATH=$(pwd)/dist/lib/pkgconfig:${PKG_CONFIG_PATH}
 export PATH=${CONDA_BASE}/bin:${PATH}
 
 # Prepare the asf-site before copying api docs
@@ -45,6 +46,8 @@ source activate pyarrow-dev
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export BOOST_ROOT=$CONDA_PREFIX
 export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:${LD_LIBRARY_PATH}
+export PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH}
 
 CPP_BUILD_DIR=$(pwd)/arrow/cpp/build_docs
 
@@ -63,15 +66,21 @@ popd
 
 # Build c_glib documentation
 pushd arrow/c_glib
-rm -rf doc/reference/html/*
-./autogen.sh
-./configure \
-    --with-arrow-cpp-build-dir=$CPP_BUILD_DIR \
-    --with-arrow-cpp-build-type=$ARROW_BUILD_TYPE \
+if [ -f Makefile ]; then
+    make distclean
+    # Work around for 'make distclean' removes doc/reference/xml/
+    git checkout doc/reference/xml
+fi
+rm -rf build_docs
+mkdir build_docs
+pushd build_docs
+../configure \
+    --prefix=${AROW_HOME} \
     --enable-gtk-doc
-LD_LIBRARY_PATH=$CPP_BUILD_DIR/$ARROW_BUILD_TYPE make GTK_DOC_V_XREF=": "
-mkdir -p ../site/asf-site/docs/c_glib
-rsync -r doc/reference/html/ ../site/asf-site/docs/c_glib
+make -j4 GTK_DOC_V_XREF=": "
+mkdir -p ../../site/asf-site/docs/c_glib
+rsync -r doc/reference/html/ ../../site/asf-site/docs/c_glib
+popd
 popd
 
 # Build Parquet C++
