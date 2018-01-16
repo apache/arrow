@@ -1222,9 +1222,13 @@ Status BinaryBuilder::Init(int64_t elements) {
 Status BinaryBuilder::Resize(int64_t capacity) {
   DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
   // one more then requested for offsets
-  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
-  RETURN_NOT_OK(value_data_builder_.Resize(capacity * sizeof(int64_t)));
+  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
   return ArrayBuilder::Resize(capacity);
+}
+  
+Status BinaryBuilder::ReserveData(int64_t capacity) {
+  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
+  return value_data_builder_.Resize(capacity * sizeof(int64_t));
 }
 
 Status BinaryBuilder::AppendNextOffset() {
