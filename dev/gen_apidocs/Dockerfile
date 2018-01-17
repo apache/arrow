@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y \
         wget \
         rsync \
         git \
-        gcc \
-        g++ \
+        gcc-4.9 \
+        g++-4.9 \
         build-essential
 # This will install conda in /home/ubuntu/miniconda
 RUN wget -O /tmp/miniconda.sh \

@@ -49,6 +49,9 @@ export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH}
 
+export CC=gcc-4.9
+export CXX=g++-4.9
+
 CPP_BUILD_DIR=$(pwd)/arrow/cpp/build_docs
 
 rm -rf $CPP_BUILD_DIR
