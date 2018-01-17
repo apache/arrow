@@ -39,6 +39,20 @@ git clone --branch=asf-site \
     https://git-wip-us.apache.org/repos/asf/arrow-site.git asf-site
 popd
 
+# Make Java documentation
+export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64
+wget http://mirrors.gigenet.com/apache/maven/maven-3/3.5.2/binaries/apache-maven-3.5.2-bin.tar.gz
+tar xvf apache-maven-3.5.2-bin.tar.gz
+export PATH=$(pwd)/apache-maven-3.5.2/bin:$PATH
+
+pushd arrow/java
+rm -rf target/site/apidocs/*
+mvn -Drat.skip=true install
+mvn -Drat.skip=true site
+mkdir -p ../site/asf-site/docs/java/
+rsync -r target/site/apidocs/ ../site/asf-site/docs/java/
+popd
+
 # Make Python documentation (Depends on C++ )
 # Build Arrow C++
 source activate pyarrow-dev
@@ -120,13 +134,4 @@ rm -rf html/*
 doxygen Doxyfile
 mkdir -p ../../site/asf-site/docs/cpp
 rsync -r html/ ../../site/asf-site/docs/cpp
-popd
-
-# Make Java documentation
-pushd arrow/java
-rm -rf target/site/apidocs/*
-mvn -Drat.skip=true install
-mvn -Drat.skip=true site
-mkdir -p ../site/asf-site/docs/java/
-rsync -r target/site/apidocs/ ../site/asf-site/docs/java/
 popd
