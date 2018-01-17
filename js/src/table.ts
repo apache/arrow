@@ -115,7 +115,7 @@ export class Table implements DataFrame {
         }
     }
     count(): number {
-        return this.lengths.reduce((acc, val) => acc + val);
+        return this.length;
     }
     countBy(count_by: (Col|string)): CountByResult {
         if (!(count_by instanceof Col)) {
