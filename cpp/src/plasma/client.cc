@@ -513,9 +513,20 @@ Status PlasmaClient::Abort(const ObjectID& object_id) {
 }
 
 Status PlasmaClient::Delete(const ObjectID& object_id) {
-  // TODO(rkn): In the future, we can use this method to give hints to the
-  // eviction policy about when an object will no longer be needed.
-  return Status::NotImplemented("PlasmaClient::Delete is not implemented.");
+  RETURN_NOT_OK(FlushReleaseHistory());
+  // If the object is in used, client can't send the remove message.
+  if (objects_in_use_.count(object_id) > 0) {
+    return Status::UnknownError("PlasmaClient::Object is in use.");
+  } else {
+    // If we don't already have a reference to the object, we can try to remove the object
+    RETURN_NOT_OK(SendDeleteRequest(store_conn_, object_id));
+    std::vector<uint8_t> buffer;
+    RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaDeleteReply, &buffer));
+    ObjectID object_id2;
+    DCHECK_GT(buffer.size(), 0);
+    RETURN_NOT_OK(ReadDeleteReply(buffer.data(), buffer.size(), &object_id2));
+    return Status::OK();
+  }
 }
 
 Status PlasmaClient::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {

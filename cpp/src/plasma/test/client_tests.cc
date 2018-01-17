@@ -58,6 +58,31 @@ class TestPlasmaStore : public ::testing::Test {
   PlasmaClient client2_;
 };
 
+TEST_F(TestPlasmaStore, DeleteTest) {
+  ObjectID object_id = ObjectID::from_random();
+
+  // Test for deleting non-existance object.
+  Status result = client_.Delete(object_id);
+  ASSERT_EQ(result.IsPlasmaObjectNonexistent(), true);
+
+  // Test for the object being in local Plasma store.
+  // First create object.
+  int64_t data_size = 100;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  std::shared_ptr<Buffer> data;
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+  ARROW_CHECK_OK(client_.Seal(object_id));
+
+  // Object is in use, can't be delete.
+  result = client_.Delete(object_id);
+  ASSERT_EQ(result.IsUnknownError(), true);
+
+  // Avoid race condition of Plasma Manager waiting for notification.
+  ARROW_CHECK_OK(client_.Release(object_id));
+  ARROW_CHECK_OK(client_.Delete(object_id));
+}
+
 TEST_F(TestPlasmaStore, ContainsTest) {
   ObjectID object_id = ObjectID::from_random();
 

@@ -411,6 +411,39 @@ int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
   }
 }
 
+int PlasmaStore::delete_object(ObjectID& object_id) {
+  auto entry = get_object_table_entry(&store_info_, object_id);
+  // TODO(rkn): This should probably not fail, but should instead throw an
+  // error. Maybe we should also support deleting objects that have been
+  // created but not sealed.
+  if (entry == NULL) {
+    // To delete an object it must be in the object table.
+    return PlasmaError_ObjectNonexistent;
+  }
+
+  if (entry->state != PLASMA_SEALED) {
+    // To delete an object it must have been sealed.
+    return PlasmaError_ObjectNotSealed;
+  }
+
+  if (entry->clients.size() != 0) {
+    // To delete an object, there must be no clients currently using it.
+    return PlasmaError_ObjectInUse;
+  }
+
+  eviction_policy_.remove_object(object_id);
+
+  dlfree(entry->pointer);
+  store_info_.objects.erase(object_id);
+  // Inform all subscribers that the object has been deleted.
+  ObjectInfoT notification;
+  notification.object_id = object_id.binary();
+  notification.is_deletion = true;
+  push_notification(&notification);
+
+  return PlasmaError_OK;
+}
+
 void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
   for (const auto& object_id : object_ids) {
     ARROW_LOG(DEBUG) << "deleting object " << object_id.hex();
@@ -626,18 +659,23 @@ Status PlasmaStore::process_message(Client* client) {
       RETURN_NOT_OK(ReadGetRequest(input, input_size, object_ids_to_get, &timeout_ms));
       process_get_request(client, object_ids_to_get, timeout_ms);
     } break;
-    case MessageType_PlasmaReleaseRequest:
+    case MessageType_PlasmaReleaseRequest: {
       RETURN_NOT_OK(ReadReleaseRequest(input, input_size, &object_id));
       release_object(object_id, client);
-      break;
-    case MessageType_PlasmaContainsRequest:
+    } break;
+    case MessageType_PlasmaDeleteRequest: {
+      RETURN_NOT_OK(ReadDeleteRequest(input, input_size, &object_id));
+      int error_code = delete_object(object_id);
+      HANDLE_SIGPIPE(SendDeleteReply(client->fd, object_id, error_code), client->fd);
+    } break;
+    case MessageType_PlasmaContainsRequest: {
       RETURN_NOT_OK(ReadContainsRequest(input, input_size, &object_id));
       if (contains_object(object_id) == OBJECT_FOUND) {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 1), client->fd);
       } else {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 0), client->fd);
       }
-      break;
+    } break;
     case MessageType_PlasmaSealRequest: {
       unsigned char digest[kDigestSize];
       RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
