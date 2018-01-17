@@ -24,7 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
@@ -54,7 +54,7 @@ public class TestPromotableWriter {
   @Test
   public void testPromoteToUnion() throws Exception {
 
-    try (final MapVector container = MapVector.empty(EMPTY_SCHEMA_PATH, allocator);
+    try (final StructVector container = StructVector.empty(EMPTY_SCHEMA_PATH, allocator);
          final NullableStructVector v = container.addOrGetMap("test");
          final PromotableWriter writer = new PromotableWriter(v, container)) {
 

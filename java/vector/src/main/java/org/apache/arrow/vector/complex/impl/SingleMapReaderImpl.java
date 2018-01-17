@@ -23,7 +23,7 @@ package org.apache.arrow.vector.complex.impl;
 import java.util.Map;
 
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -34,10 +34,10 @@ import com.google.common.collect.Maps;
 @SuppressWarnings("unused")
 public class SingleMapReaderImpl extends AbstractFieldReader {
 
-  private final MapVector vector;
+  private final StructVector vector;
   private final Map<String, FieldReader> fields = Maps.newHashMap();
 
-  public SingleMapReaderImpl(MapVector vector) {
+  public SingleMapReaderImpl(StructVector vector) {
     this.vector = vector;
   }
 

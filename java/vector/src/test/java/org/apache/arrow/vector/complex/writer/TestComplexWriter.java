@@ -33,7 +33,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
@@ -81,7 +81,7 @@ public class TestComplexWriter {
 
   @Test
   public void simpleNestedTypes() {
-    MapVector parent = populateMapVector(null);
+    StructVector parent = populateMapVector(null);
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
@@ -96,7 +96,7 @@ public class TestComplexWriter {
   public void transferPairSchemaChange() {
     SchemaChangeCallBack callBack1 = new SchemaChangeCallBack();
     SchemaChangeCallBack callBack2 = new SchemaChangeCallBack();
-    MapVector parent = populateMapVector(callBack1);
+    StructVector parent = populateMapVector(callBack1);
 
     TransferPair tp = parent.getTransferPair("newVector", allocator, callBack2);
 
@@ -111,8 +111,8 @@ public class TestComplexWriter {
     assertFalse(callBack1.getSchemaChangedAndReset());
   }
 
-  private MapVector populateMapVector(CallBack callBack) {
-    MapVector parent = new MapVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
+  private StructVector populateMapVector(CallBack callBack) {
+    StructVector parent = new StructVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     IntWriter intWriter = rootWriter.integer("int");
@@ -129,7 +129,7 @@ public class TestComplexWriter {
 
   @Test
   public void nullableStruct() {
-    try (MapVector mapVector = MapVector.empty("parent", allocator)) {
+    try (StructVector mapVector = StructVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
       MapWriter rootWriter = writer.rootAsMap();
       for (int i = 0; i < COUNT; i++) {
@@ -153,7 +153,7 @@ public class TestComplexWriter {
    */
   @Test
   public void nullableStruct2() {
-    try (MapVector mapVector = MapVector.empty("parent", allocator)) {
+    try (StructVector mapVector = StructVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
       MapWriter rootWriter = writer.rootAsMap();
       MapWriter mapWriter = rootWriter.map("map");
@@ -173,7 +173,7 @@ public class TestComplexWriter {
     }
   }
 
-  private void checkNullableStruct(MapVector mapVector) {
+  private void checkNullableStruct(StructVector mapVector) {
     MapReader rootReader = new SingleMapReaderImpl(mapVector).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
@@ -192,7 +192,7 @@ public class TestComplexWriter {
 
   @Test
   public void testList() {
-    MapVector parent = MapVector.empty("parent", allocator);
+    StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
 
@@ -471,7 +471,7 @@ public class TestComplexWriter {
 
   @Test
   public void promotableWriter() {
-    MapVector parent = MapVector.empty("parent", allocator);
+    StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     for (int i = 0; i < 100; i++) {
@@ -520,7 +520,7 @@ public class TestComplexWriter {
    */
   @Test
   public void promotableWriterSchema() {
-    MapVector parent = MapVector.empty("parent", allocator);
+    StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     rootWriter.bigInt("a");
@@ -553,7 +553,7 @@ public class TestComplexWriter {
   @Test
   public void mapWriterMixedCaseFieldNames() {
     // test case-sensitive MapWriter
-    MapVector parent = MapVector.empty("parent", allocator);
+    StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("rootCaseSensitive", parent, false, true);
     MapWriter rootWriterCaseSensitive = writer.rootAsMap();
     rootWriterCaseSensitive.bigInt("int_field");
@@ -618,7 +618,7 @@ public class TestComplexWriter {
     final LocalDateTime expectedSecDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 0);
 
     // write
-    MapVector parent = new MapVector("parent", allocator, null);
+    StructVector parent = new StructVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
 
@@ -662,7 +662,7 @@ public class TestComplexWriter {
     final LocalDateTime expectedMilliDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
 
     // write
-    MapVector parent = MapVector.empty("parent", allocator);
+    StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     {
@@ -718,7 +718,7 @@ public class TestComplexWriter {
     final LocalDateTime expectedMicroDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
 
     // write
-    MapVector parent = new MapVector("parent", allocator, null);
+    StructVector parent = new StructVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
 
@@ -765,7 +765,7 @@ public class TestComplexWriter {
     final LocalDateTime expectedNanoDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
 
     // write
-    MapVector parent = new MapVector("parent", allocator, null);
+    StructVector parent = new StructVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
 
@@ -808,7 +808,7 @@ public class TestComplexWriter {
 
   @Test
   public void complexCopierWithList() {
-    MapVector parent = MapVector.empty("parent", allocator);
+    StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     ListWriter listWriter = rootWriter.list("list");
@@ -833,7 +833,7 @@ public class TestComplexWriter {
     NullableStructVector mapVector = (NullableStructVector) parent.getChild("root");
     TransferPair tp = mapVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
-    MapVector toMapVector = (MapVector) tp.getTo();
+    StructVector toMapVector = (StructVector) tp.getTo();
     JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toMapVector.getObject(0);
     JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
     assertEquals(1, object.get(0));
@@ -846,10 +846,10 @@ public class TestComplexWriter {
 
   @Test
   public void testSingleMapWriter1() {
-    /* initialize a SingleMapWriter with empty MapVector and then lazily
+    /* initialize a SingleMapWriter with empty StructVector and then lazily
      * create all vectors with expected initialCapacity.
      */
-    MapVector parent = MapVector.empty("parent", allocator);
+    StructVector parent = StructVector.empty("parent", allocator);
     SingleMapWriter singleMapWriter = new SingleMapWriter(parent);
 
     int initialCapacity = 1024;

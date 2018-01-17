@@ -31,7 +31,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 
-public class TestMapVector {
+public class TestStructVector {
 
   private BufferAllocator allocator;
 

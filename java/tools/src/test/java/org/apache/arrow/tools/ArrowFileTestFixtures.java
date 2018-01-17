@@ -22,7 +22,7 @@ package org.apache.arrow.tools;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
@@ -43,7 +43,7 @@ import java.io.IOException;
 public class ArrowFileTestFixtures {
   static final int COUNT = 10;
 
-  static void writeData(int count, MapVector parent) {
+  static void writeData(int count, StructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     IntWriter intWriter = rootWriter.integer("int");
@@ -99,7 +99,7 @@ public class ArrowFileTestFixtures {
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
             Integer.MAX_VALUE);
-        MapVector parent = MapVector.empty("parent", vectorAllocator)) {
+        StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), testInFile);
     }

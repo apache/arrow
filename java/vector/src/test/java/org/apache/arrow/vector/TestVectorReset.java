@@ -114,10 +114,10 @@ public class TestVectorReset {
 
   @Test
   public void testMapTypeReset() {
-    try (final MapVector mapVector = new MapVector("Map", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+    try (final StructVector mapVector = new StructVector("Map", allocator, FieldType.nullable(MinorType.INT.getType()), null);
          final NullableStructVector nullableStructVector = new NullableStructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
     ) {
-      // MapVector
+      // StructVector
       mapVector.allocateNewSafe();
       IntVector mapChild = mapVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
       mapChild.setNull(0);

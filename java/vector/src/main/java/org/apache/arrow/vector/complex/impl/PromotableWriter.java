@@ -21,7 +21,7 @@ package org.apache.arrow.vector.complex.impl;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.complex.AbstractMapVector;
+import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -35,11 +35,11 @@ import org.apache.arrow.vector.util.TransferPair;
  * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This inner field writer
  * can start as a specific type, and this class will promote the writer to a UnionWriter if a call is made that the specifically
  * typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the original vector
- * in the parent vector, which can be either an AbstractMapVector or a ListVector.
+ * in the parent vector, which can be either an AbstractStructVector or a ListVector.
  */
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 
-  private final AbstractMapVector parentContainer;
+  private final AbstractStructVector parentContainer;
   private final ListVector listVector;
   private final NullableStructWriterFactory nullableStructWriterFactory;
   private int position;
@@ -54,11 +54,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private State state;
   private FieldWriter writer;
 
-  public PromotableWriter(ValueVector v, AbstractMapVector parentContainer) {
+  public PromotableWriter(ValueVector v, AbstractStructVector parentContainer) {
     this(v, parentContainer, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public PromotableWriter(ValueVector v, AbstractMapVector parentContainer, NullableStructWriterFactory nullableStructWriterFactory) {
+  public PromotableWriter(ValueVector v, AbstractStructVector parentContainer, NullableStructWriterFactory nullableStructWriterFactory) {
     this.parentContainer = parentContainer;
     this.listVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;

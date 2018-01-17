@@ -21,7 +21,7 @@
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}CaseSensitiveMapWriter.java" />
 <#assign index = "idx()">
 <#if mode == "Single">
-<#assign containerClass = "MapVector" />
+<#assign containerClass = "StructVector" />
 <#else>
 <#assign containerClass = "NullableStructVector" />
 </#if>

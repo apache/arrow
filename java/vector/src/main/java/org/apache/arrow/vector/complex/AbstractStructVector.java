@@ -37,15 +37,15 @@ import com.google.common.collect.Lists;
 import io.netty.buffer.ArrowBuf;
 
 /*
- * Base class for MapVectors. Currently used by RepeatedMapVector and MapVector
+ * Base class for StructVectors. Currently used by StructVector
  */
-public abstract class AbstractMapVector extends AbstractContainerVector {
+public abstract class AbstractStructVector extends AbstractContainerVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
 
   // Maintains a map with key as field name and value is the vector itself
   private final MapWithOrdinal<String, FieldVector> vectors = new MapWithOrdinal<>();
 
-  protected AbstractMapVector(String name, BufferAllocator allocator, CallBack callBack) {
+  protected AbstractStructVector(String name, BufferAllocator allocator, CallBack callBack) {
     super(name, allocator, callBack);
   }
 
@@ -257,8 +257,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   public List<ValueVector> getPrimitiveVectors() {
     final List<ValueVector> primitiveVectors = Lists.newArrayList();
     for (final ValueVector v : vectors.values()) {
-      if (v instanceof AbstractMapVector) {
-        AbstractMapVector mapVector = (AbstractMapVector) v;
+      if (v instanceof AbstractStructVector) {
+        AbstractStructVector mapVector = (AbstractStructVector) v;
         primitiveVectors.addAll(mapVector.getPrimitiveVectors());
       } else {
         primitiveVectors.add(v);

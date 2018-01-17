@@ -44,7 +44,7 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class NullableStructVector extends MapVector implements FieldVector {
+public class NullableStructVector extends StructVector implements FieldVector {
 
   public static NullableStructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(Struct.INSTANCE);
@@ -145,7 +145,7 @@ public class NullableStructVector extends MapVector implements FieldVector {
     return new NullableStructTransferPair(this, new NullableStructVector(ref, allocator, fieldType, callBack), false);
   }
 
-  protected class NullableStructTransferPair extends MapTransferPair {
+  protected class NullableStructTransferPair extends StructTransferPair {
 
     private NullableStructVector target;
 

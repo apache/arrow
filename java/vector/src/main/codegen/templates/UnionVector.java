@@ -61,7 +61,7 @@ public class UnionVector implements FieldVector {
   private BufferAllocator allocator;
   int valueCount;
 
-  MapVector internalMap;
+  StructVector internalMap;
   protected ArrowBuf typeBuffer;
 
   private NullableStructVector mapVector;
@@ -79,7 +79,7 @@ public class UnionVector implements FieldVector {
   public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
     this.name = name;
     this.allocator = allocator;
-    this.internalMap = new MapVector("internal", allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
+    this.internalMap = new StructVector("internal", allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
     this.typeBuffer = allocator.getEmpty();
     this.callBack = callBack;
     this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;

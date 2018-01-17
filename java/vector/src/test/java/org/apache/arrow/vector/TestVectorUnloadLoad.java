@@ -31,7 +31,7 @@ import java.util.List;
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
@@ -68,7 +68,7 @@ public class TestVectorUnloadLoad {
 
     try (
         BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = MapVector.empty("parent", originalVectorsAllocator)) {
+        StructVector parent = StructVector.empty("parent", originalVectorsAllocator)) {
 
       // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
@@ -116,7 +116,7 @@ public class TestVectorUnloadLoad {
     Schema schema;
     try (
         BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = MapVector.empty("parent", originalVectorsAllocator)) {
+        StructVector parent = StructVector.empty("parent", originalVectorsAllocator)) {
 
       // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);

@@ -19,7 +19,7 @@
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
@@ -32,7 +32,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   private NullableStructWriter mapRoot;
   private UnionListWriter listRoot;
-  private final MapVector container;
+  private final StructVector container;
 
   Mode mode = Mode.INIT;
   private final String name;
@@ -43,7 +43,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   ;
 
-  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled, boolean caseSensitive) {
+  public ComplexWriterImpl(String name, StructVector container, boolean unionEnabled, boolean caseSensitive) {
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
@@ -51,11 +51,11 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         NullableStructWriterFactory.getNullableStructWriterFactoryInstance();
   }
 
-  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled) {
+  public ComplexWriterImpl(String name, StructVector container, boolean unionEnabled) {
     this(name, container, unionEnabled, false);
   }
 
-  public ComplexWriterImpl(String name, MapVector container) {
+  public ComplexWriterImpl(String name, StructVector container) {
     this(name, container, false);
   }
 
