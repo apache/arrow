@@ -36,7 +36,7 @@ import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -72,7 +72,7 @@ public class TestVectorUnloadLoad {
 
       // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
+      StructWriter rootWriter = writer.rootAsMap();
       IntWriter intWriter = rootWriter.integer("int");
       BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
       for (int i = 0; i < count; i++) {
@@ -120,7 +120,7 @@ public class TestVectorUnloadLoad {
 
       // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
+      StructWriter rootWriter = writer.rootAsMap();
       ListWriter list = rootWriter.list("list");
       IntWriter intWriter = list.integer();
       for (int i = 0; i < count; i++) {

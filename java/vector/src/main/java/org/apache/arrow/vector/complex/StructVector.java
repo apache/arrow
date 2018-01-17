@@ -36,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.*;
-import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
+import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -55,7 +55,7 @@ public class StructVector extends AbstractStructVector {
     return new StructVector(name, allocator, fieldType, null);
   }
 
-  private final SingleMapReaderImpl reader = new SingleMapReaderImpl(this);
+  private final SingleStructReaderImpl reader = new SingleStructReaderImpl(this);
   protected final FieldType fieldType;
   public int valueCount;
 

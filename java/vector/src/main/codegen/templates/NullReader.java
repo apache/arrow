@@ -60,7 +60,7 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
     return new Field("", FieldType.nullable(new Null()), null);
   }
 
-  public void copyAsValue(MapWriter writer) {}
+  public void copyAsValue(StructWriter writer) {}
 
   public void copyAsValue(ListWriter writer) {}
 
@@ -99,7 +99,7 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
     return false;
   }
   
-  public RepeatedMapReader map(){
+  public RepeatedStructReader map(){
     return this;
   }
   
@@ -107,7 +107,7 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
     return this;
   }
   
-  public MapReader map(String name){
+  public StructReader map(String name){
     return this;
   }
   

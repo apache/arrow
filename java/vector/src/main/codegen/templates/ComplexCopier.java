@@ -90,7 +90,7 @@ public class ComplexCopier {
       }
  }
 
-  private static FieldWriter getMapWriterForReader(FieldReader reader, MapWriter writer, String name) {
+  private static FieldWriter getMapWriterForReader(FieldReader reader, StructWriter writer, String name) {
     switch (reader.getMinorType()) {
     <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />

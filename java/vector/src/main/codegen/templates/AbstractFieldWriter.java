@@ -91,7 +91,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
-  public MapWriter map() {
+  public StructWriter map() {
     fail("Map");
     return null;
   }
@@ -103,7 +103,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
-  public MapWriter map(String name) {
+  public StructWriter map(String name) {
     fail("Map");
     return null;
   }

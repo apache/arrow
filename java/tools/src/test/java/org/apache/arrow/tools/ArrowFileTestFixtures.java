@@ -25,7 +25,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
@@ -45,7 +45,7 @@ public class ArrowFileTestFixtures {
 
   static void writeData(int count, StructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsMap();
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     for (int i = 0; i < count; i++) {

@@ -33,7 +33,7 @@ package org.apache.arrow.vector.complex.writer;
 public interface BaseWriter extends AutoCloseable, Positionable {
   int getValueCapacity();
 
-  public interface MapWriter extends BaseWriter {
+  public interface StructWriter extends BaseWriter {
 
     Field getField();
 
@@ -60,7 +60,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     </#list></#list>
 
     void copyReaderToField(String name, FieldReader reader);
-    MapWriter map(String name);
+    StructWriter map(String name);
     ListWriter list(String name);
     void start();
     void end();
@@ -69,7 +69,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
   public interface ListWriter extends BaseWriter {
     void startList();
     void endList();
-    MapWriter map();
+    StructWriter map();
     ListWriter list();
     void copyReader(FieldReader reader);
 
@@ -89,7 +89,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void allocate();
     void clear();
     void copyReader(FieldReader reader);
-    MapWriter rootAsMap();
+    StructWriter rootAsMap();
     ListWriter rootAsList();
 
     void setPosition(int index);
@@ -97,12 +97,12 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void reset();
   }
 
-  public interface MapOrListWriter {
+  public interface StructOrListWriter {
     void start();
     void end();
-    MapOrListWriter map(String name);
-    MapOrListWriter listoftmap(String name);
-    MapOrListWriter list(String name);
+    StructOrListWriter map(String name);
+    StructOrListWriter listoftmap(String name);
+    StructOrListWriter list(String name);
     boolean isMapWriter();
     boolean isListWriter();
     VarCharWriter varChar(String name);

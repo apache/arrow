@@ -21,10 +21,10 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.NullableStructVector;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
-public class NullableStructReaderImpl extends SingleMapReaderImpl {
+public class NullableStructReaderImpl extends SingleStructReaderImpl {
 
   private NullableStructVector nullableStructVector;
 
@@ -39,13 +39,13 @@ public class NullableStructReaderImpl extends SingleMapReaderImpl {
   }
 
   @Override
-  public void copyAsValue(MapWriter writer) {
+  public void copyAsValue(StructWriter writer) {
     NullableStructWriter impl = (NullableStructWriter) writer;
     impl.container.copyFromSafe(idx(), impl.idx(), nullableStructVector);
   }
 
   @Override
-  public void copyAsField(String name, MapWriter writer) {
+  public void copyAsField(String name, StructWriter writer) {
     NullableStructWriter impl = (NullableStructWriter) writer.map(name);
     impl.container.copyFromSafe(idx(), impl.idx(), nullableStructVector);
   }

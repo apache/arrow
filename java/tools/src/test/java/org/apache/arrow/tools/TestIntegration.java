@@ -30,7 +30,7 @@ import org.apache.arrow.tools.Integration.Command;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.Float8Writer;
 import org.apache.arrow.vector.complex.writer.IntWriter;
@@ -78,7 +78,7 @@ public class TestIntegration {
             Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
+      StructWriter rootWriter = writer.rootAsMap();
       Float8Writer floatWriter = rootWriter.float8("float");
       for (int i = 0; i < f.length; i++) {
         floatWriter.setPosition(i);
@@ -98,7 +98,7 @@ public class TestIntegration {
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      MapWriter rootWriter = writer.rootAsMap();
+      StructWriter rootWriter = writer.rootAsMap();
       IntWriter intWriter = rootWriter.integer("int");
       BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
       intWriter.setPosition(5);

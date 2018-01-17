@@ -95,7 +95,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MapWriter map() {
+  public StructWriter map() {
     return getWriter(MinorType.LIST).map();
   }
 
@@ -105,7 +105,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MapWriter map(String name) {
+  public StructWriter map(String name) {
     return getWriter(MinorType.MAP).map(name);
   }
 

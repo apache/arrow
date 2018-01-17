@@ -19,7 +19,7 @@
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.writer.BaseWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapOrListWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructOrListWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.BitWriter;
 import org.apache.arrow.vector.complex.writer.Float4Writer;
@@ -28,17 +28,17 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
 import org.apache.arrow.vector.complex.writer.VarCharWriter;
 
-public class MapOrListWriterImpl implements MapOrListWriter {
+public class StructOrListWriterImpl implements StructOrListWriter {
 
-  public final BaseWriter.MapWriter map;
+  public final BaseWriter.StructWriter map;
   public final BaseWriter.ListWriter list;
 
-  public MapOrListWriterImpl(final BaseWriter.MapWriter writer) {
+  public StructOrListWriterImpl(final BaseWriter.StructWriter writer) {
     this.map = writer;
     this.list = null;
   }
 
-  public MapOrListWriterImpl(final BaseWriter.ListWriter writer) {
+  public StructOrListWriterImpl(final BaseWriter.ListWriter writer) {
     this.map = null;
     this.list = writer;
   }
@@ -59,19 +59,19 @@ public class MapOrListWriterImpl implements MapOrListWriter {
     }
   }
 
-  public MapOrListWriter map(final String name) {
+  public StructOrListWriter map(final String name) {
     assert map != null;
-    return new MapOrListWriterImpl(map.map(name));
+    return new StructOrListWriterImpl(map.map(name));
   }
 
-  public MapOrListWriter listoftmap(final String name) {
+  public StructOrListWriter listoftmap(final String name) {
     assert list != null;
-    return new MapOrListWriterImpl(list.map());
+    return new StructOrListWriterImpl(list.map());
   }
 
-  public MapOrListWriter list(final String name) {
+  public StructOrListWriter list(final String name) {
     assert map != null;
-    return new MapOrListWriterImpl(map.list(name));
+    return new StructOrListWriterImpl(map.list(name));
   }
 
   public boolean isMapWriter() {

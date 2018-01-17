@@ -25,19 +25,19 @@ import java.util.Map;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
 import com.google.common.collect.Maps;
 
 @SuppressWarnings("unused")
-public class SingleMapReaderImpl extends AbstractFieldReader {
+public class SingleStructReaderImpl extends AbstractFieldReader {
 
   private final StructVector vector;
   private final Map<String, FieldReader> fields = Maps.newHashMap();
 
-  public SingleMapReaderImpl(StructVector vector) {
+  public SingleStructReaderImpl(StructVector vector) {
     this.vector = vector;
   }
 
@@ -97,14 +97,14 @@ public class SingleMapReaderImpl extends AbstractFieldReader {
   }
 
   @Override
-  public void copyAsValue(MapWriter writer) {
-    SingleMapWriter impl = (SingleMapWriter) writer;
+  public void copyAsValue(StructWriter writer) {
+    SingleStructWriter impl = (SingleStructWriter) writer;
     impl.container.copyFromSafe(idx(), impl.idx(), vector);
   }
 
   @Override
-  public void copyAsField(String name, MapWriter writer) {
-    SingleMapWriter impl = (SingleMapWriter) writer.map(name);
+  public void copyAsField(String name, StructWriter writer) {
+    SingleStructWriter impl = (SingleStructWriter) writer.map(name);
     impl.container.copyFromSafe(idx(), impl.idx(), vector);
   }
 

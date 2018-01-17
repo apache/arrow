@@ -27,7 +27,7 @@ import org.apache.arrow.vector.DirtyRootAllocator;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -103,7 +103,7 @@ public class TestPromotableWriter {
 
       ComplexWriterImpl newWriter = new ComplexWriterImpl(EMPTY_SCHEMA_PATH, container);
 
-      MapWriter newMapWriter = newWriter.rootAsMap();
+      StructWriter newMapWriter = newWriter.rootAsMap();
 
       newMapWriter.start();
 

@@ -18,7 +18,7 @@
 
 <@pp.dropOutputFile />
 <#list ["Nullable", "Single"] as mode>
-<@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}MapWriter.java" />
+<@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}StructWriter.java" />
 <#assign index = "idx()">
 <#if mode == "Single">
 <#assign containerClass = "StructVector" />
@@ -44,12 +44,12 @@ import com.google.common.collect.Maps;
  * This class is generated using FreeMarker and the ${.template_name} template.
  */
 @SuppressWarnings("unused")
-public class ${mode}MapWriter extends AbstractFieldWriter {
+public class ${mode}StructWriter extends AbstractFieldWriter {
 
   protected final ${containerClass} container;
   private int initialCapacity;
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
-  public ${mode}MapWriter(${containerClass} container) {
+  public ${mode}StructWriter(${containerClass} container) {
     <#if mode == "Single">
     if (container instanceof NullableStructVector) {
       throw new IllegalArgumentException("Invalid container: " + container);
@@ -119,7 +119,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MapWriter map(String name) {
+  public StructWriter map(String name) {
     String finalName = handleCase(name);
     FieldWriter writer = fields.get(finalName);
     if(writer == null){

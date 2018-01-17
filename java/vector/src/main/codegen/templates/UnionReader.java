@@ -100,11 +100,11 @@ public class UnionReader extends AbstractFieldReader {
     }
   }
 
-  private SingleMapReaderImpl mapReader;
+  private SingleStructReaderImpl mapReader;
 
-  private MapReader getMap() {
+  private StructReader getMap() {
     if (mapReader == null) {
-      mapReader = (SingleMapReaderImpl) data.getMap().getReader();
+      mapReader = (SingleStructReaderImpl) data.getMap().getReader();
       mapReader.setPosition(idx());
       readers[MinorType.MAP.ordinal()] = mapReader;
     }

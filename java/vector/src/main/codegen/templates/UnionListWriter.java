@@ -108,7 +108,7 @@ public class UnionListWriter extends AbstractFieldWriter {
   </#list></#list>
 
   @Override
-  public MapWriter map() {
+  public StructWriter map() {
     inMap = true;
     return this;
   }
@@ -125,8 +125,8 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MapWriter map(String name) {
-    MapWriter mapWriter = writer.map(name);
+  public StructWriter map(String name) {
+    StructWriter mapWriter = writer.map(name);
     return mapWriter;
   }
 

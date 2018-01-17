@@ -125,7 +125,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
 
-  public MapWriter directMap() {
+  public StructWriter directMap() {
     Preconditions.checkArgument(name == null);
 
     switch (mode) {
@@ -147,7 +147,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
   @Override
-  public MapWriter rootAsMap() {
+  public StructWriter rootAsMap() {
     switch (mode) {
 
       case INIT:
