@@ -67,10 +67,13 @@ popd
 # Build c_glib documentation
 pushd arrow/c_glib
 if [ -f Makefile ]; then
+    # Ensure updating to prevent auto re-configure
+    touch configure **/Makefile
     make distclean
     # Work around for 'make distclean' removes doc/reference/xml/
     git checkout doc/reference/xml
 fi
+./autogen.sh
 rm -rf build_docs
 mkdir build_docs
 pushd build_docs
