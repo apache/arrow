@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import org.apache.arrow.vector.complex.impl.NullableMapWriterFactory;
+import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionWriter.java" />
@@ -40,15 +40,15 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   private MapWriter mapWriter;
   private UnionListWriter listWriter;
   private List<BaseWriter> writers = Lists.newArrayList();
-  private final NullableMapWriterFactory nullableMapWriterFactory;
+  private final NullableStructWriterFactory nullableStructWriterFactory;
 
   public UnionWriter(UnionVector vector) {
-    this(vector, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
+    this(vector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public UnionWriter(UnionVector vector, NullableMapWriterFactory nullableMapWriterFactory) {
+  public UnionWriter(UnionVector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     data = vector;
-    this.nullableMapWriterFactory = nullableMapWriterFactory;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
   }
 
   @Override
@@ -84,7 +84,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   private MapWriter getMapWriter() {
     if (mapWriter == null) {
-      mapWriter = nullableMapWriterFactory.build(data.getMap());
+      mapWriter = nullableStructWriterFactory.build(data.getMap());
       mapWriter.setPosition(idx());
       writers.add(mapWriter);
     }
@@ -98,7 +98,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   private ListWriter getListWriter() {
     if (listWriter == null) {
-      listWriter = new UnionListWriter(data.getList(), nullableMapWriterFactory);
+      listWriter = new UnionListWriter(data.getList(), nullableStructWriterFactory);
       listWriter.setPosition(idx());
       writers.add(listWriter);
     }

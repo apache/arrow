@@ -20,7 +20,7 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -30,14 +30,14 @@ import com.google.common.base.Preconditions;
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ComplexWriterImpl.class);
 
-  private NullableMapWriter mapRoot;
+  private NullableStructWriter mapRoot;
   private UnionListWriter listRoot;
   private final MapVector container;
 
   Mode mode = Mode.INIT;
   private final String name;
   private final boolean unionEnabled;
-  private final NullableMapWriterFactory nullableMapWriterFactory;
+  private final NullableStructWriterFactory nullableStructWriterFactory;
 
   private enum Mode {INIT, MAP, LIST}
 
@@ -47,8 +47,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
-    nullableMapWriterFactory = caseSensitive ? NullableMapWriterFactory.getNullableCaseSensitiveMapWriterFactoryInstance() :
-        NullableMapWriterFactory.getNullableMapWriterFactoryInstance();
+    nullableStructWriterFactory = caseSensitive ? NullableStructWriterFactory.getNullableCaseSensitiveStructWriterFactoryInstance() :
+        NullableStructWriterFactory.getNullableStructWriterFactoryInstance();
   }
 
   public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled) {
@@ -131,7 +131,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch (mode) {
 
       case INIT:
-        mapRoot = nullableMapWriterFactory.build((NullableMapVector) container);
+        mapRoot = nullableStructWriterFactory.build((NullableStructVector) container);
         mapRoot.setPosition(idx());
         mode = Mode.MAP;
         break;
@@ -152,8 +152,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
       case INIT:
         // TODO allow dictionaries in complex types
-        NullableMapVector map = container.addOrGetMap(name);
-        mapRoot = nullableMapWriterFactory.build(map);
+        NullableStructVector map = container.addOrGetMap(name);
+        mapRoot = nullableStructWriterFactory.build(map);
         mapRoot.setPosition(idx());
         mode = Mode.MAP;
         break;
@@ -188,7 +188,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         if (container.size() > vectorCount) {
           listVector.allocateNew();
         }
-        listRoot = new UnionListWriter(listVector, nullableMapWriterFactory);
+        listRoot = new UnionListWriter(listVector, nullableStructWriterFactory);
         listRoot.setPosition(idx());
         mode = Mode.LIST;
         break;

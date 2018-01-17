@@ -34,7 +34,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
@@ -128,7 +128,7 @@ public class TestComplexWriter {
   }
 
   @Test
-  public void nullableMap() {
+  public void nullableStruct() {
     try (MapVector mapVector = MapVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
       MapWriter rootWriter = writer.rootAsMap();
@@ -144,15 +144,15 @@ public class TestComplexWriter {
         rootWriter.end();
       }
       writer.setValueCount(COUNT);
-      checkNullableMap(mapVector);
+      checkNullableStruct(mapVector);
     }
   }
 
   /**
-   * This test is similar to {@link #nullableMap()} ()} but we get the inner map writer once at the beginning
+   * This test is similar to {@link #nullableStruct()} ()} but we get the inner map writer once at the beginning
    */
   @Test
-  public void nullableMap2() {
+  public void nullableStruct2() {
     try (MapVector mapVector = MapVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
       MapWriter rootWriter = writer.rootAsMap();
@@ -169,11 +169,11 @@ public class TestComplexWriter {
         rootWriter.end();
       }
       writer.setValueCount(COUNT);
-      checkNullableMap(mapVector);
+      checkNullableStruct(mapVector);
     }
   }
 
-  private void checkNullableMap(MapVector mapVector) {
+  private void checkNullableStruct(MapVector mapVector) {
     MapReader rootReader = new SingleMapReaderImpl(mapVector).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
@@ -830,7 +830,7 @@ public class TestComplexWriter {
     rootWriter.end();
     writer.setValueCount(1);
 
-    NullableMapVector mapVector = (NullableMapVector) parent.getChild("root");
+    NullableStructVector mapVector = (NullableStructVector) parent.getChild("root");
     TransferPair tp = mapVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
     MapVector toMapVector = (MapVector) tp.getTo();

@@ -23,7 +23,7 @@
 <#if mode == "Single">
 <#assign containerClass = "MapVector" />
 <#else>
-<#assign containerClass = "NullableMapVector" />
+<#assign containerClass = "NullableStructVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />
@@ -51,7 +51,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
   public ${mode}MapWriter(${containerClass} container) {
     <#if mode == "Single">
-    if (container instanceof NullableMapVector) {
+    if (container instanceof NullableStructVector) {
       throw new IllegalArgumentException("Invalid container: " + container);
     }
     </#if>
@@ -67,7 +67,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
         list(child.getName());
         break;
       case UNION:
-        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), FieldType.nullable(MinorType.UNION.getType()), UnionVector.class), getNullableMapWriterFactory());
+        UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), FieldType.nullable(MinorType.UNION.getType()), UnionVector.class), getNullableStructWriterFactory());
         fields.put(handleCase(child.getName()), writer);
         break;
 <#list vv.types as type><#list type.minor as minor>
@@ -94,8 +94,8 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     return input.toLowerCase();
   }
 
-  protected NullableMapWriterFactory getNullableMapWriterFactory() {
-    return NullableMapWriterFactory.getNullableMapWriterFactoryInstance();
+  protected NullableStructWriterFactory getNullableStructWriterFactory() {
+    return NullableStructWriterFactory.getNullableStructWriterFactoryInstance();
   }
 
   @Override
@@ -124,8 +124,8 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     if(writer == null){
       int vectorCount=container.size();
-      NullableMapVector vector = container.addOrGet(name, FieldType.nullable(MinorType.MAP.getType()), NullableMapVector.class);
-      writer = new PromotableWriter(vector, container, getNullableMapWriterFactory());
+      NullableStructVector vector = container.addOrGet(name, FieldType.nullable(MinorType.MAP.getType()), NullableStructVector.class);
+      writer = new PromotableWriter(vector, container, getNullableStructWriterFactory());
       if(vectorCount != container.size()) {
         writer.allocate();
       }
@@ -168,7 +168,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     int vectorCount = container.size();
     if(writer == null) {
-      writer = new PromotableWriter(container.addOrGet(name, FieldType.nullable(MinorType.LIST.getType()), ListVector.class), container, getNullableMapWriterFactory());
+      writer = new PromotableWriter(container.addOrGet(name, FieldType.nullable(MinorType.LIST.getType()), ListVector.class), container, getNullableStructWriterFactory());
       if (container.size() > vectorCount) {
         writer.allocate();
       }
@@ -251,7 +251,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
           </#if>
           ),
           ${vectName}Vector.class);
-      writer = new PromotableWriter(v, container, getNullableMapWriterFactory());
+      writer = new PromotableWriter(v, container, getNullableStructWriterFactory());
       vector = v;
       if (currentVector == null || currentVector != vector) {
         if(this.initialCapacity > 0) {

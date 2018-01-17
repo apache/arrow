@@ -43,12 +43,12 @@ public class UnionListWriter extends AbstractFieldWriter {
   private static final int OFFSET_WIDTH = 4;
 
   public UnionListWriter(ListVector vector) {
-    this(vector, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
+    this(vector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public UnionListWriter(ListVector vector, NullableMapWriterFactory nullableMapWriterFactory) {
+  public UnionListWriter(ListVector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.vector = vector;
-    this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableMapWriterFactory);
+    this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
   }
 
   public UnionListWriter(ListVector vector, AbstractFieldWriter parent) {

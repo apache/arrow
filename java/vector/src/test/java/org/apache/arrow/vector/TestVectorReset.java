@@ -115,7 +115,7 @@ public class TestVectorReset {
   @Test
   public void testMapTypeReset() {
     try (final MapVector mapVector = new MapVector("Map", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final NullableMapVector nullableMapVector = new NullableMapVector("NullableMap", allocator, FieldType.nullable(MinorType.INT.getType()), null)
+         final NullableStructVector nullableStructVector = new NullableStructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
     ) {
       // MapVector
       mapVector.allocateNewSafe();
@@ -124,11 +124,11 @@ public class TestVectorReset {
       mapVector.setValueCount(1);
       resetVectorAndVerify(mapVector, mapVector.getBuffers(false));
 
-      // NullableMapVector
-      nullableMapVector.allocateNewSafe();
-      nullableMapVector.setNull(0);
-      nullableMapVector.setValueCount(1);
-      resetVectorAndVerify(nullableMapVector, nullableMapVector.getBuffers(false));
+      // NullableStructVector
+      nullableStructVector.allocateNewSafe();
+      nullableStructVector.setNull(0);
+      nullableStructVector.setValueCount(1);
+      resetVectorAndVerify(nullableStructVector, nullableStructVector.getBuffers(false));
     }
   }
 

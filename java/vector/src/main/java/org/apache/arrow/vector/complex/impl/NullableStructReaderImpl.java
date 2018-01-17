@@ -20,38 +20,38 @@
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
-public class NullableMapReaderImpl extends SingleMapReaderImpl {
+public class NullableStructReaderImpl extends SingleMapReaderImpl {
 
-  private NullableMapVector nullableMapVector;
+  private NullableStructVector nullableStructVector;
 
-  public NullableMapReaderImpl(MapVector vector) {
-    super((NullableMapVector) vector);
-    this.nullableMapVector = (NullableMapVector) vector;
+  public NullableStructReaderImpl(MapVector vector) {
+    super((NullableStructVector) vector);
+    this.nullableStructVector = (NullableStructVector) vector;
   }
 
   @Override
   public Field getField() {
-    return nullableMapVector.getField();
+    return nullableStructVector.getField();
   }
 
   @Override
   public void copyAsValue(MapWriter writer) {
-    NullableMapWriter impl = (NullableMapWriter) writer;
-    impl.container.copyFromSafe(idx(), impl.idx(), nullableMapVector);
+    NullableStructWriter impl = (NullableStructWriter) writer;
+    impl.container.copyFromSafe(idx(), impl.idx(), nullableStructVector);
   }
 
   @Override
   public void copyAsField(String name, MapWriter writer) {
-    NullableMapWriter impl = (NullableMapWriter) writer.map(name);
-    impl.container.copyFromSafe(idx(), impl.idx(), nullableMapVector);
+    NullableStructWriter impl = (NullableStructWriter) writer.map(name);
+    impl.container.copyFromSafe(idx(), impl.idx(), nullableStructVector);
   }
 
   @Override
   public boolean isSet() {
-    return !nullableMapVector.isNull(idx());
+    return !nullableStructVector.isNull(idx());
   }
 }

@@ -23,7 +23,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.AbstractMapVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -41,7 +41,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   private final AbstractMapVector parentContainer;
   private final ListVector listVector;
-  private final NullableMapWriterFactory nullableMapWriterFactory;
+  private final NullableStructWriterFactory nullableStructWriterFactory;
   private int position;
 
   private enum State {
@@ -55,24 +55,24 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private FieldWriter writer;
 
   public PromotableWriter(ValueVector v, AbstractMapVector parentContainer) {
-    this(v, parentContainer, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
+    this(v, parentContainer, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public PromotableWriter(ValueVector v, AbstractMapVector parentContainer, NullableMapWriterFactory nullableMapWriterFactory) {
+  public PromotableWriter(ValueVector v, AbstractMapVector parentContainer, NullableStructWriterFactory nullableStructWriterFactory) {
     this.parentContainer = parentContainer;
     this.listVector = null;
-    this.nullableMapWriterFactory = nullableMapWriterFactory;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
 
   public PromotableWriter(ValueVector v, ListVector listVector) {
-    this(v, listVector, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
+    this(v, listVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public PromotableWriter(ValueVector v, ListVector listVector, NullableMapWriterFactory nullableMapWriterFactory) {
+  public PromotableWriter(ValueVector v, ListVector listVector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.listVector = listVector;
     this.parentContainer = null;
-    this.nullableMapWriterFactory = nullableMapWriterFactory;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
 
@@ -80,7 +80,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     if (v instanceof UnionVector) {
       state = State.UNION;
       unionVector = (UnionVector) v;
-      writer = new UnionWriter(unionVector, nullableMapWriterFactory);
+      writer = new UnionWriter(unionVector, nullableStructWriterFactory);
     } else if (v instanceof ZeroVector) {
       state = State.UNTYPED;
     } else {
@@ -94,13 +94,13 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     type = v.getMinorType();
     switch (type) {
       case MAP:
-        writer = nullableMapWriterFactory.build((NullableMapVector) vector);
+        writer = nullableStructWriterFactory.build((NullableStructVector) vector);
         break;
       case LIST:
-        writer = new UnionListWriter((ListVector) vector, nullableMapWriterFactory);
+        writer = new UnionListWriter((ListVector) vector, nullableStructWriterFactory);
         break;
       case UNION:
-        writer = new UnionWriter((UnionVector) vector, nullableMapWriterFactory);
+        writer = new UnionWriter((UnionVector) vector, nullableStructWriterFactory);
         break;
       default:
         writer = type.getNewFieldWriter(vector);
@@ -159,7 +159,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       unionVector = listVector.promoteToUnion();
     }
     unionVector.addVector((FieldVector) tp.getTo());
-    writer = new UnionWriter(unionVector, nullableMapWriterFactory);
+    writer = new UnionWriter(unionVector, nullableStructWriterFactory);
     writer.setPosition(idx());
     for (int i = 0; i <= idx(); i++) {
       unionVector.setType(i, vector.getMinorType());

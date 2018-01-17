@@ -47,8 +47,8 @@ import static org.apache.arrow.vector.types.UnionMode.Sparse;
 
 
 /**
- * A vector which can hold values of different types. It does so by using a NullableMapVector which contains a vector for each
- * primitive type that is stored. NullableMapVector is used in order to take advantage of its serialization/deserialization methods,
+ * A vector which can hold values of different types. It does so by using a NullableStructVector which contains a vector for each
+ * primitive type that is stored. NullableStructVector is used in order to take advantage of its serialization/deserialization methods,
  * as well as the addOrGet method.
  *
  * For performance reasons, UnionVector stores a cached reference to each subtype vector, to avoid having to do the map lookup
@@ -64,7 +64,7 @@ public class UnionVector implements FieldVector {
   MapVector internalMap;
   protected ArrowBuf typeBuffer;
 
-  private NullableMapVector mapVector;
+  private NullableStructVector mapVector;
   private ListVector listVector;
 
   private FieldReader reader;
@@ -173,10 +173,10 @@ public class UnionVector implements FieldVector {
   @Override
   public ArrowBuf getOffsetBuffer() { throw new UnsupportedOperationException(); }
 
-  public NullableMapVector getMap() {
+  public NullableStructVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
-      mapVector = addOrGet(MinorType.MAP, NullableMapVector.class);
+      mapVector = addOrGet(MinorType.MAP, NullableStructVector.class);
       if (internalMap.size() > vectorCount) {
         mapVector.allocateNew();
         if (callBack != null) {

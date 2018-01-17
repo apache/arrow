@@ -23,7 +23,7 @@
 <#if mode == "Single">
 <#assign containerClass = "MapVector" />
 <#else>
-<#assign containerClass = "NullableMapVector" />
+<#assign containerClass = "NullableStructVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />
@@ -46,8 +46,8 @@ public class ${mode}CaseSensitiveMapWriter extends ${mode}MapWriter {
   }
 
   @Override
-  protected NullableMapWriterFactory getNullableMapWriterFactory() {
-    return NullableMapWriterFactory.getNullableCaseSensitiveMapWriterFactoryInstance();
+  protected NullableStructWriterFactory getNullableStructWriterFactory() {
+    return NullableStructWriterFactory.getNullableCaseSensitiveStructWriterFactoryInstance();
   }
 
 }
