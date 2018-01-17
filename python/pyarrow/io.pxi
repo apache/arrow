@@ -312,6 +312,12 @@ cdef class NativeFile:
                 pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
                                                      bytes_read)
 
+                if writer_thread.is_alive():
+                    while write_queue.full():
+                        time.sleep(0.01)
+                else:
+                    break
+
                 write_queue.put_nowait(pybuf)
         finally:
             free(buf)
