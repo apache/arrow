@@ -128,7 +128,7 @@ void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObjec
     // Increment the count of the number of objects in the memory-mapped file
     // that are being used. The corresponding decrement should happen in
     // PlasmaClient::Release.
-    auto entry = mmap_table_.find(object->handle.store_fd);
+    auto entry = mmap_table_.find(object->store_fd);
     ARROW_CHECK(entry != mmap_table_.end());
     ARROW_CHECK(entry->second.count >= 0);
     // Update the in_use_object_bytes_.
@@ -208,7 +208,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       ARROW_CHECK(object_entry->second->is_sealed)
           << "Plasma client called get on an unsealed object that it created";
       PlasmaObject* object = &object_entry->second->object;
-      uint8_t* data = lookup_mmapped_file(object->handle.store_fd);
+      uint8_t* data = lookup_mmapped_file(object->store_fd);
       object_buffers[i].data =
           std::make_shared<Buffer>(data + object->data_offset, object->data_size);
       object_buffers[i].metadata = std::make_shared<Buffer>(
@@ -263,7 +263,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
     // If we are here, the object was not currently in use, so we need to
     // process the reply from the object store.
     if (object->data_size != -1) {
-      uint8_t* data = lookup_mmapped_file(object->handle.store_fd);
+      uint8_t* data = lookup_mmapped_file(object->store_fd);
       // Finish filling out the return values.
       object_buffers[i].data =
           std::make_shared<Buffer>(data + object->data_offset, object->data_size);
@@ -295,7 +295,7 @@ Status PlasmaClient::UnmapObject(const ObjectID& object_id) {
   // Decrement the count of the number of objects in this memory-mapped file
   // that the client is using. The corresponding increment should have
   // happened in plasma_get.
-  int fd = object_entry->second->object.handle.store_fd;
+  int fd = object_entry->second->object.store_fd;
   auto entry = mmap_table_.find(fd);
   ARROW_CHECK(entry != mmap_table_.end());
   ARROW_CHECK(entry->second.count >= 1);

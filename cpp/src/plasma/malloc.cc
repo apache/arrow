@@ -197,4 +197,14 @@ void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_size, ptrdiff_t* offse
   *offset = 0;
 }
 
+int64_t get_mmap_size(int fd) {
+  for (const auto& entry : mmap_records) {
+    if (entry.second.fd == fd) {
+      return entry.second.size;
+    }
+  }
+  ARROW_LOG(FATAL) << "failed to find entry in mmap_records for fd " << fd;
+  return -1;  // This code is never reached.
+}
+
 void set_malloc_granularity(int value) { change_mparam(M_GRANULARITY, value); }

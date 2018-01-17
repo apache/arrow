@@ -192,8 +192,7 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
   entry->state = PLASMA_CREATED;
 
   store_info_.objects[object_id] = std::move(entry);
-  result->handle.store_fd = fd;
-  result->handle.mmap_size = map_size;
+  result->store_fd = fd;
   result->data_offset = offset;
   result->metadata_offset = offset + data_size;
   result->data_size = data_size;
@@ -211,8 +210,7 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(object != NULL);
   DCHECK(entry != NULL);
   DCHECK(entry->state == PLASMA_SEALED);
-  object->handle.store_fd = entry->fd;
-  object->handle.mmap_size = entry->map_size;
+  object->store_fd = entry->fd;
   object->data_offset = entry->offset;
   object->metadata_offset = entry->offset + entry->info.data_size;
   object->data_size = entry->info.data_size;
@@ -226,11 +224,11 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   std::vector<int64_t> mmap_sizes;
   for (const auto& object_id : get_req->object_ids) {
     PlasmaObject& object = get_req->objects[object_id];
-    int fd = object.handle.store_fd;
+    int fd = object.store_fd;
     if (object.data_size != -1 && fds_to_send.count(fd) == 0) {
       fds_to_send.insert(fd);
       store_fds.push_back(fd);
-      mmap_sizes.push_back(object.handle.mmap_size);
+      mmap_sizes.push_back(get_mmap_size(fd));
     }
   }
 
@@ -650,10 +648,11 @@ Status PlasmaStore::process_message(Client* client) {
           ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size));
       int error_code =
           create_object(object_id, data_size, metadata_size, client, &object);
-      HANDLE_SIGPIPE(SendCreateReply(client->fd, object_id, &object, error_code),
+      HANDLE_SIGPIPE(SendCreateReply(client->fd, object_id, &object, error_code,
+                                     get_mmap_size(object.store_fd)),
                      client->fd);
       if (error_code == PlasmaError_OK) {
-        warn_if_sigpipe(send_fd(client->fd, object.handle.store_fd), client->fd);
+        warn_if_sigpipe(send_fd(client->fd, object.store_fd), client->fd);
       }
     } break;
     case MessageType_PlasmaAbortRequest: {

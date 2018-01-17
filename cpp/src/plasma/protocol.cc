@@ -73,16 +73,14 @@ Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
   return Status::OK();
 }
 
-Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
-                       int error_code) {
+Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int error_code,
+                       int64_t mmap_size) {
   flatbuffers::FlatBufferBuilder fbb;
-  PlasmaObjectSpec plasma_object(object->handle.store_fd, object->data_offset,
-                                 object->data_size, object->metadata_offset,
-                                 object->metadata_size);
-  auto message =
-      CreatePlasmaCreateReply(fbb, fbb.CreateString(object_id.binary()), &plasma_object,
-                              static_cast<PlasmaError>(error_code),
-                              object->handle.store_fd, object->handle.mmap_size);
+  PlasmaObjectSpec plasma_object(object->store_fd, object->data_offset, object->data_size,
+                                 object->metadata_offset, object->metadata_size);
+  auto message = CreatePlasmaCreateReply(
+      fbb, fbb.CreateString(object_id.binary()), &plasma_object,
+      static_cast<PlasmaError>(error_code), object->store_fd, mmap_size);
   return PlasmaSend(sock, MessageType_PlasmaCreateReply, &fbb, message);
 }
 
@@ -92,9 +90,7 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
   auto message = flatbuffers::GetRoot<PlasmaCreateReply>(data);
   DCHECK(verify_flatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
-  object->handle.store_fd = message->plasma_object()->segment_index();
-  // TODO(rkn): Remove mmap_size from the plasma store's object table.
-  object->handle.mmap_size = -1;  // This value should not be used.
+  object->store_fd = message->plasma_object()->segment_index();
   object->data_offset = message->plasma_object()->data_offset();
   object->data_size = message->plasma_object()->data_size();
   object->metadata_offset = message->plasma_object()->metadata_offset();
@@ -404,7 +400,7 @@ Status SendGetReply(
 
   for (int64_t i = 0; i < num_objects; ++i) {
     const PlasmaObject& object = plasma_objects[object_ids[i]];
-    objects.push_back(PlasmaObjectSpec(object.handle.store_fd, object.data_offset,
+    objects.push_back(PlasmaObjectSpec(object.store_fd, object.data_offset,
                                        object.data_size, object.metadata_offset,
                                        object.metadata_size));
   }
@@ -426,9 +422,7 @@ Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
   }
   for (uoffset_t i = 0; i < num_objects; ++i) {
     const PlasmaObjectSpec* object = message->plasma_objects()->Get(i);
-    plasma_objects[i].handle.store_fd = object->segment_index();
-    // TODO(rkn): Remove mmap_size from the plasma store's object table.
-    plasma_objects[i].handle.mmap_size = -1;  // This value should not be used.
+    plasma_objects[i].store_fd = object->segment_index();
     plasma_objects[i].data_offset = object->data_offset();
     plasma_objects[i].data_size = object->data_size();
     plasma_objects[i].metadata_offset = object->metadata_offset();

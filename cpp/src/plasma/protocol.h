@@ -46,7 +46,8 @@ Status SendCreateRequest(int sock, ObjectID object_id, int64_t data_size,
 Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
                          int64_t* data_size, int64_t* metadata_size);
 
-Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int error);
+Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int error,
+                       int64_t mmap_size);
 
 Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
                        PlasmaObject* object, int* store_fd, int64_t* mmap_size);
