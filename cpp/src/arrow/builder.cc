@@ -1227,11 +1227,11 @@ Status BinaryBuilder::Resize(int64_t capacity) {
 }
   
 Status BinaryBuilder::ReserveData(int64_t capacity) {
-  if(value_data_length.length() + capacity > std::numeric_limits<int32_t>::max()) {
+  if(value_data_length() + capacity > std::numeric_limits<int32_t>::max()) {
       return Status::Invalid("Cannot reserve capacity larger than 2^31 - 1 in length for binary data");
   }
   
-  return value_data_builder_.Resize(value_data_length.length() + capacity);
+  return value_data_builder_.Resize(value_data_length() + capacity);
 }
 
 Status BinaryBuilder::AppendNextOffset() {
