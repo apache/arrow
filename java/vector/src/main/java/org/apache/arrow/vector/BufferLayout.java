@@ -70,7 +70,7 @@ public class BufferLayout {
       case 128:
         return VALUES_128;
       default:
-        throw new IllegalArgumentException("only 8, 16, 32, or 64 bits supported");
+        return new BufferLayout(BufferType.DATA, typeBitWidth);
     }
   }
 

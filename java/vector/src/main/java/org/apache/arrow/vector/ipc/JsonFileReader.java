@@ -329,6 +329,36 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
     };
 
+    BufferReader FIXEDSIZEBINARY = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        ArrayList<byte[]> values = Lists.newArrayList();
+        int byteWidth = 0;
+        for (int i = 0; i < count; i++) {
+          parser.nextToken();
+          final byte[] value = decodeHexSafe(parser.readValueAs(String.class));
+          values.add(value);
+          if (value.length > 0) {
+            if (byteWidth == 0) {
+              byteWidth = value.length;
+            } else if (byteWidth != value.length) {
+              throw new IOException("mismatch byte width (" + value.length + ") at index " + i + ", expecting " + byteWidth);
+            }
+          }
+        }
+        if (count > 0 && byteWidth == 0) {
+          throw new IOException("could not determine the byte width of the vector because all elements are null");
+        }
+
+        ArrowBuf buf = allocator.buffer(byteWidth * count);
+        for (byte[] value : values) {
+          buf.writeBytes(value.length == 0? new byte[byteWidth] : value);
+        }
+
+        return buf;
+      }
+    };
+
     BufferReader VARCHAR = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
@@ -427,6 +457,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           break;
         case DECIMAL:
           reader = helper.DECIMAL;
+          break;
+        case FIXEDSIZEBINARY:
+          reader = helper.FIXEDSIZEBINARY;
           break;
         case VARCHAR:
           reader = helper.VARCHAR;
