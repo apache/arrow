@@ -1158,7 +1158,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
 TEST_F(TestBinaryBuilder, TestCapacityReserve) {
   vector<string> strings = {"a", "bb", "cc", "ddddd", "eeeee"};
   int64_t N = static_cast<int>(strings.size());
-  int64_t length = 0
+  int64_t length = 0;
   int64_t data_length = 0;
   int64_t capacity = N;
  
