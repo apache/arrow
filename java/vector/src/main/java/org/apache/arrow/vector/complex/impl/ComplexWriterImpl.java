@@ -39,7 +39,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   private final boolean unionEnabled;
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
-  private enum Mode {INIT, MAP, LIST}
+  private enum Mode {INIT, STRUCT, LIST}
 
   ;
 
@@ -90,7 +90,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public void clear() {
     switch (mode) {
-      case MAP:
+      case STRUCT:
         structRoot.clear();
         break;
       case LIST:
@@ -102,7 +102,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public void setValueCount(int count) {
     switch (mode) {
-      case MAP:
+      case STRUCT:
         structRoot.setValueCount(count);
         break;
       case LIST:
@@ -115,7 +115,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   public void setPosition(int index) {
     super.setPosition(index);
     switch (mode) {
-      case MAP:
+      case STRUCT:
         structRoot.setPosition(index);
         break;
       case LIST:
@@ -133,14 +133,14 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
       case INIT:
         structRoot = nullableStructWriterFactory.build((NullableStructVector) container);
         structRoot.setPosition(idx());
-        mode = Mode.MAP;
+        mode = Mode.STRUCT;
         break;
 
-      case MAP:
+      case STRUCT:
         break;
 
       default:
-        check(Mode.INIT, Mode.MAP);
+        check(Mode.INIT, Mode.STRUCT);
     }
 
     return structRoot;
@@ -155,14 +155,14 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         NullableStructVector struct = container.addOrGetStruct(name);
         structRoot = nullableStructWriterFactory.build(struct);
         structRoot.setPosition(idx());
-        mode = Mode.MAP;
+        mode = Mode.STRUCT;
         break;
 
-      case MAP:
+      case STRUCT:
         break;
 
       default:
-        check(Mode.INIT, Mode.MAP);
+        check(Mode.INIT, Mode.STRUCT);
     }
 
     return structRoot;
@@ -197,7 +197,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         break;
 
       default:
-        check(Mode.INIT, Mode.MAP);
+        check(Mode.INIT, Mode.STRUCT);
     }
 
     return listRoot;

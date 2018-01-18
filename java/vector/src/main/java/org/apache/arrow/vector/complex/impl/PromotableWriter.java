@@ -93,7 +93,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     vector = v;
     type = v.getMinorType();
     switch (type) {
-      case MAP:
+      case STRUCT:
         writer = nullableStructWriterFactory.build((NullableStructVector) vector);
         break;
       case LIST:

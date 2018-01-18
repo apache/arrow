@@ -62,7 +62,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   @Override
   public void start() {
-    data.setType(idx(), MinorType.MAP);
+    data.setType(idx(), MinorType.STRUCT);
     getStructWriter().start();
   }
 
@@ -92,7 +92,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   }
 
   public StructWriter asStruct() {
-    data.setType(idx(), MinorType.MAP);
+    data.setType(idx(), MinorType.STRUCT);
     return getStructWriter();
   }
 
@@ -112,7 +112,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   BaseWriter getWriter(MinorType minorType) {
     switch (minorType) {
-    case MAP:
+    case STRUCT:
       return getStructWriter();
     case LIST:
       return getListWriter();
@@ -189,14 +189,14 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   @Override
   public ListWriter list(String name) {
-    data.setType(idx(), MinorType.MAP);
+    data.setType(idx(), MinorType.STRUCT);
     getStructWriter().setPosition(idx());
     return getStructWriter().list(name);
   }
 
   @Override
   public StructWriter struct(String name) {
-    data.setType(idx(), MinorType.MAP);
+    data.setType(idx(), MinorType.STRUCT);
     getStructWriter().setPosition(idx());
     return getStructWriter().struct(name);
   }
@@ -209,7 +209,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   <#if !minor.typeParams?? >
   @Override
   public ${capName}Writer ${lowerName}(String name) {
-    data.setType(idx(), MinorType.MAP);
+    data.setType(idx(), MinorType.STRUCT);
     getStructWriter().setPosition(idx());
     return getStructWriter().${lowerName}(name);
   }

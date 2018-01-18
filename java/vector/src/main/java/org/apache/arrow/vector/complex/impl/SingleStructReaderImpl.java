@@ -83,7 +83,7 @@ public class SingleStructReaderImpl extends AbstractFieldReader {
 
   @Override
   public MinorType getMinorType() {
-    return MinorType.MAP;
+    return MinorType.STRUCT;
   }
 
   @Override

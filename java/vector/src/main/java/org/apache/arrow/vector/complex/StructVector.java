@@ -321,7 +321,7 @@ public class StructVector extends AbstractStructVector {
 
   @Override
   public MinorType getMinorType() {
-    return MinorType.MAP;
+    return MinorType.STRUCT;
   }
 
   @Override

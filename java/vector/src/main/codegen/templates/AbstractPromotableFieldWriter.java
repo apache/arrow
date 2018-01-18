@@ -53,12 +53,12 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
-    getWriter(MinorType.MAP).start();
+    getWriter(MinorType.STRUCT).start();
   }
 
   @Override
   public void end() {
-    getWriter(MinorType.MAP).end();
+    getWriter(MinorType.STRUCT).end();
     setPosition(idx() + 1);
   }
 
@@ -106,12 +106,12 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public StructWriter struct(String name) {
-    return getWriter(MinorType.MAP).struct(name);
+    return getWriter(MinorType.STRUCT).struct(name);
   }
 
   @Override
   public ListWriter list(String name) {
-    return getWriter(MinorType.MAP).list(name);
+    return getWriter(MinorType.STRUCT).list(name);
   }
 
   <#list vv.types as type><#list type.minor as minor>
@@ -123,13 +123,13 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   <#if minor.typeParams?? >
   @Override
   public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
-    return getWriter(MinorType.MAP).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
+    return getWriter(MinorType.STRUCT).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
 
   </#if>
   @Override
   public ${capName}Writer ${lowerName}(String name) {
-    return getWriter(MinorType.MAP).${lowerName}(name);
+    return getWriter(MinorType.STRUCT).${lowerName}(name);
   }
 
   @Override

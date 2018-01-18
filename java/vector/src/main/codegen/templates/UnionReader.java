@@ -81,7 +81,7 @@ public class UnionReader extends AbstractFieldReader {
     switch (MinorType.values()[typeValue]) {
     case NULL:
       return NullReader.INSTANCE;
-    case MAP:
+    case STRUCT:
       return (FieldReader) getStruct();
     case LIST:
       return (FieldReader) getList();
@@ -106,7 +106,7 @@ public class UnionReader extends AbstractFieldReader {
     if (structReader == null) {
       structReader = (SingleStructReaderImpl) data.getStruct().getReader();
       structReader.setPosition(idx());
-      readers[MinorType.MAP.ordinal()] = structReader;
+      readers[MinorType.STRUCT.ordinal()] = structReader;
     }
     return structReader;
   }

@@ -57,7 +57,7 @@ public class ComplexCopier {
         break;
       case FIXED_SIZE_LIST:
         throw new UnsupportedOperationException("Copy fixed size list");
-      case MAP:
+      case STRUCT:
         if (reader.isSet()) {
           writer.start();
           for(String name : reader){
@@ -100,7 +100,7 @@ public class ComplexCopier {
       return (FieldWriter) writer.<#if name == "Int">integer<#else>${uncappedName}</#if>(name);
     </#if>
     </#list></#list>
-    case MAP:
+    case STRUCT:
       return (FieldWriter) writer.struct(name);
     case LIST:
       return (FieldWriter) writer.list(name);
@@ -119,7 +119,7 @@ public class ComplexCopier {
     return (FieldWriter) writer.<#if name == "Int">integer<#else>${uncappedName}</#if>();
     </#if>
     </#list></#list>
-    case MAP:
+    case STRUCT:
       return (FieldWriter) writer.struct();
     case LIST:
       return (FieldWriter) writer.list();

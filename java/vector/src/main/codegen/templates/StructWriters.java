@@ -60,7 +60,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     for (Field child : container.getField().getChildren()) {
       MinorType minorType = Types.getMinorTypeForArrowType(child.getType());
       switch (minorType) {
-      case MAP:
+      case STRUCT:
         struct(child.getName());
         break;
       case LIST:
@@ -124,7 +124,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     if(writer == null){
       int vectorCount=container.size();
-      NullableStructVector vector = container.addOrGet(name, FieldType.nullable(MinorType.MAP.getType()), NullableStructVector.class);
+      NullableStructVector vector = container.addOrGet(name, FieldType.nullable(MinorType.STRUCT.getType()), NullableStructVector.class);
       writer = new PromotableWriter(vector, container, getNullableStructWriterFactory());
       if(vectorCount != container.size()) {
         writer.allocate();
@@ -134,7 +134,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
-        ((PromotableWriter)writer).getWriter(MinorType.MAP);
+        ((PromotableWriter)writer).getWriter(MinorType.STRUCT);
       }
     }
     return writer;

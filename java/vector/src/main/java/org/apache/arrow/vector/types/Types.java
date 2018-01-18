@@ -128,7 +128,7 @@ public class Types {
         return null;
       }
     },
-    MAP(Struct.INSTANCE) {
+    STRUCT(Struct.INSTANCE) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new NullableStructVector(name, allocator, fieldType, schemaChangeCallback);
@@ -539,7 +539,7 @@ public class Types {
 
       @Override
       public MinorType visit(Struct type) {
-        return MinorType.MAP;
+        return MinorType.STRUCT;
       }
 
       @Override

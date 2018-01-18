@@ -37,7 +37,7 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
   
   public static final NullReader INSTANCE = new NullReader();
   public static final NullReader EMPTY_LIST_INSTANCE = new NullReader(MinorType.NULL);
-  public static final NullReader EMPTY_MAP_INSTANCE = new NullReader(MinorType.MAP);
+  public static final NullReader EMPTY_STRUCT_INSTANCE = new NullReader(MinorType.STRUCT);
   private MinorType type;
   
   private NullReader(){

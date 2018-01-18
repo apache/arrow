@@ -176,7 +176,7 @@ public class UnionVector implements FieldVector {
   public NullableStructVector getStruct() {
     if (structVector == null) {
       int vectorCount = internalStruct.size();
-      structVector = addOrGet(MinorType.MAP, NullableStructVector.class);
+      structVector = addOrGet(MinorType.STRUCT, NullableStructVector.class);
       if (internalStruct.size() > vectorCount) {
         structVector.allocateNew();
         if (callBack != null) {
@@ -499,7 +499,7 @@ public class UnionVector implements FieldVector {
           </#if>
         </#list>
       </#list>
-      case MAP:
+      case STRUCT:
         return getStruct().getObject(index);
       case LIST:
         return getList().getObject(index);
@@ -576,7 +576,7 @@ public class UnionVector implements FieldVector {
           </#if>
         </#list>
       </#list>
-      case MAP: {
+      case STRUCT: {
         ComplexCopier.copy(reader, writer);
         break;
       }
