@@ -281,12 +281,11 @@ both of these options would be used rarely. Current known uses-cases when they a
 
 ## Nightly Builds of `arrow-cpp`, `parquet-cpp`, and `pyarrow` for Linux
 
-Nightly builds of conda packages are available for [`arrow-cpp`][5],
-[`parquet-cpp`][6], and [`pyarrow`][7].
+Nightly builds of Linux conda packages for `arrow-cpp`, `parquet-cpp`, and
+`pyarrow` can be built using an open source tool called [`scourge`][5].
 
-These are built using an open source tool called [`scourge`][8]. `scourge` is
-new, so please report any feature requests or bugs to the [scourge issue
-tracker][10].
+`scourge` is new, so please report any feature requests or bugs to the [scourge
+issue tracker][7].
 
 To get scourge you need to clone the source and install it in development mode.
 
@@ -296,7 +295,7 @@ To setup your own nightly builds:
 1. Create a script that calls scourge
 1. Run that script as a cronjob once per day
 
-First, install scourge (you also need to [install docker][9]):
+First, install scourge (you also need to [install docker][6]):
 
 ```sh
 git clone https://github.com/cpcloud/scourge
@@ -353,9 +352,6 @@ The build artifacts (conda packages) will be located in
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md
 [3]: https://google.github.io/styleguide/cppguide.html
 [4]: https://github.com/include-what-you-use/include-what-you-use
-[5]: https://anaconda.org/twosigma/arrow-cpp
-[6]: https://anaconda.org/twosigma/parquet-cpp
-[7]: https://anaconda.org/twosigma/pyarrow
-[8]: https://github.com/cpcloud/scourge
-[9]: https://docs.docker.com/engine/installation
-[10]: https://github.com/cpcloud/scourge/issues
+[5]: https://github.com/cpcloud/scourge
+[6]: https://docs.docker.com/engine/installation
+[7]: https://github.com/cpcloud/scourge/issues
