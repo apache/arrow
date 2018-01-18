@@ -346,6 +346,9 @@ then in the scratch file that's opened:
 @daily /path/to/the/above/script.sh
 ```
 
+The build artifacts (conda packages) will be located in
+`$workingdir/artifacts/linux-64`.
+
 [1]: https://brew.sh/
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md
 [3]: https://google.github.io/styleguide/cppguide.html
