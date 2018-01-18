@@ -29,7 +29,7 @@ const webpack = require(`webpack`);
 const { memoizeTask } = require('./memoize-task');
 const { Observable, ReplaySubject } = require('rxjs');
 const UglifyJSPlugin = require(`uglifyjs-webpack-plugin`);
-const esmRequire = require(`@std/esm`)(module, { cjs: true, esm: `js` });
+const esmRequire = require(`@std/esm`)(module, { cjs: true, esm: `js`, warnings: false });
 
 const uglifyTask = ((cache, commonConfig) => memoizeTask(cache, function uglifyJS(target, format) {
 

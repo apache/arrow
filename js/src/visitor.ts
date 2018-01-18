@@ -24,14 +24,14 @@ import { Bool, Null, Int, Float, Date_, Time, Interval, Timestamp } from './type
 export interface VisitorNode {
     acceptTypeVisitor(visitor: TypeVisitor): any;
     acceptVectorVisitor(visitor: VectorVisitor): any;
-    acceptMessageVisitor(visitor: MessageVisitor): any;
+    // acceptMessageVisitor(visitor: MessageVisitor): any;
 }
 
 export abstract class TypeVisitor {
-    visit(node: VisitorNode): any {
-        return node.acceptTypeVisitor(this);
+    visit(node: Partial<VisitorNode>): any {
+        return node.acceptTypeVisitor!(this);
     }
-    visitMany(nodes: VisitorNode[]): any[] {
+    visitMany(nodes: Partial<VisitorNode>[]): any[] {
         return nodes.map((node) => this.visit(node));
     }
     abstract visitNull(node: Null): any;
@@ -79,10 +79,10 @@ export abstract class TypeVisitor {
 }
 
 export abstract class VectorVisitor {
-    visit(node: VisitorNode): any {
-        return node.acceptVectorVisitor(this);
+    visit(node: Partial<VisitorNode>): any {
+        return node.acceptVectorVisitor!(this);
     }
-    visitMany(nodes: VisitorNode[]): any[] {
+    visitMany(nodes: Partial<VisitorNode>[]): any[] {
         return nodes.map((node) => this.visit(node));
     }
     abstract visitNullVector(node: Vector<Null>): any;
@@ -129,26 +129,26 @@ export abstract class VectorVisitor {
     }
 }
 
-import { Footer, Block } from './ipc/message';
-import { Field, FieldNode, Buffer } from './ipc/message';
-import { Message, Schema, RecordBatch, DictionaryBatch } from './ipc/message';
+// import { Footer, Block } from './ipc/message';
+// import { Field, FieldNode, Buffer } from './ipc/message';
+// import { Message, Schema, RecordBatch, DictionaryBatch } from './ipc/message';
 
-export abstract class MessageVisitor {
-    visit(node: VisitorNode): any {
-        return node.acceptMessageVisitor(this);
-    }
-    visitMany(nodes: VisitorNode[]): any[] {
-        return nodes.map((node) => this.visit(node));
-    }
-    abstract visitFooter(node: Footer): any;
-    abstract visitBlock(node: Block): any;
-    abstract visitMessage(node: Message): any;
-    abstract visitSchema(node: Schema): any;
-    abstract visitField<T extends DataType>(node: Field<T>): any;
-    abstract visitBuffer(node: Buffer): any;
-    abstract visitFieldNode(node: FieldNode): any;
-    abstract visitDataType<T extends Type>(node: DataType<T>): any;
-    abstract visitDictionary(node: Dictionary): any;
-    abstract visitRecordBatch(node: RecordBatch): any;
-    abstract visitDictionaryBatch(node: DictionaryBatch): any;
-}
+// export abstract class MessageVisitor {
+//     visit(node: VisitorNode): any {
+//         return node.acceptMessageVisitor(this);
+//     }
+//     visitMany(nodes: VisitorNode[]): any[] {
+//         return nodes.map((node) => this.visit(node));
+//     }
+//     abstract visitFooter(node: Footer): any;
+//     abstract visitBlock(node: Block): any;
+//     abstract visitMessage(node: Message): any;
+//     abstract visitSchema(node: Schema): any;
+//     abstract visitField<T extends DataType>(node: Field<T>): any;
+//     abstract visitBuffer(node: Buffer): any;
+//     abstract visitFieldNode(node: FieldNode): any;
+//     abstract visitDataType<T extends Type>(node: DataType<T>): any;
+//     abstract visitDictionary(node: Dictionary): any;
+//     abstract visitRecordBatch(node: RecordBatch): any;
+//     abstract visitDictionaryBatch(node: DictionaryBatch): any;
+// }

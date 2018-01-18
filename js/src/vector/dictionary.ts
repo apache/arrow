@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from '../data';
 import { View, Vector } from '../vector';
-import { IterableArrayLike, DataType, Int } from '../type';
+import { IterableArrayLike, DataType, Dictionary, Int } from '../type';
 
 export class DictionaryView<T extends DataType> implements View<T> {
     public indicies: Vector<Int>;
@@ -25,11 +26,17 @@ export class DictionaryView<T extends DataType> implements View<T> {
         this.indicies = indicies;
         this.dictionary = dictionary;
     }
+    public clone(data: Data<Dictionary<T>>): this {
+        return new DictionaryView(data.dictionary, this.indicies.clone(data.indicies)) as this;
+    }
     public isValid(index: number): boolean {
-        return this.dictionary.isValid(index);
+        return this.indicies.isValid(index);
     }
     public get(index: number): T['TValue'] {
         return this.dictionary.get(this.indicies.get(index));
+    }
+    public set(index: number, value: T['TValue']): void {
+        this.dictionary.set(this.indicies.get(index), value);
     }
     public toArray(): IterableArrayLike<T['TValue']> {
         return [...this];

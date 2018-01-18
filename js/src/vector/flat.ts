@@ -17,22 +17,30 @@
 
 import { Data } from '../data';
 import { View } from '../vector';
-import { getBool, iterateBits } from '../util/bit';
+import { getBool, setBool, iterateBits } from '../util/bit';
 import { Bool, Float16, Date_, Interval, Null } from '../type';
 import { DataType, FlatType, PrimitiveType, IterableArrayLike } from '../type';
 
 export class FlatView<T extends FlatType> implements View<T> {
-    public readonly length: number;
-    public readonly values: T['TArray'];
+    // @ts-ignore
+    public length: number;
+    // @ts-ignore
+    public values: T['TArray'];
     constructor(data: Data<T>) {
         this.length = data.length;
         this.values = data.values;
+    }
+    public clone(data: Data<T>): this {
+        return new (<any> this.constructor)(data) as this;
     }
     public isValid(): boolean {
         return true;
     }
     public get(index: number): T['TValue'] {
         return this.values[index];
+    }
+    public set(index: number, value: T['TValue']): void {
+        return this.values[index] = value;
     }
     public toArray(): IterableArrayLike<T['TValue']> {
         return this.values;
@@ -43,13 +51,18 @@ export class FlatView<T extends FlatType> implements View<T> {
 }
 
 export class NullView implements View<Null> {
-    public readonly length: number;
+    // @ts-ignore
+    public length: number;
     constructor(data: Data<Null>) {
         this.length = data.length;
+    }
+    public clone(data: Data<Null>): this {
+        return new (<any> this.constructor)(data) as this;
     }
     public isValid(): boolean {
         return true;
     }
+    public set(): void {}
     public get() { return null; }
     public toArray(): IterableArrayLike<null> {
         return [...this];
@@ -62,101 +75,152 @@ export class NullView implements View<Null> {
 }
 
 export class BoolView extends FlatView<Bool> {
+    // @ts-ignore
+    protected offset: number;
+    constructor(data: Data<Bool>) {
+        super(data);
+        this.offset = data.offset;
+    }
     public toArray() { return [...this]; }
     public get(index: number): boolean {
-        return getBool(null, index, this.values[index >> 3], index % 8);
+        const boolBitIndex = this.offset + index;
+        return getBool(null, index, this.values[boolBitIndex >> 3], boolBitIndex % 8);
+    }
+    public set(index: number, value: boolean): void {
+        setBool(this.values, this.offset + index, value);
     }
     public [Symbol.iterator](): IterableIterator<boolean> {
-        return iterateBits<boolean>(this.values, 0, this.length, this.values, getBool);
+        return iterateBits<boolean>(this.values, this.offset, this.length, this.values, getBool);
     }
 }
 
 export class ValidityView<T extends DataType> implements View<T> {
     protected view: View<T>;
+    // @ts-ignore
     protected length: number;
+    // @ts-ignore
+    protected offset: number;
+    // @ts-ignore
     protected nullBitmap: Uint8Array;
     constructor(data: Data<T>, view: View<T>) {
         this.view = view;
         this.length = data.length;
+        this.offset = data.offset;
         this.nullBitmap = data.nullBitmap!;
     }
-    public toArray(): IterableArrayLike<T['TValue'] | null> { return [...this]; }
+    public clone(data: Data<T>): this {
+        return new ValidityView(data, this.view.clone(data)) as this;
+    }
+    public toArray(): IterableArrayLike<T['TValue'] | null> {
+        return [...this];
+    }
     public isValid(index: number): boolean {
-        return getBool(null, index, this.nullBitmap[index >> 3], index % 8);
+        const nullBitIndex = this.offset + index;
+        return getBool(null, index, this.nullBitmap[nullBitIndex >> 3], nullBitIndex % 8);
     }
     public get(index: number): T['TValue'] | null {
-        return getNullable(this.view, index, this.nullBitmap[index >> 3], index % 8);
+        const nullBitIndex = this.offset + index;
+        return this.getNullable(this.view, index, this.nullBitmap[nullBitIndex >> 3], nullBitIndex % 8);
+    }
+    public set(index: number, value: T['TValue'] | null): void {
+        if (setBool(this.nullBitmap, this.offset + index, value != null)) {
+            this.view.set(index, value);
+        }
     }
     public [Symbol.iterator](): IterableIterator<T['TValue'] | null> {
-        return iterateBits<T['TValue'] | null>(this.nullBitmap, 0, this.length, this.view, getNullable);
+        return iterateBits<T['TValue'] | null>(this.nullBitmap, this.offset, this.length, this.view, this.getNullable);
+    }
+    protected getNullable(view: View<T>, index: number, byte: number, bit: number) {
+        return getBool(view, index, byte, bit) ? view.get(index) : null;
     }
 }
 
 export class PrimitiveView<T extends PrimitiveType> extends FlatView<T> {
-    public readonly size: number;
-    public readonly ArrayType: T['ArrayType'];
+    // @ts-ignore
+    public size: number;
+    // @ts-ignore
+    public ArrayType: T['ArrayType'];
     constructor(data: Data<T>, size?: number) {
         super(data);
         this.size = size || 1;
         this.ArrayType = data.type.ArrayType;
     }
-    protected getValue(values: T['TArray'], index: number): T['TValue'] {
-        return values[index];
+    public clone(data: Data<T>): this {
+        return new (<any> this.constructor)(data, this.size) as this;
+    }
+    protected getValue(values: T['TArray'], index: number, size: number): T['TValue'] {
+        return values[index * size];
+    }
+    protected setValue(values: T['TArray'], index: number, size: number, value: T['TValue']): void {
+        values[index * size] = value;
     }
     public get(index: number): T['TValue'] {
-        return this.getValue(this.values, this.size * index);
+        return this.getValue(this.values, index, this.size);
+    }
+    public set(index: number, value: T['TValue']): void {
+        return this.setValue(this.values, index, this.size, value);
     }
     public toArray(): IterableArrayLike<T['TValue']> {
-        return this.size <= 1 ? this.values : new this.ArrayType(this as Iterable<number>);
+        return this.values;
     }
-    public [Symbol.iterator](): IterableIterator<T['TValue']> {
-        return this.size <= 1 ? this.values[Symbol.iterator]() : iterateWithStride(this.values, 0, this.length, this.size, this.getValue);
+    public *[Symbol.iterator](): IterableIterator<T['TValue']> {
+        const get = this.getValue;
+        const { size, values, length } = this;
+        for (let index = -1; ++index < length;) {
+            yield get(values, index, size);
+        }
     }
 }
 
 export class FixedSizeView<T extends PrimitiveType> extends PrimitiveView<T> {
-    constructor(data: Data<T>, size: number) {
-        super(data, size);
+    protected getValue(values: T['TArray'], index: number, size: number): T['TValue'] {
+        return values.subarray(index * size, index * size + size);
     }
-    protected getValue(values: T['TArray'], index: number): T['TValue'] {
-        return values.subarray(index, index + this.size);
+    protected setValue(values: T['TArray'], index: number, size: number, value: T['TValue']): void {
+        values.set((value as T['TArray']).subarray(0, size), index * size);
     }
 }
 
 export class Float16View extends PrimitiveView<Float16> {
-    protected getValue(values: Uint16Array, index: number): number {
-        return Math.min((values[index] -  32767) / 32767, 1);
+    public toArray() { return new Float32Array(this); }
+    protected getValue(values: Uint16Array, index: number, size: number): number {
+        return (values[index * size] - 32767) / 32767;
+    }
+    protected setValue(values: Uint16Array, index: number, size: number, value: number): void {
+        values[index * size] = (value * 32767) + 32767;
     }
 }
 
 export class DateDayView extends PrimitiveView<Date_> {
     public toArray() { return [...this]; }
-    protected getValue(values: Int32Array, index: number): Date {
-        return epochDaysToDate(values, index);
+    protected getValue(values: Int32Array, index: number, size: number): Date {
+        return epochDaysToDate(values, index * size);
+    }
+    protected setValue(values: Int32Array, index: number, size: number, value: Date): void {
+        values[index * size] = value.valueOf() / 86400000;
     }
 }
 
 export class DateMillisecondView extends FixedSizeView<Date_> {
     public toArray() { return [...this]; }
-    protected getValue(values: Int32Array, index: number): Date {
-        return epochMillisecondsLongToDate(values, index);
+    protected getValue(values: Int32Array, index: number, size: number): Date {
+        return epochMillisecondsLongToDate(values, index * size);
+    }
+    protected setValue(values: Int32Array, index: number, size: number, value: Date): void {
+        const epochMs = value.valueOf();
+        values[index * size] = (epochMs % 4294967296) | 0;
+        values[index * size + size] = (epochMs / 4294967296) | 0;
     }
 }
 
 export class IntervalYearMonthView extends PrimitiveView<Interval> {
-    protected getValue(values: Int32Array, index: number): Int32Array {
-        const interval = values[index];
+    public toArray() { return [...this]; }
+    protected getValue(values: Int32Array, index: number, size: number): Int32Array {
+        const interval = values[index * size];
         return new Int32Array([interval / 12, /* years */ interval % 12  /* months */]);
     }
-}
-
-export function getNullable<T extends DataType>(view: View<T>, index: number, byte: number, bit: number) {
-    return getBool(view, index, byte, bit) ? view.get(index) : null;
-}
-
-export function* iterateWithStride<T extends PrimitiveType>(values: T['TArray'], begin: number, length: number, stride: number, get: (values: T['TArray'], index: number) => T['TValue']) {
-    for (let index = -1, offset = begin - stride; ++index < length;) {
-        yield get(values, offset += stride);
+    protected setValue(values: Int32Array, index: number, size: number, value: Int32Array): void {
+        values[index * size] = (value[0] * 12) + (value[1] % 12);
     }
 }
 

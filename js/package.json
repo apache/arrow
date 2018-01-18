@@ -51,15 +51,16 @@
   ],
   "dependencies": {
     "@types/text-encoding-utf-8": "1.0.1",
-    "command-line-args": "4.0.7",
-    "command-line-usage": "4.0.2",
+    "command-line-args": "5.0.0",
+    "command-line-usage": "4.1.0",
     "flatbuffers": "trxcllnt/flatbuffers-esm",
     "json-bignum": "0.0.3",
     "text-encoding-utf-8": "^1.0.2",
+    "ts-node": "4.1.0",
     "tslib": "1.8.1"
   },
   "devDependencies": {
-    "@std/esm": "0.19.1",
+    "@std/esm": "0.19.6",
     "@types/flatbuffers": "1.6.5",
     "@types/glob": "5.0.34",
     "@types/jest": "22.0.1",
@@ -79,10 +80,10 @@
     "gulp-transform-js-ast": "1.0.2",
     "gulp-typescript": "3.2.3",
     "ix": "2.3.4",
-    "jest": "22.0.5",
+    "jest": "22.1.2",
     "jest-environment-node-debug": "2.0.0",
     "json": "9.0.6",
-    "lerna": "2.6.0",
+    "lerna": "2.7.1",
     "lint-staged": "6.0.0",
     "merge2": "1.2.1",
     "mkdirp": "0.5.1",
@@ -99,6 +100,9 @@
     "uglifyjs-webpack-plugin": "1.1.6",
     "webpack": "3.10.0",
     "xml2js": "0.4.19"
+  },
+  "@std/esm": {
+    "warnings": false
   },
   "lint-staged": {
     "*.@(ts)": [
@@ -135,7 +139,8 @@
       ".(js|jsx)": "./node_modules/babel-jest/build/index.js"
     },
     "transformIgnorePatterns": [
-      "/node_modules/", "/(es2015|esnext)\/umd/"
+      "/node_modules/",
+      "/(es2015|esnext)/umd/"
     ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$"
   }

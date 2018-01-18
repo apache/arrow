@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from './data';
 import * as Schema_ from './fb/Schema';
+import * as Message_ from './fb/Message';
 import { Vector, View } from './vector';
 import { flatbuffers } from 'flatbuffers';
+import { DictionaryBatch } from './ipc/metadata';
 import { TypeVisitor, VisitorNode } from './visitor';
-import { Field, DictionaryBatch } from './ipc/message';
 
 export import Long = flatbuffers.Long;
 export import ArrowType = Schema_.org.apache.arrow.flatbuf.Type;
@@ -30,9 +30,63 @@ export import Precision = Schema_.org.apache.arrow.flatbuf.Precision;
 export import UnionMode = Schema_.org.apache.arrow.flatbuf.UnionMode;
 export import VectorType = Schema_.org.apache.arrow.flatbuf.VectorType;
 export import IntervalUnit = Schema_.org.apache.arrow.flatbuf.IntervalUnit;
+export import MessageHeader = Message_.org.apache.arrow.flatbuf.MessageHeader;
+export import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion;
+
+export class Schema {
+    // @ts-ignore
+    protected _bodyLength: number;
+    // @ts-ignore
+    protected _headerType: MessageHeader;
+    public readonly fields: Field[];
+    public readonly version: MetadataVersion;
+    public readonly metadata?: Map<string, string>;
+    public readonly dictionaries: Map<number, Field<Dictionary>>;
+    constructor(fields: Field[],
+                metadata?: Map<string, string>,
+                version: MetadataVersion = MetadataVersion.V4,
+                dictionaries: Map<number, Field<Dictionary>> = new Map()) {
+        this.fields = fields;
+        this.version = version;
+        this.metadata = metadata;
+        this.dictionaries = dictionaries;
+    }
+    public get bodyLength() { return this._bodyLength; }
+    public get headerType() { return this._headerType; }
+    public select(...fieldNames: string[]): Schema {
+        const namesToKeep = fieldNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
+        const newDictFields = new Map(), newFields = this.fields.filter((f) => namesToKeep[f.name]);
+        this.dictionaries.forEach((f, dictId) => (namesToKeep[f.name]) && newDictFields.set(dictId, f));
+        return new Schema(newFields, this.metadata, this.version, newDictFields);
+    }
+    public static [Symbol.toStringTag] = ((prototype: Schema) => {
+        prototype._bodyLength = 0;
+        prototype._headerType = MessageHeader.Schema;
+        return 'Schema';
+    })(Schema.prototype);
+}
+
+export class Field<T extends DataType = DataType> {
+    public readonly type: T;
+    public readonly name: string;
+    public readonly nullable: boolean;
+    public readonly metadata?: Map<string, string> | null;
+    constructor(name: string, type: T, nullable = false, metadata?: Map<string, string> | null) {
+        this.name = name;
+        this.type = type;
+        this.nullable = nullable;
+        this.metadata = metadata;
+    }
+    public toString() { return `${this.name}: ${this.type}`; }
+    public get typeId(): T['TType'] { return this.type.TType; }
+    public get [Symbol.toStringTag](): string { return 'Field'; }
+    public get indicies(): T | Int<any> {
+        return DataType.isDictionary(this.type) ? this.type.indicies : this.type;
+    }
+}
 
 export type TimeBitWidth = 32 | 64;
-export type IntBitWidth = 1 | 8 | 16 | 32 | 64;
+export type IntBitWidth = 8 | 16 | 32 | 64;
 
 export type NumericType = Int | Float | Date_ | Time | Interval | Timestamp;
 export type FixedSizeType = Int64 |  Uint64 | Decimal | FixedSizeBinary;
@@ -40,7 +94,7 @@ export type PrimitiveType = NumericType | FixedSizeType;
 
 export type FlatListType = Utf8 | Binary; // <-- these types have `offset`, `data`, and `validity` buffers
 export type FlatType = Bool | PrimitiveType | FlatListType; // <-- these types have `data` and `validity` buffers
-export type ListType = List<any> | FixedSizeList<any> | FlatListType; // <-- these types have `offset` and `validity` buffers
+export type ListType = List<any> | FixedSizeList<any>; // <-- these types have `offset` and `validity` buffers
 export type NestedType = Map_ | Struct | List<any> | FixedSizeList<any> | Union<any>; // <-- these types have `validity` buffer and nested childData
 
 /**
@@ -52,7 +106,7 @@ export type NestedType = Map_ | Struct | List<any> | FixedSizeList<any> | Union<
  * nested type consisting of other data types, or another data type (e.g. a
  * timestamp encoded as an int64)
  */
- export const enum Type {
+ export enum Type {
     NONE            =  0,  // The default placeholder type
     Null            =  1,  // A NULL type having no physical storage
     Int             =  2,  // Signed or unsigned 8, 16, 32, or 64-bit little-endian integer
@@ -85,7 +139,8 @@ export interface DataType<TType extends Type = any> {
 
 export abstract class DataType<TType extends Type = any> implements Partial<VisitorNode> {
 
-    public get [Symbol.toStringTag]() { return 'DataType'; }
+    // @ts-ignore
+    public [Symbol.toStringTag]: string;
 
     static            isNull (x: DataType): x is Null            { return x.TType === Type.Null;            }
     static             isInt (x: DataType): x is Int             { return x.TType === Type.Int;             }
@@ -134,140 +189,203 @@ export abstract class DataType<TType extends Type = any> implements Partial<Visi
             default: return null;
         }
     }
+    protected static [Symbol.toStringTag] = ((proto: DataType) => {
+        (<any> proto).ArrayType = Array;
+        return proto[Symbol.toStringTag] = 'DataType';
+    })(DataType.prototype);
 }
+
+DataType['isNull'] = DataType.isNull;
+DataType['isInt'] = DataType.isInt;
+DataType['isFloat'] = DataType.isFloat;
+DataType['isBinary'] = DataType.isBinary;
+DataType['isUtf8'] = DataType.isUtf8;
+DataType['isBool'] = DataType.isBool;
+DataType['isDecimal'] = DataType.isDecimal;
+DataType['isDate'] = DataType.isDate;
+DataType['isTime'] = DataType.isTime;
+DataType['isTimestamp'] = DataType.isTimestamp;
+DataType['isInterval'] = DataType.isInterval;
+DataType['isList'] = DataType.isList;
+DataType['isStruct'] = DataType.isStruct;
+DataType['isUnion'] = DataType.isUnion;
+DataType['isDenseUnion'] = DataType.isDenseUnion;
+DataType['isSparseUnion'] = DataType.isSparseUnion;
+DataType['isFixedSizeBinary'] = DataType.isFixedSizeBinary;
+DataType['isFixedSizeList'] = DataType.isFixedSizeList;
+DataType['isMap'] = DataType.isMap;
+DataType['isDictionary'] = DataType.isDictionary;
 
 export interface Null extends DataType<Type.Null> { TArray: void; TValue: null; }
 export class Null extends DataType<Type.Null> {
     constructor() { super(Type.Null); }
-    public get [Symbol.toStringTag]() { return 'Null'; }
     public toString() { return `Null`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitNull(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Null) => {
+        return proto[Symbol.toStringTag] = 'Null';
+    })(Null.prototype);
 }
 
 export interface Int<TValueType = any, TArrayType extends IntArray = IntArray> extends DataType<Type.Int> { TArray: TArrayType; TValue: TValueType; }
 export class Int<TValueType = any, TArrayType extends IntArray = IntArray> extends DataType<Type.Int> {
-    // @ts-ignore
-    public readonly ArrayType: TypedArrayConstructor<TArrayType>;
     constructor(public readonly isSigned: boolean,
                 public readonly bitWidth: IntBitWidth) {
         super(Type.Int);
     }
-    public get [Symbol.toStringTag]() { return 'Int'; }
-    public toString() { return `${this.isSigned ? `` : `u`}int${this.bitWidth}`; }
+    // @ts-ignore
+    public readonly ArrayType: TypedArrayConstructor<TArrayType>;
+    public toString() { return `${this.isSigned ? `I` : `Ui`}nt${this.bitWidth}`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitInt(this); }
+    protected static [Symbol.toStringTag] = ((proto: Int) => {
+        (<any> proto).ArrayType = Uint8Array;
+        return proto[Symbol.toStringTag] = 'Int';
+    })(Int.prototype);
 }
 
 export class Int8 extends Int<number, Int8Array> {
     constructor() { super(true, 8); }
-    public get [Symbol.toStringTag]() { return 'Int8'; }
-    public get ArrayType() { return Int8Array; }
+    protected static [Symbol.toStringTag] = ((proto: Int8) => {
+        (<any> proto).ArrayType = Int8Array;
+        return proto[Symbol.toStringTag] = 'Int8';
+    })(Int8.prototype);
 }
 
 export class Int16 extends Int<number, Int16Array> {
     constructor() { super(true, 16); }
-    public get [Symbol.toStringTag]() { return 'Int16'; }
-    public get ArrayType() { return Int16Array; }
+    protected static [Symbol.toStringTag] = ((proto: Int16) => {
+        (<any> proto).ArrayType = Int16Array;
+        return proto[Symbol.toStringTag] = 'Int16';
+    })(Int16.prototype);
 }
 
 export class Int32 extends Int<number, Int32Array> {
     constructor() { super(true, 32); }
-    public get [Symbol.toStringTag]() { return 'Int32'; }
-    public get ArrayType() { return Int32Array; }
+    protected static [Symbol.toStringTag] = ((proto: Int32) => {
+        (<any> proto).ArrayType = Int32Array;
+        return proto[Symbol.toStringTag] = 'Int32';
+    })(Int32.prototype);
 }
 
 export class Int64 extends Int<Int32Array, Int32Array> {
     constructor() { super(true, 64); }
-    public get [Symbol.toStringTag]() { return 'Int64'; }
-    public get ArrayType() { return Int32Array; }
+    protected static [Symbol.toStringTag] = ((proto: Int64) => {
+        (<any> proto).ArrayType = Int32Array;
+        return proto[Symbol.toStringTag] = 'Int64';
+    })(Int64.prototype);
 }
 
 export class Uint8 extends Int<number, Uint8Array> {
     constructor() { super(false, 8); }
-    public get [Symbol.toStringTag]() { return 'Uint8'; }
-    public get ArrayType() { return Uint8Array; }
+    protected static [Symbol.toStringTag] = ((proto: Uint8) => {
+        (<any> proto).ArrayType = Uint8Array;
+        return proto[Symbol.toStringTag] = 'Uint8';
+    })(Uint8.prototype);
 }
 
 export class Uint16 extends Int<number, Uint16Array> {
     constructor() { super(false, 16); }
-    public get [Symbol.toStringTag]() { return 'Uint16'; }
-    public get ArrayType() { return Uint16Array; }
+    protected static [Symbol.toStringTag] = ((proto: Uint16) => {
+        (<any> proto).ArrayType = Uint16Array;
+        return proto[Symbol.toStringTag] = 'Uint16';
+    })(Uint16.prototype);
 }
 
 export class Uint32 extends Int<number, Uint32Array> {
     constructor() { super(false, 32); }
-    public get [Symbol.toStringTag]() { return 'Uint32'; }
-    public get ArrayType() { return Uint32Array; }
+    protected static [Symbol.toStringTag] = ((proto: Uint32) => {
+        (<any> proto).ArrayType = Uint32Array;
+        return proto[Symbol.toStringTag] = 'Uint32';
+    })(Uint32.prototype);
 }
 
 export class Uint64 extends Int<Uint32Array, Uint32Array> {
     constructor() { super(false, 64); }
-    public get [Symbol.toStringTag]() { return 'Uint64'; }
-    public get ArrayType() { return Uint32Array; }
+    protected static [Symbol.toStringTag] = ((proto: Uint64) => {
+        (<any> proto).ArrayType = Uint32Array;
+        return proto[Symbol.toStringTag] = 'Uint64';
+    })(Uint64.prototype);
 }
 
 export interface Float<TArrayType extends FloatArray = FloatArray> extends DataType<Type.Float> { TArray: TArrayType; TValue: number; }
 export class Float<TArrayType extends FloatArray = FloatArray> extends DataType<Type.Float> {
-    // @ts-ignore
-    public readonly ArrayType: TypedArrayConstructor<TArrayType>;
-    public get [Symbol.toStringTag]() { return 'Float'; }
     constructor(public readonly precision: Precision) {
         super(Type.Float);
     }
-    public toString() { return `Float precision[${this.precision}]`; }
+    // @ts-ignore
+    public readonly ArrayType: TypedArrayConstructor<TArrayType>;
+    public toString() { return `Float${(this.precision << 5) || 16}`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitFloat(this); }
+    protected static [Symbol.toStringTag] = ((proto: Float) => {
+        return proto[Symbol.toStringTag] = 'Float';
+    })(Float.prototype);
 }
 
+export interface Float16 extends Float<Uint16Array> {}
 export class Float16 extends Float<Uint16Array> {
     constructor() { super(Precision.HALF); }
-    public get [Symbol.toStringTag]() { return 'Float16'; }
-    public get ArrayType() { return  Uint16Array; }
+    protected static [Symbol.toStringTag] = ((proto: Float16) => {
+        (<any> proto).ArrayType = Uint16Array;
+        return proto[Symbol.toStringTag] = 'Float16';
+    })(Float16.prototype);
 }
 
+export interface Float32 extends Float<Float32Array> {}
 export class Float32 extends Float<Float32Array> {
     constructor() { super(Precision.SINGLE); }
-    public get [Symbol.toStringTag]() { return 'Float32'; }
-    public get ArrayType() { return Float32Array; }
+    protected static [Symbol.toStringTag] = ((proto: Float32) => {
+        (<any> proto).ArrayType = Float32Array;
+        return proto[Symbol.toStringTag] = 'Float32';
+    })(Float32.prototype);
 }
 
+export interface Float64 extends Float<Float64Array> {}
 export class Float64 extends Float<Float64Array> {
     constructor() { super(Precision.DOUBLE); }
-    public get [Symbol.toStringTag]() { return 'Float64'; }
-    public get ArrayType() { return Float64Array; }
+    protected static [Symbol.toStringTag] = ((proto: Float64) => {
+        (<any> proto).ArrayType = Float64Array;
+        return proto[Symbol.toStringTag] = 'Float64';
+    })(Float64.prototype);
 }
 
 export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TValue: Uint8Array; }
 export class Binary extends DataType<Type.Binary> {
     constructor() { super(Type.Binary); }
-    public get [Symbol.toStringTag]() { return 'Binary'; }
     public toString() { return `Binary`; }
-    public get ArrayType() { return Uint8Array; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitBinary(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Binary) => {
+        (<any> proto).ArrayType = Uint8Array;
+        return proto[Symbol.toStringTag] = 'Binary';
+    })(Binary.prototype);
 }
 
 export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TValue: string; }
 export class Utf8 extends DataType<Type.Utf8> {
     constructor() { super(Type.Utf8); }
-    public get [Symbol.toStringTag]() { return 'Utf8'; }
     public toString() { return `Utf8`; }
-    public get ArrayType() { return Uint8Array; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitUtf8(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Utf8) => {
+        (<any> proto).ArrayType = Uint8Array;
+        return proto[Symbol.toStringTag] = 'Utf8';
+    })(Utf8.prototype);
 }
 
 export interface Bool extends DataType<Type.Bool> { TArray: Uint8Array; TValue: boolean; }
 export class Bool extends DataType<Type.Bool> {
     constructor() { super(Type.Bool); }
-    public get [Symbol.toStringTag]() { return 'Bool'; }
     public toString() { return `Bool`; }
-    public get ArrayType() { return Uint8Array; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitBool(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Bool) => {
+        (<any> proto).ArrayType = Uint8Array;
+        return proto[Symbol.toStringTag] = 'Bool';
+    })(Bool.prototype);
 }
 
 export interface Decimal extends DataType<Type.Decimal> { TArray: Uint32Array; TValue: Uint32Array; }
@@ -276,22 +394,28 @@ export class Decimal extends DataType<Type.Decimal> {
                 public readonly precision: number) {
         super(Type.Decimal);
     }
-    public get [Symbol.toStringTag]() { return 'Decimal'; }
-    public get ArrayType() { return Uint32Array; }
-    public toString() { return `Decimal scale[${this.scale}], precision[${this.precision}]`; }
+    public toString() { return `Decimal[${this.precision}e${this.scale > 0 ? `+` : ``}${this.scale}]`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitDecimal(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Decimal) => {
+        (<any> proto).ArrayType = Uint32Array;
+        return proto[Symbol.toStringTag] = 'Decimal';
+    })(Decimal.prototype);
 }
 
 /* tslint:disable:class-name */
 export interface Date_ extends DataType<Type.Date> { TArray: Int32Array; TValue: Date; }
 export class Date_ extends DataType<Type.Date> {
     constructor(public readonly unit: DateUnit) { super(Type.Date); }
-    public get [Symbol.toStringTag]() { return 'Date_'; }
-    public get ArrayType() { return Int32Array; }
-    public toString() { return `Date unit[${this.unit}]`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitDate(this); }
+    public toString() { return `Date${(this.unit + 1) * 32}<${DateUnit[this.unit]}>`; }
+    public acceptTypeVisitor(visitor: TypeVisitor): any {
+        return visitor.visitDate(this);
+    }
+    protected static [Symbol.toStringTag] = ((proto: Date_) => {
+        (<any> proto).ArrayType = Int32Array;
+        return proto[Symbol.toStringTag] = 'Date';
+    })(Date_.prototype);
 }
 
 export interface Time extends DataType<Type.Time> { TArray: Uint32Array; TValue: number; }
@@ -300,10 +424,14 @@ export class Time extends DataType<Type.Time> {
                 public readonly bitWidth: TimeBitWidth) {
         super(Type.Time);
     }
-    public get [Symbol.toStringTag]() { return 'Time'; }
-    public get ArrayType() { return Int32Array; }
-    public toString() { return `Time unit[${this.unit}], bitWidth[${this.bitWidth}]`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitTime(this); }
+    public toString() { return `Time${this.bitWidth}<${TimeUnit[this.unit]}>`; }
+    public acceptTypeVisitor(visitor: TypeVisitor): any {
+        return visitor.visitTime(this);
+    }
+    protected static [Symbol.toStringTag] = ((proto: Time) => {
+        (<any> proto).ArrayType = Uint32Array;
+        return proto[Symbol.toStringTag] = 'Time';
+    })(Time.prototype);
 }
 
 export interface Timestamp extends DataType<Type.Timestamp> { TArray: Int32Array; TValue: number; }
@@ -311,12 +439,14 @@ export class Timestamp extends DataType<Type.Timestamp> {
     constructor(public unit: TimeUnit, public timezone?: string | null) {
         super(Type.Timestamp);
     }
-    public get [Symbol.toStringTag]() { return 'Timestamp'; }
-    public get ArrayType() { return Int32Array; }
-    public toString() { return `Timestamp unit[${this.unit}], timezone[${this.timezone}]`; }
+    public toString() { return `Timestamp<${TimeUnit[this.unit]}${this.timezone ? `, ${this.timezone}` : ``}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitTimestamp(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Timestamp) => {
+        (<any> proto).ArrayType = Int32Array;
+        return proto[Symbol.toStringTag] = 'Timestamp';
+    })(Timestamp.prototype);
 }
 
 export interface Interval extends DataType<Type.Interval> { TArray: Int32Array; TValue: Int32Array; }
@@ -324,12 +454,14 @@ export class Interval extends DataType<Type.Interval> {
     constructor(public unit: IntervalUnit) {
         super(Type.Interval);
     }
-    public get [Symbol.toStringTag]() { return 'Interval'; }
-    public get ArrayType() { return Int32Array; }
-    public toString() { return `Interval unit[${this.unit}]`; }
+    public toString() { return `Interval<${IntervalUnit[this.unit]}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitInterval(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Interval) => {
+        (<any> proto).ArrayType = Int32Array;
+        return proto[Symbol.toStringTag] = 'Interval';
+    })(Interval.prototype);
 }
 
 export interface List<T extends DataType = any> extends DataType<Type.List>  { TArray: any; TValue: Vector<T>; }
@@ -337,55 +469,63 @@ export class List<T extends DataType = any> extends DataType<Type.List> {
     constructor(public children: Field[]) {
         super(Type.List, children);
     }
-    public get [Symbol.toStringTag]() { return 'List'; }
-    public toString() { return `List`; }
+    public toString() { return `List<${this.valueType}>`; }
+    public get ArrayType() { return this.valueType.ArrayType; }
     public get valueType() { return this.children[0].type as T; }
     public get valueField() { return this.children[0] as Field<T>; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitList(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: List) => {
+        return proto[Symbol.toStringTag] = 'List';
+    })(List.prototype);
 }
 
-export interface Struct extends DataType<Type.Struct> { TArray: Uint8Array; TValue: View<any>; }
+export interface Struct extends DataType<Type.Struct> { TArray: any; TValue: View<any>; }
 export class Struct extends DataType<Type.Struct> {
     constructor(public children: Field[]) {
         super(Type.Struct, children);
     }
-    public get [Symbol.toStringTag]() { return 'Struct'; }
-    public toString() { return `Struct`; }
+    public toString() { return `Struct<${this.children.map((f) => f.type).join(`, `)}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitStruct(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Struct) => {
+        return proto[Symbol.toStringTag] = 'Struct';
+    })(Struct.prototype);
 }
 
 export interface Union<TType extends Type = any> extends DataType<TType> { TArray: Int8Array; TValue: any; }
 export class Union<TType extends Type = any> extends DataType<TType> {
-    constructor(TType: TType,
-                public readonly mode: UnionMode,
+    constructor(public readonly mode: UnionMode,
                 public readonly typeIds: ArrowType[],
                 public readonly children: Field[]) {
-        super(TType, children);
+        super(<TType> (mode === UnionMode.Sparse ? Type.SparseUnion : Type.DenseUnion), children);
     }
-    public get [Symbol.toStringTag]() { return 'Union'; }
-    public get ArrayType() { return Int8Array; }
-    public toString() { return `Union mode[${this.mode}] typeIds[${this.typeIds}]`; }
+    public toString() { return `${this[Symbol.toStringTag]}<${this.typeIds.map((x) => Type[x]).join(` | `)}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitUnion(this); }
+    protected static [Symbol.toStringTag] = ((proto: Union) => {
+        (<any> proto).ArrayType = Int8Array;
+        return proto[Symbol.toStringTag] = 'Union';
+    })(Union.prototype);
 }
 
 export class DenseUnion extends Union<Type.DenseUnion> {
     constructor(typeIds: ArrowType[], children: Field[]) {
-        super(Type.DenseUnion, UnionMode.Dense, typeIds, children);
+        super(UnionMode.Dense, typeIds, children);
     }
-    public get [Symbol.toStringTag]() { return 'DenseUnion'; }
-    public toString() { return `DenseUnion typeIds[${this.typeIds}]`; }
+    protected static [Symbol.toStringTag] = ((proto: DenseUnion) => {
+        return proto[Symbol.toStringTag] = 'DenseUnion';
+    })(DenseUnion.prototype);
 }
 
 export class SparseUnion extends Union<Type.SparseUnion> {
     constructor(typeIds: ArrowType[], children: Field[]) {
-        super(Type.SparseUnion, UnionMode.Sparse, typeIds, children);
+        super(UnionMode.Sparse, typeIds, children);
     }
-    public get [Symbol.toStringTag]() { return 'SparseUnion'; }
-    public toString() { return `SparseUnion typeIds[${this.typeIds}]`; }
+    protected static [Symbol.toStringTag] = ((proto: SparseUnion) => {
+        return proto[Symbol.toStringTag] = 'SparseUnion';
+    })(SparseUnion.prototype);
 }
 
 export interface FixedSizeBinary extends DataType<Type.FixedSizeBinary> { TArray: Uint8Array; TValue: Uint8Array; }
@@ -393,10 +533,12 @@ export class FixedSizeBinary extends DataType<Type.FixedSizeBinary> {
     constructor(public readonly byteWidth: number) {
         super(Type.FixedSizeBinary);
     }
-    public get [Symbol.toStringTag]() { return 'FixedSizeBinary'; }
-    public get ArrayType() { return Uint8Array; }
-    public toString() { return `FixedSizeBinary byteWidth[${this.byteWidth}]`; }
+    public toString() { return `FixedSizeBinary[${this.byteWidth}]`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitFixedSizeBinary(this); }
+    protected static [Symbol.toStringTag] = ((proto: FixedSizeBinary) => {
+        (<any> proto).ArrayType = Uint8Array;
+        return proto[Symbol.toStringTag] = 'FixedSizeBinary';
+    })(FixedSizeBinary.prototype);
 }
 
 export interface FixedSizeList<T extends DataType = any> extends DataType<Type.FixedSizeList> { TArray: any; TValue: Vector<T>; }
@@ -405,11 +547,14 @@ export class FixedSizeList<T extends DataType = any> extends DataType<Type.Fixed
                 public readonly children: Field[]) {
         super(Type.FixedSizeList, children);
     }
-    public get [Symbol.toStringTag]() { return 'FixedSizeList'; }
+    public get ArrayType() { return this.valueType.ArrayType; }
     public get valueType() { return this.children[0].type as T; }
     public get valueField() { return this.children[0] as Field<T>; }
-    public toString() { return `FixedSizeList listSize[${this.listSize}]`; }
+    public toString() { return `FixedSizeList[${this.listSize}]<${this.valueType}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitFixedSizeList(this); }
+    protected static [Symbol.toStringTag] = ((proto: FixedSizeList) => {
+        return proto[Symbol.toStringTag] = 'FixedSizeList';
+    })(FixedSizeList.prototype);
 }
 
 /* tslint:disable:class-name */
@@ -419,30 +564,34 @@ export class Map_ extends DataType<Type.Map> {
                 public readonly children: Field[]) {
         super(Type.Map, children);
     }
-    public get [Symbol.toStringTag]() { return 'Map'; }
-    public toString() { return `Map keysSorted[${this.keysSorted}]`; }
+    public toString() { return `Map<${this.children.join(`, `)}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitMap(this); }
+    protected static [Symbol.toStringTag] = ((proto: Map_) => {
+        return proto[Symbol.toStringTag] = 'Map';
+    })(Map_.prototype);
 }
 
 export interface Dictionary<T extends DataType = any> extends DataType<Type.Dictionary> { TArray: T['TArray']; TValue: T['TValue']; }
 export class Dictionary<T extends DataType> extends DataType<Type.Dictionary> {
     public readonly id: number;
-    public readonly indicies: Data<Int>;
+    public readonly dictionary: T;
+    public readonly indicies: Int<any>;
     public readonly isOrdered: boolean;
-    public readonly dictionary: Data<T>;
-    constructor(dictionary: Data<T>, indicies: Data<Int>, id?: Long | number | null, isOrdered?: boolean | null) {
+    constructor(dictionary: T, indicies: Int<any>, id?: Long | number | null, isOrdered?: boolean | null) {
         super(Type.Dictionary);
-        this.indicies = indicies; // a dictionary index defaults to signed 32 bit int if unspecified
+        this.indicies = indicies;
         this.dictionary = dictionary;
         this.isOrdered = isOrdered || false;
-        this.id = id == null ?
-            DictionaryBatch.atomicDictionaryId++ :
-            typeof id === 'number' ? id : id.low ;
+        this.id = id == null ? DictionaryBatch.getId() : typeof id === 'number' ? id : id.low;
     }
-    public get [Symbol.toStringTag]() { return 'Dictionary'; }
+    public get ArrayType() { return this.dictionary.ArrayType; }
+    public toString() { return `Dictionary<${this.dictionary}, ${this.indicies}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitDictionary(this);
     }
+    protected static [Symbol.toStringTag] = ((proto: Dictionary) => {
+        return proto[Symbol.toStringTag] = 'Dictionary';
+    })(Dictionary.prototype);
 }
 export interface IterableArrayLike<T = any> extends ArrayLike<T>, Iterable<T> {}
 

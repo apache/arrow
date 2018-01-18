@@ -59,7 +59,11 @@ expect.extend({
             { title: 'iterator', failures: iteratorFailures }
         ];
 
-        let props = ['name', 'type', 'length', 'nullable', 'nullCount', 'metadata'];
+        let props = [
+            // 'name', 'nullable', 'metadata',
+            'type', 'length', 'nullCount'
+        ];
+
         for (let i = -1, n = props.length; ++i < n;) {
             const prop = props[i];
             if (this.utils.stringify(v1[prop]) !== this.utils.stringify(v2[prop])) {
@@ -101,12 +105,13 @@ describe(`Integration`, () => {
 function testReaderIntegration() {
     test(`json and arrow buffers report the same values`, () => {
         expect.hasAssertions();
-        const jsonVectors = toArray(read(jsonData));
-        const binaryVectors = toArray(read(arrowBuffers));
-        for (const [jVectors, bVectors] of zip(jsonVectors, binaryVectors)) {
-            expect(jVectors.length).toEqual(bVectors.length);
-            for (let i = -1, n = jVectors.length; ++i < n;) {
-                (expect(jVectors[i]) as any).toEqualVector(bVectors[i]);
+        const jsonRecordBatches = toArray(read(jsonData));
+        const binaryRecordBatches = toArray(read(arrowBuffers));
+        for (const [jsonRecordBatch, binaryRecordBatch] of zip(jsonRecordBatches, binaryRecordBatches)) {
+            expect(jsonRecordBatch.numCols).toEqual(binaryRecordBatch.numCols);
+            expect(jsonRecordBatch.numRows).toEqual(binaryRecordBatch.numRows);
+            for (let i = -1, n = jsonRecordBatch.numCols; ++i < n;) {
+                (expect(jsonRecordBatch.columns[i]) as any).toEqualVector(binaryRecordBatch.columns[i]);
             }
         }
     });
@@ -117,12 +122,10 @@ function testTableFromBuffersIntegration() {
         expect.hasAssertions();
         const jsonTable = Table.from(jsonData);
         const binaryTable = Table.from(arrowBuffers);
-        const jsonVectors = jsonTable.columns;
-        const binaryVectors = binaryTable.columns;
-        expect(jsonTable.length).toEqual(binaryTable.length);
-        expect(jsonVectors.length).toEqual(binaryVectors.length);
-        for (let i = -1, n = jsonVectors.length; ++i < n;) {
-            (expect(jsonVectors[i]) as any).toEqualVector(binaryVectors[i]);
+        expect(jsonTable.numCols).toEqual(binaryTable.numCols);
+        expect(jsonTable.numRows).toEqual(binaryTable.numRows);
+        for (let i = -1, n = jsonTable.numCols; ++i < n;) {
+            (expect(jsonTable.columns[i]) as any).toEqualVector(binaryTable.columns[i]);
         }
     });
 }

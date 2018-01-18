@@ -33,20 +33,40 @@ export function getBit(_data: any, _index: number, byte: number, bit: number): 0
     return (byte & 1 << bit) >> bit as (0 | 1);
 }
 
+export function setBool(bytes: Uint8Array, index: number, value: any) {
+    return value ?
+        !!(bytes[index >> 3] |=  (1 << (index % 8))) || true :
+        !(bytes[index >> 3] &= ~(1 << (index % 8))) && false ;
+}
+
+export function packBools(values: Iterable<any>) {
+    let n = 0, i = 0;
+    let xs: number[] = [];
+    let bit = 0, byte = 0;
+    for (const value of values) {
+        value && (byte |= 1 << bit);
+        if (++bit === 8) {
+            xs[i++] = byte;
+            byte = bit = 0;
+        }
+    }
+    if (i === 0 || bit > 0) { xs[i++] = byte; }
+    if (i % 8 && (n = i + 8 - i % 8)) {
+        do { xs[i] = 0; } while (++i < n);
+    }
+    return new Uint8Array(xs);
+}
+
 export function* iterateBits<T>(bytes: Uint8Array, begin: number, length: number, context: any,
                                 get: (context: any, index: number, byte: number, bit: number) => T) {
     let bit = begin % 8;
-    let bitLen = 8 - bit;
     let byteIndex = begin >> 3;
-    let byte = bytes[byteIndex];
-    let remaining = length, index = begin;
-    while (remaining > 0) {
-        while (++bit < bitLen) {
+    let index = 0, remaining = length;
+    for (; remaining > 0; bit = 0) {
+        let byte = bytes[byteIndex++];
+        do {
             yield get(context, index++, byte, bit);
-        }
-        bit = 0;
-        byte = bytes[++byteIndex];
-        bitLen = Math.min(8, remaining -= 8);
+        } while (--remaining > 0 && ++bit < 8);
     }
 }
 
