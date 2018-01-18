@@ -194,4 +194,29 @@ TEST(TestBuffer, SliceMutableBuffer) {
   ASSERT_TRUE(slice->Equals(expected));
 }
 
+TEST(TestBufferBuilder, ResizeReserve) {
+  const std::string data = "some data";
+  auto data_ptr = data.c_str();
+
+  BufferBuilder builder;
+
+  ASSERT_OK(builder.Append(data_ptr, 9));
+  ASSERT_EQ(9, builder.length());
+
+  ASSERT_OK(builder.Resize(128));
+  ASSERT_EQ(128, builder.capacity());
+
+  // Do not shrink to fit
+  ASSERT_OK(builder.Resize(64, false));
+  ASSERT_EQ(128, builder.capacity());
+
+  // Shrink to fit
+  ASSERT_OK(builder.Resize(64));
+  ASSERT_EQ(64, builder.capacity());
+
+  // Reserve elements
+  ASSERT_OK(builder.Reserve(60));
+  ASSERT_EQ(128, builder.capacity());
+}
+
 }  // namespace arrow
