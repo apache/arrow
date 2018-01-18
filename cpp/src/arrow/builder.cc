@@ -1208,7 +1208,7 @@ ArrayBuilder* ListBuilder::value_builder() const {
 // String and binary
 
 BinaryBuilder::BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-    : ArrayBuilder(type, pool), offsets_builder_(pool), value_data_builder_(pool) {}
+    : ArrayBuilder(type, pool), offsets_builder_(pool), value_data_builder_(pool), data_capacity_(0) {}
 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(binary(), pool) {}
 
@@ -1227,11 +1227,15 @@ Status BinaryBuilder::Resize(int64_t capacity) {
 }
   
 Status BinaryBuilder::ReserveData(int64_t capacity) {
-  if(value_data_length() + capacity > std::numeric_limits<int32_t>::max()) {
+  if (value_data_length() + capacity > data_capacity_) {
+    if (value_data_length() + capacity > std::numeric_limits<int32_t>::max()) {
       return Status::Invalid("Cannot reserve capacity larger than 2^31 - 1 in length for binary data");
-  }
-  
-  return value_data_builder_.Resize(value_data_length() + capacity);
+    }    
+    
+    RETURN_NOT_OK(value_data_builder_.Resize(value_data_length() + capacity));
+    data_capacity_ = value_data_length() + capacity;
+  }  
+  return Status::OK();
 }
 
 Status BinaryBuilder::AppendNextOffset() {
@@ -1249,6 +1253,9 @@ Status BinaryBuilder::Append(const uint8_t* value, int32_t length) {
   RETURN_NOT_OK(Reserve(1));
   RETURN_NOT_OK(AppendNextOffset());
   RETURN_NOT_OK(value_data_builder_.Append(value, length));
+  if (data_capacity_ < value_data_length()) {
+    data_capacity_ = value_data_length();
+  }
   UnsafeAppendToBitmap(true);
   return Status::OK();
 }
