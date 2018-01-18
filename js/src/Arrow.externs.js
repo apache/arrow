@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -15,6 +16,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* tslint:disable */
+
 /**
  * @fileoverview Closure Compiler externs for Arrow
  * @externs
@@ -25,25 +28,51 @@ Symbol.iterator;
 /** @type {symbol} */
 Symbol.asyncIterator;
 
-let Table = function() {};
+var Table = function() {};
 /** @type {?} */
-(<any> Table).from;
+Table.from = function() {};
 /** @type {?} */
-(<any> Table).fromAsync;
+Table.fromAsync = function() {};
 /** @type {?} */
-(<any> Table).empty;
+Table.empty = function() {};
+/** @type {?} */
+Table.prototype.schema;
 /** @type {?} */
 Table.prototype.columns;
 /** @type {?} */
-Table.prototype.length;
+Table.prototype.numCols;
+/** @type {?} */
+Table.prototype.numRows;
+/** @type {?} */
+Table.prototype.get;
+/** @type {?} */
+Table.prototype.toArray;
 /** @type {?} */
 Table.prototype.select;
 /** @type {?} */
-Table.prototype.toString;
+Table.prototype.rowsToString;
 
-let Vector = function() {};
+var TableToStringIterator = function() {};
 /** @type {?} */
-(<any> Vector).create;
+TableToStringIterator.prototype.pipe;
+
+var RecordBatch = function() {};
+/** @type {?} */
+RecordBatch.prototype.numRows;
+/** @type {?} */
+RecordBatch.prototype.schema;
+/** @type {?} */
+RecordBatch.prototype.data;
+/** @type {?} */
+RecordBatch.prototype.columns;
+/** @type {?} */
+RecordBatch.prototype.numCols;
+/** @type {?} */
+RecordBatch.prototype.concat;
+
+var Vector = function() {};
+/** @type {?} */
+Vector.create = function() {};
 /** @type {?} */
 Vector.prototype.data;
 /** @type {?} */
@@ -71,49 +100,135 @@ Vector.prototype.slice;
 /** @type {?} */
 Vector.prototype.acceptTypeVisitor;
 
-let DataType = function() {};
+var BaseInt64 = function() {};
 /** @type {?} */
-(<any> DataType).isNull;
+BaseInt64.prototype.lessThan;
 /** @type {?} */
-(<any> DataType).isInt;
+BaseInt64.prototype.equals;
 /** @type {?} */
-(<any> DataType).isFloat;
+BaseInt64.prototype.greaterThan;
 /** @type {?} */
-(<any> DataType).isBinary;
-/** @type {?} */
-(<any> DataType).isUtf8;
-/** @type {?} */
-(<any> DataType).isBool;
-/** @type {?} */
-(<any> DataType).isDecimal;
-/** @type {?} */
-(<any> DataType).isDate;
-/** @type {?} */
-(<any> DataType).isTime;
-/** @type {?} */
-(<any> DataType).isTimestamp;
-/** @type {?} */
-(<any> DataType).isInterval;
-/** @type {?} */
-(<any> DataType).isList;
-/** @type {?} */
-(<any> DataType).isStruct;
-/** @type {?} */
-(<any> DataType).isUnion;
-/** @type {?} */
-(<any> DataType).isDenseUnion;
-/** @type {?} */
-(<any> DataType).isSparseUnion;
-/** @type {?} */
-(<any> DataType).isFixedSizeBinary;
-/** @type {?} */
-(<any> DataType).isFixedSizeList;
-/** @type {?} */
-(<any> DataType).isMap;
-/** @type {?} */
-(<any> DataType).isDictionary;
+BaseInt64.prototype.hex;
 
-let BaseData = function() {};
+var Uint64 = function() {};
+/** @type {?} */
+Uint64.add = function() {};
+/** @type {?} */
+Uint64.multiply = function() {};
+/** @type {?} */
+Uint64.prototype.times;
+/** @type {?} */
+Uint64.prototype.plus
+
+var Int64 = function() {};
+/** @type {?} */
+Int64.add = function() {};
+/** @type {?} */
+Int64.multiply = function() {};
+/** @type {?} */
+Int64.fromString = function() {};
+/** @type {?} */
+Int64.prototype.negate
+/** @type {?} */
+Int64.prototype.times
+/** @type {?} */
+Int64.prototype.plus
+/** @type {?} */
+Int64.prototype.lessThan
+
+var Int128 = function() {};
+/** @type {?} */
+Int128.add = function() {};
+/** @type {?} */
+Int128.multiply = function() {};
+/** @type {?} */
+Int128.fromString = function() {};
+/** @type {?} */
+Int128.prototype.negate
+/** @type {?} */
+Int128.prototype.times
+/** @type {?} */
+Int128.prototype.plus
+/** @type {?} */
+Int128.prototype.hex
+
+var DataType = function() {};
+/** @type {?} */
+DataType.isNull = function() {};
+/** @type {?} */
+DataType.isInt = function() {};
+/** @type {?} */
+DataType.isFloat = function() {};
+/** @type {?} */
+DataType.isBinary = function() {};
+/** @type {?} */
+DataType.isUtf8 = function() {};
+/** @type {?} */
+DataType.isBool = function() {};
+/** @type {?} */
+DataType.isDecimal = function() {};
+/** @type {?} */
+DataType.isDate = function() {};
+/** @type {?} */
+DataType.isTime = function() {};
+/** @type {?} */
+DataType.isTimestamp = function() {};
+/** @type {?} */
+DataType.isInterval = function() {};
+/** @type {?} */
+DataType.isList = function() {};
+/** @type {?} */
+DataType.isStruct = function() {};
+/** @type {?} */
+DataType.isUnion = function() {};
+/** @type {?} */
+DataType.isDenseUnion = function() {};
+/** @type {?} */
+DataType.isSparseUnion = function() {};
+/** @type {?} */
+DataType.isFixedSizeBinary = function() {};
+/** @type {?} */
+DataType.isFixedSizeList = function() {};
+/** @type {?} */
+DataType.isMap = function() {};
+/** @type {?} */
+DataType.isDictionary = function() {};
+/** @type {?} */
+DataType.prototype.ArrayType;
+
+var Schema = function() {};
+var Field = function() {};
+var Null = function() {};
+var Int8 = function() {};
+var Int16 = function() {};
+var Int32 = function() {};
+var Int64 = function() {};
+var Uint8 = function() {};
+var Uint16 = function() {};
+var Uint32 = function() {};
+var Uint64 = function() {};
+var Float16 = function() {};
+var Float32 = function() {};
+var Float64 = function() {};
+var Binary = function() {};
+var Utf8 = function() {};
+var Bool = function() {};
+var Decimal = function() {};
+var Date_ = function() {};
+var Time = function() {};
+var Timestamp = function() {};
+var Interval = function() {};
+var List = function() {};
+var Struct = function() {};
+var Union = function() {};
+var DenseUnion = function() {};
+var SparseUnion = function() {};
+var FixedSizeBinary = function() {};
+var FixedSizeList = function() {};
+var Map_ = function() {};
+var Dictionary = function() {};
+
+var BaseData = function() {};
 /** @type {?} */
 BaseData.prototype.type;
 /** @type {?} */
@@ -133,45 +248,50 @@ BaseData.prototype.nullBitmap;
 /** @type {?} */
 BaseData.prototype.nullCount;
 
-let FlatData = function() {};
+var BoolData = function() {};
+var NestedData = function() {};
+var SparseUnionData = function() {};
+var ChunkedData = function() {};
+
+var FlatData = function() {};
 /** @type {?} */
 FlatData.prototype.values;
 
-let FlatListData = function() {};
+var FlatListData = function() {};
 /** @type {?} */
 FlatListData.prototype.values;
 /** @type {?} */
 FlatListData.prototype.valueOffsets;
 
-let DictionaryData = function() {};
+var DictionaryData = function() {};
 /** @type {?} */
 DictionaryData.prototype.indicies;
 /** @type {?} */
 DictionaryData.prototype.dictionary;
 
-let ListData = function() {};
+var ListData = function() {};
 /** @type {?} */
 ListData.prototype.values;
 /** @type {?} */
 ListData.prototype.valueOffsets;
 
-let UnionData = function() {};
+var UnionData = function() {};
 /** @type {?} */
 UnionData.prototype.typeIds;
 
-let DenseUnionData = function() {};
+var DenseUnionData = function() {};
 /** @type {?} */
 DenseUnionData.prototype.valueOffsets;
 
-let ChunkedData = function() {};
+var ChunkedData = function() {};
 /** @type {?} */
-(<any> ChunkedData).computeOffsets;
+ChunkedData.computeOffsets = function() {};
 
-let FlatVector = function() {};
+var FlatVector = function() {};
 /** @type {?} */
 FlatVector.prototype.values;
 
-let ListVectorBase = function() {};
+var ListVectorBase = function() {};
 /** @type {?} */
 ListVectorBase.prototype.values;
 /** @type {?} */
@@ -181,19 +301,37 @@ ListVectorBase.prototype.getValueOffset;
 /** @type {?} */
 ListVectorBase.prototype.getValueLength;
 
-let NestedVector = function() {};
+var NestedVector = function() {};
 /** @type {?} */
 NestedVector.prototype.childData;
 /** @type {?} */
 NestedVector.prototype.getChildAt;
 
-let DictionaryVector = function() {};
+var NullVector = function() {};
+var BoolVector = function() {};
+var IntVector = function() {};
+var FloatVector = function() {};
+var DateVector = function() {};
+var DecimalVector = function() {};
+var TimeVector = function() {};
+var TimestampVector = function() {};
+var IntervalVector = function() {};
+var BinaryVector = function() {};
+var FixedSizeBinaryVector = function() {};
+var Utf8Vector = function() {};
+var ListVector = function() {};
+var FixedSizeListVector = function() {};
+var MapVector = function() {};
+var StructVector = function() {};
+var UnionVector = function() {};
+
+var DictionaryVector = function() {};
 /** @type {?} */
 DictionaryVector.prototype.getKey;
 /** @type {?} */
 DictionaryVector.prototype.getValue;
 
-let FlatView = function() {};
+var FlatView = function() {};
 /** @type {?} */
 FlatView.prototype.get;
 /** @type {?} */
@@ -205,7 +343,7 @@ FlatView.prototype.set;
 /** @type {?} */
 FlatView.prototype.setData;
 
-let NullView = function() {};
+var NullView = function() {};
 /** @type {?} */
 NullView.prototype.get;
 /** @type {?} */
@@ -217,7 +355,7 @@ NullView.prototype.set;
 /** @type {?} */
 NullView.prototype.setData;
 
-let BoolView = function() {};
+var BoolView = function() {};
 /** @type {?} */
 BoolView.prototype.get;
 /** @type {?} */
@@ -229,7 +367,7 @@ BoolView.prototype.set;
 /** @type {?} */
 BoolView.prototype.setData;
 
-let ValidityView = function() {};
+var ValidityView = function() {};
 /** @type {?} */
 ValidityView.prototype.get;
 /** @type {?} */
@@ -241,7 +379,7 @@ ValidityView.prototype.set;
 /** @type {?} */
 ValidityView.prototype.setData;
 
-let DictionaryView = function() {};
+var DictionaryView = function() {};
 /** @type {?} */
 DictionaryView.prototype.get;
 /** @type {?} */
@@ -253,7 +391,7 @@ DictionaryView.prototype.set;
 /** @type {?} */
 DictionaryView.prototype.setData;
 
-let ListViewBase = function() {};
+var ListViewBase = function() {};
 /** @type {?} */
 ListViewBase.prototype.get;
 /** @type {?} */
@@ -265,7 +403,7 @@ ListViewBase.prototype.set;
 /** @type {?} */
 ListViewBase.prototype.setData;
 
-let NestedView = function() {};
+var NestedView = function() {};
 /** @type {?} */
 NestedView.prototype.get;
 /** @type {?} */
@@ -277,7 +415,7 @@ NestedView.prototype.set;
 /** @type {?} */
 NestedView.prototype.setData;
 
-let ChunkedView = function() {};
+var ChunkedView = function() {};
 /** @type {?} */
 ChunkedView.prototype.get;
 /** @type {?} */
@@ -289,9 +427,9 @@ ChunkedView.prototype.set;
 /** @type {?} */
 ChunkedView.prototype.setData;
 
-let TypeVisitor = function() {};
+var TypeVisitor = function() {};
 /** @type {?} */
-(<any> TypeVisitor).visitTypeInline;
+TypeVisitor.visitTypeInline = function() {};
 /** @type {?} */
 TypeVisitor.prototype.visit;
 /** @type {?} */
@@ -333,9 +471,9 @@ TypeVisitor.prototype.visitFixedSizeList;
 /** @type {?} */
 TypeVisitor.prototype.visitMap;
 
-let VectorVisitor = function() {};
+var VectorVisitor = function() {};
 /** @type {?} */
-(<any> VectorVisitor).visitTypeInline;
+VectorVisitor.visitTypeInline = function() {};
 /** @type {?} */
 VectorVisitor.prototype.visit;
 /** @type {?} */

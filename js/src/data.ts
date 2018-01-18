@@ -299,5 +299,3 @@ export class ChunkedData<T extends DataType> extends BaseData<T> {
         return childOffsets;
     }
 }
-
-ChunkedData['computeOffsets'] = ChunkedData.computeOffsets;

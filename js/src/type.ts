@@ -195,27 +195,6 @@ export abstract class DataType<TType extends Type = any> implements Partial<Visi
     })(DataType.prototype);
 }
 
-DataType['isNull'] = DataType.isNull;
-DataType['isInt'] = DataType.isInt;
-DataType['isFloat'] = DataType.isFloat;
-DataType['isBinary'] = DataType.isBinary;
-DataType['isUtf8'] = DataType.isUtf8;
-DataType['isBool'] = DataType.isBool;
-DataType['isDecimal'] = DataType.isDecimal;
-DataType['isDate'] = DataType.isDate;
-DataType['isTime'] = DataType.isTime;
-DataType['isTimestamp'] = DataType.isTimestamp;
-DataType['isInterval'] = DataType.isInterval;
-DataType['isList'] = DataType.isList;
-DataType['isStruct'] = DataType.isStruct;
-DataType['isUnion'] = DataType.isUnion;
-DataType['isDenseUnion'] = DataType.isDenseUnion;
-DataType['isSparseUnion'] = DataType.isSparseUnion;
-DataType['isFixedSizeBinary'] = DataType.isFixedSizeBinary;
-DataType['isFixedSizeList'] = DataType.isFixedSizeList;
-DataType['isMap'] = DataType.isMap;
-DataType['isDictionary'] = DataType.isDictionary;
-
 export interface Null extends DataType<Type.Null> { TArray: void; TValue: null; }
 export class Null extends DataType<Type.Null> {
     constructor() { super(Type.Null); }
@@ -229,7 +208,7 @@ export class Null extends DataType<Type.Null> {
 }
 
 export interface Int<TValueType = any, TArrayType extends IntArray = IntArray> extends DataType<Type.Int> { TArray: TArrayType; TValue: TValueType; }
-export class Int<TValueType = any, TArrayType extends IntArray = IntArray> extends DataType<Type.Int> {
+export abstract class Int<TValueType = any, TArrayType extends IntArray = IntArray> extends DataType<Type.Int> {
     constructor(public readonly isSigned: boolean,
                 public readonly bitWidth: IntBitWidth) {
         super(Type.Int);
@@ -309,7 +288,7 @@ export class Uint64 extends Int<Uint32Array, Uint32Array> {
 }
 
 export interface Float<TArrayType extends FloatArray = FloatArray> extends DataType<Type.Float> { TArray: TArrayType; TValue: number; }
-export class Float<TArrayType extends FloatArray = FloatArray> extends DataType<Type.Float> {
+export abstract class Float<TArrayType extends FloatArray = FloatArray> extends DataType<Type.Float> {
     constructor(public readonly precision: Precision) {
         super(Type.Float);
     }

@@ -16,7 +16,7 @@
 // under the License.
 
 import Arrow from '../Arrow';
-const { Int64, Uint64, Int128 } = Arrow;
+const { Int64, Uint64, Int128 } = Arrow.util;
 
 describe(`Uint64`, () => {
     test(`gets expected high/low bytes`, () => {

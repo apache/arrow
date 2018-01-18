@@ -19,7 +19,7 @@ import { Vector } from '../../vector';
 import { flatbuffers } from 'flatbuffers';
 import { TypeDataLoader } from './vector';
 import { packBools } from '../../util/bit';
-import { Int64, Int128 } from '../../util/int';
+import * as IntUtil from '../../util/int';
 import { TextEncoder } from 'text-encoding-utf-8';
 import { RecordBatchMetadata, DictionaryBatch, BufferMetadata, FieldMetadata } from '../metadata';
 import {
@@ -35,7 +35,7 @@ import {
     Int8,  Uint8,
     Int16, Uint16,
     Int32, Uint32,
-    Int64 as Int64_, Uint64,
+    Int64, Uint64,
     Float16, Float64, Float32,
 } from '../../type';
 
@@ -127,7 +127,7 @@ function int64DataFromJSON(values: string[]) {
         //     > -4613034156400212000 >>> 0
         //     721782784
         // The correct lower 32-bits are 721782752
-        Int64.fromString(values[i].toString(), new Uint32Array(data.buffer, data.byteOffset + 2 * i * 4, 2));
+        IntUtil.Int64.fromString(values[i].toString(), new Uint32Array(data.buffer, data.byteOffset + 2 * i * 4, 2));
     }
     return data.buffer;
 }
@@ -135,7 +135,7 @@ function int64DataFromJSON(values: string[]) {
 function decimalDataFromJSON(values: string[]) {
     const data = new Uint32Array(values.length * 4);
     for (let i = -1, n = values.length; ++i < n;) {
-        Int128.fromString(values[i], new Uint32Array(data.buffer, data.byteOffset + 4 * 4 * i, 4));
+        IntUtil.Int128.fromString(values[i], new Uint32Array(data.buffer, data.byteOffset + 4 * 4 * i, 4));
     }
     return data.buffer;
 }
@@ -298,7 +298,7 @@ function intFromJSON            (_type: any)                    { switch (_type[
                                                                       case  8: return _type['isSigned'] ? new  Int8() : new  Uint8();
                                                                       case 16: return _type['isSigned'] ? new Int16() : new Uint16();
                                                                       case 32: return _type['isSigned'] ? new Int32() : new Uint32();
-                                                                      case 64: return _type['isSigned'] ? new Int64_() : new Uint64();
+                                                                      case 64: return _type['isSigned'] ? new Int64() : new Uint64();
                                                                   }
                                                                   return null;                                                                        }
 function floatingPointFromJSON  (_type: any)                    { switch (Precision[_type['precision']] as any) {
