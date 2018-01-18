@@ -1157,51 +1157,50 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
  
 TEST_F(TestBinaryBuilder, TestCapacityReserve) {
   vector<string> strings = {"a", "bb", "cc", "ddddd", "eeeee"};
-  int N = static_cast<int>(strings.size());
-  int length = 0
-  int data_length = 0;
-  int capacity = N;
+  int64_t N = static_cast<int>(strings.size());
+  int64_t length = 0
+  int64_t data_length = 0;
+  int64_t capacity = N;
  
   ASSERT_OK(builder_->Reserve(capacity));
   ASSERT_OK(builder_->ReserveData(capacity));
   
-  ASSERT_EQ(static_cast<int>(builder_->length()), length);
-  ASSERT_EQ(static_cast<int>(builder_->capacity()), capacity);
-  ASSERT_EQ(static_cast<int>(builder_->value_data_length()), data_length);
-  ASSERT_EQ(static_cast<int>(builder_->value_data_capacity()), capacity);
+  ASSERT_EQ(builder_->length(), length);
+  ASSERT_EQ(builder_->capacity(), BitUtil::NextPower2(capacity));
+  ASSERT_EQ(builder_->value_data_length(), data_length);
+  ASSERT_EQ(builder_->value_data_capacity(), capacity);
  
   for(const string& str : strings) {
     ASSERT_OK(builder_->Append(str));
-   
     length++;
     data_length += static_cast<int>(str.size());
    
-    ASSERT_EQ(static_cast<int>(builder_->length()), length);
-    ASSERT_EQ(static_cast<int>(builder_->capacity()), capacity);
-    ASSERT_EQ(static_cast<int>(builder_->value_data_length()), data_length);
-    if(data_length <= capacity) {
-      ASSERT_EQ(static_cast<int>(builder_->value_data_capacity()), capacity);
+    ASSERT_EQ(builder_->length(), length);
+    ASSERT_EQ(builder_->capacity(), BitUtil::NextPower2(capacity));
+    ASSERT_EQ(builder_->value_data_length(), data_length);
+    if (data_length <= capacity) {
+      ASSERT_EQ(builder_->value_data_capacity(), capacity);
     } else {
-      ASSERT_EQ(static_cast<int>(builder_->value_data_capacity()), data_length);
+      ASSERT_EQ(builder_->value_data_capacity(), data_length);
     }
   }
  
-  int extra_capacity = 10;
+  int extra_capacity = 20;
  
   ASSERT_OK(builder_->Reserve(extra_capacity));
   ASSERT_OK(builder_->ReserveData(extra_capacity));
  
-  ASSERT_EQ(static_cast<int>(builder_->length()), length);
-  ASSERT_EQ(static_cast<int>(builder_->capacity()), length + extra_capacity);
-  ASSERT_EQ(static_cast<int>(builder_->value_data_length()), data_length);
-  ASSERT_EQ(static_cast<int>(builder_->value_data_capacity()), data_length + extra_capacity);
+  ASSERT_EQ(builder_->length(), length);
+  ASSERT_EQ(builder_->capacity(), BitUtil::NextPower2(length + extra_capacity));
+  ASSERT_EQ(builder_->value_data_length(), data_length);
+  ASSERT_EQ(builder_->value_data_capacity(), data_length + extra_capacity);
  
   Done();
   
-  ASSERT_EQ(N, result_->length());
-  ASSERT_EQ(0, result_->null_count());
-  ASSERT_EQ(data_length, result_->value_data()->size());
-  ASSERT_EQ(data_length + extra_capacity, result_->value_data()->capacity());
+  ASSERT_EQ(result_->length(), N);
+  ASSERT_EQ(result_->null_count(), 0);
+  ASSERT_EQ(result_->value_data()->size(), data_length);
+  ASSERT_EQ(result_->value_data()->capacity(), BitUtil::RoundUpToMultipleOf64(data_length + extra_capacity));
 }
 
 TEST_F(TestBinaryBuilder, TestZeroLength) {
