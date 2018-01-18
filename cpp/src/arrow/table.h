@@ -44,6 +44,7 @@ class ARROW_EXPORT ChunkedArray {
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
 
+  /// \return the total number of nulls among all chunks
   int64_t null_count() const { return null_count_; }
 
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
@@ -53,8 +54,8 @@ class ARROW_EXPORT ChunkedArray {
 
   const ArrayVector& chunks() const { return chunks_; }
 
-  /// Construct a zero-copy slice of the chunked array with the indicated offset and
-  /// length
+  /// \brief Construct a zero-copy slice of the chunked array with the
+  /// indicated offset and length
   ///
   /// \param[in] offset the position of the first element in the constructed
   /// slice
@@ -64,7 +65,7 @@ class ARROW_EXPORT ChunkedArray {
   /// \return a new object wrapped in std::shared_ptr<ChunkedArray>
   std::shared_ptr<ChunkedArray> Slice(int64_t offset, int64_t length) const;
 
-  /// Slice from offset until end of the chunked array
+  /// \brief Slice from offset until end of the chunked array
   std::shared_ptr<ChunkedArray> Slice(int64_t offset) const;
 
   std::shared_ptr<DataType> type() const;
@@ -81,8 +82,9 @@ class ARROW_EXPORT ChunkedArray {
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 
+/// \class Column
 /// \brief An immutable column data structure consisting of a field (type
-/// metadata) and a logical chunked data array
+/// metadata) and a chunked data array
 class ARROW_EXPORT Column {
  public:
   Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks);
@@ -111,8 +113,8 @@ class ARROW_EXPORT Column {
   /// \return the column's data as a chunked logical array
   std::shared_ptr<ChunkedArray> data() const { return data_; }
 
-  /// Construct a zero-copy slice of the column with the indicated offset and
-  /// length
+  /// \brief Construct a zero-copy slice of the column with the indicated
+  /// offset and length
   ///
   /// \param[in] offset the position of the first element in the constructed
   /// slice
@@ -124,7 +126,7 @@ class ARROW_EXPORT Column {
     return std::make_shared<Column>(field_, data_->Slice(offset, length));
   }
 
-  /// Slice from offset until end of the column
+  /// \brief Slice from offset until end of the column
   std::shared_ptr<Column> Slice(int64_t offset) const {
     return std::make_shared<Column>(field_, data_->Slice(offset));
   }
