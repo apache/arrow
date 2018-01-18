@@ -99,7 +99,7 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
     return false;
   }
   
-  public RepeatedStructReader map(){
+  public RepeatedStructReader struct(){
     return this;
   }
   
@@ -107,7 +107,7 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
     return this;
   }
   
-  public StructReader map(String name){
+  public StructReader struct(String name){
     return this;
   }
   

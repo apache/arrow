@@ -114,15 +114,15 @@ public class TestVectorReset {
 
   @Test
   public void testMapTypeReset() {
-    try (final StructVector mapVector = new StructVector("Map", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+    try (final StructVector structVector = new StructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
          final NullableStructVector nullableStructVector = new NullableStructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
     ) {
       // StructVector
-      mapVector.allocateNewSafe();
-      IntVector mapChild = mapVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
-      mapChild.setNull(0);
-      mapVector.setValueCount(1);
-      resetVectorAndVerify(mapVector, mapVector.getBuffers(false));
+      structVector.allocateNewSafe();
+      IntVector structChild = structVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
+      structChild.setNull(0);
+      structVector.setValueCount(1);
+      resetVectorAndVerify(structVector, structVector.getBuffers(false));
 
       // NullableStructVector
       nullableStructVector.allocateNewSafe();

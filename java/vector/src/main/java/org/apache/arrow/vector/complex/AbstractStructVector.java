@@ -258,8 +258,8 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     final List<ValueVector> primitiveVectors = Lists.newArrayList();
     for (final ValueVector v : vectors.values()) {
       if (v instanceof AbstractStructVector) {
-        AbstractStructVector mapVector = (AbstractStructVector) v;
-        primitiveVectors.addAll(mapVector.getPrimitiveVectors());
+        AbstractStructVector structVector = (AbstractStructVector) v;
+        primitiveVectors.addAll(structVector.getPrimitiveVectors());
       } else {
         primitiveVectors.add(v);
       }

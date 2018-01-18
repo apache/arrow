@@ -131,7 +131,7 @@ public class BaseFileTest {
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     ListWriter listWriter = rootWriter.list("list");
-    StructWriter structWriter = rootWriter.struct("map");
+    StructWriter structWriter = rootWriter.struct("struct");
     for (int i = 0; i < count; i++) {
       if (i % 5 != 3) {
         intWriter.setPosition(i);
@@ -178,9 +178,9 @@ public class BaseFileTest {
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
       Assert.assertEquals(i % 3, ((List<?>) root.getVector("list").getObject(i)).size());
       NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
-      FieldReader mapReader = root.getVector("map").getReader();
-      mapReader.setPosition(i);
-      mapReader.reader("timestamp").read(h);
+      FieldReader structReader = root.getVector("struct").getReader();
+      structReader.setPosition(i);
+      structReader.reader("timestamp").read(h);
       Assert.assertEquals(i, h.value);
     }
   }
