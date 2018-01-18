@@ -279,7 +279,80 @@ both of these options would be used rarely. Current known uses-cases when they a
 
 *  Parameterized tests in google test.
 
+## Nightly Builds of `arrow-cpp`, `parquet-cpp`, and `pyarrow` for Linux
+
+Nightly builds of conda packages are available for [`arrow-cpp`][5],
+[`parquet-cpp`][6], and [`pyarrow`][7].
+
+These are built using an open source tool called [`scourge`][8]. `scourge` is
+new, so please report any feature requests or bugs to the [scourge issue
+tracker][10].
+
+To get scourge you need to clone the source and install it in development mode.
+
+To setup your own nightly builds:
+
+1. Install scourge
+1. Create a script that calls scourge
+1. Run that script as a cronjob once per day
+
+First, install scourge (you also need to [install docker][9]):
+
+```sh
+git clone https://github.com/cpcloud/scourge
+cd scourge
+python setup.py develop
+which scourge
+```
+
+Second, create a shell script that calls scourge:
+
+```sh
+function build() {
+  # make sure we got a working directory
+  workingdir="${1}"
+  [ -z "${workingdir}" ] && echo "Must provide a working directory" && exit 1
+  scourge="/path/to/scourge"
+
+  # get the hash of master for building parquet
+  PARQUET_ARROW_VERSION="$(${scourge} sha apache/arrow master)"
+
+  # setup the build for each package
+  ${scourge} init arrow-cpp@master parquet-cpp@master pyarrow@master
+
+  # build the packages with some constraints (the -c arguments)
+  # -e sets environment variables on a per package basis
+  ${scourge} build \
+    -e parquet-cpp:PARQUET_ARROW_VERSION="$PARQUET_ARROW_VERSION" \
+    -c "python >=2.7,<3|>=3.5" \
+    -c "numpy >= 1.11" \
+    -c "r-base >=3.3.2"
+}
+
+workingdir="$(date +'%Y%m%d_%H_%M_%S')"
+mkdir -p $workingdir
+build $workingdir > $workingdir/scourge.log 2>&1
+```
+
+Third, run that script as a cronjob once per day:
+
+```sh
+crontab -e
+```
+
+then in the scratch file that's opened:
+
+```sh
+@daily /path/to/the/above/script.sh
+```
+
 [1]: https://brew.sh/
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md
 [3]: https://google.github.io/styleguide/cppguide.html
 [4]: https://github.com/include-what-you-use/include-what-you-use
+[5]: https://anaconda.org/twosigma/arrow-cpp
+[6]: https://anaconda.org/twosigma/parquet-cpp
+[7]: https://anaconda.org/twosigma/pyarrow
+[8]: https://github.com/cpcloud/scourge
+[9]: https://docs.docker.com/engine/installation
+[10]: https://github.com/cpcloud/scourge/issues
