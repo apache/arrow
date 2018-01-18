@@ -1154,6 +1154,55 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
     }
   }
 }
+ 
+TEST_F(TestBinaryBuilder, TestCapacityReserve) {
+  vector<string> strings = {"a", "bb", "cc", "ddddd", "eeeee"};
+  int N = static_cast<int>(strings.size());
+  int length = 0
+  int data_length = 0;
+  int capacity = N;
+ 
+  ASSERT_OK(builder_->Reserve(capacity));
+  ASSERT_OK(builder_->ReserveData(capacity));
+  
+  ASSERT_EQ(static_cast<int>(builder_->length()), length);
+  ASSERT_EQ(static_cast<int>(builder_->capacity()), capacity);
+  ASSERT_EQ(static_cast<int>(builder_->value_data_length()), data_length);
+  ASSERT_EQ(static_cast<int>(builder_->value_data_capacity()), capacity);
+ 
+  for(const string& str : strings) {
+    ASSERT_OK(builder_->Append(str));
+   
+    length++;
+    data_length += static_cast<int>(str.size());
+   
+    ASSERT_EQ(static_cast<int>(builder_->length()), length);
+    ASSERT_EQ(static_cast<int>(builder_->capacity()), capacity);
+    ASSERT_EQ(static_cast<int>(builder_->value_data_length()), data_length);
+    if(data_length <= capacity) {
+      ASSERT_EQ(static_cast<int>(builder_->value_data_capacity()), capacity);
+    } else {
+      ASSERT_EQ(static_cast<int>(builder_->value_data_capacity()), data_length);
+    }
+  }
+ 
+  int extra_capacity = 10;
+ 
+  ASSERT_OK(builder_->Reserve(extra_capacity));
+  ASSERT_OK(builder_->ReserveData(extra_capacity));
+ 
+  ASSERT_EQ(static_cast<int>(builder_->length()), length);
+  ASSERT_EQ(static_cast<int>(builder_->capacity()), length + extra_capacity);
+  ASSERT_EQ(static_cast<int>(builder_->value_data_length()), data_length);
+  ASSERT_EQ(static_cast<int>(builder_->value_data_capacity()), data_length + extra_capacity);
+ 
+  Done();
+  
+  ASSERT_EQ(N, result_->length());
+  ASSERT_EQ(0, result_->null_count());
+  ASSERT_EQ(data_length, result_->value_data()->size());
+  ASSERT_EQ(data_length + extra_capacity, result_->value_data()->capacity());
+}
 
 TEST_F(TestBinaryBuilder, TestZeroLength) {
   // All buffers are null
