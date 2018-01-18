@@ -50,7 +50,7 @@ public class TestStructVector {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("k1", "v1");
     FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
-    try (NullableStructVector vector = new NullableStructVector("map", allocator, type, null)) {
+    try (NullableStructVector vector = new NullableStructVector("struct", allocator, type, null)) {
       Assert.assertEquals(vector.getField().getMetadata(), type.getMetadata());
     }
   }

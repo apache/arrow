@@ -81,7 +81,7 @@ public class TestComplexWriter {
 
   @Test
   public void simpleNestedTypes() {
-    StructVector parent = populateMapVector(null);
+    StructVector parent = populateStructVector(null);
     StructReader rootReader = new SingleStructReaderImpl(parent).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
@@ -96,7 +96,7 @@ public class TestComplexWriter {
   public void transferPairSchemaChange() {
     SchemaChangeCallBack callBack1 = new SchemaChangeCallBack();
     SchemaChangeCallBack callBack2 = new SchemaChangeCallBack();
-    StructVector parent = populateMapVector(callBack1);
+    StructVector parent = populateStructVector(callBack1);
 
     TransferPair tp = parent.getTransferPair("newVector", allocator, callBack2);
 
@@ -111,7 +111,7 @@ public class TestComplexWriter {
     assertFalse(callBack1.getSchemaChangedAndReset());
   }
 
-  private StructVector populateMapVector(CallBack callBack) {
+  private StructVector populateStructVector(CallBack callBack) {
     StructVector parent = new StructVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();
@@ -278,7 +278,7 @@ public class TestComplexWriter {
   }
 
   @Test
-  public void listMapType() {
+  public void listStructType() {
     ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
@@ -564,9 +564,9 @@ public class TestComplexWriter {
     structFieldWriterCaseSensitive.varChar("char_field");
     structFieldWriterCaseSensitive.varChar("Char_Field");
     ListWriter listFieldWriterCaseSensitive = rootWriterCaseSensitive.list("list_field");
-    StructWriter listMapFieldWriterCaseSensitive = listFieldWriterCaseSensitive.struct();
-    listMapFieldWriterCaseSensitive.bit("bit_field");
-    listMapFieldWriterCaseSensitive.bit("Bit_Field");
+    StructWriter listStructFieldWriterCaseSensitive = listFieldWriterCaseSensitive.struct();
+    listStructFieldWriterCaseSensitive.bit("bit_field");
+    listStructFieldWriterCaseSensitive.bit("Bit_Field");
 
     List<Field> fieldsCaseSensitive = parent.getField().getChildren().get(0).getChildren();
     Set<String> fieldNamesCaseSensitive = getFieldNames(fieldsCaseSensitive);
@@ -595,9 +595,9 @@ public class TestComplexWriter {
     structFieldWriterCaseInsensitive.varChar("char_field");
     structFieldWriterCaseInsensitive.varChar("Char_Field");
     ListWriter listFieldWriterCaseInsensitive = rootWriterCaseInsensitive.list("list_field");
-    StructWriter listMapFieldWriterCaseInsensitive = listFieldWriterCaseInsensitive.struct();
-    listMapFieldWriterCaseInsensitive.bit("bit_field");
-    listMapFieldWriterCaseInsensitive.bit("Bit_Field");
+    StructWriter listStructFieldWriterCaseInsensitive = listFieldWriterCaseInsensitive.struct();
+    listStructFieldWriterCaseInsensitive.bit("bit_field");
+    listStructFieldWriterCaseInsensitive.bit("Bit_Field");
 
     List<Field> fieldsCaseInsensitive = parent.getField().getChildren().get(1).getChildren();
     Set<String> fieldNamesCaseInsensitive = getFieldNames(fieldsCaseInsensitive);
@@ -833,8 +833,8 @@ public class TestComplexWriter {
     NullableStructVector structVector = (NullableStructVector) parent.getChild("root");
     TransferPair tp = structVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
-    StructVector toMapVector = (StructVector) tp.getTo();
-    JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toMapVector.getObject(0);
+    StructVector toStructVector = (StructVector) tp.getTo();
+    JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toStructVector.getObject(0);
     JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
     assertEquals(1, object.get(0));
     assertEquals(2, object.get(1));

@@ -120,7 +120,7 @@ public class TestVectorReAlloc {
   }
 
   @Test
-  public void testMapType() {
+  public void testStructType() {
     try (final NullableStructVector vector = NullableStructVector.empty("", allocator)) {
       vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
 
