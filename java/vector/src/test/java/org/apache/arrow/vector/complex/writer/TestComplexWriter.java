@@ -101,7 +101,7 @@ public class TestComplexWriter {
     TransferPair tp = parent.getTransferPair("newVector", allocator, callBack2);
 
     ComplexWriter writer = new ComplexWriterImpl("newWriter", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("newInt");
     intWriter.writeInt(1);
     writer.setValueCount(1);
@@ -114,7 +114,7 @@ public class TestComplexWriter {
   private StructVector populateMapVector(CallBack callBack) {
     StructVector parent = new StructVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     for (int i = 0; i < COUNT; i++) {
@@ -129,63 +129,63 @@ public class TestComplexWriter {
 
   @Test
   public void nullableStruct() {
-    try (StructVector mapVector = StructVector.empty("parent", allocator)) {
-      ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
-      StructWriter rootWriter = writer.rootAsMap();
+    try (StructVector structVector = StructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", structVector);
+      StructWriter rootWriter = writer.rootAsStruct();
       for (int i = 0; i < COUNT; i++) {
         rootWriter.start();
         if (i % 2 == 0) {
-          StructWriter mapWriter = rootWriter.map("map");
-          mapWriter.setPosition(i);
-          mapWriter.start();
-          mapWriter.bigInt("nested").writeBigInt(i);
-          mapWriter.end();
+          StructWriter structWriter = rootWriter.struct("struct");
+          structWriter.setPosition(i);
+          structWriter.start();
+          structWriter.bigInt("nested").writeBigInt(i);
+          structWriter.end();
         }
         rootWriter.end();
       }
       writer.setValueCount(COUNT);
-      checkNullableStruct(mapVector);
+      checkNullableStruct(structVector);
     }
   }
 
   /**
-   * This test is similar to {@link #nullableStruct()} ()} but we get the inner map writer once at the beginning
+   * This test is similar to {@link #nullableStruct()} ()} but we get the inner struct writer once at the beginning
    */
   @Test
   public void nullableStruct2() {
-    try (StructVector mapVector = StructVector.empty("parent", allocator)) {
-      ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
-      StructWriter rootWriter = writer.rootAsMap();
-      StructWriter mapWriter = rootWriter.map("map");
+    try (StructVector structVector = StructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", structVector);
+      StructWriter rootWriter = writer.rootAsStruct();
+      StructWriter structWriter = rootWriter.struct("struct");
 
       for (int i = 0; i < COUNT; i++) {
         rootWriter.start();
         if (i % 2 == 0) {
-          mapWriter.setPosition(i);
-          mapWriter.start();
-          mapWriter.bigInt("nested").writeBigInt(i);
-          mapWriter.end();
+          structWriter.setPosition(i);
+          structWriter.start();
+          structWriter.bigInt("nested").writeBigInt(i);
+          structWriter.end();
         }
         rootWriter.end();
       }
       writer.setValueCount(COUNT);
-      checkNullableStruct(mapVector);
+      checkNullableStruct(structVector);
     }
   }
 
-  private void checkNullableStruct(StructVector mapVector) {
-    StructReader rootReader = new SingleStructReaderImpl(mapVector).reader("root");
+  private void checkNullableStruct(StructVector structVector) {
+    StructReader rootReader = new SingleStructReaderImpl(structVector).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
       assertTrue("index is set: " + i, rootReader.isSet());
-      FieldReader map = rootReader.reader("map");
+      FieldReader struct = rootReader.reader("struct");
       if (i % 2 == 0) {
-        assertTrue("index is set: " + i, map.isSet());
-        assertNotNull("index is set: " + i, map.readObject());
-        assertEquals(i, map.reader("nested").readLong().longValue());
+        assertTrue("index is set: " + i, struct.isSet());
+        assertNotNull("index is set: " + i, struct.readObject());
+        assertEquals(i, struct.reader("nested").readLong().longValue());
       } else {
-        assertFalse("index is not set: " + i, map.isSet());
-        assertNull("index is not set: " + i, map.readObject());
+        assertFalse("index is not set: " + i, struct.isSet());
+        assertNull("index is not set: " + i, struct.readObject());
       }
     }
   }
@@ -194,7 +194,7 @@ public class TestComplexWriter {
   public void testList() {
     StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
 
     rootWriter.start();
     rootWriter.bigInt("int").writeBigInt(0);
@@ -282,14 +282,14 @@ public class TestComplexWriter {
     ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
-    StructWriter mapWriter = listWriter.map();
+    StructWriter structWriter = listWriter.struct();
     for (int i = 0; i < COUNT; i++) {
       listWriter.startList();
       for (int j = 0; j < i % 7; j++) {
-        mapWriter.start();
-        mapWriter.integer("int").writeInt(j);
-        mapWriter.bigInt("bigInt").writeBigInt(j);
-        mapWriter.end();
+        structWriter.start();
+        structWriter.integer("int").writeInt(j);
+        structWriter.bigInt("bigInt").writeBigInt(j);
+        structWriter.end();
       }
       listWriter.endList();
     }
@@ -473,7 +473,7 @@ public class TestComplexWriter {
   public void promotableWriter() {
     StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     for (int i = 0; i < 100; i++) {
       BigIntWriter bigIntWriter = rootWriter.bigInt("a");
       bigIntWriter.setPosition(i);
@@ -522,7 +522,7 @@ public class TestComplexWriter {
   public void promotableWriterSchema() {
     StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     rootWriter.bigInt("a");
     rootWriter.varChar("a");
 
@@ -551,20 +551,20 @@ public class TestComplexWriter {
   }
 
   @Test
-  public void mapWriterMixedCaseFieldNames() {
+  public void structWriterMixedCaseFieldNames() {
     // test case-sensitive StructWriter
     StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("rootCaseSensitive", parent, false, true);
-    StructWriter rootWriterCaseSensitive = writer.rootAsMap();
+    StructWriter rootWriterCaseSensitive = writer.rootAsStruct();
     rootWriterCaseSensitive.bigInt("int_field");
     rootWriterCaseSensitive.bigInt("Int_Field");
     rootWriterCaseSensitive.float4("float_field");
     rootWriterCaseSensitive.float4("Float_Field");
-    StructWriter mapFieldWriterCaseSensitive = rootWriterCaseSensitive.map("map_field");
-    mapFieldWriterCaseSensitive.varChar("char_field");
-    mapFieldWriterCaseSensitive.varChar("Char_Field");
+    StructWriter structFieldWriterCaseSensitive = rootWriterCaseSensitive.struct("struct_field");
+    structFieldWriterCaseSensitive.varChar("char_field");
+    structFieldWriterCaseSensitive.varChar("Char_Field");
     ListWriter listFieldWriterCaseSensitive = rootWriterCaseSensitive.list("list_field");
-    StructWriter listMapFieldWriterCaseSensitive = listFieldWriterCaseSensitive.map();
+    StructWriter listMapFieldWriterCaseSensitive = listFieldWriterCaseSensitive.struct();
     listMapFieldWriterCaseSensitive.bit("bit_field");
     listMapFieldWriterCaseSensitive.bit("Bit_Field");
 
@@ -575,9 +575,9 @@ public class TestComplexWriter {
     Assert.assertTrue(fieldNamesCaseSensitive.contains("Int_Field"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("float_field"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("Float_Field"));
-    Assert.assertTrue(fieldNamesCaseSensitive.contains("map_field"));
-    Assert.assertTrue(fieldNamesCaseSensitive.contains("map_field::char_field"));
-    Assert.assertTrue(fieldNamesCaseSensitive.contains("map_field::Char_Field"));
+    Assert.assertTrue(fieldNamesCaseSensitive.contains("struct_field"));
+    Assert.assertTrue(fieldNamesCaseSensitive.contains("struct_field::char_field"));
+    Assert.assertTrue(fieldNamesCaseSensitive.contains("struct_field::Char_Field"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::bit_field"));
@@ -585,17 +585,17 @@ public class TestComplexWriter {
 
     // test case-insensitive StructWriter
     ComplexWriter writerCaseInsensitive = new ComplexWriterImpl("rootCaseInsensitive", parent, false, false);
-    StructWriter rootWriterCaseInsensitive = writerCaseInsensitive.rootAsMap();
+    StructWriter rootWriterCaseInsensitive = writerCaseInsensitive.rootAsStruct();
 
     rootWriterCaseInsensitive.bigInt("int_field");
     rootWriterCaseInsensitive.bigInt("Int_Field");
     rootWriterCaseInsensitive.float4("float_field");
     rootWriterCaseInsensitive.float4("Float_Field");
-    StructWriter mapFieldWriterCaseInsensitive = rootWriterCaseInsensitive.map("map_field");
-    mapFieldWriterCaseInsensitive.varChar("char_field");
-    mapFieldWriterCaseInsensitive.varChar("Char_Field");
+    StructWriter structFieldWriterCaseInsensitive = rootWriterCaseInsensitive.struct("struct_field");
+    structFieldWriterCaseInsensitive.varChar("char_field");
+    structFieldWriterCaseInsensitive.varChar("Char_Field");
     ListWriter listFieldWriterCaseInsensitive = rootWriterCaseInsensitive.list("list_field");
-    StructWriter listMapFieldWriterCaseInsensitive = listFieldWriterCaseInsensitive.map();
+    StructWriter listMapFieldWriterCaseInsensitive = listFieldWriterCaseInsensitive.struct();
     listMapFieldWriterCaseInsensitive.bit("bit_field");
     listMapFieldWriterCaseInsensitive.bit("Bit_Field");
 
@@ -604,8 +604,8 @@ public class TestComplexWriter {
     Assert.assertEquals(7, fieldNamesCaseInsensitive.size());
     Assert.assertTrue(fieldNamesCaseInsensitive.contains("int_field"));
     Assert.assertTrue(fieldNamesCaseInsensitive.contains("float_field"));
-    Assert.assertTrue(fieldNamesCaseInsensitive.contains("map_field"));
-    Assert.assertTrue(fieldNamesCaseInsensitive.contains("map_field::char_field"));
+    Assert.assertTrue(fieldNamesCaseInsensitive.contains("struct_field"));
+    Assert.assertTrue(fieldNamesCaseInsensitive.contains("struct_field::char_field"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$"));
     Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::bit_field"));
@@ -620,7 +620,7 @@ public class TestComplexWriter {
     // write
     StructVector parent = new StructVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
 
     {
       TimeStampSecWriter timeStampSecWriter = rootWriter.timeStampSec("sec");
@@ -664,7 +664,7 @@ public class TestComplexWriter {
     // write
     StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     {
       TimeStampMilliWriter timeStampWriter = rootWriter.timeStampMilli("milli");
       timeStampWriter.setPosition(0);
@@ -720,7 +720,7 @@ public class TestComplexWriter {
     // write
     StructVector parent = new StructVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
 
     {
       TimeStampMicroWriter timeStampMicroWriter = rootWriter.timeStampMicro("micro");
@@ -767,7 +767,7 @@ public class TestComplexWriter {
     // write
     StructVector parent = new StructVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
 
     {
       TimeStampNanoWriter timeStampNanoWriter = rootWriter.timeStampNano("nano");
@@ -810,56 +810,56 @@ public class TestComplexWriter {
   public void complexCopierWithList() {
     StructVector parent = StructVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     ListWriter listWriter = rootWriter.list("list");
-    StructWriter innerMapWriter = listWriter.map();
+    StructWriter innerStructWriter = listWriter.struct();
     IntWriter outerIntWriter = listWriter.integer();
     rootWriter.start();
     listWriter.startList();
     outerIntWriter.writeInt(1);
     outerIntWriter.writeInt(2);
-    innerMapWriter.start();
-    IntWriter intWriter = innerMapWriter.integer("a");
+    innerStructWriter.start();
+    IntWriter intWriter = innerStructWriter.integer("a");
     intWriter.writeInt(1);
-    innerMapWriter.end();
-    innerMapWriter.start();
-    intWriter = innerMapWriter.integer("a");
+    innerStructWriter.end();
+    innerStructWriter.start();
+    intWriter = innerStructWriter.integer("a");
     intWriter.writeInt(2);
-    innerMapWriter.end();
+    innerStructWriter.end();
     listWriter.endList();
     rootWriter.end();
     writer.setValueCount(1);
 
-    NullableStructVector mapVector = (NullableStructVector) parent.getChild("root");
-    TransferPair tp = mapVector.getTransferPair(allocator);
+    NullableStructVector structVector = (NullableStructVector) parent.getChild("root");
+    TransferPair tp = structVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
     StructVector toMapVector = (StructVector) tp.getTo();
     JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toMapVector.getObject(0);
     JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
     assertEquals(1, object.get(0));
     assertEquals(2, object.get(1));
-    JsonStringHashMap<?, ?> innerMap = (JsonStringHashMap<?, ?>) object.get(2);
-    assertEquals(1, innerMap.get("a"));
-    innerMap = (JsonStringHashMap<?, ?>) object.get(3);
-    assertEquals(2, innerMap.get("a"));
+    JsonStringHashMap<?, ?> innerStruct = (JsonStringHashMap<?, ?>) object.get(2);
+    assertEquals(1, innerStruct.get("a"));
+    innerStruct = (JsonStringHashMap<?, ?>) object.get(3);
+    assertEquals(2, innerStruct.get("a"));
   }
 
   @Test
-  public void testSingleMapWriter1() {
+  public void testSingleStructWriter1() {
     /* initialize a SingleStructWriter with empty StructVector and then lazily
      * create all vectors with expected initialCapacity.
      */
     StructVector parent = StructVector.empty("parent", allocator);
-    SingleStructWriter singleMapWriter = new SingleStructWriter(parent);
+    SingleStructWriter singleStructWriter = new SingleStructWriter(parent);
 
     int initialCapacity = 1024;
-    singleMapWriter.setInitialCapacity(initialCapacity);
+    singleStructWriter.setInitialCapacity(initialCapacity);
 
-    IntWriter intWriter = singleMapWriter.integer("intField");
-    BigIntWriter bigIntWriter = singleMapWriter.bigInt("bigIntField");
-    Float4Writer float4Writer = singleMapWriter.float4("float4Field");
-    Float8Writer float8Writer = singleMapWriter.float8("float8Field");
-    ListWriter listWriter = singleMapWriter.list("listField");
+    IntWriter intWriter = singleStructWriter.integer("intField");
+    BigIntWriter bigIntWriter = singleStructWriter.bigInt("bigIntField");
+    Float4Writer float4Writer = singleStructWriter.float4("float4Field");
+    Float8Writer float8Writer = singleStructWriter.float8("float8Field");
+    ListWriter listWriter = singleStructWriter.list("listField");
 
     int intValue = 100;
     long bigIntValue = 10000;
@@ -867,7 +867,7 @@ public class TestComplexWriter {
     double float8Value = 100.375;
 
     for (int i = 0; i < initialCapacity; i++) {
-      singleMapWriter.start();
+      singleStructWriter.start();
 
       intWriter.writeInt(intValue + i);
       bigIntWriter.writeBigInt(bigIntValue + (long)i);
@@ -882,7 +882,7 @@ public class TestComplexWriter {
       listWriter.integer().writeInt(intValue + i + 3);
       listWriter.endList();
 
-      singleMapWriter.end();
+      singleStructWriter.end();
     }
 
     IntVector intVector = (IntVector)parent.getChild("intField");
@@ -890,7 +890,7 @@ public class TestComplexWriter {
     Float4Vector float4Vector = (Float4Vector)parent.getChild("float4Field");
     Float8Vector float8Vector = (Float8Vector)parent.getChild("float8Field");
 
-    assertEquals(initialCapacity, singleMapWriter.getValueCapacity());
+    assertEquals(initialCapacity, singleStructWriter.getValueCapacity());
     assertEquals(initialCapacity, intVector.getValueCapacity());
     assertEquals(initialCapacity, bigIntVector.getValueCapacity());
     assertEquals(initialCapacity, float4Vector.getValueCapacity());

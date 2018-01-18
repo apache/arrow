@@ -96,7 +96,7 @@ public class BaseFileTest {
 
   protected void writeData(int count, NullableStructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     Float4Writer float4Writer = rootWriter.float4("float");
@@ -127,11 +127,11 @@ public class BaseFileTest {
     varchar.setByte(2, 'c');
     varchar.writerIndex(3);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     ListWriter listWriter = rootWriter.list("list");
-    StructWriter mapWriter = rootWriter.map("map");
+    StructWriter structWriter = rootWriter.struct("map");
     for (int i = 0; i < count; i++) {
       if (i % 5 != 3) {
         intWriter.setPosition(i);
@@ -145,10 +145,10 @@ public class BaseFileTest {
         listWriter.varChar().writeVarChar(0, 3, varchar);
       }
       listWriter.endList();
-      mapWriter.setPosition(i);
-      mapWriter.start();
-      mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
-      mapWriter.end();
+      structWriter.setPosition(i);
+      structWriter.start();
+      structWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
+      structWriter.end();
     }
     writer.setValueCount(count);
     varchar.release();
@@ -192,7 +192,7 @@ public class BaseFileTest {
   protected void writeDateTimeData(int count, NullableStructVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     DateMilliWriter dateWriter = rootWriter.dateMilli("date");
     TimeMilliWriter timeWriter = rootWriter.timeMilli("time");
     TimeStampMilliWriter timeStampMilliWriter = rootWriter.timeStampMilli("timestamp-milli");
@@ -502,11 +502,11 @@ public class BaseFileTest {
     varchar.setByte(2, 'c');
     varchar.writerIndex(3);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("union");
     BigIntWriter bigIntWriter = rootWriter.bigInt("union");
     ListWriter listWriter = rootWriter.list("union");
-    StructWriter mapWriter = rootWriter.map("union");
+    StructWriter structWriter = rootWriter.struct("union");
     for (int i = 0; i < count; i++) {
       switch (i % 4) {
         case 0:
@@ -526,10 +526,10 @@ public class BaseFileTest {
           listWriter.endList();
           break;
         case 3:
-          mapWriter.setPosition(i);
-          mapWriter.start();
-          mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
-          mapWriter.end();
+          structWriter.setPosition(i);
+          structWriter.start();
+          structWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
+          structWriter.end();
           break;
       }
     }
@@ -540,7 +540,7 @@ public class BaseFileTest {
   protected void writeVarBinaryData(int count, NullableStructVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     ListWriter listWriter = rootWriter.list("list");
     ArrowBuf varbin = allocator.buffer(count);
     for (int i = 0; i < count; i++) {

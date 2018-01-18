@@ -45,7 +45,7 @@ public class ArrowFileTestFixtures {
 
   static void writeData(int count, StructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    StructWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     for (int i = 0; i < count; i++) {

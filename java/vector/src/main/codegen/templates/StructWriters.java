@@ -33,7 +33,7 @@ package org.apache.arrow.vector.complex.impl;
 <#include "/@includes/vv_imports.ftl" />
 import java.util.Map;
 
-import org.apache.arrow.vector.holders.RepeatedMapHolder;
+import org.apache.arrow.vector.holders.RepeatedStructHolder;
 import org.apache.arrow.vector.AllocationHelper;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
@@ -61,7 +61,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
       MinorType minorType = Types.getMinorTypeForArrowType(child.getType());
       switch (minorType) {
       case MAP:
-        map(child.getName());
+        struct(child.getName());
         break;
       case LIST:
         list(child.getName());
@@ -109,7 +109,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public boolean isEmptyMap() {
+  public boolean isEmptyStruct() {
     return 0 == container.size();
   }
 
@@ -119,7 +119,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public StructWriter map(String name) {
+  public StructWriter struct(String name) {
     String finalName = handleCase(name);
     FieldWriter writer = fields.get(finalName);
     if(writer == null){

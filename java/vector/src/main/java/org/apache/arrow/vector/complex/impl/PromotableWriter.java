@@ -139,8 +139,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
-  public boolean isEmptyMap() {
-    return writer.isEmptyMap();
+  public boolean isEmptyStruct() {
+    return writer.isEmptyStruct();
   }
 
   protected FieldWriter getWriter() {

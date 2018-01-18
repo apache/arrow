@@ -38,15 +38,15 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     Field getField();
 
     /**
-     * Whether this writer is a map writer and is empty (has no children).
+     * Whether this writer is a struct writer and is empty (has no children).
      *
      * <p>
      *   Intended only for use in determining whether to add dummy vector to
      *   avoid empty (zero-column) schema, as in JsonReader.
      * </p>
-     * @return whether the map is empty
+     * @return whether the struct is empty
      */
-    boolean isEmptyMap();
+    boolean isEmptyStruct();
 
     <#list vv.types as type><#list type.minor as minor>
     <#assign lowerName = minor.class?uncap_first />
@@ -60,7 +60,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     </#list></#list>
 
     void copyReaderToField(String name, FieldReader reader);
-    StructWriter map(String name);
+    StructWriter struct(String name);
     ListWriter list(String name);
     void start();
     void end();
@@ -69,7 +69,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
   public interface ListWriter extends BaseWriter {
     void startList();
     void endList();
-    StructWriter map();
+    StructWriter struct();
     ListWriter list();
     void copyReader(FieldReader reader);
 
@@ -89,7 +89,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void allocate();
     void clear();
     void copyReader(FieldReader reader);
-    StructWriter rootAsMap();
+    StructWriter rootAsStruct();
     ListWriter rootAsList();
 
     void setPosition(int index);
@@ -100,10 +100,10 @@ public interface BaseWriter extends AutoCloseable, Positionable {
   public interface StructOrListWriter {
     void start();
     void end();
-    StructOrListWriter map(String name);
-    StructOrListWriter listoftmap(String name);
+    StructOrListWriter struct(String name);
+    StructOrListWriter listoftstruct(String name);
     StructOrListWriter list(String name);
-    boolean isMapWriter();
+    boolean isStructWriter();
     boolean isListWriter();
     VarCharWriter varChar(String name);
     IntWriter integer(String name);

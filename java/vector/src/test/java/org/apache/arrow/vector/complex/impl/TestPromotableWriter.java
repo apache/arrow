@@ -55,7 +55,7 @@ public class TestPromotableWriter {
   public void testPromoteToUnion() throws Exception {
 
     try (final StructVector container = StructVector.empty(EMPTY_SCHEMA_PATH, allocator);
-         final NullableStructVector v = container.addOrGetMap("test");
+         final NullableStructVector v = container.addOrGetStruct("test");
          final PromotableWriter writer = new PromotableWriter(v, container)) {
 
       container.allocateNew();
@@ -103,12 +103,12 @@ public class TestPromotableWriter {
 
       ComplexWriterImpl newWriter = new ComplexWriterImpl(EMPTY_SCHEMA_PATH, container);
 
-      StructWriter newMapWriter = newWriter.rootAsMap();
+      StructWriter newStructWriter = newWriter.rootAsStruct();
 
-      newMapWriter.start();
+      newStructWriter.start();
 
-      newMapWriter.setPosition(2);
-      newMapWriter.integer("A").writeInt(10);
+      newStructWriter.setPosition(2);
+      newStructWriter.integer("A").writeInt(10);
 
       Field childField1 = container.getField().getChildren().get(0).getChildren().get(0);
       Field childField2 = container.getField().getChildren().get(0).getChildren().get(1);

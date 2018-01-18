@@ -64,9 +64,9 @@ public interface BaseReader extends Positionable{
   BaseReader {}
   
   interface ComplexReader{
-    StructReader rootAsMap();
+    StructReader rootAsStruct();
     ListReader rootAsList();
-    boolean rootIsMap();
+    boolean rootIsStruct();
     boolean ok();
   }
 }

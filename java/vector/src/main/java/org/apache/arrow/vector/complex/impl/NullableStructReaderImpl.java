@@ -46,7 +46,7 @@ public class NullableStructReaderImpl extends SingleStructReaderImpl {
 
   @Override
   public void copyAsField(String name, StructWriter writer) {
-    NullableStructWriter impl = (NullableStructWriter) writer.map(name);
+    NullableStructWriter impl = (NullableStructWriter) writer.struct(name);
     impl.container.copyFromSafe(idx(), impl.idx(), nullableStructVector);
   }
 

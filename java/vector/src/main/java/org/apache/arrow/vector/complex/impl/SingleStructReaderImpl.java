@@ -104,7 +104,7 @@ public class SingleStructReaderImpl extends AbstractFieldReader {
 
   @Override
   public void copyAsField(String name, StructWriter writer) {
-    SingleStructWriter impl = (SingleStructWriter) writer.map(name);
+    SingleStructWriter impl = (SingleStructWriter) writer.struct(name);
     impl.container.copyFromSafe(idx(), impl.idx(), vector);
   }
 

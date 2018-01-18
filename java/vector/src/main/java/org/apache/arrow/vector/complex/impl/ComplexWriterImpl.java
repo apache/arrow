@@ -30,7 +30,7 @@ import com.google.common.base.Preconditions;
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ComplexWriterImpl.class);
 
-  private NullableStructWriter mapRoot;
+  private NullableStructWriter structRoot;
   private UnionListWriter listRoot;
   private final StructVector container;
 
@@ -81,7 +81,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public void close() throws Exception {
     clear();
-    mapRoot.close();
+    structRoot.close();
     if (listRoot != null) {
       listRoot.close();
     }
@@ -91,7 +91,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   public void clear() {
     switch (mode) {
       case MAP:
-        mapRoot.clear();
+        structRoot.clear();
         break;
       case LIST:
         listRoot.clear();
@@ -103,7 +103,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   public void setValueCount(int count) {
     switch (mode) {
       case MAP:
-        mapRoot.setValueCount(count);
+        structRoot.setValueCount(count);
         break;
       case LIST:
         listRoot.setValueCount(count);
@@ -116,7 +116,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     super.setPosition(index);
     switch (mode) {
       case MAP:
-        mapRoot.setPosition(index);
+        structRoot.setPosition(index);
         break;
       case LIST:
         listRoot.setPosition(index);
@@ -125,14 +125,14 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
 
-  public StructWriter directMap() {
+  public StructWriter directStruct() {
     Preconditions.checkArgument(name == null);
 
     switch (mode) {
 
       case INIT:
-        mapRoot = nullableStructWriterFactory.build((NullableStructVector) container);
-        mapRoot.setPosition(idx());
+        structRoot = nullableStructWriterFactory.build((NullableStructVector) container);
+        structRoot.setPosition(idx());
         mode = Mode.MAP;
         break;
 
@@ -143,18 +143,18 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         check(Mode.INIT, Mode.MAP);
     }
 
-    return mapRoot;
+    return structRoot;
   }
 
   @Override
-  public StructWriter rootAsMap() {
+  public StructWriter rootAsStruct() {
     switch (mode) {
 
       case INIT:
         // TODO allow dictionaries in complex types
-        NullableStructVector map = container.addOrGetMap(name);
-        mapRoot = nullableStructWriterFactory.build(map);
-        mapRoot.setPosition(idx());
+        NullableStructVector struct = container.addOrGetStruct(name);
+        structRoot = nullableStructWriterFactory.build(struct);
+        structRoot.setPosition(idx());
         mode = Mode.MAP;
         break;
 
@@ -165,13 +165,13 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         check(Mode.INIT, Mode.MAP);
     }
 
-    return mapRoot;
+    return structRoot;
   }
 
   @Override
   public void allocate() {
-    if (mapRoot != null) {
-      mapRoot.allocate();
+    if (structRoot != null) {
+      structRoot.allocate();
     } else if (listRoot != null) {
       listRoot.allocate();
     }

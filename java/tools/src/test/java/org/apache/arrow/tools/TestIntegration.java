@@ -78,7 +78,7 @@ public class TestIntegration {
             Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      StructWriter rootWriter = writer.rootAsMap();
+      StructWriter rootWriter = writer.rootAsStruct();
       Float8Writer floatWriter = rootWriter.float8("float");
       for (int i = 0; i < f.length; i++) {
         floatWriter.setPosition(i);
@@ -98,7 +98,7 @@ public class TestIntegration {
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      StructWriter rootWriter = writer.rootAsMap();
+      StructWriter rootWriter = writer.rootAsStruct();
       IntWriter intWriter = rootWriter.integer("int");
       BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
       intWriter.setPosition(5);

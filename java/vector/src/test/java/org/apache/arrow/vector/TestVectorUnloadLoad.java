@@ -72,7 +72,7 @@ public class TestVectorUnloadLoad {
 
       // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      StructWriter rootWriter = writer.rootAsMap();
+      StructWriter rootWriter = writer.rootAsStruct();
       IntWriter intWriter = rootWriter.integer("int");
       BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
       for (int i = 0; i < count; i++) {
@@ -120,7 +120,7 @@ public class TestVectorUnloadLoad {
 
       // write some data
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      StructWriter rootWriter = writer.rootAsMap();
+      StructWriter rootWriter = writer.rootAsStruct();
       ListWriter list = rootWriter.list("list");
       IntWriter intWriter = list.integer();
       for (int i = 0; i < count; i++) {

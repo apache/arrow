@@ -82,7 +82,7 @@ public class UnionReader extends AbstractFieldReader {
     case NULL:
       return NullReader.INSTANCE;
     case MAP:
-      return (FieldReader) getMap();
+      return (FieldReader) getStruct();
     case LIST:
       return (FieldReader) getList();
     <#list vv.types as type>
@@ -100,15 +100,15 @@ public class UnionReader extends AbstractFieldReader {
     }
   }
 
-  private SingleStructReaderImpl mapReader;
+  private SingleStructReaderImpl structReader;
 
-  private StructReader getMap() {
-    if (mapReader == null) {
-      mapReader = (SingleStructReaderImpl) data.getMap().getReader();
-      mapReader.setPosition(idx());
-      readers[MinorType.MAP.ordinal()] = mapReader;
+  private StructReader getStruct() {
+    if (structReader == null) {
+      structReader = (SingleStructReaderImpl) data.getStruct().getReader();
+      structReader.setPosition(idx());
+      readers[MinorType.MAP.ordinal()] = structReader;
     }
-    return mapReader;
+    return structReader;
   }
 
   private UnionListReader listReader;
@@ -124,7 +124,7 @@ public class UnionReader extends AbstractFieldReader {
 
   @Override
   public java.util.Iterator<String> iterator() {
-    return getMap().iterator();
+    return getStruct().iterator();
   }
 
   @Override
@@ -198,7 +198,7 @@ public class UnionReader extends AbstractFieldReader {
   }
 
   public FieldReader reader(String name){
-    return getMap().reader(name);
+    return getStruct().reader(name);
   }
 
   public FieldReader reader() {
