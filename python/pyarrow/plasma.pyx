@@ -248,8 +248,8 @@ cdef class PlasmaClient:
             check_status(self.client.get().Get(ids.data(), ids.size(),
                          timeout_ms, result[0].data()))
 
-    cdef _make_plasma_buffer(self, ObjectID object_id, shared_ptr[CBuffer] buffer,
-                             int64_t size):
+    cdef _make_plasma_buffer(self, ObjectID object_id,
+                             shared_ptr[CBuffer] buffer, int64_t size):
         result = PlasmaBuffer(object_id, self)
         result.init(buffer)
         return result
@@ -302,7 +302,9 @@ cdef class PlasmaClient:
             check_status(self.client.get().Create(object_id.data, data_size,
                                                   <uint8_t*>(metadata.data()),
                                                   metadata.size(), &data))
-        return self._make_mutable_plasma_buffer(object_id, data.get().mutable_data(), data_size)
+        return self._make_mutable_plasma_buffer(object_id,
+                                                data.get().mutable_data(),
+                                                data_size)
 
     def get_buffers(self, object_ids, timeout_ms=-1):
         """
