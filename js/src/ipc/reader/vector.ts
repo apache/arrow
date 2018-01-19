@@ -16,7 +16,7 @@
 // under the License.
 
 import { Vector } from '../../vector';
-import { RecordBatch } from '../../table';
+import { RecordBatch } from '../../recordbatch';
 import { TypeVisitor } from '../../visitor';
 import { FlatType, NestedType, ListType } from '../../type';
 import { Message, FieldMetadata, BufferMetadata } from '../metadata';

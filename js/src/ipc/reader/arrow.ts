@@ -16,7 +16,7 @@
 // under the License.
 
 import { readJSON } from './json';
-import { RecordBatch } from '../../table';
+import { RecordBatch } from '../../recordbatch';
 import { readBuffers, readBuffersAsync } from './binary';
 import { readRecordBatches, readRecordBatchesAsync, TypeDataLoader } from './vector';
 import { Schema } from '../../type';

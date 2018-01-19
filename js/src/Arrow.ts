@@ -21,7 +21,7 @@ import { Vector } from './vector';
 import * as vector_ from './vector';
 import * as util_ from './util/int';
 import { Schema, Field, Type } from './type';
-import { Table, RecordBatch } from './table';
+import { Table, RecordBatch } from './recordbatch';
 import { read, readAsync } from './ipc/reader/arrow';
 
 export import View = vector_.View;
@@ -130,11 +130,7 @@ try {
         Arrow['Table'] = Table;
         Arrow['RecordBatch'] = RecordBatch;
         Arrow['Vector'] = Vector;
-        // Arrow['DataType'] = type_.DataType;
 
-        // Arrow['Uint64'] = util_.Uint64;
-        // Arrow['Int64'] = util_.Int64;
-        // Arrow['Int128'] = util_.Int128;
     }
 } catch (e) { /* not the UMD bundle */ }
 /* end umd exports */
