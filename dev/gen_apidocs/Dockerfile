@@ -14,19 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM ubuntu:14.04
-# Prerequsites for apt-add-repository
-RUN apt-get update && apt-get install -y \
-    software-properties-common python-software-properties
+FROM ubuntu:16.04
+
 # Basic OS dependencies
-RUN apt-add-repository -y ppa:ubuntu-toolchain-r/test && \
-    apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
         wget \
         rsync \
         git \
         gcc-4.9 \
         g++-4.9 \
-        build-essential
+        build-essential \
+        software-properties-common
+
+# Java build fails with default JDK8
+RUN add-apt-repository ppa:openjdk-r/ppa &&\
+    apt-get update &&\
+    apt-get install -y openjdk-7-jdk &&\
+    update-java-alternatives -s java-1.7.0-openjdk-amd64
+
 # This will install conda in /home/ubuntu/miniconda
 RUN wget -O /tmp/miniconda.sh \
     https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
@@ -73,6 +78,7 @@ RUN /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
         doxygen \
         maven \
         -c conda-forge
+
 ADD . /apache-arrow
 WORKDIR /apache-arrow
 CMD arrow/dev/gen_apidocs/create_documents.sh

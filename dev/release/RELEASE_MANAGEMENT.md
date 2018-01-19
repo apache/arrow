@@ -112,6 +112,15 @@ software must be built in order to create the documentation, so this
 step may take some time to run, especially the first time around as the
 Docker container will also have to be built.
 
+To upload the updated documentation to the website, navigate to `site/asf-site`
+and commit all changes:
+
+```
+pushd site/asf-site
+git add .
+git commit -m "Updated API documentation for version X.Y.Z"
+```
+
 After successfully creating the API documentation the website can be
 run locally to browse the API documentation from the top level
 `Documentation` menu. To run the website issue the command:
