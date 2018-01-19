@@ -1,74 +1,78 @@
 ---
 layout: default
 ---
-    <div class="container">
-      <div class="jumbotron">
+<div class="container">
+    <div class="jumbotron">
         <h1>Apache Arrow</h1>
-        <p class="lead">Powering Columnar In-Memory Analytics</p>
+        <p class="lead">A cross-language development platform for in-memory data</p>
         <p>
-          <a class="btn btn-lg btn-success" href="mailto:dev-subscribe@arrow.apache.org" role="button">Join Mailing List</a>
-          <a class="btn btn-lg btn-primary" href="{{ site.baseurl }}/install/" role="button">Install (0.8.0 Release - December 18, 2017)</a>
+            <a class="btn btn-lg btn-success" style="white-space: normal;" href="mailto:dev-subscribe@arrow.apache.org" role="button">Join Mailing List</a>
+            <a class="btn btn-lg btn-primary" style="white-space: normal;" href="{{ site.baseurl }}/install/" role="button">Install ({{site.data.versions['current'].number}} Release - {{site.data.versions['current'].date}})</a>
         </p>
-      </div>
-      <h4><a href="{{ site.baseurl }}/blog/"><strong>See Latest News</strong></a></h4>
-      <div class="row">
+    </div>
+    <div class="row">
+        <div class="col-xs-12">
+            <h4>
+                <a href="{{ site.baseurl }}/blog/"><strong>See Latest News</strong></a>
+            </h4>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xs-12">
+            <p>Apache Arrow is a cross-language development platform for in-memory data. It specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware. It also provides computational libraries and zero-copy streaming messaging and interprocess communication. Languages currently supported include C, C++, Java, JavaScript, Python, and Ruby.</p>
+        </div>
+    </div>
+    <div class="row">
         <div class="col-lg-4">
-          <h2>Fast</h2>
-          <p>Apache Arrow&#8482; enables execution engines to take advantage of
- the latest SIMD (Single input multiple data) operations included in modern
- processors, for native vectorized optimization of analytical data
- processing. Columnar layout is optimized for data locality for better
- performance on modern hardware like CPUs and GPUs.</p>
-
-          <p>The Arrow memory format supports <strong>zero-copy reads</strong>
-          for lightning-fast data access without serialization overhead.</p>
-
+            <h2>Fast</h2>
+            <p>Apache Arrow&#8482; enables execution engines to take advantage of the latest SIMD (Single input multiple data) operations included in modern processors, for native vectorized optimization of analytical data processing. Columnar layout is optimized for data locality for better performance on modern hardware like CPUs and GPUs.</p>
+            <p>The Arrow memory format supports <strong>zero-copy reads</strong> for lightning-fast data access without serialization overhead.</p>
         </div>
         <div class="col-lg-4">
-          <h2>Flexible</h2>
-          <p>Arrow acts as a new high-performance interface between various
-          systems. It is also focused on supporting a wide variety of
-          industry-standard programming languages. Java, C, C++, Python, Ruby,
-          and JavaScript implementations are in progress and more languages are
-          welcome.</p>
+            <h2>Flexible</h2>
+            <p>Arrow acts as a new high-performance interface between various systems. It is also focused on supporting a wide variety of industry-standard programming languages. Java, C, C++, Python, Ruby, and JavaScript implementations are in progress and more languages are welcome.
+            </p>
         </div>
         <div class="col-lg-4">
-          <h2>Standard</h2>
-          <p>Apache Arrow is backed by key developers of 13 major open source
-          projects, including Calcite, Cassandra, Drill, Hadoop, HBase, Ibis,
-          Impala, Kudu, Pandas, Parquet, Phoenix, Spark, and Storm making it
-          the de-facto standard for columnar in-memory analytics.</p>
-
-          <p>Learn more about projects that are <a href="{{ site.baseurl
-          }}/powered_by/">Powered By Apache Arrow</a></p>
-
+            <h2>Standard</h2>
+            <p>Apache Arrow is backed by key developers of 13 major open source projects, including Calcite, Cassandra, Drill, Hadoop, HBase, Ibis, Impala, Kudu, Pandas, Parquet, Phoenix, Spark, and Storm making it the de-facto standard for columnar in-memory analytics.</p>
+            <p>Learn more about projects that are <a href="{{ site.baseurl }}/powered_by/">Powered By Apache Arrow</a></p>
         </div>
-     </div> <!-- close "row" div -->
+    </div>
+    <!-- close "row" div -->
 
-<h2>Performance Advantage of Columnar In-Memory</h2>
-<div align="center">
-  <img src="img/simd.png" alt="SIMD" style="width:60%" />
-</div>
-<h2>Advantages of a Common Data Layer</h2>
+    <div class="row">
+        <div class="col-xs-12">
+            <h2>Performance Advantage of Columnar In-Memory</h2>
+        </div>
+        <div class="col-lg-offset-2 col-lg-8 col-xs-12">
+            <img src="img/simd.png" alt="SIMD" class="img-responsive" />
+        </div>
+    </div>
 
-<div class="row">
-<div class="col-lg-4" style="width:50%">
-<img src="img/copy2.png" alt="common data layer" style="width:100%" />
-<ul>
-    <li>Each system has its own internal memory format</li>
-    <li>70-80% computation wasted on serialization and deserialization</li>
-    <li>Similar functionality implemented in multiple projects</li>
-</ul>
+    <div class="row">
+        <div class="col-xs-12">
+            <h2>Advantages of a Common Data Layer</h2>
+        </div>
+        <div class="col-lg-6 col-lg-offset-0 col-sm-8 col-sm-offset-2 col-xs-10 col-xs-offset-1">
+            <img src="img/copy.png" alt="common data layer" class="img-responsive" />
+            <ul>
+                <li>Each system has its own internal memory format</li>
+                <li>70-80% computation wasted on serialization and deserialization</li>
+                <li>Similar functionality implemented in multiple projects</li>
+            </ul>
+        </div>
+        <div class="col-lg-6 col-lg-offset-0 col-sm-8 col-sm-offset-2 col-xs-10 col-xs-offset-1">
+            <img src="img/shared.png" alt="common data layer" class="img-responsive" />
+            <ul>
+                <li>All systems utilize the same memory format</li>
+                <li>No overhead for cross-system communication</li>
+                <li>Projects can share functionality (eg, Parquet-to-Arrow reader)</li>
+            </ul>
+        </div>
+    </div>
 </div>
-<div class="col-lg-4" style="width:50%">
-<img src="img/shared2.png" alt="common data layer" style="width:100%" />
-<ul>
-    <li>All systems utilize the same memory format</li>
-    <li>No overhead for cross-system communication</li>
-    <li>Projects can share functionality (eg, Parquet-to-Arrow reader)</li>
-</ul>
-</div>
-</div>
-    </div> <!-- /container -->
-  </body>
+<!-- /container -->  
+
+</body>
 </html>
