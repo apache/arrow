@@ -93,7 +93,6 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    *                                                                *
    ******************************************************************/
 
-
   /**
    * Get the element at the given index from the vector.
    *
@@ -101,10 +100,10 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public byte[] get(int index) {
+    assert index >= 0;
     if (isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    assert index >= 0;
     final byte[] dst = new byte[byteWidth];
     valueBuffer.getBytes(index * byteWidth, dst, 0, byteWidth);
     return dst;
@@ -119,6 +118,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * @param holder nullable holder to carry the buffer
    */
   public void get(int index, NullableFixedSizeBinaryHolder holder) {
+    assert index >= 0;
     if (isSet(index) == 0) {
       holder.isSet = 0;
       return;
@@ -135,10 +135,13 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   @Override
   public byte[] getObject(int index) {
+    assert index >= 0;
     if (isSet(index) == 0) {
       return null;
     } else {
-      return get(index);
+      final byte[] dst = new byte[byteWidth];
+      valueBuffer.getBytes(index * byteWidth, dst, 0, byteWidth);
+      return dst;
     }
   }
 
