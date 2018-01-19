@@ -118,13 +118,13 @@ describe(`Table`, () => {
         // Wrap floating point values in a Float32Array and take them back out to
         // make sure that equality checks will pass
         const values = [
-            [new Float32Array([-0.3])[0], -1, 'a'],
-            [new Float32Array([-0.2])[0],  1, 'b'],
-            [new Float32Array([-0.1])[0], -1, 'c'],
-            [new Float32Array([ 0  ])[0],  1, 'a'],
-            [new Float32Array([ 0.1])[0], -1, 'b'],
-            [new Float32Array([ 0.2])[0],  1, 'c'],
-            [new Float32Array([ 0.3])[0], -1, 'a']
+            [Math.fround(-0.3), -1, 'a'],
+            [Math.fround(-0.2),  1, 'b'],
+            [Math.fround(-0.1), -1, 'c'],
+            [Math.fround( 0  ),  1, 'a'],
+            [Math.fround( 0.1), -1, 'b'],
+            [Math.fround( 0.2),  1, 'c'],
+            [Math.fround( 0.3), -1, 'a']
         ];
         test(`has the correct length`, () => {
             expect(table.length).toEqual(values.length);
@@ -321,15 +321,15 @@ describe(`Table`, () => {
         // Wrap floating point values in a Float32Array and take them back out to
         // make sure that equality checks will pass
         const values = [
-            [new Float32Array([-0.3])[0], -1, 'a'],
-            [new Float32Array([-0.2])[0],  1, 'b'],
-            [new Float32Array([-0.1])[0], -1, 'c'],
-            [new Float32Array([ 0  ])[0],  1, 'a'],
-            [new Float32Array([ 0.1])[0], -1, 'b'],
-            [new Float32Array([ 0.2])[0],  1, 'c'],
-            [new Float32Array([ 0.3])[0], -1, 'a'],
-            [new Float32Array([ 0.2])[0],  1, 'b'],
-            [new Float32Array([ 0.1])[0], -1, 'c'],
+            [Math.fround(-0.3), -1, 'a'],
+            [Math.fround(-0.2),  1, 'b'],
+            [Math.fround(-0.1), -1, 'c'],
+            [Math.fround( 0  ),  1, 'a'],
+            [Math.fround( 0.1), -1, 'b'],
+            [Math.fround( 0.2),  1, 'c'],
+            [Math.fround( 0.3), -1, 'a'],
+            [Math.fround( 0.2),  1, 'b'],
+            [Math.fround( 0.1), -1, 'c'],
         ];
         test(`has the correct length`, () => {
             expect(table.length).toEqual(values.length);
