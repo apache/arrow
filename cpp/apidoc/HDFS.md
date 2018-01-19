@@ -50,6 +50,10 @@ export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 * `ARROW_LIBHDFS_DIR` (optional): explicit location of `libhdfs.so` if it is
 installed somewhere other than `$HADOOP_HOME/lib/native`.
 
+To accommodate distribution-specific nuances, the `JAVA_HOME` variable may be
+set to the root path for the Java SDK, the JRE path itself, or to the directory
+containing the `libjvm` library.
+
 ### Mac Specifics
 
 The installed location of Java on OS X can vary, however the following snippet

@@ -16,6 +16,7 @@
 # under the License.
 
 CLEANFILES =
+DISTCLEANFILES =
 
 EXTRA_DIST =					\
 	meson.build
@@ -169,6 +170,10 @@ BUILT_SOURCES =					\
 	stamp-enums.c				\
 	stamp-enums.h
 
+DISTCLEANFILES +=				\
+	stamp-enums.c				\
+	stamp-enums.h
+
 EXTRA_DIST +=					\
 	enums.c.template			\
 	enums.h.template
@@ -214,7 +219,7 @@ INTROSPECTION_SCANNER_ARGS =
 INTROSPECTION_SCANNER_ENV =
 if USE_ARROW_BUILD_DIR
 INTROSPECTION_SCANNER_ENV +=			\
-	LD_LIBRARY_PATH=$(ARROW_LIB_DIR):$${PKG_CONFIG_PATH}
+	LD_LIBRARY_PATH=$(ARROW_LIB_DIR):$${LD_LIBRARY_PATH}
 endif
 if OS_MACOS
 INTROSPECTION_SCANNER_ENV +=			\
