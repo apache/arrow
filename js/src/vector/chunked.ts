@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType, TypedArray } from '../type';
-import { View, Vector } from '../vector';
-import { IterableArrayLike } from '../type';
 import { ChunkedData } from '../data';
+import { View, Vector } from '../vector';
+import { DataType, TypedArray, IterableArrayLike } from '../type';
 
 export class ChunkedView<T extends DataType> implements View<T> {
     public chunks: Vector<T>[];

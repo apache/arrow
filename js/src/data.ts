@@ -22,6 +22,7 @@ import { Int, Bool, FlatListType, List, FixedSizeList, Struct, Map_ } from './ty
 import { DataType, FlatType, ListType, NestedType, DenseUnion, SparseUnion } from './type';
 
 export function toTypedArray<T extends TypedArray>(ArrayType: TypedArrayConstructor<T>, values?: T | ArrayLike<number> | Iterable<number> | null): T {
+    if (!ArrayType && ArrayBuffer.isView(values)) { return values; }
     return values instanceof ArrayType ? values
          : !values || !ArrayBuffer.isView(values) ? ArrayType.from(values || [])
          : new ArrayType(values.buffer, values.byteOffset, values.byteLength / ArrayType.BYTES_PER_ELEMENT);

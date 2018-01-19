@@ -17,11 +17,13 @@
 
 import * as type_ from './type';
 import * as data_ from './data';
-import { Vector } from './vector';
 import * as vector_ from './vector';
 import * as util_ from './util/int';
+import { Vector } from './vector';
+import { RecordBatch } from './recordbatch';
 import { Schema, Field, Type } from './type';
-import { Table, RecordBatch } from './recordbatch';
+import { Table, CountByResult } from './table';
+import { lit, col, Col, Value } from './predicate';
 import { read, readAsync } from './ipc/reader/arrow';
 
 export import View = vector_.View;
@@ -32,7 +34,9 @@ export import TimeBitWidth = type_.TimeBitWidth;
 export import TypedArrayConstructor = type_.TypedArrayConstructor;
 
 export { read, readAsync };
-export { Field, Schema, Table, RecordBatch, Vector, Type };
+export { Table, CountByResult };
+export { lit, col, Col, Value };
+export { Field, Schema, RecordBatch, Vector, Type };
 
 export namespace util {
     export import Uint64 = util_.Uint64;
@@ -125,23 +129,31 @@ try {
         Arrow['read'] = read;
         Arrow['readAsync'] = readAsync;
 
+        Arrow['Type'] = Type;
         Arrow['Field'] = Field;
         Arrow['Schema'] = Schema;
-        Arrow['Table'] = Table;
-        Arrow['RecordBatch'] = RecordBatch;
         Arrow['Vector'] = Vector;
+        Arrow['RecordBatch'] = RecordBatch;
 
+        Arrow['Table'] = Table;
+        Arrow['CountByResult'] = CountByResult;
+        Arrow['Value'] = Value;
+        Arrow['lit'] = lit;
+        Arrow['col'] = col;
+        Arrow['Col'] = Col;
     }
 } catch (e) { /* not the UMD bundle */ }
 /* end umd exports */
 
-// closure compiler always erases static method names:
+// closure compiler erases static properties/methods:
 // https://github.com/google/closure-compiler/issues/1776
 // set them via string indexers to save them from the mangler
+Schema['from'] = Schema.from;
 Table['from'] = Table.from;
 Table['fromAsync'] = Table.fromAsync;
 Table['empty'] = Table.empty;
 Vector['create'] = Vector.create;
+RecordBatch['from'] = RecordBatch.from;
 
 util_.Uint64['add'] = util_.Uint64.add;
 util_.Uint64['multiply'] = util_.Uint64.multiply;
@@ -155,6 +167,28 @@ util_.Int128['multiply'] = util_.Int128.multiply;
 util_.Int128['fromString'] = util_.Int128.fromString;
 
 data_.ChunkedData['computeOffsets'] = data_.ChunkedData.computeOffsets;
+
+(type_.Type as any)['NONE'] = type_.Type.NONE;
+(type_.Type as any)['Null'] = type_.Type.Null;
+(type_.Type as any)['Int'] = type_.Type.Int;
+(type_.Type as any)['Float'] = type_.Type.Float;
+(type_.Type as any)['Binary'] = type_.Type.Binary;
+(type_.Type as any)['Utf8'] = type_.Type.Utf8;
+(type_.Type as any)['Bool'] = type_.Type.Bool;
+(type_.Type as any)['Decimal'] = type_.Type.Decimal;
+(type_.Type as any)['Date'] = type_.Type.Date;
+(type_.Type as any)['Time'] = type_.Type.Time;
+(type_.Type as any)['Timestamp'] = type_.Type.Timestamp;
+(type_.Type as any)['Interval'] = type_.Type.Interval;
+(type_.Type as any)['List'] = type_.Type.List;
+(type_.Type as any)['Struct'] = type_.Type.Struct;
+(type_.Type as any)['Union'] = type_.Type.Union;
+(type_.Type as any)['FixedSizeBinary'] = type_.Type.FixedSizeBinary;
+(type_.Type as any)['FixedSizeList'] = type_.Type.FixedSizeList;
+(type_.Type as any)['Map'] = type_.Type.Map;
+(type_.Type as any)['Dictionary'] = type_.Type.Dictionary;
+(type_.Type as any)['DenseUnion'] = type_.Type.DenseUnion;
+(type_.Type as any)['SparseUnion'] = type_.Type.SparseUnion;
 
 type_.DataType['isNull'] = type_.DataType.isNull;
 type_.DataType['isInt'] = type_.DataType.isInt;
@@ -176,3 +210,7 @@ type_.DataType['isFixedSizeBinary'] = type_.DataType.isFixedSizeBinary;
 type_.DataType['isFixedSizeList'] = type_.DataType.isFixedSizeList;
 type_.DataType['isMap'] = type_.DataType.isMap;
 type_.DataType['isDictionary'] = type_.DataType.isDictionary;
+
+vector_.BoolVector['from'] = vector_.BoolVector.from;
+vector_.IntVector['from'] = vector_.IntVector.from;
+vector_.FloatVector['from'] = vector_.FloatVector.from;

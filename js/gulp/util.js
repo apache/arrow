@@ -87,7 +87,7 @@ const ESKeywords = [
     // EventTarget
     `addListener`, `removeListener`, `addEventListener`, `removeEventListener`,
     // Arrow properties
-    `low`, `high`, `data`, `index`, `field`, `validity`, `columns`, `fieldNode`, `subarray`,
+    `low`, `high`, `data`, `index`, `field`, `columns`, 'numCols', 'numRows', `values`, `valueOffsets`, `nullBitmap`, `subarray`
 ];
 
 function taskName(target, format) {

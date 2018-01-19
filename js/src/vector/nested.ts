@@ -44,7 +44,7 @@ export abstract class NestedView<T extends NestedType> implements View<T> {
     public toArray(): IterableArrayLike<T['TValue']> {
         return [...this];
     }
-    public toJSON() { return this.toArray(); }
+    public toJSON(): any { return this.toArray(); }
     public toString() {
         return [...this].map((x) => stringify(x)).join(', ');
     }
@@ -104,7 +104,6 @@ export class UnionView<T extends (DenseUnion | SparseUnion) = SparseUnion> exten
 }
 
 export class DenseUnionView extends UnionView<DenseUnion> {
-    // @ts-ignore
     public valueOffsets: Int32Array;
     constructor(data: Data<DenseUnion>, children?: Vector<any>[]) {
         super(data, children);
@@ -128,14 +127,16 @@ export class StructView extends NestedView<Struct> {
         return new RowView(self as any, self.children, index);
     }
     protected setNested(self: StructView, index: number, value: any): void {
-        for (let idx = -1, len = self.numChildren; ++idx < len;) {
-            self.getChildAt(index).set(index, value[idx]);
+        let idx = -1, len = self.numChildren;
+        if (!(value instanceof NestedView || value instanceof Vector)) {
+            while (++idx < len) { self.getChildAt(idx).set(index, value[idx]); }
+        } else {
+            while (++idx < len) { self.getChildAt(idx).set(index, value.get(idx)); }
         }
     }
 }
 
 export class MapView extends NestedView<Map_> {
-    // @ts-ignore
     public typeIds: { [k: string]: number };
     constructor(data: Data<Map_>, children?: Vector<any>[]) {
         super(data, children);
@@ -146,8 +147,11 @@ export class MapView extends NestedView<Map_> {
         return new MapRowView(self as any, self.children, index);
     }
     protected setNested(self: MapView, index: number, value: { [k: string]: any }): void {
-        for (const [key, idx] of Object.entries(self.typeIds)) {
-            self.getChildAt(idx).set(index, value[key]);
+        const typeIds = self.typeIds as any;
+        if (!(value instanceof NestedView || value instanceof Vector)) {
+            for (const key in typeIds) { self.getChildAt(typeIds[key]).set(index, value[key]); }
+        } else {
+            for (const key in typeIds) { self.getChildAt(typeIds[key]).set(index, value.get(key as any)); }
         }
     }
 }
@@ -166,19 +170,30 @@ export class RowView extends UnionView<SparseUnion> {
         const child = self.getChildAt(index);
         return child ? child.get(self.rowIndex) : null;
     }
-    protected setChildValue(self: RowView, index: number, value: any, _typeIds: Int8Array, _valueOffsets?: any): any | null {
+    protected setChildValue(self: RowView, index: number, value: any, _typeIds: any, _valueOffsets?: any): any | null {
         const child = self.getChildAt(index);
         return child ? child.set(self.rowIndex, value) : null;
     }
 }
 
 export class MapRowView extends RowView {
-    protected getChildValue(self: MapRowView, index: number, typeIds: any, _valueOffsets: any): any | null {
-        const child = self.getChildAt(typeIds[index]);
+    // @ts-ignore
+    public typeIds: any;
+    public toJSON() {
+        const get = this.getChildValue;
+        const result = {} as { [k: string]: any };
+        const typeIds = this.typeIds as { [k: string]: number };
+        for (const name in typeIds) {
+            result[name] = get(this, name, typeIds, null);
+        }
+        return result;
+    }
+    protected getChildValue(self: MapRowView, key: any, typeIds: any, _valueOffsets: any): any | null {
+        const child = self.getChildAt(typeIds[key]);
         return child ? child.get(self.rowIndex) : null;
     }
-    protected setChildValue(self: MapRowView, index: number, value: any, typeIds: Int8Array, _valueOffsets?: any): any | null {
-        const child = self.getChildAt(typeIds[index]);
+    protected setChildValue(self: MapRowView, key: any, value: any, typeIds: any, _valueOffsets?: any): any | null {
+        const child = self.getChildAt(typeIds[key]);
         return child ? child.set(self.rowIndex, value) : null;
     }
 }

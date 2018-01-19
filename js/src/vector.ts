@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, ChunkedData } from './data';
+import { Data, ChunkedData, FlatData, BoolData } from './data';
 import { VisitorNode, TypeVisitor, VectorVisitor } from './visitor';
 import { DataType, ListType, FlatType, NestedType, FlatListType } from './type';
 import { IterableArrayLike, Precision, DateUnit, IntervalUnit, UnionMode } from './type';
@@ -35,73 +35,70 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
     public static create<T extends DataType>(data: Data<T>): Vector<T> {
         return createVector(data);
     }
-    // @ts-ignore
-    protected _data: Data<T>;
-    // @ts-ignore
-    protected _view: View<T>;
+    public readonly data: Data<T>;
+    public readonly view: View<T>;
     constructor(data: Data<T>, view: View<T>) {
-        this._data = data;
+        this.data = data;
         let nulls: Uint8Array;
         if ((<any> data instanceof ChunkedData) && !(view instanceof ChunkedView)) {
-            this._view = new ChunkedView(data);
+            this.view = new ChunkedView(data);
         } else if (!(view instanceof ValidityView) && (nulls = data.nullBitmap!) && nulls.length > 0 && data.nullCount > 0) {
-            this._view = new ValidityView(data, view);
+            this.view = new ValidityView(data, view);
         } else {
-            this._view = view;
+            this.view = view;
         }
     }
 
-    public get data() { return this._data; }
-    public get type() { return this._data.type; }
-    public get length() { return this._data.length; }
-    public get nullCount() { return this._data.nullCount; }
-    public get nullBitmap() { return this._data.nullBitmap; }
+    public get type() { return this.data.type; }
+    public get length() { return this.data.length; }
+    public get nullCount() { return this.data.nullCount; }
+    public get nullBitmap() { return this.data.nullBitmap; }
     public get [Symbol.toStringTag]() {
         return `Vector<${this.type[Symbol.toStringTag]}>`;
     }
-    public toJSON() { return this.toArray(); }
-    public clone(data: Data<T>): this {
-        return this._view.clone(this._data = data) && this || this;
+    public toJSON(): any { return this.toArray(); }
+    public clone(data: Data<T>, view: View<T> = this.view.clone(data)): this {
+        return new (this.constructor as any)(data, view);
     }
     public isValid(index: number): boolean {
-        return this._view.isValid(index);
+        return this.view.isValid(index);
     }
     public get(index: number): T['TValue'] | null {
-        return this._view.get(index);
+        return this.view.get(index);
     }
     public set(index: number, value: T['TValue']): void {
-        return this._view.set(index, value);
+        return this.view.set(index, value);
     }
     public toArray(): IterableArrayLike<T['TValue'] | null> {
-        return this._view.toArray();
+        return this.view.toArray();
     }
     public [Symbol.iterator](): IterableIterator<T['TValue'] | null> {
-        return this._view[Symbol.iterator]();
+        return this.view[Symbol.iterator]();
     }
     public concat(...others: Vector<T>[]): this {
         if ((others = others.filter(Boolean)).length === 0) {
             return this;
         }
-        const { _view: view } = this;
+        const { view } = this;
         const vecs = !(view instanceof ChunkedView)
             ? [this, ...others]
             : [...view.chunks, ...others];
         const offsets = ChunkedData.computeOffsets(vecs);
         const chunksLength = offsets[offsets.length - 1];
         const chunkedData = new ChunkedData(this.type, chunksLength, vecs, 0, -1, offsets);
-        return new (this.constructor as any)(chunkedData, new ChunkedView(chunkedData)) as this;
+        return this.clone(chunkedData, new ChunkedView(chunkedData)) as this;
     }
     public slice(begin?: number, end?: number): this {
         let { length } = this;
-        let size = (this._view as any).size || 1;
+        let size = (this.view as any).size || 1;
         let total = length, from = (begin || 0) * size;
         let to = (typeof end === 'number' ? end : total) * size;
         if (to < 0) { to = total - (to * -1) % total; }
         if (from < 0) { from = total - (from * -1) % total; }
         if (to < from) { [from, to] = [to, from]; }
         total = !isFinite(total = (to - from)) || total < 0 ? 0 : total;
-        const newData = this._data.slice(from, Math.min(total, length));
-        return new (this.constructor as any)(newData, this._view.clone(newData)) as this;
+        const slicedData = this.data.slice(from, Math.min(total, length));
+        return this.clone(slicedData, this.view.clone(slicedData)) as this;
     }
 
     public acceptTypeVisitor(visitor: TypeVisitor): any {
@@ -113,12 +110,12 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
 }
 
 export abstract class FlatVector<T extends FlatType> extends Vector<T> {
-    public get values() { return this._data.values; }
+    public get values() { return this.data.values; }
 }
 
 export abstract class ListVectorBase<T extends (ListType | FlatListType)> extends Vector<T> {
-    public get values() { return this._data.values; }
-    public get valueOffsets() { return this._data.valueOffsets; }
+    public get values() { return this.data.values; }
+    public get valueOffsets() { return this.data.valueOffsets; }
     public getValueOffset(index: number) {
         return this.valueOffsets[index];
     }
@@ -129,17 +126,18 @@ export abstract class ListVectorBase<T extends (ListType | FlatListType)> extend
 
 export abstract class NestedVector<T extends NestedType> extends Vector<T>  {
     // @ts-ignore
-    protected _view: NestedView<T>;
+    public readonly view: NestedView<T>;
     public get childData(): Data<any>[] {
         return this.data.childData;
     }
     public getChildAt<R extends DataType = DataType>(index: number) {
-        return this._view.getChildAt<R>(index);
+        return this.view.getChildAt<R>(index);
     }
 }
 
 import { List, Binary, Utf8, Bool, } from './type';
-import { Null, Int, Float, Float16, Decimal, Date_, Time, Timestamp, Interval } from './type';
+import { Null, Int, Float, Decimal, Date_, Time, Timestamp, Interval } from './type';
+import { Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64, Float16, Float32, Float64 } from './type';
 import { Struct, Union, SparseUnion, DenseUnion, FixedSizeBinary, FixedSizeList, Map_, Dictionary } from './type';
 
 import { ChunkedView } from './vector/chunked';
@@ -147,6 +145,7 @@ import { DictionaryView } from './vector/dictionary';
 import { ListView, FixedSizeListView, BinaryView, Utf8View } from './vector/list';
 import { UnionView, DenseUnionView, NestedView, StructView, MapView } from './vector/nested';
 import { FlatView, NullView, BoolView, ValidityView, FixedSizeView, Float16View, DateDayView, DateMillisecondView, IntervalYearMonthView } from './vector/flat';
+import { packBools } from './util/bit';
 
 export class NullVector extends Vector<Null> {
     constructor(data: Data<Null>, view: View<Null> = new NullView(data)) {
@@ -155,12 +154,40 @@ export class NullVector extends Vector<Null> {
 }
 
 export class BoolVector extends Vector<Bool> {
+    public static from(data: IterableArrayLike<boolean>) {
+        return new BoolVector(new BoolData(new Bool(), data.length, null, packBools(data)));
+    }
+    public get values() { return this.data.values; }
     constructor(data: Data<Bool>, view: View<Bool> = new BoolView(data)) {
         super(data, view);
     }
 }
 
 export class IntVector<T extends Int = Int<any>> extends FlatVector<T> {
+    public static from(data: Int8Array): IntVector<Int8>;
+    public static from(data: Int16Array): IntVector<Int16>;
+    public static from(data: Int32Array): IntVector<Int32>;
+    public static from(data: Uint8Array): IntVector<Uint8>;
+    public static from(data: Uint16Array): IntVector<Uint16>;
+    public static from(data: Uint32Array): IntVector<Uint32>;
+    public static from(data: Int32Array, is64: true): IntVector<Int64>;
+    public static from(data: Uint32Array, is64: true): IntVector<Uint64>;
+    public static from(data: any, is64?: boolean) {
+        if (is64 === true) {
+            return data instanceof Int32Array
+                ? new IntVector(new FlatData(new Int64(), data.length, null, data))
+                : new IntVector(new FlatData(new Uint64(), data.length, null, data));
+        }
+        switch (data.constructor) {
+            case Int8Array: return new IntVector(new FlatData(new Int8(), data.length, null, data));
+            case Int16Array: return new IntVector(new FlatData(new Int16(), data.length, null, data));
+            case Int32Array: return new IntVector(new FlatData(new Int32(), data.length, null, data));
+            case Uint8Array: return new IntVector(new FlatData(new Uint8(), data.length, null, data));
+            case Uint16Array: return new IntVector(new FlatData(new Uint16(), data.length, null, data));
+            case Uint32Array: return new IntVector(new FlatData(new Uint32(), data.length, null, data));
+        }
+        throw new TypeError('Unrecognized Int data');
+    }
     static defaultView<T extends Int>(data: Data<T>) {
         return data.type.bitWidth <= 32 ? new FlatView(data) : new FixedSizeView(data, (data.type.bitWidth / 32) | 0);
     }
@@ -170,6 +197,17 @@ export class IntVector<T extends Int = Int<any>> extends FlatVector<T> {
 }
 
 export class FloatVector<T extends Float = Float<any>> extends FlatVector<T> {
+    public static from(data: Uint16Array): FloatVector<Float16>;
+    public static from(data: Float32Array): FloatVector<Float32>;
+    public static from(data: Float64Array): FloatVector<Float64>;
+    public static from(data: any) {
+        switch (data.constructor) {
+            case Uint16Array: return new FloatVector(new FlatData(new Float16(), data.length, null, data));
+            case Float32Array: return new FloatVector(new FlatData(new Float32(), data.length, null, data));
+            case Float64Array: return new FloatVector(new FlatData(new Float64(), data.length, null, data));
+        }
+        throw new TypeError('Unrecognized Float data');
+    }
     static defaultView<T extends Float>(data: Data<T>): FlatView<any> {
         return data.type.precision !== Precision.HALF ? new FlatView(data) : new Float16View(data as Data<Float16>);
     }
@@ -266,8 +304,10 @@ export class UnionVector<T extends (SparseUnion | DenseUnion) = any> extends Nes
 }
 
 export class DictionaryVector<T extends DataType = DataType> extends Vector<Dictionary<T>> {
-    public readonly indicies?: Vector<Int>;
-    public readonly dictionary?: Vector<T>;
+    // @ts-ignore
+    public readonly indicies: Vector<Int>;
+    // @ts-ignore
+    public readonly dictionary: Vector<T>;
     constructor(data: Data<Dictionary<T>>, view: View<Dictionary<T>> = new DictionaryView<T>(data.dictionary, new IntVector(data.indicies))) {
         super(data as Data<any>, view);
         if (view instanceof DictionaryView) {
@@ -282,8 +322,8 @@ export class DictionaryVector<T extends DataType = DataType> extends Vector<Dict
             )!;
         }
     }
-    public getKey(index: number) { return this.indicies!.get(index); }
-    public getValue(key: number) { return this.dictionary!.get(key); }
+    public getKey(index: number) { return this.indicies.get(index); }
+    public getValue(key: number) { return this.dictionary.get(key); }
 }
 
 export const createVector = ((VectorLoader: new <T extends DataType>(data: Data<T>) => TypeVisitor) => (

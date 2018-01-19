@@ -34,6 +34,9 @@ export import MessageHeader = Message_.org.apache.arrow.flatbuf.MessageHeader;
 export import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion;
 
 export class Schema {
+    public static from(vectors: Vector[]) {
+        return new Schema(vectors.map((v, i) => new Field('' + i, v.type)));
+    }
     // @ts-ignore
     protected _bodyLength: number;
     // @ts-ignore
@@ -208,92 +211,50 @@ export class Null extends DataType<Type.Null> {
 }
 
 export interface Int<TValueType = any, TArrayType extends IntArray = IntArray> extends DataType<Type.Int> { TArray: TArrayType; TValue: TValueType; }
-export abstract class Int<TValueType = any, TArrayType extends IntArray = IntArray> extends DataType<Type.Int> {
+export class Int<TValueType = any, TArrayType extends IntArray = IntArray> extends DataType<Type.Int> {
     constructor(public readonly isSigned: boolean,
                 public readonly bitWidth: IntBitWidth) {
         super(Type.Int);
     }
-    // @ts-ignore
-    public readonly ArrayType: TypedArrayConstructor<TArrayType>;
+    public get ArrayType(): TypedArrayConstructor<TArrayType> {
+        switch (this.bitWidth) {
+            case  8: return (this.isSigned ? Int8Array : Uint8Array) as any;
+            case 16: return (this.isSigned ? Int16Array : Uint16Array) as any;
+            case 32: return (this.isSigned ? Int32Array : Uint32Array) as any;
+            case 64: return (this.isSigned ? Int32Array : Uint32Array) as any;
+        }
+        throw new Error(`Unrecognized ${this[Symbol.toStringTag]} type`);
+    }
     public toString() { return `${this.isSigned ? `I` : `Ui`}nt${this.bitWidth}`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitInt(this); }
     protected static [Symbol.toStringTag] = ((proto: Int) => {
-        (<any> proto).ArrayType = Uint8Array;
         return proto[Symbol.toStringTag] = 'Int';
     })(Int.prototype);
 }
 
-export class Int8 extends Int<number, Int8Array> {
-    constructor() { super(true, 8); }
-    protected static [Symbol.toStringTag] = ((proto: Int8) => {
-        (<any> proto).ArrayType = Int8Array;
-        return proto[Symbol.toStringTag] = 'Int8';
-    })(Int8.prototype);
-}
-
-export class Int16 extends Int<number, Int16Array> {
-    constructor() { super(true, 16); }
-    protected static [Symbol.toStringTag] = ((proto: Int16) => {
-        (<any> proto).ArrayType = Int16Array;
-        return proto[Symbol.toStringTag] = 'Int16';
-    })(Int16.prototype);
-}
-
-export class Int32 extends Int<number, Int32Array> {
-    constructor() { super(true, 32); }
-    protected static [Symbol.toStringTag] = ((proto: Int32) => {
-        (<any> proto).ArrayType = Int32Array;
-        return proto[Symbol.toStringTag] = 'Int32';
-    })(Int32.prototype);
-}
-
-export class Int64 extends Int<Int32Array, Int32Array> {
-    constructor() { super(true, 64); }
-    protected static [Symbol.toStringTag] = ((proto: Int64) => {
-        (<any> proto).ArrayType = Int32Array;
-        return proto[Symbol.toStringTag] = 'Int64';
-    })(Int64.prototype);
-}
-
-export class Uint8 extends Int<number, Uint8Array> {
-    constructor() { super(false, 8); }
-    protected static [Symbol.toStringTag] = ((proto: Uint8) => {
-        (<any> proto).ArrayType = Uint8Array;
-        return proto[Symbol.toStringTag] = 'Uint8';
-    })(Uint8.prototype);
-}
-
-export class Uint16 extends Int<number, Uint16Array> {
-    constructor() { super(false, 16); }
-    protected static [Symbol.toStringTag] = ((proto: Uint16) => {
-        (<any> proto).ArrayType = Uint16Array;
-        return proto[Symbol.toStringTag] = 'Uint16';
-    })(Uint16.prototype);
-}
-
-export class Uint32 extends Int<number, Uint32Array> {
-    constructor() { super(false, 32); }
-    protected static [Symbol.toStringTag] = ((proto: Uint32) => {
-        (<any> proto).ArrayType = Uint32Array;
-        return proto[Symbol.toStringTag] = 'Uint32';
-    })(Uint32.prototype);
-}
-
-export class Uint64 extends Int<Uint32Array, Uint32Array> {
-    constructor() { super(false, 64); }
-    protected static [Symbol.toStringTag] = ((proto: Uint64) => {
-        (<any> proto).ArrayType = Uint32Array;
-        return proto[Symbol.toStringTag] = 'Uint64';
-    })(Uint64.prototype);
-}
+export class Int8 extends Int<number, Int8Array> { constructor() { super(true, 8); } }
+export class Int16 extends Int<number, Int16Array> { constructor() { super(true, 16); } }
+export class Int32 extends Int<number, Int32Array> { constructor() { super(true, 32); } }
+export class Int64 extends Int<Int32Array, Int32Array> { constructor() { super(true, 64); } }
+export class Uint8 extends Int<number, Uint8Array> { constructor() { super(false, 8); } }
+export class Uint16 extends Int<number, Uint16Array> { constructor() { super(false, 16); } }
+export class Uint32 extends Int<number, Uint32Array> { constructor() { super(false, 32); } }
+export class Uint64 extends Int<Uint32Array, Uint32Array> { constructor() { super(false, 64); } }
 
 export interface Float<TArrayType extends FloatArray = FloatArray> extends DataType<Type.Float> { TArray: TArrayType; TValue: number; }
-export abstract class Float<TArrayType extends FloatArray = FloatArray> extends DataType<Type.Float> {
+export class Float<TArrayType extends FloatArray = FloatArray> extends DataType<Type.Float> {
     constructor(public readonly precision: Precision) {
         super(Type.Float);
     }
     // @ts-ignore
-    public readonly ArrayType: TypedArrayConstructor<TArrayType>;
+    public get ArrayType(): TypedArrayConstructor<TArrayType> {
+        switch (this.precision) {
+            case Precision.HALF: return Uint16Array as any;
+            case Precision.SINGLE: return Float32Array as any;
+            case Precision.DOUBLE: return Float64Array as any;
+        }
+        throw new Error(`Unrecognized ${this[Symbol.toStringTag]} type`);
+    }
     public toString() { return `Float${(this.precision << 5) || 16}`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitFloat(this); }
     protected static [Symbol.toStringTag] = ((proto: Float) => {
@@ -301,32 +262,9 @@ export abstract class Float<TArrayType extends FloatArray = FloatArray> extends 
     })(Float.prototype);
 }
 
-export interface Float16 extends Float<Uint16Array> {}
-export class Float16 extends Float<Uint16Array> {
-    constructor() { super(Precision.HALF); }
-    protected static [Symbol.toStringTag] = ((proto: Float16) => {
-        (<any> proto).ArrayType = Uint16Array;
-        return proto[Symbol.toStringTag] = 'Float16';
-    })(Float16.prototype);
-}
-
-export interface Float32 extends Float<Float32Array> {}
-export class Float32 extends Float<Float32Array> {
-    constructor() { super(Precision.SINGLE); }
-    protected static [Symbol.toStringTag] = ((proto: Float32) => {
-        (<any> proto).ArrayType = Float32Array;
-        return proto[Symbol.toStringTag] = 'Float32';
-    })(Float32.prototype);
-}
-
-export interface Float64 extends Float<Float64Array> {}
-export class Float64 extends Float<Float64Array> {
-    constructor() { super(Precision.DOUBLE); }
-    protected static [Symbol.toStringTag] = ((proto: Float64) => {
-        (<any> proto).ArrayType = Float64Array;
-        return proto[Symbol.toStringTag] = 'Float64';
-    })(Float64.prototype);
-}
+export class Float16 extends Float<Uint16Array> { constructor() { super(Precision.HALF); } }
+export class Float32 extends Float<Float32Array> { constructor() { super(Precision.SINGLE); } }
+export class Float64 extends Float<Float64Array> { constructor() { super(Precision.DOUBLE); } }
 
 export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TValue: Uint8Array; }
 export class Binary extends DataType<Type.Binary> {

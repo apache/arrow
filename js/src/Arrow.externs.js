@@ -51,6 +51,28 @@ Table.prototype.toArray;
 Table.prototype.select;
 /** @type {?} */
 Table.prototype.rowsToString;
+/** @type {?} */
+Table.prototype.lengths;
+/** @type {?} */
+Table.prototype.batches;
+/** @type {?} */
+Table.prototype.countBy;
+/** @type {?} */
+Table.prototype.scan;
+/** @type {?} */
+Table.prototype.get;
+
+var CountByResult = function() {};
+/** @type {?} */
+CountByResult.prototype.asJSON;
+
+let Col = function() {};
+/** @type {?} */
+Col.prototype.gteq;
+/** @type {?} */
+Col.prototype.lteq;
+/** @type {?} */
+Col.prototype.eq;
 
 var TableToStringIterator = function() {};
 /** @type {?} */
@@ -58,17 +80,17 @@ TableToStringIterator.prototype.pipe;
 
 var RecordBatch = function() {};
 /** @type {?} */
+RecordBatch.from = function() {};
+/** @type {?} */
+RecordBatch.prototype.numCols;
+/** @type {?} */
 RecordBatch.prototype.numRows;
 /** @type {?} */
 RecordBatch.prototype.schema;
 /** @type {?} */
-RecordBatch.prototype.data;
-/** @type {?} */
 RecordBatch.prototype.columns;
 /** @type {?} */
-RecordBatch.prototype.numCols;
-/** @type {?} */
-RecordBatch.prototype.concat;
+RecordBatch.prototype.select;
 
 var Vector = function() {};
 /** @type {?} */
@@ -152,6 +174,50 @@ Int128.prototype.plus
 /** @type {?} */
 Int128.prototype.hex
 
+var Type = function() {};
+/** @type {?} */
+Type.NONE = function() {};
+/** @type {?} */
+Type.Null = function() {};
+/** @type {?} */
+Type.Int = function() {};
+/** @type {?} */
+Type.Float = function() {};
+/** @type {?} */
+Type.Binary = function() {};
+/** @type {?} */
+Type.Utf8 = function() {};
+/** @type {?} */
+Type.Bool = function() {};
+/** @type {?} */
+Type.Decimal = function() {};
+/** @type {?} */
+Type.Date = function() {};
+/** @type {?} */
+Type.Time = function() {};
+/** @type {?} */
+Type.Timestamp = function() {};
+/** @type {?} */
+Type.Interval = function() {};
+/** @type {?} */
+Type.List = function() {};
+/** @type {?} */
+Type.Struct = function() {};
+/** @type {?} */
+Type.Union = function() {};
+/** @type {?} */
+Type.FixedSizeBinary = function() {};
+/** @type {?} */
+Type.FixedSizeList = function() {};
+/** @type {?} */
+Type.Map = function() {};
+/** @type {?} */
+Type.Dictionary = function() {};
+/** @type {?} */
+Type.DenseUnion = function() {};
+/** @type {?} */
+Type.SparseUnion = function() {};
+
 var DataType = function() {};
 /** @type {?} */
 DataType.isNull = function() {};
@@ -197,7 +263,25 @@ DataType.isDictionary = function() {};
 DataType.prototype.ArrayType;
 
 var Schema = function() {};
+/** @type {?} */
+Schema.from = function() {};
+/** @type {?} */
+Schema.prototype.fields;
+/** @type {?} */
+Schema.prototype.version;
+/** @type {?} */
+Schema.prototype.metadata;
+/** @type {?} */
+Schema.prototype.dictionaries;
 var Field = function() {};
+/** @type {?} */
+Field.prototype.name;
+/** @type {?} */
+Field.prototype.type;
+/** @type {?} */
+Field.prototype.nullable;
+/** @type {?} */
+Field.prototype.metadata;
 var Null = function() {};
 var Int8 = function() {};
 var Int16 = function() {};
@@ -309,8 +393,18 @@ NestedVector.prototype.getChildAt;
 
 var NullVector = function() {};
 var BoolVector = function() {};
+/** @type {?} */
+BoolVector.from = function() {};
+/** @type {?} */
+BoolVector.prototype.values;
 var IntVector = function() {};
+/** @type {?} */
+IntVector.from = function() {};
+
 var FloatVector = function() {};
+/** @type {?} */
+FloatVector.from = function() {};
+
 var DateVector = function() {};
 var DecimalVector = function() {};
 var TimeVector = function() {};

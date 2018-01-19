@@ -104,6 +104,7 @@ describe(`Integration`, () => {
 
 function testReaderIntegration() {
     test(`json and arrow buffers report the same values`, () => {
+        debugger;
         expect.hasAssertions();
         const jsonRecordBatches = toArray(read(jsonData));
         const binaryRecordBatches = toArray(read(arrowBuffers));
@@ -119,6 +120,7 @@ function testReaderIntegration() {
 
 function testTableFromBuffersIntegration() {
     test(`json and arrow buffers report the same values`, () => {
+        debugger;
         expect.hasAssertions();
         const jsonTable = Table.from(jsonData);
         const binaryTable = Table.from(arrowBuffers);

@@ -93,32 +93,33 @@ describe(`BoolVector`, () => {
         v.set(7, false);
         validate(expected1);
     });
-    // test(`packs 0 values`, () => {
-    //     expect(BoolVector.pack([])).toEqual(
-    //         new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]));
-    // });
-    // test(`packs 3 values`, () => {
-    //     expect(BoolVector.pack([
-    //         true, false, true
-    //     ])).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
-    // });
-    // test(`packs 8 values`, () => {
-    //     expect(BoolVector.pack([
-    //         true, true, false, true, true, false, false, false
-    //     ])).toEqual(new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
-    // });
-    // test(`packs 25 values`, () => {
-    //     expect(BoolVector.pack([
-    //         true, true, false, true, true, false, false, false,
-    //         false, false, false, true, true, false, true, true,
-    //         false
-    //     ])).toEqual(new Uint8Array([27, 216, 0, 0, 0, 0, 0, 0]));
-    // });
-    // test(`from with boolean Array packs values`, () => {
-    //     expect(new BoolVector({
-    //         data: BoolVector.pack([true, false, true])
-    //     }).slice()).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
-    // });
+    test(`packs 0 values`, () => {
+        expect(BoolVector.from([]).values).toEqual(
+            new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]));
+    });
+    test(`packs 3 values`, () => {
+        expect(BoolVector.from([
+            true, false, true
+        ]).values).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
+    });
+    test(`packs 8 values`, () => {
+        expect(BoolVector.from([
+            true, true, false, true, true, false, false, false
+        ]).values).toEqual(new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
+    });
+    test(`packs 25 values`, () => {
+        expect(BoolVector.from([
+            true, true, false, true, true, false, false, false,
+            false, false, false, true, true, false, true, true,
+            false
+        ]).values).toEqual(new Uint8Array([27, 216, 0, 0, 0, 0, 0, 0]));
+    });
+    test(`from with boolean Array packs values`, () => {
+        expect(BoolVector
+            .from([true, false, true])
+            .slice().values
+        ).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
+    });
 });
 
 describe('Float16Vector', () => {
