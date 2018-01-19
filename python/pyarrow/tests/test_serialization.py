@@ -555,3 +555,42 @@ def test_deserialize_buffer_in_different_process():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     python_file = os.path.join(dir_path, 'deserialize_buffer.py')
     subprocess.check_call(['python', python_file, f.name])
+
+
+def test_set_pickle():
+    # Use a custom type to trigger pickling.
+    class Foo(object):
+        def __init__(self):
+            self.x = 1
+
+    # Define a custom serializer and deserializer to use in place of pickle.
+
+    def dumps(obj):
+        return b'custom'
+
+    def loads(serialized_obj):
+        return serialized_obj + b' serialization'
+
+    context = pa.SerializationContext()
+    context.register_type(Foo, 'Foo', pickle=True)
+
+    test_object = Foo()
+
+    # Test the serialization before setting a custom pickler.
+    serialized = pa.serialize(test_object, context=context).to_buffer()
+    deserialized = pa.deserialize(serialized.to_pybytes(), context=context)
+    assert deserialized.x == 1
+
+    context.set_pickle(dumps, loads)
+
+    # Test that setting a custom pickler changes the behavior.
+    serialized = pa.serialize(test_object, context=context).to_buffer()
+    deserialized = pa.deserialize(serialized.to_pybytes(), context=context)
+    assert deserialized == b'custom serialization'
+
+    context.set_pickle(pa.compat.pickle.dumps, pa.compat.pickle.loads)
+
+    # Verify that the behavior reverts after changing the pickler back.
+    serialized = pa.serialize(test_object, context=context).to_buffer()
+    deserialized = pa.deserialize(serialized.to_pybytes(), context=context)
+    assert deserialized.x == 1
