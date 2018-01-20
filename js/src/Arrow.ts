@@ -19,6 +19,7 @@ import * as type_ from './type';
 import * as data_ from './data';
 import * as vector_ from './vector';
 import * as util_ from './util/int';
+import * as visitor_ from './visitor';
 import { Vector } from './vector';
 import { RecordBatch } from './recordbatch';
 import { Schema, Field, Type } from './type';
@@ -116,6 +117,11 @@ export namespace vector {
     export import DictionaryVector = vector_.DictionaryVector;
 }
 
+export namespace visitor {
+    export import TypeVisitor = visitor_.TypeVisitor;
+    export import VectorVisitor = visitor_.VectorVisitor;
+}
+
 /* These exports are needed for the closure and uglify umd targets */
 try {
     let Arrow: any = eval('exports');
@@ -125,6 +131,7 @@ try {
         Arrow['type'] = type;
         Arrow['util'] = util;
         Arrow['vector'] = vector;
+        Arrow['visitor'] = visitor;
 
         Arrow['read'] = read;
         Arrow['readAsync'] = readAsync;
@@ -214,3 +221,6 @@ type_.DataType['isDictionary'] = type_.DataType.isDictionary;
 vector_.BoolVector['from'] = vector_.BoolVector.from;
 vector_.IntVector['from'] = vector_.IntVector.from;
 vector_.FloatVector['from'] = vector_.FloatVector.from;
+
+visitor_.TypeVisitor['visitTypeInline'] = visitor_.TypeVisitor.visitTypeInline;
+visitor_.VectorVisitor['visitTypeInline'] = visitor_.VectorVisitor.visitTypeInline;
