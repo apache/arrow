@@ -648,9 +648,13 @@ Status PlasmaStore::process_message(Client* client) {
           ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size));
       int error_code =
           create_object(object_id, data_size, metadata_size, client, &object);
-      HANDLE_SIGPIPE(SendCreateReply(client->fd, object_id, &object, error_code,
-                                     get_mmap_size(object.store_fd)),
-                     client->fd);
+      int64_t mmap_size = 0;
+      if (error_code == PlasmaError_OK) {
+        mmap_size = get_mmap_size(object.store_fd);
+      }
+      HANDLE_SIGPIPE(
+          SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
+          client->fd);
       if (error_code == PlasmaError_OK) {
         warn_if_sigpipe(send_fd(client->fd, object.store_fd), client->fd);
       }
