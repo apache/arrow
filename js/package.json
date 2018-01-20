@@ -3,7 +3,7 @@
   "name": "apache-arrow",
   "description": "Apache Arrow columnar in-memory format",
   "bin": {
-    "arrow2csv": "bin/arrow2csv"
+    "arrow2csv": "bin/arrow2csv.js"
   },
   "scripts": {
     "lerna": "lerna",
