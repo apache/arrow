@@ -175,7 +175,7 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
       continue;
     } else if (!PyBytes_Check(obj)) {
       std::stringstream ss;
-      ss << "Error converting to Python objects to bytes: ";
+      ss << "Error converting from Python objects to bytes: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
@@ -230,7 +230,7 @@ static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64
       *have_bytes = true;
     } else {
       std::stringstream ss;
-      ss << "Error converting to Python objects to String/UTF8: ";
+      ss << "Error converting from Python objects to String/UTF8: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
@@ -278,7 +278,7 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
       tmp_obj.reset(obj);
     } else if (!PyBytes_Check(obj)) {
       std::stringstream ss;
-      ss << "Error converting to Python objects to FixedSizeBinary: ";
+      ss << "Error converting from Python objects to FixedSizeBinary: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
