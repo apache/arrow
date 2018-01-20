@@ -682,13 +682,15 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
-  Status ReserveData(int64_t capacity);
+  /// Ensures there is enough space for adding the number of value elements 
+  /// by checking value buffer capacity and resizing if necessary.
+  Status ReserveData(int64_t elements);
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
   /// \return capacity of values buffer
-  int64_t value_data_capacity() const { return data_capacity_; }
+  int64_t value_data_capacity() const { return value_data_builder_.capacity(); }
 
   /// Temporary access to a value.
   ///
@@ -699,7 +701,6 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<int32_t> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
-  int64_t data_capacity_;
   static constexpr int64_t kMaximumCapacity = std::numeric_limits<int32_t>::max() - 1;
 
   Status AppendNextOffset();
