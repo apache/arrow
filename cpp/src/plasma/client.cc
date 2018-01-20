@@ -54,8 +54,6 @@
 
 namespace plasma {
 
-using arrow::MutableBuffer;
-
 // Number of threads used for memcopy and hash computations.
 constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
@@ -130,7 +128,7 @@ void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObjec
     // Increment the count of the number of objects in the memory-mapped file
     // that are being used. The corresponding decrement should happen in
     // PlasmaClient::Release.
-    auto entry = mmap_table_.find(object->handle.store_fd);
+    auto entry = mmap_table_.find(object->store_fd);
     ARROW_CHECK(entry != mmap_table_.end());
     ARROW_CHECK(entry->second.count >= 0);
     // Update the in_use_object_bytes_.
@@ -149,7 +147,7 @@ void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObjec
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                             uint8_t* metadata, int64_t metadata_size,
-                            std::shared_ptr<Buffer>* data) {
+                            std::shared_ptr<MutableBuffer>* data) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
                    << data_size << " and metadata size " << metadata_size;
   RETURN_NOT_OK(SendCreateRequest(store_conn_, object_id, data_size, metadata_size));
@@ -157,7 +155,10 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaCreateReply, &buffer));
   ObjectID id;
   PlasmaObject object;
-  RETURN_NOT_OK(ReadCreateReply(buffer.data(), buffer.size(), &id, &object));
+  int store_fd;
+  int64_t mmap_size;
+  RETURN_NOT_OK(
+      ReadCreateReply(buffer.data(), buffer.size(), &id, &object, &store_fd, &mmap_size));
   // If the CreateReply included an error, then the store will not send a file
   // descriptor.
   int fd = recv_fd(store_conn_);
@@ -167,9 +168,7 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   // The metadata should come right after the data.
   ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
   *data = std::make_shared<MutableBuffer>(
-      lookup_or_mmap(fd, object.handle.store_fd, object.handle.mmap_size) +
-          object.data_offset,
-      data_size);
+      lookup_or_mmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
   // If plasma_create is being called from a transfer, then we will not copy the
   // metadata here. The metadata will be written along with the data streamed
   // from the transfer.
@@ -209,7 +208,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       ARROW_CHECK(object_entry->second->is_sealed)
           << "Plasma client called get on an unsealed object that it created";
       PlasmaObject* object = &object_entry->second->object;
-      uint8_t* data = lookup_mmapped_file(object->handle.store_fd);
+      uint8_t* data = lookup_mmapped_file(object->store_fd);
       object_buffers[i].data =
           std::make_shared<Buffer>(data + object->data_offset, object->data_size);
       object_buffers[i].metadata = std::make_shared<Buffer>(
@@ -236,8 +235,19 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
   std::vector<ObjectID> received_object_ids(num_objects);
   std::vector<PlasmaObject> object_data(num_objects);
   PlasmaObject* object;
+  std::vector<int> store_fds;
+  std::vector<int64_t> mmap_sizes;
   RETURN_NOT_OK(ReadGetReply(buffer.data(), buffer.size(), received_object_ids.data(),
-                             object_data.data(), num_objects));
+                             object_data.data(), num_objects, store_fds, mmap_sizes));
+
+  // We mmap all of the file descriptors here so that we can avoid look them up
+  // in the subsequent loop based on just the store file descriptor and without
+  // having to know the relevant file descriptor received from recv_fd.
+  for (size_t i = 0; i < store_fds.size(); i++) {
+    int fd = recv_fd(store_conn_);
+    ARROW_CHECK(fd >= 0);
+    lookup_or_mmap(fd, store_fds[i], mmap_sizes[i]);
+  }
 
   for (int i = 0; i < num_objects; ++i) {
     DCHECK(received_object_ids[i] == object_ids[i]);
@@ -246,12 +256,6 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       // If the object was already in use by the client, then the store should
       // have returned it.
       DCHECK_NE(object->data_size, -1);
-      // We won't use this file descriptor, but the store sent us one, so we
-      // need to receive it and then close it right away so we don't leak file
-      // descriptors.
-      int fd = recv_fd(store_conn_);
-      close(fd);
-      ARROW_CHECK(fd >= 0);
       // We've already filled out the information for this object, so we can
       // just continue.
       continue;
@@ -259,12 +263,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
     // If we are here, the object was not currently in use, so we need to
     // process the reply from the object store.
     if (object->data_size != -1) {
-      // The object was retrieved. The user will be responsible for releasing
-      // this object.
-      int fd = recv_fd(store_conn_);
-      uint8_t* data =
-          lookup_or_mmap(fd, object->handle.store_fd, object->handle.mmap_size);
-      ARROW_CHECK(fd >= 0);
+      uint8_t* data = lookup_mmapped_file(object->store_fd);
       // Finish filling out the return values.
       object_buffers[i].data =
           std::make_shared<Buffer>(data + object->data_offset, object->data_size);
@@ -296,7 +295,7 @@ Status PlasmaClient::UnmapObject(const ObjectID& object_id) {
   // Decrement the count of the number of objects in this memory-mapped file
   // that the client is using. The corresponding increment should have
   // happened in plasma_get.
-  int fd = object_entry->second->object.handle.store_fd;
+  int fd = object_entry->second->object.store_fd;
   auto entry = mmap_table_.find(fd);
   ARROW_CHECK(entry != mmap_table_.end());
   ARROW_CHECK(entry->second.count >= 1);

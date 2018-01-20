@@ -73,30 +73,32 @@ Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
   return Status::OK();
 }
 
-Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
-                       int error_code) {
+Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int error_code,
+                       int64_t mmap_size) {
   flatbuffers::FlatBufferBuilder fbb;
-  PlasmaObjectSpec plasma_object(object->handle.store_fd, object->handle.mmap_size,
-                                 object->data_offset, object->data_size,
+  PlasmaObjectSpec plasma_object(object->store_fd, object->data_offset, object->data_size,
                                  object->metadata_offset, object->metadata_size);
-  auto message =
-      CreatePlasmaCreateReply(fbb, fbb.CreateString(object_id.binary()), &plasma_object,
-                              static_cast<PlasmaError>(error_code));
+  auto message = CreatePlasmaCreateReply(
+      fbb, fbb.CreateString(object_id.binary()), &plasma_object,
+      static_cast<PlasmaError>(error_code), object->store_fd, mmap_size);
   return PlasmaSend(sock, MessageType_PlasmaCreateReply, &fbb, message);
 }
 
 Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
-                       PlasmaObject* object) {
+                       PlasmaObject* object, int* store_fd, int64_t* mmap_size) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaCreateReply>(data);
   DCHECK(verify_flatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
-  object->handle.store_fd = message->plasma_object()->segment_index();
-  object->handle.mmap_size = message->plasma_object()->mmap_size();
+  object->store_fd = message->plasma_object()->segment_index();
   object->data_offset = message->plasma_object()->data_offset();
   object->data_size = message->plasma_object()->data_size();
   object->metadata_offset = message->plasma_object()->metadata_offset();
   object->metadata_size = message->plasma_object()->metadata_size();
+
+  *store_fd = message->store_fd();
+  *mmap_size = message->mmap_size();
+
   return plasma_error_status(message->error());
 }
 
@@ -389,24 +391,29 @@ Status ReadGetRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_
 Status SendGetReply(
     int sock, ObjectID object_ids[],
     std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher>& plasma_objects,
-    int64_t num_objects) {
+    int64_t num_objects, const std::vector<int>& store_fds,
+    const std::vector<int64_t>& mmap_sizes) {
   flatbuffers::FlatBufferBuilder fbb;
   std::vector<PlasmaObjectSpec> objects;
 
-  for (int i = 0; i < num_objects; ++i) {
+  ARROW_CHECK(store_fds.size() == mmap_sizes.size());
+
+  for (int64_t i = 0; i < num_objects; ++i) {
     const PlasmaObject& object = plasma_objects[object_ids[i]];
-    objects.push_back(PlasmaObjectSpec(object.handle.store_fd, object.handle.mmap_size,
-                                       object.data_offset, object.data_size,
-                                       object.metadata_offset, object.metadata_size));
+    objects.push_back(PlasmaObjectSpec(object.store_fd, object.data_offset,
+                                       object.data_size, object.metadata_offset,
+                                       object.metadata_size));
   }
   auto message =
       CreatePlasmaGetReply(fbb, to_flatbuffer(&fbb, object_ids, num_objects),
-                           fbb.CreateVectorOfStructs(objects.data(), num_objects));
+                           fbb.CreateVectorOfStructs(objects.data(), num_objects),
+                           fbb.CreateVector(store_fds), fbb.CreateVector(mmap_sizes));
   return PlasmaSend(sock, MessageType_PlasmaGetReply, &fbb, message);
 }
 
 Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
-                    PlasmaObject plasma_objects[], int64_t num_objects) {
+                    PlasmaObject plasma_objects[], int64_t num_objects,
+                    std::vector<int>& store_fds, std::vector<int64_t>& mmap_sizes) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaGetReply>(data);
   DCHECK(verify_flatbuffer(message, data, size));
@@ -415,12 +422,16 @@ Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
   }
   for (uoffset_t i = 0; i < num_objects; ++i) {
     const PlasmaObjectSpec* object = message->plasma_objects()->Get(i);
-    plasma_objects[i].handle.store_fd = object->segment_index();
-    plasma_objects[i].handle.mmap_size = object->mmap_size();
+    plasma_objects[i].store_fd = object->segment_index();
     plasma_objects[i].data_offset = object->data_offset();
     plasma_objects[i].data_size = object->data_size();
     plasma_objects[i].metadata_offset = object->metadata_offset();
     plasma_objects[i].metadata_size = object->metadata_size();
+  }
+  ARROW_CHECK(message->store_fds()->size() == message->mmap_sizes()->size());
+  for (uoffset_t i = 0; i < message->store_fds()->size(); i++) {
+    store_fds.push_back(message->store_fds()->Get(i));
+    mmap_sizes.push_back(message->mmap_sizes()->Get(i));
   }
   return Status::OK();
 }

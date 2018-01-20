@@ -23,6 +23,12 @@
 
 void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_length, ptrdiff_t* offset);
 
+/// Get the mmap size corresponding to a specific file descriptor.
+///
+/// @param fd The file descriptor to look up.
+/// @return The size of the corresponding memory-mapped file.
+int64_t get_mmap_size(int fd);
+
 void set_malloc_granularity(int value);
 
 #endif  // MALLOC_H
