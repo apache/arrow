@@ -143,7 +143,7 @@ AC_CONFIG_FILES([
   arrow-gpu-glib/arrow-gpu-glib.pc
   doc/Makefile
   doc/reference/Makefile
-  doc/reference/xml/Makefile
+  doc/reference/entities.xml
   example/Makefile
   example/lua/Makefile
   tool/Makefile
