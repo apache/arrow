@@ -1162,7 +1162,6 @@ TEST_F(TestBinaryBuilder, TestCapacityReserve) {
   int64_t length = 0;
   int64_t capacity = 1000;
   
-
   ASSERT_OK(builder_->ReserveData(capacity));
   
   ASSERT_EQ(length, builder_->value_data_length());
@@ -1177,11 +1176,18 @@ TEST_F(TestBinaryBuilder, TestCapacityReserve) {
       ASSERT_EQ(BitUtil::RoundUpToMultipleOf64(capacity), builder_->value_data_capacity());
     }
   }
+  
+  int extra_capacity = 500;
+  ASSERT_OK(builder_->ReserveData(extra_capacity));
+
+  ASSERT_EQ(length, builder_->value_data_length());
+  ASSERT_EQ(BitUtil::RoundUpToMultipleOf64(length + extra_capacity), builder_->value_data_capacity());
+
   Done();
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(0, result_->null_count());
   ASSERT_EQ(reps * 60, result_->value_data()->size());
-  ASSERT_EQ(BitUtil::RoundUpToMultipleOf64(capacity), result_->value_data()->capacity());
+  ASSERT_EQ(BitUtil::RoundUpToMultipleOf64(length + extra_capacity), result_->value_data()->capacity());
 }
 
 TEST_F(TestBinaryBuilder, TestZeroLength) {

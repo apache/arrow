@@ -1165,13 +1165,13 @@ Status ListBuilder::Init(int64_t elements) {
   DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   // one more then requested for offsets
-  return offsets_builder_.Resize((elements + 1) * sizeof(int64_t));
+  return offsets_builder_.Resize((elements + 1) * sizeof(int32_t));
 }
 
 Status ListBuilder::Resize(int64_t capacity) {
   DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
   // one more then requested for offsets
-  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
+  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
   return ArrayBuilder::Resize(capacity);
 }
 
@@ -1216,7 +1216,7 @@ Status BinaryBuilder::Init(int64_t elements) {
   DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   // one more then requested for offsets
-  return offsets_builder_.Resize((elements + 1) * sizeof(int64_t));
+  return offsets_builder_.Resize((elements + 1) * sizeof(int32_t));
 }
 
 Status BinaryBuilder::Resize(int64_t capacity) {
