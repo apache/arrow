@@ -64,20 +64,12 @@ struct Client;
 /// Mapping from object IDs to type and status of the request.
 typedef std::unordered_map<ObjectID, ObjectRequest, UniqueIDHasher> ObjectRequestMap;
 
-/// Handle to access memory mapped file and map it into client address space.
-struct object_handle {
+// TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
+struct PlasmaObject {
   /// The file descriptor of the memory mapped file in the store. It is used as
   /// a unique identifier of the file in the client to look up the corresponding
   /// file descriptor on the client's side.
   int store_fd;
-  /// The size in bytes of the memory mapped file.
-  int64_t mmap_size;
-};
-
-// TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
-struct PlasmaObject {
-  /// Handle for memory mapped file the object is stored in.
-  object_handle handle;
   /// The offset in bytes in the memory mapped file of the data.
   ptrdiff_t data_offset;
   /// The offset in bytes in the memory mapped file of the metadata.

@@ -192,8 +192,7 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
   entry->state = PLASMA_CREATED;
 
   store_info_.objects[object_id] = std::move(entry);
-  result->handle.store_fd = fd;
-  result->handle.mmap_size = map_size;
+  result->store_fd = fd;
   result->data_offset = offset;
   result->metadata_offset = offset + data_size;
   result->data_size = data_size;
@@ -211,8 +210,7 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(object != NULL);
   DCHECK(entry != NULL);
   DCHECK(entry->state == PLASMA_SEALED);
-  object->handle.store_fd = entry->fd;
-  object->handle.mmap_size = entry->map_size;
+  object->store_fd = entry->fd;
   object->data_offset = entry->offset;
   object->metadata_offset = entry->offset + entry->info.data_size;
   object->data_size = entry->info.data_size;
@@ -220,34 +218,44 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
 }
 
 void PlasmaStore::return_from_get(GetRequest* get_req) {
+  // Figure out how many file descriptors we need to send.
+  std::unordered_set<int> fds_to_send;
+  std::vector<int> store_fds;
+  std::vector<int64_t> mmap_sizes;
+  for (const auto& object_id : get_req->object_ids) {
+    PlasmaObject& object = get_req->objects[object_id];
+    int fd = object.store_fd;
+    if (object.data_size != -1 && fds_to_send.count(fd) == 0) {
+      fds_to_send.insert(fd);
+      store_fds.push_back(fd);
+      mmap_sizes.push_back(get_mmap_size(fd));
+    }
+  }
+
   // Send the get reply to the client.
   Status s = SendGetReply(get_req->client->fd, &get_req->object_ids[0], get_req->objects,
-                          get_req->object_ids.size());
+                          get_req->object_ids.size(), store_fds, mmap_sizes);
   warn_if_sigpipe(s.ok() ? 0 : -1, get_req->client->fd);
   // If we successfully sent the get reply message to the client, then also send
   // the file descriptors.
   if (s.ok()) {
     // Send all of the file descriptors for the present objects.
-    for (const auto& object_id : get_req->object_ids) {
-      PlasmaObject& object = get_req->objects[object_id];
-      // We use the data size to indicate whether the object is present or not.
-      if (object.data_size != -1) {
-        int error_code = send_fd(get_req->client->fd, object.handle.store_fd);
-        // If we failed to send the file descriptor, loop until we have sent it
-        // successfully. TODO(rkn): This is problematic for two reasons. First
-        // of all, sending the file descriptor should just succeed without any
-        // errors, but sometimes I see a "Message too long" error number.
-        // Second, looping like this allows a client to potentially block the
-        // plasma store event loop which should never happen.
-        while (error_code < 0) {
-          if (errno == EMSGSIZE) {
-            ARROW_LOG(WARNING) << "Failed to send file descriptor, retrying.";
-            error_code = send_fd(get_req->client->fd, object.handle.store_fd);
-            continue;
-          }
-          warn_if_sigpipe(error_code, get_req->client->fd);
-          break;
+    for (int store_fd : store_fds) {
+      int error_code = send_fd(get_req->client->fd, store_fd);
+      // If we failed to send the file descriptor, loop until we have sent it
+      // successfully. TODO(rkn): This is problematic for two reasons. First
+      // of all, sending the file descriptor should just succeed without any
+      // errors, but sometimes I see a "Message too long" error number.
+      // Second, looping like this allows a client to potentially block the
+      // plasma store event loop which should never happen.
+      while (error_code < 0) {
+        if (errno == EMSGSIZE) {
+          ARROW_LOG(WARNING) << "Failed to send file descriptor, retrying.";
+          error_code = send_fd(get_req->client->fd, store_fd);
+          continue;
         }
+        warn_if_sigpipe(error_code, get_req->client->fd);
+        break;
       }
     }
   }
@@ -640,10 +648,15 @@ Status PlasmaStore::process_message(Client* client) {
           ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size));
       int error_code =
           create_object(object_id, data_size, metadata_size, client, &object);
-      HANDLE_SIGPIPE(SendCreateReply(client->fd, object_id, &object, error_code),
-                     client->fd);
+      int64_t mmap_size = 0;
       if (error_code == PlasmaError_OK) {
-        warn_if_sigpipe(send_fd(client->fd, object.handle.store_fd), client->fd);
+        mmap_size = get_mmap_size(object.store_fd);
+      }
+      HANDLE_SIGPIPE(
+          SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
+          client->fd);
+      if (error_code == PlasmaError_OK) {
+        warn_if_sigpipe(send_fd(client->fd, object.store_fd), client->fd);
       }
     } break;
     case MessageType_PlasmaAbortRequest: {

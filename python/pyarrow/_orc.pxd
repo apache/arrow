@@ -29,9 +29,10 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         TimeUnit)
 
 
-cdef extern from "arrow/adapters/orc/adapter.h" namespace "arrow::adapters::orc" nogil:
-    cdef cppclass ORCFileReader:
+cdef extern from "arrow/adapters/orc/adapter.h" \
+        namespace "arrow::adapters::orc" nogil:
 
+    cdef cppclass ORCFileReader:
         @staticmethod
         CStatus Open(const shared_ptr[RandomAccessFile]& file,
                      CMemoryPool* pool,
@@ -40,7 +41,8 @@ cdef extern from "arrow/adapters/orc/adapter.h" namespace "arrow::adapters::orc"
         CStatus ReadSchema(shared_ptr[CSchema]* out)
 
         CStatus ReadStripe(int64_t stripe, shared_ptr[CRecordBatch]* out)
-        CStatus ReadStripe(int64_t stripe, std_vector[int], shared_ptr[CRecordBatch]* out)
+        CStatus ReadStripe(int64_t stripe, std_vector[int],
+                           shared_ptr[CRecordBatch]* out)
 
         CStatus Read(shared_ptr[CTable]* out)
         CStatus Read(std_vector[int], shared_ptr[CTable]* out)
