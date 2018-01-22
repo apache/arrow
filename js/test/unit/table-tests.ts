@@ -118,13 +118,13 @@ describe(`Table`, () => {
         // Wrap floating point values in a Float32Array and take them back out to
         // make sure that equality checks will pass
         const values = [
-            [new Float32Array([-0.3])[0], -1, 'a'],
-            [new Float32Array([-0.2])[0],  1, 'b'],
-            [new Float32Array([-0.1])[0], -1, 'c'],
-            [new Float32Array([ 0  ])[0],  1, 'a'],
-            [new Float32Array([ 0.1])[0], -1, 'b'],
-            [new Float32Array([ 0.2])[0],  1, 'c'],
-            [new Float32Array([ 0.3])[0], -1, 'a']
+            [Math.fround(-0.3), -1, 'a'],
+            [Math.fround(-0.2),  1, 'b'],
+            [Math.fround(-0.1), -1, 'c'],
+            [Math.fround( 0  ),  1, 'a'],
+            [Math.fround( 0.1), -1, 'b'],
+            [Math.fround( 0.2),  1, 'c'],
+            [Math.fround( 0.3), -1, 'a']
         ];
         test(`has the correct length`, () => {
             expect(table.length).toEqual(values.length);
@@ -161,19 +161,19 @@ describe(`Table`, () => {
         test(`countBy on dictionary returns the correct counts`, () => {
             // Make sure countBy works both with and without the Col wrapper
             // class
-            expect(table.countBy(col('dictionary')).asJSON()).toEqual({
+            expect(table.countBy(col('dictionary')).toJSON()).toEqual({
                 'a': 3,
                 'b': 2,
                 'c': 2,
             });
-            expect(table.countBy('dictionary').asJSON()).toEqual({
+            expect(table.countBy('dictionary').toJSON()).toEqual({
                 'a': 3,
                 'b': 2,
                 'c': 2,
             });
         });
         test(`countBy on dictionary with filter returns the correct counts`, () => {
-            expect(table.filter(col('i32').eq(1)).countBy('dictionary').asJSON()).toEqual({
+            expect(table.filter(col('i32').eq(1)).countBy('dictionary').toJSON()).toEqual({
                 'a': 1,
                 'b': 1,
                 'c': 1,
@@ -321,15 +321,15 @@ describe(`Table`, () => {
         // Wrap floating point values in a Float32Array and take them back out to
         // make sure that equality checks will pass
         const values = [
-            [new Float32Array([-0.3])[0], -1, 'a'],
-            [new Float32Array([-0.2])[0],  1, 'b'],
-            [new Float32Array([-0.1])[0], -1, 'c'],
-            [new Float32Array([ 0  ])[0],  1, 'a'],
-            [new Float32Array([ 0.1])[0], -1, 'b'],
-            [new Float32Array([ 0.2])[0],  1, 'c'],
-            [new Float32Array([ 0.3])[0], -1, 'a'],
-            [new Float32Array([ 0.2])[0],  1, 'b'],
-            [new Float32Array([ 0.1])[0], -1, 'c'],
+            [Math.fround(-0.3), -1, 'a'],
+            [Math.fround(-0.2),  1, 'b'],
+            [Math.fround(-0.1), -1, 'c'],
+            [Math.fround( 0  ),  1, 'a'],
+            [Math.fround( 0.1), -1, 'b'],
+            [Math.fround( 0.2),  1, 'c'],
+            [Math.fround( 0.3), -1, 'a'],
+            [Math.fround( 0.2),  1, 'b'],
+            [Math.fround( 0.1), -1, 'c'],
         ];
         test(`has the correct length`, () => {
             expect(table.length).toEqual(values.length);
@@ -366,19 +366,19 @@ describe(`Table`, () => {
         test(`countBy on dictionary returns the correct counts`, () => {
             // Make sure countBy works both with and without the Col wrapper
             // class
-            expect(table.countBy(col('dictionary')).asJSON()).toEqual({
+            expect(table.countBy(col('dictionary')).toJSON()).toEqual({
                 'a': 3,
                 'b': 3,
                 'c': 3,
             });
-            expect(table.countBy('dictionary').asJSON()).toEqual({
+            expect(table.countBy('dictionary').toJSON()).toEqual({
                 'a': 3,
                 'b': 3,
                 'c': 3,
             });
         });
         test(`countBy on dictionary with filter returns the correct counts`, () => {
-            expect(table.filter(col('i32').eq(1)).countBy(col('dictionary')).asJSON()).toEqual({
+            expect(table.filter(col('i32').eq(1)).countBy(col('dictionary')).toJSON()).toEqual({
                 'a': 1,
                 'b': 2,
                 'c': 1,

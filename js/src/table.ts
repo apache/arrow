@@ -130,7 +130,7 @@ export class Table implements DataFrame {
             }
         }
     }
-    public count(): number { return this.batchesUnion.length; }
+    public count(): number { return this.length; }
     public countBy(name: Col | string): CountByResult {
         const batches = this.batches, numBatches = batches.length;
         const count_by = typeof name === 'string' ? new Col(name) : name;
@@ -264,7 +264,7 @@ export class CountByResult extends Table implements DataFrame {
             counts.length, [values, counts]
         ));
     }
-    public asJSON(): Object {
+    public toJSON(): Object {
         const [values, counts] = this.columns;
         const result = {} as { [k: string]: number | null };
         for (let i = -1; ++i < this.length;) {
