@@ -109,8 +109,8 @@ function testReaderIntegration() {
         const jsonRecordBatches = toArray(read(jsonData));
         const binaryRecordBatches = toArray(read(arrowBuffers));
         for (const [jsonRecordBatch, binaryRecordBatch] of zip(jsonRecordBatches, binaryRecordBatches)) {
+            expect(jsonRecordBatch.length).toEqual(binaryRecordBatch.length);
             expect(jsonRecordBatch.numCols).toEqual(binaryRecordBatch.numCols);
-            expect(jsonRecordBatch.numRows).toEqual(binaryRecordBatch.numRows);
             for (let i = -1, n = jsonRecordBatch.numCols; ++i < n;) {
                 (expect(jsonRecordBatch.columns[i]) as any).toEqualVector(binaryRecordBatch.columns[i]);
             }
@@ -124,8 +124,8 @@ function testTableFromBuffersIntegration() {
         expect.hasAssertions();
         const jsonTable = Table.from(jsonData);
         const binaryTable = Table.from(arrowBuffers);
+        expect(jsonTable.length).toEqual(binaryTable.length);
         expect(jsonTable.numCols).toEqual(binaryTable.numCols);
-        expect(jsonTable.numRows).toEqual(binaryTable.numRows);
         for (let i = -1, n = jsonTable.numCols; ++i < n;) {
             (expect(jsonTable.columns[i]) as any).toEqualVector(binaryTable.columns[i]);
         }

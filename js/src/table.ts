@@ -63,8 +63,8 @@ export class Table implements DataFrame {
     }
 
     public readonly schema: Schema;
+    public readonly length: number;
     public readonly numCols: number;
-    public readonly numRows: number;
     // List of inner RecordBatches
     public readonly batches: RecordBatch[];
     // List of inner Vectors, possibly spanning batches
@@ -98,11 +98,20 @@ export class Table implements DataFrame {
             columns.map((col, idx) => col.concat(batch.columns[idx])),
             batches[0].columns
         );
+        this.length = this.batchesUnion.length;
         this.numCols = this.batchesUnion.numCols;
-        this.numRows = this.batchesUnion.numRows;
     }
     public get(index: number): Struct['TValue'] {
         return this.batchesUnion.get(index)!;
+    }
+    public getColumn(name: string) {
+        return this.getColumnAt(this.getColumnIndex(name));
+    }
+    public getColumnAt(index: number) {
+        return this.columns[index];
+    }
+    public getColumnIndex(name: string) {
+        return this.schema.fields.findIndex((f) => f.name === name);
     }
     public [Symbol.iterator](): IterableIterator<Struct['TValue']> {
         return this.batchesUnion[Symbol.iterator]() as any;
@@ -116,7 +125,7 @@ export class Table implements DataFrame {
             // load batches
             const batch = batches[batchIndex];
             // yield all indices
-            for (let index = -1, numRows = batch.numRows; ++index < numRows;) {
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 next(index, batch);
             }
         }
@@ -142,7 +151,7 @@ export class Table implements DataFrame {
             count_by.bind(batch);
             const keys = (count_by.vector as DictionaryVector).indicies;
             // yield all indices
-            for (let index = -1, numRows = batch.numRows; ++index < numRows;) {
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 let key = keys.get(index);
                 if (key !== null) { counts[key]++; }
             }
@@ -151,6 +160,13 @@ export class Table implements DataFrame {
     }
     public select(...columnNames: string[]) {
         return new Table(this.batches.map((batch) => batch.select(...columnNames)));
+    }
+    public toString(separator?: string) {
+        let str = '';
+        for (const row of this.rowsToString(separator)) {
+            str += row + '\n';
+        }
+        return str;
     }
     public rowsToString(separator = ' | '): TableToStringIterator {
         return new TableToStringIterator(tableRowsToString(this, separator));
@@ -176,7 +192,7 @@ class FilteredDataFrame implements DataFrame {
             const batch = batches[batchIndex];
             const predicate = this.predicate.bind(batch);
             // yield all indices
-            for (let index = -1, numRows = batch.numRows; ++index < numRows;) {
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 if (predicate(index, batch)) { next(index, batch); }
             }
         }
@@ -196,7 +212,7 @@ class FilteredDataFrame implements DataFrame {
             const batch = batches[batchIndex];
             const predicate = this.predicate.bind(batch);
             // yield all indices
-            for (let index = -1, numRows = batch.numRows; ++index < numRows;) {
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 if (predicate(index, batch)) { ++sum; }
             }
         }
@@ -229,7 +245,7 @@ class FilteredDataFrame implements DataFrame {
             count_by.bind(batch);
             const keys = (count_by.vector as DictionaryVector).indicies;
             // yield all indices
-            for (let index = -1, numRows = batch.numRows; ++index < numRows;) {
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 let key = keys.get(index);
                 if (key !== null && predicate(index, batch)) { counts[key]++; }
             }
@@ -251,7 +267,7 @@ export class CountByResult extends Table implements DataFrame {
     public asJSON(): Object {
         const [values, counts] = this.columns;
         const result = {} as { [k: string]: number | null };
-        for (let i = -1; ++i < this.numRows;) {
+        for (let i = -1; ++i < this.length;) {
             result[values.get(i)] = counts.get(i);
         }
         return result;
@@ -282,12 +298,12 @@ export class TableToStringIterator implements IterableIterator<string> {
     }
 }
 
-function *tableRowsToString(table: Table, separator = ' | ') {
+function* tableRowsToString(table: Table, separator = ' | ') {
     const fields = table.schema.fields;
     const header = ['row_id', ...fields.map((f) => `${f}`)].map(stringify);
     const maxColumnWidths = header.map(x => x.length);
     // Pass one to convert to strings and count max column widths
-    for (let i = -1, n = table.numRows - 1; ++i < n;) {
+    for (let i = -1, n = table.length - 1; ++i < n;) {
         let val, row = [i, ...table.get(i)];
         for (let j = -1, k = row.length; ++j < k; ) {
             val = stringify(row[j]);
@@ -295,7 +311,7 @@ function *tableRowsToString(table: Table, separator = ' | ') {
         }
     }
     yield header.map((x, j) => leftPad(x, ' ', maxColumnWidths[j])).join(separator);
-    for (let i = -1, n = table.numRows; ++i < n;) {
+    for (let i = -1, n = table.length; ++i < n;) {
         yield [i, ...table.get(i)]
             .map((x) => stringify(x))
             .map((x, j) => leftPad(x, ' ', maxColumnWidths[j]))

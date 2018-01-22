@@ -127,7 +127,7 @@ describe(`Table`, () => {
             [new Float32Array([ 0.3])[0], -1, 'a']
         ];
         test(`has the correct length`, () => {
-            expect(table.numRows).toEqual(values.length);
+            expect(table.length).toEqual(values.length);
         });
         test(`gets expected values`, () => {
             for (let i = -1; ++i < values.length;) {
@@ -332,7 +332,7 @@ describe(`Table`, () => {
             [new Float32Array([ 0.1])[0], -1, 'c'],
         ];
         test(`has the correct length`, () => {
-            expect(table.numRows).toEqual(values.length);
+            expect(table.length).toEqual(values.length);
         });
         test(`gets expected values`, () => {
             for (let i = -1; ++i < values.length;) {

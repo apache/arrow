@@ -40,11 +40,17 @@ Table.prototype.schema;
 /** @type {?} */
 Table.prototype.columns;
 /** @type {?} */
+Table.prototype.length;
+/** @type {?} */
 Table.prototype.numCols;
 /** @type {?} */
-Table.prototype.numRows;
-/** @type {?} */
 Table.prototype.get;
+/** @type {?} */
+Table.prototype.getColumn;
+/** @type {?} */
+Table.prototype.getColumnAt;
+/** @type {?} */
+Table.prototype.getColumnIndex;
 /** @type {?} */
 Table.prototype.toArray;
 /** @type {?} */

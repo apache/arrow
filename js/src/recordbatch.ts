@@ -30,8 +30,8 @@ export class RecordBatch extends StructVector {
         );
     }
     public readonly schema: Schema;
+    public readonly length: number;
     public readonly numCols: number;
-    public readonly numRows: number;
     public readonly columns: Vector<any>[];
     constructor(schema: Schema, data: Data<Struct>, view: View<Struct>);
     constructor(schema: Schema, numRows: Long | number, cols: Data<any> | Vector[]);
@@ -40,7 +40,7 @@ export class RecordBatch extends StructVector {
             const data = args[1] as Data<Struct>;
             super(data, args[2]);
             this.schema = args[0];
-            this.numRows = data.length;
+            this.length = data.length;
             this.numCols = this.schema.fields.length;
             this.columns = data instanceof ChunkedData
                 ? data.childVectors
@@ -60,7 +60,7 @@ export class RecordBatch extends StructVector {
             super(new NestedData(new Struct(schema.fields), numRows, null, columnsData));
             this.schema = schema;
             this.columns = columns;
-            this.numRows = numRows;
+            this.length = numRows;
             this.numCols = schema.fields.length;
         }
     }
@@ -71,7 +71,7 @@ export class RecordBatch extends StructVector {
         const fields = this.schema.fields;
         const namesToKeep = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
         return new RecordBatch(
-            this.schema.select(...columnNames), this.numRows,
+            this.schema.select(...columnNames), this.length,
             this.columns.filter((_, index) => namesToKeep[fields[index].name])
         );
     }
