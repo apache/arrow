@@ -90,13 +90,13 @@ export class BaseData<T extends DataType = DataType> implements VectorLike {
         }
         return nullCount;
     }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new BaseData<T>(this._type, length, offset, nullCount) as this;
+    public clone<R extends T>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new BaseData(type, length, offset, nullCount);
     }
     public slice(offset: number, length: number) {
         return length <= 0 ? this : this.sliceInternal(this.clone(
-            length, this._offset + offset, +(this._nullCount === 0) - 1
-        ), offset, length);
+            this._type, length, this._offset + offset, +(this._nullCount === 0) - 1
+        ) as any, offset, length);
     }
     protected sliceInternal(clone: this, offset: number, length: number) {
         let arr: any;
@@ -126,16 +126,13 @@ export class FlatData<T extends FlatType> extends BaseData<T> {
         this[VectorType.VALIDITY] = toTypedArray(Uint8Array, nullBitmap);
     }
     public get ArrayType(): T['ArrayType'] { return this._type.ArrayType; }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new FlatData<T>(this._type, length, this[VectorType.VALIDITY], this[VectorType.DATA], offset, nullCount) as this;
+    public clone<R extends T>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new (this.constructor as any)(type, length, this[VectorType.VALIDITY], this[VectorType.DATA], offset, nullCount) as FlatData<R>;
     }
 }
 
 export class BoolData extends FlatData<Bool> {
     protected sliceData(data: Uint8Array) { return data; }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new BoolData(this._type, length, this[VectorType.VALIDITY], this[VectorType.DATA], offset, nullCount) as this;
-    }
 }
 
 export class FlatListData<T extends FlatListType> extends FlatData<T> {
@@ -148,8 +145,8 @@ export class FlatListData<T extends FlatListType> extends FlatData<T> {
         super(type, length, nullBitmap, data, offset, nullCount);
         this[VectorType.OFFSET] = toTypedArray(Int32Array, valueOffsets);
     }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new FlatListData<T>(this._type, length, this[VectorType.VALIDITY], this[VectorType.OFFSET], this[VectorType.DATA], offset, nullCount) as this;
+    public clone<R extends T>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new FlatListData(type, length, this[VectorType.VALIDITY], this[VectorType.OFFSET], this[VectorType.DATA], offset, nullCount);
     }
 }
 
@@ -165,8 +162,13 @@ export class DictionaryData<T extends DataType> extends BaseData<Dictionary<T>> 
     }
     public get length() { return this._indicies.length; }
     public get nullCount() { return this._indicies.nullCount; }
-    public clone(length = this._length, offset = this._offset) {
-        return new DictionaryData<T>(this._type, this._dictionary, this._indicies.slice(offset - this._offset, length)) as this;
+    public clone<R extends Dictionary<T>>(type: R, length = this._length, offset = this._offset) {
+        const data = this._dictionary.data.clone(type.dictionary as any);
+        return new DictionaryData<R>(
+            this._type as any,
+            this._dictionary.clone(data) as any,
+            this._indicies.slice(offset - this._offset, length)
+        ) as any;
     }
     protected sliceInternal(clone: this, _offset: number, _length: number) {
         clone._length = clone._indicies.length;
@@ -182,8 +184,8 @@ export class NestedData<T extends NestedType = NestedType> extends BaseData<T> {
         this._childData = childData;
         this[VectorType.VALIDITY] = toTypedArray(Uint8Array, nullBitmap);
     }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new NestedData<T>(this._type, length, this[VectorType.VALIDITY], this._childData, offset, nullCount) as this;
+    public clone<R extends T>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new NestedData<R>(type, length, this[VectorType.VALIDITY], this._childData, offset, nullCount);
     }
     protected sliceInternal(clone: this, offset: number, length: number) {
         if (!this[VectorType.OFFSET]) {
@@ -204,8 +206,8 @@ export class ListData<T extends ListType> extends NestedData<T> {
         this._valuesData = valueChildData;
         this[VectorType.OFFSET] = toTypedArray(Int32Array, valueOffsets);
     }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new ListData<T>(this._type, length, this[VectorType.VALIDITY], this[VectorType.OFFSET], this._valuesData, offset, nullCount) as this;
+    public clone<R extends T>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new ListData<R>(type, length, this[VectorType.VALIDITY], this[VectorType.OFFSET], this._valuesData as any, offset, nullCount);
     }
 }
 
@@ -216,8 +218,8 @@ export class UnionData<T extends (DenseUnion | SparseUnion) = any> extends Neste
         super(type, length, nullBitmap, childData, offset, nullCount);
         this[VectorType.TYPE] = toTypedArray(Int8Array, typeIds);
     }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new UnionData<T>(this._type, length, this[VectorType.VALIDITY], this[VectorType.TYPE], this._childData, offset, nullCount) as this;
+    public clone<R extends T>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new UnionData<R>(type, length, this[VectorType.VALIDITY], this[VectorType.TYPE], this._childData, offset, nullCount);
     }
 }
 
@@ -225,8 +227,15 @@ export class SparseUnionData extends UnionData<SparseUnion> {
     constructor(type: SparseUnion, length: number, nullBitmap: Uint8Array | null | undefined, typeIds: Iterable<number>, childData: Data<any>[], offset?: number, nullCount?: number) {
         super(type, length, nullBitmap, typeIds, childData, offset, nullCount);
     }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new SparseUnionData(this._type, length, this[VectorType.VALIDITY], this[VectorType.TYPE], this._childData, offset, nullCount) as this;
+    public clone<R extends SparseUnion>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new SparseUnionData(
+            type,
+            length,
+            this[VectorType.VALIDITY],
+            this[VectorType.TYPE],
+            this._childData,
+            offset, nullCount
+        ) as any as UnionData<R>;
     }
 }
 
@@ -237,8 +246,16 @@ export class DenseUnionData extends UnionData<DenseUnion> {
         super(type, length, nullBitmap, typeIds, childData, offset, nullCount);
         this[VectorType.OFFSET] = toTypedArray(Int32Array, valueOffsets);
     }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new DenseUnionData(this._type, length, this[VectorType.VALIDITY], this[VectorType.TYPE], this[VectorType.OFFSET], this._childData, offset, nullCount) as this;
+    public clone<R extends DenseUnion>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new DenseUnionData(
+            type,
+            length,
+            this[VectorType.VALIDITY],
+            this[VectorType.TYPE],
+            this[VectorType.OFFSET],
+            this._childData,
+            offset, nullCount
+        ) as any as UnionData<R>;
     }
 }
 
@@ -263,8 +280,12 @@ export class ChunkedData<T extends DataType> extends BaseData<T> {
         }
         return nullCount;
     }
-    public clone(length = this._length, offset = this._offset, nullCount = this._nullCount) {
-        return new ChunkedData<T>(this._type, length, this._childVectors, offset, nullCount, this._childOffsets) as this;
+    public clone<R extends T>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {
+        return new ChunkedData<R>(
+            type, length,
+            this._childVectors.map((vec) => vec.clone(vec.data.clone(type))) as any,
+            offset, nullCount, this._childOffsets
+        );
     }
     protected sliceInternal(clone: this, offset: number, length: number) {
         const chunks = this._childVectors;

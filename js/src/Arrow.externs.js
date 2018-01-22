@@ -374,6 +374,12 @@ ChunkedData.computeOffsets = function() {};
 var FlatVector = function() {};
 /** @type {?} */
 FlatVector.prototype.values;
+/** @type {?} */
+FlatVector.prototype.lows;
+/** @type {?} */
+FlatVector.prototype.highs;
+/** @type {?} */
+FlatVector.prototype.asInt32;
 
 var ListVectorBase = function() {};
 /** @type {?} */

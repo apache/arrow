@@ -18,7 +18,7 @@
 import { Data } from '../data';
 import { View } from '../vector';
 import { getBool, setBool, iterateBits } from '../util/bit';
-import { Bool, Float16, Date_, Interval, Null } from '../type';
+import { Bool, Float16, Date_, Interval, Null, Int32 } from '../type';
 import { DataType, FlatType, PrimitiveType, IterableArrayLike } from '../type';
 
 export class FlatView<T extends FlatType> implements View<T> {
@@ -161,7 +161,7 @@ export class PrimitiveView<T extends PrimitiveType> extends FlatView<T> {
         return this.setValue(this.values, index, this.size, value);
     }
     public toArray(): IterableArrayLike<T['TValue']> {
-        return this.values;
+        return this.size === 1 ? this.values : new this.ArrayType(this);
     }
     public *[Symbol.iterator](): IterableIterator<T['TValue']> {
         const get = this.getValue;
@@ -173,6 +173,9 @@ export class PrimitiveView<T extends PrimitiveType> extends FlatView<T> {
 }
 
 export class FixedSizeView<T extends PrimitiveType> extends PrimitiveView<T> {
+    public toArray(): IterableArrayLike<T['TValue']> {
+        return this.values;
+    }
     protected getValue(values: T['TArray'], index: number, size: number): T['TValue'] {
         return values.subarray(index * size, index * size + size);
     }
@@ -221,6 +224,26 @@ export class IntervalYearMonthView extends PrimitiveView<Interval> {
     }
     protected setValue(values: Int32Array, index: number, size: number, value: Int32Array): void {
         values[index * size] = (value[0] * 12) + (value[1] % 12);
+    }
+}
+
+export class IntervalYearView extends PrimitiveView<Int32> {
+    public toArray() { return [...this]; }
+    protected getValue(values: Int32Array, index: number, size: number): number {
+        return values[index * size] / 12;
+    }
+    protected setValue(values: Int32Array, index: number, size: number, value: number): void {
+        values[index * size] = (value * 12) + (values[index * size] % 12);
+    }
+}
+
+export class IntervalMonthView extends PrimitiveView<Int32> {
+    public toArray() { return [...this]; }
+    protected getValue(values: Int32Array, index: number, size: number): number {
+        return values[index * size] % 12;
+    }
+    protected setValue(values: Int32Array, index: number, size: number, value: number): void {
+        values[index * size] = (values[index * size] * 12) + (value % 12);
     }
 }
 

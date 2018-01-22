@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, ChunkedData, FlatData, BoolData } from './data';
+import { Data, ChunkedData, FlatData, BoolData, FlatListData, NestedData } from './data';
 import { VisitorNode, TypeVisitor, VectorVisitor } from './visitor';
 import { DataType, ListType, FlatType, NestedType, FlatListType } from './type';
 import { IterableArrayLike, Precision, DateUnit, IntervalUnit, UnionMode } from './type';
@@ -35,10 +35,14 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
     public static create<T extends DataType>(data: Data<T>): Vector<T> {
         return createVector(data);
     }
+    public type: T;
+    public length: number;
     public readonly data: Data<T>;
     public readonly view: View<T>;
     constructor(data: Data<T>, view: View<T>) {
         this.data = data;
+        this.type = data.type;
+        this.length = data.length;
         let nulls: Uint8Array;
         if ((<any> data instanceof ChunkedData) && !(view instanceof ChunkedView)) {
             this.view = new ChunkedView(data);
@@ -49,15 +53,13 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
         }
     }
 
-    public get type() { return this.data.type; }
-    public get length() { return this.data.length; }
     public get nullCount() { return this.data.nullCount; }
     public get nullBitmap() { return this.data.nullBitmap; }
     public get [Symbol.toStringTag]() {
         return `Vector<${this.type[Symbol.toStringTag]}>`;
     }
     public toJSON(): any { return this.toArray(); }
-    public clone(data: Data<T>, view: View<T> = this.view.clone(data)): this {
+    public clone<R extends T>(data: Data<R>, view: View<R> = this.view.clone(data) as any): this {
         return new (this.constructor as any)(data, view);
     }
     public isValid(index: number): boolean {
@@ -111,6 +113,17 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
 
 export abstract class FlatVector<T extends FlatType> extends Vector<T> {
     public get values() { return this.data.values; }
+    public lows(): IntVector<Int32> { return this.asInt32(0, 2); }
+    public highs(): IntVector<Int32> { return this.asInt32(1, 2); }
+    public asInt32(offset: number = 0, stride: number = 2): IntVector<Int32> {
+        let data = (this.data as FlatData<any>).clone(new Int32());
+        if (offset > 0) {
+            data = data.slice(offset, this.length - offset);
+        }
+        const int32s = new IntVector(data, new PrimitiveView(data, stride));
+        int32s.length = this.length / stride | 0;
+        return int32s;
+    }
 }
 
 export abstract class ListVectorBase<T extends (ListType | FlatListType)> extends Vector<T> {
@@ -144,7 +157,7 @@ import { ChunkedView } from './vector/chunked';
 import { DictionaryView } from './vector/dictionary';
 import { ListView, FixedSizeListView, BinaryView, Utf8View } from './vector/list';
 import { UnionView, DenseUnionView, NestedView, StructView, MapView } from './vector/nested';
-import { FlatView, NullView, BoolView, ValidityView, FixedSizeView, Float16View, DateDayView, DateMillisecondView, IntervalYearMonthView } from './vector/flat';
+import { FlatView, NullView, BoolView, ValidityView, FixedSizeView, Float16View, DateDayView, DateMillisecondView, IntervalYearMonthView, PrimitiveView } from './vector/flat';
 import { packBools } from './util/bit';
 
 export class NullVector extends Vector<Null> {
@@ -223,6 +236,12 @@ export class DateVector extends FlatVector<Date_> {
     constructor(data: Data<Date_>, view: View<Date_> = DateVector.defaultView(data)) {
         super(data, view);
     }
+    public lows(): IntVector<Int32> {
+        return this.type.unit === DateUnit.DAY ? this.asInt32(0, 1) : this.asInt32(0, 2);
+    }
+    public highs(): IntVector<Int32> {
+        return this.type.unit === DateUnit.DAY ? this.asInt32(0, 1) : this.asInt32(1, 2);
+    }
 }
 
 export class DecimalVector extends FlatVector<Decimal> {
@@ -237,6 +256,12 @@ export class TimeVector extends FlatVector<Time> {
     }
     constructor(data: Data<Time>, view: View<Time> = TimeVector.defaultView(data)) {
         super(data, view);
+    }
+    public lows(): IntVector<Int32> {
+        return this.type.bitWidth <= 32 ? this.asInt32(0, 1) : this.asInt32(0, 2);
+    }
+    public highs(): IntVector<Int32> {
+        return this.type.bitWidth <= 32 ? this.asInt32(0, 1) : this.asInt32(1, 2);
     }
 }
 
@@ -253,11 +278,20 @@ export class IntervalVector extends FlatVector<Interval> {
     constructor(data: Data<Interval>, view: View<Interval> = IntervalVector.defaultView(data)) {
         super(data, view);
     }
+    public lows(): IntVector<Int32> {
+        return this.type.unit === IntervalUnit.YEAR_MONTH ? this.asInt32(0, 1) : this.asInt32(0, 2);
+    }
+    public highs(): IntVector<Int32> {
+        return this.type.unit === IntervalUnit.YEAR_MONTH ? this.asInt32(0, 1) : this.asInt32(1, 2);
+    }
 }
 
 export class BinaryVector extends ListVectorBase<Binary> {
     constructor(data: Data<Binary>, view: View<Binary> = new BinaryView(data)) {
         super(data, view);
+    }
+    public asUtf8() {
+        return new Utf8Vector((this.data as FlatListData<any>).clone(new Utf8()));
     }
 }
 
@@ -270,6 +304,9 @@ export class FixedSizeBinaryVector extends FlatVector<FixedSizeBinary> {
 export class Utf8Vector extends ListVectorBase<Utf8> {
     constructor(data: Data<Utf8>, view: View<Utf8> = new Utf8View(data)) {
         super(data, view);
+    }
+    public asBinary() {
+        return new BinaryVector((this.data as FlatListData<any>).clone(new Binary()));
     }
 }
 
@@ -289,11 +326,17 @@ export class MapVector extends NestedVector<Map_> {
     constructor(data: Data<Map_>, view: View<Map_> = new MapView(data)) {
         super(data, view);
     }
+    public asStruct() {
+        return new StructVector((this.data as NestedData<any>).clone(new Struct(this.type.children)));
+    }
 }
 
 export class StructVector extends NestedVector<Struct> {
     constructor(data: Data<Struct>, view: View<Struct> = new StructView(data)) {
         super(data, view);
+    }
+    public asMap(keysSorted: boolean = false) {
+        return new MapVector((this.data as NestedData<any>).clone(new Map_(keysSorted, this.type.children)));
     }
 }
 

@@ -64,8 +64,8 @@ export class RecordBatch extends StructVector {
             this.numCols = schema.fields.length;
         }
     }
-    public clone(data: Data<Struct>, view: View<Struct> = this.view.clone(data)): this {
-        return new RecordBatch(this.schema, data, view) as this;
+    public clone<R extends Struct>(data: Data<R>, view: View<R> = this.view.clone(data)): this {
+        return new RecordBatch(this.schema, data as any, view) as any;
     }
     public select(...columnNames: string[]) {
         const fields = this.schema.fields;
