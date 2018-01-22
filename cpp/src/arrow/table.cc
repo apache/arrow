@@ -102,6 +102,30 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
   return Equals(*other.get());
 }
 
+std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
+  DCHECK_LE(offset, length_);
+
+  int curr_chunk = 0;
+  while (offset >= chunk(curr_chunk)->length()) {
+    offset -= chunk(curr_chunk)->length();
+    curr_chunk++;
+  }
+
+  ArrayVector new_chunks;
+  while (length > 0 && curr_chunk < num_chunks()) {
+    new_chunks.push_back(chunk(curr_chunk)->Slice(offset, length));
+    length -= chunk(curr_chunk)->length() - offset;
+    offset = 0;
+    curr_chunk++;
+  }
+
+  return std::make_shared<ChunkedArray>(new_chunks);
+}
+
+std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset) const {
+  return Slice(offset, length_);
+}
+
 Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
     : field_(field) {
   data_ = std::make_shared<ChunkedArray>(chunks);

@@ -50,6 +50,8 @@ cdef class SerializationContext:
         object types_to_pickle
         object custom_serializers
         object custom_deserializers
+        object pickle_serializer
+        object pickle_deserializer
 
     def __init__(self):
         # Types with special serialization handlers
@@ -58,6 +60,23 @@ cdef class SerializationContext:
         self.types_to_pickle = set()
         self.custom_serializers = dict()
         self.custom_deserializers = dict()
+        self.pickle_serializer = pickle.dumps
+        self.pickle_deserializer = pickle.loads
+
+    def set_pickle(self, serializer, deserializer):
+        """
+        Set the serializer and deserializer to use for objects that are to be
+        pickled.
+
+        Parameters
+        ----------
+        serializer : callable
+            The serializer to use (e.g., pickle.dumps or cloudpickle.dumps).
+        deserializer : callable
+            The deserializer to use (e.g., pickle.dumps or cloudpickle.dumps).
+        """
+        self.pickle_serializer = serializer
+        self.pickle_deserializer = deserializer
 
     def clone(self):
         """
@@ -72,6 +91,8 @@ cdef class SerializationContext:
         result.whitelisted_types = self.whitelisted_types.copy()
         result.custom_serializers = self.custom_serializers.copy()
         result.custom_deserializers = self.custom_deserializers.copy()
+        result.pickle_serializer = self.pickle_serializer
+        result.pickle_deserializer = self.pickle_deserializer
 
         return result
 
@@ -119,7 +140,8 @@ cdef class SerializationContext:
         # use the closest match to type(obj)
         type_id = self.type_to_type_id[type_]
         if type_id in self.types_to_pickle:
-            serialized_obj = {"data": pickle.dumps(obj), "pickle": True}
+            serialized_obj = {"data": self.pickle_serializer(obj),
+                              "pickle": True}
         elif type_id in self.custom_serializers:
             serialized_obj = {"data": self.custom_serializers[type_id](obj)}
         else:
@@ -139,7 +161,7 @@ cdef class SerializationContext:
 
         if "pickle" in serialized_obj:
             # The object was pickled, so unpickle it.
-            obj = pickle.loads(serialized_obj["data"])
+            obj = self.pickle_deserializer(serialized_obj["data"])
         else:
             assert type_id not in self.types_to_pickle
             if type_id not in self.whitelisted_types:

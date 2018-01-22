@@ -17,7 +17,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-subdir('xml')
+entities_conf = configuration_data()
+entities_conf.set('PACKAGE', meson.project_name())
+entities_conf.set('PACKAGE_BUGREPORT',
+                  'https://issues.apache.org/jira/browse/ARROW')
+entities_conf.set('PACKAGE_NAME', meson.project_name())
+entities_conf.set('PACKAGE_STRING',
+                  ' '.join([meson.project_name(), version]))
+entities_conf.set('PACKAGE_URL', 'https://arrow.apache.org/')
+entities_conf.set('PACKAGE_VERSION', version)
+configure_file(input: 'entities.xml.in',
+               output: 'entities.xml',
+               configuration: entities_conf)
 
 private_headers = [
 ]
