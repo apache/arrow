@@ -336,7 +336,7 @@ export class ListVector<T extends DataType = DataType> extends ListVectorBase<Li
     }
 }
 
-export class FixedSizeListVector extends ListVectorBase<FixedSizeList> {
+export class FixedSizeListVector extends Vector<FixedSizeList> {
     constructor(data: Data<FixedSizeList>, view: View<FixedSizeList> = new FixedSizeListView(data)) {
         super(data, view);
     }

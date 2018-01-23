@@ -20,7 +20,7 @@ import { RecordBatch } from '../../recordbatch';
 import { TypeVisitor } from '../../visitor';
 import { FlatType, NestedType, ListType } from '../../type';
 import { Message, FieldMetadata, BufferMetadata } from '../metadata';
-import { FlatData, ListData, NestedData, DenseUnionData, SparseUnionData, BoolData, FlatListData, DictionaryData } from '../../data';
+import { FlatData, ListData, NestedData, SingleNestedData, DenseUnionData, SparseUnionData, BoolData, FlatListData, DictionaryData } from '../../data';
 import {
     Schema, Field,
     Dictionary,
@@ -89,7 +89,7 @@ export abstract class TypeDataLoader extends TypeVisitor {
     public visitStruct         (type: Struct)          { return this.visitNestedType(type); }
     public visitUnion          (type: Union)           { return this.visitUnionType(type);  }
     public visitFixedSizeBinary(type: FixedSizeBinary) { return this.visitFlatType(type);   }
-    public visitFixedSizeList  (type: FixedSizeList)   { return this.visitListType(type);   }
+    public visitFixedSizeList  (type: FixedSizeList)   { return this.visitFixedSizeListType(type); }
     public visitMap            (type: Map_)            { return this.visitNestedType(type); }
     public visitDictionary     (type: Dictionary)      {
         return new DictionaryData(type, this.dictionaries.get(type.id)!, this.visit(type.indicies));
@@ -116,6 +116,9 @@ export abstract class TypeDataLoader extends TypeVisitor {
     }
     protected visitListType<T extends ListType>(type: T, { length, nullCount }: FieldMetadata = this.getFieldMetadata()) {
         return new ListData<T>(type, length, this.readNullBitmap(type, nullCount), this.readOffsets(type), this.visit(type.children![0].type), 0, nullCount);
+    }
+    protected visitFixedSizeListType<T extends FixedSizeList>(type: T, { length, nullCount }: FieldMetadata = this.getFieldMetadata()) {
+        return new SingleNestedData<T>(type, length, this.readNullBitmap(type, nullCount), this.visit(type.children![0].type), 0, nullCount);
     }
     protected visitNestedType<T extends NestedType>(type: T, { length, nullCount }: FieldMetadata = this.getFieldMetadata()) {
         return new NestedData<T>(type, length, this.readNullBitmap(type, nullCount), this.visitFields(type.children), 0, nullCount);
