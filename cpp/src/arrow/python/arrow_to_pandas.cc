@@ -963,7 +963,7 @@ class DatetimeTZBlock : public DatetimeBlock {
 class CategoricalBlock : public PandasBlock {
  public:
   explicit CategoricalBlock(PandasOptions options, MemoryPool* pool, int64_t num_rows)
-      : PandasBlock(options, num_rows, 1), pool_(pool) {}
+      : PandasBlock(options, num_rows, 1), pool_(pool), needs_copy_(false) {}
 
   Status Allocate() override {
     return Status::NotImplemented(
@@ -996,14 +996,20 @@ class CategoricalBlock : public PandasBlock {
       return Status::OK();
     };
 
-    if (data.num_chunks() == 1 && indices_first.null_count() == 0) {
+    if (!needs_copy_ && data.num_chunks() == 1 && indices_first.null_count() == 0) {
       RETURN_NOT_OK(CheckIndices(indices_first, dict_arr_first.dictionary()->length()));
       RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
     } else {
       if (options_.zero_copy_only) {
         std::stringstream ss;
-        ss << "Needed to copy " << data.num_chunks() << " chunks with "
-           << indices_first.null_count() << " indices nulls, but zero_copy_only was True";
+        if (needs_copy_) {
+          ss << "Need to allocate categorical memory, "
+             << "but only zero-copy conversions allowed.";
+        } else {
+          ss << "Needed to copy " << data.num_chunks() << " chunks with "
+             << indices_first.null_count()
+             << " indices nulls, but zero_copy_only was True";
+        }
         return Status::Invalid(ss.str());
       }
       RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
@@ -1034,6 +1040,7 @@ class CategoricalBlock : public PandasBlock {
     std::shared_ptr<Column> converted_col;
     if (options_.strings_to_categorical &&
         (col->type()->id() == Type::STRING || col->type()->id() == Type::BINARY)) {
+      needs_copy_ = true;
       compute::FunctionContext ctx(pool_);
 
       Datum out;
@@ -1135,6 +1142,7 @@ class CategoricalBlock : public PandasBlock {
   MemoryPool* pool_;
   OwnedRef dictionary_;
   bool ordered_;
+  bool needs_copy_;
 };
 
 Status MakeBlock(PandasOptions options, PandasBlock::type type, int64_t num_rows,
