@@ -493,13 +493,10 @@ class FixedSizeBinaryType(PrimitiveType):
         values = []
 
         for i in range(size):
-            if is_valid[i]:
-                draw = (np.random.randint(0, 255, size=self.byte_width)
-                        .astype(np.uint8)
-                        .tostring())
-                values.append(draw)
-            else:
-                values.append("")
+            draw = (np.random.randint(0, 255, size=self.byte_width)
+                    .astype(np.uint8)
+                    .tostring())
+            values.append(draw)
 
         if name is None:
             name = self.name
@@ -576,7 +573,7 @@ class FixedSizeBinaryColumn(PrimitiveColumn):
     def _get_buffers(self):
         data = []
         for i, v in enumerate(self.values):
-            data.append(self._encode_value(v if self.is_valid[i] else ""))
+            data.append(self._encode_value(v))
 
         return [
             ('VALIDITY', [int(x) for x in self.is_valid]),
