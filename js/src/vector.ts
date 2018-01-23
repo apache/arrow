@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, ChunkedData, FlatData, BoolData, FlatListData, NestedData } from './data';
+import { Data, ChunkedData, FlatData, BoolData, FlatListData, NestedData, DictionaryData } from './data';
 import { VisitorNode, TypeVisitor, VectorVisitor } from './visitor';
 import { DataType, ListType, FlatType, NestedType, FlatListType, TimeUnit } from './type';
 import { IterableArrayLike, Precision, DateUnit, IntervalUnit, UnionMode } from './type';
@@ -373,16 +373,21 @@ export class DictionaryVector<T extends DataType = DataType> extends Vector<Dict
     public readonly dictionary: Vector<T>;
     constructor(data: Data<Dictionary<T>>, view: View<Dictionary<T>> = new DictionaryView<T>(data.dictionary, new IntVector(data.indicies))) {
         super(data as Data<any>, view);
-        if (view instanceof DictionaryView) {
+        if (data instanceof DictionaryData && view instanceof DictionaryView) {
             this.indicies = view.indicies;
-            this.dictionary = view.dictionary;
-        } else if (view instanceof ChunkedView) {
-            this.dictionary = (view.chunks[0] as DictionaryVector<T>).dictionary;
-            this.indicies = (view.chunks as DictionaryVector<T>[]).reduce<Vector<Int> | null>(
+            this.dictionary = data.dictionary;
+        } else if (data instanceof ChunkedData && view instanceof ChunkedView) {
+            const chunks = view.chunks as DictionaryVector<T>[];
+            // Assume the last chunk's dictionary data is the most up-to-date,
+            // including data from DictionaryBatches that were marked as deltas
+            this.dictionary = chunks[chunks.length - 1].dictionary;
+            this.indicies = chunks.reduce<Vector<Int> | null>(
                 (idxs: Vector<Int> | null, dict: DictionaryVector<T>) =>
                     !idxs ? dict.indicies! : idxs.concat(dict.indicies!),
                 null
             )!;
+        } else {
+            throw new TypeError(`Unrecognized DictionaryVector view`);
         }
     }
     public getKey(index: number) { return this.indicies.get(index); }
