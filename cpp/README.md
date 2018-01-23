@@ -42,6 +42,8 @@ sudo apt-get install cmake \
 On OS X, you can use [Homebrew][1]:
 
 ```shell
+git clone https://github.com/apache/arrow.git
+cd arrow
 brew update && brew bundle --file=c_glib/Brewfile
 ```
 
