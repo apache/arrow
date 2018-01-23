@@ -1225,14 +1225,14 @@ Status BinaryBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
   return ArrayBuilder::Resize(capacity);
 }
-  
+
 Status BinaryBuilder::ReserveData(int64_t elements) {
   if (value_data_length() + elements > value_data_capacity()) {
     if (value_data_length() + elements > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot reserve capacity larger than 2^31 - 1 in length for binary data");
+      return Status::Invalid("Cannot reserve capacity larger than 2^31 - 1 for binary");
     }
     RETURN_NOT_OK(value_data_builder_.Reserve(elements));
-  }  
+  }
   return Status::OK();
 }
 

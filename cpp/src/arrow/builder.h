@@ -682,7 +682,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
-  /// \brief Ensures there is enough allocated capacity to append the indicated 
+  /// \brief Ensures there is enough allocated capacity to append the indicated
   /// number of bytes to the value data buffer without additional allocations
   Status ReserveData(int64_t elements);
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
