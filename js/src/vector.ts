@@ -17,7 +17,7 @@
 
 import { Data, ChunkedData, FlatData, BoolData, FlatListData, NestedData } from './data';
 import { VisitorNode, TypeVisitor, VectorVisitor } from './visitor';
-import { DataType, ListType, FlatType, NestedType, FlatListType } from './type';
+import { DataType, ListType, FlatType, NestedType, FlatListType, TimeUnit } from './type';
 import { IterableArrayLike, Precision, DateUnit, IntervalUnit, UnionMode } from './type';
 
 export interface VectorLike { length: number; nullCount: number; }
@@ -157,7 +157,9 @@ import { ChunkedView } from './vector/chunked';
 import { DictionaryView } from './vector/dictionary';
 import { ListView, FixedSizeListView, BinaryView, Utf8View } from './vector/list';
 import { UnionView, DenseUnionView, NestedView, StructView, MapView } from './vector/nested';
-import { FlatView, NullView, BoolView, ValidityView, FixedSizeView, Float16View, DateDayView, DateMillisecondView, IntervalYearMonthView, PrimitiveView } from './vector/flat';
+import { FlatView, NullView, BoolView, ValidityView, PrimitiveView, FixedSizeView, Float16View } from './vector/flat';
+import { DateDayView, DateMillisecondView, IntervalYearMonthView } from './vector/flat';
+import { TimestampDayView, TimestampSecondView, TimestampMillisecondView, TimestampMicrosecondView, TimestampNanosecondView } from './vector/flat';
 import { packBools } from './util/bit';
 
 export class NullVector extends Vector<Null> {
@@ -242,6 +244,14 @@ export class DateVector extends FlatVector<Date_> {
     public highs(): IntVector<Int32> {
         return this.type.unit === DateUnit.DAY ? this.asInt32(0, 1) : this.asInt32(1, 2);
     }
+    public asEpochMilliseconds(): IntVector<Int32> {
+        let data = (this.data as FlatData<any>).clone(new Int32());
+        switch (this.type.unit) {
+            case DateUnit.DAY: return new IntVector(data, new TimestampDayView(data as any, 1) as any);
+            case DateUnit.MILLISECOND: return new IntVector(data, new TimestampMillisecondView(data as any, 2) as any);
+        }
+        throw new TypeError(`Unrecognized date unit "${DateUnit[this.type.unit]}"`);
+    }
 }
 
 export class DecimalVector extends FlatVector<Decimal> {
@@ -268,6 +278,16 @@ export class TimeVector extends FlatVector<Time> {
 export class TimestampVector extends FlatVector<Timestamp> {
     constructor(data: Data<Timestamp>, view: View<Timestamp> = new FixedSizeView(data, 2)) {
         super(data, view);
+    }
+    public asEpochMilliseconds(): IntVector<Int32> {
+        let data = (this.data as FlatData<any>).clone(new Int32());
+        switch (this.type.unit) {
+            case TimeUnit.SECOND: return new IntVector(data, new TimestampSecondView(data as any, 1) as any);
+            case TimeUnit.MILLISECOND: return new IntVector(data, new TimestampMillisecondView(data as any, 2) as any);
+            case TimeUnit.MICROSECOND: return new IntVector(data, new TimestampMicrosecondView(data as any, 2) as any);
+            case TimeUnit.NANOSECOND: return new IntVector(data, new TimestampNanosecondView(data as any, 2) as any);
+        }
+        throw new TypeError(`Unrecognized time unit "${TimeUnit[this.type.unit]}"`);
     }
 }
 

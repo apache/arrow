@@ -30,12 +30,9 @@ export const decodeUtf8 = ((decoder) =>
 )(new TextDecoder('utf-8'));
 
 export abstract class ListViewBase<T extends (ListType | FlatListType)> implements View<T> {
-    // @ts-ignore
-    protected length: number;
-    // @ts-ignore
-    protected values: T['TArray'];
-    // @ts-ignore
-    protected valueOffsets?: Int32Array;
+    public length: number;
+    public values: T['TArray'];
+    public valueOffsets?: Int32Array;
     constructor(data: Data<T>) {
         this.length = data.length;
         this.values = data.values;
@@ -86,7 +83,6 @@ export class ListView<T extends DataType> extends ListViewBase<List<T>> {
 }
 
 export class FixedSizeListView<T extends DataType> extends ListViewBase<FixedSizeList<T>> {
-    // @ts-ignore
     public size: number;
     constructor(data: Data<FixedSizeList<T>>) {
         super(data);

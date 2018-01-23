@@ -139,14 +139,19 @@ export namespace view {
     export import NullView = view_.NullView;
     export import BoolView = view_.BoolView;
     export import ValidityView = view_.ValidityView;
+    export import PrimitiveView = view_.PrimitiveView;
     export import FixedSizeView = view_.FixedSizeView;
     export import Float16View = view_.Float16View;
     export import DateDayView = view_.DateDayView;
     export import DateMillisecondView = view_.DateMillisecondView;
+    export import TimestampDayView = view_.TimestampDayView;
+    export import TimestampSecondView = view_.TimestampSecondView;
+    export import TimestampMillisecondView = view_.TimestampMillisecondView;
+    export import TimestampMicrosecondView = view_.TimestampMicrosecondView;
+    export import TimestampNanosecondView = view_.TimestampNanosecondView;
     export import IntervalYearMonthView = view_.IntervalYearMonthView;
     export import IntervalYearView = view_.IntervalYearView;
     export import IntervalMonthView = view_.IntervalMonthView;
-    export import PrimitiveView = view_.PrimitiveView;
 }
 
 /* These exports are needed for the closure and uglify umd targets */

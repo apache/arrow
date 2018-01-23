@@ -21,13 +21,9 @@ import { View, Vector, createVector } from '../vector';
 import { DataType, NestedType, DenseUnion, SparseUnion, Struct, Map_ } from '../type';
 
 export abstract class NestedView<T extends NestedType> implements View<T> {
-    // @ts-ignore
     public length: number;
-    // @ts-ignore
     public numChildren: number;
-    // @ts-ignore
     public childData: Data<any>[];
-    // @ts-ignore
     protected children: Vector<any>[];
     constructor(data: Data<T>, children?: Vector<any>[]) {
         this.length = data.length;

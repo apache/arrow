@@ -18,13 +18,11 @@
 import { Data } from '../data';
 import { View } from '../vector';
 import { getBool, setBool, iterateBits } from '../util/bit';
-import { Bool, Float16, Date_, Interval, Null, Int32 } from '../type';
+import { Bool, Float16, Date_, Interval, Null, Int32, Timestamp } from '../type';
 import { DataType, FlatType, PrimitiveType, IterableArrayLike } from '../type';
 
 export class FlatView<T extends FlatType> implements View<T> {
-    // @ts-ignore
     public length: number;
-    // @ts-ignore
     public values: T['TArray'];
     constructor(data: Data<T>) {
         this.length = data.length;
@@ -51,7 +49,6 @@ export class FlatView<T extends FlatType> implements View<T> {
 }
 
 export class NullView implements View<Null> {
-    // @ts-ignore
     public length: number;
     constructor(data: Data<Null>) {
         this.length = data.length;
@@ -75,7 +72,6 @@ export class NullView implements View<Null> {
 }
 
 export class BoolView extends FlatView<Bool> {
-    // @ts-ignore
     protected offset: number;
     constructor(data: Data<Bool>) {
         super(data);
@@ -96,11 +92,8 @@ export class BoolView extends FlatView<Bool> {
 
 export class ValidityView<T extends DataType> implements View<T> {
     protected view: View<T>;
-    // @ts-ignore
     protected length: number;
-    // @ts-ignore
     protected offset: number;
-    // @ts-ignore
     protected nullBitmap: Uint8Array;
     constructor(data: Data<T>, view: View<T>) {
         this.view = view;
@@ -136,9 +129,7 @@ export class ValidityView<T extends DataType> implements View<T> {
 }
 
 export class PrimitiveView<T extends PrimitiveType> extends FlatView<T> {
-    // @ts-ignore
     public size: number;
-    // @ts-ignore
     public ArrayType: T['ArrayType'];
     constructor(data: Data<T>, size?: number) {
         super(data);
@@ -213,6 +204,59 @@ export class DateMillisecondView extends FixedSizeView<Date_> {
         const epochMs = value.valueOf();
         values[index * size] = (epochMs % 4294967296) | 0;
         values[index * size + size] = (epochMs / 4294967296) | 0;
+    }
+}
+
+export class TimestampDayView extends PrimitiveView<Timestamp> {
+    public toArray() { return [...this]; }
+    protected getValue(values: Int32Array, index: number, size: number): number {
+        return epochDaysToMs(values, index * size);
+    }
+    protected setValue(values: Int32Array, index: number, size: number, epochMs: number): void {
+        values[index * size] = (epochMs / 86400000) | 0;
+    }
+}
+
+export class TimestampSecondView extends PrimitiveView<Timestamp> {
+    public toArray() { return [...this]; }
+    protected getValue(values: Int32Array, index: number, size: number): number {
+        return epochSecondsToMs(values, index * size);
+    }
+    protected setValue(values: Int32Array, index: number, size: number, epochMs: number): void {
+        values[index * size] = (epochMs / 1000) | 0;
+    }
+}
+
+export class TimestampMillisecondView extends PrimitiveView<Timestamp> {
+    public toArray() { return [...this]; }
+    protected getValue(values: Int32Array, index: number, size: number): number {
+        return epochMillisecondsLongToMs(values, index * size);
+    }
+    protected setValue(values: Int32Array, index: number, size: number, epochMs: number): void {
+        values[index * size] = (epochMs % 4294967296) | 0;
+        values[index * size + size] = (epochMs / 4294967296) | 0;
+    }
+}
+
+export class TimestampMicrosecondView extends PrimitiveView<Timestamp> {
+    public toArray() { return [...this]; }
+    protected getValue(values: Int32Array, index: number, size: number): number {
+        return epochMicrosecondsLongToMs(values, index * size);
+    }
+    protected setValue(values: Int32Array, index: number, size: number, epochMs: number): void {
+        values[index * size] = ((epochMs / 1000) % 4294967296) | 0;
+        values[index * size + size] = ((epochMs / 1000) / 4294967296) | 0;
+    }
+}
+
+export class TimestampNanosecondView extends PrimitiveView<Timestamp> {
+    public toArray() { return [...this]; }
+    protected getValue(values: Int32Array, index: number, size: number): number {
+        return epochNanosecondsLongToMs(values, index * size);
+    }
+    protected setValue(values: Int32Array, index: number, size: number, epochMs: number): void {
+        values[index * size] = ((epochMs / 1000000) % 4294967296) | 0;
+        values[index * size + size] = ((epochMs / 1000000) / 4294967296) | 0;
     }
 }
 
