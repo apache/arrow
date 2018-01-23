@@ -1003,7 +1003,8 @@ class CategoricalBlock : public PandasBlock {
       if (options_.zero_copy_only) {
         std::stringstream ss;
         if (needs_copy_) {
-          ss << "Zero-copy is not allowed, but zero_copy_only was True";
+          ss << "Need to allocate categorical memory, "
+             << "but only zero-copy conversions allowed.";
         } else {
           ss << "Needed to copy " << data.num_chunks() << " chunks with "
              << indices_first.null_count()
