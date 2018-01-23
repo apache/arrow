@@ -31,7 +31,12 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.BufferBacked;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -122,10 +127,14 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    *                vector has a list of 10 values.
    *                A density value of 0.1 implies out of 10 positions in
    *                the list vector, 1 position has a list of size 1 and
+   *                remaining positions are null (no lists). This helps
+   *                in tightly controlling the memory we provision for
+   *                inner data vector.
    *                remaining positions are null (no lists) or empty lists.
    *                This helps in tightly controlling the memory we provision
    *                for inner data vector.
    */
+  @Override
   public void setInitialCapacity(int numRecords, double density) {
     validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
     super.setInitialCapacity(numRecords, density);
@@ -287,6 +296,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = Math.max(newAllocationSize, 1);
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");

@@ -1933,15 +1933,6 @@ public class TestValueVector {
       vector.allocateNew();
       assertEquals(4096, vector.getValueCapacity());
       assertEquals(64, vector.getDataBuffer().capacity());
-
-      boolean error = false;
-      try {
-        vector.setInitialCapacity(5, 0.1);
-      } catch (IllegalArgumentException e) {
-        error = true;
-      } finally {
-        assertTrue(error);
-      }
     }
   }
 }

@@ -18,6 +18,7 @@
 
 package org.apache.arrow.vector.complex;
 
+import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 
@@ -28,7 +29,7 @@ import org.apache.arrow.vector.ValueVector;
  * Current design maintains data and offsets vectors. Each cell is stored in the data vector. Repeated vector
  * uses the offset vector to determine the sequence of cells pertaining to an individual value.
  */
-public interface RepeatedValueVector extends ValueVector {
+public interface RepeatedValueVector extends ValueVector, DensityAwareVector {
 
   final static int DEFAULT_REPEAT_PER_RECORD = 5;
 

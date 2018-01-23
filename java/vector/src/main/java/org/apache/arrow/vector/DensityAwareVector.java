@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,22 +18,15 @@
 
 package org.apache.arrow.vector;
 
-public interface VariableWidthVector extends ValueVector, DensityAwareVector {
-
+/**
+ * Vector that support density aware initial capacity settings.
+ */
+public interface DensityAwareVector {
   /**
-   * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
-   *
-   * @param totalBytes Desired size of the underlying data buffer.
-   * @param valueCount Number of values in the vector.
+   * Set value with density
+   * @param valueCount
+   * @param density
    */
-  void allocateNew(int totalBytes, int valueCount);
+  void setInitialCapacity(int valueCount, double density);
 
-  /**
-   * Provide the maximum amount of variable width bytes that can be stored in this vector.
-   *
-   * @return the byte capacity of this vector
-   */
-  int getByteCapacity();
-
-  int getCurrentSizeInBytes();
 }
