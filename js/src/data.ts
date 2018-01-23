@@ -19,7 +19,7 @@ import { popcnt_bit_range } from './util/bit';
 import { VectorLike, Vector } from './vector';
 import { VectorType, TypedArray, TypedArrayConstructor, Dictionary } from './type';
 import { Int, Bool, FlatListType, List, FixedSizeList, Struct, Map_ } from './type';
-import { DataType, FlatType, ListType, NestedType, DenseUnion, SparseUnion } from './type';
+import { DataType, FlatType, ListType, NestedType, SingleNestedType, DenseUnion, SparseUnion } from './type';
 
 export function toTypedArray<T extends TypedArray>(ArrayType: TypedArrayConstructor<T>, values?: T | ArrayLike<number> | Iterable<number> | null): T {
     if (!ArrayType && ArrayBuffer.isView(values)) { return values; }
@@ -46,7 +46,7 @@ export interface DataTypes<T extends DataType> {
 /*              [Type.Struct]*/ 13: NestedData<Struct>;
 /*               [Type.Union]*/ 14: UnionData;
 /*     [Type.FixedSizeBinary]*/ 15: FlatData<T>;
-/*       [Type.FixedSizeList]*/ 16: ListData<FixedSizeList<T>>;
+/*       [Type.FixedSizeList]*/ 16: SingleNestedData<FixedSizeList<T>>;
 /*                 [Type.Map]*/ 17: NestedData<Map_>;
 /*  [Type.DenseUnion]*/ DenseUnion: DenseUnionData;
 /*[Type.SparseUnion]*/ SparseUnion: SparseUnionData;
@@ -195,15 +195,21 @@ export class NestedData<T extends NestedType = NestedType> extends BaseData<T> {
     }
 }
 
-export class ListData<T extends ListType> extends NestedData<T> {
-    public /*  [VectorType.OFFSET]:*/ 0: Int32Array;
-    public /*[VectorType.VALIDITY]:*/ 2: Uint8Array;
+export class SingleNestedData<T extends SingleNestedType> extends NestedData<T> {
     protected _valuesData: Data<T>;
     public get values() { return this._valuesData; }
-    public get valueOffsets() { return this[VectorType.OFFSET]; }
-    constructor(type: T, length: number, nullBitmap: Uint8Array | null | undefined, valueOffsets: Iterable<number>, valueChildData: Data<T>, offset?: number, nullCount?: number) {
+    constructor(type: T, length: number, nullBitmap: Uint8Array | null | undefined, valueChildData: Data<T>, offset?: number, nullCount?: number) {
         super(type, length, nullBitmap, [valueChildData], offset, nullCount);
         this._valuesData = valueChildData;
+    }
+}
+
+export class ListData<T extends ListType> extends SingleNestedData<T> {
+    public /*  [VectorType.OFFSET]:*/ 0: Int32Array;
+    public /*[VectorType.VALIDITY]:*/ 2: Uint8Array;
+    public get valueOffsets() { return this[VectorType.OFFSET]; }
+    constructor(type: T, length: number, nullBitmap: Uint8Array | null | undefined, valueOffsets: Iterable<number>, valueChildData: Data<T>, offset?: number, nullCount?: number) {
+        super(type, length, nullBitmap, valueChildData, offset, nullCount);
         this[VectorType.OFFSET] = toTypedArray(Int32Array, valueOffsets);
     }
     public clone<R extends T>(type: R, length = this._length, offset = this._offset, nullCount = this._nullCount) {

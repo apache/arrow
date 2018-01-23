@@ -97,8 +97,9 @@ export type PrimitiveType = NumericType | FixedSizeType;
 
 export type FlatListType = Utf8 | Binary; // <-- these types have `offset`, `data`, and `validity` buffers
 export type FlatType = Bool | PrimitiveType | FlatListType; // <-- these types have `data` and `validity` buffers
-export type ListType = List<any> | FixedSizeList<any>; // <-- these types have `offset` and `validity` buffers
+export type ListType = List<any>; // <-- these types have `offset` and `validity` buffers
 export type NestedType = Map_ | Struct | List<any> | FixedSizeList<any> | Union<any>; // <-- these types have `validity` buffer and nested childData
+export type SingleNestedType = List<any> | FixedSizeList<any>; // <-- these are nested types that can only have a single child
 
 /**
  * *

@@ -29,14 +29,13 @@ export const decodeUtf8 = ((decoder) =>
     decoder.decode.bind(decoder) as (input?: ArrayBufferLike | ArrayBufferView) => string
 )(new TextDecoder('utf-8'));
 
-export abstract class ListViewBase<T extends (ListType | FlatListType)> implements View<T> {
+export abstract class ListViewBase<T extends (ListType | FlatListType | FixedSizeList)> implements View<T> {
     public length: number;
     public values: T['TArray'];
     public valueOffsets?: Int32Array;
     constructor(data: Data<T>) {
         this.length = data.length;
         this.values = data.values;
-        this.valueOffsets = data.valueOffsets;
     }
     public clone(data: Data<T>): this {
         return new (<any> this.constructor)(data) as this;
@@ -64,7 +63,15 @@ export abstract class ListViewBase<T extends (ListType | FlatListType)> implemen
     protected abstract setList(values: T['TArray'], index: number, value: T['TValue'], valueOffsets?: Int32Array): void;
 }
 
-export class ListView<T extends DataType> extends ListViewBase<List<T>> {
+export abstract class VariableListViewBase<T extends (ListType | FlatListType)> extends ListViewBase<T> {
+    constructor(data: Data<T>) {
+        super(data)
+        this.length = data.length;
+        this.valueOffsets = data.valueOffsets;
+    }
+}
+
+export class ListView<T extends DataType> extends VariableListViewBase<List<T>> {
     constructor(data: Data<List<T>>) {
         super(data);
         this.values = createVector(data.values);
@@ -101,7 +108,7 @@ export class FixedSizeListView<T extends DataType> extends ListViewBase<FixedSiz
     }
 }
 
-export class BinaryView extends ListViewBase<Binary> {
+export class BinaryView extends VariableListViewBase<Binary> {
     protected getList(values: Uint8Array, index: number, valueOffsets: Int32Array) {
         return values.subarray(valueOffsets[index], valueOffsets[index + 1]);
     }
@@ -111,7 +118,7 @@ export class BinaryView extends ListViewBase<Binary> {
     }
 }
 
-export class Utf8View extends ListViewBase<Utf8> {
+export class Utf8View extends VariableListViewBase<Utf8> {
     protected getList(values: Uint8Array, index: number, valueOffsets: Int32Array) {
         return decodeUtf8(values.subarray(valueOffsets[index], valueOffsets[index + 1]));
     }
