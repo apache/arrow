@@ -1155,6 +1155,45 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   }
 }
 
+TEST_F(TestBinaryBuilder, TestCapacityReserve) {
+  vector<string> strings = {"aaaaa", "bbbbbbbbbb", "ccccccccccccccc", "dddddddddd"};
+  int N = static_cast<int>(strings.size());
+  int reps = 15;
+  int64_t length = 0;
+  int64_t capacity = 1000;
+  int64_t expected_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+
+  ASSERT_OK(builder_->ReserveData(capacity));
+
+  ASSERT_EQ(length, builder_->value_data_length());
+  ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+
+  for (int j = 0; j < reps; ++j) {
+    for (int i = 0; i < N; ++i) {
+      ASSERT_OK(builder_->Append(strings[i]));
+      length += static_cast<int>(strings[i].size());
+
+      ASSERT_EQ(length, builder_->value_data_length());
+      ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+    }
+  }
+
+  int extra_capacity = 500;
+  expected_capacity = BitUtil::RoundUpToMultipleOf64(length + extra_capacity);
+
+  ASSERT_OK(builder_->ReserveData(extra_capacity));
+
+  ASSERT_EQ(length, builder_->value_data_length());
+  ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+
+  Done();
+
+  ASSERT_EQ(reps * N, result_->length());
+  ASSERT_EQ(0, result_->null_count());
+  ASSERT_EQ(reps * 40, result_->value_data()->size());
+  ASSERT_EQ(expected_capacity, result_->value_data()->capacity());
+}
+
 TEST_F(TestBinaryBuilder, TestZeroLength) {
   // All buffers are null
   Done();

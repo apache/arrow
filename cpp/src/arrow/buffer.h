@@ -333,6 +333,7 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
 
   const T* data() const { return reinterpret_cast<const T*>(data_); }
   int64_t length() const { return size_ / sizeof(T); }
+  int64_t capacity() const { return capacity_ / sizeof(T); }
 };
 
 /// \brief Allocate a fixed size mutable buffer from a memory pool
