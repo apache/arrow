@@ -485,6 +485,12 @@ def test_logical_type(type, expected):
     assert get_logical_type(type) == expected
 
 
+def test_array_uint64_from_py_over_range():
+    arr = pa.array([2 ** 63], type=pa.uint64())
+    expected = pa.array(np.array([2 ** 63], dtype='u8'))
+    assert arr.equals(expected)
+
+
 def test_array_conversions_no_sentinel_values():
     arr = np.array([1, 2, 3, 4], dtype='int8')
     refcount = sys.getrefcount(arr)
