@@ -755,5 +755,18 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   CheckTensorRoundTrip(tensor);
 }
 
+TEST(TestRecordBatchStreamReader, MalformedInput) {
+  auto empty = std::make_shared<Buffer>("");
+  auto garbage = std::make_shared<Buffer>("12345678");
+
+  std::shared_ptr<RecordBatchReader> batch_reader;
+
+  io::BufferReader empty_reader(empty);
+  ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&empty_reader, &batch_reader));
+
+  io::BufferReader garbage_reader(garbage);
+  ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader, &batch_reader));
+}
+
 }  // namespace ipc
 }  // namespace arrow
