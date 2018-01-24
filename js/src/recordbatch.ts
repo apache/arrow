@@ -18,7 +18,7 @@
 import { Schema, Struct } from './type';
 import { flatbuffers } from 'flatbuffers';
 import { View, Vector, StructVector } from './vector';
-import { Data, NestedData, ChunkedData } from './data';
+import { Data, NestedData } from './data';
 
 import Long = flatbuffers.Long;
 
@@ -32,7 +32,6 @@ export class RecordBatch extends StructVector {
     public readonly schema: Schema;
     public readonly length: number;
     public readonly numCols: number;
-    public readonly columns: Vector<any>[];
     constructor(schema: Schema, data: Data<Struct>, view: View<Struct>);
     constructor(schema: Schema, numRows: Long | number, cols: Data<any> | Vector[]);
     constructor(...args: any[]) {
@@ -42,9 +41,6 @@ export class RecordBatch extends StructVector {
             this.schema = args[0];
             this.length = data.length;
             this.numCols = this.schema.fields.length;
-            this.columns = data instanceof ChunkedData
-                ? data.childVectors
-                : data.childData.map((col) => Vector.create(col));
         } else {
             const [schema, numRows, cols] = args;
             const columns: Vector<any>[] = new Array(cols.length);
@@ -59,7 +55,6 @@ export class RecordBatch extends StructVector {
             }
             super(new NestedData(new Struct(schema.fields), numRows, null, columnsData));
             this.schema = schema;
-            this.columns = columns;
             this.length = numRows;
             this.numCols = schema.fields.length;
         }
@@ -72,7 +67,7 @@ export class RecordBatch extends StructVector {
         const namesToKeep = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
         return new RecordBatch(
             this.schema.select(...columnNames), this.length,
-            this.columns.filter((_, index) => namesToKeep[fields[index].name])
+            this.childData.filter((_, index) => namesToKeep[fields[index].name])
         );
     }
 }

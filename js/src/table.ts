@@ -68,7 +68,7 @@ export class Table implements DataFrame {
     // List of inner RecordBatches
     public readonly batches: RecordBatch[];
     // List of inner Vectors, possibly spanning batches
-    public readonly columns: Vector<any>[];
+    protected readonly _columns: Vector<any>[] = [];
     // Union of all inner RecordBatches into one RecordBatch, possibly chunked.
     // If the Table has just one inner RecordBatch, this points to that.
     // If the Table has multiple inner RecordBatches, then this is a Chunked view
@@ -94,10 +94,7 @@ export class Table implements DataFrame {
         this.schema = schema;
         this.batches = batches;
         this.batchesUnion = batches.reduce((union, batch) => union.concat(batch));
-        this.columns = batches.slice(1).reduce((columns, batch) =>
-            columns.map((col, idx) => col.concat(batch.columns[idx])),
-            batches[0].columns
-        );
+        // this.columns = schema.fields.map((_, i) => this.batchesUnion.getChildAt(i));
         this.length = this.batchesUnion.length;
         this.numCols = this.batchesUnion.numCols;
     }
@@ -108,7 +105,8 @@ export class Table implements DataFrame {
         return this.getColumnAt(this.getColumnIndex(name));
     }
     public getColumnAt(index: number) {
-        return this.columns[index];
+        return this._columns[index] || (
+               this._columns[index] = this.batchesUnion.getChildAt(index));
     }
     public getColumnIndex(name: string) {
         return this.schema.fields.findIndex((f) => f.name === name);
@@ -265,7 +263,8 @@ export class CountByResult extends Table implements DataFrame {
         ));
     }
     public toJSON(): Object {
-        const [values, counts] = this.columns;
+        const values = this.getColumnAt(0);
+        const counts = this.getColumnAt(1);
         const result = {} as { [k: string]: number | null };
         for (let i = -1; ++i < this.length;) {
             result[values.get(i)] = counts.get(i);

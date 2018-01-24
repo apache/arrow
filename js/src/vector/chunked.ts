@@ -16,31 +16,37 @@
 // under the License.
 
 import { ChunkedData } from '../data';
-import { View, Vector } from '../vector';
+import { View, Vector, NestedVector } from '../vector';
 import { DataType, TypedArray, IterableArrayLike } from '../type';
 
 export class ChunkedView<T extends DataType> implements View<T> {
-    public chunks: Vector<T>[];
-    public offsets: Uint32Array;
+    public childVectors: Vector<T>[];
+    public childOffsets: Uint32Array;
+    protected _childColumns: Vector<any>[];
     constructor(data: ChunkedData<T>) {
-        this.chunks = data.childVectors;
-        this.offsets = data.childOffsets;
+        this.childVectors = data.childVectors;
+        this.childOffsets = data.childOffsets;
     }
     public clone(data: ChunkedData<T>): this {
         return new ChunkedView(data) as this;
     }
     public *[Symbol.iterator](): IterableIterator<T['TValue'] | null> {
-        for (const vector of this.chunks) {
+        for (const vector of this.childVectors) {
             yield* vector;
         }
     }
+    public getChildAt<R extends DataType = DataType>(index: number) {
+        return (this._childColumns || (this._childColumns = []))[index] || (
+               this._childColumns[index] = Vector.concat<R>(
+                   ...(<any> this.childVectors as NestedVector<any>[]).map((v) => v.getChildAt(index))));
+    }
     public isValid(index: number): boolean {
         // binary search to find the child vector and value index offset (inlined for speed)
-        let offsets = this.offsets, pos = 0;
+        let offsets = this.childOffsets, pos = 0;
         let lhs = 0, mid = 0, rhs = offsets.length - 1;
         while (index < offsets[rhs] && index >= (pos = offsets[lhs])) {
             if (lhs + 1 === rhs) {
-                return this.chunks[lhs].isValid(index - pos);
+                return this.childVectors[lhs].isValid(index - pos);
             }
             mid = lhs + ((rhs - lhs) / 2) | 0;
             index >= offsets[mid] ? (lhs = mid) : (rhs = mid);
@@ -49,11 +55,11 @@ export class ChunkedView<T extends DataType> implements View<T> {
     }
     public get(index: number): T['TValue'] | null {
         // binary search to find the child vector and value index offset (inlined for speed)
-        let offsets = this.offsets, pos = 0;
+        let offsets = this.childOffsets, pos = 0;
         let lhs = 0, mid = 0, rhs = offsets.length - 1;
         while (index < offsets[rhs] && index >= (pos = offsets[lhs])) {
             if (lhs + 1 === rhs) {
-                return this.chunks[lhs].get(index - pos);
+                return this.childVectors[lhs].get(index - pos);
             }
             mid = lhs + ((rhs - lhs) / 2) | 0;
             index >= offsets[mid] ? (lhs = mid) : (rhs = mid);
@@ -62,18 +68,18 @@ export class ChunkedView<T extends DataType> implements View<T> {
     }
     public set(index: number, value: T['TValue'] | null): void {
         // binary search to find the child vector and value index offset (inlined for speed)
-        let offsets = this.offsets, pos = 0;
+        let offsets = this.childOffsets, pos = 0;
         let lhs = 0, mid = 0, rhs = offsets.length - 1;
         while (index < offsets[rhs] && index >= (pos = offsets[lhs])) {
             if (lhs + 1 === rhs) {
-                return this.chunks[lhs].set(index - pos, value);
+                return this.childVectors[lhs].set(index - pos, value);
             }
             mid = lhs + ((rhs - lhs) / 2) | 0;
             index >= offsets[mid] ? (lhs = mid) : (rhs = mid);
         }
     }
     public toArray(): IterableArrayLike<T['TValue'] | null> {
-        const chunks = this.chunks;
+        const chunks = this.childVectors;
         const numChunks = chunks.length;
         if (numChunks === 1) {
             return chunks[0].toArray();

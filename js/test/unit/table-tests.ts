@@ -143,7 +143,8 @@ describe(`Table`, () => {
         test(`scans expected values`, () => {
             let expected_idx = 0;
             table.scan((idx, batch) => {
-                expect(batch.columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
+              const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i));
+              expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
             });
         });
         test(`count() returns the correct length`, () => {
@@ -348,7 +349,8 @@ describe(`Table`, () => {
         test(`scans expected values`, () => {
             let expected_idx = 0;
             table.scan((idx, batch) => {
-                expect(batch.columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
+                const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i));
+                expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
             });
         });
         test(`count() returns the correct length`, () => {

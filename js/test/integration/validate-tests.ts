@@ -132,8 +132,8 @@ function testReaderIntegration(jsonData: any, arrowBuffer: Uint8Array) {
             expect(jsonRecordBatch.length).toEqual(binaryRecordBatch.length);
             expect(jsonRecordBatch.numCols).toEqual(binaryRecordBatch.numCols);
             for (let i = -1, n = jsonRecordBatch.numCols; ++i < n;) {
-                (jsonRecordBatch.columns[i] as any).name = jsonRecordBatch.schema.fields[i].name;
-                (expect(jsonRecordBatch.columns[i]) as any).toEqualVector(binaryRecordBatch.columns[i]);
+                (jsonRecordBatch.getChildAt(i) as any).name = jsonRecordBatch.schema.fields[i].name;
+                (expect(jsonRecordBatch.getChildAt(i)) as any).toEqualVector(binaryRecordBatch.getChildAt(i));
             }
         }
     });
@@ -147,8 +147,8 @@ function testTableFromBuffersIntegration(jsonData: any, arrowBuffer: Uint8Array)
         expect(jsonTable.length).toEqual(binaryTable.length);
         expect(jsonTable.numCols).toEqual(binaryTable.numCols);
         for (let i = -1, n = jsonTable.numCols; ++i < n;) {
-            (jsonTable.columns[i] as any).name = jsonTable.schema.fields[i].name;
-            (expect(jsonTable.columns[i]) as any).toEqualVector(binaryTable.columns[i]);
+            (jsonTable.getColumnAt(i) as any).name = jsonTable.schema.fields[i].name;
+            (expect(jsonTable.getColumnAt(i)) as any).toEqualVector(binaryTable.getColumnAt(i));
         }
     });
 }

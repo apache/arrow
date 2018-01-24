@@ -61,7 +61,7 @@ export class Col<T= any> extends Value<T> {
             }
             if (this.colidx < 0) { throw new Error(`Failed to bind Col "${this.name}"`); }
         }
-        this.vector = batch.columns[this.colidx];
+        this.vector = batch.getChildAt(this.colidx);
         return this.vector.get.bind(this.vector);
     }
 
