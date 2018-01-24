@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+const fs = require('fs');
+const glob = require('glob');
+const path = require('path');
+
 const argv = require(`command-line-args`)([
     { name: `all`, type: Boolean },
     { name: 'update', alias: 'u', type: Boolean },
@@ -35,5 +39,26 @@ argv.target && !targets.length && targets.push(argv.target);
 argv.module && !modules.length && modules.push(argv.module);
 (argv.all || !targets.length) && targets.push(`all`);
 (argv.all || !modules.length) && modules.push(`all`);
+
+if (argv.coverage && (!argv.json_files || !argv.json_files.length)) {
+
+    let [jsonPaths, arrowPaths] = glob
+        .sync(path.resolve(__dirname, `../test/data/json/`, `*.json`))
+        .reduce((paths, jsonPath) => {
+            const { name } = path.parse(jsonPath);
+            const [jsonPaths, arrowPaths] = paths;
+            ['cpp', 'java'].forEach((source) => ['file', 'stream'].forEach((format) => {
+                const arrowPath = path.resolve(__dirname, `../test/data/${source}/${format}/${name}.arrow`);
+                if (fs.existsSync(arrowPath)) {
+                    jsonPaths.push(jsonPath);
+                    arrowPaths.push(arrowPath);
+                }
+            }));
+            return paths;
+        }, [[], []]);
+
+    argv.json_files = jsonPaths;
+    argv.arrow_files = arrowPaths;
+}
 
 module.exports = { argv, targets, modules };

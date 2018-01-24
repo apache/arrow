@@ -44,7 +44,9 @@ const testOptions = {
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format, debug = false) {
     const opts = { ...testOptions };
     const args = !debug ? [...execArgv] : [...debugArgv, ...execArgv];
-    args.push(`test/${argv.integration ? `integration/*` : `unit/*`}`);
+    if (!argv.coverage) {
+        args.push(`test/${argv.integration ? `integration/*` : `unit/*`}`);
+    }
     opts.env = { ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
