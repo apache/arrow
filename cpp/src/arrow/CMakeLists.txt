@@ -113,6 +113,7 @@ if (ARROW_IPC)
     ipc/message.cc
     ipc/metadata-internal.cc
     ipc/reader.cc
+    ipc/util.cc
     ipc/writer.cc
   )
   SET(ARROW_SRCS ${ARROW_SRCS}

@@ -895,19 +895,21 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 // ----------------------------------------------------------------------
 // Implement message writing
 
+int64_t GetSerializedMetadataSize(int64_t metadata_size) {
+  int64_t padded_metadata_size = metadata_size + 4;
+  const int32_t remainder = padded_metadata_size % 8;
+  if (remainder != 0) {
+    padded_metadata_size += 8 - remainder;
+  }
+  return padded_metadata_size;
+}
+
 Status WriteMessage(const Buffer& message, io::OutputStream* file,
                     int32_t* message_length) {
-  // Need to write 4 bytes (message size), the message, plus padding to
-  // end on an 8-byte offset
-  int64_t start_offset;
-  RETURN_NOT_OK(file->Tell(&start_offset));
+  RETURN_NOT_OK(internal::AlignOutputStream(file));
 
-  int32_t padded_message_length = static_cast<int32_t>(message.size()) + 4;
-  const int32_t remainder =
-      (padded_message_length + static_cast<int32_t>(start_offset)) % 8;
-  if (remainder != 0) {
-    padded_message_length += 8 - remainder;
-  }
+  int32_t padded_message_length =
+      static_cast<int32_t>(GetSerializedMetadataSize(message.size()));
 
   // The returned message size includes the length prefix, the flatbuffer,
   // plus padding

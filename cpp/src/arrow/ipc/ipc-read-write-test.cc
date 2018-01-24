@@ -246,6 +246,26 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   ASSERT_EQ(MetadataVersion::V4, message->metadata_version());
 }
 
+TEST_F(TestIpcRoundTrip, WriteMetadataUnaligned) {
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata-unaligned", &mmap_));
+  ASSERT_OK(mmap_->Seek(3));
+
+  std::string metadata = "some metadata";
+
+  // 17 bytes + 7 bytes padding
+  const int64_t padded_metadata_size = 24;
+
+  Buffer metadata_buf(metadata);
+
+  int32_t out_metadata_size = 0;
+  ASSERT_OK(internal::WriteMessage(metadata_buf, mmap_.get(), &out_metadata_size));
+  ASSERT_EQ(padded_metadata_size, out_metadata_size);
+
+  int64_t stream_position = 0;
+  ASSERT_OK(mmap_->Tell(&stream_position));
+  ASSERT_EQ(32, stream_position);
+}
+
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
