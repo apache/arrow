@@ -48,11 +48,9 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
     opts.env = { ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
-        JSON_PATH: argv.json_file,
-        ARROW_PATH: argv.arrow_file,
         TEST_TS_SOURCE: !!argv.coverage,
-        TEST_SOURCES: JSON.stringify(Array.isArray(argv.sources) ? argv.sources : [argv.sources]),
-        TEST_FORMATS: JSON.stringify(Array.isArray(argv.formats) ? argv.formats : [argv.formats]),
+        JSON_PATHS: JSON.stringify(Array.isArray(argv.json_files) ? argv.json_files : [argv.json_files]),
+        ARROW_PATHS: JSON.stringify(Array.isArray(argv.arrow_files) ? argv.arrow_files : [argv.arrow_files]),
     };
     return !debug ?
         child_process.spawn(jest, args, opts) :

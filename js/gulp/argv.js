@@ -22,13 +22,11 @@ const argv = require(`command-line-args`)([
     { name: `target`, type: String, defaultValue: `` },
     { name: `module`, type: String, defaultValue: `` },
     { name: `coverage`, type: Boolean, defaultValue: false },
-    { name: `json_file`, alias: `j`, type: String, defaultValue: null },
-    { name: `arrow_file`, alias: `a`, type: String, defaultValue: null },
     { name: `integration`, alias: `i`, type: Boolean, defaultValue: false },
     { name: `targets`, alias: `t`, type: String, multiple: true, defaultValue: [] },
     { name: `modules`, alias: `m`, type: String, multiple: true, defaultValue: [] },
-    { name: `sources`, alias: `s`, type: String, multiple: true, defaultValue: [`cpp`, `java`] },
-    { name: `formats`, alias: `f`, type: String, multiple: true, defaultValue: [`file`, `stream`] },
+    { name: `json_files`, alias: `j`, type: String, multiple: true, defaultValue: [] },
+    { name: `arrow_files`, alias: `a`, type: String, multiple: true, defaultValue: [] },
 ], { partial: true });
 
 const { targets, modules } = argv;
