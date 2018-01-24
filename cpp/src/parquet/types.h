@@ -130,6 +130,21 @@ struct SortOrder {
   enum type { SIGNED, UNSIGNED, UNKNOWN };
 };
 
+class ColumnOrder {
+ public:
+  enum type { UNDEFINED, TYPE_DEFINED_ORDER };
+  explicit ColumnOrder(ColumnOrder::type column_order) : column_order_(column_order) {}
+  // Default to Type Defined Order
+  ColumnOrder() : column_order_(type::TYPE_DEFINED_ORDER) {}
+  ColumnOrder::type get_order() { return column_order_; }
+
+  static ColumnOrder undefined_;
+  static ColumnOrder type_defined_;
+
+ private:
+  ColumnOrder::type column_order_;
+};
+
 // ----------------------------------------------------------------------
 
 struct ByteArray {

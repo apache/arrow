@@ -30,17 +30,6 @@ namespace java org.apache.parquet.format
  * with the encodings to control the on disk storage format.
  * For example INT16 is not included as a type since a good encoding of INT32
  * would handle this.
- *
- * When a logical type is not present, the type-defined sort order of these
- * physical types are:
- * * BOOLEAN - false, true
- * * INT32 - signed comparison
- * * INT64 - signed comparison
- * * INT96 - signed comparison
- * * FLOAT - signed comparison
- * * DOUBLE - signed comparison
- * * BYTE_ARRAY - unsigned byte-wise comparison
- * * FIXED_LEN_BYTE_ARRAY - unsigned byte-wise comparison
  */
 enum Type {
   BOOLEAN = 0;
@@ -187,14 +176,6 @@ enum ConvertedType {
    * particular timezone or date.
    */
   INTERVAL = 21;
-
-  /**
-   * Annotates a column that is always null
-   * Sometimes when discovering the schema of existing data
-   * values are always null
-   * This is NULL in parquet-format
-   */
-  NA = 25;
 }
 
 /**
@@ -222,12 +203,12 @@ struct Statistics {
     * Values are encoded using PLAIN encoding, except that variable-length byte
     * arrays do not include a length prefix.
     *
-    * These fields encode min and max values determined by SIGNED comparison
+    * These fields encode min and max values determined by signed comparison
     * only. New files should use the correct order for a column's logical type
     * and store the values in the min_value and max_value fields.
     *
     * To support older readers, these may be set when the column order is
-    * SIGNED.
+    * signed.
     */
    1: optional binary max;
    2: optional binary min;
@@ -243,6 +224,115 @@ struct Statistics {
     */
    5: optional binary max_value;
    6: optional binary min_value;
+}
+
+/** Empty structs to use as logical type annotations */
+struct StringType {}  // allowed for BINARY, must be encoded with UTF-8
+struct UUIDType {}    // allowed for FIXED[16], must encoded raw UUID bytes
+struct MapType {}     // see LogicalTypes.md
+struct ListType {}    // see LogicalTypes.md
+struct EnumType {}    // allowed for BINARY, must be encoded with UTF-8
+struct DateType {}    // allowed for INT32
+
+/**
+ * Logical type to annotate a column that is always null.
+ *
+ * Sometimes when discovering the schema of existing data, values are always
+ * null and the physical type can't be determined. This annotation signals
+ * the case where the physical type was guessed from all null values.
+ */
+struct NullType {}    // allowed for any physical type, only null values stored
+
+/**
+ * Decimal logical type annotation
+ *
+ * To maintain forward-compatibility in v1, implementations using this logical
+ * type must also set scale and precision on the annotated SchemaElement.
+ *
+ * Allowed for physical types: INT32, INT64, FIXED, and BINARY
+ */
+struct DecimalType {
+  1: required i32 scale
+  2: required i32 precision
+}
+
+/** Time units for logical types */
+struct MilliSeconds {}
+struct MicroSeconds {}
+union TimeUnit {
+  1: MilliSeconds MILLIS
+  2: MicroSeconds MICROS
+}
+
+/**
+ * Timestamp logical type annotation
+ *
+ * Allowed for physical types: INT64
+ */
+struct TimestampType {
+  1: required bool isAdjustedToUTC
+  2: required TimeUnit unit
+}
+
+/**
+ * Time logical type annotation
+ *
+ * Allowed for physical types: INT32 (millis), INT64 (micros)
+ */
+struct TimeType {
+  1: required bool isAdjustedToUTC
+  2: required TimeUnit unit
+}
+
+/**
+ * Integer logical type annotation
+ *
+ * bitWidth must be 8, 16, 32, or 64.
+ *
+ * Allowed for physical types: INT32, INT64
+ */
+struct IntType {
+  1: required byte bitWidth
+  2: required bool isSigned
+}
+
+/**
+ * Embedded JSON logical type annotation
+ *
+ * Allowed for physical types: BINARY
+ */
+struct JsonType {
+}
+
+/**
+ * Embedded BSON logical type annotation
+ *
+ * Allowed for physical types: BINARY
+ */
+struct BsonType {
+}
+
+/**
+ * LogicalType annotations to replace ConvertedType.
+ *
+ * To maintain compatibility, implementations using LogicalType for a
+ * SchemaElement must also set the corresponding ConvertedType from the
+ * following table.
+ */
+union LogicalType {
+  1:  StringType STRING       // use ConvertedType UTF8 if encoding is UTF-8
+  2:  MapType MAP             // use ConvertedType MAP
+  3:  ListType LIST           // use ConvertedType LIST
+  4:  EnumType ENUM           // use ConvertedType ENUM
+  5:  DecimalType DECIMAL     // use ConvertedType DECIMAL
+  6:  DateType DATE           // use ConvertedType DATE
+  7:  TimeType TIME           // use ConvertedType TIME_MICROS or TIME_MILLIS
+  8:  TimestampType TIMESTAMP // use ConvertedType TIMESTAMP_MICROS or TIMESTAMP_MILLIS
+  // 9: reserved for INTERVAL
+  10: IntType INTEGER         // use ConvertedType INT_* or UINT_*
+  11: NullType UNKNOWN        // no compatible ConvertedType
+  12: JsonType JSON           // use ConvertedType JSON
+  13: BsonType BSON           // use ConvertedType BSON
 }
 
 /**
@@ -292,6 +382,13 @@ struct SchemaElement {
    */
   9: optional i32 field_id;
 
+  /**
+   * The logical type of this SchemaElement; only valid for primitives.
+   *
+   * LogicalType replaces ConvertedType, but ConvertedType is still required
+   * for some logical types to ensure forward-compatibility in format v1.
+   */
+  10: optional LogicalType logicalType
 }
 
 /**
@@ -324,7 +421,7 @@ enum Encoding {
    */
   PLAIN_DICTIONARY = 2;
 
-  /** Group packed run length encoding. Usable for definition/reptition levels
+  /** Group packed run length encoding. Usable for definition/repetition levels
    * encoding and Booleans (on one bit: 0 is false; 1 is true.)
    */
   RLE = 3;
@@ -356,15 +453,20 @@ enum Encoding {
 
 /**
  * Supported compression algorithms.
+ *
+ * Codecs added in 2.3.2 can be read by readers based on 2.3.2 and later.
+ * Codec support may vary between readers based on the format version and
+ * libraries available at runtime. Gzip, Snappy, and LZ4 codecs are
+ * widely available, while Zstd and Brotli require additional libraries.
  */
 enum CompressionCodec {
   UNCOMPRESSED = 0;
   SNAPPY = 1;
   GZIP = 2;
   LZO = 3;
-  BROTLI = 4;
-  LZ4 = 5;
-  ZSTD = 6;
+  BROTLI = 4; // Added in 2.3.2
+  LZ4 = 5;    // Added in 2.3.2
+  ZSTD = 6;   // Added in 2.3.2
 }
 
 enum PageType {
@@ -372,6 +474,16 @@ enum PageType {
   INDEX_PAGE = 1;
   DICTIONARY_PAGE = 2;
   DATA_PAGE_V2 = 3;
+}
+
+/**
+ * Enum to annotate whether lists of min/max elements inside ColumnIndex
+ * are ordered and if so, in which direction.
+ */
+enum BoundaryOrder {
+  UNORDERED = 0;
+  ASCENDING = 1;
+  DESCENDING = 2;
 }
 
 /** Data page header */
@@ -408,7 +520,7 @@ struct DictionaryPageHeader {
 }
 
 /**
- * New page format alowing reading levels without decompressing the data
+ * New page format allowing reading levels without decompressing the data
  * Repetition and definition levels are uncompressed
  * The remaining section containing the data is compressed if is_compressed is true
  **/
@@ -425,9 +537,9 @@ struct DataPageHeaderV2 {
 
   // repetition levels and definition levels are always using RLE (without size in it)
 
-  /** length of the repetition levels */
-  5: required i32 definition_levels_byte_length;
   /** length of the definition levels */
+  5: required i32 definition_levels_byte_length;
+  /** length of the repetition levels */
   6: required i32 repetition_levels_byte_length;
 
   /**  whether the values are compressed.
@@ -563,6 +675,18 @@ struct ColumnChunk {
    * metadata.
    **/
   3: optional ColumnMetaData meta_data
+
+  /** File offset of ColumnChunk's OffsetIndex **/
+  4: optional i64 offset_index_offset
+
+  /** Size of ColumnChunk's OffsetIndex, in bytes **/
+  5: optional i32 offset_index_length
+
+  /** File offset of ColumnChunk's ColumnIndex **/
+  6: optional i64 column_index_offset
+
+  /** Size of ColumnChunk's ColumnIndex, in bytes **/
+  7: optional i32 column_index_length
 }
 
 struct RowGroup {
@@ -587,7 +711,9 @@ struct RowGroup {
 struct TypeDefinedOrder {}
 
 /**
- * Union to specify the order used for min, max, and sorting values in a column.
+ * Union to specify the order used for the min_value and max_value fields for a
+ * column. This union takes the role of an enhanced enum that allows rich
+ * elements (which will be needed for a collation-based ordering in the future).
  *
  * Possible values are:
  * * TypeDefinedOrder - the column uses the order defined by its logical or
@@ -597,7 +723,105 @@ struct TypeDefinedOrder {}
  * for this column should be ignored.
  */
 union ColumnOrder {
+
+  /**
+   * The sort orders for logical types are:
+   *   UTF8 - unsigned byte-wise comparison
+   *   INT8 - signed comparison
+   *   INT16 - signed comparison
+   *   INT32 - signed comparison
+   *   INT64 - signed comparison
+   *   UINT8 - unsigned comparison
+   *   UINT16 - unsigned comparison
+   *   UINT32 - unsigned comparison
+   *   UINT64 - unsigned comparison
+   *   DECIMAL - signed comparison of the represented value
+   *   DATE - signed comparison
+   *   TIME_MILLIS - signed comparison
+   *   TIME_MICROS - signed comparison
+   *   TIMESTAMP_MILLIS - signed comparison
+   *   TIMESTAMP_MICROS - signed comparison
+   *   INTERVAL - unsigned comparison
+   *   JSON - unsigned byte-wise comparison
+   *   BSON - unsigned byte-wise comparison
+   *   ENUM - unsigned byte-wise comparison
+   *   LIST - undefined
+   *   MAP - undefined
+   *
+   * In the absence of logical types, the sort order is determined by the physical type:
+   *   BOOLEAN - false, true
+   *   INT32 - signed comparison
+   *   INT64 - signed comparison
+   *   INT96 (only used for legacy timestamps) - unsigned comparison
+   *   FLOAT - signed comparison of the represented value
+   *   DOUBLE - signed comparison of the represented value
+   *   BYTE_ARRAY - unsigned byte-wise comparison
+   *   FIXED_LEN_BYTE_ARRAY - unsigned byte-wise comparison
+   */
   1: TypeDefinedOrder TYPE_ORDER;
+}
+
+struct PageLocation {
+  /** Offset of the page in the file **/
+  1: required i64 offset
+
+  /**
+   * Size of the page, including header. Sum of compressed_page_size and header
+   * length
+   */
+  2: required i32 compressed_page_size
+
+  /**
+   * Index within the RowGroup of the first row of the page; this means pages
+   * change on record boundaries (r = 0).
+   */
+  3: required i64 first_row_index
+}
+
+struct OffsetIndex {
+  /**
+   * PageLocations, ordered by increasing PageLocation.offset. It is required
+   * that page_locations[i].first_row_index < page_locations[i+1].first_row_index.
+   */
+  1: required list<PageLocation> page_locations
+}
+
+/**
+ * Description for ColumnIndex.
+ * Each <array-field>[i] refers to the page at OffsetIndex.page_locations[i]
+ */
+struct ColumnIndex {
+  /**
+   * A list of Boolean values to determine the validity of the corresponding
+   * min and max values. If true, a page contains only null values, and writers
+   * have to set the corresponding entries in min_values and max_values to
+   * byte[0], so that all lists have the same length. If false, the
+   * corresponding entries in min_values and max_values must be valid.
+   */
+  1: required list<bool> null_pages
+
+  /**
+   * Two lists containing lower and upper bounds for the values of each page.
+   * These may be the actual minimum and maximum values found on a page, but
+   * can also be (more compact) values that do not exist on a page. For
+   * example, instead of storing ""Blart Versenwald III", a writer may set
+   * min_values[i]="B", max_values[i]="C". Such more compact values must still
+   * be valid values within the column's logical type. Readers must make sure
+   * that list entries are populated before using them by inspecting null_pages.
+   */
+  2: required list<binary> min_values
+  3: required list<binary> max_values
+
+  /**
+   * Stores whether both min_values and max_values are orderd and if so, in
+   * which direction. This allows readers to perform binary searches in both
+   * lists. Readers cannot assume that max_values[i] <= min_values[i+1], even
+   * if the lists are ordered.
+   */
+  4: required BoundaryOrder boundary_order
+
+  /** A list containing the number of null values for each page **/
+  5: optional list<i64> null_counts
 }
 
 /**
@@ -631,11 +855,16 @@ struct FileMetaData {
   6: optional string created_by
 
   /**
-   * Sort order used for each column in this file.
+   * Sort order used for the min_value and max_value fields of each column in
+   * this file. Each sort order corresponds to one column, determined by its
+   * position in the list, matching the position of the column in the schema.
    *
-   * If this list is not present, then the order for each column is assumed to
-   * be Signed. In addition, min and max values for INTERVAL or DECIMAL stored
-   * as fixed or bytes should be ignored.
+   * Without column_orders, the meaning of the min_value and max_value fields is
+   * undefined. To ensure well-defined behaviour, if min_value and max_value are
+   * written to a Parquet file, column_orders must be written as well.
+   *
+   * The obsolete min and max fields are always sorted by signed comparison
+   * regardless of column_orders.
    */
   7: optional list<ColumnOrder> column_orders;
 }

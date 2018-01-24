@@ -33,8 +33,6 @@ std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
         return std::make_shared<CompareDefaultInt32>();
       case Type::INT64:
         return std::make_shared<CompareDefaultInt64>();
-      case Type::INT96:
-        return std::make_shared<CompareDefaultInt96>();
       case Type::FLOAT:
         return std::make_shared<CompareDefaultFloat>();
       case Type::DOUBLE:
@@ -52,8 +50,6 @@ std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
         return std::make_shared<CompareUnsignedInt32>();
       case Type::INT64:
         return std::make_shared<CompareUnsignedInt64>();
-      case Type::INT96:
-        return std::make_shared<CompareUnsignedInt96>();
       case Type::BYTE_ARRAY:
         return std::make_shared<CompareUnsignedByteArray>();
       case Type::FIXED_LEN_BYTE_ARRAY:

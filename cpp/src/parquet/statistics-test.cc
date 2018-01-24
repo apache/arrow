@@ -277,7 +277,7 @@ void TestRowGroupStatistics<ByteArrayType>::TestMinMaxEncode() {
   ASSERT_EQ(statistics1.max(), statistics2.max());
 }
 
-using TestTypes = ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
+using TestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType,
                                    ByteArrayType, FLBAType, BooleanType>;
 
 TYPED_TEST_CASE(TestRowGroupStatistics, TestTypes);
@@ -397,7 +397,7 @@ TEST(CorrectStatistics, Basics) {
   ASSERT_TRUE(column_chunk4->is_stats_set());
   auto column_chunk5 = ColumnChunkMetaData::Make(
       reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(4), &version);
-  ASSERT_TRUE(column_chunk5->is_stats_set());
+  ASSERT_FALSE(column_chunk5->is_stats_set());
   auto column_chunk6 = ColumnChunkMetaData::Make(
       reinterpret_cast<const uint8_t*>(&col_chunk), schema.Column(5), &version);
   ASSERT_TRUE(column_chunk6->is_stats_set());
@@ -478,8 +478,8 @@ class TestStatistics : public ::testing::Test {
   std::vector<EncodedStatistics> stats_;
 };
 
-using CompareTestTypes = ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType,
-                                          DoubleType, ByteArrayType, FLBAType>;
+using CompareTestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType,
+                                          ByteArrayType, FLBAType>;
 
 // TYPE::INT32
 template <>
@@ -535,28 +535,6 @@ void TestStatistics<Int64Type>::SetValues() {
   stats_[1]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(T)))
       .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(T)));
-}
-
-// TYPE::INT96
-template <>
-void TestStatistics<Int96Type>::AddNodes(std::string name) {
-  // INT96 physical type has only Unsigned Statistics
-  fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED, Type::INT96,
-                                                LogicalType::NONE));
-}
-
-template <>
-void TestStatistics<Int96Type>::SetValues() {
-  for (int i = 0; i < NUM_VALUES; i++) {
-    values_[i].value[0] = i - 5;  // {-5, -4, -3, -2, -1, 0, 1, 2, 3, 4};
-    values_[i].value[1] = i - 5;  // {-5, -4, -3, -2, -1, 0, 1, 2, 3, 4};
-    values_[i].value[2] = i - 5;  // {-5, -4, -3, -2, -1, 0, 1, 2, 3, 4};
-  }
-
-  // Write Int96 min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(T)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(T)));
 }
 
 // TYPE::FLOAT

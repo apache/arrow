@@ -35,13 +35,14 @@ namespace parquet {
 namespace test {
 
 template <>
-void InitValues<bool>(int num_values, vector<bool>& values, vector<uint8_t>& buffer) {
+void inline InitValues<bool>(int num_values, vector<bool>& values,
+                             vector<uint8_t>& buffer) {
   values = flip_coins(num_values, 0);
 }
 
 template <>
-void InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
-                           vector<uint8_t>& buffer) {
+void inline InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
+                                  vector<uint8_t>& buffer) {
   int max_byte_array_len = 12;
   int num_bytes = static_cast<int>(max_byte_array_len + sizeof(uint32_t));
   size_t nbytes = num_values * num_bytes;
@@ -50,14 +51,16 @@ void InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
 }
 
 template <>
-void InitValues<FLBA>(int num_values, vector<FLBA>& values, vector<uint8_t>& buffer) {
+void inline InitValues<FLBA>(int num_values, vector<FLBA>& values,
+                             vector<uint8_t>& buffer) {
   size_t nbytes = num_values * FLBA_LENGTH;
   buffer.resize(nbytes);
   random_fixed_byte_array(num_values, 0, buffer.data(), FLBA_LENGTH, values.data());
 }
 
 template <>
-void InitValues<Int96>(int num_values, vector<Int96>& values, vector<uint8_t>& buffer) {
+void inline InitValues<Int96>(int num_values, vector<Int96>& values,
+                              vector<uint8_t>& buffer) {
   random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
                        std::numeric_limits<int32_t>::max(), values.data());
 }

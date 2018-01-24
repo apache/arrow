@@ -209,6 +209,10 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
   Type::type physical_type() const { return physical_type_; }
 
+  ColumnOrder column_order() const { return column_order_; }
+
+  void SetColumnOrder(ColumnOrder column_order) { column_order_ = column_order; }
+
   int32_t type_length() const { return type_length_; }
 
   const DecimalMetadata& decimal_metadata() const { return decimal_metadata_; }
@@ -225,6 +229,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
   Type::type physical_type_;
   int32_t type_length_;
   DecimalMetadata decimal_metadata_;
+  ColumnOrder column_order_;
 
   // For FIXED_LEN_BYTE_ARRAY
   void SetTypeLength(int32_t length) { type_length_ = length; }
@@ -335,6 +340,8 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   LogicalType::type logical_type() const { return primitive_node_->logical_type(); }
 
+  ColumnOrder column_order() const { return primitive_node_->column_order(); }
+
   SortOrder::type sort_order() const {
     return GetSortOrder(logical_type(), physical_type());
   }
@@ -407,10 +414,14 @@ class PARQUET_EXPORT SchemaDescriptor {
 
   std::string ToString() const;
 
+  void updateColumnOrders(const std::vector<ColumnOrder>& column_orders);
+
  private:
   friend class ColumnDescriptor;
 
+  // Root Node
   schema::NodePtr schema_;
+  // Root Node
   const schema::GroupNode* group_node_;
 
   void BuildTree(const schema::NodePtr& node, int16_t max_def_level,

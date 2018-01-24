@@ -602,6 +602,37 @@ void SchemaDescriptor::Init(std::unique_ptr<schema::Node> schema) {
   Init(NodePtr(schema.release()));
 }
 
+class SchemaUpdater : public Node::Visitor {
+ public:
+  explicit SchemaUpdater(const std::vector<ColumnOrder>& column_orders)
+      : column_orders_(column_orders), leaf_count_(0) {}
+  virtual ~SchemaUpdater() {}
+
+  void Visit(Node* node) override {
+    if (node->is_group()) {
+      GroupNode* group_node = static_cast<GroupNode*>(node);
+      for (int i = 0; i < group_node->field_count(); ++i) {
+        group_node->field(i)->Visit(this);
+      }
+    } else {  // leaf node
+      PrimitiveNode* leaf_node = static_cast<PrimitiveNode*>(node);
+      leaf_node->SetColumnOrder(column_orders_[leaf_count_++]);
+    }
+  }
+
+ private:
+  const std::vector<ColumnOrder>& column_orders_;
+  int leaf_count_;
+};
+
+void SchemaDescriptor::updateColumnOrders(const std::vector<ColumnOrder>& column_orders) {
+  if (static_cast<int>(column_orders.size()) != num_columns()) {
+    throw ParquetException("Malformed schema: not enough ColumnOrder values");
+  }
+  SchemaUpdater visitor(column_orders);
+  const_cast<GroupNode*>(group_node_)->Visit(&visitor);
+}
+
 void SchemaDescriptor::Init(const NodePtr& schema) {
   schema_ = schema;
 

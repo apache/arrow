@@ -213,8 +213,9 @@ SortOrder::type DefaultSortOrder(Type::type primitive) {
       return SortOrder::SIGNED;
     case Type::BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY:
-    case Type::INT96:  // only used for timestamp, which uses unsigned values
       return SortOrder::UNSIGNED;
+    case Type::INT96:
+      return SortOrder::UNKNOWN;
   }
   return SortOrder::UNKNOWN;
 }
@@ -253,5 +254,8 @@ SortOrder::type GetSortOrder(LogicalType::type converted, Type::type primitive) 
   }
   return SortOrder::UNKNOWN;
 }
+
+ColumnOrder ColumnOrder::undefined_ = ColumnOrder(ColumnOrder::UNDEFINED);
+ColumnOrder ColumnOrder::type_defined_ = ColumnOrder(ColumnOrder::TYPE_DEFINED_ORDER);
 
 }  // namespace parquet

@@ -219,7 +219,7 @@ TEST(ApplicationVersion, Basics) {
 
   ASSERT_EQ(true, version.VersionLt(version1));
 
-  ASSERT_FALSE(version1.HasCorrectStatistics(Type::INT96, SortOrder::SIGNED));
+  ASSERT_FALSE(version1.HasCorrectStatistics(Type::INT96, SortOrder::UNKNOWN));
   ASSERT_TRUE(version.HasCorrectStatistics(Type::INT32, SortOrder::SIGNED));
   ASSERT_FALSE(version.HasCorrectStatistics(Type::BYTE_ARRAY, SortOrder::SIGNED));
   ASSERT_TRUE(version1.HasCorrectStatistics(Type::BYTE_ARRAY, SortOrder::SIGNED));

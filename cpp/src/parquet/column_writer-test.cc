@@ -219,6 +219,24 @@ void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compressio
 }
 
 template <>
+void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compression,
+                                                    int64_t num_rows) {
+  this->SetupValuesOut(num_rows);
+  this->ReadColumnFully(compression);
+  std::shared_ptr<CompareDefault<Int96Type>> compare;
+  compare = std::make_shared<CompareDefaultInt96>();
+  for (size_t i = 0; i < this->values_.size(); i++) {
+    if ((*compare)(this->values_[i], this->values_out_[i]) ||
+        (*compare)(this->values_out_[i], this->values_[i])) {
+      std::cout << "Failed at " << i << std::endl;
+    }
+    ASSERT_FALSE((*compare)(this->values_[i], this->values_out_[i]));
+    ASSERT_FALSE((*compare)(this->values_out_[i], this->values_[i]));
+  }
+  ASSERT_EQ(this->values_, this->values_out_);
+}
+
+template <>
 void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compression) {
   int64_t total_values = static_cast<int64_t>(this->values_out_.size());
   BuildReader(total_values, compression);
