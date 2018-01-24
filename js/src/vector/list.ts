@@ -65,7 +65,7 @@ export abstract class ListViewBase<T extends (ListType | FlatListType | FixedSiz
 
 export abstract class VariableListViewBase<T extends (ListType | FlatListType)> extends ListViewBase<T> {
     constructor(data: Data<T>) {
-        super(data)
+        super(data);
         this.length = data.length;
         this.valueOffsets = data.valueOffsets;
     }

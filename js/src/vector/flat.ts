@@ -41,10 +41,10 @@ export class FlatView<T extends FlatType> implements View<T> {
         return this.values[index] = value;
     }
     public toArray(): IterableArrayLike<T['TValue']> {
-        return this.values;
+        return this.values.subarray(0, this.length);
     }
     public [Symbol.iterator](): IterableIterator<T['TValue']> {
-        return this.values[Symbol.iterator]() as IterableIterator<T['TValue']>;
+        return this.values.subarray(0, this.length)[Symbol.iterator]() as IterableIterator<T['TValue']>;
     }
 }
 
@@ -152,7 +152,9 @@ export class PrimitiveView<T extends PrimitiveType> extends FlatView<T> {
         return this.setValue(this.values, index, this.size, value);
     }
     public toArray(): IterableArrayLike<T['TValue']> {
-        return this.size === 1 ? this.values : new this.ArrayType(this);
+        return this.size > 1 ?
+            new this.ArrayType(this) :
+            this.values.subarray(0, this.length);
     }
     public *[Symbol.iterator](): IterableIterator<T['TValue']> {
         const get = this.getValue;

@@ -201,7 +201,9 @@ export abstract class DataType<TType extends Type = any> implements Partial<Visi
 
 export interface Null extends DataType<Type.Null> { TArray: void; TValue: null; }
 export class Null extends DataType<Type.Null> {
-    constructor() { super(Type.Null); }
+    constructor() {
+        super(Type.Null);
+    }
     public toString() { return `Null`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitNull(this);
@@ -269,7 +271,9 @@ export class Float64 extends Float<Float64Array> { constructor() { super(Precisi
 
 export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TValue: Uint8Array; }
 export class Binary extends DataType<Type.Binary> {
-    constructor() { super(Type.Binary); }
+    constructor() {
+        super(Type.Binary);
+    }
     public toString() { return `Binary`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitBinary(this);
@@ -282,7 +286,9 @@ export class Binary extends DataType<Type.Binary> {
 
 export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TValue: string; }
 export class Utf8 extends DataType<Type.Utf8> {
-    constructor() { super(Type.Utf8); }
+    constructor() {
+        super(Type.Utf8);
+    }
     public toString() { return `Utf8`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitUtf8(this);
@@ -295,7 +301,9 @@ export class Utf8 extends DataType<Type.Utf8> {
 
 export interface Bool extends DataType<Type.Bool> { TArray: Uint8Array; TValue: boolean; }
 export class Bool extends DataType<Type.Bool> {
-    constructor() { super(Type.Bool); }
+    constructor() {
+        super(Type.Bool);
+    }
     public toString() { return `Bool`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitBool(this);
@@ -325,7 +333,9 @@ export class Decimal extends DataType<Type.Decimal> {
 /* tslint:disable:class-name */
 export interface Date_ extends DataType<Type.Date> { TArray: Int32Array; TValue: Date; }
 export class Date_ extends DataType<Type.Date> {
-    constructor(public readonly unit: DateUnit) { super(Type.Date); }
+    constructor(public readonly unit: DateUnit) {
+        super(Type.Date);
+    }
     public toString() { return `Date${(this.unit + 1) * 32}<${DateUnit[this.unit]}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any {
         return visitor.visitDate(this);
@@ -485,7 +495,7 @@ export class Map_ extends DataType<Type.Map> {
     public toString() { return `Map<${this.children.join(`, `)}>`; }
     public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitMap(this); }
     protected static [Symbol.toStringTag] = ((proto: Map_) => {
-        return proto[Symbol.toStringTag] = 'Map';
+        return proto[Symbol.toStringTag] = 'Map_';
     })(Map_.prototype);
 }
 

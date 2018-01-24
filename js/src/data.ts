@@ -86,7 +86,7 @@ export class BaseData<T extends DataType = DataType> implements VectorLike {
         let nullCount = this._nullCount;
         let nullBitmap: Uint8Array | undefined;
         if (nullCount === -1 && (nullBitmap = this[VectorType.VALIDITY])) {
-            this._nullCount = nullCount = popcnt_bit_range(nullBitmap, this._offset, this._offset + this._length);
+            this._nullCount = nullCount = this._length - popcnt_bit_range(nullBitmap, this._offset, this._offset + this._length);
         }
         return nullCount;
     }
