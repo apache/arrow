@@ -52,6 +52,22 @@ TEST(TestBuffer, FromStdString) {
   ASSERT_EQ(static_cast<int64_t>(val.size()), buf.size());
 }
 
+TEST(TestBuffer, FromStdStringWithMemory) {
+  std::string* val = new std::string("hello, world");
+  std::shared_ptr<Buffer> buf;
+  std::string expected("hello, world");
+
+  ASSERT_OK(Buffer::FromString(*val, default_memory_pool(), &buf));
+
+  ASSERT_EQ(0, memcmp(buf->data(), val->c_str(), val->size()));
+  ASSERT_EQ(static_cast<int64_t>(val->size()), buf->size());
+
+  delete val;
+
+  ASSERT_EQ(0, memcmp(buf->data(), expected.c_str(), expected.size()));
+  ASSERT_EQ(static_cast<int64_t>(expected.size()), buf->size());
+}
+
 TEST(TestBuffer, Resize) {
   PoolBuffer buf;
 
