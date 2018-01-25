@@ -87,7 +87,7 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
         const { view } = this;
         const vecs = !(view instanceof ChunkedView)
             ? [this, ...others]
-            : [...view.childVectors, ...others];
+            : [...view.chunkVectors, ...others];
         const offsets = ChunkedData.computeOffsets(vecs);
         const chunksLength = offsets[offsets.length - 1];
         const chunkedData = new ChunkedData(this.type, chunksLength, vecs, 0, -1, offsets);
@@ -380,7 +380,7 @@ export class DictionaryVector<T extends DataType = DataType> extends Vector<Dict
             this.indicies = view.indicies;
             this.dictionary = data.dictionary;
         } else if (data instanceof ChunkedData && view instanceof ChunkedView) {
-            const chunks = view.childVectors as DictionaryVector<T>[];
+            const chunks = view.chunkVectors as DictionaryVector<T>[];
             // Assume the last chunk's dictionary data is the most up-to-date,
             // including data from DictionaryBatches that were marked as deltas
             this.dictionary = chunks[chunks.length - 1].dictionary;

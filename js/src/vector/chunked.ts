@@ -20,33 +20,35 @@ import { View, Vector, NestedVector } from '../vector';
 import { DataType, TypedArray, IterableArrayLike } from '../type';
 
 export class ChunkedView<T extends DataType> implements View<T> {
-    public childVectors: Vector<T>[];
-    public childOffsets: Uint32Array;
-    protected _childColumns: Vector<any>[];
+    public chunkVectors: Vector<T>[];
+    public chunkOffsets: Uint32Array;
+    protected _children: Vector<any>[];
     constructor(data: ChunkedData<T>) {
-        this.childVectors = data.childVectors;
-        this.childOffsets = data.childOffsets;
+        this.chunkVectors = data.chunkVectors;
+        this.chunkOffsets = data.chunkOffsets;
     }
     public clone(data: ChunkedData<T>): this {
         return new ChunkedView(data) as this;
     }
     public *[Symbol.iterator](): IterableIterator<T['TValue'] | null> {
-        for (const vector of this.childVectors) {
+        for (const vector of this.chunkVectors) {
             yield* vector;
         }
     }
     public getChildAt<R extends DataType = DataType>(index: number) {
-        return (this._childColumns || (this._childColumns = []))[index] || (
-               this._childColumns[index] = Vector.concat<R>(
-                   ...(<any> this.childVectors as NestedVector<any>[]).map((v) => v.getChildAt(index))));
+        return index < 0 ? null
+            : (this._children || (this._children = []))[index] ||
+              (this._children[index] = Vector.concat<R>(
+                  ...(<any> this.chunkVectors as NestedVector<any>[])
+                         .map((chunk) => chunk.getChildAt<R>(index))));
     }
     public isValid(index: number): boolean {
         // binary search to find the child vector and value index offset (inlined for speed)
-        let offsets = this.childOffsets, pos = 0;
+        let offsets = this.chunkOffsets, pos = 0;
         let lhs = 0, mid = 0, rhs = offsets.length - 1;
         while (index < offsets[rhs] && index >= (pos = offsets[lhs])) {
             if (lhs + 1 === rhs) {
-                return this.childVectors[lhs].isValid(index - pos);
+                return this.chunkVectors[lhs].isValid(index - pos);
             }
             mid = lhs + ((rhs - lhs) / 2) | 0;
             index >= offsets[mid] ? (lhs = mid) : (rhs = mid);
@@ -55,11 +57,11 @@ export class ChunkedView<T extends DataType> implements View<T> {
     }
     public get(index: number): T['TValue'] | null {
         // binary search to find the child vector and value index offset (inlined for speed)
-        let offsets = this.childOffsets, pos = 0;
+        let offsets = this.chunkOffsets, pos = 0;
         let lhs = 0, mid = 0, rhs = offsets.length - 1;
         while (index < offsets[rhs] && index >= (pos = offsets[lhs])) {
             if (lhs + 1 === rhs) {
-                return this.childVectors[lhs].get(index - pos);
+                return this.chunkVectors[lhs].get(index - pos);
             }
             mid = lhs + ((rhs - lhs) / 2) | 0;
             index >= offsets[mid] ? (lhs = mid) : (rhs = mid);
@@ -68,18 +70,18 @@ export class ChunkedView<T extends DataType> implements View<T> {
     }
     public set(index: number, value: T['TValue'] | null): void {
         // binary search to find the child vector and value index offset (inlined for speed)
-        let offsets = this.childOffsets, pos = 0;
+        let offsets = this.chunkOffsets, pos = 0;
         let lhs = 0, mid = 0, rhs = offsets.length - 1;
         while (index < offsets[rhs] && index >= (pos = offsets[lhs])) {
             if (lhs + 1 === rhs) {
-                return this.childVectors[lhs].set(index - pos, value);
+                return this.chunkVectors[lhs].set(index - pos, value);
             }
             mid = lhs + ((rhs - lhs) / 2) | 0;
             index >= offsets[mid] ? (lhs = mid) : (rhs = mid);
         }
     }
     public toArray(): IterableArrayLike<T['TValue'] | null> {
-        const chunks = this.childVectors;
+        const chunks = this.chunkVectors;
         const numChunks = chunks.length;
         if (numChunks === 1) {
             return chunks[0].toArray();
