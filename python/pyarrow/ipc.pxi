@@ -429,7 +429,7 @@ def write_tensor(Tensor tensor, NativeFile dest):
         int32_t metadata_length
         int64_t body_length
 
-    dest._assert_writeable()
+    dest._assert_writable()
 
     with nogil:
         check_status(

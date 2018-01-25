@@ -413,9 +413,7 @@ cdef class HadoopFileSystem:
                                    &wr_handle))
 
             out.wr_file = <shared_ptr[OutputStream]> wr_handle
-
-            out.is_readable = False
-            out.is_writeable = 1
+            out.is_writable = True
         else:
             with nogil:
                 check_status(self.client.get()
@@ -423,7 +421,6 @@ cdef class HadoopFileSystem:
 
             out.rd_file = <shared_ptr[RandomAccessFile]> rd_handle
             out.is_readable = True
-            out.is_writeable = 0
 
         if c_buffer_size == 0:
             c_buffer_size = 2 ** 16
@@ -431,7 +428,7 @@ cdef class HadoopFileSystem:
         out.mode = mode
         out.buffer_size = c_buffer_size
         out.parent = _HdfsFileNanny(self, out)
-        out.is_open = True
+        out.closed = False
         out.own_file = True
 
         return out

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from io import BytesIO
+from io import BytesIO, TextIOWrapper
 import gc
 import os
 import pytest
@@ -482,27 +482,48 @@ def test_native_file_modes(tmpdir):
 
     with pa.OSFile(path, mode='r') as f:
         assert f.mode == 'rb'
+        assert f.readable()
+        assert not f.writable()
+        assert f.seekable()
 
     with pa.OSFile(path, mode='rb') as f:
         assert f.mode == 'rb'
+        assert f.readable()
+        assert not f.writable()
+        assert f.seekable()
 
     with pa.OSFile(path, mode='w') as f:
         assert f.mode == 'wb'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
 
     with pa.OSFile(path, mode='wb') as f:
         assert f.mode == 'wb'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
 
     with open(path, 'wb') as f:
         f.write(b'foooo')
 
     with pa.memory_map(path, 'r') as f:
         assert f.mode == 'rb'
+        assert f.readable()
+        assert not f.writable()
+        assert f.seekable()
 
     with pa.memory_map(path, 'r+') as f:
         assert f.mode == 'rb+'
+        assert f.readable()
+        assert f.writable()
+        assert f.seekable()
 
     with pa.memory_map(path, 'r+b') as f:
         assert f.mode == 'rb+'
+        assert f.readable()
+        assert f.writable()
+        assert f.seekable()
 
 
 def test_native_file_raises_ValueError_after_close(tmpdir):
@@ -511,19 +532,56 @@ def test_native_file_raises_ValueError_after_close(tmpdir):
         f.write(b'foooo')
 
     with pa.OSFile(path, mode='rb') as os_file:
-        pass
+        assert not os_file.closed
+    assert os_file.closed
 
     with pa.memory_map(path, mode='rb') as mmap_file:
-        pass
+        assert not mmap_file.closed
+    assert mmap_file.closed
 
     files = [os_file,
              mmap_file]
 
     methods = [('tell', ()),
                ('seek', (0,)),
-               ('size', ())]
+               ('size', ()),
+               ('flush', ()),
+               ('readable', ()),
+               ('writable', ()),
+               ('seekable', ())]
 
     for f in files:
         for method, args in methods:
             with pytest.raises(ValueError):
                 getattr(f, method)(*args)
+
+
+def test_native_file_TextIOWrapper(tmpdir):
+    data = (u'foooo\n'
+            u'barrr\n'
+            u'bazzz\n')
+
+    path = os.path.join(str(tmpdir), guid())
+    with open(path, 'wb') as f:
+        f.write(data.encode('utf-8'))
+
+    with TextIOWrapper(pa.OSFile(path, mode='rb')) as fil:
+        assert fil.readable()
+        res = fil.read()
+        assert res == data
+    assert fil.closed
+
+    with TextIOWrapper(pa.OSFile(path, mode='rb')) as fil:
+        # Iteration works
+        lines = list(fil)
+        assert ''.join(lines) == data
+
+    # Writing
+    path2 = os.path.join(str(tmpdir), guid())
+    with TextIOWrapper(pa.OSFile(path2, mode='wb')) as fil:
+        assert fil.writable()
+        fil.write(data)
+
+    with TextIOWrapper(pa.OSFile(path2, mode='rb')) as fil:
+        res = fil.read()
+        assert res == data
