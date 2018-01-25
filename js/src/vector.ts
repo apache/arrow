@@ -143,11 +143,30 @@ export abstract class ListVectorBase<T extends (ListType | FlatListType)> extend
 export abstract class NestedVector<T extends NestedType> extends Vector<T>  {
     // @ts-ignore
     public readonly view: NestedView<T>;
-    public get childData(): Data<any>[] {
-        return this.data.childData;
-    }
-    public getChildAt<R extends DataType = DataType>(index: number) {
+    // @ts-ignore
+    protected _childData: Data<any>[];
+    public getChildAt<R extends DataType = DataType>(index: number): Vector<R> | null {
         return this.view.getChildAt<R>(index);
+    }
+    public get childData(): Data<any>[] {
+        let data: Data<T> | Data<any>[];
+        if ((data = this._childData)) {
+            // Return the cached childData reference first
+            return data as Data<any>[];
+        } else if (!(<any> (data = this.data) instanceof ChunkedData)) {
+            // If data isn't chunked, cache and return NestedData's childData
+            return this._childData = (data as NestedData<T>).childData;
+        }
+        // Otherwise if the data is chunked, concatenate the childVectors from each chunk
+        // to construct a single chunked Vector for each column. Then return the ChunkedData
+        // instance from each unified chunked column as the childData of a chunked NestedVector
+        const chunks = ((data as ChunkedData<T>).chunkVectors as NestedVector<T>[]);
+        return this._childData = chunks
+            .reduce<(Vector<T> | null)[][]>((cols, chunk) => chunk.childData
+            .reduce<(Vector<T> | null)[][]>((cols, _, i) => (
+                (cols[i] || (cols[i] = [])).push(chunk.getChildAt(i))
+            ) && cols || cols, cols), [] as Vector<T>[][])
+        .map((vecs) => Vector.concat<T>(...vecs).data);
     }
 }
 
