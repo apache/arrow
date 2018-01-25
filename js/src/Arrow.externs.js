@@ -72,13 +72,37 @@ var CountByResult = function() {};
 /** @type {?} */
 CountByResult.prototype.asJSON;
 
-let Col = function() {};
+var col = function () {};
+
+var Value = function() {};
 /** @type {?} */
-Col.prototype.gteq;
+Value.prototype.gteq;
 /** @type {?} */
-Col.prototype.lteq;
+Value.prototype.lteq;
 /** @type {?} */
-Col.prototype.eq;
+Value.prototype.eq;
+
+var Col = function() {};
+
+var Literal = function() {};
+
+var GTeq = function () {};
+/** @type {?} */
+GTeq.prototype.and;
+/** @type {?} */
+GTeq.prototype.or;
+
+var LTeq = function () {};
+/** @type {?} */
+LTeq.prototype.and;
+/** @type {?} */
+LTeq.prototype.or;
+
+var Equals = function () {};
+/** @type {?} */
+Equals.prototype.and;
+/** @type {?} */
+Equals.prototype.or;
 
 var TableToStringIterator = function() {};
 /** @type {?} */

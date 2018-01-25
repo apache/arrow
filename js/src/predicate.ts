@@ -102,13 +102,13 @@ export abstract class ComparisonPredicate<T= any> extends Predicate {
     protected abstract _bindColLit(batch: RecordBatch, col: Col, lit: Literal): PredicateFunc;
 }
 
-abstract class CombinationPredicate extends Predicate {
+export abstract class CombinationPredicate extends Predicate {
     constructor(public readonly left: Predicate, public readonly right: Predicate) {
         super();
     }
 }
 
-class And extends CombinationPredicate {
+export class And extends CombinationPredicate {
     bind(batch: RecordBatch) {
         const left = this.left.bind(batch);
         const right = this.right.bind(batch);
@@ -117,7 +117,7 @@ class And extends CombinationPredicate {
     ands(): Predicate[] { return this.left.ands().concat(this.right.ands()); }
 }
 
-class Or extends CombinationPredicate {
+export class Or extends CombinationPredicate {
     bind(batch: RecordBatch) {
         const left = this.left.bind(batch);
         const right = this.right.bind(batch);

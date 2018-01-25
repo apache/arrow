@@ -15,13 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import Arrow, {
-} from '../Arrow';
+import Arrow from '../Arrow';
 
-const {
-    col,
-    Table,
-} = Arrow;
+const { predicate, Table } = Arrow;
+
+const { col } = predicate;
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
