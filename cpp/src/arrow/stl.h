@@ -128,7 +128,6 @@ struct SchemaFromTuple {
   }
 };
 
-/// @cond PRIVATE
 template <typename Tuple>
 struct SchemaFromTuple<Tuple, 0> {
   static std::vector<std::shared_ptr<Field>> MakeSchemaRecursion(
