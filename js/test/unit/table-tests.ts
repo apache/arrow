@@ -24,6 +24,10 @@ const {
 } = Arrow;
 
 describe(`Table`, () => {
+    test(`can create an empty table`, () => {
+        expect(Table.empty().length).toEqual(0)
+    });
+
     describe(`single record batch`, () => {
         const table = Table.from({
           'schema': {
