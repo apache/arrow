@@ -262,7 +262,8 @@ You can also fix any formatting errors automatically:
     make format
 
 These commands require `clang-format-4.0` (and not any other version).
-You may found the required packages for Debian/Ubuntu on https://apt.llvm.org/.
+You may find the required packages at http://releases.llvm.org/download.html
+or use the Debian/Ubuntu APT repositories on https://apt.llvm.org/.
 
 Also, if under a Python 3 environment, you need to install a compatible
 version of `cpplint` using `pip install cpplint`.
