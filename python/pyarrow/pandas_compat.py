@@ -27,7 +27,7 @@ import pandas as pd
 import six
 
 import pyarrow as pa
-from pyarrow.compat import PY2, zip_longest  # noqa
+from pyarrow.compat import PY2, zip_longest, frombytes  # noqa
 
 
 def infer_dtype(column):
@@ -171,7 +171,7 @@ def get_column_metadata(column, name, arrow_type, field_name):
         )
 
     if not isinstance(field_name, six.string_types):
-        field_name = str(field_name)
+        field_name = frombytes(str(field_name))
 
     return {
         'name': name,
@@ -319,7 +319,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
         if not isinstance(name, six.string_types):
             name = _column_name_to_strings(name)
             if name is not None:
-                name = str(name)
+                name = frombytes(str(name))
 
         if schema is not None:
             field = schema.field_by_name(name)
@@ -550,7 +550,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
         for c in columns:
             column_name = c['name']
             if not isinstance(column_name, six.text_type):
-                column_name = str(column_name)
+                column_name = frombytes(str(column_name))
 
             columns_name_dict[c.get('field_name', column_name)] = c['name']
 
