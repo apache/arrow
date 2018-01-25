@@ -144,10 +144,10 @@ function createDataFrameDirectCountTest(table, column, test, value) {
             let numBatches = batches.length;
             for (let batchIndex = -1; ++batchIndex < numBatches;) {
                 // load batches
-                const { numRows, columns } = batches[batchIndex];
-                const vector = columns[colidx];
+                const batch = batches[batchIndex];
+                const vector = batch.getChildAt(colidx);
                 // yield all indices
-                for (let index = -1; ++index < numRows;) {
+                for (let index = -1; ++index < batch.length;) {
                     sum += (vector.get(index) >= value);
                 }
             }
@@ -159,10 +159,10 @@ function createDataFrameDirectCountTest(table, column, test, value) {
             let numBatches = batches.length;
             for (let batchIndex = -1; ++batchIndex < numBatches;) {
                 // load batches
-                const { numRows, columns } = batches[batchIndex];
-                const vector = columns[colidx];
+                const batch = batches[batchIndex];
+                const vector = batch.getChildAt(colidx);
                 // yield all indices
-                for (let index = -1; ++index < numRows;) {
+                for (let index = -1; ++index < batch.length;) {
                     sum += (vector.get(index) === value);
                 }
             }
@@ -173,7 +173,7 @@ function createDataFrameDirectCountTest(table, column, test, value) {
 
     return {
         async: true,
-        name: `name: '${column}', length: ${table.numRows}, type: ${table.columns[colidx].type}, test: ${test}, value: ${value}\n`,
+        name: `name: '${column}', length: ${table.numRows}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
         fn: op
     };
 }
@@ -183,7 +183,7 @@ function createDataFrameCountByTest(table, column) {
 
     return {
         async: true,
-        name: `name: '${column}', length: ${table.numRows}, type: ${table.columns[colidx].type}\n`,
+        name: `name: '${column}', length: ${table.numRows}, type: ${table.getColumnAt(colidx).type}\n`,
         fn() {
             table.countBy(column);
         }
@@ -204,7 +204,7 @@ function createDataFrameFilterCountTest(table, column, test, value) {
 
     return {
         async: true,
-        name: `name: '${column}', length: ${table.numRows}, type: ${table.columns[colidx].type}, test: ${test}, value: ${value}\n`,
+        name: `name: '${column}', length: ${table.numRows}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
         fn() {
             df.count();
         }

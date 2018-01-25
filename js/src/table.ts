@@ -20,7 +20,8 @@ import { Col, Predicate } from './predicate';
 import { Schema, Field, Struct } from './type';
 import { read, readAsync } from './ipc/reader/arrow';
 import { isPromise, isAsyncIterable } from './util/compat';
-import { Vector, DictionaryVector, IntVector } from './vector';
+import { Vector, DictionaryVector, IntVector, StructVector } from './vector';
+import { ChunkedView } from './vector/chunked';
 
 export type NextFunc = (idx: number, cols: RecordBatch) => void;
 
@@ -60,6 +61,13 @@ export class Table implements DataFrame {
             return Table.from(sources);
         }
         return Table.empty();
+    }
+    static fromStruct(struct: StructVector) {
+        const schema = new Schema(struct.type.children);
+        const chunks = struct.view instanceof ChunkedView ?
+                            (struct.view.childVectors as StructVector[]) :
+                            [struct];
+        return new Table(chunks.map((chunk)=>new RecordBatch(schema, chunk.length, chunk.view.childData)));
     }
 
     public readonly schema: Schema;
