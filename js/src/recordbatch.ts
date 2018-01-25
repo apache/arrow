@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Schema, Struct } from './type';
+import { Schema, Struct, DataType } from './type';
 import { flatbuffers } from 'flatbuffers';
 import { View, Vector, StructVector } from './vector';
 import { Data, NestedData } from './data';
@@ -40,34 +40,31 @@ export class RecordBatch extends StructVector {
             super(data, args[2]);
             this.schema = args[0];
             this.length = data.length;
-            this.numCols = this.schema.fields.length;
         } else {
             const [schema, numRows, cols] = args;
-            const columns: Vector<any>[] = new Array(cols.length);
-            const columnsData: Data<any>[] = new Array(cols.length);
+            const childData: Data<any>[] = new Array(cols.length);
             for (let index = -1, length = cols.length; ++index < length;) {
                 const col: Data<any> | Vector = cols[index];
-                if (col instanceof Vector) {
-                    columnsData[index] = (columns[index] = col as Vector).data;
-                } else {
-                    columns[index] = Vector.create(columnsData[index] = col);
-                }
+                childData[index] = col instanceof Vector ? col.data : col;
             }
-            super(new NestedData(new Struct(schema.fields), numRows, null, columnsData));
+            super(new NestedData(new Struct(schema.fields), numRows, null, childData));
             this.schema = schema;
             this.length = numRows;
-            this.numCols = schema.fields.length;
         }
+        this.numCols = this.schema.fields.length;
     }
     public clone<R extends Struct>(data: Data<R>, view: View<R> = this.view.clone(data)): this {
         return new RecordBatch(this.schema, data as any, view) as any;
+    }
+    public getChildAt<R extends DataType = DataType>(index: number): Vector<R> | null {
+        return index < 0 || index >= this.numCols ? null : super.getChildAt<R>(index);
     }
     public select(...columnNames: string[]) {
         const fields = this.schema.fields;
         const namesToKeep = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
         return new RecordBatch(
             this.schema.select(...columnNames), this.length,
-            this.childData.filter((_, index) => namesToKeep[fields[index].name])
+            this.childData.filter((_, i) => namesToKeep[fields[i].name])
         );
     }
 }

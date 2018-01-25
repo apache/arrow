@@ -35,8 +35,8 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
     public static create<T extends DataType>(data: Data<T>): Vector<T> {
         return createVector(data);
     }
-    public static concat<T extends DataType>(...sources: Vector<T>[]): Vector<T> {
-        return sources.length === 1 ? sources[0] : sources.reduce((a, b) => a.concat(b));
+    public static concat<T extends DataType>(source?: Vector<T> | null, ...others: Vector<T>[]): Vector<T> {
+        return others.reduce((a, b) => a ? a.concat(b) : b, source!);
     }
     public type: T;
     public length: number;

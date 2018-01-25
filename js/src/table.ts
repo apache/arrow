@@ -65,9 +65,9 @@ export class Table implements DataFrame {
     static fromStruct(struct: StructVector) {
         const schema = new Schema(struct.type.children);
         const chunks = struct.view instanceof ChunkedView ?
-                            (struct.view.childVectors as StructVector[]) :
+                            (struct.view.chunkVectors as StructVector[]) :
                             [struct];
-        return new Table(chunks.map((chunk)=>new RecordBatch(schema, chunk.length, chunk.view.childData)));
+        return new Table(chunks.map((chunk) => new RecordBatch(schema, chunk.length, chunk.view.childData)));
     }
 
     public readonly schema: Schema;
@@ -102,7 +102,6 @@ export class Table implements DataFrame {
         this.schema = schema;
         this.batches = batches;
         this.batchesUnion = batches.reduce((union, batch) => union.concat(batch));
-        // this.columns = schema.fields.map((_, i) => this.batchesUnion.getChildAt(i));
         this.length = this.batchesUnion.length;
         this.numCols = this.batchesUnion.numCols;
     }
@@ -113,8 +112,10 @@ export class Table implements DataFrame {
         return this.getColumnAt(this.getColumnIndex(name));
     }
     public getColumnAt(index: number) {
-        return this._columns[index] || (
-               this._columns[index] = this.batchesUnion.getChildAt(index));
+        return index < 0 || index >= this.numCols
+            ? null
+            : this._columns[index] || (
+              this._columns[index] = this.batchesUnion.getChildAt(index)!);
     }
     public getColumnIndex(name: string) {
         return this.schema.fields.findIndex((f) => f.name === name);
@@ -271,8 +272,8 @@ export class CountByResult extends Table implements DataFrame {
         ));
     }
     public toJSON(): Object {
-        const values = this.getColumnAt(0);
-        const counts = this.getColumnAt(1);
+        const values = this.getColumnAt(0)!;
+        const counts = this.getColumnAt(1)!;
         const result = {} as { [k: string]: number | null };
         for (let i = -1; ++i < this.length;) {
             result[values.get(i)] = counts.get(i);

@@ -24,15 +24,15 @@ export abstract class NestedView<T extends NestedType> implements View<T> {
     public length: number;
     public numChildren: number;
     public childData: Data<any>[];
-    protected _childColumns: Vector<any>[];
+    protected _children: Vector<any>[];
     constructor(data: Data<T>, children?: Vector<any>[]) {
         this.length = data.length;
         this.childData = data.childData;
         this.numChildren = data.childData.length;
-        this._childColumns = children || new Array(this.numChildren);
+        this._children = children || new Array(this.numChildren);
     }
     public clone(data: Data<T>): this {
-        return new (<any> this.constructor)(data, this._childColumns) as this;
+        return new (<any> this.constructor)(data, this._children) as this;
     }
     public isValid(): boolean {
         return true;
@@ -52,9 +52,11 @@ export abstract class NestedView<T extends NestedType> implements View<T> {
     }
     protected abstract getNested(self: NestedView<T>, index: number): T['TValue'];
     protected abstract setNested(self: NestedView<T>, index: number, value: T['TValue']): void;
-    public getChildAt<R extends DataType = DataType>(index: number) {
-        return this._childColumns[index] || (
-               this._childColumns[index] = Vector.create<R>(this.childData[index]));
+    public getChildAt<R extends DataType = DataType>(index: number): Vector<R> | null {
+        return index < 0 || index >= this.numChildren
+            ? null
+            : (this._children[index] as Vector<R>) ||
+              (this._children[index] = Vector.create<R>(this.childData[index]));
     }
     public *[Symbol.iterator](): IterableIterator<T['TValue']> {
         const get = this.getNested;
@@ -120,14 +122,22 @@ export class DenseUnionView extends UnionView<DenseUnion> {
 
 export class StructView extends NestedView<Struct> {
     protected getNested(self: StructView, index: number) {
-        return new RowView(self as any, self._childColumns, index);
+        return new RowView(self as any, self._children, index);
     }
     protected setNested(self: StructView, index: number, value: any): void {
-        let idx = -1, len = self.numChildren;
+        let idx = -1, len = self.numChildren, child: Vector | null;
         if (!(value instanceof NestedView || value instanceof Vector)) {
-            while (++idx < len) { self.getChildAt(idx).set(index, value[idx]); }
+            while (++idx < len) {
+                if (child = self.getChildAt(idx)) {
+                    child.set(index, value[idx]);
+                }
+            }
         } else {
-            while (++idx < len) { self.getChildAt(idx).set(index, value.get(idx)); }
+            while (++idx < len) {
+                if (child = self.getChildAt(idx)) {
+                    child.set(index, value.get(idx));
+                }
+            }
         }
     }
 }
@@ -140,14 +150,22 @@ export class MapView extends NestedView<Map_> {
             (xs[x.name] = i) && xs || xs, Object.create(null));
     }
     protected getNested(self: MapView, index: number) {
-        return new MapRowView(self as any, self._childColumns, index);
+        return new MapRowView(self as any, self._children, index);
     }
     protected setNested(self: MapView, index: number, value: { [k: string]: any }): void {
-        const typeIds = self.typeIds as any;
+        let typeIds = self.typeIds as any, child: Vector | null;
         if (!(value instanceof NestedView || value instanceof Vector)) {
-            for (const key in typeIds) { self.getChildAt(typeIds[key]).set(index, value[key]); }
+            for (const key in typeIds) {
+                if (child = self.getChildAt(typeIds[key])) {
+                    child.set(index, value[key]);
+                }
+            }
         } else {
-            for (const key in typeIds) { self.getChildAt(typeIds[key]).set(index, value.get(key as any)); }
+            for (const key in typeIds) {
+                if (child = self.getChildAt(typeIds[key])) {
+                    child.set(index, value.get(key as any));
+                }
+            }
         }
     }
 }
@@ -160,7 +178,7 @@ export class RowView extends UnionView<SparseUnion> {
         this.length = data.numChildren;
     }
     public clone(data: Data<SparseUnion> & NestedView<any>): this {
-        return new (<any> this.constructor)(data, this._childColumns, this.rowIndex) as this;
+        return new (<any> this.constructor)(data, this._children, this.rowIndex) as this;
     }
     protected getChildValue(self: RowView, index: number, _typeIds: any, _valueOffsets?: any): any | null {
         const child = self.getChildAt(index);
