@@ -215,7 +215,9 @@ def _sanitize_schema(schema, flavor):
                 sanitized_fields.append(sanitized_field)
             else:
                 sanitized_fields.append(field)
-        return pa.schema(sanitized_fields), schema_changed
+
+        new_schema = pa.schema(sanitized_fields, metadata=schema.metadata)
+        return new_schema, schema_changed
     else:
         return schema, False
 
