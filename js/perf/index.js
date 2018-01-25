@@ -33,11 +33,11 @@ for (let { name, buffers } of require('./table_config')) {
     const sliceToArraySuiteName = `Slice toArray "${name}" vectors`;
     suites.push(createTestSuite(parseSuiteName, createFromTableTest(name, buffers)));
     suites.push(createTestSuite(parseSuiteName, createReadBatchesTest(name, buffers)));
-    const table = Table.from(buffers);
-    suites.push(...table.columns.map((vector, i) => createTestSuite(getByIndexSuiteName, createGetByIndexTest(vector, table.schema.fields[i].name))));
-    suites.push(...table.columns.map((vector, i) => createTestSuite(iterateSuiteName, createIterateTest(vector, table.schema.fields[i].name))));
-    suites.push(...table.columns.map((vector, i) => createTestSuite(sliceToArraySuiteName, createSliceToArrayTest(vector, table.schema.fields[i].name))));
-    suites.push(...table.columns.map((vector, i) => createTestSuite(sliceSuiteName, createSliceTest(vector, table.schema.fields[i].name))));
+    const table = Table.from(buffers), schema = table.schema;
+    suites.push(...schema.fields.map((f, i) => createTestSuite(getByIndexSuiteName, createGetByIndexTest(table.getColumnAt(i), f.name))));
+    suites.push(...schema.fields.map((f, i) => createTestSuite(iterateSuiteName, createIterateTest(table.getColumnAt(i), f.name))));
+    suites.push(...schema.fields.map((f, i) => createTestSuite(sliceToArraySuiteName, createSliceToArrayTest(table.getColumnAt(i), f.name))));
+    suites.push(...schema.fields.map((f, i) => createTestSuite(sliceSuiteName, createSliceTest(table.getColumnAt(i), f.name))));
 }
 
 for (let {name, buffers, countBys, counts} of require('./table_config')) {
@@ -173,7 +173,7 @@ function createDataFrameDirectCountTest(table, column, test, value) {
 
     return {
         async: true,
-        name: `name: '${column}', length: ${table.numRows}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
+        name: `name: '${column}', length: ${table.length}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
         fn: op
     };
 }
@@ -183,7 +183,7 @@ function createDataFrameCountByTest(table, column) {
 
     return {
         async: true,
-        name: `name: '${column}', length: ${table.numRows}, type: ${table.getColumnAt(colidx).type}\n`,
+        name: `name: '${column}', length: ${table.length}, type: ${table.getColumnAt(colidx).type}\n`,
         fn() {
             table.countBy(column);
         }
@@ -204,7 +204,7 @@ function createDataFrameFilterCountTest(table, column, test, value) {
 
     return {
         async: true,
-        name: `name: '${column}', length: ${table.numRows}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
+        name: `name: '${column}', length: ${table.length}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
         fn() {
             df.count();
         }

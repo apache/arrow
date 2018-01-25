@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import Arrow, {
-} from '../Arrow';
+import Arrow from '../Arrow';
 
 const {
     col,
@@ -25,7 +24,7 @@ const {
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
-        expect(Table.empty().length).toEqual(0)
+        expect(Table.empty().length).toEqual(0);
     });
 
     describe(`single record batch`, () => {
@@ -147,7 +146,7 @@ describe(`Table`, () => {
         test(`scans expected values`, () => {
             let expected_idx = 0;
             table.scan((idx, batch) => {
-              const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i));
+              const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
               expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
             });
         });
@@ -353,7 +352,7 @@ describe(`Table`, () => {
         test(`scans expected values`, () => {
             let expected_idx = 0;
             table.scan((idx, batch) => {
-                const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i));
+                const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
                 expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
             });
         });
