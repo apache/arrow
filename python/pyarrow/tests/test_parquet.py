@@ -748,6 +748,28 @@ def test_sanitized_spark_field_names():
     assert result.schema[0].name == expected_name
 
 
+def _roundtrip_pandas_dataframe(df, write_kwargs):
+    table = pa.Table.from_pandas(df)
+
+    buf = io.BytesIO()
+    _write_table(table, buf, **write_kwargs)
+
+    buf.seek(0)
+    table1 = _read_table(buf)
+    return table1.to_pandas()
+
+
+@parquet
+def test_spark_flavor_preserves_pandas_metadata():
+    df = _test_dataframe(size=100)
+    df.index = np.arange(0, 10 * len(df), 10)
+    df.index.name = 'foo'
+
+    result = _roundtrip_pandas_dataframe(df, {'version': '2.0',
+                                              'flavor': 'spark'})
+    tm.assert_frame_equal(result, df)
+
+
 @parquet
 def test_fixed_size_binary():
     t0 = pa.binary(10)
