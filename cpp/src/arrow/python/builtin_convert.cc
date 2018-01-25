@@ -511,7 +511,7 @@ class UInt32Converter : public TypedConverterVisitor<UInt32Builder, UInt32Conver
 class UInt64Converter : public TypedConverterVisitor<UInt64Builder, UInt64Converter> {
  public:
   Status AppendItem(const OwnedRef& item) {
-    const auto val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+    const auto val = static_cast<int64_t>(PyLong_AsUnsignedLongLong(item.obj()));
     RETURN_IF_PYERROR();
     return typed_builder_->Append(val);
   }
