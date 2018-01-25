@@ -15,28 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector/vector';
-import { DictionaryVector } from './vector/dictionary';
-import { Uint32Vector } from './vector/numeric';
-import { read, readAsync } from './reader/arrow';
+import { RecordBatch } from './recordbatch';
 import { Col, Predicate } from './predicate';
+import { Schema, Field, Struct } from './type';
+import { read, readAsync } from './ipc/reader/arrow';
+import { isPromise, isAsyncIterable } from './util/compat';
+import { Vector, DictionaryVector, IntVector, StructVector } from './vector';
+import { ChunkedView } from './vector/chunked';
 
-export type NextFunc = (idx: number, cols: Vector[]) => void;
-
-export class TableRow {
-    constructor (readonly batch: Vector[], readonly idx: number) {}
-    toArray() {
-        return this.batch.map((vec) => vec.get(this.idx));
-    }
-    toString() {
-        return this.toArray().map((x) => JSON.stringify(x)).join(', ');
-    }
-    *[Symbol.iterator]() {
-        for (const vec of this.batch) {
-            yield vec.get(this.idx);
-        }
-    }
-}
+export type NextFunc = (idx: number, cols: RecordBatch) => void;
 
 export interface DataFrame {
     filter(predicate: Predicate): DataFrame;
@@ -45,150 +32,181 @@ export interface DataFrame {
     countBy(col: (Col|string)): CountByResult;
 }
 
-function columnsFromBatches(batches: Vector[][]) {
-    const remaining = batches.slice(1);
-    return batches[0].map((vec, colidx) =>
-        vec.concat(...remaining.map((batch) => batch[colidx]))
-    );
-}
-
 export class Table implements DataFrame {
+    static empty() { return new Table(new Schema([]), []); }
     static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
-        let batches: Vector[][] = [];
         if (sources) {
-            batches = [];
-            for (let batch of read(sources)) {
-                batches.push(batch);
+            let schema: Schema | undefined;
+            let recordBatches: RecordBatch[] = [];
+            for (let recordBatch of read(sources)) {
+                schema = schema || recordBatch.schema;
+                recordBatches.push(recordBatch);
             }
+            return new Table(schema || new Schema([]), recordBatches);
         }
-        return new Table({ batches });
+        return Table.empty();
     }
     static async fromAsync(sources?: AsyncIterable<Uint8Array | Buffer | string>) {
-        let batches: Vector[][] = [];
-        if (sources) {
-            batches = [];
-            for await (let batch of readAsync(sources)) {
-                batches.push(batch);
+        if (isAsyncIterable(sources)) {
+            let schema: Schema | undefined;
+            let recordBatches: RecordBatch[] = [];
+            for await (let recordBatch of readAsync(sources)) {
+                schema = schema || recordBatch.schema;
+                recordBatches.push(recordBatch);
             }
+            return new Table(schema || new Schema([]), recordBatches);
+        } else if (isPromise(sources)) {
+            return Table.from(await sources);
+        } else if (sources) {
+            return Table.from(sources);
         }
-        return new Table({ batches });
+        return Table.empty();
+    }
+    static fromStruct(struct: StructVector) {
+        const schema = new Schema(struct.type.children);
+        const chunks = struct.view instanceof ChunkedView ?
+                            (struct.view.chunkVectors as StructVector[]) :
+                            [struct];
+        return new Table(chunks.map((chunk) => new RecordBatch(schema, chunk.length, chunk.view.childData)));
     }
 
-    // VirtualVector of each column, spanning batches
-    readonly columns: Vector<any>[];
+    public readonly schema: Schema;
+    public readonly length: number;
+    public readonly numCols: number;
+    // List of inner RecordBatches
+    public readonly batches: RecordBatch[];
+    // List of inner Vectors, possibly spanning batches
+    protected readonly _columns: Vector<any>[] = [];
+    // Union of all inner RecordBatches into one RecordBatch, possibly chunked.
+    // If the Table has just one inner RecordBatch, this points to that.
+    // If the Table has multiple inner RecordBatches, then this is a Chunked view
+    // over the list of RecordBatches. This allows us to delegate the responsibility
+    // of indexing, iterating, slicing, and visiting to the Nested/Chunked Data/Views.
+    public readonly batchesUnion: RecordBatch;
 
-    // List of batches, where each batch is a list of Vectors
-    readonly batches: Vector<any>[][];
-    readonly lengths: Uint32Array;
-    readonly length: number;
-    constructor(argv: { batches: Vector<any>[][] }) {
-        this.batches = argv.batches;
-        this.columns = columnsFromBatches(this.batches);
-        this.lengths = new Uint32Array(this.batches.map((batch) => batch[0].length));
-
-        this.length = this.lengths.reduce((acc, length) => acc + length);
-    }
-    get(idx: number): TableRow {
-        let batch = 0;
-        while (idx >= this.lengths[batch] && batch < this.lengths.length) {
-            idx -= this.lengths[batch++];
+    constructor(batches: RecordBatch[]);
+    constructor(...batches: RecordBatch[]);
+    constructor(schema: Schema, batches: RecordBatch[]);
+    constructor(schema: Schema, ...batches: RecordBatch[]);
+    constructor(...args: any[]) {
+        let schema: Schema;
+        let batches: RecordBatch[];
+        if (args[0] instanceof Schema) {
+            schema = args[0];
+            batches = Array.isArray(args[1][0]) ? args[1][0] : args[1];
+        } else if (args[0] instanceof RecordBatch) {
+            schema = (batches = args)[0].schema;
+        } else {
+            schema = (batches = args[0])[0].schema;
         }
-
-        if (batch === this.lengths.length) { throw new Error('Overflow'); }
-
-        return new TableRow(this.batches[batch], idx);
+        this.schema = schema;
+        this.batches = batches;
+        this.batchesUnion = batches.length == 0 ?
+            new RecordBatch(schema, 0, []) :
+            batches.reduce((union, batch) => union.concat(batch));
+        this.length = this.batchesUnion.length;
+        this.numCols = this.batchesUnion.numCols;
     }
-    filter(predicate: Predicate): DataFrame {
-        return new FilteredDataFrame(this, predicate);
+    public get(index: number): Struct['TValue'] {
+        return this.batchesUnion.get(index)!;
     }
-    scan(next: NextFunc) {
-        for (let batch = -1; ++batch < this.lengths.length;) {
-            const length = this.lengths[batch];
-
+    public getColumn(name: string) {
+        return this.getColumnAt(this.getColumnIndex(name));
+    }
+    public getColumnAt(index: number) {
+        return index < 0 || index >= this.numCols
+            ? null
+            : this._columns[index] || (
+              this._columns[index] = this.batchesUnion.getChildAt(index)!);
+    }
+    public getColumnIndex(name: string) {
+        return this.schema.fields.findIndex((f) => f.name === name);
+    }
+    public [Symbol.iterator](): IterableIterator<Struct['TValue']> {
+        return this.batchesUnion[Symbol.iterator]() as any;
+    }
+    public filter(predicate: Predicate): DataFrame {
+        return new FilteredDataFrame(this.batches, predicate);
+    }
+    public scan(next: NextFunc) {
+        const batches = this.batches, numBatches = batches.length;
+        for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
-            const columns = this.batches[batch];
-
+            const batch = batches[batchIndex];
             // yield all indices
-            for (let idx = -1; ++idx < length;) {
-                next(idx, columns);
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
+                next(index, batch);
             }
         }
     }
-    count(): number {
-        return this.length;
-    }
-    countBy(count_by: (Col|string)): CountByResult {
-        if (!(count_by instanceof Col)) {
-            count_by = new Col(count_by);
-        }
-
+    public count(): number { return this.length; }
+    public countBy(name: Col | string): CountByResult {
+        const batches = this.batches, numBatches = batches.length;
+        const count_by = typeof name === 'string' ? new Col(name) : name;
         // Assume that all dictionary batches are deltas, which means that the
         // last record batch has the most complete dictionary
-        count_by.bind(this.batches[this.batches.length - 1]);
-        if (!(count_by.vector instanceof DictionaryVector)) {
+        count_by.bind(batches[numBatches - 1]);
+        const vector = count_by.vector as DictionaryVector;
+        if (!(vector instanceof DictionaryVector)) {
             throw new Error('countBy currently only supports dictionary-encoded columns');
         }
-
-        let data: Vector = (count_by.vector as DictionaryVector<any>).data;
         // TODO: Adjust array byte width based on overall length
         // (e.g. if this.length <= 255 use Uint8Array, etc...)
-        let counts: Uint32Array = new Uint32Array(data.length);
-
-        for (let batch = -1; ++batch < this.lengths.length;) {
-            const length = this.lengths[batch];
-
+        const counts: Uint32Array = new Uint32Array(vector.dictionary.length);
+        for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
-            const columns = this.batches[batch];
-            count_by.bind(columns);
-            const keys: Vector = (count_by.vector as DictionaryVector<any>).keys;
-
+            const batch = batches[batchIndex];
+            // rebind the countBy Col
+            count_by.bind(batch);
+            const keys = (count_by.vector as DictionaryVector).indicies;
             // yield all indices
-            for (let idx = -1; ++idx < length;) {
-                let key = keys.get(idx);
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
+                let key = keys.get(index);
                 if (key !== null) { counts[key]++; }
             }
         }
-
-        return new CountByResult(data, new Uint32Vector({data: counts}));
+        return new CountByResult(vector.dictionary, IntVector.from(counts));
     }
-    *[Symbol.iterator]() {
-        for (let batch = -1; ++batch < this.lengths.length;) {
-            const length = this.lengths[batch];
-
-            // load batches
-            const columns = this.batches[batch];
-
-            // yield all indices
-            for (let idx = -1; ++idx < length;) {
-                yield new TableRow(columns, idx);
-            }
+    public select(...columnNames: string[]) {
+        return new Table(this.batches.map((batch) => batch.select(...columnNames)));
+    }
+    public toString(separator?: string) {
+        let str = '';
+        for (const row of this.rowsToString(separator)) {
+            str += row + '\n';
         }
+        return str;
+    }
+    public rowsToString(separator = ' | '): TableToStringIterator {
+        return new TableToStringIterator(tableRowsToString(this, separator));
     }
 }
 
 class FilteredDataFrame implements DataFrame {
-    constructor (readonly parent: Table, private predicate: Predicate) {}
-
-    scan(next: NextFunc) {
+    private predicate: Predicate;
+    private batches: RecordBatch[];
+    constructor (batches: RecordBatch[], predicate: Predicate) {
+        this.batches = batches;
+        this.predicate = predicate;
+    }
+    public scan(next: NextFunc) {
         // inlined version of this:
         // this.parent.scan((idx, columns) => {
         //     if (this.predicate(idx, columns)) next(idx, columns);
         // });
-        for (let batch = -1; ++batch < this.parent.lengths.length;) {
-            const length = this.parent.lengths[batch];
-
+        const batches = this.batches;
+        const numBatches = batches.length;
+        for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
-            const columns = this.parent.batches[batch];
-            const predicate = this.predicate.bind(columns);
-
+            const batch = batches[batchIndex];
+            const predicate = this.predicate.bind(batch);
             // yield all indices
-            for (let idx = -1; ++idx < length;) {
-                if (predicate(idx, columns)) { next(idx, columns); }
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
+                if (predicate(index, batch)) { next(index, batch); }
             }
         }
     }
-
-    count(): number {
+    public count(): number {
         // inlined version of this:
         // let sum = 0;
         // this.parent.scan((idx, columns) => {
@@ -196,77 +214,125 @@ class FilteredDataFrame implements DataFrame {
         // });
         // return sum;
         let sum = 0;
-        for (let batch = -1; ++batch < this.parent.lengths.length;) {
-            const length = this.parent.lengths[batch];
-
+        const batches = this.batches;
+        const numBatches = batches.length;
+        for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
-            const columns = this.parent.batches[batch];
-            const predicate = this.predicate.bind(columns);
-
+            const batch = batches[batchIndex];
+            const predicate = this.predicate.bind(batch);
             // yield all indices
-            for (let idx = -1; ++idx < length;) {
-                if (predicate(idx, columns)) { ++sum; }
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
+                if (predicate(index, batch)) { ++sum; }
             }
         }
         return sum;
     }
-
-    filter(predicate: Predicate): DataFrame {
+    public filter(predicate: Predicate): DataFrame {
         return new FilteredDataFrame(
-            this.parent,
+            this.batches,
             this.predicate.and(predicate)
         );
     }
-
-    countBy(count_by: (Col|string)): CountByResult {
-        if (!(count_by instanceof Col)) {
-            count_by = new Col(count_by);
-        }
-
+    public countBy(name: Col | string): CountByResult {
+        const batches = this.batches, numBatches = batches.length;
+        const count_by = typeof name === 'string' ? new Col(name) : name;
         // Assume that all dictionary batches are deltas, which means that the
         // last record batch has the most complete dictionary
-        count_by.bind(this.parent.batches[this.parent.batches.length - 1]);
-        if (!(count_by.vector instanceof DictionaryVector)) {
+        count_by.bind(batches[numBatches - 1]);
+        const vector = count_by.vector as DictionaryVector;
+        if (!(vector instanceof DictionaryVector)) {
             throw new Error('countBy currently only supports dictionary-encoded columns');
         }
-
-        const data: Vector = (count_by.vector as DictionaryVector<any>).data;
         // TODO: Adjust array byte width based on overall length
         // (e.g. if this.length <= 255 use Uint8Array, etc...)
-        const counts: Uint32Array = new Uint32Array(data.length);
-
-        for (let batch = -1; ++batch < this.parent.lengths.length;) {
-            const length = this.parent.lengths[batch];
-
+        const counts: Uint32Array = new Uint32Array(vector.dictionary.length);
+        for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
-            const columns = this.parent.batches[batch];
-            const predicate = this.predicate.bind(columns);
-            count_by.bind(columns);
-            const keys: Vector = (count_by.vector as DictionaryVector<any>).keys;
-
+            const batch = batches[batchIndex];
+            const predicate = this.predicate.bind(batch);
+            // rebind the countBy Col
+            count_by.bind(batch);
+            const keys = (count_by.vector as DictionaryVector).indicies;
             // yield all indices
-            for (let idx = -1; ++idx < length;) {
-                let key = keys.get(idx);
-                if (key !== null && predicate(idx, columns)) { counts[key]++; }
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
+                let key = keys.get(index);
+                if (key !== null && predicate(index, batch)) { counts[key]++; }
             }
         }
-
-        return new CountByResult(data, new Uint32Vector({data: counts}));
+        return new CountByResult(vector.dictionary, IntVector.from(counts));
     }
 }
 
 export class CountByResult extends Table implements DataFrame {
-    constructor(readonly values: Vector, readonly counts: Vector<number|null>) {
-        super({batches: [[values, counts]]});
+    constructor(values: Vector, counts: IntVector<any>) {
+        super(
+            new RecordBatch(new Schema([
+                new Field('values', values.type),
+                new Field('counts', counts.type)
+            ]),
+            counts.length, [values, counts]
+        ));
     }
-
-    toJSON(): Object {
-        let result: {[key: string]: number|null} = {};
-
+    public toJSON(): Object {
+        const values = this.getColumnAt(0)!;
+        const counts = this.getColumnAt(1)!;
+        const result = {} as { [k: string]: number | null };
         for (let i = -1; ++i < this.length;) {
-            result[this.values.get(i)] = this.counts.get(i);
+            result[values.get(i)] = counts.get(i);
         }
-
         return result;
     }
+}
+
+export class TableToStringIterator implements IterableIterator<string> {
+    constructor(private iterator: IterableIterator<string>) {}
+    [Symbol.iterator]() { return this.iterator; }
+    next(value?: any) { return this.iterator.next(value); }
+    throw(error?: any) { return this.iterator.throw && this.iterator.throw(error) || { done: true, value: '' }; }
+    return(value?: any) { return this.iterator.return && this.iterator.return(value) || { done: true, value: '' }; }
+    pipe(stream: NodeJS.WritableStream) {
+        let res: IteratorResult<string>;
+        let write = () => {
+            if (stream.writable) {
+                do {
+                    if ((res = this.next()).done) { break; }
+                } while (stream.write(res.value + '\n', 'utf8'));
+            }
+            if (!res || !res.done) {
+                stream.once('drain', write);
+            } else if (!(stream as any).isTTY) {
+                stream.end('\n');
+            }
+        };
+        write();
+    }
+}
+
+function* tableRowsToString(table: Table, separator = ' | ') {
+    const fields = table.schema.fields;
+    const header = ['row_id', ...fields.map((f) => `${f}`)].map(stringify);
+    const maxColumnWidths = header.map(x => x.length);
+    // Pass one to convert to strings and count max column widths
+    for (let i = -1, n = table.length - 1; ++i < n;) {
+        let val, row = [i, ...table.get(i)];
+        for (let j = -1, k = row.length; ++j < k; ) {
+            val = stringify(row[j]);
+            maxColumnWidths[j] = Math.max(maxColumnWidths[j], val.length);
+        }
+    }
+    yield header.map((x, j) => leftPad(x, ' ', maxColumnWidths[j])).join(separator);
+    for (let i = -1, n = table.length; ++i < n;) {
+        yield [i, ...table.get(i)]
+            .map((x) => stringify(x))
+            .map((x, j) => leftPad(x, ' ', maxColumnWidths[j]))
+            .join(separator);
+    }
+}
+
+function leftPad(str: string, fill: string, n: number) {
+    return (new Array(n + 1).join(fill) + str).slice(-1 * n);
+}
+
+function stringify(x: any) {
+    return typeof x === 'string' ? `"${x}"` : ArrayBuffer.isView(x) ? `[${x}]` : JSON.stringify(x);
 }

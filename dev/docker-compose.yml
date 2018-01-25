@@ -17,7 +17,7 @@
 version: '3'
 services:
   gen_apidocs:
-    build: 
+    build:
       context: gen_apidocs
     volumes:
      - ../..:/apache-arrow
@@ -29,7 +29,7 @@ services:
     volumes:
      - ../..:/apache-arrow
   dask_integration:
-    build: 
+    build:
       context: dask_integration
     volumes:
      - ../..:/apache-arrow

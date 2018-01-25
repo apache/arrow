@@ -15,34 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { VirtualVector } from './virtual';
+import { Data } from '../data';
+import { View, Vector } from '../vector';
+import { IterableArrayLike, DataType, Dictionary, Int } from '../type';
 
-export class DictionaryVector<T> extends Vector<T> {
-    readonly length: number;
-    readonly data: Vector<T>;
-    readonly keys: Vector<number>;
-    constructor(argv: { data: Vector<T>, keys: Vector<number> }) {
-        super();
-        this.data = argv.data;
-        this.keys = argv.keys;
-        this.length = this.keys.length;
+export class DictionaryView<T extends DataType> implements View<T> {
+    public indicies: Vector<Int>;
+    public dictionary: Vector<T>;
+    constructor(dictionary: Vector<T>, indicies: Vector<Int>) {
+        this.indicies = indicies;
+        this.dictionary = dictionary;
     }
-    get(index: number) {
-        return this.getValue(this.getKey(index)!);
+    public clone(data: Data<Dictionary<T>>): this {
+        return new DictionaryView(data.dictionary, this.indicies.clone(data.indicies)) as this;
     }
-    getKey(index: number) {
-        return this.keys.get(index);
+    public isValid(index: number): boolean {
+        return this.indicies.isValid(index);
     }
-    getValue(key: number) {
-        return this.data.get(key);
+    public get(index: number): T['TValue'] {
+        return this.dictionary.get(this.indicies.get(index));
     }
-    concat(...vectors: Vector<T>[]): Vector<T> {
-        return new VirtualVector(Array, this, ...vectors);
+    public set(index: number, value: T['TValue']): void {
+        this.dictionary.set(this.indicies.get(index), value);
     }
-    *[Symbol.iterator]() {
-        for (let i = -1, n = this.length; ++i < n;) {
-            yield this.get(i);
+    public toArray(): IterableArrayLike<T['TValue']> {
+        return [...this];
+    }
+    public *[Symbol.iterator](): IterableIterator<T['TValue']> {
+        const values = this.dictionary, indicies = this.indicies;
+        for (let index = -1, n = indicies.length; ++index < n;) {
+            yield values.get(indicies.get(index));
         }
     }
 }

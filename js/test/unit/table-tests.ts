@@ -24,6 +24,10 @@ const {
 } = Arrow;
 
 describe(`Table`, () => {
+    test(`can create an empty table`, () => {
+        expect(Table.empty().length).toEqual(0)
+    });
+
     describe(`single record batch`, () => {
         const table = Table.from({
           'schema': {
@@ -142,8 +146,9 @@ describe(`Table`, () => {
         });
         test(`scans expected values`, () => {
             let expected_idx = 0;
-            table.scan((idx, cols) => {
-                expect(cols.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
+            table.scan((idx, batch) => {
+              const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i));
+              expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
             });
         });
         test(`count() returns the correct length`, () => {
@@ -347,8 +352,9 @@ describe(`Table`, () => {
         });
         test(`scans expected values`, () => {
             let expected_idx = 0;
-            table.scan((idx, cols) => {
-                expect(cols.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
+            table.scan((idx, batch) => {
+                const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i));
+                expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
             });
         });
         test(`count() returns the correct length`, () => {
