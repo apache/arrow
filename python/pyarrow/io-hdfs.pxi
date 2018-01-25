@@ -18,8 +18,6 @@
 # ----------------------------------------------------------------------
 # HDFS IO implementation
 
-cimport cython
-
 _HDFS_PATH_RE = re.compile('hdfs://(.*):(\d+)(.*)')
 
 try:
@@ -55,7 +53,6 @@ def strip_hdfs_abspath(path):
         return path
 
 
-@cython.auto_pickle(False)
 cdef class HadoopFileSystem:
     cdef:
         shared_ptr[CHadoopFileSystem] client
