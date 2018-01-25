@@ -810,6 +810,15 @@ public class TestListVector {
       vector.allocateNew();
       assertEquals(512, vector.getValueCapacity());
       assertEquals(8, vector.getDataVector().getValueCapacity());
+
+      boolean error = false;
+      try {
+        vector.setInitialCapacity(5, 0.1);
+      } catch (IllegalArgumentException e) {
+        error = true;
+      } finally {
+        assertTrue(error);
+      }
     }
   }
 }

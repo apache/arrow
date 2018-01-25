@@ -177,6 +177,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   public void setInitialCapacity(int valueCount, double density) {
     final long size = (long) (valueCount * density);
+    if (size < 1) {
+      throw new IllegalArgumentException("With the provided density and value count, potential capacity of the data buffer is 0");
+    }
     if (size > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
@@ -196,16 +199,10 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (valueCount == 0) {
       return 0.0D;
     }
-    double totalDataSize = 0.0D;
-    for (int i = 0; i < valueCount; i++) {
-      if (isSet(i) == 1) {
-        final int start = offsetBuffer.getInt(i * OFFSET_WIDTH);
-        final int end = offsetBuffer.getInt((i + 1) * OFFSET_WIDTH);
-        totalDataSize += end - start;
-      }
-    }
-
-    return totalDataSize/valueCount;
+    final int startOffset = offsetBuffer.getInt(0);
+    final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+    final double totalListSize = endOffset - startOffset;
+    return totalListSize/valueCount;
   }
 
   /**

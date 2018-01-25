@@ -162,13 +162,16 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
    *                vector has a list of 10 values.
    *                A density value of 0.1 implies out of 10 positions in
    *                the list vector, 1 position has a list of size 1 and
-   *                remaining positions are null (no lists). This helps
-   *                in tightly controlling the memory we provision for
-   *                inner data vector.
+   *                remaining positions are null (no lists) or empty lists.
+   *                This helps in tightly controlling the memory we provision
+   *                for inner data vector.
    */
   public void setInitialCapacity(int numRecords, double density) {
     offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
     final int innerValueCapacity = (int)(numRecords * density);
+    if (innerValueCapacity < 1) {
+      throw new IllegalArgumentException("With the provided density and value count, potential value capacity for the data vector is 0");
+    }
     vector.setInitialCapacity(innerValueCapacity);
   }
 

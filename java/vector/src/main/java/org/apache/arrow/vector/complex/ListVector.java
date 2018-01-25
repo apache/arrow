@@ -122,9 +122,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    *                vector has a list of 10 values.
    *                A density value of 0.1 implies out of 10 positions in
    *                the list vector, 1 position has a list of size 1 and
-   *                remaining positions are null (no lists). This helps
-   *                in tightly controlling the memory we provision for
-   *                inner data vector.
+   *                remaining positions are null (no lists) or empty lists.
+   *                This helps in tightly controlling the memory we provision
+   *                for inner data vector.
    */
   public void setInitialCapacity(int numRecords, double density) {
     validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
@@ -139,15 +139,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     if (valueCount == 0) {
       return 0.0D;
     }
-    double totalListSize = 0.0D;
-    for (int i = 0; i < valueCount; i++) {
-      if (isSet(i) == 1) {
-        final int start = offsetBuffer.getInt(i * OFFSET_WIDTH);
-        final int end = offsetBuffer.getInt((i + 1) * OFFSET_WIDTH);
-        totalListSize += end - start;
-      }
-    }
-
+    final int startOffset = offsetBuffer.getInt(0);
+    final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+    final double totalListSize = endOffset - startOffset;
     return totalListSize/valueCount;
   }
 
