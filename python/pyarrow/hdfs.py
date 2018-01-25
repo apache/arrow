@@ -31,9 +31,19 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
                  driver='libhdfs'):
+        self._connect(host, port, user, kerb_ticket, driver)
+
+    def _connect(self, host, port, user, kerb_ticket, driver):
         if driver == 'libhdfs':
             _maybe_set_hadoop_classpath()
+        super(HadoopFileSystem, self)._connect(host, port, user, kerb_ticket,
+                                               driver)
 
+    def __getstate__(self):
+        return (self.host, self.port, self.user, self.kerb_ticket, self.driver)
+
+    def __setstate__(self, state):
+        host, port, user, kerb_ticket, driver = state
         self._connect(host, port, user, kerb_ticket, driver)
 
     @implements(FileSystem.isdir)
