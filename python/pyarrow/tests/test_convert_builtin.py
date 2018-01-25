@@ -137,7 +137,8 @@ def test_sequence_integer(seq):
 
 
 @pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
-@pytest.mark.parametrize("np_scalar", [np.int16, np.int32, np.int64, np.uint16, np.uint32, np.uint64])
+@pytest.mark.parametrize("np_scalar", [np.int16, np.int32, np.int64, np.uint16,
+                                       np.uint32, np.uint64])
 def test_sequence_numpy_integer(seq, np_scalar):
     expected = [np_scalar(1), None, np_scalar(3), None]
     arr = pa.array(seq(expected))
