@@ -257,7 +257,7 @@ def test_inmemory_write_after_closed():
     f.write(b'ok')
     f.get_result()
 
-    with pytest.raises(IOError):
+    with pytest.raises(ValueError):
         f.write(b'not ok')
 
 
@@ -503,3 +503,27 @@ def test_native_file_modes(tmpdir):
 
     with pa.memory_map(path, 'r+b') as f:
         assert f.mode == 'rb+'
+
+
+def test_native_file_raises_ValueError_after_close(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    with open(path, 'wb') as f:
+        f.write(b'foooo')
+
+    with pa.OSFile(path, mode='rb') as os_file:
+        pass
+
+    with pa.memory_map(path, mode='rb') as mmap_file:
+        pass
+
+    files = [os_file,
+             mmap_file]
+
+    methods = [('tell', ()),
+               ('seek', (0,)),
+               ('size', ())]
+
+    for f in files:
+        for method, args in methods:
+            with pytest.raises(ValueError):
+                getattr(f, method)(*args)

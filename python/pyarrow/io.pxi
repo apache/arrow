@@ -91,19 +91,19 @@ cdef class NativeFile:
         self._assert_writeable()
         file[0] = <shared_ptr[OutputStream]> self.wr_file
 
+    def _assert_open(self):
+        if not self.is_open:
+            raise ValueError("I/O operation on closed file")
+
     def _assert_readable(self):
+        self._assert_open()
         if not self.is_readable:
             raise IOError("only valid on readonly files")
 
-        if not self.is_open:
-            raise IOError("file not open")
-
     def _assert_writeable(self):
+        self._assert_open()
         if not self.is_writeable:
             raise IOError("only valid on writeable files")
-
-        if not self.is_open:
-            raise IOError("file not open")
 
     def size(self):
         """
@@ -120,6 +120,7 @@ cdef class NativeFile:
         Return current stream position
         """
         cdef int64_t position
+        self._assert_open()
         with nogil:
             if self.is_readable:
                 check_status(self.rd_file.get().Tell(&position))
