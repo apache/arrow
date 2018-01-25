@@ -828,8 +828,9 @@ cdef class DictionaryArray(Array):
 
 
 cdef class StructArray(Array):
+
     @staticmethod
-    def from_arrays(field_names, arrays):
+    def from_arrays(arrays, names=None):
         cdef:
             Array array
             shared_ptr[CArray] c_array
@@ -838,6 +839,8 @@ cdef class StructArray(Array):
             ssize_t num_arrays
             ssize_t length
             ssize_t i
+
+        arrays = [asarray(x) for x in arrays]
 
         num_arrays = len(arrays)
         if num_arrays == 0:
@@ -855,7 +858,7 @@ cdef class StructArray(Array):
         cdef DataType struct_type = struct([
             field(name, array.type)
             for name, array in
-            zip(field_names, arrays)
+            zip(names, arrays)
         ])
 
         c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))
