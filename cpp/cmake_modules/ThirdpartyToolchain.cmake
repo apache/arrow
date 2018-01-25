@@ -926,8 +926,7 @@ if (ARROW_ORC)
                       -DZLIB_HOME=${ZLIB_HOME})
 
   ExternalProject_Add(orc_ep
-    GIT_REPOSITORY "https://github.com/apache/orc"
-    GIT_TAG ${ORC_VERSION}
+    URL "https://github.com/apache/orc/archive/${ORC_VERSION}.tar.gz"
     BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
     CMAKE_ARGS ${ORC_CMAKE_ARGS})
 
