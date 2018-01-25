@@ -58,6 +58,17 @@ bool Buffer::Equals(const Buffer& other) const {
                              !memcmp(data_, other.data_, static_cast<size_t>(size_))));
 }
 
+Status Buffer::FromString(const std::string& data, MemoryPool* pool,
+                          std::shared_ptr<Buffer>* out) {
+  auto str = reinterpret_cast<const uint8_t*>(data.c_str());
+  auto size = static_cast<int64_t>(data.size());
+
+  RETURN_NOT_OK(AllocateBuffer(pool, size, out));
+  std::memcpy((*out)->mutable_data(), str, size);
+
+  return Status::OK();
+}
+
 PoolBuffer::PoolBuffer(MemoryPool* pool) : ResizableBuffer(nullptr, 0) {
   if (pool == nullptr) {
     pool = default_memory_pool();
