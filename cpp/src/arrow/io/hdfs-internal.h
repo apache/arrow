@@ -51,6 +51,7 @@ struct LibHdfsShim {
   void (*hdfsBuilderSetUserName)(hdfsBuilder* bld, const char* userName);
   void (*hdfsBuilderSetKerbTicketCachePath)(hdfsBuilder* bld,
                                             const char* kerbTicketCachePath);
+  void (*hdfsBuilderSetForceNewInstance)(hdfsBuilder* bld);
   hdfsFS (*hdfsBuilderConnect)(hdfsBuilder* bld);
 
   int (*hdfsDisconnect)(hdfsFS fs);
@@ -95,6 +96,7 @@ struct LibHdfsShim {
     this->hdfsBuilderSetNameNodePort = nullptr;
     this->hdfsBuilderSetUserName = nullptr;
     this->hdfsBuilderSetKerbTicketCachePath = nullptr;
+    this->hdfsBuilderSetForceNewInstance = nullptr;
     this->hdfsBuilderConnect = nullptr;
     this->hdfsDisconnect = nullptr;
     this->hdfsOpenFile = nullptr;
@@ -137,6 +139,8 @@ struct LibHdfsShim {
   void BuilderSetUserName(hdfsBuilder* bld, const char* userName);
 
   void BuilderSetKerbTicketCachePath(hdfsBuilder* bld, const char* kerbTicketCachePath);
+
+  void BuilderSetForceNewInstance(hdfsBuilder* bld);
 
   hdfsFS BuilderConnect(hdfsBuilder* bld);
 
