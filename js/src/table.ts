@@ -101,7 +101,9 @@ export class Table implements DataFrame {
         }
         this.schema = schema;
         this.batches = batches;
-        this.batchesUnion = batches.reduce((union, batch) => union.concat(batch));
+        this.batchesUnion = batches.length == 0 ?
+            new RecordBatch(schema, 0, []) :
+            batches.reduce((union, batch) => union.concat(batch));
         this.length = this.batchesUnion.length;
         this.numCols = this.batchesUnion.numCols;
     }
