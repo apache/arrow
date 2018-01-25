@@ -586,6 +586,15 @@ class TimestampConverter
   TimeUnit::type unit_;
 };
 
+class Float32Converter : public TypedConverterVisitor<FloatBuilder, Float32Converter> {
+ public:
+  Status AppendItem(const OwnedRef& item) {
+    float val = static_cast<float>(PyFloat_AsDouble(item.obj()));
+    RETURN_IF_PYERROR();
+    return typed_builder_->Append(val);
+  }
+};
+
 class DoubleConverter : public TypedConverterVisitor<DoubleBuilder, DoubleConverter> {
  public:
   Status AppendItem(const OwnedRef& item) {
@@ -740,6 +749,8 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
     case Type::TIMESTAMP:
       return std::make_shared<TimestampConverter>(
           static_cast<const TimestampType&>(*type).unit());
+    case Type::FLOAT:
+      return std::make_shared<Float32Converter>();
     case Type::DOUBLE:
       return std::make_shared<DoubleConverter>();
     case Type::BINARY:
