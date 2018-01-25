@@ -23,7 +23,7 @@ void init_msg(struct msghdr* msg, struct iovec* iov, char* buf, size_t buf_len) 
   msg->msg_iov = iov;
   msg->msg_iovlen = 1;
   msg->msg_control = buf;
-  msg->msg_controllen = buf_len;
+  msg->msg_controllen = static_cast<socklen_t>(buf_len);
   msg->msg_name = NULL;
   msg->msg_namelen = 0;
 }
