@@ -22,6 +22,7 @@
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "flatbuffers/flatbuffers.h"

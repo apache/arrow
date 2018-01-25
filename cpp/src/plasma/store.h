@@ -19,7 +19,9 @@
 #define PLASMA_STORE_H
 
 #include <deque>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "plasma/common.h"

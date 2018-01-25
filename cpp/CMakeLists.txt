@@ -447,7 +447,7 @@ if (UNIX)
   add_custom_target(lint ${CPPLINT_BIN}
   --verbose=2
   --linelength=90
-  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order,-build/include_what_you_use
+  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
   ${FILTERED_LINT_FILES})
 endif (UNIX)
 

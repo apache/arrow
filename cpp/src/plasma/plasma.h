@@ -27,6 +27,7 @@
 #include <string.h>
 #include <unistd.h>  // pid_t
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

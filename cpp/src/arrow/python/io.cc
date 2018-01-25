@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <memory>
 #include <mutex>
 #include <string>
 
