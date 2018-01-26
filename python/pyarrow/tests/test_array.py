@@ -513,6 +513,23 @@ def test_array_from_numpy_datetimeD():
     assert result.equals(expected)
 
 
+def test_array_from_py_float32():
+    data = [[1.2, 3.4], [9.0, 42.0]]
+
+    t = pa.float32()
+
+    arr1 = pa.array(data[0], type=t)
+    arr2 = pa.array(data, type=pa.list_(t))
+
+    expected1 = np.array(data[0], dtype=np.float32)
+    expected2 = pd.Series([np.array(data[0], dtype=np.float32),
+                           np.array(data[1], dtype=np.float32)])
+
+    assert arr1.type == t
+    assert arr1.equals(pa.array(expected1))
+    assert arr2.equals(pa.array(expected2))
+
+
 def test_array_from_numpy_ascii():
     arr = np.array(['abcde', 'abc', ''], dtype='|S5')
 
