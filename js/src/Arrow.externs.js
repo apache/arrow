@@ -73,6 +73,7 @@ var CountByResult = function() {};
 CountByResult.prototype.asJSON;
 
 var col = function () {};
+var lit = function () {};
 
 var Value = function() {};
 /** @type {?} */
@@ -83,26 +84,35 @@ Value.prototype.lteq;
 Value.prototype.eq;
 
 var Col = function() {};
-
-var Literal = function() {};
-
+/** @type {?} */
+Col.prototype.bind;
+var Or = function() {};
+var And = function() {};
 var GTeq = function () {};
 /** @type {?} */
 GTeq.prototype.and;
 /** @type {?} */
 GTeq.prototype.or;
-
 var LTeq = function () {};
 /** @type {?} */
 LTeq.prototype.and;
 /** @type {?} */
 LTeq.prototype.or;
-
 var Equals = function () {};
 /** @type {?} */
 Equals.prototype.and;
 /** @type {?} */
 Equals.prototype.or;
+var Predicate = function() {};
+/** @type {?} */
+Predicate.prototype.bind;
+/** @type {?} */
+Predicate.prototype.and;
+/** @type {?} */
+Predicate.prototype.or;
+/** @type {?} */
+Predicate.prototype.ands;
+var Literal = function() {};
 
 var TableToStringIterator = function() {};
 /** @type {?} */
@@ -141,8 +151,6 @@ Vector.prototype.isValid;
 Vector.prototype.get;
 /** @type {?} */
 Vector.prototype.set;
-/** @type {?} */
-Vector.prototype.setData;
 /** @type {?} */
 Vector.prototype.toArray;
 /** @type {?} */
@@ -465,97 +473,125 @@ var FlatView = function() {};
 /** @type {?} */
 FlatView.prototype.get;
 /** @type {?} */
+FlatView.prototype.clone;
+/** @type {?} */
 FlatView.prototype.isValid;
 /** @type {?} */
 FlatView.prototype.toArray;
 /** @type {?} */
 FlatView.prototype.set;
+
+var PrimitiveView = function() {};
 /** @type {?} */
-FlatView.prototype.setData;
+PrimitiveView.prototype.size;
+/** @type {?} */
+PrimitiveView.prototype.clone;
 
 var NullView = function() {};
 /** @type {?} */
 NullView.prototype.get;
+/** @type {?} */
+NullView.prototype.clone;
 /** @type {?} */
 NullView.prototype.isValid;
 /** @type {?} */
 NullView.prototype.toArray;
 /** @type {?} */
 NullView.prototype.set;
-/** @type {?} */
-NullView.prototype.setData;
 
 var BoolView = function() {};
 /** @type {?} */
 BoolView.prototype.get;
+/** @type {?} */
+BoolView.prototype.clone;
 /** @type {?} */
 BoolView.prototype.isValid;
 /** @type {?} */
 BoolView.prototype.toArray;
 /** @type {?} */
 BoolView.prototype.set;
-/** @type {?} */
-BoolView.prototype.setData;
 
 var ValidityView = function() {};
 /** @type {?} */
 ValidityView.prototype.get;
+/** @type {?} */
+ValidityView.prototype.clone;
 /** @type {?} */
 ValidityView.prototype.isValid;
 /** @type {?} */
 ValidityView.prototype.toArray;
 /** @type {?} */
 ValidityView.prototype.set;
-/** @type {?} */
-ValidityView.prototype.setData;
 
 var DictionaryView = function() {};
 /** @type {?} */
 DictionaryView.prototype.get;
+/** @type {?} */
+DictionaryView.prototype.clone;
 /** @type {?} */
 DictionaryView.prototype.isValid;
 /** @type {?} */
 DictionaryView.prototype.toArray;
 /** @type {?} */
 DictionaryView.prototype.set;
-/** @type {?} */
-DictionaryView.prototype.setData;
 
 var ListViewBase = function() {};
 /** @type {?} */
 ListViewBase.prototype.get;
+/** @type {?} */
+ListViewBase.prototype.clone;
 /** @type {?} */
 ListViewBase.prototype.isValid;
 /** @type {?} */
 ListViewBase.prototype.toArray;
 /** @type {?} */
 ListViewBase.prototype.set;
-/** @type {?} */
-ListViewBase.prototype.setData;
 
 var NestedView = function() {};
 /** @type {?} */
 NestedView.prototype.get;
+/** @type {?} */
+NestedView.prototype.clone;
 /** @type {?} */
 NestedView.prototype.isValid;
 /** @type {?} */
 NestedView.prototype.toArray;
 /** @type {?} */
 NestedView.prototype.set;
-/** @type {?} */
-NestedView.prototype.setData;
 
 var ChunkedView = function() {};
 /** @type {?} */
 ChunkedView.prototype.get;
+/** @type {?} */
+ChunkedView.prototype.clone;
 /** @type {?} */
 ChunkedView.prototype.isValid;
 /** @type {?} */
 ChunkedView.prototype.toArray;
 /** @type {?} */
 ChunkedView.prototype.set;
-/** @type {?} */
-ChunkedView.prototype.setData;
+
+var ListView = function() {};
+var FixedSizeListView = function() {};
+var BinaryView = function() {};
+var Utf8View = function() {};
+var UnionView = function() {};
+var DenseUnionView = function() {};
+var StructView = function() {};
+var MapView = function() {};
+var NullView = function() {};
+var FixedSizeView = function() {};
+var Float16View = function() {};
+var DateDayView = function() {};
+var DateMillisecondView = function() {};
+var TimestampDayView = function() {};
+var TimestampSecondView = function() {};
+var TimestampMillisecondView = function() {};
+var TimestampMicrosecondView = function() {};
+var TimestampNanosecondView = function() {};
+var IntervalYearMonthView = function() {};
+var IntervalYearView = function() {};
+var IntervalMonthView = function() {};
 
 var TypeVisitor = function() {};
 /** @type {?} */
