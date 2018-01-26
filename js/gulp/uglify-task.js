@@ -91,6 +91,7 @@ const reservePublicNames = ((ESKeywords) => function reservePublicNames(target, 
         `../${src}/table.js`,
         `../${src}/vector.js`,
         `../${src}/util/int.js`,
+        `../${src}/predicate.js`,
         `../${src}/recordbatch.js`,
         `../${src}/${mainExport}.js`,
     ];
