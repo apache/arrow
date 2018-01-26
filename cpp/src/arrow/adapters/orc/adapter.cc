@@ -106,6 +106,8 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
     return Status::OK();
   }
   liborc::TypeKind kind = type->getKind();
+  const int subtype_count = static_cast<int>(type->getSubtypeCount());
+
   switch (kind) {
     case liborc::BOOLEAN:
       *out = boolean();
@@ -136,7 +138,7 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       *out = binary();
       break;
     case liborc::CHAR:
-      *out = fixed_size_binary(type->getMaximumLength());
+      *out = fixed_size_binary(static_cast<int>(type->getMaximumLength()));
       break;
     case liborc::TIMESTAMP:
       *out = timestamp(TimeUnit::NANO);
@@ -145,16 +147,18 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       *out = date32();
       break;
     case liborc::DECIMAL: {
-      if (type->getPrecision() == 0) {
+      const int precision = static_cast<int>(type->getPrecision());
+      const int scale = static_cast<int>(type->getScale());
+      if (precision == 0) {
         // In HIVE 0.11/0.12 precision is set as 0, but means max precision
         *out = decimal(38, 6);
       } else {
-        *out = decimal(type->getPrecision(), type->getScale());
+        *out = decimal(precision, scale);
       }
       break;
     }
     case liborc::LIST: {
-      if (type->getSubtypeCount() != 1) {
+      if (subtype_count != 1) {
         return Status::Invalid("Invalid Orc List type");
       }
       std::shared_ptr<DataType> elemtype;
@@ -163,7 +167,7 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       break;
     }
     case liborc::MAP: {
-      if (type->getSubtypeCount() != 2) {
+      if (subtype_count != 2) {
         return Status::Invalid("Invalid Orc Map type");
       }
       std::shared_ptr<DataType> keytype;
@@ -174,9 +178,8 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       break;
     }
     case liborc::STRUCT: {
-      int size = type->getSubtypeCount();
       std::vector<std::shared_ptr<Field>> fields;
-      for (int child = 0; child < size; ++child) {
+      for (int child = 0; child < subtype_count; ++child) {
         std::shared_ptr<DataType> elemtype;
         RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elemtype));
         std::string name = type->getFieldName(child);
@@ -186,10 +189,9 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       break;
     }
     case liborc::UNION: {
-      int size = type->getSubtypeCount();
       std::vector<std::shared_ptr<Field>> fields;
       std::vector<uint8_t> type_codes;
-      for (int child = 0; child < size; ++child) {
+      for (int child = 0; child < subtype_count; ++child) {
         std::shared_ptr<DataType> elemtype;
         RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elemtype));
         fields.push_back(field("_union_" + std::to_string(child), elemtype));
@@ -260,7 +262,7 @@ class ORCFileReader::Impl {
           "Only ORC files with a top-level struct "
           "can be handled");
     }
-    int size = type.getSubtypeCount();
+    int size = static_cast<int>(type.getSubtypeCount());
     std::vector<std::shared_ptr<Field>> fields;
     for (int child = 0; child < size; ++child) {
       std::shared_ptr<DataType> elemtype;
@@ -450,7 +452,7 @@ class ORCFileReader::Impl {
     const liborc::Type* elemtype = type->getSubtype(0);
 
     const bool has_nulls = batch->hasNulls;
-    for (int i = offset; i < length + offset; i++) {
+    for (int64_t i = offset; i < length + offset; i++) {
       if (!has_nulls || batch->notNull[i]) {
         int64_t start = batch->offsets[i];
         int64_t end = batch->offsets[i + 1];
@@ -475,7 +477,7 @@ class ORCFileReader::Impl {
     const liborc::Type* valtype = type->getSubtype(1);
 
     const bool has_nulls = batch->hasNulls;
-    for (int i = offset; i < length + offset; i++) {
+    for (int64_t i = offset; i < length + offset; i++) {
       RETURN_NOT_OK(list_builder->Append());
       int64_t start = batch->offsets[i];
       int64_t list_length = batch->offsets[i + 1] - start;
@@ -517,7 +519,7 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int start = builder->length();
+    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
@@ -541,7 +543,7 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int start = builder->length();
+    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
@@ -552,7 +554,7 @@ class ORCFileReader::Impl {
     const int64_t* source = batch->data.data() + offset;
     uint8_t* target = reinterpret_cast<uint8_t*>(builder->data()->mutable_data());
 
-    for (int i = 0; i < length; i++) {
+    for (int64_t i = 0; i < length; i++) {
       if (source[i]) {
         BitUtil::SetBit(target, start + i);
       } else {
@@ -570,7 +572,7 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int start = builder->length();
+    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
@@ -582,7 +584,7 @@ class ORCFileReader::Impl {
     const int64_t* nanos = batch->nanoseconds.data() + offset;
     int64_t* target = reinterpret_cast<int64_t*>(builder->data()->mutable_data());
 
-    for (int i = 0; i < length; i++) {
+    for (int64_t i = 0; i < length; i++) {
       // TODO: boundscheck this, as ORC supports higher resolution timestamps
       // than arrow for nanosecond resolution
       target[start + i] = seconds[i] * kOneSecondNanos + nanos[i];
@@ -597,9 +599,10 @@ class ORCFileReader::Impl {
     auto batch = static_cast<liborc::StringVectorBatch*>(cbatch);
 
     const bool has_nulls = batch->hasNulls;
-    for (int i = offset; i < length + offset; i++) {
+    for (int64_t i = offset; i < length + offset; i++) {
       if (!has_nulls || batch->notNull[i]) {
-        RETURN_NOT_OK(builder->Append(batch->data[i], batch->length[i]));
+        RETURN_NOT_OK(
+            builder->Append(batch->data[i], static_cast<int32_t>(batch->length[i])));
       } else {
         RETURN_NOT_OK(builder->AppendNull());
       }
@@ -613,7 +616,7 @@ class ORCFileReader::Impl {
     auto batch = static_cast<liborc::StringVectorBatch*>(cbatch);
 
     const bool has_nulls = batch->hasNulls;
-    for (int i = offset; i < length + offset; i++) {
+    for (int64_t i = offset; i < length + offset; i++) {
       if (!has_nulls || batch->notNull[i]) {
         RETURN_NOT_OK(builder->Append(batch->data[i]));
       } else {
@@ -630,7 +633,7 @@ class ORCFileReader::Impl {
     const bool has_nulls = cbatch->hasNulls;
     if (type->getPrecision() == 0 || type->getPrecision() > 18) {
       auto batch = static_cast<liborc::Decimal128VectorBatch*>(cbatch);
-      for (int i = offset; i < length + offset; i++) {
+      for (int64_t i = offset; i < length + offset; i++) {
         if (!has_nulls || batch->notNull[i]) {
           RETURN_NOT_OK(builder->Append(
               Decimal128(batch->values[i].getHighBits(), batch->values[i].getLowBits())));
@@ -640,7 +643,7 @@ class ORCFileReader::Impl {
       }
     } else {
       auto batch = static_cast<liborc::Decimal64VectorBatch*>(cbatch);
-      for (int i = offset; i < length + offset; i++) {
+      for (int64_t i = offset; i < length + offset; i++) {
         if (!has_nulls || batch->notNull[i]) {
           RETURN_NOT_OK(builder->Append(Decimal128(batch->values[i])));
         } else {

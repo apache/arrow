@@ -100,7 +100,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
 -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
--Wno-disabled-macro-expansion -Wno-shorten-64-to-32")
+-Wno-disabled-macro-expansion")
 
     # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")
