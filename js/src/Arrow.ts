@@ -21,11 +21,11 @@ import * as vector_ from './vector';
 import * as util_ from './util/int';
 import * as visitor_ from './visitor';
 import * as view_ from './vector/view';
+import * as predicate_ from './predicate';
 import { Vector } from './vector';
 import { RecordBatch } from './recordbatch';
 import { Schema, Field, Type } from './type';
-import { Table, CountByResult } from './table';
-import { lit, col, Col, Value } from './predicate';
+import { Table, DataFrame, NextFunc, CountByResult } from './table';
 import { read, readAsync } from './ipc/reader/arrow';
 
 export import View = vector_.View;
@@ -36,8 +36,7 @@ export import TimeBitWidth = type_.TimeBitWidth;
 export import TypedArrayConstructor = type_.TypedArrayConstructor;
 
 export { read, readAsync };
-export { Table, CountByResult };
-export { lit, col, Col, Value };
+export { Table, DataFrame, NextFunc, CountByResult };
 export { Field, Schema, RecordBatch, Vector, Type };
 
 export namespace util {
@@ -154,6 +153,23 @@ export namespace view {
     export import IntervalMonthView = view_.IntervalMonthView;
 }
 
+export namespace predicate {
+    export import col = predicate_.col;
+    export import lit = predicate_.lit;
+
+    export import Or = predicate_.Or;
+    export import Col = predicate_.Col;
+    export import And = predicate_.And;
+    export import GTeq = predicate_.GTeq;
+    export import LTeq = predicate_.LTeq;
+    export import Value = predicate_.Value;
+    export import Equals = predicate_.Equals;
+    export import Literal = predicate_.Literal;
+    export import Predicate = predicate_.Predicate;
+
+    export import PredicateFunc = predicate_.PredicateFunc;
+}
+
 /* These exports are needed for the closure and uglify umd targets */
 try {
     let Arrow: any = eval('exports');
@@ -165,6 +181,7 @@ try {
         Arrow['view'] = view;
         Arrow['vector'] = vector;
         Arrow['visitor'] = visitor;
+        Arrow['predicate'] = predicate;
 
         Arrow['read'] = read;
         Arrow['readAsync'] = readAsync;
@@ -177,10 +194,6 @@ try {
 
         Arrow['Table'] = Table;
         Arrow['CountByResult'] = CountByResult;
-        Arrow['Value'] = Value;
-        Arrow['lit'] = lit;
-        Arrow['col'] = col;
-        Arrow['Col'] = Col;
     }
 } catch (e) { /* not the UMD bundle */ }
 /* end umd exports */

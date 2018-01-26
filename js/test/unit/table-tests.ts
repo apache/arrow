@@ -17,10 +17,9 @@
 
 import Arrow from '../Arrow';
 
-const {
-    col,
-    Table,
-} = Arrow;
+const { predicate, Table } = Arrow;
+
+const { col } = predicate;
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
