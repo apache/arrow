@@ -25,7 +25,7 @@ import * as predicate_ from './predicate';
 import { Vector } from './vector';
 import { RecordBatch } from './recordbatch';
 import { Schema, Field, Type } from './type';
-import { Table, DataFrame, NextFunc, CountByResult } from './table';
+import { Table, DataFrame, NextFunc, BindFunc, CountByResult } from './table';
 import { read, readAsync } from './ipc/reader/arrow';
 
 export import View = vector_.View;
@@ -36,7 +36,7 @@ export import TimeBitWidth = type_.TimeBitWidth;
 export import TypedArrayConstructor = type_.TypedArrayConstructor;
 
 export { read, readAsync };
-export { Table, DataFrame, NextFunc, CountByResult };
+export { Table, DataFrame, NextFunc, BindFunc, CountByResult };
 export { Field, Schema, RecordBatch, Vector, Type };
 
 export namespace util {
