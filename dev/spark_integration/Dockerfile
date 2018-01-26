@@ -15,28 +15,31 @@
 # limitations under the License.
 #
 FROM maven:3.5.2-jdk-8-slim
-ADD . /apache-arrow
-WORKDIR /apache-arrow
+
 # Basic OS utilities
 RUN apt-get update && apt-get install -y \
         wget \
-        git
+        git g++ cmake \
+        libjemalloc-dev libboost-dev \
+        libboost-filesystem-dev libboost-system-dev
+
 # This will install conda in /home/ubuntu/miniconda
-#RUN wget -O /tmp/miniconda.sh \
-#    https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-#    bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
-#    rm /tmp/miniconda.sh
+RUN wget -O /tmp/miniconda.sh \
+    https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+    bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
+    rm /tmp/miniconda.sh
+
 # Create Conda environment
-#ENV PATH="/home/ubuntu/miniconda/bin:${PATH}"
-#RUN conda create -y -q -n test-environment \
-#    python=3.6
-# Install dependencies
-#RUN conda install -c conda-forge \
-#    numpy \
-#    pandas \
-#    "pytest<=3.1.1"
+ENV PATH="/home/ubuntu/miniconda/bin:${PATH}"
+RUN conda create -y -q -n pyarrow-dev \
+    python=3.5 numpy six setuptools cython pandas pytest \
+    cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
+    gflags brotli jemalloc lz4-c zstd -c conda-forge
+
+ADD . /apache-arrow
+WORKDIR /apache-arrow
 
 CMD arrow/dev/spark_integration/spark_integration.sh
 
-# BUILD WITH: $ docker build -f arrow/dev/spark_integration/Dockerfile -t spark-arrow .
-
+# BUILD: $ docker build -f arrow/dev/spark_integration/Dockerfile -t spark-arrow .
+# RUN:   $ docker run -v $HOME/.m2:/root/.m2 spark-arrow
