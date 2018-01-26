@@ -155,15 +155,16 @@ export namespace view {
 
 export namespace predicate {
     export import col = predicate_.col;
-    export import Col = predicate_.Col;
-    //export import Value = predicate_.Value;
-    export import Literal = predicate_.Literal;
+    export import lit = predicate_.lit;
 
     export import Or = predicate_.Or;
+    export import Col = predicate_.Col;
     export import And = predicate_.And;
     export import GTeq = predicate_.GTeq;
     export import LTeq = predicate_.LTeq;
+    export import Value = predicate_.Value;
     export import Equals = predicate_.Equals;
+    export import Literal = predicate_.Literal;
     export import Predicate = predicate_.Predicate;
 
     export import PredicateFunc = predicate_.PredicateFunc;
