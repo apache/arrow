@@ -81,7 +81,7 @@ conda info -a
 
 conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython ^
-      thrift-cpp
+      thrift-cpp=0.10.0
 
 if "%JOB%" == "Toolchain" (
 

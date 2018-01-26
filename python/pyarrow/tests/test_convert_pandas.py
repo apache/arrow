@@ -1237,7 +1237,22 @@ class TestPandasConversion(object):
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
 
-    def test_table_str_to_categorical(self):
+    def test_table_str_to_categorical_without_na(self):
+        values = ['a', 'a', 'b', 'b', 'c']
+        df = pd.DataFrame({'strings': values})
+        field = pa.field('strings', pa.string())
+        schema = pa.schema([field])
+        table = pa.Table.from_pandas(df, schema=schema)
+
+        result = table.to_pandas(strings_to_categorical=True)
+        expected = pd.DataFrame({'strings': pd.Categorical(values)})
+        tm.assert_frame_equal(result, expected, check_dtype=True)
+
+        with pytest.raises(pa.ArrowInvalid):
+            table.to_pandas(strings_to_categorical=True,
+                            zero_copy_only=True)
+
+    def test_table_str_to_categorical_with_na(self):
         values = [None, 'a', 'b', np.nan]
         df = pd.DataFrame({'strings': values})
         field = pa.field('strings', pa.string())
@@ -1247,6 +1262,10 @@ class TestPandasConversion(object):
         result = table.to_pandas(strings_to_categorical=True)
         expected = pd.DataFrame({'strings': pd.Categorical(values)})
         tm.assert_frame_equal(result, expected, check_dtype=True)
+
+        with pytest.raises(pa.ArrowInvalid):
+            table.to_pandas(strings_to_categorical=True,
+                            zero_copy_only=True)
 
     def test_table_batch_empty_dataframe(self):
         df = pd.DataFrame({})

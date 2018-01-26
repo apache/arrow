@@ -89,8 +89,6 @@ struct PlasmaObjectSpec {
   // Index of the memory segment (= memory mapped file) that
   // this object is allocated in.
   segment_index: int;
-  // Size in bytes of this segment (needed to call mmap).
-  mmap_size: ulong;
   // The offset in bytes in the memory mapped file of the data.
   data_offset: ulong;
   // The size in bytes of the data.
@@ -117,6 +115,12 @@ table PlasmaCreateReply {
   plasma_object: PlasmaObjectSpec;
   // Error that occurred for this call.
   error: PlasmaError;
+  // The file descriptor in the store that corresponds to the file descriptor
+  // being sent to the client right after this message.
+  store_fd: int;
+  // The size in bytes of the segment for the store file descriptor (needed to
+  // call mmap).
+  mmap_size: long;
 }
 
 table PlasmaAbortRequest {
@@ -156,9 +160,17 @@ table PlasmaGetReply {
   // objects if not all requested objects are stored and sealed
   // in the local Plasma store.
   object_ids: [string];
-  // Plasma object information, in the same order as their IDs.
+  // Plasma object information, in the same order as their IDs. The number of
+  // elements in both object_ids and plasma_objects arrays must agree.
   plasma_objects: [PlasmaObjectSpec];
-  // The number of elements in both object_ids and plasma_objects arrays must agree.
+  // A list of the file descriptors in the store that correspond to the file
+  // descriptors being sent to the client. The length of this list is the number
+  // of file descriptors that the store will send to the client after this
+  // message.
+  store_fds: [int];
+  // Size in bytes of the segment for each store file descriptor (needed to call
+  // mmap). This list must have the same length as store_fds.
+  mmap_sizes: [long];
 }
 
 table PlasmaReleaseRequest {

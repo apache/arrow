@@ -20,6 +20,8 @@
 #include <climits>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/compare.h"

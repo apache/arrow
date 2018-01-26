@@ -63,8 +63,7 @@ PlasmaObject random_plasma_object(void) {
   int random = rand_r(&seed);
   PlasmaObject object;
   memset(&object, 0, sizeof(object));
-  object.handle.store_fd = random + 7;
-  object.handle.mmap_size = random + 42;
+  object.store_fd = random + 7;
   object.data_offset = random + 1;
   object.metadata_offset = random + 2;
   object.data_size = random + 3;
@@ -94,13 +93,19 @@ TEST(PlasmaSerialization, CreateReply) {
   int fd = create_temp_file();
   ObjectID object_id1 = ObjectID::from_random();
   PlasmaObject object1 = random_plasma_object();
-  ARROW_CHECK_OK(SendCreateReply(fd, object_id1, &object1, 0));
+  int64_t mmap_size1 = 1000000;
+  ARROW_CHECK_OK(SendCreateReply(fd, object_id1, &object1, 0, mmap_size1));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaCreateReply);
   ObjectID object_id2;
   PlasmaObject object2;
   memset(&object2, 0, sizeof(object2));
-  ARROW_CHECK_OK(ReadCreateReply(data.data(), data.size(), &object_id2, &object2));
+  int store_fd;
+  int64_t mmap_size2;
+  ARROW_CHECK_OK(ReadCreateReply(data.data(), data.size(), &object_id2, &object2,
+                                 &store_fd, &mmap_size2));
   ASSERT_EQ(object_id1, object_id2);
+  ASSERT_EQ(object1.store_fd, store_fd);
+  ASSERT_EQ(mmap_size1, mmap_size2);
   ASSERT_EQ(memcmp(&object1, &object2, sizeof(object1)), 0);
   close(fd);
 }
@@ -158,13 +163,20 @@ TEST(PlasmaSerialization, GetReply) {
   std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher> plasma_objects;
   plasma_objects[object_ids[0]] = random_plasma_object();
   plasma_objects[object_ids[1]] = random_plasma_object();
-  ARROW_CHECK_OK(SendGetReply(fd, object_ids, plasma_objects, 2));
+  std::vector<int> store_fds = {1, 2, 3};
+  std::vector<int64_t> mmap_sizes = {100, 200, 300};
+  ARROW_CHECK_OK(SendGetReply(fd, object_ids, plasma_objects, 2, store_fds, mmap_sizes));
+
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaGetReply);
   ObjectID object_ids_return[2];
   PlasmaObject plasma_objects_return[2];
+  std::vector<int> store_fds_return;
+  std::vector<int64_t> mmap_sizes_return;
   memset(&plasma_objects_return, 0, sizeof(plasma_objects_return));
   ARROW_CHECK_OK(ReadGetReply(data.data(), data.size(), object_ids_return,
-                              &plasma_objects_return[0], 2));
+                              &plasma_objects_return[0], 2, store_fds_return,
+                              mmap_sizes_return));
+
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
@@ -173,6 +185,8 @@ TEST(PlasmaSerialization, GetReply) {
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
                    sizeof(PlasmaObject)),
             0);
+  ASSERT_TRUE(store_fds == store_fds_return);
+  ASSERT_TRUE(mmap_sizes == mmap_sizes_return);
   close(fd);
 }
 

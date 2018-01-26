@@ -16,9 +16,9 @@
   specific language governing permissions and limitations
   under the License.
 -->
-<!ENTITY package "@package@">
-<!ENTITY package_bugreport "@package_bugreport@">
-<!ENTITY package_name "@package_name@">
-<!ENTITY package_string "@package_string@">
-<!ENTITY package_url "@package_url@">
-<!ENTITY package_version "@package_version@">
+<!ENTITY package "@PACKAGE@">
+<!ENTITY package_bugreport "@PACKAGE_BUGREPORT@">
+<!ENTITY package_name "@PACKAGE_NAME@">
+<!ENTITY package_string "@PACKAGE_STRING@">
+<!ENTITY package_url "@PACKAGE_URL@">
+<!ENTITY package_version "@PACKAGE_VERSION@">

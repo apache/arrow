@@ -70,7 +70,7 @@ TEST_F(TestPlasmaStore, DeleteTest) {
   int64_t data_size = 100;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  std::shared_ptr<Buffer> data;
+  std::shared_ptr<MutableBuffer> data;
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id));
 
@@ -96,7 +96,7 @@ TEST_F(TestPlasmaStore, ContainsTest) {
   int64_t data_size = 100;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  std::shared_ptr<Buffer> data;
+  std::shared_ptr<MutableBuffer> data;
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id));
   // Avoid race condition of Plasma Manager waiting for notification.
@@ -119,7 +119,7 @@ TEST_F(TestPlasmaStore, GetTest) {
   int64_t data_size = 4;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  std::shared_ptr<Buffer> data_buffer;
+  std::shared_ptr<MutableBuffer> data_buffer;
   uint8_t* data;
   ARROW_CHECK_OK(
       client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer));
@@ -145,7 +145,7 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   int64_t data_size = 4;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  std::shared_ptr<Buffer> data;
+  std::shared_ptr<MutableBuffer> data;
   ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
   data->mutable_data()[0] = 1;
   ARROW_CHECK_OK(client_.Seal(object_id1));
@@ -172,7 +172,7 @@ TEST_F(TestPlasmaStore, AbortTest) {
   int64_t data_size = 4;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  std::shared_ptr<Buffer> data;
+  std::shared_ptr<MutableBuffer> data;
   uint8_t* data_ptr;
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   data_ptr = data->mutable_data();
@@ -220,7 +220,7 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   int64_t data_size = 100;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  std::shared_ptr<Buffer> data;
+  std::shared_ptr<MutableBuffer> data;
   ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
@@ -260,7 +260,7 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
     int64_t data_size = 100;
     uint8_t metadata[] = {5};
     int64_t metadata_size = sizeof(metadata);
-    std::shared_ptr<Buffer> data;
+    std::shared_ptr<MutableBuffer> data;
     ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
 
     if (i % 3 == 0) {

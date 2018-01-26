@@ -17,6 +17,7 @@
 
 #include "arrow/compute/kernels/util-internal.h"
 
+#include <memory>
 #include <vector>
 
 #include "arrow/array.h"

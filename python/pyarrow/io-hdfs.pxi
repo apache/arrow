@@ -59,29 +59,41 @@ cdef class HadoopFileSystem:
 
     cdef readonly:
         bint is_open
-
-    def __cinit__(self):
-        pass
+        str host
+        str user
+        str kerb_ticket
+        str driver
+        int port
 
     def _connect(self, host, port, user, kerb_ticket, driver):
         cdef HdfsConnectionConfig conf
 
         if host is not None:
             conf.host = tobytes(host)
+        self.host = host
+
         conf.port = port
+        self.port = port
+
         if user is not None:
             conf.user = tobytes(user)
+        self.user = user
+
         if kerb_ticket is not None:
             conf.kerb_ticket = tobytes(kerb_ticket)
+        self.kerb_ticket = kerb_ticket
 
         if driver == 'libhdfs':
             with nogil:
                 check_status(HaveLibHdfs())
             conf.driver = HdfsDriver_LIBHDFS
-        else:
+        elif driver == 'libhdfs3':
             with nogil:
                 check_status(HaveLibHdfs3())
             conf.driver = HdfsDriver_LIBHDFS3
+        else:
+            raise ValueError("unknown driver: %r" % driver)
+        self.driver = driver
 
         with nogil:
             check_status(CHadoopFileSystem.Connect(&conf, &self.client))
