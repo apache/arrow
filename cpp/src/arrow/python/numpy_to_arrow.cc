@@ -1008,9 +1008,20 @@ Status NumPyConverter::ConvertObjectsInfer() {
       return ConvertTimes();
     } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
       return ConvertDecimals();
-    } else if (PyList_Check(obj) || PyArray_Check(obj)) {
+    } else if (PyList_Check(obj)) {
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
+      return ConvertLists(inferred_type);
+    } else if (PyArray_Check(obj)) {
+      std::shared_ptr<DataType> inferred_type;
+      PyArray_Descr* dtype = PyArray_DESCR(reinterpret_cast<PyArrayObject*>(obj));
+
+      if (dtype->type_num == NPY_OBJECT) {
+        RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
+      } else {
+        RETURN_NOT_OK(
+            NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype), &inferred_type));
+      }
       return ConvertLists(inferred_type);
     } else {
       const std::string supported_types =
