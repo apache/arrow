@@ -39,7 +39,7 @@ sudo apt-get install cmake \
      libboost-system-dev
 ```
 
-On OS X, you can use [Homebrew][1]:
+On macOS, you can use [Homebrew][1]:
 
 ```shell
 git clone https://github.com/apache/arrow.git
