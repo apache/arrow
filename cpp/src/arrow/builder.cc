@@ -22,6 +22,7 @@
 #include <cstring>
 #include <limits>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
