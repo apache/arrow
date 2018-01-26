@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <sstream>
+#include <utility>
 
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
