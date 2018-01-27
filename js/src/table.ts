@@ -296,15 +296,15 @@ export class TableToStringIterator implements IterableIterator<string> {
     pipe(stream: NodeJS.WritableStream) {
         let res: IteratorResult<string>;
         let write = () => {
-            if (stream.writable) {
+            if (stream['writable']) {
                 do {
                     if ((res = this.next()).done) { break; }
-                } while (stream.write(res.value + '\n', 'utf8'));
+                } while (stream['write'](res.value + '\n', 'utf8'));
             }
             if (!res || !res.done) {
-                stream.once('drain', write);
-            } else if (!(stream as any).isTTY) {
-                stream.end('\n');
+                stream['once']('drain', write);
+            } else if (!(stream as any)['isTTY']) {
+                stream['end']('\n');
             }
         };
         write();
@@ -324,7 +324,7 @@ function* tableRowsToString(table: Table, separator = ' | ') {
         }
     }
     yield header.map((x, j) => leftPad(x, ' ', maxColumnWidths[j])).join(separator);
-    for (let i = -1, n = table.length; ++i < n;) {
+    for (let i = -1; ++i < table.length;) {
         yield [i, ...table.get(i)]
             .map((x) => stringify(x))
             .map((x, j) => leftPad(x, ' ', maxColumnWidths[j]))
