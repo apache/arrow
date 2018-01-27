@@ -154,8 +154,21 @@ def test_time_types():
         pa.time64('s')
 
 
-def test_type_from_numpy_dtype_timestamps():
+def test_from_numpy_dtype():
     cases = [
+        (np.dtype('bool'), pa.bool_()),
+        (np.dtype('int8'), pa.int8()),
+        (np.dtype('int16'), pa.int16()),
+        (np.dtype('int32'), pa.int32()),
+        (np.dtype('int64'), pa.int64()),
+        (np.dtype('uint8'), pa.uint8()),
+        (np.dtype('uint16'), pa.uint16()),
+        (np.dtype('uint32'), pa.uint32()),
+        (np.dtype('float16'), pa.float16()),
+        (np.dtype('float32'), pa.float32()),
+        (np.dtype('float64'), pa.float64()),
+        (np.dtype('U'), pa.string()),
+        (np.dtype('S'), pa.binary()),
         (np.dtype('datetime64[s]'), pa.timestamp('s')),
         (np.dtype('datetime64[ms]'), pa.timestamp('ms')),
         (np.dtype('datetime64[us]'), pa.timestamp('us')),
@@ -165,6 +178,18 @@ def test_type_from_numpy_dtype_timestamps():
     for dt, pt in cases:
         result = pa.from_numpy_dtype(dt)
         assert result == pt
+
+    # Things convertible to numpy dtypes work
+    assert pa.from_numpy_dtype('U') == pa.string()
+    assert pa.from_numpy_dtype(np.unicode) == pa.string()
+    assert pa.from_numpy_dtype('int32') == pa.int32()
+    assert pa.from_numpy_dtype(bool) == pa.bool_()
+
+    with pytest.raises(NotImplementedError):
+        pa.from_numpy_dtype(np.dtype('O'))
+
+    with pytest.raises(TypeError):
+        pa.from_numpy_dtype('not_convertible_to_dtype')
 
 
 def test_field():

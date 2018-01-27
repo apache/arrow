@@ -1207,6 +1207,7 @@ def from_numpy_dtype(object dtype):
     Convert NumPy dtype to pyarrow.DataType
     """
     cdef shared_ptr[CDataType] c_type
+    dtype = np.dtype(dtype)
     with nogil:
         check_status(NumPyDtypeToArrow(dtype, &c_type))
 
