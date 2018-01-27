@@ -310,6 +310,10 @@ void LibHdfsShim::BuilderSetKerbTicketCachePath(hdfsBuilder* bld,
   this->hdfsBuilderSetKerbTicketCachePath(bld, kerbTicketCachePath);
 }
 
+void LibHdfsShim::BuilderSetForceNewInstance(hdfsBuilder* bld) {
+  this->hdfsBuilderSetForceNewInstance(bld);
+}
+
 hdfsFS LibHdfsShim::BuilderConnect(hdfsBuilder* bld) {
   return this->hdfsBuilderConnect(bld);
 }
@@ -490,6 +494,7 @@ Status LibHdfsShim::GetRequiredSymbols() {
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetNameNodePort);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetUserName);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetKerbTicketCachePath);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetForceNewInstance);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderConnect);
   GET_SYMBOL_REQUIRED(this, hdfsCreateDirectory);
   GET_SYMBOL_REQUIRED(this, hdfsDelete);

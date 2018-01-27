@@ -31,8 +31,9 @@
 #include "arrow/util/visibility.h"
 #include "plasma/common.h"
 
-using arrow::Status;
 using arrow::Buffer;
+using arrow::MutableBuffer;
+using arrow::Status;
 
 namespace plasma {
 
@@ -115,7 +116,7 @@ class ARROW_EXPORT PlasmaClient {
   ///        will be written here.
   /// \return The return status.
   Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
-                int64_t metadata_size, std::shared_ptr<Buffer>* data);
+                int64_t metadata_size, std::shared_ptr<MutableBuffer>* data);
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
   /// timeout

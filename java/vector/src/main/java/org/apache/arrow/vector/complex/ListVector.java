@@ -31,12 +31,7 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.vector.AddOrGetResult;
-import org.apache.arrow.vector.BufferBacked;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -100,6 +95,54 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
+  }
+
+  @Override
+  public void setInitialCapacity(int numRecords) {
+    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
+    super.setInitialCapacity(numRecords);
+  }
+
+  /**
+   * Specialized version of setInitialCapacity() for ListVector. This is
+   * used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector. This is
+   * very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In
+   * such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount but the multiplier
+   * forces the memory requirement to go beyond what was needed.
+   *
+   * @param numRecords value count
+   * @param density density of ListVector. Density is the average size of
+   *                list per position in the List vector. For example, a
+   *                density value of 10 implies each position in the list
+   *                vector has a list of 10 values.
+   *                A density value of 0.1 implies out of 10 positions in
+   *                the list vector, 1 position has a list of size 1 and
+   *                remaining positions are null (no lists) or empty lists.
+   *                This helps in tightly controlling the memory we provision
+   *                for inner data vector.
+   */
+  public void setInitialCapacity(int numRecords, double density) {
+    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
+    super.setInitialCapacity(numRecords, density);
+  }
+
+  /**
+   * Get the density of this ListVector
+   * @return density
+   */
+  public double getDensity() {
+    if (valueCount == 0) {
+      return 0.0D;
+    }
+    final int startOffset = offsetBuffer.getInt(0);
+    final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+    final double totalListSize = endOffset - startOffset;
+    return totalListSize/valueCount;
   }
 
   @Override
@@ -623,7 +666,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    */
   @Override
   public int getValueCapacity() {
-    return Math.min(getValidityBufferValueCapacity(), super.getValueCapacity());
+    return getValidityAndOffsetValueCapacity();
   }
 
   private int getValidityAndOffsetValueCapacity() {

@@ -335,6 +335,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     if (!config->kerb_ticket.empty()) {
       driver_->BuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
     }
+    driver_->BuilderSetForceNewInstance(builder);
     fs_ = driver_->BuilderConnect(builder);
 
     if (fs_ == nullptr) {

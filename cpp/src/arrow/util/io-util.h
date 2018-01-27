@@ -19,6 +19,7 @@
 #define ARROW_UTIL_IO_UTIL_H
 
 #include <iostream>
+#include <memory>
 
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"

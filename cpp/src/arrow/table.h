@@ -44,6 +44,7 @@ class ARROW_EXPORT ChunkedArray {
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
 
+  /// \return the total number of nulls among all chunks
   int64_t null_count() const { return null_count_; }
 
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
@@ -52,6 +53,20 @@ class ARROW_EXPORT ChunkedArray {
   std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 
   const ArrayVector& chunks() const { return chunks_; }
+
+  /// \brief Construct a zero-copy slice of the chunked array with the
+  /// indicated offset and length
+  ///
+  /// \param[in] offset the position of the first element in the constructed
+  /// slice
+  /// \param[in] length the length of the slice. If there are not enough
+  /// elements in the chunked array, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<ChunkedArray>
+  std::shared_ptr<ChunkedArray> Slice(int64_t offset, int64_t length) const;
+
+  /// \brief Slice from offset until end of the chunked array
+  std::shared_ptr<ChunkedArray> Slice(int64_t offset) const;
 
   std::shared_ptr<DataType> type() const;
 
@@ -67,8 +82,9 @@ class ARROW_EXPORT ChunkedArray {
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 
+/// \class Column
 /// \brief An immutable column data structure consisting of a field (type
-/// metadata) and a logical chunked data array
+/// metadata) and a chunked data array
 class ARROW_EXPORT Column {
  public:
   Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks);
@@ -96,6 +112,24 @@ class ARROW_EXPORT Column {
   /// \brief The column data as a chunked array
   /// \return the column's data as a chunked logical array
   std::shared_ptr<ChunkedArray> data() const { return data_; }
+
+  /// \brief Construct a zero-copy slice of the column with the indicated
+  /// offset and length
+  ///
+  /// \param[in] offset the position of the first element in the constructed
+  /// slice
+  /// \param[in] length the length of the slice. If there are not enough
+  /// elements in the column, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<Column>
+  std::shared_ptr<Column> Slice(int64_t offset, int64_t length) const {
+    return std::make_shared<Column>(field_, data_->Slice(offset, length));
+  }
+
+  /// \brief Slice from offset until end of the column
+  std::shared_ptr<Column> Slice(int64_t offset) const {
+    return std::make_shared<Column>(field_, data_->Slice(offset));
+  }
 
   bool Equals(const Column& other) const;
   bool Equals(const std::shared_ptr<Column>& other) const;

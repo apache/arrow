@@ -29,6 +29,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -175,7 +176,7 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
       continue;
     } else if (!PyBytes_Check(obj)) {
       std::stringstream ss;
-      ss << "Error converting to Python objects to bytes: ";
+      ss << "Error converting from Python objects to bytes: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
@@ -230,7 +231,7 @@ static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64
       *have_bytes = true;
     } else {
       std::stringstream ss;
-      ss << "Error converting to Python objects to String/UTF8: ";
+      ss << "Error converting from Python objects to String/UTF8: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
@@ -278,7 +279,7 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
       tmp_obj.reset(obj);
     } else if (!PyBytes_Check(obj)) {
       std::stringstream ss;
-      ss << "Error converting to Python objects to FixedSizeBinary: ";
+      ss << "Error converting from Python objects to FixedSizeBinary: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
@@ -1008,9 +1009,20 @@ Status NumPyConverter::ConvertObjectsInfer() {
       return ConvertTimes();
     } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
       return ConvertDecimals();
-    } else if (PyList_Check(obj) || PyArray_Check(obj)) {
+    } else if (PyList_Check(obj)) {
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
+      return ConvertLists(inferred_type);
+    } else if (PyArray_Check(obj)) {
+      std::shared_ptr<DataType> inferred_type;
+      PyArray_Descr* dtype = PyArray_DESCR(reinterpret_cast<PyArrayObject*>(obj));
+
+      if (dtype->type_num == NPY_OBJECT) {
+        RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
+      } else {
+        RETURN_NOT_OK(
+            NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype), &inferred_type));
+      }
       return ConvertLists(inferred_type);
     } else {
       const std::string supported_types =

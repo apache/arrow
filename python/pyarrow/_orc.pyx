@@ -50,7 +50,7 @@ cdef class ORCReader:
         get_reader(source, &rd_handle)
         with nogil:
             check_status(ORCFileReader.Open(rd_handle, self.allocator,
-                                             &self.reader))
+                                            &self.reader))
 
     def schema(self):
         """
@@ -69,10 +69,10 @@ cdef class ORCReader:
         return pyarrow_wrap_schema(sp_arrow_schema)
 
     def nrows(self):
-        return deref(self.reader).NumberOfRows();
+        return deref(self.reader).NumberOfRows()
 
     def nstripes(self):
-        return deref(self.reader).NumberOfStripes();
+        return deref(self.reader).NumberOfStripes()
 
     def read_stripe(self, n, include_indices=None):
         cdef:
@@ -85,11 +85,13 @@ cdef class ORCReader:
 
         if include_indices is None:
             with nogil:
-                check_status(deref(self.reader).ReadStripe(stripe, &sp_record_batch))
+                (check_status(deref(self.reader)
+                              .ReadStripe(stripe, &sp_record_batch)))
         else:
             indices = include_indices
             with nogil:
-                check_status(deref(self.reader).ReadStripe(stripe, indices, &sp_record_batch))
+                (check_status(deref(self.reader)
+                              .ReadStripe(stripe, indices, &sp_record_batch)))
 
         batch = RecordBatch()
         batch.init(sp_record_batch)

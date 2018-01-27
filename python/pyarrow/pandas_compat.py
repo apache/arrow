@@ -435,13 +435,12 @@ def _reconstruct_block(item):
                                         categories=item['dictionary'],
                                         ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement,
-                                klass=_int.CategoricalBlock,
-                                fastpath=True)
+                                klass=_int.CategoricalBlock)
     elif 'timezone' in item:
         dtype = _make_datetimetz(item['timezone'])
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
-                                dtype=dtype, fastpath=True)
+                                dtype=dtype)
     else:
         block = _int.make_block(block_arr, placement=placement)
 

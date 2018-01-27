@@ -23,11 +23,12 @@ import { isPromise, isAsyncIterable } from './util/compat';
 import { Vector, DictionaryVector, IntVector, StructVector } from './vector';
 import { ChunkedView } from './vector/chunked';
 
-export type NextFunc = (idx: number, cols: RecordBatch) => void;
+export type NextFunc = (idx: number, batch: RecordBatch) => void;
+export type BindFunc = (batch: RecordBatch) => void;
 
 export interface DataFrame {
     filter(predicate: Predicate): DataFrame;
-    scan(next: NextFunc): void;
+    scan(next: NextFunc, bind?: BindFunc): void;
     count(): number;
     countBy(col: (Col|string)): CountByResult;
 }
@@ -128,11 +129,12 @@ export class Table implements DataFrame {
     public filter(predicate: Predicate): DataFrame {
         return new FilteredDataFrame(this.batches, predicate);
     }
-    public scan(next: NextFunc) {
+    public scan(next: NextFunc, bind?: BindFunc) {
         const batches = this.batches, numBatches = batches.length;
         for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
             const batch = batches[batchIndex];
+            if (bind) { bind(batch); }
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 next(index, batch);
@@ -189,7 +191,7 @@ class FilteredDataFrame implements DataFrame {
         this.batches = batches;
         this.predicate = predicate;
     }
-    public scan(next: NextFunc) {
+    public scan(next: NextFunc, bind?: BindFunc) {
         // inlined version of this:
         // this.parent.scan((idx, columns) => {
         //     if (this.predicate(idx, columns)) next(idx, columns);
@@ -199,6 +201,7 @@ class FilteredDataFrame implements DataFrame {
         for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
             const batch = batches[batchIndex];
+            if (bind) { bind(batch); }
             const predicate = this.predicate.bind(batch);
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {

@@ -331,3 +331,76 @@ Getting ``python-test.exe`` to run is a bit tricky because your
    set PYTHONPATH=%CONDA_ENV%\Lib;%CONDA_ENV%\Lib\site-packages;%CONDA_ENV%\python35.zip;%CONDA_ENV%\DLLs;%CONDA_ENV%
 
 Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
+
+Nightly Builds of `arrow-cpp`, `parquet-cpp`, and `pyarrow` for Linux
+---------------------------------------------------------------------
+
+Nightly builds of Linux conda packages for ``arrow-cpp``, ``parquet-cpp``, and
+``pyarrow`` can be automated using an open source tool called `scourge
+<https://github.com/cpcloud/scourge>`_.
+
+``scourge`` is new, so please report any feature requests or bugs to the
+`scourge issue tracker <https://github.com/cpcloud/scourge/issues>`_.
+
+To get scourge you need to clone the source and install it in development mode.
+
+To setup your own nightly builds:
+
+#. Clone and install scourge
+#. Create a script that calls scourge
+#. Run that script as a cronjob once per day
+
+First, clone and install scourge (you also need to `install docker
+<https://docs.docker.com/engine/installation>`):
+
+
+.. code:: sh
+
+   git clone https://github.com/cpcloud/scourge
+   cd scourge
+   python setup.py develop
+   which scourge
+
+Second, create a shell script that calls scourge:
+
+.. code:: sh
+
+   function build() {
+     # make sure we got a working directory
+     workingdir="${1}"
+     [ -z "${workingdir}" ] && echo "Must provide a working directory" && exit 1
+     scourge="/path/to/scourge"
+
+     # get the hash of master for building parquet
+     PARQUET_ARROW_VERSION="$("${scourge}" sha apache/arrow master)"
+
+     # setup the build for each package
+     "${scourge}" init arrow-cpp@master parquet-cpp@master pyarrow@master
+
+     # build the packages with some constraints (the -c arguments)
+     # -e sets environment variables on a per package basis
+     "${scourge}" build \
+       -e parquet-cpp:PARQUET_ARROW_VERSION="${PARQUET_ARROW_VERSION}" \
+       -c "python >=2.7,<3|>=3.5" \
+       -c "numpy >= 1.11" \
+       -c "r-base >=3.3.2"
+   }
+
+   workingdir="$(date +'%Y%m%d_%H_%M_%S')"
+   mkdir -p "${workingdir}"
+   build "${workingdir}" > "${workingdir}"/scourge.log 2>&1
+
+Third, run that script as a cronjob once per day:
+
+.. code:: sh
+
+   crontab -e
+
+then in the scratch file that's opened:
+
+.. code:: sh
+
+   @daily /path/to/the/above/script.sh
+
+The build artifacts (conda packages) will be located in
+``${workingdir}/artifacts/linux-64``.

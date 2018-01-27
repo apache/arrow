@@ -17,6 +17,8 @@
 
 #include "plasma/events.h"
 
+#include <utility>
+
 #include <errno.h>
 
 namespace plasma {

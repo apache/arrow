@@ -39,9 +39,11 @@ sudo apt-get install cmake \
      libboost-system-dev
 ```
 
-On OS X, you can use [Homebrew][1]:
+On macOS, you can use [Homebrew][1]:
 
 ```shell
+git clone https://github.com/apache/arrow.git
+cd arrow
 brew update && brew bundle --file=c_glib/Brewfile
 ```
 
@@ -249,6 +251,21 @@ output:
 Logging IWYU to /tmp/arrow-cpp-iwyu.gT7XXV
 ...
 ```
+
+### Linting
+
+We require that you follow a certain coding style in the C++ code base.
+You can check your code abides by that coding style by running:
+
+    make lint
+
+You can also fix any formatting errors automatically:
+
+    make format
+
+These commands require `clang-format-4.0` (and not any other version).
+You may find the required packages at http://releases.llvm.org/download.html
+or use the Debian/Ubuntu APT repositories on https://apt.llvm.org/.
 
 ## Continuous Integration
 

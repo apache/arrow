@@ -18,6 +18,7 @@
 from io import BytesIO
 from os.path import join as pjoin
 import os
+import pickle
 import random
 import unittest
 
@@ -36,7 +37,7 @@ import pyarrow.tests.test_parquet as test_parquet
 
 def hdfs_test_client(driver='libhdfs'):
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
-    user = os.environ['ARROW_HDFS_TEST_USER']
+    user = os.environ.get('ARROW_HDFS_TEST_USER', None)
     try:
         port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 20500))
     except ValueError:
@@ -71,6 +72,22 @@ class HdfsTestCases(object):
     def tearDownClass(cls):
         cls.hdfs.delete(cls.tmp_path, recursive=True)
         cls.hdfs.close()
+
+    def test_unknown_driver(self):
+        with pytest.raises(ValueError):
+            hdfs_test_client(driver="not_a_driver_name")
+
+    def test_pickle(self):
+        s = pickle.dumps(self.hdfs)
+        h2 = pickle.loads(s)
+        assert h2.is_open
+        assert h2.host == self.hdfs.host
+        assert h2.port == self.hdfs.port
+        assert h2.user == self.hdfs.user
+        assert h2.kerb_ticket == self.hdfs.kerb_ticket
+        assert h2.driver == self.hdfs.driver
+        # smoketest unpickled client works
+        h2.ls(self.tmp_path)
 
     def test_cat(self):
         path = pjoin(self.tmp_path, 'cat-test')
@@ -299,7 +316,7 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs():
-            pytest.fail('No libhdfs available on system')
+            pytest.skip('No libhdfs available on system')
 
     def test_orphaned_file(self):
         hdfs = hdfs_test_client()
@@ -318,4 +335,4 @@ class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs3():
-            pytest.fail('No libhdfs3 available on system')
+            pytest.skip('No libhdfs3 available on system')

@@ -16,10 +16,11 @@
 // under the License.
 
 // Use the ES5 UMD target as perf baseline
-// const { col, Table, read: readBatches } = require('../targets/es5/umd');
-// const { col, Table, read: readBatches } = require('../targets/es5/cjs');
-// const { col, Table, read: readBatches } = require('../targets/es2015/umd');
-const { col, Table, read: readBatches } = require('../targets/es2015/cjs');
+// const { predicate, Table, read: readBatches } = require('../targets/es5/umd');
+// const { predicate, Table, read: readBatches } = require('../targets/es5/cjs');
+// const { predicate, Table, read: readBatches } = require('../targets/es2015/umd');
+const { predicate, Table, read: readBatches } = require('../targets/es2015/cjs');
+const { col } = predicate;
 
 const Benchmark = require('benchmark');
 

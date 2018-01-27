@@ -18,6 +18,8 @@
 #ifndef PYARROW_IO_H
 #define PYARROW_IO_H
 
+#include <memory>
+
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/visibility.h"

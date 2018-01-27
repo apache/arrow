@@ -87,8 +87,6 @@ if [ -f Makefile ]; then
     # Ensure updating to prevent auto re-configure
     touch configure **/Makefile
     make distclean
-    # Work around for 'make distclean' removes doc/reference/xml/
-    git checkout doc/reference/xml
 fi
 ./autogen.sh
 rm -rf build_docs

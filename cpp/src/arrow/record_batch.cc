@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <memory>
 #include <sstream>
+#include <utility>
 
 #include "arrow/array.h"
 #include "arrow/status.h"
