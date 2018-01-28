@@ -37,6 +37,17 @@ from distutils.command.clean import clean as _clean
 from distutils.util import strtobool
 from distutils import sysconfig
 
+try:
+    import sysconfig as _sysconfig
+    def get_scripts_dir():
+        return _sysconfig.get_path('scripts')
+except ImportError:
+    def get_scripts_dir():
+        if os.name in ['nt', 'os2']:
+            return os.path.join(sys.exec_prefix, 'Scripts')
+        else:
+            return os.path.join(sys.exec_prefix, 'bin')
+
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
@@ -146,10 +157,17 @@ class build_ext(_build_ext):
 
         static_lib_option = ''
 
+        scripts_dir = get_scripts_dir()
+        cython_executable = os.path.join(scripts_dir, 'cython')
+        if not os.path.exists(cython_executable):
+            cython_executable = None
+
         cmake_options = [
             '-DPYTHON_EXECUTABLE=%s' % sys.executable,
             static_lib_option,
         ]
+        if cython_executable is not None:
+            cmake_options.append('-DCYTHON_EXECUTABLE=%s' % cython_executable)
 
         if self.with_parquet:
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
