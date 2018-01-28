@@ -447,9 +447,9 @@ setup(
         ]
     },
     use_scm_version={"root": "..", "relative_to": __file__, "parse": parse_version},
-    setup_requires=['setuptools_scm', 'cython >= 0.23'],
+    setup_requires=['setuptools_scm', 'cython >= 0.23', 'pytest-runner'],
     install_requires=install_requires,
-    tests_require=['pytest'],
+    tests_require=['pytest', 'pandas'],
     description="Python library for Apache Arrow",
     long_description=long_description,
     classifiers=[
