@@ -19,9 +19,7 @@
 #define PARQUET_THRIFT_UTIL_H
 
 #include <cstdint>
-
-// Needed for thrift
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 // TCompactProtocol requires some #defines to work right.
 #define SIGNED_RIGHT_SHIFT_IS 1
@@ -96,12 +94,12 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
 template <class T>
 inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg) {
   // Deserialize msg bytes into c++ thrift msg using memory transport.
-  boost::shared_ptr<apache::thrift::transport::TMemoryBuffer> tmem_transport(
+  std::shared_ptr<apache::thrift::transport::TMemoryBuffer> tmem_transport(
       new apache::thrift::transport::TMemoryBuffer(const_cast<uint8_t*>(buf), *len));
   apache::thrift::protocol::TCompactProtocolFactoryT<
       apache::thrift::transport::TMemoryBuffer>
       tproto_factory;
-  boost::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
+  std::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
       tproto_factory.getProtocol(tmem_transport);
   try {
     deserialized_msg->read(tproto.get());
@@ -119,12 +117,12 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
 // the expected size of the serialized object
 template <class T>
 inline int64_t SerializeThriftMsg(T* obj, uint32_t len, OutputStream* out) {
-  boost::shared_ptr<apache::thrift::transport::TMemoryBuffer> mem_buffer(
+  std::shared_ptr<apache::thrift::transport::TMemoryBuffer> mem_buffer(
       new apache::thrift::transport::TMemoryBuffer(len));
   apache::thrift::protocol::TCompactProtocolFactoryT<
       apache::thrift::transport::TMemoryBuffer>
       tproto_factory;
-  boost::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
+  std::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
       tproto_factory.getProtocol(mem_buffer);
   try {
     mem_buffer->resetBuffer();
