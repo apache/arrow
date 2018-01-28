@@ -21,6 +21,7 @@ import glob
 import os
 import os.path as osp
 import re
+import shlex
 import shutil
 import sys
 
@@ -180,8 +181,9 @@ class build_ext(_build_ext):
         cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                              .format(self.build_type.lower()))
 
+        extra_cmake_args = shlex.split(self.extra_cmake_args)
         if sys.platform != 'win32':
-            cmake_command = (['cmake', self.extra_cmake_args] +
+            cmake_command = (['cmake'] + extra_cmake_args +
                              cmake_options + [source])
 
             print("-- Runnning cmake for pyarrow")
@@ -197,13 +199,11 @@ class build_ext(_build_ext):
             self.spawn(args)
             print("-- Finished cmake --build for pyarrow")
         else:
-            import shlex
             cmake_generator = 'Visual Studio 14 2015 Win64'
             if not is_64_bit:
                 raise RuntimeError('Not supported on 32-bit Windows')
 
             # Generate the build files
-            extra_cmake_args = shlex.split(self.extra_cmake_args)
             cmake_command = (['cmake'] + extra_cmake_args +
                              cmake_options +
                              [source, '-G', cmake_generator])
