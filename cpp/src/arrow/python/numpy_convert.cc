@@ -84,6 +84,9 @@ NumPyBuffer::~NumPyBuffer() { Py_XDECREF(arr_); }
     break;
 
 Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
+  if (!PyArray_DescrCheck(dtype)) {
+    return Status::TypeError("Did not pass numpy.dtype object");
+  }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
   int type_num = cast_npy_type_compat(descr->type_num);
 
@@ -145,6 +148,9 @@ Status GetNumPyType(const DataType& type, int* type_num) {
 }
 
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
+  if (!PyArray_DescrCheck(dtype)) {
+    return Status::TypeError("Did not pass numpy.dtype object");
+  }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
 
   int type_num = cast_npy_type_compat(descr->type_num);
