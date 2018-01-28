@@ -47,7 +47,7 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
         zlib \
         cmake \
         curl \
-        thrift-cpp=0.10.0 \
+        thrift-cpp=0.11.0 \
         ninja
 
   # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
