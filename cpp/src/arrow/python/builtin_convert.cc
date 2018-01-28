@@ -32,6 +32,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/python/helpers.h"
+#include "arrow/python/numpy_convert.h"
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
@@ -93,6 +94,21 @@ class ScalarVisitor {
       ++binary_count_;
     } else if (PyUnicode_Check(obj)) {
       ++unicode_count_;
+    } else if (PyArray_CheckAnyScalarExact(obj)) {
+      std::shared_ptr<DataType> type;
+      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
+      if (is_integer(type->id())) {
+        ++int_count_;
+      } else if (is_floating(type->id())) {
+        ++float_count_;
+      } else if (type->id() == Type::TIMESTAMP) {
+        ++timestamp_count_;
+      } else {
+        std::ostringstream ss;
+        ss << "Found a NumPy scalar with Arrow dtype that we cannot handle: ";
+        ss << type->ToString();
+        return Status::Invalid(ss.str());
+      }
     } else {
       // TODO(wesm): accumulate error information somewhere
       static std::string supported_types =
@@ -575,6 +591,24 @@ class TimestampConverter
           t = PyDateTime_to_ns(pydatetime);
           break;
       }
+    } else if (PyArray_CheckAnyScalarExact(item.obj())) {
+      // numpy.datetime64
+      std::shared_ptr<DataType> type;
+      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(item.obj()), &type));
+      if (type->id() != Type::TIMESTAMP) {
+        std::ostringstream ss;
+        ss << "Expected np.datetime64 but got: ";
+        ss << type->ToString();
+        return Status::Invalid(ss.str());
+      }
+      const TimestampType& ttype = static_cast<const TimestampType&>(*type);
+      if (unit_ != ttype.unit()) {
+        return Status::NotImplemented(
+            "Cannot convert NumPy datetime64 objects with differing unit");
+      }
+
+      PyDatetimeScalarObject* obj = reinterpret_cast<PyDatetimeScalarObject*>(item.obj());
+      t = obj->obval;
     } else {
       t = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
       RETURN_IF_PYERROR();

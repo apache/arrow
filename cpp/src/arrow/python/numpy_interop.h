@@ -40,6 +40,7 @@
 #endif
 
 #include <numpy/arrayobject.h>
+#include <numpy/arrayscalars.h>
 #include <numpy/ufuncobject.h>
 
 namespace arrow {
