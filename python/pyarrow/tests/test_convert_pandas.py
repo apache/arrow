@@ -1237,6 +1237,21 @@ class TestPandasConversion(object):
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
 
+    def test_table_empty_str(self):
+        values = ['', '', '', '', '']
+        df = pd.DataFrame({'strings': values})
+        field = pa.field('strings', pa.string())
+        schema = pa.schema([field])
+        table = pa.Table.from_pandas(df, schema=schema)
+
+        result1 = table.to_pandas(strings_to_categorical=False)
+        expected1 = pd.DataFrame({'strings': values})
+        tm.assert_frame_equal(result1, expected1, check_dtype=True)
+
+        result2 = table.to_pandas(strings_to_categorical=True)
+        expected2 = pd.DataFrame({'strings': pd.Categorical(values)})
+        tm.assert_frame_equal(result2, expected2, check_dtype=True)
+
     def test_table_str_to_categorical_without_na(self):
         values = ['a', 'a', 'b', 'b', 'c']
         df = pd.DataFrame({'strings': values})
