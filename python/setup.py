@@ -158,7 +158,7 @@ class build_ext(_build_ext):
         static_lib_option = ''
 
         scripts_dir = get_scripts_dir()
-        cython_executable = os.path.join(scripts_dir, 'cython')
+        cython_executable = os.path.join(scripts_dir, 'cython%s' % sysconfig.get_config_var('EXE'))
         if not os.path.exists(cython_executable):
             cython_executable = None
 
