@@ -407,12 +407,18 @@ class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
   }
 
   Status Append(const ArrayData& arr) override {
+    constexpr uint8_t empty_value = 0;
     if (!initialized_) {
       RETURN_NOT_OK(Init());
     }
 
     const int32_t* offsets = GetValues<int32_t>(arr, 1);
-    const uint8_t* data = GetValues<uint8_t>(arr, 2);
+    const uint8_t* data;
+    if (arr.buffers[2].get() == nullptr) {
+      data = &empty_value;
+    } else {
+      data = GetValues<uint8_t>(arr, 2);
+    }
 
     auto action = static_cast<Action*>(this);
     RETURN_NOT_OK(action->Reserve(arr.length));
