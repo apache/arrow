@@ -152,7 +152,10 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
     return Status::TypeError("Did not pass numpy.dtype object");
   }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
+  return NumPyDtypeToArrow(descr, out);
+}
 
+Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
   int type_num = cast_npy_type_compat(descr->type_num);
 
   switch (type_num) {
