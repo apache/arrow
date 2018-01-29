@@ -268,7 +268,7 @@ const test_data = [
             [Math.fround( 0.2),  1, 'b'],
             [Math.fround( 0.1), -1, 'c'],
       ]}
-]
+];
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
@@ -313,21 +313,21 @@ describe(`Table`, () => {
                 {
                     name:     `filter on f32 >= 0`,
                     filtered: table.filter(col('f32').gteq(0)),
-                    expected: values.filter((row)=>row[F32] >= 0)
+                    expected: values.filter((row) => row[F32] >= 0)
                 }, {
                     name:     `filter on i32 <= 0 returns the correct length`,
                     filtered: table.filter(col('i32').lteq(0)),
-                    expected: values.filter((row)=>row[I32] <= 0)
+                    expected: values.filter((row) => row[I32] <= 0)
                 }, {
                     name:     `filter method combines predicates (f32 >= 0 && i32 <= 0)`,
                     filtered: table.filter(col('i32').lteq(0)).filter(col('f32').gteq(0)),
-                    expected: values.filter((row)=>row[I32] <= 0 && row[F32] >= 0)
+                    expected: values.filter((row) => row[I32] <= 0 && row[F32] >= 0)
                 }, {
                     name:     `filter on dictionary == 'a'`,
                     filtered: table.filter(col('dictionary').eq('a')),
-                    expected: values.filter((row)=>row[DICT] === 'a')
+                    expected: values.filter((row) => row[DICT] === 'a')
                 }
-            ]
+            ];
             for (let this_test of filter_tests) {
                 describe(`filter on f32 >= 0`, () => {
                     const filtered = this_test.filtered;
@@ -341,7 +341,7 @@ describe(`Table`, () => {
                             const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
                             expect(columns.map((c) => c.get(idx))).toEqual(expected[expected_idx++]);
                         });
-                    })
+                    });
                 });
             }
             test(`countBy on dictionary returns the correct counts`, () => {
@@ -358,7 +358,7 @@ describe(`Table`, () => {
             test(`countBy on dictionary with filter returns the correct counts`, () => {
                 let expected: {[key: string]: number} = {'a': 0, 'b': 0, 'c': 0};
                 for (let row of values) {
-                    if(row[I32] === 1) { expected[row[DICT]] += 1; }
+                    if (row[I32] === 1) { expected[row[DICT]] += 1; }
                 }
 
                 expect(table.filter(col('i32').eq(1)).countBy('dictionary').toJSON()).toEqual(expected);
@@ -383,7 +383,7 @@ describe(`Table`, () => {
             });
             test(`table.toString()`, () => {
                 let selected = table.select('i32', 'dictionary');
-                let headers  = [`"row_id"`, `"i32: Int32"`, `"dictionary: Dictionary<Utf8, Int8>"`]
+                let headers  = [`"row_id"`, `"i32: Int32"`, `"dictionary: Dictionary<Utf8, Int8>"`];
                 let expected = [headers.join(' | '), ...values.map((row, idx) => {
                     return [`${idx}`, `${row[I32]}`, `"${row[DICT]}"`].map((str, col) => {
                                 return leftPad(str, ' ', headers[col].length);

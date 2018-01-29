@@ -38,8 +38,6 @@ Table.empty = function() {};
 /** @type {?} */
 Table.prototype.schema;
 /** @type {?} */
-Table.prototype.columns;
-/** @type {?} */
 Table.prototype.length;
 /** @type {?} */
 Table.prototype.numCols;
@@ -58,15 +56,13 @@ Table.prototype.select;
 /** @type {?} */
 Table.prototype.rowsToString;
 /** @type {?} */
-Table.prototype.lengths;
+Table.prototype.batchesUnion;
 /** @type {?} */
 Table.prototype.batches;
 /** @type {?} */
 Table.prototype.countBy;
 /** @type {?} */
 Table.prototype.scan;
-/** @type {?} */
-Table.prototype.get;
 
 var CountByResult = function() {};
 /** @type {?} */
@@ -124,7 +120,7 @@ RecordBatch.from = function() {};
 /** @type {?} */
 RecordBatch.prototype.numCols;
 /** @type {?} */
-RecordBatch.prototype.numRows;
+RecordBatch.prototype.length;
 /** @type {?} */
 RecordBatch.prototype.schema;
 /** @type {?} */
@@ -311,6 +307,8 @@ Schema.prototype.version;
 Schema.prototype.metadata;
 /** @type {?} */
 Schema.prototype.dictionaries;
+/** @type {?} */
+Schema.prototype.select;
 var Field = function() {};
 /** @type {?} */
 Field.prototype.name;
