@@ -201,6 +201,9 @@ class FilteredDataFrame implements DataFrame {
         for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
             const batch = batches[batchIndex];
+            // TODO: bind batches lazily
+            // If predicate doesn't match anything in the batch we don't need
+            // to bind the callback
             if (bind) { bind(batch); }
             const predicate = this.predicate.bind(batch);
             // yield all indices

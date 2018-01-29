@@ -64,8 +64,6 @@ export class Col<T= any> extends Value<T> {
         this.vector = batch.getChildAt(this.colidx)!;
         return this.vector.get.bind(this.vector);
     }
-
-    emitString() { return `cols[${this.colidx}].get(idx)`; }
 }
 
 export abstract class Predicate {
@@ -86,7 +84,7 @@ export abstract class ComparisonPredicate<T= any> extends Predicate {
                 return this._bindLitLit(batch, this.left, this.right);
             } else { // right is a Col
 
-                return this._bindColLit(batch, this.right as Col, this.left);
+                return this._bindLitCol(batch, this.left, this.right as Col);
             }
         } else { // left is a Col
             if (this.right instanceof Literal) {
@@ -100,6 +98,7 @@ export abstract class ComparisonPredicate<T= any> extends Predicate {
     protected abstract _bindLitLit(batch: RecordBatch, left: Literal, right: Literal): PredicateFunc;
     protected abstract _bindColCol(batch: RecordBatch, left: Col, right: Col): PredicateFunc;
     protected abstract _bindColLit(batch: RecordBatch, col: Col, lit: Literal): PredicateFunc;
+    protected abstract _bindLitCol(batch: RecordBatch, lit: Literal, col: Col): PredicateFunc;
 }
 
 export abstract class CombinationPredicate extends Predicate {
@@ -169,6 +168,11 @@ export class Equals extends ComparisonPredicate {
             return (idx: number, cols: RecordBatch) => col_func(idx, cols) == lit.v;
         }
     }
+
+    protected _bindLitCol(batch: RecordBatch, lit: Literal, col: Col) {
+        // Equals is comutative
+        return this._bindColLit(batch, col, lit);
+    }
 }
 
 export class LTeq extends ComparisonPredicate {
@@ -186,6 +190,11 @@ export class LTeq extends ComparisonPredicate {
     protected _bindColLit(batch: RecordBatch, col: Col, lit: Literal): PredicateFunc {
         const col_func = col.bind(batch);
         return (idx: number, cols: RecordBatch) => col_func(idx, cols) <= lit.v;
+    }
+
+    protected _bindLitCol(batch: RecordBatch, lit: Literal, col: Col) {
+        const col_func = col.bind(batch);
+        return (idx: number, cols: RecordBatch) => lit.v <= col_func(idx, cols);
     }
 }
 
@@ -205,7 +214,12 @@ export class GTeq extends ComparisonPredicate {
         const col_func = col.bind(batch);
         return (idx: number, cols: RecordBatch) => col_func(idx, cols) >= lit.v;
     }
+
+    protected _bindLitCol(batch: RecordBatch, lit: Literal, col: Col) {
+        const col_func = col.bind(batch);
+        return (idx: number, cols: RecordBatch) => lit.v >= col_func(idx, cols);
+    }
 }
 
-export function lit(n: number): Value<any> { return new Literal(n); }
+export function lit(v: any): Value<any> { return new Literal(v); }
 export function col(n: string): Col<any> { return new Col(n); }
