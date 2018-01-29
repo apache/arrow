@@ -19,7 +19,7 @@ import Arrow from '../Arrow';
 
 const { predicate, Table } = Arrow;
 
-const { col } = predicate;
+const { col, lit } = predicate;
 
 const F32 = 0, I32 = 1, DICT = 2;
 const test_data = [
@@ -299,15 +299,29 @@ describe(`Table`, () => {
                     expect(row.toArray()).toEqual(values[i++]);
                 }
             });
-            test(`scans expected values`, () => {
-                let expected_idx = 0;
-                table.scan((idx, batch) => {
-                  const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
-                  expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
+            describe(`scan()`, () => {
+                test(`yields all values`, () => {
+                    let expected_idx = 0;
+                    table.scan((idx, batch) => {
+                        const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
+                        expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
+                    });
                 });
-            });
+                test(`calls bind function with every batch`, () => {
+                    let bind = jest.fn();
+                    table.scan(() => {}, bind);
+                    for (let batch of table.batches) {
+                        expect(bind).toHaveBeenCalledWith(batch);
+                    }
+                })
+            })
             test(`count() returns the correct length`, () => {
                 expect(table.count()).toEqual(values.length);
+            });
+            test(`getColumnIndex`, () => {
+                expect(table.getColumnIndex('i32')).toEqual(I32);
+                expect(table.getColumnIndex('f32')).toEqual(F32);
+                expect(table.getColumnIndex('dictionary')).toEqual(DICT);
             });
             const filter_tests = [
                 {
@@ -315,9 +329,21 @@ describe(`Table`, () => {
                     filtered: table.filter(col('f32').gteq(0)),
                     expected: values.filter((row) => row[F32] >= 0)
                 }, {
-                    name:     `filter on i32 <= 0 returns the correct length`,
+                    name:     `filter on 0 <= f32`,
+                    filtered: table.filter(lit(0).lteq(col('f32'))),
+                    expected: values.filter((row)=>0 <= row[F32])
+                }, {
+                    name:     `filter on i32 <= 0`,
                     filtered: table.filter(col('i32').lteq(0)),
                     expected: values.filter((row) => row[I32] <= 0)
+                }, {
+                    name:     `filter on 0 >= i32`,
+                    filtered: table.filter(lit(0).gteq(col('i32'))),
+                    expected: values.filter((row)=>0 >= row[I32])
+                }, {
+                    name:     `filter on f32 <= -.25 || f3 >= .25`,
+                    filtered: table.filter(col('f32').lteq(-.25).or(col('f32').gteq(.25))),
+                    expected: values.filter((row)=>row[F32] <= -.25 || row[F32] >= .25)
                 }, {
                     name:     `filter method combines predicates (f32 >= 0 && i32 <= 0)`,
                     filtered: table.filter(col('i32').lteq(0)).filter(col('f32').gteq(0)),
@@ -326,20 +352,44 @@ describe(`Table`, () => {
                     name:     `filter on dictionary == 'a'`,
                     filtered: table.filter(col('dictionary').eq('a')),
                     expected: values.filter((row) => row[DICT] === 'a')
+                }, {
+                    name:     `filter on 'a' == dictionary (commutativity)`,
+                    filtered: table.filter(lit('a').eq(col('dictionary'))),
+                    expected: values.filter((row)=>row[DICT] === 'a')
+                }, {
+                    name:     `filter on f32 >= i32`,
+                    filtered: table.filter(col('f32').gteq(col('i32'))),
+                    expected: values.filter((row)=>row[F32] >= row[I32])
+                }, {
+                    name:     `filter on f32 <= i32`,
+                    filtered: table.filter(col('f32').lteq(col('i32'))),
+                    expected: values.filter((row)=>row[F32] <= row[I32])
                 }
             ];
             for (let this_test of filter_tests) {
-                describe(`filter on f32 >= 0`, () => {
-                    const filtered = this_test.filtered;
-                    const expected = this_test.expected;
+                const { name, filtered, expected } = this_test;
+                describe(name, () => {
                     test(`count() returns the correct length`, () => {
                         expect(filtered.count()).toEqual(expected.length);
                     });
-                    test(`scans expected values`, () => {
-                        let expected_idx = 0;
-                        filtered.scan((idx, batch) => {
-                            const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
-                            expect(columns.map((c) => c.get(idx))).toEqual(expected[expected_idx++]);
+                    describe(`scan()`, () => {
+                        test(`iterates over expected values`, () => {
+                            let expected_idx = 0;
+                            filtered.scan((idx, batch) => {
+                                const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
+                                expect(columns.map((c) => c.get(idx))).toEqual(expected[expected_idx++]);
+                            });
+                        });
+                        test(`calls bind function on every batch`, () => {
+                            // Techincally, we only need to call bind on
+                            // batches with data that match the predicate, so
+                            // this test may fail in the future if we change
+                            // that - and that's ok!
+                            let bind = jest.fn();
+                            filtered.scan(() => {}, bind);
+                            for (let batch of table.batches) {
+                                expect(bind).toHaveBeenCalledWith(batch);
+                            }
                         });
                     });
                 });
@@ -367,6 +417,9 @@ describe(`Table`, () => {
                 expect(() => { table.countBy('i32'); }).toThrow();
                 expect(() => { table.filter(col('dict').eq('a')).countBy('i32'); }).toThrow();
             });
+            test(`countBy on non-existent column throws error`, () => {
+                expect(() => { table.countBy('FAKE'); }).toThrow();
+            });
             test(`table.select() basic tests`, () => {
                 let selected = table.select('f32', 'dictionary');
                 expect(selected.schema.fields.length).toEqual(2);
@@ -390,6 +443,28 @@ describe(`Table`, () => {
                             }).join(' | ');
                 })].join('\n') + '\n';
                 expect(selected.toString()).toEqual(expected);
+            });
+            test(`table.filter(..).count() on always false predicates returns 0`, () => {
+                expect(table.filter(col('i32').gteq(100)).count()).toEqual(0);
+                expect(table.filter(col('dictionary').eq('z')).count()).toEqual(0);
+            });
+            describe(`lit-lit comparison`, () => {
+                test(`always-false count() returns 0`, () => {
+                    expect(table.filter(lit('abc').eq('def')).count()).toEqual(0);
+                    expect(table.filter(lit(0).gteq(1)).count()).toEqual(0);
+                });
+                test(`always-true count() returns length`, () => {
+                    expect(table.filter(lit('abc').eq('abc')).count()).toEqual(table.length);
+                    expect(table.filter(lit(-100).lteq(0)).count()).toEqual(table.length);
+                });
+            });
+            describe(`col-col comparison`, () => {
+                test(`always-false count() returns 0`, () => {
+                    expect(table.filter(col('dictionary').eq(col('i32'))).count()).toEqual(0);
+                });
+                test(`always-true count() returns length`, () => {
+                    expect(table.filter(col('dictionary').eq(col('dictionary'))).count()).toEqual(table.length);
+                });
             });
         });
     }
