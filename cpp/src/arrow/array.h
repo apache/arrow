@@ -726,6 +726,10 @@ class ARROW_EXPORT DictionaryArray : public Array {
   DictionaryArray(const std::shared_ptr<DataType>& type,
                   const std::shared_ptr<Array>& indices);
 
+  static Status FromArrays(const std::shared_ptr<DataType>& type,
+                           const std::shared_ptr<Array>& indices,
+                           std::shared_ptr<Array>* out);
+
   std::shared_ptr<Array> indices() const;
   std::shared_ptr<Array> dictionary() const;
 
@@ -733,6 +737,23 @@ class ARROW_EXPORT DictionaryArray : public Array {
 
  private:
   void SetData(const std::shared_ptr<ArrayData>& data);
+
+  template <typename ArrowType>
+    static bool SanityCheck(const std::shared_ptr<Array>& indices, const int64_t range) {
+    using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+    std::shared_ptr<ArrayType> array = std::static_pointer_cast<ArrayType>(indices);
+    const typename ArrowType::c_type* data = array->raw_values();
+    const int64_t size = sizeof(data) / sizeof(data[0]);
+
+    for (int64_t idx = 0; idx < size; ++idx) {
+      if (!array->IsNull(idx)){
+	if (data[idx] < 0 || data[idx] >= range) {
+	  return false;
+	}
+      } 
+    }
+    return true;
+  }
 
   const DictionaryType* dict_type_;
   std::shared_ptr<Array> indices_;

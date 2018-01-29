@@ -492,11 +492,53 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
   SetData(data);
 }
 
+Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
+                                   const std::shared_ptr<Array>& indices,
+                                   std::shared_ptr<Array>* out) { 
+  if (indices->length() == 0) {
+    return Status::Invalid("Dictionary indices must have non-zero length");
+  }
+
+  DCHECK_EQ(type->id(), Type::DICTIONARY);
+  std::shared_ptr<DictionaryType> dict = std::static_pointer_cast<DictionaryType>(type);
+  DCHECK_EQ(indices->type_id(), dict->index_type()->id());
+
+  int64_t range = dict->dictionary()->length();
+  bool is_valid = true;
+
+  switch (indices->type_id()) {
+  case Type::INT8:
+    is_valid = SanityCheck<Int8Type>(indices, range);
+    break;
+  case Type::INT16:
+    is_valid = SanityCheck<Int16Type>(indices, range);
+    break;
+  case Type::INT32:
+    is_valid = SanityCheck<Int32Type>(indices, range);
+    break;
+  case Type::INT64:
+    is_valid = SanityCheck<Int64Type>(indices, range);
+    break;
+  default:
+    std::stringstream ss;
+    ss << "Categorical index type not supported: "
+       << indices->type()->ToString();
+    return Status::NotImplemented(ss.str());
+  }
+
+  if(!is_valid) {
+    return Status::Invalid("Invalid dictionary indices");
+  }
+
+  std::shared_ptr<DictionaryArray> internal = std::make_shared<DictionaryArray>(type, indices);
+  *out = internal;
+  return Status::OK();
+}
+
 void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
   auto indices_data = data_->Copy();
   indices_data->type = dict_type_->index_type();
-  std::shared_ptr<Array> result;
   indices_ = MakeArray(indices_data);
 }
 
