@@ -59,6 +59,7 @@ Simple debug build:
     cd debug
     cmake ..
     make unittest
+    sudo make install
 
 Simple release build:
 
@@ -68,6 +69,7 @@ Simple release build:
     cd release
     cmake .. -DCMAKE_BUILD_TYPE=Release
     make unittest
+    sudo make install
 
 Detailed unit test logs will be placed in the build directory under `build/test-logs`.
 
