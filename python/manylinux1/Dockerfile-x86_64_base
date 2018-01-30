@@ -42,6 +42,9 @@ ADD scripts/build_flatbuffers.sh /
 RUN /build_flatbuffers.sh
 ENV FLATBUFFERS_HOME /usr
 
+ADD scripts/build_bison.sh /
+RUN /build_bison.sh
+
 ADD scripts/build_thrift.sh /
 RUN /build_thrift.sh
 ENV THRIFT_HOME /usr

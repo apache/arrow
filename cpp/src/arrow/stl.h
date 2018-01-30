@@ -18,6 +18,7 @@
 #ifndef ARROW_STL_H
 #define ARROW_STL_H
 
+#include <memory>
 #include <string>
 #include <tuple>
 #include <vector>
