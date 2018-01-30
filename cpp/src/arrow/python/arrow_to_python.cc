@@ -64,8 +64,8 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                        PyObject** out) {
   const auto& data = static_cast<const StructArray&>(array);
-  ScopedRef keys, vals;
-  ScopedRef result(PyDict_New());
+  OwnedRef keys, vals;
+  OwnedRef result(PyDict_New());
   RETURN_IF_PYERROR();
 
   DCHECK_EQ(2, data.num_fields());
@@ -77,16 +77,16 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     // PyDict_SetItem behaves differently from PyList_SetItem and PyTuple_SetItem.
     // The latter two steal references whereas PyDict_SetItem does not. So we need
-    // to make sure the reference count is decremented by letting the ScopedRef
+    // to make sure the reference count is decremented by letting the OwnedRef
     // go out of scope at the end.
-    PyDict_SetItem(result.get(), PyList_GET_ITEM(keys.get(), i - start_idx),
-                   PyList_GET_ITEM(vals.get(), i - start_idx));
+    PyDict_SetItem(result.obj(), PyList_GET_ITEM(keys.obj(), i - start_idx),
+                   PyList_GET_ITEM(vals.obj(), i - start_idx));
   }
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
-  if (PyDict_Contains(result.get(), py_type)) {
-    RETURN_NOT_OK(CallDeserializeCallback(context, result.get(), out));
+  if (PyDict_Contains(result.obj(), py_type)) {
+    RETURN_NOT_OK(CallDeserializeCallback(context, result.obj(), out));
   } else {
-    *out = result.release();
+    *out = result.detach();
   }
   return Status::OK();
 }
@@ -96,10 +96,10 @@ Status DeserializeArray(const Array& array, int64_t offset, PyObject* base,
   int32_t index = static_cast<const Int32Array&>(array).Value(offset);
   RETURN_NOT_OK(py::TensorToNdarray(*blobs.tensors[index], base, out));
   // Mark the array as immutable
-  ScopedRef flags(PyObject_GetAttrString(*out, "flags"));
-  DCHECK(flags.get() != NULL) << "Could not mark Numpy array immutable";
+  OwnedRef flags(PyObject_GetAttrString(*out, "flags"));
+  DCHECK(flags.obj() != NULL) << "Could not mark Numpy array immutable";
   Py_INCREF(Py_False);
-  int flag_set = PyObject_SetAttrString(flags.get(), "writeable", Py_False);
+  int flag_set = PyObject_SetAttrString(flags.obj(), "writeable", Py_False);
   DCHECK(flag_set == 0) << "Could not mark Numpy array immutable";
   return Status::OK();
 }
@@ -184,23 +184,23 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
 
 #define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                                     \
   const auto& data = static_cast<const UnionArray&>(array);                              \
-  ScopedRef result(CREATE_FN(stop_idx - start_idx));                                     \
+  OwnedRef result(CREATE_FN(stop_idx - start_idx));                                      \
   const uint8_t* type_ids = data.raw_type_ids();                                         \
   const int32_t* value_offsets = data.raw_value_offsets();                               \
   for (int64_t i = start_idx; i < stop_idx; ++i) {                                       \
     if (data.IsNull(i)) {                                                                \
       Py_INCREF(Py_None);                                                                \
-      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                                 \
+      SET_ITEM_FN(result.obj(), i - start_idx, Py_None);                                 \
     } else {                                                                             \
       int64_t offset = value_offsets[i];                                                 \
       uint8_t type = type_ids[i];                                                        \
       PyObject* value;                                                                   \
       RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, type, base, \
                              blobs, &value));                                            \
-      SET_ITEM_FN(result.get(), i - start_idx, value);                                   \
+      SET_ITEM_FN(result.obj(), i - start_idx, value);                                   \
     }                                                                                    \
   }                                                                                      \
-  *out = result.release();                                                               \
+  *out = result.detach();                                                                \
   return Status::OK()
 
 Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
@@ -219,13 +219,13 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
                       int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                       PyObject** out) {
   const auto& data = static_cast<const UnionArray&>(array);
-  ScopedRef result(PySet_New(nullptr));
+  OwnedRef result(PySet_New(nullptr));
   const uint8_t* type_ids = data.raw_type_ids();
   const int32_t* value_offsets = data.raw_value_offsets();
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     if (data.IsNull(i)) {
       Py_INCREF(Py_None);
-      if (PySet_Add(result.get(), Py_None) < 0) {
+      if (PySet_Add(result.obj(), Py_None) < 0) {
         RETURN_IF_PYERROR();
       }
     } else {
@@ -234,12 +234,12 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
       PyObject* value;
       RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, type, base,
                              blobs, &value));
-      if (PySet_Add(result.get(), value) < 0) {
+      if (PySet_Add(result.obj(), value) < 0) {
         RETURN_IF_PYERROR();
       }
     }
   }
-  *out = result.release();
+  *out = result.detach();
   return Status::OK();
 }
 
