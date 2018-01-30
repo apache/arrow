@@ -857,6 +857,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                               const shared_ptr[CDataType]& type)
     CStatus ConvertPySequence(object obj, CMemoryPool* pool,
                               shared_ptr[CArray]* out,
+                              int64_t size)
+    CStatus ConvertPySequence(object obj, CMemoryPool* pool,
+                              shared_ptr[CArray]* out,
                               const shared_ptr[CDataType]& type,
                               int64_t size)
 
