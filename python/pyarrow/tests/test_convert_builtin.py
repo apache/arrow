@@ -23,6 +23,7 @@ import pyarrow as pa
 
 import datetime
 import decimal
+import itertools
 import numpy as np
 import six
 
@@ -66,6 +67,24 @@ def test_limited_iterator_size_underflow():
     arr1 = pa.array(iter(range(3)), type=pa.int64(), size=10)
     arr2 = pa.array((0, 1, 2))
     assert arr1.equals(arr2)
+
+
+def test_iterator_without_size():
+    expected = pa.array((0, 1, 2))
+    arr1 = pa.array(iter(range(3)))
+    assert arr1.equals(expected)
+    # Same with explicit type
+    arr1 = pa.array(iter(range(3)), type=pa.int64())
+    assert arr1.equals(expected)
+
+
+def test_infinite_iterator():
+    expected = pa.array((0, 1, 2))
+    arr1 = pa.array(itertools.count(0), size=3)
+    assert arr1.equals(expected)
+    # Same with explicit type
+    arr1 = pa.array(itertools.count(0), type=pa.int64(), size=3)
+    assert arr1.equals(expected)
 
 
 def _as_list(xs):

@@ -21,14 +21,21 @@ cdef _sequence_to_array(object sequence, object size, DataType type,
     cdef shared_ptr[CArray] out
     cdef int64_t c_size
     if type is None:
-        with nogil:
-            check_status(ConvertPySequence(sequence, pool, &out))
+        if size is None:
+            with nogil:
+                check_status(ConvertPySequence(sequence, pool, &out))
+        else:
+            c_size = size
+            with nogil:
+                check_status(
+                    ConvertPySequence(sequence, c_size, pool, &out)
+                )
     else:
         if size is None:
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, pool, &out, type.sp_type
+                        sequence, type.sp_type, pool, &out,
                     )
                 )
         else:
@@ -36,7 +43,7 @@ cdef _sequence_to_array(object sequence, object size, DataType type,
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, pool, &out, type.sp_type, c_size
+                        sequence, c_size, type.sp_type, pool, &out,
                     )
                 )
 

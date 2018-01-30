@@ -172,38 +172,26 @@ class SeqVisitor {
   Status Visit(PyObject* obj, int level = 0) {
     max_nesting_level_ = std::max(max_nesting_level_, level);
 
-    // Loop through either a sequence or an iterator.
-    if (PySequence_Check(obj)) {
-      Py_ssize_t size = PySequence_Size(obj);
-      for (int64_t i = 0; i < size; ++i) {
-        OwnedRef ref;
-        if (PyArray_Check(obj)) {
-          auto array = reinterpret_cast<PyArrayObject*>(obj);
-          auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
+    // Loop through a sequence
+    if (!PySequence_Check(obj))
+      return Status::TypeError("Object is not a sequence or iterable");
 
-          ref.reset(PyArray_GETITEM(array, ptr));
-          RETURN_IF_PYERROR();
+    Py_ssize_t size = PySequence_Size(obj);
+    for (int64_t i = 0; i < size; ++i) {
+      OwnedRef ref;
+      if (PyArray_Check(obj)) {
+        auto array = reinterpret_cast<PyArrayObject*>(obj);
+        auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
 
-          RETURN_NOT_OK(VisitElem(ref, level));
-        } else {
-          ref.reset(PySequence_GetItem(obj, i));
-          RETURN_IF_PYERROR();
-          RETURN_NOT_OK(VisitElem(ref, level));
-        }
-      }
-    } else if (PyObject_HasAttrString(obj, "__iter__")) {
-      OwnedRef iter(PyObject_GetIter(obj));
-      RETURN_IF_PYERROR();
-
-      PyObject* item = NULLPTR;
-      while ((item = PyIter_Next(iter.obj()))) {
+        ref.reset(PyArray_GETITEM(array, ptr));
         RETURN_IF_PYERROR();
 
-        OwnedRef ref(item);
+        RETURN_NOT_OK(VisitElem(ref, level));
+      } else {
+        ref.reset(PySequence_GetItem(obj, i));
+        RETURN_IF_PYERROR();
         RETURN_NOT_OK(VisitElem(ref, level));
       }
-    } else {
-      return Status::TypeError("Object is not a sequence or iterable");
     }
     return Status::OK();
   }
@@ -285,25 +273,45 @@ class SeqVisitor {
   }
 };
 
-Status InferArrowSize(PyObject* obj, int64_t* size) {
+// Convert *obj* to a sequence if necessary
+// Fill *size* to its length.  If >= 0 on entry, *size* is an upper size
+// bound that may lead to truncation.
+Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* size) {
   if (PySequence_Check(obj)) {
-    *size = static_cast<int64_t>(PySequence_Size(obj));
-  } else if (PyObject_HasAttrString(obj, "__iter__")) {
-    PyObject* iter = PyObject_GetIter(obj);
-    OwnedRef iter_ref(iter);
-    *size = 0;
-    PyObject* item;
-    while ((item = PyIter_Next(iter))) {
-      OwnedRef item_ref(item);
-      *size += 1;
+    // obj is already a sequence
+    int64_t real_size = static_cast<int64_t>(PySequence_Size(obj));
+    if (*size < 0) {
+      *size = real_size;
+    } else {
+      *size = std::min(real_size, *size);
     }
+    Py_INCREF(obj);
+    *seq = obj;
+  } else if (*size < 0) {
+    // unknown size, exhaust iterator
+    *seq = PySequence_List(obj);
+    RETURN_IF_PYERROR();
+    *size = static_cast<int64_t>(PyList_GET_SIZE(*seq));
   } else {
-    return Status::TypeError("Object is not a sequence or iterable");
-  }
-  if (PyErr_Occurred()) {
-    // Not a sequence
-    PyErr_Clear();
-    return Status::TypeError("Object is not a sequence or iterable");
+    // size is known but iterator could be infinite
+    Py_ssize_t i, n = *size;
+    PyObject* iter = PyObject_GetIter(obj);
+    RETURN_IF_PYERROR();
+    OwnedRef iter_ref(iter);
+    PyObject* lst = PyList_New(n);
+    RETURN_IF_PYERROR();
+    for (i = 0; i < n; i++) {
+      PyObject* item = PyIter_Next(iter);
+      if (!item) break;
+      PyList_SET_ITEM(lst, i, item);
+    }
+    // Shrink list if len(iterator) < size
+    if (i < n && PyList_SetSlice(lst, i, n, NULL)) {
+      Py_DECREF(lst);
+      return Status::UnknownError("failed to resize list");
+    }
+    *seq = lst;
+    *size = std::min<int64_t>(i, *size);
   }
   return Status::OK();
 }
@@ -325,7 +333,10 @@ Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
 
 Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
                              std::shared_ptr<DataType>* out_type) {
-  RETURN_NOT_OK(InferArrowSize(obj, size));
+  if (!PySequence_Check(obj)) {
+    return Status::TypeError("Object is not a sequence");
+  }
+  *size = static_cast<int64_t>(PySequence_Size(obj));
 
   // For 0-length sequences, refuse to guess
   if (*size == 0) {
@@ -382,27 +393,8 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
           RETURN_NOT_OK(static_cast<Derived*>(this)->AppendItem(ref));
         }
       }
-    } else if (PyObject_HasAttrString(obj, "__iter__")) {
-      PyObject* iter = PyObject_GetIter(obj);
-      OwnedRef iter_ref(iter);
-      PyObject* item;
-      int64_t i = 0;
-      // To allow people with long generators to only convert a subset, stop
-      // consuming at size.
-      while ((item = PyIter_Next(iter)) && i < size) {
-        OwnedRef ref(item);
-        if (ref.obj() == Py_None) {
-          RETURN_NOT_OK(this->typed_builder_->AppendNull());
-        } else {
-          RETURN_NOT_OK(static_cast<Derived*>(this)->AppendItem(ref));
-        }
-        ++i;
-      }
-      if (size != i) {
-        RETURN_NOT_OK(this->typed_builder_->Resize(i));
-      }
     } else {
-      return Status::TypeError("Object is not a sequence or iterable");
+      return Status::TypeError("Object is not a sequence");
     }
     return Status::OK();
   }
@@ -830,38 +822,56 @@ Status AppendPySequence(PyObject* obj, int64_t size,
   return converter->AppendData(obj, size);
 }
 
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out) {
+static Status ConvertPySequenceReal(PyObject* obj, int64_t size,
+                                    const std::shared_ptr<DataType>* type,
+                                    MemoryPool* pool, std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
-  std::shared_ptr<DataType> type;
-  int64_t size;
-  RETURN_NOT_OK(InferArrowTypeAndSize(obj, &size, &type));
-  return ConvertPySequence(obj, pool, out, type, size);
-}
 
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-                         const std::shared_ptr<DataType>& type, int64_t size) {
-  PyAcquireGIL lock;
+  PyObject* seq;
+  ScopedRef tmp_seq_nanny;
+
+  std::shared_ptr<DataType> real_type;
+
+  RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));
+  tmp_seq_nanny.reset(seq);
+  if (type == nullptr) {
+    RETURN_NOT_OK(InferArrowType(seq, &real_type));
+  } else {
+    real_type = *type;
+  }
+  DCHECK_GE(size, 0);
+
   // Handle NA / NullType case
-  if (type->id() == Type::NA) {
+  if (real_type->id() == Type::NA) {
     out->reset(new NullArray(size));
     return Status::OK();
   }
 
   // Give the sequence converter an array builder
   std::unique_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(MakeBuilder(pool, type, &builder));
-  RETURN_NOT_OK(AppendPySequence(obj, size, type, builder.get()));
+  RETURN_NOT_OK(MakeBuilder(pool, real_type, &builder));
+  RETURN_NOT_OK(AppendPySequence(seq, size, real_type, builder.get()));
   return builder->Finish(out);
 }
 
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-                         const std::shared_ptr<DataType>& type) {
-  int64_t size;
-  {
-    PyAcquireGIL lock;
-    RETURN_NOT_OK(InferArrowSize(obj, &size));
-  }
-  return ConvertPySequence(obj, pool, out, type, size);
+Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out) {
+  return ConvertPySequenceReal(obj, -1, nullptr, pool, out);
+}
+
+Status ConvertPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
+                         MemoryPool* pool, std::shared_ptr<Array>* out) {
+  return ConvertPySequenceReal(obj, -1, &type, pool, out);
+}
+
+Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool,
+                         std::shared_ptr<Array>* out) {
+  return ConvertPySequenceReal(obj, size, nullptr, pool, out);
+}
+
+Status ConvertPySequence(PyObject* obj, int64_t size,
+                         const std::shared_ptr<DataType>& type, MemoryPool* pool,
+                         std::shared_ptr<Array>* out) {
+  return ConvertPySequenceReal(obj, size, &type, pool, out);
 }
 
 Status CheckPythonBytesAreFixedLength(PyObject* obj, Py_ssize_t expected_length) {
