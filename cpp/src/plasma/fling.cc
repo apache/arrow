@@ -43,7 +43,7 @@ int send_fd(int conn, int fd) {
   header->cmsg_level = SOL_SOCKET;
   header->cmsg_type = SCM_RIGHTS;
   header->cmsg_len = CMSG_LEN(sizeof(int));
-  *reinterpret_cast<int*>(CMSG_DATA(header)) = fd;
+  memcpy(CMSG_DATA(header), reinterpret_cast<void*>(&fd), sizeof(int));
 
   // Send file descriptor.
   ssize_t r = sendmsg(conn, &msg, 0);
