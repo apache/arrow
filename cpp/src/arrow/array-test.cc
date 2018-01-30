@@ -2384,6 +2384,37 @@ TEST(TestDictionary, Validate) {
   // ASSERT_OK(ValidateArray(*arr3));
 }
 
+TEST(TestDictionary, FromArray) {
+  std::shared_ptr<Array> dict;
+  vector<string> dict_values = {"foo", "bar", "baz"};
+  ArrayFromVector<StringType, string>(dict_values, &dict);
+  std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
+
+  std::shared_ptr<Array> indices1;
+  vector<int16_t> indices_values1 = {1, 2, 0, 0, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(indices_values1, &indices1);
+
+  std::shared_ptr<Array> indices2;
+  vector<int16_t> indices_values2 = {1, 2, 0, 3, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(indices_values2, &indices2);
+
+  std::shared_ptr<Array> indices3;
+  vector<bool> is_valid3 = {true, true, false, true, true, true};
+  vector<int16_t> indices_values3 = {1, 2, -1, 0, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(is_valid3, indices_values3, &indices3);
+
+  std::shared_ptr<Array> indices4;
+  vector<bool> is_valid4 = {true, true, false, true, true, true};
+  vector<int16_t> indices_values4 = {1, 2, 1, 3, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(is_valid4, indices_values4, &indices4);
+
+  std::shared_ptr<Array> arr1, arr2, arr3, arr4;
+  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices1, &arr1));
+  ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices2, &arr2));
+  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices3, &arr3));
+  ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices4, &arr4));
+}
+
 // ----------------------------------------------------------------------
 // Struct tests
 
