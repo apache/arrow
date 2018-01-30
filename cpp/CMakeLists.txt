@@ -147,6 +147,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow CPython extensions"
     OFF)
 
+  option(ARROW_FUZZING
+    "Build Arrow Fuzzing executables"
+    OFF)
+
   option(ARROW_SSE3
     "Build Arrow with SSE3"
     ON)
@@ -249,6 +253,10 @@ if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
 endif()
 
+if (NOT ARROW_FUZZING)
+  set(NO_FUZZING 1)
+endif()
+
 if(ARROW_HDFS)
   set(ARROW_BOOST_HEADER_ONLY 0)
 else()
@@ -300,6 +308,9 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
 endif()
 
 # ASAN / TSAN / UBSAN
+if(ARROW_FUZZING)
+    set(ARROW_USE_COVERAGE ON)
+endif()
 include(san-config)
 
 # For any C code, use the same flags.
