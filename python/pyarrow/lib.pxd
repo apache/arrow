@@ -333,8 +333,8 @@ cdef class NativeFile:
         shared_ptr[RandomAccessFile] rd_file
         shared_ptr[OutputStream] wr_file
         bint is_readable
-        bint is_writeable
-        bint is_open
+        bint is_writable
+        readonly bint closed
         bint own_file
 
     # By implementing these "virtual" functions (all functions in Cython
