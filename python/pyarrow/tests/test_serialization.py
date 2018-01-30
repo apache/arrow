@@ -230,17 +230,8 @@ def _check_component_roundtrip(value):
 
 
 @pytest.yield_fixture(scope='session')
-def large_memory_map(tmpdir_factory, size=100*1024*1024):
-    path = (tmpdir_factory.mktemp('data')
-            .join('pyarrow-serialization-tmp-file').strpath)
-
-    # Create a large memory mapped file
-    with open(path, 'wb') as f:
-        f.write(np.random.randint(0, 256, size=size)
-                .astype('u1')
-                .tobytes()
-                [:size])
-    return path
+def large_buffer(size=100*1024*1024):
+    return pa.allocate_buffer(size)
 
 
 def test_primitive_serialization(large_memory_map):
