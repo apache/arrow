@@ -494,7 +494,7 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
 
 Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
                                    const std::shared_ptr<Array>& indices,
-                                   std::shared_ptr<Array>* out) { 
+                                   std::shared_ptr<Array>* out) {
   if (indices->length() == 0) {
     return Status::Invalid("Dictionary indices must have non-zero length");
   }
@@ -526,12 +526,11 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
     return Status::NotImplemented(ss.str());
   }
 
-  if(!is_valid) {
+  if (!is_valid) {
     return Status::Invalid("Invalid dictionary indices");
   }
 
-  std::shared_ptr<DictionaryArray> internal = std::make_shared<DictionaryArray>(type, indices);
-  *out = internal;
+  *out = std::make_shared<DictionaryArray>(type, indices);
   return Status::OK();
 }
 

@@ -726,6 +726,13 @@ class ARROW_EXPORT DictionaryArray : public Array {
   DictionaryArray(const std::shared_ptr<DataType>& type,
                   const std::shared_ptr<Array>& indices);
 
+  /// \brief Construct DictionaryArray from dictonary data type and indices array
+  ///
+  /// This function does the validation of the indices and input type
+  ///
+  /// \param[in] type a data type containing a dictionary
+  /// \param[in] indices an array of non-negative integers as dictionary indices
+  /// \param[out] out the resulting DictionaryArray instance
   static Status FromArrays(const std::shared_ptr<DataType>& type,
                            const std::shared_ptr<Array>& indices,
                            std::shared_ptr<Array>* out);
@@ -738,6 +745,10 @@ class ARROW_EXPORT DictionaryArray : public Array {
  private:
   void SetData(const std::shared_ptr<ArrayData>& data);
 
+  /// \brief Check if all indices are within valid range
+  ///
+  /// \param[in] indices dictionary indices
+  /// \param[in] range valid range of indices (0 <= index < range)
   template <typename ArrowType>
     static bool SanityCheck(const std::shared_ptr<Array>& indices, const int64_t range) {
     using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
@@ -746,11 +757,11 @@ class ARROW_EXPORT DictionaryArray : public Array {
     const int64_t size = sizeof(data) / sizeof(data[0]);
 
     for (int64_t idx = 0; idx < size; ++idx) {
-      if (!array->IsNull(idx)){
-	if (data[idx] < 0 || data[idx] >= range) {
+      if (!array->IsNull(idx)) {
+        if (data[idx] < 0 || data[idx] >= range) {
 	  return false;
-	}
-      } 
+        }
+      }
     }
     return true;
   }
