@@ -554,7 +554,7 @@ def test_deserialize_buffer_in_different_process():
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
     python_file = os.path.join(dir_path, 'deserialize_buffer.py')
-    subprocess.check_call(['python', python_file, f.name])
+    subprocess.check_call([sys.executable, python_file, f.name])
 
 
 def test_set_pickle():
