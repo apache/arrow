@@ -55,18 +55,19 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 
 // Type inference only
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-                         int64_t size);
+Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool,
+                         std::shared_ptr<Array>* out);
 
 // Size inference only
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-                         const std::shared_ptr<DataType>& type);
+Status ConvertPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
+                         MemoryPool* pool, std::shared_ptr<Array>* out);
 
 // No inference
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-                         const std::shared_ptr<DataType>& type, int64_t size);
+Status ConvertPySequence(PyObject* obj, int64_t size,
+                         const std::shared_ptr<DataType>& type, MemoryPool* pool,
+                         std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
 Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,
