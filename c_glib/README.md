@@ -53,6 +53,8 @@ recommended that you use packages.
 Note that the packages are "unofficial". "Official" packages will be
 released in the future.
 
+If you find problems when installing please see [common build problems](https://github.com/apache/arrow/blob/master/c_glib/README.md#common-build-problems).
+
 ### Package
 
 See [install document](../site/install.md) for details.
