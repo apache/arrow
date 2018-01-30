@@ -26,6 +26,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
 
@@ -133,12 +134,14 @@ Status PyReadableFile::Tell(int64_t* position) const {
 
 Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
   PyAcquireGIL lock;
-  PyObject* bytes_obj;
+
+  PyObject* bytes_obj = NULL;
   ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
+  DCHECK(bytes_obj != NULL);
 
   *bytes_read = PyBytes_GET_SIZE(bytes_obj);
   std::memcpy(out, PyBytes_AS_STRING(bytes_obj), *bytes_read);
-  Py_DECREF(bytes_obj);
+  Py_XDECREF(bytes_obj);
 
   return Status::OK();
 }
@@ -146,11 +149,12 @@ Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
 Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   PyAcquireGIL lock;
 
-  PyObject* bytes_obj;
+  PyObject* bytes_obj = NULL;
   ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
+  DCHECK(bytes_obj != NULL);
 
   *out = std::make_shared<PyBuffer>(bytes_obj);
-  Py_DECREF(bytes_obj);
+  Py_XDECREF(bytes_obj);
 
   return Status::OK();
 }
@@ -172,13 +176,13 @@ Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes,
 Status PyReadableFile::GetSize(int64_t* size) {
   PyAcquireGIL lock;
 
-  int64_t current_position;
+  int64_t current_position = -1;
 
   ARROW_RETURN_NOT_OK(file_->Tell(&current_position));
 
   ARROW_RETURN_NOT_OK(file_->Seek(0, 2));
 
-  int64_t file_size;
+  int64_t file_size = -1;
   ARROW_RETURN_NOT_OK(file_->Tell(&file_size));
 
   // Restore previous file position

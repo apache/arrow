@@ -866,7 +866,7 @@ static Status GetField(const rj::Value& obj, const DictionaryMemo* dictionary_me
   if (dictionary_memo != nullptr && it_dictionary != json_field.MemberEnd()) {
     // Field is dictionary encoded. We must have already
     RETURN_NOT_OBJECT("dictionary", it_dictionary, json_field);
-    int64_t dictionary_id;
+    int64_t dictionary_id = -1;
     bool is_ordered;
     std::shared_ptr<DataType> index_type;
     RETURN_NOT_OK(ParseDictionary(it_dictionary->value.GetObject(), &dictionary_id,
@@ -1346,7 +1346,7 @@ static Status ReadDictionaries(const rj::Value& doc, const DictionaryTypeMap& id
 
   for (const rj::Value& val : dictionary_array) {
     DCHECK(val.IsObject());
-    int64_t dictionary_id;
+    int64_t dictionary_id = -1;
     std::shared_ptr<Array> dictionary;
     RETURN_NOT_OK(
         ReadDictionary(val.GetObject(), id_to_field, pool, &dictionary_id, &dictionary));

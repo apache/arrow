@@ -590,6 +590,8 @@ class TimestampConverter
         case TimeUnit::NANO:
           t = PyDateTime_to_ns(pydatetime);
           break;
+        default:
+          return Status::UnknownError("Invalid time unit");
       }
     } else if (PyArray_CheckAnyScalarExact(item.obj())) {
       // numpy.datetime64
