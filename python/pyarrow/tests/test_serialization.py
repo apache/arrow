@@ -210,11 +210,12 @@ def make_serialization_context():
 serialization_context = make_serialization_context()
 
 
-def serialization_roundtrip(value, f, ctx=serialization_context):
-    f.seek(0)
-    pa.serialize_to(value, f, ctx)
-    f.seek(0)
-    result = pa.deserialize_from(f, None, ctx)
+def serialization_roundtrip(value, scratch_buffer, ctx=serialization_context):
+    writer = pa.FixedSizeBufferWriter(scratch_buffer)
+    pa.serialize_to(value, writer, ctx)
+
+    reader = pa.BufferReader(scratch_buffer)
+    result = pa.deserialize_from(reader, None, ctx)
     assert_equal(value, result)
 
     _check_component_roundtrip(value)
@@ -230,6 +231,10 @@ def _check_component_roundtrip(value):
 
 
 @pytest.yield_fixture(scope='session')
+def large_buffer(size=100*1024*1024):
+    return pa.allocate_buffer(size)
+
+
 def large_memory_map(tmpdir_factory, size=100*1024*1024):
     path = (tmpdir_factory.mktemp('data')
             .join('pyarrow-serialization-tmp-file').strpath)
@@ -243,11 +248,11 @@ def large_memory_map(tmpdir_factory, size=100*1024*1024):
     return path
 
 
-def test_primitive_serialization(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for obj in PRIMITIVE_OBJECTS:
-            serialization_roundtrip(obj, mmap)
-            serialization_roundtrip(obj, mmap, pa.pandas_serialization_context)
+def test_primitive_serialization(large_buffer):
+    for obj in PRIMITIVE_OBJECTS:
+        serialization_roundtrip(obj, large_buffer)
+        serialization_roundtrip(obj, large_buffer,
+                                pa.pandas_serialization_context)
 
 
 def test_serialize_to_buffer():
@@ -258,34 +263,31 @@ def test_serialize_to_buffer():
             assert_equal(value, result)
 
 
-def test_complex_serialization(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for obj in COMPLEX_OBJECTS:
-            serialization_roundtrip(obj, mmap)
+def test_complex_serialization(large_buffer):
+    for obj in COMPLEX_OBJECTS:
+        serialization_roundtrip(obj, large_buffer)
 
 
-def test_custom_serialization(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for obj in CUSTOM_OBJECTS:
-            serialization_roundtrip(obj, mmap)
+def test_custom_serialization(large_buffer):
+    for obj in CUSTOM_OBJECTS:
+        serialization_roundtrip(obj, large_buffer)
 
 
-def test_default_dict_serialization(large_memory_map):
+def test_default_dict_serialization(large_buffer):
     pytest.importorskip("cloudpickle")
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        obj = defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
-        serialization_roundtrip(obj, mmap)
+
+    obj = defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
+    serialization_roundtrip(obj, large_buffer)
 
 
-def test_numpy_serialization(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for t in ["bool", "int8", "uint8", "int16", "uint16", "int32",
-                  "uint32", "float16", "float32", "float64"]:
-            obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
-            serialization_roundtrip(obj, mmap)
+def test_numpy_serialization(large_buffer):
+    for t in ["bool", "int8", "uint8", "int16", "uint16", "int32",
+              "uint32", "float16", "float32", "float64"]:
+        obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
+        serialization_roundtrip(obj, large_buffer)
 
 
-def test_datetime_serialization(large_memory_map):
+def test_datetime_serialization(large_buffer):
     data = [
         #  Principia Mathematica published
         datetime.datetime(year=1687, month=7, day=5),
@@ -309,32 +311,31 @@ def test_datetime_serialization(large_memory_map):
         datetime.datetime(year=1970, month=1, day=3, hour=4,
                           minute=0, second=0)
     ]
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for d in data:
-            serialization_roundtrip(d, mmap)
+    for d in data:
+        serialization_roundtrip(d, large_buffer)
 
 
-def test_torch_serialization(large_memory_map):
+def test_torch_serialization(large_buffer):
     pytest.importorskip("torch")
     import torch
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        # These are the only types that are supported for the
-        # PyTorch to NumPy conversion
-        for t in ["float32", "float64",
-                  "uint8", "int16", "int32", "int64"]:
-            obj = torch.from_numpy(np.random.randn(1000).astype(t))
-            serialization_roundtrip(obj, mmap)
+    # These are the only types that are supported for the
+    # PyTorch to NumPy conversion
+    for t in ["float32", "float64",
+              "uint8", "int16", "int32", "int64"]:
+        obj = torch.from_numpy(np.random.randn(1000).astype(t))
+        serialization_roundtrip(obj, large_buffer)
 
 
-def test_numpy_immutable(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        obj = np.zeros([10])
-        mmap.seek(0)
-        pa.serialize_to(obj, mmap, serialization_context)
-        mmap.seek(0)
-        result = pa.deserialize_from(mmap, None, serialization_context)
-        with pytest.raises(ValueError):
-            result[0] = 1.0
+def test_numpy_immutable(large_buffer):
+    obj = np.zeros([10])
+
+    writer = pa.FixedSizeBufferWriter(large_buffer)
+    pa.serialize_to(obj, writer, serialization_context)
+
+    reader = pa.BufferReader(large_buffer)
+    result = pa.deserialize_from(reader, None, serialization_context)
+    with pytest.raises(ValueError):
+        result[0] = 1.0
 
 
 # see https://issues.apache.org/jira/browse/ARROW-1695
