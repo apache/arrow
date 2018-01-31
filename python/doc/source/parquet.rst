@@ -237,3 +237,37 @@ throughput:
 
    pq.read_table(where, nthreads=4)
    pq.ParquetDataset(where).read(nthreads=4)
+
+Reading a Parquet File from Azure Blob storage
+-------------------
+
+The code below shows how to use Azure's storage sdk along with pyarrow to read
+a parquet file into a Pandas dataframe.
+This is suitable for executing inside a Jupyter notebook running on a Python 3
+kernel.
+
+Dependencies:
+python 3.6.2
+azure-storage 0.36.0
+pyarrow 0.8.0
+
+.. code-block:: python
+
+   import pyarrow.parquet as pq
+   import io
+   from azure.storage.blob import BlockBlobService
+   import tempfile
+
+   account_name = '...'
+   account_key = '...'
+   container_name = '...'
+   parquet_file = 'mysample.parquet'
+
+   block_blob_service = BlockBlobService(account_name=account_name, account_key=account_key)
+   with tempfile.TemporaryFile() as fp:
+      block_blob_service.get_blob_to_stream(container_name=container_name, blob_name=parquet_file, stream=fp)
+      pd = pq.read_table(source=fp).to_pandas()
+      pd.head(10)
+   fp.close
+ 
+   
