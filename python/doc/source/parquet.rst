@@ -239,7 +239,7 @@ throughput:
    pq.ParquetDataset(where).read(nthreads=4)
 
 Reading a Parquet File from Azure Blob storage
--------------------
+----------------------------------------------
 
 The code below shows how to use Azure's storage sdk along with pyarrow to read
 a parquet file into a Pandas dataframe.
@@ -274,7 +274,7 @@ Dependencies:
 Notes:
 
 - The ``account_key`` can be found under ``Settings -> Access keys`` in the Microsoft Azure portal for a given container
-   Pick either one of the two default keys issued by Microsoft
+   - Pick either one of the two default keys issued by Microsoft
 - The code above worked for a container with private access, Lease State = Available, Lease Status = Unlocked
 - The parquet file was Blob Type = Block blob
 
