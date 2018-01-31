@@ -17,21 +17,7 @@
 
 import numpy as np
 import pandas as pd
-import pyarrow as A
-
-
-class PyListConversions(object):
-    param_names = ('size',)
-    params = (1, 10 ** 5, 10 ** 6, 10 ** 7)
-
-    def setup(self, n):
-        self.data = list(range(n))
-
-    def time_from_pylist(self, n):
-        A.from_pylist(self.data)
-
-    def peakmem_from_pylist(self, n):
-        A.from_pylist(self.data)
+import pyarrow as pa
 
 
 class PandasConversionsBase(object):
@@ -46,37 +32,19 @@ class PandasConversionsBase(object):
 
 class PandasConversionsToArrow(PandasConversionsBase):
     param_names = ('size', 'dtype')
-    params = ((1, 10 ** 5, 10 ** 6, 10 ** 7), ('int64', 'float64', 'float64_nans', 'str'))
+    params = ((10, 10 ** 6), ('int64', 'float64', 'float64_nans', 'str'))
 
     def time_from_series(self, n, dtype):
-        A.Table.from_pandas(self.data)
-
-    def peakmem_from_series(self, n, dtype):
-        A.Table.from_pandas(self.data)
+        pa.Table.from_pandas(self.data)
 
 
 class PandasConversionsFromArrow(PandasConversionsBase):
     param_names = ('size', 'dtype')
-    params = ((1, 10 ** 5, 10 ** 6, 10 ** 7), ('int64', 'float64', 'float64_nans', 'str'))
+    params = ((10, 10 ** 6), ('int64', 'float64', 'float64_nans', 'str'))
 
     def setup(self, n, dtype):
         super(PandasConversionsFromArrow, self).setup(n, dtype)
-        self.arrow_data = A.Table.from_pandas(self.data)
+        self.arrow_data = pa.Table.from_pandas(self.data)
 
     def time_to_series(self, n, dtype):
         self.arrow_data.to_pandas()
-
-    def peakmem_to_series(self, n, dtype):
-        self.arrow_data.to_pandas()
-
-
-class ScalarAccess(object):
-    param_names = ('size',)
-    params = (1, 10 ** 5, 10 ** 6, 10 ** 7)
-
-    def setUp(self, n):
-        self._array = A.from_pylist(list(range(n)))
-
-    def time_as_py(self, n):
-        for i in range(n):
-            self._array[i].as_py()
