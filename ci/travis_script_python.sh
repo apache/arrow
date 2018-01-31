@@ -96,7 +96,7 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
 fi
 
 PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
-python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet
+python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
 
 if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
   # Build documentation once
