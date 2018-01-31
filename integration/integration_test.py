@@ -466,7 +466,7 @@ class BinaryType(PrimitiveType):
 class FixedSizeBinaryType(PrimitiveType):
 
     def __init__(self, name, byte_width, nullable=True):
-        PrimitiveType.__init__(self, name, nullable)
+        super(FixedSizeBinaryType, self).__init__(name, nullable=nullable)
         self.byte_width = byte_width
 
     @property

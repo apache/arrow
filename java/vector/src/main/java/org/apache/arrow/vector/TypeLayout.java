@@ -139,7 +139,7 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(FixedSizeBinary type) {
-        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(type.getByteWidth() * 8));
+        return newFixedWidthTypeLayout(new BufferLayout(BufferType.DATA, type.getByteWidth() * 8));
       }
 
       @Override

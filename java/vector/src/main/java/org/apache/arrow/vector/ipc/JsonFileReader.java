@@ -339,7 +339,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           values.add(value);
         }
 
-        int byteWidth = count > 0? values.get(0).length : 0;
+        int byteWidth = count > 0 ? values.get(0).length : 0;
         ArrowBuf buf = allocator.buffer(byteWidth * count);
         for (byte[] value : values) {
           buf.writeBytes(value);
