@@ -53,17 +53,18 @@ TEST(TestBuffer, FromStdString) {
 }
 
 TEST(TestBuffer, FromStdStringWithMemory) {
-  std::string* val = new std::string("hello, world");
+  std::string expected = "hello, world";
   std::shared_ptr<Buffer> buf;
-  std::string expected("hello, world");
 
-  ASSERT_OK(Buffer::FromString(*val, default_memory_pool(), &buf));
+  {
+    std::string temp = "hello, world";
+    ASSERT_OK(Buffer::FromString(temp, &buf));
+    ASSERT_EQ(0, memcmp(buf->data(), temp.c_str(), temp.size()));
+    ASSERT_EQ(static_cast<int64_t>(temp.size()), buf->size());
+  }
 
-  ASSERT_EQ(0, memcmp(buf->data(), val->c_str(), val->size()));
-  ASSERT_EQ(static_cast<int64_t>(val->size()), buf->size());
-
-  delete val;
-
+  // Now temp goes out of scope and we check if created buffer
+  // is still valid to make sure it actually owns its space
   ASSERT_EQ(0, memcmp(buf->data(), expected.c_str(), expected.size()));
   ASSERT_EQ(static_cast<int64_t>(expected.size()), buf->size());
 }
