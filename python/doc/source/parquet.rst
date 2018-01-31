@@ -246,10 +246,11 @@ a parquet file into a Pandas dataframe.
 This is suitable for executing inside a Jupyter notebook running on a Python 3
 kernel.
 
-Dependencies:
-python 3.6.2
-azure-storage 0.36.0
-pyarrow 0.8.0
+Dependencies: 
+
+- python 3.6.2 
+- azure-storage 0.36.0 
+- pyarrow 0.8.0 
 
 .. code-block:: python
 
