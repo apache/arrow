@@ -273,7 +273,8 @@ Dependencies:
 
 Notes:
 
-- The `account_key` can be found under `Settings -> Access keys` in the Microsoft Azure portal for a given container.
+- The ``account_key`` can be found under ``Settings -> Access keys`` in the Microsoft Azure portal for a given container
+-- Pick either one of the two default keys issued by Microsoft
 - The code above worked for a container with private access, Lease State = Available, Lease Status = Unlocked
 - The parquet file was Blob Type = Block blob
 
