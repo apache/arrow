@@ -15,60 +15,115 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { List } from './types';
-import { Vector } from './vector';
-import { VirtualVector } from './virtual';
+import { Data } from '../data';
+import { View, Vector, createVector } from '../vector';
+import { TextEncoder, TextDecoder } from 'text-encoding-utf-8';
+import { List, Binary, Utf8, FixedSizeList, FlatListType } from '../type';
+import { ListType, DataType, IterableArrayLike } from '../type';
 
-export class BinaryVector extends Vector<Uint8Array> {
-    readonly data: Uint8Array;
-    readonly offsets: Int32Array;
-    constructor(argv: { offsets: Int32Array, data: Uint8Array }) {
-        super();
-        this.data = argv.data;
-        this.offsets = argv.offsets;
-    }
-    get(index: number) {
-        return this.data.subarray(this.offsets[index], this.offsets[index + 1]);
-    }
-    concat(...vectors: Vector<Uint8Array>[]): Vector<Uint8Array> {
-        return new VirtualVector(Array, this, ...vectors);
-    }
-}
+export const encodeUtf8 = ((encoder) =>
+    encoder.encode.bind(encoder) as (input?: string) => Uint8Array
+)(new TextEncoder('utf-8'));
 
-export class ListVector<T> extends Vector<T[]> {
-    readonly offsets: Int32Array;
-    readonly values: Vector<T>;
-    constructor(argv: { offsets: Int32Array, values: Vector<T> }) {
-        super();
-        this.values = argv.values;
-        this.offsets = argv.offsets;
+export const decodeUtf8 = ((decoder) =>
+    decoder.decode.bind(decoder) as (input?: ArrayBufferLike | ArrayBufferView) => string
+)(new TextDecoder('utf-8'));
+
+export abstract class ListViewBase<T extends (ListType | FlatListType | FixedSizeList)> implements View<T> {
+    public length: number;
+    public values: T['TArray'];
+    public valueOffsets?: Int32Array;
+    constructor(data: Data<T>) {
+        this.length = data.length;
+        this.values = data.values;
     }
-    get(index: number) {
-        const { offsets, values } = this;
-        const from = offsets[index];
-        const xs = new Array(offsets[index + 1] - from);
-        for (let i = -1, n = xs.length; ++i < n;) {
-            xs[i] = values.get(i + from);
+    public clone(data: Data<T>): this {
+        return new (<any> this.constructor)(data) as this;
+    }
+    public isValid(): boolean {
+        return true;
+    }
+    public toArray(): IterableArrayLike<T['TValue']> {
+        return [...this];
+    }
+    public get(index: number): T['TValue'] {
+        return this.getList(this.values, index, this.valueOffsets);
+    }
+    public set(index: number, value: T['TValue']): void {
+        return this.setList(this.values, index, value, this.valueOffsets);
+    }
+    public *[Symbol.iterator](): IterableIterator<T['TValue']> {
+        const get = this.getList, length = this.length;
+        const values = this.values, valueOffsets = this.valueOffsets;
+        for (let index = -1; ++index < length;) {
+            yield get(values, index, valueOffsets);
         }
-        return xs;
     }
-    concat(...vectors: Vector<T[]>[]): Vector<T[]> {
-        return new VirtualVector(Array, this, ...vectors);
+    protected abstract getList(values: T['TArray'], index: number, valueOffsets?: Int32Array): T['TValue'];
+    protected abstract setList(values: T['TArray'], index: number, value: T['TValue'], valueOffsets?: Int32Array): void;
+}
+
+export abstract class VariableListViewBase<T extends (ListType | FlatListType)> extends ListViewBase<T> {
+    constructor(data: Data<T>) {
+        super(data);
+        this.length = data.length;
+        this.valueOffsets = data.valueOffsets;
     }
 }
 
-export class FixedSizeListVector<T, TArray extends List<T>> extends Vector<TArray> {
-    readonly size: number;
-    readonly values: Vector<T>;
-    constructor(argv: { size: number, values: Vector<T> }) {
-        super();
-        this.size = argv.size;
-        this.values = argv.values;
+export class ListView<T extends DataType> extends VariableListViewBase<List<T>> {
+    constructor(data: Data<List<T>>) {
+        super(data);
+        this.values = createVector(data.values);
     }
-    get(index: number) {
-        return this.values.slice<TArray>(this.size * index, this.size * (index + 1));
+    protected getList(values: Vector<T>, index: number, valueOffsets: Int32Array) {
+        return values.slice(valueOffsets[index], valueOffsets[index + 1]) as Vector<T>;
     }
-    concat(...vectors: Vector<TArray>[]): Vector<TArray> {
-        return new VirtualVector(Array, this, ...vectors);
+    protected setList(values: Vector<T>, index: number, value: Vector<T>, valueOffsets: Int32Array): void {
+        let idx = -1;
+        let offset = valueOffsets[index];
+        let end = Math.min(value.length, valueOffsets[index + 1] - offset);
+        while (offset < end) {
+            values.set(offset++, value.get(++idx));
+        }
+    }
+}
+
+export class FixedSizeListView<T extends DataType> extends ListViewBase<FixedSizeList<T>> {
+    public size: number;
+    constructor(data: Data<FixedSizeList<T>>) {
+        super(data);
+        this.size = data.type.listSize;
+        this.values = createVector(data.values);
+    }
+    protected getList(values: Vector<T>, index: number) {
+        const size = this.size;
+        return values.slice(index *= size, index + size) as Vector<T>;
+    }
+    protected setList(values: Vector<T>, index: number, value: Vector<T>): void {
+        let size = this.size;
+        for (let idx = -1, offset = index * size; ++idx < size;) {
+            values.set(offset + idx, value.get(++idx));
+        }
+    }
+}
+
+export class BinaryView extends VariableListViewBase<Binary> {
+    protected getList(values: Uint8Array, index: number, valueOffsets: Int32Array) {
+        return values.subarray(valueOffsets[index], valueOffsets[index + 1]);
+    }
+    protected setList(values: Uint8Array, index: number, value: Uint8Array, valueOffsets: Int32Array): void {
+        const offset = valueOffsets[index];
+        values.set(value.subarray(0, valueOffsets[index + 1] - offset), offset);
+    }
+}
+
+export class Utf8View extends VariableListViewBase<Utf8> {
+    protected getList(values: Uint8Array, index: number, valueOffsets: Int32Array) {
+        return decodeUtf8(values.subarray(valueOffsets[index], valueOffsets[index + 1]));
+    }
+    protected setList(values: Uint8Array, index: number, value: string, valueOffsets: Int32Array): void {
+        const offset = valueOffsets[index];
+        values.set(encodeUtf8(value).subarray(0, valueOffsets[index + 1] - offset), offset);
     }
 }

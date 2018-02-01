@@ -15,26 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { VirtualVector } from './virtual';
-import { TextDecoder } from 'text-encoding-utf-8';
+const fs = require('fs');
+const path = require('path');
+const glob = require('glob');
 
-const decoder = new TextDecoder('utf-8');
+const config = [];
+const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.arrow`));
 
-export class Utf8Vector extends Vector<string> {
-    readonly values: Vector<Uint8Array | null>;
-    constructor(argv: { values: Vector<Uint8Array | null> }) {
-        super();
-        this.values = argv.values;
-    }
-    get(index: number) {
-        const chars = this.getCodePoints(index);
-        return chars ? decoder.decode(chars) : null;
-    }
-    getCodePoints(index: number) {
-        return this.values.get(index);
-    }
-    concat(...vectors: Vector<string>[]): Vector<string> {
-        return new VirtualVector(Array, this, ...vectors);
+countBys = {
+    "tracks": ['origin', 'destination']
+}
+counts = {
+    "tracks": [
+        {col: 'lat',    test: 'gteq', value: 0        },
+        {col: 'lng',    test: 'gteq', value: 0        },
+        {col: 'origin', test:   'eq', value: 'Seattle'},
+    ]
+}
+
+for (const filename of filenames) {
+    const { name } = path.parse(filename);
+    if (name in counts) {
+        config.push({
+            name,
+            buffers: [fs.readFileSync(filename)],
+            countBys: countBys[name],
+            counts: counts[name],
+        });
     }
 }
+
+module.exports = config;

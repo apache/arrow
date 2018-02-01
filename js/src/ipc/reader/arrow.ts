@@ -16,33 +16,33 @@
 // under the License.
 
 import { readJSON } from './json';
-import { readBuffers, readBuffersAsync } from './buffer';
-import { readVectors, readVectorsAsync } from './vector';
-import { Vector } from '../vector/vector';
+import { RecordBatch } from '../../recordbatch';
+import { readBuffers, readBuffersAsync } from './binary';
+import { readRecordBatches, readRecordBatchesAsync, TypeDataLoader } from './vector';
+import { Schema } from '../../type';
+import { Message } from '../metadata';
 
-export { readJSON };
+export { readJSON, RecordBatch };
 export { readBuffers, readBuffersAsync };
-export { readVectors, readVectorsAsync };
+export { readRecordBatches, readRecordBatchesAsync };
 
 export function* read(sources: Iterable<Uint8Array | Buffer | string> | object | string) {
     let input: any = sources;
-    let batches: Iterable<Vector[]>;
+    let messages: Iterable<{ schema: Schema, message: Message, loader: TypeDataLoader }>;
     if (typeof input === 'string') {
         try { input = JSON.parse(input); }
         catch (e) { input = sources; }
     }
     if (!input || typeof input !== 'object') {
-        batches = (typeof input === 'string') ? readVectors(readBuffers([input])) : [];
+        messages = (typeof input === 'string') ? readBuffers([input]) : [];
     } else {
-        batches = (typeof input[Symbol.iterator] === 'function')
-            ? readVectors(readBuffers(input))
-            : readVectors(readJSON(input));
+        messages = (typeof input[Symbol.iterator] === 'function') ? readBuffers(input) : readJSON(input);
     }
-    yield* batches;
+    yield* readRecordBatches(messages);
 }
 
 export async function* readAsync(sources: AsyncIterable<Uint8Array | Buffer | string>) {
-    for await (let vectors of readVectorsAsync(readBuffersAsync(sources))) {
-        yield vectors;
+    for await (let recordBatch of readRecordBatchesAsync(readBuffersAsync(sources))) {
+        yield recordBatch;
     }
 }

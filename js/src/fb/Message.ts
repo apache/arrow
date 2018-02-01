@@ -45,6 +45,7 @@ export namespace org.apache.arrow.flatbuf {
     /**
      * @type {flatbuffers.ByteBuffer}
      */
+    // @ts-ignore
     bb: flatbuffers.ByteBuffer;
 
     /**
@@ -110,6 +111,7 @@ export namespace org.apache.arrow.flatbuf {
     /**
      * @type {flatbuffers.ByteBuffer}
      */
+    // @ts-ignore
     bb: flatbuffers.ByteBuffer;
 
     /**
@@ -265,6 +267,7 @@ export namespace org.apache.arrow.flatbuf {
     /**
      * @type {flatbuffers.ByteBuffer}
      */
+    // @ts-ignore
     bb: flatbuffers.ByteBuffer;
 
     /**
@@ -369,6 +372,7 @@ export namespace org.apache.arrow.flatbuf {
     /**
      * @type {flatbuffers.ByteBuffer}
      */
+    // @ts-ignore
     bb: flatbuffers.ByteBuffer;
 
     /**

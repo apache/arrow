@@ -18,28 +18,41 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-if (!process.env.JSON_PATH || !process.env.ARROW_PATH) {
-    throw new Error('Integration tests need paths to both json and arrow files');
-}
-
-const jsonPath = path.resolve(process.env.JSON_PATH + '');
-const arrowPath = path.resolve(process.env.ARROW_PATH + '');
-
-if (!fs.existsSync(jsonPath) || !fs.existsSync(arrowPath)) {
-    throw new Error('Integration tests need both json and arrow files to exist');
-}
-
-/* tslint:disable */
-const { parse } = require('json-bignum');
-
-const jsonData = parse(fs.readFileSync(jsonPath, 'utf8'));
-const arrowBuffers: Uint8Array[] = [fs.readFileSync(arrowPath)];
-
 import Arrow from '../Arrow';
 import { zip } from 'ix/iterable/zip';
 import { toArray } from 'ix/iterable/toarray';
 
+/* tslint:disable */
+const { parse: bignumJSONParse } = require('json-bignum');
+
 const { Table, read } = Arrow;
+
+if (!process.env.JSON_PATHS || !process.env.ARROW_PATHS) {
+    throw new Error('Integration tests need paths to both json and arrow files');
+}
+
+function resolvePathArgs(paths: string) {
+    let pathsArray = JSON.parse(paths) as string | string[];
+    return (Array.isArray(pathsArray) ? pathsArray : [pathsArray])
+        .map((p) => path.resolve(p))
+        .map((p) => {
+            if (fs.existsSync(p)) {
+                return p;
+            }
+            console.warn(`Could not find file "${p}"`);
+            return undefined;
+        });
+}
+
+const getOrReadFileBuffer = ((cache: any) => function getFileBuffer(path: string, ...args: any[]) {
+    return cache[path] || (cache[path] = fs.readFileSync(path, ...args));
+})({});
+
+const jsonAndArrowPaths = toArray(zip(
+    resolvePathArgs(process.env.JSON_PATHS!),
+    resolvePathArgs(process.env.ARROW_PATHS!)
+))
+.filter(([p1, p2]) => p1 !== undefined && p2 !== undefined) as [string, string][];
 
 expect.extend({
     toEqualVector(v1: any, v2: any) {
@@ -59,10 +72,14 @@ expect.extend({
             { title: 'iterator', failures: iteratorFailures }
         ];
 
-        let props = ['name', 'type', 'length', 'nullable', 'nullCount', 'metadata'];
+        let props = [
+            // 'name', 'nullable', 'metadata',
+            'type', 'length', 'nullCount'
+        ];
+
         for (let i = -1, n = props.length; ++i < n;) {
             const prop = props[i];
-            if (this.utils.stringify(v1[prop]) !== this.utils.stringify(v2[prop])) {
+            if (`${v1[prop]}` !== `${v2[prop]}`) {
                 propsFailures.push(`${prop}: ${format(v1[prop], v2[prop], ' !== ')}`);
             }
         }
@@ -94,35 +111,44 @@ expect.extend({
 });
 
 describe(`Integration`, () => {
-    testReaderIntegration();
-    testTableFromBuffersIntegration();
+    for (const [jsonFilePath, arrowFilePath] of jsonAndArrowPaths) {
+        let { name, dir } = path.parse(arrowFilePath);
+        dir = dir.split(path.sep).slice(-2).join(path.sep);
+        const json = bignumJSONParse(getOrReadFileBuffer(jsonFilePath, 'utf8'));
+        const arrowBuffer = getOrReadFileBuffer(arrowFilePath) as Uint8Array;
+        describe(path.join(dir, name), () => {
+            testReaderIntegration(json, arrowBuffer);
+            testTableFromBuffersIntegration(json, arrowBuffer);
+        });
+    }
 });
 
-function testReaderIntegration() {
-    test(`json and arrow buffers report the same values`, () => {
+function testReaderIntegration(jsonData: any, arrowBuffer: Uint8Array) {
+    test(`json and arrow record batches report the same values`, () => {
         expect.hasAssertions();
-        const jsonVectors = toArray(read(jsonData));
-        const binaryVectors = toArray(read(arrowBuffers));
-        for (const [jVectors, bVectors] of zip(jsonVectors, binaryVectors)) {
-            expect(jVectors.length).toEqual(bVectors.length);
-            for (let i = -1, n = jVectors.length; ++i < n;) {
-                (expect(jVectors[i]) as any).toEqualVector(bVectors[i]);
+        const jsonRecordBatches = toArray(read(jsonData));
+        const binaryRecordBatches = toArray(read(arrowBuffer));
+        for (const [jsonRecordBatch, binaryRecordBatch] of zip(jsonRecordBatches, binaryRecordBatches)) {
+            expect(jsonRecordBatch.length).toEqual(binaryRecordBatch.length);
+            expect(jsonRecordBatch.numCols).toEqual(binaryRecordBatch.numCols);
+            for (let i = -1, n = jsonRecordBatch.numCols; ++i < n;) {
+                (jsonRecordBatch.getChildAt(i) as any).name = jsonRecordBatch.schema.fields[i].name;
+                (expect(jsonRecordBatch.getChildAt(i)) as any).toEqualVector(binaryRecordBatch.getChildAt(i));
             }
         }
     });
 }
 
-function testTableFromBuffersIntegration() {
-    test(`json and arrow buffers report the same values`, () => {
+function testTableFromBuffersIntegration(jsonData: any, arrowBuffer: Uint8Array) {
+    test(`json and arrow tables report the same values`, () => {
         expect.hasAssertions();
         const jsonTable = Table.from(jsonData);
-        const binaryTable = Table.from(arrowBuffers);
-        const jsonVectors = jsonTable.columns;
-        const binaryVectors = binaryTable.columns;
+        const binaryTable = Table.from(arrowBuffer);
         expect(jsonTable.length).toEqual(binaryTable.length);
-        expect(jsonVectors.length).toEqual(binaryVectors.length);
-        for (let i = -1, n = jsonVectors.length; ++i < n;) {
-            (expect(jsonVectors[i]) as any).toEqualVector(binaryVectors[i]);
+        expect(jsonTable.numCols).toEqual(binaryTable.numCols);
+        for (let i = -1, n = jsonTable.numCols; ++i < n;) {
+            (jsonTable.getColumnAt(i) as any).name = jsonTable.schema.fields[i].name;
+            (expect(jsonTable.getColumnAt(i)) as any).toEqualVector(binaryTable.getColumnAt(i));
         }
     });
 }
