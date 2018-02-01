@@ -248,6 +248,33 @@ def large_memory_map(tmpdir_factory, size=100*1024*1024):
     return path
 
 
+def test_clone():
+    context = pa.SerializationContext()
+
+    class Foo(object):
+        pass
+
+    def custom_serializer(obj):
+        return 0
+
+    def custom_deserializer(serialized_obj):
+        return (serialized_obj, 'a')
+
+    context.register_type(Foo, 'Foo', custom_serializer=custom_serializer,
+                          custom_deserializer=custom_deserializer)
+
+    new_context = context.clone()
+
+    f = Foo()
+    serialized = pa.serialize(f, context=context)
+    deserialized = serialized.deserialize(context=context)
+    assert deserialized == (0, 'a')
+
+    serialized = pa.serialize(f, context=new_context)
+    deserialized = serialized.deserialize(context=new_context)
+    assert deserialized == (0, 'a')
+
+
 def test_primitive_serialization(large_buffer):
     for obj in PRIMITIVE_OBJECTS:
         serialization_roundtrip(obj, large_buffer)
