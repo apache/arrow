@@ -248,9 +248,9 @@ kernel.
 
 Dependencies: 
 
-- python 3.6.2 
-- azure-storage 0.36.0 
-- pyarrow 0.8.0 
+* python 3.6.2 
+* azure-storage 0.36.0 
+* pyarrow 0.8.0 
 
 .. code-block:: python
 
