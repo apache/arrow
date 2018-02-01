@@ -326,7 +326,8 @@ def test_torch_serialization(large_buffer):
     for t in ["float32", "float64",
               "uint8", "int16", "int32", "int64"]:
         obj = torch.from_numpy(np.random.randn(1000).astype(t))
-        serialization_roundtrip(obj, large_buffer, ctx=serialization_context)
+        serialization_roundtrip(obj, large_buffer,
+                                context=serialization_context)
 
 
 def test_numpy_immutable(large_buffer):
