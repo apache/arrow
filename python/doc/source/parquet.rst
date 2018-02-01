@@ -274,6 +274,6 @@ Dependencies:
 Notes:
 
 * A
-- a
+   - a
 * B
 * C
