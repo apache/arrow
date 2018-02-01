@@ -22,7 +22,8 @@ import sys
 import numpy as np
 
 from pyarrow.compat import builtin_pickle
-from pyarrow.lib import _default_serialization_context, frombuffer
+from pyarrow.lib import (SerializationContext, _default_serialization_context,
+                         frombuffer)
 
 try:
     import cloudpickle
@@ -102,6 +103,31 @@ def _register_custom_pandas_handlers(context):
         custom_deserializer=_deserialize_pandas_dataframe)
 
 
+def register_torch_serialization_handlers(serialization_context):
+    # ----------------------------------------------------------------------
+    # Set up serialization for pytorch tensors
+
+    try:
+        import torch
+
+        def _serialize_torch_tensor(obj):
+            return obj.numpy()
+
+        def _deserialize_torch_tensor(data):
+            return torch.from_numpy(data)
+
+        for t in [torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                  torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                  torch.IntTensor, torch.LongTensor]:
+            serialization_context.register_type(
+                t, "torch." + t.__name__,
+                custom_serializer=_serialize_torch_tensor,
+                custom_deserializer=_deserialize_torch_tensor)
+    except ImportError:
+        # no torch
+        pass
+
+
 def register_default_serialization_handlers(serialization_context):
 
     # ----------------------------------------------------------------------
@@ -154,37 +180,21 @@ def register_default_serialization_handlers(serialization_context):
         custom_serializer=_serialize_numpy_array_list,
         custom_deserializer=_deserialize_numpy_array_list)
 
-    # ----------------------------------------------------------------------
-    # Set up serialization for pytorch tensors
-
-    try:
-        import torch
-
-        def _serialize_torch_tensor(obj):
-            return obj.numpy()
-
-        def _deserialize_torch_tensor(data):
-            return torch.from_numpy(data)
-
-        for t in [torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
-                  torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor]:
-            serialization_context.register_type(
-                t, "torch." + t.__name__,
-                custom_serializer=_serialize_torch_tensor,
-                custom_deserializer=_deserialize_torch_tensor)
-    except ImportError:
-        # no torch
-        pass
-
     _register_custom_pandas_handlers(serialization_context)
+
+
+def default_serialization_context():
+    context = SerializationContext()
+    register_default_serialization_handlers(context)
+    return context
 
 
 register_default_serialization_handlers(_default_serialization_context)
 
-pandas_serialization_context = _default_serialization_context.clone()
 
-pandas_serialization_context.register_type(
-    np.ndarray, 'np.array',
-    custom_serializer=_serialize_numpy_array_pickle,
-    custom_deserializer=_deserialize_numpy_array_pickle)
+def pandas_serialization_context():
+    context = default_serialization_context()
+    context.register_type(np.ndarray, 'np.array',
+                          custom_serializer=_serialize_numpy_array_pickle,
+                          custom_deserializer=_deserialize_numpy_array_pickle)
+    return context

@@ -190,8 +190,7 @@ CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
 
 
 def make_serialization_context():
-
-    context = pa._default_serialization_context
+    context = pa.default_serialization_context()
 
     context.register_type(Foo, "Foo")
     context.register_type(Bar, "Bar")
@@ -207,26 +206,27 @@ def make_serialization_context():
     return context
 
 
-serialization_context = make_serialization_context()
+global_serialization_context = make_serialization_context()
 
 
-def serialization_roundtrip(value, scratch_buffer, ctx=serialization_context):
+def serialization_roundtrip(value, scratch_buffer,
+                            context=global_serialization_context):
     writer = pa.FixedSizeBufferWriter(scratch_buffer)
-    pa.serialize_to(value, writer, ctx)
+    pa.serialize_to(value, writer, context=context)
 
     reader = pa.BufferReader(scratch_buffer)
-    result = pa.deserialize_from(reader, None, ctx)
+    result = pa.deserialize_from(reader, None, context=context)
     assert_equal(value, result)
 
-    _check_component_roundtrip(value)
+    _check_component_roundtrip(value, context=context)
 
 
-def _check_component_roundtrip(value):
+def _check_component_roundtrip(value, context=global_serialization_context):
     # Test to/from components
-    serialized = pa.serialize(value)
+    serialized = pa.serialize(value, context=context)
     components = serialized.to_components()
     from_comp = pa.SerializedPyObject.from_components(components)
-    recons = from_comp.deserialize()
+    recons = from_comp.deserialize(context=context)
     assert_equal(value, recons)
 
 
@@ -252,7 +252,7 @@ def test_primitive_serialization(large_buffer):
     for obj in PRIMITIVE_OBJECTS:
         serialization_roundtrip(obj, large_buffer)
         serialization_roundtrip(obj, large_buffer,
-                                pa.pandas_serialization_context)
+                                pa.pandas_serialization_context())
 
 
 def test_serialize_to_buffer():
@@ -318,22 +318,26 @@ def test_datetime_serialization(large_buffer):
 def test_torch_serialization(large_buffer):
     pytest.importorskip("torch")
     import torch
+
+    serialization_context = pa.default_serialization_context()
+    pa.register_torch_serialization_handlers(serialization_context)
     # These are the only types that are supported for the
     # PyTorch to NumPy conversion
     for t in ["float32", "float64",
               "uint8", "int16", "int32", "int64"]:
         obj = torch.from_numpy(np.random.randn(1000).astype(t))
-        serialization_roundtrip(obj, large_buffer)
+        serialization_roundtrip(obj, large_buffer,
+                                context=serialization_context)
 
 
 def test_numpy_immutable(large_buffer):
     obj = np.zeros([10])
 
     writer = pa.FixedSizeBufferWriter(large_buffer)
-    pa.serialize_to(obj, writer, serialization_context)
+    pa.serialize_to(obj, writer, global_serialization_context)
 
     reader = pa.BufferReader(large_buffer)
-    result = pa.deserialize_from(reader, None, serialization_context)
+    result = pa.deserialize_from(reader, None, global_serialization_context)
     with pytest.raises(ValueError):
         result[0] = 1.0
 
@@ -351,12 +355,12 @@ def test_serialization_callback_numpy():
     def deserialize_dummy_class(serialized_obj):
         return serialized_obj
 
-    pa._default_serialization_context.register_type(
-        DummyClass, "DummyClass",
-        custom_serializer=serialize_dummy_class,
-        custom_deserializer=deserialize_dummy_class)
+    context = pa.default_serialization_context()
+    context.register_type(DummyClass, "DummyClass",
+                          custom_serializer=serialize_dummy_class,
+                          custom_deserializer=deserialize_dummy_class)
 
-    pa.serialize(DummyClass())
+    pa.serialize(DummyClass(), context=context)
 
 
 def test_buffer_serialization():
@@ -370,13 +374,14 @@ def test_buffer_serialization():
     def deserialize_buffer_class(serialized_obj):
         return serialized_obj
 
-    pa._default_serialization_context.register_type(
+    context = pa.default_serialization_context()
+    context.register_type(
         BufferClass, "BufferClass",
         custom_serializer=serialize_buffer_class,
         custom_deserializer=deserialize_buffer_class)
 
-    b = pa.serialize(BufferClass()).to_buffer()
-    assert pa.deserialize(b).to_pybytes() == b"hello"
+    b = pa.serialize(BufferClass(), context=context).to_buffer()
+    assert pa.deserialize(b, context=context).to_pybytes() == b"hello"
 
 
 @pytest.mark.skip(reason="extensive memory requirements")
@@ -485,15 +490,16 @@ def test_serialize_subclasses():
     # with register_type will result in faster and more memory
     # efficient serialization.
 
-    serialization_context.register_type(
+    context = pa.default_serialization_context()
+    context.register_type(
         Serializable, "Serializable",
         custom_serializer=serialize_serializable,
         custom_deserializer=deserialize_serializable)
 
     a = SerializableClass()
-    serialized = pa.serialize(a)
+    serialized = pa.serialize(a, context=context)
 
-    deserialized = serialized.deserialize()
+    deserialized = serialized.deserialize(context=context)
     assert type(deserialized).__name__ == SerializableClass.__name__
     assert deserialized.value == 3
 
