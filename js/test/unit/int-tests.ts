@@ -15,11 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-    Int64,
-    Uint64,
-    Int128
-} from '../Arrow';
+import Arrow from '../Arrow';
+const { Int64, Uint64, Int128 } = Arrow.util;
 
 describe(`Uint64`, () => {
     test(`gets expected high/low bytes`, () => {

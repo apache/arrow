@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+const fs = require('fs');
+const glob = require('glob');
+const path = require('path');
+
 const argv = require(`command-line-args`)([
     { name: `all`, type: Boolean },
     { name: 'update', alias: 'u', type: Boolean },
@@ -22,13 +26,11 @@ const argv = require(`command-line-args`)([
     { name: `target`, type: String, defaultValue: `` },
     { name: `module`, type: String, defaultValue: `` },
     { name: `coverage`, type: Boolean, defaultValue: false },
-    { name: `json_file`, alias: `j`, type: String, defaultValue: null },
-    { name: `arrow_file`, alias: `a`, type: String, defaultValue: null },
     { name: `integration`, alias: `i`, type: Boolean, defaultValue: false },
     { name: `targets`, alias: `t`, type: String, multiple: true, defaultValue: [] },
     { name: `modules`, alias: `m`, type: String, multiple: true, defaultValue: [] },
-    { name: `sources`, alias: `s`, type: String, multiple: true, defaultValue: [`cpp`, `java`] },
-    { name: `formats`, alias: `f`, type: String, multiple: true, defaultValue: [`file`, `stream`] },
+    { name: `json_files`, alias: `j`, type: String, multiple: true, defaultValue: [] },
+    { name: `arrow_files`, alias: `a`, type: String, multiple: true, defaultValue: [] },
 ], { partial: true });
 
 const { targets, modules } = argv;
@@ -37,5 +39,26 @@ argv.target && !targets.length && targets.push(argv.target);
 argv.module && !modules.length && modules.push(argv.module);
 (argv.all || !targets.length) && targets.push(`all`);
 (argv.all || !modules.length) && modules.push(`all`);
+
+if (argv.coverage && (!argv.json_files || !argv.json_files.length)) {
+
+    let [jsonPaths, arrowPaths] = glob
+        .sync(path.resolve(__dirname, `../test/data/json/`, `*.json`))
+        .reduce((paths, jsonPath) => {
+            const { name } = path.parse(jsonPath);
+            const [jsonPaths, arrowPaths] = paths;
+            ['cpp', 'java'].forEach((source) => ['file', 'stream'].forEach((format) => {
+                const arrowPath = path.resolve(__dirname, `../test/data/${source}/${format}/${name}.arrow`);
+                if (fs.existsSync(arrowPath)) {
+                    jsonPaths.push(jsonPath);
+                    arrowPaths.push(arrowPath);
+                }
+            }));
+            return paths;
+        }, [[], []]);
+
+    argv.json_files = jsonPaths;
+    argv.arrow_files = arrowPaths;
+}
 
 module.exports = { argv, targets, modules };

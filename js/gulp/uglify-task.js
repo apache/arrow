@@ -29,7 +29,7 @@ const webpack = require(`webpack`);
 const { memoizeTask } = require('./memoize-task');
 const { Observable, ReplaySubject } = require('rxjs');
 const UglifyJSPlugin = require(`uglifyjs-webpack-plugin`);
-const esmRequire = require(`@std/esm`)(module, { cjs: true, esm: `js` });
+const esmRequire = require(`@std/esm`)(module, { cjs: true, esm: `js`, warnings: false });
 
 const uglifyTask = ((cache, commonConfig) => memoizeTask(cache, function uglifyJS(target, format) {
 
@@ -84,11 +84,20 @@ module.exports = uglifyTask;
 module.exports.uglifyTask = uglifyTask;
 
 const reservePublicNames = ((ESKeywords) => function reservePublicNames(target, format) {
-    const publicModulePath = `../${targetDir(target, format)}/${mainExport}.js`;
-    return [
-        ...ESKeywords,
-        ...reserveExportedNames(esmRequire(publicModulePath))
+    const src = targetDir(target, format);
+    const publicModulePaths = [
+        `../${src}/data.js`,
+        `../${src}/type.js`,
+        `../${src}/table.js`,
+        `../${src}/vector.js`,
+        `../${src}/util/int.js`,
+        `../${src}/predicate.js`,
+        `../${src}/recordbatch.js`,
+        `../${src}/${mainExport}.js`,
     ];
+    return publicModulePaths.reduce((keywords, publicModulePath) => [
+        ...keywords, ...reserveExportedNames(esmRequire(publicModulePath, { warnings: false }))
+    ], [...ESKeywords]);
 })(ESKeywords);
 
 // Reflect on the Arrow modules to come up with a list of keys to save from Uglify's
@@ -104,8 +113,8 @@ const reserveExportedNames = (entryModule) => (
         .map((name) => [name, entryModule[name]])
         .reduce((reserved, [name, value]) => {
             const fn = function() {};
-            const ownKeys = value && Object.getOwnPropertyNames(value) || [];
-            const protoKeys = typeof value === `function` && Object.getOwnPropertyNames(value.prototype) || [];
+            const ownKeys = value && typeof value === 'object' && Object.getOwnPropertyNames(value) || [];
+            const protoKeys = typeof value === `function` && Object.getOwnPropertyNames(value.prototype || {}) || [];
             const publicNames = [...ownKeys, ...protoKeys].filter((x) => x !== `default` && x !== `undefined` && !(x in fn));
             return [...reserved, name, ...publicNames];
         }, []

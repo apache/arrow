@@ -1,4 +1,4 @@
-// #! /usr/bin/env node
+#! /usr/bin/env node
 
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -19,11 +19,9 @@
 
 /* tslint:disable */
 
+import * as fs from 'fs';
 import * as Arrow from '../Arrow';
 
-(function() {
-
-const fs = require('fs');
 const { parse } = require('json-bignum');
 const optionList = [
     {
@@ -36,12 +34,13 @@ const optionList = [
     {
         type: String,
         name: 'file', alias: 'f',
+        optional: false, multiple: true,
         description: 'The Arrow file to read'
     }
 ];
 
 const argv = require(`command-line-args`)(optionList, { partial: true });
-const files = [argv.file, ...(argv._unknown || [])].filter(Boolean);
+const files = [...argv.file, ...(argv._unknown || [])].filter(Boolean);
 
 if (!files.length) {
     console.log(require('command-line-usage')([
@@ -85,51 +84,16 @@ if (!files.length) {
 }
 
 files.forEach((source) => {
-    let table: any, input = fs.readFileSync(source);
+    debugger;
+    let table: Arrow.Table, input = fs.readFileSync(source);
     try {
-        table = Arrow.Table.from([input]);
+        table = Arrow.Table.from(input);
     } catch (e) {
+        debugger;
         table = Arrow.Table.from(parse(input + ''));
     }
     if (argv.schema && argv.schema.length) {
         table = table.select(...argv.schema);
     }
-    printTable(table);
+    table.rowsToString().pipe(process.stdout);
 });
-
-function printTable(table: Arrow.Table<any>) {
-    let header = [...table.columns.map((_, i) => table.key(i))].map(stringify);
-    let maxColumnWidths = header.map(x => x.length);
-    // Pass one to convert to strings and count max column widths
-    for (let i = -1, n = table.length - 1; ++i < n;) {
-        let val,
-            row = [i, ...table.get(i)];
-        for (let j = -1, k = row.length; ++j < k; ) {
-            val = stringify(row[j]);
-            maxColumnWidths[j] = Math.max(maxColumnWidths[j], val.length);
-        }
-    }
-    console.log(header.map((x, j) => leftPad(x, ' ', maxColumnWidths[j])).join(' | '));
-    // Pass two to pad each one to max column width
-    for (let i = -1, n = table.length; ++i < n; ) {
-        console.log(
-            [...table.get(i)]
-                .map(stringify)
-                .map((x, j) => leftPad(x, ' ', maxColumnWidths[j]))
-                .join(' | ')
-        );
-    }
-}
-
-function leftPad(str: string, fill: string, n: number) {
-    return (new Array(n + 1).join(fill) + str).slice(-1 * n);
-}
-
-function stringify(x: any) {
-    return typeof x === 'string' ? `"${x}"`
-              : Array.isArray(x) ? JSON.stringify(x)
-              : ArrayBuffer.isView(x) ? `[${x}]`
-                                      : `${x}`;
-}
-
-})();

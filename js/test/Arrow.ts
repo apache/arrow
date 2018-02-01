@@ -39,12 +39,16 @@ else if (!~targets.indexOf(target)) throwInvalidImportError('target', target, ta
 else if (!~formats.indexOf(format)) throwInvalidImportError('module', format, formats);
 else modulePath = path.join(target, format);
 
-export { Int64, Uint64, Int128 } from '../src/Arrow';
-export { List } from '../src/Arrow';
-export { TypedArray } from '../src/Arrow';
-export { TypedArrayConstructor } from '../src/Arrow';
-export { NumericVectorConstructor } from '../src/Arrow';
+import { read, readAsync } from '../src/Arrow';
+export { read, readAsync };
+import { View,  VectorLike } from '../src/Arrow';
+export { View,  VectorLike };
+import { Table, Field, Schema, RecordBatch, Type } from '../src/Arrow';
+export { Table, Field, Schema, RecordBatch, Type };
+
+import { TypedArray, TypedArrayConstructor, IntBitWidth, TimeBitWidth } from '../src/Arrow';
+export { TypedArray, TypedArrayConstructor, IntBitWidth, TimeBitWidth };
 
 import * as Arrow_ from '../src/Arrow';
-export let Arrow: typeof Arrow_ = require(path.resolve(`./targets`, modulePath, `Arrow`));
+export let Arrow = require(path.resolve(`./targets`, modulePath, `Arrow`)) as typeof Arrow_;
 export default Arrow;

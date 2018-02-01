@@ -34,7 +34,7 @@ const typescriptTask = ((cache) => memoizeTask(cache, function typescript(target
     const tsProject = ts.createProject(path.join(`tsconfig`, tsconfigFile), { typescript: require(`typescript`) });
     const { stream: { js, dts } } = observableFromStreams(
       tsProject.src(), sourcemaps.init(),
-      tsProject(ts.reporter.fullReporter(true))
+      tsProject(ts.reporter.defaultReporter())
     );
     const writeDTypes = observableFromStreams(dts, gulp.dest(out));
     const writeJS = observableFromStreams(js, sourcemaps.write(), gulp.dest(out));
@@ -52,10 +52,10 @@ function maybeCopyRawJSArrowFormatFiles(target, format) {
         return Observable.empty();
     }
     return Observable.defer(async () => {
-        const outFormatDir = path.join(targetDir(target, format), `format`, `fb`);
+        const outFormatDir = path.join(targetDir(target, format), `fb`);
         await del(path.join(outFormatDir, '*.js'));
         await observableFromStreams(
-            gulp.src(path.join(`src`, `format`, `fb`, `*_generated.js`)),
+            gulp.src(path.join(`src`, `fb`, `*_generated.js`)),
             gulpRename((p) => { p.basename = p.basename.replace(`_generated`, ``); }),
             gulp.dest(outFormatDir)
         ).toPromise();
