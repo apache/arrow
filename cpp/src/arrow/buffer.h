@@ -97,6 +97,20 @@ class ARROW_EXPORT Buffer {
   Status Copy(const int64_t start, const int64_t nbytes,
               std::shared_ptr<Buffer>* out) const;
 
+  /// \brief Construct a new buffer that owns its memory from a std::string
+  ///
+  /// \param[in] data a std::string object
+  /// \param[in] pool a memory pool
+  /// \param[out] out the created buffer
+  ///
+  /// \return Status message
+  static Status FromString(const std::string& data, MemoryPool* pool,
+                           std::shared_ptr<Buffer>* out);
+
+  /// \brief Construct a new buffer that owns its memory from a std::string
+  /// using the default memory pool
+  static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
+
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
   uint8_t* mutable_data() { return mutable_data_; }
