@@ -254,10 +254,6 @@ def test_clone():
     class Foo(object):
         pass
 
-    class Bar(object):
-        def __init__(self):
-            self.value = 1
-
     def custom_serializer(obj):
         return 0
 
@@ -266,8 +262,6 @@ def test_clone():
 
     context.register_type(Foo, 'Foo', custom_serializer=custom_serializer,
                           custom_deserializer=custom_deserializer)
-
-    context.register_type(Bar, 'Bar', pickle=True)
 
     new_context = context.clone()
 
@@ -279,17 +273,6 @@ def test_clone():
     serialized = pa.serialize(f, context=new_context)
     deserialized = serialized.deserialize(context=new_context)
     assert deserialized == (0, 'a')
-
-    b = Bar()
-    serialized = pa.serialize(b, context=context)
-    deserialized = serialized.deserialize(context=context)
-    assert type(deserialized).__name__ == Bar.__name__
-    assert deserialized.value == 1
-
-    serialized = pa.serialize(b, context=new_context)
-    deserialized = serialized.deserialize(context=new_context)
-    assert type(deserialized).__name__ == Bar.__name__
-    assert deserialized.value == 1
 
 
 def test_primitive_serialization(large_buffer):
