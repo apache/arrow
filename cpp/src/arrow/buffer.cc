@@ -66,8 +66,7 @@ Status Buffer::FromString(const std::string& data, MemoryPool* pool,
   return Status::OK();
 }
 
-Status Buffer::FromString(const std::string& data,
-                          std::shared_ptr<Buffer>* out) {
+Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out) {
   return FromString(data, default_memory_pool(), out);
 }
 

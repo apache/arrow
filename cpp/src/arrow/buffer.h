@@ -109,8 +109,7 @@ class ARROW_EXPORT Buffer {
 
   /// \brief Construct a new buffer that owns its memory from a std::string
   /// using the default memory pool
-  static Status FromString(const std::string& data,
-                           std::shared_ptr<Buffer>* out);
+  static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
 
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
