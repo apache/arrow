@@ -206,26 +206,27 @@ def make_serialization_context():
     return context
 
 
-serialization_context = make_serialization_context()
+global_serialization_context = make_serialization_context()
 
 
-def serialization_roundtrip(value, scratch_buffer, ctx=serialization_context):
+def serialization_roundtrip(value, scratch_buffer,
+                            context=global_serialization_context):
     writer = pa.FixedSizeBufferWriter(scratch_buffer)
-    pa.serialize_to(value, writer, ctx)
+    pa.serialize_to(value, writer, context=context)
 
     reader = pa.BufferReader(scratch_buffer)
-    result = pa.deserialize_from(reader, None, ctx)
+    result = pa.deserialize_from(reader, None, context=context)
     assert_equal(value, result)
 
-    _check_component_roundtrip(value)
+    _check_component_roundtrip(value, context=context)
 
 
-def _check_component_roundtrip(value):
+def _check_component_roundtrip(value, context=global_serialization_context):
     # Test to/from components
-    serialized = pa.serialize(value)
+    serialized = pa.serialize(value, context=context)
     components = serialized.to_components()
     from_comp = pa.SerializedPyObject.from_components(components)
-    recons = from_comp.deserialize()
+    recons = from_comp.deserialize(context=context)
     assert_equal(value, recons)
 
 
@@ -332,10 +333,10 @@ def test_numpy_immutable(large_buffer):
     obj = np.zeros([10])
 
     writer = pa.FixedSizeBufferWriter(large_buffer)
-    pa.serialize_to(obj, writer, serialization_context)
+    pa.serialize_to(obj, writer, global_serialization_context)
 
     reader = pa.BufferReader(large_buffer)
-    result = pa.deserialize_from(reader, None, serialization_context)
+    result = pa.deserialize_from(reader, None, global_serialization_context)
     with pytest.raises(ValueError):
         result[0] = 1.0
 
