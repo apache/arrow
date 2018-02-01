@@ -293,7 +293,7 @@ cdef class FixedSizeBinaryType(DataType):
 cdef class Decimal128Type(FixedSizeBinaryType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
-        DataType.init(self, type)
+        FixedSizeBinaryType.init(self, type)
         self.decimal128_type = <const CDecimal128Type*> type.get()
 
     def __getstate__(self):
