@@ -191,8 +191,9 @@ class TestPandasConversion(object):
         assert idx0['field_name'] == idx0_name
         assert idx0['name'] is None
 
-        assert foo_name == '__index_level_1__'
-        assert foo['name'] == 'foo'
+        assert foo_name == 'foo'
+        assert foo['field_name'] == foo_name
+        assert foo['name'] == foo_name
 
     def test_categorical_column_index(self):
         df = pd.DataFrame(
