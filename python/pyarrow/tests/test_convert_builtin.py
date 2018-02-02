@@ -538,7 +538,8 @@ def test_structarray_from_arrays_coerce():
     bools = [True, False, None]
     ints_nonnull = [1, 2, 3]
 
-    result = pa.StructArray.from_arrays([ints, strs, bools, ints_nonnull],
+    arrays = [ints, strs, bools, ints_nonnull]
+    result = pa.StructArray.from_arrays(arrays,
                                         ['ints', 'strs', 'bools',
                                          'int_nonnull'])
     expected = pa.StructArray.from_arrays(
@@ -547,5 +548,8 @@ def test_structarray_from_arrays_coerce():
          pa.array(bools),
          pa.array(ints_nonnull, type='int64')],
         ['ints', 'strs', 'bools', 'int_nonnull'])
+
+    with pytest.raises(ValueError):
+        pa.StructArray.from_arrays(arrays)
 
     assert result.equals(expected)

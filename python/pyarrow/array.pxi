@@ -831,6 +831,20 @@ cdef class StructArray(Array):
 
     @staticmethod
     def from_arrays(arrays, names=None):
+        """
+        Construct StructArray from collection of arrays representing each field
+        in the struct
+
+        Parameters
+        ----------
+        arrays : sequence of Array
+        names : List[str]
+            Field names
+
+        Returns
+        -------
+        result : StructArray
+        """
         cdef:
             Array array
             shared_ptr[CArray] c_array
@@ -839,6 +853,9 @@ cdef class StructArray(Array):
             ssize_t num_arrays
             ssize_t length
             ssize_t i
+
+        if names is None:
+            raise ValueError('Names are currently required')
 
         arrays = [asarray(x) for x in arrays]
 
