@@ -172,7 +172,10 @@ def get_column_metadata(column, name, arrow_type, field_name):
 
     return {
         'name': name,
-        'field_name': str(field_name),
+        'field_name': (
+            'None' if field_name is None
+            else _column_name_to_strings(field_name)
+        ),
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
@@ -280,7 +283,7 @@ def _column_name_to_strings(name):
     if isinstance(name, six.string_types):
         return name
     elif isinstance(name, tuple):
-        return tuple(map(_column_name_to_strings, name))
+        return str(tuple(map(_column_name_to_strings, name)))
     elif isinstance(name, collections.Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
     elif name is None:
@@ -327,10 +330,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
 
     for name in df.columns:
         col = df[name]
-        if not isinstance(name, six.string_types):
-            name = _column_name_to_strings(name)
-            if name is not None:
-                name = str(name)
+        name = _column_name_to_strings(name)
 
         if schema is not None:
             field = schema.field_by_name(name)
@@ -561,7 +561,8 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
     column_strings = [x.name for x in block_table.itercolumns()]
     if columns:
         columns_name_dict = {
-            c.get('field_name', str(c['name'])): c['name'] for c in columns
+            c.get('field_name', _column_name_to_strings(c['name'])): c['name']
+            for c in columns
         }
         columns_values = [
             columns_name_dict.get(name, name) for name in column_strings
