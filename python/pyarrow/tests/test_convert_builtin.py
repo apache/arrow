@@ -493,8 +493,8 @@ def test_structarray():
     strs = pa.array([u'a', None, u'c'], type=pa.string())
     bools = pa.array([True, False, None], type=pa.bool_())
     arr = pa.StructArray.from_arrays(
-        ['ints', 'strs', 'bools'],
-        [ints, strs, bools])
+        [ints, strs, bools],
+        ['ints', 'strs', 'bools'])
 
     expected = [
         {'ints': None, 'strs': u'a', 'bools': True},
