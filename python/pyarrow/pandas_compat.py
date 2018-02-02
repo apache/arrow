@@ -172,7 +172,7 @@ def get_column_metadata(column, name, arrow_type, field_name):
 
     return {
         'name': name,
-        'field_name': str(field_name),
+        'field_name': six.text_type(field_name),
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
@@ -277,15 +277,17 @@ def _column_name_to_strings(name):
     >>> _column_name_to_strings(name)
     ('1', '2017-02-01 00:00:00')
     """
-    if isinstance(name, six.string_types):
+    if isinstance(name, six.text_type):
         return name
+    elif isinstance(name, six.binary_type):
+        return name.decode('utf8')
     elif isinstance(name, tuple):
         return tuple(map(_column_name_to_strings, name))
     elif isinstance(name, collections.Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
     elif name is None:
         return None
-    return str(name)
+    return six.text_type(name)
 
 
 def _index_level_name(index, i, column_names):
@@ -561,10 +563,14 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
     column_strings = [x.name for x in block_table.itercolumns()]
     if columns:
         columns_name_dict = {
-            c.get('field_name', str(c['name'])): c['name'] for c in columns
+            six.text_type(c['field_name']) if 'field_name' in c else c['name']:
+            c['name'] for c in columns
         }
         columns_values = [
-            columns_name_dict.get(name, name) for name in column_strings
+            columns_name_dict.get(
+                six.text_type(name),
+                columns_name_dict.get(name, name)
+            ) for name in column_strings
         ]
     else:
         columns_values = column_strings
