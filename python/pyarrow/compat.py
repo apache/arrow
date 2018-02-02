@@ -102,7 +102,7 @@ if PY2:
             return o
 
     def frombytes(o):
-        return o
+        return str(o)
 
     def unichar(s):
         return unichr(s)
