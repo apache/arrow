@@ -27,7 +27,7 @@ import pandas as pd
 import six
 
 import pyarrow as pa
-from pyarrow.compat import PY2, zip_longest  # noqa
+from pyarrow.compat import PY2, zip_longest, frombytes  # noqa
 
 
 def infer_dtype(column):
@@ -170,9 +170,12 @@ def get_column_metadata(column, name, arrow_type, field_name):
             )
         )
 
+    if not isinstance(field_name, six.string_types):
+        field_name = frombytes(field_name)
+
     return {
         'name': name,
-        'field_name': str(field_name),
+        'field_name': field_name,
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
@@ -330,7 +333,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
         if not isinstance(name, six.string_types):
             name = _column_name_to_strings(name)
             if name is not None:
-                name = str(name)
+                name = frombytes(name)
 
         if schema is not None:
             field = schema.field_by_name(name)
@@ -560,9 +563,14 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
 
     column_strings = [x.name for x in block_table.itercolumns()]
     if columns:
-        columns_name_dict = {
-            c.get('field_name', str(c['name'])): c['name'] for c in columns
-        }
+        columns_name_dict = {}
+        for c in columns:
+            column_name = c['name']
+            if not isinstance(column_name, six.text_type):
+                column_name = frombytes(column_name)
+
+            columns_name_dict[c.get('field_name', column_name)] = c['name']
+
         columns_values = [
             columns_name_dict.get(name, name) for name in column_strings
         ]
