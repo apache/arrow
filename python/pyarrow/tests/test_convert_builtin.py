@@ -529,3 +529,23 @@ def test_struct_from_dicts():
                 {'a': None, 'b': None, 'c': None},
                 {'a': None, 'b': 'bar', 'c': None}]
     assert arr.to_pylist() == expected
+
+
+def test_structarray_from_arrays_coerce():
+    # ARROW-1706
+    ints = [None, 2, 3]
+    strs = [u'a', None, u'c']
+    bools = [True, False, None]
+    ints_nonnull = [1, 2, 3]
+
+    result = pa.StructArray.from_arrays([ints, strs, bools, ints_nonnull],
+                                        ['ints', 'strs', 'bools',
+                                         'int_nonnull'])
+    expected = pa.StructArray.from_arrays(
+        [pa.array(ints, type='int64'),
+         pa.array(strs, type='utf8'),
+         pa.array(bools),
+         pa.array(ints_nonnull, type='int64')],
+        ['ints', 'strs', 'bools', 'int_nonnull'])
+
+    assert result.equals(expected)
