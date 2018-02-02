@@ -1116,10 +1116,10 @@ Status LoopPySequence(PyObject* sequence, T func) {
       }
     }
   } else if (PyObject_HasAttrString(sequence, "__iter__")) {
-    OwnedRef iter = OwnedRef(PyObject_GetIter(sequence));
+    OwnedRef iter(PyObject_GetIter(sequence));
     PyObject* item;
     while ((item = PyIter_Next(iter.obj()))) {
-      OwnedRef ref = OwnedRef(item);
+      OwnedRef ref(item);
       RETURN_NOT_OK(func(ref.obj()));
     }
   } else {
@@ -1149,11 +1149,11 @@ Status LoopPySequenceWithMasks(PyObject* sequence,
       }
     }
   } else if (PyObject_HasAttrString(sequence, "__iter__")) {
-    OwnedRef iter = OwnedRef(PyObject_GetIter(sequence));
+    OwnedRef iter(PyObject_GetIter(sequence));
     PyObject* item;
     int64_t i = 0;
     while ((item = PyIter_Next(iter.obj()))) {
-      OwnedRef ref = OwnedRef(item);
+      OwnedRef ref(item);
       RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
       i++;
     }
@@ -1476,20 +1476,20 @@ Status AppendUTF32(const char* data, int itemsize, int byteorder,
     }
   }
 
-  ScopedRef unicode_obj(PyUnicode_DecodeUTF32(data, actual_length * kNumPyUnicodeSize,
-                                              nullptr, &byteorder));
+  OwnedRef unicode_obj(PyUnicode_DecodeUTF32(data, actual_length * kNumPyUnicodeSize,
+                                             nullptr, &byteorder));
   RETURN_IF_PYERROR();
-  ScopedRef utf8_obj(PyUnicode_AsUTF8String(unicode_obj.get()));
-  if (utf8_obj.get() == NULL) {
+  OwnedRef utf8_obj(PyUnicode_AsUTF8String(unicode_obj.obj()));
+  if (utf8_obj.obj() == NULL) {
     PyErr_Clear();
     return Status::Invalid("failed converting UTF32 to UTF8");
   }
 
-  const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.get()));
+  const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.obj()));
   if (builder->value_data_length() + length > kBinaryMemoryLimit) {
     return Status::Invalid("Encoded string length exceeds maximum size (2GB)");
   }
-  return builder->Append(PyBytes_AS_STRING(utf8_obj.get()), length);
+  return builder->Append(PyBytes_AS_STRING(utf8_obj.obj()), length);
 }
 
 }  // namespace

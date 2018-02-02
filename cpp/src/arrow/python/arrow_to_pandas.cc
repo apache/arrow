@@ -265,13 +265,13 @@ class PandasBlock {
   int64_t num_rows_;
   int num_columns_;
 
-  OwnedRef block_arr_;
+  OwnedRefNoGIL block_arr_;
   uint8_t* block_data_;
 
   PandasOptions options_;
 
   // ndarray<int32>
-  OwnedRef placement_arr_;
+  OwnedRefNoGIL placement_arr_;
   int64_t* placement_data_;
 
  private:
@@ -1140,7 +1140,7 @@ class CategoricalBlock : public PandasBlock {
   }
 
   MemoryPool* pool_;
-  OwnedRef dictionary_;
+  OwnedRefNoGIL dictionary_;
   bool ordered_;
   bool needs_copy_;
 };
