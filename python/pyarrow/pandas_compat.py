@@ -179,10 +179,8 @@ def get_column_metadata(column, name, arrow_type, field_name):
     }
 
 
-index_level_name = '__index_level_{:d}__'.format
-
-
-def construct_metadata(df, column_names, index_levels, preserve_index, types):
+def construct_metadata(df, column_names, index_levels, index_column_names,
+                       preserve_index, types):
     """Returns a dictionary containing enough metadata to reconstruct a pandas
     DataFrame as an Arrow Table, including index columns.
 
@@ -197,9 +195,8 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     -------
     dict
     """
-    ncolumns = len(column_names)
-    df_types = types[:ncolumns - len(index_levels)]
-    index_types = types[ncolumns - len(index_levels):]
+    df_types = types[:-len(index_levels)]
+    index_types = types[-len(index_levels):]
 
     column_metadata = [
         get_column_metadata(
@@ -213,9 +210,6 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     ]
 
     if preserve_index:
-        index_column_names = list(map(
-            index_level_name, range(len(index_levels))
-        ))
         index_column_metadata = [
             get_column_metadata(
                 level,
@@ -294,9 +288,29 @@ def _column_name_to_strings(name):
     return str(name)
 
 
+def _index_level_name(index, i, column_names):
+    """Return the name of an index level or a default name if `index.name` is
+    None or is already a column name.
+
+    Parameters
+    ----------
+    index : pandas.Index
+    i : int
+
+    Returns
+    -------
+    name : str
+    """
+    if index.name is not None and index.name not in column_names:
+        return index.name
+    else:
+        return '__index_level_{:d}__'.format(i)
+
+
 def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
-    names = []
+    column_names = []
     index_columns = []
+    index_column_names = []
     type = None
 
     if preserve_index:
@@ -324,12 +338,13 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
 
         columns_to_convert.append(col)
         convert_types.append(type)
-        names.append(name)
+        column_names.append(name)
 
     for i, column in enumerate(index_columns):
         columns_to_convert.append(column)
         convert_types.append(None)
-        names.append(index_level_name(i))
+        name = _index_level_name(column, i, column_names)
+        index_column_names.append(name)
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
     # using a thread pool is worth it. Currently the heuristic is whether the
@@ -358,8 +373,10 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
     types = [x.type for x in arrays]
 
     metadata = construct_metadata(
-        df, names, index_columns, preserve_index, types
+        df, column_names, index_columns, index_column_names, preserve_index,
+        types
     )
+    names = column_names + index_column_names
     return names, arrays, metadata
 
 
