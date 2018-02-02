@@ -99,7 +99,7 @@ def assert_equal(obj1, obj2):
 
 
 PRIMITIVE_OBJECTS = [
-    0, 0.0, 0.9, 1 << 62, 1 << 100, 1 << 999,
+    0, 0.0, 0.9, 1 << 62, 1 << 999,
     [1 << 100, [1 << 100]], "a", string.printable, "\u262F",
     "hello world", u"hello world", u"\xff\xfe\x9c\x001\x000\x00",
     None, True, False, [], (), {}, {(1, 2): 1}, {(): 2},
@@ -110,10 +110,11 @@ PRIMITIVE_OBJECTS = [
     {"hello": set([2, 3]), "world": set([42.0]), "this": None},
     np.int8(3), np.int32(4), np.int64(5),
     np.uint8(3), np.uint32(4), np.uint64(5), np.float16(1.9), np.float32(1.9),
-    np.float64(1.9), np.zeros([100, 100]),
-    np.random.normal(size=[100, 100]), np.array(["hi", 3]),
+    np.float64(1.9), np.zeros([8, 20]),
+    np.random.normal(size=[17, 10]), np.array(["hi", 3]),
     np.array(["hi", 3], dtype=object),
-    np.random.normal(size=[45, 22]).T]
+    np.random.normal(size=[15, 13]).T,
+]
 
 
 if sys.version_info >= (3, 0):
@@ -126,11 +127,12 @@ else:
 
 COMPLEX_OBJECTS = [
     [[[[[[[[[[[[]]]]]]]]]]]],
-    {"obj{}".format(i): np.random.normal(size=[100, 100]) for i in range(10)},
+    {"obj{}".format(i): np.random.normal(size=[4, 4]) for i in range(5)},
     # {(): {(): {(): {(): {(): {(): {(): {(): {(): {(): {
     #       (): {(): {}}}}}}}}}}}}},
     ((((((((((),),),),),),),),),),
-    {"a": {"b": {"c": {"d": {}}}}}]
+    {"a": {"b": {"c": {"d": {}}}}},
+]
 
 
 class Foo(object):
@@ -146,7 +148,7 @@ class Foo(object):
 
 class Bar(object):
     def __init__(self):
-        for i, val in enumerate(PRIMITIVE_OBJECTS + COMPLEX_OBJECTS):
+        for i, val in enumerate(COMPLEX_OBJECTS):
             setattr(self, "field{}".format(i), val)
 
 
@@ -161,7 +163,7 @@ class Baz(object):
 
 class Qux(object):
     def __init__(self):
-        self.objs = [Foo(), Bar(), Baz()]
+        self.objs = [Foo(1), Foo(42)]
 
 
 class SubQux(Qux):
@@ -231,7 +233,7 @@ def _check_component_roundtrip(value, context=global_serialization_context):
 
 
 @pytest.yield_fixture(scope='session')
-def large_buffer(size=100*1024*1024):
+def large_buffer(size=32*1024*1024):
     return pa.allocate_buffer(size)
 
 
