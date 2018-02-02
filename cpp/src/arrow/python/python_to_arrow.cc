@@ -365,15 +365,15 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
   *result = NULL;
   if (context == Py_None) {
     std::stringstream ss;
-    ScopedRef repr(PyObject_Repr(elem));
+    OwnedRef repr(PyObject_Repr(elem));
     RETURN_IF_PYERROR();
 #if PY_MAJOR_VERSION >= 3
-    ScopedRef ascii(PyUnicode_AsASCIIString(repr.get()));
+    OwnedRef ascii(PyUnicode_AsASCIIString(repr.obj()));
     RETURN_IF_PYERROR();
-    ss << "error while calling callback on " << PyBytes_AsString(ascii.get())
+    ss << "error while calling callback on " << PyBytes_AsString(ascii.obj())
        << ": handler not registered";
 #else
-    ss << "error while calling callback on " << PyString_AsString(repr.get())
+    ss << "error while calling callback on " << PyString_AsString(repr.obj())
        << ": handler not registered";
 #endif
     return Status::SerializationError(ss.str());
@@ -386,8 +386,8 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
 
 Status CallSerializeCallback(PyObject* context, PyObject* value,
                              PyObject** serialized_object) {
-  ScopedRef method_name(PyUnicode_FromString("_serialize_callback"));
-  RETURN_NOT_OK(CallCustomCallback(context, method_name.get(), value, serialized_object));
+  OwnedRef method_name(PyUnicode_FromString("_serialize_callback"));
+  RETURN_NOT_OK(CallCustomCallback(context, method_name.obj(), value, serialized_object));
   if (!PyDict_Check(*serialized_object)) {
     return Status::TypeError("serialization callback must return a valid dictionary");
   }
@@ -396,8 +396,8 @@ Status CallSerializeCallback(PyObject* context, PyObject* value,
 
 Status CallDeserializeCallback(PyObject* context, PyObject* value,
                                PyObject** deserialized_object) {
-  ScopedRef method_name(PyUnicode_FromString("_deserialize_callback"));
-  return CallCustomCallback(context, method_name.get(), value, deserialized_object);
+  OwnedRef method_name(PyUnicode_FromString("_deserialize_callback"));
+  return CallCustomCallback(context, method_name.obj(), value, deserialized_object);
 }
 
 Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
@@ -493,9 +493,9 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 #if PY_MAJOR_VERSION >= 3
     char* data = PyUnicode_AsUTF8AndSize(elem, &size);
 #else
-    ScopedRef str(PyUnicode_AsUTF8String(elem));
-    char* data = PyString_AS_STRING(str.get());
-    size = PyString_GET_SIZE(str.get());
+    OwnedRef str(PyUnicode_AsUTF8String(elem));
+    char* data = PyString_AS_STRING(str.obj());
+    size = PyString_GET_SIZE(str.obj());
 #endif
     if (size > std::numeric_limits<int32_t>::max()) {
       return Status::Invalid("Cannot writes bytes over 2GB");
@@ -585,15 +585,15 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
   SequenceBuilder builder(nullptr);
   std::vector<PyObject*> sublists, subtuples, subdicts, subsets;
   for (const auto& sequence : sequences) {
-    ScopedRef iterator(PyObject_GetIter(sequence));
+    OwnedRef iterator(PyObject_GetIter(sequence));
     RETURN_IF_PYERROR();
-    ScopedRef item;
+    OwnedRef item;
     while (true) {
-      item.reset(PyIter_Next(iterator.get()));
-      if (!item.get()) {
+      item.reset(PyIter_Next(iterator.obj()));
+      if (!item.obj()) {
         break;
       }
-      RETURN_NOT_OK(Append(context, item.get(), &builder, &sublists, &subtuples,
+      RETURN_NOT_OK(Append(context, item.obj(), &builder, &sublists, &subtuples,
                            &subdicts, &subsets, blobs_out));
     }
   }
@@ -739,18 +739,18 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
 Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out) {
   PyAcquireGIL py_gil;
 
-  ScopedRef result(PyDict_New());
+  OwnedRef result(PyDict_New());
   PyObject* buffers = PyList_New(0);
 
   // TODO(wesm): Not sure how pedantic we need to be about checking the return
   // values of these functions. There are other places where we do not check
   // PyDict_SetItem/SetItemString return value, but these failures would be
   // quite esoteric
-  PyDict_SetItemString(result.get(), "num_tensors",
+  PyDict_SetItemString(result.obj(), "num_tensors",
                        PyLong_FromSize_t(this->tensors.size()));
-  PyDict_SetItemString(result.get(), "num_buffers",
+  PyDict_SetItemString(result.obj(), "num_buffers",
                        PyLong_FromSize_t(this->buffers.size()));
-  PyDict_SetItemString(result.get(), "data", buffers);
+  PyDict_SetItemString(result.obj(), "data", buffers);
   RETURN_IF_PYERROR();
 
   Py_DECREF(buffers);
@@ -792,7 +792,7 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
     RETURN_NOT_OK(PushBuffer(buf));
   }
 
-  *out = result.release();
+  *out = result.detach();
   return Status::OK();
 }
 

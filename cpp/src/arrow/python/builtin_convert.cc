@@ -931,7 +931,7 @@ static Status ConvertPySequenceReal(PyObject* obj, int64_t size,
   PyAcquireGIL lock;
 
   PyObject* seq;
-  ScopedRef tmp_seq_nanny;
+  OwnedRef tmp_seq_nanny;
 
   std::shared_ptr<DataType> real_type;
 
