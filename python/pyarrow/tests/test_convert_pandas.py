@@ -530,7 +530,7 @@ class TestPandasConversion(object):
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_mixed_unicode_column_names(self):
-        df = pd.DataFrame({u'あ': [u'い'], 'a': 1}, index=[u'う'])
+        df = pd.DataFrame({u'あ': [u'い'], b'a': 1}, index=[u'う'])
 
         # TODO(phillipc): Should this raise?
         with pytest.raises(AssertionError):
