@@ -30,18 +30,12 @@
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 #include "plasma/common.h"
-#include "arrow/buffer.h"
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
 #endif
 
 using arrow::Buffer;
 using arrow::Status;
-
-
-#ifdef PLASMA_GPU
-using namespace arrow::gpu;
-#endif
 
 namespace plasma {
 
@@ -123,8 +117,7 @@ class ARROW_EXPORT PlasmaClient {
   /// \param data The address of the newly created object will be written here.
   /// \return The return status.
   Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
-                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num=0);
-
+                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
   /// timeout

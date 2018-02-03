@@ -38,10 +38,11 @@
 #include "arrow/util/logging.h"
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
+
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
 
-using namespace arrow::gpu;
+using arrow::gpu::CudaIpcMemHandle;
 #endif
 
 namespace plasma {

@@ -296,6 +296,10 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
 }
 
 #ifdef PLASMA_GPU
+using arrow::gpu::CudaBuffer;
+using arrow::gpu::CudaBufferReader;
+using arrow::gpu::CudaBufferWriter;
+
 TEST_F(TestPlasmaStore, GetGPUTest) {
   ObjectID object_id = ObjectID::from_random();
   ObjectBuffer object_buffer;
@@ -312,7 +316,8 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data_buffer;
   std::shared_ptr<CudaBuffer> gpu_buffer;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer, 1));
+  ARROW_CHECK_OK(
+      client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer, 1));
   gpu_buffer = std::dynamic_pointer_cast<CudaBuffer>(data_buffer);
   CudaBufferWriter writer(gpu_buffer);
   writer.Write(data, data_size);
@@ -343,7 +348,8 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(
+      client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
   ARROW_CHECK_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
   ObjectBuffer object_buffer;
@@ -354,7 +360,8 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   // Test that one client disconnecting does not interfere with the other.
   // First create object on the second client.
   object_id = ObjectID::from_random();
-  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(
+      client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
   // Disconnect the first client.
   ARROW_CHECK_OK(client_.Disconnect());
   // Test that the second client can seal and get the created object.

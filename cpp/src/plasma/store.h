@@ -73,8 +73,8 @@ class PlasmaStore {
   ///  - PlasmaError_OutOfMemory, if the store is out of memory and
   ///    cannot create the object. In this case, the client should not call
   ///    plasma_release.
-  int create_object(const ObjectID& object_id, int64_t data_size, int64_t metadata_size, int device_num,
-                    Client* client, PlasmaObject* result);
+  int create_object(const ObjectID& object_id, int64_t data_size, int64_t metadata_size,
+                    int device_num, Client* client, PlasmaObject* result);
 
   /// Abort a created but unsealed object. If the client is not the
   /// creator, then the abort will fail.
@@ -188,7 +188,7 @@ class PlasmaStore {
 
   std::unordered_map<int, std::unique_ptr<Client>> connected_clients_;
 #ifdef PLASMA_GPU
-  CudaDeviceManager* manager_;
+  arrow::gpu::CudaDeviceManager* manager_;
 #endif
 };
 

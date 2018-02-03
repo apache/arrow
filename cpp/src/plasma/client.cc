@@ -37,9 +37,9 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <mutex>
 #include <thread>
 #include <vector>
-#include <mutex>
 
 #include "arrow/buffer.h"
 #include "plasma/common.h"
@@ -47,20 +47,20 @@
 #include "plasma/io.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
-#include "arrow/buffer.h"
+
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
+
+using arrow::gpu::CudaBuffer;
+using arrow::gpu::CudaBufferWriter;
+using arrow::gpu::CudaContext;
+using arrow::gpu::CudaDeviceManager;
 #endif
 
 #define XXH_STATIC_LINKING_ONLY
 #include "thirdparty/xxhash.h"
 
 #define XXH64_DEFAULT_SEED 0
-
-using arrow::MutableBuffer;
-#ifdef PLASMA_GPU
-using namespace arrow::gpu;
-#endif
 
 namespace plasma {
 
@@ -178,11 +178,11 @@ void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObjec
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                             uint8_t* metadata, int64_t metadata_size,
-                            std::shared_ptr<Buffer>* data,
-                            int device_num) {
+                            std::shared_ptr<Buffer>* data, int device_num) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
                    << data_size << " and metadata size " << metadata_size;
-  RETURN_NOT_OK(SendCreateRequest(store_conn_, object_id, data_size, metadata_size, device_num));
+  RETURN_NOT_OK(
+      SendCreateRequest(store_conn_, object_id, data_size, metadata_size, device_num));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaCreateReply, &buffer));
   ObjectID id;
@@ -201,7 +201,7 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
     // The metadata should come right after the data.
     ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
     *data = std::make_shared<MutableBuffer>(
-      lookup_or_mmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
+        lookup_or_mmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
     // If plasma_create is being called from a transfer, then we will not copy the
     // metadata here. The metadata will be written along with the data streamed
     // from the transfer.
@@ -209,14 +209,13 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
       // Copy the metadata to the buffer.
       memcpy((*data)->mutable_data() + object.data_size, metadata, metadata_size);
     }
-  }
-  else {
+  } else {
 #ifdef PLASMA_GPU
     std::lock_guard<std::mutex> lock(gpu_mutex);
     std::shared_ptr<CudaContext> context;
     RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context));
     GpuProcessHandle* handle = new GpuProcessHandle();
-    RETURN_NOT_OK(context->OpenIpcBuffer(*object.handle.ipc_handle, &handle->ptr));
+    RETURN_NOT_OK(context->OpenIpcBuffer(*object.ipc_handle, &handle->ptr));
     gpu_object_map[object_id] = handle;
     *data = handle->ptr;
     if (metadata != NULL) {
@@ -269,11 +268,15 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
             data + object->data_offset + object->data_size, object->metadata_size);
       } else {
 #ifdef PLASMA_GPU
-        std::shared_ptr<CudaBuffer> gpu_handle = gpu_object_map.find(object_ids[i])->second->ptr;
-        object_buffers[i].data = std::make_shared<CudaBuffer>(gpu_handle, 0, object->data_size);
-        object_buffers[i].metadata = std::make_shared<CudaBuffer>(gpu_handle, object->data_size, object->metadata_size);
+        std::shared_ptr<CudaBuffer> gpu_handle =
+            gpu_object_map.find(object_ids[i])->second->ptr;
+        object_buffers[i].data =
+            std::make_shared<CudaBuffer>(gpu_handle, 0, object->data_size);
+        object_buffers[i].metadata = std::make_shared<CudaBuffer>(
+            gpu_handle, object->data_size, object->metadata_size);
 #else
-        ARROW_LOG(FATAL) << "This should be unreachable as no objects can be created on a gpu.";
+        ARROW_LOG(FATAL)
+            << "This should be unreachable as no objects can be created on a gpu.";
 #endif
       }
       object_buffers[i].data_size = object->data_size;
@@ -320,14 +323,6 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       // If the object was already in use by the client, then the store should
       // have returned it.
       DCHECK_NE(object->data_size, -1);
-      if (object->device_num == 0) {
-        // We won't use this file descriptor, but the store sent us one, so we
-        // need to receive it and then close it right away so we don't leak file
-        // descriptors.
-        int fd = recv_fd(store_conn_);
-        close(fd);
-        ARROW_CHECK(fd >= 0);
-      }
       // We've already filled out the information for this object, so we can
       // just continue.
       continue;
@@ -342,8 +337,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
             std::make_shared<Buffer>(data + object->data_offset, object->data_size);
         object_buffers[i].metadata = std::make_shared<Buffer>(
             data + object->data_offset + object->data_size, object->metadata_size);
-      }
-      else {
+      } else {
 #ifdef PLASMA_GPU
         std::lock_guard<std::mutex> lock(gpu_mutex);
         auto handle = gpu_object_map.find(object_ids[i]);
@@ -352,18 +346,20 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
           std::shared_ptr<CudaContext> context;
           RETURN_NOT_OK(manager_->GetContext(object->device_num - 1, &context));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
-          RETURN_NOT_OK(context->OpenIpcBuffer(*object->handle.ipc_handle, &obj_handle->ptr));
+          RETURN_NOT_OK(context->OpenIpcBuffer(*object->ipc_handle, &obj_handle->ptr));
           gpu_object_map[object_ids[i]] = obj_handle;
           gpu_handle = obj_handle->ptr;
-        }
-        else {
+        } else {
           handle->second->client_count += 1;
           gpu_handle = handle->second->ptr;
         }
-        object_buffers[i].data = std::make_shared<CudaBuffer>(gpu_handle, 0, object->data_size);
-        object_buffers[i].metadata = std::make_shared<CudaBuffer>(gpu_handle, object->data_size, object->metadata_size);
+        object_buffers[i].data =
+            std::make_shared<CudaBuffer>(gpu_handle, 0, object->data_size);
+        object_buffers[i].metadata = std::make_shared<CudaBuffer>(
+            gpu_handle, object->data_size, object->metadata_size);
 #else
-        ARROW_LOG(FATAL) << "This should be unreachable as no objects can be created on a gpu.";
+        ARROW_LOG(FATAL)
+            << "This should be unreachable as no objects can be created on a gpu.";
 #endif
       }
       object_buffers[i].data_size = object->data_size;

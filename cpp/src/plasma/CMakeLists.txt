@@ -79,20 +79,20 @@ set(PLASMA_SRCS
   thirdparty/ae/ae.c
   thirdparty/xxhash.cc)
 
+set(PLASMA_LINK_LIBS arrow_static)
+
 if (ARROW_GPU)
-  ADD_ARROW_LIB(plasma
-    SOURCES ${PLASMA_SRCS}
-    DEPENDENCIES gen_plasma_fbs
-    SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static arrow_gpu_shared
-    STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static arrow_gpu_static)
+  set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
   add_definitions(-DPLASMA_GPU)
-else()
-  ADD_ARROW_LIB(plasma
-    SOURCES ${PLASMA_SRCS}
-    DEPENDENCIES gen_plasma_fbs
-    SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static
-    STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static)
 endif()
+
+
+
+ADD_ARROW_LIB(plasma
+  SOURCES ${PLASMA_SRCS}
+  DEPENDENCIES gen_plasma_fbs
+  SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS}
+  STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS})
 
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
@@ -122,11 +122,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
 endif()
 
 add_executable(plasma_store store.cc)
-if (ARROW_GPU)
-  target_link_libraries(plasma_store plasma_static arrow_gpu_shared)
-else()
-  target_link_libraries(plasma_store plasma_static)
-endif()
+target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS})
 
 # Headers: top level
 install(FILES
@@ -154,14 +150,8 @@ install(
 #######################################
 # Unit tests
 #######################################
-if (ARROW_GPU)
-  ADD_ARROW_TEST(test/serialization_tests)
-  ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static arrow_gpu_shared)
-  ADD_ARROW_TEST(test/client_tests)
-  ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static arrow_gpu_shared)
-else()
-  ADD_ARROW_TEST(test/serialization_tests)
-  ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static)
-  ADD_ARROW_TEST(test/client_tests)
-  ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static)
-endif()
+
+ADD_ARROW_TEST(test/serialization_tests)
+ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static ${PLASMA_LINK_LIBS})
+ADD_ARROW_TEST(test/client_tests)
+ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static ${PLASMA_LINK_LIBS})

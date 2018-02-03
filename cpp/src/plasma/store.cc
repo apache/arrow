@@ -60,7 +60,9 @@
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
 
-using namespace arrow::gpu;
+using arrow::gpu::CudaBuffer;
+using arrow::gpu::CudaContext;
+using arrow::gpu::CudaDeviceManager;
 #endif
 
 namespace plasma {
@@ -110,7 +112,9 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
+#ifdef PLASMA_GPU
   CudaDeviceManager::GetInstance(&manager_);
+#endif
 }
 
 // TODO(pcm): Get rid of this destructor by using RAII to clean up data.
@@ -166,7 +170,7 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
     manager_->GetContext(device_num - 1, &context_);
   }
 #endif
-  do {
+  while (true) {
     // Allocate space for the new object. We use dlmemalign instead of dlmalloc
     // in order to align the allocated region to a 64-byte boundary. This is not
     // strictly necessary, but it is an optimization that could speed up the
@@ -177,25 +181,27 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
     if (device_num == 0) {
       pointer =
           reinterpret_cast<uint8_t*>(dlmemalign(BLOCK_SIZE, data_size + metadata_size));
-    }
-#ifdef PLASMA_GPU
-    else {
-      context_->Allocate(data_size + metadata_size, &gpu_handle);
-    }
-#endif
-    if (pointer == NULL) {
-      // Tell the eviction policy how much space we need to create this object.
-      std::vector<ObjectID> objects_to_evict;
-      bool success =
-          eviction_policy_.require_space(data_size + metadata_size, &objects_to_evict);
-      delete_objects(objects_to_evict);
-      // Return an error to the client if not enough space could be freed to
-      // create the object.
-      if (!success) {
-        return PlasmaError_OutOfMemory;
+      if (pointer == NULL) {
+        // Tell the eviction policy how much space we need to create this object.
+        std::vector<ObjectID> objects_to_evict;
+        bool success =
+            eviction_policy_.require_space(data_size + metadata_size, &objects_to_evict);
+        delete_objects(objects_to_evict);
+        // Return an error to the client if not enough space could be freed to
+        // create the object.
+        if (!success) {
+          return PlasmaError_OutOfMemory;
+        }
+      } else {
+        break;
       }
+    } else {
+#ifdef PLASMA_GPU
+      context_->Allocate(data_size + metadata_size, &gpu_handle);
+      break;
+#endif
     }
-  } while (pointer == NULL);
+  }
   int fd = -1;
   int64_t map_size = 0;
   ptrdiff_t offset = 0;
@@ -218,12 +224,11 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
 #ifdef PLASMA_GPU
   if (device_num != 0) {
     gpu_handle->ExportForIpc(&entry->ipc_handle);
-    result->handle.ipc_handle = entry->ipc_handle;
+    result->ipc_handle = entry->ipc_handle;
   }
 #endif
   store_info_.objects[object_id] = std::move(entry);
   result->store_fd = fd;
-  result->handle.mmap_size = map_size;
   result->data_offset = offset;
   result->metadata_offset = offset + data_size;
   result->data_size = data_size;
@@ -244,8 +249,7 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(entry->state == PLASMA_SEALED);
 #ifdef PLASMA_GPU
   if (entry->device_num != 0) {
-    entry->gpu_handle->ExportForIpc(&object->handle.ipc_handle);
-    object->handle.ipc_handle = entry->ipc_handle;
+    object->ipc_handle = entry->ipc_handle;
   }
 #endif
   object->store_fd = entry->fd;
@@ -264,7 +268,7 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   for (const auto& object_id : get_req->object_ids) {
     PlasmaObject& object = get_req->objects[object_id];
     int fd = object.store_fd;
-    if (object.data_size != -1 && fds_to_send.count(fd) == 0) {
+    if (object.data_size != -1 && fds_to_send.count(fd) == 0 && fd != -1) {
       fds_to_send.insert(fd);
       store_fds.push_back(fd);
       mmap_sizes.push_back(get_mmap_size(fd));
@@ -684,18 +688,18 @@ Status PlasmaStore::process_message(Client* client) {
       int64_t data_size;
       int64_t metadata_size;
       int device_num;
-      RETURN_NOT_OK(
-          ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size, &device_num));
+      RETURN_NOT_OK(ReadCreateRequest(input, input_size, &object_id, &data_size,
+                                      &metadata_size, &device_num));
       int error_code =
           create_object(object_id, data_size, metadata_size, device_num, client, &object);
       int64_t mmap_size = 0;
-      if (error_code == PlasmaError_OK) {
+      if (error_code == PlasmaError_OK && device_num == 0) {
         mmap_size = get_mmap_size(object.store_fd);
       }
       HANDLE_SIGPIPE(
           SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
           client->fd);
-      if (error_code == PlasmaError_OK) {
+      if (error_code == PlasmaError_OK && device_num == 0) {
         warn_if_sigpipe(send_fd(client->fd, object.store_fd), client->fd);
       }
     } break;
