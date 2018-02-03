@@ -36,10 +36,10 @@ import pyarrow.tests.test_parquet as test_parquet
 
 
 def hdfs_test_client(driver='libhdfs'):
-    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
+    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
     user = os.environ.get('ARROW_HDFS_TEST_USER', None)
     try:
-        port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 20500))
+        port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
     except ValueError:
         raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                          'an integer')
@@ -161,6 +161,27 @@ class HdfsTestCases(object):
 
         assert file_path_info['kind'] == 'file'
         assert file_path_info['size'] == len(data)
+
+    def test_exists_isdir_isfile(self):
+        dir_path = pjoin(self.tmp_path, 'info-base')
+        file_path = pjoin(dir_path, 'ex')
+        missing_path = pjoin(dir_path, 'this-path-is-missing')
+
+        self.hdfs.mkdir(dir_path)
+        with self.hdfs.open(file_path, 'wb') as f:
+            f.write(b'foobarbaz')
+
+        assert self.hdfs.exists(dir_path)
+        assert self.hdfs.exists(file_path)
+        assert not self.hdfs.exists(missing_path)
+
+        assert self.hdfs.isdir(dir_path)
+        assert not self.hdfs.isdir(file_path)
+        assert not self.hdfs.isdir(missing_path)
+
+        assert not self.hdfs.isfile(dir_path)
+        assert self.hdfs.isfile(file_path)
+        assert not self.hdfs.isfile(missing_path)
 
     def test_disk_usage(self):
         path = pjoin(self.tmp_path, 'disk-usage-base')

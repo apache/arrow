@@ -137,12 +137,18 @@ cdef class HadoopFileSystem:
 
     def isdir(self, path):
         cdef HdfsPathInfo info
-        self._path_info(path, &info)
+        try:
+            self._path_info(path, &info)
+        except ArrowIOError:
+            return False
         return info.kind == ObjectType_DIRECTORY
 
     def isfile(self, path):
         cdef HdfsPathInfo info
-        self._path_info(path, &info)
+        try:
+            self._path_info(path, &info)
+        except ArrowIOError:
+            return False
         return info.kind == ObjectType_FILE
 
     def get_capacity(self):
