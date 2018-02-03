@@ -282,6 +282,9 @@ def _column_name_to_strings(name):
     """
     if isinstance(name, six.string_types):
         return name
+    elif isinstance(name, six.binary_type):
+        # XXX: should we assume that bytes in Python 3 are UTF-8?
+        return name.decode('utf8')
     elif isinstance(name, tuple):
         return str(tuple(map(_column_name_to_strings, name)))
     elif isinstance(name, collections.Sequence):
