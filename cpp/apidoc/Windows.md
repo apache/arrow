@@ -95,9 +95,11 @@ party static libs.
 build. Set `ZLIB_HOME` environment variable. Pass
 `-DZLIB_MSVC_STATIC_LIB_SUFFIX=%ZLIB_SUFFIX%` to link with z%ZLIB_SUFFIX%.lib
 
-`brotli`. Set `BROTLY_HOME` environment variable. Pass
+`brotli`. Set `BROTLI_HOME` environment variable. Pass
 `-DBROTLI_MSVC_STATIC_LIB_SUFFIX=%BROTLI_SUFFIX%` to link with
-brotli*%BROTLI_SUFFIX%.lib.
+brotli*%BROTLI_SUFFIX%.lib. For brotli versions <= 0.6.0 installed from
+conda-forge this must be set to `_static`, otherwise the default of `-static`
+is used.
 
 `snappy`. Set `SNAPPY_HOME` environment variable. Pass
 `-DSNAPPY_MSVC_STATIC_LIB_SUFFIX=%SNAPPY_SUFFIX%` to link with
