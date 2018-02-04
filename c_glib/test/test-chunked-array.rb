@@ -45,7 +45,7 @@ class TestChunkedArray < Test::Unit::TestCase
       build_boolean_array([true, false]),
       build_boolean_array([true]),
     ]
-    assert_equal(Arrow::Type::BOOL,
+    assert_equal(Arrow::Type::BOOLEAN,
                  Arrow::ChunkedArray.new(chunks).value_type)
   end
 
