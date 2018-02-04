@@ -81,7 +81,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     source /venv-test-${PYTHON}/bin/activate
     pip install repaired_wheels/*.whl
 
-    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow -v
+    py.test -v -r sxX --durations=15 --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
     deactivate
 
     mv repaired_wheels/*.whl /io/dist
