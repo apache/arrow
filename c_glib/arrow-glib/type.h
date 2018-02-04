@@ -26,7 +26,7 @@ G_BEGIN_DECLS
 /**
  * GArrowType:
  * @GARROW_TYPE_NA: A degenerate NULL type represented as 0 bytes/bits.
- * @GARROW_TYPE_BOOL: A boolean value represented as 1 bit.
+ * @GARROW_TYPE_BOOLEAN: A boolean value represented as 1 bit.
  * @GARROW_TYPE_UINT8: Little-endian 8bit unsigned integer.
  * @GARROW_TYPE_INT8: Little-endian 8bit signed integer.
  * @GARROW_TYPE_UINT16: Little-endian 16bit unsigned integer.
@@ -58,7 +58,7 @@ G_BEGIN_DECLS
  */
 typedef enum {
   GARROW_TYPE_NA,
-  GARROW_TYPE_BOOL,
+  GARROW_TYPE_BOOLEAN,
   GARROW_TYPE_UINT8,
   GARROW_TYPE_INT8,
   GARROW_TYPE_UINT16,
