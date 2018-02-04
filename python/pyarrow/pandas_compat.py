@@ -170,12 +170,11 @@ def get_column_metadata(column, name, arrow_type, field_name):
             )
         )
 
+    assert field_name is None or isinstance(field_name, six.string_types), \
+        str(type(field_name))
     return {
         'name': name,
-        'field_name': (
-            'None' if field_name is None
-            else _column_name_to_strings(field_name)
-        ),
+        'field_name': 'None' if field_name is None else field_name,
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
