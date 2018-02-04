@@ -99,6 +99,40 @@ and benchmarks or `make runbenchmark` to run only the benchmark tests.
 
 Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
 
+## Building/Running fuzzers
+
+Fuzzers can help finding unhandled exceptions and problems with untrusted input that
+may lead to crashes, security issues and undefined behavior. They do this by
+generating random input data and observing the behavior of the executed code. To build
+the fuzzer code, LLVM is required (GCC-based compilers won't work). You can build them
+using the following code:
+
+    cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON ..
+
+`ARROW_FUZZING` will enable building of fuzzer executables as well as enable the
+addition of coverage helpers via `ARROW_USE_COVERAGE`, so that the fuzzer can observe
+the program execution.
+
+It is also wise to enable some sanitizers like `ARROW_USE_ASAN` (see above), which
+activates the address sanitizer. This way, we ensure that bad memory operations
+provoked by the fuzzer will be found early. You may also enable other sanitizers as
+well. Just keep in mind that some of them do not work together and some may result
+in very long execution times, which will slow down the fuzzing procedure.
+
+Now you can start one of the fuzzer, e.g.:
+
+    ./debug/debug/ipc-fuzzing-test
+
+This will try to find a malformed input that crashes the payload and will show the
+stack trace as well as the input data. After a problem was found this way, it should
+be reported and fixed. Usually, the fuzzing process cannot be continued until the
+fix is applied, since the fuzzer usually converts to the problem again.
+
+There are some problems that may occur during the compilation process:
+
+- libfuzzer was not distributed with your LLVM: `ld: file not found: .../libLLVMFuzzer.a`
+- your LLVM is too old: `clang: error: unsupported argument 'fuzzer' to option 'fsanitize='`
+
 ### Third-party environment variables
 
 To set up your own specific build toolchain, here are the relevant environment
