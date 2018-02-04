@@ -347,3 +347,34 @@ function(ARROW_TEST_LINK_LIBRARIES REL_TEST_NAME)
 
   target_link_libraries(${TEST_NAME} ${ARGN})
 endfunction()
+
+
+############################################################
+# Fuzzing
+############################################################
+# Add new fuzzing test executable.
+#
+# The single source file must define a function:
+#   extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+#
+# No main function must be present within the source file!
+#
+function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
+  if(NO_FUZZING)
+    return()
+  endif()
+
+  if (ARROW_BUILD_STATIC)
+    set(FUZZ_LINK_LIBS arrow_static)
+  else()
+    set(FUZZ_LINK_LIBS arrow_shared)
+  endif()
+
+  add_executable(${REL_FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
+  target_link_libraries(${REL_FUZZING_NAME} ${FUZZ_LINK_LIBS})
+  target_compile_options(${REL_FUZZING_NAME}
+      PRIVATE "-fsanitize=fuzzer")
+  set_target_properties(${REL_FUZZING_NAME}
+      PROPERTIES
+      LINK_FLAGS "-fsanitize=fuzzer")
+endfunction()

@@ -117,3 +117,5 @@ if (ARROW_BUILD_UTILITIES)
 endif()
 
 ADD_ARROW_BENCHMARK(ipc-read-write-benchmark)
+
+ADD_ARROW_FUZZING(ipc-fuzzing-test)
