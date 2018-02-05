@@ -430,7 +430,7 @@ Status SendGetReply(
   std::vector<PlasmaObjectSpec> objects;
 
   std::vector<flatbuffers::Offset<CudaHandle>> handles;
-  for (int i = 0; i < num_objects; ++i) {
+  for (int64_t i = 0; i < num_objects; ++i) {
     const PlasmaObject& object = plasma_objects[object_ids[i]];
     objects.push_back(PlasmaObjectSpec(object.store_fd, object.data_offset,
                                        object.data_size, object.metadata_offset,

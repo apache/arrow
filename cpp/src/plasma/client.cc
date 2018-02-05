@@ -87,7 +87,9 @@ struct ObjectInUseEntry {
 
 #ifdef PLASMA_GPU
 struct GpuProcessHandle {
+  /// Pointer to CUDA buffer that is backing this GPU object.
   std::shared_ptr<CudaBuffer> ptr;
+  /// Number of client using this GPU object.
   int client_count;
 };
 
@@ -275,8 +277,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
         object_buffers[i].metadata = std::make_shared<CudaBuffer>(
             gpu_handle, object->data_size, object->metadata_size);
 #else
-        ARROW_LOG(FATAL)
-            << "This should be unreachable as no objects can be created on a gpu.";
+        ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
 #endif
       }
       object_buffers[i].data_size = object->data_size;
@@ -358,8 +359,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
         object_buffers[i].metadata = std::make_shared<CudaBuffer>(
             gpu_handle, object->data_size, object->metadata_size);
 #else
-        ARROW_LOG(FATAL)
-            << "This should be unreachable as no objects can be created on a gpu.";
+        ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
 #endif
       }
       object_buffers[i].data_size = object->data_size;

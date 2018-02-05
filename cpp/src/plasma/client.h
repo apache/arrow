@@ -115,6 +115,11 @@ class ARROW_EXPORT PlasmaClient {
   /// \param metadata_size The size in bytes of the metadata. If there is no
   ///        metadata, this should be 0.
   /// \param data The address of the newly created object will be written here.
+  /// \param device_num The number of the device where the object is being
+  ///        created.
+  ///        device_num = 0 corresponds to the host,
+  ///        device_num = 1 corresponds to GPU0,
+  ///        device_num = 2 corresponds to GPU1, etc.
   /// \return The return status.
   Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
