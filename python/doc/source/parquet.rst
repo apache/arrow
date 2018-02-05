@@ -139,11 +139,20 @@ We can similarly write a Parquet file with multiple row groups by using
    pf2 = pq.ParquetFile('example2.parquet')
    pf2.num_row_groups
 
+Alternatively python ``with`` syntax can also be use:
+
+.. ipython:: python
+
+   with pq.ParquetWriter('example3.parquet', table.schema) as writer:
+       for i in range(3):
+           writer.write_table(table)
+
 .. ipython:: python
    :suppress:
 
    !rm example.parquet
    !rm example2.parquet
+   !rm example3.parquet
 
 Compression, Encoding, and File Compatibility
 ---------------------------------------------
