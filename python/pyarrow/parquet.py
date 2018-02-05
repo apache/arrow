@@ -292,6 +292,14 @@ schema : arrow Schema
         if getattr(self, 'is_open', False):
             self.close()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+        # return false since we want to propagate exceptions
+        return False
+
     def write_table(self, table, row_group_size=None):
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
@@ -932,29 +940,24 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 flavor=None, **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
 
-    writer = None
     try:
-        writer = ParquetWriter(
-            where, table.schema,
-            version=version,
-            flavor=flavor,
-            use_dictionary=use_dictionary,
-            coerce_timestamps=coerce_timestamps,
-            compression=compression,
-            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
-            **kwargs)
-        writer.write_table(table, row_group_size=row_group_size)
+        with ParquetWriter(
+                where, table.schema,
+                version=version,
+                flavor=flavor,
+                use_dictionary=use_dictionary,
+                coerce_timestamps=coerce_timestamps,
+                compression=compression,
+                use_deprecated_int96_timestamps= use_deprecated_int96_timestamps, # noqa
+                **kwargs) as writer:
+            writer.write_table(table, row_group_size=row_group_size)
     except Exception:
-        if writer is not None:
-            writer.close()
         if isinstance(where, six.string_types):
             try:
                 os.remove(where)
             except os.error:
                 pass
         raise
-    else:
-        writer.close()
 
 
 write_table.__doc__ = """
