@@ -782,38 +782,6 @@ ARROW_EXTERN_TEMPLATE NumericArray<TimestampType>;
 ARROW_EXPORT
 Status ValidateArray(const Array& array);
 
-/// \brief Perform validation check to determine if all indices are within
-/// valid range (0 <= index < upper_bound)
-///
-/// \param[in] indices array of indices
-/// \param[in] upper_bound upper bound of valid range for indices
-/// \return Status
-template <typename ArrowType>
-Status ValidateArray(const std::shared_ptr<Array>& indices, const int64_t upper_bound) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  const auto& array = static_cast<const ArrayType&>(*indices);
-  const typename ArrowType::c_type* data = array.raw_values();
-  const int64_t size = array.length();
-
-  if (array.null_count() == 0) {
-    for (int64_t idx = 0; idx < size; ++idx) {
-      if (data[idx] < 0 || data[idx] >= upper_bound) {
-        return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
-      }
-    }
-  } else {
-    for (int64_t idx = 0; idx < size; ++idx) {
-      if (!array.IsNull(idx)) {
-        if (data[idx] < 0 || data[idx] >= upper_bound) {
-          return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
-        }
-      }
-    }
-  }
-
-  return Status::OK();
-}
-
 }  // namespace arrow
 
 #endif  // ARROW_ARRAY_H

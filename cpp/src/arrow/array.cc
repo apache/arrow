@@ -476,6 +476,39 @@ const Array* UnionArray::UnsafeChild(int i) const {
 // ----------------------------------------------------------------------
 // DictionaryArray
 
+/// \brief Perform validation check to determine if all dictionary indices
+/// are within valid range (0 <= index < upper_bound)
+///
+/// \param[in] indices array of dictionary indices
+/// \param[in] upper_bound upper bound of valid range for indices
+/// \return Status
+template <typename ArrowType>
+Status ValidateDictionaryIndices(const std::shared_ptr<Array>& indices,
+                                 const int64_t upper_bound) {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  const auto& array = static_cast<const ArrayType&>(*indices);
+  const typename ArrowType::c_type* data = array.raw_values();
+  const int64_t size = array.length();
+
+  if (array.null_count() == 0) {
+    for (int64_t idx = 0; idx < size; ++idx) {
+      if (data[idx] < 0 || data[idx] >= upper_bound) {
+        return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
+      }
+    }
+  } else {
+    for (int64_t idx = 0; idx < size; ++idx) {
+      if (!array.IsNull(idx)) {
+        if (data[idx] < 0 || data[idx] >= upper_bound) {
+          return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
+        }
+      }
+    }
+  }
+
+  return Status::OK();
+}
+
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(static_cast<const DictionaryType*>(data->type.get())) {
   DCHECK_EQ(data->type->id(), Type::DICTIONARY);
@@ -508,16 +541,16 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
 
   switch (indices->type_id()) {
     case Type::INT8:
-      is_valid = ValidateArray<Int8Type>(indices, upper_bound);
+      is_valid = ValidateDictionaryIndices<Int8Type>(indices, upper_bound);
       break;
     case Type::INT16:
-      is_valid = ValidateArray<Int16Type>(indices, upper_bound);
+      is_valid = ValidateDictionaryIndices<Int16Type>(indices, upper_bound);
       break;
     case Type::INT32:
-      is_valid = ValidateArray<Int32Type>(indices, upper_bound);
+      is_valid = ValidateDictionaryIndices<Int32Type>(indices, upper_bound);
       break;
     case Type::INT64:
-      is_valid = ValidateArray<Int64Type>(indices, upper_bound);
+      is_valid = ValidateDictionaryIndices<Int64Type>(indices, upper_bound);
       break;
     default:
       std::stringstream ss;
