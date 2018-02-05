@@ -500,38 +500,37 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
   }
 
   DCHECK_EQ(type->id(), Type::DICTIONARY);
-  std::shared_ptr<DictionaryType> dict = std::static_pointer_cast<DictionaryType>(type);
-  DCHECK_EQ(indices->type_id(), dict->index_type()->id());
+  const auto& dict = static_cast<const DictionaryType&>(*type);
+  DCHECK_EQ(indices->type_id(), dict.index_type()->id());
 
-  int64_t range = dict->dictionary()->length();
-  bool is_valid = true;
+  int64_t upper_bound = dict.dictionary()->length();
+  Status is_valid;
 
   switch (indices->type_id()) {
-  case Type::INT8:
-    is_valid = SanityCheck<Int8Type>(indices, range);
-    break;
-  case Type::INT16:
-    is_valid = SanityCheck<Int16Type>(indices, range);
-    break;
-  case Type::INT32:
-    is_valid = SanityCheck<Int32Type>(indices, range);
-    break;
-  case Type::INT64:
-    is_valid = SanityCheck<Int64Type>(indices, range);
-    break;
-  default:
-    std::stringstream ss;
-    ss << "Categorical index type not supported: "
-       << indices->type()->ToString();
-    return Status::NotImplemented(ss.str());
+    case Type::INT8:
+      is_valid = ValidateArray<Int8Type>(indices, upper_bound);
+      break;
+    case Type::INT16:
+      is_valid = ValidateArray<Int16Type>(indices, upper_bound);
+      break;
+    case Type::INT32:
+      is_valid = ValidateArray<Int32Type>(indices, upper_bound);
+      break;
+    case Type::INT64:
+      is_valid = ValidateArray<Int64Type>(indices, upper_bound);
+      break;
+    default:
+      std::stringstream ss;
+      ss << "Categorical index type not supported: " << indices->type()->ToString();
+      return Status::NotImplemented(ss.str());
   }
 
-  if (!is_valid) {
-    return Status::Invalid("Invalid dictionary indices");
+  if (!is_valid.ok()) {
+    return is_valid;
   }
 
   *out = std::make_shared<DictionaryArray>(type, indices);
-  return Status::OK();
+  return is_valid;
 }
 
 void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
