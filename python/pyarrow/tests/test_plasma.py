@@ -30,7 +30,9 @@ import time
 import pyarrow as pa
 import pandas as pd
 
-DEFAULT_PLASMA_STORE_MEMORY = 10 ** 9
+
+DEFAULT_PLASMA_STORE_MEMORY = 10 ** 8
+USE_VALGRIND = os.getenv("PLASMA_VALGRIND") == "1"
 
 
 def random_name():
@@ -71,7 +73,7 @@ def create_object_with_id(client, object_id, data_size, metadata_size,
     return memory_buffer, metadata
 
 
-def create_object(client, data_size, metadata_size, seal=True):
+def create_object(client, data_size, metadata_size=0, seal=True):
     object_id = random_object_id()
     memory_buffer, metadata = create_object_with_id(client, object_id,
                                                     data_size, metadata_size,
@@ -158,7 +160,7 @@ class TestPlasmaClient(object):
         import pyarrow.plasma as plasma
         # Start Plasma store.
         plasma_store_name, self.p = start_plasma_store(
-            use_valgrind=os.getenv("PLASMA_VALGRIND") == "1",
+            use_valgrind=USE_VALGRIND,
             use_one_memory_mapped_file=use_one_memory_mapped_file)
         # Connect to Plasma.
         self.plasma_client = plasma.connect(plasma_store_name, "", 64)
@@ -202,7 +204,7 @@ class TestPlasmaClient(object):
             assert memory_buffer[i] == i % 256
 
     def test_create_with_metadata(self):
-        for length in range(1000):
+        for length in range(0, 1000, 3):
             # Create an object id string.
             object_id = random_object_id()
             # Create a random metadata string.
@@ -246,7 +248,7 @@ class TestPlasmaClient(object):
                 assert False
 
     def test_get(self):
-        num_object_ids = 100
+        num_object_ids = 60
         # Test timing out of get with various timeouts.
         for timeout in [0, 10, 100, 1000]:
             object_ids = [random_object_id() for _ in range(num_object_ids)]
@@ -390,29 +392,30 @@ class TestPlasmaClient(object):
                 # For some reason the above didn't throw an exception, so fail.
                 assert False
 
+        PERCENT = DEFAULT_PLASMA_STORE_MEMORY // 100
+
         # Create a list to keep some of the buffers in scope.
         memory_buffers = []
-        _, memory_buffer, _ = create_object(self.plasma_client, 5 * 10 ** 8, 0)
+        _, memory_buffer, _ = create_object(self.plasma_client, 50 * PERCENT)
         memory_buffers.append(memory_buffer)
-        # Remaining space is 5 * 10 ** 8. Make sure that we can't create an
-        # object of size 5 * 10 ** 8 + 1, but we can create one of size
-        # 2 * 10 ** 8.
-        assert_create_raises_plasma_full(self, 5 * 10 ** 8 + 1)
-        _, memory_buffer, _ = create_object(self.plasma_client, 2 * 10 ** 8, 0)
+        # Remaining space is 50%. Make sure that we can't create an
+        # object of size 50% + 1, but we can create one of size 20%.
+        assert_create_raises_plasma_full(self, 50 * PERCENT + 1)
+        _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         del memory_buffer
-        _, memory_buffer, _ = create_object(self.plasma_client, 2 * 10 ** 8, 0)
+        _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         del memory_buffer
-        assert_create_raises_plasma_full(self, 5 * 10 ** 8 + 1)
+        assert_create_raises_plasma_full(self, 50 * PERCENT + 1)
 
-        _, memory_buffer, _ = create_object(self.plasma_client, 2 * 10 ** 8, 0)
+        _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         memory_buffers.append(memory_buffer)
-        # Remaining space is 3 * 10 ** 8.
-        assert_create_raises_plasma_full(self, 3 * 10 ** 8 + 1)
+        # Remaining space is 30%.
+        assert_create_raises_plasma_full(self, 30 * PERCENT + 1)
 
-        _, memory_buffer, _ = create_object(self.plasma_client, 10 ** 8, 0)
+        _, memory_buffer, _ = create_object(self.plasma_client, 10 * PERCENT)
         memory_buffers.append(memory_buffer)
-        # Remaining space is 2 * 10 ** 8.
-        assert_create_raises_plasma_full(self, 2 * 10 ** 8 + 1)
+        # Remaining space is 20%.
+        assert_create_raises_plasma_full(self, 20 * PERCENT + 1)
 
     def test_contains(self):
         fake_object_ids = [random_object_id() for _ in range(100)]
@@ -645,10 +648,14 @@ class TestPlasmaClient(object):
         del b7
         assert client.evict(2000) == 996 + 995 + 994
 
+    # Mitigate valgrind-induced slowness
+    SUBSCRIBE_TEST_SIZES = ([1, 10, 100, 1000] if USE_VALGRIND
+                            else [1, 10, 100, 1000, 10000])
+
     def test_subscribe(self):
         # Subscribe to notifications from the Plasma Store.
         self.plasma_client.subscribe()
-        for i in [1, 10, 100, 1000, 10000]:
+        for i in self.SUBSCRIBE_TEST_SIZES:
             object_ids = [random_object_id() for _ in range(i)]
             metadata_sizes = [np.random.randint(1000) for _ in range(i)]
             data_sizes = [np.random.randint(1000) for _ in range(i)]
@@ -670,7 +677,7 @@ class TestPlasmaClient(object):
         # plasma_client2 to make sure that all used objects will get evicted
         # properly.
         self.plasma_client2.subscribe()
-        for i in [1, 10, 100, 1000, 10000]:
+        for i in self.SUBSCRIBE_TEST_SIZES:
             object_ids = [random_object_id() for _ in range(i)]
             # Add 1 to the sizes to make sure we have nonzero object sizes.
             metadata_sizes = [np.random.randint(1000) + 1 for _ in range(i)]

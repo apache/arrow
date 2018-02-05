@@ -52,11 +52,10 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
 
   # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
   # updated sometime on October 2 or October 3
-  conda update -y -p $CPP_TOOLCHAIN ca-certificates -c defaults
+  conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
 fi
 
-
-mkdir $ARROW_CPP_BUILD_DIR
+mkdir -p $ARROW_CPP_BUILD_DIR
 pushd $ARROW_CPP_BUILD_DIR
 
 CMAKE_COMMON_FLAGS="\
