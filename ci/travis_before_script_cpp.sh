@@ -52,62 +52,61 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
 
   # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
   # updated sometime on October 2 or October 3
-  conda update -y -p $CPP_TOOLCHAIN ca-certificates -c defaults
+  conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
 fi
 
-
-mkdir $ARROW_CPP_BUILD_DIR
-pushd $ARROW_CPP_BUILD_DIR
-
-CMAKE_COMMON_FLAGS="\
--DARROW_BUILD_BENCHMARKS=ON \
--DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL \
--DARROW_NO_DEPRECATED_API=ON \
--DARROW_EXTRA_ERROR_CONTEXT=ON"
-CMAKE_LINUX_FLAGS=""
-CMAKE_OSX_FLAGS=""
-
-if [ $only_library_mode == "yes" ]; then
-  CMAKE_COMMON_FLAGS="\
-$CMAKE_COMMON_FLAGS \
--DARROW_BUILD_TESTS=OFF \
--DARROW_BUILD_UTILITIES=OFF \
--DARROW_INSTALL_NAME_RPATH=OFF"
-fi
-
-# Use Ninja for faster builds when using toolchain
-if [ $ARROW_TRAVIS_USE_TOOLCHAIN == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -GNinja"
-fi
-
-if [ $ARROW_TRAVIS_PLASMA == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PLASMA=ON"
-fi
-
-if [ $ARROW_TRAVIS_ORC == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_ORC=ON"
-fi
-
-if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_TEST_MEMCHECK=ON"
-fi
-
-if [ $TRAVIS_OS_NAME == "linux" ]; then
-    cmake $CMAKE_COMMON_FLAGS \
-          $CMAKE_LINUX_FLAGS \
-          -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-          -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
-          $ARROW_CPP_DIR
-else
-    cmake $CMAKE_COMMON_FLAGS \
-          $CMAKE_OSX_FLAGS \
-          -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-          -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
-          $ARROW_CPP_DIR
-fi
-
-# Build and install libraries
-$TRAVIS_MAKE -j4
-$TRAVIS_MAKE install
-
-popd
+# mkdir -p $ARROW_CPP_BUILD_DIR
+# pushd $ARROW_CPP_BUILD_DIR
+#
+# CMAKE_COMMON_FLAGS="\
+# -DARROW_BUILD_BENCHMARKS=ON \
+# -DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL \
+# -DARROW_NO_DEPRECATED_API=ON \
+# -DARROW_EXTRA_ERROR_CONTEXT=ON"
+# CMAKE_LINUX_FLAGS=""
+# CMAKE_OSX_FLAGS=""
+#
+# if [ $only_library_mode == "yes" ]; then
+#   CMAKE_COMMON_FLAGS="\
+# $CMAKE_COMMON_FLAGS \
+# -DARROW_BUILD_TESTS=OFF \
+# -DARROW_BUILD_UTILITIES=OFF \
+# -DARROW_INSTALL_NAME_RPATH=OFF"
+# fi
+#
+# # Use Ninja for faster builds when using toolchain
+# if [ $ARROW_TRAVIS_USE_TOOLCHAIN == "1" ]; then
+#   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -GNinja"
+# fi
+#
+# if [ $ARROW_TRAVIS_PLASMA == "1" ]; then
+#   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PLASMA=ON"
+# fi
+#
+# if [ $ARROW_TRAVIS_ORC == "1" ]; then
+#   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_ORC=ON"
+# fi
+#
+# if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
+#   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_TEST_MEMCHECK=ON"
+# fi
+#
+# if [ $TRAVIS_OS_NAME == "linux" ]; then
+#     cmake $CMAKE_COMMON_FLAGS \
+#           $CMAKE_LINUX_FLAGS \
+#           -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+#           -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
+#           $ARROW_CPP_DIR
+# else
+#     cmake $CMAKE_COMMON_FLAGS \
+#           $CMAKE_OSX_FLAGS \
+#           -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+#           -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
+#           $ARROW_CPP_DIR
+# fi
+#
+# # Build and install libraries
+# $TRAVIS_MAKE -j4
+# $TRAVIS_MAKE install
+#
+# popd
