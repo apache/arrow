@@ -28,15 +28,19 @@ import sys
 import pyarrow as pa
 import numpy as np
 
+try:
+    import torch
+except ImportError:
+    torch = None
+    # Blacklist the module in case `import torch` is costly before
+    # failing (ARROW-2071)
+    sys.modules['torch'] = None
+
 
 def assert_equal(obj1, obj2):
-    try:
-        import torch
-        if torch.is_tensor(obj1) and torch.is_tensor(obj2):
-            assert torch.equal(obj1, obj2)
-            return
-    except ImportError:
-        pass
+    if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
+        assert torch.equal(obj1, obj2)
+        return
     module_numpy = (type(obj1).__module__ == np.__name__ or
                     type(obj2).__module__ == np.__name__)
     if module_numpy:
@@ -346,7 +350,6 @@ def test_datetime_serialization(large_buffer):
 
 def test_torch_serialization(large_buffer):
     pytest.importorskip("torch")
-    import torch
 
     serialization_context = pa.default_serialization_context()
     pa.register_torch_serialization_handlers(serialization_context)
