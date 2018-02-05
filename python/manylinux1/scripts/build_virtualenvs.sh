@@ -44,3 +44,11 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     pip install pytest 'numpy==1.12.1' 'pandas==0.20.1'
     deactivate
 done
+
+# Remove pip cache again. It's useful during the virtualenv creation but we
+# don't want it persisted in the docker layer, ~264MiB
+rm -rf /root/.cache
+# Remove pandas' tests module as it includes a lot of data, ~27MiB per Python
+# venv, i.e. 216MiB in total
+rm -rf /opt/_internal/*/lib/*/site-packages/pandas/tests
+rm -rf /venv-test-*/lib/*/site-packages/pandas/tests
