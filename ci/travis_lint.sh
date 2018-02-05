@@ -33,7 +33,7 @@ fi
 popd
 
 # Fail fast on style checks
-sudo pip install flake8
+sudo pip install -q flake8
 
 PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 
