@@ -52,55 +52,37 @@ if [ "$PYTHON_VERSION" != "2.7" ] || [ $TRAVIS_OS_NAME != "osx" ]; then
   conda install -y -q pytorch torchvision -c soumith
 fi
 
-# Build C++ libraries
-pushd $ARROW_CPP_BUILD_DIR
-
-# Clear out prior build files
-rm -rf *
-
-cmake -GNinja \
-      -DARROW_BUILD_TESTS=off \
-      -DARROW_BUILD_UTILITIES=off \
-      -DARROW_PLASMA=on \
-      -DARROW_PYTHON=on \
-      -DARROW_ORC=on \
-      -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-      -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-      $ARROW_CPP_DIR
-
-ninja
-ninja install
-
-popd
-
 # Other stuff pip install
 pushd $ARROW_PYTHON_DIR
 
 if [ "$PYTHON_VERSION" == "2.7" ]; then
-  pip install futures
+  pip install -q futures
 fi
 
 export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 
-pip install -r requirements.txt
-python setup.py build_ext --with-parquet --with-plasma --with-orc\
-       install --single-version-externally-managed --record=record.text
+pip install -q -r requirements.txt
+# python setup.py build_ext --with-parquet --with-plasma --with-orc\
+#        install --single-version-externally-managed --record=record.text
+python setup.py build_ext --with-plasma \
+       install -q --single-version-externally-managed --record=record.text
 popd
 
-python -c "import pyarrow.parquet"
+# python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
-python -c "import pyarrow.orc"
+# python -c "import pyarrow.orc"
 
-if [ $TRAVIS_OS_NAME == "linux" ]; then
+if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
   export PLASMA_VALGRIND=1
 fi
 
 PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
-python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
+# python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
+python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH
 
-if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
-  # Build documentation once
-  pushd $ARROW_PYTHON_DIR/doc
-  sphinx-build -b html -d _build/doctrees -W source _build/html
-  popd
-fi
+# if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
+#   # Build documentation once
+#   pushd $ARROW_PYTHON_DIR/doc
+#   sphinx-build -b html -d _build/doctrees -W source _build/html
+#   popd
+# fi

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,28 +16,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
 
-# Fail fast for code linting issues
-mkdir $TRAVIS_BUILD_DIR/cpp/lint
-pushd $TRAVIS_BUILD_DIR/cpp/lint
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-cmake ..
-make lint
+# This script is for steps common to all Python versions
 
-if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
-  make check-format
-fi
+# Build C++ libraries
+mkdir -p $ARROW_CPP_BUILD_DIR
+pushd $ARROW_CPP_BUILD_DIR
+
+# Clear out prior build files
+rm -rf *
+
+cmake -GNinja \
+      -DARROW_BUILD_TESTS=off \
+      -DARROW_BUILD_UTILITIES=off \
+      -DARROW_PLASMA=on \
+      -DARROW_PYTHON=on \
+      -DARROW_ORC=on \
+      -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+      -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+      $ARROW_CPP_DIR
+
+ninja
+ninja install
 
 popd
-
-# Fail fast on style checks
-sudo pip install -q flake8
-
-PYTHON_DIR=$TRAVIS_BUILD_DIR/python
-
-flake8 --count $PYTHON_DIR/pyarrow
-
-# Check Cython files with some checks turned off
-flake8 --count --config=$PYTHON_DIR/.flake8.cython \
-       $PYTHON_DIR/pyarrow
