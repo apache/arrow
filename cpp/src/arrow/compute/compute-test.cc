@@ -41,6 +41,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/cast.h"
 #include "arrow/compute/kernels/hash.h"
+#include "arrow/compute/kernels/take.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -1118,6 +1119,208 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
   ASSERT_TRUE(encoded_out.chunked_array()->Equals(*dict_carr));
+}
+
+class TestTake : public ComputeFixture, public TestBase {
+ public:
+  void CheckPass(const Array& input,
+                 const Array& indices,
+                 const Array& expected,
+                 const TakeOptions& options) {
+    shared_ptr<Array> result;
+    ASSERT_OK(Take(&ctx_, input, indices, options, &result));
+    ASSERT_ARRAYS_EQUAL(expected, *result);
+  }
+
+  void CheckPass(const Array& input,
+                 const int64_t& index,
+                 const Array& expected,
+                 const TakeOptions& options) {
+    shared_ptr<Array> result;
+    ASSERT_OK(Take(&ctx_, input, index, options, &result));
+    ASSERT_ARRAYS_EQUAL(expected, *result);
+  }
+
+  void CheckFails(const Array& input,
+                  const Array& indices,
+                  const Array& expected,
+                  const TakeOptions& options) {
+    shared_ptr<Array> result;
+    ASSERT_RAISES(NotImplemented, Take(&ctx_, input, indices, options, &result));
+  }
+
+  template <typename ValueType, typename V, typename IndexType, typename I>
+  void CheckCase(const shared_ptr<DataType>& value_type,
+                 const vector<V>& input,
+                 const vector<bool>& is_valid_input,
+                 const shared_ptr<DataType>& index_type,
+                 const vector<I>& indices,
+                 const vector<bool>& is_valid_indices,
+                 const vector<V>& expect,
+                 const vector<bool>& is_valid_expect,
+                 const TakeOptions& options) {
+    shared_ptr<Array> input_a, indices_a, expect_a;
+    if (is_valid_input.empty()) {
+      ArrayFromVector<ValueType, V>(value_type, input, &input_a);
+    } else {
+      ArrayFromVector<ValueType, V>(value_type, is_valid_input, input, &input_a);
+    }
+    if (is_valid_indices.empty()) {
+      ArrayFromVector<IndexType, I>(index_type, indices, &indices_a);
+    } else {
+      ArrayFromVector<IndexType, I>(index_type, is_valid_indices, indices, &indices_a);
+    }
+    if (is_valid_expect.empty()) {
+      ArrayFromVector<ValueType, V>(value_type, expect, &expect_a);
+    } else {
+      ArrayFromVector<ValueType, V>(value_type, is_valid_expect, expect, &expect_a);
+    }
+    CheckPass(*input_a, *indices_a, *expect_a, options);
+  }
+};
+
+TEST_F(TestTake, NumericValueTypeCases) {
+  // Values
+  vector<int8_t> v8 = {1, 2, 3, 4, 8, 16, 32};
+  vector<int16_t> v16 = {1, 2, 3, 4, 8, 16, 32};
+  vector<int32_t> v32 = {1, 2, 3, 4, 8, 16, 32};
+  vector<int64_t> v64 = {1, 2, 3, 4, 8, 16, 32};
+  vector<uint8_t> vu8 = {1, 2, 3, 4, 8, 16, 32};
+  vector<uint16_t> vu16 = {1, 2, 3, 4, 8, 16, 32};
+  vector<uint32_t> vu32 = {1, 2, 3, 4, 8, 16, 32};
+  vector<uint64_t> vu64 = {1, 2, 3, 4, 8, 16, 32};
+  vector<float> vf32 = {1.1, 2.2, 3.3, 4.4, 8.5, 16.6, 32.7};
+  vector<double> vf64 = {1.1, 2.2, 3.3, 4.4, 8.5, 16.6, 32.7};
+
+  // Indices
+  vector<int32_t> i32 = {3, 5};
+
+  // Expected results
+  vector<int8_t> e8 = {4, 16};
+  vector<int16_t> e16 = {4, 16};
+  vector<int32_t> e32 = {4, 16};
+  vector<int64_t> e64 = {4, 16};
+  vector<uint8_t> eu8 = {4, 16};
+  vector<uint16_t> eu16 = {4, 16};
+  vector<uint32_t> eu32 = {4, 16};
+  vector<uint64_t> eu64 = {4, 16};
+  vector<float> ef32 = {4.4, 16.6};
+  vector<double> ef64 = {4.4, 16.6};
+
+  TakeOptions op = {};
+  vector<bool> iv = {};
+
+  // Different cases of numeric value types
+  CheckCase<Int8Type, int8_t, Int32Type, int32_t>(
+      int8(), v8, iv, int32(), i32, iv, e8, iv, op);
+  CheckCase<Int16Type, int16_t, Int32Type, int32_t>(
+      int16(), v16, iv, int32(), i32, iv, e16, iv, op);
+  CheckCase<Int32Type, int32_t, Int32Type, int32_t>(
+      int32(), v32, iv, int32(), i32, iv, e32, iv, op);
+  CheckCase<Int64Type, int64_t, Int32Type, int32_t>(
+      int64(), v64, iv, int32(), i32, iv, e64, iv, op);
+  CheckCase<UInt8Type, uint8_t, Int32Type, int32_t>(
+      uint8(), vu8, iv, int32(), i32, iv, eu8, iv, op);
+  CheckCase<UInt16Type, uint16_t, Int32Type, int32_t>(
+      uint16(), vu16, iv, int32(), i32, iv, eu16, iv, op);
+  CheckCase<UInt32Type, uint32_t, Int32Type, int32_t>(
+      uint32(), vu32, iv, int32(), i32, iv, eu32, iv, op);
+  CheckCase<UInt64Type, uint64_t, Int32Type, int32_t>(
+      uint64(), vu64, iv, int32(), i32, iv, eu64, iv, op);
+  CheckCase<FloatType, float, Int32Type, int32_t>(
+      float32(), vf32, iv, int32(), i32, iv, ef32, iv, op);
+  CheckCase<DoubleType, double, Int32Type, int32_t>(
+      float64(), vf64, iv, int32(), i32, iv, ef64, iv, op);
+}
+
+TEST_F(TestTake, NumericIndexTypeCases) {
+  // Values
+  vector<int32_t> v32 = {1, 2, 3, 4, 8, 16, 32};
+
+  // Indices
+  vector<int8_t> i8 = {3, 5};
+  vector<int16_t> i16 = {3, 5};
+  vector<int32_t> i32 = {3, 5};
+  vector<int64_t> i64 = {3, 5};
+  vector<uint8_t> iu8 = {3, 5};
+  vector<uint16_t> iu16 = {3, 5};
+  vector<uint32_t> iu32 = {3, 5};
+  vector<uint64_t> iu64 = {3, 5};
+
+  // Expected results
+  vector<int32_t> e32 = {4, 16};
+
+  TakeOptions op = {};
+  vector<bool> iv = {};
+
+  // Different cases of numeric index types
+  CheckCase<Int32Type, int32_t, Int8Type, int8_t>(
+      int32(), v32, iv, int8(), i8, iv, e32, iv, op);
+  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(
+      int32(), v32, iv, int16(), i16, iv, e32, iv, op);
+  CheckCase<Int32Type, int32_t, Int32Type, int32_t>(
+      int32(), v32, iv, int32(), i32, iv, e32, iv, op);
+  CheckCase<Int32Type, int32_t, Int64Type, int64_t>(
+      int32(), v32, iv, int64(), i64, iv, e32, iv, op);
+  CheckCase<Int32Type, int32_t, UInt8Type, uint8_t>(
+      int32(), v32, iv, uint8(), iu8, iv, e32, iv, op);
+  CheckCase<Int32Type, int32_t, UInt16Type, uint16_t>(
+      int32(), v32, iv, uint16(), iu16, iv, e32, iv, op);
+  CheckCase<Int32Type, int32_t, UInt32Type, uint32_t>(
+      int32(), v32, iv, uint32(), iu32, iv, e32, iv, op);
+  CheckCase<Int32Type, int32_t, UInt64Type, uint64_t>(
+      int32(), v32, iv, uint64(), iu64, iv, e32, iv, op);
+
+  // Single index
+  int64_t i_single = 6;
+  auto v32_array = _MakeArray<Int32Type, int32_t>(int32(), v32, {});
+  auto e_single = _MakeArray<Int32Type, int32_t>(int32(), {32}, {});
+  CheckPass(*v32_array, i_single, *e_single, {});
+}
+
+TEST_F(TestTake, BooleanValueType) {
+  auto v = _MakeArray<BooleanType, bool>(boolean(), {true, false, true, true, false}, {});
+
+  // Array of indices
+  auto i1 = _MakeArray<UInt32Type, uint32_t>(uint32(), {1, 3}, {});
+  auto e1 = _MakeArray<BooleanType, bool >(boolean(), {false, true}, {});
+  CheckPass(*v, *i1, *e1, {});
+
+  // Single index
+  int64_t i2 = 2;
+  auto e2 = _MakeArray<BooleanType, bool >(boolean(), {true}, {});
+  CheckPass(*v, i2, *e2, {});
+}
+
+TEST_F(TestTake, NullValueType) {
+  NullArray v(10);
+
+  // Array of indices
+  auto i1 = _MakeArray<Int32Type, int32_t>(int32(), {3, 5}, {});
+  NullArray e1(2);
+  CheckPass(v, *i1, e1, {});
+
+  // Single index
+  int64_t i2 = 8;
+  NullArray e2(1);
+  CheckPass(v, i2, e2, {});
+}
+
+TEST_F(TestTake, InvalidIndexType) {
+  auto v = _MakeArray<Int32Type, int32_t>(int32(), {1, 2, 3, 4, 8, 16, 32}, {});
+  auto e = _MakeArray<Int32Type, int32_t >(int32(), {}, {});
+
+  auto i1 = _MakeArray<FloatType, float >(float32(), {3.0, 5.0}, {});
+  CheckFails(*v, *i1, *e, {});
+
+  auto i2 = _MakeArray<DoubleType, double >(float64(), {3.0, 5.0}, {});
+  CheckFails(*v, *i2, *e, {});
+
+  auto i3 = _MakeArray<BooleanType, bool >(boolean(), {true, false}, {});
+  CheckFails(*v, *i3, *e, {});
+
+  NullArray i4(2);
+  CheckFails(*v, i4, *e, {});
 }
 
 }  // namespace compute

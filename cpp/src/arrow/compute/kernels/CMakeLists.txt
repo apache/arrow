@@ -18,4 +18,5 @@
 install(FILES
   cast.h
   hash.h
+  take.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute/kernels")

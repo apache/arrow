@@ -33,7 +33,7 @@ namespace detail {
 
 Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
                               const Datum& value, std::vector<Datum>* outputs) {
-  if (value.kind() == Datum::ARRAY) {
+  if (value.kind() == Datum::ARRAY || value.kind() == Datum::COLLECTION) {
     Datum output;
     RETURN_NOT_OK(kernel->Call(ctx, value, &output));
     outputs->push_back(output);
