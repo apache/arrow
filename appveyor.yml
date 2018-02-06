@@ -18,6 +18,14 @@
 # Operating system (build VM template)
 os: Visual Studio 2015
 
+only_commits:
+  # Skip commits not related to Python or C++
+  files:
+    - appveyor.yml
+    - ci/
+    - cpp/
+    - python/
+
 environment:
   matrix:
     - JOB: "Build"

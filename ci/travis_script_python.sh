@@ -20,6 +20,8 @@ set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+
 export ARROW_HOME=$ARROW_CPP_INSTALL
 export PARQUET_HOME=$ARROW_PYTHON_PARQUET_HOME
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib:$LD_LIBRARY_PATH
@@ -102,6 +104,6 @@ python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
 if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
   # Build documentation once
   pushd $ARROW_PYTHON_DIR/doc
-  sphinx-build -b html -d _build/doctrees -W source _build/html
+  sphinx-build -q -b html -d _build/doctrees -W source _build/html
   popd
 fi
