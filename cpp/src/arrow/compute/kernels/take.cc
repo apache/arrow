@@ -18,6 +18,7 @@
 #include "arrow/compute/kernels/take.h"
 
 #include <sstream>
+#include <vector>
 
 #include "arrow/builder.h"
 #include "arrow/compare.h"
