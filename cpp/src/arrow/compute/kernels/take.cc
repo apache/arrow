@@ -17,29 +17,13 @@
 
 #include "arrow/compute/kernels/take.h"
 
-#include <cstdint>
-#include <cstring>
-#include <functional>
-#include <limits>
-#include <memory>
 #include <sstream>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
-#include "arrow/array.h"
-#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compare.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
 
 #include "arrow/compute/context.h"
-#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util-internal.h"
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
