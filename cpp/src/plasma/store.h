@@ -65,6 +65,13 @@ class PlasmaStore {
   /// @param object_id Object ID of the object to be created.
   /// @param data_size Size in bytes of the object to be created.
   /// @param metadata_size Size in bytes of the object metadata.
+  /// @param device_num The number of the device where the object is being
+  ///        created.
+  ///        device_num = 0 corresponds to the host,
+  ///        device_num = 1 corresponds to GPU0,
+  ///        device_num = 2 corresponds to GPU1, etc.
+  /// @param client The client that created the object.
+  /// @param result The object that has been created.
   /// @return One of the following error codes:
   ///  - PlasmaError_OK, if the object was created successfully.
   ///  - PlasmaError_ObjectExists, if an object with this ID is already
@@ -74,7 +81,7 @@ class PlasmaStore {
   ///    cannot create the object. In this case, the client should not call
   ///    plasma_release.
   int create_object(const ObjectID& object_id, int64_t data_size, int64_t metadata_size,
-                    Client* client, PlasmaObject* result);
+                    int device_num, Client* client, PlasmaObject* result);
 
   /// Abort a created but unsealed object. If the client is not the
   /// creator, then the abort will fail.
@@ -187,6 +194,9 @@ class PlasmaStore {
   std::unordered_map<int, NotificationQueue> pending_notifications_;
 
   std::unordered_map<int, std::unique_ptr<Client>> connected_clients_;
+#ifdef PLASMA_GPU
+  arrow::gpu::CudaDeviceManager* manager_;
+#endif
 };
 
 }  // namespace plasma

@@ -97,6 +97,8 @@ struct PlasmaObjectSpec {
   metadata_offset: ulong;
   // The size in bytes of the metadata.
   metadata_size: ulong;
+  // Device to create buffer on.
+  device_num: int;
 }
 
 table PlasmaCreateRequest {
@@ -106,6 +108,12 @@ table PlasmaCreateRequest {
   data_size: ulong;
   // The size of the object's metadata in bytes.
   metadata_size: ulong;
+  // Device to create buffer on.
+  device_num: int;
+}
+
+table CudaHandle {
+  handle: [ubyte];
 }
 
 table PlasmaCreateReply {
@@ -121,6 +129,8 @@ table PlasmaCreateReply {
   // The size in bytes of the segment for the store file descriptor (needed to
   // call mmap).
   mmap_size: long;
+  // CUDA IPC Handle for objects on GPU.
+  ipc_handle: CudaHandle;
 }
 
 table PlasmaAbortRequest {
@@ -171,6 +181,8 @@ table PlasmaGetReply {
   // Size in bytes of the segment for each store file descriptor (needed to call
   // mmap). This list must have the same length as store_fds.
   mmap_sizes: [long];
+  // The number of elements in both object_ids and plasma_objects arrays must agree.
+  handles: [CudaHandle];
 }
 
 table PlasmaReleaseRequest {

@@ -37,6 +37,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -46,6 +47,15 @@
 #include "plasma/io.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
+
+#ifdef PLASMA_GPU
+#include "arrow/gpu/cuda_api.h"
+
+using arrow::gpu::CudaBuffer;
+using arrow::gpu::CudaBufferWriter;
+using arrow::gpu::CudaContext;
+using arrow::gpu::CudaDeviceManager;
+#endif
 
 #define XXH_STATIC_LINKING_ONLY
 #include "thirdparty/xxhash.h"
@@ -75,7 +85,26 @@ struct ObjectInUseEntry {
   bool is_sealed;
 };
 
-PlasmaClient::PlasmaClient() {}
+#ifdef PLASMA_GPU
+struct GpuProcessHandle {
+  /// Pointer to CUDA buffer that is backing this GPU object.
+  std::shared_ptr<CudaBuffer> ptr;
+  /// Number of client using this GPU object.
+  int client_count;
+};
+
+// This is necessary as IPC handles can only be mapped once per process.
+// Thus if multiple clients in the same process get the same gpu object,
+// they need to access the same mapped CudaBuffer.
+static std::unordered_map<ObjectID, GpuProcessHandle*, UniqueIDHasher> gpu_object_map;
+static std::mutex gpu_mutex;
+#endif
+
+PlasmaClient::PlasmaClient() {
+#ifdef PLASMA_GPU
+  CudaDeviceManager::GetInstance(&manager_);
+#endif
+}
 
 PlasmaClient::~PlasmaClient() {}
 
@@ -127,16 +156,18 @@ void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObjec
     objects_in_use_[object_id]->count = 0;
     objects_in_use_[object_id]->is_sealed = is_sealed;
     object_entry = objects_in_use_[object_id].get();
-    // Increment the count of the number of objects in the memory-mapped file
-    // that are being used. The corresponding decrement should happen in
-    // PlasmaClient::Release.
-    auto entry = mmap_table_.find(object->store_fd);
-    ARROW_CHECK(entry != mmap_table_.end());
-    ARROW_CHECK(entry->second.count >= 0);
-    // Update the in_use_object_bytes_.
-    in_use_object_bytes_ +=
-        (object_entry->object.data_size + object_entry->object.metadata_size);
-    entry->second.count += 1;
+    if (object->device_num == 0) {
+      // Increment the count of the number of objects in the memory-mapped file
+      // that are being used. The corresponding decrement should happen in
+      // PlasmaClient::Release.
+      auto entry = mmap_table_.find(object->store_fd);
+      ARROW_CHECK(entry != mmap_table_.end());
+      ARROW_CHECK(entry->second.count >= 0);
+      // Update the in_use_object_bytes_.
+      in_use_object_bytes_ +=
+          (object_entry->object.data_size + object_entry->object.metadata_size);
+      entry->second.count += 1;
+    }
   } else {
     object_entry = elem->second.get();
     ARROW_CHECK(object_entry->count > 0);
@@ -149,10 +180,11 @@ void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObjec
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                             uint8_t* metadata, int64_t metadata_size,
-                            std::shared_ptr<Buffer>* data) {
+                            std::shared_ptr<Buffer>* data, int device_num) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
                    << data_size << " and metadata size " << metadata_size;
-  RETURN_NOT_OK(SendCreateRequest(store_conn_, object_id, data_size, metadata_size));
+  RETURN_NOT_OK(
+      SendCreateRequest(store_conn_, object_id, data_size, metadata_size, device_num));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaCreateReply, &buffer));
   ObjectID id;
@@ -163,21 +195,41 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
       ReadCreateReply(buffer.data(), buffer.size(), &id, &object, &store_fd, &mmap_size));
   // If the CreateReply included an error, then the store will not send a file
   // descriptor.
-  int fd = recv_fd(store_conn_);
-  ARROW_CHECK(fd >= 0) << "recv not successful";
-  ARROW_CHECK(object.data_size == data_size);
-  ARROW_CHECK(object.metadata_size == metadata_size);
-  // The metadata should come right after the data.
-  ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
-  *data = std::make_shared<MutableBuffer>(
-      lookup_or_mmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
-  // If plasma_create is being called from a transfer, then we will not copy the
-  // metadata here. The metadata will be written along with the data streamed
-  // from the transfer.
-  if (metadata != NULL) {
-    // Copy the metadata to the buffer.
-    memcpy((*data)->mutable_data() + object.data_size, metadata, metadata_size);
+  if (device_num == 0) {
+    int fd = recv_fd(store_conn_);
+    ARROW_CHECK(fd >= 0) << "recv not successful";
+    ARROW_CHECK(object.data_size == data_size);
+    ARROW_CHECK(object.metadata_size == metadata_size);
+    // The metadata should come right after the data.
+    ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
+    *data = std::make_shared<MutableBuffer>(
+        lookup_or_mmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
+    // If plasma_create is being called from a transfer, then we will not copy the
+    // metadata here. The metadata will be written along with the data streamed
+    // from the transfer.
+    if (metadata != NULL) {
+      // Copy the metadata to the buffer.
+      memcpy((*data)->mutable_data() + object.data_size, metadata, metadata_size);
+    }
+  } else {
+#ifdef PLASMA_GPU
+    std::lock_guard<std::mutex> lock(gpu_mutex);
+    std::shared_ptr<CudaContext> context;
+    RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context));
+    GpuProcessHandle* handle = new GpuProcessHandle();
+    RETURN_NOT_OK(context->OpenIpcBuffer(*object.ipc_handle, &handle->ptr));
+    gpu_object_map[object_id] = handle;
+    *data = handle->ptr;
+    if (metadata != NULL) {
+      // Copy the metadata to the buffer.
+      CudaBufferWriter writer(std::dynamic_pointer_cast<CudaBuffer>(*data));
+      writer.WriteAt(object.data_size, metadata, metadata_size);
+    }
+#else
+    ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
+#endif
   }
+
   // Increment the count of the number of instances of this object that this
   // client is using. A call to PlasmaClient::Release is required to decrement
   // this
@@ -210,13 +262,27 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       ARROW_CHECK(object_entry->second->is_sealed)
           << "Plasma client called get on an unsealed object that it created";
       PlasmaObject* object = &object_entry->second->object;
-      uint8_t* data = lookup_mmapped_file(object->store_fd);
-      object_buffers[i].data =
-          std::make_shared<Buffer>(data + object->data_offset, object->data_size);
-      object_buffers[i].metadata = std::make_shared<Buffer>(
-          data + object->data_offset + object->data_size, object->metadata_size);
+      if (object->device_num == 0) {
+        uint8_t* data = lookup_mmapped_file(object->store_fd);
+        object_buffers[i].data =
+            std::make_shared<Buffer>(data + object->data_offset, object->data_size);
+        object_buffers[i].metadata = std::make_shared<Buffer>(
+            data + object->data_offset + object->data_size, object->metadata_size);
+      } else {
+#ifdef PLASMA_GPU
+        std::shared_ptr<CudaBuffer> gpu_handle =
+            gpu_object_map.find(object_ids[i])->second->ptr;
+        object_buffers[i].data =
+            std::make_shared<CudaBuffer>(gpu_handle, 0, object->data_size);
+        object_buffers[i].metadata = std::make_shared<CudaBuffer>(
+            gpu_handle, object->data_size, object->metadata_size);
+#else
+        ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
+#endif
+      }
       object_buffers[i].data_size = object->data_size;
       object_buffers[i].metadata_size = object->metadata_size;
+      object_buffers[i].device_num = object->device_num;
       // Increment the count of the number of instances of this object that this
       // client is using. A call to PlasmaClient::Release is required to
       // decrement this
@@ -265,14 +331,40 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
     // If we are here, the object was not currently in use, so we need to
     // process the reply from the object store.
     if (object->data_size != -1) {
-      uint8_t* data = lookup_mmapped_file(object->store_fd);
-      // Finish filling out the return values.
-      object_buffers[i].data =
-          std::make_shared<Buffer>(data + object->data_offset, object->data_size);
-      object_buffers[i].metadata = std::make_shared<Buffer>(
-          data + object->data_offset + object->data_size, object->metadata_size);
+      if (object->device_num == 0) {
+        uint8_t* data = lookup_mmapped_file(object->store_fd);
+        // Finish filling out the return values.
+        object_buffers[i].data =
+            std::make_shared<Buffer>(data + object->data_offset, object->data_size);
+        object_buffers[i].metadata = std::make_shared<Buffer>(
+            data + object->data_offset + object->data_size, object->metadata_size);
+      } else {
+#ifdef PLASMA_GPU
+        std::lock_guard<std::mutex> lock(gpu_mutex);
+        auto handle = gpu_object_map.find(object_ids[i]);
+        std::shared_ptr<CudaBuffer> gpu_handle;
+        if (handle == gpu_object_map.end()) {
+          std::shared_ptr<CudaContext> context;
+          RETURN_NOT_OK(manager_->GetContext(object->device_num - 1, &context));
+          GpuProcessHandle* obj_handle = new GpuProcessHandle();
+          RETURN_NOT_OK(context->OpenIpcBuffer(*object->ipc_handle, &obj_handle->ptr));
+          gpu_object_map[object_ids[i]] = obj_handle;
+          gpu_handle = obj_handle->ptr;
+        } else {
+          handle->second->client_count += 1;
+          gpu_handle = handle->second->ptr;
+        }
+        object_buffers[i].data =
+            std::make_shared<CudaBuffer>(gpu_handle, 0, object->data_size);
+        object_buffers[i].metadata = std::make_shared<CudaBuffer>(
+            gpu_handle, object->data_size, object->metadata_size);
+#else
+        ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
+#endif
+      }
       object_buffers[i].data_size = object->data_size;
       object_buffers[i].metadata_size = object->metadata_size;
+      object_buffers[i].device_num = object->device_num;
       // Increment the count of the number of instances of this object that this
       // client is using. A call to PlasmaClient::Release is required to
       // decrement this
@@ -358,6 +450,9 @@ Status PlasmaClient::Release(const ObjectID& object_id) {
   // If there are too many bytes in use by the client or if there are too many
   // pending release calls, and there are at least some pending release calls in
   // the release_history list, then release some objects.
+
+  // TODO(wap) Evicition policy only works on host memory, and thus objects
+  //           on the GPU cannot be released currently.
   while ((in_use_object_bytes_ > std::min(kL3CacheSizeBytes, store_capacity_ / 100) ||
           release_history_.size() > config_.release_delay) &&
          release_history_.size() > 0) {
@@ -447,6 +542,10 @@ static inline bool compute_object_hash_parallel(XXH64_state_t* hash_state,
 
 static uint64_t compute_object_hash(const ObjectBuffer& obj_buffer) {
   XXH64_state_t hash_state;
+  if (obj_buffer.device_num != 0) {
+    // TODO(wap): Create cuda program to hash data on gpu.
+    return 0;
+  }
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
   if (obj_buffer.data_size >= kBytesInMB) {
     compute_object_hash_parallel(
