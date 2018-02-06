@@ -939,7 +939,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 coerce_timestamps=None,
                 flavor=None, **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
-
+    use_int96 = use_deprecated_int96_timestamps
     try:
         with ParquetWriter(
                 where, table.schema,
@@ -948,7 +948,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_dictionary=use_dictionary,
                 coerce_timestamps=coerce_timestamps,
                 compression=compression,
-                use_deprecated_int96_timestamps= use_deprecated_int96_timestamps, # noqa
+                use_deprecated_int96_timestamps=use_int96,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

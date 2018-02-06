@@ -156,6 +156,11 @@ class TestPandasConversion(object):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_multiindex_columns_unicode(self):
+        columns = pd.MultiIndex.from_arrays([[u'あ', u'い'], ['X', 'Y']])
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
@@ -518,6 +523,31 @@ class TestPandasConversion(object):
         schema = pa.schema([field])
 
         _check_pandas_roundtrip(df, expected_schema=schema)
+
+    def test_unicode_with_unicode_column_and_index(self):
+        df = pd.DataFrame({u'あ': [u'い']}, index=[u'う'])
+
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+    def test_mixed_unicode_column_names(self):
+        df = pd.DataFrame({u'あ': [u'い'], b'a': 1}, index=[u'う'])
+
+        # TODO(phillipc): Should this raise?
+        with pytest.raises(AssertionError):
+            _check_pandas_roundtrip(df, preserve_index=True)
+
+    def test_binary_column_name(self):
+        column_data = [u'い']
+        data = {u'あ'.encode('utf8'): column_data}
+        df = pd.DataFrame(data)
+
+        # we can't use _check_pandas_roundtrip here because our metdata
+        # is always decoded as utf8: even if binary goes in, utf8 comes out
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        df2 = t.to_pandas()
+        assert df.values[0] == df2.values[0]
+        assert df.index.values[0] == df2.index.values[0]
+        assert df.columns[0] == df2.columns[0].encode('utf8')
 
     def test_bytes_to_binary(self):
         values = [u('qux'), b'foo', None, 'bar', 'qux', np.nan]
