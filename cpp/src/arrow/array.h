@@ -726,6 +726,19 @@ class ARROW_EXPORT DictionaryArray : public Array {
   DictionaryArray(const std::shared_ptr<DataType>& type,
                   const std::shared_ptr<Array>& indices);
 
+  /// \brief Construct DictionaryArray from dictonary data type and indices array
+  ///
+  /// This function does the validation of the indices and input type. It checks if
+  /// all indices are non-negative and smaller than the size of the dictionary
+  ///
+  /// \param[in] type a data type containing a dictionary
+  /// \param[in] indices an array of non-negative signed
+  /// integers smaller than the size of the dictionary
+  /// \param[out] out the resulting DictionaryArray instance
+  static Status FromArrays(const std::shared_ptr<DataType>& type,
+                           const std::shared_ptr<Array>& indices,
+                           std::shared_ptr<Array>* out);
+
   std::shared_ptr<Array> indices() const;
   std::shared_ptr<Array> dictionary() const;
 
