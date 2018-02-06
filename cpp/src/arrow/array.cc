@@ -476,6 +476,39 @@ const Array* UnionArray::UnsafeChild(int i) const {
 // ----------------------------------------------------------------------
 // DictionaryArray
 
+/// \brief Perform validation check to determine if all dictionary indices
+/// are within valid range (0 <= index < upper_bound)
+///
+/// \param[in] indices array of dictionary indices
+/// \param[in] upper_bound upper bound of valid range for indices
+/// \return Status
+template <typename ArrowType>
+Status ValidateDictionaryIndices(const std::shared_ptr<Array>& indices,
+                                 const int64_t upper_bound) {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  const auto& array = static_cast<const ArrayType&>(*indices);
+  const typename ArrowType::c_type* data = array.raw_values();
+  const int64_t size = array.length();
+
+  if (array.null_count() == 0) {
+    for (int64_t idx = 0; idx < size; ++idx) {
+      if (data[idx] < 0 || data[idx] >= upper_bound) {
+        return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
+      }
+    }
+  } else {
+    for (int64_t idx = 0; idx < size; ++idx) {
+      if (!array.IsNull(idx)) {
+        if (data[idx] < 0 || data[idx] >= upper_bound) {
+          return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
+        }
+      }
+    }
+  }
+
+  return Status::OK();
+}
+
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(static_cast<const DictionaryType*>(data->type.get())) {
   DCHECK_EQ(data->type->id(), Type::DICTIONARY);
@@ -492,11 +525,51 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
   SetData(data);
 }
 
+Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
+                                   const std::shared_ptr<Array>& indices,
+                                   std::shared_ptr<Array>* out) {
+  if (indices->length() == 0) {
+    return Status::Invalid("Dictionary indices must have non-zero length");
+  }
+
+  DCHECK_EQ(type->id(), Type::DICTIONARY);
+  const auto& dict = static_cast<const DictionaryType&>(*type);
+  DCHECK_EQ(indices->type_id(), dict.index_type()->id());
+
+  int64_t upper_bound = dict.dictionary()->length();
+  Status is_valid;
+
+  switch (indices->type_id()) {
+    case Type::INT8:
+      is_valid = ValidateDictionaryIndices<Int8Type>(indices, upper_bound);
+      break;
+    case Type::INT16:
+      is_valid = ValidateDictionaryIndices<Int16Type>(indices, upper_bound);
+      break;
+    case Type::INT32:
+      is_valid = ValidateDictionaryIndices<Int32Type>(indices, upper_bound);
+      break;
+    case Type::INT64:
+      is_valid = ValidateDictionaryIndices<Int64Type>(indices, upper_bound);
+      break;
+    default:
+      std::stringstream ss;
+      ss << "Categorical index type not supported: " << indices->type()->ToString();
+      return Status::NotImplemented(ss.str());
+  }
+
+  if (!is_valid.ok()) {
+    return is_valid;
+  }
+
+  *out = std::make_shared<DictionaryArray>(type, indices);
+  return is_valid;
+}
+
 void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
   auto indices_data = data_->Copy();
   indices_data->type = dict_type_->index_type();
-  std::shared_ptr<Array> result;
   indices_ = MakeArray(indices_data);
 }
 
