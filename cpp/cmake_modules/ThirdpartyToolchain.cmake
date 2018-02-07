@@ -44,8 +44,10 @@ if (NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
     LOG_BUILD 1
     LOG_INSTALL 1
     LOG_DOWNLOAD 1)
+  set(Boost_DEBUG FALSE)
 else()
   set(EP_LOG_OPTIONS)
+  set(Boost_DEBUG TRUE)
 endif()
 
 if (NOT MSVC)
@@ -130,7 +132,6 @@ endif()
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
 
-set(Boost_DEBUG TRUE)
 set(Boost_USE_MULTITHREADED ON)
 if (MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
@@ -849,7 +850,8 @@ if (ARROW_WITH_GRPC)
       BUILD_BYPRODUCTS "${GRPC_STATIC_LIBRARY_GPR}" "${GRPC_STATIC_LIBRARY_GRPC}" "${GRPC_STATIC_LIBRARY_GRPCPP}"
       ${GRPC_BUILD_BYPRODUCTS}
       ${EP_LOG_OPTIONS}
-      CMAKE_ARGS ${GRPC_CMAKE_ARGS})
+      CMAKE_ARGS ${GRPC_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
   else()
     find_package(gRPC CONFIG REQUIRED)
     set(GRPC_VENDORED 0)
@@ -884,11 +886,8 @@ if (ARROW_ORC)
       CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
       BUILD_IN_SOURCE 1
       URL ${PROTOBUF_SRC_URL}
-      LOG_DOWNLOAD 1
-      LOG_CONFIGURE 1
-      LOG_BUILD 1
-      LOG_INSTALL 1
-      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}")
+      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}"
+      ${EP_LOG_OPTIONS})
 
     set (PROTOBUF_VENDORED 1)
   else ()
@@ -930,7 +929,8 @@ if (ARROW_ORC)
   ExternalProject_Add(orc_ep
     URL "https://github.com/apache/orc/archive/${ORC_VERSION}.tar.gz"
     BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-    CMAKE_ARGS ${ORC_CMAKE_ARGS})
+    CMAKE_ARGS ${ORC_CMAKE_ARGS}
+    ${EP_LOG_OPTIONS})
 
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(orc
