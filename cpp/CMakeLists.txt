@@ -455,11 +455,14 @@ if (UNIX)
   message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
   # Full lint
-  add_custom_target(lint ${CPPLINT_BIN}
+  # Balancing act: cpplint.py takes a non-trivial time to launch,
+  # so process 12 files per invocation, while still ensuring parallelism
+  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
+  ${CPPLINT_BIN}
   --verbose=2
   --linelength=90
   --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
-  ${FILTERED_LINT_FILES})
+  )
 endif (UNIX)
 
 
