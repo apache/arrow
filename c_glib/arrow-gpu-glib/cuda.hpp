@@ -29,8 +29,8 @@ std::shared_ptr<arrow::gpu::CudaContext>
 garrow_gpu_cuda_context_get_raw(GArrowGPUCUDAContext *context);
 
 GArrowGPUCUDAIPCMemoryHandle *
-garrow_gpu_cuda_ipc_memory_handle_new_raw(arrow::gpu::CudaIpcMemHandle *arrow_handle);
-arrow::gpu::CudaIpcMemHandle *
+garrow_gpu_cuda_ipc_memory_handle_new_raw(std::shared_ptr<arrow::gpu::CudaIpcMemHandle> *arrow_handle);
+std::shared_ptr<arrow::gpu::CudaIpcMemHandle>
 garrow_gpu_cuda_ipc_memory_handle_get_raw(GArrowGPUCUDAIPCMemoryHandle *handle);
 
 GArrowGPUCUDABuffer *
