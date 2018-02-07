@@ -455,7 +455,7 @@ def test_simple_type_construction():
 @pytest.mark.parametrize(
     ('type', 'expected'),
     [
-        (pa.null(), 'float64'),
+        (pa.null(), 'empty'),
         (pa.bool_(), 'bool'),
         (pa.int8(), 'int8'),
         (pa.int16(), 'int16'),

@@ -1404,6 +1404,57 @@ class TestPandasConversion(object):
 
         tm.assert_frame_equal(result, df)
 
+    def test_empty_list_metadata(self):
+        # Create table with array of empty lists, forced to have type
+        # list(string) in pyarrow
+        c1 = [["test"], ["a", "b"], None]
+        c2 = [[], [], []]
+        arrays = OrderedDict([
+            ('c1', pa.array(c1, type=pa.list_(pa.string()))),
+            ('c2', pa.array(c2, type=pa.list_(pa.string()))),
+        ])
+        rb = pa.RecordBatch.from_arrays(
+            list(arrays.values()),
+            list(arrays.keys())
+        )
+        tbl = pa.Table.from_batches([rb])
+
+        # First roundtrip changes schema, because pandas cannot preserve the
+        # type of empty lists
+        df = tbl.to_pandas()
+        tbl2 = pa.Table.from_pandas(df, preserve_index=True)
+        md2 = json.loads(tbl2.schema.metadata[b'pandas'].decode('utf8'))
+
+        # Second roundtrip
+        df2 = tbl2.to_pandas()
+        expected = pd.DataFrame(OrderedDict([('c1', c1), ('c2', c2)]))
+
+        tm.assert_frame_equal(df2, expected)
+
+        assert md2['columns'] == [
+            {
+                'name': 'c1',
+                'field_name': 'c1',
+                'metadata': None,
+                'numpy_type': 'object',
+                'pandas_type': 'list[unicode]',
+            },
+            {
+                'name': 'c2',
+                'field_name': 'c2',
+                'metadata': None,
+                'numpy_type': 'object',
+                'pandas_type': 'list[empty]',
+            },
+            {
+                'name': None,
+                'field_name': '__index_level_0__',
+                'metadata': None,
+                'numpy_type': 'int64',
+                'pandas_type': 'int64',
+            }
+        ]
+
 
 def _fully_loaded_dataframe_example():
     from distutils.version import LooseVersion
