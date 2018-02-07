@@ -35,10 +35,10 @@ ASV allows to store results and generate graphs of the benchmarks over
 the project's evolution.  Doing this requires a bit more massaging
 currently.
 
-First you have to install our ASV fork:
+First you have to install ASV's development version:
 
 ```shell
-pip install git+https://github.com/pitrou/asv.git@issue-547-specify-project-subdir
+pip install git+https://github.com/airspeed-velocity/asv.git
 ```
 
 <!--- TODO remove the above once https://github.com/airspeed-velocity/asv/pull/611 is merged -->
