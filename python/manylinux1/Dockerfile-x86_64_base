@@ -28,11 +28,9 @@ RUN /build_boost.sh
 ADD scripts/build_jemalloc.sh /
 RUN /build_jemalloc.sh
 
-WORKDIR /
 # Install cmake manylinux1 package
-RUN /opt/python/cp35-cp35m/bin/pip install cmake ninja
-RUN ln -s /opt/python/cp35-cp35m/bin/cmake /usr/bin/cmake
-RUN ln -s /opt/python/cp35-cp35m/bin/ninja /usr/bin/ninja
+ADD scripts/install_cmake.sh /
+RUN /install_cmake.sh
 
 ADD scripts/build_gtest.sh /
 RUN /build_gtest.sh
@@ -69,10 +67,7 @@ ADD scripts/build_ccache.sh /
 RUN /build_ccache.sh
 
 WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git
-WORKDIR /multibuild
-RUN git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
-WORKDIR /
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
 
 ADD scripts/build_virtualenvs.sh /
 RUN /build_virtualenvs.sh
