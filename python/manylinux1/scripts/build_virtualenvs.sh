@@ -33,17 +33,25 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     PATH="$PATH:$(cpython_path $PYTHON)"
 
     echo "=== (${PYTHON}) Installing build dependencies ==="
-    $PIPI_IO "numpy==1.10.1"
+    $PIPI_IO "numpy==1.10.4"
     $PIPI_IO "cython==0.25.2"
-    $PIPI_IO "pandas==0.20.1"
+    $PIPI_IO "pandas==0.20.3"
     $PIPI_IO "virtualenv==15.1.0"
 
     echo "=== (${PYTHON}) Preparing virtualenv for tests ==="
     "$(cpython_path $PYTHON)/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download /venv-test-${PYTHON}
     source /venv-test-${PYTHON}/bin/activate
-    pip install pytest 'numpy==1.12.1' 'pandas==0.20.1'
+    pip install pytest 'numpy==1.14.0' 'pandas==0.20.3'
     deactivate
 done
+
+# Remove debug symbols from libraries that were installed via wheel.
+find /venv-test-*/lib/*/site-packages/pandas -name '*.so' -exec strip '{}' ';'
+find /venv-test-*/lib/*/site-packages/numpy -name '*.so' -exec strip '{}' ';'
+find /opt/_internal/cpython-*/lib/*/site-packages/pandas -name '*.so' -exec strip '{}' ';'
+# Only Python 3.6 packages are stripable as they are built inside of the image 
+find /opt/_internal/cpython-3.6.4/lib/python3.6/site-packages/numpy -name '*.so' -exec strip '{}' ';'
+find /opt/_internal/*/lib/*/site-packages/Cython -name '*.so' -exec strip '{}' ';'
 
 # Remove pip cache again. It's useful during the virtualenv creation but we
 # don't want it persisted in the docker layer, ~264MiB
