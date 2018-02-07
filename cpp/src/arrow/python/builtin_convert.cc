@@ -771,18 +771,21 @@ class StructConverter : public TypedConverterVisitor<StructBuilder, StructConver
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     RETURN_NOT_OK(typed_builder_->Append());
-    if (!PyDict_Check(obj)) {
-      return Status::TypeError("dict value expected for struct type");
+    // Note heterogenous sequences are not allowed
+    if (ARROW_PREDICT_FALSE(source_kind_ == UNKNOWN)) {
+      if (PyDict_Check(obj)) {
+        source_kind_ = DICTS;
+      } else if (PyTuple_Check(obj)) {
+        source_kind_ = TUPLES;
+      }
     }
-    // NOTE we're ignoring any extraneous dict items
-    for (int i = 0; i < num_fields_; i++) {
-      PyObject* nameobj = PyList_GET_ITEM(field_name_list_.obj(), i);
-      PyObject* valueobj = PyDict_GetItem(obj, nameobj);  // borrowed
-      RETURN_IF_PYERROR();
-      RETURN_NOT_OK(value_converters_[i]->AppendSingle(valueobj ? valueobj : Py_None));
+    if (PyDict_Check(obj) && source_kind_ == DICTS) {
+      return AppendDictItem(obj);
+    } else if (PyTuple_Check(obj) && source_kind_ == TUPLES) {
+      return AppendTupleItem(obj);
+    } else {
+      return Status::TypeError("Expected sequence of dicts or tuples for struct type");
     }
-
-    return Status::OK();
   }
 
   // Append a missing item
@@ -797,9 +800,33 @@ class StructConverter : public TypedConverterVisitor<StructBuilder, StructConver
   }
 
  protected:
+  Status AppendDictItem(PyObject* obj) {
+    // NOTE we're ignoring any extraneous dict items
+    for (int i = 0; i < num_fields_; i++) {
+      PyObject* nameobj = PyList_GET_ITEM(field_name_list_.obj(), i);
+      PyObject* valueobj = PyDict_GetItem(obj, nameobj);  // borrowed
+      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(value_converters_[i]->AppendSingle(valueobj ? valueobj : Py_None));
+    }
+    return Status::OK();
+  }
+
+  Status AppendTupleItem(PyObject* obj) {
+    if (PyTuple_GET_SIZE(obj) != num_fields_) {
+      return Status::Invalid("Tuple size must be equal to number of struct fields");
+    }
+    for (int i = 0; i < num_fields_; i++) {
+      PyObject* valueobj = PyTuple_GET_ITEM(obj, i);
+      RETURN_NOT_OK(value_converters_[i]->AppendSingle(valueobj));
+    }
+    return Status::OK();
+  }
+
   std::vector<std::unique_ptr<SeqConverter>> value_converters_;
   OwnedRef field_name_list_;
   int num_fields_;
+  // Whether we're converting from a sequence of dicts or tuples
+  enum { UNKNOWN, DICTS, TUPLES } source_kind_ = UNKNOWN;
 };
 
 class DecimalConverter

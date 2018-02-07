@@ -144,11 +144,21 @@ class BuiltinsGenerator(object):
             partial(self.generate_int_list, none_prob=none_prob),
             n, min_size, max_size, none_prob)
 
+    def generate_tuple_list(self, n, none_prob=DEFAULT_NONE_PROB):
+        """
+        Generate a list of tuples with random values.
+        Each tuple has the form `(int value, float value, bool value)`
+        """
+        dicts = self.generate_dict_list(n, none_prob=none_prob)
+        tuples = [(d.get('u'), d.get('v'), d.get('w'))
+                  if d is not None else None
+                  for d in dicts]
+        assert len(tuples) == n
+        return tuples
 
     def generate_dict_list(self, n, none_prob=DEFAULT_NONE_PROB):
         """
-        Generate a list of dicts with a random size between *min_size* and
-        *max_size*.
+        Generate a list of dicts with random values.
         Each dict has the form `{'u': int value, 'v': float value, 'w': bool value}`
         """
         ints = self.generate_int_list(n, none_prob=none_prob)
@@ -179,12 +189,14 @@ class BuiltinsGenerator(object):
         """
         size = None
 
-        if type_name in ('bool', 'ascii', 'unicode', 'int64 list', 'struct'):
+        if type_name in ('bool', 'ascii', 'unicode', 'int64 list'):
             kind = type_name
         elif type_name.startswith(('int', 'uint')):
             kind = 'int'
         elif type_name.startswith('float'):
             kind = 'float'
+        elif type_name.startswith('struct'):
+            kind = 'struct'
         elif type_name == 'binary':
             kind = 'varying binary'
         elif type_name.startswith('binary'):
@@ -226,6 +238,7 @@ class BuiltinsGenerator(object):
             'int64 list': partial(self.generate_int_list_list,
                                   min_size=0, max_size=20),
             'struct': self.generate_dict_list,
+            'struct from tuples': self.generate_tuple_list,
         }
         data = factories[kind](n)
         return ty, data
@@ -239,7 +252,7 @@ class ConvertPyListToArray(object):
     types = ('int32', 'uint32', 'int64', 'uint64',
              'float32', 'float64', 'bool',
              'binary', 'binary10', 'ascii', 'unicode',
-             'int64 list', 'struct')
+             'int64 list', 'struct', 'struct from tuples')
 
     param_names = ['type']
     params = [types]
