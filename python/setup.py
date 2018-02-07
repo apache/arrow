@@ -428,6 +428,13 @@ def parse_version(root):
     else:
         return version
 
+
+# Only include pytest-runner in setup_requires if we're invoking tests
+if {'pytest', 'test', 'ptr'}.intersection(sys.argv):
+    setup_requires = ['pytest-runner']
+else:
+    setup_requires = []
+
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
@@ -447,7 +454,7 @@ setup(
         ]
     },
     use_scm_version={"root": "..", "relative_to": __file__, "parse": parse_version},
-    setup_requires=['setuptools_scm', 'cython >= 0.23', 'pytest-runner'],
+    setup_requires=['setuptools_scm', 'cython >= 0.23'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas'],
     description="Python library for Apache Arrow",
