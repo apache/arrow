@@ -42,7 +42,7 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public abstract class BaseFixedWidthVector extends BaseValueVector
         implements FixedWidthVector, FieldVector, VectorDefinitionSetter {
-  private final byte typeWidth;
+  private final int typeWidth;
 
   protected int valueAllocationSizeInBytes;
   protected int validityAllocationSizeInBytes;
@@ -54,7 +54,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   protected int valueCount;
 
   public BaseFixedWidthVector(final String name, final BufferAllocator allocator,
-                                      FieldType fieldType, final byte typeWidth) {
+                                      FieldType fieldType, final int typeWidth) {
     super(name, allocator);
     this.typeWidth = typeWidth;
     field = new Field(name, fieldType, null);

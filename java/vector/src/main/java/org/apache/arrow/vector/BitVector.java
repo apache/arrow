@@ -58,7 +58,7 @@ public class BitVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public BitVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, (byte) 0);
+    super(name, allocator, fieldType, 0);
     reader = new BitReaderImpl(BitVector.this);
   }
 
