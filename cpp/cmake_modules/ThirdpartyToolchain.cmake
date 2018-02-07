@@ -136,6 +136,7 @@ if (MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+  "1.66.0" "1.66"
   "1.65.0" "1.65"
   "1.64.0" "1.64"
   "1.63.0" "1.63"
@@ -192,14 +193,15 @@ if (ARROW_BOOST_VENDORED)
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
   add_dependencies(arrow_dependencies boost_ep)
 else()
+  if (MSVC)
+    # disable autolinking in boost
+    add_definitions(-DBOOST_ALL_NO_LIB)
+  endif()
   if (ARROW_BOOST_USE_SHARED)
     # Find shared Boost libraries.
     set(Boost_USE_STATIC_LIBS OFF)
 
-    if(MSVC)
-      # disable autolinking in boost
-      add_definitions(-DBOOST_ALL_NO_LIB)
-
+    if (MSVC)
       # force all boost libraries to dynamic link
       add_definitions(-DBOOST_ALL_DYN_LINK)
     endif()
