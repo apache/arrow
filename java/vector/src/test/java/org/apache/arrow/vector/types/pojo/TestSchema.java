@@ -30,6 +30,7 @@ import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
@@ -95,7 +96,8 @@ public class TestSchema {
         field("p", new Time(TimeUnit.NANOSECOND, 64)),
         field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("s", new Interval(IntervalUnit.DAY_TIME))
+        field("s", new Interval(IntervalUnit.DAY_TIME)),
+        field("t", new FixedSizeBinary(100))
     ));
     roundTrip(schema);
   }
