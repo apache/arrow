@@ -295,6 +295,84 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
   }
 }
 
+#ifdef PLASMA_GPU
+using arrow::gpu::CudaBuffer;
+using arrow::gpu::CudaBufferReader;
+using arrow::gpu::CudaBufferWriter;
+
+TEST_F(TestPlasmaStore, GetGPUTest) {
+  ObjectID object_id = ObjectID::from_random();
+  ObjectBuffer object_buffer;
+
+  // Test for object non-existence.
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
+  ASSERT_EQ(object_buffer.data_size, -1);
+
+  // Test for the object being in local Plasma store.
+  // First create object.
+  uint8_t data[] = {4, 5, 3, 1};
+  int64_t data_size = sizeof(data);
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  std::shared_ptr<Buffer> data_buffer;
+  std::shared_ptr<CudaBuffer> gpu_buffer;
+  ARROW_CHECK_OK(
+      client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer, 1));
+  gpu_buffer = std::dynamic_pointer_cast<CudaBuffer>(data_buffer);
+  CudaBufferWriter writer(gpu_buffer);
+  writer.Write(data, data_size);
+  ARROW_CHECK_OK(client_.Seal(object_id));
+
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  gpu_buffer = std::dynamic_pointer_cast<CudaBuffer>(object_buffer.data);
+  CudaBufferReader reader(gpu_buffer);
+  uint8_t read_data[data_size];
+  int64_t read_data_size;
+  reader.Read(data_size, &read_data_size, read_data);
+  for (int64_t i = 0; i < data_size; i++) {
+    ASSERT_EQ(data[i], read_data[i]);
+  }
+}
+
+TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
+  ObjectID object_id = ObjectID::from_random();
+
+  // Test for object non-existence on the first client.
+  bool has_object;
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_EQ(has_object, false);
+
+  // Test for the object being in local Plasma store.
+  // First create and seal object on the second client.
+  int64_t data_size = 100;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  std::shared_ptr<Buffer> data;
+  ARROW_CHECK_OK(
+      client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client2_.Seal(object_id));
+  // Test that the first client can get the object.
+  ObjectBuffer object_buffer;
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_EQ(has_object, true);
+
+  // Test that one client disconnecting does not interfere with the other.
+  // First create object on the second client.
+  object_id = ObjectID::from_random();
+  ARROW_CHECK_OK(
+      client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
+  // Disconnect the first client.
+  ARROW_CHECK_OK(client_.Disconnect());
+  // Test that the second client can seal and get the created object.
+  ARROW_CHECK_OK(client2_.Seal(object_id));
+  ARROW_CHECK_OK(client2_.Get(&object_id, 1, -1, &object_buffer));
+  ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+  ASSERT_EQ(has_object, true);
+}
+
+#endif
+
 }  // namespace plasma
 
 int main(int argc, char** argv) {

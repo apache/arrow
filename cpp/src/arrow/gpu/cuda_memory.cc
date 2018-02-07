@@ -54,8 +54,8 @@ CudaIpcMemHandle::CudaIpcMemHandle(const void* handle) {
 CudaIpcMemHandle::~CudaIpcMemHandle() {}
 
 Status CudaIpcMemHandle::FromBuffer(const void* opaque_handle,
-                                    std::unique_ptr<CudaIpcMemHandle>* handle) {
-  *handle = std::unique_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(opaque_handle));
+                                    std::shared_ptr<CudaIpcMemHandle>* handle) {
+  *handle = std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(opaque_handle));
   return Status::OK();
 }
 
@@ -111,7 +111,7 @@ Status CudaBuffer::CopyFromHost(const int64_t position, const void* data,
   return context_->CopyHostToDevice(mutable_data_ + position, data, nbytes);
 }
 
-Status CudaBuffer::ExportForIpc(std::unique_ptr<CudaIpcMemHandle>* handle) {
+Status CudaBuffer::ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle) {
   if (is_ipc_) {
     return Status::Invalid("Buffer has already been exported for IPC");
   }
