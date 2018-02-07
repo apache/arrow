@@ -96,6 +96,14 @@ class ARROW_EXPORT RecordBatch {
   /// \return an internal ArrayData object
   virtual std::shared_ptr<ArrayData> column_data(int i) const = 0;
 
+  /// \brief Add column to the record batch, producing a new RecordBatch
+  virtual Status AddColumn(int i, const std::shared_ptr<Field>& field,
+                           const std::shared_ptr<ArrayData>& column,
+                           std::shared_ptr<RecordBatch>* out) const = 0;
+
+  /// \brief Remove column from the record batch, producing a new RecordBatch
+  virtual Status RemoveColumn(int i, std::shared_ptr<RecordBatch>* out) const = 0;
+
   virtual std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const = 0;
 
