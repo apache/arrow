@@ -588,6 +588,101 @@ TEST_F(TestRecordBatch, Slice) {
   }
 }
 
+TEST_F(TestRecordBatch, AddColumn) {
+  const int length = 10;
+
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", uint8());
+  auto field3 = field("f3", int16());
+
+  auto schema1 = ::arrow::schema({field1, field2});
+  auto schema2 = ::arrow::schema({field2, field3});
+  auto schema3 = ::arrow::schema({field2});
+
+  auto array1 = MakeRandomArray<Int32Array>(length);
+  auto array2 = MakeRandomArray<UInt8Array>(length);
+  auto array3 = MakeRandomArray<Int16Array>(length);
+
+  auto batch1 = RecordBatch::Make(schema1, length, {array1, array2});
+  auto batch2 = RecordBatch::Make(schema2, length, {array2, array3});
+  auto batch3 = RecordBatch::Make(schema3, length, {array2});
+
+  const RecordBatch& batch = *batch3;
+  std::shared_ptr<RecordBatch> result;
+
+  // Negative tests with invalid index
+  Status status = batch.AddColumn(5, field1, array1->data(), &result);
+  ASSERT_TRUE(status.IsInvalid());
+  status = batch.AddColumn(-1, field1, array1->data(), &result);
+  ASSERT_TRUE(status.IsInvalid());
+
+  // Negative test with wrong length
+  auto longer_col = MakeRandomArray<Int32Array>(length + 1);
+  status = batch.AddColumn(0, field1, longer_col->data(), &result);
+  ASSERT_TRUE(status.IsInvalid());
+
+  // Negative test with mismatch type
+  status = batch.AddColumn(0, field1, array2->data(), &result);
+  ASSERT_TRUE(status.IsInvalid());
+
+  ASSERT_OK(batch.AddColumn(0, field1, array1->data(), &result));
+  ASSERT_TRUE(result->Equals(*batch1));
+
+  ASSERT_OK(batch.AddColumn(1, field3, array3->data(), &result));
+  ASSERT_TRUE(result->Equals(*batch2));
+}
+
+TEST_F(TestRecordBatch, RemoveColumn) {
+  const int length = 10;
+
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", uint8());
+  auto field3 = field("f3", int16());
+
+  auto schema1 = ::arrow::schema({field1, field2, field3});
+  auto schema2 = ::arrow::schema({field2, field3});
+  auto schema3 = ::arrow::schema({field1, field3});
+  auto schema4 = ::arrow::schema({field1, field2});
+
+  auto array1 = MakeRandomArray<Int32Array>(length);
+  auto array2 = MakeRandomArray<UInt8Array>(length);
+  auto array3 = MakeRandomArray<Int16Array>(length);
+
+  auto batch1 = RecordBatch::Make(schema1, length, {array1, array2, array3});
+  auto batch2 = RecordBatch::Make(schema2, length, {array2, array3});
+  auto batch3 = RecordBatch::Make(schema3, length, {array1, array3});
+  auto batch4 = RecordBatch::Make(schema4, length, {array1, array2});
+
+  const RecordBatch& batch = *batch1;
+  std::shared_ptr<RecordBatch> result;
+
+  ASSERT_OK(batch.RemoveColumn(0, &result));
+  ASSERT_TRUE(result->Equals(*batch2));
+
+  ASSERT_OK(batch.RemoveColumn(1, &result));
+  ASSERT_TRUE(result->Equals(*batch3));
+
+  ASSERT_OK(batch.RemoveColumn(2, &result));
+  ASSERT_TRUE(result->Equals(*batch4));
+}
+
+TEST_F(TestRecordBatch, RemoveColumnEmpty) {
+  const int length = 10;
+
+  auto field1 = field("f1", int32());
+  auto schema1 = ::arrow::schema({field1});
+  auto array1 = MakeRandomArray<Int32Array>(length);
+  auto batch1 = RecordBatch::Make(schema1, length, {array1});
+
+  std::shared_ptr<RecordBatch> empty;
+  ASSERT_OK(batch1->RemoveColumn(0, &empty));
+  ASSERT_EQ(batch1->num_rows(), empty->num_rows());
+
+  std::shared_ptr<RecordBatch> added;
+  ASSERT_OK(empty->AddColumn(0, field1, array1->data(), &added));
+  ASSERT_TRUE(added->Equals(*batch1));
+}
+
 class TestTableBatchReader : public TestBase {};
 
 TEST_F(TestTableBatchReader, ReadNext) {
