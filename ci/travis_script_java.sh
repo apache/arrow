@@ -25,6 +25,5 @@ pushd $JAVA_DIR
 
 export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
 mvn -B install
-[ "${ARROW_TRAVIS_SKIP_SITE}" = "yes" ] || mvn -B site
 
 popd

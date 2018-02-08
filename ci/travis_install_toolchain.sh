@@ -17,35 +17,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-# Fail fast for code linting issues
+source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
-if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
-  mkdir $TRAVIS_BUILD_DIR/cpp/lint
-  pushd $TRAVIS_BUILD_DIR/cpp/lint
+if [ ! -e $CPP_TOOLCHAIN ]; then
+    # Set up C++ toolchain from conda-forge packages for faster builds
+    conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
+        jemalloc=4.4.0 \
+        nomkl \
+        boost-cpp \
+        rapidjson \
+        flatbuffers \
+        gflags \
+        gtest \
+        lz4-c \
+        snappy \
+        ccache \
+        zstd \
+        brotli \
+        zlib \
+        cmake \
+        curl \
+        thrift-cpp=0.11.0 \
+        ninja
 
-  cmake ..
-  make lint
-
-  if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
-    make check-format
-  fi
-
-  popd
-fi
-
-
-# Fail fast on style checks
-
-if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
-  sudo pip install -q flake8
-
-  PYTHON_DIR=$TRAVIS_BUILD_DIR/python
-
-  flake8 --count $PYTHON_DIR/pyarrow
-
-  # Check Cython files with some checks turned off
-  flake8 --count --config=$PYTHON_DIR/.flake8.cython \
-         $PYTHON_DIR/pyarrow
+    # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
+    # updated sometime on October 2 or October 3
+    conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
 fi
