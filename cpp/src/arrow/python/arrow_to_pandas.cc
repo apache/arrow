@@ -56,8 +56,8 @@
 namespace arrow {
 namespace py {
 
-using internal::kPandasTimestampNull;
 using internal::kNanosecondsInDay;
+using internal::kPandasTimestampNull;
 
 using compute::Datum;
 
@@ -90,7 +90,6 @@ struct WrapBytes<FixedSizeBinaryArray> {
 
 static inline bool ListTypeSupported(const DataType& type) {
   switch (type.id()) {
-    case Type::NA:
     case Type::UINT8:
     case Type::INT8:
     case Type::UINT16:
@@ -104,6 +103,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::BINARY:
     case Type::STRING:
     case Type::TIMESTAMP:
+    case Type::NA:  // empty list
       // The above types are all supported.
       return true;
     case Type::LIST: {
@@ -696,7 +696,6 @@ class ObjectBlock : public PandasBlock {
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->id()) {
-        CONVERTLISTSLIKE_CASE(FloatType, NA)
         CONVERTLISTSLIKE_CASE(UInt8Type, UINT8)
         CONVERTLISTSLIKE_CASE(Int8Type, INT8)
         CONVERTLISTSLIKE_CASE(UInt16Type, UINT16)
@@ -711,6 +710,7 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(BinaryType, BINARY)
         CONVERTLISTSLIKE_CASE(StringType, STRING)
         CONVERTLISTSLIKE_CASE(ListType, LIST)
+        CONVERTLISTSLIKE_CASE(NullType, NA)
         default: {
           std::stringstream ss;
           ss << "Not implemented type for conversion from List to Pandas ObjectBlock: "
