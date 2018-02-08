@@ -31,28 +31,7 @@ fi
 
 if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # Set up C++ toolchain from conda-forge packages for faster builds
-  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
-        jemalloc=4.4.0 \
-        nomkl \
-        boost-cpp \
-        rapidjson \
-        flatbuffers \
-        gflags \
-        gtest \
-        lz4-c \
-        snappy \
-        ccache \
-        zstd \
-        brotli \
-        zlib \
-        cmake \
-        curl \
-        thrift-cpp=0.11.0 \
-        ninja
-
-  # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
-  # updated sometime on October 2 or October 3
-  conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
+  source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
 fi
 
 mkdir -p $ARROW_CPP_BUILD_DIR

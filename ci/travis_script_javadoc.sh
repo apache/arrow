@@ -17,35 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
 
-# Fail fast for code linting issues
+JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 
-if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
-  mkdir $TRAVIS_BUILD_DIR/cpp/lint
-  pushd $TRAVIS_BUILD_DIR/cpp/lint
+pushd $JAVA_DIR
 
-  cmake ..
-  make lint
+export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
+mvn -B site
 
-  if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
-    make check-format
-  fi
-
-  popd
-fi
-
-
-# Fail fast on style checks
-
-if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
-  sudo pip install -q flake8
-
-  PYTHON_DIR=$TRAVIS_BUILD_DIR/python
-
-  flake8 --count $PYTHON_DIR/pyarrow
-
-  # Check Cython files with some checks turned off
-  flake8 --count --config=$PYTHON_DIR/.flake8.cython \
-         $PYTHON_DIR/pyarrow
-fi
+popd
