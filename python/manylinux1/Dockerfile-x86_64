@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-FROM quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-2087
+FROM quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
 
 ADD arrow /arrow
 WORKDIR /arrow/cpp
