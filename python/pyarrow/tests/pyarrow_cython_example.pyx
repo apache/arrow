@@ -15,19 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+# distutils: language=c++
 
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
+from pyarrow.lib cimport *
+
+
+def get_array_length(obj):
+    # Just an example function accessing both the pyarrow Cython API
+    # and the Arrow C++ API
+    cdef shared_ptr[CArray] arr = pyarrow_unwrap_array(obj)
+    if arr.get() == NULL:
+        raise TypeError("not an array")
+    return arr.get().length()
