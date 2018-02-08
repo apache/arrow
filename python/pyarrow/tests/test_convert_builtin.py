@@ -531,6 +531,45 @@ def test_struct_from_dicts():
     assert arr.to_pylist() == expected
 
 
+def test_struct_from_tuples():
+    ty = pa.struct([pa.field('a', pa.int32()),
+                    pa.field('b', pa.string()),
+                    pa.field('c', pa.bool_())])
+
+    data = [(5, 'foo', True),
+            (6, 'bar', False)]
+    expected = [{'a': 5, 'b': 'foo', 'c': True},
+                {'a': 6, 'b': 'bar', 'c': False}]
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == expected
+
+    # With omitted values
+    data = [(5, 'foo', None),
+            None,
+            (6, None, False)]
+    expected = [{'a': 5, 'b': 'foo', 'c': None},
+                None,
+                {'a': 6, 'b': None, 'c': False}]
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == expected
+
+    # Invalid tuple size
+    for tup in [(5, 'foo'), (), ('5', 'foo', True, None)]:
+        with pytest.raises(ValueError, match="(?i)tuple size"):
+            pa.array([tup], type=ty)
+
+
+def test_struct_from_mixed_sequence():
+    # It is forbidden to mix dicts and tuples when initializing a struct array
+    ty = pa.struct([pa.field('a', pa.int32()),
+                    pa.field('b', pa.string()),
+                    pa.field('c', pa.bool_())])
+    data = [(5, 'foo', True),
+            {'a': 6, 'b': 'bar', 'c': False}]
+    with pytest.raises(TypeError):
+        pa.array(data, type=ty)
+
+
 def test_structarray_from_arrays_coerce():
     # ARROW-1706
     ints = [None, 2, 3]
