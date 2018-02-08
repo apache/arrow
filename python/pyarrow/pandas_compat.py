@@ -45,7 +45,7 @@ def get_logical_type_map():
 
     if not _logical_type_map:
         _logical_type_map.update({
-            pa.lib.Type_NA: 'float64',  # NaNs
+            pa.lib.Type_NA: 'empty',
             pa.lib.Type_BOOL: 'bool',
             pa.lib.Type_INT8: 'int8',
             pa.lib.Type_INT16: 'int16',
