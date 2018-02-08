@@ -30,20 +30,22 @@
   </tr>
 </table>
 
-### Powering Columnar In-Memory Analytics
+### Powering In-Memory Analytics
 
-Arrow is a set of technologies that enable big-data systems to process and move data fast.
+Apache Arrow is a development platform for in-memory analytics. It contains a
+set of technologies that enable big data systems to process and move data fast.
 
-Initial implementations include:
+Major components of the project include:
 
- - [The Arrow Format](https://github.com/apache/arrow/tree/master/format)
+ - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/tree/master/format)
  - [C++ implementation](https://github.com/apache/arrow/tree/master/cpp)
+ - [C bindings using GLib](https://github.com/apache/arrow/tree/master/c_glib)
  - [Java implementation](https://github.com/apache/arrow/tree/master/java)
  - [JavaScript implementation](https://github.com/apache/arrow/tree/master/js)
- - [Python interface to C++ libraries](https://github.com/apache/arrow/tree/master/python)
+ - [Python bindings to C++](https://github.com/apache/arrow/tree/master/python)
 
-Arrow is an [Apache Software Foundation](www.apache.org) project. Learn more at
-[arrow.apache.org](http://arrow.apache.org).
+Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at
+[arrow.apache.org](https://arrow.apache.org).
 
 ### What's in the Arrow libraries?
 
@@ -62,8 +64,7 @@ components:
   interprocess communication (IPC)
 - Integration tests for verifying binary compatibility between the
   implementations (e.g. sending data from Java to C++)
-- Conversions to and from other in-memory data structures (e.g. Python's pandas
-  library)
+- Conversions to and from other in-memory data structures
 
 ### Getting involved
 
