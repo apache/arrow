@@ -23,12 +23,11 @@ import re
 import pandas.core.internals as _int
 import numpy as np
 import pandas as pd
-import pickle
 
 import six
 
 import pyarrow as pa
-from pyarrow.compat import PY2, zip_longest  # noqa
+from pyarrow.compat import builtin_pickle, PY2, zip_longest  # noqa
 
 
 def infer_dtype(column):
@@ -433,7 +432,7 @@ def dataframe_to_serialized_dict(frame):
         # If we are dealing with an object array, pickle it instead.
         if isinstance(block, _int.ObjectBlock):
             block_data['object'] = None
-            block_data['block'] = pickle.dumps(values)
+            block_data['block'] = builtin_pickle.dumps(values)
 
         blocks.append(block_data)
 
@@ -470,8 +469,8 @@ def _reconstruct_block(item):
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
     elif 'object' in item:
-        block = _int.make_block(pickle.loads(block_arr), placement=placement,
-                                klass=_int.ObjectBlock)
+        block = _int.make_block(builtin_pickle.loads(block_arr),
+                                placement=placement, klass=_int.ObjectBlock)
     else:
         block = _int.make_block(block_arr, placement=placement)
 
