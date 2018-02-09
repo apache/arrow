@@ -24,7 +24,7 @@ except DistributionNotFound:
    # package is not installed
     try:
         import setuptools_scm
-        __version__ = setuptools_scm.get_version('../')
+        __version__ = setuptools_scm.get_version(root='../../', relative_to=__file__)
     except (ImportError, LookupError):
         __version__ = None
 
