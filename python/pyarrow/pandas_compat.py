@@ -429,8 +429,10 @@ def dataframe_to_serialized_dict(frame):
             block=values
         )
 
-        # If we are dealing with an object array, pickle it instead.
-        if isinstance(block, _int.ObjectBlock):
+        # If we are dealing with an object array, pickle it instead. Note that
+        # we do not use isinstance here because _int.CategoricalBlock is a
+        # subclass of _int.ObjectBlock.
+        if type(block) == _int.ObjectBlock:
             block_data['object'] = None
             block_data['block'] = builtin_pickle.dumps(values)
 
