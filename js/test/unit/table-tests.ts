@@ -313,8 +313,8 @@ describe(`Table`, () => {
                     for (let batch of table.batches) {
                         expect(bind).toHaveBeenCalledWith(batch);
                     }
-                })
-            })
+                });
+            });
             test(`count() returns the correct length`, () => {
                 expect(table.count()).toEqual(values.length);
             });
@@ -331,7 +331,7 @@ describe(`Table`, () => {
                 }, {
                     name:     `filter on 0 <= f32`,
                     filtered: table.filter(lit(0).lteq(col('f32'))),
-                    expected: values.filter((row)=>0 <= row[F32])
+                    expected: values.filter((row) => 0 <= row[F32])
                 }, {
                     name:     `filter on i32 <= 0`,
                     filtered: table.filter(col('i32').lteq(0)),
@@ -339,11 +339,11 @@ describe(`Table`, () => {
                 }, {
                     name:     `filter on 0 >= i32`,
                     filtered: table.filter(lit(0).gteq(col('i32'))),
-                    expected: values.filter((row)=>0 >= row[I32])
+                    expected: values.filter((row) => 0 >= row[I32])
                 }, {
                     name:     `filter on f32 <= -.25 || f3 >= .25`,
                     filtered: table.filter(col('f32').lteq(-.25).or(col('f32').gteq(.25))),
-                    expected: values.filter((row)=>row[F32] <= -.25 || row[F32] >= .25)
+                    expected: values.filter((row) => row[F32] <= -.25 || row[F32] >= .25)
                 }, {
                     name:     `filter method combines predicates (f32 >= 0 && i32 <= 0)`,
                     filtered: table.filter(col('i32').lteq(0)).filter(col('f32').gteq(0)),
@@ -355,15 +355,15 @@ describe(`Table`, () => {
                 }, {
                     name:     `filter on 'a' == dictionary (commutativity)`,
                     filtered: table.filter(lit('a').eq(col('dictionary'))),
-                    expected: values.filter((row)=>row[DICT] === 'a')
+                    expected: values.filter((row) => row[DICT] === 'a')
                 }, {
                     name:     `filter on f32 >= i32`,
                     filtered: table.filter(col('f32').gteq(col('i32'))),
-                    expected: values.filter((row)=>row[F32] >= row[I32])
+                    expected: values.filter((row) => row[F32] >= row[I32])
                 }, {
                     name:     `filter on f32 <= i32`,
                     filtered: table.filter(col('f32').lteq(col('i32'))),
-                    expected: values.filter((row)=>row[F32] <= row[I32])
+                    expected: values.filter((row) => row[F32] <= row[I32])
                 }
             ];
             for (let this_test of filter_tests) {
