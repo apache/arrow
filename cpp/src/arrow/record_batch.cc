@@ -80,31 +80,21 @@ class SimpleRecordBatch : public RecordBatch {
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
 
   Status AddColumn(int i, const std::shared_ptr<Field>& field,
-                   const std::shared_ptr<ArrayData>& column,
+                   const std::shared_ptr<Array>& column,
                    std::shared_ptr<RecordBatch>* out) const override {
-    if (i < 0 || i > num_columns() + 1) {
-      return Status::Invalid("Invalid column index");
-    }
-    if (field == nullptr) {
-      std::stringstream ss;
-      ss << "Field " << i << " was null";
-      return Status::Invalid(ss.str());
-    }
-    if (column == nullptr) {
-      std::stringstream ss;
-      ss << "Column " << i << " was null";
-      return Status::Invalid(ss.str());
-    }
-    if (!field->type()->Equals(column->type)) {
+    DCHECK(field != nullptr);
+    DCHECK(column != nullptr);
+
+    if (!field->type()->Equals(column->type())) {
       std::stringstream ss;
       ss << "Column data type " << field->type()->name()
-         << " does not match field data type " << column->type->name();
+         << " does not match field data type " << column->type()->name();
       return Status::Invalid(ss.str());
     }
-    if (column->length != num_rows_) {
+    if (column->length() != num_rows_) {
       std::stringstream ss;
       ss << "Added column's length must match record batch's length. Expected length "
-         << num_rows_ << " but got length " << column->length;
+         << num_rows_ << " but got length " << column->length();
       return Status::Invalid(ss.str());
     }
 
@@ -112,7 +102,7 @@ class SimpleRecordBatch : public RecordBatch {
     RETURN_NOT_OK(schema_->AddField(i, field, &new_schema));
 
     *out = RecordBatch::Make(new_schema, num_rows_,
-                             internal::AddVectorElement(columns_, i, column));
+                             internal::AddVectorElement(columns_, i, column->data()));
     return Status::OK();
   }
 

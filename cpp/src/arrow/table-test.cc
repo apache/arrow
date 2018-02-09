@@ -466,6 +466,8 @@ TEST_F(TestTable, AddColumn) {
   // Some negative tests with invalid index
   Status status = table.AddColumn(10, columns_[0], &result);
   ASSERT_TRUE(status.IsInvalid());
+  status = table.AddColumn(4, columns_[0], &result);
+  ASSERT_TRUE(status.IsInvalid());
   status = table.AddColumn(-1, columns_[0], &result);
   ASSERT_TRUE(status.IsInvalid());
 
@@ -611,24 +613,26 @@ TEST_F(TestRecordBatch, AddColumn) {
   std::shared_ptr<RecordBatch> result;
 
   // Negative tests with invalid index
-  Status status = batch.AddColumn(5, field1, array1->data(), &result);
+  Status status = batch.AddColumn(5, field1, array1, &result);
   ASSERT_TRUE(status.IsInvalid());
-  status = batch.AddColumn(-1, field1, array1->data(), &result);
+  status = batch.AddColumn(2, field1, array1, &result);
+  ASSERT_TRUE(status.IsInvalid());
+  status = batch.AddColumn(-1, field1, array1, &result);
   ASSERT_TRUE(status.IsInvalid());
 
   // Negative test with wrong length
   auto longer_col = MakeRandomArray<Int32Array>(length + 1);
-  status = batch.AddColumn(0, field1, longer_col->data(), &result);
+  status = batch.AddColumn(0, field1, longer_col, &result);
   ASSERT_TRUE(status.IsInvalid());
 
   // Negative test with mismatch type
-  status = batch.AddColumn(0, field1, array2->data(), &result);
+  status = batch.AddColumn(0, field1, array2, &result);
   ASSERT_TRUE(status.IsInvalid());
 
-  ASSERT_OK(batch.AddColumn(0, field1, array1->data(), &result));
+  ASSERT_OK(batch.AddColumn(0, field1, array1, &result));
   ASSERT_TRUE(result->Equals(*batch1));
 
-  ASSERT_OK(batch.AddColumn(1, field3, array3->data(), &result));
+  ASSERT_OK(batch.AddColumn(1, field3, array3, &result));
   ASSERT_TRUE(result->Equals(*batch2));
 }
 
@@ -656,6 +660,12 @@ TEST_F(TestRecordBatch, RemoveColumn) {
   const RecordBatch& batch = *batch1;
   std::shared_ptr<RecordBatch> result;
 
+  // Negative tests with invalid index
+  Status status = batch.RemoveColumn(3, &result);
+  ASSERT_TRUE(status.IsInvalid());
+  status = batch.RemoveColumn(-1, &result);
+  ASSERT_TRUE(status.IsInvalid());
+
   ASSERT_OK(batch.RemoveColumn(0, &result));
   ASSERT_TRUE(result->Equals(*batch2));
 
@@ -679,7 +689,7 @@ TEST_F(TestRecordBatch, RemoveColumnEmpty) {
   ASSERT_EQ(batch1->num_rows(), empty->num_rows());
 
   std::shared_ptr<RecordBatch> added;
-  ASSERT_OK(empty->AddColumn(0, field1, array1->data(), &added));
+  ASSERT_OK(empty->AddColumn(0, field1, array1, &added));
   ASSERT_TRUE(added->Equals(*batch1));
 }
 

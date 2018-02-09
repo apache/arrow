@@ -234,14 +234,8 @@ class SimpleTable : public Table {
 
   Status AddColumn(int i, const std::shared_ptr<Column>& col,
                    std::shared_ptr<Table>* out) const override {
-    if (i < 0 || i > num_columns() + 1) {
-      return Status::Invalid("Invalid column index.");
-    }
-    if (col == nullptr) {
-      std::stringstream ss;
-      ss << "Column " << i << " was null";
-      return Status::Invalid(ss.str());
-    }
+    DCHECK(col != nullptr);
+
     if (col->length() != num_rows_) {
       std::stringstream ss;
       ss << "Added column's length must match table's length. Expected length "
