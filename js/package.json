@@ -97,7 +97,7 @@
     "trash": "4.2.1",
     "ts-jest": "22.0.1",
     "tslint": "5.9.1",
-    "typescript": "2.6.2",
+    "typescript": "2.7.1",
     "uglifyjs-webpack-plugin": "1.1.6",
     "webpack": "3.10.0",
     "xml2js": "0.4.19"

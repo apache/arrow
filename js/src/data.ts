@@ -142,7 +142,7 @@ export class FlatListData<T extends FlatListType> extends FlatData<T> {
         this[VectorType.OFFSET] = toTypedArray(Int32Array, valueOffsets);
     }
     public clone<R extends T>(type: R, length = this.length, offset = this.offset, nullCount = this._nullCount) {
-        return new FlatListData(type, length, this[VectorType.VALIDITY], this[VectorType.OFFSET], this[VectorType.DATA], offset, nullCount);
+        return new FlatListData(type, length, this[VectorType.VALIDITY], this[VectorType.OFFSET], this[VectorType.DATA], offset, nullCount) as FlatListData<R>;
     }
 }
 
