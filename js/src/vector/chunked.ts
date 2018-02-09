@@ -22,6 +22,7 @@ import { DataType, TypedArray, IterableArrayLike } from '../type';
 export class ChunkedView<T extends DataType> implements View<T> {
     public chunkVectors: Vector<T>[];
     public chunkOffsets: Uint32Array;
+    // @ts-ignore
     protected _children: Vector<any>[];
     constructor(data: ChunkedData<T>) {
         this.chunkVectors = data.chunkVectors;
