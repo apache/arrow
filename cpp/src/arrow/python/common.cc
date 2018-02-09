@@ -65,16 +65,22 @@ PyBuffer::~PyBuffer() {
 
 Status CheckPyError(StatusCode code) {
   if (PyErr_Occurred()) {
-    PyObject *exc_type, *exc_value, *traceback;
+    PyObject* exc_type = nullptr;
+    PyObject* exc_value = nullptr;
+    PyObject* traceback = nullptr;
+
+    OwnedRef exc_type_ref(exc_type);
+    OwnedRef exc_value_ref(exc_value);
+    OwnedRef traceback_ref(traceback);
+
     PyErr_Fetch(&exc_type, &exc_value, &traceback);
+
     PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
-    PyObject* exc_value_str = PyObject_Str(exc_value);
-    PyObjectStringify stringified(exc_value_str);
+
+    OwnedRef exc_value_str(PyObject_Str(exc_value));
+    PyObjectStringify stringified(exc_value_str.obj());
     std::string message(stringified.bytes);
-    Py_XDECREF(exc_type);
-    Py_XDECREF(exc_value);
-    Py_XDECREF(exc_value_str);
-    Py_XDECREF(traceback);
+
     PyErr_Clear();
     return Status(code, message);
   }
