@@ -271,7 +271,9 @@ cdef class Column:
         casted_data = pyarrow_wrap_chunked_array(out.chunked_array())
         return column(self.name, casted_data)
 
-    def to_pandas(self, strings_to_categorical=False, zero_copy_only=False):
+    def to_pandas(self,
+                  c_bool strings_to_categorical=False,
+                  c_bool zero_copy_only=False):
         """
         Convert the arrow::Column to a pandas.Series
 

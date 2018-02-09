@@ -502,19 +502,23 @@ template <typename ArrowType>
 inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Column>& col,
                                PyObject** out_values) {
   const ChunkedArray& data = *col->data().get();
-  auto list_type = std::static_pointer_cast<ListType>(col->type());
+  const auto& list_type = static_cast<const ListType&>(*col->type());
 
   // Get column of underlying value arrays
   std::vector<std::shared_ptr<Array>> value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
-    auto arr = std::static_pointer_cast<ListArray>(data.chunk(c));
-    value_arrays.emplace_back(arr->values());
+    const auto& arr = static_cast<const ListArray&>(*data.chunk(c));
+    value_arrays.emplace_back(arr.values());
   }
-  auto flat_column = std::make_shared<Column>(list_type->value_field(), value_arrays);
+  auto flat_column = std::make_shared<Column>(list_type.value_field(), value_arrays);
   // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
   //    Storing a reference to the whole Array would be to expensive.
-  PyObject* numpy_array;
-  RETURN_NOT_OK(ConvertColumnToPandas(options, flat_column, nullptr, &numpy_array));
+
+  OwnedRef owned_numpy_array;
+  RETURN_NOT_OK(
+      ConvertColumnToPandas(options, flat_column, nullptr, owned_numpy_array.ref()));
+
+  PyObject* numpy_array = owned_numpy_array.obj();
 
   PyAcquireGIL lock;
 
@@ -528,24 +532,20 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        PyObject* start = PyLong_FromLongLong(arr->value_offset(i) + chunk_offset);
-        PyObject* end = PyLong_FromLongLong(arr->value_offset(i + 1) + chunk_offset);
-        PyObject* slice = PySlice_New(start, end, NULL);
-        Py_XDECREF(start);
-        Py_XDECREF(end);
+        OwnedRef start(PyLong_FromLongLong(arr->value_offset(i) + chunk_offset));
+        OwnedRef end(PyLong_FromLongLong(arr->value_offset(i + 1) + chunk_offset));
+        OwnedRef slice(PySlice_New(start.obj(), end.obj(), nullptr));
 
-        if (ARROW_PREDICT_FALSE(slice == nullptr)) {
+        if (ARROW_PREDICT_FALSE(slice.obj() == nullptr)) {
           // Fall out of loop, will return from RETURN_IF_PYERROR
           break;
         }
-        *out_values = PyObject_GetItem(numpy_array, slice);
+        *out_values = PyObject_GetItem(numpy_array, slice.obj());
 
         if (*out_values == nullptr) {
           // Fall out of loop, will return from RETURN_IF_PYERROR
           break;
         }
-
-        Py_XDECREF(slice);
       }
       ++out_values;
     }
@@ -554,7 +554,6 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
     chunk_offset += arr->values()->length();
   }
 
-  Py_XDECREF(numpy_array);
   return Status::OK();
 }
 
@@ -1447,7 +1446,7 @@ class ArrowDeserializer {
 
   template <int TYPE>
   Status ConvertValuesZeroCopy(PandasOptions options, int npy_type,
-                               std::shared_ptr<Array> arr) {
+                               const std::shared_ptr<Array>& arr) {
     typedef typename internal::arrow_traits<TYPE>::T T;
 
     const T* in_values = GetPrimitiveValues<T>(*arr);
@@ -1461,15 +1460,57 @@ class ArrowDeserializer {
     result_ = NewArray1DFromType(col_->type().get(), npy_type, col_->length(), data);
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
 
-    if (arr_ == NULL) {
+    if (arr_ == nullptr) {
       // Error occurred, trust that error set
       return Status::OK();
     }
 
+    // See ARROW-1973 for the original memory leak report.
+    //
+    // There are two scenarios: py_ref_ is nullptr or py_ref_ is not nullptr
+    //
+    //   1. py_ref_ is nullptr (it **was not** passed in to ArrowDeserializer's
+    //      constructor)
+    //
+    //      In this case, the stolen reference must not be incremented since nothing
+    //      outside of the PyArrayObject* (the arr_ member) is holding a reference to
+    //      it. If we increment this, then we have a memory leak.
+    //
+    //
+    //      Here's an example of how memory can be leaked when converting an arrow Array
+    //      of List<Float64>.to a numpy array
+    //
+    //      1. Create a 1D numpy that is the flattened arrow array.
+    //
+    //         There's nothing outside of the serializer that owns this new numpy array.
+    //
+    //      2. Make a capsule for the base array.
+    //
+    //         The reference count of base is 1.
+    //
+    //      3. Call PyArray_SetBaseObject(arr_, base)
+    //
+    //         The reference count is still 1, because the reference is stolen.
+    //
+    //      4. Increment the reference count of base (unconditionally)
+    //
+    //         The reference count is now 2. This is okay if there's an object holding
+    //         another reference. The PyArrayObject that stole the reference will
+    //         eventually decrement the reference count, which will leaves us with a
+    //         refcount of 1, with nothing owning that 1 reference. Memory leakage
+    //         ensues.
+    //
+    //   2. py_ref_ is not nullptr (it **was** passed in to ArrowDeserializer's
+    //      constructor)
+    //
+    //      This case is simpler. We assume that the reference accounting is correct
+    //      coming in. We need to preserve that accounting knowing that the
+    //      PyArrayObject that stole the reference will eventually decref it, thus we
+    //      increment the reference count.
+
     PyObject* base;
     if (py_ref_ == nullptr) {
-      ArrowCapsule* capsule = new ArrowCapsule;
-      capsule->array = arr;
+      auto capsule = new ArrowCapsule{{arr}};
       base = PyCapsule_New(reinterpret_cast<void*>(capsule), "arrow",
                            &ArrowCapsule_Destructor);
       if (base == nullptr) {
@@ -1478,14 +1519,13 @@ class ArrowDeserializer {
       }
     } else {
       base = py_ref_;
+      Py_INCREF(base);
     }
 
     if (PyArray_SetBaseObject(arr_, base) == -1) {
       // Error occurred, trust that SetBaseObject set the error state
+      Py_XDECREF(base);
       return Status::OK();
-    } else {
-      // PyArray_SetBaseObject steals our reference to base
-      Py_INCREF(base);
     }
 
     // Arrow data is immutable.
@@ -1686,7 +1726,9 @@ class ArrowDeserializer {
     RETURN_IF_PYERROR();
 
     PyDict_SetItemString(result_, "indices", block->block_arr());
+    RETURN_IF_PYERROR();
     PyDict_SetItemString(result_, "dictionary", block->dictionary());
+    RETURN_IF_PYERROR();
 
     return Status::OK();
   }
