@@ -29,7 +29,7 @@ elseif ( GFlags_HOME )
     list( APPEND _gflags_roots ${GFlags_HOME} )
 endif()
 
-if (MSVC AND NOT GFLAGS_MSVC_STATIC_LIB_SUFFIX)
+if (MSVC AND NOT DEFINED GFLAGS_MSVC_STATIC_LIB_SUFFIX)
   set(GFLAGS_MSVC_STATIC_LIB_SUFFIX "_static")
 endif()
 
