@@ -23,6 +23,7 @@ import re
 import pandas.core.internals as _int
 import numpy as np
 import pandas as pd
+import pickle
 
 import six
 
@@ -424,11 +425,16 @@ def dataframe_to_serialized_dict(frame):
             block_data.update(dictionary=values.categories,
                               ordered=values.ordered)
             values = values.codes
-
         block_data.update(
             placement=block.mgr_locs.as_array,
             block=values
         )
+
+        # If we are dealing with an object array, pickle it instead.
+        if isinstance(block, _int.ObjectBlock):
+            block_data['object'] = None
+            block_data['block'] = pickle.dumps(values)
+
         blocks.append(block_data)
 
     return {
@@ -463,6 +469,9 @@ def _reconstruct_block(item):
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
+    elif 'object' in item:
+        block = _int.make_block(pickle.loads(block_arr), placement=placement,
+                                klass=_int.ObjectBlock)
     else:
         block = _int.make_block(block_arr, placement=placement)
 
