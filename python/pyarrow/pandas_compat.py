@@ -434,7 +434,8 @@ def dataframe_to_serialized_dict(frame):
         # subclass of _int.ObjectBlock.
         if type(block) == _int.ObjectBlock:
             block_data['object'] = None
-            block_data['block'] = builtin_pickle.dumps(values)
+            block_data['block'] = builtin_pickle.dumps(
+                values, protocol=builtin_pickle.HIGHEST_PROTOCOL)
 
         blocks.append(block_data)
 
