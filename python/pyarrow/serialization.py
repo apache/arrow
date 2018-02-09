@@ -22,8 +22,7 @@ import sys
 import numpy as np
 
 from pyarrow.compat import builtin_pickle
-from pyarrow.lib import (SerializationContext, _default_serialization_context,
-                         frombuffer)
+from pyarrow.lib import SerializationContext, _default_serialization_context
 
 try:
     import cloudpickle
@@ -42,23 +41,6 @@ def _serialize_numpy_array_list(obj):
 
 def _deserialize_numpy_array_list(data):
     return np.array(data[0], dtype=np.dtype(data[1]))
-
-
-def _pickle_to_buffer(x):
-    pickled = builtin_pickle.dumps(x, protocol=builtin_pickle.HIGHEST_PROTOCOL)
-    return frombuffer(pickled)
-
-
-def _load_pickle_from_buffer(data):
-    as_memoryview = memoryview(data)
-    if six.PY2:
-        return builtin_pickle.loads(as_memoryview.tobytes())
-    else:
-        return builtin_pickle.loads(as_memoryview)
-
-
-_serialize_numpy_array_pickle = _pickle_to_buffer
-_deserialize_numpy_array_pickle = _load_pickle_from_buffer
 
 
 # ----------------------------------------------------------------------
@@ -190,11 +172,3 @@ def default_serialization_context():
 
 
 register_default_serialization_handlers(_default_serialization_context)
-
-
-def pandas_serialization_context():
-    context = default_serialization_context()
-    context.register_type(np.ndarray, 'np.array',
-                          custom_serializer=_serialize_numpy_array_pickle,
-                          custom_deserializer=_deserialize_numpy_array_pickle)
-    return context
