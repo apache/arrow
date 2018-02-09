@@ -19,9 +19,11 @@ FROM maven:3.5.2-jdk-8-slim
 # Basic OS utilities
 RUN apt-get update && apt-get install -y \
         wget \
-        git g++ cmake \
-        libjemalloc-dev libboost-dev \
-        libboost-filesystem-dev libboost-system-dev
+        git build-essential \
+        software-properties-common
+
+#RUN apt-add-repository -y ppa:ubuntu-toolchain-r/test \
+#        && apt-get update && apt-get install -y gcc-4.9 g++-4.9
 
 # This will install conda in /home/ubuntu/miniconda
 RUN wget -O /tmp/miniconda.sh \
@@ -29,12 +31,38 @@ RUN wget -O /tmp/miniconda.sh \
     bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
     rm /tmp/miniconda.sh
 
+# Python dependencies
+RUN apt-get install -y \
+        pkg-config
+
 # Create Conda environment
 ENV PATH="/home/ubuntu/miniconda/bin:${PATH}"
 RUN conda create -y -q -n pyarrow-dev \
-    python=3.5 numpy six setuptools cython pandas pytest \
-    cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
-    gflags brotli jemalloc lz4-c zstd -c conda-forge
+        # Python
+        python=2.7 \
+        numpy \
+        pandas \
+        pytest \
+        cython \
+        ipython \
+        matplotlib \
+        six \
+        setuptools \
+        setuptools_scm \
+        # C++
+        boost-cpp \
+        cmake \
+        flatbuffers \
+        rapidjson \
+        thrift-cpp \
+        snappy \
+        zlib \
+        gflags \
+        brotli \
+        jemalloc \
+        lz4-c \
+        zstd \
+        -c conda-forge
 
 ADD . /apache-arrow
 WORKDIR /apache-arrow

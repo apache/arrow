@@ -19,22 +19,24 @@
 # Set up environment and working directory
 cd /apache-arrow
 
-export ARROW_BUILD_TYPE=release
+# Activate our pyarrow-dev conda env
+source activate pyarrow-dev
+
+export ARROW_BUILD_TYPE=Release
 export ARROW_HOME=$(pwd)/arrow
+#export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
+export BOOST_ROOT=$CONDA_PREFIX
 CONDA_BASE=/home/ubuntu/miniconda
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${CONDA_BASE}/lib:${LD_LIBRARY_PATH}
 export PYTHONPATH=${ARROW_HOME}/python:${PYTHONPATH}
 export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
 
-# Activate our pyarrow-dev conda env
-source activate pyarrow-dev
-
-# Build arrow-cpp and install
+# Build Arrow C++
 pushd arrow/cpp
 rm -rf build/*
 mkdir -p build
 cd build/
-cmake -DARROW_PYTHON=on -DARROW_HDFS=on -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ARROW_HOME ..
+cmake -DARROW_PYTHON=on -DARROW_HDFS=on -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX=$ARROW_HOME ..
 make -j4
 if [[ $? -ne 0 ]]; then
     exit 1
@@ -60,7 +62,7 @@ echo "Using Arrow version $ARROW_VERSION"
 popd
 
 # Build Spark with Arrow
-SPARK_REPO=https://github.com/apache/spark.git
+SPARK_REPO=git://git.apache.org/spark.git
 SPARK_BRANCH=master
 
 # Get the Spark repo if not in image already
@@ -79,8 +81,7 @@ git reset --hard HEAD
 # Update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
 sed -i -e "s/\(.*<arrow.version>\).*\(<\/arrow.version>\)/\1$ARROW_VERSION\2/g" ./pom.xml
 echo "Building Spark with Arrow $ARROW_VERSION"
-#build/mvn -DskipTests clean package
-build/mvn -DskipTests package
+build/mvn -DskipTests clean package
 
 # Run Arrow related Scala tests only, NOTE: -Dtest=_NonExist_ is to enable surefire test discovery without running any tests so that Scalatest can run
 SPARK_SCALA_TESTS="org.apache.spark.sql.execution.arrow,org.apache.spark.sql.execution.vectorized.ColumnarBatchSuite,org.apache.spark.sql.execution.vectorized.ArrowColumnVectorSuite"
@@ -92,7 +93,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Run pyarrow related Python tests only
-SPARK_PYTHON_TESTS="ArrowTests PandasUDFTests ScalarPandasUDF GroupbyApplyPandasUDFTests GroupbyAggPandasUDFTests"
+SPARK_PYTHON_TESTS="ArrowTests PandasUDFTests ScalarPandasUDFTests GroupedMapPandasUDFTests GroupedAggPandasUDFTests"
 echo "Testing PySpark: $SPARK_PYTHON_TESTS"
 SPARK_TESTING=1 bin/pyspark pyspark.sql.tests $SPARK_PYTHON_TESTS 
 if [[ $? -ne 0 ]]; then
