@@ -66,7 +66,6 @@ set( CYTHON_FLAGS "" CACHE STRING
   "Extra flags to the cython compiler." )
 mark_as_advanced( CYTHON_ANNOTATE CYTHON_NO_DOCSTRINGS CYTHON_FLAGS)
 
-find_package( Cython REQUIRED )
 find_package( PythonLibsNew REQUIRED )
 
 set( CYTHON_CXX_EXTENSION "cxx" )
@@ -132,7 +131,7 @@ function( compile_pyx _name pyx_target_name generated_files pyx_file)
 
   # Add the command to run the compiler.
   add_custom_target(${pyx_target_name}
-    COMMAND ${CYTHON_EXECUTABLE} ${cxx_arg} ${include_directory_arg}
+    COMMAND ${PYTHON_EXECUTABLE} -m cython ${cxx_arg} ${include_directory_arg}
     ${annotate_arg} ${no_docstrings_arg} ${cython_debug_arg}
     ${CYTHON_FLAGS}
     --output-file "${_name}.${extension}" ${pyx_location}
