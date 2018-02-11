@@ -280,6 +280,9 @@ class PandasBlock {
 
 template <typename T>
 inline const T* GetPrimitiveValues(const Array& arr) {
+  if (arr.length() == 0) {
+    return nullptr;
+  }
   const auto& prim_arr = static_cast<const PrimitiveArray&>(arr);
   const T* raw_values = reinterpret_cast<const T*>(prim_arr.values()->data());
   return raw_values + arr.offset();
@@ -304,9 +307,11 @@ inline void ConvertIntegerNoNullsSameType(PandasOptions options, const ChunkedAr
                                           T* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = *data.chunk(c);
-    const T* in_values = GetPrimitiveValues<T>(arr);
-    memcpy(out_values, in_values, sizeof(T) * arr.length());
-    out_values += arr.length();
+    if (arr.length() > 0) {
+      const T* in_values = GetPrimitiveValues<T>(arr);
+      memcpy(out_values, in_values, sizeof(T) * arr.length());
+      out_values += arr.length();
+    }
   }
 }
 
