@@ -43,6 +43,8 @@ setup_template = """if 1:
         # included from arrow/python/api.h
         ext.include_dirs.append(np.get_include())
         ext.include_dirs.append(pa.get_include())
+        ext.libraries.extend(pa.get_libraries())
+        ext.library_dirs.extend(pa.get_library_dirs())
         ext.extra_compile_args.extend(compiler_opts)
 
     setup(
