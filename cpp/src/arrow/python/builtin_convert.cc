@@ -200,22 +200,18 @@ class SeqVisitor {
 
   std::shared_ptr<DataType> GetType() {
     // If all the non-list inputs were null (or there were no inputs)
+    std::shared_ptr<DataType> result;
     if (scalars_.total_count() == 0) {
-      if (max_nesting_level_ == 0) {
-        // If its just a single empty list or list of nulls, return null.
-        return null();
-      } else {
-        // Error, if we have nesting but no concrete base type.
-        return nullptr;
-      }
+      // Lists of Lists of NULL
+      result = null();
     } else {
       // Lists of Lists of [X]
-      std::shared_ptr<DataType> result = scalars_.GetType();
-      for (int i = 0; i < max_nesting_level_; ++i) {
-        result = std::make_shared<ListType>(result);
-      }
-      return result;
+      result = scalars_.GetType();
     }
+    for (int i = 0; i < max_nesting_level_; ++i) {
+      result = std::make_shared<ListType>(result);
+    }
+    return result;
   }
 
   Status Validate() const {
