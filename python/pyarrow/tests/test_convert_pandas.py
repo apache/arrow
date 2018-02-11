@@ -800,6 +800,14 @@ class TestPandasConversion(object):
             field = schema.field_by_name(column)
             _check_array_roundtrip(df[column], type=field.type)
 
+    def test_column_of_lists_first_empty(self):
+        # ARROW-2124
+        num_lists = [[], [2, 3, 4], [3, 6, 7, 8], [], [2]]
+        series = pd.Series([np.array(s, dtype=float) for s in num_lists])
+        arr = pa.array(series)
+        result = pd.Series(arr.to_pandas())
+        tm.assert_series_equal(result, series)
+
     def test_column_of_lists_chunked(self):
         # ARROW-1357
         df = pd.DataFrame({
