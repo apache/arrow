@@ -18,7 +18,7 @@
 
 from collections import OrderedDict
 
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 import decimal
 import json
 
@@ -648,6 +648,22 @@ class TestPandasConversion(object):
                             .to_frame())
 
         _check_pandas_roundtrip(df)
+
+    def test_python_datetime(self):
+        # ARROW-2106
+        date_array = [datetime.today() + timedelta(days=x) for x in range(10)]
+        df = pd.DataFrame({
+            'datetime': pd.Series(date_array, dtype=object)
+        })
+
+        table = pa.Table.from_pandas(df)
+        assert isinstance(table[0].data.chunk(0), pa.TimestampArray)
+
+        result = table.to_pandas()
+        expected_df = pd.DataFrame({
+            'datetime': date_array
+        })
+        tm.assert_frame_equal(expected_df, result)
 
     def test_datetime64_to_date32(self):
         # ARROW-1718
