@@ -124,8 +124,8 @@ matrix:
     before_script:
     - eval `python $TRAVIS_BUILD_DIR/ci/travis_detect_changes.py`
     - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - export CC="clang-4.0"
-    - export CXX="clang++-4.0"
+    - export CC="clang-5.0"
+    - export CXX="clang++-5.0"
     - nvm install node
     - if [ $ARROW_CI_INTEGRATION_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh; fi
     - if [ $ARROW_CI_INTEGRATION_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh; fi
