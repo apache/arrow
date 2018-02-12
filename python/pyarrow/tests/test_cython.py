@@ -37,6 +37,7 @@ setup_template = """if 1:
 
     ext_modules = cythonize({pyx_file!r})
     compiler_opts = {compiler_opts!r}
+    custom_ld_path = {test_ld_path!r}
 
     for ext in ext_modules:
         # XXX required for numpy/numpyconfig.h,
@@ -45,6 +46,8 @@ setup_template = """if 1:
         ext.include_dirs.append(pa.get_include())
         ext.libraries.extend(pa.get_libraries())
         ext.library_dirs.extend(pa.get_library_dirs())
+        if custom_ld_path:
+            ext.library_dirs.append(custom_ld_path)
         ext.extra_compile_args.extend(compiler_opts)
 
     setup(
@@ -59,6 +62,11 @@ def test_cython_api(tmpdir):
     """
     pytest.importorskip('Cython')
 
+    if 'ARROW_HOME' in os.environ:
+        ld_path_default = os.path.join(os.environ['ARROW_HOME'], 'lib')
+
+    test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', ld_path_default)
+
     with tmpdir.as_cwd():
         # Set up temporary workspace
         pyx_file = 'pyarrow_cython_example.pyx'
@@ -70,7 +78,8 @@ def test_cython_api(tmpdir):
         else:
             compiler_opts = []
         setup_code = setup_template.format(pyx_file=pyx_file,
-                                           compiler_opts=compiler_opts)
+                                           compiler_opts=compiler_opts,
+                                           test_ld_path=test_ld_path)
         with open('setup.py', 'w') as f:
             f.write(setup_code)
 

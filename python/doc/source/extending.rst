@@ -46,6 +46,13 @@ can be included using the following directive:
 This will not include other parts of the Arrow API, which you will need
 to include yourself (for example ``arrow/api.h``).
 
+When building C extensions that use the Arrow C++ libraries, you must add
+appropriate linker flags. We have provided functions ``pyarrow.get_libraries``
+and ``pyarrow.get_library_dirs`` which return a list of library names and
+likely library install locations (if you installed pyarrow with pip or
+conda). These must be included when declaring your C extensions with distutils
+(see below).
+
 Initializing the API
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -331,6 +338,8 @@ To build this module, you will need a slightly customized ``setup.py`` file
         # The Numpy C headers are currently required
         ext.include_dirs.append(np.get_include())
         ext.include_dirs.append(pa.get_include())
+        ext.libraries.extend(pa.get_libraries())
+        ext.library_dirs.append(pa.get_library_dirs())
 
     setup(
         ext_modules=ext_modules,
