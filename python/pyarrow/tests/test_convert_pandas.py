@@ -1351,6 +1351,10 @@ class TestPandasConversion(object):
         tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=np.int64))
         arr = pa.array([], type=pa.string())
         tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
+        arr = pa.array([], type=pa.list_(pa.int64()))
+        tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
+        arr = pa.array([], type=pa.struct([pa.field('a', pa.int64())]))
+        tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
 
     def test_array_from_pandas_date_with_mask(self):
         m = np.array([True, False, True])

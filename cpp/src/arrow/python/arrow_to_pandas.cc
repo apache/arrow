@@ -519,7 +519,7 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
   // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
   //    Storing a reference to the whole Array would be to expensive.
 
-  OwnedRef owned_numpy_array;
+  OwnedRefNoGIL owned_numpy_array;
   RETURN_NOT_OK(
       ConvertColumnToPandas(options, flat_column, nullptr, owned_numpy_array.ref()));
 
