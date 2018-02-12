@@ -851,6 +851,14 @@ class TestPandasConversion(object):
         expected = pa.array([None, None, [None, None], [None, None]])
         assert arr.equals(expected)
 
+    def test_nested_lists_all_empty(self):
+        # ARROW-2128
+        data = pd.Series([[], [], []])
+        arr = pa.array(data)
+        expected = pa.array(list(data))
+        assert arr.equals(expected)
+        assert arr.type == pa.list_(pa.null())
+
     def test_threaded_conversion(self):
         df = _alltypes_example()
         _check_pandas_roundtrip(df, nthreads=2)
