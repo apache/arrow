@@ -105,7 +105,7 @@ class CerrLog {
       std::cerr << std::endl;
     }
     if (severity_ == ARROW_FATAL) {
-      std::exit(1);
+      std::abort();
     }
   }
 
@@ -134,7 +134,7 @@ class FatalLog : public CerrLog {
     if (has_logged_) {
       std::cerr << std::endl;
     }
-    std::exit(1);
+    std::abort();
   }
 };
 
