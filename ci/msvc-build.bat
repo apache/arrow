@@ -137,14 +137,20 @@ cmake -G "%GENERATOR%" ^
 cmake --build . --target INSTALL --config %CONFIGURATION% || exit /B
 popd
 
-@rem Build and import pyarrow
+@rem Build and install pyarrow
 @rem parquet-cpp has some additional runtime dependencies that we need to figure out
 @rem see PARQUET-1018
 
 pushd python
 
 set PYARROW_CXXFLAGS=/WX
-python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
-py.test pyarrow -r sxX --durations=15 -v -s --parquet || exit /B
+python setup.py build_ext --with-parquet --bundle-arrow-cpp ^
+    install -q --single-version-externally-managed --record=record.text ^
+    bdist_wheel || exit /B
+
+@rem Test directly from installed location
+
+SET PYARROW_PATH=%CONDA_PREFIX%\Lib\site-packages\pyarrow
+py.test -r sxX --durations=15 -v %PYARROW_PATH% --parquet || exit /B
 
 popd

@@ -165,3 +165,33 @@ def get_include():
     """
     import os
     return os.path.join(os.path.dirname(__file__), 'include')
+
+
+def get_libraries():
+    """
+    Return list of library names to include in the `libraries` argument for C
+    or Cython extensions using pyarrow
+    """
+    return ['arrow_python']
+
+
+def get_library_dirs():
+    """
+    Return lists of directories likely to contain Arrow C++ libraries for
+    linking C or Cython extensions using pyarrow
+    """
+    import os
+    import sys
+    package_cwd = os.path.dirname(__file__)
+
+    library_dirs = [package_cwd]
+
+    if sys.platform == 'win32':
+        # TODO(wesm): Is this necessary, or does setuptools within a conda
+        # installation add Library\lib to the linker path for MSVC?
+        site_packages, _ = os.path.split(package_cwd)
+        python_base_install, _ = os.path.split(site_packages)
+        library_dirs.append(os.path.join(python_base_install,
+                                         'Library', 'lib'))
+
+    return library_dirs

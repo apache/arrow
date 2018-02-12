@@ -347,16 +347,29 @@ cdef class NativeFile:
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[OutputStream]* writer)
 
+cdef dict box_metadata(const CKeyValueMetadata* sp_metadata)
+
+# Public Cython API for 3rd party code
+
+cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
+# XXX pyarrow.h calls it `wrap_record_batch`
+cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
-cdef public object pyarrow_wrap_resizable_buffer(
-    const shared_ptr[CResizableBuffer]& buf)
+cdef public object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn)
 cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
 cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
+cdef public object pyarrow_wrap_resizable_buffer(
+    const shared_ptr[CResizableBuffer]& buf)
 cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
-cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
-cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
-cdef public object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
-cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
+cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 
-cdef dict box_metadata(const CKeyValueMetadata* sp_metadata)
+cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
+cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
+cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
+cdef public shared_ptr[CColumn] pyarrow_unwrap_column(object column)
+cdef public shared_ptr[CDataType] pyarrow_unwrap_data_type(object data_type)
+cdef public shared_ptr[CField] pyarrow_unwrap_field(object field)
+cdef public shared_ptr[CSchema] pyarrow_unwrap_schema(object schema)
+cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
+cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
