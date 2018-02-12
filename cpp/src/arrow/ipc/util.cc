@@ -47,7 +47,10 @@ Status AlignInputStream(io::InputStream* stream, int64_t alignment) {
   if (remainder > 0) {
     int64_t bytes_read = 0;
     RETURN_NOT_OK(stream->Read(remainder, &bytes_read, kScratchBuffer));
-    if (bytes_read != remainder) {
+
+    // If we are not at EOS, ensure we can read the exact number of bytes to
+    // next 8-byte offset
+    if (bytes_read > 0 && bytes_read != remainder) {
       return Status::IOError("Unable to align InputStream");
     }
   }

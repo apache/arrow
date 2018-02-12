@@ -710,8 +710,6 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* f
 
 Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
                   std::shared_ptr<Tensor>* out) {
-  // Respect alignment of Tensor messages (see WriteTensor)
-  offset = PaddedLength(offset);
   RETURN_NOT_OK(file->Seek(offset));
 
   std::unique_ptr<Message> message;
