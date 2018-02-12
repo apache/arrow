@@ -293,8 +293,9 @@ int64_t Schema::GetFieldIndex(const std::string& name) const {
 
 Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
                         std::shared_ptr<Schema>* out) const {
-  DCHECK_GE(i, 0);
-  DCHECK_LE(i, this->num_fields());
+  if (i < 0 || i > this->num_fields()) {
+    return Status::Invalid("Invalid column index to add field.");
+  }
 
   *out =
       std::make_shared<Schema>(internal::AddVectorElement(fields_, i, field), metadata_);
@@ -323,8 +324,9 @@ std::shared_ptr<Schema> Schema::RemoveMetadata() const {
 }
 
 Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
-  DCHECK_GE(i, 0);
-  DCHECK_LT(i, this->num_fields());
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to remove field.");
+  }
 
   *out = std::make_shared<Schema>(internal::DeleteVectorElement(fields_, i), metadata_);
   return Status::OK();
