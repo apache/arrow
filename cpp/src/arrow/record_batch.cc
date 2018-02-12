@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <utility>
 
 #include "arrow/array.h"
@@ -30,6 +31,13 @@
 #include "arrow/util/stl.h"
 
 namespace arrow {
+
+Status RecordBatch::AddColumn(int i, const std::string& field_name,
+                              const std::shared_ptr<Array>& column,
+                              std::shared_ptr<RecordBatch>* out) const {
+  auto field = ::arrow::field(field_name, column->type());
+  return AddColumn(i, field, column, out);
+}
 
 /// \class SimpleRecordBatch
 /// \brief A basic, non-lazy in-memory record batch

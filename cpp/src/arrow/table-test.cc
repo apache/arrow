@@ -634,6 +634,12 @@ TEST_F(TestRecordBatch, AddColumn) {
 
   ASSERT_OK(batch.AddColumn(1, field3, array3, &result));
   ASSERT_TRUE(result->Equals(*batch2));
+
+  std::shared_ptr<RecordBatch> result2;
+  ASSERT_OK(batch.AddColumn(1, "f3", array3, &result2));
+  ASSERT_TRUE(result2->Equals(*result));
+
+  ASSERT_TRUE(result2->schema()->field(1)->nullable());
 }
 
 TEST_F(TestRecordBatch, RemoveColumn) {

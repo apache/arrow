@@ -98,13 +98,26 @@ class ARROW_EXPORT RecordBatch {
 
   /// \brief Add column to the record batch, producing a new RecordBatch
   ///
-  /// \param[in] i field index, does boundscheck
+  /// \param[in] i field index, which will be boundschecked
   /// \param[in] field field to be added
   /// \param[in] column column to be added
   /// \param[out] out record batch with column added
   virtual Status AddColumn(int i, const std::shared_ptr<Field>& field,
                            const std::shared_ptr<Array>& column,
                            std::shared_ptr<RecordBatch>* out) const = 0;
+
+  /// \brief Add new nullable column to the record batch, producing a new
+  /// RecordBatch.
+  ///
+  /// For non-nullable columns, use the Field-based version of this method.
+  ///
+  /// \param[in] i field index, which will be boundschecked
+  /// \param[in] field_name name of field to be added
+  /// \param[in] column column to be added
+  /// \param[out] out record batch with column added
+  virtual Status AddColumn(int i, const std::string& field_name,
+                           const std::shared_ptr<Array>& column,
+                           std::shared_ptr<RecordBatch>* out) const;
 
   /// \brief Remove column from the record batch, producing a new RecordBatch
   ///
