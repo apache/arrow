@@ -37,7 +37,7 @@ namespace io {
 
 class ARROW_EXPORT FileOutputStream : public OutputStream {
  public:
-  ~FileOutputStream();
+  ~FileOutputStream() override;
 
   /// \brief Open a local file for writing, truncating any existing file
   /// \param[in] path with UTF8 encoding
@@ -73,7 +73,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 // Operating system file
 class ARROW_EXPORT ReadableFile : public RandomAccessFile {
  public:
-  ~ReadableFile();
+  ~ReadableFile() override;
 
   /// \brief Open a local file for reading
   /// \param[in] path with UTF8 encoding
@@ -125,7 +125,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
 // FileOutputStream
 class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  public:
-  ~MemoryMappedFile();
+  ~MemoryMappedFile() override;
 
   /// Create new file with indicated size, return in read/write mode
   static Status Create(const std::string& path, int64_t size,

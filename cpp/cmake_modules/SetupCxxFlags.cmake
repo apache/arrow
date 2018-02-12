@@ -100,8 +100,6 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
 -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
--Wno-zero-as-null-pointer-constant \
--Wno-inconsistent-missing-destructor-override \
 -Wno-disabled-macro-expansion")
 
     # Version numbers where warnings are introduced
@@ -117,6 +115,10 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     endif()
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.8")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-undefined-func-template")
+    endif()
+
+    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-zero-as-null-pointer-constant")
     endif()
 
     # Treat all compiler warnings as errors

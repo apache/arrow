@@ -106,7 +106,7 @@ class RecordBatchSerializer : public ArrayVisitor {
     DCHECK_GT(max_recursion_depth, 0);
   }
 
-  virtual ~RecordBatchSerializer() = default;
+  ~RecordBatchSerializer() override = default;
 
   Status VisitArray(const Array& arr) {
     if (max_recursion_depth_ <= 0) {

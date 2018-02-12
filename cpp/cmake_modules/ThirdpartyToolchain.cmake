@@ -910,8 +910,10 @@ if (ARROW_ORC)
   set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
   if ("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
+    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
 -Wno-inconsistent-missing-destructor-override ")
+    endif()
   endif()
 
   set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
