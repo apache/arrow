@@ -28,6 +28,7 @@
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -154,14 +155,32 @@ Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStrea
 Status Message::SerializeTo(io::OutputStream* file, int64_t* output_length) const {
   int32_t metadata_length = 0;
   RETURN_NOT_OK(internal::WriteMessage(*metadata(), file, &metadata_length));
-
   *output_length = metadata_length;
+
+#ifndef NDEBUG
+  int64_t current_position = -1;
+  RETURN_NOT_OK(file->Tell(&current_position));
+  DCHECK(BitUtil::IsMultipleOf8(current_position));
+#endif
 
   auto body_buffer = body();
   if (body_buffer) {
-    RETURN_NOT_OK(file->Write(body_buffer->data(), body_buffer->size()));
-    *output_length += body_buffer->size();
+    int64_t size = body_buffer->size();
+    int64_t padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+
+    RETURN_NOT_OK(file->Write(body_buffer->data(), size));
+    *output_length += size;
+
+    if (padding > 0) {
+      RETURN_NOT_OK(file->Write(kPaddingBytes, padding));
+      *output_length += padding;
+    }
   }
+
+#ifndef NDEBUG
+  RETURN_NOT_OK(file->Tell(&current_position));
+  DCHECK(BitUtil::IsMultipleOf8(current_position));
+#endif
 
   return Status::OK();
 }
