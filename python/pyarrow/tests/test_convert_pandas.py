@@ -1324,9 +1324,9 @@ class TestPandasConversion(object):
 
     def test_convert_empty_table(self):
         arr = pa.array([], type=pa.int64())
-        npt.assert_array_equal(arr.to_pandas(), np.array([]))
+        tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=np.int64))
         arr = pa.array([], type=pa.string())
-        npt.assert_array_equal(arr.to_pandas(), np.array([]))
+        tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
 
     def test_array_from_pandas_date_with_mask(self):
         m = np.array([True, False, True])
