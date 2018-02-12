@@ -475,6 +475,7 @@ class NumPyConverter {
   Status ConvertLists(const std::shared_ptr<DataType>& type, ListBuilder* builder,
                       PyObject* list);
   Status ConvertDecimals();
+  Status ConvertDateTimes();
   Status ConvertTimes();
   Status ConvertObjectsInfer();
   Status ConvertObjectsInferAndCast();
@@ -783,6 +784,35 @@ Status NumPyConverter::ConvertDecimals() {
   return PushBuilderResult(&builder);
 }
 
+Status NumPyConverter::ConvertDateTimes() {
+  // Convert array of datetime.datetime objects to Arrow
+  PyAcquireGIL lock;
+  PyDateTime_IMPORT;
+
+  Ndarray1DIndexer<PyObject*> objects(arr_);
+
+  // datetime.datetime stores microsecond resolution
+  TimestampBuilder builder(::arrow::timestamp(TimeUnit::MICRO), pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
+
+  PyObject* obj = NULLPTR;
+  for (int64_t i = 0; i < length_; ++i) {
+    obj = objects[i];
+    if (PyDateTime_Check(obj)) {
+      RETURN_NOT_OK(
+          builder.Append(PyDateTime_to_us(reinterpret_cast<PyDateTime_DateTime*>(obj))));
+    } else if (PandasObjectIsNull(obj)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else {
+      std::stringstream ss;
+      ss << "Error converting from Python objects to Timestamp: ";
+      RETURN_NOT_OK(InvalidConversion(obj, "datetime.datetime", &ss));
+      return Status::Invalid(ss.str());
+    }
+  }
+  return PushBuilderResult(&builder);
+}
+
 Status NumPyConverter::ConvertTimes() {
   // Convert array of datetime.time objects to Arrow
   PyAcquireGIL lock;
@@ -1005,6 +1035,8 @@ Status NumPyConverter::ConvertObjectsInfer() {
     } else if (PyDate_CheckExact(obj)) {
       // We could choose Date32 or Date64
       return ConvertDates<Date32Type>();
+    } else if (PyDateTime_CheckExact(obj)) {
+      return ConvertDateTimes();
     } else if (PyTime_Check(obj)) {
       return ConvertTimes();
     } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
