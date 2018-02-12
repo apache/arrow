@@ -881,7 +881,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 
  protected:
   Status DoubleTableSize();
-  Scalar GetDictionaryValue(int64_t index);
+  Scalar GetDictionaryValue(typename TypeTraits<T>::BuilderType& dictionary_builder, int64_t index);
   int64_t HashValue(const Scalar& value);
   bool SlotDifferent(hash_slot_t slot, const Scalar& value);
   Status AppendDictionary(const Scalar& value);
@@ -892,11 +892,19 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   /// Size of the table. Must be a power of 2.
   int64_t hash_table_size_;
 
+  // offset for the entry ids. Used to build delta dictionaries,
+  // increased on every InternalFinish by the number of current entries
+  // in the dictionary
+  int32_t entry_id_offset_;
+
   // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
   // hash_table_size_, but uses far fewer CPU cycles
   int64_t mod_bitmask_;
 
   typename TypeTraits<T>::BuilderType dict_builder_;
+  typename TypeTraits<T>::BuilderType overflow_dict_builder_;
+
+
   AdaptiveIntBuilder values_builder_;
   int32_t byte_width_;
 
