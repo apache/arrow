@@ -70,6 +70,13 @@ def get_travis_commit_range():
     return cr.replace('...', '..')
 
 
+def get_travis_commit_description():
+    # Prefer this to get_commit_description(get_travis_head_commit()),
+    # as rebasing or other repository events may make TRAVIS_COMMIT invalid
+    # at the time we inspect it
+    return os.environ['TRAVIS_COMMIT_MESSAGE']
+
+
 def list_travis_affected_files():
     """
     Return a list of files affected in the current Travis build.
@@ -140,7 +147,7 @@ def get_unix_shell_eval(env):
 
 
 def run_from_travis():
-    desc = get_commit_description(get_travis_head_commit())
+    desc = get_travis_commit_description()
     if '[skip travis]' in desc:
         # Skip everything
         affected = dict.fromkeys(ALL_TOPICS, False)
