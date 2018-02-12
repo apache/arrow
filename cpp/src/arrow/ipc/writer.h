@@ -88,7 +88,7 @@ class ARROW_EXPORT RecordBatchWriter {
 /// format
 class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
  public:
-  virtual ~RecordBatchStreamWriter();
+  ~RecordBatchStreamWriter() override;
 
   /// Create a new writer from stream sink and schema. User is responsible for
   /// closing the actual OutputStream.
@@ -126,7 +126,7 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
 /// numbers are written at the start and end of the file
 class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
  public:
-  virtual ~RecordBatchFileWriter();
+  ~RecordBatchFileWriter() override;
 
   /// Create a new writer from stream sink and schema
   ///
@@ -151,7 +151,7 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
  private:
   RecordBatchFileWriter();
   class ARROW_NO_EXPORT RecordBatchFileWriterImpl;
-  std::unique_ptr<RecordBatchFileWriterImpl> impl_;
+  std::unique_ptr<RecordBatchFileWriterImpl> file_impl_;
 };
 
 /// \brief Low-level API for writing a record batch (without schema) to an OutputStream

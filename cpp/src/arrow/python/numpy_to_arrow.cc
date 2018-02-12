@@ -67,7 +67,7 @@ constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max();
 
 namespace {
 
-inline bool PyFloat_isnan(const PyObject* obj) {
+inline bool PyFloat_isnan(PyObject* obj) {
   if (PyFloat_Check(obj)) {
     double val = PyFloat_AS_DOUBLE(obj);
     return val != val;
@@ -76,11 +76,11 @@ inline bool PyFloat_isnan(const PyObject* obj) {
   }
 }
 
-inline bool PandasObjectIsNull(const PyObject* obj) {
+inline bool PandasObjectIsNull(PyObject* obj) {
   return obj == Py_None || obj == numpy_nan || PyFloat_isnan(obj);
 }
 
-inline bool PyObject_is_string(const PyObject* obj) {
+inline bool PyObject_is_string(PyObject* obj) {
 #if PY_MAJOR_VERSION >= 3
   return PyUnicode_Check(obj) || PyBytes_Check(obj);
 #else
@@ -88,9 +88,9 @@ inline bool PyObject_is_string(const PyObject* obj) {
 #endif
 }
 
-inline bool PyObject_is_float(const PyObject* obj) { return PyFloat_Check(obj); }
+inline bool PyObject_is_float(PyObject* obj) { return PyFloat_Check(obj); }
 
-inline bool PyObject_is_integer(const PyObject* obj) {
+inline bool PyObject_is_integer(PyObject* obj) {
   return (!PyBool_Check(obj)) && PyArray_IsIntegerScalar(obj);
 }
 

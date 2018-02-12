@@ -222,7 +222,7 @@ class ARROW_EXPORT Table {
 /// \brief Compute a sequence of record batches from a (possibly chunked) Table
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
-  ~TableBatchReader();
+  ~TableBatchReader() override;
 
   /// \brief Read batches with the maximum possible size
   explicit TableBatchReader(const Table& table);

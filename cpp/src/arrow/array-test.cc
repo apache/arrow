@@ -193,11 +193,13 @@ TEST_F(TestArray, TestCopy) {}
 // Primitive type tests
 
 TEST_F(TestBuilder, TestReserve) {
-  ASSERT_OK(builder_->Init(10));
-  ASSERT_EQ(2, builder_->null_bitmap()->size());
+  UInt8Builder builder(pool_);
 
-  ASSERT_OK(builder_->Reserve(30));
-  ASSERT_EQ(4, builder_->null_bitmap()->size());
+  ASSERT_OK(builder.Init(10));
+  ASSERT_EQ(2, builder.null_bitmap()->size());
+
+  ASSERT_OK(builder.Reserve(30));
+  ASSERT_EQ(4, builder.null_bitmap()->size());
 }
 
 template <typename Attrs>
@@ -266,7 +268,6 @@ class TestPrimitiveBuilder : public TestBuilder {
   int64_t FlipValue(int64_t value) const { return ~value; }
 
  protected:
-  std::shared_ptr<DataType> type_;
   std::unique_ptr<BuilderType> builder_;
   std::unique_ptr<BuilderType> builder_nn_;
 
@@ -1287,7 +1288,7 @@ TEST_F(TestFWBinaryArray, Builder) {
 
   std::shared_ptr<Array> result;
 
-  auto CheckResult = [&length, &is_valid, &raw_data, byte_width](const Array& result) {
+  auto CheckResult = [&length, &is_valid, &raw_data](const Array& result) {
     // Verify output
     const auto& fw_result = static_cast<const FixedSizeBinaryArray&>(result);
 
@@ -2029,7 +2030,6 @@ class TestListArray : public TestBuilder {
 
  protected:
   std::shared_ptr<DataType> value_type_;
-  std::shared_ptr<DataType> type_;
 
   std::shared_ptr<ListBuilder> builder_;
   std::shared_ptr<ListArray> result_;
@@ -2486,7 +2486,6 @@ class TestStructBuilder : public TestBuilder {
 
  protected:
   vector<std::shared_ptr<Field>> value_fields_;
-  std::shared_ptr<DataType> type_;
 
   std::shared_ptr<StructBuilder> builder_;
   std::shared_ptr<StructArray> result_;
