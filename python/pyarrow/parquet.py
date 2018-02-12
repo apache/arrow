@@ -594,7 +594,7 @@ class ParquetManifest(object):
             elif path.endswith('_metadata'):
                 self.metadata_path = full_path
             elif self._should_silently_exclude(path):
-                print('Ignoring path: {0}'.format(full_path))
+                continue
             else:
                 filtered_files.append(full_path)
 
