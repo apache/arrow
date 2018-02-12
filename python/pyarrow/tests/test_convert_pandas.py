@@ -119,6 +119,26 @@ def _check_array_from_pandas_roundtrip(np_array):
 
 class TestPandasConversion(object):
 
+    type_pairs = [
+        (np.int8, pa.int8()),
+        (np.int16, pa.int16()),
+        (np.int32, pa.int32()),
+        (np.int64, pa.int64()),
+        (np.uint8, pa.uint8()),
+        (np.uint16, pa.uint16()),
+        (np.uint32, pa.uint32()),
+        (np.uint64, pa.uint64()),
+        # (np.float16, pa.float16()),  # XXX unsupported
+        (np.float32, pa.float32()),
+        (np.float64, pa.float64()),
+        # XXX unsupported
+        # (np.dtype([('a', 'i2')]), pa.struct([pa.field('a', pa.int16())])),
+        (np.object, pa.string()),
+        # (np.object, pa.binary()),  # XXX unsupported
+        (np.object, pa.binary(10)),
+        (np.object, pa.list_(pa.int64())),
+        ]
+
     def test_all_none_objects(self):
         df = pd.DataFrame({'a': [None, None, None]})
         _check_pandas_roundtrip(df)
@@ -127,6 +147,11 @@ class TestPandasConversion(object):
         df = pd.DataFrame({'a': [None, None, None]})
         df['a'] = df['a'].astype('category')
         _check_pandas_roundtrip(df)
+
+    def test_empty_arrays(self):
+        for dtype, pa_type in self.type_pairs:
+            arr = np.array([], dtype=dtype)
+            _check_array_roundtrip(arr, type=pa_type)
 
     def test_non_string_columns(self):
         df = pd.DataFrame({0: [1, 2, 3]})

@@ -850,16 +850,23 @@ Status NumPyConverter::ConvertObjectStrings() {
   RETURN_NOT_OK(builder.Resize(length_));
 
   bool global_have_bytes = false;
-  int64_t offset = 0;
-  while (offset < length_) {
-    bool chunk_have_bytes = false;
-    RETURN_NOT_OK(
-        AppendObjectStrings(arr_, mask_, offset, &builder, &offset, &chunk_have_bytes));
-
-    global_have_bytes = global_have_bytes | chunk_have_bytes;
+  if (length_ == 0) {
+    // Produce an empty chunk
     std::shared_ptr<Array> chunk;
     RETURN_NOT_OK(builder.Finish(&chunk));
     out_arrays_.emplace_back(std::move(chunk));
+  } else {
+    int64_t offset = 0;
+    while (offset < length_) {
+      bool chunk_have_bytes = false;
+      RETURN_NOT_OK(
+          AppendObjectStrings(arr_, mask_, offset, &builder, &offset, &chunk_have_bytes));
+
+      global_have_bytes = global_have_bytes | chunk_have_bytes;
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(builder.Finish(&chunk));
+      out_arrays_.emplace_back(std::move(chunk));
+    }
   }
 
   // If we saw PyBytes, convert everything to BinaryArray
@@ -954,14 +961,21 @@ Status NumPyConverter::ConvertObjectFixedWidthBytes(
   FixedSizeBinaryBuilder builder(type, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
-  int64_t offset = 0;
-  while (offset < length_) {
-    RETURN_NOT_OK(
-        AppendObjectFixedWidthBytes(arr_, mask_, byte_width, offset, &builder, &offset));
-
+  if (length_ == 0) {
+    // Produce an empty chunk
     std::shared_ptr<Array> chunk;
     RETURN_NOT_OK(builder.Finish(&chunk));
     out_arrays_.emplace_back(std::move(chunk));
+  } else {
+    int64_t offset = 0;
+    while (offset < length_) {
+      RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, mask_, byte_width, offset, &builder,
+                                                &offset));
+
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(builder.Finish(&chunk));
+      out_arrays_.emplace_back(std::move(chunk));
+    }
   }
   return Status::OK();
 }
@@ -1567,7 +1581,6 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
   if (!PyArray_Check(ao)) {
     return Status::Invalid("Input object was not a NumPy array");
   }
-
   NumPyConverter converter(pool, ao, mo, type, use_pandas_null_sentinels);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();
