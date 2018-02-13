@@ -21,14 +21,23 @@
 #include <cstdlib>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <utility>
 
 #include "arrow/array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 
 namespace arrow {
+
+Status RecordBatch::AddColumn(int i, const std::string& field_name,
+                              const std::shared_ptr<Array>& column,
+                              std::shared_ptr<RecordBatch>* out) const {
+  auto field = ::arrow::field(field_name, column->type());
+  return AddColumn(i, field, column, out);
+}
 
 /// \class SimpleRecordBatch
 /// \brief A basic, non-lazy in-memory record batch
@@ -77,6 +86,42 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
+
+  Status AddColumn(int i, const std::shared_ptr<Field>& field,
+                   const std::shared_ptr<Array>& column,
+                   std::shared_ptr<RecordBatch>* out) const override {
+    DCHECK(field != nullptr);
+    DCHECK(column != nullptr);
+
+    if (!field->type()->Equals(column->type())) {
+      std::stringstream ss;
+      ss << "Column data type " << field->type()->name()
+         << " does not match field data type " << column->type()->name();
+      return Status::Invalid(ss.str());
+    }
+    if (column->length() != num_rows_) {
+      std::stringstream ss;
+      ss << "Added column's length must match record batch's length. Expected length "
+         << num_rows_ << " but got length " << column->length();
+      return Status::Invalid(ss.str());
+    }
+
+    std::shared_ptr<Schema> new_schema;
+    RETURN_NOT_OK(schema_->AddField(i, field, &new_schema));
+
+    *out = RecordBatch::Make(new_schema, num_rows_,
+                             internal::AddVectorElement(columns_, i, column->data()));
+    return Status::OK();
+  }
+
+  Status RemoveColumn(int i, std::shared_ptr<RecordBatch>* out) const override {
+    std::shared_ptr<Schema> new_schema;
+    RETURN_NOT_OK(schema_->RemoveField(i, &new_schema));
+
+    *out = RecordBatch::Make(new_schema, num_rows_,
+                             internal::DeleteVectorElement(columns_, i));
+    return Status::OK();
+  }
 
   std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
