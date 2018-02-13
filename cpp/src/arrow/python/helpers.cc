@@ -176,6 +176,23 @@ bool IsPyInteger(PyObject* obj) {
 #endif
 }
 
+Status UInt64FromPythonInt(PyObject* obj, uint64_t* out) {
+  OwnedRef ref;
+  // PyLong_AsUnsignedLongLong() doesn't handle conversion from non-ints
+  // (e.g. np.uint64), so do it ourselves
+  if (!PyLong_Check(obj)) {
+    ref.reset(PyNumber_Long(obj));
+    RETURN_IF_PYERROR();
+    obj = ref.obj();
+  }
+  auto result = static_cast<uint64_t>(PyLong_AsUnsignedLongLong(obj));
+  if (result == static_cast<uint64_t>(-1)) {
+    RETURN_IF_PYERROR();
+  }
+  *out = static_cast<uint64_t>(result);
+  return Status::OK();
+}
+
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow

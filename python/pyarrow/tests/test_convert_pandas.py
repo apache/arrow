@@ -1328,6 +1328,15 @@ class TestListTypes(object):
 
         tm.assert_frame_equal(result, df)
 
+    def test_array_from_nested_arrays(self):
+        df, schema = dataframe_with_arrays()
+        for field in schema:
+            arr = df[field.name].values
+            expected = pa.array(list(arr), type=field.type)
+            result = pa.array(arr)
+            assert result.type == field.type  # == list<scalar>
+            assert result.equals(expected)
+
 
 class TestConvertStructTypes(object):
     """

@@ -538,8 +538,8 @@ class UInt64Converter : public TypedConverterVisitor<UInt64Builder, UInt64Conver
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    const auto val = static_cast<int64_t>(PyLong_AsUnsignedLongLong(obj));
-    RETURN_IF_PYERROR();
+    uint64_t val;
+    RETURN_NOT_OK(internal::UInt64FromPythonInt(obj, &val));
     return typed_builder_->Append(val);
   }
 };

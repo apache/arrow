@@ -57,6 +57,8 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
                                 Decimal128* out);
 bool IsPyInteger(PyObject* obj);
 
+Status UInt64FromPythonInt(PyObject* obj, uint64_t* out);
+
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
