@@ -104,7 +104,7 @@ public class TestVectorReAlloc {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
-      assertEquals(1023, vector.getValueCapacity());
+      assertEquals(512, vector.getValueCapacity());
 
       try {
         vector.getInnerValueCountAt(2014);
@@ -114,7 +114,7 @@ public class TestVectorReAlloc {
       }
 
       vector.reAlloc();
-      assertEquals(2047, vector.getValueCapacity()); // note: size - 1
+      assertEquals(1024, vector.getValueCapacity());
       assertEquals(0, vector.getOffsetBuffer().getInt(2014 * ListVector.OFFSET_WIDTH));
     }
   }

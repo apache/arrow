@@ -463,6 +463,46 @@ class BinaryType(PrimitiveType):
         return self.column_class(name, size, is_valid, values)
 
 
+class FixedSizeBinaryType(PrimitiveType):
+
+    def __init__(self, name, byte_width, nullable=True):
+        super(FixedSizeBinaryType, self).__init__(name, nullable=nullable)
+        self.byte_width = byte_width
+
+    @property
+    def numpy_type(self):
+        return object
+
+    @property
+    def column_class(self):
+        return FixedSizeBinaryColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'fixedsizebinary'), ('byteWidth', self.byte_width)])
+
+    def _get_type_layout(self):
+        return OrderedDict([
+            ('vectors',
+             [OrderedDict([('type', 'VALIDITY'),
+                           ('typeBitWidth', 1)]),
+              OrderedDict([('type', 'DATA'),
+                           ('typeBitWidth', self.byte_width)])])])
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        values = []
+
+        for i in range(size):
+            draw = (np.random.randint(0, 255, size=self.byte_width)
+                    .astype(np.uint8)
+                    .tostring())
+            values.append(draw)
+
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, values)
+
+
 class StringType(BinaryType):
 
     @property
@@ -521,6 +561,22 @@ class BinaryColumn(PrimitiveColumn):
         return [
             ('VALIDITY', [int(x) for x in self.is_valid]),
             ('OFFSET', offsets),
+            ('DATA', data)
+        ]
+
+
+class FixedSizeBinaryColumn(PrimitiveColumn):
+
+    def _encode_value(self, x):
+        return ''.join('{:02x}'.format(c).upper() for c in x)
+
+    def _get_buffers(self):
+        data = []
+        for i, v in enumerate(self.values):
+            data.append(self._encode_value(v))
+
+        return [
+            ('VALIDITY', [int(x) for x in self.is_valid]),
             ('DATA', data)
         ]
 
@@ -719,6 +775,9 @@ def get_field(name, type_, nullable=True):
         return BinaryType(name, nullable=nullable)
     elif type_ == 'utf8':
         return StringType(name, nullable=nullable)
+    elif type_.startswith('fixedsizebinary_'):
+        byte_width = int(type_.split('_')[1])
+        return FixedSizeBinaryType(name, byte_width=byte_width, nullable=nullable)
 
     dtype = np.dtype(type_)
 
@@ -751,7 +810,8 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None):
 def generate_primitive_case(batch_sizes, name='primitive'):
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
-             'float32', 'float64', 'binary', 'utf8']
+             'float32', 'float64', 'binary', 'utf8',
+             'fixedsizebinary_19', 'fixedsizebinary_120']
 
     fields = []
 

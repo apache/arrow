@@ -20,6 +20,9 @@
 set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
+source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+
 export ARROW_CPP_EXE_PATH=$ARROW_CPP_BUILD_DIR/debug
 
 pushd $ARROW_JAVA_DIR

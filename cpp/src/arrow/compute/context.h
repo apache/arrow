@@ -18,6 +18,8 @@
 #ifndef ARROW_COMPUTE_CONTEXT_H
 #define ARROW_COMPUTE_CONTEXT_H
 
+#include <memory>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"

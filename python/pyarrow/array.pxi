@@ -21,14 +21,21 @@ cdef _sequence_to_array(object sequence, object size, DataType type,
     cdef shared_ptr[CArray] out
     cdef int64_t c_size
     if type is None:
-        with nogil:
-            check_status(ConvertPySequence(sequence, pool, &out))
+        if size is None:
+            with nogil:
+                check_status(ConvertPySequence(sequence, pool, &out))
+        else:
+            c_size = size
+            with nogil:
+                check_status(
+                    ConvertPySequence(sequence, c_size, pool, &out)
+                )
     else:
         if size is None:
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, pool, &out, type.sp_type
+                        sequence, type.sp_type, pool, &out,
                     )
                 )
         else:
@@ -36,7 +43,7 @@ cdef _sequence_to_array(object sequence, object size, DataType type,
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, pool, &out, type.sp_type, c_size
+                        sequence, c_size, type.sp_type, pool, &out,
                     )
                 )
 
@@ -407,7 +414,7 @@ cdef class Array:
         return pyarrow_wrap_array(result)
 
     def to_pandas(self, c_bool strings_to_categorical=False,
-                  zero_copy_only=False):
+                  c_bool zero_copy_only=False):
         """
         Convert to an array object suitable for use in pandas
 
@@ -821,8 +828,23 @@ cdef class DictionaryArray(Array):
 
 
 cdef class StructArray(Array):
+
     @staticmethod
-    def from_arrays(field_names, arrays):
+    def from_arrays(arrays, names=None):
+        """
+        Construct StructArray from collection of arrays representing each field
+        in the struct
+
+        Parameters
+        ----------
+        arrays : sequence of Array
+        names : List[str]
+            Field names
+
+        Returns
+        -------
+        result : StructArray
+        """
         cdef:
             Array array
             shared_ptr[CArray] c_array
@@ -831,6 +853,11 @@ cdef class StructArray(Array):
             ssize_t num_arrays
             ssize_t length
             ssize_t i
+
+        if names is None:
+            raise ValueError('Names are currently required')
+
+        arrays = [asarray(x) for x in arrays]
 
         num_arrays = len(arrays)
         if num_arrays == 0:
@@ -848,7 +875,7 @@ cdef class StructArray(Array):
         cdef DataType struct_type = struct([
             field(name, array.type)
             for name, array in
-            zip(field_names, arrays)
+            zip(names, arrays)
         ])
 
         c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))

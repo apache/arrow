@@ -20,6 +20,8 @@ set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+
 export ARROW_HOME=$ARROW_CPP_INSTALL
 export PARQUET_HOME=$ARROW_PYTHON_PARQUET_HOME
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib:$LD_LIBRARY_PATH
@@ -53,6 +55,7 @@ if [ "$PYTHON_VERSION" != "2.7" ] || [ $TRAVIS_OS_NAME != "osx" ]; then
 fi
 
 # Build C++ libraries
+mkdir -p $ARROW_CPP_BUILD_DIR
 pushd $ARROW_CPP_BUILD_DIR
 
 # Clear out prior build files
@@ -77,30 +80,30 @@ popd
 pushd $ARROW_PYTHON_DIR
 
 if [ "$PYTHON_VERSION" == "2.7" ]; then
-  pip install futures
+  pip install -q futures
 fi
 
 export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 
-pip install -r requirements.txt
+pip install -q -r requirements.txt
 python setup.py build_ext --with-parquet --with-plasma --with-orc\
-       install --single-version-externally-managed --record=record.text
+       install -q --single-version-externally-managed --record=record.text
 popd
 
 python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 python -c "import pyarrow.orc"
 
-if [ $TRAVIS_OS_NAME == "linux" ]; then
+if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
   export PLASMA_VALGRIND=1
 fi
 
 PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
-python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet
+python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
 
 if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
   # Build documentation once
   pushd $ARROW_PYTHON_DIR/doc
-  sphinx-build -b html -d _build/doctrees -W source _build/html
+  sphinx-build -q -b html -d _build/doctrees -W source _build/html
   popd
 fi

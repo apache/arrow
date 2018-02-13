@@ -22,6 +22,7 @@
 #include <limits>
 #include <memory>
 #include <sstream>
+#include <utility>
 
 #include "arrow/array.h"
 #include "arrow/record_batch.h"
@@ -100,6 +101,30 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
     return false;
   }
   return Equals(*other.get());
+}
+
+std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
+  DCHECK_LE(offset, length_);
+
+  int curr_chunk = 0;
+  while (offset >= chunk(curr_chunk)->length()) {
+    offset -= chunk(curr_chunk)->length();
+    curr_chunk++;
+  }
+
+  ArrayVector new_chunks;
+  while (length > 0 && curr_chunk < num_chunks()) {
+    new_chunks.push_back(chunk(curr_chunk)->Slice(offset, length));
+    length -= chunk(curr_chunk)->length() - offset;
+    offset = 0;
+    curr_chunk++;
+  }
+
+  return std::make_shared<ChunkedArray>(new_chunks);
+}
+
+std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset) const {
+  return Slice(offset, length_);
 }
 
 Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
@@ -209,14 +234,8 @@ class SimpleTable : public Table {
 
   Status AddColumn(int i, const std::shared_ptr<Column>& col,
                    std::shared_ptr<Table>* out) const override {
-    if (i < 0 || i > num_columns() + 1) {
-      return Status::Invalid("Invalid column index.");
-    }
-    if (col == nullptr) {
-      std::stringstream ss;
-      ss << "Column " << i << " was null";
-      return Status::Invalid(ss.str());
-    }
+    DCHECK(col != nullptr);
+
     if (col->length() != num_rows_) {
       std::stringstream ss;
       ss << "Added column's length must match table's length. Expected length "

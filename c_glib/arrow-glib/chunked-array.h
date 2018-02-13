@@ -82,5 +82,8 @@ guint   garrow_chunked_array_get_n_chunks (GArrowChunkedArray *chunked_array);
 GArrowArray *garrow_chunked_array_get_chunk(GArrowChunkedArray *chunked_array,
                                             guint i);
 GList *garrow_chunked_array_get_chunks(GArrowChunkedArray *chunked_array);
+GArrowChunkedArray *garrow_chunked_array_slice(GArrowChunkedArray *chunked_array,
+                                               guint64 offset,
+                                               guint64 length);
 
 G_END_DECLS

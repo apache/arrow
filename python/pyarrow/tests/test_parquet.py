@@ -748,6 +748,28 @@ def test_sanitized_spark_field_names():
     assert result.schema[0].name == expected_name
 
 
+def _roundtrip_pandas_dataframe(df, write_kwargs):
+    table = pa.Table.from_pandas(df)
+
+    buf = io.BytesIO()
+    _write_table(table, buf, **write_kwargs)
+
+    buf.seek(0)
+    table1 = _read_table(buf)
+    return table1.to_pandas()
+
+
+@parquet
+def test_spark_flavor_preserves_pandas_metadata():
+    df = _test_dataframe(size=100)
+    df.index = np.arange(0, 10 * len(df), 10)
+    df.index.name = 'foo'
+
+    result = _roundtrip_pandas_dataframe(df, {'version': '2.0',
+                                              'flavor': 'spark'})
+    tm.assert_frame_equal(result, df)
+
+
 @parquet
 def test_fixed_size_binary():
     t0 = pa.binary(10)
@@ -1651,3 +1673,66 @@ def test_decimal_roundtrip_negative_scale(tmpdir):
     result_table = _read_table(string_filename)
     result = result_table.to_pandas()
     tm.assert_frame_equal(result, expected)
+
+
+@parquet
+def test_parquet_writer_context_obj(tmpdir):
+
+    import pyarrow.parquet as pq
+
+    df = _test_dataframe(100)
+    df['unique_id'] = 0
+
+    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+    out = pa.BufferOutputStream()
+
+    with pq.ParquetWriter(out, arrow_table.schema, version='2.0') as writer:
+
+        frames = []
+        for i in range(10):
+            df['unique_id'] = i
+            arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+            writer.write_table(arrow_table)
+
+            frames.append(df.copy())
+
+    buf = out.get_result()
+    result = _read_table(pa.BufferReader(buf))
+
+    expected = pd.concat(frames, ignore_index=True)
+    tm.assert_frame_equal(result.to_pandas(), expected)
+
+
+@parquet
+def test_parquet_writer_context_obj_with_exception(tmpdir):
+
+    import pyarrow.parquet as pq
+
+    df = _test_dataframe(100)
+    df['unique_id'] = 0
+
+    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+    out = pa.BufferOutputStream()
+    error_text = 'Artificial Error'
+
+    try:
+        with pq.ParquetWriter(out,
+                              arrow_table.schema,
+                              version='2.0') as writer:
+
+            frames = []
+            for i in range(10):
+                df['unique_id'] = i
+                arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+                writer.write_table(arrow_table)
+                frames.append(df.copy())
+                if i == 5:
+                    raise ValueError(error_text)
+    except Exception as e:
+        assert str(e) == error_text
+
+    buf = out.get_result()
+    result = _read_table(pa.BufferReader(buf))
+
+    expected = pd.concat(frames, ignore_index=True)
+    tm.assert_frame_equal(result.to_pandas(), expected)

@@ -58,6 +58,11 @@
       complex: false
     },
     {
+      name: "FixedSizeBinary",
+      fields: [{name: "byteWidth", type: int}],
+      complex: false
+    }
+    {
       name: "Bool",
       fields: [],
       complex: false

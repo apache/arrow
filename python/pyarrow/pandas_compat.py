@@ -45,7 +45,7 @@ def get_logical_type_map():
 
     if not _logical_type_map:
         _logical_type_map.update({
-            pa.lib.Type_NA: 'float64',  # NaNs
+            pa.lib.Type_NA: 'empty',
             pa.lib.Type_BOOL: 'bool',
             pa.lib.Type_INT8: 'int8',
             pa.lib.Type_INT16: 'int16',
@@ -170,19 +170,19 @@ def get_column_metadata(column, name, arrow_type, field_name):
             )
         )
 
+    assert field_name is None or isinstance(field_name, six.string_types), \
+        str(type(field_name))
     return {
         'name': name,
-        'field_name': str(field_name),
+        'field_name': 'None' if field_name is None else field_name,
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
     }
 
 
-index_level_name = '__index_level_{:d}__'.format
-
-
-def construct_metadata(df, column_names, index_levels, preserve_index, types):
+def construct_metadata(df, column_names, index_levels, index_column_names,
+                       preserve_index, types):
     """Returns a dictionary containing enough metadata to reconstruct a pandas
     DataFrame as an Arrow Table, including index columns.
 
@@ -197,9 +197,8 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     -------
     dict
     """
-    ncolumns = len(column_names)
-    df_types = types[:ncolumns - len(index_levels)]
-    index_types = types[ncolumns - len(index_levels):]
+    df_types = types[:-len(index_levels)]
+    index_types = types[-len(index_levels):]
 
     column_metadata = [
         get_column_metadata(
@@ -213,9 +212,6 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     ]
 
     if preserve_index:
-        index_column_names = list(map(
-            index_level_name, range(len(index_levels))
-        ))
         index_column_metadata = [
             get_column_metadata(
                 level,
@@ -285,8 +281,11 @@ def _column_name_to_strings(name):
     """
     if isinstance(name, six.string_types):
         return name
+    elif isinstance(name, six.binary_type):
+        # XXX: should we assume that bytes in Python 3 are UTF-8?
+        return name.decode('utf8')
     elif isinstance(name, tuple):
-        return tuple(map(_column_name_to_strings, name))
+        return str(tuple(map(_column_name_to_strings, name)))
     elif isinstance(name, collections.Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
     elif name is None:
@@ -294,9 +293,29 @@ def _column_name_to_strings(name):
     return str(name)
 
 
+def _index_level_name(index, i, column_names):
+    """Return the name of an index level or a default name if `index.name` is
+    None or is already a column name.
+
+    Parameters
+    ----------
+    index : pandas.Index
+    i : int
+
+    Returns
+    -------
+    name : str
+    """
+    if index.name is not None and index.name not in column_names:
+        return index.name
+    else:
+        return '__index_level_{:d}__'.format(i)
+
+
 def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
-    names = []
+    column_names = []
     index_columns = []
+    index_column_names = []
     type = None
 
     if preserve_index:
@@ -313,10 +332,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
 
     for name in df.columns:
         col = df[name]
-        if not isinstance(name, six.string_types):
-            name = _column_name_to_strings(name)
-            if name is not None:
-                name = str(name)
+        name = _column_name_to_strings(name)
 
         if schema is not None:
             field = schema.field_by_name(name)
@@ -324,12 +340,13 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
 
         columns_to_convert.append(col)
         convert_types.append(type)
-        names.append(name)
+        column_names.append(name)
 
     for i, column in enumerate(index_columns):
         columns_to_convert.append(column)
         convert_types.append(None)
-        names.append(index_level_name(i))
+        name = _index_level_name(column, i, column_names)
+        index_column_names.append(name)
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
     # using a thread pool is worth it. Currently the heuristic is whether the
@@ -358,8 +375,10 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
     types = [x.type for x in arrays]
 
     metadata = construct_metadata(
-        df, names, index_columns, preserve_index, types
+        df, column_names, index_columns, index_column_names, preserve_index,
+        types
     )
+    names = column_names + index_column_names
     return names, arrays, metadata
 
 
@@ -435,13 +454,12 @@ def _reconstruct_block(item):
                                         categories=item['dictionary'],
                                         ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement,
-                                klass=_int.CategoricalBlock,
-                                fastpath=True)
+                                klass=_int.CategoricalBlock)
     elif 'timezone' in item:
         dtype = _make_datetimetz(item['timezone'])
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
-                                dtype=dtype, fastpath=True)
+                                dtype=dtype)
     else:
         block = _int.make_block(block_arr, placement=placement)
 
@@ -545,7 +563,8 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
     column_strings = [x.name for x in block_table.itercolumns()]
     if columns:
         columns_name_dict = {
-            c.get('field_name', str(c['name'])): c['name'] for c in columns
+            c.get('field_name', _column_name_to_strings(c['name'])): c['name']
+            for c in columns
         }
         columns_values = [
             columns_name_dict.get(name, name) for name in column_strings

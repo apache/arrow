@@ -178,6 +178,21 @@ TYPED_TEST(TestHadoopFileSystem, ConnectsAgain) {
   ASSERT_OK(client->Disconnect());
 }
 
+TYPED_TEST(TestHadoopFileSystem, MultipleClients) {
+  SKIP_IF_NO_DRIVER();
+
+  std::shared_ptr<HadoopFileSystem> client1;
+  std::shared_ptr<HadoopFileSystem> client2;
+  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client1));
+  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client2));
+  ASSERT_OK(client1->Disconnect());
+
+  // client2 continues to function after equivalent client1 has shutdown
+  std::vector<HdfsPathInfo> listing;
+  EXPECT_OK(client2->ListDirectory(this->scratch_dir_, &listing));
+  ASSERT_OK(client2->Disconnect());
+}
+
 TYPED_TEST(TestHadoopFileSystem, MakeDirectory) {
   SKIP_IF_NO_DRIVER();
 

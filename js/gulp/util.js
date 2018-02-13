@@ -87,7 +87,7 @@ const ESKeywords = [
     // EventTarget
     `addListener`, `removeListener`, `addEventListener`, `removeEventListener`,
     // Arrow properties
-    `low`, `high`, `data`, `index`, `field`, `validity`, `columns`, `fieldNode`, `subarray`,
+    `low`, `high`, `data`, `index`, `field`, `columns`, 'numCols', 'numRows', `values`, `valueOffsets`, `nullBitmap`, `subarray`
 ];
 
 function taskName(target, format) {
@@ -108,14 +108,13 @@ function targetDir(target, format) {
 
 function logAndDie(e) {
     if (e) {
-        console.error(e);
         process.exit(1);
     }
 }
 
 function observableFromStreams(...streams) {
-    const pumped = streams.length <= 1 ? streams[0]
-        : pump(...streams, logAndDie);
+    if (streams.length <= 0) { return Observable.empty(); }
+    const pumped = streams.length <= 1 ? streams[0] : pump(...streams, logAndDie);
     const fromEvent = Observable.fromEvent.bind(null, pumped);
     const streamObs = fromEvent(`data`)
                .merge(fromEvent(`error`).flatMap((e) => Observable.throw(e)))

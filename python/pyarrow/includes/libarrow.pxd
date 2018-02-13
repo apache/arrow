@@ -852,13 +852,14 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
     CStatus ConvertPySequence(object obj, CMemoryPool* pool,
                               shared_ptr[CArray]* out)
-    CStatus ConvertPySequence(object obj, CMemoryPool* pool,
-                              shared_ptr[CArray]* out,
-                              const shared_ptr[CDataType]& type)
-    CStatus ConvertPySequence(object obj, CMemoryPool* pool,
-                              shared_ptr[CArray]* out,
+    CStatus ConvertPySequence(object obj, const shared_ptr[CDataType]& type,
+                              CMemoryPool* pool, shared_ptr[CArray]* out)
+    CStatus ConvertPySequence(object obj, int64_t size, CMemoryPool* pool,
+                              shared_ptr[CArray]* out)
+    CStatus ConvertPySequence(object obj, int64_t size,
                               const shared_ptr[CDataType]& type,
-                              int64_t size)
+                              CMemoryPool* pool,
+                              shared_ptr[CArray]* out)
 
     CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 

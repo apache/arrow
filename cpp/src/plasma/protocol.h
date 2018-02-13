@@ -18,6 +18,8 @@
 #ifndef PLASMA_PROTOCOL_H
 #define PLASMA_PROTOCOL_H
 
+#include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/status.h"
@@ -41,15 +43,16 @@ Status PlasmaReceive(int sock, int64_t message_type, std::vector<uint8_t>* buffe
 /* Plasma Create message functions. */
 
 Status SendCreateRequest(int sock, ObjectID object_id, int64_t data_size,
-                         int64_t metadata_size);
+                         int64_t metadata_size, int device_num);
 
 Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                         int64_t* data_size, int64_t* metadata_size);
+                         int64_t* data_size, int64_t* metadata_size, int* device_num);
 
-Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int error);
+Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int error,
+                       int64_t mmap_size);
 
 Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
-                       PlasmaObject* object);
+                       PlasmaObject* object, int* store_fd, int64_t* mmap_size);
 
 Status SendAbortRequest(int sock, ObjectID object_id);
 
@@ -81,10 +84,12 @@ Status ReadGetRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_
 Status SendGetReply(
     int sock, ObjectID object_ids[],
     std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher>& plasma_objects,
-    int64_t num_objects);
+    int64_t num_objects, const std::vector<int>& store_fds,
+    const std::vector<int64_t>& mmap_sizes);
 
 Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
-                    PlasmaObject plasma_objects[], int64_t num_objects);
+                    PlasmaObject plasma_objects[], int64_t num_objects,
+                    std::vector<int>& store_fds, std::vector<int64_t>& mmap_sizes);
 
 /* Plasma Release message functions. */
 

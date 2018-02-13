@@ -293,7 +293,7 @@ cdef class FixedSizeBinaryType(DataType):
 cdef class Decimal128Type(FixedSizeBinaryType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
-        DataType.init(self, type)
+        FixedSizeBinaryType.init(self, type)
         self.decimal128_type = <const CDecimal128Type*> type.get()
 
     def __getstate__(self):
@@ -1207,6 +1207,7 @@ def from_numpy_dtype(object dtype):
     Convert NumPy dtype to pyarrow.DataType
     """
     cdef shared_ptr[CDataType] c_type
+    dtype = np.dtype(dtype)
     with nogil:
         check_status(NumPyDtypeToArrow(dtype, &c_type))
 

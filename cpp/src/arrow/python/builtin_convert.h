@@ -39,11 +39,11 @@ class Status;
 
 namespace py {
 
+// These three functions take a sequence input, not arbitrary iterables
 ARROW_EXPORT arrow::Status InferArrowType(PyObject* obj,
                                           std::shared_ptr<arrow::DataType>* out_type);
 ARROW_EXPORT arrow::Status InferArrowTypeAndSize(
     PyObject* obj, int64_t* size, std::shared_ptr<arrow::DataType>* out_type);
-ARROW_EXPORT arrow::Status InferArrowSize(PyObject* obj, int64_t* size);
 
 ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj, int64_t size,
                                             const std::shared_ptr<arrow::DataType>& type,
@@ -53,15 +53,21 @@ ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj, int64_t size,
 ARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out);
 
-// Size inference
+// Type inference only
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-                         const std::shared_ptr<DataType>& type);
+Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool,
+                         std::shared_ptr<Array>* out);
+
+// Size inference only
+ARROW_EXPORT
+Status ConvertPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
+                         MemoryPool* pool, std::shared_ptr<Array>* out);
 
 // No inference
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-                         const std::shared_ptr<DataType>& type, int64_t size);
+Status ConvertPySequence(PyObject* obj, int64_t size,
+                         const std::shared_ptr<DataType>& type, MemoryPool* pool,
+                         std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
 Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,

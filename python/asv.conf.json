@@ -28,12 +28,17 @@
 
     // The URL or local path of the source code repository for the
     // project being benchmarked
-    "repo": "https://github.com/apache/arrow/",
+    "repo": "..",
+
+    // The Python project's subdirectory in your repo.  If missing or
+    // the empty string, the project is assumed to be located at the root
+    // of the repository.
+    "repo_subdir": "python",
 
     // List of branches to benchmark. If not provided, defaults to "master"
-    // (for git) or "tip" (for mercurial).
+    // (for git) or "default" (for mercurial).
     // "branches": ["master"], // for git
-    // "branches": ["tip"],    // for mercurial
+    // "branches": ["default"],    // for mercurial
 
     // The DVCS being used.  If not set, it will be automatically
     // determined from "repo" by looking at the protocol in the URL
@@ -46,22 +51,72 @@
     // If missing or the empty string, the tool will be automatically
     // determined by looking for tools on the PATH environment
     // variable.
-    "environment_type": "virtualenv",
+    "environment_type": "conda",
+    "conda_channels": ["conda-forge", "defaults"],
 
     // the base URL to show a commit for the project.
     "show_commit_url": "https://github.com/apache/arrow/commit/",
 
     // The Pythons you'd like to test against.  If not provided, defaults
     // to the current version of Python used to run `asv`.
-    // "pythons": ["2.7", "3.3"],
+    "pythons": ["3.6"],
 
     // The matrix of dependencies to test.  Each key is the name of a
     // package (in PyPI) and the values are version numbers.  An empty
-    // list indicates to just test against the default (latest)
-    // version.
+    // list or empty string indicates to just test against the default
+    // (latest) version. null indicates that the package is to not be
+    // installed. If the package to be tested is only available from
+    // PyPi, and the 'environment_type' is conda, then you can preface
+    // the package name by 'pip+', and the package will be installed via
+    // pip (with all the conda available packages installed first,
+    // followed by the pip installed packages).
+    //
     // "matrix": {
-    //     "numpy": ["1.6", "1.7"]
+    //     "numpy": ["1.6", "1.7"],
+    //     "six": ["", null],        // test with and without six installed
+    //     "pip+emcee": [""],   // emcee is only available for install with pip.
     // },
+    "matrix": {
+        "boost-cpp": [],
+        "cmake": [],
+        "cython": [],
+        "numpy": ["1.14"],
+        "pandas": ["0.22"],
+        "pip+setuptools_scm": [],
+    },
+
+    // Combinations of libraries/python versions can be excluded/included
+    // from the set to test. Each entry is a dictionary containing additional
+    // key-value pairs to include/exclude.
+    //
+    // An exclude entry excludes entries where all values match. The
+    // values are regexps that should match the whole string.
+    //
+    // An include entry adds an environment. Only the packages listed
+    // are installed. The 'python' key is required. The exclude rules
+    // do not apply to includes.
+    //
+    // In addition to package names, the following keys are available:
+    //
+    // - python
+    //     Python version, as in the *pythons* variable above.
+    // - environment_type
+    //     Environment type, as above.
+    // - sys_platform
+    //     Platform, as in sys.platform. Possible values for the common
+    //     cases: 'linux2', 'win32', 'cygwin', 'darwin'.
+    //
+    // "exclude": [
+    //     {"python": "3.2", "sys_platform": "win32"}, // skip py3.2 on windows
+    //     {"environment_type": "conda", "six": null}, // don't run without six on conda
+    // ],
+    //
+    // "include": [
+    //     // additional env for python2.7
+    //     {"python": "2.7", "numpy": "1.8"},
+    //     // additional env if run on windows+conda
+    //     {"platform": "win32", "environment_type": "conda", "python": "2.7", "libpython": ""},
+    // ],
 
     // The directory (relative to the current directory) that benchmarks are
     // stored in.  If not provided, defaults to "benchmarks"
@@ -70,7 +125,6 @@
     // The directory (relative to the current directory) to cache the Python
     // environments in.  If not provided, defaults to "env"
     "env_dir": ".asv/env",
-
 
     // The directory (relative to the current directory) that raw benchmark
     // results are stored in.  If not provided, defaults to "results".
@@ -86,5 +140,29 @@
     // `asv` will cache wheels of the recent builds in each
     // environment, making them faster to install next time.  This is
     // number of builds to keep, per environment.
-    // "wheel_cache_size": 0
+    // "wheel_cache_size": 0,
+
+    // The commits after which the regression search in `asv publish`
+    // should start looking for regressions. Dictionary whose keys are
+    // regexps matching to benchmark names, and values corresponding to
+    // the commit (exclusive) after which to start looking for
+    // regressions.  The default is to start from the first commit
+    // with results. If the commit is `null`, regression detection is
+    // skipped for the matching benchmark.
+    //
+    // "regressions_first_commits": {
+    //    "some_benchmark": "352cdf",  // Consider regressions only after this commit
+    //    "another_benchmark": null,   // Skip regression detection altogether
+    // }
+
+    // The thresholds for relative change in results, after which `asv
+    // publish` starts reporting regressions. Dictionary of the same
+    // form as in ``regressions_first_commits``, with values
+    // indicating the thresholds.  If multiple entries match, the
+    // maximum is taken. If no entry matches, the default is 5%.
+    //
+    // "regressions_thresholds": {
+    //    "some_benchmark": 0.01,     // Threshold of 1%
+    //    "another_benchmark": 0.5,   // Threshold of 50%
+    // }
 }

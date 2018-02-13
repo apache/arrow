@@ -29,6 +29,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -175,7 +176,7 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
       continue;
     } else if (!PyBytes_Check(obj)) {
       std::stringstream ss;
-      ss << "Error converting to Python objects to bytes: ";
+      ss << "Error converting from Python objects to bytes: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
@@ -230,7 +231,7 @@ static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64
       *have_bytes = true;
     } else {
       std::stringstream ss;
-      ss << "Error converting to Python objects to String/UTF8: ";
+      ss << "Error converting from Python objects to String/UTF8: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
@@ -278,7 +279,7 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
       tmp_obj.reset(obj);
     } else if (!PyBytes_Check(obj)) {
       std::stringstream ss;
-      ss << "Error converting to Python objects to FixedSizeBinary: ";
+      ss << "Error converting from Python objects to FixedSizeBinary: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
@@ -474,6 +475,7 @@ class NumPyConverter {
   Status ConvertLists(const std::shared_ptr<DataType>& type, ListBuilder* builder,
                       PyObject* list);
   Status ConvertDecimals();
+  Status ConvertDateTimes();
   Status ConvertTimes();
   Status ConvertObjectsInfer();
   Status ConvertObjectsInferAndCast();
@@ -782,6 +784,35 @@ Status NumPyConverter::ConvertDecimals() {
   return PushBuilderResult(&builder);
 }
 
+Status NumPyConverter::ConvertDateTimes() {
+  // Convert array of datetime.datetime objects to Arrow
+  PyAcquireGIL lock;
+  PyDateTime_IMPORT;
+
+  Ndarray1DIndexer<PyObject*> objects(arr_);
+
+  // datetime.datetime stores microsecond resolution
+  TimestampBuilder builder(::arrow::timestamp(TimeUnit::MICRO), pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
+
+  PyObject* obj = NULLPTR;
+  for (int64_t i = 0; i < length_; ++i) {
+    obj = objects[i];
+    if (PyDateTime_Check(obj)) {
+      RETURN_NOT_OK(
+          builder.Append(PyDateTime_to_us(reinterpret_cast<PyDateTime_DateTime*>(obj))));
+    } else if (PandasObjectIsNull(obj)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else {
+      std::stringstream ss;
+      ss << "Error converting from Python objects to Timestamp: ";
+      RETURN_NOT_OK(InvalidConversion(obj, "datetime.datetime", &ss));
+      return Status::Invalid(ss.str());
+    }
+  }
+  return PushBuilderResult(&builder);
+}
+
 Status NumPyConverter::ConvertTimes() {
   // Convert array of datetime.time objects to Arrow
   PyAcquireGIL lock;
@@ -819,16 +850,23 @@ Status NumPyConverter::ConvertObjectStrings() {
   RETURN_NOT_OK(builder.Resize(length_));
 
   bool global_have_bytes = false;
-  int64_t offset = 0;
-  while (offset < length_) {
-    bool chunk_have_bytes = false;
-    RETURN_NOT_OK(
-        AppendObjectStrings(arr_, mask_, offset, &builder, &offset, &chunk_have_bytes));
-
-    global_have_bytes = global_have_bytes | chunk_have_bytes;
+  if (length_ == 0) {
+    // Produce an empty chunk
     std::shared_ptr<Array> chunk;
     RETURN_NOT_OK(builder.Finish(&chunk));
     out_arrays_.emplace_back(std::move(chunk));
+  } else {
+    int64_t offset = 0;
+    while (offset < length_) {
+      bool chunk_have_bytes = false;
+      RETURN_NOT_OK(
+          AppendObjectStrings(arr_, mask_, offset, &builder, &offset, &chunk_have_bytes));
+
+      global_have_bytes = global_have_bytes | chunk_have_bytes;
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(builder.Finish(&chunk));
+      out_arrays_.emplace_back(std::move(chunk));
+    }
   }
 
   // If we saw PyBytes, convert everything to BinaryArray
@@ -923,14 +961,21 @@ Status NumPyConverter::ConvertObjectFixedWidthBytes(
   FixedSizeBinaryBuilder builder(type, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
-  int64_t offset = 0;
-  while (offset < length_) {
-    RETURN_NOT_OK(
-        AppendObjectFixedWidthBytes(arr_, mask_, byte_width, offset, &builder, &offset));
-
+  if (length_ == 0) {
+    // Produce an empty chunk
     std::shared_ptr<Array> chunk;
     RETURN_NOT_OK(builder.Finish(&chunk));
     out_arrays_.emplace_back(std::move(chunk));
+  } else {
+    int64_t offset = 0;
+    while (offset < length_) {
+      RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, mask_, byte_width, offset, &builder,
+                                                &offset));
+
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(builder.Finish(&chunk));
+      out_arrays_.emplace_back(std::move(chunk));
+    }
   }
   return Status::OK();
 }
@@ -1004,13 +1049,26 @@ Status NumPyConverter::ConvertObjectsInfer() {
     } else if (PyDate_CheckExact(obj)) {
       // We could choose Date32 or Date64
       return ConvertDates<Date32Type>();
+    } else if (PyDateTime_CheckExact(obj)) {
+      return ConvertDateTimes();
     } else if (PyTime_Check(obj)) {
       return ConvertTimes();
     } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
       return ConvertDecimals();
-    } else if (PyList_Check(obj) || PyArray_Check(obj)) {
+    } else if (PyList_Check(obj)) {
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
+      return ConvertLists(inferred_type);
+    } else if (PyArray_Check(obj)) {
+      std::shared_ptr<DataType> inferred_type;
+      PyArray_Descr* dtype = PyArray_DESCR(reinterpret_cast<PyArrayObject*>(obj));
+
+      if (dtype->type_num == NPY_OBJECT) {
+        RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
+      } else {
+        RETURN_NOT_OK(
+            NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype), &inferred_type));
+      }
       return ConvertLists(inferred_type);
     } else {
       const std::string supported_types =
@@ -1104,10 +1162,10 @@ Status LoopPySequence(PyObject* sequence, T func) {
       }
     }
   } else if (PyObject_HasAttrString(sequence, "__iter__")) {
-    OwnedRef iter = OwnedRef(PyObject_GetIter(sequence));
+    OwnedRef iter(PyObject_GetIter(sequence));
     PyObject* item;
     while ((item = PyIter_Next(iter.obj()))) {
-      OwnedRef ref = OwnedRef(item);
+      OwnedRef ref(item);
       RETURN_NOT_OK(func(ref.obj()));
     }
   } else {
@@ -1137,11 +1195,11 @@ Status LoopPySequenceWithMasks(PyObject* sequence,
       }
     }
   } else if (PyObject_HasAttrString(sequence, "__iter__")) {
-    OwnedRef iter = OwnedRef(PyObject_GetIter(sequence));
+    OwnedRef iter(PyObject_GetIter(sequence));
     PyObject* item;
     int64_t i = 0;
     while ((item = PyIter_Next(iter.obj()))) {
-      OwnedRef ref = OwnedRef(item);
+      OwnedRef ref(item);
       RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
       i++;
     }
@@ -1464,20 +1522,20 @@ Status AppendUTF32(const char* data, int itemsize, int byteorder,
     }
   }
 
-  ScopedRef unicode_obj(PyUnicode_DecodeUTF32(data, actual_length * kNumPyUnicodeSize,
-                                              nullptr, &byteorder));
+  OwnedRef unicode_obj(PyUnicode_DecodeUTF32(data, actual_length * kNumPyUnicodeSize,
+                                             nullptr, &byteorder));
   RETURN_IF_PYERROR();
-  ScopedRef utf8_obj(PyUnicode_AsUTF8String(unicode_obj.get()));
-  if (utf8_obj.get() == NULL) {
+  OwnedRef utf8_obj(PyUnicode_AsUTF8String(unicode_obj.obj()));
+  if (utf8_obj.obj() == NULL) {
     PyErr_Clear();
     return Status::Invalid("failed converting UTF32 to UTF8");
   }
 
-  const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.get()));
+  const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.obj()));
   if (builder->value_data_length() + length > kBinaryMemoryLimit) {
     return Status::Invalid("Encoded string length exceeds maximum size (2GB)");
   }
-  return builder->Append(PyBytes_AS_STRING(utf8_obj.get()), length);
+  return builder->Append(PyBytes_AS_STRING(utf8_obj.obj()), length);
 }
 
 }  // namespace
@@ -1523,7 +1581,6 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
   if (!PyArray_Check(ao)) {
     return Status::Invalid("Input object was not a NumPy array");
   }
-
   NumPyConverter converter(pool, ao, mo, type, use_pandas_null_sentinels);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();

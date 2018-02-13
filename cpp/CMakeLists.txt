@@ -147,6 +147,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow CPython extensions"
     OFF)
 
+  option(ARROW_FUZZING
+    "Build Arrow Fuzzing executables"
+    OFF)
+
   option(ARROW_SSE3
     "Build Arrow with SSE3"
     ON)
@@ -201,11 +205,11 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_VERBOSE_THIRDPARTY_BUILD
     "If off, output from ExternalProjects will be logged to files rather than shown"
-    ON)
+    OFF)
 
   if (MSVC)
-    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "Brotli static lib suffix used on Windows with MSVC (default _static)")
+    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
+      "Brotli static lib suffix used on Windows with MSVC (default -static)")
     set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
     set(ZLIB_MSVC_STATIC_LIB_SUFFIX "libstatic" CACHE STRING
@@ -247,6 +251,10 @@ endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
+endif()
+
+if (NOT ARROW_FUZZING)
+  set(NO_FUZZING 1)
 endif()
 
 if(ARROW_HDFS)
@@ -300,6 +308,9 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
 endif()
 
 # ASAN / TSAN / UBSAN
+if(ARROW_FUZZING)
+    set(ARROW_USE_COVERAGE ON)
+endif()
 include(san-config)
 
 # For any C code, use the same flags.
@@ -444,11 +455,14 @@ if (UNIX)
   message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
   # Full lint
-  add_custom_target(lint ${CPPLINT_BIN}
+  # Balancing act: cpplint.py takes a non-trivial time to launch,
+  # so process 12 files per invocation, while still ensuring parallelism
+  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
+  ${CPPLINT_BIN}
   --verbose=2
   --linelength=90
   --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
-  ${FILTERED_LINT_FILES})
+  )
 endif (UNIX)
 
 

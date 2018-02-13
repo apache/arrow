@@ -455,7 +455,7 @@ def test_simple_type_construction():
 @pytest.mark.parametrize(
     ('type', 'expected'),
     [
-        (pa.null(), 'float64'),
+        (pa.null(), 'empty'),
         (pa.bool_(), 'bool'),
         (pa.int8(), 'int8'),
         (pa.int16(), 'int16'),
@@ -485,6 +485,12 @@ def test_logical_type(type, expected):
     assert get_logical_type(type) == expected
 
 
+def test_array_uint64_from_py_over_range():
+    arr = pa.array([2 ** 63], type=pa.uint64())
+    expected = pa.array(np.array([2 ** 63], dtype='u8'))
+    assert arr.equals(expected)
+
+
 def test_array_conversions_no_sentinel_values():
     arr = np.array([1, 2, 3, 4], dtype='int8')
     refcount = sys.getrefcount(arr)
@@ -505,6 +511,23 @@ def test_array_from_numpy_datetimeD():
     result = pa.array(arr)
     expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
     assert result.equals(expected)
+
+
+def test_array_from_py_float32():
+    data = [[1.2, 3.4], [9.0, 42.0]]
+
+    t = pa.float32()
+
+    arr1 = pa.array(data[0], type=t)
+    arr2 = pa.array(data, type=pa.list_(t))
+
+    expected1 = np.array(data[0], dtype=np.float32)
+    expected2 = pd.Series([np.array(data[0], dtype=np.float32),
+                           np.array(data[1], dtype=np.float32)])
+
+    assert arr1.type == t
+    assert arr1.equals(pa.array(expected1))
+    assert arr2.equals(pa.array(expected2))
 
 
 def test_array_from_numpy_ascii():

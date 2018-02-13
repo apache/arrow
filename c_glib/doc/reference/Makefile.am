@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-SUBDIRS =                                       \
-	xml
-
 DOC_MODULE = arrow-glib
 
 DOC_MAIN_SGML_FILE = $(DOC_MODULE)-docs.xml
@@ -72,4 +69,5 @@ CLEANFILES +=					\
 	$(DOC_MODULE).types
 
 EXTRA_DIST +=					\
+	entities.xml.in				\
 	meson.build

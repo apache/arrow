@@ -238,7 +238,7 @@ garrow_gpu_cuda_context_class_init(GArrowGPUCUDAContextClass *klass)
    */
   spec = g_param_spec_pointer("context",
                               "Context",
-                              "The raw std::shared_ptr<arrow::gpu::CudaContext> *",
+                              "The raw std::shared_ptr<arrow::gpu::CudaContext>",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CONTEXT, spec);
@@ -427,10 +427,10 @@ GArrowGPUCUDAIPCMemoryHandle *
 garrow_gpu_cuda_buffer_export(GArrowGPUCUDABuffer *buffer, GError **error)
 {
   auto arrow_buffer = garrow_gpu_cuda_buffer_get_raw(buffer);
-  std::unique_ptr<arrow::gpu::CudaIpcMemHandle> arrow_handle;
+  std::shared_ptr<arrow::gpu::CudaIpcMemHandle> arrow_handle;
   auto status = arrow_buffer->ExportForIpc(&arrow_handle);
   if (garrow_error_check(error, status, "[gpu][cuda][buffer][export-for-ipc]")) {
-    return garrow_gpu_cuda_ipc_memory_handle_new_raw(arrow_handle.release());
+    return garrow_gpu_cuda_ipc_memory_handle_new_raw(&arrow_handle);
   } else {
     return NULL;
   }
@@ -527,7 +527,7 @@ garrow_gpu_cuda_host_buffer_new(gint64 size, GError **error)
 
 
 typedef struct GArrowGPUCUDAIPCMemoryHandlePrivate_ {
-  arrow::gpu::CudaIpcMemHandle *ipc_memory_handle;
+  std::shared_ptr<arrow::gpu::CudaIpcMemHandle> ipc_memory_handle;
 } GArrowGPUCUDAIPCMemoryHandlePrivate;
 
 enum {
@@ -548,7 +548,7 @@ garrow_gpu_cuda_ipc_memory_handle_finalize(GObject *object)
 {
   auto priv = GARROW_GPU_CUDA_IPC_MEMORY_HANDLE_GET_PRIVATE(object);
 
-  delete priv->ipc_memory_handle;
+  priv->ipc_memory_handle = nullptr;
 
   G_OBJECT_CLASS(garrow_gpu_cuda_ipc_memory_handle_parent_class)->finalize(object);
 }
@@ -564,7 +564,7 @@ garrow_gpu_cuda_ipc_memory_handle_set_property(GObject *object,
   switch (prop_id) {
   case PROP_IPC_MEMORY_HANDLE:
     priv->ipc_memory_handle =
-      static_cast<arrow::gpu::CudaIpcMemHandle *>(g_value_get_pointer(value));
+      *static_cast<std::shared_ptr<arrow::gpu::CudaIpcMemHandle> *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -608,7 +608,7 @@ garrow_gpu_cuda_ipc_memory_handle_class_init(GArrowGPUCUDAIPCMemoryHandleClass *
    */
   spec = g_param_spec_pointer("ipc-memory-handle",
                               "IPC Memory Handle",
-                              "The raw arrow::gpu::CudaIpcMemHandle *",
+                              "The raw std::shared_ptr<arrow::gpu::CudaIpcMemHandle>",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_IPC_MEMORY_HANDLE, spec);
@@ -630,11 +630,11 @@ garrow_gpu_cuda_ipc_memory_handle_new(const guint8 *data,
                                       gsize size,
                                       GError **error)
 {
-  std::unique_ptr<arrow::gpu::CudaIpcMemHandle> arrow_handle;
+  std::shared_ptr<arrow::gpu::CudaIpcMemHandle> arrow_handle;
   auto status = arrow::gpu::CudaIpcMemHandle::FromBuffer(data, &arrow_handle);
   if (garrow_error_check(error, status,
                          "[gpu][cuda][ipc-memory-handle][new]")) {
-    return garrow_gpu_cuda_ipc_memory_handle_new_raw(arrow_handle.release());
+    return garrow_gpu_cuda_ipc_memory_handle_new_raw(&arrow_handle);
   } else {
     return NULL;
   }
@@ -845,7 +845,7 @@ garrow_gpu_cuda_context_get_raw(GArrowGPUCUDAContext *context)
 }
 
 GArrowGPUCUDAIPCMemoryHandle *
-garrow_gpu_cuda_ipc_memory_handle_new_raw(arrow::gpu::CudaIpcMemHandle *arrow_handle)
+garrow_gpu_cuda_ipc_memory_handle_new_raw(std::shared_ptr<arrow::gpu::CudaIpcMemHandle> *arrow_handle)
 {
   auto handle = g_object_new(GARROW_GPU_TYPE_CUDA_IPC_MEMORY_HANDLE,
                              "ipc-memory-handle", arrow_handle,
@@ -853,7 +853,7 @@ garrow_gpu_cuda_ipc_memory_handle_new_raw(arrow::gpu::CudaIpcMemHandle *arrow_ha
   return GARROW_GPU_CUDA_IPC_MEMORY_HANDLE(handle);
 }
 
-arrow::gpu::CudaIpcMemHandle *
+std::shared_ptr<arrow::gpu::CudaIpcMemHandle>
 garrow_gpu_cuda_ipc_memory_handle_get_raw(GArrowGPUCUDAIPCMemoryHandle *handle)
 {
   if (!handle)

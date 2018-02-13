@@ -70,7 +70,7 @@ public class BufferLayout {
       case 128:
         return VALUES_128;
       default:
-        throw new IllegalArgumentException("only 8, 16, 32, or 64 bits supported");
+        throw new IllegalArgumentException("only 8, 16, 32, 64, or 128 bits supported");
     }
   }
 
@@ -90,7 +90,7 @@ public class BufferLayout {
 
   private final BufferType type;
 
-  private BufferLayout(BufferType type, int typeBitWidth) {
+  BufferLayout(BufferType type, int typeBitWidth) {
     super();
     this.type = Preconditions.checkNotNull(type);
     this.typeBitWidth = (short) typeBitWidth;

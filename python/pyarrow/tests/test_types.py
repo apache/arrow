@@ -184,3 +184,13 @@ def test_types_hashable():
 ])
 def test_exact_primitive_types(t, check_func):
     assert check_func(t)
+
+
+def test_fixed_size_binary_byte_width():
+    ty = pa.binary(5)
+    assert ty.byte_width == 5
+
+
+def test_decimal_byte_width():
+    ty = pa.decimal128(19, 4)
+    assert ty.byte_width == 16

@@ -15,41 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import Arrow, {
-    TypedArray,
-    TypedArrayConstructor,
-    NumericVectorConstructor,
-} from '../Arrow';
+import Arrow from '../Arrow';
+import { type, TypedArray, TypedArrayConstructor } from '../../src/Arrow';
 
+const { BoolData, FlatData } = Arrow.data;
+const { IntVector, FloatVector, BoolVector } = Arrow.vector;
 const {
-    BoolVector,
-    Int64Vector,
-    Uint64Vector,
-    Int8Vector,
-    Int16Vector,
-    Int32Vector,
-    Uint8Vector,
-    Uint16Vector,
-    Uint32Vector,
-    Float16Vector,
-    Float32Vector,
-    Float64Vector,
-} = Arrow;
+    Bool,
+    Float16, Float32, Float64,
+    Int8, Int16, Int32, Int64,
+    Uint8, Uint16, Uint32, Uint64,
+} = Arrow.type;
 
 const FixedSizeVectors = {
-    Int64Vector: [Int64Vector, Int32Array] as [NumericVectorConstructor<number, any>, any],
-    Uint64Vector: [Uint64Vector, Uint32Array] as [NumericVectorConstructor<number, any>, any]
+    Int64Vector: [IntVector, Int64] as [typeof IntVector, typeof Int64],
+    Uint64Vector: [IntVector, Uint64] as [typeof IntVector, typeof Uint64],
 };
 
 const FixedWidthVectors = {
-    Int8Vector: [Int8Vector, Int8Array] as [NumericVectorConstructor<number, any>, any],
-    Int16Vector: [Int16Vector, Int16Array] as [NumericVectorConstructor<number, any>, any],
-    Int32Vector: [Int32Vector, Int32Array] as [NumericVectorConstructor<number, any>, any],
-    Uint8Vector: [Uint8Vector, Uint8Array] as [NumericVectorConstructor<number, any>, any],
-    Uint16Vector: [Uint16Vector, Uint16Array] as [NumericVectorConstructor<number, any>, any],
-    Uint32Vector: [Uint32Vector, Uint32Array] as [NumericVectorConstructor<number, any>, any],
-    Float32Vector: [Float32Vector, Float32Array] as [NumericVectorConstructor<number, any>, any],
-    Float64Vector: [Float64Vector, Float64Array] as [NumericVectorConstructor<number, any>, any]
+    Int8Vector: [IntVector, Int8] as [typeof IntVector, typeof Int8],
+    Int16Vector: [IntVector, Int16] as [typeof IntVector, typeof Int16],
+    Int32Vector: [IntVector, Int32] as [typeof IntVector, typeof Int32],
+    Uint8Vector: [IntVector, Uint8] as [typeof IntVector, typeof Uint8],
+    Uint16Vector: [IntVector, Uint16] as [typeof IntVector, typeof Uint16],
+    Uint32Vector: [IntVector, Uint32] as [typeof IntVector, typeof Uint32],
+    Float32Vector: [FloatVector, Float32] as [typeof FloatVector, typeof Float32],
+    Float64Vector: [FloatVector, Float64] as [typeof FloatVector, typeof Float64],
 };
 
 const fixedSizeVectors = toMap(FixedSizeVectors, Object.keys(FixedSizeVectors));
@@ -61,9 +52,8 @@ const bytes = Array.from(
         () => Math.random() * 255 | 0));
 
 describe(`BoolVector`, () => {
-    const vector = new BoolVector({ data: new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]) });
-    const values = [true, true, false, true, true, false, false, false];
-    const n = values.length;
+    const values = [true, true, false, true, true, false, false, false], n = values.length;
+    const vector = new BoolVector(new BoolData(new Bool(), n, null, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0])));
     test(`gets expected values`, () => {
         let i = -1;
         while (++i < n) {
@@ -78,7 +68,7 @@ describe(`BoolVector`, () => {
         }
     });
     test(`can set values to true and false`, () => {
-        const v = new BoolVector({ data: new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]) });
+        const v = new BoolVector(new BoolData(new Bool(), n, null, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0])));
         const expected1 = [true, true, false, true, true, false, false, false];
         const expected2 = [true, true,  true, true, true, false, false, false];
         const expected3 = [true, true, false, false, false, false, true, true];
@@ -104,40 +94,43 @@ describe(`BoolVector`, () => {
         validate(expected1);
     });
     test(`packs 0 values`, () => {
-        expect(BoolVector.pack([])).toEqual(
+        expect(BoolVector.from([]).values).toEqual(
             new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]));
     });
     test(`packs 3 values`, () => {
-        expect(BoolVector.pack([
+        expect(BoolVector.from([
             true, false, true
-        ])).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
+        ]).values).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
     });
     test(`packs 8 values`, () => {
-        expect(BoolVector.pack([
+        expect(BoolVector.from([
             true, true, false, true, true, false, false, false
-        ])).toEqual(new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
+        ]).values).toEqual(new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
     });
     test(`packs 25 values`, () => {
-        expect(BoolVector.pack([
+        expect(BoolVector.from([
             true, true, false, true, true, false, false, false,
             false, false, false, true, true, false, true, true,
             false
-        ])).toEqual(new Uint8Array([27, 216, 0, 0, 0, 0, 0, 0]));
+        ]).values).toEqual(new Uint8Array([27, 216, 0, 0, 0, 0, 0, 0]));
     });
     test(`from with boolean Array packs values`, () => {
-        expect(new BoolVector({
-            data: BoolVector.pack([true, false, true])
-        }).slice()).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
+        expect(BoolVector
+            .from([true, false, true])
+            .slice().values
+        ).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
     });
 });
 
 describe('Float16Vector', () => {
     const values = concatTyped(Uint16Array, ...bytes);
     const vector = bytes
-        .map((b) => new Float16Vector({ data: new Uint16Array(b.buffer) }))
+        .map((b) => new Uint16Array(b.buffer))
+        .map((b) => new FloatVector<type.Float16>(new FlatData(new Float16(), b.length, null, b)))
         .reduce((v: any, v2) => v.concat(v2));
     const n = values.length;
-    const clamp = (x: number) => Math.min((x -  32767) / 32767, 1);
+    const clamp = (x: number) => (x -  32767) / 32767;
+    const float16s = new Float32Array([...values].map((x) => clamp(x)));
     test(`gets expected values`, () => {
         let i = -1;
         while (++i < n) {
@@ -153,31 +146,32 @@ describe('Float16Vector', () => {
         }
     });
     test(`slices the entire array`, () => {
-        expect(vector.slice()).toEqual(values);
+        expect(vector.slice().toArray()).toEqual(float16s);
     });
     test(`slice returns a TypedArray`, () => {
-        expect(vector.slice()).toBeInstanceOf(Uint16Array);
+        expect(vector.slice().toArray()).toBeInstanceOf(Float32Array);
     });
     test(`slices from -20 to length`, () => {
-        expect(vector.slice(-20)).toEqual(values.slice(-20));
+        expect(vector.slice(-20).toArray()).toEqual(float16s.slice(-20));
     });
     test(`slices from 0 to -20`, () => {
-        expect(vector.slice(0, -20)).toEqual(values.slice(0, -20));
+        expect(vector.slice(0, -20).toArray()).toEqual(float16s.slice(0, -20));
     });
     test(`slices the array from 0 to length - 20`, () => {
-        expect(vector.slice(0, n - 20)).toEqual(values.slice(0, n - 20));
+        expect(vector.slice(0, n - 20).toArray()).toEqual(float16s.slice(0, n - 20));
     });
     test(`slices the array from 0 to length + 20`, () => {
-        expect(vector.slice(0, n + 20)).toEqual(
-            concatTyped(Uint16Array, values, values.slice(0, 20)));
+        expect(vector.slice(0, n + 20).toArray()).toEqual(float16s.slice(0, n + 20));
     });
 });
 
-for (const [VectorName, [VectorType, ArrayType]] of fixedSizeVectors) {
+for (const [VectorName, [VectorType, DataType]] of fixedSizeVectors) {
     describe(`${VectorName}`, () => {
-        const values = concatTyped(ArrayType, ...bytes);
+        const type = new DataType();
+        const values = concatTyped(type.ArrayType as any, ...bytes);
         const vector = bytes
-            .map((b) => new VectorType({ data: new ArrayType(b.buffer) }))
+            .map((b) => new type.ArrayType(b.buffer))
+            .map((b) => new VectorType(new FlatData(type, b.length * 0.5, null, b)))
             .reduce((v: any, v2) => v.concat(v2));
         const n = values.length * 0.5;
         test(`gets expected values`, () => {
@@ -194,32 +188,33 @@ for (const [VectorName, [VectorType, ArrayType]] of fixedSizeVectors) {
             }
         });
         test(`slices the entire array`, () => {
-            expect(vector.slice()).toEqual(values);
+            expect(vector.slice().toArray()).toEqual(values);
         });
         test(`slice returns a TypedArray`, () => {
-            expect(vector.slice()).toBeInstanceOf(ArrayType);
+            expect(vector.slice().toArray()).toBeInstanceOf(type.ArrayType);
         });
         test(`slices from -20 to length`, () => {
-            expect(vector.slice(-20)).toEqual(values.slice(-40));
+            expect(vector.slice(-20).toArray()).toEqual(values.slice(-40));
         });
         test(`slices from 0 to -20`, () => {
-            expect(vector.slice(0, -20)).toEqual(values.slice(0, -40));
+            expect(vector.slice(0, -20).toArray()).toEqual(values.slice(0, -40));
         });
         test(`slices the array from 0 to length - 20`, () => {
-            expect(vector.slice(0, n - 20)).toEqual(values.slice(0, values.length - 40));
+            expect(vector.slice(0, n - 20).toArray()).toEqual(values.slice(0, values.length - 40));
         });
         test(`slices the array from 0 to length + 20`, () => {
-            expect(vector.slice(0, n + 20)).toEqual(
-                concatTyped(ArrayType, values, values.slice(0, 40)));
+            expect(vector.slice(0, n + 20).toArray()).toEqual(values.slice(0, values.length + 40));
         });
     });
 }
 
-for (const [VectorName, [VectorType, ArrayType]] of fixedWidthVectors) {
+for (const [VectorName, [VectorType, DataType]] of fixedWidthVectors) {
     describe(`${VectorName}`, () => {
-        const values = concatTyped(ArrayType, ...bytes);
+        const type = new DataType();
+        const values = concatTyped(type.ArrayType as any, ...bytes);
         const vector = bytes
-            .map((b) => new VectorType({ data: new ArrayType(b.buffer) }))
+            .map((b) => new type.ArrayType(b.buffer))
+            .map((b) => new VectorType(new FlatData<any>(type, b.length, null, b)))
             .reduce((v: any, v2) => v.concat(v2));
 
         const n = values.length;
@@ -238,23 +233,22 @@ for (const [VectorName, [VectorType, ArrayType]] of fixedWidthVectors) {
             }
         });
         test(`slices the entire array`, () => {
-            expect(vector.slice()).toEqual(values);
+            expect(vector.slice().toArray()).toEqual(values);
         });
         test(`slice returns a TypedArray`, () => {
-            expect(vector.slice()).toBeInstanceOf(ArrayType);
+            expect(vector.slice().toArray()).toBeInstanceOf(type.ArrayType);
         });
         test(`slices from -20 to length`, () => {
-            expect(vector.slice(-20)).toEqual(values.slice(-20));
+            expect(vector.slice(-20).toArray()).toEqual(values.slice(-20));
         });
         test(`slices from 0 to -20`, () => {
-            expect(vector.slice(0, -20)).toEqual(values.slice(0, -20));
+            expect(vector.slice(0, -20).toArray()).toEqual(values.slice(0, -20));
         });
         test(`slices the array from 0 to length - 20`, () => {
-            expect(vector.slice(0, n - 20)).toEqual(values.slice(0, n - 20));
+            expect(vector.slice(0, n - 20).toArray()).toEqual(values.slice(0, n - 20));
         });
         test(`slices the array from 0 to length + 20`, () => {
-            expect(vector.slice(0, n + 20)).toEqual(
-                concatTyped(ArrayType, values, values.slice(0, 20)));
+            expect(vector.slice(0, n + 20).toArray()).toEqual(values.slice(0, n + 20));
         });
     });
 }

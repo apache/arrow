@@ -31,6 +31,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -134,6 +135,11 @@ public class TypeLayout {
       @Override
       public TypeLayout visit(Decimal type) {
         return newFixedWidthTypeLayout(BufferLayout.dataBuffer(128));
+      }
+
+      @Override
+      public TypeLayout visit(FixedSizeBinary type) {
+        return newFixedWidthTypeLayout(new BufferLayout(BufferType.DATA, type.getByteWidth() * 8));
       }
 
       @Override

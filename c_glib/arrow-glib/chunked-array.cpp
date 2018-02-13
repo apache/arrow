@@ -274,6 +274,26 @@ garrow_chunked_array_get_chunks(GArrowChunkedArray *chunked_array)
   return g_list_reverse(chunks);
 }
 
+/**
+ * garrow_chunked_array_slice:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @offset: The offset of sub #GArrowChunkedArray.
+ * @length: The length of sub #GArrowChunkedArray.
+ *
+ * Returns: (transfer full): The sub #GArrowChunkedArray. It covers only from
+ *   `offset` to `offset + length` range. The sub #GArrowChunkedArray shares
+ *   values with the base #GArrowChunkedArray.
+ */
+GArrowChunkedArray  *
+garrow_chunked_array_slice(GArrowChunkedArray *chunked_array,
+                           guint64 offset,
+                           guint64 length)
+{
+  const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_sub_chunked_array = arrow_chunked_array->Slice(offset, length);
+  return garrow_chunked_array_new_raw(&arrow_sub_chunked_array);
+}
+
 G_END_DECLS
 
 GArrowChunkedArray *

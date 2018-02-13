@@ -64,7 +64,7 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   ///
   /// \note After calling this function, this device memory will not be freed
   /// when the CudaBuffer is destructed
-  virtual Status ExportForIpc(std::unique_ptr<CudaIpcMemHandle>* handle);
+  virtual Status ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle);
 
   std::shared_ptr<CudaContext> context() const { return context_; }
 
@@ -95,7 +95,7 @@ class ARROW_EXPORT CudaIpcMemHandle {
   /// \param[out] handle the CudaIpcMemHandle instance
   /// \return Status
   static Status FromBuffer(const void* opaque_handle,
-                           std::unique_ptr<CudaIpcMemHandle>* handle);
+                           std::shared_ptr<CudaIpcMemHandle>* handle);
 
   /// \brief Write CudaIpcMemHandle to a Buffer
   /// \param[in] pool a MemoryPool to allocate memory from

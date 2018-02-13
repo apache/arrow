@@ -123,6 +123,21 @@
       ]
     },
     {
+      major: "Fixed",
+      width: -1,
+      javaType: "byte[]",
+      boxedType: "ArrowBuf",
+      minor: [
+        {
+          class: "FixedSizeBinary",
+          typeParams: [ {name: "byteWidth", type: "int"} ],
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary",
+          friendlyType: "byte[]",
+          fields: [{name: "buffer", type: "ArrowBuf"}],
+        }
+      ]
+    },
+    {
       major: "VarLen",
       width: 4,
       javaType: "int",

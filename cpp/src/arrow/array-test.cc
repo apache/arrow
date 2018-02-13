@@ -1155,6 +1155,45 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   }
 }
 
+TEST_F(TestBinaryBuilder, TestCapacityReserve) {
+  vector<string> strings = {"aaaaa", "bbbbbbbbbb", "ccccccccccccccc", "dddddddddd"};
+  int N = static_cast<int>(strings.size());
+  int reps = 15;
+  int64_t length = 0;
+  int64_t capacity = 1000;
+  int64_t expected_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+
+  ASSERT_OK(builder_->ReserveData(capacity));
+
+  ASSERT_EQ(length, builder_->value_data_length());
+  ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+
+  for (int j = 0; j < reps; ++j) {
+    for (int i = 0; i < N; ++i) {
+      ASSERT_OK(builder_->Append(strings[i]));
+      length += static_cast<int>(strings[i].size());
+
+      ASSERT_EQ(length, builder_->value_data_length());
+      ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+    }
+  }
+
+  int extra_capacity = 500;
+  expected_capacity = BitUtil::RoundUpToMultipleOf64(length + extra_capacity);
+
+  ASSERT_OK(builder_->ReserveData(extra_capacity));
+
+  ASSERT_EQ(length, builder_->value_data_length());
+  ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+
+  Done();
+
+  ASSERT_EQ(reps * N, result_->length());
+  ASSERT_EQ(0, result_->null_count());
+  ASSERT_EQ(reps * 40, result_->value_data()->size());
+  ASSERT_EQ(expected_capacity, result_->value_data()->capacity());
+}
+
 TEST_F(TestBinaryBuilder, TestZeroLength) {
   // All buffers are null
   Done();
@@ -2343,6 +2382,37 @@ TEST(TestDictionary, Validate) {
   // std::shared_ptr<Array> arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);
   // std::shared_ptr<Array> arr3 = std::make_shared<DictionaryArray>(dict_type, indices3);
   // ASSERT_OK(ValidateArray(*arr3));
+}
+
+TEST(TestDictionary, FromArray) {
+  std::shared_ptr<Array> dict;
+  vector<string> dict_values = {"foo", "bar", "baz"};
+  ArrayFromVector<StringType, string>(dict_values, &dict);
+  std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
+
+  std::shared_ptr<Array> indices1;
+  vector<int16_t> indices_values1 = {1, 2, 0, 0, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(indices_values1, &indices1);
+
+  std::shared_ptr<Array> indices2;
+  vector<int16_t> indices_values2 = {1, 2, 0, 3, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(indices_values2, &indices2);
+
+  std::shared_ptr<Array> indices3;
+  vector<bool> is_valid3 = {true, true, false, true, true, true};
+  vector<int16_t> indices_values3 = {1, 2, -1, 0, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(is_valid3, indices_values3, &indices3);
+
+  std::shared_ptr<Array> indices4;
+  vector<bool> is_valid4 = {true, true, false, true, true, true};
+  vector<int16_t> indices_values4 = {1, 2, 1, 3, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(is_valid4, indices_values4, &indices4);
+
+  std::shared_ptr<Array> arr1, arr2, arr3, arr4;
+  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices1, &arr1));
+  ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices2, &arr2));
+  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices3, &arr3));
+  ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices4, &arr4));
 }
 
 // ----------------------------------------------------------------------

@@ -18,6 +18,7 @@
 #ifndef ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H
 #define ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H
 
+#include <memory>
 #include <vector>
 
 #include "arrow/compute/kernel.h"

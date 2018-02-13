@@ -20,25 +20,32 @@
 set -ex
 
 # Fail fast for code linting issues
-mkdir $TRAVIS_BUILD_DIR/cpp/lint
-pushd $TRAVIS_BUILD_DIR/cpp/lint
 
-cmake ..
-make lint
+if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
+  mkdir $TRAVIS_BUILD_DIR/cpp/lint
+  pushd $TRAVIS_BUILD_DIR/cpp/lint
 
-if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
-  make check-format
+  cmake ..
+  make lint
+
+  if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
+    make check-format
+  fi
+
+  popd
 fi
 
-popd
 
 # Fail fast on style checks
-sudo pip install flake8
 
-PYARROW_DIR=$TRAVIS_BUILD_DIR/python/pyarrow
+if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
+  sudo pip install -q flake8
 
-flake8 --count $PYARROW_DIR
+  PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 
-# Check Cython files with some checks turned off
-flake8 --count --config=$PYTHON_DIR/.flake8.cython \
-       $PYARROW_DIR
+  flake8 --count $PYTHON_DIR/pyarrow
+
+  # Check Cython files with some checks turned off
+  flake8 --count --config=$PYTHON_DIR/.flake8.cython \
+         $PYTHON_DIR/pyarrow
+fi

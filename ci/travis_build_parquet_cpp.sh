@@ -20,15 +20,16 @@ set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
+
 export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
 
-# $CPP_TOOLCHAIN set up in before_script_cpp
 export PARQUET_BUILD_TOOLCHAIN=$CPP_TOOLCHAIN
 
 PARQUET_DIR=$TRAVIS_BUILD_DIR/parquet
 mkdir -p $PARQUET_DIR
 
-git clone https://github.com/apache/parquet-cpp.git $PARQUET_DIR
+git clone -q https://github.com/apache/parquet-cpp.git $PARQUET_DIR
 
 pushd $PARQUET_DIR
 mkdir build-dir

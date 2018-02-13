@@ -18,6 +18,7 @@
 from io import BytesIO
 from os.path import join as pjoin
 import os
+import pickle
 import random
 import unittest
 
@@ -35,10 +36,10 @@ import pyarrow.tests.test_parquet as test_parquet
 
 
 def hdfs_test_client(driver='libhdfs'):
-    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
-    user = os.environ['ARROW_HDFS_TEST_USER']
+    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
+    user = os.environ.get('ARROW_HDFS_TEST_USER', None)
     try:
-        port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 20500))
+        port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
     except ValueError:
         raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                          'an integer')
@@ -71,6 +72,22 @@ class HdfsTestCases(object):
     def tearDownClass(cls):
         cls.hdfs.delete(cls.tmp_path, recursive=True)
         cls.hdfs.close()
+
+    def test_unknown_driver(self):
+        with pytest.raises(ValueError):
+            hdfs_test_client(driver="not_a_driver_name")
+
+    def test_pickle(self):
+        s = pickle.dumps(self.hdfs)
+        h2 = pickle.loads(s)
+        assert h2.is_open
+        assert h2.host == self.hdfs.host
+        assert h2.port == self.hdfs.port
+        assert h2.user == self.hdfs.user
+        assert h2.kerb_ticket == self.hdfs.kerb_ticket
+        assert h2.driver == self.hdfs.driver
+        # smoketest unpickled client works
+        h2.ls(self.tmp_path)
 
     def test_cat(self):
         path = pjoin(self.tmp_path, 'cat-test')
@@ -144,6 +161,27 @@ class HdfsTestCases(object):
 
         assert file_path_info['kind'] == 'file'
         assert file_path_info['size'] == len(data)
+
+    def test_exists_isdir_isfile(self):
+        dir_path = pjoin(self.tmp_path, 'info-base')
+        file_path = pjoin(dir_path, 'ex')
+        missing_path = pjoin(dir_path, 'this-path-is-missing')
+
+        self.hdfs.mkdir(dir_path)
+        with self.hdfs.open(file_path, 'wb') as f:
+            f.write(b'foobarbaz')
+
+        assert self.hdfs.exists(dir_path)
+        assert self.hdfs.exists(file_path)
+        assert not self.hdfs.exists(missing_path)
+
+        assert self.hdfs.isdir(dir_path)
+        assert not self.hdfs.isdir(file_path)
+        assert not self.hdfs.isdir(missing_path)
+
+        assert not self.hdfs.isfile(dir_path)
+        assert self.hdfs.isfile(file_path)
+        assert not self.hdfs.isfile(missing_path)
 
     def test_disk_usage(self):
         path = pjoin(self.tmp_path, 'disk-usage-base')
@@ -299,7 +337,7 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs():
-            pytest.fail('No libhdfs available on system')
+            pytest.skip('No libhdfs available on system')
 
     def test_orphaned_file(self):
         hdfs = hdfs_test_client()
@@ -318,4 +356,4 @@ class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs3():
-            pytest.fail('No libhdfs3 available on system')
+            pytest.skip('No libhdfs3 available on system')

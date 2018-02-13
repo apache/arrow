@@ -94,14 +94,14 @@ TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
   ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), kSize));
 
   // Export for IPC and serialize
-  std::unique_ptr<CudaIpcMemHandle> ipc_handle;
+  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
   ASSERT_OK(device_buffer->ExportForIpc(&ipc_handle));
 
   std::shared_ptr<Buffer> serialized_handle;
   ASSERT_OK(ipc_handle->Serialize(default_memory_pool(), &serialized_handle));
 
   // Deserialize IPC handle and open
-  std::unique_ptr<CudaIpcMemHandle> ipc_handle2;
+  std::shared_ptr<CudaIpcMemHandle> ipc_handle2;
   ASSERT_OK(CudaIpcMemHandle::FromBuffer(serialized_handle->data(), &ipc_handle2));
 
   std::shared_ptr<CudaBuffer> ipc_buffer;

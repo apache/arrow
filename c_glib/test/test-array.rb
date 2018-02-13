@@ -92,7 +92,7 @@ class TestArray < Test::Unit::TestCase
   def test_value_type
     builder = Arrow::BooleanArrayBuilder.new
     array = builder.finish
-    assert_equal(Arrow::Type::BOOL, array.value_type)
+    assert_equal(Arrow::Type::BOOLEAN, array.value_type)
   end
 
   def test_slice

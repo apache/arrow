@@ -170,6 +170,42 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
+   * Sets the desired value capacity for the vector. This function doesn't
+   * allocate any memory for the vector.
+   * @param valueCount desired number of elements in the vector
+   * @param density average number of bytes per variable width element
+   */
+  public void setInitialCapacity(int valueCount, double density) {
+    final long size = (long) (valueCount * density);
+    if (size < 1) {
+      throw new IllegalArgumentException("With the provided density and value count, potential capacity of the data buffer is 0");
+    }
+    if (size > MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
+    }
+    valueAllocationSizeInBytes = (int) size;
+    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(valueCount);
+    /* to track the end offset of last data element in vector, we need
+     * an additional slot in offset buffer.
+     */
+    offsetAllocationSizeInBytes = (valueCount + 1) * OFFSET_WIDTH;
+  }
+
+  /**
+   * Get the density of this ListVector
+   * @return density
+   */
+  public double getDensity() {
+    if (valueCount == 0) {
+      return 0.0D;
+    }
+    final int startOffset = offsetBuffer.getInt(0);
+    final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+    final double totalListSize = endOffset - startOffset;
+    return totalListSize/valueCount;
+  }
+
+  /**
    * Get the current value capacity for the vector
    * @return number of elements that vector can hold.
    */

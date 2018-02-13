@@ -215,7 +215,9 @@ def _sanitize_schema(schema, flavor):
                 sanitized_fields.append(sanitized_field)
             else:
                 sanitized_fields.append(field)
-        return pa.schema(sanitized_fields), schema_changed
+
+        new_schema = pa.schema(sanitized_fields, metadata=schema.metadata)
+        return new_schema, schema_changed
     else:
         return schema, False
 
@@ -289,6 +291,14 @@ schema : arrow Schema
     def __del__(self):
         if getattr(self, 'is_open', False):
             self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+        # return false since we want to propagate exceptions
+        return False
 
     def write_table(self, table, row_group_size=None):
         if self.schema_changed:
@@ -584,7 +594,7 @@ class ParquetManifest(object):
             elif path.endswith('_metadata'):
                 self.metadata_path = full_path
             elif self._should_silently_exclude(path):
-                print('Ignoring path: {0}'.format(full_path))
+                continue
             else:
                 filtered_files.append(full_path)
 
@@ -929,30 +939,25 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 coerce_timestamps=None,
                 flavor=None, **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
-
-    writer = None
+    use_int96 = use_deprecated_int96_timestamps
     try:
-        writer = ParquetWriter(
-            where, table.schema,
-            version=version,
-            flavor=flavor,
-            use_dictionary=use_dictionary,
-            coerce_timestamps=coerce_timestamps,
-            compression=compression,
-            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
-            **kwargs)
-        writer.write_table(table, row_group_size=row_group_size)
+        with ParquetWriter(
+                where, table.schema,
+                version=version,
+                flavor=flavor,
+                use_dictionary=use_dictionary,
+                coerce_timestamps=coerce_timestamps,
+                compression=compression,
+                use_deprecated_int96_timestamps=use_int96,
+                **kwargs) as writer:
+            writer.write_table(table, row_group_size=row_group_size)
     except Exception:
-        if writer is not None:
-            writer.close()
         if isinstance(where, six.string_types):
             try:
                 os.remove(where)
             except os.error:
                 pass
         raise
-    else:
-        writer.close()
 
 
 write_table.__doc__ = """
