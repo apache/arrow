@@ -28,6 +28,7 @@ export interface View<T extends DataType> {
     get(index: number): T['TValue'] | null;
     set(index: number, value: T['TValue']): void;
     toArray(): IterableArrayLike<T['TValue'] | null>;
+    find(search: T['TValue']): number | null;
     [Symbol.iterator](): IterableIterator<T['TValue'] | null>;
 }
 
@@ -76,6 +77,9 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
     }
     public toArray(): IterableArrayLike<T['TValue'] | null> {
         return this.view.toArray();
+    }
+    public find(value: T['TValue']) {
+        return this.view.find(value);
     }
     public [Symbol.iterator](): IterableIterator<T['TValue'] | null> {
         return this.view[Symbol.iterator]();
@@ -414,16 +418,7 @@ export class DictionaryVector<T extends DataType = DataType> extends Vector<Dict
     }
     public getKey(index: number) { return this.indicies.get(index); }
     public getValue(key: number) { return this.dictionary.get(key); }
-    public reverseLookup(value: T): number|undefined {
-        let key = -1;
-        for (let len = this.dictionary.length; ++key < len;) {
-            if (this.dictionary.get(key) === value) {
-                break;
-            }
-        }
-
-        return key === this.dictionary.length ? undefined : key;
-    }
+    public reverseLookup(value: T) { return this.dictionary.find(value); }
 }
 
 export const createVector = ((VectorLoader: new <T extends DataType>(data: Data<T>) => TypeVisitor) => (

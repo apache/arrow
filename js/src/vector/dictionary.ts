@@ -47,4 +47,12 @@ export class DictionaryView<T extends DataType> implements View<T> {
             yield values.get(indicies.get(index));
         }
     }
+    public find(search: T['TValue']) {
+        // First find the dictionary key for the desired value...
+        const key = this.dictionary.find(search);
+        if (key === null) { return null; }
+
+        // ... then find the first occurence of that key in indicies
+        return this.indicies.find(key!);
+    }
 }

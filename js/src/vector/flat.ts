@@ -43,6 +43,15 @@ export class FlatView<T extends FlatType> implements View<T> {
     public toArray(): IterableArrayLike<T['TValue']> {
         return this.values.subarray(0, this.length);
     }
+    public find(search: T['TValue']) {
+        let index = 0;
+        for (let value of this) {
+            if (value === search) { return index; }
+            ++index;
+        }
+
+        return null;
+    }
     public [Symbol.iterator](): IterableIterator<T['TValue']> {
         return this.values.subarray(0, this.length)[Symbol.iterator]() as IterableIterator<T['TValue']>;
     }
@@ -63,6 +72,10 @@ export class NullView implements View<Null> {
     public get() { return null; }
     public toArray(): IterableArrayLike<null> {
         return [...this];
+    }
+    public find(search: any) {
+        // if you're looking for nulls and the view isn't empty, we've got 'em!
+        return search === null && this.length > 0 ? 0 : null;
     }
     public *[Symbol.iterator](): IterableIterator<null> {
         for (let index = -1, length = this.length; ++index < length;) {
@@ -106,6 +119,15 @@ export class ValidityView<T extends DataType> implements View<T> {
     }
     public toArray(): IterableArrayLike<T['TValue'] | null> {
         return [...this];
+    }
+    public find(search: T['TValue']) {
+        let index = 0;
+        for (let value of this) {
+            if (value === search) { return index; }
+            ++index;
+        }
+
+        return null;
     }
     public isValid(index: number): boolean {
         const nullBitIndex = this.offset + index;
@@ -168,6 +190,15 @@ export class PrimitiveView<T extends PrimitiveType> extends FlatView<T> {
 export class FixedSizeView<T extends PrimitiveType> extends PrimitiveView<T> {
     public toArray(): IterableArrayLike<T['TValue']> {
         return this.values;
+    }
+    public find(search: T['TValue']) {
+        let index = 0;
+        for (let value of this) {
+            if (value.every((d: number, i: number) => d === search[i])) { return index; }
+            ++index;
+        }
+
+        return null;
     }
     protected getValue(values: T['TArray'], index: number, size: number): T['TValue'] {
         return values.subarray(index * size, index * size + size);
