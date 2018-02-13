@@ -170,6 +170,8 @@ class FileReader::Impl {
                           int16_t def_level,
                           std::unique_ptr<ColumnReader::ColumnReaderImpl>* out);
   Status ReadColumn(int i, std::shared_ptr<Array>* out);
+  Status ReadColumnChunk(int column_index, int row_group_index,
+                         std::shared_ptr<Array>* out);
   Status GetSchema(std::shared_ptr<::arrow::Schema>* out);
   Status GetSchema(const std::vector<int>& indices,
                    std::shared_ptr<::arrow::Schema>* out);
@@ -391,6 +393,24 @@ Status FileReader::Impl::GetSchema(const std::vector<int>& indices,
   return FromParquetSchema(descr, indices, parquet_key_value_metadata, out);
 }
 
+Status FileReader::Impl::ReadColumnChunk(int column_index, int row_group_index,
+                                         std::shared_ptr<Array>* out) {
+  auto rg_metadata = reader_->metadata()->RowGroup(row_group_index);
+  int64_t records_to_read = rg_metadata->ColumnChunk(column_index)->num_values();
+
+  std::unique_ptr<FileColumnIterator> input(
+      new SingleRowGroupIterator(column_index, row_group_index, reader_.get()));
+
+  std::unique_ptr<ColumnReader::ColumnReaderImpl> impl(
+      new PrimitiveImpl(pool_, std::move(input)));
+  ColumnReader flat_column_reader(std::move(impl));
+
+  std::shared_ptr<Array> array;
+  RETURN_NOT_OK(flat_column_reader.NextBatch(records_to_read, &array));
+  *out = array;
+  return Status::OK();
+}
+
 Status FileReader::Impl::ReadRowGroup(int row_group_index,
                                       const std::vector<int>& indices,
                                       std::shared_ptr<::arrow::Table>* out) {
@@ -408,17 +428,9 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   auto ReadColumnFunc = [&indices, &row_group_index, &schema, &columns, &rg_metadata,
                          this](int i) {
     int column_index = indices[i];
-    int64_t records_to_read = rg_metadata->ColumnChunk(column_index)->num_values();
-
-    std::unique_ptr<FileColumnIterator> input(
-        new SingleRowGroupIterator(column_index, row_group_index, reader_.get()));
-
-    std::unique_ptr<ColumnReader::ColumnReaderImpl> impl(
-        new PrimitiveImpl(pool_, std::move(input)));
-    ColumnReader flat_column_reader(std::move(impl));
 
     std::shared_ptr<Array> array;
-    RETURN_NOT_OK(flat_column_reader.NextBatch(records_to_read, &array));
+    RETURN_NOT_OK(ReadColumnChunk(column_index, row_group_index, &array));
     columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
   };
@@ -559,6 +571,11 @@ Status FileReader::ReadRowGroup(int i, const std::vector<int>& indices,
   } catch (const ::parquet::ParquetException& e) {
     return ::arrow::Status::IOError(e.what());
   }
+}
+
+std::shared_ptr<RowGroupReader> FileReader::RowGroup(int row_group_index) {
+  return std::shared_ptr<RowGroupReader>(
+      new RowGroupReader(impl_.get(), row_group_index));
 }
 
 int FileReader::num_row_groups() const { return impl_->num_row_groups(); }
@@ -1353,6 +1370,35 @@ Status StructImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>* ou
                                        null_bitmap, null_count);
   return Status::OK();
 }
+
+std::shared_ptr<ColumnChunkReader> RowGroupReader::Column(int column_index) {
+  return std::shared_ptr<ColumnChunkReader>(
+      new ColumnChunkReader(impl_, row_group_index_, column_index));
+}
+
+Status RowGroupReader::ReadTable(const std::vector<int>& column_indices,
+                                 std::shared_ptr<::arrow::Table>* out) {
+  return impl_->ReadRowGroup(row_group_index_, column_indices, out);
+}
+
+Status RowGroupReader::ReadTable(std::shared_ptr<::arrow::Table>* out) {
+  return impl_->ReadRowGroup(row_group_index_, out);
+}
+
+RowGroupReader::~RowGroupReader() {}
+
+RowGroupReader::RowGroupReader(FileReader::Impl* impl, int row_group_index)
+    : impl_(impl), row_group_index_(row_group_index) {}
+
+Status ColumnChunkReader::Read(std::shared_ptr<::arrow::Array>* out) {
+  return impl_->ReadColumnChunk(column_index_, row_group_index_, out);
+}
+
+ColumnChunkReader::~ColumnChunkReader() {}
+
+ColumnChunkReader::ColumnChunkReader(FileReader::Impl* impl, int row_group_index,
+                                     int column_index)
+    : impl_(impl), column_index_(column_index), row_group_index_(row_group_index) {}
 
 }  // namespace arrow
 }  // namespace parquet

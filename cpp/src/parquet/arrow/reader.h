@@ -39,10 +39,26 @@ namespace parquet {
 
 namespace arrow {
 
+class ColumnChunkReader;
 class ColumnReader;
+class RowGroupReader;
 
 // Arrow read adapter class for deserializing Parquet files as Arrow row
 // batches.
+//
+// This interfaces caters for different use cases and thus provides different
+// interfaces. In its most simplistic form, we cater for a user that wants to
+// read the whole Parquet at once with the FileReader::ReadTable method.
+//
+// More advanced users that also want to implement parallelism on top of each
+// single Parquet files should do this on the RowGroup level. For this, they can
+// call FileReader::RowGroup(i)->ReadTable to receive only the specified
+// RowGroup as a table.
+//
+// In the most advanced situation, where a consumer wants to independently read
+// RowGroups in parallel and consume each column individually, they can call
+// FileReader::RowGroup(i)->Column(j)->Read and receive an arrow::Column
+// instance.
 //
 // TODO(wesm): nested data does not always make sense with this user
 // interface unless you are only reading a single leaf node from a branch of
@@ -150,6 +166,10 @@ class PARQUET_EXPORT FileReader {
   ::arrow::Status ScanContents(std::vector<int> columns, const int32_t column_batch_size,
                                int64_t* num_rows);
 
+  /// \brief Return a reader for the RowGroup, this object must not outlive the
+  ///   FileReader.
+  std::shared_ptr<RowGroupReader> RowGroup(int row_group_index);
+
   int num_row_groups() const;
 
   const ParquetFileReader* parquet_reader() const;
@@ -161,8 +181,44 @@ class PARQUET_EXPORT FileReader {
   virtual ~FileReader();
 
  private:
+  friend ColumnChunkReader;
+  friend RowGroupReader;
+
   class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
+};
+
+class PARQUET_EXPORT RowGroupReader {
+ public:
+  std::shared_ptr<ColumnChunkReader> Column(int column_index);
+
+  ::arrow::Status ReadTable(const std::vector<int>& column_indices,
+                            std::shared_ptr<::arrow::Table>* out);
+  ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);
+
+  virtual ~RowGroupReader();
+
+ private:
+  friend FileReader;
+  RowGroupReader(FileReader::Impl* reader, int row_group_index);
+
+  FileReader::Impl* impl_;
+  int row_group_index_;
+};
+
+class PARQUET_EXPORT ColumnChunkReader {
+ public:
+  ::arrow::Status Read(std::shared_ptr<::arrow::Array>* out);
+
+  virtual ~ColumnChunkReader();
+
+ private:
+  friend RowGroupReader;
+  ColumnChunkReader(FileReader::Impl* impl, int row_group_index, int column_index);
+
+  FileReader::Impl* impl_;
+  int column_index_;
+  int row_group_index_;
 };
 
 // At this point, the column reader is a stream iterator. It only knows how to
