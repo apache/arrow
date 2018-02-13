@@ -15,13 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { TextEncoder } from 'text-encoding-utf-8';
 import Arrow from '../Arrow';
 import { type, TypedArray, TypedArrayConstructor } from '../../src/Arrow';
 
-const { BoolData, FlatData } = Arrow.data;
-const { IntVector, FloatVector, BoolVector } = Arrow.vector;
+const utf8Encoder = new TextEncoder('utf-8');
+
+const { BoolData, FlatData, FlatListData } = Arrow.data;
+const { IntVector, FloatVector, BoolVector, Utf8Vector } = Arrow.vector;
 const {
-    Bool,
+    Utf8, Bool,
     Float16, Float32, Float64,
     Int8, Int16, Int32, Int64,
     Uint8, Uint16, Uint32, Uint64,
@@ -301,6 +304,35 @@ for (const [VectorName, [VectorType, DataType]] of fixedWidthVectors) {
         });
     });
 }
+
+describe(`Utf8Vector`, () => {
+    const values = ['foo', 'bar', 'baz', 'foo bar', 'bar'], n = values.length;
+    let offset = 0;
+    const offsets = Uint32Array.of(0, ...values.map((d) => { offset += d.length; return offset; }));
+    const vector = new Utf8Vector(new FlatListData(new Utf8(), n, null, offsets, utf8Encoder.encode(values.join(''))));
+    test(`gets expected values`, () => {
+        let i = -1;
+        while (++i < n) {
+            expect(vector.get(i)).toEqual(values[i]);
+        }
+    });
+    test(`iterates expected values`, () => {
+        expect.hasAssertions();
+        let i = -1;
+        for (let v of vector) {
+            expect(++i).toBeLessThan(n);
+            expect(v).toEqual(values[i]);
+        }
+    });
+    test(`finds values`, () => {
+        let testValues = values.concat(['abc', '12345']);
+
+        for (const value of testValues) {
+            const expected = values.indexOf(value);
+            expect(vector.find(value)).toEqual(expected >= 0 ? expected : null);
+        }
+    });
+});
 
 function toMap<T>(entries: Record<string, T>, keys: string[]) {
     return keys.reduce((map, key) => {
