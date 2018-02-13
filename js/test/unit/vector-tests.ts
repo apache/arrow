@@ -45,11 +45,14 @@ const FixedWidthVectors = {
 
 const fixedSizeVectors = toMap(FixedSizeVectors, Object.keys(FixedSizeVectors));
 const fixedWidthVectors = toMap(FixedWidthVectors, Object.keys(FixedWidthVectors));
+const randomBytes = (n: number) => Uint8Array.from(
+    { length: n },
+    () => Math.random() * 255 | 0
+);
 const bytes = Array.from(
     { length: 5 },
-    () => Uint8Array.from(
-        { length: 64 },
-        () => Math.random() * 255 | 0));
+    () => randomBytes(64)
+);
 
 describe(`BoolVector`, () => {
     const values = [true, true, false, true, true, false, false, false], n = values.length;
@@ -66,6 +69,16 @@ describe(`BoolVector`, () => {
             expect(++i).toBeLessThan(n);
             expect(v).toEqual(values[i]);
         }
+    });
+    test(`finds expected values`, () => {
+        for (let test_value of [true, false]) {
+            const expected = values.indexOf(test_value);
+            expect(vector.find(test_value)).toEqual(expected >= 0 ? expected : null);
+        }
+    });
+    test(`find returns null when value not found`, () => {
+        const v = new BoolVector(new BoolData(new Bool(), 3, null, new Uint8Array([0xFF])));
+        expect(v.find(false)).toEqual(null);
     });
     test(`can set values to true and false`, () => {
         const v = new BoolVector(new BoolData(new Bool(), n, null, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0])));
@@ -145,6 +158,13 @@ describe('Float16Vector', () => {
             expect(v).toEqual(clamp(values[i]));
         }
     });
+    test(`finds values`, () => {
+        const randomValues = new Uint16Array(randomBytes(64).buffer);
+        for (let value of [...values, ...randomValues]) {
+            const expected = values.indexOf(value);
+            expect(vector.find(clamp(value))).toEqual(expected >= 0 ? expected : null);
+        }
+    });
     test(`slices the entire array`, () => {
         expect(vector.slice().toArray()).toEqual(float16s);
     });
@@ -185,6 +205,21 @@ for (const [VectorName, [VectorType, DataType]] of fixedSizeVectors) {
             for (let v of vector) {
                 expect(++i).toBeLessThan(n);
                 expect(v).toEqual(values.slice(2 * i, 2 * (i + 1)));
+            }
+        });
+        test(`finds values`, () => {
+            // Create a set of test data composed of all of the actual values
+            // and a few random values
+            let testValues = concatTyped(
+                type.ArrayType,
+                ...bytes,
+                ...[randomBytes(8 * 2 * type.ArrayType.BYTES_PER_ELEMENT)]
+            );
+
+            for (let i = -1, n = testValues.length / 2 | 0; ++i < n;) {
+                const value = testValues.slice(2 * i, 2 * (i + 1));
+                const expected = values.findIndex((d, i) => i % 2 === 0 && d === value[0] && testValues[i + 1] === value[1]);
+                expect(vector.find(value)).toEqual(expected >= 0 ? expected / 2 : null);
             }
         });
         test(`slices the entire array`, () => {
@@ -230,6 +265,20 @@ for (const [VectorName, [VectorType, DataType]] of fixedWidthVectors) {
             for (let v of vector) {
                 expect(++i).toBeLessThan(n);
                 expect(v).toEqual(values[i]);
+            }
+        });
+        test(`finds values`, () => {
+            // Create a set of test data composed of all of the actual values
+            // and a few random values
+            let testValues = concatTyped(
+                type.ArrayType,
+                ...bytes,
+                ...[randomBytes(8 * type.ArrayType.BYTES_PER_ELEMENT)]
+            );
+
+            for (const value of testValues) {
+                const expected = values.indexOf(value);
+                expect(vector.find(value)).toEqual(expected >= 0 ? expected : null);
             }
         });
         test(`slices the entire array`, () => {
