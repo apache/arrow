@@ -24,14 +24,12 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
-import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,7 +52,7 @@ public class TestPromotableWriter {
   @Test
   public void testPromoteToUnion() throws Exception {
 
-    try (final StructVector container = StructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
          final NullableStructVector v = container.addOrGetStruct("test");
          final PromotableWriter writer = new PromotableWriter(v, container)) {
 

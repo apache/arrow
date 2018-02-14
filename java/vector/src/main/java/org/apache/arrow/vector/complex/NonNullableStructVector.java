@@ -28,7 +28,6 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
@@ -47,12 +46,11 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class StructVector extends AbstractStructVector {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StructVector.class);
+public class NonNullableStructVector extends AbstractStructVector {
 
-  public static StructVector empty(String name, BufferAllocator allocator) {
+  public static NonNullableStructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
-    return new StructVector(name, allocator, fieldType, null);
+    return new NonNullableStructVector(name, allocator, fieldType, null);
   }
 
   private final SingleStructReaderImpl reader = new SingleStructReaderImpl(this);
@@ -61,11 +59,11 @@ public class StructVector extends AbstractStructVector {
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public StructVector(String name, BufferAllocator allocator, CallBack callBack) {
+  public NonNullableStructVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
   }
 
-  public StructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+  public NonNullableStructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.fieldType = checkNotNull(fieldType);
     this.valueCount = 0;
@@ -78,7 +76,7 @@ public class StructVector extends AbstractStructVector {
 
   transient private StructTransferPair ephPair;
 
-  public void copyFromSafe(int fromIndex, int thisIndex, StructVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, NonNullableStructVector from) {
     if (ephPair == null || ephPair.from != from) {
       ephPair = (StructTransferPair) from.makeTransferPair(this);
     }
@@ -150,29 +148,29 @@ public class StructVector extends AbstractStructVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new StructTransferPair(this, new StructVector(name, allocator, fieldType, callBack), false);
+    return new StructTransferPair(this, new NonNullableStructVector(name, allocator, fieldType, callBack), false);
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new StructTransferPair(this, (StructVector) to);
+    return new StructTransferPair(this, (NonNullableStructVector) to);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new StructTransferPair(this, new StructVector(ref, allocator, fieldType, callBack), false);
+    return new StructTransferPair(this, new NonNullableStructVector(ref, allocator, fieldType, callBack), false);
   }
 
   protected static class StructTransferPair implements TransferPair {
     private final TransferPair[] pairs;
-    private final StructVector from;
-    private final StructVector to;
+    private final NonNullableStructVector from;
+    private final NonNullableStructVector to;
 
-    public StructTransferPair(StructVector from, StructVector to) {
+    public StructTransferPair(NonNullableStructVector from, NonNullableStructVector to) {
       this(from, to, true);
     }
 
-    protected StructTransferPair(StructVector from, StructVector to, boolean allocate) {
+    protected StructTransferPair(NonNullableStructVector from, NonNullableStructVector to, boolean allocate) {
       this.from = from;
       this.to = to;
       this.pairs = new TransferPair[from.size()];
@@ -291,7 +289,7 @@ public class StructVector extends AbstractStructVector {
     for (final ValueVector v : getChildren()) {
       v.setValueCount(valueCount);
     }
-    StructVector.this.valueCount = valueCount;
+    NonNullableStructVector.this.valueCount = valueCount;
   }
 
   @Override

@@ -37,7 +37,7 @@ import com.google.common.collect.Lists;
 import io.netty.buffer.ArrowBuf;
 
 /*
- * Base class for StructVectors. Currently used by StructVector
+ * Base class for StructVectors. Currently used by NonNullableStructVector
  */
 public abstract class AbstractStructVector extends AbstractContainerVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);

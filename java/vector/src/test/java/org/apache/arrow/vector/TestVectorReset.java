@@ -114,7 +114,7 @@ public class TestVectorReset {
 
   @Test
   public void testStructTypeReset() {
-    try (final StructVector structVector = new StructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+    try (final NonNullableStructVector structVector = new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
          final NullableStructVector nullableStructVector = new NullableStructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
     ) {
       // StructVector

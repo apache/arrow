@@ -21,7 +21,7 @@
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}StructWriter.java" />
 <#assign index = "idx()">
 <#if mode == "Single">
-<#assign containerClass = "StructVector" />
+<#assign containerClass = "NonNullableStructVector" />
 <#else>
 <#assign containerClass = "NullableStructVector" />
 </#if>

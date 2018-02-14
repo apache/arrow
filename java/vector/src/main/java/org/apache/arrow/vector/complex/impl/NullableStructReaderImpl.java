@@ -19,7 +19,7 @@
 
 package org.apache.arrow.vector.complex.impl;
 
-import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.NullableStructVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -28,7 +28,7 @@ public class NullableStructReaderImpl extends SingleStructReaderImpl {
 
   private NullableStructVector nullableStructVector;
 
-  public NullableStructReaderImpl(StructVector vector) {
+  public NullableStructReaderImpl(NonNullableStructVector vector) {
     super(vector);
     this.nullableStructVector = (NullableStructVector) vector;
   }

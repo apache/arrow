@@ -21,8 +21,6 @@ package org.apache.arrow.vector.complex;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import com.google.common.collect.ObjectArrays;
@@ -44,7 +42,7 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class NullableStructVector extends StructVector implements FieldVector {
+public class NullableStructVector extends NonNullableStructVector implements FieldVector {
 
   public static NullableStructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(Struct.INSTANCE);

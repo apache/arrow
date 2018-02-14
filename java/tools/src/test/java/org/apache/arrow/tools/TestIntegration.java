@@ -27,7 +27,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.tools.Integration.Command;
-import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
@@ -76,7 +76,7 @@ public class TestIntegration {
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
             Integer.MAX_VALUE);
-        StructVector parent = StructVector.empty("parent", vectorAllocator)) {
+        NonNullableStructVector parent = NonNullableStructVector.empty("parent", vectorAllocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
       StructWriter rootWriter = writer.rootAsStruct();
       Float8Writer floatWriter = rootWriter.float8("float");
@@ -95,7 +95,7 @@ public class TestIntegration {
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
             Integer.MAX_VALUE);
-        StructVector parent = StructVector.empty("parent", vectorAllocator)) {
+        NonNullableStructVector parent = NonNullableStructVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
       StructWriter rootWriter = writer.rootAsStruct();
