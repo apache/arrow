@@ -59,7 +59,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
@@ -134,12 +134,12 @@ public class Types {
     STRUCT(Struct.INSTANCE) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new NullableStructVector(name, allocator, fieldType, schemaChangeCallback);
+        return new StructVector(name, allocator, fieldType, schemaChangeCallback);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new NullableStructWriter((NullableStructVector) vector);
+        return new NullableStructWriter((StructVector) vector);
       }
     },
     TINYINT(new Int(8, true)) {

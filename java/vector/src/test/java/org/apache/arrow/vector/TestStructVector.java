@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.complex.NullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
@@ -50,7 +50,7 @@ public class TestStructVector {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("k1", "v1");
     FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
-    try (NullableStructVector vector = new NullableStructVector("struct", allocator, type, null)) {
+    try (StructVector vector = new StructVector("struct", allocator, type, null)) {
       Assert.assertEquals(vector.getField().getMetadata(), type.getMetadata());
     }
   }

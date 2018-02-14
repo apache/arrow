@@ -36,7 +36,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -94,7 +94,7 @@ public class BaseFileTest {
     DateTimeZone.setDefault(defaultTimezone);
   }
 
-  protected void writeData(int count, NullableStructVector parent) {
+  protected void writeData(int count, StructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
@@ -119,7 +119,7 @@ public class BaseFileTest {
     }
   }
 
-  protected void writeComplexData(int count, NullableStructVector parent) {
+  protected void writeComplexData(int count, StructVector parent) {
     ArrowBuf varchar = allocator.buffer(3);
     varchar.readerIndex(0);
     varchar.setByte(0, 'a');
@@ -189,7 +189,7 @@ public class BaseFileTest {
     return new LocalDateTime(2000 + i, 1 + i, 1 + i, i, i, i, i);
   }
 
-  protected void writeDateTimeData(int count, NullableStructVector parent) {
+  protected void writeDateTimeData(int count, StructVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();
@@ -494,7 +494,7 @@ public class BaseFileTest {
     }
   }
 
-  public void writeUnionData(int count, NullableStructVector parent) {
+  public void writeUnionData(int count, StructVector parent) {
     ArrowBuf varchar = allocator.buffer(3);
     varchar.readerIndex(0);
     varchar.setByte(0, 'a');
@@ -537,7 +537,7 @@ public class BaseFileTest {
     varchar.release();
   }
 
-  protected void writeVarBinaryData(int count, NullableStructVector parent) {
+  protected void writeVarBinaryData(int count, StructVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();

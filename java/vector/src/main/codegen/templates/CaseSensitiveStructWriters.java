@@ -23,7 +23,7 @@
 <#if mode == "Single">
 <#assign containerClass = "NonNullableStructVector" />
 <#else>
-<#assign containerClass = "NullableStructVector" />
+<#assign containerClass = "StructVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />

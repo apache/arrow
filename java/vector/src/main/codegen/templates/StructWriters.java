@@ -23,7 +23,7 @@
 <#if mode == "Single">
 <#assign containerClass = "NonNullableStructVector" />
 <#else>
-<#assign containerClass = "NullableStructVector" />
+<#assign containerClass = "StructVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />
@@ -51,7 +51,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
   public ${mode}StructWriter(${containerClass} container) {
     <#if mode == "Single">
-    if (container instanceof NullableStructVector) {
+    if (container instanceof StructVector) {
       throw new IllegalArgumentException("Invalid container: " + container);
     }
     </#if>
@@ -124,7 +124,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     if(writer == null){
       int vectorCount=container.size();
-      NullableStructVector vector = container.addOrGet(name, FieldType.nullable(MinorType.STRUCT.getType()), NullableStructVector.class);
+      StructVector vector = container.addOrGet(name, FieldType.nullable(MinorType.STRUCT.getType()), StructVector.class);
       writer = new PromotableWriter(vector, container, getNullableStructWriterFactory());
       if(vectorCount != container.size()) {
         writer.allocate();

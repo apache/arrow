@@ -114,21 +114,21 @@ public class TestVectorReset {
 
   @Test
   public void testStructTypeReset() {
-    try (final NonNullableStructVector structVector = new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final NullableStructVector nullableStructVector = new NullableStructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
+    try (final NonNullableStructVector nonNullableStructVector = new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+         final StructVector structVector = new StructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
     ) {
+      // NonNullableStructVector
+      nonNullableStructVector.allocateNewSafe();
+      IntVector structChild = nonNullableStructVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
+      structChild.setNull(0);
+      nonNullableStructVector.setValueCount(1);
+      resetVectorAndVerify(nonNullableStructVector, nonNullableStructVector.getBuffers(false));
+
       // StructVector
       structVector.allocateNewSafe();
-      IntVector structChild = structVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
-      structChild.setNull(0);
+      structVector.setNull(0);
       structVector.setValueCount(1);
       resetVectorAndVerify(structVector, structVector.getBuffers(false));
-
-      // NullableStructVector
-      nullableStructVector.allocateNewSafe();
-      nullableStructVector.setNull(0);
-      nullableStructVector.setValueCount(1);
-      resetVectorAndVerify(nullableStructVector, nullableStructVector.getBuffers(false));
     }
   }
 

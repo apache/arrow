@@ -20,7 +20,7 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
-import org.apache.arrow.vector.complex.NullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -131,7 +131,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch (mode) {
 
       case INIT:
-        structRoot = nullableStructWriterFactory.build((NullableStructVector) container);
+        structRoot = nullableStructWriterFactory.build((StructVector) container);
         structRoot.setPosition(idx());
         mode = Mode.STRUCT;
         break;
@@ -152,7 +152,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
       case INIT:
         // TODO allow dictionaries in complex types
-        NullableStructVector struct = container.addOrGetStruct(name);
+        StructVector struct = container.addOrGetStruct(name);
         structRoot = nullableStructWriterFactory.build(struct);
         structRoot.setPosition(idx());
         mode = Mode.STRUCT;

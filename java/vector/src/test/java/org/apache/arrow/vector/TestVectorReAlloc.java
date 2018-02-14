@@ -26,9 +26,8 @@ import java.nio.charset.StandardCharsets;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Assert;
@@ -121,7 +120,7 @@ public class TestVectorReAlloc {
 
   @Test
   public void testStructType() {
-    try (final NullableStructVector vector = NullableStructVector.empty("", allocator)) {
+    try (final StructVector vector = StructVector.empty("", allocator)) {
       vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
 
       vector.setInitialCapacity(512);

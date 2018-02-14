@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector.complex.impl;
 
-import org.apache.arrow.vector.complex.NullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 
 public class NullableStructWriterFactory {
   private final boolean caseSensitive;
@@ -29,7 +29,7 @@ public class NullableStructWriterFactory {
     this.caseSensitive = caseSensitive;
   }
 
-  public NullableStructWriter build(NullableStructVector container) {
+  public NullableStructWriter build(StructVector container) {
     return this.caseSensitive ? new NullableCaseSensitiveStructWriter(container) : new NullableStructWriter(container);
   }
 

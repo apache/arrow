@@ -42,11 +42,11 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class NullableStructVector extends NonNullableStructVector implements FieldVector {
+public class StructVector extends NonNullableStructVector implements FieldVector {
 
-  public static NullableStructVector empty(String name, BufferAllocator allocator) {
+  public static StructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(Struct.INSTANCE);
-    return new NullableStructVector(name, allocator, fieldType, null);
+    return new StructVector(name, allocator, fieldType, null);
   }
 
   private final NullableStructReaderImpl reader = new NullableStructReaderImpl(this);
@@ -57,17 +57,17 @@ public class NullableStructVector extends NonNullableStructVector implements Fie
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public NullableStructVector(String name, BufferAllocator allocator, CallBack callBack) {
+  public StructVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), callBack);
   }
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public NullableStructVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
+  public StructVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     this(name, allocator, new FieldType(true, ArrowType.Struct.INSTANCE, dictionary, null), callBack);
   }
 
-  public NullableStructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+  public StructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, checkNotNull(allocator), fieldType, callBack);
     this.validityBuffer = allocator.getEmpty();
     this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
@@ -125,29 +125,29 @@ public class NullableStructVector extends NonNullableStructVector implements Fie
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new NullableStructTransferPair(this, new NullableStructVector(name, allocator, fieldType, null), false);
+    return new NullableStructTransferPair(this, new StructVector(name, allocator, fieldType, null), false);
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new NullableStructTransferPair(this, (NullableStructVector) to, true);
+    return new NullableStructTransferPair(this, (StructVector) to, true);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new NullableStructTransferPair(this, new NullableStructVector(ref, allocator, fieldType, null), false);
+    return new NullableStructTransferPair(this, new StructVector(ref, allocator, fieldType, null), false);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new NullableStructTransferPair(this, new NullableStructVector(ref, allocator, fieldType, callBack), false);
+    return new NullableStructTransferPair(this, new StructVector(ref, allocator, fieldType, callBack), false);
   }
 
   protected class NullableStructTransferPair extends StructTransferPair {
 
-    private NullableStructVector target;
+    private StructVector target;
 
-    protected NullableStructTransferPair(NullableStructVector from, NullableStructVector to, boolean allocate) {
+    protected NullableStructTransferPair(StructVector from, StructVector to, boolean allocate) {
       super(from, to, allocate);
       this.target = to;
     }
@@ -180,7 +180,7 @@ public class NullableStructVector extends NonNullableStructVector implements Fie
   /*
    * transfer the validity.
    */
-  private void splitAndTransferValidityBuffer(int startIndex, int length, NullableStructVector target) {
+  private void splitAndTransferValidityBuffer(int startIndex, int length, StructVector target) {
     assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);

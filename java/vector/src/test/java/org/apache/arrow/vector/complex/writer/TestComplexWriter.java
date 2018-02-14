@@ -34,7 +34,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
-import org.apache.arrow.vector.complex.NullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
@@ -875,7 +875,7 @@ public class TestComplexWriter {
     rootWriter.end();
     writer.setValueCount(1);
 
-    NullableStructVector structVector = (NullableStructVector) parent.getChild("root");
+    StructVector structVector = (StructVector) parent.getChild("root");
     TransferPair tp = structVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
     NonNullableStructVector toStructVector = (NonNullableStructVector) tp.getTo();
