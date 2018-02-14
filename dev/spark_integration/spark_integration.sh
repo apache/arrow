@@ -16,19 +16,19 @@
 # limitations under the License.
 #
 
+# Exit on any error
+set -e
+
 # Set up environment and working directory
 cd /apache-arrow
 
 # Activate our pyarrow-dev conda env
 source activate pyarrow-dev
 
-export ARROW_BUILD_TYPE=Release
 export ARROW_HOME=$(pwd)/arrow
-#export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
-export BOOST_ROOT=$CONDA_PREFIX
-CONDA_BASE=/home/ubuntu/miniconda
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${CONDA_BASE}/lib:${LD_LIBRARY_PATH}
-export PYTHONPATH=${ARROW_HOME}/python:${PYTHONPATH}
+export ARROW_BUILD_TYPE=release
+export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
+export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
 
 # Build Arrow C++
@@ -36,21 +36,16 @@ pushd arrow/cpp
 rm -rf build/*
 mkdir -p build
 cd build/
-cmake -DARROW_PYTHON=on -DARROW_HDFS=on -DCMAKE_BUILD_TYPE=release -DCMAKE_INSTALL_PREFIX=$ARROW_HOME ..
+cmake -DCMAKE_CXX_FLAGS="-D_GLIBCXX_USE_CXX11_ABI=0" -DARROW_PYTHON=on -DARROW_HDFS=on -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE -DCMAKE_INSTALL_PREFIX=$ARROW_HOME ..
 make -j4
-if [[ $? -ne 0 ]]; then
-    exit 1
-fi
 make install
 popd
 
 # Build pyarrow and install inplace
+export PYARROW_CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 pushd arrow/python
 python setup.py clean
-python setup.py build_ext --build-type=release --inplace
-if [[ $? -ne 0 ]]; then
-    exit 1
-fi
+python setup.py build_ext --build-type=$ARROW_BUILD_TYPE install
 popd
 
 # Install Arrow to local maven repo and get the version
@@ -88,20 +83,10 @@ SPARK_SCALA_TESTS="org.apache.spark.sql.execution.arrow,org.apache.spark.sql.exe
 echo "Testing Spark: $SPARK_SCALA_TESTS"
 # TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
 build/mvn -Dtest=none -DwildcardSuites="$SPARK_SCALA_TESTS" test
-if [[ $? -ne 0 ]]; then
-    exit 1
-fi
 
 # Run pyarrow related Python tests only
 SPARK_PYTHON_TESTS="ArrowTests PandasUDFTests ScalarPandasUDFTests GroupedMapPandasUDFTests GroupedAggPandasUDFTests"
 echo "Testing PySpark: $SPARK_PYTHON_TESTS"
 SPARK_TESTING=1 bin/pyspark pyspark.sql.tests $SPARK_PYTHON_TESTS 
-if [[ $? -ne 0 ]]; then
-    exit 1
-fi
 popd
-
-# Clean up
-echo "Cleaning up.."
-source deactivate
 

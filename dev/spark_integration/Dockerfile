@@ -22,9 +22,6 @@ RUN apt-get update && apt-get install -y \
         git build-essential \
         software-properties-common
 
-#RUN apt-add-repository -y ppa:ubuntu-toolchain-r/test \
-#        && apt-get update && apt-get install -y gcc-4.9 g++-4.9
-
 # This will install conda in /home/ubuntu/miniconda
 RUN wget -O /tmp/miniconda.sh \
     https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
