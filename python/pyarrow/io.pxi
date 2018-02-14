@@ -802,12 +802,8 @@ def frombuffer(object obj):
     Construct an Arrow buffer from a Python bytes object
     """
     cdef shared_ptr[CBuffer] buf
-    try:
-        memoryview(obj)
-        buf.reset(new PyBuffer(obj))
-        return pyarrow_wrap_buffer(buf)
-    except TypeError:
-        raise ValueError('Must pass object that implements buffer protocol')
+    check_status(PyBuffer.FromPyObject(obj, &buf))
+    return pyarrow_wrap_buffer(buf)
 
 
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):

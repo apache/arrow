@@ -18,6 +18,7 @@
 #ifndef ARROW_PYTHON_COMMON_H
 #define ARROW_PYTHON_COMMON_H
 
+#include <memory>
 #include <string>
 
 #include "arrow/python/config.h"
@@ -140,15 +141,17 @@ ARROW_EXPORT MemoryPool* get_memory_pool();
 
 class ARROW_EXPORT PyBuffer : public Buffer {
  public:
-  /// Note that the GIL must be held when calling the PyBuffer constructor.
-  ///
-  /// While memoryview objects support multi-demensional buffers, PyBuffer only supports
+  /// While memoryview objects support multi-dimensional buffers, PyBuffer only supports
   /// one-dimensional byte buffers.
-  explicit PyBuffer(PyObject* obj);
   ~PyBuffer();
 
+  static Status FromPyObject(PyObject* obj, std::shared_ptr<Buffer>* out);
+
  private:
-  PyObject* obj_;
+  PyBuffer();
+  Status Init(PyObject*);
+
+  Py_buffer py_buf_;
 };
 
 }  // namespace py
