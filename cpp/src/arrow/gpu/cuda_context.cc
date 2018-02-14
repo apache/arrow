@@ -44,14 +44,14 @@ class CudaContext::CudaContextImpl {
 
   Status Init(const CudaDevice& device) {
     device_ = device;
-    CU_RETURN_NOT_OK(cuCtxCreate(&context_, 0, device_.handle));
+    CU_RETURN_NOT_OK(cuDevicePrimaryCtxRetain(&context_, device_.handle));
     is_open_ = true;
     return Status::OK();
   }
 
   Status Close() {
     if (is_open_ && own_context_) {
-      CU_RETURN_NOT_OK(cuCtxDestroy(context_));
+      CU_RETURN_NOT_OK(cuDevicePrimaryCtxRelease(device_.handle));
     }
     is_open_ = false;
     return Status::OK();

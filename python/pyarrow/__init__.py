@@ -95,7 +95,7 @@ from pyarrow.lib import (MemoryPool, total_allocated_bytes,
                          log_memory_allocations)
 
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
-                         FixedSizeBufferWriter,
+                         FixedSizeBufferWriter, frombuffer,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          create_memory_map, have_libhdfs, have_libhdfs3,

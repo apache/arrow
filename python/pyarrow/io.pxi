@@ -603,6 +603,12 @@ cdef class FixedSizeBufferWriter(NativeFile):
         writer.set_memcopy_threshold(threshold)
 
 
+cdef class CudaBufferWriter(NativeFile):
+
+    def __cinit__(self, Buffer buffer):
+        self.is_writable = True
+        self.closed = False
+
 # ----------------------------------------------------------------------
 # Arrow buffers
 
@@ -672,7 +678,7 @@ cdef class Buffer:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
         return result
 
-    def __eq__(self, other):
+    def __richcmp__(self, other, a):
         if isinstance(other, Buffer):
             return self.equals(other)
         else:

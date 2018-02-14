@@ -689,6 +689,14 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         void set_memcopy_threshold(int64_t threshold)
 
 
+cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
+    cdef cppclass CCudaBuffer" arrow::gpu::CudaBuffer"(CBuffer):
+        pass
+    cdef cppclass CCudaBufferWriter \
+            " arrow::gpu::CudaBufferWriter"(WriteableFile):
+        CCudaBufferWriter(const shared_ptr[CCudaBuffer]& buffer)
+        CStatus Write(const void* data, int64_t nbytes)
+    shared_ptr[CCudaBuffer] to_cuda_buffer" std::dynamic_pointer_cast<arrow::gpu::CudaBuffer>"(shared_ptr[CBuffer])
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     enum MessageType" arrow::ipc::Message::Type":
         MessageType_SCHEMA" arrow::ipc::Message::SCHEMA"

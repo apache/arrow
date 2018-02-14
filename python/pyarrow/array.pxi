@@ -626,7 +626,7 @@ strides: {0.strides}""".format(self)
         self._validate()
         return self.tp.Equals(deref(other.tp))
 
-    def __eq__(self, other):
+    def __richcmp__(self, other, a):
         if isinstance(other, Tensor):
             return self.equals(other)
         else:

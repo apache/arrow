@@ -44,6 +44,7 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 #include "arrow/buffer.h"
 #include "plasma/common.h"
@@ -55,7 +56,7 @@
 
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
-
+#include <cuda.h>
 using arrow::gpu::CudaBuffer;
 using arrow::gpu::CudaBufferWriter;
 using arrow::gpu::CudaContext;

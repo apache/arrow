@@ -23,20 +23,23 @@ from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
+from libcpp.cast cimport dynamic_cast
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cpython.pycapsule cimport *
 
 import collections
 import pyarrow
 
+import torch
+import torch.utils.cpp_extension
+import pytorch_example as exa
+
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
-from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
+from pyarrow.includes.libarrow cimport (CBuffer, CCudaBuffer, to_cuda_buffer, CCudaBufferWriter, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
 
 PLASMA_WAIT_TIMEOUT = 2 ** 30
-
-
 cdef extern from "plasma/common.h" nogil:
 
     cdef cppclass CUniqueID" plasma::UniqueID":
@@ -81,7 +84,7 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Create(const CUniqueID& object_id, int64_t data_size,
                        const uint8_t* metadata, int64_t metadata_size,
-                       const shared_ptr[CBuffer]* data)
+                       const shared_ptr[CBuffer]* data, int device_num)
 
         CStatus Get(const c_vector[CUniqueID] object_ids, int64_t timeout_ms,
                     c_vector[CObjectBuffer]* object_buffers)
@@ -112,7 +115,6 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Transfer(const char* addr, int port,
                          const CUniqueID& object_id)
-
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -295,7 +297,7 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get().Create(object_id.data, data_size,
                                                   <uint8_t*>(metadata.data()),
-                                                  metadata.size(), &data))
+                                                  metadata.size(), &data, 0))
         return self._make_mutable_plasma_buffer(object_id,
                                                 data.get().mutable_data(),
                                                 data_size)
@@ -547,6 +549,28 @@ cdef class PlasmaClient:
             ids.push_back(object_id.data)
         with nogil:
             check_status(self.client.get().Fetch(ids.size(), ids.data()))
+
+    def gpu_example(self, obj, c_string metadata=b""):
+        cdef ObjectID target_id = ObjectID.from_random()
+        cdef shared_ptr[CBuffer] data
+        cdef shared_ptr[CCudaBuffer] cuda_data
+        f = obj.tobytes()
+        cdef int64_t size = len(f)
+        with nogil:
+            check_status(self.client.get().Create(target_id.data, size,
+                                                  <uint8_t*>(metadata.data()),
+                                                  metadata.size(), &data, 1))
+
+        cdef const uint8_t* buf = f
+        cdef shared_ptr[CCudaBufferWriter] writer
+        cdef uintptr_t ptr
+        cuda_data = to_cuda_buffer(data)
+        writer.reset(new CCudaBufferWriter(cuda_data))
+        writer.get().Write(buf, size)
+        with nogil:
+            ptr = <uintptr_t>(cuda_data.get().mutable_data())
+        self.seal(target_id)
+        return exa.load(ptr, obj.shape)
 
     def wait(self, object_ids, int64_t timeout=PLASMA_WAIT_TIMEOUT,
              int num_returns=1):
