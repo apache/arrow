@@ -132,6 +132,7 @@ def test_buffer_bytes():
 
     buf = pa.frombuffer(val)
     assert isinstance(buf, pa.Buffer)
+    assert not buf.is_mutable
 
     result = buf.to_pybytes()
 
@@ -143,6 +144,7 @@ def test_buffer_memoryview():
 
     buf = pa.frombuffer(val)
     assert isinstance(buf, pa.Buffer)
+    assert not buf.is_mutable
 
     result = memoryview(buf)
 
@@ -154,13 +156,19 @@ def test_buffer_bytearray():
 
     buf = pa.frombuffer(val)
     assert isinstance(buf, pa.Buffer)
+    assert buf.is_mutable
 
     result = bytearray(buf)
 
     assert result == val
 
 
-def test_buffer_numpy():
+def test_buffer_invalid():
+    with pytest.raises(ValueError, match="buffer protocol"):
+        pa.frombuffer(None)
+
+
+def test_buffer_to_numpy():
     # Make sure creating a numpy array from an arrow buffer works
     byte_array = bytearray(20)
     byte_array[0] = 42
@@ -168,6 +176,19 @@ def test_buffer_numpy():
     array = np.frombuffer(buf, dtype="uint8")
     assert array[0] == byte_array[0]
     assert array.base == buf
+
+
+def test_buffer_from_numpy():
+    # C-contiguous
+    arr = np.arange(12, dtype=np.int8).reshape((3, 4))
+    buf = pa.frombuffer(arr)
+    assert buf.to_pybytes() == arr.tobytes()
+    # F-contiguous; note strides informations is lost
+    buf = pa.frombuffer(arr.T)
+    assert buf.to_pybytes() == arr.tobytes()
+    # Non-contiguous
+    with pytest.raises(ValueError, match="buffer protocol"):
+        buf = pa.frombuffer(arr.T[::2])
 
 
 def test_allocate_buffer():

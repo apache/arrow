@@ -23,6 +23,7 @@
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace py {
@@ -47,20 +48,25 @@ MemoryPool* get_memory_pool() {
 // ----------------------------------------------------------------------
 // PyBuffer
 
-PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0), obj_(nullptr) {
-  if (PyObject_CheckBuffer(obj)) {
-    obj_ = PyMemoryView_FromObject(obj);
-    Py_buffer* buffer = PyMemoryView_GET_BUFFER(obj_);
-    data_ = reinterpret_cast<const uint8_t*>(buffer->buf);
-    size_ = buffer->len;
-    capacity_ = buffer->len;
-    is_mutable_ = false;
+PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0) {
+  if (!PyObject_GetBuffer(obj, &py_buf_, PyBUF_ANY_CONTIGUOUS)) {
+    data_ = reinterpret_cast<const uint8_t*>(py_buf_.buf);
+    DCHECK(data_ != nullptr);
+    size_ = py_buf_.len;
+    capacity_ = py_buf_.len;
+    is_mutable_ = !py_buf_.readonly;
+  } else {
+    // Cannot propagate error directly, caller should check the data_
+    // field for null
+    PyErr_Clear();
   }
 }
 
 PyBuffer::~PyBuffer() {
-  PyAcquireGIL lock;
-  Py_XDECREF(obj_);
+  if (data_ != nullptr) {
+    PyAcquireGIL lock;
+    PyBuffer_Release(&py_buf_);
+  }
 }
 
 Status CheckPyError(StatusCode code) {
