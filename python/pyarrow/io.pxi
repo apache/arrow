@@ -802,12 +802,12 @@ def frombuffer(object obj):
     Construct an Arrow buffer from a Python bytes object
     """
     cdef shared_ptr[CBuffer] buf
-    try:
-        memoryview(obj)
-        buf.reset(new PyBuffer(obj))
-        return pyarrow_wrap_buffer(buf)
-    except TypeError:
+    buf.reset(new PyBuffer(obj))
+    if buf.get().data() == NULL:
+        # XXX should be TypeError?  Can we find a way to propagate the
+        # original error instead?
         raise ValueError('Must pass object that implements buffer protocol')
+    return pyarrow_wrap_buffer(buf)
 
 
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
