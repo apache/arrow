@@ -19,39 +19,39 @@
 
 package org.apache.arrow.vector.complex.impl;
 
-import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
-public class NullableMapReaderImpl extends SingleMapReaderImpl {
+public class NullableStructReaderImpl extends SingleStructReaderImpl {
 
-  private NullableMapVector nullableMapVector;
+  private StructVector nullableStructVector;
 
-  public NullableMapReaderImpl(MapVector vector) {
-    super((NullableMapVector) vector);
-    this.nullableMapVector = (NullableMapVector) vector;
+  public NullableStructReaderImpl(NonNullableStructVector vector) {
+    super(vector);
+    this.nullableStructVector = (StructVector) vector;
   }
 
   @Override
   public Field getField() {
-    return nullableMapVector.getField();
+    return nullableStructVector.getField();
   }
 
   @Override
-  public void copyAsValue(MapWriter writer) {
-    NullableMapWriter impl = (NullableMapWriter) writer;
-    impl.container.copyFromSafe(idx(), impl.idx(), nullableMapVector);
+  public void copyAsValue(StructWriter writer) {
+    NullableStructWriter impl = (NullableStructWriter) writer;
+    impl.container.copyFromSafe(idx(), impl.idx(), nullableStructVector);
   }
 
   @Override
-  public void copyAsField(String name, MapWriter writer) {
-    NullableMapWriter impl = (NullableMapWriter) writer.map(name);
-    impl.container.copyFromSafe(idx(), impl.idx(), nullableMapVector);
+  public void copyAsField(String name, StructWriter writer) {
+    NullableStructWriter impl = (NullableStructWriter) writer.struct(name);
+    impl.container.copyFromSafe(idx(), impl.idx(), nullableStructVector);
   }
 
   @Override
   public boolean isSet() {
-    return !nullableMapVector.isNull(idx());
+    return !nullableStructVector.isNull(idx());
   }
 }

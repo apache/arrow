@@ -35,7 +35,7 @@ import org.apache.arrow.vector.complex.*;
 import org.apache.arrow.vector.complex.reader.*;
 import org.apache.arrow.vector.complex.impl.*;
 import org.apache.arrow.vector.complex.writer.*;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 

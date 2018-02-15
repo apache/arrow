@@ -24,7 +24,7 @@ package org.apache.arrow.vector.complex.impl;
 import org.apache.arrow.vector.complex.AbstractContainerVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 
 @SuppressWarnings("unused")
@@ -78,7 +78,7 @@ public class SingleListReaderImpl extends AbstractFieldReader {
   }
 
   @Override
-  public void copyAsField(String name, MapWriter writer) {
+  public void copyAsField(String name, StructWriter writer) {
     throw new UnsupportedOperationException("Generic list copying not yet supported.  Please resolve to typed list.");
   }
 

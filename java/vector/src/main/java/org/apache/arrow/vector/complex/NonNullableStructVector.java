@@ -28,7 +28,6 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
@@ -36,7 +35,7 @@ import io.netty.buffer.ArrowBuf;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.*;
-import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
+import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -47,25 +46,24 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class MapVector extends AbstractMapVector {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
+public class NonNullableStructVector extends AbstractStructVector {
 
-  public static MapVector empty(String name, BufferAllocator allocator) {
+  public static NonNullableStructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
-    return new MapVector(name, allocator, fieldType, null);
+    return new NonNullableStructVector(name, allocator, fieldType, null);
   }
 
-  private final SingleMapReaderImpl reader = new SingleMapReaderImpl(this);
+  private final SingleStructReaderImpl reader = new SingleStructReaderImpl(this);
   protected final FieldType fieldType;
   public int valueCount;
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public MapVector(String name, BufferAllocator allocator, CallBack callBack) {
+  public NonNullableStructVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
   }
 
-  public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+  public NonNullableStructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.fieldType = checkNotNull(fieldType);
     this.valueCount = 0;
@@ -76,11 +74,11 @@ public class MapVector extends AbstractMapVector {
     return reader;
   }
 
-  transient private MapTransferPair ephPair;
+  transient private StructTransferPair ephPair;
 
-  public void copyFromSafe(int fromIndex, int thisIndex, MapVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, NonNullableStructVector from) {
     if (ephPair == null || ephPair.from != from) {
-      ephPair = (MapTransferPair) from.makeTransferPair(this);
+      ephPair = (StructTransferPair) from.makeTransferPair(this);
     }
     ephPair.copyValueSafe(fromIndex, thisIndex);
   }
@@ -150,29 +148,29 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new MapTransferPair(this, new MapVector(name, allocator, fieldType, callBack), false);
+    return new StructTransferPair(this, new NonNullableStructVector(name, allocator, fieldType, callBack), false);
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new MapTransferPair(this, (MapVector) to);
+    return new StructTransferPair(this, (NonNullableStructVector) to);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new MapTransferPair(this, new MapVector(ref, allocator, fieldType, callBack), false);
+    return new StructTransferPair(this, new NonNullableStructVector(ref, allocator, fieldType, callBack), false);
   }
 
-  protected static class MapTransferPair implements TransferPair {
+  protected static class StructTransferPair implements TransferPair {
     private final TransferPair[] pairs;
-    private final MapVector from;
-    private final MapVector to;
+    private final NonNullableStructVector from;
+    private final NonNullableStructVector to;
 
-    public MapTransferPair(MapVector from, MapVector to) {
+    public StructTransferPair(NonNullableStructVector from, NonNullableStructVector to) {
       this(from, to, true);
     }
 
-    protected MapTransferPair(MapVector from, MapVector to, boolean allocate) {
+    protected StructTransferPair(NonNullableStructVector from, NonNullableStructVector to, boolean allocate) {
       this.from = from;
       this.to = to;
       this.pairs = new TransferPair[from.size()];
@@ -291,7 +289,7 @@ public class MapVector extends AbstractMapVector {
     for (final ValueVector v : getChildren()) {
       v.setValueCount(valueCount);
     }
-    MapVector.this.valueCount = valueCount;
+    NonNullableStructVector.this.valueCount = valueCount;
   }
 
   @Override
@@ -321,7 +319,7 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public MinorType getMinorType() {
-    return MinorType.MAP;
+    return MinorType.STRUCT;
   }
 
   @Override

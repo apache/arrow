@@ -113,22 +113,22 @@ public class TestVectorReset {
   }
 
   @Test
-  public void testMapTypeReset() {
-    try (final MapVector mapVector = new MapVector("Map", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final NullableMapVector nullableMapVector = new NullableMapVector("NullableMap", allocator, FieldType.nullable(MinorType.INT.getType()), null)
+  public void testStructTypeReset() {
+    try (final NonNullableStructVector nonNullableStructVector = new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+         final StructVector structVector = new StructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
     ) {
-      // MapVector
-      mapVector.allocateNewSafe();
-      IntVector mapChild = mapVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
-      mapChild.setNull(0);
-      mapVector.setValueCount(1);
-      resetVectorAndVerify(mapVector, mapVector.getBuffers(false));
+      // NonNullableStructVector
+      nonNullableStructVector.allocateNewSafe();
+      IntVector structChild = nonNullableStructVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
+      structChild.setNull(0);
+      nonNullableStructVector.setValueCount(1);
+      resetVectorAndVerify(nonNullableStructVector, nonNullableStructVector.getBuffers(false));
 
-      // NullableMapVector
-      nullableMapVector.allocateNewSafe();
-      nullableMapVector.setNull(0);
-      nullableMapVector.setValueCount(1);
-      resetVectorAndVerify(nullableMapVector, nullableMapVector.getBuffers(false));
+      // StructVector
+      structVector.allocateNewSafe();
+      structVector.setNull(0);
+      structVector.setValueCount(1);
+      resetVectorAndVerify(structVector, structVector.getBuffers(false));
     }
   }
 

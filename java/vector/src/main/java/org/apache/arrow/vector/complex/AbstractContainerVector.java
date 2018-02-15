@@ -100,8 +100,8 @@ public abstract class AbstractContainerVector implements ValueVector {
   // return the child vector's ordinal in the composite container
   public abstract VectorWithOrdinal getChildVectorWithOrdinal(String name);
 
-  public NullableMapVector addOrGetMap(String name) {
-    return addOrGet(name, FieldType.nullable(new Struct()), NullableMapVector.class);
+  public StructVector addOrGetStruct(String name) {
+    return addOrGet(name, FieldType.nullable(new Struct()), StructVector.class);
   }
 
   public ListVector addOrGetList(String name) {

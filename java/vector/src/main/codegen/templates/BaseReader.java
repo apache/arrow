@@ -39,14 +39,14 @@ public interface BaseReader extends Positionable{
   void copyAsValue(UnionWriter writer);
   boolean isSet();
 
-  public interface MapReader extends BaseReader, Iterable<String>{
+  public interface StructReader extends BaseReader, Iterable<String>{
     FieldReader reader(String name);
   }
   
-  public interface RepeatedMapReader extends MapReader{
+  public interface RepeatedStructReader extends StructReader{
     boolean next();
     int size();
-    void copyAsValue(MapWriter writer);
+    void copyAsValue(StructWriter writer);
   }
   
   public interface ListReader extends BaseReader{
@@ -64,9 +64,9 @@ public interface BaseReader extends Positionable{
   BaseReader {}
   
   interface ComplexReader{
-    MapReader rootAsMap();
+    StructReader rootAsStruct();
     ListReader rootAsList();
-    boolean rootIsMap();
+    boolean rootIsStruct();
     boolean ok();
   }
 }

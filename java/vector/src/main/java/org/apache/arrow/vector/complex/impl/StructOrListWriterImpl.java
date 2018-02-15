@@ -19,7 +19,7 @@
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.writer.BaseWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapOrListWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructOrListWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.BitWriter;
 import org.apache.arrow.vector.complex.writer.Float4Writer;
@@ -28,54 +28,54 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
 import org.apache.arrow.vector.complex.writer.VarCharWriter;
 
-public class MapOrListWriterImpl implements MapOrListWriter {
+public class StructOrListWriterImpl implements StructOrListWriter {
 
-  public final BaseWriter.MapWriter map;
+  public final BaseWriter.StructWriter struct;
   public final BaseWriter.ListWriter list;
 
-  public MapOrListWriterImpl(final BaseWriter.MapWriter writer) {
-    this.map = writer;
+  public StructOrListWriterImpl(final BaseWriter.StructWriter writer) {
+    this.struct = writer;
     this.list = null;
   }
 
-  public MapOrListWriterImpl(final BaseWriter.ListWriter writer) {
-    this.map = null;
+  public StructOrListWriterImpl(final BaseWriter.ListWriter writer) {
+    this.struct = null;
     this.list = writer;
   }
 
   public void start() {
-    if (map != null) {
-      map.start();
+    if (struct != null) {
+      struct.start();
     } else {
       list.startList();
     }
   }
 
   public void end() {
-    if (map != null) {
-      map.end();
+    if (struct != null) {
+      struct.end();
     } else {
       list.endList();
     }
   }
 
-  public MapOrListWriter map(final String name) {
-    assert map != null;
-    return new MapOrListWriterImpl(map.map(name));
+  public StructOrListWriter struct(final String name) {
+    assert struct != null;
+    return new StructOrListWriterImpl(struct.struct(name));
   }
 
-  public MapOrListWriter listoftmap(final String name) {
+  public StructOrListWriter listoftstruct(final String name) {
     assert list != null;
-    return new MapOrListWriterImpl(list.map());
+    return new StructOrListWriterImpl(list.struct());
   }
 
-  public MapOrListWriter list(final String name) {
-    assert map != null;
-    return new MapOrListWriterImpl(map.list(name));
+  public StructOrListWriter list(final String name) {
+    assert struct != null;
+    return new StructOrListWriterImpl(struct.list(name));
   }
 
-  public boolean isMapWriter() {
-    return map != null;
+  public boolean isStructWriter() {
+    return struct != null;
   }
 
   public boolean isListWriter() {
@@ -83,31 +83,31 @@ public class MapOrListWriterImpl implements MapOrListWriter {
   }
 
   public VarCharWriter varChar(final String name) {
-    return (map != null) ? map.varChar(name) : list.varChar();
+    return (struct != null) ? struct.varChar(name) : list.varChar();
   }
 
   public IntWriter integer(final String name) {
-    return (map != null) ? map.integer(name) : list.integer();
+    return (struct != null) ? struct.integer(name) : list.integer();
   }
 
   public BigIntWriter bigInt(final String name) {
-    return (map != null) ? map.bigInt(name) : list.bigInt();
+    return (struct != null) ? struct.bigInt(name) : list.bigInt();
   }
 
   public Float4Writer float4(final String name) {
-    return (map != null) ? map.float4(name) : list.float4();
+    return (struct != null) ? struct.float4(name) : list.float4();
   }
 
   public Float8Writer float8(final String name) {
-    return (map != null) ? map.float8(name) : list.float8();
+    return (struct != null) ? struct.float8(name) : list.float8();
   }
 
   public BitWriter bit(final String name) {
-    return (map != null) ? map.bit(name) : list.bit();
+    return (struct != null) ? struct.bit(name) : list.bit();
   }
 
   public VarBinaryWriter binary(final String name) {
-    return (map != null) ? map.varBinary(name) : list.varBinary();
+    return (struct != null) ? struct.varBinary(name) : list.varBinary();
   }
 
 }

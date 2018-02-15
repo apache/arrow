@@ -24,14 +24,12 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
-import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
-import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,8 +52,8 @@ public class TestPromotableWriter {
   @Test
   public void testPromoteToUnion() throws Exception {
 
-    try (final MapVector container = MapVector.empty(EMPTY_SCHEMA_PATH, allocator);
-         final NullableMapVector v = container.addOrGetMap("test");
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
          final PromotableWriter writer = new PromotableWriter(v, container)) {
 
       container.allocateNew();
@@ -103,12 +101,12 @@ public class TestPromotableWriter {
 
       ComplexWriterImpl newWriter = new ComplexWriterImpl(EMPTY_SCHEMA_PATH, container);
 
-      MapWriter newMapWriter = newWriter.rootAsMap();
+      StructWriter newStructWriter = newWriter.rootAsStruct();
 
-      newMapWriter.start();
+      newStructWriter.start();
 
-      newMapWriter.setPosition(2);
-      newMapWriter.integer("A").writeInt(10);
+      newStructWriter.setPosition(2);
+      newStructWriter.integer("A").writeInt(10);
 
       Field childField1 = container.getField().getChildren().get(0).getChildren().get(0);
       Field childField2 = container.getField().getChildren().get(0).getChildren().get(1);
