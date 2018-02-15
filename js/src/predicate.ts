@@ -153,7 +153,7 @@ export class Equals extends ComparisonPredicate {
                 key = this.lastKey;
             }
 
-            if (key === undefined) {
+            if (key === -1) {
                 // the value doesn't exist in the dictionary - always return
                 // false
                 // TODO: special-case of PredicateFunc that encapsulates this
