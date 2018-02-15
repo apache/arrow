@@ -21,8 +21,6 @@ package org.apache.arrow.vector.complex;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import com.google.common.collect.ObjectArrays;
@@ -31,8 +29,8 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.*;
-import org.apache.arrow.vector.complex.impl.NullableMapReaderImpl;
-import org.apache.arrow.vector.complex.impl.NullableMapWriter;
+import org.apache.arrow.vector.complex.impl.NullableStructReaderImpl;
+import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -44,32 +42,32 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class NullableMapVector extends MapVector implements FieldVector {
+public class StructVector extends NonNullableStructVector implements FieldVector {
 
-  public static NullableMapVector empty(String name, BufferAllocator allocator) {
+  public static StructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(Struct.INSTANCE);
-    return new NullableMapVector(name, allocator, fieldType, null);
+    return new StructVector(name, allocator, fieldType, null);
   }
 
-  private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
-  private final NullableMapWriter writer = new NullableMapWriter(this);
+  private final NullableStructReaderImpl reader = new NullableStructReaderImpl(this);
+  private final NullableStructWriter writer = new NullableStructWriter(this);
 
   protected ArrowBuf validityBuffer;
   private int validityAllocationSizeInBytes;
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public NullableMapVector(String name, BufferAllocator allocator, CallBack callBack) {
+  public StructVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), callBack);
   }
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public NullableMapVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
+  public StructVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     this(name, allocator, new FieldType(true, ArrowType.Struct.INSTANCE, dictionary, null), callBack);
   }
 
-  public NullableMapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+  public StructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, checkNotNull(allocator), fieldType, callBack);
     this.validityBuffer = allocator.getEmpty();
     this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
@@ -117,39 +115,39 @@ public class NullableMapVector extends MapVector implements FieldVector {
   }
 
   @Override
-  public NullableMapReaderImpl getReader() {
+  public NullableStructReaderImpl getReader() {
     return reader;
   }
 
-  public NullableMapWriter getWriter() {
+  public NullableStructWriter getWriter() {
     return writer;
   }
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, fieldType, null), false);
+    return new NullableStructTransferPair(this, new StructVector(name, allocator, fieldType, null), false);
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new NullableMapTransferPair(this, (NullableMapVector) to, true);
+    return new NullableStructTransferPair(this, (StructVector) to, true);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, fieldType, null), false);
+    return new NullableStructTransferPair(this, new StructVector(ref, allocator, fieldType, null), false);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, fieldType, callBack), false);
+    return new NullableStructTransferPair(this, new StructVector(ref, allocator, fieldType, callBack), false);
   }
 
-  protected class NullableMapTransferPair extends MapTransferPair {
+  protected class NullableStructTransferPair extends StructTransferPair {
 
-    private NullableMapVector target;
+    private StructVector target;
 
-    protected NullableMapTransferPair(NullableMapVector from, NullableMapVector to, boolean allocate) {
+    protected NullableStructTransferPair(StructVector from, StructVector to, boolean allocate) {
       super(from, to, allocate);
       this.target = to;
     }
@@ -182,7 +180,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
   /*
    * transfer the validity.
    */
-  private void splitAndTransferValidityBuffer(int startIndex, int length, NullableMapVector target) {
+  private void splitAndTransferValidityBuffer(int startIndex, int length, StructVector target) {
     assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);

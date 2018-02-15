@@ -18,12 +18,12 @@
 
 <@pp.dropOutputFile />
 <#list ["Nullable", "Single"] as mode>
-<@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}CaseSensitiveMapWriter.java" />
+<@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}CaseSensitiveStructWriter.java" />
 <#assign index = "idx()">
 <#if mode == "Single">
-<#assign containerClass = "MapVector" />
+<#assign containerClass = "NonNullableStructVector" />
 <#else>
-<#assign containerClass = "NullableMapVector" />
+<#assign containerClass = "StructVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />
@@ -35,8 +35,8 @@ package org.apache.arrow.vector.complex.impl;
  * This class is generated using FreeMarker and the ${.template_name} template.
  */
 @SuppressWarnings("unused")
-public class ${mode}CaseSensitiveMapWriter extends ${mode}MapWriter {
-  public ${mode}CaseSensitiveMapWriter(${containerClass} container) {
+public class ${mode}CaseSensitiveStructWriter extends ${mode}StructWriter {
+  public ${mode}CaseSensitiveStructWriter(${containerClass} container) {
     super(container);
   }
 
@@ -46,8 +46,8 @@ public class ${mode}CaseSensitiveMapWriter extends ${mode}MapWriter {
   }
 
   @Override
-  protected NullableMapWriterFactory getNullableMapWriterFactory() {
-    return NullableMapWriterFactory.getNullableCaseSensitiveMapWriterFactoryInstance();
+  protected NullableStructWriterFactory getNullableStructWriterFactory() {
+    return NullableStructWriterFactory.getNullableCaseSensitiveStructWriterFactoryInstance();
   }
 
 }

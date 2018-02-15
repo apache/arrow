@@ -59,7 +59,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
@@ -72,7 +72,7 @@ import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalYearWriterImpl;
-import org.apache.arrow.vector.complex.impl.NullableMapWriter;
+import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeMicroWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeMilliWriterImpl;
@@ -131,15 +131,15 @@ public class Types {
         return null;
       }
     },
-    MAP(Struct.INSTANCE) {
+    STRUCT(Struct.INSTANCE) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new NullableMapVector(name, allocator, fieldType, schemaChangeCallback);
+        return new StructVector(name, allocator, fieldType, schemaChangeCallback);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new NullableMapWriter((NullableMapVector) vector);
+        return new NullableStructWriter((StructVector) vector);
       }
     },
     TINYINT(new Int(8, true)) {
@@ -553,7 +553,7 @@ public class Types {
 
       @Override
       public MinorType visit(Struct type) {
-        return MinorType.MAP;
+        return MinorType.STRUCT;
       }
 
       @Override

@@ -19,8 +19,8 @@
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -30,32 +30,32 @@ import com.google.common.base.Preconditions;
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ComplexWriterImpl.class);
 
-  private NullableMapWriter mapRoot;
+  private NullableStructWriter structRoot;
   private UnionListWriter listRoot;
-  private final MapVector container;
+  private final NonNullableStructVector container;
 
   Mode mode = Mode.INIT;
   private final String name;
   private final boolean unionEnabled;
-  private final NullableMapWriterFactory nullableMapWriterFactory;
+  private final NullableStructWriterFactory nullableStructWriterFactory;
 
-  private enum Mode {INIT, MAP, LIST}
+  private enum Mode {INIT, STRUCT, LIST}
 
   ;
 
-  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled, boolean caseSensitive) {
+  public ComplexWriterImpl(String name, NonNullableStructVector container, boolean unionEnabled, boolean caseSensitive) {
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
-    nullableMapWriterFactory = caseSensitive ? NullableMapWriterFactory.getNullableCaseSensitiveMapWriterFactoryInstance() :
-        NullableMapWriterFactory.getNullableMapWriterFactoryInstance();
+    nullableStructWriterFactory = caseSensitive ? NullableStructWriterFactory.getNullableCaseSensitiveStructWriterFactoryInstance() :
+        NullableStructWriterFactory.getNullableStructWriterFactoryInstance();
   }
 
-  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled) {
+  public ComplexWriterImpl(String name, NonNullableStructVector container, boolean unionEnabled) {
     this(name, container, unionEnabled, false);
   }
 
-  public ComplexWriterImpl(String name, MapVector container) {
+  public ComplexWriterImpl(String name, NonNullableStructVector container) {
     this(name, container, false);
   }
 
@@ -81,7 +81,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public void close() throws Exception {
     clear();
-    mapRoot.close();
+    structRoot.close();
     if (listRoot != null) {
       listRoot.close();
     }
@@ -90,8 +90,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public void clear() {
     switch (mode) {
-      case MAP:
-        mapRoot.clear();
+      case STRUCT:
+        structRoot.clear();
         break;
       case LIST:
         listRoot.clear();
@@ -102,8 +102,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public void setValueCount(int count) {
     switch (mode) {
-      case MAP:
-        mapRoot.setValueCount(count);
+      case STRUCT:
+        structRoot.setValueCount(count);
         break;
       case LIST:
         listRoot.setValueCount(count);
@@ -115,8 +115,8 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   public void setPosition(int index) {
     super.setPosition(index);
     switch (mode) {
-      case MAP:
-        mapRoot.setPosition(index);
+      case STRUCT:
+        structRoot.setPosition(index);
         break;
       case LIST:
         listRoot.setPosition(index);
@@ -125,53 +125,53 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
 
-  public MapWriter directMap() {
+  public StructWriter directStruct() {
     Preconditions.checkArgument(name == null);
 
     switch (mode) {
 
       case INIT:
-        mapRoot = nullableMapWriterFactory.build((NullableMapVector) container);
-        mapRoot.setPosition(idx());
-        mode = Mode.MAP;
+        structRoot = nullableStructWriterFactory.build((StructVector) container);
+        structRoot.setPosition(idx());
+        mode = Mode.STRUCT;
         break;
 
-      case MAP:
+      case STRUCT:
         break;
 
       default:
-        check(Mode.INIT, Mode.MAP);
+        check(Mode.INIT, Mode.STRUCT);
     }
 
-    return mapRoot;
+    return structRoot;
   }
 
   @Override
-  public MapWriter rootAsMap() {
+  public StructWriter rootAsStruct() {
     switch (mode) {
 
       case INIT:
         // TODO allow dictionaries in complex types
-        NullableMapVector map = container.addOrGetMap(name);
-        mapRoot = nullableMapWriterFactory.build(map);
-        mapRoot.setPosition(idx());
-        mode = Mode.MAP;
+        StructVector struct = container.addOrGetStruct(name);
+        structRoot = nullableStructWriterFactory.build(struct);
+        structRoot.setPosition(idx());
+        mode = Mode.STRUCT;
         break;
 
-      case MAP:
+      case STRUCT:
         break;
 
       default:
-        check(Mode.INIT, Mode.MAP);
+        check(Mode.INIT, Mode.STRUCT);
     }
 
-    return mapRoot;
+    return structRoot;
   }
 
   @Override
   public void allocate() {
-    if (mapRoot != null) {
-      mapRoot.allocate();
+    if (structRoot != null) {
+      structRoot.allocate();
     } else if (listRoot != null) {
       listRoot.allocate();
     }
@@ -188,7 +188,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         if (container.size() > vectorCount) {
           listVector.allocateNew();
         }
-        listRoot = new UnionListWriter(listVector, nullableMapWriterFactory);
+        listRoot = new UnionListWriter(listVector, nullableStructWriterFactory);
         listRoot.setPosition(idx());
         mode = Mode.LIST;
         break;
@@ -197,7 +197,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         break;
 
       default:
-        check(Mode.INIT, Mode.MAP);
+        check(Mode.INIT, Mode.STRUCT);
     }
 
     return listRoot;

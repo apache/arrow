@@ -33,20 +33,20 @@ package org.apache.arrow.vector.complex.writer;
 public interface BaseWriter extends AutoCloseable, Positionable {
   int getValueCapacity();
 
-  public interface MapWriter extends BaseWriter {
+  public interface StructWriter extends BaseWriter {
 
     Field getField();
 
     /**
-     * Whether this writer is a map writer and is empty (has no children).
+     * Whether this writer is a struct writer and is empty (has no children).
      *
      * <p>
      *   Intended only for use in determining whether to add dummy vector to
      *   avoid empty (zero-column) schema, as in JsonReader.
      * </p>
-     * @return whether the map is empty
+     * @return whether the struct is empty
      */
-    boolean isEmptyMap();
+    boolean isEmptyStruct();
 
     <#list vv.types as type><#list type.minor as minor>
     <#assign lowerName = minor.class?uncap_first />
@@ -60,7 +60,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     </#list></#list>
 
     void copyReaderToField(String name, FieldReader reader);
-    MapWriter map(String name);
+    StructWriter struct(String name);
     ListWriter list(String name);
     void start();
     void end();
@@ -69,7 +69,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
   public interface ListWriter extends BaseWriter {
     void startList();
     void endList();
-    MapWriter map();
+    StructWriter struct();
     ListWriter list();
     void copyReader(FieldReader reader);
 
@@ -89,7 +89,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void allocate();
     void clear();
     void copyReader(FieldReader reader);
-    MapWriter rootAsMap();
+    StructWriter rootAsStruct();
     ListWriter rootAsList();
 
     void setPosition(int index);
@@ -97,13 +97,13 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void reset();
   }
 
-  public interface MapOrListWriter {
+  public interface StructOrListWriter {
     void start();
     void end();
-    MapOrListWriter map(String name);
-    MapOrListWriter listoftmap(String name);
-    MapOrListWriter list(String name);
-    boolean isMapWriter();
+    StructOrListWriter struct(String name);
+    StructOrListWriter listoftstruct(String name);
+    StructOrListWriter list(String name);
+    boolean isStructWriter();
     boolean isListWriter();
     VarCharWriter varChar(String name);
     IntWriter integer(String name);
