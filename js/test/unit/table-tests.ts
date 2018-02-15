@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import Arrow from '../Arrow';
+import Arrow, { RecordBatch } from '../Arrow';
 
 const { predicate, Table } = Arrow;
 
-const { col, lit } = predicate;
+const { col, lit, custom } = predicate;
 
 const F32 = 0, I32 = 1, DICT = 2;
 const test_data = [
@@ -323,6 +323,7 @@ describe(`Table`, () => {
                 expect(table.getColumnIndex('f32')).toEqual(F32);
                 expect(table.getColumnIndex('dictionary')).toEqual(DICT);
             });
+            let get_i32: (idx: number) => number, get_f32: (idx: number) => number;
             const filter_tests = [
                 {
                     name:     `filter on f32 >= 0`,
@@ -364,6 +365,15 @@ describe(`Table`, () => {
                     name:     `filter on f32 <= i32`,
                     filtered: table.filter(col('f32').lteq(col('i32'))),
                     expected: values.filter((row) => row[F32] <= row[I32])
+                }, {
+                    name:     `filter on f32*i32 > 0 (custom predicate)`,
+                    filtered: table.filter(custom(
+                        (idx: number) => (get_f32(idx) * get_i32(idx) > 0),
+                        (batch: RecordBatch) => {
+                            get_f32 = col('f32').bind(batch);
+                            get_i32 = col('i32').bind(batch);
+                        })),
+                    expected: values.filter((row) => (row[F32] as number) * (row[I32] as number) > 0)
                 }
             ];
             for (let this_test of filter_tests) {
