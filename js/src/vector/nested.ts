@@ -47,7 +47,7 @@ export abstract class NestedView<T extends NestedType> implements View<T> {
             ++index;
         }
 
-        return null;
+        return -1;
     }
     public toJSON(): any { return this.toArray(); }
     public toString() {

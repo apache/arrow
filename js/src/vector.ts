@@ -28,7 +28,7 @@ export interface View<T extends DataType> {
     get(index: number): T['TValue'] | null;
     set(index: number, value: T['TValue']): void;
     toArray(): IterableArrayLike<T['TValue'] | null>;
-    indexOf(search: T['TValue']): number | null;
+    indexOf(search: T['TValue']): number;
     [Symbol.iterator](): IterableIterator<T['TValue'] | null>;
 }
 

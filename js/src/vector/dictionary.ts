@@ -50,7 +50,7 @@ export class DictionaryView<T extends DataType> implements View<T> {
     public indexOf(search: T['TValue']) {
         // First find the dictionary key for the desired value...
         const key = this.dictionary.indexOf(search);
-        if (key === null) { return null; }
+        if (key === -1) { return key; }
 
         // ... then find the first occurence of that key in indicies
         return this.indicies.indexOf(key!);

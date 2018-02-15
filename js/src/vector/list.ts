@@ -66,7 +66,7 @@ export abstract class ListViewBase<T extends (ListType | FlatListType | FixedSiz
             ++index;
         }
 
-        return null;
+        return -1;
     }
     protected abstract getList(values: T['TArray'], index: number, valueOffsets?: Int32Array): T['TValue'];
     protected abstract setList(values: T['TArray'], index: number, value: T['TValue'], valueOffsets?: Int32Array): void;

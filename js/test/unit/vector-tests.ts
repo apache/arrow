@@ -76,12 +76,12 @@ describe(`BoolVector`, () => {
     test(`indexOf returns expected values`, () => {
         for (let test_value of [true, false]) {
             const expected = values.indexOf(test_value);
-            expect(vector.indexOf(test_value)).toEqual(expected >= 0 ? expected : null);
+            expect(vector.indexOf(test_value)).toEqual(expected);
         }
     });
-    test(`indexOf returns null when value not found`, () => {
+    test(`indexOf returns -1 when value not found`, () => {
         const v = new BoolVector(new BoolData(new Bool(), 3, null, new Uint8Array([0xFF])));
-        expect(v.indexOf(false)).toEqual(null);
+        expect(v.indexOf(false)).toEqual(-1);
     });
     test(`can set values to true and false`, () => {
         const v = new BoolVector(new BoolData(new Bool(), n, null, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0])));
@@ -165,7 +165,7 @@ describe('Float16Vector', () => {
         const randomValues = new Uint16Array(randomBytes(64).buffer);
         for (let value of [...values, ...randomValues]) {
             const expected = values.indexOf(value);
-            expect(vector.indexOf(clamp(value))).toEqual(expected >= 0 ? expected : null);
+            expect(vector.indexOf(clamp(value))).toEqual(expected);
         }
     });
     test(`slices the entire array`, () => {
@@ -222,7 +222,7 @@ for (const [VectorName, [VectorType, DataType]] of fixedSizeVectors) {
             for (let i = -1, n = testValues.length / 2 | 0; ++i < n;) {
                 const value = testValues.slice(2 * i, 2 * (i + 1));
                 const expected = values.findIndex((d, i) => i % 2 === 0 && d === value[0] && testValues[i + 1] === value[1]);
-                expect(vector.indexOf(value)).toEqual(expected >= 0 ? expected / 2 : null);
+                expect(vector.indexOf(value)).toEqual(expected >= 0 ? expected / 2 : -1);
             }
         });
         test(`slices the entire array`, () => {
@@ -281,7 +281,7 @@ for (const [VectorName, [VectorType, DataType]] of fixedWidthVectors) {
 
             for (const value of testValues) {
                 const expected = values.indexOf(value);
-                expect(vector.indexOf(value)).toEqual(expected >= 0 ? expected : null);
+                expect(vector.indexOf(value)).toEqual(expected);
             }
         });
         test(`slices the entire array`, () => {
@@ -329,7 +329,7 @@ describe(`Utf8Vector`, () => {
 
         for (const value of testValues) {
             const expected = values.indexOf(value);
-            expect(vector.indexOf(value)).toEqual(expected >= 0 ? expected : null);
+            expect(vector.indexOf(value)).toEqual(expected);
         }
     });
 });

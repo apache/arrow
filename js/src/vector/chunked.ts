@@ -107,11 +107,11 @@ export class ChunkedView<T extends DataType> implements View<T> {
         let offset = 0, result;
         for (const vector of this.chunkVectors) {
             result = vector.indexOf(search);
-            if (result !== null) { return result + offset; }
+            if (result !== -1) { return result + offset; }
             offset += vector.length;
         }
 
-        return null;
+        return -1;
     }
 }
 

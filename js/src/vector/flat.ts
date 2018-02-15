@@ -50,7 +50,7 @@ export class FlatView<T extends FlatType> implements View<T> {
             ++index;
         }
 
-        return null;
+        return -1;
     }
     public [Symbol.iterator](): IterableIterator<T['TValue']> {
         return this.values.subarray(0, this.length)[Symbol.iterator]() as IterableIterator<T['TValue']>;
@@ -75,7 +75,7 @@ export class NullView implements View<Null> {
     }
     public indexOf(search: any) {
         // if you're looking for nulls and the view isn't empty, we've got 'em!
-        return search === null && this.length > 0 ? 0 : null;
+        return search === null && this.length > 0 ? 0 : -1;
     }
     public *[Symbol.iterator](): IterableIterator<null> {
         for (let index = -1, length = this.length; ++index < length;) {
@@ -127,7 +127,7 @@ export class ValidityView<T extends DataType> implements View<T> {
             ++index;
         }
 
-        return null;
+        return -1;
     }
     public isValid(index: number): boolean {
         const nullBitIndex = this.offset + index;
@@ -198,7 +198,7 @@ export class FixedSizeView<T extends PrimitiveType> extends PrimitiveView<T> {
             ++index;
         }
 
-        return null;
+        return -1;
     }
     protected getValue(values: T['TArray'], index: number, size: number): T['TValue'] {
         return values.subarray(index * size, index * size + size);
