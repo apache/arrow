@@ -41,12 +41,7 @@ conda install -y -q pip \
       cloudpickle \
       numpy=1.13.1 \
       pandas \
-      cython \
-      ipython \
-      matplotlib \
-      numpydoc \
-      sphinx \
-      sphinx_bootstrap_theme
+      cython
 
 if [ "$PYTHON_VERSION" != "2.7" ] || [ $TRAVIS_OS_NAME != "osx" ]; then
   # Install pytorch for torch tensor conversion tests
@@ -103,6 +98,13 @@ python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
 
 if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
   # Build documentation once
+  conda install -y -q \
+        ipython \
+        matplotlib \
+        numpydoc \
+        sphinx \
+        sphinx_bootstrap_theme
+
   pushd $ARROW_PYTHON_DIR/doc
   sphinx-build -q -b html -d _build/doctrees -W source _build/html
   popd
