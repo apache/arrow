@@ -168,6 +168,7 @@ export namespace view {
 export namespace predicate {
     export import col = predicate_.col;
     export import lit = predicate_.lit;
+    export import custom = predicate_.custom;
 
     export import Or = predicate_.Or;
     export import Col = predicate_.Col;

@@ -222,5 +222,17 @@ export class GTeq extends ComparisonPredicate {
     }
 }
 
+export class CustomPredicate {
+    constructor(private next: PredicateFunc, private bind_: (batch: RecordBatch) => void) {}
+
+    bind(batch: RecordBatch) {
+        this.bind_(batch);
+        return this.next;
+    }
+}
+
 export function lit(v: any): Value<any> { return new Literal(v); }
 export function col(n: string): Col<any> { return new Col(n); }
+export function custom(next: PredicateFunc, bind: (batch: RecordBatch) => void) {
+    return new CustomPredicate(next, bind);
+}

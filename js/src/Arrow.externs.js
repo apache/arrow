@@ -70,6 +70,7 @@ CountByResult.prototype.asJSON;
 
 var col = function () {};
 var lit = function () {};
+var custom = function () {};
 
 var Value = function() {};
 /** @type {?} */
