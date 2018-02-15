@@ -56,14 +56,16 @@ setup_template = """if 1:
 """
 
 
+@pytest.mark.skipif(
+    'ARROW_HOME' not in os.environ,
+    reason='ARROW_HOME environment variable not defined')
 def test_cython_api(tmpdir):
     """
     Basic test for the Cython API.
     """
     pytest.importorskip('Cython')
 
-    if 'ARROW_HOME' in os.environ:
-        ld_path_default = os.path.join(os.environ['ARROW_HOME'], 'lib')
+    ld_path_default = os.path.join(os.environ['ARROW_HOME'], 'lib')
 
     test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', ld_path_default)
 
