@@ -79,13 +79,6 @@ class ARROW_EXPORT PyOutputStream : public io::OutputStream {
   int64_t position_;
 };
 
-// A zero-copy reader backed by a PyBuffer object
-class ARROW_EXPORT PyBytesReader : public io::BufferReader {
- public:
-  explicit PyBytesReader(PyObject* obj);
-  virtual ~PyBytesReader();
-};
-
 // TODO(wesm): seekable output files
 
 }  // namespace py

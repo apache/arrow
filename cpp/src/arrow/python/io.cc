@@ -149,14 +149,11 @@ Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
 Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   PyAcquireGIL lock;
 
-  PyObject* bytes_obj = NULL;
-  ARROW_RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
-  DCHECK(bytes_obj != NULL);
+  OwnedRef bytes_obj;
+  ARROW_RETURN_NOT_OK(file_->Read(nbytes, bytes_obj.ref()));
+  DCHECK(bytes_obj.obj() != NULL);
 
-  *out = std::make_shared<PyBuffer>(bytes_obj);
-  Py_XDECREF(bytes_obj);
-
-  return Status::OK();
+  return PyBuffer::FromPyObject(bytes_obj.obj(), out);
 }
 
 Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
@@ -218,14 +215,6 @@ Status PyOutputStream::Write(const void* data, int64_t nbytes) {
   position_ += nbytes;
   return file_->Write(data, nbytes);
 }
-
-// ----------------------------------------------------------------------
-// A readable file that is backed by a PyBuffer
-
-PyBytesReader::PyBytesReader(PyObject* obj)
-    : io::BufferReader(std::make_shared<PyBuffer>(obj)) {}
-
-PyBytesReader::~PyBytesReader() {}
 
 }  // namespace py
 }  // namespace arrow
