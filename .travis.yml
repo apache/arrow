@@ -183,26 +183,29 @@ matrix:
     before_script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    # XXX put in travis_before_script_c_glib.sh?
     - sudo apt-get install -y -q gtk-doc-tools autoconf-archive libgirepository1.0-dev
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  ## [OS X] C++ & glib w/ XCode 8.3 & autotools
-  #- compiler: clang
-    #osx_image: xcode8.3
-    #os: osx
-    #cache:
-    #addons:
-    #rvm: 2.2
-    #env: BUILD_SYSTEM=autotools
-    #before_script:
-    #- eval `python $TRAVIS_BUILD_DIR/ci/travis_detect_changes.py`
-    #- if [ $ARROW_CI_C_GLIB_AFFECTED == "1" ]; then brew update && brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile; fi
-    #- if [ $ARROW_CI_C_GLIB_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library; fi
-    #- if [ $ARROW_CI_C_GLIB_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh; fi
-    #script:
-    #- if [ $ARROW_CI_C_GLIB_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
+  # [OS X] C++ & glib w/ XCode 8.3 & autotools
+  - compiler: clang
+    osx_image: xcode8.3
+    os: osx
+    cache:
+    addons:
+    rvm: 2.2
+    env:
+    - BUILD_SYSTEM=autotools
+    before_script:
+    - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
+    # XXX put in travis_before_script_c_glib.sh?
+    - brew update && brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
