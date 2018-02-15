@@ -40,14 +40,8 @@ export abstract class NestedView<T extends NestedType> implements View<T> {
     public toArray(): IterableArrayLike<T['TValue']> {
         return [...this];
     }
-    public indexOf(search: T['TValue']) {
-        let index = 0;
-        for (let value of this) {
-            if (value === search) { return index; }
-            ++index;
-        }
-
-        return -1;
+    public indexOf(_: T['TValue']): number {
+        throw new Error(`Not implemented yet`);
     }
     public toJSON(): any { return this.toArray(); }
     public toString() {
