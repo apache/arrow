@@ -17,6 +17,7 @@
 
 import datetime
 import pytest
+import struct
 import sys
 
 import numpy as np
@@ -589,3 +590,66 @@ def test_array_from_numpy_unicode():
     arrow_arr = pa.array(arr)
     expected = pa.array(['', '', ''], type='utf8')
     assert arrow_arr.equals(expected)
+
+
+def test_buffers_primitive():
+    a = pa.array([1, 2, None, 4], type=pa.int16())
+    buffers = a.buffers()
+    assert len(buffers) == 2
+    null_bitmap = buffers[0].to_pybytes()
+    assert 1 <= len(null_bitmap) <= 64  # XXX this is varying
+    assert bytearray(null_bitmap)[0] == 0b00001011
+
+    assert struct.unpack('hhxxh', buffers[1].to_pybytes()) == (1, 2, 4)
+
+    a = pa.array(np.int8([4, 5, 6]))
+    buffers = a.buffers()
+    assert len(buffers) == 2
+    # No null bitmap from Numpy int array
+    assert buffers[0] is None
+    assert struct.unpack('3b', buffers[1].to_pybytes()) == (4, 5, 6)
+
+    a = pa.array([b'foo!', None, b'bar!!'])
+    buffers = a.buffers()
+    assert len(buffers) == 3
+    null_bitmap = buffers[0].to_pybytes()
+    assert bytearray(null_bitmap)[0] == 0b00000101
+    offsets = buffers[1].to_pybytes()
+    assert struct.unpack('4i', offsets) == (0, 4, 4, 9)
+    values = buffers[2].to_pybytes()
+    assert values == b'foo!bar!!'
+
+
+def test_buffers_nested():
+    a = pa.array([[1, 2], None, [3, None, 4, 5]], type=pa.list_(pa.int64()))
+    buffers = a.buffers()
+    assert len(buffers) == 4
+    # The parent buffers
+    null_bitmap = buffers[0].to_pybytes()
+    assert bytearray(null_bitmap)[0] == 0b00000101
+    offsets = buffers[1].to_pybytes()
+    assert struct.unpack('4i', offsets) == (0, 2, 2, 6)
+    # The child buffers
+    null_bitmap = buffers[2].to_pybytes()
+    assert bytearray(null_bitmap)[0] == 0b00110111
+    values = buffers[3].to_pybytes()
+    assert struct.unpack('qqq8xqq', values) == (1, 2, 3, 4, 5)
+
+    a = pa.array([(42, None), None, (None, 43)],
+                 type=pa.struct([pa.field('a', pa.int8()),
+                                 pa.field('b', pa.int16())]))
+    buffers = a.buffers()
+    assert len(buffers) == 5
+    # The parent buffer
+    null_bitmap = buffers[0].to_pybytes()
+    assert bytearray(null_bitmap)[0] == 0b00000101
+    # The child buffers: 'a'
+    null_bitmap = buffers[1].to_pybytes()
+    assert bytearray(null_bitmap)[0] == 0b00000001
+    values = buffers[2].to_pybytes()
+    assert struct.unpack('bxx', values) == (42,)
+    # The child buffers: 'b'
+    null_bitmap = buffers[3].to_pybytes()
+    assert bytearray(null_bitmap)[0] == 0b00000100
+    values = buffers[4].to_pybytes()
+    assert struct.unpack('4xh', values) == (43,)
