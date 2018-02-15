@@ -145,6 +145,57 @@ TEST_F(DecimalTest, TestInferPrecisionAndNegativeScale) {
   ASSERT_EQ(expected_scale, scale);
 }
 
+TEST_F(DecimalTest, TestInferAllLeadingZeros) {
+  std::string decimal_string("0.001");
+  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+
+  int32_t precision;
+  int32_t scale;
+
+  ASSERT_OK(
+      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
+
+  const int32_t expected_precision = 3;
+  const int32_t expected_scale = 3;
+
+  ASSERT_EQ(expected_precision, precision);
+  ASSERT_EQ(expected_scale, scale);
+}
+
+TEST_F(DecimalTest, TestInferAllLeadingZerosExponentialNotationPositive) {
+  std::string decimal_string("0.01E5");
+  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+
+  int32_t precision;
+  int32_t scale;
+
+  ASSERT_OK(
+      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
+
+  const int32_t expected_precision = 4;
+  const int32_t expected_scale = -3;
+
+  ASSERT_EQ(expected_precision, precision);
+  ASSERT_EQ(expected_scale, scale);
+}
+
+TEST_F(DecimalTest, TestInferAllLeadingZerosExponentialNotationNegative) {
+  std::string decimal_string("0.01E3");
+  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+
+  int32_t precision;
+  int32_t scale;
+
+  ASSERT_OK(
+      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
+
+  const int32_t expected_precision = 1;
+  const int32_t expected_scale = -1;
+
+  ASSERT_EQ(expected_precision, precision);
+  ASSERT_EQ(expected_scale, scale);
+}
+
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   StringBuilder builder;
   const char value[] = {'\xf1', '\0'};

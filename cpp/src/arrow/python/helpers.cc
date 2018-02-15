@@ -99,7 +99,8 @@ Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precisio
   DCHECK_NE(precision, NULLPTR);
   DCHECK_NE(scale, NULLPTR);
 
-  OwnedRef as_tuple(PyObject_CallMethod(python_decimal, "as_tuple", "()"));
+  // TODO(phillipc): Make sure we perform PyDecimal_Check(python_decimal) as a DCHECK
+  OwnedRef as_tuple(PyObject_CallMethod(python_decimal, "as_tuple", ""));
   RETURN_IF_PYERROR();
   DCHECK(PyTuple_Check(as_tuple.obj()));
 
@@ -114,10 +115,25 @@ Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precisio
   RETURN_IF_PYERROR();
   DCHECK(IsPyInteger(py_exponent.obj()));
 
+  // exponent is -3 e.g., 0.001
   const auto exponent = static_cast<int32_t>(PyLong_AsLong(py_exponent.obj()));
   RETURN_IF_PYERROR();
 
-  *precision = num_digits;
+  const int32_t abs_exponent = std::abs(exponent);
+
+  int32_t num_additional_zeros;
+
+  if (num_digits < abs_exponent) {
+    DCHECK_NE(exponent, 0) << "exponent should never be zero here";
+
+    // we have leading/trailing zeros, leading if exponent is negative
+    num_additional_zeros = exponent < 0 ? abs_exponent - num_digits : exponent;
+  } else {
+    // we can use the number of digits as the precision
+    num_additional_zeros = 0;
+  }
+
+  *precision = num_digits + num_additional_zeros;
   *scale = -exponent;
   return Status::OK();
 }

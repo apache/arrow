@@ -90,9 +90,7 @@ TEST(DecimalTest, TestFromDecimalString128) {
   Decimal128 result;
   ASSERT_OK(Decimal128::FromString(string_value, &result));
   Decimal128 expected(static_cast<int64_t>(-230492239423435324));
-  expected *= 100;
-  expected -= 12;
-  ASSERT_EQ(result, expected);
+  ASSERT_EQ(result, expected * 100 - 12);
 
   // Sanity check that our number is actually using more than 64 bits
   ASSERT_NE(result.high_bits(), 0);
@@ -209,7 +207,7 @@ TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
   int scale;
   ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
   // We explicitly do not support this for now, otherwise this would be ASSERT_EQ
-  ASSERT_NE(precision, 7);
+  ASSERT_EQ(precision, 7);
 
   ASSERT_EQ(scale, 4);
   ASSERT_EQ(d, 0);
@@ -373,6 +371,16 @@ TEST(Decimal128Test, TestSmallNumberFormat) {
   const int32_t scale = 1;
   std::string result = value.ToString(scale);
   ASSERT_EQ(expected, result);
+}
+
+TEST(Decimal128Test, TestNoDecimalPointExponential) {
+  Decimal128 value;
+  int32_t precision;
+  int32_t scale;
+  ASSERT_OK(Decimal128::FromString("1E1", &value, &precision, &scale));
+  ASSERT_EQ(1, value.low_bits());
+  ASSERT_EQ(1, precision);
+  ASSERT_EQ(-1, scale);
 }
 
 }  // namespace arrow
