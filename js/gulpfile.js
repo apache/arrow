@@ -106,3 +106,4 @@ function getTasks(name) {
     }
     return tasks.length && tasks || [(done) => done()];
 }
+
