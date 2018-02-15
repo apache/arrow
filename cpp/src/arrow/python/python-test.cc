@@ -33,7 +33,14 @@
 namespace arrow {
 namespace py {
 
-TEST(PyBuffer, InvalidInputObject) { PyBuffer buffer(Py_None); }
+TEST(PyBuffer, InvalidInputObject) {
+  std::shared_ptr<Buffer> res;
+  PyObject* input = Py_None;
+  auto old_refcnt = Py_REFCNT(input);
+  ASSERT_RAISES(PythonError, PyBuffer::FromPyObject(input, &res));
+  PyErr_Clear();
+  ASSERT_EQ(old_refcnt, Py_REFCNT(input));
+}
 
 class DecimalTest : public ::testing::Test {
  public:
