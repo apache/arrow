@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from functools import partial
 from io import BytesIO, TextIOWrapper
 import gc
 import os
@@ -176,6 +177,8 @@ def test_buffer_to_numpy():
     buf = pa.frombuffer(byte_array)
     array = np.frombuffer(buf, dtype="uint8")
     assert array[0] == byte_array[0]
+    byte_array[0] += 1
+    assert array[0] == byte_array[0]
     assert array.base == buf
 
 
@@ -190,6 +193,25 @@ def test_buffer_from_numpy():
     # Non-contiguous
     with pytest.raises(ValueError, match="not contiguous"):
         buf = pa.frombuffer(arr.T[::2])
+
+
+def test_buffer_equals():
+    # Buffer.equals() returns true iff the buffers have the same contents
+    b1 = b'some data!'
+    b2 = bytearray(b1)
+    b3 = bytearray(b1)
+    b3[0] = 42
+    buf1 = pa.frombuffer(b1)
+    buf2 = pa.frombuffer(b2)
+    buf3 = pa.frombuffer(b2)
+    buf4 = pa.frombuffer(b3)
+    buf5 = pa.frombuffer(np.frombuffer(b2, dtype=np.int16))
+    assert buf1.equals(buf1)
+    assert buf1.equals(buf2)
+    assert buf2.equals(buf3)
+    assert not buf2.equals(buf4)
+    # Data type is indifferent
+    assert buf2.equals(buf5)
 
 
 def test_allocate_buffer():
@@ -244,9 +266,11 @@ def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
     buf = pa.frombuffer(val)
+    assert not buf.is_mutable
     assert isinstance(buf, pa.Buffer)
 
     result = memoryview(buf)
+    assert result.readonly
 
     with pytest.raises(TypeError) as exc:
         result[0] = b'h'
@@ -256,6 +280,29 @@ def test_buffer_memoryview_is_immutable():
     with pytest.raises(TypeError) as exc:
         b[0] = b'h'
         assert 'cannot modify read-only' in str(exc.value)
+
+
+def test_uninitialized_buffer():
+    # ARROW-2039: calling Buffer() directly creates an uninitialized object
+    check_uninitialized = partial(pytest.raises,
+                                  ReferenceError, match="uninitialized")
+    buf = pa.Buffer()
+    with check_uninitialized():
+        buf.size
+    with check_uninitialized():
+        len(buf)
+    with check_uninitialized():
+        buf.is_mutable
+    with check_uninitialized():
+        buf.parent
+    with check_uninitialized():
+        buf.to_pybytes()
+    with check_uninitialized():
+        memoryview(buf)
+    with check_uninitialized():
+        buf.equals(pa.frombuffer(b''))
+    with check_uninitialized():
+        pa.frombuffer(b'').equals(buf)
 
 
 def test_memory_output_stream():

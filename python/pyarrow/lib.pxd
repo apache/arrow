@@ -321,6 +321,7 @@ cdef class Buffer:
         Py_ssize_t strides[1]
 
     cdef void init(self, const shared_ptr[CBuffer]& buffer)
+    cdef int _check_nullptr(self) except -1
 
 
 cdef class ResizableBuffer(Buffer):
