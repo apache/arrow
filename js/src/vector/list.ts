@@ -59,7 +59,7 @@ export abstract class ListViewBase<T extends (ListType | FlatListType | FixedSiz
             yield get(values, index, valueOffsets);
         }
     }
-    public find(search: T['TValue']) {
+    public indexOf(search: T['TValue']) {
         let index = 0;
         for (let value of this) {
             if (value === search) { return index; }

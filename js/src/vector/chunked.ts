@@ -103,10 +103,10 @@ export class ChunkedView<T extends DataType> implements View<T> {
         }
         return target;
     }
-    public find(search: T['TValue']) {
+    public indexOf(search: T['TValue']) {
         let offset = 0, result;
         for (const vector of this.chunkVectors) {
-            result = vector.find(search);
+            result = vector.indexOf(search);
             if (result !== null) { return result + offset; }
             offset += vector.length;
         }
