@@ -73,15 +73,15 @@ matrix:
     - CC="clang-4.0"
     - CXX="clang++-4.0"
     before_script:
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh; fi
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7; fi
+    - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     #- if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6; fi
   ## [OS X] C++ & Python w/ XCode 6.4
   #- compiler: clang
