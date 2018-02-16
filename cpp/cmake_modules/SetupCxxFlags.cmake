@@ -91,7 +91,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
--Wno-comma -Wno-unused-parameter -Wno-undef \
+-Wno-comma -Wno-unused-parameter -Wno-unused-template -Wno-undef \
 -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
 -Wno-implicit-fallthrough -Wno-unreachable-code-return \
@@ -115,6 +115,10 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     endif()
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.8")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-undefined-func-template")
+    endif()
+
+    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-zero-as-null-pointer-constant")
     endif()
 
     # Treat all compiler warnings as errors

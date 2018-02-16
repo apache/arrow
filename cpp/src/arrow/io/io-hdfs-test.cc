@@ -454,7 +454,7 @@ TYPED_TEST(TestHadoopFileSystem, ThreadSafety) {
   std::atomic<int> correct_count(0);
   constexpr int niter = 1000;
 
-  auto ReadData = [&file, &correct_count, &data, niter]() {
+  auto ReadData = [&file, &correct_count, &data]() {
     for (int i = 0; i < niter; ++i) {
       std::shared_ptr<Buffer> buffer;
       if (i % 2 == 0) {

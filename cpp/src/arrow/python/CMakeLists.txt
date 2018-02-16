@@ -62,6 +62,13 @@ set(ARROW_PYTHON_SRCS
   pyarrow.cc
 )
 
+if ("${COMPILER_FAMILY}" STREQUAL "clang")
+  set_property(SOURCE pyarrow.cc
+    APPEND_STRING
+    PROPERTY COMPILE_FLAGS
+    " -Wno-cast-qual ")
+endif()
+
 set(ARROW_PYTHON_SHARED_LINK_LIBS
   arrow_shared
 )

@@ -53,7 +53,7 @@ using RecordBatchReader = ::arrow::RecordBatchReader;
 /// reads see the ReadRecordBatch functions
 class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
  public:
-  virtual ~RecordBatchStreamReader();
+  ~RecordBatchStreamReader() override;
 
   /// Create batch reader from generic MessageReader
   ///
