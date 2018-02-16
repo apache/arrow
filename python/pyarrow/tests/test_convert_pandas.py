@@ -1132,6 +1132,17 @@ class TestConvertDecimalTypes(object):
         df = converted.to_pandas()
         tm.assert_frame_equal(df, expected)
 
+    def test_decimal_fails_with_truncation(self):
+        data1 = [decimal.Decimal('1.234')]
+        type1 = pa.decimal128(10, 2)
+        with pytest.raises(pa.ArrowException):
+            pa.array(data1, type=type1)
+
+        data2 = [decimal.Decimal('1.2345')]
+        type2 = pa.decimal128(10, 3)
+        with pytest.raises(pa.ArrowException):
+            pa.array(data2, type=type2)
+
 
 class TestListTypes(object):
     """
