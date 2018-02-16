@@ -83,8 +83,9 @@ struct is_zero_copy_cast {
 
 template <typename O, typename I>
 struct is_zero_copy_cast<
-    O, I, typename std::enable_if<std::is_same<I, O>::value &&
-                                  !std::is_base_of<ParametricType, O>::value>::type> {
+    O, I,
+    typename std::enable_if<std::is_same<I, O>::value &&
+                            !std::is_base_of<ParametricType, O>::value>::type> {
   static constexpr bool value = true;
 };
 
@@ -121,8 +122,9 @@ struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>
 // Null to other things
 
 template <typename T>
-struct CastFunctor<T, NullType, typename std::enable_if<
-                                    std::is_base_of<FixedWidthType, T>::value>::type> {
+struct CastFunctor<
+    T, NullType,
+    typename std::enable_if<std::is_base_of<FixedWidthType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {}
 };
@@ -172,8 +174,9 @@ struct is_integer_downcast {
 
 template <typename O, typename I>
 struct is_integer_downcast<
-    O, I, typename std::enable_if<std::is_base_of<Integer, O>::value &&
-                                  std::is_base_of<Integer, I>::value>::type> {
+    O, I,
+    typename std::enable_if<std::is_base_of<Integer, O>::value &&
+                            std::is_base_of<Integer, I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -189,9 +192,10 @@ struct is_integer_downcast<
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::value &&
-                                                 std::is_base_of<Number, I>::value &&
-                                                 !std::is_same<O, I>::value>::type> {
+struct CastFunctor<O, I,
+                   typename std::enable_if<std::is_same<BooleanType, O>::value &&
+                                           std::is_base_of<Number, I>::value &&
+                                           !std::is_same<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = GetValues<typename I::c_type>(input, 1);

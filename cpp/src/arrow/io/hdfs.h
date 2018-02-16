@@ -68,7 +68,7 @@ struct HdfsConnectionConfig {
 
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
  public:
-  ~HadoopFileSystem();
+  ~HadoopFileSystem() override;
 
   // Connect to an HDFS cluster given a configuration
   //
@@ -174,7 +174,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
 class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
  public:
-  ~HdfsReadableFile();
+  ~HdfsReadableFile() override;
 
   Status Close() override;
 
@@ -213,7 +213,7 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 // WriteableFile interface)
 class ARROW_EXPORT HdfsOutputStream : public OutputStream {
  public:
-  ~HdfsOutputStream();
+  ~HdfsOutputStream() override;
 
   Status Close() override;
 

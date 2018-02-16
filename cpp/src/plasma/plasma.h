@@ -55,8 +55,9 @@ namespace plasma {
         ARROW_LOG(WARNING)                                                  \
             << "Received SIGPIPE, BAD FILE DESCRIPTOR, or ECONNRESET when " \
                "sending a message to client on fd "                         \
-            << fd_ << ". "                                                  \
-                      "The client on the other end may have hung up.";      \
+            << fd_                                                          \
+            << ". "                                                         \
+               "The client on the other end may have hung up.";             \
       } else {                                                              \
         return _s;                                                          \
       }                                                                     \

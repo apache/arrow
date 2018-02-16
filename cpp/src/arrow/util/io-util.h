@@ -32,7 +32,7 @@ namespace io {
 class StdoutStream : public OutputStream {
  public:
   StdoutStream() : pos_(0) { set_mode(FileMode::WRITE); }
-  virtual ~StdoutStream() {}
+  ~StdoutStream() override {}
 
   Status Close() override { return Status::OK(); }
 
@@ -55,7 +55,7 @@ class StdoutStream : public OutputStream {
 class StdinStream : public InputStream {
  public:
   StdinStream() : pos_(0) { set_mode(FileMode::READ); }
-  virtual ~StdinStream() {}
+  ~StdinStream() override {}
 
   Status Close() override { return Status::OK(); }
 
