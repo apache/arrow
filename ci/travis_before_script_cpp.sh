@@ -29,14 +29,6 @@ else
   source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 fi
 
-if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
-  # Set up C++ toolchain from conda-forge packages for faster builds
-  source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
-fi
-
-mkdir -p $ARROW_CPP_BUILD_DIR
-pushd $ARROW_CPP_BUILD_DIR
-
 CMAKE_COMMON_FLAGS="\
 -DARROW_BUILD_BENCHMARKS=ON \
 -DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL \
@@ -44,6 +36,15 @@ CMAKE_COMMON_FLAGS="\
 -DARROW_EXTRA_ERROR_CONTEXT=ON"
 CMAKE_LINUX_FLAGS=""
 CMAKE_OSX_FLAGS=""
+
+if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
+  # Set up C++ toolchain from conda-forge packages for faster builds
+  source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
+  CMAKE_COMMON_FLAGS="${CMAKE_COMMON_FLAGS} -DARROW_JEMALLOC=ON"
+fi
+
+mkdir -p $ARROW_CPP_BUILD_DIR
+pushd $ARROW_CPP_BUILD_DIR
 
 if [ $only_library_mode == "yes" ]; then
   CMAKE_COMMON_FLAGS="\
