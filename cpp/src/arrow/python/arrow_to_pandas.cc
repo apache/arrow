@@ -60,6 +60,7 @@ using internal::kNanosecondsInDay;
 using internal::kPandasTimestampNull;
 
 using compute::Datum;
+using compute::FunctionContext;
 
 // ----------------------------------------------------------------------
 // Utility code
@@ -1771,7 +1772,33 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
                             int nthreads, MemoryPool* pool, PyObject** out) {
-  DataFrameBlockCreator helper(options, table, pool);
+  return ConvertTableToPandas(options, std::unordered_set<std::string>(), table, nthreads,
+                              pool, out);
+}
+
+Status ConvertTableToPandas(PandasOptions options,
+                            const std::unordered_set<std::string>& categorical_columns,
+                            const std::shared_ptr<Table>& table, int nthreads,
+                            MemoryPool* pool, PyObject** out) {
+  std::shared_ptr<Table> current_table = table;
+  if (categorical_columns.size() > 0) {
+    FunctionContext ctx;
+    for (int64_t i = 0; i < table->num_columns(); i++) {
+      const Column& col = *table->column(i);
+      if (categorical_columns.count(col.name())) {
+        Datum out;
+        DictionaryEncode(&ctx, Datum(col.data()), &out);
+        std::shared_ptr<ChunkedArray> array = out.chunked_array();
+        std::shared_ptr<Field> field = std::make_shared<Field>(
+            col.name(), array->type(), col.field()->nullable(), col.field()->metadata());
+        std::shared_ptr<Column> column = std::make_shared<Column>(field, array);
+        current_table->RemoveColumn(i, &current_table);
+        current_table->AddColumn(i, column, &current_table);
+      }
+    }
+  }
+
+  DataFrameBlockCreator helper(options, current_table, pool);
   return helper.Convert(nthreads, out);
 }
 
