@@ -754,13 +754,14 @@ def table_to_blocks(PandasOptions options, Table table, int nthreads,
         unordered_set[c_string] categorical_columns
 
     if categories is not None:
-        categorical_columns = [tobytes(cat) for cat in categories]
+        categorical_columns = {tobytes(cat) for cat in categories}
 
     pool = maybe_unbox_memory_pool(memory_pool)
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                options, categorical_columns, c_table, nthreads, pool, &result_obj
+                options, categorical_columns, c_table, nthreads, pool,
+                &result_obj
             )
         )
 
@@ -1034,7 +1035,7 @@ cdef class Table:
             Raise an ArrowException if this function call would require copying
             the underlying data
         categories: list, default empty
-            List of columns that should be returned as pandas.Categorical columns
+            List of columns that should be returned as pandas.Categorical
 
         Returns
         -------

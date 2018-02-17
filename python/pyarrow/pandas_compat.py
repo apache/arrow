@@ -564,7 +564,8 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
                 block_table.schema.get_field_index(raw_name)
             )
 
-    blocks = _table_to_blocks(options, block_table, nthreads, memory_pool, categories)
+    blocks = _table_to_blocks(options, block_table, nthreads, memory_pool,
+                              categories)
 
     # Construct the row index
     if len(index_arrays) > 1:

@@ -883,7 +883,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                   object py_ref, PyObject** out)
 
     CStatus ConvertTableToPandas(PandasOptions options,
-                                 unordered_set[c_string] categorical_columns,
+                                 const unordered_set[c_string]& categorical_columns,
                                  const shared_ptr[CTable]& table,
                                  int nthreads, CMemoryPool* pool,
                                  PyObject** out)
