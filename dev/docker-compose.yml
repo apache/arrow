@@ -33,3 +33,8 @@ services:
       context: dask_integration
     volumes:
      - ../..:/apache-arrow
+  spark_integration:
+    build: 
+      context: spark_integration
+    volumes:
+     - ../..:/apache-arrow
