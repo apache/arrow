@@ -215,6 +215,9 @@ def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tmpdir):
     arrow_table = pa.Table.from_pandas(df, preserve_index=False)
     js = json.loads(arrow_table.schema.metadata[b'pandas'].decode('utf8'))
     assert not js['index_columns']
+    # ARROW-2170
+    # While index_columns should be empty, columns needs to be filled still.
+    assert js['columns']
 
     _write_table(arrow_table, filename.strpath, version="2.0",
                  coerce_timestamps='ms')
