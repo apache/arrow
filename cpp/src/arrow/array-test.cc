@@ -1273,7 +1273,7 @@ class TestFWBinaryArray : public ::testing::Test {
 };
 
 TEST_F(TestFWBinaryArray, Builder) {
-  constexpr int32_t byte_width = 10;
+  int32_t byte_width = 10;
   int64_t length = 4096;
 
   int64_t nbytes = length * byte_width;
@@ -1288,7 +1288,7 @@ TEST_F(TestFWBinaryArray, Builder) {
 
   std::shared_ptr<Array> result;
 
-  auto CheckResult = [&length, &is_valid, &raw_data](const Array& result) {
+  auto CheckResult = [&length, &is_valid, &raw_data, &byte_width](const Array& result) {
     // Verify output
     const auto& fw_result = static_cast<const FixedSizeBinaryArray&>(result);
 
