@@ -37,21 +37,23 @@ public class JdbcToArrow {
      * @return
      * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statment objects.
      */
-    public static VectorSchemaRoot convert(Connection connection, String query) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(Connection connection, String query) throws Exception {
 
         RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
 
         Statement stmt = null;
         ResultSet rs = null;
-        ResultSetMetaData rsmd = null;
         try {
             stmt = connection.createStatement();
             rs = stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
             VectorSchemaRoot root = VectorSchemaRoot.create(
-                    JdbcToArrowUtils.jdbcToArrowSchema(rs.getMetaData()), rootAllocator);
+                    JdbcToArrowUtils.jdbcToArrowSchema(rsmd), rootAllocator);
+            JdbcToArrowUtils.jdbcToArrowVectors(rs, root);
 
-        } catch (SQLException exc) {
-
+        } catch (Exception exc) {
+            // just throw it out after logging
+            throw exc;
         } finally {
             if (rs != null) {
                 rs.close();
