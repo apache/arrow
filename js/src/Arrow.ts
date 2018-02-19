@@ -59,6 +59,18 @@ export namespace data {
     export import ChunkedData = data_.ChunkedData;
 }
 
+export namespace enum_ {
+    export import Type = type_.ArrowType;
+    export import DateUnit = type_.DateUnit;
+    export import TimeUnit = type_.TimeUnit;
+    export import Precision = type_.Precision;
+    export import UnionMode = type_.UnionMode;
+    export import VectorType = type_.VectorType;
+    export import IntervalUnit = type_.IntervalUnit;
+    export import MessageHeader = type_.MessageHeader;
+    export import MetadataVersion = type_.MetadataVersion;
+}
+
 export namespace type {
     export import Schema = type_.Schema;
     export import Field = type_.Field;
@@ -179,6 +191,7 @@ try {
         Arrow['type'] = type;
         Arrow['util'] = util;
         Arrow['view'] = view;
+        Arrow['enum_'] = enum_;
         Arrow['vector'] = vector;
         Arrow['visitor'] = visitor;
         Arrow['predicate'] = predicate;
