@@ -29,6 +29,7 @@ table {
 }
 table, th, td {
   border: 1px solid black;
+  white-space: nowrap;
 }
     </style>
     <script type="text/javascript">
@@ -53,8 +54,8 @@ reader.onload = function (evt) {
   }
 
   var header_row = document.createElement("tr");
-  for (let column of arrowTable.columns) {
-    addCell(header_row, "th", column.name);
+  for (let field of arrowTable.schema.fields) {
+    addCell(header_row, "th", `${field}`);
   }
 
   thead.appendChild(header_row);
