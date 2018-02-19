@@ -904,7 +904,6 @@ Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Array> dictionary;
   RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
 
-
   RETURN_NOT_OK(values_builder_.FinishInternal(out));
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
 
@@ -932,7 +931,7 @@ Status DictionaryBuilder<BinaryType>::FinishInternal(std::shared_ptr<ArrayData>*
 template<>
 Status DictionaryBuilder<StringType>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   entry_id_offset_ += dict_builder_.length();
-  for (uint32_t index = 0, limit = dict_builder_.value_data_length(); index < limit; ++index) {
+  for (uint32_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {
     int32_t out_length;
     const uint8_t* value = dict_builder_.GetValue(index, &out_length);
     RETURN_NOT_OK(overflow_dict_builder_.Append(value, out_length));
@@ -1090,11 +1089,11 @@ int64_t DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
 template <typename T>
 bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
   const Scalar other = GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
-  if (other != value && overflow_dict_builder_.length() > 0) {
+  if (overflow_dict_builder_.length() > 0) {
     const Scalar other_overflow = GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index));
-    return other_overflow != value;
+    return other != value && other_overflow != value;
   } else {
-    return false;
+    return other != value;
   };
 }
 
@@ -1103,11 +1102,11 @@ bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
                                                            const Scalar& value) {
   int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
   const Scalar other = GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
-  if (memcmp(other, value, width) != 0 && overflow_dict_builder_.length() > 0) {
+  if (overflow_dict_builder_.length() > 0) {
     const Scalar other_overflow = GetDictionaryValue(dict_builder_, static_cast<int64_t>(index));
-    return memcmp(other_overflow, value, width) != 0;
+    return memcmp(other, value, width) != 0 && memcmp(other_overflow, value, width) != 0;
   } else {
-    return false;
+    return memcmp(other, value, width) != 0;
   };
 }
 
@@ -1157,10 +1156,14 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
         dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);               \
     if (!(other_length == value.length_ &&                                                \
           0 == memcmp(other_value, value.ptr_, value.length_))) {                         \
-      const uint8_t* other_overflow_value =                                               \
-        overflow_dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);      \
-      return !(other_length == value.length_ &&                                           \
-               0 == memcmp(other_overflow_value, value.ptr_, value.length_));             \
+        if (overflow_dict_builder_.length() > 0) {                                        \
+            const uint8_t* other_overflow_value =                                         \
+                overflow_dict_builder_.GetValue(static_cast<int64_t>(index), &other_length); \
+            return !(other_length == value.length_ &&                                     \
+                     0 == memcmp(other_overflow_value, value.ptr_, value.length_));       \
+        } else {                                                                          \
+            return true;                                                                  \
+        }                                                                                 \
     } else {                                                                              \
       return false;                                                                       \
     }                                                                                     \
