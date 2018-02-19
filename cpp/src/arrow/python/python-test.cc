@@ -42,6 +42,40 @@ TEST(PyBuffer, InvalidInputObject) {
   ASSERT_EQ(old_refcnt, Py_REFCNT(input));
 }
 
+TEST(OwnedRef, TestMoves) {
+  PyAcquireGIL lock;
+  std::vector<OwnedRef> vec;
+  PyObject *u, *v;
+  u = PyList_New(0);
+  v = PyList_New(0);
+  {
+    OwnedRef ref(u);
+    vec.push_back(std::move(ref));
+    ASSERT_EQ(ref.obj(), nullptr);
+  }
+  vec.emplace_back(v);
+  ASSERT_EQ(Py_REFCNT(u), 1);
+  ASSERT_EQ(Py_REFCNT(v), 1);
+}
+
+TEST(OwnedRefNoGIL, TestMoves) {
+  std::vector<OwnedRefNoGIL> vec;
+  PyObject *u, *v;
+  {
+    PyAcquireGIL lock;
+    u = PyList_New(0);
+    v = PyList_New(0);
+  }
+  {
+    OwnedRefNoGIL ref(u);
+    vec.push_back(std::move(ref));
+    ASSERT_EQ(ref.obj(), nullptr);
+  }
+  vec.emplace_back(v);
+  ASSERT_EQ(Py_REFCNT(u), 1);
+  ASSERT_EQ(Py_REFCNT(v), 1);
+}
+
 class DecimalTest : public ::testing::Test {
  public:
   DecimalTest() : lock_(), decimal_module_(), decimal_constructor_() {

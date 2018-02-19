@@ -67,7 +67,7 @@ class ARROW_EXPORT PyAcquireGIL {
 class ARROW_EXPORT OwnedRef {
  public:
   OwnedRef() : obj_(NULLPTR) {}
-
+  OwnedRef(OwnedRef&& other) : OwnedRef(other.detach()) {}
   explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
   ~OwnedRef() { reset(); }
@@ -90,6 +90,8 @@ class ARROW_EXPORT OwnedRef {
   PyObject** ref() { return &obj_; }
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(OwnedRef);
+
   PyObject* obj_;
 };
 
@@ -98,6 +100,10 @@ class ARROW_EXPORT OwnedRef {
 // (e.g. if it is released in the middle of a function for performance reasons)
 class ARROW_EXPORT OwnedRefNoGIL : public OwnedRef {
  public:
+  OwnedRefNoGIL() : OwnedRef() {}
+  OwnedRefNoGIL(OwnedRefNoGIL&& other) : OwnedRef(other.detach()) {}
+  explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
+
   ~OwnedRefNoGIL() {
     PyAcquireGIL lock;
     reset();
