@@ -19,28 +19,28 @@
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
 
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7 3.4 3.5 3.6}"
-
-# Package index with only manylinux1 builds
-MANYLINUX_URL=https://nipy.bic.berkeley.edu/manylinux
+PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7,16 2.7,32 3.4,16 3.5,16 3.6,16}"
 
 source /multibuild/manylinux_utils.sh
 
-for PYTHON in ${PYTHON_VERSIONS}; do
-    PYTHON_INTERPRETER="$(cpython_path $PYTHON)/bin/python"
-    PIP="$(cpython_path $PYTHON)/bin/pip"
-    PIPI_IO="$PIP install -f $MANYLINUX_URL"
-    PATH="$PATH:$(cpython_path $PYTHON)"
+for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
+    IFS=","
+    set -- $PYTHON_TUPLE;
+    PYTHON=$1
+    U_WIDTH=$2
+    PYTHON_INTERPRETER="$(cpython_path $PYTHON ${U_WIDTH})/bin/python"
+    PIP="$(cpython_path $PYTHON ${U_WIDTH})/bin/pip"
+    PATH="$PATH:$(cpython_path $PYTHON ${U_WIDTH})"
 
-    echo "=== (${PYTHON}) Installing build dependencies ==="
-    $PIPI_IO "numpy==1.10.4"
-    $PIPI_IO "cython==0.25.2"
-    $PIPI_IO "pandas==0.20.3"
-    $PIPI_IO "virtualenv==15.1.0"
+    echo "=== (${PYTHON}, ${U_WIDTH}) Installing build dependencies ==="
+    $PIP install "numpy==1.10.4"
+    $PIP install "cython==0.25.2"
+    $PIP install "pandas==0.20.3"
+    $PIP install "virtualenv==15.1.0"
 
-    echo "=== (${PYTHON}) Preparing virtualenv for tests ==="
-    "$(cpython_path $PYTHON)/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download /venv-test-${PYTHON}
-    source /venv-test-${PYTHON}/bin/activate
+    echo "=== (${PYTHON}, ${U_WIDTH}) Preparing virtualenv for tests ==="
+    "$(cpython_path $PYTHON ${U_WIDTH})/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download /venv-test-${PYTHON}-${U_WIDTH}
+    source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install pytest 'numpy==1.14.0' 'pandas==0.20.3'
     deactivate
 done
