@@ -33,8 +33,9 @@ install(FILES
   compression_zstd.h
   cpu-info.h
   decimal.h
-  hash-util.h
   hash.h
+  hash-util.h
+  io-util.h
   key_value_metadata.h
   logging.h
   macros.h
@@ -42,6 +43,7 @@ install(FILES
   rle-encoding.h
   sse-util.h
   stl.h
+  string.h
   type_traits.h
   variant.h
   visibility.h
