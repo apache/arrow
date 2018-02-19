@@ -899,7 +899,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   // offset for the entry ids. Used to build delta dictionaries,
   // increased on every InternalFinish by the number of current entries
   // in the dictionary
-  int32_t entry_id_offset_;
+  int64_t entry_id_offset_;
 
   // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
   // hash_table_size_, but uses far fewer CPU cycles
