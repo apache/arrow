@@ -197,8 +197,11 @@ def construct_metadata(df, column_names, index_levels, index_column_names,
     -------
     dict
     """
-    df_types = types[:-len(index_levels)]
-    index_types = types[-len(index_levels):]
+    # Use ntypes instead of Python shorthand notation [:-len(x)] as [:-0]
+    # behaves differently to what we want.
+    ntypes = len(types)
+    df_types = types[:ntypes - len(index_levels)]
+    index_types = types[ntypes - len(index_levels):]
 
     column_metadata = [
         get_column_metadata(
