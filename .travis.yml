@@ -83,7 +83,7 @@ matrix:
     - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
-    #- if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   # [OS X] C++ & Python w/ XCode 6.4
   - compiler: clang
     language: cpp
@@ -170,8 +170,6 @@ matrix:
     before_script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    # XXX put in travis_before_script_c_glib.sh?
-    - sudo apt-get install -y -q gtk-doc-tools autoconf-archive libgirepository1.0-dev
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
@@ -187,8 +185,6 @@ matrix:
     before_script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    # XXX put in travis_before_script_c_glib.sh?
-    - sudo apt-get install -y -q gtk-doc-tools autoconf-archive libgirepository1.0-dev
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
@@ -204,8 +200,6 @@ matrix:
     - BUILD_SYSTEM=autotools
     before_script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
-    # XXX put in travis_before_script_c_glib.sh?
-    - brew update && brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
