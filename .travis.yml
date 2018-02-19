@@ -84,25 +84,26 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     #- if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6; fi
-  ## [OS X] C++ & Python w/ XCode 6.4
-  #- compiler: clang
-    #language: cpp
-    #osx_image: xcode6.4
-    #os: osx
-    #cache:
-    #addons:
-    #before_script:
-    #- eval `python $TRAVIS_BUILD_DIR/ci/travis_detect_changes.py`
-    #- export ARROW_TRAVIS_USE_TOOLCHAIN=1
-    #- export ARROW_TRAVIS_PLASMA=1
-    #- export ARROW_TRAVIS_ORC=1
-    #- export ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    #- if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then travis_wait 50 $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh; fi
-    #script:
-    #- if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
-    #- if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh; fi
-    #- if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7; fi
-    #- if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6; fi
+  # [OS X] C++ & Python w/ XCode 6.4
+  - compiler: clang
+    language: cpp
+    osx_image: xcode6.4
+    os: osx
+    cache:
+    addons:
+    env:
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_PLASMA=1
+    - ARROW_TRAVIS_ORC=1
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    before_script:
+    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then travis_wait 50 $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh; fi
+    script:
+    - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   # [manylinux1] Python
   - language: cpp
     before_script:
@@ -119,33 +120,34 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_javadoc.sh
-  ## Java w/ Oracle JDK 9
-  #- language: java
-    #os: linux
-    #jdk: oraclejdk9
-    #before_script:
-    #- eval `python $TRAVIS_BUILD_DIR/ci/travis_detect_changes.py`
-    #script:
-    #- if [ $ARROW_CI_JAVA_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_java.sh; fi
-    #addons:
-      #apt:
-        #packages:
-          #- oracle-java9-installer
-  ## Integration w/ OpenJDK 8
-  #- language: java
-    #os: linux
-    #env: ARROW_TEST_GROUP=integration
-    #jdk: openjdk8
-    #before_script:
-    #- eval `python $TRAVIS_BUILD_DIR/ci/travis_detect_changes.py`
-    #- source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    #- export CC="clang-5.0"
-    #- export CXX="clang++-5.0"
-    #- nvm install node
-    #- if [ $ARROW_CI_INTEGRATION_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh; fi
-    #- if [ $ARROW_CI_INTEGRATION_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh; fi
-    #script:
-    #- if [ $ARROW_CI_INTEGRATION_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh; fi
+  # Java w/ Oracle JDK 9
+  - language: java
+    os: linux
+    jdk: oraclejdk9
+    before_script:
+    - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+    addons:
+      apt:
+        packages:
+          - oracle-java9-installer
+  # Integration w/ OpenJDK 8
+  - language: java
+    os: linux
+    env: ARROW_TEST_GROUP=integration
+    jdk: openjdk8
+    env:
+    - CC="clang-5.0"
+    - CXX="clang++-5.0"
+    before_script:
+    - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
+    - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - nvm install node
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
   # NodeJS
   - language: node_js
     os: linux
