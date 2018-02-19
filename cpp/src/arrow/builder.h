@@ -879,6 +879,9 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// is the dictionary builder in the delta building mode
+  bool is_building_delta() { return entry_id_offset_ > 0; }
+
  protected:
   Status DoubleTableSize();
   Scalar GetDictionaryValue(typename TypeTraits<T>::BuilderType& dictionary_builder, int64_t index);
