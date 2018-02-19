@@ -40,6 +40,7 @@ from distutils.util import strtobool
 from distutils import sysconfig
 
 # Check if we're running 64-bit Python
+# x
 is_64_bit = sys.maxsize > 2**32
 
 if Cython.__version__ < '0.19.1':
