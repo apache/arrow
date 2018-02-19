@@ -17,8 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
-sudo apt-add-repository -y \
-     "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-5.0 main"
-sudo apt-get update -qq
-sudo apt-get install -q clang-5.0 clang-format-5.0 clang-tidy-5.0
+sudo apt-get install -y -q \
+    gdb ccache libboost-dev libboost-filesystem-dev \
+    libboost-system-dev libjemalloc-dev
+
+if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
+    sudo apt-get install -y -q valgrind
+fi
