@@ -2073,7 +2073,6 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   for (int16_t idx=0; idx < kTestLength; ++idx) {
       ASSERT_OK(builder.Append("test1"));
       ASSERT_OK(int_builder2.Append(1));
-
   }
 
   for (int16_t idx=0; idx < kTestLength; ++idx) {
@@ -2103,7 +2102,6 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   for (int16_t idx=0; idx < kTestLength; ++idx) {
       ASSERT_OK(builder.Append("test2"));
       ASSERT_OK(int_builder3.Append(2));
-
   }
 
   for (int16_t idx=0; idx < kTestLength; ++idx) {

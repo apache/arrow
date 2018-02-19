@@ -884,7 +884,8 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 
  protected:
   Status DoubleTableSize();
-  Scalar GetDictionaryValue(typename TypeTraits<T>::BuilderType& dictionary_builder, int64_t index);
+  Scalar GetDictionaryValue(typename TypeTraits<T>::BuilderType& dictionary_builder,
+                            int64_t index);
   int64_t HashValue(const Scalar& value);
   bool SlotDifferent(hash_slot_t slot, const Scalar& value);
   Status AppendDictionary(const Scalar& value);
