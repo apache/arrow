@@ -436,7 +436,7 @@ describe(`Table`, () => {
             });
             test(`table.toString()`, () => {
                 let selected = table.select('i32', 'dictionary');
-                let headers  = [`"row_id"`, `"i32: Int32"`, `"dictionary: Dictionary<Utf8, Int8>"`];
+                let headers  = [`"row_id"`, `"i32: Int32"`, `"dictionary: Dictionary<Int8, Utf8>"`];
                 let expected = [headers.join(' | '), ...values.map((row, idx) => {
                     return [`${idx}`, `${row[I32]}`, `"${row[DICT]}"`].map((str, col) => {
                                 return leftPad(str, ' ', headers[col].length);
