@@ -17,23 +17,6 @@
 
 sudo: required
 dist: trusty
-#addons:
-  #apt:
-    #sources:
-    #- ubuntu-toolchain-r-test
-    #packages:
-    #- gcc-4.9   # Needed for C++11
-    #- g++-4.9   # Needed for C++11
-    #- gdb
-    #- ccache
-    #- valgrind
-    #- libboost-dev
-    #- libboost-filesystem-dev
-    #- libboost-system-dev
-    #- libjemalloc-dev
-    #- gtk-doc-tools
-    #- autoconf-archive
-    #- libgirepository1.0-dev
 
 services:
   - docker

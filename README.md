@@ -113,4 +113,3 @@ Thank you in advance for your contributions!
 [2]: https://github.com/apache/arrow/tree/master/format
 [3]: https://issues.apache.org/jira/browse/ARROW
 [4]: https://github.com/apache/arrow
-
