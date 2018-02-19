@@ -125,7 +125,6 @@ from pyarrow.ipc import (Message, MessageReader,
 localfs = LocalFileSystem.get_instance()
 
 from pyarrow.serialization import (default_serialization_context,
-                                   pandas_serialization_context,
                                    register_default_serialization_handlers,
                                    register_torch_serialization_handlers)
 

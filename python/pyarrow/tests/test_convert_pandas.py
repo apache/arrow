@@ -1613,7 +1613,7 @@ def _fully_loaded_dataframe_example():
 
 
 def _check_serialize_components_roundtrip(df):
-    ctx = pa.pandas_serialization_context()
+    ctx = pa.default_serialization_context()
 
     components = ctx.serialize(df).to_components()
     deserialized = ctx.deserialize_components(components)
