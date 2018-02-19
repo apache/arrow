@@ -915,45 +915,6 @@ Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 template <>
-Status DictionaryBuilder<BinaryType>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  entry_id_offset_ += dict_builder_.length();
-
-  std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
-  // RETURN_NOT_OK(overflow_dict_builder_.Append(reinterpret_cast<const
-  // uint8_t*>(dictionary->data().get()), dictionary->length()));
-
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
-  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-
-  RETURN_NOT_OK(dict_builder_.Init(capacity_));
-  RETURN_NOT_OK(values_builder_.Init(capacity_));
-  return Status::OK();
-}
-
-template <>
-Status DictionaryBuilder<StringType>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  entry_id_offset_ += dict_builder_.length();
-  for (uint32_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {
-    int32_t out_length;
-    const uint8_t* value = dict_builder_.GetValue(index, &out_length);
-    RETURN_NOT_OK(overflow_dict_builder_.Append(value, out_length));
-  }
-
-  std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
-  RETURN_NOT_OK(overflow_dict_builder_.Append(
-      reinterpret_cast<const char*>(dictionary->data().get()), dictionary->length()));
-
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
-  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-
-  RETURN_NOT_OK(dict_builder_.Init(capacity_));
-  RETURN_NOT_OK(values_builder_.Init(capacity_));
-  return Status::OK();
-}
-
-template <>
 Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(
     std::shared_ptr<ArrayData>* out) {
   entry_id_offset_ += dict_builder_.length();
@@ -1180,6 +1141,29 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
     } else {                                                                             \
       return false;                                                                      \
     }                                                                                    \
+  }                                                                                      \
+                                                                                         \
+  template <>                                                                            \
+  Status DictionaryBuilder<Type>::FinishInternal(std::shared_ptr<ArrayData>* out) {\
+    entry_id_offset_ += dict_builder_.length();                                          \
+    for (uint32_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {   \
+      int32_t out_length;                                                                \
+      const uint8_t* value = dict_builder_.GetValue(index, &out_length);                 \
+      RETURN_NOT_OK(overflow_dict_builder_.Append(value, out_length));                   \
+    }                                                                                    \
+                                                                                         \
+    std::shared_ptr<Array> dictionary;                                                   \
+    RETURN_NOT_OK(dict_builder_.Finish(&dictionary));                                    \
+    RETURN_NOT_OK(overflow_dict_builder_.Append(                                         \
+                      reinterpret_cast<const char*>(dictionary->data().get()),           \
+                      dictionary->length()));                                            \
+                                                                                         \
+    RETURN_NOT_OK(values_builder_.FinishInternal(out));                                  \
+    (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);           \
+                                                                                         \
+    RETURN_NOT_OK(dict_builder_.Init(capacity_));                                        \
+    RETURN_NOT_OK(values_builder_.Init(capacity_));                                      \
+    return Status::OK();                                                                 \
   }
 
 BINARY_DICTIONARY_SPECIALIZATIONS(StringType);
