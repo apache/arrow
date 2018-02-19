@@ -897,51 +897,6 @@ Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
 }
 
 template <typename T>
-Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  entry_id_offset_ += dict_builder_.length();
-  RETURN_NOT_OK(overflow_dict_builder_.Append(
-      reinterpret_cast<const DictionaryBuilder<T>::Scalar*>(dict_builder_.data()->data()),
-      dict_builder_.length(), nullptr));
-
-  std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
-
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
-  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-
-  RETURN_NOT_OK(dict_builder_.Init(capacity_));
-  RETURN_NOT_OK(values_builder_.Init(capacity_));
-  return Status::OK();
-}
-
-template <>
-Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(
-    std::shared_ptr<ArrayData>* out) {
-  entry_id_offset_ += dict_builder_.length();
-
-  std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
-  // RETURN_NOT_OK(overflow_dict_builder_.Append(reinterpret_cast<const
-  // uint8_t*>(dictionary->data().get()), dictionary->length() * byte_width_));
-
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
-  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-
-  RETURN_NOT_OK(dict_builder_.Init(capacity_));
-  RETURN_NOT_OK(values_builder_.Init(capacity_));
-
-  return Status::OK();
-}
-
-Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Array> dictionary = std::make_shared<NullArray>(0);
-
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
-  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-  return Status::OK();
-}
-
-template <typename T>
 Status DictionaryBuilder<T>::Append(const Scalar& value) {
   RETURN_NOT_OK(Reserve(1));
   // Based on DictEncoder<DType>::Put
@@ -1037,11 +992,59 @@ typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
   return data[index];
 }
 
+template <typename T>
+Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  entry_id_offset_ += dict_builder_.length();
+  RETURN_NOT_OK(overflow_dict_builder_.Append(
+      reinterpret_cast<const DictionaryBuilder<T>::Scalar*>(dict_builder_.data()->data()),
+      dict_builder_.length(), nullptr));
+
+  std::shared_ptr<Array> dictionary;
+  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
+
+  RETURN_NOT_OK(values_builder_.FinishInternal(out));
+  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
+
+  RETURN_NOT_OK(dict_builder_.Init(capacity_));
+  RETURN_NOT_OK(values_builder_.Init(capacity_));
+  return Status::OK();
+}
+
+Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  std::shared_ptr<Array> dictionary = std::make_shared<NullArray>(0);
+
+  RETURN_NOT_OK(values_builder_.FinishInternal(out));
+  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
+  return Status::OK();
+}
+
 template <>
 const uint8_t* DictionaryBuilder<FixedSizeBinaryType>::GetDictionaryValue(
     typename TypeTraits<FixedSizeBinaryType>::BuilderType& dictionary_builder,
     int64_t index) {
   return dictionary_builder.GetValue(index);
+}
+
+template <>
+Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(
+    std::shared_ptr<ArrayData>* out) {
+  entry_id_offset_ += dict_builder_.length();
+
+  for (uint32_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {
+    const Scalar value = GetDictionaryValue(dict_builder_, index);
+    RETURN_NOT_OK(overflow_dict_builder_.Append(value));
+  }
+
+  std::shared_ptr<Array> dictionary;
+  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
+
+  RETURN_NOT_OK(values_builder_.FinishInternal(out));
+  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
+
+  RETURN_NOT_OK(dict_builder_.Init(capacity_));
+  RETURN_NOT_OK(values_builder_.Init(capacity_));
+
+  return Status::OK();
 }
 
 template <typename T>
@@ -1075,7 +1078,7 @@ bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
       GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
   if (overflow_dict_builder_.length() > 0) {
     const Scalar other_overflow =
-        GetDictionaryValue(dict_builder_, static_cast<int64_t>(index));
+        GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index));
     return memcmp(other, value, width) != 0 && memcmp(other_overflow, value, width) != 0;
   } else {
     return memcmp(other, value, width) != 0;
@@ -1144,7 +1147,7 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   }                                                                                      \
                                                                                          \
   template <>                                                                            \
-  Status DictionaryBuilder<Type>::FinishInternal(std::shared_ptr<ArrayData>* out) {\
+  Status DictionaryBuilder<Type>::FinishInternal(std::shared_ptr<ArrayData>* out) {      \
     entry_id_offset_ += dict_builder_.length();                                          \
     for (uint32_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {   \
       int32_t out_length;                                                                \
@@ -1155,8 +1158,7 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
     std::shared_ptr<Array> dictionary;                                                   \
     RETURN_NOT_OK(dict_builder_.Finish(&dictionary));                                    \
     RETURN_NOT_OK(overflow_dict_builder_.Append(                                         \
-                      reinterpret_cast<const char*>(dictionary->data().get()),           \
-                      dictionary->length()));                                            \
+        reinterpret_cast<const char*>(dictionary->data().get()), dictionary->length())); \
                                                                                          \
     RETURN_NOT_OK(values_builder_.FinishInternal(out));                                  \
     (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);           \
@@ -1426,6 +1428,9 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
   *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
+
+  null_bitmap_ = nullptr;
+  capacity_ = length_ = null_count_ = 0;
   return Status::OK();
 }
 

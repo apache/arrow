@@ -2045,12 +2045,12 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   StringBuilder str_builder1;
   Int16Builder int_builder1;
 
-  for (int16_t idx=0; idx < kTestLength; ++idx) {
-      std::stringstream sstream;
-      sstream << "test" << idx;
-      ASSERT_OK(builder.Append(sstream.str()));
-      ASSERT_OK(str_builder1.Append(sstream.str()));
-      ASSERT_OK(int_builder1.Append(idx));
+  for (int16_t idx = 0; idx < kTestLength; ++idx) {
+    std::stringstream sstream;
+    sstream << "test" << idx;
+    ASSERT_OK(builder.Append(sstream.str()));
+    ASSERT_OK(str_builder1.Append(sstream.str()));
+    ASSERT_OK(int_builder1.Append(idx));
   }
 
   std::shared_ptr<Array> result;
@@ -2070,17 +2070,16 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   StringBuilder str_builder2;
   Int16Builder int_builder2;
 
-  for (int16_t idx=0; idx < kTestLength; ++idx) {
-      ASSERT_OK(builder.Append("test1"));
-      ASSERT_OK(int_builder2.Append(1));
+  for (int16_t idx = 0; idx < kTestLength; ++idx) {
+    ASSERT_OK(builder.Append("test1"));
+    ASSERT_OK(int_builder2.Append(1));
   }
 
-  for (int16_t idx=0; idx < kTestLength; ++idx) {
-      ASSERT_OK(builder.Append("test_new_value1"));
-      ASSERT_OK(int_builder2.Append(kTestLength));
+  for (int16_t idx = 0; idx < kTestLength; ++idx) {
+    ASSERT_OK(builder.Append("test_new_value1"));
+    ASSERT_OK(int_builder2.Append(kTestLength));
   }
   ASSERT_OK(str_builder2.Append("test_new_value1"));
-
 
   std::shared_ptr<Array> result2;
   ASSERT_OK(builder.Finish(&result2));
@@ -2099,17 +2098,16 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   StringBuilder str_builder3;
   Int16Builder int_builder3;
 
-  for (int16_t idx=0; idx < kTestLength; ++idx) {
-      ASSERT_OK(builder.Append("test2"));
-      ASSERT_OK(int_builder3.Append(2));
+  for (int16_t idx = 0; idx < kTestLength; ++idx) {
+    ASSERT_OK(builder.Append("test2"));
+    ASSERT_OK(int_builder3.Append(2));
   }
 
-  for (int16_t idx=0; idx < kTestLength; ++idx) {
-      ASSERT_OK(builder.Append("test_new_value2"));
-      ASSERT_OK(int_builder3.Append(kTestLength+1));
+  for (int16_t idx = 0; idx < kTestLength; ++idx) {
+    ASSERT_OK(builder.Append("test_new_value2"));
+    ASSERT_OK(int_builder3.Append(kTestLength + 1));
   }
   ASSERT_OK(str_builder3.Append("test_new_value2"));
-
 
   std::shared_ptr<Array> result3;
   ASSERT_OK(builder.Finish(&result3));
@@ -2155,6 +2153,65 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
 
   DictionaryArray expected(dtype, int_array);
   ASSERT_TRUE(expected.Equals(result));
+}
+
+TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
+  // Build the dictionary Array
+  DictionaryBuilder<FixedSizeBinaryType> builder(arrow::fixed_size_binary(4),
+                                                 default_memory_pool());
+  std::vector<uint8_t> test{12, 12, 11, 12};
+  std::vector<uint8_t> test2{12, 12, 11, 11};
+  std::vector<uint8_t> test3{12, 12, 11, 10};
+
+  ASSERT_OK(builder.Append(test.data()));
+  ASSERT_OK(builder.Append(test2.data()));
+  ASSERT_OK(builder.Append(test.data()));
+
+  std::shared_ptr<Array> result1;
+  ASSERT_OK(builder.Finish(&result1));
+
+  // Build expected data
+  FixedSizeBinaryBuilder fsb_builder1(arrow::fixed_size_binary(4));
+  ASSERT_OK(fsb_builder1.Append(test.data()));
+  ASSERT_OK(fsb_builder1.Append(test2.data()));
+  std::shared_ptr<Array> fsb_array1;
+  ASSERT_OK(fsb_builder1.Finish(&fsb_array1));
+  auto dtype1 = std::make_shared<DictionaryType>(int8(), fsb_array1);
+
+  Int8Builder int_builder1;
+  ASSERT_OK(int_builder1.Append(0));
+  ASSERT_OK(int_builder1.Append(1));
+  ASSERT_OK(int_builder1.Append(0));
+  std::shared_ptr<Array> int_array1;
+  ASSERT_OK(int_builder1.Finish(&int_array1));
+
+  DictionaryArray expected1(dtype1, int_array1);
+  ASSERT_TRUE(expected1.Equals(result1));
+
+  // build delta dictionary
+  ASSERT_OK(builder.Append(test.data()));
+  ASSERT_OK(builder.Append(test2.data()));
+  ASSERT_OK(builder.Append(test3.data()));
+
+  std::shared_ptr<Array> result2;
+  ASSERT_OK(builder.Finish(&result2));
+
+  // Build expected data
+  FixedSizeBinaryBuilder fsb_builder2(arrow::fixed_size_binary(4));
+  ASSERT_OK(fsb_builder2.Append(test3.data()));
+  std::shared_ptr<Array> fsb_array2;
+  ASSERT_OK(fsb_builder2.Finish(&fsb_array2));
+  auto dtype2 = std::make_shared<DictionaryType>(int8(), fsb_array2);
+
+  Int8Builder int_builder2;
+  ASSERT_OK(int_builder2.Append(0));
+  ASSERT_OK(int_builder2.Append(1));
+  ASSERT_OK(int_builder2.Append(2));
+  std::shared_ptr<Array> int_array2;
+  ASSERT_OK(int_builder2.Finish(&int_array2));
+
+  DictionaryArray expected2(dtype2, int_array2);
+  ASSERT_TRUE(expected2.Equals(result2));
 }
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {

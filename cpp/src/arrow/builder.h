@@ -908,7 +908,6 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   typename TypeTraits<T>::BuilderType dict_builder_;
   typename TypeTraits<T>::BuilderType overflow_dict_builder_;
 
-
   AdaptiveIntBuilder values_builder_;
   int32_t byte_width_;
 
