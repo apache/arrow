@@ -33,15 +33,6 @@
 namespace arrow {
 namespace py {
 
-TEST(PyBuffer, InvalidInputObject) {
-  std::shared_ptr<Buffer> res;
-  PyObject* input = Py_None;
-  auto old_refcnt = Py_REFCNT(input);
-  ASSERT_RAISES(PythonError, PyBuffer::FromPyObject(input, &res));
-  PyErr_Clear();
-  ASSERT_EQ(old_refcnt, Py_REFCNT(input));
-}
-
 TEST(OwnedRef, TestMoves) {
   PyAcquireGIL lock;
   std::vector<OwnedRef> vec;
@@ -95,7 +86,7 @@ class DecimalTest : public ::testing::Test {
     return ref;
   }
 
-  OwnedRef decimal_constructor() const { return decimal_constructor_; }
+  PyObject* decimal_constructor() const { return decimal_constructor_.obj(); }
 
  private:
   PyAcquireGIL lock_;
@@ -252,7 +243,7 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
 
   ASSERT_NE(list, nullptr);
 
-  PyObject* constructor = this->decimal_constructor().obj();
+  PyObject* constructor = this->decimal_constructor();
   PyObject* decimal_value = internal::DecimalFromString(constructor, "1.234");
   ASSERT_NE(decimal_value, nullptr);
 
@@ -283,8 +274,8 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
 }
 
 TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
-  PyObject* value2 = internal::DecimalFromString(this->decimal_constructor().obj(), "0.001");
-  PyObject* value1 = internal::DecimalFromString(this->decimal_constructor().obj(), "1.01E5");
+  PyObject* value2 = internal::DecimalFromString(this->decimal_constructor(), "0.001");
+  PyObject* value1 = internal::DecimalFromString(this->decimal_constructor(), "1.01E5");
 
   OwnedRef list_ref(PyList_New(2));
   PyObject* list = list_ref.obj();
