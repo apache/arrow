@@ -1131,8 +1131,9 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
 ListBuilder::ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
                          const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(type ? type : std::static_pointer_cast<DataType>(
-                                     std::make_shared<ListType>(value_builder->type())),
+    : ArrayBuilder(type ? type
+                        : std::static_pointer_cast<DataType>(
+                              std::make_shared<ListType>(value_builder->type())),
                    pool),
       offsets_builder_(pool),
       value_builder_(std::move(value_builder)) {}
@@ -1373,8 +1374,8 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-// ----------------------------------------------------------------------
-// Helper functions
+  // ----------------------------------------------------------------------
+  // Helper functions
 
 #define BUILDER_CASE(ENUM, BuilderType)      \
   case Type::ENUM:                           \

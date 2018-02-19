@@ -161,6 +161,26 @@ garrow_column_new_chunked_array(GArrowField *field,
 }
 
 /**
+ * garrow_column_slice:
+ * @column: A #GArrowColumn.
+ * @offset: The offset of sub #GArrowColumn.
+ * @length: The length of sub #GArrowColumn.
+ *
+ * Returns: (transfer full): The sub #GArrowColumn. It covers only from
+ *   `offset` to `offset + length` range. The sub #GArrowColumn shares
+ *   values with the base #GArrowColumn.
+ */
+GArrowColumn *
+garrow_column_slice(GArrowColumn *column,
+                    guint64 offset,
+                    guint64 length)
+{
+  const auto arrow_column = garrow_column_get_raw(column);
+  auto arrow_sub_column = arrow_column->Slice(offset, length);
+  return garrow_column_new_raw(&arrow_sub_column);
+}
+
+/**
  * garrow_column_equal:
  * @column: A #GArrowColumn.
  * @other_column: A #GArrowColumn to be compared.

@@ -909,12 +909,21 @@ if (ARROW_ORC)
   set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
   set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+  if ("${COMPILER_FAMILY}" STREQUAL "clang")
+    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
+-Wno-inconsistent-missing-destructor-override ")
+    endif()
+  endif()
+
+  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
+
   # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
   # ${LZ4_HOME}/include, which forces us to specify the include directory
   # manually as well.
   set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                       -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
-                      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+                      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
                       -DBUILD_LIBHDFSPP=OFF
                       -DBUILD_JAVA=OFF
                       -DBUILD_TOOLS=OFF

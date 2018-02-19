@@ -119,19 +119,11 @@ std::shared_ptr<Array> TestBase::MakeRandomArray<BinaryArray>(int64_t length,
 
 class TestBuilder : public ::testing::Test {
  public:
-  void SetUp() {
-    pool_ = default_memory_pool();
-    type_ = uint8();
-    builder_.reset(new UInt8Builder(pool_));
-    builder_nn_.reset(new UInt8Builder(pool_));
-  }
+  void SetUp() { pool_ = default_memory_pool(); }
 
  protected:
   MemoryPool* pool_;
-
   std::shared_ptr<DataType> type_;
-  std::unique_ptr<ArrayBuilder> builder_;
-  std::unique_ptr<ArrayBuilder> builder_nn_;
 };
 
 }  // namespace arrow

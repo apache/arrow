@@ -857,7 +857,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
   using Scalar = typename internal::DictionaryScalar<T>::type;
 
-  ~DictionaryBuilder() {}
+  ~DictionaryBuilder() override {}
 
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
@@ -907,7 +907,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 template <>
 class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
  public:
-  ~DictionaryBuilder();
+  ~DictionaryBuilder() override;
 
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
   explicit DictionaryBuilder(MemoryPool* pool);

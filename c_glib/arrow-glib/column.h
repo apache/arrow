@@ -71,6 +71,9 @@ GArrowColumn *garrow_column_new_array(GArrowField *field,
                                       GArrowArray *array);
 GArrowColumn *garrow_column_new_chunked_array(GArrowField *field,
                                               GArrowChunkedArray *chunked_array);
+GArrowColumn *garrow_column_slice(GArrowColumn *column,
+                                  guint64 offset,
+                                  guint64 length);
 
 gboolean            garrow_column_equal         (GArrowColumn *column,
                                                  GArrowColumn *other_column);

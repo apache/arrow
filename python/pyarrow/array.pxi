@@ -244,6 +244,22 @@ cdef wrap_datum(const CDatum& datum):
         raise ValueError("Unable to wrap Datum in a Python object")
 
 
+cdef _append_array_buffers(const CArrayData* ad, list res):
+    """
+    Recursively append Buffer wrappers from *ad* and its children.
+    """
+    cdef size_t i, n
+    assert ad != NULL
+    n = ad.buffers.size()
+    for i in range(n):
+        buf = ad.buffers[i]
+        res.append(pyarrow_wrap_buffer(buf)
+                   if buf.get() != NULL else None)
+    n = ad.child_data.size()
+    for i in range(n):
+        _append_array_buffers(ad.child_data[i].get(), res)
+
+
 cdef class Array:
 
     cdef void init(self, const shared_ptr[CArray]& sp_array):
@@ -462,6 +478,15 @@ cdef class Array:
         """
         with nogil:
             check_status(ValidateArray(deref(self.ap)))
+
+    def buffers(self):
+        """
+        Return a list of Buffer objects pointing to this array's physical
+        storage.
+        """
+        res = []
+        _append_array_buffers(self.sp_array.get().data().get(), res)
+        return res
 
 
 cdef class Tensor:

@@ -89,7 +89,7 @@ class DefaultMemoryPool : public MemoryPool {
  public:
   DefaultMemoryPool() : bytes_allocated_(0) { max_memory_ = 0; }
 
-  ~DefaultMemoryPool() {}
+  ~DefaultMemoryPool() override {}
 
   Status Allocate(int64_t size, uint8_t** out) override {
     RETURN_NOT_OK(AllocateAligned(size, out));

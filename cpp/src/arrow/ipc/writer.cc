@@ -106,7 +106,7 @@ class RecordBatchSerializer : public ArrayVisitor {
     DCHECK_GT(max_recursion_depth, 0);
   }
 
-  virtual ~RecordBatchSerializer() = default;
+  ~RecordBatchSerializer() override = default;
 
   Status VisitArray(const Array& arr) {
     if (max_recursion_depth_ <= 0) {
@@ -956,17 +956,17 @@ Status RecordBatchFileWriter::Open(io::OutputStream* sink,
                                    std::shared_ptr<RecordBatchWriter>* out) {
   // ctor is private
   auto result = std::shared_ptr<RecordBatchFileWriter>(new RecordBatchFileWriter());
-  result->impl_.reset(new RecordBatchFileWriterImpl(sink, schema));
+  result->file_impl_.reset(new RecordBatchFileWriterImpl(sink, schema));
   *out = result;
   return Status::OK();
 }
 
 Status RecordBatchFileWriter::WriteRecordBatch(const RecordBatch& batch,
                                                bool allow_64bit) {
-  return impl_->WriteRecordBatch(batch, allow_64bit);
+  return file_impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
-Status RecordBatchFileWriter::Close() { return impl_->Close(); }
+Status RecordBatchFileWriter::Close() { return file_impl_->Close(); }
 
 // ----------------------------------------------------------------------
 // Serialization public APIs

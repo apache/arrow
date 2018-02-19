@@ -58,7 +58,7 @@ matrix:
   allow_failures:
   - jdk: oraclejdk9
   include:
-  # C++ & Python w/ clang 4.0
+  # C++ & Python w/ clang 5.0
   - compiler: gcc
     language: cpp
     os: linux
@@ -70,8 +70,8 @@ matrix:
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_CLANG_FORMAT=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - CC="clang-4.0"
-    - CXX="clang++-4.0"
+    - CC="clang-5.0"
+    - CXX="clang++-5.0"
     before_script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
@@ -138,8 +138,8 @@ matrix:
     #before_script:
     #- eval `python $TRAVIS_BUILD_DIR/ci/travis_detect_changes.py`
     #- source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    #- export CC="clang-4.0"
-    #- export CXX="clang++-4.0"
+    #- export CC="clang-5.0"
+    #- export CXX="clang++-5.0"
     #- nvm install node
     #- if [ $ARROW_CI_INTEGRATION_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh; fi
     #- if [ $ARROW_CI_INTEGRATION_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh; fi

@@ -56,7 +56,7 @@ class HashException : public std::exception {
   explicit HashException(const std::string& msg, StatusCode code = StatusCode::Invalid)
       : msg_(msg), code_(code) {}
 
-  ~HashException() throw() {}
+  ~HashException() throw() override {}
 
   const char* what() const throw() override;
 
