@@ -146,52 +146,31 @@ export abstract class DataType<TType extends Type = any> implements Partial<Visi
     // @ts-ignore
     public [Symbol.toStringTag]: string;
 
-    static            isNull (x: DataType): x is Null            { return x.TType === Type.Null;            }
-    static             isInt (x: DataType): x is Int             { return x.TType === Type.Int;             }
-    static           isFloat (x: DataType): x is Float           { return x.TType === Type.Float;           }
-    static          isBinary (x: DataType): x is Binary          { return x.TType === Type.Binary;          }
-    static            isUtf8 (x: DataType): x is Utf8            { return x.TType === Type.Utf8;            }
-    static            isBool (x: DataType): x is Bool            { return x.TType === Type.Bool;            }
-    static         isDecimal (x: DataType): x is Decimal         { return x.TType === Type.Decimal;         }
-    static            isDate (x: DataType): x is Date_           { return x.TType === Type.Date;            }
-    static            isTime (x: DataType): x is Time            { return x.TType === Type.Time;            }
-    static       isTimestamp (x: DataType): x is Timestamp       { return x.TType === Type.Timestamp;       }
-    static        isInterval (x: DataType): x is Interval        { return x.TType === Type.Interval;        }
-    static            isList (x: DataType): x is List            { return x.TType === Type.List;            }
-    static          isStruct (x: DataType): x is Struct          { return x.TType === Type.Struct;          }
-    static           isUnion (x: DataType): x is Union           { return x.TType === Type.Union;           }
-    static      isDenseUnion (x: DataType): x is DenseUnion      { return x.TType === Type.DenseUnion;      }
-    static     isSparseUnion (x: DataType): x is SparseUnion     { return x.TType === Type.SparseUnion;     }
-    static isFixedSizeBinary (x: DataType): x is FixedSizeBinary { return x.TType === Type.FixedSizeBinary; }
-    static   isFixedSizeList (x: DataType): x is FixedSizeList   { return x.TType === Type.FixedSizeList;   }
-    static             isMap (x: DataType): x is Map_            { return x.TType === Type.Map;             }
-    static      isDictionary (x: DataType): x is Dictionary      { return x.TType === Type.Dictionary;      }
+    static            isNull (x: any): x is Null            { return x && x.TType === Type.Null;            }
+    static             isInt (x: any): x is Int             { return x && x.TType === Type.Int;             }
+    static           isFloat (x: any): x is Float           { return x && x.TType === Type.Float;           }
+    static          isBinary (x: any): x is Binary          { return x && x.TType === Type.Binary;          }
+    static            isUtf8 (x: any): x is Utf8            { return x && x.TType === Type.Utf8;            }
+    static            isBool (x: any): x is Bool            { return x && x.TType === Type.Bool;            }
+    static         isDecimal (x: any): x is Decimal         { return x && x.TType === Type.Decimal;         }
+    static            isDate (x: any): x is Date_           { return x && x.TType === Type.Date;            }
+    static            isTime (x: any): x is Time            { return x && x.TType === Type.Time;            }
+    static       isTimestamp (x: any): x is Timestamp       { return x && x.TType === Type.Timestamp;       }
+    static        isInterval (x: any): x is Interval        { return x && x.TType === Type.Interval;        }
+    static            isList (x: any): x is List            { return x && x.TType === Type.List;            }
+    static          isStruct (x: any): x is Struct          { return x && x.TType === Type.Struct;          }
+    static           isUnion (x: any): x is Union           { return x && x.TType === Type.Union;           }
+    static      isDenseUnion (x: any): x is DenseUnion      { return x && x.TType === Type.DenseUnion;      }
+    static     isSparseUnion (x: any): x is SparseUnion     { return x && x.TType === Type.SparseUnion;     }
+    static isFixedSizeBinary (x: any): x is FixedSizeBinary { return x && x.TType === Type.FixedSizeBinary; }
+    static   isFixedSizeList (x: any): x is FixedSizeList   { return x && x.TType === Type.FixedSizeList;   }
+    static             isMap (x: any): x is Map_            { return x && x.TType === Type.Map;             }
+    static      isDictionary (x: any): x is Dictionary      { return x && x.TType === Type.Dictionary;      }
 
     constructor(public readonly TType: TType,
                 public readonly children?: Field[]) {}
-
-    acceptTypeVisitor(visitor: TypeVisitor): any {
-        switch (this.TType) {
-            case Type.Null:            return DataType.isNull(this)            && visitor.visitNull(this)            || null;
-            case Type.Int:             return DataType.isInt(this)             && visitor.visitInt(this)             || null;
-            case Type.Float:           return DataType.isFloat(this)           && visitor.visitFloat(this)           || null;
-            case Type.Binary:          return DataType.isBinary(this)          && visitor.visitBinary(this)          || null;
-            case Type.Utf8:            return DataType.isUtf8(this)            && visitor.visitUtf8(this)            || null;
-            case Type.Bool:            return DataType.isBool(this)            && visitor.visitBool(this)            || null;
-            case Type.Decimal:         return DataType.isDecimal(this)         && visitor.visitDecimal(this)         || null;
-            case Type.Date:            return DataType.isDate(this)            && visitor.visitDate(this)            || null;
-            case Type.Time:            return DataType.isTime(this)            && visitor.visitTime(this)            || null;
-            case Type.Timestamp:       return DataType.isTimestamp(this)       && visitor.visitTimestamp(this)       || null;
-            case Type.Interval:        return DataType.isInterval(this)        && visitor.visitInterval(this)        || null;
-            case Type.List:            return DataType.isList(this)            && visitor.visitList(this)            || null;
-            case Type.Struct:          return DataType.isStruct(this)          && visitor.visitStruct(this)          || null;
-            case Type.Union:           return DataType.isUnion(this)           && visitor.visitUnion(this)           || null;
-            case Type.FixedSizeBinary: return DataType.isFixedSizeBinary(this) && visitor.visitFixedSizeBinary(this) || null;
-            case Type.FixedSizeList:   return DataType.isFixedSizeList(this)   && visitor.visitFixedSizeList(this)   || null;
-            case Type.Map:             return DataType.isMap(this)             && visitor.visitMap(this)             || null;
-            case Type.Dictionary:      return DataType.isDictionary(this)      && visitor.visitDictionary(this)      || null;
-            default: return null;
-        }
+    public acceptTypeVisitor(visitor: TypeVisitor): any {
+        return TypeVisitor.visitTypeInline(visitor, this);
     }
     protected static [Symbol.toStringTag] = ((proto: DataType) => {
         (<any> proto).ArrayType = Array;
@@ -205,9 +184,6 @@ export class Null extends DataType<Type.Null> {
         super(Type.Null);
     }
     public toString() { return `Null`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitNull(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Null) => {
         return proto[Symbol.toStringTag] = 'Null';
     })(Null.prototype);
@@ -221,7 +197,7 @@ export class Int<TValueType = any, TArrayType extends IntArray = IntArray> exten
     }
     public get ArrayType(): TypedArrayConstructor<TArrayType> {
         switch (this.bitWidth) {
-            case  8: return (this.isSigned ? Int8Array : Uint8Array) as any;
+            case  8: return (this.isSigned ?  Int8Array :  Uint8Array) as any;
             case 16: return (this.isSigned ? Int16Array : Uint16Array) as any;
             case 32: return (this.isSigned ? Int32Array : Uint32Array) as any;
             case 64: return (this.isSigned ? Int32Array : Uint32Array) as any;
@@ -229,7 +205,6 @@ export class Int<TValueType = any, TArrayType extends IntArray = IntArray> exten
         throw new Error(`Unrecognized ${this[Symbol.toStringTag]} type`);
     }
     public toString() { return `${this.isSigned ? `I` : `Ui`}nt${this.bitWidth}`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitInt(this); }
     protected static [Symbol.toStringTag] = ((proto: Int) => {
         return proto[Symbol.toStringTag] = 'Int';
     })(Int.prototype);
@@ -259,7 +234,6 @@ export class Float<TArrayType extends FloatArray = FloatArray> extends DataType<
         throw new Error(`Unrecognized ${this[Symbol.toStringTag]} type`);
     }
     public toString() { return `Float${(this.precision << 5) || 16}`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitFloat(this); }
     protected static [Symbol.toStringTag] = ((proto: Float) => {
         return proto[Symbol.toStringTag] = 'Float';
     })(Float.prototype);
@@ -275,9 +249,6 @@ export class Binary extends DataType<Type.Binary> {
         super(Type.Binary);
     }
     public toString() { return `Binary`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitBinary(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Binary) => {
         (<any> proto).ArrayType = Uint8Array;
         return proto[Symbol.toStringTag] = 'Binary';
@@ -290,9 +261,6 @@ export class Utf8 extends DataType<Type.Utf8> {
         super(Type.Utf8);
     }
     public toString() { return `Utf8`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitUtf8(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Utf8) => {
         (<any> proto).ArrayType = Uint8Array;
         return proto[Symbol.toStringTag] = 'Utf8';
@@ -305,9 +273,6 @@ export class Bool extends DataType<Type.Bool> {
         super(Type.Bool);
     }
     public toString() { return `Bool`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitBool(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Bool) => {
         (<any> proto).ArrayType = Uint8Array;
         return proto[Symbol.toStringTag] = 'Bool';
@@ -321,9 +286,6 @@ export class Decimal extends DataType<Type.Decimal> {
         super(Type.Decimal);
     }
     public toString() { return `Decimal[${this.precision}e${this.scale > 0 ? `+` : ``}${this.scale}]`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitDecimal(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Decimal) => {
         (<any> proto).ArrayType = Uint32Array;
         return proto[Symbol.toStringTag] = 'Decimal';
@@ -337,9 +299,6 @@ export class Date_ extends DataType<Type.Date> {
         super(Type.Date);
     }
     public toString() { return `Date${(this.unit + 1) * 32}<${DateUnit[this.unit]}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitDate(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Date_) => {
         (<any> proto).ArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'Date';
@@ -353,9 +312,6 @@ export class Time extends DataType<Type.Time> {
         super(Type.Time);
     }
     public toString() { return `Time${this.bitWidth}<${TimeUnit[this.unit]}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitTime(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Time) => {
         (<any> proto).ArrayType = Uint32Array;
         return proto[Symbol.toStringTag] = 'Time';
@@ -368,9 +324,6 @@ export class Timestamp extends DataType<Type.Timestamp> {
         super(Type.Timestamp);
     }
     public toString() { return `Timestamp<${TimeUnit[this.unit]}${this.timezone ? `, ${this.timezone}` : ``}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitTimestamp(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Timestamp) => {
         (<any> proto).ArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'Timestamp';
@@ -383,9 +336,6 @@ export class Interval extends DataType<Type.Interval> {
         super(Type.Interval);
     }
     public toString() { return `Interval<${IntervalUnit[this.unit]}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitInterval(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Interval) => {
         (<any> proto).ArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'Interval';
@@ -401,9 +351,6 @@ export class List<T extends DataType = any> extends DataType<Type.List> {
     public get ArrayType() { return this.valueType.ArrayType; }
     public get valueType() { return this.children[0].type as T; }
     public get valueField() { return this.children[0] as Field<T>; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitList(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: List) => {
         return proto[Symbol.toStringTag] = 'List';
     })(List.prototype);
@@ -415,9 +362,6 @@ export class Struct extends DataType<Type.Struct> {
         super(Type.Struct, children);
     }
     public toString() { return `Struct<${this.children.map((f) => f.type).join(`, `)}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitStruct(this);
-    }
     protected static [Symbol.toStringTag] = ((proto: Struct) => {
         return proto[Symbol.toStringTag] = 'Struct';
     })(Struct.prototype);
@@ -431,7 +375,6 @@ export class Union<TType extends Type = any> extends DataType<TType> {
         super(<TType> (mode === UnionMode.Sparse ? Type.SparseUnion : Type.DenseUnion), children);
     }
     public toString() { return `${this[Symbol.toStringTag]}<${this.typeIds.map((x) => Type[x]).join(` | `)}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitUnion(this); }
     protected static [Symbol.toStringTag] = ((proto: Union) => {
         (<any> proto).ArrayType = Int8Array;
         return proto[Symbol.toStringTag] = 'Union';
@@ -462,7 +405,6 @@ export class FixedSizeBinary extends DataType<Type.FixedSizeBinary> {
         super(Type.FixedSizeBinary);
     }
     public toString() { return `FixedSizeBinary[${this.byteWidth}]`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitFixedSizeBinary(this); }
     protected static [Symbol.toStringTag] = ((proto: FixedSizeBinary) => {
         (<any> proto).ArrayType = Uint8Array;
         return proto[Symbol.toStringTag] = 'FixedSizeBinary';
@@ -479,7 +421,6 @@ export class FixedSizeList<T extends DataType = any> extends DataType<Type.Fixed
     public get valueType() { return this.children[0].type as T; }
     public get valueField() { return this.children[0] as Field<T>; }
     public toString() { return `FixedSizeList[${this.listSize}]<${this.valueType}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitFixedSizeList(this); }
     protected static [Symbol.toStringTag] = ((proto: FixedSizeList) => {
         return proto[Symbol.toStringTag] = 'FixedSizeList';
     })(FixedSizeList.prototype);
@@ -493,7 +434,6 @@ export class Map_ extends DataType<Type.Map> {
         super(Type.Map, children);
     }
     public toString() { return `Map<${this.children.join(`, `)}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any { return visitor.visitMap(this); }
     protected static [Symbol.toStringTag] = ((proto: Map_) => {
         return proto[Symbol.toStringTag] = 'Map_';
     })(Map_.prototype);
@@ -513,10 +453,7 @@ export class Dictionary<T extends DataType> extends DataType<Type.Dictionary> {
         this.id = id == null ? DictionaryBatch.getId() : typeof id === 'number' ? id : id.low;
     }
     public get ArrayType() { return this.dictionary.ArrayType; }
-    public toString() { return `Dictionary<${this.dictionary}, ${this.indicies}>`; }
-    public acceptTypeVisitor(visitor: TypeVisitor): any {
-        return visitor.visitDictionary(this);
-    }
+    public toString() { return `Dictionary<${this.indicies}, ${this.dictionary}>`; }
     protected static [Symbol.toStringTag] = ((proto: Dictionary) => {
         return proto[Symbol.toStringTag] = 'Dictionary';
     })(Dictionary.prototype);

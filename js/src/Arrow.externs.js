@@ -252,6 +252,67 @@ Type.DenseUnion = function() {};
 /** @type {?} */
 Type.SparseUnion = function() {};
 
+var DateUnit = function() {};
+/** @type {?} */
+DateUnit.DAY = function() {};
+/** @type {?} */
+DateUnit.MILLISECOND = function() {};
+var TimeUnit = function() {};
+/** @type {?} */
+TimeUnit.SECOND = function() {};
+/** @type {?} */
+TimeUnit.MILLISECOND = function() {};
+/** @type {?} */
+TimeUnit.MICROSECOND = function() {};
+/** @type {?} */
+TimeUnit.NANOSECOND = function() {};
+var Precision = function() {};
+/** @type {?} */
+Precision.HALF = function() {};
+/** @type {?} */
+Precision.SINGLE = function() {};
+/** @type {?} */
+Precision.DOUBLE = function() {};
+var UnionMode = function() {};
+/** @type {?} */
+UnionMode.Sparse = function() {};
+/** @type {?} */
+UnionMode.Dense = function() {};
+var VectorType = function() {};
+/** @type {?} */
+VectorType.OFFSET = function() {};
+/** @type {?} */
+VectorType.DATA = function() {};
+/** @type {?} */
+VectorType.VALIDITY = function() {};
+/** @type {?} */
+VectorType.TYPE = function() {};
+var IntervalUnit = function() {};
+/** @type {?} */
+IntervalUnit.YEAR_MONTH = function() {};
+/** @type {?} */
+IntervalUnit.DAY_TIME = function() {};
+var MessageHeader = function() {};
+/** @type {?} */
+MessageHeader.NONE = function() {};
+/** @type {?} */
+MessageHeader.Schema = function() {};
+/** @type {?} */
+MessageHeader.DictionaryBatch = function() {};
+/** @type {?} */
+MessageHeader.RecordBatch = function() {};
+/** @type {?} */
+MessageHeader.Tensor = function() {};
+var MetadataVersion = function() {};
+/** @type {?} */
+MetadataVersion.V1 = function() {};
+/** @type {?} */
+MetadataVersion.V2 = function() {};
+/** @type {?} */
+MetadataVersion.V3 = function() {};
+/** @type {?} */
+MetadataVersion.V4 = function() {};
+
 var DataType = function() {};
 /** @type {?} */
 DataType.isNull = function() {};
@@ -643,38 +704,38 @@ VectorVisitor.prototype.visit;
 /** @type {?} */
 VectorVisitor.prototype.visitMany;
 /** @type {?} */
-VectorVisitor.prototype.visitNullVector;
+VectorVisitor.prototype.visitNull;
 /** @type {?} */
-VectorVisitor.prototype.visitBoolVector;
+VectorVisitor.prototype.visitBool;
 /** @type {?} */
-VectorVisitor.prototype.visitIntVector;
+VectorVisitor.prototype.visitInt;
 /** @type {?} */
-VectorVisitor.prototype.visitFloatVector;
+VectorVisitor.prototype.visitFloat;
 /** @type {?} */
-VectorVisitor.prototype.visitUtf8Vector;
+VectorVisitor.prototype.visitUtf8;
 /** @type {?} */
-VectorVisitor.prototype.visitBinaryVector;
+VectorVisitor.prototype.visitBinary;
 /** @type {?} */
-VectorVisitor.prototype.visitFixedSizeBinaryVector;
+VectorVisitor.prototype.visitFixedSizeBinary;
 /** @type {?} */
-VectorVisitor.prototype.visitDateVector;
+VectorVisitor.prototype.visitDate;
 /** @type {?} */
-VectorVisitor.prototype.visitTimestampVector;
+VectorVisitor.prototype.visitTimestamp;
 /** @type {?} */
-VectorVisitor.prototype.visitTimeVector;
+VectorVisitor.prototype.visitTime;
 /** @type {?} */
-VectorVisitor.prototype.visitDecimalVector;
+VectorVisitor.prototype.visitDecimal;
 /** @type {?} */
-VectorVisitor.prototype.visitListVector;
+VectorVisitor.prototype.visitList;
 /** @type {?} */
-VectorVisitor.prototype.visitStructVector;
+VectorVisitor.prototype.visitStruct;
 /** @type {?} */
-VectorVisitor.prototype.visitUnionVector;
+VectorVisitor.prototype.visitUnion;
 /** @type {?} */
-VectorVisitor.prototype.visitDictionaryVector;
+VectorVisitor.prototype.visitDictionary;
 /** @type {?} */
-VectorVisitor.prototype.visitIntervalVector;
+VectorVisitor.prototype.visitInterval;
 /** @type {?} */
-VectorVisitor.prototype.visitFixedSizeListVector;
+VectorVisitor.prototype.visitFixedSizeList;
 /** @type {?} */
-VectorVisitor.prototype.visitMapVector;
+VectorVisitor.prototype.visitMap;
