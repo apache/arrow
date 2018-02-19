@@ -1059,30 +1059,34 @@ int64_t DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
 
 template <typename T>
 bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
-  const Scalar other =
-      GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
-  if (overflow_dict_builder_.length() > 0) {
-    const Scalar other_overflow =
-        GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index));
-    return other != value && other_overflow != value;
-  } else {
-    return other != value;
-  }
+  const bool value_found =
+      index >= entry_id_offset_ &&
+      GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_)) ==
+          value;
+  const bool value_found_overflow =
+      entry_id_offset_ > 0 &&
+      GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index)) == value;
+  return !(value_found || value_found_overflow);
 }
 
 template <>
 bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
                                                            const Scalar& value) {
   int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
-  const Scalar other =
-      GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
-  if (overflow_dict_builder_.length() > 0) {
+  bool value_found = false;
+  if (index >= entry_id_offset_) {
+    const Scalar other =
+        GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
+    value_found = memcmp(other, value, width) == 0;
+  }
+
+  bool value_found_overflow = false;
+  if (entry_id_offset_ > 0) {
     const Scalar other_overflow =
         GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index));
-    return memcmp(other, value, width) != 0 && memcmp(other_overflow, value, width) != 0;
-  } else {
-    return memcmp(other, value, width) != 0;
+    value_found_overflow = memcmp(other_overflow, value, width) == 0;
   }
+  return !(value_found || value_found_overflow);
 }
 
 template <typename T>
@@ -1129,21 +1133,23 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   bool DictionaryBuilder<Type>::SlotDifferent(hash_slot_t index,                         \
                                               const WrappedBinary& value) {              \
     int32_t other_length;                                                                \
-    const uint8_t* other_value = dict_builder_.GetValue(                                 \
-        static_cast<int64_t>(index - entry_id_offset_), &other_length);                  \
-    if (!(other_length == value.length_ &&                                               \
-          0 == memcmp(other_value, value.ptr_, value.length_))) {                        \
-      if (overflow_dict_builder_.length() > 0) {                                         \
-        const uint8_t* other_overflow_value =                                            \
-            overflow_dict_builder_.GetValue(static_cast<int64_t>(index), &other_length); \
-        return !(other_length == value.length_ &&                                        \
-                 0 == memcmp(other_overflow_value, value.ptr_, value.length_));          \
-      } else {                                                                           \
-        return true;                                                                     \
-      }                                                                                  \
-    } else {                                                                             \
-      return false;                                                                      \
+    bool value_found = false;                                                            \
+    if (index >= entry_id_offset_) {                                                     \
+      const uint8_t* other_value = dict_builder_.GetValue(                               \
+          static_cast<int64_t>(index - entry_id_offset_), &other_length);                \
+      value_found = other_length == value.length_ &&                                     \
+                    memcmp(other_value, value.ptr_, value.length_) == 0;                 \
     }                                                                                    \
+                                                                                         \
+    bool value_found_overflow = false;                                                   \
+    if (entry_id_offset_ > 0) {                                                          \
+      const uint8_t* other_value_overflow =                                              \
+          overflow_dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);   \
+      value_found_overflow =                                                             \
+          other_length == value.length_ &&                                               \
+          memcmp(other_value_overflow, value.ptr_, value.length_) == 0;                  \
+    }                                                                                    \
+    return !(value_found || value_found_overflow);                                       \
   }                                                                                      \
                                                                                          \
   template <>                                                                            \
