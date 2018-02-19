@@ -15,13 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { TextEncoder } from 'text-encoding-utf-8';
 import Arrow from '../Arrow';
 import { type, TypedArray, TypedArrayConstructor } from '../../src/Arrow';
 
-const { BoolData, FlatData } = Arrow.data;
-const { IntVector, FloatVector, BoolVector } = Arrow.vector;
+const utf8Encoder = new TextEncoder('utf-8');
+
+const { BoolData, FlatData, FlatListData } = Arrow.data;
+const { IntVector, FloatVector, BoolVector, Utf8Vector } = Arrow.vector;
 const {
-    Bool,
+    Utf8, Bool,
     Float16, Float32, Float64,
     Int8, Int16, Int32, Int64,
     Uint8, Uint16, Uint32, Uint64,
@@ -45,11 +48,14 @@ const FixedWidthVectors = {
 
 const fixedSizeVectors = toMap(FixedSizeVectors, Object.keys(FixedSizeVectors));
 const fixedWidthVectors = toMap(FixedWidthVectors, Object.keys(FixedWidthVectors));
+const randomBytes = (n: number) => Uint8Array.from(
+    { length: n },
+    () => Math.random() * 255 | 0
+);
 const bytes = Array.from(
     { length: 5 },
-    () => Uint8Array.from(
-        { length: 64 },
-        () => Math.random() * 255 | 0));
+    () => randomBytes(64)
+);
 
 describe(`BoolVector`, () => {
     const values = [true, true, false, true, true, false, false, false], n = values.length;
@@ -66,6 +72,16 @@ describe(`BoolVector`, () => {
             expect(++i).toBeLessThan(n);
             expect(v).toEqual(values[i]);
         }
+    });
+    test(`indexOf returns expected values`, () => {
+        for (let test_value of [true, false]) {
+            const expected = values.indexOf(test_value);
+            expect(vector.indexOf(test_value)).toEqual(expected);
+        }
+    });
+    test(`indexOf returns -1 when value not found`, () => {
+        const v = new BoolVector(new BoolData(new Bool(), 3, null, new Uint8Array([0xFF])));
+        expect(v.indexOf(false)).toEqual(-1);
     });
     test(`can set values to true and false`, () => {
         const v = new BoolVector(new BoolData(new Bool(), n, null, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0])));
@@ -145,6 +161,13 @@ describe('Float16Vector', () => {
             expect(v).toEqual(clamp(values[i]));
         }
     });
+    test(`indexOf returns expected values`, () => {
+        const randomValues = new Uint16Array(randomBytes(64).buffer);
+        for (let value of [...values, ...randomValues]) {
+            const expected = values.indexOf(value);
+            expect(vector.indexOf(clamp(value))).toEqual(expected);
+        }
+    });
     test(`slices the entire array`, () => {
         expect(vector.slice().toArray()).toEqual(float16s);
     });
@@ -185,6 +208,21 @@ for (const [VectorName, [VectorType, DataType]] of fixedSizeVectors) {
             for (let v of vector) {
                 expect(++i).toBeLessThan(n);
                 expect(v).toEqual(values.slice(2 * i, 2 * (i + 1)));
+            }
+        });
+        test(`indexOf returns expected values`, () => {
+            // Create a set of test data composed of all of the actual values
+            // and a few random values
+            let testValues = concatTyped(
+                type.ArrayType,
+                ...bytes,
+                ...[randomBytes(8 * 2 * type.ArrayType.BYTES_PER_ELEMENT)]
+            );
+
+            for (let i = -1, n = testValues.length / 2 | 0; ++i < n;) {
+                const value = testValues.slice(2 * i, 2 * (i + 1));
+                const expected = values.findIndex((d, i) => i % 2 === 0 && d === value[0] && testValues[i + 1] === value[1]);
+                expect(vector.indexOf(value)).toEqual(expected >= 0 ? expected / 2 : -1);
             }
         });
         test(`slices the entire array`, () => {
@@ -232,6 +270,20 @@ for (const [VectorName, [VectorType, DataType]] of fixedWidthVectors) {
                 expect(v).toEqual(values[i]);
             }
         });
+        test(`indexOf returns expected values`, () => {
+            // Create a set of test data composed of all of the actual values
+            // and a few random values
+            let testValues = concatTyped(
+                type.ArrayType,
+                ...bytes,
+                ...[randomBytes(8 * type.ArrayType.BYTES_PER_ELEMENT)]
+            );
+
+            for (const value of testValues) {
+                const expected = values.indexOf(value);
+                expect(vector.indexOf(value)).toEqual(expected);
+            }
+        });
         test(`slices the entire array`, () => {
             expect(vector.slice().toArray()).toEqual(values);
         });
@@ -252,6 +304,35 @@ for (const [VectorName, [VectorType, DataType]] of fixedWidthVectors) {
         });
     });
 }
+
+describe(`Utf8Vector`, () => {
+    const values = ['foo', 'bar', 'baz', 'foo bar', 'bar'], n = values.length;
+    let offset = 0;
+    const offsets = Uint32Array.of(0, ...values.map((d) => { offset += d.length; return offset; }));
+    const vector = new Utf8Vector(new FlatListData(new Utf8(), n, null, offsets, utf8Encoder.encode(values.join(''))));
+    test(`gets expected values`, () => {
+        let i = -1;
+        while (++i < n) {
+            expect(vector.get(i)).toEqual(values[i]);
+        }
+    });
+    test(`iterates expected values`, () => {
+        expect.hasAssertions();
+        let i = -1;
+        for (let v of vector) {
+            expect(++i).toBeLessThan(n);
+            expect(v).toEqual(values[i]);
+        }
+    });
+    test(`indexOf returns expected values`, () => {
+        let testValues = values.concat(['abc', '12345']);
+
+        for (const value of testValues) {
+            const expected = values.indexOf(value);
+            expect(vector.indexOf(value)).toEqual(expected);
+        }
+    });
+});
 
 function toMap<T>(entries: Record<string, T>, keys: string[]) {
     return keys.reduce((map, key) => {

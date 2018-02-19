@@ -103,6 +103,16 @@ export class ChunkedView<T extends DataType> implements View<T> {
         }
         return target;
     }
+    public indexOf(search: T['TValue']) {
+        let offset = 0, result;
+        for (const vector of this.chunkVectors) {
+            result = vector.indexOf(search);
+            if (result !== -1) { return result + offset; }
+            offset += vector.length;
+        }
+
+        return -1;
+    }
 }
 
 function typedArraySet(source: TypedArray, target: TypedArray, index: number) {

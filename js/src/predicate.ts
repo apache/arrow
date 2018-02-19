@@ -125,6 +125,10 @@ export class Or extends CombinationPredicate {
 }
 
 export class Equals extends ComparisonPredicate {
+    // Helpers used to cache dictionary reverse lookups between calls to bind
+    private lastDictionary: Vector|undefined;
+    private lastKey: number|undefined;
+
     protected _bindLitLit(_batch: RecordBatch, left: Literal, right: Literal): PredicateFunc {
         const rtrn: boolean = left.v == right.v;
         return () => rtrn;
@@ -139,20 +143,17 @@ export class Equals extends ComparisonPredicate {
     protected _bindColLit(batch: RecordBatch, col: Col, lit: Literal): PredicateFunc {
         const col_func = col.bind(batch);
         if (col.vector instanceof DictionaryVector) {
-            // Assume that there is only one key with the value `lit.v`
-            // TODO: add lazily-computed reverse dictionary lookups, associated
-            // with col.vector.data so that we only have to do this once per
-            // dictionary
-            let key = -1;
-            let dict = col.vector;
-            let data = dict.dictionary!;
-            for (let len = data.length; ++key < len;) {
-                if (data.get(key) === lit.v) {
-                    break;
-                }
+            let key: any;
+            const vector = col.vector as DictionaryVector;
+            if (vector.dictionary !== this.lastDictionary) {
+                key = vector.reverseLookup(lit.v);
+                this.lastDictionary = vector.dictionary;
+                this.lastKey = key;
+            } else {
+                key = this.lastKey;
             }
 
-            if (key == data.length) {
+            if (key === -1) {
                 // the value doesn't exist in the dictionary - always return
                 // false
                 // TODO: special-case of PredicateFunc that encapsulates this
@@ -161,7 +162,7 @@ export class Equals extends ComparisonPredicate {
                 return () => false;
             } else {
                 return (idx: number) => {
-                    return dict.getKey(idx) === key;
+                    return vector.getKey(idx) === key;
                 };
             }
         } else {
