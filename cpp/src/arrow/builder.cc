@@ -1153,7 +1153,7 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
                                               const WrappedBinary& value) {               \
     int32_t other_length;                                                                 \
     const uint8_t* other_value =                                                          \
-        dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);               \
+        dict_builder_.GetValue(static_cast<int64_t>(index - entry_id_offset_), &other_length);               \
     if (!(other_length == value.length_ &&                                                \
           0 == memcmp(other_value, value.ptr_, value.length_))) {                         \
         if (overflow_dict_builder_.length() > 0) {                                        \
