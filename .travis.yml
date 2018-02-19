@@ -142,7 +142,8 @@ matrix:
     - CXX="clang++-5.0"
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
-    - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - nvm install node
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
