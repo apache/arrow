@@ -1582,6 +1582,19 @@ class TestConvertMisc(object):
         arr = pa.array([], type=pa.struct([pa.field('a', pa.int64())]))
         tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
 
+    def test_non_natural_stride(self):
+        """
+        ARROW-2172: converting from a Numpy array with a stride that's
+        not a multiple of itemsize.
+        """
+        dtype = np.dtype([('x', np.int32), ('y', np.int16)])
+        data = np.array([(42, -1), (-43, 2)], dtype=dtype)
+        assert data.strides == (6,)
+        arr = pa.array(data['x'], type=pa.int32())
+        assert arr.to_pylist() == [42, -43]
+        arr = pa.array(data['y'], type=pa.int16())
+        assert arr.to_pylist() == [-1, 2]
+
 
 def _fully_loaded_dataframe_example():
     from distutils.version import LooseVersion
