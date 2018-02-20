@@ -65,6 +65,10 @@ if (ARROW_GPU)
   add_subdirectory(gpu)
 endif()
 
+if (ARROW_JEMALLOC AND JEMALLOC_VENDORED)
+  add_dependencies(arrow_dependencies jemalloc_static)
+endif()
+
 if (ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)
   SET(ARROW_SRCS util/compression_brotli.cc ${ARROW_SRCS})
