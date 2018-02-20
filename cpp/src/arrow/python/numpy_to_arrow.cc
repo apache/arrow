@@ -554,12 +554,22 @@ Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* p
   return Status::OK();
 }
 
-template <typename T, typename T2>
-void CopyStrided(T* input_data, int64_t length, int64_t stride, T2* output_data) {
+template <typename T>
+void CopyStridedBytewise(int8_t* input_data, int64_t length, int64_t stride,
+                         T* output_data) {
+  // Passing input_data as non-const is a concession to PyObject*
+  for (int64_t i = 0; i < length; ++i) {
+    memcpy(output_data + i, input_data, sizeof(T));
+    input_data += stride;
+  }
+}
+
+template <typename T>
+void CopyStridedNatural(T* input_data, int64_t length, int64_t stride, T* output_data) {
   // Passing input_data as non-const is a concession to PyObject*
   int64_t j = 0;
   for (int64_t i = 0; i < length; ++i) {
-    output_data[i] = static_cast<T2>(input_data[j]);
+    output_data[i] = input_data[j];
     j += stride;
   }
 }
@@ -571,13 +581,19 @@ Status CopyStridedArray(PyArrayObject* arr, const int64_t length, MemoryPool* po
   using T = typename traits::T;
 
   // Strided, must copy into new contiguous memory
-  const int64_t stride = PyArray_STRIDES(arr)[0];
-  const int64_t stride_elements = stride / sizeof(T);
-
   auto new_buffer = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(new_buffer->Resize(sizeof(T) * length));
-  CopyStrided(reinterpret_cast<T*>(PyArray_DATA(arr)), length, stride_elements,
-              reinterpret_cast<T*>(new_buffer->mutable_data()));
+
+  const int64_t stride = PyArray_STRIDES(arr)[0];
+  if (stride % sizeof(T) == 0) {
+    const int64_t stride_elements = stride / sizeof(T);
+    CopyStridedNatural(reinterpret_cast<T*>(PyArray_DATA(arr)), length, stride_elements,
+                       reinterpret_cast<T*>(new_buffer->mutable_data()));
+  } else {
+    CopyStridedBytewise(reinterpret_cast<int8_t*>(PyArray_DATA(arr)), length, stride,
+                        reinterpret_cast<T*>(new_buffer->mutable_data()));
+  }
+
   *out = new_buffer;
   return Status::OK();
 }
