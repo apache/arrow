@@ -135,5 +135,19 @@ visible: [true, false, true, false, true]
 valid: [false, true, false, true, false]
       PRETTY_PRINT
     end
+
+    def test_add_column
+      field = Arrow::Field.new("added", Arrow::BooleanDataType.new)
+      column = build_boolean_array([false, false, true, true, true])
+      new_record_batch = @record_batch.add_column(1, field, column)
+      assert_equal(["visible", "added", "valid"],
+                   new_record_batch.schema.fields.collect(&:name))
+    end
+
+    def test_remove_column
+      new_record_batch = @record_batch.remove_column(0)
+      assert_equal(["valid"],
+                   new_record_batch.schema.fields.collect(&:name))
+    end
   end
 end
