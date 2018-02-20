@@ -19,32 +19,11 @@
 # arrow_util
 #######################################
 
+file(GLOB_RECURSE ARROW_UTIL_HEADERS "*.h")
+
 # Headers: top level
 install(FILES
-  bit-stream-utils.h
-  bit-util.h
-  bpacking.h
-  compiler-util.h
-  compression_brotli.h
-  compression.h
-  compression_lz4.h
-  compression_snappy.h
-  compression_zlib.h
-  compression_zstd.h
-  cpu-info.h
-  decimal.h
-  hash-util.h
-  hash.h
-  key_value_metadata.h
-  logging.h
-  macros.h
-  parallel.h
-  rle-encoding.h
-  sse-util.h
-  stl.h
-  type_traits.h
-  variant.h
-  visibility.h
+  ${ARROW_UTIL_HEADERS}
   DESTINATION include/arrow/util)
 
 #######################################
