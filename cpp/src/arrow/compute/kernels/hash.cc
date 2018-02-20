@@ -221,7 +221,10 @@ struct HashDictionary<Type, enable_if_has_c_type<Type>> {
   }
 
 template <typename Type, typename Action>
-class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTable {
+class HashTableKernel<
+    Type, Action,
+    typename std::enable_if<has_c_type<Type>::value && !is_8bit_int<Type>::value>::type>
+    : public HashTable {
  public:
   using T = typename Type::c_type;
 
@@ -609,6 +612,80 @@ class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
   int32_t byte_width_;
   TypedBufferBuilder<uint8_t> dict_data_;
   int32_t dict_size_;
+};
+
+// ----------------------------------------------------------------------
+// Hash table pass for uint8 and int8
+
+template <typename T>
+inline int Hash8Bit(const T val) {
+  return 0;
+}
+
+template <>
+inline int Hash8Bit(const uint8_t val) {
+  return val;
+}
+
+template <>
+inline int Hash8Bit(const int8_t val) {
+  return val + 128;
+}
+
+template <typename Type, typename Action>
+class HashTableKernel<Type, Action, enable_if_8bit_int<Type>> : public HashTable {
+ public:
+  using T = typename Type::c_type;
+
+  HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : HashTable(type, pool) {
+    std::fill(table_, table_ + 256, kHashSlotEmpty);
+  }
+
+  Status Append(const ArrayData& arr) override {
+    const T* values = GetValues<T>(arr, 1);
+    auto action = static_cast<Action*>(this);
+    RETURN_NOT_OK(action->Reserve(arr.length));
+
+#define HASH_INNER_LOOP()                                      \
+  const T value = values[i];                                   \
+  const int hash = Hash8Bit<T>(value);                         \
+  hash_slot_t slot = table_[hash];                             \
+                                                               \
+  if (slot == kHashSlotEmpty) {                                \
+    if (!Action::allow_expand) {                               \
+      throw HashException("Encountered new dictionary value"); \
+    }                                                          \
+                                                               \
+    slot = static_cast<hash_slot_t>(dict_.size());             \
+    table_[hash] = slot;                                       \
+    dict_.push_back(value);                                    \
+    action->ObserveNotFound(slot);                             \
+  } else {                                                     \
+    action->ObserveFound(slot);                                \
+  }
+
+    GENERIC_HASH_PASS(HASH_INNER_LOOP);
+
+#undef HASH_INNER_LOOP
+
+    return Status::OK();
+  }
+
+  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
+    using BuilderType = typename TypeTraits<Type>::BuilderType;
+    BuilderType builder(pool_);
+
+    for (const T value : dict_) {
+      RETURN_NOT_OK(builder.Append(value));
+    }
+
+    return builder.FinishInternal(out);
+  }
+
+ private:
+  hash_slot_t table_[256];
+  std::vector<T> dict_;
 };
 
 // ----------------------------------------------------------------------
