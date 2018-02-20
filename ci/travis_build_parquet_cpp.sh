@@ -22,9 +22,8 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
 
-export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
-
 export PARQUET_BUILD_TOOLCHAIN=$CPP_TOOLCHAIN
+export ARROW_HOME=$ARROW_CPP_INSTALL
 
 PARQUET_DIR=$TRAVIS_BUILD_DIR/parquet
 mkdir -p $PARQUET_DIR
