@@ -284,8 +284,6 @@ def test_clone():
 def test_primitive_serialization(large_buffer):
     for obj in PRIMITIVE_OBJECTS:
         serialization_roundtrip(obj, large_buffer)
-        serialization_roundtrip(obj, large_buffer,
-                                pa.pandas_serialization_context())
 
 
 def test_serialize_to_buffer():
