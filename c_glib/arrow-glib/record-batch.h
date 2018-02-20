@@ -88,5 +88,13 @@ GArrowRecordBatch *garrow_record_batch_slice     (GArrowRecordBatch *record_batc
 
 gchar        *garrow_record_batch_to_string      (GArrowRecordBatch *record_batch,
                                                   GError **error);
+GArrowRecordBatch *garrow_record_batch_add_column(GArrowRecordBatch *record_batch,
+                                                  guint i,
+                                                  GArrowField *field,
+                                                  GArrowArray *column,
+                                                  GError **error);
+GArrowRecordBatch *garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
+                                                     guint i,
+                                                     GError **error);
 
 G_END_DECLS
