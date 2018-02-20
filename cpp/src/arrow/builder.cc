@@ -915,7 +915,7 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
 
   if (index == kHashSlotEmpty) {
     // Not in the hash table, so we insert it now
-    index = static_cast<hash_slot_t>(dict_builder_.length()) + entry_id_offset_;
+    index = static_cast<hash_slot_t>(dict_builder_.length() + entry_id_offset_);
     hash_slots_[j] = index;
     RETURN_NOT_OK(AppendDictionary(value));
 
@@ -1030,7 +1030,7 @@ Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(
     std::shared_ptr<ArrayData>* out) {
   entry_id_offset_ += dict_builder_.length();
 
-  for (uint32_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {
+  for (uint64_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {
     const Scalar value = GetDictionaryValue(dict_builder_, index);
     RETURN_NOT_OK(overflow_dict_builder_.Append(value));
   }
@@ -1155,7 +1155,7 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   template <>                                                                            \
   Status DictionaryBuilder<Type>::FinishInternal(std::shared_ptr<ArrayData>* out) {      \
     entry_id_offset_ += dict_builder_.length();                                          \
-    for (uint32_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {   \
+    for (uint64_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {   \
       int32_t out_length;                                                                \
       const uint8_t* value = dict_builder_.GetValue(index, &out_length);                 \
       RETURN_NOT_OK(overflow_dict_builder_.Append(value, out_length));                   \
@@ -1163,8 +1163,6 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
                                                                                          \
     std::shared_ptr<Array> dictionary;                                                   \
     RETURN_NOT_OK(dict_builder_.Finish(&dictionary));                                    \
-    RETURN_NOT_OK(overflow_dict_builder_.Append(                                         \
-        reinterpret_cast<const char*>(dictionary->data().get()), dictionary->length())); \
                                                                                          \
     RETURN_NOT_OK(values_builder_.FinishInternal(out));                                  \
     (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);           \
