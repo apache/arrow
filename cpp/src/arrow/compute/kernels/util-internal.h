@@ -33,6 +33,22 @@ template <typename T>
 using is_number = std::is_base_of<Number, T>;
 
 template <typename T>
+struct has_c_type {
+  static constexpr bool value =
+      (std::is_base_of<PrimitiveCType, T>::value || std::is_base_of<DateType, T>::value ||
+       std::is_base_of<TimeType, T>::value || std::is_base_of<TimestampType, T>::value);
+};
+
+template <typename T>
+struct is_8bit_int {
+  static constexpr bool value =
+      (std::is_same<UInt8Type, T>::value || std::is_same<Int8Type, T>::value);
+};
+
+template <typename T>
+using enable_if_8bit_int = typename std::enable_if<is_8bit_int<T>::value>::type;
+
+template <typename T>
 using enable_if_primitive_ctype =
     typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value>::type;
 
@@ -47,11 +63,7 @@ using enable_if_timestamp =
     typename std::enable_if<std::is_base_of<TimestampType, T>::value>::type;
 
 template <typename T>
-using enable_if_has_c_type =
-    typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
-                            std::is_base_of<DateType, T>::value ||
-                            std::is_base_of<TimeType, T>::value ||
-                            std::is_base_of<TimestampType, T>::value>::type;
+using enable_if_has_c_type = typename std::enable_if<has_c_type<T>::value>::type;
 
 template <typename T>
 using enable_if_null = typename std::enable_if<std::is_same<NullType, T>::value>::type;
