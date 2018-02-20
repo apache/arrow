@@ -349,8 +349,6 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
  public:
   typedef typename DType::c_type T;
 
-  ~TypedRecordReader() {}
-
   TypedRecordReader(const ColumnDescriptor* schema, ::arrow::MemoryPool* pool)
       : RecordReader::RecordReaderImpl(schema, pool), current_decoder_(nullptr) {}
 

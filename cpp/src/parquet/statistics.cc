@@ -23,8 +23,8 @@
 #include "parquet/statistics.h"
 #include "parquet/util/memory.h"
 
-using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::default_memory_pool;
 
 namespace parquet {
 

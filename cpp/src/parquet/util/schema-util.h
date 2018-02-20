@@ -26,12 +26,12 @@
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
+using parquet::LogicalType;
 using parquet::ParquetException;
 using parquet::SchemaDescriptor;
 using parquet::schema::GroupNode;
-using parquet::schema::NodePtr;
 using parquet::schema::Node;
-using parquet::LogicalType;
+using parquet::schema::NodePtr;
 
 inline bool str_endswith_tuple(const std::string& str) {
   if (str.size() >= 6) {

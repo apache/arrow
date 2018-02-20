@@ -198,7 +198,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
     return row_group_writer_.get();
   }
 
-  ~FileSerializer() {
+  ~FileSerializer() override {
     try {
       Close();
     } catch (...) {

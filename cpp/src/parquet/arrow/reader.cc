@@ -45,12 +45,12 @@ using arrow::Column;
 using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
-using arrow::StructArray;
-using arrow::TimestampArray;
 using arrow::MemoryPool;
 using arrow::PoolBuffer;
 using arrow::Status;
+using arrow::StructArray;
 using arrow::Table;
+using arrow::TimestampArray;
 
 using parquet::schema::Node;
 
@@ -218,8 +218,6 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
     NextRowGroup();
   }
 
-  virtual ~PrimitiveImpl() {}
-
   Status NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) override;
 
   template <typename ParquetType>
@@ -253,8 +251,6 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
         def_levels_buffer_(pool) {
     InitField(node, children);
   }
-
-  virtual ~StructImpl() {}
 
   Status NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) override;
   Status GetDefLevels(const int16_t** data, size_t* length) override;
@@ -425,8 +421,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
 
   // TODO(wesm): Refactor to share more code with ReadTable
 
-  auto ReadColumnFunc = [&indices, &row_group_index, &schema, &columns, &rg_metadata,
-                         this](int i) {
+  auto ReadColumnFunc = [&indices, &row_group_index, &schema, &columns, this](int i) {
     int column_index = indices[i];
 
     std::shared_ptr<Array> array;

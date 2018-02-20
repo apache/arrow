@@ -32,9 +32,9 @@
 #include "parquet/types.h"
 #include "parquet/util/test-common.h"
 
+using std::shared_ptr;
 using std::string;
 using std::vector;
-using std::shared_ptr;
 
 namespace parquet {
 

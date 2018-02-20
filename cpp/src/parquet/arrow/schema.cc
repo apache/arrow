@@ -34,9 +34,9 @@ using arrow::TypePtr;
 using ArrowType = arrow::Type;
 
 using parquet::Repetition;
+using parquet::schema::GroupNode;
 using parquet::schema::Node;
 using parquet::schema::NodePtr;
-using parquet::schema::GroupNode;
 using parquet::schema::PrimitiveNode;
 
 using ParquetType = parquet::Type;

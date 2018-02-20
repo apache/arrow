@@ -27,8 +27,8 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
-using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::default_memory_pool;
 
 namespace parquet {
 

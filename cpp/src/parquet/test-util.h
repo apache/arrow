@@ -37,8 +37,8 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
-using std::vector;
 using std::shared_ptr;
+using std::vector;
 
 namespace parquet {
 

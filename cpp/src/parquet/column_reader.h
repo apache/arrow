@@ -216,7 +216,6 @@ class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
   TypedColumnReader(const ColumnDescriptor* schema, std::unique_ptr<PageReader> pager,
                     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : ColumnReader(schema, std::move(pager), pool), current_decoder_(nullptr) {}
-  virtual ~TypedColumnReader() {}
 
   // Read a batch of repetition levels, definition levels, and values from the
   // column.

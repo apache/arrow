@@ -146,7 +146,7 @@ class SerializedFile : public ParquetFileReader::Contents {
                  const ReaderProperties& props = default_reader_properties())
       : source_(std::move(source)), properties_(props) {}
 
-  ~SerializedFile() {
+  ~SerializedFile() override {
     try {
       Close();
     } catch (...) {

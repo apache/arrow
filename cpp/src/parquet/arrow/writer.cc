@@ -31,18 +31,18 @@
 
 using arrow::Array;
 using arrow::BinaryArray;
-using arrow::ChunkedArray;
-using arrow::FixedSizeBinaryArray;
-using arrow::Decimal128Array;
 using arrow::BooleanArray;
+using arrow::ChunkedArray;
+using arrow::Decimal128Array;
+using arrow::Field;
+using arrow::FixedSizeBinaryArray;
 using arrow::Int16Array;
 using arrow::Int16Builder;
-using arrow::Field;
+using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
 using arrow::PoolBuffer;
 using arrow::PrimitiveArray;
-using arrow::ListArray;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;

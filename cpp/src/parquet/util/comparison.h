@@ -38,7 +38,6 @@ class PARQUET_EXPORT CompareDefault : public Comparator {
  public:
   typedef typename DType::c_type T;
   CompareDefault() {}
-  virtual ~CompareDefault() {}
   virtual bool operator()(const T& a, const T& b) { return a < b; }
 };
 
@@ -46,7 +45,6 @@ template <>
 class PARQUET_EXPORT CompareDefault<Int96Type> : public Comparator {
  public:
   CompareDefault() {}
-  virtual ~CompareDefault() {}
   virtual bool operator()(const Int96& a, const Int96& b) {
     // Only the MSB bit is by Signed comparison
     // For little-endian, this is the last bit of Int96 type
@@ -65,7 +63,6 @@ template <>
 class PARQUET_EXPORT CompareDefault<ByteArrayType> : public Comparator {
  public:
   CompareDefault() {}
-  virtual ~CompareDefault() {}
   virtual bool operator()(const ByteArray& a, const ByteArray& b) {
     const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
     const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
@@ -77,7 +74,6 @@ template <>
 class PARQUET_EXPORT CompareDefault<FLBAType> : public Comparator {
  public:
   explicit CompareDefault(int length) : type_length_(length) {}
-  virtual ~CompareDefault() {}
   virtual bool operator()(const FLBA& a, const FLBA& b) {
     const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
     const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
@@ -117,7 +113,6 @@ PARQUET_EXTERN_TEMPLATE CompareDefault<FLBAType>;
 // Define Unsigned Comparators
 class PARQUET_EXPORT CompareUnsignedInt32 : public CompareDefaultInt32 {
  public:
-  virtual ~CompareUnsignedInt32() {}
   bool operator()(const int32_t& a, const int32_t& b) override {
     const uint32_t ua = a;
     const uint32_t ub = b;
@@ -127,7 +122,6 @@ class PARQUET_EXPORT CompareUnsignedInt32 : public CompareDefaultInt32 {
 
 class PARQUET_EXPORT CompareUnsignedInt64 : public CompareDefaultInt64 {
  public:
-  virtual ~CompareUnsignedInt64() {}
   bool operator()(const int64_t& a, const int64_t& b) override {
     const uint64_t ua = a;
     const uint64_t ub = b;
@@ -137,7 +131,6 @@ class PARQUET_EXPORT CompareUnsignedInt64 : public CompareDefaultInt64 {
 
 class PARQUET_EXPORT CompareUnsignedInt96 : public CompareDefaultInt96 {
  public:
-  virtual ~CompareUnsignedInt96() {}
   bool operator()(const Int96& a, const Int96& b) override {
     if (a.value[2] != b.value[2]) {
       return (a.value[2] < b.value[2]);
@@ -150,7 +143,6 @@ class PARQUET_EXPORT CompareUnsignedInt96 : public CompareDefaultInt96 {
 
 class PARQUET_EXPORT CompareUnsignedByteArray : public CompareDefaultByteArray {
  public:
-  virtual ~CompareUnsignedByteArray() {}
   bool operator()(const ByteArray& a, const ByteArray& b) override {
     const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
     const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
@@ -161,7 +153,6 @@ class PARQUET_EXPORT CompareUnsignedByteArray : public CompareDefaultByteArray {
 class PARQUET_EXPORT CompareUnsignedFLBA : public CompareDefaultFLBA {
  public:
   explicit CompareUnsignedFLBA(int length) : CompareDefaultFLBA(length) {}
-  virtual ~CompareUnsignedFLBA() {}
   bool operator()(const FLBA& a, const FLBA& b) override {
     const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
     const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);

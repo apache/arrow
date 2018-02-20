@@ -36,14 +36,14 @@
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 
-using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::default_memory_pool;
 
 namespace parquet {
 
+using schema::GroupNode;
 using schema::NodePtr;
 using schema::PrimitiveNode;
-using schema::GroupNode;
 
 namespace test {
 

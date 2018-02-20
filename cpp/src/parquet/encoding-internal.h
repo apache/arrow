@@ -467,7 +467,7 @@ class DictEncoder : public Encoder<DType> {
     }
   }
 
-  virtual ~DictEncoder() { DCHECK(buffered_indices_.empty()); }
+  ~DictEncoder() override { DCHECK(buffered_indices_.empty()); }
 
   // TODO(wesm): think about how to address the construction semantics in
   // encodings/dictionary-encoding.h
@@ -482,8 +482,9 @@ class DictEncoder : public Encoder<DType> {
     // reserve
     // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
     // but not reserving them would cause the encoder to fail.
-    return 1 + ::arrow::RleEncoder::MaxBufferSize(
-                   bit_width(), static_cast<int>(buffered_indices_.size())) +
+    return 1 +
+           ::arrow::RleEncoder::MaxBufferSize(
+               bit_width(), static_cast<int>(buffered_indices_.size())) +
            ::arrow::RleEncoder::MinBufferSize(bit_width());
   }
 

@@ -141,8 +141,6 @@ class SerializedPageWriter : public PageWriter {
     compressor_ = GetCodecFromArrow(codec);
   }
 
-  virtual ~SerializedPageWriter() = default;
-
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
     int64_t uncompressed_size = page.size();
     std::shared_ptr<Buffer> compressed_data = nullptr;
@@ -462,8 +460,9 @@ TypedColumnWriter<Type>::TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
                                            std::unique_ptr<PageWriter> pager,
                                            Encoding::type encoding,
                                            const WriterProperties* properties)
-    : ColumnWriter(metadata, std::move(pager), (encoding == Encoding::PLAIN_DICTIONARY ||
-                                                encoding == Encoding::RLE_DICTIONARY),
+    : ColumnWriter(metadata, std::move(pager),
+                   (encoding == Encoding::PLAIN_DICTIONARY ||
+                    encoding == Encoding::RLE_DICTIONARY),
                    encoding, properties) {
   switch (encoding) {
     case Encoding::PLAIN:

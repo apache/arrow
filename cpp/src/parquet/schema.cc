@@ -430,7 +430,6 @@ class SchemaVisitor : public Node::ConstVisitor {
  public:
   explicit SchemaVisitor(std::vector<format::SchemaElement>* elements)
       : elements_(elements) {}
-  virtual ~SchemaVisitor() {}
 
   void Visit(const Node* node) override {
     format::SchemaElement element;
@@ -593,10 +592,10 @@ void PrintSchema(const Node* schema, std::ostream& stream, int indent_width) {
 }  // namespace schema
 
 using schema::ColumnPath;
+using schema::GroupNode;
 using schema::Node;
 using schema::NodePtr;
 using schema::PrimitiveNode;
-using schema::GroupNode;
 
 void SchemaDescriptor::Init(std::unique_ptr<schema::Node> schema) {
   Init(NodePtr(schema.release()));
@@ -606,7 +605,6 @@ class SchemaUpdater : public Node::Visitor {
  public:
   explicit SchemaUpdater(const std::vector<ColumnOrder>& column_orders)
       : column_orders_(column_orders), leaf_count_(0) {}
-  virtual ~SchemaUpdater() {}
 
   void Visit(Node* node) override {
     if (node->is_group()) {

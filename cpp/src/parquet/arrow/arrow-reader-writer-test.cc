@@ -56,10 +56,10 @@ using arrow::PrimitiveArray;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
-using arrow::default_memory_pool;
+using arrow::compute::Datum;
 using arrow::compute::DictionaryEncode;
 using arrow::compute::FunctionContext;
-using arrow::compute::Datum;
+using arrow::default_memory_pool;
 using arrow::io::BufferReader;
 
 using arrow::test::randint;
@@ -67,10 +67,10 @@ using arrow::test::random_is_valid;
 
 using ArrowId = ::arrow::Type;
 using ParquetType = parquet::Type;
+using parquet::arrow::FromParquetSchema;
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
 using parquet::schema::PrimitiveNode;
-using parquet::arrow::FromParquetSchema;
 
 using ColumnVector = std::vector<std::shared_ptr<arrow::Column>>;
 

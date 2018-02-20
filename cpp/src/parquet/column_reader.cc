@@ -111,8 +111,6 @@ class SerializedPageReader : public PageReader {
     decompressor_ = GetCodecFromArrow(codec);
   }
 
-  virtual ~SerializedPageReader() {}
-
   // Implement the PageReader interface
   std::shared_ptr<Page> NextPage() override;
 
