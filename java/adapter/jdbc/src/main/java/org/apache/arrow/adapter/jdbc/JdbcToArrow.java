@@ -31,7 +31,7 @@ public class JdbcToArrow {
     /**
      * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
      *
-     * @param connection Database connection to be used. This metho will not close hte passed connection object. Since hte caller has passed
+     * @param connection Database connection to be used. This method will not close the passed connection object. Since hte caller has passed
      *                   the connection object it's the responsibility of the caller to close or return the connection to the pool.
      * @param query The DB Query to fetch the data.
      * @return
@@ -50,7 +50,7 @@ public class JdbcToArrow {
             VectorSchemaRoot root = VectorSchemaRoot.create(
                     JdbcToArrowUtils.jdbcToArrowSchema(rsmd), rootAllocator);
             JdbcToArrowUtils.jdbcToArrowVectors(rs, root);
-
+            return root;
         } catch (Exception exc) {
             // just throw it out after logging
             throw exc;
@@ -62,7 +62,6 @@ public class JdbcToArrow {
                 stmt.close();
             }
         }
-        return null;
     }
 
 
