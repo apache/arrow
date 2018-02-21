@@ -133,6 +133,7 @@
             <exclude>**/client/build/**</exclude>
             <exclude>**/*.tbl</exclude>
             <exclude>**/*.yml</exclude>
+            <exclude>**/*.properties</exclude>
           </excludes>
         </configuration>
       </plugin>
