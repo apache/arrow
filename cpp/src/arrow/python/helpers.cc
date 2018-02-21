@@ -115,7 +115,6 @@ Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precisio
   RETURN_IF_PYERROR();
   DCHECK(IsPyInteger(py_exponent.obj()));
 
-  // exponent is -3 e.g., 0.001
   const auto exponent = static_cast<int32_t>(PyLong_AsLong(py_exponent.obj()));
   RETURN_IF_PYERROR();
 
