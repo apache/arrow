@@ -201,5 +201,45 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
   ASSERT_RAISES(UnknownError, ConvertPySequence(list, pool, &arr));
 }
 
+TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
+  // We fail when truncating values that would lose data if cast to a decimal type with
+  // lower scale
+  Decimal128 value;
+  OwnedRef python_decimal(this->CreatePythonDecimal("1.001"));
+  auto type = ::arrow::decimal(10, 2);
+  const auto& decimal_type = static_cast<const DecimalType&>(*type);
+  ASSERT_RAISES(Invalid, internal::DecimalFromPythonDecimal(python_decimal.obj(),
+                                                            decimal_type, &value));
+}
+
+TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
+  // We allow truncation of values that do not lose precision when dividing by 10 * the
+  // difference between the scales, e.g., 1.000 -> 1.00
+  Decimal128 value;
+  OwnedRef python_decimal(this->CreatePythonDecimal("1.000"));
+  auto type = ::arrow::decimal(10, 2);
+  const auto& decimal_type = static_cast<const DecimalType&>(*type);
+  ASSERT_OK(
+      internal::DecimalFromPythonDecimal(python_decimal.obj(), decimal_type, &value));
+  ASSERT_EQ(100, value.low_bits());
+}
+
+TEST_F(DecimalTest, TestOverflowFails) {
+  Decimal128 value;
+  int32_t precision;
+  int32_t scale;
+  OwnedRef python_decimal(
+      this->CreatePythonDecimal("9999999999999999999999999999999999999.9"));
+  ASSERT_OK(
+      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
+  ASSERT_EQ(38, precision);
+  ASSERT_EQ(1, scale);
+
+  auto type = ::arrow::decimal(38, 38);
+  const auto& decimal_type = static_cast<const DecimalType&>(*type);
+  ASSERT_RAISES(Invalid, internal::DecimalFromPythonDecimal(python_decimal.obj(),
+                                                            decimal_type, &value));
+}
+
 }  // namespace py
 }  // namespace arrow
