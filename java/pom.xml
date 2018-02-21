@@ -132,6 +132,7 @@
             <exclude>**/*.linux</exclude>
             <exclude>**/client/build/**</exclude>
             <exclude>**/*.tbl</exclude>
+            <exclude>**/*.yml</exclude>
           </excludes>
         </configuration>
       </plugin>
@@ -623,5 +624,6 @@
     <module>memory</module>
     <module>vector</module>
     <module>tools</module>
+    <module>adapter/jdbc</module>
   </modules>
 </project>
