@@ -1269,6 +1269,16 @@ class TestListTypes(object):
         assert arr.equals(expected)
         assert arr.type == pa.list_(pa.null())
 
+    def test_nested_smaller_ints(self):
+        # ARROW-1345, ARROW-2008, there were some type inference bugs happening
+        # before
+        data = pd.Series([np.array([1, 2, 3], dtype='i1'), None])
+        result = pa.array(data)
+        result2 = pa.array(data.values)
+        expected = pa.array([[1, 2, 3], None], type=pa.list_(pa.int8()))
+        assert result.equals(expected)
+        assert result2.equals(expected)
+
     def test_infer_lists(self):
         data = OrderedDict([
             ('nan_ints', [[None, 1], [2, 3]]),
