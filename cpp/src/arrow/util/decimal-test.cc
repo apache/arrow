@@ -37,7 +37,7 @@ class DecimalTestFixture : public ::testing::Test {
 
 TEST_F(DecimalTestFixture, TestToString) {
   Decimal128 decimal(this->integer_value_);
-  int scale = 5;
+  int32_t scale = 5;
   std::string result = decimal.ToString(scale);
   ASSERT_EQ(result, this->string_value_);
 }
@@ -45,7 +45,7 @@ TEST_F(DecimalTestFixture, TestToString) {
 TEST_F(DecimalTestFixture, TestFromString) {
   Decimal128 expected(this->integer_value_);
   Decimal128 result;
-  int precision, scale;
+  int32_t precision, scale;
   ASSERT_OK(Decimal128::FromString(this->string_value_, &result, &precision, &scale));
   ASSERT_EQ(result, expected);
   ASSERT_EQ(precision, 8);
@@ -55,8 +55,8 @@ TEST_F(DecimalTestFixture, TestFromString) {
 TEST_F(DecimalTestFixture, TestStringStartingWithPlus) {
   std::string plus_value("+234.234");
   Decimal128 out;
-  int scale;
-  int precision;
+  int32_t scale;
+  int32_t precision;
   ASSERT_OK(Decimal128::FromString(plus_value, &out, &precision, &scale));
   ASSERT_EQ(234234, out);
   ASSERT_EQ(6, precision);
@@ -67,8 +67,8 @@ TEST_F(DecimalTestFixture, TestStringStartingWithPlus128) {
   std::string plus_value("+2342394230592.232349023094");
   Decimal128 expected_value("2342394230592232349023094");
   Decimal128 out;
-  int scale;
-  int precision;
+  int32_t scale;
+  int32_t precision;
   ASSERT_OK(Decimal128::FromString(plus_value, &out, &precision, &scale));
   ASSERT_EQ(expected_value, out);
   ASSERT_EQ(25, precision);
@@ -192,36 +192,36 @@ TEST(DecimalTest, TestInvalidInputWithLeadingZeros) {
 TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
   std::string string_value("0000000");
   Decimal128 d;
-  int precision;
-  int scale;
+  int32_t precision;
+  int32_t scale;
   ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
-  ASSERT_EQ(precision, 7);
-  ASSERT_EQ(scale, 0);
-  ASSERT_EQ(d, 0);
+  ASSERT_EQ(7, precision);
+  ASSERT_EQ(0, scale);
+  ASSERT_EQ(0, d);
 }
 
 TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
   std::string string_value("000.0000");
   Decimal128 d;
-  int precision;
-  int scale;
+  int32_t precision;
+  int32_t scale;
   ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
   // We explicitly do not support this for now, otherwise this would be ASSERT_EQ
-  ASSERT_EQ(precision, 7);
+  ASSERT_EQ(7, precision);
 
-  ASSERT_EQ(scale, 4);
-  ASSERT_EQ(d, 0);
+  ASSERT_EQ(4, scale);
+  ASSERT_EQ(0, d);
 }
 
 TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
   std::string string_value(".00000");
   Decimal128 d;
-  int precision;
-  int scale;
+  int32_t precision;
+  int32_t scale;
   ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
-  ASSERT_EQ(precision, 5);
-  ASSERT_EQ(scale, 5);
-  ASSERT_EQ(d, 0);
+  ASSERT_EQ(5, precision);
+  ASSERT_EQ(5, scale);
+  ASSERT_EQ(0, d);
 }
 
 template <typename T>
