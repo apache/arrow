@@ -109,13 +109,14 @@ class ARROW_EXPORT ArrayBuilder {
   std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
 
   /// \brief Return result of builder as an internal generic ArrayData
-  /// object. Resets builder
+  /// object. Resets builder except for dictionary builder
   ///
   /// \param[out] out the finalized ArrayData object
   /// \return Status
   virtual Status FinishInternal(std::shared_ptr<ArrayData>* out) = 0;
 
-  /// \brief Return result of builder as an Array object. Resets builder
+  /// \brief Return result of builder as an Array object.
+  ///        Resets the builder except for DictionaryBuilder
   ///
   /// \param[out] out the finalized Array object
   /// \return Status
@@ -809,7 +810,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   ArrayBuilder* field_builder(int i) const { return field_builders_[i].get(); }
 
-  int num_fields() const { return static_cast<int>(field_builders_.size()); }
+  int num_fields() const { return static_cast<int>(field_builders_.size() delta); }
 
  protected:
   std::vector<std::unique_ptr<ArrayBuilder>> field_builders_;
@@ -851,6 +852,12 @@ struct DictionaryScalar<FixedSizeBinaryType> {
 }  // namespace internal
 
 /// \brief Array builder for created encoded DictionaryArray from dense array
+///
+/// Unlike other builders, dictionary builder does not completely reset the state
+/// on Finish calls. The arrays built after the initial Finish call will reuse
+/// the previously created encoding and build a delta dictionary when new terms
+/// occur.
+///
 /// data
 template <typename T>
 class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
