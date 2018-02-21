@@ -195,7 +195,7 @@ TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
   int32_t precision;
   int32_t scale;
   ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
-  ASSERT_EQ(7, precision);
+  ASSERT_EQ(0, precision);
   ASSERT_EQ(0, scale);
   ASSERT_EQ(0, d);
 }
@@ -207,7 +207,7 @@ TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
   int32_t scale;
   ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
   // We explicitly do not support this for now, otherwise this would be ASSERT_EQ
-  ASSERT_EQ(7, precision);
+  ASSERT_EQ(4, precision);
 
   ASSERT_EQ(4, scale);
   ASSERT_EQ(0, d);
