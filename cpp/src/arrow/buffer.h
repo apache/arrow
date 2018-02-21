@@ -371,22 +371,6 @@ ARROW_EXPORT
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out);
 
-#ifndef ARROW_NO_DEPRECATED_API
-
-/// \brief Create Buffer referencing std::string memory
-///
-/// Warning: string instance must stay alive
-///
-/// \param str std::string instance
-/// \return std::shared_ptr<Buffer>
-///
-/// \note Deprecated Since 0.8.0
-static inline std::shared_ptr<Buffer> GetBufferFromString(const std::string& str) {
-  return std::make_shared<Buffer>(str);
-}
-
-#endif  // ARROW_NO_DEPRECATED_API
-
 }  // namespace arrow
 
 #endif  // ARROW_BUFFER_H
