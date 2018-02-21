@@ -24,6 +24,9 @@ The Plasma In-Memory Object Store
 .. contents:: Contents
   :depth: 3
 
+.. note::
+
+   As present, Plasma is only supported for use on Linux and macOS.
 
 The Plasma API
 --------------
