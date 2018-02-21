@@ -147,19 +147,25 @@ def get_unix_shell_eval(env):
 
 
 def run_from_travis():
-    desc = get_travis_commit_description()
-    if '[skip travis]' in desc:
-        # Skip everything
-        affected = dict.fromkeys(ALL_TOPICS, False)
-    elif '[force ci]' in desc or '[force travis]' in desc:
-        # Test everything
+    if (os.environ['TRAVIS_REPO_SLUG'] == 'apache/arrow' and
+        os.environ['TRAVIS_BRANCH'] == 'master' and
+        os.environ['TRAVIS_EVENT_TYPE'] != 'pull_request'):
+        # Never skip anything on master builds in the official repository
         affected = dict.fromkeys(ALL_TOPICS, True)
     else:
-        # Test affected topics
-        affected_files = list_travis_affected_files()
-        perr("Affected files:", affected_files)
-        affected = get_affected_topics(affected_files)
-        assert set(affected) <= set(ALL_TOPICS), affected
+        desc = get_travis_commit_description()
+        if '[skip travis]' in desc:
+            # Skip everything
+            affected = dict.fromkeys(ALL_TOPICS, False)
+        elif '[force ci]' in desc or '[force travis]' in desc:
+            # Test everything
+            affected = dict.fromkeys(ALL_TOPICS, True)
+        else:
+            # Test affected topics
+            affected_files = list_travis_affected_files()
+            perr("Affected files:", affected_files)
+            affected = get_affected_topics(affected_files)
+            assert set(affected) <= set(ALL_TOPICS), affected
 
     perr("Affected topics:")
     perr(pprint.pformat(affected))
