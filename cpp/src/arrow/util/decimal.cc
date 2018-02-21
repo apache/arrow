@@ -232,10 +232,26 @@ static const boost::regex DECIMAL_REGEX(
     // or an integer with an exponent
     "(?:[eE](?<SECOND_EXP_VALUE>[-+]?\\d+))?)");
 
+static inline bool is_zero_character(char c) { return c == '0'; }
+
 Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
                               int32_t* scale) {
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
+  }
+
+  // case of all zeros
+  if (std::all_of(s.cbegin(), s.cend(), is_zero_character)) {
+    if (precision != NULLPTR) {
+      *precision = 0;
+    }
+
+    if (scale != NULLPTR) {
+      *scale = 0;
+    }
+
+    *out = 0;
+    return Status::OK();
   }
 
   boost::smatch results;
@@ -272,6 +288,11 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* pr
     DCHECK(first_right_digits.empty()) << s << " " << first_right_digits;
     fractional_part = second_right_digits;
   }
+
+  // skip leading zeros before the decimal point
+  std::string::const_iterator without_leading_zeros =
+      std::find_if_not(whole_part.cbegin(), whole_part.cend(), is_zero_character);
+  whole_part = std::string(without_leading_zeros, whole_part.cend());
 
   if (!first_exp_value.empty()) {
     exponent_value = first_exp_value;
