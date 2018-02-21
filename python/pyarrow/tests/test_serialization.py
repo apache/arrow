@@ -589,9 +589,10 @@ def _get_modified_env_with_pythonpath():
     else:
         sep = ':'
 
-    module_path, _ = os.path.split(pa.__path__[0])
+    module_path = os.path.abspath(
+        os.path.dirname(os.path.dirname(pa.__file__)))
 
-    env['PYTHONPATH'] =  sep.join((module_path, existing_pythonpath))
+    env['PYTHONPATH'] = sep.join((module_path, existing_pythonpath))
     return env
 
 
