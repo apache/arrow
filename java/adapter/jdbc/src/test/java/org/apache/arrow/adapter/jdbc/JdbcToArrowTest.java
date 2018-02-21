@@ -20,6 +20,7 @@ package org.apache.arrow.adapter.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,6 +28,7 @@ import org.junit.Test;
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.Statement;
 import java.util.Properties;
 
 /**
@@ -35,11 +37,15 @@ import java.util.Properties;
 public class JdbcToArrowTest {
 
     private Connection conn = null;
+    private Table table = null;
 
     @Before
     public void setUp() throws Exception {
         Properties properties = new Properties();
         properties.load(this.getClass().getClassLoader().getResourceAsStream("db.properties"));
+
+        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+        table = mapper.readValue(new File("/home/datum/codebase/arrow/java/adapter/jdbc/src/test/resources/test1_h2.yml"), Table.class);
 
         Class.forName(properties.getProperty("driver"));
 
@@ -47,25 +53,65 @@ public class JdbcToArrowTest {
                 .getConnection(properties.getProperty("url"), properties);;
     }
 
+    private void createTestData() throws Exception {
+
+        Statement stmt = null;
+        try {
+            //create the table and insert the data and once done drop the table
+            stmt = conn.createStatement();
+            stmt.executeUpdate(table.getCreate());
+
+            for (String insert: table.getData()) {
+                stmt.executeUpdate(insert);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (stmt != null) {
+                stmt.close();
+            }
+        }
+
+    }
+
+
+    private void deleteTestData() throws Exception {
+        Statement stmt = null;
+        try {
+            stmt = conn.createStatement();
+            stmt.executeUpdate(table.getDrop());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (stmt != null) {
+                stmt.close();
+            }
+        }
+    }
+
     @Test
     public void sqlToArrowTest() throws Exception {
 
-        // create the table and insert data for the test
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+        Statement stmt = null;
         try {
-//            Table table = mapper.readValue(new File("/home/datum/codebase/arrow/java/adapter/jdbc/src/test/resources/test1_h2.yml"), Table.class);
+            createTestData();
 
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, "select * from " + table.getName() + ";");
 
-            System.out.print(10);
+            System.out.print(root.getRowCount());
+
         } catch (Exception e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
-        }
-
-        try {
-
         } finally {
 
+
+            if (stmt != null) {
+                stmt.close();
+            }
+
+            deleteTestData();
         }
 
     }

@@ -127,6 +127,7 @@ public class JdbcToArrowUtils {
 //                    fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
                    break;
                 case Types.CLOB:
+                    fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
                     break;
                 case Types.BLOB:
                     fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
@@ -272,7 +273,7 @@ public class JdbcToArrowUtils {
                         int length = (int)clob.length();
                         varcharVector1.setIndexDefined(i);
                         varcharVector1.setValueLengthSafe(i, length);
-                        varcharVector1.setSafe(varcharVector1.getValueCapacity(), clob.getSubString(0, length).getBytes(), 0, length);
+                        varcharVector1.setSafe(varcharVector1.getValueCapacity(), clob.getSubString(1, length).getBytes(), 0, length);
                         varcharVector1.setValueCount(1);
                         break;
                     case Types.BLOB:
