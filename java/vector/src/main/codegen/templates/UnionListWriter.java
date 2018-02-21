@@ -37,18 +37,18 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   private ListVector vector;
   private PromotableWriter writer;
-  private boolean inMap = false;
-  private String mapName;
+  private boolean inStruct = false;
+  private String structName;
   private int lastIndex = 0;
   private static final int OFFSET_WIDTH = 4;
 
   public UnionListWriter(ListVector vector) {
-    this(vector, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
+    this(vector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public UnionListWriter(ListVector vector, NullableMapWriterFactory nullableMapWriterFactory) {
+  public UnionListWriter(ListVector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.vector = vector;
-    this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableMapWriterFactory);
+    this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
   }
 
   public UnionListWriter(ListVector vector, AbstractFieldWriter parent) {
@@ -101,15 +101,15 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public ${name}Writer ${uncappedName}(String name) {
-    mapName = name;
+    structName = name;
     return writer.${uncappedName}(name);
   }
   </#if>
   </#list></#list>
 
   @Override
-  public MapWriter map() {
-    inMap = true;
+  public StructWriter struct() {
+    inStruct = true;
     return this;
   }
 
@@ -125,9 +125,9 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MapWriter map(String name) {
-    MapWriter mapWriter = writer.map(name);
-    return mapWriter;
+  public StructWriter struct(String name) {
+    StructWriter structWriter = writer.struct(name);
+    return structWriter;
   }
 
   @Override
@@ -150,7 +150,7 @@ public class UnionListWriter extends AbstractFieldWriter {
   @Override
   public void end() {
     writer.end();
-    inMap = false;
+    inStruct = false;
   }
 
   <#list vv.types as type>

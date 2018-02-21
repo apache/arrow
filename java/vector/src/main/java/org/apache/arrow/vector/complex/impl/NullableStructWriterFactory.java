@@ -18,26 +18,26 @@
 
 package org.apache.arrow.vector.complex.impl;
 
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.StructVector;
 
-public class NullableMapWriterFactory {
+public class NullableStructWriterFactory {
   private final boolean caseSensitive;
-  private static final NullableMapWriterFactory nullableMapWriterFactory = new NullableMapWriterFactory(false);
-  private static final NullableMapWriterFactory nullableCaseSensitiveWriterFactory = new NullableMapWriterFactory(true);
+  private static final NullableStructWriterFactory nullableStructWriterFactory = new NullableStructWriterFactory(false);
+  private static final NullableStructWriterFactory nullableCaseSensitiveWriterFactory = new NullableStructWriterFactory(true);
 
-  public NullableMapWriterFactory(boolean caseSensitive) {
+  public NullableStructWriterFactory(boolean caseSensitive) {
     this.caseSensitive = caseSensitive;
   }
 
-  public NullableMapWriter build(NullableMapVector container) {
-    return this.caseSensitive ? new NullableCaseSensitiveMapWriter(container) : new NullableMapWriter(container);
+  public NullableStructWriter build(StructVector container) {
+    return this.caseSensitive ? new NullableCaseSensitiveStructWriter(container) : new NullableStructWriter(container);
   }
 
-  public static NullableMapWriterFactory getNullableMapWriterFactoryInstance() {
-    return nullableMapWriterFactory;
+  public static NullableStructWriterFactory getNullableStructWriterFactoryInstance() {
+    return nullableStructWriterFactory;
   }
 
-  public static NullableMapWriterFactory getNullableCaseSensitiveMapWriterFactoryInstance() {
+  public static NullableStructWriterFactory getNullableCaseSensitiveStructWriterFactoryInstance() {
     return nullableCaseSensitiveWriterFactory;
   }
 }

@@ -57,10 +57,6 @@ def _load_pickle_from_buffer(data):
         return builtin_pickle.loads(as_memoryview)
 
 
-_serialize_numpy_array_pickle = _pickle_to_buffer
-_deserialize_numpy_array_pickle = _load_pickle_from_buffer
-
-
 # ----------------------------------------------------------------------
 # pandas-specific serialization matters
 
@@ -190,11 +186,3 @@ def default_serialization_context():
 
 
 register_default_serialization_handlers(_default_serialization_context)
-
-
-def pandas_serialization_context():
-    context = default_serialization_context()
-    context.register_type(np.ndarray, 'np.array',
-                          custom_serializer=_serialize_numpy_array_pickle,
-                          custom_deserializer=_deserialize_numpy_array_pickle)
-    return context

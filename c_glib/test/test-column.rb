@@ -96,4 +96,20 @@ class TestColumn < Test::Unit::TestCase
     column = Arrow::Column.new(field, chunked_array)
     assert_equal(3, column.data.length)
   end
+
+  def test_slice
+    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+    chunks1 = [
+      build_boolean_array([true, false, true]),
+      build_boolean_array([false, true]),
+    ]
+    chunks2 = [
+      build_boolean_array([false, true]),
+      build_boolean_array([false]),
+    ]
+    chunked_array = Arrow::ChunkedArray.new(chunks1)
+    column = Arrow::Column.new(field, chunked_array)
+    sub_column = column.slice(1, 3)
+    assert_equal(chunks2, sub_column.data.chunks)
+  end
 end

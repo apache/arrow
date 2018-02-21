@@ -25,10 +25,8 @@
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
 
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7 3.4 3.5 3.6}"
-
-# Package index with only manylinux1 builds
-MANYLINUX_URL=https://nipy.bic.berkeley.edu/manylinux
+# Build different python versions with various unicode widths
+PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7,16 2.7,32 3.4,16 3.5,16 3.6,16}"
 
 source /multibuild/manylinux_utils.sh
 
@@ -48,40 +46,44 @@ export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr'
 # Ensure the target directory exists
 mkdir -p /io/dist
 
-for PYTHON in ${PYTHON_VERSIONS}; do
-    PYTHON_INTERPRETER="$(cpython_path $PYTHON)/bin/python"
-    PIP="$(cpython_path $PYTHON)/bin/pip"
-    PIPI_IO="$PIP install -f $MANYLINUX_URL"
-    PATH="$PATH:$(cpython_path $PYTHON)"
+for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
+    IFS=","
+    set -- $PYTHON_TUPLE;
+    PYTHON=$1
+    U_WIDTH=$2
+    CPYTHON_PATH="$(cpython_path $PYTHON ${U_WIDTH})"
+    PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
+    PIP="${CPYTHON_PATH}/bin/pip"
+    PATH="$PATH:${CPYTHON_PATH}"
 
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
-    ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}
+    ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"
     pushd "${ARROW_BUILD_DIR}"
-    PATH="$(cpython_path $PYTHON)/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=OFF -DARROW_JEMALLOC=off -DARROW_RPATH_ORIGIN=ON -DARROW_JEMALLOC_USE_SHARED=OFF -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON -DARROW_ORC=ON ..
+    PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=OFF -DARROW_JEMALLOC=off -DARROW_RPATH_ORIGIN=ON -DARROW_JEMALLOC_USE_SHARED=OFF -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON -DARROW_ORC=ON ..
     make -j5 install
     popd
 
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-static-parquet --bundle-arrow-cpp
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-static-parquet --bundle-arrow-cpp
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
-    $PIPI_IO -r requirements.txt
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
+    $PIP install -r requirements.txt
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
 
     echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
     mkdir -p repaired_wheels/
     auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
-    source /venv-test-${PYTHON}/bin/activate
+    source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install repaired_wheels/*.whl
 
-    py.test -v -r sxX --durations=15 --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
+    py.test -v -r sxX --durations=15 --parquet /venv-test-${PYTHON}-${U_WIDTH}/lib/*/site-packages/pyarrow
     deactivate
 
     mv repaired_wheels/*.whl /io/dist

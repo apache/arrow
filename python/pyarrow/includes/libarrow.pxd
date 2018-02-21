@@ -894,16 +894,14 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         " arrow::py::get_memory_pool"()
 
     cdef cppclass PyBuffer(CBuffer):
-        PyBuffer(object o)
+        @staticmethod
+        CStatus FromPyObject(object obj, shared_ptr[CBuffer]* out)
 
     cdef cppclass PyReadableFile(RandomAccessFile):
         PyReadableFile(object fo)
 
     cdef cppclass PyOutputStream(OutputStream):
         PyOutputStream(object fo)
-
-    cdef cppclass PyBytesReader(CBufferReader):
-        PyBytesReader(object fo)
 
     cdef struct PandasOptions:
         c_bool strings_to_categorical

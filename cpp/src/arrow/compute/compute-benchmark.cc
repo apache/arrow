@@ -94,7 +94,7 @@ struct HashParams {
     std::vector<bool> is_valid;
     test::randint<int64_t>(length, 0, num_unique, &draws);
     for (int64_t draw : draws) {
-      values.push_back(draw);
+      values.push_back(static_cast<T>(draw));
     }
 
     if (this->null_percent > 0) {
@@ -170,6 +170,14 @@ void BenchDictionaryEncode(benchmark::State& state, const ParamType& params,
   state.SetBytesProcessed(state.iterations() * params.GetBytesProcessed(length));
 }
 
+static void BM_UniqueUInt8NoNulls(benchmark::State& state) {
+  BenchUnique(state, HashParams<UInt8Type>{0}, state.range(0), state.range(1));
+}
+
+static void BM_UniqueUInt8WithNulls(benchmark::State& state) {
+  BenchUnique(state, HashParams<UInt8Type>{0.05}, state.range(0), state.range(1));
+}
+
 static void BM_UniqueInt64NoNulls(benchmark::State& state) {
   BenchUnique(state, HashParams<Int64Type>{0}, state.range(0), state.range(1));
 }
@@ -206,6 +214,18 @@ ADD_HASH_ARGS(BENCHMARK(BM_UniqueInt64NoNulls));
 ADD_HASH_ARGS(BENCHMARK(BM_UniqueInt64WithNulls));
 ADD_HASH_ARGS(BENCHMARK(BM_UniqueString10bytes));
 ADD_HASH_ARGS(BENCHMARK(BM_UniqueString100bytes));
+
+BENCHMARK(BM_UniqueUInt8NoNulls)
+    ->Args({kHashBenchmarkLength, 200})
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond)
+    ->UseRealTime();
+
+BENCHMARK(BM_UniqueUInt8WithNulls)
+    ->Args({kHashBenchmarkLength, 200})
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond)
+    ->UseRealTime();
 
 }  // namespace compute
 }  // namespace arrow

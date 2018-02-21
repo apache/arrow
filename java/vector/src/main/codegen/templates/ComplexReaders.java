@@ -22,7 +22,7 @@ import java.util.List;
 import org.apache.arrow.record.TransferPair;
 import org.apache.arrow.vector.complex.IndexHolder;
 import org.apache.arrow.vector.complex.writer.IntervalWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 
 <@pp.dropOutputFile />
 <#list vv.types as type>
@@ -77,7 +77,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
     impl.vector.copyFromSafe(idx(), impl.idx(), vector);
   }
   
-  public void copyAsField(String name, MapWriter writer){
+  public void copyAsField(String name, StructWriter writer){
     ${minor.class?cap_first}WriterImpl impl = (${minor.class?cap_first}WriterImpl) writer.${lowerName}(name);
     impl.vector.copyFromSafe(idx(), impl.idx(), vector);
   }

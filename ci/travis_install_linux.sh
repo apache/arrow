@@ -17,32 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+sudo apt-get install -y -q \
+    gdb ccache libboost-dev libboost-filesystem-dev \
+    libboost-system-dev libjemalloc-dev
 
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-
-if [ ! -e $CPP_TOOLCHAIN ]; then
-    # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
-        jemalloc=4.5.0.post \
-        nomkl \
-        boost-cpp \
-        rapidjson \
-        flatbuffers \
-        gflags \
-        gtest \
-        lz4-c \
-        snappy \
-        ccache \
-        zstd \
-        brotli \
-        zlib \
-        cmake \
-        curl \
-        thrift-cpp=0.11.0 \
-        ninja
-
-    # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
-    # updated sometime on October 2 or October 3
-    conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
+if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
+    sudo apt-get install -y -q valgrind
 fi

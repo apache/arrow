@@ -18,6 +18,7 @@
 #ifndef ARROW_PYTHON_COMMON_H
 #define ARROW_PYTHON_COMMON_H
 
+#include <memory>
 #include <string>
 
 #include "arrow/python/config.h"
@@ -66,7 +67,7 @@ class ARROW_EXPORT PyAcquireGIL {
 class ARROW_EXPORT OwnedRef {
  public:
   OwnedRef() : obj_(NULLPTR) {}
-
+  OwnedRef(OwnedRef&& other) : OwnedRef(other.detach()) {}
   explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
   ~OwnedRef() { reset(); }
@@ -89,6 +90,8 @@ class ARROW_EXPORT OwnedRef {
   PyObject** ref() { return &obj_; }
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(OwnedRef);
+
   PyObject* obj_;
 };
 
@@ -97,6 +100,10 @@ class ARROW_EXPORT OwnedRef {
 // (e.g. if it is released in the middle of a function for performance reasons)
 class ARROW_EXPORT OwnedRefNoGIL : public OwnedRef {
  public:
+  OwnedRefNoGIL() : OwnedRef() {}
+  OwnedRefNoGIL(OwnedRefNoGIL&& other) : OwnedRef(other.detach()) {}
+  explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
+
   ~OwnedRefNoGIL() {
     PyAcquireGIL lock;
     reset();
@@ -140,15 +147,17 @@ ARROW_EXPORT MemoryPool* get_memory_pool();
 
 class ARROW_EXPORT PyBuffer : public Buffer {
  public:
-  /// Note that the GIL must be held when calling the PyBuffer constructor.
-  ///
-  /// While memoryview objects support multi-demensional buffers, PyBuffer only supports
+  /// While memoryview objects support multi-dimensional buffers, PyBuffer only supports
   /// one-dimensional byte buffers.
-  explicit PyBuffer(PyObject* obj);
   ~PyBuffer();
 
+  static Status FromPyObject(PyObject* obj, std::shared_ptr<Buffer>* out);
+
  private:
-  PyObject* obj_;
+  PyBuffer();
+  Status Init(PyObject*);
+
+  Py_buffer py_buf_;
 };
 
 }  // namespace py

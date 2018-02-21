@@ -39,7 +39,7 @@ class ARROW_NO_EXPORT PythonFile;
 class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
  public:
   explicit PyReadableFile(PyObject* file);
-  virtual ~PyReadableFile();
+  ~PyReadableFile() override;
 
   Status Close() override;
 
@@ -68,7 +68,7 @@ class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
 class ARROW_EXPORT PyOutputStream : public io::OutputStream {
  public:
   explicit PyOutputStream(PyObject* file);
-  virtual ~PyOutputStream();
+  ~PyOutputStream() override;
 
   Status Close() override;
   Status Tell(int64_t* position) const override;
@@ -77,13 +77,6 @@ class ARROW_EXPORT PyOutputStream : public io::OutputStream {
  private:
   std::unique_ptr<PythonFile> file_;
   int64_t position_;
-};
-
-// A zero-copy reader backed by a PyBuffer object
-class ARROW_EXPORT PyBytesReader : public io::BufferReader {
- public:
-  explicit PyBytesReader(PyObject* obj);
-  virtual ~PyBytesReader();
 };
 
 // TODO(wesm): seekable output files

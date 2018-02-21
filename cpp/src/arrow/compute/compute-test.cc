@@ -291,14 +291,14 @@ TEST_F(TestCast, ToIntDowncastUnsafe) {
 TEST_F(TestCast, TimestampToTimestamp) {
   CastOptions options;
 
-  auto CheckTimestampCast = [this](
-      const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
-      const vector<int64_t>& from_values, const vector<int64_t>& to_values,
-      const vector<bool>& is_valid) {
-    CheckCase<TimestampType, int64_t, TimestampType, int64_t>(
-        timestamp(from_unit), from_values, is_valid, timestamp(to_unit), to_values,
-        options);
-  };
+  auto CheckTimestampCast =
+      [this](const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
+             const vector<int64_t>& from_values, const vector<int64_t>& to_values,
+             const vector<bool>& is_valid) {
+        CheckCase<TimestampType, int64_t, TimestampType, int64_t>(
+            timestamp(from_unit), from_values, is_valid, timestamp(to_unit), to_values,
+            options);
+      };
 
   vector<bool> is_valid = {true, false, true, true, true};
 

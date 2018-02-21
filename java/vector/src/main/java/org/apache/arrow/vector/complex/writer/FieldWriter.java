@@ -19,10 +19,10 @@
 package org.apache.arrow.vector.complex.writer;
 
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ScalarWriter;
 
-public interface FieldWriter extends MapWriter, ListWriter, ScalarWriter {
+public interface FieldWriter extends StructWriter, ListWriter, ScalarWriter {
   void allocate();
 
   void clear();

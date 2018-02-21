@@ -198,7 +198,7 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
  public:
   explicit PoolBuffer(MemoryPool* pool = NULLPTR);
-  virtual ~PoolBuffer();
+  ~PoolBuffer() override;
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override;
   Status Reserve(const int64_t new_capacity) override;

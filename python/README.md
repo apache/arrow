@@ -19,9 +19,9 @@
 
 ## Python library for Apache Arrow
 
-This library provides a Pythonic API wrapper for the reference Arrow C++
-implementation, along with tools for interoperability with pandas, NumPy, and
-other traditional Python scientific computing packages.
+This library provides a Python API for functionality provided by the Arrow C++
+libraries, along with tools for Arrow integration and interoperability with
+pandas, NumPy, and other software in the Python ecosystem.
 
 ## Installing
 

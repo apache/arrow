@@ -1132,6 +1132,17 @@ class TestConvertDecimalTypes(object):
         df = converted.to_pandas()
         tm.assert_frame_equal(df, expected)
 
+    def test_decimal_fails_with_truncation(self):
+        data1 = [decimal.Decimal('1.234')]
+        type1 = pa.decimal128(10, 2)
+        with pytest.raises(pa.ArrowException):
+            pa.array(data1, type=type1)
+
+        data2 = [decimal.Decimal('1.2345')]
+        type2 = pa.decimal128(10, 3)
+        with pytest.raises(pa.ArrowException):
+            pa.array(data2, type=type2)
+
 
 class TestListTypes(object):
     """
@@ -1327,6 +1338,15 @@ class TestListTypes(object):
         result = tbl.to_pandas()
 
         tm.assert_frame_equal(result, df)
+
+    def test_array_from_nested_arrays(self):
+        df, schema = dataframe_with_arrays()
+        for field in schema:
+            arr = df[field.name].values
+            expected = pa.array(list(arr), type=field.type)
+            result = pa.array(arr)
+            assert result.type == field.type  # == list<scalar>
+            assert result.equals(expected)
 
 
 class TestConvertStructTypes(object):
@@ -1573,6 +1593,19 @@ class TestConvertMisc(object):
         arr = pa.array([], type=pa.struct([pa.field('a', pa.int64())]))
         tm.assert_almost_equal(arr.to_pandas(), np.array([], dtype=object))
 
+    def test_non_natural_stride(self):
+        """
+        ARROW-2172: converting from a Numpy array with a stride that's
+        not a multiple of itemsize.
+        """
+        dtype = np.dtype([('x', np.int32), ('y', np.int16)])
+        data = np.array([(42, -1), (-43, 2)], dtype=dtype)
+        assert data.strides == (6,)
+        arr = pa.array(data['x'], type=pa.int32())
+        assert arr.to_pylist() == [42, -43]
+        arr = pa.array(data['y'], type=pa.int16())
+        assert arr.to_pylist() == [-1, 2]
+
 
 def _fully_loaded_dataframe_example():
     from distutils.version import LooseVersion
@@ -1604,7 +1637,7 @@ def _fully_loaded_dataframe_example():
 
 
 def _check_serialize_components_roundtrip(df):
-    ctx = pa.pandas_serialization_context()
+    ctx = pa.default_serialization_context()
 
     components = ctx.serialize(df).to_components()
     deserialized = ctx.deserialize_components(components)

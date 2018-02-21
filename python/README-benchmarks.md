@@ -41,8 +41,6 @@ First you have to install ASV's development version:
 pip install git+https://github.com/airspeed-velocity/asv.git
 ```
 
-<!--- TODO remove the above once https://github.com/airspeed-velocity/asv/pull/611 is merged -->
-
 Then you need to set up a few environment variables:
 
 ```shell

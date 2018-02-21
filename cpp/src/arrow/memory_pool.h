@@ -71,7 +71,7 @@ class ARROW_EXPORT MemoryPool {
 class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
  public:
   explicit LoggingMemoryPool(MemoryPool* pool);
-  virtual ~LoggingMemoryPool() = default;
+  ~LoggingMemoryPool() override = default;
 
   Status Allocate(int64_t size, uint8_t** out) override;
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;

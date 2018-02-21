@@ -854,26 +854,46 @@ static const Decimal128 ScaleMultipliers[] = {
     Decimal128("10000000000000000000000000000000000000"),
     Decimal128("100000000000000000000000000000000000000")};
 
+static bool RescaleWouldCauseDataLoss(const Decimal128& value, int32_t delta_scale,
+                                      int32_t abs_delta_scale, Decimal128* result) {
+  Decimal128 multiplier(ScaleMultipliers[abs_delta_scale]);
+
+  if (delta_scale < 0) {
+    DCHECK_NE(multiplier, 0);
+    Decimal128 remainder;
+    Status status = value.Divide(multiplier, result, &remainder);
+    DCHECK(status.ok()) << status.message();
+    return remainder != 0;
+  }
+
+  *result = value * multiplier;
+  return *result < value;
+}
+
 Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
                            Decimal128* out) const {
-  DCHECK_NE(out, NULLPTR);
-  DCHECK_NE(original_scale, new_scale);
-  const int32_t delta_scale = original_scale - new_scale;
+  DCHECK_NE(out, NULLPTR) << "out is nullptr";
+  DCHECK_NE(original_scale, new_scale) << "original_scale != new_scale";
+
+  const int32_t delta_scale = new_scale - original_scale;
   const int32_t abs_delta_scale = std::abs(delta_scale);
+
   DCHECK_GE(abs_delta_scale, 1);
   DCHECK_LE(abs_delta_scale, 38);
 
-  const Decimal128 scale_multiplier = ScaleMultipliers[abs_delta_scale];
-  const Decimal128 result = *this * scale_multiplier;
+  Decimal128 result(*this);
+  const bool rescale_would_cause_data_loss =
+      RescaleWouldCauseDataLoss(result, delta_scale, abs_delta_scale, out);
 
-  if (ARROW_PREDICT_FALSE(result < *this)) {
+  // Fail if we overflow or truncate
+  if (ARROW_PREDICT_FALSE(rescale_would_cause_data_loss)) {
     std::stringstream buf;
-    buf << "Rescaling decimal value from original scale " << original_scale
-        << " to new scale " << new_scale << " would cause overflow";
+    buf << "Rescaling decimal value " << ToString(original_scale)
+        << " from original scale of " << original_scale << " to new scale of "
+        << new_scale << " would cause data loss";
     return Status::Invalid(buf.str());
   }
 
-  *out = result;
   return Status::OK();
 }
 

@@ -28,6 +28,20 @@ import numpy as np
 import six
 
 
+int_type_pairs = [
+    (np.int8, pa.int8()),
+    (np.int16, pa.int64()),
+    (np.int32, pa.int32()),
+    (np.int64, pa.int64()),
+    (np.uint8, pa.uint8()),
+    (np.uint16, pa.uint64()),
+    (np.uint32, pa.uint32()),
+    (np.uint64, pa.uint64())]
+
+
+np_int_types, _ = zip(*int_type_pairs)
+
+
 class StrangeIterable:
     def __init__(self, lst):
         self.lst = lst
@@ -146,7 +160,20 @@ def test_sequence_all_none():
 
 
 @pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
-def test_sequence_integer(seq):
+@pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
+def test_sequence_integer(seq, np_scalar_pa_type):
+    np_scalar, pa_type = np_scalar_pa_type
+    expected = [1, None, 3, None,
+                np.iinfo(np_scalar).min, np.iinfo(np_scalar).max]
+    arr = pa.array(seq(expected), type=pa_type)
+    assert len(arr) == 6
+    assert arr.null_count == 2
+    assert arr.type == pa_type
+    assert arr.to_pylist() == expected
+
+
+@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+def test_sequence_integer_inferred(seq):
     expected = [1, None, 3, None]
     arr = pa.array(seq(expected))
     assert len(arr) == 4
@@ -156,12 +183,32 @@ def test_sequence_integer(seq):
 
 
 @pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
-@pytest.mark.parametrize("np_scalar", [np.int16, np.int32, np.int64, np.uint16,
-                                       np.uint32, np.uint64])
-def test_sequence_numpy_integer(seq, np_scalar):
+@pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
+def test_sequence_numpy_integer(seq, np_scalar_pa_type):
+    np_scalar, pa_type = np_scalar_pa_type
+    expected = [np_scalar(1), None, np_scalar(3), None,
+                np_scalar(np.iinfo(np_scalar).min),
+                np_scalar(np.iinfo(np_scalar).max)]
+    arr = pa.array(seq(expected), type=pa_type)
+    assert len(arr) == 6
+    assert arr.null_count == 2
+    assert arr.type == pa_type
+    assert arr.to_pylist() == expected
+
+
+@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
+def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
+    np_scalar, pa_type = np_scalar_pa_type
     expected = [np_scalar(1), None, np_scalar(3), None]
+    if np_scalar != np.uint64:
+        expected += [np_scalar(np.iinfo(np_scalar).min),
+                     np_scalar(np.iinfo(np_scalar).max)]
+    else:
+        # max(uint64) is too large for the inferred int64 type
+        expected += [0, np.iinfo(np.int64).max]
     arr = pa.array(seq(expected))
-    assert len(arr) == 4
+    assert len(arr) == 6
     assert arr.null_count == 2
     assert arr.type == pa.int64()
     assert arr.to_pylist() == expected

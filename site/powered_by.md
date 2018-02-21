@@ -105,6 +105,12 @@ short description of your use case. See the following for some examples.
   of Apache Arrow based on Apache Arrow GLib. Red Arrow is a core
   library for it. It also provides many Ruby libraries to integrate
   existing Ruby libraries with Apache Arrow. They use Red Arrow.
+* **[SciDB][21]:** Paradigm4's SciDB is a scalable, scientific
+  database management system that helps researchers integrate and
+  analyze diverse, multi-dimensional, high resolution data - like
+  genomic, clinical, images, sensor, environmental, and IoT data -
+  all in one analytical platform. [SciDB streaming][22] is
+  powered by Apache Arrow.
 * **[Turbodbc][4]:** Python module to access relational databases via the Open
   Database Connectivity (ODBC) interface. It provides the ability to return
   Arrow Tables and RecordBatches in addition to the Python Database API
@@ -130,3 +136,5 @@ short description of your use case. See the following for some examples.
 [18]: https://www.graphistry.com
 [19]: http://gpuopenanalytics.com
 [20]: https://github.com/johanpel/fletcher
+[21]: https://www.paradigm4.com
+[22]: https://github.com/Paradigm4/stream

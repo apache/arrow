@@ -364,8 +364,8 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
   return std::make_shared<Schema>(std::move(fields), metadata);
 }
 
-// ----------------------------------------------------------------------
-// Visitors and factory functions
+  // ----------------------------------------------------------------------
+  // Visitors and factory functions
 
 #define ACCEPT_VISITOR(TYPE) \
   Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
