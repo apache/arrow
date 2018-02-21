@@ -19,7 +19,13 @@
 #define PARQUET_THRIFT_UTIL_H
 
 #include <cstdint>
+// Check if thrift version < 0.11.0
+// or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
+#if defined(PARQUET_THRIFT_USE_BOOST) || defined(FORCE_BOOST_SMART_PTR)
+#include <boost/shared_ptr.hpp>
+#else
 #include <memory>
+#endif
 
 // TCompactProtocol requires some #defines to work right.
 #define SIGNED_RIGHT_SHIFT_IS 1
@@ -38,6 +44,14 @@
 #include "parquet/util/memory.h"
 
 namespace parquet {
+
+// Check if thrift version < 0.11.0
+// or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
+#if defined(PARQUET_THRIFT_USE_BOOST) || defined(FORCE_BOOST_SMART_PTR)
+using ::boost::shared_ptr;
+#else
+using ::std::shared_ptr;
+#endif
 
 // ----------------------------------------------------------------------
 // Convert Thrift enums to / from parquet enums
@@ -94,12 +108,12 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
 template <class T>
 inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg) {
   // Deserialize msg bytes into c++ thrift msg using memory transport.
-  std::shared_ptr<apache::thrift::transport::TMemoryBuffer> tmem_transport(
+  shared_ptr<apache::thrift::transport::TMemoryBuffer> tmem_transport(
       new apache::thrift::transport::TMemoryBuffer(const_cast<uint8_t*>(buf), *len));
   apache::thrift::protocol::TCompactProtocolFactoryT<
       apache::thrift::transport::TMemoryBuffer>
       tproto_factory;
-  std::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
+  shared_ptr<apache::thrift::protocol::TProtocol> tproto =
       tproto_factory.getProtocol(tmem_transport);
   try {
     deserialized_msg->read(tproto.get());
@@ -117,12 +131,12 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
 // the expected size of the serialized object
 template <class T>
 inline int64_t SerializeThriftMsg(T* obj, uint32_t len, OutputStream* out) {
-  std::shared_ptr<apache::thrift::transport::TMemoryBuffer> mem_buffer(
+  shared_ptr<apache::thrift::transport::TMemoryBuffer> mem_buffer(
       new apache::thrift::transport::TMemoryBuffer(len));
   apache::thrift::protocol::TCompactProtocolFactoryT<
       apache::thrift::transport::TMemoryBuffer>
       tproto_factory;
-  std::shared_ptr<apache::thrift::protocol::TProtocol> tproto =
+  shared_ptr<apache::thrift::protocol::TProtocol> tproto =
       tproto_factory.getProtocol(mem_buffer);
   try {
     mem_buffer->resetBuffer();
