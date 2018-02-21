@@ -1,0 +1,129 @@
+
+create: CREATE TABLE table1 (int_field1 INT, bool_field2, BOOLEAN, tinyint_field3 TINYINT
+           title VARCHAR(50) NOT NULL,
+           author VARCHAR(20) NOT NULL,
+           submission_date DATE,
+        );
+
+columns:
+- name: int_field1
+  type: INT
+- name: bool_field2
+  type: BOOLEAN
+- name: tinyint_field3
+  type: TINYINT
+- name: smallint_field4
+  type: SMALLINT
+- name: bigint_field5
+  type: BIGINT
+- name: decimal_field6
+  type: DECIMAL(20,2)
+- name: double_field7
+  type: DOUBLE
+- name: real_field8
+  type: REAL
+- name: time_field9
+  type: TIME
+- name: date_field10
+  type: DATE
+- name: timestamp_field11
+  type: TIMESTAMP
+- name: binary_field12
+  type: BINARY(100)
+- name: varchar_field13
+  type: VARCHAR(256)
+- name: blob_field14
+  type: BLOB
+- name: clob_field15
+  type: CLOB
+- name: char_field16
+  type: CHAR(16)
+- name: bit_field17
+  type: BIT
+
+data:
+- - '101'
+  - '1'
+  - '45'
+  - '12000'
+  - '9223372036854775807'
+  - '17345667789.23'
+  - '56478356785.345'
+  - '56478356785.345'
+  - '12:45:35'
+  - '2018-02-12'
+  - '2018-02-12 12:45:35'
+  - 'some text that needs to be converted to binary'
+  - 'some text that needs to be converted to varchar'
+  - 'some text that needs to be converted to blob'
+  - 'some text that needs to be converted to clob'
+  - 'some char text'
+  - '0'
+- - '101'
+  - '1'
+  - '45'
+  - '12000'
+  - '9223372036854775807'
+  - '17345667789.23'
+  - '56478356785.345'
+  - '56478356785.345'
+  - '12:45:35'
+  - '2018-02-12'
+  - '2018-02-12 12:45:35'
+  - 'some text that needs to be converted to binary'
+  - 'some text that needs to be converted to varchar'
+  - 'some text that needs to be converted to blob'
+  - 'some text that needs to be converted to clob'
+  - 'some char text'
+  - '0'
+- - '101'
+  - '1'
+  - '45'
+  - '12000'
+  - '9223372036854775807'
+  - '17345667789.23'
+  - '56478356785.345'
+  - '56478356785.345'
+  - '12:45:35'
+  - '2018-02-12'
+  - '2018-02-12 12:45:35'
+  - 'some text that needs to be converted to binary'
+  - 'some text that needs to be converted to varchar'
+  - 'some text that needs to be converted to blob'
+  - 'some text that needs to be converted to clob'
+  - 'some char text'
+  - '0'
+- - '101'
+  - '1'
+  - '45'
+  - '12000'
+  - '9223372036854775807'
+  - '17345667789.23'
+  - '56478356785.345'
+  - '56478356785.345'
+  - '12:45:35'
+  - '2018-02-12'
+  - '2018-02-12 12:45:35'
+  - 'some text that needs to be converted to binary'
+  - 'some text that needs to be converted to varchar'
+  - 'some text that needs to be converted to blob'
+  - 'some text that needs to be converted to clob'
+  - 'some char text'
+  - '0'
+- - '101'
+  - '1'
+  - '45'
+  - '12000'
+  - '9223372036854775807'
+  - '17345667789.23'
+  - '56478356785.345'
+  - '56478356785.345'
+  - '12:45:35'
+  - '2018-02-12'
+  - '2018-02-12 12:45:35'
+  - 'some text that needs to be converted to binary'
+  - 'some text that needs to be converted to varchar'
+  - 'some text that needs to be converted to blob'
+  - 'some text that needs to be converted to clob'
+  - 'some char text'
+  - '0'

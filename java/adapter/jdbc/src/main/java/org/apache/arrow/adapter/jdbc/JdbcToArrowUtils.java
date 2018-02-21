@@ -27,10 +27,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
+import java.sql.*;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
@@ -255,16 +252,38 @@ public class JdbcToArrowUtils {
                     case Types.BINARY:
                     case Types.VARBINARY:
                     case Types.LONGVARBINARY:
-//                        fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
+                        VarBinaryVector varBinaryVector = (VarBinaryVector)root.getVector(columnName);;
+                        varBinaryVector.setInitialCapacity(1);
+                        varBinaryVector.allocateNew();
+                        byte[] bytes = rs.getBytes(i);
+                        varBinaryVector.setIndexDefined(i);
+                        varBinaryVector.setValueLengthSafe(i, bytes.length);
+                        varBinaryVector.setSafe(i, bytes);
                         break;
                     case Types.ARRAY:
                         // not handled
 //                    fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
                         break;
                     case Types.CLOB:
+                        VarCharVector varcharVector1 = (VarCharVector)root.getVector(columnName);
+                        varcharVector1.setInitialCapacity(1);
+                        varcharVector1.allocateNew();
+                        Clob clob = rs.getClob(i);
+                        int length = (int)clob.length();
+                        varcharVector1.setIndexDefined(i);
+                        varcharVector1.setValueLengthSafe(i, length);
+                        varcharVector1.setSafe(varcharVector1.getValueCapacity(), clob.getSubString(0, length).getBytes(), 0, length);
+                        varcharVector1.setValueCount(1);
                         break;
                     case Types.BLOB:
-//                        fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
+                        VarBinaryVector varBinaryVector1 = (VarBinaryVector)root.getVector(columnName);;
+                        varBinaryVector1.setInitialCapacity(1);
+                        varBinaryVector1.allocateNew();
+                        Blob blob = rs.getBlob(i);
+                        byte[] data = blob.getBytes(0, (int)blob.length());
+                        varBinaryVector1.setIndexDefined(i);
+                        varBinaryVector1.setValueLengthSafe(i, (int)blob.length());
+                        varBinaryVector1.setSafe(i, data);
                         break;
 
                     default:
