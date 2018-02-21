@@ -292,5 +292,43 @@ TEST_F(DecimalTest, TestOverflowFails) {
                                                             decimal_type, &value));
 }
 
+
+TEST_F(DecimalTest, SimpleInference) {
+  OwnedRef value(this->CreatePythonDecimal("0.01"));
+  ASSERT_NE(value.obj(), nullptr);
+  int32_t precision;
+  int32_t scale;
+  ASSERT_OK(internal::InferDecimalPrecisionAndScale(value.obj(), &precision, &scale));
+  ASSERT_EQ(2, precision);
+  ASSERT_EQ(2, scale);
+}
+
+
+TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
+
+  PyAcquireGIL lock;
+  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<Array> arr;
+
+  OwnedRef list_ref(PyList_New(2));
+  PyObject* list = list_ref.obj();
+
+  ASSERT_NE(list, nullptr);
+
+  PyObject* value1 = this->CreatePythonDecimal("0.01").detach();
+  ASSERT_NE(value1, nullptr);
+
+  PyObject* value2 = this->CreatePythonDecimal("0.001").detach();
+  ASSERT_NE(value2, nullptr);
+
+  // This steals a reference to each object, so we don't need to decref them later
+  // just the list
+
+  ASSERT_EQ(PyList_SetItem(list, 0, value1), 0);
+  ASSERT_EQ(PyList_SetItem(list, 1, value2), 0);
+
+  ASSERT_OK(ConvertPySequence(list, pool, &arr));
+}
+
 }  // namespace py
 }  // namespace arrow
