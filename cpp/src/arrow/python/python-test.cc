@@ -222,14 +222,12 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
 
 TEST_F(DecimalTest, TestOverflowFails) {
   Decimal128 value;
-  int32_t precision;
-  int32_t scale;
   OwnedRef python_decimal(
       this->CreatePythonDecimal("9999999999999999999999999999999999999.9"));
-  ASSERT_OK(
-      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
-  ASSERT_EQ(38, precision);
-  ASSERT_EQ(1, scale);
+  internal::DecimalMetadata metadata;
+  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_EQ(38, metadata.precision());
+  ASSERT_EQ(1, metadata.scale());
 
   auto type = ::arrow::decimal(38, 38);
   const auto& decimal_type = static_cast<const DecimalType&>(*type);
