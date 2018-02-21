@@ -25,8 +25,13 @@
 
 namespace parquet {
 
-PARQUET_NORETURN void ParquetException::EofException() {
-  throw ParquetException("Unexpected end of stream.");
+PARQUET_NORETURN void ParquetException::EofException(const std::string& msg) {
+  std::stringstream ss;
+  ss << "Unexpected end of stream";
+  if (!msg.empty()) {
+    ss << ": " << msg;
+  }
+  throw ParquetException(ss.str());
 }
 
 PARQUET_NORETURN void ParquetException::NYI(const std::string& msg) {

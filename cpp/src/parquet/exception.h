@@ -59,7 +59,7 @@ namespace parquet {
 
 class PARQUET_EXPORT ParquetException : public std::exception {
  public:
-  PARQUET_NORETURN static void EofException();
+  PARQUET_NORETURN static void EofException(const std::string& msg = "");
   PARQUET_NORETURN static void NYI(const std::string& msg);
   PARQUET_NORETURN static void Throw(const std::string& msg);
 

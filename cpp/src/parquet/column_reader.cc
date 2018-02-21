@@ -180,7 +180,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Read the compressed data page.
     buffer = stream_->Read(compressed_len, &bytes_read);
     if (bytes_read != compressed_len) {
-      ParquetException::EofException();
+      std::stringstream ss;
+      ss << "Page was smaller (" << bytes_read << ") than expected (" << compressed_len
+         << ")";
+      ParquetException::EofException(ss.str());
     }
 
     // Uncompress it if we need to
