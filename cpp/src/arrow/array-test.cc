@@ -3256,4 +3256,68 @@ TEST_P(DecimalTest, WithNulls) {
 
 INSTANTIATE_TEST_CASE_P(DecimalTest, DecimalTest, ::testing::Range(1, 38));
 
+// ----------------------------------------------------------------------
+// Test rechunking
+
+TEST(TestRechunkArraysConsistently, Trivial) {
+  std::vector<ArrayVector> groups, rechunked;
+  rechunked = internal::RechunkArraysConsistently(groups);
+  ASSERT_EQ(rechunked.size(), 0);
+
+  std::shared_ptr<Array> a1, a2, b1;
+  ArrayFromVector<Int16Type, int16_t>({}, &a1);
+  ArrayFromVector<Int16Type, int16_t>({}, &a2);
+  ArrayFromVector<Int32Type, int32_t>({}, &b1);
+
+  groups = {{a1, a2}, {}, {b1}};
+  rechunked = internal::RechunkArraysConsistently(groups);
+  ASSERT_EQ(rechunked.size(), 3);
+}
+
+TEST(TestRechunkArraysConsistently, Plain) {
+  std::shared_ptr<Array> expected;
+  std::shared_ptr<Array> a1, a2, a3, b1, b2, b3, b4;
+  ArrayFromVector<Int16Type, int16_t>({1, 2, 3}, &a1);
+  ArrayFromVector<Int16Type, int16_t>({4, 5}, &a2);
+  ArrayFromVector<Int16Type, int16_t>({6, 7, 8, 9}, &a3);
+
+  ArrayFromVector<Int32Type, int32_t>({41, 42}, &b1);
+  ArrayFromVector<Int32Type, int32_t>({43, 44, 45}, &b2);
+  ArrayFromVector<Int32Type, int32_t>({46, 47}, &b3);
+  ArrayFromVector<Int32Type, int32_t>({48, 49}, &b4);
+
+  ArrayVector a{a1, a2, a3};
+  ArrayVector b{b1, b2, b3, b4};
+
+  std::vector<ArrayVector> groups{a, b}, rechunked;
+  rechunked = internal::RechunkArraysConsistently(groups);
+  ASSERT_EQ(rechunked.size(), 2);
+  auto ra = rechunked[0];
+  auto rb = rechunked[1];
+
+  ASSERT_EQ(ra.size(), 5);
+  ArrayFromVector<Int16Type, int16_t>({1, 2}, &expected);
+  ASSERT_ARRAYS_EQUAL(*ra[0], *expected);
+  ArrayFromVector<Int16Type, int16_t>({3}, &expected);
+  ASSERT_ARRAYS_EQUAL(*ra[1], *expected);
+  ArrayFromVector<Int16Type, int16_t>({4, 5}, &expected);
+  ASSERT_ARRAYS_EQUAL(*ra[2], *expected);
+  ArrayFromVector<Int16Type, int16_t>({6, 7}, &expected);
+  ASSERT_ARRAYS_EQUAL(*ra[3], *expected);
+  ArrayFromVector<Int16Type, int16_t>({8, 9}, &expected);
+  ASSERT_ARRAYS_EQUAL(*ra[4], *expected);
+
+  ASSERT_EQ(rb.size(), 5);
+  ArrayFromVector<Int32Type, int32_t>({41, 42}, &expected);
+  ASSERT_ARRAYS_EQUAL(*rb[0], *expected);
+  ArrayFromVector<Int32Type, int32_t>({43}, &expected);
+  ASSERT_ARRAYS_EQUAL(*rb[1], *expected);
+  ArrayFromVector<Int32Type, int32_t>({44, 45}, &expected);
+  ASSERT_ARRAYS_EQUAL(*rb[2], *expected);
+  ArrayFromVector<Int32Type, int32_t>({46, 47}, &expected);
+  ASSERT_ARRAYS_EQUAL(*rb[3], *expected);
+  ArrayFromVector<Int32Type, int32_t>({48, 49}, &expected);
+  ASSERT_ARRAYS_EQUAL(*rb[4], *expected);
+}
+
 }  // namespace arrow
