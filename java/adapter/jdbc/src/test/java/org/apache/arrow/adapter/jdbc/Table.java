@@ -23,10 +23,20 @@ package org.apache.arrow.adapter.jdbc;
  */
 public class Table {
 
+    private String name;
     private String create;
     private String[] data;
+    private String drop;
 
     public Table() {
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getCreate() {
@@ -43,5 +53,13 @@ public class Table {
 
     public void setData(String[] data) {
         this.data = data;
+    }
+
+    public String getDrop() {
+        return drop;
+    }
+
+    public void setDrop(String drop) {
+        this.drop = drop;
     }
 }
