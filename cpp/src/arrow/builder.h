@@ -810,7 +810,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   ArrayBuilder* field_builder(int i) const { return field_builders_[i].get(); }
 
-  int num_fields() const { return static_cast<int>(field_builders_.size() delta); }
+  int num_fields() const { return static_cast<int>(field_builders_.size()); }
 
  protected:
   std::vector<std::unique_ptr<ArrayBuilder>> field_builders_;
