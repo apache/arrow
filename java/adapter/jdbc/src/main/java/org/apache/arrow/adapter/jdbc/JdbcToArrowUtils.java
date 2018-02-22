@@ -160,101 +160,101 @@ public class JdbcToArrowUtils {
                     case Types.BOOLEAN:
                     case Types.BIT:
                         BitVector bitVector = (BitVector) root.getVector(columnName);
-                        bitVector.setInitialCapacity(1);
-                        bitVector.allocateNew();
-                        bitVector.setSafe(rowCount,rs.getBoolean(i)? 1: 0);
-                        bitVector.setValueCount(1);
+                        bitVector.setInitialCapacity(bitVector.getValueCapacity() + 1);
+                        bitVector.reAlloc();
+                        bitVector.setSafe(rowCount, rs.getBoolean(i)? 1: 0);
+                        bitVector.setValueCount(rowCount + 1);
                         break;
                     case Types.TINYINT:
                         TinyIntVector tinyIntVector = (TinyIntVector)root.getVector(columnName);
-                        tinyIntVector.setInitialCapacity(1);
-                        tinyIntVector.allocateNew();
+                        tinyIntVector.setInitialCapacity(tinyIntVector.getValueCapacity() + 1);
+                        tinyIntVector.reAlloc();
                         tinyIntVector.setSafe(rowCount, rs.getInt(i));
-                        tinyIntVector.setValueCount(1);
+                        tinyIntVector.setValueCount(rowCount + 1);
                         break;
                     case Types.SMALLINT:
                         SmallIntVector smallIntVector = (SmallIntVector)root.getVector(columnName);
-                        smallIntVector.setInitialCapacity(1);
-                        smallIntVector.allocateNew();
+                        smallIntVector.setInitialCapacity(smallIntVector.getValueCapacity() + 1);
+                        smallIntVector.reAlloc();
                         smallIntVector.setSafe(rowCount, rs.getInt(i));
-                        smallIntVector.setValueCount(1);
+                        smallIntVector.setValueCount(rowCount + 1);
                         break;
                     case Types.INTEGER:
                         IntVector intVector = (IntVector)root.getVector(columnName);
-                        intVector.setInitialCapacity(1);
-                        intVector.allocateNew();
+                        intVector.setInitialCapacity(intVector.getValueCapacity() + 1);
+                        intVector.reAlloc();
                         intVector.setSafe(rowCount, rs.getInt(i));
-                        intVector.setValueCount(1);
+                        intVector.setValueCount(rowCount + 1);
                         break;
                     case Types.BIGINT:
                         BigIntVector bigIntVector = (BigIntVector)root.getVector(columnName);
-                        bigIntVector.setInitialCapacity(1);
-                        bigIntVector.allocateNew();
+                        bigIntVector.setInitialCapacity(bigIntVector.getValueCapacity() + 1);
+                        bigIntVector.reAlloc();
                         bigIntVector.setSafe(rowCount, rs.getInt(i));
-                        bigIntVector.setValueCount(1);
+                        bigIntVector.setValueCount(rowCount + 1);
                         break;
                     case Types.NUMERIC:
                     case Types.DECIMAL:
                         DecimalVector decimalVector = (DecimalVector)root.getVector(columnName);
-                        decimalVector.setInitialCapacity(1);
-                        decimalVector.allocateNew();
+                        decimalVector.setInitialCapacity(decimalVector.getValueCapacity() + 1);
+                        decimalVector.reAlloc();
                         decimalVector.setSafe(rowCount, rs.getBigDecimal(i));
-                        decimalVector.setValueCount(1);
+                        decimalVector.setValueCount(rowCount + 1);
                         break;
                     case Types.REAL:
                     case Types.FLOAT:
                         Float4Vector float4Vector = (Float4Vector)root.getVector(columnName);
-                        float4Vector.setInitialCapacity(1);
-                        float4Vector.allocateNew();
+                        float4Vector.setInitialCapacity(float4Vector.getValueCapacity() + 1);
+                        float4Vector.reAlloc();
                         float4Vector.setSafe(rowCount, rs.getFloat(i));
-                        float4Vector.setValueCount(1);
+                        float4Vector.setValueCount(rowCount + 1);
                         break;
                     case Types.DOUBLE:
                         Float8Vector float8Vector = (Float8Vector)root.getVector(columnName);
-                        float8Vector.setInitialCapacity(1);
-                        float8Vector.allocateNew();
+                        float8Vector.setInitialCapacity(float8Vector.getValueCapacity() + 1);
+                        float8Vector.reAlloc();
                         float8Vector.setSafe(rowCount, rs.getDouble(i));
-                        float8Vector.setValueCount(1);
+                        float8Vector.setValueCount(rowCount + 1);
                         break;
                     case Types.CHAR:
                     case Types.VARCHAR:
                     case Types.LONGVARCHAR:
                         VarCharVector varcharVector = (VarCharVector)root.getVector(columnName);
-                        varcharVector.setInitialCapacity(1);
+                        varcharVector.setInitialCapacity(varcharVector.getValueCapacity() + 1);
                         varcharVector.allocateNew();
                         String value = rs.getString(i);
                         varcharVector.setIndexDefined(i);
                         varcharVector.setValueLengthSafe(i, value.length());
                         varcharVector.setSafe(varcharVector.getValueCapacity(), value.getBytes(), 0, value.length());
-                        varcharVector.setValueCount(1);
+                        varcharVector.setValueCount(rowCount + 1);
                         break;
                     case Types.DATE:
                         DateMilliVector dateMilliVector = (DateMilliVector)root.getVector(columnName);
-                        dateMilliVector.setInitialCapacity(1);
-                        dateMilliVector.allocateNew();
+                        dateMilliVector.setInitialCapacity(dateMilliVector.getValueCapacity() + 1);
+                        dateMilliVector.reAlloc();
                         dateMilliVector.setSafe(rowCount, rs.getDate(i).getTime());
-                        dateMilliVector.setValueCount(1);
+                        dateMilliVector.setValueCount(rowCount + 1);
                         break;
                     case Types.TIME:
                         TimeMilliVector timeMilliVector = (TimeMilliVector)root.getVector(columnName);
-                        timeMilliVector.setInitialCapacity(1);
-                        timeMilliVector.allocateNew();
+                        timeMilliVector.setInitialCapacity(timeMilliVector.getValueCapacity() + 1);
+                        timeMilliVector.reAlloc();
                         timeMilliVector.setSafe(rowCount, (int)rs.getTime(i).getTime());  // TODO - down conversion cast??
-                        timeMilliVector.setValueCount(1);
+                        timeMilliVector.setValueCount(rowCount + 1);
                         break;
                     case Types.TIMESTAMP:
                         // timezone is null
                         TimeStampVector timeStampVector = (TimeStampVector)root.getVector(columnName);
-                        timeStampVector.setInitialCapacity(1);
-                        timeStampVector.allocateNew();
+                        timeStampVector.setInitialCapacity(timeStampVector.getValueCapacity() + 1);
+                        timeStampVector.reAlloc();
                         timeStampVector.setSafe(rowCount, rs.getTimestamp(i).getTime());
-                        timeStampVector.setValueCount(1);
+                        timeStampVector.setValueCount(rowCount + 1);
                         break;
                     case Types.BINARY:
                     case Types.VARBINARY:
                     case Types.LONGVARBINARY:
                         VarBinaryVector varBinaryVector = (VarBinaryVector)root.getVector(columnName);;
-                        varBinaryVector.setInitialCapacity(1);
+                        varBinaryVector.setInitialCapacity(varBinaryVector.getValueCapacity() + 1);
                         varBinaryVector.allocateNew();
                         byte[] bytes = rs.getBytes(i);
                         varBinaryVector.setIndexDefined(i);
@@ -267,34 +267,35 @@ public class JdbcToArrowUtils {
                         break;
                     case Types.CLOB:
                         VarCharVector varcharVector1 = (VarCharVector)root.getVector(columnName);
-                        varcharVector1.setInitialCapacity(1);
+                        varcharVector1.setInitialCapacity(varcharVector1.getValueCapacity() + 1);
                         varcharVector1.allocateNew();
                         Clob clob = rs.getClob(i);
                         int length = (int)clob.length();
                         varcharVector1.setIndexDefined(i);
                         varcharVector1.setValueLengthSafe(i, length);
                         varcharVector1.setSafe(varcharVector1.getValueCapacity(), clob.getSubString(1, length).getBytes(), 0, length);
-                        varcharVector1.setValueCount(1);
+                        varcharVector1.setValueCount(rowCount + 1);
                         break;
                     case Types.BLOB:
                         VarBinaryVector varBinaryVector1 = (VarBinaryVector)root.getVector(columnName);;
-                        varBinaryVector1.setInitialCapacity(1);
+                        varBinaryVector1.setInitialCapacity(varBinaryVector1.getValueCapacity() + 1);
                         varBinaryVector1.allocateNew();
                         Blob blob = rs.getBlob(i);
                         byte[] data = blob.getBytes(0, (int)blob.length());
                         varBinaryVector1.setIndexDefined(i);
                         varBinaryVector1.setValueLengthSafe(i, (int)blob.length());
                         varBinaryVector1.setSafe(i, data);
+                        varBinaryVector1.setValueCount(rowCount + 1);
                         break;
 
                     default:
                         // no-op
                         break;
                 }
-                rowCount++;
-
             }
+            rowCount++;
         }
+        root.setRowCount(rowCount);
     }
 
 
