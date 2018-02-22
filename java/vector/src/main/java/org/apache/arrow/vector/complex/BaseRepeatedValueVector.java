@@ -170,7 +170,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
    */
   @Override
   public void setInitialCapacity(int numRecords, double density) {
-    if ((numRecords * density) >= 2_000_000_000) {
+    if ((numRecords * density) >= Integer.MAX_VALUE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
     offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
