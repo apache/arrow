@@ -264,10 +264,14 @@ Dependencies:
    parquet_file = 'mysample.parquet'
 
    block_blob_service = BlockBlobService(account_name=account_name, account_key=account_key)
-   byte_stream = io.BytesIO()
-   block_blob_service.get_blob_to_stream(container_name=container_name, blob_name=parquet_file, stream=byte_stream)
-   pd = pq.read_table(source=byte_stream).to_pandas()
-   pd.head(10)
+   try:
+      block_blob_service.get_blob_to_stream(container_name=container_name, blob_name=parquet_file, stream=byte_stream)
+	  pd = pq.read_table(source=byte_stream).to_pandas()
+	  pd.head(10)
+   except Exception as err:
+	  print("Error: {0}".format(err))
+   finally:
+      byte_stream.close()
 
 Notes:
 
