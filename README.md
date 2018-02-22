@@ -38,10 +38,12 @@ set of technologies that enable big data systems to process and move data fast.
 Major components of the project include:
 
  - [The Arrow Columnar In-Memory Format](https://github.com/apache/arrow/tree/master/format)
- - [C++ implementation](https://github.com/apache/arrow/tree/master/cpp)
+ - [C++ libraries](https://github.com/apache/arrow/tree/master/cpp)
+ - [Plasma Object Store](https://github.com/apache/arrow/tree/master/cpp/src/plasma): a
+   shared-memory blob store, part of the C++ codebase
  - [C bindings using GLib](https://github.com/apache/arrow/tree/master/c_glib)
- - [Java implementation](https://github.com/apache/arrow/tree/master/java)
- - [JavaScript implementation](https://github.com/apache/arrow/tree/master/js)
+ - [Java libraries](https://github.com/apache/arrow/tree/master/java)
+ - [JavaScript libraries](https://github.com/apache/arrow/tree/master/js)
  - [Python bindings to C++](https://github.com/apache/arrow/tree/master/python)
 
 Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at
@@ -49,8 +51,7 @@ Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn 
 
 ### What's in the Arrow libraries?
 
-The reference Arrow implementations contain a number of distinct software
-components:
+The reference Arrow libraries contain a number of distinct software components:
 
 - Columnar vector and table-like containers (similar to data frames) supporting
   flat or nested types
