@@ -200,7 +200,7 @@ def merge_pr(pr_num, target_ref):
     return merge_hash
 
 
-_REGEX_CI_DIRECTIVE = re.compile('\[.*\]')
+_REGEX_CI_DIRECTIVE = re.compile('\[[\]]*\]')
 
 
 def strip_ci_directives(commit_message):
