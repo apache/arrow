@@ -154,6 +154,7 @@ public class JdbcToArrowUtils {
         while (rs.next()) {
             // for each column get the value based on the type
 
+            // need to change this to build Java lists and then build Arrow vectors
             for (int i = 1; i < columnCount; i++) {
                 String columnName = rsmd.getColumnName(i);
                 switch (rsmd.getColumnType(i)) {
