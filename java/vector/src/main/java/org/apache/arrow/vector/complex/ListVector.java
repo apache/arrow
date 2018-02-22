@@ -127,9 +127,6 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    *                vector has a list of 10 values.
    *                A density value of 0.1 implies out of 10 positions in
    *                the list vector, 1 position has a list of size 1 and
-   *                remaining positions are null (no lists). This helps
-   *                in tightly controlling the memory we provision for
-   *                inner data vector.
    *                remaining positions are null (no lists) or empty lists.
    *                This helps in tightly controlling the memory we provision
    *                for inner data vector.
