@@ -255,7 +255,7 @@ Dependencies:
 .. code-block:: python
 
    import pyarrow.parquet as pq
-   import io
+   from io import BytesIO
    from azure.storage.blob import BlockBlobService
 
    account_name = '...'
@@ -263,6 +263,7 @@ Dependencies:
    container_name = '...'
    parquet_file = 'mysample.parquet'
 
+   byte_stream = io.BytesIO()
    block_blob_service = BlockBlobService(account_name=account_name, account_key=account_key)
    try:
       block_blob_service.get_blob_to_stream(container_name=container_name, blob_name=parquet_file, stream=byte_stream)
