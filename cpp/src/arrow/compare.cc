@@ -783,30 +783,4 @@ bool TypeEquals(const DataType& left, const DataType& right) {
   return are_equal;
 }
 
-Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
-  *are_equal = ArrayEquals(left, right);
-  return Status::OK();
-}
-
-Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
-  *are_equal = TensorEquals(left, right);
-  return Status::OK();
-}
-
-Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
-  *are_equal = ArrayApproxEquals(left, right);
-  return Status::OK();
-}
-
-Status ArrayRangeEquals(const Array& left, const Array& right, int64_t start_idx,
-                        int64_t end_idx, int64_t other_start_idx, bool* are_equal) {
-  *are_equal = ArrayRangeEquals(left, right, start_idx, end_idx, other_start_idx);
-  return Status::OK();
-}
-
-Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) {
-  *are_equal = TypeEquals(left, right);
-  return Status::OK();
-}
-
 }  // namespace arrow

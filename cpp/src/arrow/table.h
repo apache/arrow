@@ -244,18 +244,6 @@ ARROW_EXPORT
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
                          std::shared_ptr<Table>* table);
 
-#ifndef ARROW_NO_DEPRECATED_API
-
-/// \brief Construct table from multiple input tables.
-/// \return Status, fails if any schemas are different
-/// \note Deprecated since 0.8.0
-ARROW_EXPORT
-Status MakeTable(const std::shared_ptr<Schema>& schema,
-                 const std::vector<std::shared_ptr<Array>>& arrays,
-                 std::shared_ptr<Table>* table);
-
-#endif
-
 }  // namespace arrow
 
 #endif  // ARROW_TABLE_H

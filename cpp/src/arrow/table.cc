@@ -388,32 +388,6 @@ bool Table::Equals(const Table& other) const {
   return true;
 }
 
-#ifndef ARROW_NO_DEPRECATED_API
-
-Status MakeTable(const std::shared_ptr<Schema>& schema,
-                 const std::vector<std::shared_ptr<Array>>& arrays,
-                 std::shared_ptr<Table>* table) {
-  // Make sure the length of the schema corresponds to the length of the vector
-  if (schema->num_fields() != static_cast<int>(arrays.size())) {
-    std::stringstream ss;
-    ss << "Schema and Array vector have different lengths: " << schema->num_fields()
-       << " != " << arrays.size();
-    return Status::Invalid(ss.str());
-  }
-
-  std::vector<std::shared_ptr<Column>> columns;
-  columns.reserve(schema->num_fields());
-  for (int i = 0; i < schema->num_fields(); i++) {
-    columns.emplace_back(std::make_shared<Column>(schema->field(i), arrays[i]));
-  }
-
-  *table = Table::Make(schema, columns);
-
-  return Status::OK();
-}
-
-#endif  // ARROW_NO_DEPRECATED_API
-
 // ----------------------------------------------------------------------
 // Convert a table to a sequence of record batches
 
