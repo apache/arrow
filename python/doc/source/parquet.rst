@@ -257,7 +257,6 @@ Dependencies:
    import pyarrow.parquet as pq
    import io
    from azure.storage.blob import BlockBlobService
-   import tempfile
 
    account_name = '...'
    account_key = '...'
@@ -265,14 +264,13 @@ Dependencies:
    parquet_file = 'mysample.parquet'
 
    block_blob_service = BlockBlobService(account_name=account_name, account_key=account_key)
-   with tempfile.TemporaryFile() as fp:
-      block_blob_service.get_blob_to_stream(container_name=container_name, blob_name=parquet_file, stream=fp)
-      pd = pq.read_table(source=fp).to_pandas()
-      pd.head(10)
-   fp.close
+   byte_stream = io.BytesIO()
+   block_blob_service.get_blob_to_stream(container_name=container_name, blob_name=parquet_file, stream=byte_stream)
+   pd = pq.read_table(source=byte_stream).to_pandas()
+   pd.head(10)
 
 Notes:
 
 * The ``account_key`` can be found under ``Settings -> Access keys`` in the Microsoft Azure portal for a given container
-* The code above worked for a container with private access, Lease State = Available, Lease Status = Unlocked
+* The code above works for a container with private access, Lease State = Available, Lease Status = Unlocked
 * The parquet file was Blob Type = Block blob
