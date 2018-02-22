@@ -106,4 +106,12 @@ LD_LIBRARY_PATH=$PWD/../cpp/build/debug make GTK_DOC_V_XREF=": "
 rsync -r doc/reference/html/ ../site/asf-site/docs/c_glib/
 ```
 
+#### Javascript
+
+```
+cd ../js
+npm run doc
+rsync -r doc/ ../site/asf-site/docs/js
+```
+
 Then add/commit/push from the site/asf-site git checkout.
