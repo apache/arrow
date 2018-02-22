@@ -146,13 +146,6 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
-#ifndef ARROW_NO_DEPRECATED_API
-
-  // Deprecated since 0.8.0
-  std::shared_ptr<ArrayData> ShallowCopy() const { return Copy(); }
-
-#endif
-
   std::shared_ptr<DataType> type;
   int64_t length;
   int64_t null_count;
@@ -160,19 +153,6 @@ struct ARROW_EXPORT ArrayData {
   std::vector<std::shared_ptr<Buffer>> buffers;
   std::vector<std::shared_ptr<ArrayData>> child_data;
 };
-
-#ifndef ARROW_NO_DEPRECATED_API
-
-/// \brief Create a strongly-typed Array instance from generic ArrayData
-/// \param[in] data the array contents
-/// \param[out] out the resulting Array instance
-/// \return Status
-///
-/// \note Deprecated since 0.8.0
-ARROW_EXPORT
-Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out);
-
-#endif
 
 /// \brief Create a strongly-typed Array instance from generic ArrayData
 /// \param[in] data the array contents
@@ -334,15 +314,6 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
 
   /// Does not account for any slice offset
   std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
-
-#ifndef ARROW_NO_DEPRECATED_API
-
-  /// \brief Return pointer to start of raw data
-  ///
-  /// \note Deprecated since 0.8.0
-  const uint8_t* raw_values() const;
-
-#endif
 
  protected:
   PrimitiveArray() {}
