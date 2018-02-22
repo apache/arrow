@@ -186,7 +186,7 @@ npm install @apache-arrow/es5-umd # standalone es5/UMD package
 npm install @apache-arrow/es2015-cjs # standalone es2015/CommonJS package
 npm install @apache-arrow/es2015-esm # standalone es2015/ESModules package
 npm install @apache-arrow/es2015-umd # standalone es2015/UMD package
-npm install @apache-arrow/esnext-esm # standalone esNext/CommonJS package
+npm install @apache-arrow/esnext-cjs # standalone esNext/CommonJS package
 npm install @apache-arrow/esnext-esm # standalone esNext/ESModules package
 npm install @apache-arrow/esnext-umd # standalone esNext/UMD package
 ```
