@@ -175,7 +175,7 @@ def merge_pr(pr_num, target_ref):
         "Closes #%s from %s and squashes the following commits:"
         % (pr_num, pr_repo_desc)]
     for c in commits:
-        stripped_message = strip_ci_directives(c)
+        stripped_message = strip_ci_directives(c).strip()
         merge_message_flags += ["-m", stripped_message]
 
     run_cmd(['git', 'commit',
@@ -200,7 +200,7 @@ def merge_pr(pr_num, target_ref):
     return merge_hash
 
 
-_REGEX_CI_DIRECTIVE = re.compile('\[[\]]*\]')
+_REGEX_CI_DIRECTIVE = re.compile('\[[^\]]*\]')
 
 
 def strip_ci_directives(commit_message):
