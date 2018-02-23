@@ -26,6 +26,7 @@ public class Table {
     private String name;
     private String create;
     private String[] data;
+    private String query;
     private String drop;
 
     public Table() {
@@ -53,6 +54,14 @@ public class Table {
 
     public void setData(String[] data) {
         this.data = data;
+    }
+
+    public String getQuery() {
+        return query;
+    }
+
+    public void setQuery(String query) {
+        this.query = query;
     }
 
     public String getDrop() {
