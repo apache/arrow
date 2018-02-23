@@ -766,10 +766,7 @@ Status NumPyConverter::ConvertDecimals() {
       RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(objects[i], &tmp_precision,
                                                             &tmp_scale));
       precision = std::max(precision, tmp_precision);
-
-      if (std::abs(desired_scale) < std::abs(tmp_scale)) {
-        desired_scale = tmp_scale;
-      }
+      desired_scale = std::max(desired_scale, tmp_scale);
     }
 
     type_ = ::arrow::decimal(precision, desired_scale);
