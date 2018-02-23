@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <limits>
 #include <sstream>
 
 #include "arrow/python/common.h"
