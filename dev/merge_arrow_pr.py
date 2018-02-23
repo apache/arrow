@@ -175,7 +175,8 @@ def merge_pr(pr_num, target_ref):
         "Closes #%s from %s and squashes the following commits:"
         % (pr_num, pr_repo_desc)]
     for c in commits:
-        merge_message_flags += ["-m", c]
+        stripped_message = strip_ci_directives(c).strip()
+        merge_message_flags += ["-m", stripped_message]
 
     run_cmd(['git', 'commit',
              '--no-verify',  # do not run commit hooks
@@ -199,6 +200,15 @@ def merge_pr(pr_num, target_ref):
     return merge_hash
 
 
+_REGEX_CI_DIRECTIVE = re.compile('\[[^\]]*\]')
+
+
+def strip_ci_directives(commit_message):
+    # Remove things like '[force ci]', '[skip appveyor]' from the assembled
+    # commit message
+    return _REGEX_CI_DIRECTIVE.sub('', commit_message)
+
+
 def fix_version_from_branch(branch, versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
@@ -209,7 +219,7 @@ def fix_version_from_branch(branch, versions):
         return [x for x in versions if x.name.startswith(branch_ver)][-1]
 
 
-def exctract_jira_id(title):
+def extract_jira_id(title):
     m = re.search(r'^(ARROW-[0-9]+)\b.*$', title)
     if m:
         return m.group(1)
@@ -219,7 +229,7 @@ def exctract_jira_id(title):
 
 
 def check_jira(title):
-    jira_id = exctract_jira_id(title)
+    jira_id = extract_jira_id(title)
     asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
                                 basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
     try:
@@ -232,7 +242,7 @@ def resolve_jira(title, merge_branches, comment):
     asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
                                 basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
 
-    default_jira_id = exctract_jira_id(title)
+    default_jira_id = extract_jira_id(title)
 
     jira_id = input("Enter a JIRA id [%s]: " % default_jira_id)
     if jira_id == "":
