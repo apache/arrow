@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <memory>
+#include "gtest/gtest.h"
 
-#include <gtest/gtest.h>
+#include <memory>
 
 #include "arrow/python/platform.h"
 
