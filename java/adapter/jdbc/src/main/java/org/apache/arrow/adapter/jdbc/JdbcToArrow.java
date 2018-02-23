@@ -34,10 +34,11 @@ public class JdbcToArrow {
      * @param connection Database connection to be used. This method will not close the passed connection object. Since hte caller has passed
      *                   the connection object it's the responsibility of the caller to close or return the connection to the pool.
      * @param query The DB Query to fetch the data.
+     * @param size Size of the dataset to return
      * @return
      * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statment objects.
      */
-    public static VectorSchemaRoot sqlToArrow(Connection connection, String query) throws Exception {
+    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, int size) throws Exception {
 
         RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
 
@@ -49,7 +50,8 @@ public class JdbcToArrow {
             ResultSetMetaData rsmd = rs.getMetaData();
             VectorSchemaRoot root = VectorSchemaRoot.create(
                     JdbcToArrowUtils.jdbcToArrowSchema(rsmd), rootAllocator);
-            JdbcToArrowUtils.jdbcToArrowVectors(rs, root);
+            JdbcToArrowUtils.allocateVectors(root, size);
+            JdbcToArrowUtils.jdbcToArrowVectors(rs, root, size);
             return root;
         } catch (Exception exc) {
             // just throw it out after logging
