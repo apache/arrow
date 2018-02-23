@@ -67,17 +67,9 @@ constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max();
 
 namespace {
 
-inline bool PyFloat_isnan(PyObject* obj) {
-  if (PyFloat_Check(obj)) {
-    double val = PyFloat_AS_DOUBLE(obj);
-    return val != val;
-  } else {
-    return false;
-  }
-}
-
 inline bool PandasObjectIsNull(PyObject* obj) {
-  return obj == Py_None || obj == numpy_nan || PyFloat_isnan(obj);
+  return obj == Py_None || obj == numpy_nan || internal::PyFloat_isnan(obj) ||
+         (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
 }
 
 inline bool PyObject_is_string(PyObject* obj) {
@@ -88,10 +80,8 @@ inline bool PyObject_is_string(PyObject* obj) {
 #endif
 }
 
-inline bool PyObject_is_float(PyObject* obj) { return PyFloat_Check(obj); }
-
 inline bool PyObject_is_integer(PyObject* obj) {
-  return (!PyBool_Check(obj)) && PyArray_IsIntegerScalar(obj);
+  return !PyBool_Check(obj) && PyArray_IsIntegerScalar(obj);
 }
 
 template <int TYPE>
@@ -743,58 +733,37 @@ Status NumPyConverter::ConvertDates() {
 Status NumPyConverter::ConvertDecimals() {
   PyAcquireGIL lock;
 
-  // Import the decimal module and Decimal class
-  OwnedRef decimal;
-  OwnedRef Decimal;
-  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
-  RETURN_NOT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
-
+  internal::DecimalMetadata max_decimal_metadata;
   Ndarray1DIndexer<PyObject*> objects(arr_);
-  PyObject* object = objects[0];
 
   if (type_ == NULLPTR) {
-    int32_t precision;
-    int32_t desired_scale;
-
-    int32_t tmp_precision;
-    int32_t tmp_scale;
-
-    RETURN_NOT_OK(
-        internal::InferDecimalPrecisionAndScale(objects[0], &precision, &desired_scale));
-
-    for (int64_t i = 1; i < length_; ++i) {
-      RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(objects[i], &tmp_precision,
-                                                            &tmp_scale));
-      precision = std::max(precision, tmp_precision);
-
-      if (std::abs(desired_scale) < std::abs(tmp_scale)) {
-        desired_scale = tmp_scale;
-      }
+    for (PyObject* object : objects) {
+      RETURN_NOT_OK(max_decimal_metadata.Update(object));
     }
 
-    type_ = ::arrow::decimal(precision, desired_scale);
+    type_ =
+        ::arrow::decimal(max_decimal_metadata.precision(), max_decimal_metadata.scale());
   }
 
   Decimal128Builder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   const auto& decimal_type = static_cast<const DecimalType&>(*type_);
-  PyObject* Decimal_type_object = Decimal.obj();
 
-  for (int64_t i = 0; i < length_; ++i) {
-    object = objects[i];
-
-    if (PyObject_IsInstance(object, Decimal_type_object)) {
-      Decimal128 value;
-      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
-      RETURN_NOT_OK(builder.Append(value));
-    } else if (PandasObjectIsNull(object)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else {
+  for (PyObject* object : objects) {
+    if (ARROW_PREDICT_FALSE(!internal::PyDecimal_Check(object))) {
       std::stringstream ss;
       ss << "Error converting from Python objects to Decimal: ";
       RETURN_NOT_OK(InvalidConversion(object, "decimal.Decimal", &ss));
       return Status::Invalid(ss.str());
+    }
+
+    if (PandasObjectIsNull(object)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else {
+      Decimal128 value;
+      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
+      RETURN_NOT_OK(builder.Append(value));
     }
   }
   return PushBuilderResult(&builder);
@@ -1045,18 +1014,13 @@ Status NumPyConverter::ConvertObjectsInfer() {
   objects.Init(arr_);
   PyDateTime_IMPORT;
 
-  OwnedRef decimal;
-  OwnedRef Decimal;
-  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
-  RETURN_NOT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
-
   for (int64_t i = 0; i < length_; ++i) {
     PyObject* obj = objects[i];
     if (PandasObjectIsNull(obj)) {
       continue;
     } else if (PyObject_is_string(obj)) {
       return ConvertObjectStrings();
-    } else if (PyObject_is_float(obj)) {
+    } else if (PyFloat_Check(obj)) {
       return ConvertObjectFloats();
     } else if (PyBool_Check(obj)) {
       return ConvertBooleans();
@@ -1069,7 +1033,7 @@ Status NumPyConverter::ConvertObjectsInfer() {
       return ConvertDateTimes();
     } else if (PyTime_Check(obj)) {
       return ConvertTimes();
-    } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
+    } else if (internal::PyDecimal_Check(obj)) {
       return ConvertDecimals();
     } else if (PyList_Check(obj)) {
       std::shared_ptr<DataType> inferred_type;

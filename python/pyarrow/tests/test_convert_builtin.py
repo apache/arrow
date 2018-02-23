@@ -639,3 +639,10 @@ def test_structarray_from_arrays_coerce():
         pa.StructArray.from_arrays(arrays)
 
     assert result.equals(expected)
+
+
+def test_decimal_array_with_none_and_nan():
+    values = [decimal.Decimal('1.234'), None, np.nan, decimal.Decimal('nan')]
+    array = pa.array(values)
+    assert array.type == pa.decimal128(4, 3)
+    assert array.to_pylist() == values[:2] + [None, None]
