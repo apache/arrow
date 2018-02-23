@@ -37,15 +37,14 @@ import java.util.Properties;
 public class JdbcToArrowTest {
 
     private Connection conn = null;
-    private Table table = null;
+    private ObjectMapper mapper = null;
 
     @Before
     public void setUp() throws Exception {
         Properties properties = new Properties();
         properties.load(this.getClass().getClassLoader().getResourceAsStream("db.properties"));
 
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        table = mapper.readValue(new File("/home/datum/codebase/arrow/java/adapter/jdbc/src/test/resources/test1_h2.yml"), Table.class);
+        mapper = new ObjectMapper(new YAMLFactory());
 
         Class.forName(properties.getProperty("driver"));
 
@@ -53,7 +52,7 @@ public class JdbcToArrowTest {
                 .getConnection(properties.getProperty("url"), properties);;
     }
 
-    private void createTestData() throws Exception {
+    private void createTestData(Table table) throws Exception {
 
         Statement stmt = null;
         try {
@@ -76,7 +75,7 @@ public class JdbcToArrowTest {
     }
 
 
-    private void deleteTestData() throws Exception {
+    private void deleteTestData(Table table) throws Exception {
         Statement stmt = null;
         try {
             stmt = conn.createStatement();
@@ -94,24 +93,22 @@ public class JdbcToArrowTest {
     @Test
     public void sqlToArrowTest() throws Exception {
 
-        Statement stmt = null;
-        try {
-            createTestData();
+        Table table =
+                mapper.readValue(
+                        this.getClass().getClassLoader().getResourceAsStream("test2_h2.yml"),
+                        Table.class);
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, "select int_field1 from " + table.getName() + ";", 5);
+        try {
+            createTestData(table);
+
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
             System.out.print(root.getRowCount());
 
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-
-
-            if (stmt != null) {
-                stmt.close();
-            }
-
-            deleteTestData();
+            deleteTestData(table);
         }
 
     }

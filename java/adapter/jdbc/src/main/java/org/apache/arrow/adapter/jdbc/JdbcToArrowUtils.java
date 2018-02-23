@@ -39,6 +39,8 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
  */
 public class JdbcToArrowUtils {
 
+    private static final int DEFAULT_BUFFER_SIZE = 256;
+
     /**
      * JDBC type Java type
        CHAR	String
@@ -143,7 +145,7 @@ public class JdbcToArrowUtils {
         return new Schema(fields.build(), null);
     }
 
-    public static void allocateVectors(VectorSchemaRoot root, int size) {
+    private static void allocateVectors(VectorSchemaRoot root, int size) {
         List<FieldVector> vectors = root.getFieldVectors();
         for (FieldVector fieldVector: vectors) {
             if (fieldVector instanceof BaseFixedWidthVector) {
@@ -155,13 +157,15 @@ public class JdbcToArrowUtils {
         }
     }
 
-    public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, int size) throws Exception {
+    public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root) throws Exception {
 
         assert rs != null;
         assert root != null;
 
         ResultSetMetaData rsmd = rs.getMetaData();
         int columnCount = rsmd.getColumnCount();
+
+        allocateVectors(root, DEFAULT_BUFFER_SIZE);
 
         int rowCount = 0;
         while (rs.next()) {
@@ -217,7 +221,6 @@ public class JdbcToArrowUtils {
                     case Types.CHAR:
                     case Types.VARCHAR:
                     case Types.LONGVARCHAR:
-                        // TODO - How to handle the buffer size if it starts exceeding the iniital allocated buffer
                         VarCharVector varcharVector = (VarCharVector)root.getVector(columnName);
                         String value = rs.getString(i);
                         varcharVector.setIndexDefined(i);
@@ -232,7 +235,7 @@ public class JdbcToArrowUtils {
                         break;
                     case Types.TIME:
                         TimeMilliVector timeMilliVector = (TimeMilliVector)root.getVector(columnName);
-                        timeMilliVector.setSafe(rowCount, (int)rs.getTime(i).getTime());  // TODO - down conversion cast??
+                        timeMilliVector.setSafe(rowCount, (int)rs.getTime(i).getTime());
                         timeMilliVector.setValueCount(rowCount + 1);
                         break;
                     case Types.TIMESTAMP:
@@ -244,7 +247,6 @@ public class JdbcToArrowUtils {
                     case Types.BINARY:
                     case Types.VARBINARY:
                     case Types.LONGVARBINARY:
-                        // TODO - How to handle the buffer size if it starts exceeding the iniital allocated buffer
                         VarBinaryVector varBinaryVector = (VarBinaryVector)root.getVector(columnName);;
                         byte[] bytes = rs.getBytes(i);
                         varBinaryVector.setIndexDefined(i);
@@ -257,7 +259,6 @@ public class JdbcToArrowUtils {
 //                    fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
                         break;
                     case Types.CLOB:
-                        // TODO - How to handle the buffer size if it starts exceeding the iniital allocated buffer
                         VarCharVector varcharVector1 = (VarCharVector)root.getVector(columnName);
                         Clob clob = rs.getClob(i);
                         int length = (int)clob.length();
@@ -267,7 +268,6 @@ public class JdbcToArrowUtils {
                         varcharVector1.setValueCount(rowCount + 1);
                         break;
                     case Types.BLOB:
-                        // TODO - How to handle the buffer size if it starts exceeding the iniital allocated buffer
                         VarBinaryVector varBinaryVector1 = (VarBinaryVector)root.getVector(columnName);;
                         Blob blob = rs.getBlob(i);
                         byte[] data = blob.getBytes(0, (int)blob.length());
@@ -283,9 +283,6 @@ public class JdbcToArrowUtils {
                 }
             }
             rowCount++;
-            if (rowCount == size) {
-                break;
-            }
         }
         root.setRowCount(rowCount);
     }
