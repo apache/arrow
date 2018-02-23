@@ -98,7 +98,7 @@ public class JdbcToArrowTest {
         try {
             createTestData();
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, "select  from " + table.getName() + ";", 5);
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, "select int_field1 from " + table.getName() + ";", 5);
 
             System.out.print(root.getRowCount());
 
