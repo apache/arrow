@@ -1683,9 +1683,15 @@ class ArrowDeserializer {
     }
 
     if (data_.null_count() > 0) {
-      RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
-      auto out_values = reinterpret_cast<double*>(PyArray_DATA(arr_));
-      ConvertIntegerWithNulls<T>(options_, data_, out_values);
+      if (options_.integer_object_nulls) {
+        using c_type = typename Type::c_type;
+
+        return VisitObjects(ConvertIntegerObjects<c_type>);
+      } else {
+        RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
+        auto out_values = reinterpret_cast<double*>(PyArray_DATA(arr_));
+        ConvertIntegerWithNulls<T>(options_, data_, out_values);
+      }
     } else {
       RETURN_NOT_OK(AllocateOutput(traits::npy_type));
       auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));
