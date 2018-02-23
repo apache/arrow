@@ -33,6 +33,15 @@
 namespace arrow {
 namespace py {
 
+TEST(PyBuffer, InvalidInputObject) {
+  std::shared_ptr<Buffer> res;
+  PyObject* input = Py_None;
+  auto old_refcnt = Py_REFCNT(input);
+  ASSERT_RAISES(PythonError, PyBuffer::FromPyObject(input, &res));
+  PyErr_Clear();
+  ASSERT_EQ(old_refcnt, Py_REFCNT(input));
+}
+
 TEST(OwnedRef, TestMoves) {
   PyAcquireGIL lock;
   std::vector<OwnedRef> vec;
@@ -92,15 +101,6 @@ class DecimalTest : public ::testing::Test {
   PyAcquireGIL lock_;
   OwnedRef decimal_constructor_;
 };
-
-TEST(PyBuffer, InvalidInputObject) {
-  std::shared_ptr<Buffer> res;
-  PyObject* input = Py_None;
-  auto old_refcnt = Py_REFCNT(input);
-  ASSERT_RAISES(PythonError, PyBuffer::FromPyObject(input, &res));
-  PyErr_Clear();
-  ASSERT_EQ(old_refcnt, Py_REFCNT(input));
-}
 
 TEST_F(DecimalTest, TestPythonDecimalToString) {
   std::string decimal_string("-39402950693754869342983");
