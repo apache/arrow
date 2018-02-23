@@ -148,7 +148,7 @@ def merge_pr(pr_num, target_ref):
                               reverse=True)
     primary_author = distinct_authors[0]
     commits = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                      '--pretty=format:%h [%an] %s']).split("\n\n")
+                      '--pretty=format:%h <%an> %s']).split("\n\n")
 
     merge_message_flags = []
 
