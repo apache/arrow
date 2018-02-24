@@ -821,7 +821,6 @@ cdef class ParquetWriter:
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None):
         cdef:
-            shared_ptr[FileOutputStream] filestream
             shared_ptr[WriterProperties] properties
             c_string c_where
             CMemoryPool* pool
@@ -830,8 +829,7 @@ cdef class ParquetWriter:
             c_where = tobytes(where)
             with nogil:
                 check_status(FileOutputStream.Open(c_where,
-                                                   &filestream))
-            self.sink = <shared_ptr[OutputStream]> filestream
+                                                   &self.sink))
             self.own_sink = True
         else:
             get_writer(where, &self.sink)
