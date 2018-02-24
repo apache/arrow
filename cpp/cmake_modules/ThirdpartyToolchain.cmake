@@ -82,10 +82,6 @@ if (DEFINED ENV{RAPIDJSON_HOME})
   set(RAPIDJSON_HOME "$ENV{RAPIDJSON_HOME}")
 endif()
 
-if (DEFINED ENV{JEMALLOC_HOME})
-  set(JEMALLOC_HOME "$ENV{JEMALLOC_HOME}")
-endif()
-
 if (DEFINED ENV{GFLAGS_HOME})
   set(GFLAGS_HOME "$ENV{GFLAGS_HOME}")
 endif()
@@ -474,33 +470,37 @@ if (MSVC)
 endif()
 
 if (ARROW_JEMALLOC)
-  find_package(jemalloc)
+  # We only use a vendored jemalloc as we want to control its version.
+  # Also our build of jemalloc is specially prefixed so that it will not 
+  # conflict with the default allocator as well as other jemalloc
+  # installations.
+  # find_package(jemalloc)
 
-  if(NOT JEMALLOC_FOUND)
-    set(ARROW_JEMALLOC_USE_SHARED OFF)
-    set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
-    set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
-    set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
-    set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(JEMALLOC_VENDORED 1)
-    ExternalProject_Add(jemalloc_ep
-      URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
-      CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" && touch doc/jemalloc.html && touch doc/jemalloc.3
-      ${EP_LOG_OPTIONS}
-      BUILD_IN_SOURCE 1
-      BUILD_COMMAND ${MAKE}
-      BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
-      INSTALL_COMMAND ${MAKE} -j1 install)
-  else()
-    set(JEMALLOC_VENDORED 0)
-  endif()
+  set(ARROW_JEMALLOC_USE_SHARED OFF)
+  set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
+  set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
+  set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
+  set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(JEMALLOC_VENDORED 1)
+  ExternalProject_Add(jemalloc_ep
+    URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
+    PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
+    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_"
+    ${EP_LOG_OPTIONS}
+    BUILD_IN_SOURCE 1
+    BUILD_COMMAND ${MAKE}
+    BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
+    INSTALL_COMMAND ${MAKE} -j1 install)
 
-  include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIR})
+  # Don't use the include directory directly so that we can point to a path
+  # that is unique to our codebase.
+  include_directories(SYSTEM "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   ADD_THIRDPARTY_LIB(jemalloc
     STATIC_LIB ${JEMALLOC_STATIC_LIB}
     SHARED_LIB ${JEMALLOC_SHARED_LIB}
     DEPS ${PTHREAD_LIBRARY})
+  add_dependencies(jemalloc_static jemalloc_ep)
 endif()
 
 ## Google PerfTools

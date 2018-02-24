@@ -24,7 +24,6 @@ source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 if [ ! -e $CPP_TOOLCHAIN ]; then
     # Set up C++ toolchain from conda-forge packages for faster builds
     conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
-        jemalloc=4.5.0.post \
         nomkl \
         boost-cpp \
         rapidjson \
