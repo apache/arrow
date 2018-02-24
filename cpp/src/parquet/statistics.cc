@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <type_traits>
 
 #include "parquet/encoding-internal.h"
 #include "parquet/exception.h"
@@ -97,6 +98,67 @@ void TypedRowGroupStatistics<DType>::Reset() {
 }
 
 template <typename DType>
+inline void TypedRowGroupStatistics<DType>::SetMinMax(const T& min, const T& max) {
+  if (!has_min_max_) {
+    has_min_max_ = true;
+    Copy(min, &min_, min_buffer_.get());
+    Copy(max, &max_, max_buffer_.get());
+  } else {
+    Copy(std::min(min_, min, std::ref(*(this->comparator_))), &min_, min_buffer_.get());
+    Copy(std::max(max_, max, std::ref(*(this->comparator_))), &max_, max_buffer_.get());
+  }
+}
+
+template <typename T, typename Enable = void>
+struct StatsHelper {
+  inline int64_t GetValueBeginOffset(const T* values, int64_t count) { return 0; }
+
+  inline int64_t GetValueEndOffset(const T* values, int64_t count) { return count; }
+
+  inline bool IsNaN(const T value) { return false; }
+};
+
+template <typename T>
+struct StatsHelper<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+  inline int64_t GetValueBeginOffset(const T* values, int64_t count) {
+    // Skip NaNs
+    for (int64_t i = 0; i < count; i++) {
+      if (!std::isnan(values[i])) {
+        return i;
+      }
+    }
+    return count;
+  }
+
+  inline int64_t GetValueEndOffset(const T* values, int64_t count) {
+    // Skip NaNs
+    for (int64_t i = (count - 1); i >= 0; i--) {
+      if (!std::isnan(values[i])) {
+        return (i + 1);
+      }
+    }
+    return 0;
+  }
+
+  inline bool IsNaN(const T value) { return std::isnan(value); }
+};
+
+template <typename T>
+void SetNaN(T* value) {
+  // no-op
+}
+
+template <>
+void SetNaN<float>(float* value) {
+  *value = std::nanf("");
+}
+
+template <>
+void SetNaN<double>(double* value) {
+  *value = std::nan("");
+}
+
+template <typename DType>
 void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_null,
                                             int64_t num_null) {
   DCHECK(num_not_null >= 0);
@@ -107,18 +169,29 @@ void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_nul
   // TODO: support distinct count?
   if (num_not_null == 0) return;
 
-  auto batch_minmax =
-      std::minmax_element(values, values + num_not_null, std::ref(*(this->comparator_)));
-  if (!has_min_max_) {
-    has_min_max_ = true;
-    Copy(*batch_minmax.first, &min_, min_buffer_.get());
-    Copy(*batch_minmax.second, &max_, max_buffer_.get());
-  } else {
-    Copy(std::min(min_, *batch_minmax.first, std::ref(*(this->comparator_))), &min_,
-         min_buffer_.get());
-    Copy(std::max(max_, *batch_minmax.second, std::ref(*(this->comparator_))), &max_,
-         max_buffer_.get());
+  // PARQUET-1225: Handle NaNs
+  // The problem arises only if the starting/ending value(s)
+  // of the values-buffer contain NaN
+  StatsHelper<T> helper;
+  int64_t begin_offset = helper.GetValueBeginOffset(values, num_not_null);
+  int64_t end_offset = helper.GetValueEndOffset(values, num_not_null);
+
+  // All values are NaN
+  if (end_offset < begin_offset) {
+    // Set min/max to NaNs in this case.
+    // Don't set has_min_max flag since
+    // these values must be over-written by valid stats later
+    if (!has_min_max_) {
+      SetNaN(&min_);
+      SetNaN(&max_);
+    }
+    return;
   }
+
+  auto batch_minmax = std::minmax_element(values + begin_offset, values + end_offset,
+                                          std::ref(*(this->comparator_)));
+
+  SetMinMax(*batch_minmax.first, *batch_minmax.second);
 }
 
 template <typename DType>
@@ -141,12 +214,26 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
   int64_t i = 0;
   ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                     length);
+  StatsHelper<T> helper;
   for (; i < length; i++) {
-    if (valid_bits_reader.IsSet()) {
+    // PARQUET-1225: Handle NaNs
+    if (valid_bits_reader.IsSet() && !helper.IsNaN(values[i])) {
       break;
     }
     valid_bits_reader.Next();
   }
+
+  // All are NaNs and stats are not set yet
+  if ((i == length) && helper.IsNaN(values[i - 1])) {
+    // Don't set has_min_max flag since
+    // these values must be over-written by valid stats later
+    if (!has_min_max_) {
+      SetNaN(&min_);
+      SetNaN(&max_);
+    }
+    return;
+  }
+
   T min = values[i];
   T max = values[i];
   for (; i < length; i++) {
@@ -159,14 +246,8 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
     }
     valid_bits_reader.Next();
   }
-  if (!has_min_max_) {
-    has_min_max_ = true;
-    Copy(min, &min_, min_buffer_.get());
-    Copy(max, &max_, max_buffer_.get());
-  } else {
-    Copy(std::min(min_, min, std::ref(*(this->comparator_))), &min_, min_buffer_.get());
-    Copy(std::max(max_, max, std::ref(*(this->comparator_))), &max_, max_buffer_.get());
-  }
+
+  SetMinMax(min, max);
 }
 
 template <typename DType>
@@ -185,17 +266,7 @@ void TypedRowGroupStatistics<DType>::Merge(const TypedRowGroupStatistics<DType>&
 
   if (!other.HasMinMax()) return;
 
-  if (!has_min_max_) {
-    Copy(other.min_, &this->min_, min_buffer_.get());
-    Copy(other.max_, &this->max_, max_buffer_.get());
-    has_min_max_ = true;
-    return;
-  }
-
-  Copy(std::min(this->min_, other.min_, std::ref(*(this->comparator_))), &this->min_,
-       min_buffer_.get());
-  Copy(std::max(this->max_, other.max_, std::ref(*(this->comparator_))), &this->max_,
-       max_buffer_.get());
+  SetMinMax(other.min_, other.max_);
 }
 
 template <typename DType>
