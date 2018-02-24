@@ -24,7 +24,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import java.sql.*;
 
 /**
- *
+ * Utility class to convert JDBC objects to columnar Arrow format objects.
  */
 public class JdbcToArrow {
 
