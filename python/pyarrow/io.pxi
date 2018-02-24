@@ -550,12 +550,9 @@ cdef class OSFile(NativeFile):
         self.rd_file = <shared_ptr[RandomAccessFile]> handle
 
     cdef _open_writable(self, c_string path):
-        cdef shared_ptr[FileOutputStream] handle
-
         with nogil:
-            check_status(FileOutputStream.Open(path, &handle))
+            check_status(FileOutputStream.Open(path, &self.wr_file))
         self.is_writable = True
-        self.wr_file = <shared_ptr[OutputStream]> handle
 
 
 cdef class FixedSizeBufferWriter(NativeFile):

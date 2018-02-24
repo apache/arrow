@@ -539,7 +539,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass FileOutputStream(OutputStream):
         @staticmethod
-        CStatus Open(const c_string& path, shared_ptr[FileOutputStream]* file)
+        CStatus Open(const c_string& path, shared_ptr[OutputStream]* file)
 
         int file_descriptor()
 

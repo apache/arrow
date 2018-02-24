@@ -103,10 +103,12 @@ class TestFileOutputStream : public FileTestFixture {
  public:
   void OpenFile(bool append = false) {
     ASSERT_OK(FileOutputStream::Open(path_, append, &file_));
+    ASSERT_OK(FileOutputStream::Open(path_, append, &stream_));
   }
 
  protected:
   std::shared_ptr<FileOutputStream> file_;
+  std::shared_ptr<OutputStream> stream_;
 };
 
 #if defined(_MSC_VER)
@@ -115,6 +117,9 @@ TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
   // Form literal string with non-ASCII symbol(127 + 1)
   std::string file_name = "\x80";
   ASSERT_RAISES(Invalid, FileOutputStream::Open(file_name, &file));
+
+  std::shared_ptr<OutputStream> stream;
+  ASSERT_RAISES(Invalid, FileOutputStream::Open(file_name, &stream));
 
   std::shared_ptr<ReadableFile> rd_file;
   ASSERT_RAISES(Invalid, ReadableFile::Open(file_name, &rd_file));
@@ -129,6 +134,12 @@ TEST_F(TestFileOutputStream, DestructorClosesFile) {
     fd = file->file_descriptor();
   }
   ASSERT_TRUE(FileIsClosed(fd));
+  {
+    std::shared_ptr<OutputStream> stream;
+    ASSERT_OK(FileOutputStream::Open(path_, &stream));
+    fd = std::static_pointer_cast<FileOutputStream>(stream)->file_descriptor();
+  }
+  ASSERT_TRUE(FileIsClosed(fd));
 }
 
 TEST_F(TestFileOutputStream, Close) {
@@ -139,7 +150,6 @@ TEST_F(TestFileOutputStream, Close) {
 
   int fd = file_->file_descriptor();
   ASSERT_OK(file_->Close());
-
   ASSERT_TRUE(FileIsClosed(fd));
 
   // Idempotent
@@ -151,6 +161,19 @@ TEST_F(TestFileOutputStream, Close) {
   int64_t size = 0;
   ASSERT_OK(rd_file->GetSize(&size));
   ASSERT_EQ(strlen(data), size);
+
+  ASSERT_OK(stream_->Write(data, strlen(data)));
+
+  fd = std::static_pointer_cast<FileOutputStream>(stream_)->file_descriptor();
+  ASSERT_OK(stream_->Close());
+  ASSERT_TRUE(FileIsClosed(fd));
+
+  // Idempotent
+  ASSERT_OK(stream_->Close());
+
+  ASSERT_OK(ReadableFile::Open(path_, &rd_file));
+  ASSERT_OK(rd_file->GetSize(&size));
+  ASSERT_EQ(strlen(data), size);
 }
 
 TEST_F(TestFileOutputStream, InvalidWrites) {
@@ -159,19 +182,26 @@ TEST_F(TestFileOutputStream, InvalidWrites) {
   const char* data = "";
 
   ASSERT_RAISES(IOError, file_->Write(data, -1));
+  ASSERT_RAISES(IOError, stream_->Write(data, -1));
 }
 
 TEST_F(TestFileOutputStream, Tell) {
   OpenFile();
 
   int64_t position;
-
   ASSERT_OK(file_->Tell(&position));
   ASSERT_EQ(0, position);
 
   const char* data = "testdata";
   ASSERT_OK(file_->Write(data, 8));
   ASSERT_OK(file_->Tell(&position));
+  ASSERT_EQ(8, position);
+
+  ASSERT_OK(stream_->Tell(&position));
+  ASSERT_EQ(0, position);
+
+  ASSERT_OK(stream_->Write(data, 8));
+  ASSERT_OK(stream_->Tell(&position));
   ASSERT_EQ(8, position);
 }
 
@@ -189,6 +219,18 @@ TEST_F(TestFileOutputStream, TruncatesNewFile) {
   ASSERT_OK(ReadableFile::Open(path_, &rd_file));
 
   int64_t size;
+  ASSERT_OK(rd_file->GetSize(&size));
+  ASSERT_EQ(0, size);
+
+  ASSERT_OK(FileOutputStream::Open(path_, &stream_));
+
+  ASSERT_OK(stream_->Write(data, strlen(data)));
+  ASSERT_OK(stream_->Close());
+
+  ASSERT_OK(FileOutputStream::Open(path_, &stream_));
+  ASSERT_OK(stream_->Close());
+
+  ASSERT_OK(ReadableFile::Open(path_, &rd_file));
   ASSERT_OK(rd_file->GetSize(&size));
   ASSERT_EQ(0, size);
 }
