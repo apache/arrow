@@ -31,7 +31,8 @@
 #ifdef ARROW_JEMALLOC
 // Needed to support jemalloc 3 and 4
 #define JEMALLOC_MANGLE
-#include <jemalloc/jemalloc.h>
+// Explicitly link to our version of jemalloc
+#include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
 #endif
 
 namespace arrow {
