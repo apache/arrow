@@ -869,7 +869,7 @@ def read_table(source, columns=None, nthreads=1, metadata=None,
 
     Parameters
     ----------
-    source: str or pyarrow.io.NativeFile
+    source: str or python file object
         Location of Parquet dataset. If a string passed, can be a single file
         name or directory name. For passing Python file objects or byte
         buffers, see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
