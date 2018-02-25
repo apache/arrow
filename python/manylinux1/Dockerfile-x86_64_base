@@ -25,9 +25,6 @@ RUN /build_openssl.sh
 ADD scripts/build_boost.sh /
 RUN /build_boost.sh
 
-ADD scripts/build_jemalloc.sh /
-RUN /build_jemalloc.sh
-
 # Install cmake manylinux1 package
 ADD scripts/install_cmake.sh /
 RUN /install_cmake.sh

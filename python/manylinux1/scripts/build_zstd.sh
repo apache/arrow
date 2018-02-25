@@ -20,7 +20,7 @@ export ZSTD_VERSION="1.2.0"
 export CFLAGS="${CFLAGS} -O3 -fPIC"
 export PREFIX="/usr"
 export LDFLAGS="${LDFLAGS} -Wl,-rpath,${PREFIX}/lib"
-wget "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz" -O zstd-${ZSTD_VERSION}.tar.gz
+curl -sL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz" -o zstd-${ZSTD_VERSION}.tar.gz
 tar xf zstd-${ZSTD_VERSION}.tar.gz
 pushd zstd-${ZSTD_VERSION}
 
