@@ -640,7 +640,7 @@ def test_array_integer_object_nulls_option(dtype):
     num_values = 100
 
     null_mask = np.random.randint(0, 10, size=num_values) < 3
-    values = np.random.randint(0, 100, size=num_values)
+    values = np.random.randint(0, 100, size=num_values, dtype=dtype)
 
     array = pa.array(values, mask=null_mask)
 
@@ -661,7 +661,7 @@ def test_table_integer_object_nulls_option(dtype):
     num_values = 100
 
     null_mask = np.random.randint(0, 10, size=num_values) < 3
-    values = np.random.randint(0, 100, size=num_values)
+    values = np.random.randint(0, 100, size=num_values, dtype=dtype)
 
     array = pa.array(values, mask=null_mask)
 
