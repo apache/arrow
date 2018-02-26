@@ -755,6 +755,12 @@ class TestPlasmaClient(object):
             create_object(self.plasma_client, DEFAULT_PLASMA_STORE_MEMORY + 1,
                           0)
 
+    def test_use_huge_pages(self):
+        subprocess.check_call("sudo mkdir -p /mnt/hugepages", shell=True)
+        subprocess.check_call("sudo mount -t hugetlbfs -o uid=`id -u` -o gid=`id -g` none /mnt/hugepages", shell=True)
+        subprocess.check_call('sudo bash -c "echo `id -g` > /proc/sys/vm/hugetlb_shm_group"', shell=True)
+        subprocess.check_call('sudo bash -c "echo 20000 > /proc/sys/vm/nr_hugepages"', shell=True)
+
 
 @pytest.mark.plasma
 def test_object_id_size():
