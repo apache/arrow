@@ -47,6 +47,9 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   export ARROW_BUILD_TOOLCHAIN=$CPP_TOOLCHAIN
   export BOOST_ROOT=$CPP_TOOLCHAIN
 
+  # Protocol buffers used by Apache ORC thirdparty build
+  export PROTOBUF_HOME=$CPP_TOOLCHAIN
+
   export PATH=$CPP_TOOLCHAIN/bin:$PATH
   export LD_LIBRARY_PATH=$CPP_TOOLCHAIN/lib:$LD_LIBRARY_PATH
   export TRAVIS_MAKE=ninja
