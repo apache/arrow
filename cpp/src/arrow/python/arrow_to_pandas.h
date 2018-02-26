@@ -46,8 +46,10 @@ struct PandasOptions {
   bool zero_copy_only;
   bool integer_object_nulls;
 
-  PandasOptions() : strings_to_categorical(false), zero_copy_only(false),
-                    integer_object_nulls(false) {}
+  PandasOptions()
+      : strings_to_categorical(false),
+        zero_copy_only(false),
+        integer_object_nulls(false) {}
 };
 
 ARROW_EXPORT

@@ -375,8 +375,9 @@ static Status ConvertIntegerObjects(PandasOptions options, const ChunkedArray& d
         Py_INCREF(Py_None);
         *out_values++ = Py_None;
       } else {
-        *out_values++ = std::is_signed<T>::value ? PyLong_FromLongLong(in_values[i])
-            : PyLong_FromUnsignedLongLong(in_values[i]);
+        *out_values++ = std::is_signed<T>::value
+                            ? PyLong_FromLongLong(in_values[i])
+                            : PyLong_FromUnsignedLongLong(in_values[i]);
         RETURN_IF_PYERROR();
       }
     }
@@ -1240,10 +1241,11 @@ using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
 
 static Status GetPandasBlockType(const Column& col, const PandasOptions& options,
                                  PandasBlock::type* output_type) {
-#define INTEGER_CASE(NAME)                                                    \
-  *output_type = col.null_count() > 0 ?                                       \
-      options.integer_object_nulls ? PandasBlock::OBJECT: PandasBlock::DOUBLE \
-      : PandasBlock::NAME;                                                    \
+#define INTEGER_CASE(NAME)                                                           \
+  *output_type =                                                                     \
+      col.null_count() > 0                                                           \
+          ? options.integer_object_nulls ? PandasBlock::OBJECT : PandasBlock::DOUBLE \
+          : PandasBlock::NAME;                                                       \
   break;
 
   switch (col.type()->id()) {
