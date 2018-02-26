@@ -92,7 +92,7 @@ export abstract class TypeDataLoader extends TypeVisitor {
     public visitFixedSizeList  (type: FixedSizeList)   { return this.visitFixedSizeListType(type); }
     public visitMap            (type: Map_)            { return this.visitNestedType(type); }
     public visitDictionary     (type: Dictionary)      {
-        return new DictionaryData(type, this.dictionaries.get(type.id)!, this.visit(type.indicies));
+        return new DictionaryData(type, this.dictionaries.get(type.id)!, this.visit(type.indices));
     }
     protected getFieldMetadata() { return this.nodes.next().value; }
     protected getBufferMetadata() { return this.buffers.next().value; }
