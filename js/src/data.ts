@@ -17,8 +17,8 @@
 
 import { popcnt_bit_range } from './util/bit';
 import { VectorLike, Vector } from './vector';
+import { Int, Bool, FlatListType, List, Struct, Map_ } from './type';
 import { VectorType, TypedArray, TypedArrayConstructor, Dictionary } from './type';
-import { Int, Bool, FlatListType, List, FixedSizeList, Struct, Map_ } from './type';
 import { DataType, FlatType, ListType, NestedType, SingleNestedType, DenseUnion, SparseUnion } from './type';
 
 export function toTypedArray<T extends TypedArray>(ArrayType: TypedArrayConstructor<T>, values?: T | ArrayLike<number> | Iterable<number> | null): T {
@@ -46,7 +46,7 @@ export interface DataTypes<T extends DataType> {
 /*              [Type.Struct]*/ 13: NestedData<Struct>;
 /*               [Type.Union]*/ 14: UnionData;
 /*     [Type.FixedSizeBinary]*/ 15: FlatData<T>;
-/*       [Type.FixedSizeList]*/ 16: SingleNestedData<FixedSizeList<T>>;
+/*       [Type.FixedSizeList]*/ 16: SingleNestedData<any>;
 /*                 [Type.Map]*/ 17: NestedData<Map_>;
 /*  [Type.DenseUnion]*/ DenseUnion: DenseUnionData;
 /*[Type.SparseUnion]*/ SparseUnion: SparseUnionData;
