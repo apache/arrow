@@ -310,6 +310,33 @@ class HdfsTestCases(object):
                                expected.to_pandas())
 
     @test_parquet.parquet
+    def test_read_write_parquet_files_with_uri(self):
+        import pyarrow.parquet as pq
+
+        tmpdir = pjoin(self.tmp_path, 'uri-parquet-' + guid())
+        self.hdfs.mkdir(tmpdir)
+        host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
+        try:
+            port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
+        except ValueError:
+            raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
+                             'an integer')
+        path = "hdfs://{}:{}{}".format(host, port,
+                                        pjoin(tmpdir, 'test.parquet'))
+
+        size = 5
+        df = test_parquet._test_dataframe(size, seed=0)
+        # Hack so that we don't have a dtype cast in v1 files
+        df['uint32'] = df['uint32'].astype(np.int64)
+        table = pa.Table.from_pandas(df, preserve_index=False)
+
+        pq.write_table(table, path)
+
+        result = pq.read_table(path).to_pandas()
+
+        pdt.assert_frame_equal(result, df)
+
+    @test_parquet.parquet
     def test_read_common_metadata_files(self):
         tmpdir = pjoin(self.tmp_path, 'common-metadata-' + guid())
         self.hdfs.mkdir(tmpdir)
