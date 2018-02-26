@@ -403,7 +403,7 @@ export class DictionaryVector<T extends DataType = DataType> extends Vector<Dict
             view = (view as any).view;
         }
         if (data instanceof DictionaryData && view instanceof DictionaryView) {
-            this.indices = view.indices;
+            this.indices = view.indicies;
             this.dictionary = data.dictionary;
         } else if (data instanceof ChunkedData && view instanceof ChunkedView) {
             const chunks = view.chunkVectors as DictionaryVector<T>[];
