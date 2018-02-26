@@ -27,4 +27,4 @@ npx run-s clean:all lint build
 npm run test
 
 # publish the JS target modules to npm
-npx lerna publish --yes --skip-git --force-publish=*
+npx lerna exec -- npm publish
