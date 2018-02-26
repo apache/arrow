@@ -82,7 +82,7 @@ export class RecordBatchSerializer extends VectorVisitor {
         this.fieldNodes.push(new FieldMetadata(length, nullCount));
         this.addBuffer(nullCount <= 0
             ? new Uint8Array(0) // placeholder validity buffer
-            : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!), 64);
+            : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!));
         return super.visit(vector);
     }
     public visitNull           (_vector: Vector<Null>)           { return this;                              }
@@ -170,7 +170,7 @@ export class RecordBatchSerializer extends VectorVisitor {
         const { values, valueOffsets } = data;
         const firstOffset = valueOffsets[0];
         const lastOffset = valueOffsets[valueOffsets.length - 1];
-        const byteLength = Math.min(align(lastOffset - firstOffset, 8), values.byteLength - firstOffset);
+        const byteLength = Math.min(lastOffset - firstOffset, values.byteLength - firstOffset);
         // Push in the order of FlatList types
         // valueOffsets buffer first
         this.addBuffer(this.getZeroBasedValueOffsets(sliceOffset, length, valueOffsets));
@@ -185,7 +185,7 @@ export class RecordBatchSerializer extends VectorVisitor {
         }
         return this;
     }
-    protected addBuffer(array?: TypedArray | null, alignment: number = 8) {
+    protected addBuffer(array: TypedArray, alignment: number = 64) {
         const values = array || new Uint8Array(0);
         const alignedLength = align(values.byteLength, alignment);
         this.buffers.push(values);
