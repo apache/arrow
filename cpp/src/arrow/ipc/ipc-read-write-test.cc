@@ -756,8 +756,11 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
 }
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
-  auto empty = std::make_shared<Buffer>("");
-  auto garbage = std::make_shared<Buffer>("12345678");
+  const std::string empty_str = "";
+  const std::string garbage_str = "12345678";
+
+  auto empty = std::make_shared<Buffer>(empty_str);
+  auto garbage = std::make_shared<Buffer>(garbage_str);
 
   std::shared_ptr<RecordBatchReader> batch_reader;
 

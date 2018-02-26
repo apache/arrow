@@ -257,9 +257,11 @@ Status BufferReader::Tell(int64_t* position) const {
 bool BufferReader::supports_zero_copy() const { return true; }
 
 Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
-  memcpy(buffer, data_ + position_, nbytes);
   *bytes_read = std::min(nbytes, size_ - position_);
-  position_ += *bytes_read;
+  if (*bytes_read) {
+    memcpy(buffer, data_ + position_, *bytes_read);
+    position_ += *bytes_read;
+  }
   return Status::OK();
 }
 
