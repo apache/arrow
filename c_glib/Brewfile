@@ -16,7 +16,6 @@
 # under the License.
 
 brew "autoconf-archive"
-brew "boost", args: ["--c++11"]
 brew "ccache"
 brew "cmake"
 brew "git"
