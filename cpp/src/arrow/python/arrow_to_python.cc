@@ -32,6 +32,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/util.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
 
@@ -256,7 +257,10 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   RETURN_NOT_OK(reader->ReadNext(&out->batch));
 
   RETURN_NOT_OK(src->Tell(&offset));
+
   offset += 4;  // Skip the end-of-stream message
+  offset = ipc::PaddedLength(offset, ipc::kArrowIpcAlignment);
+
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(ipc::ReadTensor(offset, src, &tensor));
@@ -274,6 +278,8 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
     out->buffers.push_back(buffer);
     RETURN_NOT_OK(src->Tell(&offset));
   }
+  offset = ipc::PaddedLength(offset, ipc::kArrowIpcAlignment);
+  (void)src->Seek(offset);
 
   return Status::OK();
 }
