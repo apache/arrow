@@ -26,6 +26,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
     conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
         nomkl \
         boost-cpp \
+        libprotobuf \
         rapidjson \
         flatbuffers \
         gflags \
