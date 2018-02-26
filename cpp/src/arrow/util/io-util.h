@@ -50,7 +50,7 @@ class StdoutStream : public OutputStream {
  private:
   int64_t pos_;
 };
- 
+
 // Output stream that just writes to stderr.
 class StderrStream : public OutputStream {
  public:
