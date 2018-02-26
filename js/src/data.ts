@@ -158,6 +158,7 @@ export class DictionaryData<T extends DataType> extends BaseData<Dictionary<T>> 
         this.length = this._indicies.length;
     }
     public get nullCount() { return this._indicies.nullCount; }
+    public get nullBitmap() { return this._indicies.nullBitmap; }
     public clone<R extends Dictionary<T>>(type: R, length = this.length, offset = this.offset) {
         const data = this._dictionary.data.clone(type.dictionary as any);
         return new DictionaryData<R>(
