@@ -85,7 +85,7 @@ export class RecordBatchSerializer extends VectorVisitor {
             : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!), 64);
         return super.visit(vector);
     }
-    public visitNull           (_vector: Vector<Null>)           { return this.addBuffer(null);              }
+    public visitNull           (_vector: Vector<Null>)           { return this;                              }
     public visitBool           (vector: Vector<Bool>)            { return this.visitFlatVector(vector);      }
     public visitInt            (vector: Vector<Int>)             { return this.visitFlatVector(vector);      }
     public visitFloat          (vector: Vector<Float>)           { return this.visitFlatVector(vector);      }
