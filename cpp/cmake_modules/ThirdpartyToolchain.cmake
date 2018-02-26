@@ -110,6 +110,10 @@ if (DEFINED ENV{GRPC_HOME})
   set(GRPC_HOME "$ENV{GRPC_HOME}")
 endif()
 
+if (DEFINED ENV{PROTOBUF_HOME})
+  set(PROTOBUF_HOME "$ENV{PROTOBUF_HOME}")
+endif()
+
 # Ensure that a default make is set
 if ("${MAKE}" STREQUAL "")
     if (NOT MSVC)
