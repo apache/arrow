@@ -99,7 +99,14 @@ and benchmarks or `make runbenchmark` to run only the benchmark tests.
 
 Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
 
-## Building/Running fuzzers
+### Testing with LLVM AddressSanitizer
+
+To use AddressSanitizer (ASAN) to find bad memory accesses or leaks with LLVM,
+pass `-DARROW_USE_ASAN=ON` when building. You must use clang to compile with
+ASAN, and `ARROW_USE_ASAN` is mutually-exclusive with the valgrind option
+`ARROW_TEST_MEMCHECK`.
+
+### Building/Running fuzzers
 
 Fuzzers can help finding unhandled exceptions and problems with untrusted input that
 may lead to crashes, security issues and undefined behavior. They do this by
@@ -127,6 +134,22 @@ This will try to find a malformed input that crashes the payload and will show t
 stack trace as well as the input data. After a problem was found this way, it should
 be reported and fixed. Usually, the fuzzing process cannot be continued until the
 fix is applied, since the fuzzer usually converts to the problem again.
+
+If you build fuzzers with ASAN, you need to set the `ASAN_SYMBOLIZER_PATH`
+environment variable to the absolute path of `llvm-symbolizer`, which is a tool
+that ships with LLVM.
+
+```shell
+export ASAN_SYMBOLIZER_PATH=$(type -p llvm-symbolizer)
+```
+
+Note that some fuzzer builds currently reject paths with a version qualifier
+(like `llvm-sanitizer-5.0`). To overcome this, set an appropriate symlink
+(here, when using LLVM 5.0):
+
+```shell
+ln -sf /usr/bin/llvm-sanitizer-5.0 /usr/bin/llvm-sanitizer
+```
 
 There are some problems that may occur during the compilation process:
 
