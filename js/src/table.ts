@@ -160,7 +160,7 @@ export class Table implements DataFrame {
             const batch = batches[batchIndex];
             // rebind the countBy Col
             count_by.bind(batch);
-            const keys = (count_by.vector as DictionaryVector).indicies;
+            const keys = (count_by.vector as DictionaryVector).indices;
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 let key = keys.get(index);
@@ -258,7 +258,7 @@ class FilteredDataFrame implements DataFrame {
             const predicate = this.predicate.bind(batch);
             // rebind the countBy Col
             count_by.bind(batch);
-            const keys = (count_by.vector as DictionaryVector).indicies;
+            const keys = (count_by.vector as DictionaryVector).indices;
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 let key = keys.get(index);

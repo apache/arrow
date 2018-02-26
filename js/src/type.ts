@@ -83,8 +83,8 @@ export class Field<T extends DataType = DataType> {
     public toString() { return `${this.name}: ${this.type}`; }
     public get typeId(): T['TType'] { return this.type.TType; }
     public get [Symbol.toStringTag](): string { return 'Field'; }
-    public get indicies(): T | Int<any> {
-        return DataType.isDictionary(this.type) ? this.type.indicies : this.type;
+    public get indices(): T | Int<any> {
+        return DataType.isDictionary(this.type) ? this.type.indices : this.type;
     }
 }
 
@@ -443,17 +443,17 @@ export interface Dictionary<T extends DataType = any> extends DataType<Type.Dict
 export class Dictionary<T extends DataType> extends DataType<Type.Dictionary> {
     public readonly id: number;
     public readonly dictionary: T;
-    public readonly indicies: Int<any>;
+    public readonly indices: Int<any>;
     public readonly isOrdered: boolean;
-    constructor(dictionary: T, indicies: Int<any>, id?: Long | number | null, isOrdered?: boolean | null) {
+    constructor(dictionary: T, indices: Int<any>, id?: Long | number | null, isOrdered?: boolean | null) {
         super(Type.Dictionary);
-        this.indicies = indicies;
+        this.indices = indices;
         this.dictionary = dictionary;
         this.isOrdered = isOrdered || false;
         this.id = id == null ? DictionaryBatch.getId() : typeof id === 'number' ? id : id.low;
     }
     public get ArrayType() { return this.dictionary.ArrayType; }
-    public toString() { return `Dictionary<${this.indicies}, ${this.dictionary}>`; }
+    public toString() { return `Dictionary<${this.indices}, ${this.dictionary}>`; }
     protected static [Symbol.toStringTag] = ((proto: Dictionary) => {
         return proto[Symbol.toStringTag] = 'Dictionary';
     })(Dictionary.prototype);

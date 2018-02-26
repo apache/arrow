@@ -447,7 +447,7 @@ FlatListData.prototype.valueOffsets;
 
 var DictionaryData = function() {};
 /** @type {?} */
-DictionaryData.prototype.indicies;
+DictionaryData.prototype.indices;
 /** @type {?} */
 DictionaryData.prototype.dictionary;
 

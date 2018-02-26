@@ -148,28 +148,28 @@ export class FlatListData<T extends FlatListType> extends FlatData<T> {
 
 export class DictionaryData<T extends DataType> extends BaseData<Dictionary<T>> {
     protected _dictionary: Vector<T>;
-    protected _indicies: Data<Int<any>>;
-    public get indicies() { return this._indicies; }
+    protected _indices: Data<Int<any>>;
+    public get indices() { return this._indices; }
     public get dictionary() { return this._dictionary; }
-    constructor(type: Dictionary<T>, dictionary: Vector<T>, indicies: Data<Int<any>>) {
-        super(type, indicies.length, (indicies as any)._nullCount);
-        this._indicies = indicies;
+    constructor(type: Dictionary<T>, dictionary: Vector<T>, indices: Data<Int<any>>) {
+        super(type, indices.length, (indices as any)._nullCount);
+        this._indices = indices;
         this._dictionary = dictionary;
-        this.length = this._indicies.length;
+        this.length = this._indices.length;
     }
-    public get nullCount() { return this._indicies.nullCount; }
-    public get nullBitmap() { return this._indicies.nullBitmap; }
+    public get nullCount() { return this._indices.nullCount; }
+    public get nullBitmap() { return this._indices.nullBitmap; }
     public clone<R extends Dictionary<T>>(type: R, length = this.length, offset = this.offset) {
         const data = this._dictionary.data.clone(type.dictionary as any);
         return new DictionaryData<R>(
             this.type as any,
             this._dictionary.clone(data) as any,
-            this._indicies.slice(offset - this.offset, length)
+            this._indices.slice(offset - this.offset, length)
         ) as any;
     }
     protected sliceInternal(clone: this, _offset: number, _length: number) {
-        clone.length = clone._indicies.length;
-        clone._nullCount = (clone._indicies as any)._nullCount;
+        clone.length = clone._indices.length;
+        clone._nullCount = (clone._indices as any)._nullCount;
         return clone;
     }
 }
