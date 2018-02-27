@@ -359,5 +359,13 @@ TEST_F(DecimalTest, SimpleInference) {
   ASSERT_EQ(2, metadata.scale());
 }
 
+TEST_F(DecimalTest, UpdateWithNaN) {
+  internal::DecimalMetadata metadata;
+  OwnedRef nan_value(this->CreatePythonDecimal("nan"));
+  ASSERT_OK(metadata.Update(nan_value.obj()));
+  ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.precision());
+  ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.scale());
+}
+
 }  // namespace py
 }  // namespace arrow
