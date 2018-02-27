@@ -306,9 +306,11 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
   ASSERT_NE(list, nullptr);
 
   // PyList_SetItem steals a reference to the item so we don't decref it later
-  for (size_t i = 0; i < strings.size(); ++i) {
-    PyList_SetItem(
-        list, i, internal::DecimalFromString(this->decimal_constructor(), strings.at(i)));
+  PyObject* decimal_constructor = this->decimal_constructor();
+  for (Py_ssize_t i = 0; i < static_cast<Py_ssize_t>(strings.size()); ++i) {
+    const int result = PyList_SetItem(
+        list, i, internal::DecimalFromString(decimal_constructor, strings.at(i)));
+    ASSERT_EQ(0, result);
   }
 
   MemoryPool* pool = default_memory_pool();
