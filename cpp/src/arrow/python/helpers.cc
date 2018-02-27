@@ -227,10 +227,9 @@ bool PyDecimal_Check(PyObject* obj) {
   OwnedRef Decimal;
   OwnedRef decimal;
   Status status = ImportModule("decimal", &decimal);
-  DCHECK(status.ok()) << "Error during import of the decimal module";
+  DCHECK_OK(status);
   status = ImportFromModule(decimal, "Decimal", &Decimal);
-  DCHECK(status.ok())
-      << "Error during import of the Decimal object from the decimal module";
+  DCHECK_OK(status);
   const int32_t result = PyObject_IsInstance(obj, Decimal.obj());
   DCHECK_NE(result, -1) << " error during PyObject_IsInstance check";
   return result == 1;
