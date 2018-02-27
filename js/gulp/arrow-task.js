@@ -31,10 +31,10 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target, forma
     const dtsGlob = `${targetDir(`es2015`, `cjs`)}/**/*.ts`;
     const cjsGlob = `${targetDir(`es2015`, `cjs`)}/**/*.js`;
     const esmGlob = `${targetDir(`es2015`, `esm`)}/**/*.js`;
-    const es5UmdGlob = `${targetDir(`es5`, `umd`)}/**/*.js`;
-    const es5UmdMaps = `${targetDir(`es5`, `umd`)}/**/*.map`;
-    const es2015UmdGlob = `${targetDir(`es2015`, `umd`)}/**/*.js`;
-    const es2015UmdMaps = `${targetDir(`es2015`, `umd`)}/**/*.map`;
+    const es5UmdGlob = `${targetDir(`es5`, `umd`)}/*.js`;
+    const es5UmdMaps = `${targetDir(`es5`, `umd`)}/*.map`;
+    const es2015UmdGlob = `${targetDir(`es2015`, `umd`)}/*.js`;
+    const es2015UmdMaps = `${targetDir(`es2015`, `umd`)}/*.map`;
     const ch_ext = (ext) => gulpRename((p) => { p.extname = ext; });
     const append = (ap) => gulpRename((p) => { p.basename += ap; });
     return Observable.forkJoin(
