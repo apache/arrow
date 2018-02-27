@@ -283,10 +283,10 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
 
   // This steals a reference to each object, so we don't need to decref them later,
   // just the list
-  ASSERT_EQ(PyList_SetItem(list, 0, decimal_value), 0);
-  ASSERT_EQ(PyList_SetItem(list, 1, missing_value1), 0);
-  ASSERT_EQ(PyList_SetItem(list, 2, missing_value2), 0);
-  ASSERT_EQ(PyList_SetItem(list, 3, missing_value3), 0);
+  ASSERT_EQ(0, PyList_SetItem(list, 0, decimal_value));
+  ASSERT_EQ(0, PyList_SetItem(list, 1, missing_value1));
+  ASSERT_EQ(0, PyList_SetItem(list, 2, missing_value2));
+  ASSERT_EQ(0, PyList_SetItem(list, 3, missing_value3));
 
   MemoryPool* pool = default_memory_pool();
   std::shared_ptr<Array> arr;
