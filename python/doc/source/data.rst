@@ -153,12 +153,19 @@ can also be created from various types of Python sequences (lists, NumPy
 arrays, pandas data).
 
 A simple way to create arrays is with ``pyarrow.array``, which is similar to
-the ``numpy.array`` function:
+the ``numpy.array`` function.  By default PyArrow will infer the data type
+for you:
 
 .. ipython:: python
 
    arr = pa.array([1, 2, None, 3])
    arr
+
+But you may also pass a specific data type to override type inference:
+
+.. ipython:: python
+
+   pa.array([1, 2], type=pa.uint16())
 
 The array's ``type`` attribute is the corresponding piece of type metadata:
 
@@ -189,14 +196,90 @@ Arrays can be sliced without copying:
 
 .. ipython:: python
 
-   arr[3]
+   arr[1:3]
 
-``pyarrow.array`` can create simple nested data structures like lists:
+List arrays
+~~~~~~~~~~~
+
+``pyarrow.array`` is able to infer the type of simple nested data structures
+like lists:
 
 .. ipython:: python
 
    nested_arr = pa.array([[], None, [1, 2], [None, 1]])
    print(nested_arr.type)
+
+Struct arrays
+~~~~~~~~~~~~~
+
+For other kinds of nested arrays, such as struct arrays, you currently need
+to pass the type explicitly.  Struct arrays can be initialized from a
+sequence of Python dicts or tuples:
+
+.. ipython:: python
+
+   ty = pa.struct([
+       pa.field('x', pa.int8()),
+       pa.field('y', pa.bool_()),
+   ])
+   pa.array([{'x': 1, 'y': True}, {'x': 2, 'y': False}], type=ty)
+   pa.array([(3, True), (4, False)], type=ty)
+
+When initializing a struct array, nulls are allowed both at the struct
+level and at the individual field level.  If initializing from a sequence
+of Python dicts, a missing dict key is handled as a null value:
+
+.. ipython:: python
+
+   pa.array([{'x': 1}, None, {'y': None}], type=ty)
+
+You can also construct a struct array from existing arrays for each of the
+struct's components.  In this case, data storage will be shared with the
+individual arrays, and no copy is involved:
+
+.. ipython:: python
+
+   xs = pa.array([5, 6, 7], type=pa.int16())
+   ys = pa.array([False, True, True])
+   arr = pa.StructArray.from_arrays((xs, ys), names=('x', 'y'))
+   arr.type
+   arr
+
+Union arrays
+~~~~~~~~~~~~
+
+The union type represents a nested array type where each value can be one
+(and only one) of a set of possible types.  There are two possible
+storage types for union arrays: sparse and dense.
+
+In a sparse union array, each of the child arrays has the same length
+as the resulting union array.  They are adjuncted with a ``int8`` "types"
+array that tells, for each value, from which child array it must be
+selected:
+
+.. ipython:: python
+
+   xs = pa.array([5, 6, 7])
+   ys = pa.array([False, False, True])
+   types = pa.array([0, 1, 1], type=pa.int8())
+   union_arr = pa.UnionArray.from_sparse(types, [xs, ys])
+   union_arr.type
+   union_arr
+
+In a dense union array, you also pass, in addition to the ``int8`` "types"
+array, a ``int32`` "offsets" array that tells, for each value, at
+each offset in the selected child array it can be found:
+
+.. ipython:: python
+
+   xs = pa.array([5, 6, 7])
+   ys = pa.array([False, True])
+   types = pa.array([0, 1, 1, 0, 0], type=pa.int8())
+   offsets = pa.array([0, 0, 1, 1, 2], type=pa.int32())
+   union_arr = pa.UnionArray.from_dense(types, offsets, [xs, ys])
+   union_arr.type
+   union_arr
+
 
 Dictionary Arrays
 ~~~~~~~~~~~~~~~~~
@@ -303,7 +386,7 @@ for one or more arrays of the same type.
    c.data.num_chunks
    c.data.chunk(0)
 
-As you'll see in the :ref:`pandas section <pandas>`, we can convert thee
+As you'll see in the :ref:`pandas section <pandas>`, we can convert these
 objects to contiguous NumPy arrays for use in pandas:
 
 .. ipython:: python
