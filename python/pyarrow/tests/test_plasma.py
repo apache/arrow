@@ -769,7 +769,7 @@ def test_object_id_size():
     plasma.ObjectID(20 * b"0")
 
 
-@pytest.mark.skipif(os.path.exists("/mnt/hugepages"),
+@pytest.mark.skipif(not os.path.exists("/mnt/hugepages"),
                     reason="requires hugepage support")
 def test_use_huge_pages():
     import pyarrow.plasma as plasma
