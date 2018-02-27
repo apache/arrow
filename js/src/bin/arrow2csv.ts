@@ -84,12 +84,10 @@ if (!files.length) {
 }
 
 files.forEach((source) => {
-    debugger;
     let table: Arrow.Table, input = fs.readFileSync(source);
     try {
         table = Arrow.Table.from(input);
     } catch (e) {
-        debugger;
         table = Arrow.Table.from(parse(input + ''));
     }
     if (argv.schema && argv.schema.length) {

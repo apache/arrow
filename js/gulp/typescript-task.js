@@ -30,22 +30,33 @@ const { Observable, ReplaySubject } = require('rxjs');
 
 const typescriptTask = ((cache) => memoizeTask(cache, function typescript(target, format) {
     const out = targetDir(target, format);
-    const tsconfigFile = `tsconfig.${tsconfigName(target, format)}.json`;
-    const tsProject = ts.createProject(path.join(`tsconfig`, tsconfigFile), { typescript: require(`typescript`) });
+    const tsconfigPath = path.join(`tsconfig`, `tsconfig.${tsconfigName(target, format)}.json`);
+    return compileTypescript(out, tsconfigPath)
+        .merge(compileBinFiles(target, format)).takeLast(1)
+        .concat(maybeCopyRawJSArrowFormatFiles(target, format))
+        .publish(new ReplaySubject()).refCount();
+}))({});
+
+function compileBinFiles(target, format) {
+    const out = targetDir(target, format);
+    const tsconfigPath = path.join(`tsconfig`, `tsconfig.${tsconfigName('bin', 'cjs')}.json`);
+    return compileTypescript(path.join(out, 'bin'), tsconfigPath);
+}
+
+function compileTypescript(out, tsconfigPath) {
+    const tsProject = ts.createProject(tsconfigPath, { typescript: require(`typescript`) });
     const { stream: { js, dts } } = observableFromStreams(
       tsProject.src(), sourcemaps.init(),
       tsProject(ts.reporter.defaultReporter())
     );
     const writeDTypes = observableFromStreams(dts, gulp.dest(out));
     const writeJS = observableFromStreams(js, sourcemaps.write(), gulp.dest(out));
-    return Observable
-        .forkJoin(writeDTypes, writeJS)
-        .concat(maybeCopyRawJSArrowFormatFiles(target, format))
-        .publish(new ReplaySubject()).refCount();
-}))({});
+    return Observable.forkJoin(writeDTypes, writeJS);
+}
 
 module.exports = typescriptTask;
 module.exports.typescriptTask = typescriptTask;
+module.exports.compileBinFiles = compileBinFiles;
 
 function maybeCopyRawJSArrowFormatFiles(target, format) {
     if (target !== `es5` || format !== `cls`) {

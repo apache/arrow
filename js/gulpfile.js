@@ -58,15 +58,15 @@ knownTargets.forEach((target) =>
     )
 );
 
-// The main "apache-arrow" module builds the es5/cjs, es5/umd,
-// es2015/esm, es2015/umd, and ts targets, then copies and
-// renames the compiled output into the apache-arrow folder
+// The main "apache-arrow" module builds the es5/umd, es2015/cjs,
+// es2015/esm, and es2015/umd targets, then copies and renames the
+// compiled output into the apache-arrow folder
 gulp.task(`build:${npmPkgName}`,
     gulp.series(
         cleanTask(npmPkgName),
         gulp.parallel(
-            `build:${taskName(`es5`, `cjs`)}`,
             `build:${taskName(`es5`, `umd`)}`,
+            `build:${taskName(`es2015`, `cjs`)}`,
             `build:${taskName(`es2015`, `esm`)}`,
             `build:${taskName(`es2015`, `umd`)}`
         ),
