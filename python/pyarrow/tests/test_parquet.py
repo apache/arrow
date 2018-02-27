@@ -22,6 +22,7 @@ import decimal
 import io
 import json
 import os
+import sys
 
 import pytest
 
@@ -261,6 +262,19 @@ def test_pandas_parquet_1_0_rountrip(tmpdir):
     # We pass uint32_t as int64_t if we write Parquet version 1.0
     df['uint32'] = df['uint32'].values.astype(np.int64)
 
+    tm.assert_frame_equal(df, df_read)
+
+
+@parquet
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="need Python 3.6")
+def test_path_objects(tmpdir):
+    # Test compatibility with PEP 519 path-like objects
+    import pathlib
+    p = pathlib.Path(tmpdir) / 'zzz.parquet'
+    df = pd.DataFrame({'x': np.arange(10, dtype=np.int64)})
+    _write_table(df, p)
+    table_read = _read_table(p)
+    df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
