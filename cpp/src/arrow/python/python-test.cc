@@ -80,14 +80,12 @@ class DecimalTest : public ::testing::Test {
  public:
   DecimalTest() : lock_(), decimal_constructor_() {
     OwnedRef decimal_module;
-    auto s = internal::ImportModule("decimal", &decimal_module);
-    DCHECK(s.ok()) << s.message();
-    DCHECK_NE(decimal_module.obj(), NULLPTR);
 
-    s = internal::ImportFromModule(decimal_module, "Decimal", &decimal_constructor_);
-    DCHECK(s.ok()) << s.message();
+    Status status = internal::ImportModule("decimal", &decimal_module);
+    DCHECK_OK(status);
 
-    DCHECK_NE(decimal_constructor_.obj(), NULLPTR);
+    status = internal::ImportFromModule(decimal_module, "Decimal", &decimal_constructor_);
+    DCHECK_OK(status);
   }
 
   OwnedRef CreatePythonDecimal(const std::string& string_value) {
