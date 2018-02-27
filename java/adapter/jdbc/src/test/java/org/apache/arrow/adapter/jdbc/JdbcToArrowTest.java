@@ -119,5 +119,14 @@ public class JdbcToArrowTest {
             conn.close();
         }
     }
+	
+   /**
+     * This Method returns named resource as input stream from classpath
+     * @param name of the resource
+     * @return resourec as InputStream
+     */
+    private InputStream getResource(String name) {
+    	return this.getClass().getClassLoader().getResourceAsStream(name);
+    }
 
 }
