@@ -21,6 +21,7 @@ import gc
 import os
 import pytest
 import sys
+import weakref
 
 import numpy as np
 
@@ -123,6 +124,44 @@ def test_bytes_reader_retains_parent_reference():
     gc.collect()
     assert buf.to_pybytes() == b'sample'
     assert buf.parent is not None
+
+
+def test_python_file_implicit_mode(tmpdir):
+    path = os.path.join(str(tmpdir), 'foo.txt')
+    with open(path, 'wb') as f:
+        pf = pa.PythonFile(f)
+        assert pf.writable()
+        assert not pf.readable()
+        assert not pf.seekable()  # PyOutputStream isn't seekable
+        f.write(b'foobar\n')
+
+    with open(path, 'rb') as f:
+        pf = pa.PythonFile(f)
+        assert pf.readable()
+        assert not pf.writable()
+        assert pf.seekable()
+        assert pf.read() == b'foobar\n'
+
+    bio = BytesIO()
+    pf = pa.PythonFile(bio)
+    assert pf.writable()
+    assert not pf.readable()
+    assert not pf.seekable()
+    pf.write(b'foobar\n')
+    assert bio.getvalue() == b'foobar\n'
+
+
+def test_python_file_closing():
+    bio = BytesIO()
+    pf = pa.PythonFile(bio)
+    wr = weakref.ref(pf)
+    del pf
+    assert wr() is None  # object was destroyed
+    assert not bio.closed
+    pf = pa.PythonFile(bio)
+    pf.close()
+    assert bio.closed
+
 
 # ----------------------------------------------------------------------
 # Buffers
