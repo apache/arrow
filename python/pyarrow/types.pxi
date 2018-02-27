@@ -529,7 +529,22 @@ cdef class Schema:
     def get_field_index(self, name):
         return self.schema.GetFieldIndex(tobytes(name))
 
-    def add_field(self, int i, Field field):
+    def append(self, Field field):
+        """
+        Append a field at the end of the schema.
+
+        Parameters
+        ----------
+
+        field: Field
+
+        Returns
+        -------
+        schema: Schema
+        """
+        return self.insert(self.schema.num_fields(), field)
+
+    def insert(self, int i, Field field):
         """
         Add a field at position i to the schema.
 
@@ -553,7 +568,7 @@ cdef class Schema:
 
         return pyarrow_wrap_schema(new_schema)
 
-    def remove_field(self, int i):
+    def remove(self, int i):
         """
         Remove the field at index i from the schema.
 

@@ -737,7 +737,7 @@ class ParquetDataset(object):
             for partition_name in self.partitions.partition_names:
                 if dataset_schema.get_field_index(partition_name) != -1:
                     field_idx = dataset_schema.get_field_index(partition_name)
-                    dataset_schema = dataset_schema.remove_field(field_idx)
+                    dataset_schema = dataset_schema.remove(field_idx)
 
         for piece in self.pieces:
             file_metadata = piece.get_metadata(open_file)
