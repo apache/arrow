@@ -422,6 +422,8 @@ def parse_version(root):
     from setuptools_scm import version_from_scm
     import setuptools_scm.git
     describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --match 'apache-arrow-[0-9]*'"
+    # Strip catchall from the commandline
+    describe = describe.replace("--match *.*", "")
     version = setuptools_scm.git.parse(root, describe)
     if not version:
         return version_from_scm(root)
