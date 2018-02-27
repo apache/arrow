@@ -47,8 +47,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
     main: mainExport,
     types: `${mainExport}.d.ts`,
     module: `${mainExport}.mjs`,
-    dist: `${mainExport}.es5.min.js`,
-    [`dist:es2015`]: `${mainExport}.es2015.min.js`,
+    unpkg: `${mainExport}.es5.min.js`,
     [`@std/esm`]: { esm: `mjs`, warnings: false, sourceMap: true }
 });
   
@@ -69,7 +68,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             {
                 name: `${npmOrgName}/${packageName(target, format)}`,
                 version: undefined, main: `${mainExport}.js`, types: `${mainExport}.d.ts`,
-                dist: undefined, [`dist:es2015`]: undefined, module: undefined, [`@std/esm`]: undefined
+                unpkg: undefined, module: undefined, [`@std/esm`]: undefined
             }
         )
     )

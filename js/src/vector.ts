@@ -394,29 +394,29 @@ export class UnionVector<T extends (SparseUnion | DenseUnion) = any> extends Nes
 
 export class DictionaryVector<T extends DataType = DataType> extends Vector<Dictionary<T>> {
     // @ts-ignore
-    public readonly indicies: Vector<Int>;
+    public readonly indices: Vector<Int>;
     // @ts-ignore
     public readonly dictionary: Vector<T>;
-    constructor(data: Data<Dictionary<T>>, view: View<Dictionary<T>> = new DictionaryView<T>(data.dictionary, new IntVector(data.indicies))) {
+    constructor(data: Data<Dictionary<T>>, view: View<Dictionary<T>> = new DictionaryView<T>(data.dictionary, new IntVector(data.indices))) {
         super(data as Data<any>, view);
         if (data instanceof DictionaryData && view instanceof DictionaryView) {
-            this.indicies = view.indicies;
+            this.indices = view.indices;
             this.dictionary = data.dictionary;
         } else if (data instanceof ChunkedData && view instanceof ChunkedView) {
             const chunks = view.chunkVectors as DictionaryVector<T>[];
             // Assume the last chunk's dictionary data is the most up-to-date,
             // including data from DictionaryBatches that were marked as deltas
             this.dictionary = chunks[chunks.length - 1].dictionary;
-            this.indicies = chunks.reduce<Vector<Int> | null>(
+            this.indices = chunks.reduce<Vector<Int> | null>(
                 (idxs: Vector<Int> | null, dict: DictionaryVector<T>) =>
-                    !idxs ? dict.indicies! : idxs.concat(dict.indicies!),
+                    !idxs ? dict.indices! : idxs.concat(dict.indices!),
                 null
             )!;
         } else {
             throw new TypeError(`Unrecognized DictionaryVector view`);
         }
     }
-    public getKey(index: number) { return this.indicies.get(index); }
+    public getKey(index: number) { return this.indices.get(index); }
     public getValue(key: number) { return this.dictionary.get(key); }
     public reverseLookup(value: T) { return this.dictionary.indexOf(value); }
 }

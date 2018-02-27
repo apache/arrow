@@ -17,7 +17,7 @@
 # under the License.
 
 export BROTLI_VERSION="0.6.0"
-wget "https://github.com/google/brotli/archive/v${BROTLI_VERSION}.tar.gz" -O brotli-${BROTLI_VERSION}.tar.gz
+curl -sL "https://github.com/google/brotli/archive/v${BROTLI_VERSION}.tar.gz" -o brotli-${BROTLI_VERSION}.tar.gz
 tar xf brotli-${BROTLI_VERSION}.tar.gz
 pushd brotli-${BROTLI_VERSION}
 mkdir build

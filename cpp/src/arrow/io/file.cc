@@ -555,6 +555,17 @@ FileOutputStream::~FileOutputStream() {
 }
 
 Status FileOutputStream::Open(const std::string& path,
+                              std::shared_ptr<OutputStream>* file) {
+  return Open(path, false, file);
+}
+
+Status FileOutputStream::Open(const std::string& path, bool append,
+                              std::shared_ptr<OutputStream>* out) {
+  *out = std::shared_ptr<FileOutputStream>(new FileOutputStream());
+  return std::static_pointer_cast<FileOutputStream>(*out)->impl_->Open(path, append);
+}
+
+Status FileOutputStream::Open(const std::string& path,
                               std::shared_ptr<FileOutputStream>* file) {
   return Open(path, false, file);
 }

@@ -127,10 +127,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow jemalloc-based allocator"
     OFF)
 
-  option(ARROW_JEMALLOC_USE_SHARED
-    "Rely on jemalloc shared libraries where relevant"
-    ON)
-
   option(ARROW_HDFS
     "Build the Arrow HDFS bridge"
     ON)
@@ -295,8 +291,6 @@ include(ThirdpartyToolchain)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 
-message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Using Clang with ccache causes a bunch of spurious warnings that are
   # purportedly fixed in the next version of ccache. See the following for details:
@@ -309,7 +303,7 @@ endif()
 
 # ASAN / TSAN / UBSAN
 if(ARROW_FUZZING)
-    set(ARROW_USE_COVERAGE ON)
+  set(ARROW_USE_COVERAGE ON)
 endif()
 include(san-config)
 
@@ -336,6 +330,9 @@ if ("${ARROW_GENERATE_COVERAGE}")
     message(SEND_ERROR "Coverage requires the static lib to be built")
   endif()
 endif()
+
+# CMAKE_CXX_FLAGS now fully assembled
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 # set compile output directory
 string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
@@ -605,44 +602,28 @@ set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
-  # In the case that jemalloc is only available as a shared library also use it to
-  # link it in the static requirements. In contrast to other libraries we try in
-  # most cases to use the system provided version of jemalloc to better align with
-  # other potential users of jemalloc.
-  if (JEMALLOC_STATIC_LIB AND NOT ARROW_JEMALLOC_USE_SHARED)
-    set(ARROW_JEMALLOC_STATIC_LINK_LIBS jemalloc_static)
-  else()
-    set(ARROW_JEMALLOC_STATIC_LINK_LIBS jemalloc_shared)
-  endif()
+  add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
 
-  if (NOT APPLE)
-      set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} ${PTHREAD_LIBRARY} rt)
-  endif()
-
-  if (ARROW_JEMALLOC_USE_SHARED)
-    set(ARROW_JEMALLOC_SHARED_LINK_LIBS jemalloc_shared)
+  if (CMAKE_COMPILER_IS_GNUCXX)
+    set(ARROW_JEMALLOC_LINK_LIBS
+      jemalloc_static
+      # For glibc <2.17 we need to link to librt.
+      # As we compile with --as-needed by default, the linker will omit this
+      # dependency if not required.
+      ${PTHREAD_LIBRARY}
+      rt
+      )
   else()
-    if (CMAKE_COMPILER_IS_GNUCXX)
-      set(ARROW_JEMALLOC_SHARED_LINK_LIBS
-        jemalloc_static
-        # For glibc <2.17 we need to link to librt.
-        # As we compile with --as-needed by default, the linker will omit this
-        # dependency if not required.
-        ${PTHREAD_LIBRARY}
-        rt
-        )
-    else()
-      set(ARROW_JEMALLOC_SHARED_LINK_LIBS
-        jemalloc_static
-        )
-    endif()
+    set(ARROW_JEMALLOC_LINK_LIBS
+      jemalloc_static
+      )
   endif()
   set(ARROW_SHARED_PRIVATE_LINK_LIBS
     ${ARROW_SHARED_PRIVATE_LINK_LIBS}
-    ${ARROW_JEMALLOC_SHARED_LINK_LIBS})
+    ${ARROW_JEMALLOC_LINK_LIBS})
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
-    ${ARROW_JEMALLOC_STATIC_LINK_LIBS})
+    ${ARROW_JEMALLOC_LINK_LIBS})
 elseif (NOT MSVC)
   # We need to separate this as otherwise CMake would mess with the library
   # linking order.

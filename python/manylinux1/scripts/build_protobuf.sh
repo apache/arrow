@@ -1,5 +1,4 @@
-#!/usr/bin/env bash
-
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,32 +16,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+PROTOBUF_VERSION="2.6.0"
 
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-
-if [ ! -e $CPP_TOOLCHAIN ]; then
-    # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
-        nomkl \
-        boost-cpp \
-        libprotobuf \
-        rapidjson \
-        flatbuffers \
-        gflags \
-        gtest \
-        lz4-c \
-        snappy \
-        ccache \
-        zstd \
-        brotli \
-        zlib \
-        cmake \
-        curl \
-        thrift-cpp=0.11.0 \
-        ninja
-
-    # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
-    # updated sometime on October 2 or October 3
-    conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
-fi
+curl -sL https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz -o protobuf-${PROTOBUF_VERSION}.tar.gz
+tar xf protobuf-${PROTOBUF_VERSION}.tar.gz
+pushd protobuf-${PROTOBUF_VERSION}
+./configure --disable-shared --prefix=/usr "CXXFLAGS=-O2 -fPIC"
+make -j5
+make install
+popd
+rm -rf protobuf-${PROTOBUF_VERSION}.tar.gz protobuf-${PROTOBUF_VERSION}

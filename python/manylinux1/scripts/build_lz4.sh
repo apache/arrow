@@ -20,7 +20,7 @@ export LZ4_VERSION="1.7.5"
 export PREFIX="/usr"
 export CFLAGS="${CFLAGS} -O3 -fPIC"
 export LDFLAGS="${LDFLAGS} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
-wget "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz" -O lz4-${LZ4_VERSION}.tar.gz
+curl -sL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz" -o lz4-${LZ4_VERSION}.tar.gz
 tar xf lz4-${LZ4_VERSION}.tar.gz
 pushd lz4-${LZ4_VERSION}
 

@@ -227,7 +227,10 @@ Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(file->Read(message_length, &metadata));
   if (metadata->size() != message_length) {
-    return Status::IOError("Unexpected end of stream trying to read message");
+    std::stringstream ss;
+    ss << "Expected to read " << message_length << " metadata bytes, but "
+       << "only read " << metadata->size();
+    return Status::Invalid(ss.str());
   }
 
   return Message::ReadFrom(metadata, file, message);

@@ -25,9 +25,6 @@ RUN /build_openssl.sh
 ADD scripts/build_boost.sh /
 RUN /build_boost.sh
 
-ADD scripts/build_jemalloc.sh /
-RUN /build_jemalloc.sh
-
 # Install cmake manylinux1 package
 ADD scripts/install_cmake.sh /
 RUN /install_cmake.sh
@@ -65,6 +62,10 @@ ENV ZSTD_HOME /usr
 
 ADD scripts/build_ccache.sh /
 RUN /build_ccache.sh
+
+ADD scripts/build_protobuf.sh /
+RUN /build_protobuf.sh
+ENV PROTOBUF_HOME /usr
 
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963

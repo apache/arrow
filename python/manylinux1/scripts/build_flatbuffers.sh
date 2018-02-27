@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-wget https://github.com/google/flatbuffers/archive/v1.6.0.tar.gz -O flatbuffers-1.6.0.tar.gz
+curl -sL https://github.com/google/flatbuffers/archive/v1.6.0.tar.gz -o flatbuffers-1.6.0.tar.gz
 tar xf flatbuffers-1.6.0.tar.gz
 pushd flatbuffers-1.6.0
 cmake "-DCMAKE_CXX_FLAGS=-fPIC" "-DCMAKE_INSTALL_PREFIX:PATH=/usr" "-DFLATBUFFERS_BUILD_TESTS=OFF"

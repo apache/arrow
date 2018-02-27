@@ -20,31 +20,31 @@ import { View, Vector } from '../vector';
 import { IterableArrayLike, DataType, Dictionary, Int } from '../type';
 
 export class DictionaryView<T extends DataType> implements View<T> {
-    public indicies: Vector<Int>;
+    public indices: Vector<Int>;
     public dictionary: Vector<T>;
-    constructor(dictionary: Vector<T>, indicies: Vector<Int>) {
-        this.indicies = indicies;
+    constructor(dictionary: Vector<T>, indices: Vector<Int>) {
+        this.indices = indices;
         this.dictionary = dictionary;
     }
     public clone(data: Data<Dictionary<T>>): this {
-        return new DictionaryView(data.dictionary, this.indicies.clone(data.indicies)) as this;
+        return new DictionaryView(data.dictionary, this.indices.clone(data.indices)) as this;
     }
     public isValid(index: number): boolean {
-        return this.indicies.isValid(index);
+        return this.indices.isValid(index);
     }
     public get(index: number): T['TValue'] {
-        return this.dictionary.get(this.indicies.get(index));
+        return this.dictionary.get(this.indices.get(index));
     }
     public set(index: number, value: T['TValue']): void {
-        this.dictionary.set(this.indicies.get(index), value);
+        this.dictionary.set(this.indices.get(index), value);
     }
     public toArray(): IterableArrayLike<T['TValue']> {
         return [...this];
     }
     public *[Symbol.iterator](): IterableIterator<T['TValue']> {
-        const values = this.dictionary, indicies = this.indicies;
-        for (let index = -1, n = indicies.length; ++index < n;) {
-            yield values.get(indicies.get(index));
+        const values = this.dictionary, indices = this.indices;
+        for (let index = -1, n = indices.length; ++index < n;) {
+            yield values.get(indices.get(index));
         }
     }
     public indexOf(search: T['TValue']) {
@@ -52,7 +52,7 @@ export class DictionaryView<T extends DataType> implements View<T> {
         const key = this.dictionary.indexOf(search);
         if (key === -1) { return key; }
 
-        // ... then find the first occurence of that key in indicies
-        return this.indicies.indexOf(key!);
+        // ... then find the first occurence of that key in indices
+        return this.indices.indexOf(key!);
     }
 }

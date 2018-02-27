@@ -27,6 +27,7 @@ const gulp = require('gulp');
 const path = require('path');
 const sourcemaps = require('gulp-sourcemaps');
 const { memoizeTask } = require('./memoize-task');
+const { compileBinFiles } = require('./typescript-task');
 const ASTBuilders = require('ast-types').builders;
 const transformAST = require('gulp-transform-js-ast');
 const { Observable, ReplaySubject } = require('rxjs');
@@ -55,7 +56,10 @@ const closureTask = ((cache) => memoizeTask(cache, function closure(target, form
         // rename the sourcemaps from *.js.map files to *.min.js.map
         sourcemaps.write(`.`, { mapFile: (mapPath) => mapPath.replace(`.js.map`, `.${target}.min.js.map`) }),
         gulp.dest(out)
-    ).publish(new ReplaySubject()).refCount();
+    )
+    .merge(compileBinFiles(target, format))
+    .takeLast(1)
+    .publish(new ReplaySubject()).refCount();
 }))({});
 
 const createClosureArgs = (entry, externs) => ({

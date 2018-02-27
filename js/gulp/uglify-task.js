@@ -27,6 +27,7 @@ const {
 const path = require('path');
 const webpack = require(`webpack`);
 const { memoizeTask } = require('./memoize-task');
+const { compileBinFiles } = require('./typescript-task');
 const { Observable, ReplaySubject } = require('rxjs');
 const UglifyJSPlugin = require(`uglifyjs-webpack-plugin`);
 const esmRequire = require(`@std/esm`)(module, { cjs: true, esm: `js`, warnings: false });
@@ -73,6 +74,7 @@ const uglifyTask = ((cache, commonConfig) => memoizeTask(cache, function uglifyJ
     const compilers = webpack(webpackConfigs);
     return Observable
             .bindNodeCallback(compilers.run.bind(compilers))()
+            .merge(compileBinFiles(target, format)).takeLast(1)
             .multicast(new ReplaySubject()).refCount();
 }))({}, {
     resolve: { mainFields: [`module`, `main`] },
