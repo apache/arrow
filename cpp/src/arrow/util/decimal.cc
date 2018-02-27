@@ -92,7 +92,7 @@ std::array<uint8_t, 16> Decimal128::ToBytes() const {
 }
 
 void Decimal128::ToBytes(uint8_t* out) const {
-  DCHECK_NE(out, NULLPTR);
+  DCHECK_NE(out, nullptr);
   reinterpret_cast<uint64_t*>(out)[0] = BitUtil::ToLittleEndian(low_bits_);
   reinterpret_cast<int64_t*>(out)[1] = BitUtil::ToLittleEndian(high_bits_);
 }
@@ -233,7 +233,7 @@ static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
 static void StringToInteger(const std::string& str, Decimal128* out) {
   using std::size_t;
 
-  DCHECK_NE(out, NULLPTR) << "Decimal128 output variable cannot be NULLPTR";
+  DCHECK_NE(out, nullptr) << "Decimal128 output variable cannot be nullptr";
   DCHECK_EQ(*out, 0)
       << "When converting a string to Decimal128 the initial output must be 0";
 
@@ -283,11 +283,11 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* pr
 
   // case of all zeros
   if (std::all_of(s.cbegin(), s.cend(), is_zero_character)) {
-    if (precision != NULLPTR) {
+    if (precision != nullptr) {
       *precision = 0;
     }
 
-    if (scale != NULLPTR) {
+    if (scale != nullptr) {
       *scale = 0;
     }
 
@@ -300,7 +300,7 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* pr
 
   if (!matches) {
     std::stringstream ss;
-    ss << s << " does not match";
+    ss << "The string " << s << " is not a valid decimal number";
     return Status::Invalid(ss.str());
   }
 
@@ -341,11 +341,11 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* pr
     exponent_value = second_exp_value;
   }
 
-  if (precision != NULLPTR) {
+  if (precision != nullptr) {
     *precision = static_cast<int32_t>(whole_part.size() + fractional_part.size());
   }
 
-  if (scale != NULLPTR) {
+  if (scale != nullptr) {
     if (!exponent_value.empty()) {
       auto adjusted_exponent = static_cast<int32_t>(std::stol(exponent_value));
       auto len = static_cast<int32_t>(whole_part.size() + fractional_part.size());
@@ -355,18 +355,18 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* pr
     }
   }
 
-  if (out != NULLPTR) {
+  if (out != nullptr) {
     *out = 0;
     StringToInteger(whole_part + fractional_part, out);
     if (sign == "-") {
       out->Negate();
     }
 
-    if (scale != NULLPTR && *scale < 0) {
+    if (scale != nullptr && *scale < 0) {
       const int32_t abs_scale = std::abs(*scale);
       *out *= ScaleMultipliers[abs_scale];
 
-      if (precision != NULLPTR) {
+      if (precision != nullptr) {
         *precision += abs_scale;
       }
       *scale = 0;
@@ -836,7 +836,7 @@ static bool RescaleWouldCauseDataLoss(const Decimal128& value, int32_t delta_sca
 
 Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
                            Decimal128* out) const {
-  DCHECK_NE(out, NULLPTR) << "out is nullptr";
+  DCHECK_NE(out, nullptr) << "out is nullptr";
   DCHECK_NE(original_scale, new_scale) << "original_scale != new_scale";
 
   const int32_t delta_scale = new_scale - original_scale;
