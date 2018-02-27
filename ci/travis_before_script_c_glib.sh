@@ -22,7 +22,10 @@ set -ex
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 if [ $TRAVIS_OS_NAME = "osx" ]; then
-  brew update && brew install boost --c++11 && brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
+  brew update && \
+    brew remove boost --force && \
+    brew install boost --c++11 && \
+    brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
 else  # Linux
   sudo apt-get install -y -q gtk-doc-tools autoconf-archive libgirepository1.0-dev
 fi
