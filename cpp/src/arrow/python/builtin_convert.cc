@@ -81,11 +81,9 @@ class ScalarVisitor {
         max_decimal_metadata_(std::numeric_limits<int32_t>::min(),
                               std::numeric_limits<int32_t>::min()),
         decimal_type_() {
-    OwnedRefNoGIL decimal_module;
-    Status status = ::arrow::py::internal::ImportModule("decimal", &decimal_module);
-    DCHECK_OK(status);
-    status = ::arrow::py::internal::ImportFromModule(decimal_module, "Decimal",
-                                                     &decimal_type_);
+
+    PyAcquireGIL lock;
+    Status status = internal::ImportDecimalType(&decimal_type_);
     DCHECK_OK(status);
   }
 

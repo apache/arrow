@@ -300,13 +300,18 @@ class NumPyConverter {
         arr_(reinterpret_cast<PyArrayObject*>(ao)),
         dtype_(PyArray_DESCR(arr_)),
         mask_(nullptr),
-        use_pandas_null_sentinels_(use_pandas_null_sentinels) {
+        use_pandas_null_sentinels_(use_pandas_null_sentinels),
+        decimal_type_() {
     if (mo != nullptr && mo != Py_None) {
       mask_ = reinterpret_cast<PyArrayObject*>(mo);
     }
     length_ = static_cast<int64_t>(PyArray_SIZE(arr_));
     itemsize_ = static_cast<int>(PyArray_DESCR(arr_)->elsize);
     stride_ = static_cast<int64_t>(PyArray_STRIDES(arr_)[0]);
+
+    PyAcquireGIL lock;
+    Status status = internal::ImportDecimalType(&decimal_type_);
+    DCHECK_OK(status);
   }
 
   bool is_strided() const { return itemsize_ != stride_; }
@@ -480,6 +485,8 @@ class NumPyConverter {
   int itemsize_;
 
   bool use_pandas_null_sentinels_;
+
+  OwnedRefNoGIL decimal_type_;
 
   // Used in visitor pattern
   std::vector<std::shared_ptr<Array>> out_arrays_;
@@ -751,11 +758,16 @@ Status NumPyConverter::ConvertDecimals() {
   const auto& decimal_type = static_cast<const DecimalType&>(*type_);
 
   for (PyObject* object : objects) {
-    if (ARROW_PREDICT_FALSE(!internal::PyDecimal_Check(object))) {
+    const int is_decimal = PyObject_IsInstance(object, decimal_type_.obj());
+
+    if (ARROW_PREDICT_FALSE(is_decimal == 0)) {
       std::stringstream ss;
       ss << "Error converting from Python objects to Decimal: ";
       RETURN_NOT_OK(InvalidConversion(object, "decimal.Decimal", &ss));
       return Status::Invalid(ss.str());
+    } else if (ARROW_PREDICT_FALSE(is_decimal == -1)) {
+      DCHECK_NE(PyErr_Occurred(), nullptr);
+      RETURN_IF_PYERROR();
     }
 
     if (PandasObjectIsNull(object)) {
@@ -1033,7 +1045,7 @@ Status NumPyConverter::ConvertObjectsInfer() {
       return ConvertDateTimes();
     } else if (PyTime_Check(obj)) {
       return ConvertTimes();
-    } else if (internal::PyDecimal_Check(obj)) {
+    } else if (PyObject_IsInstance(obj, decimal_type_.obj()) == 1) {
       return ConvertDecimals();
     } else if (PyList_Check(obj)) {
       std::shared_ptr<DataType> inferred_type;

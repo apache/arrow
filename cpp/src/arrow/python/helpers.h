@@ -55,6 +55,9 @@ Status ImportModule(const std::string& module_name, OwnedRef* ref);
 // module
 Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRef* ref);
 
+// \brief Import
+Status ImportDecimalType(OwnedRef* decimal_type);
+
 // \brief Convert a Python Decimal object to a C++ string
 // \param[in] python_decimal A Python decimal.Decimal instance
 // \param[out] The string representation of the Python Decimal instance

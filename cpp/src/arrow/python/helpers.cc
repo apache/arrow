@@ -79,6 +79,13 @@ Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRe
   return Status::OK();
 }
 
+Status ImportDecimalType(OwnedRef* decimal_type) {
+  OwnedRef decimal_module;
+  RETURN_NOT_OK(ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(ImportFromModule(decimal_module, "Decimal", decimal_type));
+  return Status::OK();
+}
+
 Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
   // Call Python's str(decimal_object)
   OwnedRef str_obj(PyObject_Str(python_decimal));
@@ -225,10 +232,7 @@ bool PyFloat_isnan(PyObject* obj) {
 bool PyDecimal_Check(PyObject* obj) {
   // TODO(phillipc): Is this expensive?
   OwnedRef Decimal;
-  OwnedRef decimal;
-  Status status = ImportModule("decimal", &decimal);
-  DCHECK_OK(status);
-  status = ImportFromModule(decimal, "Decimal", &Decimal);
+  Status status = ImportDecimalType(&Decimal);
   DCHECK_OK(status);
   const int32_t result = PyObject_IsInstance(obj, Decimal.obj());
   DCHECK_NE(result, -1) << " error during PyObject_IsInstance check";
