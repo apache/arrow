@@ -123,10 +123,7 @@ class ScalarVisitor {
         return Status::Invalid(ss.str());
       }
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
-      // Don't infer anything if we encounter a Decimal('nan')
-      if (!internal::PyDecimal_ISNAN(obj)) {
-        RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
-      }
+      RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
       ++decimal_count_;
     } else {
       // TODO(wesm): accumulate error information somewhere

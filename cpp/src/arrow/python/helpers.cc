@@ -266,8 +266,11 @@ Status DecimalMetadata::Update(int32_t suggested_precision, int32_t suggested_sc
 
 Status DecimalMetadata::Update(PyObject* object) {
   DCHECK(PyDecimal_Check(object)) << "Object is not a Python Decimal";
-  DCHECK(!PyDecimal_ISNAN(object))
-      << "Decimal object cannot be NAN when inferring precision and scale";
+
+  if (ARROW_PREDICT_FALSE(PyDecimal_ISNAN(object))) {
+    return Status::OK();
+  }
+
   int32_t precision;
   int32_t scale;
   RETURN_NOT_OK(InferDecimalPrecisionAndScale(object, &precision, &scale));
