@@ -83,10 +83,10 @@ class ScalarVisitor {
         decimal_type_() {
     OwnedRefNoGIL decimal_module;
     Status status = ::arrow::py::internal::ImportModule("decimal", &decimal_module);
-    DCHECK(status.ok()) << "Unable to import decimal module";
+    DCHECK_OK(status);
     status = ::arrow::py::internal::ImportFromModule(decimal_module, "Decimal",
                                                      &decimal_type_);
-    DCHECK(status.ok()) << "Unable to import decimal.Decimal";
+    DCHECK_OK(status);
   }
 
   Status Visit(PyObject* obj) {
