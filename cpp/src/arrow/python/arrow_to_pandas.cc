@@ -1805,13 +1805,13 @@ Status ConvertTableToPandas(PandasOptions options,
       const Column& col = *table->column(i);
       if (categorical_columns.count(col.name())) {
         Datum out;
-        DictionaryEncode(&ctx, Datum(col.data()), &out);
+        RETURN_NOT_OK(DictionaryEncode(&ctx, Datum(col.data()), &out));
         std::shared_ptr<ChunkedArray> array = out.chunked_array();
         auto field = std::make_shared<Field>(
             col.name(), array->type(), col.field()->nullable(), col.field()->metadata());
         auto column = std::make_shared<Column>(field, array);
-        current_table->RemoveColumn(i, &current_table);
-        current_table->AddColumn(i, column, &current_table);
+        RETURN_NOT_OK(current_table->RemoveColumn(i, &current_table));
+        RETURN_NOT_OK(current_table->AddColumn(i, column, &current_table));
       }
     }
   }
