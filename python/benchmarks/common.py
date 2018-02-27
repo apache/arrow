@@ -23,13 +23,21 @@ import unicodedata
 import numpy as np
 
 
+KILOBYTE = 1 << 10
+MEGABYTE = KILOBYTE * KILOBYTE
+
+
 def _multiplicate_sequence(base, target_size):
     q, r = divmod(target_size, len(base))
     return [base] * q + [base[:r]]
 
 
-def get_random_bytes(n):
-    rnd = np.random.RandomState(42)
+def get_random_bytes(n, *, seed=42):
+    """
+    Generate a random bytes object of size *n*.
+    Note the result might be compressible.
+    """
+    rnd = np.random.RandomState(seed)
     # Computing a huge random bytestring can be costly, so we get at most
     # 100KB and duplicate the result as needed
     base_size = 100003
@@ -43,22 +51,25 @@ def get_random_bytes(n):
     return result
 
 
-def get_random_ascii(n):
-    arr = np.frombuffer(get_random_bytes(n), dtype=np.int8) & 0x7f
+def get_random_ascii(n, *, seed=42):
+    """
+    Get a random ASCII-only unicode string of size *n*.
+    """
+    arr = np.frombuffer(get_random_bytes(n, seed=seed), dtype=np.int8) & 0x7f
     result, _ = codecs.ascii_decode(arr)
     assert isinstance(result, str)
     assert len(result) == n
     return result
 
 
-def _random_unicode_letters(n):
+def _random_unicode_letters(n, *, seed=42):
     """
     Generate a string of random unicode letters (slow).
     """
     def _get_more_candidates():
         return rnd.randint(0, sys.maxunicode, size=n).tolist()
 
-    rnd = np.random.RandomState(42)
+    rnd = np.random.RandomState(seed)
     out = []
     candidates = []
 
@@ -75,8 +86,12 @@ def _random_unicode_letters(n):
 _1024_random_unicode_letters = _random_unicode_letters(1024)
 
 
-def get_random_unicode(n):
-    indices = np.frombuffer(get_random_bytes(n * 2), dtype=np.int16) & 1023
+def get_random_unicode(n, *, seed=42):
+    """
+    Get a random non-ASCII unicode string of size *n*.
+    """
+    indices = np.frombuffer(get_random_bytes(n * 2, seed=seed),
+                            dtype=np.int16) & 1023
     unicode_arr = np.array(_1024_random_unicode_letters)[indices]
 
     result = ''.join(unicode_arr.tolist())
