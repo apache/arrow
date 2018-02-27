@@ -398,7 +398,7 @@ Status PlasmaClient::UnmapObject(const ObjectID& object_id) {
   if (entry->second.count == 1) {
     // If no other objects are being used, then unmap the file.
     // We subtract sizeof(size_t) from the length that was added
-    // in fake_mmap in malloc.h, to make map_size page-aligned again.
+    // in fake_mmap in malloc.h, to make the size page-aligned again.
     int err = munmap(entry->second.pointer, entry->second.length - sizeof(size_t));
     if (err == -1) {
       return Status::IOError("Error during munmap");
