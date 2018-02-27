@@ -768,8 +768,10 @@ def test_object_id_size():
         plasma.ObjectID("hello")
     plasma.ObjectID(20 * b"0")
 
+
 @pytest.mark.plasma
 def test_use_huge_pages():
+    import pyarrow.plasma as plasma
     plasma_store_name, p = start_plasma_store(
         plasma_directory="/mnt/hugepages", use_hugepages=True)
     plasma_client = plasma.connect(plasma_store_name, "", 64)
