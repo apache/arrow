@@ -379,7 +379,7 @@ export class TypeSerializer extends TypeVisitor {
     }
     public visitDictionary(node: Dictionary) {
         const b = this.builder;
-        const indexType = this.visit(node.indicies);
+        const indexType = this.visit(node.indices);
         return (
             _DictionaryEncoding.startDictionaryEncoding(b) ||
             _DictionaryEncoding.addId(b, new Long(node.id, 0)) ||
