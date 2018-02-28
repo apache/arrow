@@ -32,6 +32,7 @@ cdef extern from "arrow/python/platform.h":
 
 cdef extern from "<Python.h>":
     void Py_XDECREF(PyObject* o)
+    Py_ssize_t Py_REFCNT(PyObject* o)
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     # We can later add more of the common status factory methods as needed
