@@ -49,7 +49,7 @@ export function* readBuffers<T extends Uint8Array | Buffer | string>(sources: It
     }
     for (const source of sources) {
         const bb = toByteBuffer(source);
-        if ((!schema && ({ schema, readMessages } = readSchema(bb))) && schema && readMessages) {
+        if ((!schema && ({ schema, readMessages } = readSchema(bb)) || true) && schema && readMessages) {
             for (const message of readMessages(bb)) {
                 yield {
                     schema, message,
@@ -71,7 +71,7 @@ export async function* readBuffersAsync<T extends Uint8Array | Buffer | string>(
     let readMessages: MessageReader | null = null;
     for await (const source of sources) {
         const bb = toByteBuffer(source);
-        if ((!schema && ({ schema, readMessages } = readSchema(bb))) && schema && readMessages) {
+        if ((!schema && ({ schema, readMessages } = readSchema(bb)) || true) && schema && readMessages) {
             for (const message of readMessages(bb)) {
                 yield {
                     schema, message,
