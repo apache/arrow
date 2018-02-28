@@ -584,15 +584,11 @@ def _get_modified_env_with_pythonpath():
     # Prepend pyarrow root directory to PYTHONPATH
     env = os.environ.copy()
     existing_pythonpath = env.get('PYTHONPATH', '')
-    if sys.platform == 'win32':
-        sep = ';'
-    else:
-        sep = ':'
 
     module_path = os.path.abspath(
         os.path.dirname(os.path.dirname(pa.__file__)))
 
-    env['PYTHONPATH'] = sep.join((module_path, existing_pythonpath))
+    env['PYTHONPATH'] = os.pathsep.join((module_path, existing_pythonpath))
     return env
 
 
@@ -650,3 +646,14 @@ def test_set_pickle():
     serialized = pa.serialize(test_object, context=context).to_buffer()
     deserialized = pa.deserialize(serialized.to_pybytes(), context=context)
     assert deserialized == b'custom serialization 2'
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="need Python 3.6")
+def test_path_objects(tmpdir):
+    # Test compatibility with PEP 519 path-like objects
+    import pathlib
+    p = pathlib.Path(tmpdir) / 'zzz.bin'
+    obj = 1234
+    pa.serialize_to(obj, p)
+    res = pa.deserialize_from(p, None)
+    assert res == obj
