@@ -871,7 +871,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
                             shared_ptr[CTensor]* out)
 
-    CStatus TensorToNdarray(const CTensor& tensor, object base,
+    CStatus TensorToNdarray(const shared_ptr[CTensor]& tensor, object base,
                             PyObject** out)
 
     CStatus ConvertArrayToPandas(PandasOptions options,

@@ -518,7 +518,7 @@ strides: {2}""".format(self.type, self.shape, self.strides)
             PyObject* out
 
         with nogil:
-            check_status(TensorToNdarray(deref(self.tp), self, &out))
+            check_status(TensorToNdarray(self.sp_tensor, self, &out))
         return PyObject_to_object(out)
 
     def equals(self, Tensor other):

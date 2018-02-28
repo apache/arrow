@@ -30,6 +30,7 @@
 #include "arrow/type.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/type_traits.h"
 
 namespace arrow {
@@ -251,50 +252,54 @@ Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* 
   return Status::OK();
 }
 
-Status TensorToNdarray(const Tensor& tensor, PyObject* base, PyObject** out) {
+Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
+                       PyObject** out) {
   PyAcquireGIL lock;
 
   int type_num;
-  RETURN_NOT_OK(GetNumPyType(*tensor.type(), &type_num));
+  RETURN_NOT_OK(GetNumPyType(*tensor->type(), &type_num));
   PyArray_Descr* dtype = PyArray_DescrNewFromType(type_num);
   RETURN_IF_PYERROR();
 
-  std::vector<npy_intp> npy_shape(tensor.ndim());
-  std::vector<npy_intp> npy_strides(tensor.ndim());
+  const int ndim = tensor->ndim();
+  std::vector<npy_intp> npy_shape(ndim);
+  std::vector<npy_intp> npy_strides(ndim);
 
-  for (int i = 0; i < tensor.ndim(); ++i) {
-    npy_shape[i] = tensor.shape()[i];
-    npy_strides[i] = tensor.strides()[i];
+  for (int i = 0; i < ndim; ++i) {
+    npy_shape[i] = tensor->shape()[i];
+    npy_strides[i] = tensor->strides()[i];
   }
 
   const void* immutable_data = nullptr;
-  if (tensor.data()) {
-    immutable_data = tensor.data()->data();
+  if (tensor->data()) {
+    immutable_data = tensor->data()->data();
   }
 
   // Remove const =(
   void* mutable_data = const_cast<void*>(immutable_data);
 
   int array_flags = 0;
-  if (tensor.is_row_major()) {
+  if (tensor->is_row_major()) {
     array_flags |= NPY_ARRAY_C_CONTIGUOUS;
   }
-  if (tensor.is_column_major()) {
+  if (tensor->is_column_major()) {
     array_flags |= NPY_ARRAY_F_CONTIGUOUS;
   }
-  if (tensor.is_mutable()) {
+  if (tensor->is_mutable()) {
     array_flags |= NPY_ARRAY_WRITEABLE;
   }
 
   PyObject* result =
-      PyArray_NewFromDescr(&PyArray_Type, dtype, tensor.ndim(), npy_shape.data(),
+      PyArray_NewFromDescr(&PyArray_Type, dtype, ndim, npy_shape.data(),
                            npy_strides.data(), mutable_data, array_flags, nullptr);
   RETURN_IF_PYERROR()
 
-  if (base != Py_None) {
-    PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result), base);
+  if (base == Py_None || base == nullptr) {
+    base = py::wrap_tensor(tensor);
+  } else {
     Py_XINCREF(base);
   }
+  PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result), base);
   *out = result;
   return Status::OK();
 }

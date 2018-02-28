@@ -94,7 +94,7 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
 Status DeserializeArray(const Array& array, int64_t offset, PyObject* base,
                         const SerializedPyObject& blobs, PyObject** out) {
   int32_t index = static_cast<const Int32Array&>(array).Value(offset);
-  RETURN_NOT_OK(py::TensorToNdarray(*blobs.tensors[index], base, out));
+  RETURN_NOT_OK(py::TensorToNdarray(blobs.tensors[index], base, out));
   // Mark the array as immutable
   OwnedRef flags(PyObject_GetAttrString(*out, "flags"));
   DCHECK(flags.obj() != NULL) << "Could not mark Numpy array immutable";
