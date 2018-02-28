@@ -23,7 +23,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 if [ $TRAVIS_OS_NAME = "osx" ]; then
   brew update && \
-    brew remove boost --force && \
+    brew remove boost --force --ignore-dependencies && \
     brew install boost --c++11 && \
     brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
 else  # Linux
