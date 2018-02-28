@@ -174,7 +174,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # [OS X] C++ & glib w/ XCode 8.3 & autotools
+  # [OS X] C++ & glib w/ XCode 8.3 & autotools & homebrew
   - compiler: clang
     osx_image: xcode8.3
     os: osx
@@ -185,7 +185,8 @@ matrix:
     - BUILD_SYSTEM=autotools
     before_script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library --homebrew
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
