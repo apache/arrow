@@ -372,6 +372,23 @@ def test_numpy_immutable(large_buffer):
         result[0] = 1.0
 
 
+def test_numpy_base_object(tmpdir):
+    # ARROW-2040: deserialized Numpy array should keep a reference to the
+    # owner of its memory
+    path = os.path.join(str(tmpdir), 'zzz.bin')
+    data = np.arange(12, dtype=np.int32)
+
+    with open(path, 'wb') as f:
+        f.write(pa.serialize(data).to_buffer())
+
+    serialized = pa.read_serialized(pa.OSFile(path))
+    result = serialized.deserialize()
+    assert_equal(result, data)
+    serialized = None
+    assert_equal(result, data)
+    assert result.base is not None
+
+
 # see https://issues.apache.org/jira/browse/ARROW-1695
 def test_serialization_callback_numpy():
 
