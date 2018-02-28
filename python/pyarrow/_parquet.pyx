@@ -31,7 +31,7 @@ from pyarrow.lib cimport (Array, Schema,
                           NativeFile, get_reader, get_writer)
 
 from pyarrow.compat import tobytes, frombytes
-from pyarrow.lib import ArrowException, NativeFile
+from pyarrow.lib import ArrowException, NativeFile, _stringify_path
 
 import six
 
@@ -825,15 +825,17 @@ cdef class ParquetWriter:
             c_string c_where
             CMemoryPool* pool
 
-        if isinstance(where, six.string_types):
+        try:
+            where = _stringify_path(where)
+        except TypeError:
+            get_writer(where, &self.sink)
+            self.own_sink = False
+        else:
             c_where = tobytes(where)
             with nogil:
                 check_status(FileOutputStream.Open(c_where,
                                                    &self.sink))
             self.own_sink = True
-        else:
-            get_writer(where, &self.sink)
-            self.own_sink = False
 
         self.use_dictionary = use_dictionary
         self.compression = compression

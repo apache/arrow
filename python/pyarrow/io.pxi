@@ -38,6 +38,18 @@ cdef extern from "Python.h":
         char *v, Py_ssize_t len) except NULL
 
 
+def _stringify_path(path):
+    """
+    Convert *path* to a string or unicode path if possible.
+    """
+    if isinstance(path, six.string_types):
+        return path
+    try:
+        return path.__fspath__()
+    except AttributeError:
+        raise TypeError("not a path-like object")
+
+
 cdef class NativeFile:
     def __cinit__(self):
         self.closed = True
@@ -834,13 +846,16 @@ def frombuffer(object obj):
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
     cdef NativeFile nf
 
-    if isinstance(source, six.string_types):
-        source = memory_map(source, mode='r')
-    elif isinstance(source, Buffer):
-        source = BufferReader(source)
-    elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
-        # Optimistically hope this is file-like
-        source = PythonFile(source, mode='r')
+    try:
+        source_path = _stringify_path(source)
+    except TypeError:
+        if isinstance(source, Buffer):
+            source = BufferReader(source)
+        elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
+            # Optimistically hope this is file-like
+            source = PythonFile(source, mode='r')
+    else:
+        source = memory_map(source_path, mode='r')
 
     if isinstance(source, NativeFile):
         nf = source
@@ -858,11 +873,14 @@ cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
 cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     cdef NativeFile nf
 
-    if isinstance(source, six.string_types):
-        source = OSFile(source, mode='w')
-    elif not isinstance(source, NativeFile) and hasattr(source, 'write'):
-        # Optimistically hope this is file-like
-        source = PythonFile(source, mode='w')
+    try:
+        source_path = _stringify_path(source)
+    except TypeError:
+        if not isinstance(source, NativeFile) and hasattr(source, 'write'):
+            # Optimistically hope this is file-like
+            source = PythonFile(source, mode='w')
+    else:
+        source = OSFile(source_path, mode='w')
 
     if isinstance(source, NativeFile):
         nf = source
