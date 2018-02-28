@@ -18,7 +18,7 @@
 import { TextEncoder } from 'text-encoding-utf-8';
 import Arrow from '../Arrow';
 import { type, TypedArray, TypedArrayConstructor, Vector } from '../../src/Arrow';
-import { packBools } from '../../src/util/bit'
+import { packBools } from '../../src/util/bit';
 
 const utf8Encoder = new TextEncoder('utf-8');
 
@@ -336,7 +336,7 @@ describe(`DictionaryVector`, () => {
 
         describe(`sliced`, () => {
             basicVectorTests(vector.slice(10, 20), values.slice(10,20), extras);
-        })
+        });
     });
 
     describe(`index with nullCount > 0`, () => {

@@ -239,7 +239,7 @@ export class Not extends Predicate {
 
     bind(batch: RecordBatch) {
         const func = this.child.bind(batch);
-        return (idx: number, batch: RecordBatch) => !func(idx, batch)
+        return (idx: number, batch: RecordBatch) => !func(idx, batch);
     }
 }
 
