@@ -45,6 +45,7 @@
 #include "plasma/common.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
+#include "plasma/malloc.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
