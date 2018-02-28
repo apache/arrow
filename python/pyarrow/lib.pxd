@@ -337,6 +337,7 @@ cdef class NativeFile:
         bint is_writable
         readonly bint closed
         bint own_file
+        object __weakref__
 
     # By implementing these "virtual" functions (all functions in Cython
     # extension classes are technically virtual in the C++ sense) we can expose

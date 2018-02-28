@@ -410,9 +410,21 @@ cdef class PythonFile(NativeFile):
     cdef:
         object handle
 
-    def __cinit__(self, handle, mode='w'):
+    def __cinit__(self, handle, mode=None):
         self.handle = handle
 
+        if mode is None:
+            try:
+                mode = handle.mode
+            except AttributeError:
+                # Not all file-like objects have a mode attribute
+                # (e.g. BytesIO)
+                try:
+                    mode = 'w' if handle.writable() else 'r'
+                except AttributeError:
+                    raise ValueError("could not infer open mode for file-like "
+                                     "object %r, please pass it explicitly"
+                                     % (handle,))
         if mode.startswith('w'):
             self.wr_file.reset(new PyOutputStream(handle))
             self.is_writable = True
