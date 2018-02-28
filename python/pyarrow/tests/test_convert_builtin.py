@@ -646,3 +646,6 @@ def test_decimal_array_with_none_and_nan():
     array = pa.array(values)
     assert array.type == pa.decimal128(4, 3)
     assert array.to_pylist() == values[:2] + [None, None]
+
+    array = pa.array(values, type=pa.decimal128(10, 4))
+    assert array.to_pylist() == [decimal.Decimal('1.2340'), None, None, None]

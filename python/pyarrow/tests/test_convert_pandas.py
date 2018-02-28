@@ -1171,6 +1171,10 @@ class TestConvertDecimalTypes(object):
         assert array.to_pylist() == data
         assert array.type == pa.decimal128(3, 3)
 
+        array = pa.array(data, type=pa.decimal128(12, 5))
+        expected = [decimal.Decimal('0.01000'), decimal.Decimal('0.00100')]
+        assert array.to_pylist() == expected
+
 
 class TestListTypes(object):
     """
