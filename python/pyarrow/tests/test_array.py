@@ -653,3 +653,14 @@ def test_buffers_nested():
     assert bytearray(null_bitmap)[0] == 0b00000100
     values = buffers[4].to_pybytes()
     assert struct.unpack('4xh', values) == (43,)
+
+
+def test_invalid_tensor_constructor_repr():
+    t = pa.Tensor([1])
+    assert repr(t) == '<invalid pyarrow.Tensor>'
+
+
+def test_invalid_tensor_operation():
+    t = pa.Tensor()
+    with pytest.raises(TypeError):
+        t.to_numpy()

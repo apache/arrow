@@ -496,11 +496,19 @@ cdef class Tensor:
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())
 
+    def _validate(self):
+        if self.tp is NULL:
+            raise TypeError(
+                'pyarrow.Tensor has not been initialized correctly Please use '
+                'pyarrow.Tensor.from_numpy to construct a pyarrow.Tensor')
+
     def __repr__(self):
+        if self.tp is NULL:
+            return '<invalid pyarrow.Tensor>'
         return """<pyarrow.Tensor>
-type: {0}
-shape: {1}
-strides: {2}""".format(self.type, self.shape, self.strides)
+type: {0.type}
+shape: {0.shape}
+strides: {0.strides}""".format(self)
 
     @staticmethod
     def from_numpy(obj):
@@ -514,8 +522,9 @@ strides: {2}""".format(self.type, self.shape, self.strides)
         """
         Convert arrow::Tensor to numpy.ndarray with zero copy
         """
-        cdef:
-            PyObject* out
+        self._validate()
+
+        cdef PyObject* out
 
         with nogil:
             check_status(TensorToNdarray(self.sp_tensor, self, &out))
@@ -525,45 +534,39 @@ strides: {2}""".format(self.type, self.shape, self.strides)
         """
         Return true if the tensors contains exactly equal data
         """
+        self._validate()
         return self.tp.Equals(deref(other.tp))
 
-    property is_mutable:
+    @property
+    def is_mutable(self):
+        self._validate()
+        return self.tp.is_mutable()
 
-        def __get__(self):
-            return self.tp.is_mutable()
+    @property
+    def is_contiguous(self):
+        self._validate()
+        return self.tp.is_contiguous()
 
-    property is_contiguous:
+    @property
+    def ndim(self):
+        self._validate()
+        return self.tp.ndim()
 
-        def __get__(self):
-            return self.tp.is_contiguous()
+    @property
+    def size(self):
+        self._validate()
+        return self.tp.size()
 
-    property ndim:
+    @property
+    def shape(self):
+        # Cython knows how to convert a vector[T] to a Python list
+        self._validate()
+        return self.tp.shape()
 
-        def __get__(self):
-            return self.tp.ndim()
-
-    property size:
-
-        def __get__(self):
-            return self.tp.size()
-
-    property shape:
-
-        def __get__(self):
-            cdef size_t i
-            py_shape = []
-            for i in range(self.tp.shape().size()):
-                py_shape.append(self.tp.shape()[i])
-            return py_shape
-
-    property strides:
-
-        def __get__(self):
-            cdef size_t i
-            py_strides = []
-            for i in range(self.tp.strides().size()):
-                py_strides.append(self.tp.strides()[i])
-            return py_strides
+    @property
+    def strides(self):
+        self._validate()
+        return self.tp.strides()
 
 
 cdef wrap_array_output(PyObject* output):
