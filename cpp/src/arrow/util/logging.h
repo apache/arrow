@@ -53,6 +53,9 @@ namespace arrow {
 #define DCHECK(condition)      \
   ARROW_IGNORE_EXPR(condition) \
   while (false) ::arrow::internal::NullLog()
+#define DCHECK_OK(status)   \
+  ARROW_IGNORE_EXPR(status) \
+  while (false) ::arrow::internal::NullLog()
 #define DCHECK_EQ(val1, val2) \
   ARROW_IGNORE_EXPR(val1)     \
   while (false) ::arrow::internal::NullLog()
