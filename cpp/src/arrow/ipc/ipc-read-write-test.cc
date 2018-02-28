@@ -461,6 +461,8 @@ TEST_F(RecursionLimits, ReadLimit) {
   ASSERT_RAISES(Invalid, ReadRecordBatch(*message->metadata(), schema, &reader, &result));
 }
 
+// Test fails with a structured exception on Windows + Debug
+#if !defined(_WIN32) || defined(NDEBUG)
 TEST_F(RecursionLimits, StressLimit) {
   auto CheckDepth = [this](int recursion_depth, bool* it_works) {
     int32_t metadata_length = -1;
@@ -487,6 +489,7 @@ TEST_F(RecursionLimits, StressLimit) {
   CheckDepth(500, &it_works);
   ASSERT_TRUE(it_works);
 }
+#endif  // !defined(_WIN32) || defined(NDEBUG)
 
 class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:

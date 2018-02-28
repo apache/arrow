@@ -17,13 +17,10 @@
 
 @echo on
 
-conda update --yes --quiet conda
-
 @rem Validate cmake script behaviour on missed lib in toolchain
 set CONDA_ENV=arrow-cmake-tests-libs
 conda create -n %CONDA_ENV% -q -y
-conda install -n %CONDA_ENV% -q -y -c conda-forge ^
-cmake git boost-cpp
+conda install -n %CONDA_ENV% -q -y -c conda-forge boost-cpp
 call activate %CONDA_ENV%
 
 set BUILD_DIR=cpp\build-cmake-test
@@ -125,7 +122,7 @@ pushd %BUILD_DIR%
 set CONDA_ENV=arrow-cmake-tests-toolchain
 conda create -n %CONDA_ENV% -q -y
 conda install -n %CONDA_ENV% -q -y -c conda-forge ^
-      flatbuffers rapidjson cmake git boost-cpp ^
+      flatbuffers rapidjson boost-cpp ^
       thrift-cpp snappy zlib brotli gflags lz4-c zstd
 call activate %CONDA_ENV%
 
