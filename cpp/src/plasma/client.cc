@@ -117,10 +117,10 @@ uint8_t* PlasmaClient::lookup_or_mmap(int fd, int store_fd_val, int64_t map_size
     close(fd);
     return entry->second.pointer;
   } else {
-    // We subtract sizeof(size_t) from the length that was added
+    // We subtract kMmapRegionsGap from the length that was added
     // in fake_mmap in malloc.h, to make map_size page-aligned again.
     uint8_t* result = reinterpret_cast<uint8_t*>(
-        mmap(NULL, map_size - sizeof(size_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+        mmap(NULL, map_size - kMmapRegionsGap, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     // TODO(pcm): Don't fail here, instead return a Status.
     if (result == MAP_FAILED) {
       ARROW_LOG(FATAL) << "mmap failed";
@@ -397,9 +397,9 @@ Status PlasmaClient::UnmapObject(const ObjectID& object_id) {
   ARROW_CHECK(entry->second.count >= 1);
   if (entry->second.count == 1) {
     // If no other objects are being used, then unmap the file.
-    // We subtract sizeof(size_t) from the length that was added
+    // We subtract kMmapRegionsGap from the length that was added
     // in fake_mmap in malloc.h, to make the size page-aligned again.
-    int err = munmap(entry->second.pointer, entry->second.length - sizeof(size_t));
+    int err = munmap(entry->second.pointer, entry->second.length - kMmapRegionsGap);
     if (err == -1) {
       return Status::IOError("Error during munmap");
     }
