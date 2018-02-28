@@ -120,9 +120,8 @@ uint8_t* PlasmaClient::lookup_or_mmap(int fd, int store_fd_val, int64_t map_size
   } else {
     // We subtract kMmapRegionsGap from the length that was added
     // in fake_mmap in malloc.h, to make map_size page-aligned again.
-    uint8_t* result = reinterpret_cast<uint8_t*>(
-        mmap(NULL, map_size - kMmapRegionsGap, PROT_READ | PROT_WRITE,
-             MAP_SHARED, fd, 0));
+    uint8_t* result = reinterpret_cast<uint8_t*>(mmap(
+        NULL, map_size - kMmapRegionsGap, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     // TODO(pcm): Don't fail here, instead return a Status.
     if (result == MAP_FAILED) {
       ARROW_LOG(FATAL) << "mmap failed";
