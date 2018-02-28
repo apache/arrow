@@ -480,7 +480,5 @@ cdef class HdfsFile(NativeFile):
         object mode
         object parent
 
-    cdef object __weakref__
-
     def __dealloc__(self):
         self.parent = None
