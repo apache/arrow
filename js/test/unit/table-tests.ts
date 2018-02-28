@@ -342,9 +342,21 @@ describe(`Table`, () => {
                     filtered: table.filter(lit(0).gteq(col('i32'))),
                     expected: values.filter((row) => 0 >= row[I32])
                 }, {
+                    name:     `filter on f32 < 0`,
+                    filtered: table.filter(col('f32').lt(0)),
+                    expected: values.filter((row) => row[F32] < 0)
+                }, {
+                    name:     `filter on i32 > 1 (empty)`,
+                    filtered: table.filter(col('i32').gt(0)),
+                    expected: values.filter((row) => row[I32] > 0)
+                }, {
                     name:     `filter on f32 <= -.25 || f3 >= .25`,
                     filtered: table.filter(col('f32').lteq(-.25).or(col('f32').gteq(.25))),
                     expected: values.filter((row) => row[F32] <= -.25 || row[F32] >= .25)
+                }, {
+                    name:     `filter on !(f32 <= -.25 || f3 >= .25) (not)`,
+                    filtered: table.filter(col('f32').lteq(-.25).or(col('f32').gteq(.25)).not()),
+                    expected: values.filter((row) => !(row[F32] <= -.25 || row[F32] >= .25))
                 }, {
                     name:     `filter method combines predicates (f32 >= 0 && i32 <= 0)`,
                     filtered: table.filter(col('i32').lteq(0)).filter(col('f32').gteq(0)),
@@ -357,6 +369,10 @@ describe(`Table`, () => {
                     name:     `filter on 'a' == dictionary (commutativity)`,
                     filtered: table.filter(lit('a').eq(col('dictionary'))),
                     expected: values.filter((row) => row[DICT] === 'a')
+                }, {
+                    name:     `filter on dictionary != 'b'`,
+                    filtered: table.filter(col('dictionary').neq('b')),
+                    expected: values.filter((row) => row[DICT] !== 'b')
                 }, {
                     name:     `filter on f32 >= i32`,
                     filtered: table.filter(col('f32').gteq(col('i32'))),

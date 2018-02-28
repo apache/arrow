@@ -34,6 +34,15 @@ export abstract class Value<T> {
         if (!(other instanceof Value)) { other = new Literal(other); }
         return new GTeq(this, other);
     }
+    lt(other: Value<T> | T): Predicate {
+        return new Not(this.gteq(other));
+    }
+    gt(other: Value<T> | T): Predicate {
+        return new Not(this.lteq(other));
+    }
+    neq(other: Value<T> | T): Predicate {
+        return new Not(this.eq(other));
+    }
 }
 
 export class Literal<T= any> extends Value<T> {
@@ -70,6 +79,7 @@ export abstract class Predicate {
     abstract bind(batch: RecordBatch): PredicateFunc;
     and(expr: Predicate): Predicate { return new And(this, expr); }
     or(expr: Predicate): Predicate { return new Or(this, expr); }
+    not(): Predicate { return new Not(this); }
     ands(): Predicate[] { return [this]; }
 }
 
@@ -219,6 +229,17 @@ export class GTeq extends ComparisonPredicate {
     protected _bindLitCol(batch: RecordBatch, lit: Literal, col: Col) {
         const col_func = col.bind(batch);
         return (idx: number, cols: RecordBatch) => lit.v >= col_func(idx, cols);
+    }
+}
+
+export class Not extends Predicate {
+    constructor(public readonly child: Predicate) {
+        super();
+    }
+
+    bind(batch: RecordBatch) {
+        const func = this.child.bind(batch);
+        return (idx: number, batch: RecordBatch) => !func(idx, batch)
     }
 }
 
