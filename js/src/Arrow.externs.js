@@ -79,6 +79,12 @@ Value.prototype.gteq;
 Value.prototype.lteq;
 /** @type {?} */
 Value.prototype.eq;
+/** @type {?} */
+Value.prototype.lt;
+/** @type {?} */
+Value.prototype.gt;
+/** @type {?} */
+Value.prototype.neq;
 
 var Col = function() {};
 /** @type {?} */
@@ -107,6 +113,8 @@ Predicate.prototype.bind;
 Predicate.prototype.and;
 /** @type {?} */
 Predicate.prototype.or;
+/** @type {?} */
+Predicate.prototype.not;
 /** @type {?} */
 Predicate.prototype.ands;
 var Literal = function() {};
