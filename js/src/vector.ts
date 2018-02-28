@@ -399,6 +399,9 @@ export class DictionaryVector<T extends DataType = DataType> extends Vector<Dict
     public readonly dictionary: Vector<T>;
     constructor(data: Data<Dictionary<T>>, view: View<Dictionary<T>> = new DictionaryView<T>(data.dictionary, new IntVector(data.indices))) {
         super(data as Data<any>, view);
+        if (view instanceof ValidityView) {
+            view = (view as any).view;
+        }
         if (data instanceof DictionaryData && view instanceof DictionaryView) {
             this.indices = view.indices;
             this.dictionary = data.dictionary;

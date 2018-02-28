@@ -152,10 +152,9 @@ export class DictionaryData<T extends DataType> extends BaseData<Dictionary<T>> 
     public get indices() { return this._indices; }
     public get dictionary() { return this._dictionary; }
     constructor(type: Dictionary<T>, dictionary: Vector<T>, indices: Data<Int<any>>) {
-        super(type, indices.length, (indices as any)._nullCount);
+        super(type, indices.length, indices.offset, (indices as any)._nullCount);
         this._indices = indices;
         this._dictionary = dictionary;
-        this.length = this._indices.length;
     }
     public get nullCount() { return this._indices.nullCount; }
     public get nullBitmap() { return this._indices.nullBitmap; }
