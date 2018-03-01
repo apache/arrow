@@ -640,11 +640,11 @@ static Status ConvertTimes(PandasOptions options, const ChunkedArray& data,
 static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
                               PyObject** out_values) {
   PyAcquireGIL lock;
-  OwnedRef decimal_ref;
-  OwnedRef Decimal_ref;
-  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_ref));
-  RETURN_NOT_OK(internal::ImportFromModule(decimal_ref, "Decimal", &Decimal_ref));
-  PyObject* Decimal = Decimal_ref.obj();
+  OwnedRef decimal;
+  OwnedRef Decimal;
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
+  PyObject* decimal_constructor = Decimal.obj();
 
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const arrow::Decimal128Array&>(*data.chunk(c));
@@ -654,7 +654,8 @@ static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
         Py_INCREF(Py_None);
         *out_values++ = Py_None;
       } else {
-        *out_values++ = internal::DecimalFromString(Decimal, arr.FormatValue(i));
+        *out_values++ =
+            internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
         RETURN_IF_PYERROR();
       }
     }

@@ -1161,6 +1161,20 @@ class TestConvertDecimalTypes(object):
         with pytest.raises(pa.ArrowException):
             pa.array(data2, type=type2)
 
+    def test_decimal_with_different_precisions(self):
+        data = [
+            decimal.Decimal('0.01'),
+            decimal.Decimal('0.001'),
+        ]
+        series = pd.Series(data)
+        array = pa.array(series)
+        assert array.to_pylist() == data
+        assert array.type == pa.decimal128(3, 3)
+
+        array = pa.array(data, type=pa.decimal128(12, 5))
+        expected = [decimal.Decimal('0.01000'), decimal.Decimal('0.00100')]
+        assert array.to_pylist() == expected
+
 
 class TestListTypes(object):
     """

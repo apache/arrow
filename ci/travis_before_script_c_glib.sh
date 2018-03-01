@@ -21,9 +21,7 @@ set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-if [ $TRAVIS_OS_NAME = "osx" ]; then
-  brew update && brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
-else  # Linux
+if [ $TRAVIS_OS_NAME = "linux" ]; then
   sudo apt-get install -y -q gtk-doc-tools autoconf-archive libgirepository1.0-dev
 fi
 

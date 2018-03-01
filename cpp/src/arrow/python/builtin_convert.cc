@@ -76,7 +76,15 @@ class ScalarVisitor {
         timestamp_count_(0),
         float_count_(0),
         binary_count_(0),
-        unicode_count_(0) {}
+        unicode_count_(0),
+        decimal_count_(0),
+        max_decimal_metadata_(std::numeric_limits<int32_t>::min(),
+                              std::numeric_limits<int32_t>::min()),
+        decimal_type_() {
+    PyAcquireGIL lock;
+    Status status = internal::ImportDecimalType(&decimal_type_);
+    DCHECK_OK(status);
+  }
 
   Status Visit(PyObject* obj) {
     ++total_count_;
@@ -111,10 +119,13 @@ class ScalarVisitor {
         ss << type->ToString();
         return Status::Invalid(ss.str());
       }
+    } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
+      RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
+      ++decimal_count_;
     } else {
       // TODO(wesm): accumulate error information somewhere
       static std::string supported_types =
-          "bool, float, integer, date, datetime, bytes, unicode";
+          "bool, float, integer, date, datetime, bytes, unicode, decimal";
       std::stringstream ss;
       ss << "Error inferring Arrow data type for collection of Python objects. ";
       RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
@@ -125,7 +136,9 @@ class ScalarVisitor {
 
   std::shared_ptr<DataType> GetType() {
     // TODO(wesm): handling mixed-type cases
-    if (float_count_) {
+    if (decimal_count_) {
+      return decimal(max_decimal_metadata_.precision(), max_decimal_metadata_.scale());
+    } else if (float_count_) {
       return float64();
     } else if (int_count_) {
       // TODO(wesm): tighter type later
@@ -157,8 +170,13 @@ class ScalarVisitor {
   int64_t float_count_;
   int64_t binary_count_;
   int64_t unicode_count_;
+  int64_t decimal_count_;
+
+  internal::DecimalMetadata max_decimal_metadata_;
+
   // Place to accumulate errors
   // std::vector<Status> errors_;
+  OwnedRefNoGIL decimal_type_;
 };
 
 static constexpr int MAX_NESTING_LEVELS = 32;
@@ -379,17 +397,14 @@ class TypedConverter : public SeqConverter {
   BuilderType* typed_builder_;
 };
 
-// We use the CRTP trick here to devirtualize the AppendItem() and AppendNull()
+// We use the CRTP trick here to devirtualize the AppendItem(), AppendNull(), and IsNull()
 // method calls.
 template <typename BuilderType, class Derived>
 class TypedConverterVisitor : public TypedConverter<BuilderType> {
  public:
   Status AppendSingle(PyObject* obj) override {
-    if (obj == Py_None) {
-      return static_cast<Derived*>(this)->AppendNull();
-    } else {
-      return static_cast<Derived*>(this)->AppendItem(obj);
-    }
+    auto self = static_cast<Derived*>(this);
+    return self->IsNull(obj) ? self->AppendNull() : self->AppendItem(obj);
   }
 
   Status AppendMultiple(PyObject* obj, int64_t size) override {
@@ -409,6 +424,7 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
 
   // Append a missing item (default implementation)
   Status AppendNull() { return this->typed_builder_->AppendNull(); }
+  bool IsNull(PyObject* obj) const { return obj == Py_None; }
 };
 
 class NullConverter : public TypedConverterVisitor<NullBuilder, NullConverter> {
@@ -830,11 +846,15 @@ class DecimalConverter
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    /// TODO(phillipc): Check for nan?
     Decimal128 value;
     const auto& type = static_cast<const DecimalType&>(*typed_builder_->type());
     RETURN_NOT_OK(internal::DecimalFromPythonDecimal(obj, type, &value));
     return typed_builder_->Append(value);
+  }
+
+  bool IsNull(PyObject* obj) const {
+    return obj == Py_None || obj == numpy_nan || internal::PyFloat_isnan(obj) ||
+           (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
   }
 };
 
