@@ -124,7 +124,7 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Convert a decimal string to an Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
   static Status FromString(const std::string& s, Decimal128* out,
-                           int* precision = NULLPTR, int* scale = NULLPTR);
+                           int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
 
   /// \brief Convert Decimal128 from one scale to another
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;

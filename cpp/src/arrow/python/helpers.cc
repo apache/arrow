@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <limits>
 #include <sstream>
 
 #include "arrow/python/common.h"
@@ -61,6 +63,7 @@ namespace internal {
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
   PyObject* module = PyImport_ImportModule(module_name.c_str());
   RETURN_IF_PYERROR();
+  DCHECK_NE(module, nullptr) << "unable to import the " << module_name << " module";
   ref->reset(module);
   return Status::OK();
 }
@@ -71,7 +74,15 @@ Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRe
 
   PyObject* attr = PyObject_GetAttrString(module.obj(), name.c_str());
   RETURN_IF_PYERROR();
+  DCHECK_NE(attr, nullptr) << "unable to import the " << name << " object";
   ref->reset(attr);
+  return Status::OK();
+}
+
+Status ImportDecimalType(OwnedRef* decimal_type) {
+  OwnedRef decimal_module;
+  RETURN_NOT_OK(ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(ImportFromModule(decimal_module, "Decimal", decimal_type));
   return Status::OK();
 }
 
@@ -93,13 +104,19 @@ Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
   return Status::OK();
 }
 
-Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precision,
-                                     int32_t* scale) {
+// \brief Infer the precision and scale of a Python decimal.Decimal instance
+// \param python_decimal[in] An instance of decimal.Decimal
+// \param precision[out] The value of the inferred precision
+// \param scale[out] The value of the inferred scale
+// \return The status of the operation
+static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precision,
+                                            int32_t* scale) {
   DCHECK_NE(python_decimal, NULLPTR);
   DCHECK_NE(precision, NULLPTR);
   DCHECK_NE(scale, NULLPTR);
 
-  OwnedRef as_tuple(PyObject_CallMethod(python_decimal, "as_tuple", "()"));
+  // TODO(phillipc): Make sure we perform PyDecimal_Check(python_decimal) as a DCHECK
+  OwnedRef as_tuple(PyObject_CallMethod(python_decimal, "as_tuple", ""));
   RETURN_IF_PYERROR();
   DCHECK(PyTuple_Check(as_tuple.obj()));
 
@@ -117,8 +134,23 @@ Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precisio
   const auto exponent = static_cast<int32_t>(PyLong_AsLong(py_exponent.obj()));
   RETURN_IF_PYERROR();
 
-  *precision = num_digits;
-  *scale = -exponent;
+  const int32_t abs_exponent = std::abs(exponent);
+
+  int32_t num_additional_zeros;
+
+  if (num_digits <= abs_exponent) {
+    DCHECK_NE(exponent, 0) << "exponent should never be zero here";
+
+    // we have leading/trailing zeros, leading if exponent is negative
+    num_additional_zeros = exponent < 0 ? abs_exponent - num_digits : exponent;
+    *scale = static_cast<int32_t>(exponent < 0) * -exponent;
+  } else {
+    // we can use the number of digits as the precision
+    num_additional_zeros = 0;
+    *scale = -exponent;
+  }
+
+  *precision = num_digits + num_additional_zeros;
   return Status::OK();
 }
 
@@ -191,6 +223,62 @@ Status UInt64FromPythonInt(PyObject* obj, uint64_t* out) {
   }
   *out = static_cast<uint64_t>(result);
   return Status::OK();
+}
+
+bool PyFloat_isnan(PyObject* obj) {
+  return PyFloat_Check(obj) && std::isnan(PyFloat_AS_DOUBLE(obj));
+}
+
+bool PyDecimal_Check(PyObject* obj) {
+  // TODO(phillipc): Is this expensive?
+  OwnedRef Decimal;
+  Status status = ImportDecimalType(&Decimal);
+  DCHECK_OK(status);
+  const int32_t result = PyObject_IsInstance(obj, Decimal.obj());
+  DCHECK_NE(result, -1) << " error during PyObject_IsInstance check";
+  return result == 1;
+}
+
+bool PyDecimal_ISNAN(PyObject* obj) {
+  DCHECK(PyDecimal_Check(obj)) << "obj is not an instance of decimal.Decimal";
+  OwnedRef is_nan(PyObject_CallMethod(obj, "is_nan", ""));
+  return PyObject_IsTrue(is_nan.obj()) == 1;
+}
+
+DecimalMetadata::DecimalMetadata()
+    : DecimalMetadata(std::numeric_limits<int32_t>::min(),
+                      std::numeric_limits<int32_t>::min()) {}
+
+DecimalMetadata::DecimalMetadata(int32_t precision, int32_t scale)
+    : precision_(precision), scale_(scale) {}
+
+Status DecimalMetadata::Update(int32_t suggested_precision, int32_t suggested_scale) {
+  const int32_t current_precision = precision_;
+  precision_ = std::max(current_precision, suggested_precision);
+
+  const int32_t current_scale = scale_;
+  scale_ = std::max(current_scale, suggested_scale);
+
+  // if our suggested scale is zero and we don't yet have enough precision then we need to
+  // add whatever the current scale is to the precision
+  if (suggested_scale == 0 && suggested_precision > current_precision) {
+    precision_ += scale_;
+  }
+
+  return Status::OK();
+}
+
+Status DecimalMetadata::Update(PyObject* object) {
+  DCHECK(PyDecimal_Check(object)) << "Object is not a Python Decimal";
+
+  if (ARROW_PREDICT_FALSE(PyDecimal_ISNAN(object))) {
+    return Status::OK();
+  }
+
+  int32_t precision;
+  int32_t scale;
+  RETURN_NOT_OK(InferDecimalPrecisionAndScale(object, &precision, &scale));
+  return Update(precision, scale);
 }
 
 }  // namespace internal
