@@ -26,6 +26,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -118,6 +119,15 @@ public class JdbcToArrowTest {
         if (conn != null) {
             conn.close();
         }
+    }
+	
+   /**
+     * This Method returns named resource as input stream from classpath
+     * @param name of the resource
+     * @return resourec as InputStream
+     */
+    private InputStream getResource(String name) {
+    	return this.getClass().getClassLoader().getResourceAsStream(name);
     }
 
 }
