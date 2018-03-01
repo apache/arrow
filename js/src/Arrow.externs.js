@@ -217,6 +217,8 @@ Int128.prototype.plus
 /** @type {?} */
 Int128.prototype.hex
 
+var packBools = function() {};
+
 var Type = function() {};
 /** @type {?} */
 Type.NONE = function() {};
