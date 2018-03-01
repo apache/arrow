@@ -127,10 +127,10 @@ int create_buffer(int64_t size) {
 }
 
 void* fake_mmap(size_t size) {
-  // Add sizeof(size_t) so that the returned pointer is deliberately not
+  // Add kMmapRegionsGap so that the returned pointer is deliberately not
   // page-aligned. This ensures that the segments of memory returned by
   // fake_mmap are never contiguous.
-  size += sizeof(size_t);
+  size += kMmapRegionsGap;
 
   int fd = create_buffer(size);
   ARROW_CHECK(fd >= 0) << "Failed to create buffer during mmap";
@@ -155,15 +155,15 @@ void* fake_mmap(size_t size) {
   record.size = size;
 
   // We lie to dlmalloc about where mapped memory actually lives.
-  pointer = pointer_advance(pointer, sizeof(size_t));
+  pointer = pointer_advance(pointer, kMmapRegionsGap);
   ARROW_LOG(DEBUG) << pointer << " = fake_mmap(" << size << ")";
   return pointer;
 }
 
 int fake_munmap(void* addr, int64_t size) {
   ARROW_LOG(DEBUG) << "fake_munmap(" << addr << ", " << size << ")";
-  addr = pointer_retreat(addr, sizeof(size_t));
-  size += sizeof(size_t);
+  addr = pointer_retreat(addr, kMmapRegionsGap);
+  size += kMmapRegionsGap;
 
   auto entry = mmap_records.find(addr);
 
