@@ -48,8 +48,6 @@ if "%USE_CLCACHE%" == "true" (
     @rem Use clcache for faster builds
     pip install -q git+https://github.com/frerich/clcache.git
     clcache -s
-    set CC=clcache
-    set CXX=clcache
     set CLCACHE_SERVER=1
     set CLCACHE_HARDLINK=1
     powershell.exe -Command "Start-Process clcache-server"
