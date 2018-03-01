@@ -17,5 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew update
-brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
+if [ "$ARROW_CI_C_GLIB_AFFECTED" = "1" ]; then
+    brew update
+    brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
+fi
