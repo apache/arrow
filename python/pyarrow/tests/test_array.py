@@ -664,3 +664,14 @@ def test_invalid_tensor_operation():
     t = pa.Tensor()
     with pytest.raises(TypeError):
         t.to_numpy()
+
+
+def test_constructor_leading_nan():
+    array = pa.array([np.nan, 'str'])
+    assert array.type == pa.string()
+    assert array.to_pylist() == [None, 'str']
+
+    array = pa.array(np.array([np.nan, 'str'], dtype=object))
+    assert array.type == pa.string()
+    expected = np.array([None, 'str'], dtype=object)
+    np.testing.assert_array_equal(array.to_pandas(), expected)

@@ -82,8 +82,11 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
 // \brief Check whether obj is an integer, independent of Python versions.
 bool IsPyInteger(PyObject* obj);
 
+// \brief Use pandas missing value semantics to check if a value is null
+bool PandasObjectIsNull(PyObject* obj);
+
 // \brief Check whether obj is nan
-bool PyFloat_isnan(PyObject* obj);
+bool PyFloat_IsNaN(PyObject* obj);
 
 // \brief Check whether obj is an instance of Decimal
 bool PyDecimal_Check(PyObject* obj);
