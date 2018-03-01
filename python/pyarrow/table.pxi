@@ -746,17 +746,22 @@ cdef class RecordBatch:
 
 
 def table_to_blocks(PandasOptions options, Table table, int nthreads,
-                    MemoryPool memory_pool):
+                    MemoryPool memory_pool, categories):
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
         CMemoryPool* pool
+        unordered_set[c_string] categorical_columns
+
+    if categories is not None:
+        categorical_columns = {tobytes(cat) for cat in categories}
 
     pool = maybe_unbox_memory_pool(memory_pool)
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                options, c_table, nthreads, pool, &result_obj
+                options, categorical_columns, c_table, nthreads, pool,
+                &result_obj
             )
         )
 
@@ -1012,7 +1017,7 @@ cdef class Table:
         return result
 
     def to_pandas(self, nthreads=None, strings_to_categorical=False,
-                  memory_pool=None, zero_copy_only=False):
+                  memory_pool=None, zero_copy_only=False, categories=None):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -1029,6 +1034,8 @@ cdef class Table:
         zero_copy_only : boolean, default False
             Raise an ArrowException if this function call would require copying
             the underlying data
+        categories: list, default empty
+            List of columns that should be returned as pandas.Categorical
 
         Returns
         -------
@@ -1036,6 +1043,7 @@ cdef class Table:
         """
         cdef:
             PandasOptions options
+
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only)
@@ -1043,7 +1051,7 @@ cdef class Table:
         if nthreads is None:
             nthreads = cpu_count()
         mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
-                                             nthreads)
+                                             nthreads, categories)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):

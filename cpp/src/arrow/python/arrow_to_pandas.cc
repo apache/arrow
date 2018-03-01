@@ -60,6 +60,7 @@ using internal::kNanosecondsInDay;
 using internal::kPandasTimestampNull;
 
 using compute::Datum;
+using compute::FunctionContext;
 
 // ----------------------------------------------------------------------
 // Utility code
@@ -986,7 +987,8 @@ class CategoricalBlock : public PandasBlock {
     // Sniff the first chunk
     const std::shared_ptr<Array> arr_first = data.chunk(0);
     const auto& dict_arr_first = static_cast<const DictionaryArray&>(*arr_first);
-    const auto& indices_first = static_cast<const ArrayType&>(*dict_arr_first.indices());
+    const auto indices_first =
+        std::static_pointer_cast<ArrayType>(dict_arr_first.indices());
 
     auto CheckIndices = [](const ArrayType& arr, int64_t dict_length) {
       const T* values = arr.raw_values();
@@ -1000,8 +1002,8 @@ class CategoricalBlock : public PandasBlock {
       return Status::OK();
     };
 
-    if (!needs_copy_ && data.num_chunks() == 1 && indices_first.null_count() == 0) {
-      RETURN_NOT_OK(CheckIndices(indices_first, dict_arr_first.dictionary()->length()));
+    if (!needs_copy_ && data.num_chunks() == 1 && indices_first->null_count() == 0) {
+      RETURN_NOT_OK(CheckIndices(*indices_first, dict_arr_first.dictionary()->length()));
       RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
     } else {
       if (options_.zero_copy_only) {
@@ -1011,7 +1013,7 @@ class CategoricalBlock : public PandasBlock {
              << "but only zero-copy conversions allowed.";
         } else {
           ss << "Needed to copy " << data.num_chunks() << " chunks with "
-             << indices_first.null_count()
+             << indices_first->null_count()
              << " indices nulls, but zero_copy_only was True";
         }
         return Status::Invalid(ss.str());
@@ -1109,10 +1111,11 @@ class CategoricalBlock : public PandasBlock {
 
  protected:
   template <typename T>
-  Status AllocateNDArrayFromIndices(int npy_type, const PrimitiveArray& indices) {
+  Status AllocateNDArrayFromIndices(int npy_type,
+                                    const std::shared_ptr<PrimitiveArray>& indices) {
     npy_intp block_dims[1] = {num_rows_};
 
-    const T* in_values = GetPrimitiveValues<T>(indices);
+    const T* in_values = GetPrimitiveValues<T>(*indices);
     void* data = const_cast<T*>(in_values);
 
     PyAcquireGIL lock;
@@ -1126,6 +1129,22 @@ class CategoricalBlock : public PandasBlock {
     PyObject* block_arr = PyArray_NewFromDescr(&PyArray_Type, descr, 1, block_dims,
                                                nullptr, data, NPY_ARRAY_CARRAY, nullptr);
     RETURN_IF_PYERROR();
+
+    // Add a reference to the underlying Array. Otherwise the array may be
+    // deleted once we leave the block conversion.
+    auto capsule = new ArrowCapsule{{indices}};
+    PyObject* base = PyCapsule_New(reinterpret_cast<void*>(capsule), "arrow",
+                                   &ArrowCapsule_Destructor);
+    if (base == nullptr) {
+      delete capsule;
+      RETURN_IF_PYERROR();
+    }
+
+    if (PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(block_arr), base) == -1) {
+      // Error occurred, trust that SetBaseObject set the error state
+      Py_XDECREF(base);
+      return Status::OK();
+    }
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
@@ -1771,7 +1790,33 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
                             int nthreads, MemoryPool* pool, PyObject** out) {
-  DataFrameBlockCreator helper(options, table, pool);
+  return ConvertTableToPandas(options, std::unordered_set<std::string>(), table, nthreads,
+                              pool, out);
+}
+
+Status ConvertTableToPandas(PandasOptions options,
+                            const std::unordered_set<std::string>& categorical_columns,
+                            const std::shared_ptr<Table>& table, int nthreads,
+                            MemoryPool* pool, PyObject** out) {
+  std::shared_ptr<Table> current_table = table;
+  if (!categorical_columns.empty()) {
+    FunctionContext ctx;
+    for (int i = 0; i < table->num_columns(); i++) {
+      const Column& col = *table->column(i);
+      if (categorical_columns.count(col.name())) {
+        Datum out;
+        RETURN_NOT_OK(DictionaryEncode(&ctx, Datum(col.data()), &out));
+        std::shared_ptr<ChunkedArray> array = out.chunked_array();
+        auto field = std::make_shared<Field>(
+            col.name(), array->type(), col.field()->nullable(), col.field()->metadata());
+        auto column = std::make_shared<Column>(field, array);
+        RETURN_NOT_OK(current_table->RemoveColumn(i, &current_table));
+        RETURN_NOT_OK(current_table->AddColumn(i, column, &current_table));
+      }
+    }
+  }
+
+  DataFrameBlockCreator helper(options, current_table, pool);
   return helper.Convert(nthreads, out);
 }
 
