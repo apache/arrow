@@ -667,11 +667,11 @@ def test_invalid_tensor_operation():
 
 
 def test_constructor_leading_nan():
-    array = pa.array([np.nan, 'str'])
+    array = pa.array([np.nan, u'str'])
     assert array.type == pa.string()
-    assert array.to_pylist() == [None, 'str']
+    assert array.to_pylist() == [None, u'str']
 
-    array = pa.array(np.array([np.nan, 'str'], dtype=object))
+    array = pa.array(np.array([np.nan, u'str'], dtype=object))
     assert array.type == pa.string()
-    expected = np.array([None, 'str'], dtype=object)
+    expected = np.array([None, u'str'], dtype=object)
     np.testing.assert_array_equal(array.to_pandas(), expected)
