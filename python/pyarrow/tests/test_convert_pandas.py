@@ -305,7 +305,8 @@ class TestConvertMetadata(object):
 
     def test_binary_column_name(self):
         column_data = [u'い']
-        data = {u'あ'.encode('utf8'): column_data}
+        key = u'あ'.encode('utf8')
+        data = {key: column_data}
         df = pd.DataFrame(data)
 
         # we can't use _check_pandas_roundtrip here because our metdata
@@ -314,7 +315,7 @@ class TestConvertMetadata(object):
         df2 = t.to_pandas()
         assert df.values[0] == df2.values[0]
         assert df.index.values[0] == df2.index.values[0]
-        assert df.columns[0] == df2.columns[0].encode('utf8')
+        assert df.columns[0] == key
 
     def test_multiindex_duplicate_values(self):
         num_rows = 3
@@ -1726,6 +1727,16 @@ def _fully_loaded_dataframe_example():
         data[10] = pd.interval_range(start=1, freq=1, periods=10)
 
     return pd.DataFrame(data, index=index)
+
+
+@pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
+def test_roundtrip_with_bytes_unicode(columns):
+    df = pd.DataFrame(columns=columns)
+    table1 = pa.Table.from_pandas(df)
+    table2 = pa.Table.from_pandas(table1.to_pandas())
+    assert table1.equals(table2)
+    assert table1.schema.equals(table2.schema)
+    assert table1.schema.metadata == table2.schema.metadata
 
 
 def _check_serialize_components_roundtrip(df):
