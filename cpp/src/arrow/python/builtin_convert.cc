@@ -855,11 +855,6 @@ class DecimalConverter
     RETURN_NOT_OK(internal::DecimalFromPythonDecimal(obj, type, &value));
     return typed_builder_->Append(value);
   }
-
-  bool IsNull(PyObject* obj) const {
-    return obj == Py_None || obj == numpy_nan || internal::PyFloat_isnan(obj) ||
-           (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
-  }
 };
 
 // Dynamic constructor for sequence converters

@@ -765,7 +765,7 @@ Status NumPyConverter::ConvertDecimals() {
       RETURN_IF_PYERROR();
     }
 
-    if (PandasObjectIsNull(object)) {
+    if (internal::PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       Decimal128 value;
