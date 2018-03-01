@@ -1027,6 +1027,24 @@ class TestConvertStringLikeTypes(object):
         expected2 = pd.DataFrame({'strings': pd.Categorical(values)})
         tm.assert_frame_equal(result2, expected2, check_dtype=True)
 
+    def test_selective_categoricals(self):
+        values = ['', '', '', '', '']
+        df = pd.DataFrame({'strings': values})
+        field = pa.field('strings', pa.string())
+        schema = pa.schema([field])
+        table = pa.Table.from_pandas(df, schema=schema)
+        expected_str = pd.DataFrame({'strings': values})
+        expected_cat = pd.DataFrame({'strings': pd.Categorical(values)})
+
+        result1 = table.to_pandas(categories=['strings'])
+        tm.assert_frame_equal(result1, expected_cat, check_dtype=True)
+        result2 = table.to_pandas(categories=[])
+        tm.assert_frame_equal(result2, expected_str, check_dtype=True)
+        result3 = table.to_pandas(categories=('strings',))
+        tm.assert_frame_equal(result3, expected_cat, check_dtype=True)
+        result4 = table.to_pandas(categories=tuple())
+        tm.assert_frame_equal(result4, expected_str, check_dtype=True)
+
     def test_table_str_to_categorical_without_na(self):
         values = ['a', 'a', 'b', 'b', 'c']
         df = pd.DataFrame({'strings': values})

@@ -490,7 +490,7 @@ def _make_datetimetz(tz):
 
 
 def table_to_blockmanager(options, table, memory_pool, nthreads=1,
-                          categoricals=None):
+                          categories=None):
     from pyarrow.compat import DatetimeTZDtype
 
     index_columns = []
@@ -564,7 +564,8 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
                 block_table.schema.get_field_index(raw_name)
             )
 
-    blocks = _table_to_blocks(options, block_table, nthreads, memory_pool)
+    blocks = _table_to_blocks(options, block_table, nthreads, memory_pool,
+                              categories)
 
     # Construct the row index
     if len(index_arrays) > 1:
@@ -651,12 +652,12 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     )
 
 
-def _table_to_blocks(options, block_table, nthreads, memory_pool):
+def _table_to_blocks(options, block_table, nthreads, memory_pool, categories):
     # Part of table_to_blockmanager
 
     # Convert an arrow table to Block from the internal pandas API
     result = pa.lib.table_to_blocks(options, block_table, nthreads,
-                                    memory_pool)
+                                    memory_pool, categories)
 
     # Defined above
     return [_reconstruct_block(item) for item in result]
