@@ -105,7 +105,8 @@ def assert_get_object_equal(unit_test, client1, client2, object_id,
 def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
                        use_valgrind=False, use_profiler=False,
                        stdout_file=None, stderr_file=None,
-                       use_one_memory_mapped_file=False):
+                       use_one_memory_mapped_file=False,
+                       plasma_directory=None, use_hugepages=False):
     """Start a plasma store process.
     Args:
         use_valgrind (bool): True if the plasma store should be started inside
@@ -131,6 +132,10 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
                "-m", str(plasma_store_memory)]
     if use_one_memory_mapped_file:
         command += ["-f"]
+    if plasma_directory:
+        command += ["-d", plasma_directory]
+    if use_hugepages:
+        command += ["-h"]
     if use_valgrind:
         pid = subprocess.Popen(["valgrind",
                                 "--track-origins=yes",
@@ -762,3 +767,14 @@ def test_object_id_size():
     with pytest.raises(ValueError):
         plasma.ObjectID("hello")
     plasma.ObjectID(20 * b"0")
+
+
+@pytest.mark.skipif(not os.path.exists("/mnt/hugepages"),
+                    reason="requires hugepage support")
+def test_use_huge_pages():
+    import pyarrow.plasma as plasma
+    plasma_store_name, p = start_plasma_store(
+        plasma_directory="/mnt/hugepages", use_hugepages=True)
+    plasma_client = plasma.connect(plasma_store_name, "", 64)
+    create_object(plasma_client, 100000000)
+    p.kill()
