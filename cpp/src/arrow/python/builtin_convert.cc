@@ -88,7 +88,7 @@ class ScalarVisitor {
 
   Status Visit(PyObject* obj) {
     ++total_count_;
-    if (obj == Py_None || (PyFloat_Check(obj) && std::isnan(PyFloat_AsDouble(obj)))) {
+    if (obj == Py_None || internal::PyFloat_IsNaN(obj)) {
       ++none_count_;
     } else if (PyBool_Check(obj)) {
       ++bool_count_;
