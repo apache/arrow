@@ -1113,12 +1113,12 @@ def _test_read_common_metadata_files(fs, base_path):
     with fs.open(data_path, 'wb') as f:
         _write_table(table, f)
 
-    metadata_path = pjoin(base_path, '_metadata')
+    metadata_path = pjoin(base_path, '_common_metadata')
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
     dataset = pq.ParquetDataset(base_path, filesystem=fs)
-    assert dataset.metadata_path == metadata_path
+    assert dataset.common_metadata_path == metadata_path
 
     with fs.open(data_path) as f:
         common_schema = pq.read_metadata(f).schema
@@ -1431,7 +1431,14 @@ def _test_write_to_dataset_with_partitions(base_path, filesystem=None):
     output_table = pa.Table.from_pandas(output_df)
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
-    input_table = pq.ParquetDataset(base_path, filesystem=filesystem).read()
+    pq.write_metadata(output_table.schema,
+                      os.path.join(base_path, '_common_metadata'))
+    dataset = pq.ParquetDataset(base_path, filesystem=filesystem)
+    # ARROW-2209: Ensure the dataset schema also includes the partition columns
+    dataset_cols = set(dataset.schema.to_arrow_schema().names)
+    assert dataset_cols == set(output_table.schema.names)
+
+    input_table = dataset.read()
     input_df = input_table.to_pandas()
 
     # Read data back in and compare with original DataFrame

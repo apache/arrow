@@ -529,6 +529,64 @@ cdef class Schema:
     def get_field_index(self, name):
         return self.schema.GetFieldIndex(tobytes(name))
 
+    def append(self, Field field):
+        """
+        Append a field at the end of the schema.
+
+        Parameters
+        ----------
+
+        field: Field
+
+        Returns
+        -------
+        schema: Schema
+        """
+        return self.insert(self.schema.num_fields(), field)
+
+    def insert(self, int i, Field field):
+        """
+        Add a field at position i to the schema.
+
+        Parameters
+        ----------
+        i: int
+        field: Field
+
+        Returns
+        -------
+        schema: Schema
+        """
+        cdef:
+            shared_ptr[CSchema] new_schema
+            shared_ptr[CField] c_field
+
+        c_field = field.sp_field
+
+        with nogil:
+            check_status(self.schema.AddField(i, c_field, &new_schema))
+
+        return pyarrow_wrap_schema(new_schema)
+
+    def remove(self, int i):
+        """
+        Remove the field at index i from the schema.
+
+        Parameters
+        ----------
+        i: int
+
+        Returns
+        -------
+        schema: Schema
+        """
+        cdef shared_ptr[CSchema] new_schema
+
+        with nogil:
+            check_status(self.schema.RemoveField(i, &new_schema))
+
+        return pyarrow_wrap_schema(new_schema)
+
     def add_metadata(self, dict metadata):
         """
         Add metadata as dict of string keys and values to Schema
