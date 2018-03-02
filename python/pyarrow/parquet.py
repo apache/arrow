@@ -281,8 +281,20 @@ schema : arrow Schema
             self.schema_changed = False
 
         self.schema = schema
+        self.where = where
+
+        # If we open a file using an implied filesystem, so it can be assured
+        # to be closed
+        self.file_handle = None
+
+        if is_string(where):
+            fs = _get_fs_from_path(where)
+            sink = self.file_handle = fs.open(where, 'wb')
+        else:
+            sink = where
+
         self.writer = _parquet.ParquetWriter(
-            where, schema,
+            sink, schema,
             version=version,
             compression=compression,
             use_dictionary=use_dictionary,
@@ -293,6 +305,8 @@ schema : arrow Schema
     def __del__(self):
         if getattr(self, 'is_open', False):
             self.close()
+        if self.file_handle is not None:
+            self.file_handle.close()
 
     def __enter__(self):
         return self
@@ -948,9 +962,6 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=None,
                 coerce_timestamps=None,
                 flavor=None, **kwargs):
-    if is_string(where):
-        fs = _get_fs_from_path(where)
-        where = fs.open(where, 'wb')
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
     try:
@@ -965,7 +976,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
-        if isinstance(where, six.string_types):
+        if is_string(where):
             try:
                 os.remove(where)
             except os.error:
