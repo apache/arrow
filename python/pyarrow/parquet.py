@@ -54,12 +54,7 @@ class ParquetFile(object):
     """
     def __init__(self, source, metadata=None, common_metadata=None):
         self.reader = ParquetReader()
-        if is_string(source):
-            fs = _get_fs_from_path(source)
-            try:
-                source = fs.open(source)
-            except FileNotFoundError as e:
-                raise lib.ArrowIOError("failed to open file {}, {}".format(source, e))
+        source = _ensure_file(source)
         self.reader.open(source, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -1126,6 +1121,21 @@ def read_schema(where):
     schema : pyarrow.Schema
     """
     return ParquetFile(where).schema.to_arrow_schema()
+
+
+def _ensure_file(source):
+    if is_string(source):
+        fs = _get_fs_from_path(source)
+        try:
+            return fs.open(source)
+        except FileNotFoundError as e:
+            raise lib.ArrowIOError("failed to open file {}, {}"
+                                   .format(source, e))
+    elif not hasattr(source, 'seek'):
+        raise ValueError('Source does not appear file-like')
+    else:
+        return source
+
 
 def _get_fs_from_path(path):
     """

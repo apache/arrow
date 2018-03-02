@@ -322,7 +322,7 @@ class HdfsTestCases(object):
             raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                              'an integer')
         path = "hdfs://{}:{}{}".format(host, port,
-                                        pjoin(tmpdir, 'test.parquet'))
+                                       pjoin(tmpdir, 'test.parquet'))
 
         size = 5
         df = test_parquet._test_dataframe(size, seed=0)
