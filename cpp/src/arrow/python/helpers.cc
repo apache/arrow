@@ -283,7 +283,7 @@ bool PyFloat_IsNaN(PyObject* obj) {
 
 bool PandasObjectIsNull(PyObject* obj) {
   return obj == Py_None || obj == numpy_nan || PyFloat_IsNaN(obj) ||
-      (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
+         (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
 }
 
 }  // namespace internal
