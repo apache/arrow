@@ -362,6 +362,29 @@ static void ConvertBooleanNoNulls(PandasOptions options, const ChunkedArray& dat
   }
 }
 
+template <typename T>
+static Status ConvertIntegerObjects(PandasOptions options, const ChunkedArray& data,
+                                    PyObject** out_values) {
+  PyAcquireGIL lock;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = *data.chunk(c);
+    const T* in_values = GetPrimitiveValues<T>(arr);
+
+    for (int i = 0; i < arr.length(); ++i) {
+      if (arr.IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values++ = Py_None;
+      } else {
+        *out_values++ = std::is_signed<T>::value
+                            ? PyLong_FromLongLong(in_values[i])
+                            : PyLong_FromUnsignedLongLong(in_values[i]);
+        RETURN_IF_PYERROR();
+      }
+    }
+  }
+  return Status::OK();
+}
+
 template <typename Type>
 inline Status ConvertBinaryLike(PandasOptions options, const ChunkedArray& data,
                                 PyObject** out_values) {
@@ -685,6 +708,22 @@ class ObjectBlock : public PandasBlock {
 
     if (type == Type::BOOL) {
       RETURN_NOT_OK(ConvertBooleanWithNulls(options_, data, out_buffer));
+    } else if (type == Type::UINT8) {
+      RETURN_NOT_OK(ConvertIntegerObjects<uint8_t>(options_, data, out_buffer));
+    } else if (type == Type::INT8) {
+      RETURN_NOT_OK(ConvertIntegerObjects<int8_t>(options_, data, out_buffer));
+    } else if (type == Type::UINT16) {
+      RETURN_NOT_OK(ConvertIntegerObjects<uint16_t>(options_, data, out_buffer));
+    } else if (type == Type::INT16) {
+      RETURN_NOT_OK(ConvertIntegerObjects<int16_t>(options_, data, out_buffer));
+    } else if (type == Type::UINT32) {
+      RETURN_NOT_OK(ConvertIntegerObjects<uint32_t>(options_, data, out_buffer));
+    } else if (type == Type::INT32) {
+      RETURN_NOT_OK(ConvertIntegerObjects<int32_t>(options_, data, out_buffer));
+    } else if (type == Type::UINT64) {
+      RETURN_NOT_OK(ConvertIntegerObjects<uint64_t>(options_, data, out_buffer));
+    } else if (type == Type::INT64) {
+      RETURN_NOT_OK(ConvertIntegerObjects<int64_t>(options_, data, out_buffer));
     } else if (type == Type::BINARY) {
       RETURN_NOT_OK(ConvertBinaryLike<BinaryType>(options_, data, out_buffer));
     } else if (type == Type::STRING) {
@@ -1203,34 +1242,33 @@ using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
 
 static Status GetPandasBlockType(const Column& col, const PandasOptions& options,
                                  PandasBlock::type* output_type) {
+#define INTEGER_CASE(NAME)                                                           \
+  *output_type =                                                                     \
+      col.null_count() > 0                                                           \
+          ? options.integer_object_nulls ? PandasBlock::OBJECT : PandasBlock::DOUBLE \
+          : PandasBlock::NAME;                                                       \
+  break;
+
   switch (col.type()->id()) {
     case Type::BOOL:
       *output_type = col.null_count() > 0 ? PandasBlock::OBJECT : PandasBlock::BOOL;
       break;
     case Type::UINT8:
-      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT8;
-      break;
+      INTEGER_CASE(UINT8);
     case Type::INT8:
-      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT8;
-      break;
+      INTEGER_CASE(INT8);
     case Type::UINT16:
-      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT16;
-      break;
+      INTEGER_CASE(UINT16);
     case Type::INT16:
-      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT16;
-      break;
+      INTEGER_CASE(INT16);
     case Type::UINT32:
-      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT32;
-      break;
+      INTEGER_CASE(UINT32);
     case Type::INT32:
-      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT32;
-      break;
-    case Type::INT64:
-      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT64;
-      break;
+      INTEGER_CASE(INT32);
     case Type::UINT64:
-      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT64;
-      break;
+      INTEGER_CASE(UINT64);
+    case Type::INT64:
+      INTEGER_CASE(INT64);
     case Type::FLOAT:
       *output_type = PandasBlock::FLOAT;
       break;
@@ -1648,9 +1686,15 @@ class ArrowDeserializer {
     }
 
     if (data_.null_count() > 0) {
-      RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
-      auto out_values = reinterpret_cast<double*>(PyArray_DATA(arr_));
-      ConvertIntegerWithNulls<T>(options_, data_, out_values);
+      if (options_.integer_object_nulls) {
+        using c_type = typename Type::c_type;
+
+        return VisitObjects(ConvertIntegerObjects<c_type>);
+      } else {
+        RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
+        auto out_values = reinterpret_cast<double*>(PyArray_DATA(arr_));
+        ConvertIntegerWithNulls<T>(options_, data_, out_values);
+      }
     } else {
       RETURN_NOT_OK(AllocateOutput(traits::npy_type));
       auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));

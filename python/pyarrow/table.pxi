@@ -273,7 +273,8 @@ cdef class Column:
 
     def to_pandas(self,
                   c_bool strings_to_categorical=False,
-                  c_bool zero_copy_only=False):
+                  c_bool zero_copy_only=False,
+                  c_bool integer_object_nulls=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -287,7 +288,8 @@ cdef class Column:
 
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only)
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls)
 
         with nogil:
             check_status(libarrow.ConvertColumnToPandas(options,
@@ -1017,7 +1019,8 @@ cdef class Table:
         return result
 
     def to_pandas(self, nthreads=None, strings_to_categorical=False,
-                  memory_pool=None, zero_copy_only=False, categories=None):
+                  memory_pool=None, zero_copy_only=False, categories=None,
+                  integer_object_nulls=False):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -1036,6 +1039,8 @@ cdef class Table:
             the underlying data
         categories: list, default empty
             List of columns that should be returned as pandas.Categorical
+        integer_object_nulls : boolean, default False
+            Cast integers with nulls to objects
 
         Returns
         -------
@@ -1046,7 +1051,8 @@ cdef class Table:
 
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only)
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls)
         self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()

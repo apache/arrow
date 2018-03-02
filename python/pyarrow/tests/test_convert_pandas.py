@@ -634,6 +634,51 @@ class TestConvertPrimitiveTypes(object):
         _check_type(pa.float64())
 
 
+@pytest.mark.parametrize('dtype',
+                         ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8'])
+def test_array_integer_object_nulls_option(dtype):
+    num_values = 100
+
+    null_mask = np.random.randint(0, 10, size=num_values) < 3
+    values = np.random.randint(0, 100, size=num_values, dtype=dtype)
+
+    array = pa.array(values, mask=null_mask)
+
+    if null_mask.any():
+        expected = values.astype('O')
+        expected[null_mask] = None
+    else:
+        expected = values
+
+    result = array.to_pandas(integer_object_nulls=True)
+
+    np.testing.assert_equal(result, expected)
+
+
+@pytest.mark.parametrize('dtype',
+                         ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8'])
+def test_table_integer_object_nulls_option(dtype):
+    num_values = 100
+
+    null_mask = np.random.randint(0, 10, size=num_values) < 3
+    values = np.random.randint(0, 100, size=num_values, dtype=dtype)
+
+    array = pa.array(values, mask=null_mask)
+
+    if null_mask.any():
+        expected = values.astype('O')
+        expected[null_mask] = None
+    else:
+        expected = values
+
+    expected = pd.DataFrame({dtype: expected})
+
+    table = pa.Table.from_arrays([array], [dtype])
+    result = table.to_pandas(integer_object_nulls=True)
+
+    tm.assert_frame_equal(result, expected)
+
+
 class TestConvertDateTimeLikeTypes(object):
     """
     Conversion tests for datetime- and timestamp-like types (date64, etc.).

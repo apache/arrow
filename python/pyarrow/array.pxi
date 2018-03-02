@@ -430,7 +430,8 @@ cdef class Array:
         return pyarrow_wrap_array(result)
 
     def to_pandas(self, c_bool strings_to_categorical=False,
-                  c_bool zero_copy_only=False):
+                  c_bool zero_copy_only=False,
+                  c_bool integer_object_nulls=False):
         """
         Convert to an array object suitable for use in pandas
 
@@ -441,6 +442,8 @@ cdef class Array:
         zero_copy_only : boolean, default False
             Raise an ArrowException if this function call would require copying
             the underlying data
+        integer_object_nulls : boolean, default False
+            Cast integers with nulls to objects
 
         See also
         --------
@@ -454,7 +457,8 @@ cdef class Array:
 
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only)
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
                                               self, &out))
