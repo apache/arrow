@@ -44,8 +44,12 @@ struct PandasOptions {
   /// If true, we will convert all string columns to categoricals
   bool strings_to_categorical;
   bool zero_copy_only;
+  bool integer_object_nulls;
 
-  PandasOptions() : strings_to_categorical(false), zero_copy_only(false) {}
+  PandasOptions()
+      : strings_to_categorical(false),
+        zero_copy_only(false),
+        integer_object_nulls(false) {}
 };
 
 ARROW_EXPORT
