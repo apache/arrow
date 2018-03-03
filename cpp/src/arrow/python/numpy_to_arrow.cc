@@ -195,16 +195,15 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
 
 }  // namespace
 
-/// Append as many string objects from NumPy arrays to a `StringBuilder` as we
+/// Append as many string objects from NumPy arrays to a `BinaryBuilder` as we
 /// can fit
 ///
 /// \param[in] offset starting offset for appending
 /// \param[out] end_offset ending offset where we stopped appending. Will
 /// be length of arr if fully consumed
-/// \param[out] have_bytes true if we encountered any PyBytes object
 static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
                                    int64_t offset, BinaryBuilder* builder,
-                                   int64_t* end_offset, bool* have_bytes) {
+                                   int64_t* end_offset) {
   PyObject* obj;
 
   Ndarray1DIndexer<PyObject*> objects(arr);
@@ -506,6 +505,7 @@ class NumPyConverter {
   Status ConvertBooleans();
   Status ConvertObjectStrings();
   Status ConvertObjectFloats();
+  Status ConvertObjectBytes();
   Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
   Status ConvertObjectIntegers();
   Status ConvertLists(const std::shared_ptr<DataType>& type);
@@ -988,6 +988,29 @@ Status NumPyConverter::ConvertObjectIntegers() {
   return PushBuilderResult(&builder);
 }
 
+Status NumPyConverter::ConvertObjectBytes() {
+  PyAcquireGIL lock;
+
+  BinaryBuilder builder(type_, pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
+
+  if (length_ == 0) {
+    // Produce an empty chunk
+    std::shared_ptr<Array> chunk;
+    RETURN_NOT_OK(builder.Finish(&chunk));
+    out_arrays_.emplace_back(std::move(chunk));
+  } else {
+    int64_t offset = 0;
+    while (offset < length_) {
+      RETURN_NOT_OK(AppendObjectBinaries(arr_, mask_, offset, &builder, &offset));
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(builder.Finish(&chunk));
+      out_arrays_.emplace_back(std::move(chunk));
+    }
+  }
+  return Status::OK();
+}
+
 Status NumPyConverter::ConvertObjectFixedWidthBytes(
     const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
@@ -1154,6 +1177,8 @@ Status NumPyConverter::ConvertObjects() {
     switch (type_->id()) {
       case Type::STRING:
         return ConvertObjectStrings();
+      case Type::BINARY:
+	return ConvertObjectBytes();
       case Type::FIXED_SIZE_BINARY:
         return ConvertObjectFixedWidthBytes(type_);
       case Type::BOOL:
@@ -1339,8 +1364,6 @@ template <>
 inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
     const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
   PyAcquireGIL lock;
-  // TODO: If there are bytes involed, convert to Binary representation
-  bool have_bytes = false;
 
   Ndarray1DIndexer<uint8_t> mask_values;
 
@@ -1363,8 +1386,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
       int64_t offset = 0;
-      RETURN_NOT_OK(AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset,
-                                         &have_bytes));
+      RETURN_NOT_OK(AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset));
       if (offset < PyArray_SIZE(numpy_array)) {
         return Status::Invalid("Array cell value exceeded 2GB");
       }
