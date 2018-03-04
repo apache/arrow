@@ -26,7 +26,7 @@ import sys
 
 import pytest
 
-from pyarrow.compat import guid, u, BytesIO, unichar, frombytes
+from pyarrow.compat import guid, u, BytesIO, unichar
 from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
@@ -524,20 +524,20 @@ def test_parquet_metadata_api():
 @pytest.mark.parametrize(
     'data, dtype, min_value, max_value, null_count, num_values',
     [
-        ([1, 2, 2, None, 4], np.uint8, u'1', u'4', 1, 4),
-        ([1, 2, 2, None, 4], np.uint16, u'1', u'4', 1, 4),
-        ([1, 2, 2, None, 4], np.uint32, u'1', u'4', 1, 4),
-        ([1, 2, 2, None, 4], np.uint64, u'1', u'4', 1, 4),
-        ([-1, 2, 2, None, 4], np.int16, u'-1', u'4', 1, 4),
-        ([-1, 2, 2, None, 4], np.int32, u'-1', u'4', 1, 4),
-        ([-1, 2, 2, None, 4], np.int64, u'-1', u'4', 1, 4),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, u'-1.1', u'4.4', 1, 4),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float64, u'-1.1', u'4.4', 1, 4),
+        ([1, 2, 2, None, 4], np.uint8, 1, 4, 1, 4),
+        ([1, 2, 2, None, 4], np.uint16, 1, 4, 1, 4),
+        ([1, 2, 2, None, 4], np.uint32, 1, 4, 1, 4),
+        ([1, 2, 2, None, 4], np.uint64, 1, 4, 1, 4),
+        ([-1, 2, 2, None, 4], np.int16, -1, 4, 1, 4),
+        ([-1, 2, 2, None, 4], np.int32, -1, 4, 1, 4),
+        ([-1, 2, 2, None, 4], np.int64, -1, 4, 1, 4),
+        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, -1.1, 4.4, 1, 4),
+        ([-1.1, 2.2, 2.3, None, 4.4], np.float64, -1.1, 4.4, 1, 4),
         (
             [u'', u'b', unichar(1000), None, u'aaa'],
-            str, u' ', frombytes((unichar(1000) + u' ').encode('utf-8')), 1, 4
+            str, b' ', (unichar(1000) + u' ').encode('utf-8'), 1, 4
         ),
-        ([True, False, False, True, True], np.bool, u'0', u'1', 0, 5),
+        ([True, False, False, True, True], np.bool, False, True, 0, 5),
     ]
 )
 def test_parquet_column_statistics_api(
