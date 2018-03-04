@@ -501,10 +501,11 @@ if (ARROW_JEMALLOC)
   set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
   set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(JEMALLOC_VENDORED 1)
+  # We need to disable TLS or otherwise C++ exceptions won't work anymore.
   ExternalProject_Add(jemalloc_ep
     URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
     PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_"
+    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls"
     ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE}

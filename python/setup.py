@@ -120,7 +120,7 @@ class build_ext(_build_ext):
         self.with_static_parquet = strtobool(
             os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
         self.with_static_boost = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_BOOST', '1'))
+            os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
         self.with_orc = strtobool(
@@ -255,6 +255,10 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_parquet and not self.with_static_parquet:
                     move_shared_libs(build_prefix, build_lib, "parquet")
+                if not self.with_static_boost:
+                    move_shared_libs(build_prefix, build_lib, "arrow_boost_filesystem")
+                    move_shared_libs(build_prefix, build_lib, "arrow_boost_system")
+                    move_shared_libs(build_prefix, build_lib, "arrow_boost_regex")
 
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):

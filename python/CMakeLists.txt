@@ -66,7 +66,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     ON)
   option(PYARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries on linking static parquet"
-    OFF)
+    ON)
   option(PYARROW_BUILD_PLASMA
     "Build the PyArrow Plasma integration"
     OFF)
@@ -235,6 +235,24 @@ function(bundle_arrow_implib library_path)
       COPYONLY)
 endfunction(bundle_arrow_implib)
 
+function(bundle_boost_lib library_path)
+  get_filename_component(LIBRARY_NAME ${${library_path}} NAME)
+  get_filename_component(LIBRARY_NAME_WE ${${library_path}} NAME_WE)
+  configure_file(${${library_path}}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}
+      COPYONLY)
+  set(Boost_SO_VERSION "${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
+  if (APPLE)
+    configure_file(${${library_path}}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}.${Boost_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        COPYONLY)
+  else()
+    configure_file(${${library_path}}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}.${Boost_SO_VERSION}
+        COPYONLY)
+  endif()
+endfunction()
+
 # Always bundle includes
 file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
@@ -246,6 +264,15 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB
     ABI_VERSION ${ARROW_ABI_VERSION}
     SO_VERSION ${ARROW_SO_VERSION})
+
+  # boost
+  if (PYARROW_BOOST_USE_SHARED)
+    set(Boost_USE_STATIC_LIBS OFF)
+    find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+    bundle_boost_lib(Boost_REGEX_LIBRARY)
+    bundle_boost_lib(Boost_FILESYSTEM_LIBRARY)
+    bundle_boost_lib(Boost_SYSTEM_LIBRARY)
+  endif()
 
   if (MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
