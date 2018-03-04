@@ -136,9 +136,15 @@ TEST_F(TestArray, SliceRecomputeNullCount) {
 
   auto arr = std::make_shared<Int32Array>(16, data, nullptr, -1);
   ASSERT_EQ(0, arr->null_count());
+}
 
+TEST_F(TestArray, NullArraySliceNullCount) {
   auto null_arr = std::make_shared<NullArray>(10);
   auto null_arr_sliced = null_arr->Slice(3, 6);
+
+  // The internal null count is 6, does not require recomputation
+  ASSERT_EQ(6, null_arr_sliced->data()->null_count);
+
   ASSERT_EQ(6, null_arr_sliced->null_count());
 }
 
