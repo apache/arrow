@@ -176,14 +176,12 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public void setInitialCapacity(int valueCount, double density) {
-    long size = (long) (valueCount * density);
+    long size = Math.max((long)(valueCount * density), 1L);
+
     if (size > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
 
-    if(size == 0) {
-      size = 1;
-    }
     valueAllocationSizeInBytes = (int) size;
     validityAllocationSizeInBytes = getValidityBufferSizeFromCount(valueCount);
     /* to track the end offset of last data element in vector, we need
