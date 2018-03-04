@@ -105,8 +105,8 @@ cdef class SerializationContext:
         ----------
         type_ : TypeType
             The type that we can serialize.
-        type_id : bytes
-            A string of bytes used to identify the type.
+        type_id : string
+            A string used to identify the type.
         pickle : bool
             True if the serialization should be done with pickle.
             False if it should be done efficiently with Arrow.
