@@ -324,6 +324,11 @@ cdef class Buffer:
     cdef int _check_nullptr(self) except -1
 
 
+cdef class ForeignBuffer(Buffer):
+    cdef:
+        object base
+
+
 cdef class ResizableBuffer(Buffer):
 
     cdef void init_rz(self, const shared_ptr[CResizableBuffer]& buffer)
