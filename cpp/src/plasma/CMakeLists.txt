@@ -124,6 +124,16 @@ endif()
 add_executable(plasma_store store.cc)
 target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS})
 
+if (ARROW_RPATH_ORIGIN)
+  if (APPLE)
+    set(_lib_install_rpath "@loader_path")
+  else()
+    set(_lib_install_rpath "\$ORIGIN")
+  endif()
+  set_target_properties(plasma_store PROPERTIES
+      INSTALL_RPATH ${_lib_install_rpath})
+endif()
+
 # Headers: top level
 install(FILES
   common.h
