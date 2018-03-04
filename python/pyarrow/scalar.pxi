@@ -68,9 +68,10 @@ cdef class ArrayValue(Scalar):
         if hasattr(self, 'as_py'):
             if isinstance(other, ArrayValue):
                 other = other.as_py()
-            return self.as_py().__eq__(other)
+            return self.as_py() == other
         else:
-            raise NotImplementedError("Cannot compare Arrow values that don't support as_py()")
+            raise NotImplementedError(
+                "Cannot compare Arrow values that don't support as_py()")
 
 
 cdef class BooleanValue(ArrayValue):

@@ -48,7 +48,6 @@ class TestScalars(unittest.TestCase):
         assert isinstance(v, pa.BooleanValue)
         assert repr(v) == "True"
         assert v.as_py() is True
-        assert v == True
 
         assert arr[1] is pa.NA
 
