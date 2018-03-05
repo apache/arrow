@@ -35,6 +35,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -76,6 +77,18 @@
 namespace arrow {
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
+
+#define ASSERT_ARRAYS_EQUAL(LEFT, RIGHT)                                               \
+  do {                                                                                 \
+    if (!(LEFT).Equals((RIGHT))) {                                                     \
+      std::stringstream pp_result;                                                     \
+      std::stringstream pp_expected;                                                   \
+                                                                                       \
+      EXPECT_OK(PrettyPrint(RIGHT, 0, &pp_result));                                    \
+      EXPECT_OK(PrettyPrint(LEFT, 0, &pp_expected));                                   \
+      FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str(); \
+    }                                                                                  \
+  } while (false)
 
 namespace test {
 
@@ -288,6 +301,62 @@ Status MakeRandomBytePoolBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
+void AssertArraysEqual(const Array& expected, const Array& actual) {
+  ASSERT_ARRAYS_EQUAL(expected, actual);
+}
+
+void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
+  ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
+  if (!actual.Equals(expected)) {
+    std::stringstream pp_result;
+    std::stringstream pp_expected;
+
+    for (int i = 0; i < actual.num_chunks(); ++i) {
+      auto c1 = actual.chunk(i);
+      auto c2 = expected.chunk(i);
+      if (!c1->Equals(*c2)) {
+        EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
+        EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
+        FAIL() << "Chunk " << i << " Got: " << pp_result.str()
+               << "\nExpected: " << pp_expected.str();
+      }
+    }
+  }
+}
+
+void PrintColumn(const Column& col, std::stringstream* ss) {
+  const ChunkedArray& carr = *col.data();
+  for (int i = 0; i < carr.num_chunks(); ++i) {
+    auto c1 = carr.chunk(i);
+    *ss << "Chunk " << i << std::endl;
+    EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    *ss << std::endl;
+  }
+}
+
+void AssertTablesEqual(const Table& expected, const Table& actual,
+                       bool same_chunk_layout = true) {
+  ASSERT_EQ(expected.num_columns(), actual.num_columns());
+
+  if (same_chunk_layout) {
+    for (int i = 0; i < actual.num_columns(); ++i) {
+      AssertChunkedEqual(*expected.column(i)->data(), *actual.column(i)->data());
+    }
+  } else {
+    std::stringstream ss;
+    if (!actual.Equals(expected)) {
+      for (int i = 0; i < expected.num_columns(); ++i) {
+        ss << "Actual column " << i << std::endl;
+        PrintColumn(*actual.column(i), &ss);
+
+        ss << "Expected column " << i << std::endl;
+        PrintColumn(*expected.column(i), &ss);
+      }
+      FAIL() << ss.str();
+    }
+  }
+}
+
 }  // namespace test
 
 template <typename TYPE, typename C_TYPE>
@@ -352,25 +421,9 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
   return builder->Finish(out);
 }
 
-#define ASSERT_ARRAYS_EQUAL(LEFT, RIGHT)                                               \
-  do {                                                                                 \
-    if (!(LEFT).Equals((RIGHT))) {                                                     \
-      std::stringstream pp_result;                                                     \
-      std::stringstream pp_expected;                                                   \
-                                                                                       \
-      EXPECT_OK(PrettyPrint(RIGHT, 0, &pp_result));                                    \
-      EXPECT_OK(PrettyPrint(LEFT, 0, &pp_expected));                                   \
-      FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str(); \
-    }                                                                                  \
-  } while (false)
-
 #define DECL_T() typedef typename TestFixture::T T;
 
 #define DECL_TYPE() typedef typename TestFixture::Type Type;
-
-void AssertArraysEqual(const Array& expected, const Array& actual) {
-  ASSERT_ARRAYS_EQUAL(expected, actual);
-}
 
 #define ASSERT_BATCHES_EQUAL(LEFT, RIGHT)    \
   do {                                       \
