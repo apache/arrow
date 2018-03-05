@@ -19,6 +19,7 @@
 #define PLASMA_SERVICE_H
 
 #include "plasma/format/plasma.pb.h"
+#include "plasma/store.h"
 
 using google::protobuf::Closure;
 using google::protobuf::RpcController;
@@ -27,16 +28,18 @@ namespace plasma {
 
 class PlasmaService : public rpc::PlasmaStore {
  public:
-   PlasmaService() {}
+   PlasmaService(plasma::PlasmaStore* store) { store_ = store; }
    ~PlasmaService() {}
+
+   void set_current_client(Client* client) { client_ = client; }
+
+   Status ProcessMessage(Client* client);
 
    void Create(RpcController* controller,
                const rpc::CreateRequest* request,
                rpc::CreateReply* response,
-               Closure* done) override {
-     std::cout << request->object_id() << std::endl;
-     std::cout << "YYY called create" << std::endl;
-   }
+               Closure* done) override;
+
    void Get(::google::protobuf::RpcController* controller,
                         const ::plasma::rpc::GetRequest* request,
                         ::plasma::rpc::GetReply* response,
@@ -49,12 +52,12 @@ class PlasmaService : public rpc::PlasmaStore {
                         const ::plasma::rpc::ContainsRequest* request,
                         ::plasma::rpc::ContainsReply* response,
                         ::google::protobuf::Closure* done) override {}
-   void Seal(::google::protobuf::RpcController* controller,
-                        const ::plasma::rpc::SealRequest* request,
-                        ::plasma::rpc::SealReply* response,
-                        ::google::protobuf::Closure* done) override {
-                          std::cout << "YYY called seal" << std::endl;
-                        }
+
+   void Seal(RpcController* controller,
+             const rpc::SealRequest* request,
+             rpc::SealReply* response,
+             Closure* done) override;
+
    void Evict(::google::protobuf::RpcController* controller,
                         const ::plasma::rpc::EvictRequest* request,
                         ::plasma::rpc::EvictReply* response,
@@ -67,6 +70,10 @@ class PlasmaService : public rpc::PlasmaStore {
                         const ::plasma::rpc::ConnectRequest* request,
                         ::plasma::rpc::ConnectReply* response,
                         ::google::protobuf::Closure* done) override {}
+ private:
+  plasma::PlasmaStore* store_;
+  plasma::Client* client_;
+  int fd_to_return_;
 };
 
 }  // namespace plasma

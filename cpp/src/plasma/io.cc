@@ -140,8 +140,10 @@ Status ReadProto(google::protobuf::Service* service, int fd, int64_t* type, goog
   RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer.data(), length), *type = DISCONNECT_CLIENT);
   google::protobuf::io::ArrayInputStream stream(buffer.data(), length);
   google::protobuf::io::CodedInputStream input(&stream);
-  const google::protobuf::ServiceDescriptor* service_descriptor = service->GetDescriptor();
-  *message = service->GetRequestPrototype(service_descriptor->method(*type)).New();
+  if (*message == nullptr) {
+    const google::protobuf::ServiceDescriptor* service_descriptor = service->GetDescriptor();
+    *message = service->GetRequestPrototype(service_descriptor->method(*type)).New();
+  }
   (*message)->MergeFromCodedStream(&input);
   return Status::OK();
 }

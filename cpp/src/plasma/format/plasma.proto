@@ -4,6 +4,21 @@ package plasma.rpc;
 
 option cc_generic_services = true;
 
+enum PlasmaError {
+  // Operation was successful.
+  OK = 0;
+  // Trying to create an object that already exists.
+  ObjectExists = 1;
+  // Trying to access an object that doesn't exist.
+  ObjectNonexistent = 2;
+  // Trying to create an object but there isn't enough space in the store.
+  OutOfMemory = 3;
+  // Trying to delete an object but it's not sealed.
+  ObjectNotSealed = 4;
+  // Trying to delete an object but it's in use.
+  ObjectInUse = 5;
+}
+
 message PlasmaObjectSpec {
   // Index of the memory segment (= memory mapped file) that
   // this object is allocated in.
@@ -37,7 +52,13 @@ message CreateReply {
   // The object that is returned with this reply.
   PlasmaObjectSpec plasma_object = 2;
   // Error that occurred for this call.
-
+  PlasmaError error = 3;
+  // The file descriptor in the store that corresponds to the file descriptor
+  // being sent to the client right after this message.
+  int32 store_fd = 4;
+  // The size in bytes of the segment for the store file descriptor (needed to
+  // call mmap).
+  int64 mmap_size = 5;
 }
 
 message SealRequest {

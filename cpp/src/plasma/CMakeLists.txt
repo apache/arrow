@@ -86,6 +86,7 @@ set(PLASMA_SRCS
   malloc.cc
   plasma.cc
   protocol.cc
+  plasma_service.cc
   format/plasma.pb.cc
   thirdparty/ae/ae.c
   thirdparty/xxhash.cc)

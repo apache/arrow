@@ -430,7 +430,7 @@ int PlasmaStore::contains_object(const ObjectID& object_id) {
 }
 
 // Seal an object that has been created in the hash table.
-void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[]) {
+void PlasmaStore::seal_object(const ObjectID& object_id, const char digest[]) {
   ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();
   auto entry = get_object_table_entry(&store_info_, object_id);
   ARROW_CHECK(entry != NULL);
@@ -438,7 +438,7 @@ void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[])
   // Set the state of object to SEALED.
   entry->state = PLASMA_SEALED;
   // Set the object digest.
-  entry->info.digest = std::string(reinterpret_cast<char*>(&digest[0]), kDigestSize);
+  entry->info.digest = std::string(&digest[0], kDigestSize);
   // Inform all subscribers that a new object has been sealed.
   push_notification(&entry->info);
 
@@ -673,9 +673,11 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 }
 
 Status PlasmaStore::process_message(Client* client) {
-  PlasmaService service;
+  PlasmaService service(this);
 
-  int64_t type = 0;
+  service.set_current_client(client);
+
+  return service.ProcessMessage(client);
 
   // Status s = ReadMessage(client->fd, &type, &input_buffer_);
   // int64_t size = 0;
@@ -683,13 +685,7 @@ Status PlasmaStore::process_message(Client* client) {
   // std::cout << "size is " << size << std::endl;
 
 
-  google::protobuf::Message* request;
-  ARROW_CHECK_OK(ReadProto(&service, client->fd, &type, &request));
 
-  const google::protobuf::ServiceDescriptor* service_descriptor = service.GetDescriptor();
-  const google::protobuf::MethodDescriptor* method_descriptor = service_descriptor->method(type);
-
-  service.CallMethod(method_descriptor, nullptr, request, nullptr, nullptr);
 
   /*
 
