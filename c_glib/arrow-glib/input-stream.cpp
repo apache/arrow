@@ -282,7 +282,7 @@ garrow_seekable_input_stream_read_tensor(GArrowSeekableInputStream *input_stream
                                        arrow_random_access_file.get(),
                                        &arrow_tensor);
   if (garrow_error_check(error, status, "[seekable-input-stream][read-tensor]")) {
-    return garrow_tensor_new_raw(&arrow_tensor);
+    return garrow_tensor_new_raw(&arrow_tensor, nullptr);
   } else {
     return NULL;
   }
