@@ -198,7 +198,7 @@ garrow_tensor_new(GArrowDataType *data_type,
                                     arrow_shape,
                                     arrow_strides,
                                     arrow_dimension_names);
-  auto tensor = garrow_tensor_new_raw(&arrow_tensor, data);
+  auto tensor = garrow_tensor_new_raw_buffer(&arrow_tensor, data);
   return tensor;
 }
 
@@ -436,8 +436,14 @@ garrow_tensor_is_column_major(GArrowTensor *tensor)
 G_END_DECLS
 
 GArrowTensor *
-garrow_tensor_new_raw(std::shared_ptr<arrow::Tensor> *arrow_tensor,
-                      GArrowBuffer *buffer)
+garrow_tensor_new_raw(std::shared_ptr<arrow::Tensor> *arrow_tensor)
+{
+  return garrow_tensor_new_raw_buffer(arrow_tensor, nullptr);
+}
+
+GArrowTensor *
+garrow_tensor_new_raw_buffer(std::shared_ptr<arrow::Tensor> *arrow_tensor,
+                             GArrowBuffer *buffer)
 {
   auto tensor = GARROW_TENSOR(g_object_new(GARROW_TYPE_TENSOR,
                                            "tensor", arrow_tensor,

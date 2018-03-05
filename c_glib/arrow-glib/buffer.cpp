@@ -47,17 +47,32 @@ G_BEGIN_DECLS
 
 typedef struct GArrowBufferPrivate_ {
   std::shared_ptr<arrow::Buffer> buffer;
+  GBytes *data;
 } GArrowBufferPrivate;
 
 enum {
   PROP_0,
-  PROP_BUFFER
+  PROP_BUFFER,
+  PROP_DATA
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowBuffer, garrow_buffer, G_TYPE_OBJECT)
 
 #define GARROW_BUFFER_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE((obj), GARROW_TYPE_BUFFER, GArrowBufferPrivate))
+
+static void
+garrow_buffer_dispose(GObject *object)
+{
+  auto priv = GARROW_BUFFER_GET_PRIVATE(object);
+
+  if (priv->data) {
+    g_bytes_unref(priv->data);
+    priv->data = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_buffer_parent_class)->dispose(object);
+}
 
 static void
 garrow_buffer_finalize(GObject *object)
@@ -71,9 +86,9 @@ garrow_buffer_finalize(GObject *object)
 
 static void
 garrow_buffer_set_property(GObject *object,
-                          guint prop_id,
-                          const GValue *value,
-                          GParamSpec *pspec)
+                           guint prop_id,
+                           const GValue *value,
+                           GParamSpec *pspec)
 {
   auto priv = GARROW_BUFFER_GET_PRIVATE(object);
 
@@ -81,6 +96,9 @@ garrow_buffer_set_property(GObject *object,
   case PROP_BUFFER:
     priv->buffer =
       *static_cast<std::shared_ptr<arrow::Buffer> *>(g_value_get_pointer(value));
+    break;
+  case PROP_DATA:
+    priv->data = static_cast<GBytes *>(g_value_dup_boxed(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -90,11 +108,16 @@ garrow_buffer_set_property(GObject *object,
 
 static void
 garrow_buffer_get_property(GObject *object,
-                          guint prop_id,
-                          GValue *value,
-                          GParamSpec *pspec)
+                           guint prop_id,
+                           GValue *value,
+                           GParamSpec *pspec)
 {
+  auto priv = GARROW_BUFFER_GET_PRIVATE(object);
+
   switch (prop_id) {
+  case PROP_DATA:
+    g_value_set_boxed(value, priv->data);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -113,6 +136,7 @@ garrow_buffer_class_init(GArrowBufferClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose      = garrow_buffer_dispose;
   gobject_class->finalize     = garrow_buffer_finalize;
   gobject_class->set_property = garrow_buffer_set_property;
   gobject_class->get_property = garrow_buffer_get_property;
@@ -123,6 +147,14 @@ garrow_buffer_class_init(GArrowBufferClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_BUFFER, spec);
+
+  spec = g_param_spec_boxed("data",
+                            "Data",
+                            "The raw data passed as GBytes *",
+                            G_TYPE_BYTES,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                     G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_DATA, spec);
 }
 
 /**
@@ -141,7 +173,25 @@ garrow_buffer_new(const guint8 *data, gint64 size)
 {
   auto arrow_buffer = std::make_shared<arrow::Buffer>(data, size);
   return garrow_buffer_new_raw(&arrow_buffer);
+}
 
+/**
+ * garrow_buffer_new_bytes:
+ * @data: Data for the buffer.
+ *
+ * Returns: A newly created #GArrowBuffer.
+ *
+ * Since: 0.9.0
+ */
+GArrowBuffer *
+garrow_buffer_new_bytes(GBytes *data)
+{
+  size_t data_size;
+  auto raw_data = g_bytes_get_data(data, &data_size);
+  auto arrow_buffer =
+    std::make_shared<arrow::Buffer>(static_cast<const uint8_t *>(raw_data),
+                                    data_size);
+  return garrow_buffer_new_raw_bytes(&arrow_buffer, data);
 }
 
 /**
@@ -226,6 +276,12 @@ garrow_buffer_get_capacity(GArrowBuffer *buffer)
 GBytes *
 garrow_buffer_get_data(GArrowBuffer *buffer)
 {
+  auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
+  if (priv->data) {
+    g_bytes_ref(priv->data);
+    return priv->data;
+  }
+
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
   auto data = g_bytes_new_static(arrow_buffer->data(),
                                  arrow_buffer->size());
@@ -249,6 +305,13 @@ garrow_buffer_get_mutable_data(GArrowBuffer *buffer)
   if (!arrow_buffer->is_mutable()) {
     return NULL;
   }
+
+  auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
+  if (priv->data) {
+    g_bytes_ref(priv->data);
+    return priv->data;
+  }
+
   return g_bytes_new_static(arrow_buffer->mutable_data(),
                             arrow_buffer->size());
 }
@@ -284,7 +347,8 @@ garrow_buffer_get_parent(GArrowBuffer *buffer)
   auto arrow_parent_buffer = arrow_buffer->parent();
 
   if (arrow_parent_buffer) {
-    return garrow_buffer_new_raw(&arrow_parent_buffer);
+    auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
+    return garrow_buffer_new_raw_bytes(&arrow_parent_buffer, priv->data);
   } else {
     return NULL;
   }
@@ -338,7 +402,8 @@ garrow_buffer_slice(GArrowBuffer *buffer, gint64 offset, gint64 size)
   auto arrow_buffer = std::make_shared<arrow::Buffer>(arrow_parent_buffer,
                                                       offset,
                                                       size);
-  return garrow_buffer_new_raw(&arrow_buffer);
+  auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
+  return garrow_buffer_new_raw_bytes(&arrow_buffer, priv->data);
 }
 
 
@@ -375,6 +440,26 @@ garrow_mutable_buffer_new(guint8 *data, gint64 size)
 }
 
 /**
+ * garrow_mutable_buffer_new_bytes:
+ * @data: Data for the buffer.
+ *
+ * Returns: A newly created #GArrowMutableBuffer.
+ *
+ * Since: 0.9.0
+ */
+GArrowMutableBuffer *
+garrow_mutable_buffer_new_bytes(GBytes *data)
+{
+  size_t data_size;
+  auto raw_data = g_bytes_get_data(data, &data_size);
+  auto mutable_raw_data = const_cast<gpointer>(raw_data);
+  auto arrow_buffer =
+    std::make_shared<arrow::MutableBuffer>(static_cast<uint8_t *>(mutable_raw_data),
+                                           data_size);
+  return garrow_mutable_buffer_new_raw_bytes(&arrow_buffer, data);
+}
+
+/**
  * garrow_mutable_buffer_slice:
  * @buffer: A #GArrowMutableBuffer.
  * @offset: An offset in the buffer data in byte.
@@ -397,7 +482,8 @@ garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
     std::make_shared<arrow::MutableBuffer>(arrow_parent_buffer,
                                            offset,
                                            size);
-  return garrow_mutable_buffer_new_raw(&arrow_buffer);
+  auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
+  return garrow_mutable_buffer_new_raw_bytes(&arrow_buffer, priv->data);
 }
 
 
@@ -495,8 +581,16 @@ G_END_DECLS
 GArrowBuffer *
 garrow_buffer_new_raw(std::shared_ptr<arrow::Buffer> *arrow_buffer)
 {
+  return garrow_buffer_new_raw_bytes(arrow_buffer, nullptr);
+}
+
+GArrowBuffer *
+garrow_buffer_new_raw_bytes(std::shared_ptr<arrow::Buffer> *arrow_buffer,
+                            GBytes *data)
+{
   auto buffer = GARROW_BUFFER(g_object_new(GARROW_TYPE_BUFFER,
                                            "buffer", arrow_buffer,
+                                           "data", data,
                                            NULL));
   return buffer;
 }
@@ -514,8 +608,16 @@ garrow_buffer_get_raw(GArrowBuffer *buffer)
 GArrowMutableBuffer *
 garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer)
 {
+  return garrow_mutable_buffer_new_raw_bytes(arrow_buffer, nullptr);
+}
+
+GArrowMutableBuffer *
+garrow_mutable_buffer_new_raw_bytes(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer,
+                                    GBytes *data)
+{
   auto buffer = GARROW_MUTABLE_BUFFER(g_object_new(GARROW_TYPE_MUTABLE_BUFFER,
                                                    "buffer", arrow_buffer,
+                                                   "data", data,
                                                    NULL));
   return buffer;
 }
