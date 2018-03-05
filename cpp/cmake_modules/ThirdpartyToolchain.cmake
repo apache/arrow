@@ -29,7 +29,7 @@ set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
 set(LZ4_VERSION "1.7.5")
 set(ZSTD_VERSION "1.2.0")
-set(PROTOBUF_VERSION "2.6.0")
+set(PROTOBUF_VERSION "3.5.1")
 set(GRPC_VERSION "94582910ad7f82ad447ecc72e6548cb669e4f7a9") # v1.6.5
 set(ORC_VERSION "cf00b67795717ab3eb04e950780ed6d104109017")
 
@@ -489,7 +489,7 @@ endif()
 
 if (ARROW_JEMALLOC)
   # We only use a vendored jemalloc as we want to control its version.
-  # Also our build of jemalloc is specially prefixed so that it will not 
+  # Also our build of jemalloc is specially prefixed so that it will not
   # conflict with the default allocator as well as other jemalloc
   # installations.
   # find_package(jemalloc)
@@ -891,21 +891,23 @@ if (ARROW_WITH_GRPC)
 
 endif()
 
-if (ARROW_ORC)
+
   # protobuf
   if ("${PROTOBUF_HOME}" STREQUAL "")
     set (PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")
     set (PROTOBUF_HOME "${PROTOBUF_PREFIX}")
     set (PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
     set (PROTOBUF_STATIC_LIB "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set (PROTOBUF_SRC_URL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
+    set (PROTOBUF_SRC_URL "https://github.com/google/protobuf/archive/v${PROTOBUF_VERSION}.tar.gz")
 
-    ExternalProject_Add(protobuf_ep
-      CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
-      BUILD_IN_SOURCE 1
-      URL ${PROTOBUF_SRC_URL}
-      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}"
-      ${EP_LOG_OPTIONS})
+    ExternalProject_Add(Protobuf
+        PREFIX ${PROTOBUF_PREFIX}
+        URL ${PROTOBUF_SRC_URL}
+        BUILD_IN_SOURCE 1
+        CONFIGURE_COMMAND  pwd && ./autogen.sh && ./configure --prefix=${PROTOBUF_PREFIX}
+        BUILD_COMMAND make
+        INSTALL_COMMAND make install
+    )
 
     set (PROTOBUF_VENDORED 1)
   else ()
@@ -921,6 +923,7 @@ if (ARROW_ORC)
     add_dependencies (protobuf protobuf_ep)
   endif ()
 
+if (ARROW_ORC)
   # orc
   set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
   set(ORC_HOME "${ORC_PREFIX}")

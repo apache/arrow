@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package plasma.rpc;
+
+option cc_generic_services = true;
+
+message PlasmaObjectSpec {
+  // Index of the memory segment (= memory mapped file) that
+  // this object is allocated in.
+  int32 segment_index = 1;
+  // The offset in bytes in the memory mapped file of the data.
+  int64 data_offset = 2;
+  // The size in bytes of the data.
+  int64 data_size = 3;
+  // The offset in bytes in the memory mapped file of the metadata.
+  int64 metadata_offset = 4;
+  // The size in bytes of the metadata.
+  int64 metadata_size = 5;
+  // Device to create buffer on.
+  int32 device_num = 6;
+}
+
+message CreateRequest {
+  // ID of the object to be created.
+  string object_id = 1;
+  // The size of the object's data in bytes.
+  int64 data_size = 2;
+  // The size of the object's metadata in bytes.
+  int64 metadata_size = 3;
+  // Device to create buffer on.
+  int32 device_num = 4;
+}
+
+message CreateReply {
+  // ID of the object that was created.
+  string object_id = 1;
+  // The object that is returned with this reply.
+  PlasmaObjectSpec plasma_object = 2;
+  // Error that occurred for this call.
+
+}
+
+message SealRequest {
+  // ID of the object to be sealed.
+  string object_id = 1;
+  // Hash of the object data.
+  string digest = 2;
+}
+
+message SealReply {
+}
+
+message GetRequest {
+}
+
+message GetReply {
+}
+
+message ReleaseRequest {
+}
+
+message ReleaseReply {
+}
+
+message DeleteRequest {
+}
+
+message DeleteReply {
+}
+
+message StatusRequest {
+}
+
+message StatusReply {
+}
+
+message ContainsRequest {
+}
+
+message ContainsReply {
+}
+
+message ConnectRequest {
+}
+
+message ConnectReply {
+}
+
+message EvictRequest {
+}
+
+message EvictReply {
+}
+
+message FetchRequest {
+}
+
+message ObjectRequestSpecT {
+}
+
+message WaitRequest {
+}
+
+message ObjectReplyT {
+}
+
+message WaitReply {
+}
+
+message SubscribeRequest {
+}
+
+message DataRequest {
+}
+
+message DataReply {
+}
+
+message VOID {
+}
+
+service PlasmaStore {
+    rpc Create (CreateRequest) returns (CreateReply);
+
+    rpc Get (GetRequest) returns (GetReply);
+
+    rpc Release (ReleaseRequest) returns (VOID);
+
+    rpc Contains (ContainsRequest) returns (ContainsReply);
+
+    rpc Seal (SealRequest) returns (SealReply);
+
+    rpc Evict (EvictRequest) returns (EvictReply);
+
+    rpc Subscribe (SubscribeRequest) returns (VOID);
+
+    rpc Connect (ConnectRequest) returns (ConnectReply);
+}

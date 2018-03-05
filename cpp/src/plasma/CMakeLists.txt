@@ -24,6 +24,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_
 find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
+find_package(Protobuf)
+
+include_directories (SYSTEM ${PROTOBUF_INCLUDE_DIR})
+
 set(PLASMA_SO_VERSION "0")
 set(PLASMA_ABI_VERSION "${PLASMA_SO_VERSION}.0.0")
 
@@ -60,6 +64,12 @@ add_custom_command(
   COMMENT "Running flatc compiler on ${PLASMA_FBS_SRC}"
   VERBATIM)
 
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/format/plasma.pb.h ${CMAKE_CURRENT_SOURCE_DIR}/format/plasma.pb.cc
+  COMMAND ${PROTOBUF_EXECUTABLE} plasma.proto --cpp_out=.
+  DEPENDS format/plasma.proto
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/format)
+
 if(UNIX AND NOT APPLE)
   link_libraries(rt)
 endif()
@@ -76,6 +86,7 @@ set(PLASMA_SRCS
   malloc.cc
   plasma.cc
   protocol.cc
+  format/plasma.pb.cc
   thirdparty/ae/ae.c
   thirdparty/xxhash.cc)
 
@@ -122,7 +133,10 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
 endif()
 
 add_executable(plasma_store store.cc)
-target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS})
+target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS} ${PROTOBUF_STATIC_LIB})
+
+add_executable(proto_connector proto_connector.cc ${CMAKE_CURRENT_SOURCE_DIR}/format/plasma.pb.cc)
+target_link_libraries(proto_connector ${PROTOBUF_STATIC_LIB} ${PLASMA_LINK_LIBS} plasma_static)
 
 # Headers: top level
 install(FILES

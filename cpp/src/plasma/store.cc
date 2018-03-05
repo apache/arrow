@@ -54,8 +54,10 @@
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 #include "plasma/fling.h"
+#include "plasma/format/plasma.pb.h"
 #include "plasma/io.h"
 #include "plasma/malloc.h"
+#include "plasma/plasma_service.h"
 
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
@@ -671,9 +673,27 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 }
 
 Status PlasmaStore::process_message(Client* client) {
-  int64_t type;
-  Status s = ReadMessage(client->fd, &type, &input_buffer_);
-  ARROW_CHECK(s.ok() || s.IsIOError());
+  PlasmaService service;
+
+  int64_t type = 0;
+
+  // Status s = ReadMessage(client->fd, &type, &input_buffer_);
+  // int64_t size = 0;
+  // ARROW_CHECK_OK(ReadBytes(client->fd, reinterpret_cast<uint8_t*>(&size), sizeof(size)));
+  // std::cout << "size is " << size << std::endl;
+
+
+  google::protobuf::Message* request;
+  ARROW_CHECK_OK(ReadProto(&service, client->fd, &type, &request));
+
+  const google::protobuf::ServiceDescriptor* service_descriptor = service.GetDescriptor();
+  const google::protobuf::MethodDescriptor* method_descriptor = service_descriptor->method(type);
+
+  service.CallMethod(method_descriptor, nullptr, request, nullptr, nullptr);
+
+  /*
+
+  // ARROW_CHECK(s.ok() || s.IsIOError());
 
   uint8_t* input = input_buffer_.data();
   size_t input_size = input_buffer_.size();
@@ -763,6 +783,9 @@ Status PlasmaStore::process_message(Client* client) {
       // This code should be unreachable.
       ARROW_CHECK(0);
   }
+
+  */
+
   return Status::OK();
 }
 

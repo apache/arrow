@@ -26,13 +26,16 @@
 #include <string>
 #include <vector>
 
+#include <google/protobuf/message.h>
+#include <google/protobuf/service.h>
+
 #include "arrow/status.h"
 #include "plasma/compat.h"
 
 // TODO(pcm): Replace our own custom message header (message type,
 // message length, plasma protocol verion) with one that is serialized
 // using flatbuffers.
-#define PLASMA_PROTOCOL_VERSION 0x0000000000000000
+#define PLASMA_PROTOCOL_VERSION 0x0000000000000001
 #define DISCONNECT_CLIENT 0
 
 namespace plasma {
@@ -43,9 +46,13 @@ Status WriteBytes(int fd, uint8_t* cursor, size_t length);
 
 Status WriteMessage(int fd, int64_t type, int64_t length, uint8_t* bytes);
 
+Status WriteProto(int fd, int64_t type, const google::protobuf::Message* message);
+
 Status ReadBytes(int fd, uint8_t* cursor, size_t length);
 
 Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer);
+
+Status ReadProto(google::protobuf::Service* service, int fd, int64_t* type, google::protobuf::Message **message);
 
 int bind_ipc_sock(const std::string& pathname, bool shall_listen);
 

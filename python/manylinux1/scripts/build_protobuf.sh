@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PROTOBUF_VERSION="2.6.0"
+PROTOBUF_VERSION="3.5.1"
 
 curl -sL https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz -o protobuf-${PROTOBUF_VERSION}.tar.gz
 tar xf protobuf-${PROTOBUF_VERSION}.tar.gz

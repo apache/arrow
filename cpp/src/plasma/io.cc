@@ -20,6 +20,9 @@
 #include <cstdint>
 #include <sstream>
 
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+
 #include "arrow/status.h"
 
 #include "plasma/common.h"
@@ -64,6 +67,20 @@ Status WriteMessage(int fd, int64_t type, int64_t length, uint8_t* bytes) {
   return WriteBytes(fd, bytes, length * sizeof(char));
 }
 
+Status WriteProto(int fd, int64_t type, const google::protobuf::Message* message) {
+  int64_t version = PLASMA_PROTOCOL_VERSION;
+  RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)));
+  RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&type), sizeof(type)));
+  size_t size = message->ByteSize();
+  RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&size), sizeof(size)));
+  // TODO(pcm): Preallocate this!
+  std::vector<char> buffer(size);
+  google::protobuf::io::ArrayOutputStream stream(buffer.data(), size);
+  google::protobuf::io::CodedOutputStream output(&stream);
+  message->SerializeToCodedStream(&output);
+  return WriteBytes(fd, reinterpret_cast<uint8_t*>(buffer.data()), size);
+}
+
 Status ReadBytes(int fd, uint8_t* cursor, size_t length) {
   ssize_t nbytes = 0;
   /* Termination condition: EOF or read 'length' bytes total. */
@@ -104,6 +121,28 @@ Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer) {
     buffer->resize(length);
   }
   RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer->data(), length), *type = DISCONNECT_CLIENT);
+  return Status::OK();
+}
+
+Status ReadProto(google::protobuf::Service* service, int fd, int64_t* type, google::protobuf::Message **message) {
+  int64_t version;
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)),
+                     *type = DISCONNECT_CLIENT);
+  ARROW_CHECK(version == PLASMA_PROTOCOL_VERSION) << "version = " << version;
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(type), sizeof(*type)),
+                     *type = DISCONNECT_CLIENT);
+  size_t length;
+  RETURN_NOT_OK_ELSE(
+      ReadBytes(fd, reinterpret_cast<uint8_t*>(&length), sizeof(length)),
+      *type = DISCONNECT_CLIENT);
+  // TODO(pcm): Preallocate this buffer!
+  std::vector<uint8_t> buffer(length);
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer.data(), length), *type = DISCONNECT_CLIENT);
+  google::protobuf::io::ArrayInputStream stream(buffer.data(), length);
+  google::protobuf::io::CodedInputStream input(&stream);
+  const google::protobuf::ServiceDescriptor* service_descriptor = service->GetDescriptor();
+  *message = service->GetRequestPrototype(service_descriptor->method(*type)).New();
+  (*message)->MergeFromCodedStream(&input);
   return Status::OK();
 }
 
