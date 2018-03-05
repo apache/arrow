@@ -2480,19 +2480,19 @@ TEST_F(TestListArray, TestFromArrays) {
 
   ListArray expected1(list_type, length, offsets1->data()->buffers[1], values,
                       offsets1->data()->buffers[0], 0);
-  AssertArraysEqual(expected1, *list1);
+  test::AssertArraysEqual(expected1, *list1);
 
   // Use null bitmap from offsets3, but clean offsets from non-null version
   ListArray expected3(list_type, length, offsets1->data()->buffers[1], values,
                       offsets3->data()->buffers[0], 1);
-  AssertArraysEqual(expected3, *list3);
+  test::AssertArraysEqual(expected3, *list3);
 
   // Check that the last offset bit is zero
   ASSERT_TRUE(BitUtil::BitNotSet(list3->null_bitmap()->data(), length + 1));
 
   ListArray expected4(list_type, length, offsets2->data()->buffers[1], values,
                       offsets4->data()->buffers[0], 1);
-  AssertArraysEqual(expected4, *list4);
+  test::AssertArraysEqual(expected4, *list4);
 
   // Test failure modes
 
