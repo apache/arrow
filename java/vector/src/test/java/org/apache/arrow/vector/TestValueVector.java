@@ -1933,6 +1933,10 @@ public class TestValueVector {
       vector.allocateNew();
       assertEquals(4096, vector.getValueCapacity());
       assertEquals(64, vector.getDataBuffer().capacity());
+
+      vector.setInitialCapacity(5, 0.01);
+      vector.allocateNew();
+      assertEquals(7, vector.getValueCapacity());
     }
   }
 }

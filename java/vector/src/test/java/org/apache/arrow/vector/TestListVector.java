@@ -810,6 +810,10 @@ public class TestListVector {
       vector.allocateNew();
       assertEquals(512, vector.getValueCapacity());
       assertEquals(8, vector.getDataVector().getValueCapacity());
+
+      vector.setInitialCapacity(5, 0.1);
+      vector.allocateNew();
+      assertEquals(7, vector.getValueCapacity());
     }
   }
 }
