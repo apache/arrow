@@ -720,6 +720,18 @@ cdef class Buffer:
         return self.size
 
 
+cdef class ForeignBuffer(Buffer):
+
+    def __init__(self, addr, size, base):
+        cdef:
+            intptr_t c_addr = addr
+            int64_t c_size = size
+        self.base = base
+        cdef shared_ptr[CBuffer] buffer = make_shared[CBuffer](
+            <uint8_t*>c_addr, c_size)
+        self.init(<shared_ptr[CBuffer]> buffer)
+
+
 cdef class ResizableBuffer(Buffer):
 
     cdef void init_rz(self, const shared_ptr[CResizableBuffer]& buffer):
