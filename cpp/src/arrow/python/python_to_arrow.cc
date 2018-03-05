@@ -510,7 +510,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   } else if (PyTuple_CheckExact(elem)) {
     RETURN_NOT_OK(builder->AppendTuple(PyTuple_Size(elem)));
     subtuples->push_back(elem);
-  } else if (PySet_CheckExact(elem)) {
+  } else if (PySet_Check(elem)) {
     RETURN_NOT_OK(builder->AppendSet(PySet_Size(elem)));
     subsets->push_back(elem);
   } else if (PyArray_IsScalar(elem, Generic)) {
