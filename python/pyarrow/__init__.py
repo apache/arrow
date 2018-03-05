@@ -23,8 +23,22 @@ try:
 except DistributionNotFound:
    # package is not installed
     try:
+        # This code is duplicated from setup.py to avoid a dependency on each
+        # other.
+        def parse_version(root):
+            from setuptools_scm import version_from_scm
+            import setuptools_scm.git
+            describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --match 'apache-arrow-[0-9]*'"
+            # Strip catchall from the commandline
+            describe = describe.replace("--match *.*", "")
+            version = setuptools_scm.git.parse(root, describe)
+            if not version:
+                return version_from_scm(root)
+            else:
+                return version
+
         import setuptools_scm
-        __version__ = setuptools_scm.get_version('../')
+        __version__ = setuptools_scm.get_version('../', parse=parse_version)
     except (ImportError, LookupError):
         __version__ = None
 
