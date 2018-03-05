@@ -96,6 +96,7 @@ class build_ext(_build_ext):
                      ('build-type=', None, 'build type (debug or release)'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
+                     ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
                      ('with-orc', None, 'build the ORC extension'),
                      ('bundle-arrow-cpp', None,
@@ -170,6 +171,8 @@ class build_ext(_build_ext):
                 cmake_options.append('-DPYARROW_PARQUET_USE_SHARED=off')
             if not self.with_static_boost:
                 cmake_options.append('-DPYARROW_BOOST_USE_SHARED=on')
+            else:
+                cmake_options.append('-DPYARROW_BOOST_USE_SHARED=off')
 
             if self.with_plasma:
                 cmake_options.append('-DPYARROW_BUILD_PLASMA=on')

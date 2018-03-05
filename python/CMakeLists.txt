@@ -268,6 +268,24 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   # boost
   if (PYARROW_BOOST_USE_SHARED)
     set(Boost_USE_STATIC_LIBS OFF)
+    set(Boost_USE_MULTITHREADED ON)
+    if (MSVC AND ARROW_USE_STATIC_CRT)
+      set(Boost_USE_STATIC_RUNTIME ON)
+    endif()
+    set(Boost_ADDITIONAL_VERSIONS
+      "1.66.0" "1.66"
+      "1.65.0" "1.65"
+      "1.64.0" "1.64"
+      "1.63.0" "1.63"
+      "1.62.0" "1.61"
+      "1.61.0" "1.62"
+      "1.60.0" "1.60")
+    list(GET Boost_ADDITIONAL_VERSIONS 0 BOOST_LATEST_VERSION)
+    string(REPLACE "." "_" BOOST_LATEST_VERSION_IN_PATH ${BOOST_LATEST_VERSION})
+    if (MSVC)
+      # disable autolinking in boost
+      add_definitions(-DBOOST_ALL_NO_LIB)
+    endif()
     find_package(Boost COMPONENTS system filesystem regex REQUIRED)
     bundle_boost_lib(Boost_REGEX_LIBRARY)
     bundle_boost_lib(Boost_FILESYSTEM_LIBRARY)

@@ -133,7 +133,7 @@ popd
 pushd python
 
 set PYARROW_CXXFLAGS=/WX
-python setup.py build_ext --with-parquet --bundle-arrow-cpp ^
+python setup.py build_ext --with-parquet --bundle-arrow-cpp --with-static-boost ^
     install -q --single-version-externally-managed --record=record.text ^
     bdist_wheel || exit /B
 
