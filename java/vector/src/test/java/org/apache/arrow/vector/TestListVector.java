@@ -811,14 +811,21 @@ public class TestListVector {
       assertEquals(512, vector.getValueCapacity());
       assertEquals(8, vector.getDataVector().getValueCapacity());
 
-      boolean error = false;
-      try {
-        vector.setInitialCapacity(5, 0.1);
-      } catch (IllegalArgumentException e) {
-        error = true;
-      } finally {
-        assertTrue(error);
-      }
+      /**
+       * inner value capacity we pass to data vector is 5 * 0.1 => 0
+       * which is then rounded off to 1. So we pass value count as 1
+       * to the inner int vector.
+       * the offset buffer of the list vector is allocated for 6 values
+       * which is 24 bytes and then rounded off to 32 bytes (8 values)
+       * the validity buffer of the list vector is allocated for 5
+       * values which is 1 byte. This is why value capacity of the list
+       * vector is 7 as we take the min of validity buffer value capacity
+       * and offset buffer value capacity.
+       */
+      vector.setInitialCapacity(5, 0.1);
+      vector.allocateNew();
+      assertEquals(7, vector.getValueCapacity());
+      assertEquals(1, vector.getDataVector().getValueCapacity());
     }
   }
 }
