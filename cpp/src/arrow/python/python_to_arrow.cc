@@ -501,7 +501,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
       return Status::Invalid("Cannot writes bytes over 2GB");
     }
     RETURN_NOT_OK(builder->AppendString(data, static_cast<int32_t>(size)));
-  } else if (PyList_Check(elem)) {
+  } else if (PyList_CheckExact(elem)) {
     RETURN_NOT_OK(builder->AppendList(PyList_Size(elem)));
     sublists->push_back(elem);
   } else if (PyDict_CheckExact(elem)) {
@@ -510,12 +510,12 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   } else if (PyTuple_CheckExact(elem)) {
     RETURN_NOT_OK(builder->AppendTuple(PyTuple_Size(elem)));
     subtuples->push_back(elem);
-  } else if (PySet_Check(elem)) {
+  } else if (PySet_CheckExact(elem)) {
     RETURN_NOT_OK(builder->AppendSet(PySet_Size(elem)));
     subsets->push_back(elem);
   } else if (PyArray_IsScalar(elem, Generic)) {
     RETURN_NOT_OK(AppendScalar(elem, builder));
-  } else if (PyArray_Check(elem)) {
+  } else if (PyArray_CheckExact(elem)) {
     RETURN_NOT_OK(SerializeArray(context, reinterpret_cast<PyArrayObject*>(elem), builder,
                                  subdicts, blobs_out));
   } else if (elem == Py_None) {
