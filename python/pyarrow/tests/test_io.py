@@ -24,6 +24,7 @@ import sys
 import weakref
 
 import numpy as np
+import numpy.testing as npt
 
 import pandas as pd
 
@@ -251,6 +252,14 @@ def test_buffer_equals():
     assert not buf2.equals(buf4)
     # Data type is indifferent
     assert buf2.equals(buf5)
+
+
+def test_foreign_buffer():
+    n = np.array([1, 2])
+    addr = n.__array_interface__["data"][0]
+    size = n.nbytes
+    fb = pa.ForeignBuffer(addr, size, n)
+    npt.assert_array_equal(np.asarray(fb), n.view(dtype=np.int8))
 
 
 def test_allocate_buffer():
