@@ -70,6 +70,31 @@ cdef class RowGroupStatistics:
                                self.num_values,
                                self.physical_type)
 
+    cdef inline _cast_statistic(self, object value):
+        # Input value is bytes
+        cdef ParquetType physical_type = self.statistics.get().physical_type()
+        if physical_type == ParquetType_BOOLEAN:
+            return bool(int(value))
+        elif physical_type == ParquetType_INT32:
+            return int(value)
+        elif physical_type == ParquetType_INT64:
+            return int(value)
+        elif physical_type == ParquetType_INT96:
+            # Leave as PyBytes
+            return value
+        elif physical_type == ParquetType_FLOAT:
+            return float(value)
+        elif physical_type == ParquetType_DOUBLE:
+            return float(value)
+        elif physical_type == ParquetType_BYTE_ARRAY:
+            # Leave as PyBytes
+            return value
+        elif physical_type == ParquetType_FIXED_LEN_BYTE_ARRAY:
+            # Leave as PyBytes
+            return value
+        else:
+            raise ValueError('Unknown physical ParquetType')
+
     property has_min_max:
 
         def __get__(self):
@@ -82,7 +107,7 @@ cdef class RowGroupStatistics:
             encode_min = self.statistics.get().EncodeMin()
 
             min_value = FormatStatValue(raw_physical_type, encode_min.c_str())
-            return frombytes(min_value)
+            return self._cast_statistic(min_value)
 
     property max:
 
@@ -91,7 +116,7 @@ cdef class RowGroupStatistics:
             encode_max = self.statistics.get().EncodeMax()
 
             max_value = FormatStatValue(raw_physical_type, encode_max.c_str())
-            return frombytes(max_value)
+            return self._cast_statistic(max_value)
 
     property null_count:
 
