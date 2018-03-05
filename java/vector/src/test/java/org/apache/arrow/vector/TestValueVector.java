@@ -1937,6 +1937,7 @@ public class TestValueVector {
       vector.setInitialCapacity(5, 0.01);
       vector.allocateNew();
       assertEquals(7, vector.getValueCapacity());
+      assertEquals(2, vector.getDataBuffer().capacity());
     }
   }
 }
