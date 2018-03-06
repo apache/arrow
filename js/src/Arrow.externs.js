@@ -510,24 +510,42 @@ var FloatVector = function() {};
 FloatVector.from = function() {};
 
 var DateVector = function() {};
+/** @type {?} */
+DateVector.prototype.asEpochMilliseconds;
 var DecimalVector = function() {};
 var TimeVector = function() {};
 var TimestampVector = function() {};
+/** @type {?} */
+TimestampVector.prototype.asEpochMilliseconds;
 var IntervalVector = function() {};
 var BinaryVector = function() {};
+/** @type {?} */
+BinaryVector.prototype.asUtf8;
 var FixedSizeBinaryVector = function() {};
 var Utf8Vector = function() {};
+/** @type {?} */
+Utf8Vector.prototype.asBinary;
 var ListVector = function() {};
 var FixedSizeListVector = function() {};
 var MapVector = function() {};
+/** @type {?} */
+MapVector.prototype.asStruct;
 var StructVector = function() {};
+/** @type {?} */
+StructVector.prototype.asMap;
 var UnionVector = function() {};
 
 var DictionaryVector = function() {};
 /** @type {?} */
+DictionaryVector.prototype.indices;
+/** @type {?} */
+DictionaryVector.prototype.dictionary;
+/** @type {?} */
 DictionaryVector.prototype.getKey;
 /** @type {?} */
 DictionaryVector.prototype.getValue;
+/** @type {?} */
+DictionaryVector.prototype.reverseLookup;
 
 var FlatView = function() {};
 /** @type {?} */
