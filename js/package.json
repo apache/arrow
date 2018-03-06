@@ -125,7 +125,6 @@
       "ts",
       "tsx"
     ],
-    "mapCoverage": true,
     "coverageReporters": [
       "lcov"
     ],
