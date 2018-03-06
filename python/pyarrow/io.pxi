@@ -671,6 +671,12 @@ cdef class Buffer:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
         return result
 
+    def __eq__(self, other):
+        if isinstance(other, Buffer):
+            return self.equals(other)
+        else:
+            return NotImplemented
+
     def to_pybytes(self):
         self._check_nullptr()
         return cp.PyBytes_FromStringAndSize(
