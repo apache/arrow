@@ -541,6 +541,12 @@ strides: {0.strides}""".format(self)
         self._validate()
         return self.tp.Equals(deref(other.tp))
 
+    def __eq__(self, other):
+        if isinstance(other, Tensor):
+            return self.equals(other)
+        else:
+            return NotImplemented
+
     @property
     def is_mutable(self):
         self._validate()
@@ -565,12 +571,12 @@ strides: {0.strides}""".format(self)
     def shape(self):
         # Cython knows how to convert a vector[T] to a Python list
         self._validate()
-        return self.tp.shape()
+        return tuple(self.tp.shape())
 
     @property
     def strides(self):
         self._validate()
-        return self.tp.strides()
+        return tuple(self.tp.strides())
 
 
 cdef wrap_array_output(PyObject* output):

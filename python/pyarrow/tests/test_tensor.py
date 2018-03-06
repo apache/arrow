@@ -30,8 +30,8 @@ def test_tensor_attrs():
 
     assert tensor.ndim == 2
     assert tensor.size == 40
-    assert tensor.shape == list(data.shape)
-    assert tensor.strides == list(data.strides)
+    assert tensor.shape == data.shape
+    assert tensor.strides == data.strides
 
     assert tensor.is_contiguous
     assert tensor.is_mutable
@@ -121,14 +121,30 @@ def test_tensor_ipc_strided(tmpdir):
 
 
 def test_tensor_equals():
+    def eq(a, b):
+        assert a.equals(b)
+        assert a == b
+        assert not (a != b)
+
+    def ne(a, b):
+        assert not a.equals(b)
+        assert not (a == b)
+        assert a != b
+
     data = np.random.randn(10, 6, 4)[::, ::2, ::]
     tensor1 = pa.Tensor.from_numpy(data)
     tensor2 = pa.Tensor.from_numpy(np.ascontiguousarray(data))
-    assert tensor1.equals(tensor2)
+    eq(tensor1, tensor2)
     data = data.copy()
     data[9, 0, 0] = 1.0
     tensor2 = pa.Tensor.from_numpy(np.ascontiguousarray(data))
-    assert not tensor1.equals(tensor2)
+    ne(tensor1, tensor2)
+
+
+def test_tensor_hashing():
+    # Tensors are unhashable
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(pa.Tensor.from_numpy(np.arange(10)))
 
 
 def test_tensor_size():
