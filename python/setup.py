@@ -381,6 +381,10 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
     else:
         libs = glob.glob(pjoin(build_prefix, lib_filename) + '*')
 
+    if not libs:
+        raise Exception('Could not find library:' + lib_filename +
+                        ' in ' + build_prefix)
+
     # Longest suffix library should be copied, all others symlinked
     libs.sort(key=lambda s: -len(s))
     print(libs, libs[0])
