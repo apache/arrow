@@ -1139,7 +1139,7 @@ def _ensure_file(source):
         fs = _get_fs_from_path(source)
         try:
             return fs.open(source)
-        except FileNotFoundError as e:
+        except IOError as e:
             raise lib.ArrowIOError("failed to open file {}, {}"
                                    .format(source, e))
     elif not hasattr(source, 'seek'):
