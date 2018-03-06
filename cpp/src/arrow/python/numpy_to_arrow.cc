@@ -1178,7 +1178,7 @@ Status NumPyConverter::ConvertObjects() {
       case Type::STRING:
         return ConvertObjectStrings();
       case Type::BINARY:
-	return ConvertObjectBytes();
+        return ConvertObjectBytes();
       case Type::FIXED_SIZE_BINARY:
         return ConvertObjectFixedWidthBytes(type_);
       case Type::BOOL:
@@ -1386,7 +1386,8 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
       int64_t offset = 0;
-      RETURN_NOT_OK(AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset));
+      RETURN_NOT_OK(AppendObjectBinaries(numpy_array, nullptr, 0, value_builder,
+                                         &offset));
       if (offset < PyArray_SIZE(numpy_array)) {
         return Status::Invalid("Array cell value exceeded 2GB");
       }
