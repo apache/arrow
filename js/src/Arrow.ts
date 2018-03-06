@@ -175,6 +175,7 @@ export namespace predicate {
     export import Or = predicate_.Or;
     export import Col = predicate_.Col;
     export import And = predicate_.And;
+    export import Not = predicate_.Not;
     export import GTeq = predicate_.GTeq;
     export import LTeq = predicate_.LTeq;
     export import Value = predicate_.Value;

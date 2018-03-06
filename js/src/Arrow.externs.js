@@ -74,9 +74,9 @@ var custom = function () {};
 
 var Value = function() {};
 /** @type {?} */
-Value.prototype.gteq;
+Value.prototype.ge;
 /** @type {?} */
-Value.prototype.lteq;
+Value.prototype.le;
 /** @type {?} */
 Value.prototype.eq;
 /** @type {?} */
@@ -84,13 +84,14 @@ Value.prototype.lt;
 /** @type {?} */
 Value.prototype.gt;
 /** @type {?} */
-Value.prototype.neq;
+Value.prototype.ne;
 
 var Col = function() {};
 /** @type {?} */
 Col.prototype.bind;
 var Or = function() {};
 var And = function() {};
+var Not = function() {};
 var GTeq = function () {};
 /** @type {?} */
 GTeq.prototype.and;

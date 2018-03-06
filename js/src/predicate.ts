@@ -26,21 +26,21 @@ export abstract class Value<T> {
         if (!(other instanceof Value)) { other = new Literal(other); }
         return new Equals(this, other);
     }
-    lteq(other: Value<T> | T): Predicate {
+    le(other: Value<T> | T): Predicate {
         if (!(other instanceof Value)) { other = new Literal(other); }
         return new LTeq(this, other);
     }
-    gteq(other: Value<T> | T): Predicate {
+    ge(other: Value<T> | T): Predicate {
         if (!(other instanceof Value)) { other = new Literal(other); }
         return new GTeq(this, other);
     }
     lt(other: Value<T> | T): Predicate {
-        return new Not(this.gteq(other));
+        return new Not(this.ge(other));
     }
     gt(other: Value<T> | T): Predicate {
-        return new Not(this.lteq(other));
+        return new Not(this.le(other));
     }
-    neq(other: Value<T> | T): Predicate {
+    ne(other: Value<T> | T): Predicate {
         return new Not(this.eq(other));
     }
 }
