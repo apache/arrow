@@ -22,6 +22,7 @@ CTestTestfile.cmake
 Makefile
 cmake_install.cmake
 build/
+release/
 *-build/
 Testing/
 
