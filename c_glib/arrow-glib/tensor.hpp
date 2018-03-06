@@ -23,6 +23,7 @@
 
 #include <arrow-glib/tensor.h>
 
-GArrowTensor *garrow_tensor_new_raw(std::shared_ptr<arrow::Tensor> *arrow_tensor,
-                                    GArrowBuffer *buffer);
+GArrowTensor *garrow_tensor_new_raw(std::shared_ptr<arrow::Tensor> *arrow_tensor);
+GArrowTensor *garrow_tensor_new_raw_buffer(std::shared_ptr<arrow::Tensor> *arrow_tensor,
+                                           GArrowBuffer *buffer);
 std::shared_ptr<arrow::Tensor> garrow_tensor_get_raw(GArrowTensor *tensor);
