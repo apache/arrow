@@ -1105,6 +1105,16 @@ class TestConvertStringLikeTypes(object):
         assert arr.type == pa.binary()
         _check_series_roundtrip(s, type_=pa.binary())
 
+    def test_binary_from_bytearray(self):
+        s = pd.Series([bytearray(b'123'), bytearray(b''), bytearray(b'a')])
+        # Explicitly set type
+        arr = pa.Array.from_pandas(s, type=pa.binary())
+        assert arr.type == pa.binary()
+        # Infer type from bytearrays
+        arr = pa.Array.from_pandas(s)
+        assert arr.type == pa.binary()
+        _check_series_roundtrip(s, type_=pa.binary())
+
     def test_table_empty_str(self):
         values = ['', '', '', '', '']
         df = pd.DataFrame({'strings': values})

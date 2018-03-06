@@ -221,18 +221,24 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
     if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
       continue;
-    } else if (!PyBytes_Check(obj)) {
+    } else if (PyBytes_Check(obj)) {
+      const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
+      if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+        break;
+      }
+      RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
+    } else if (PyByteArray_Check(obj)) {
+      const int32_t length = static_cast<int32_t>(PyByteArray_GET_SIZE(obj));
+      if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+        break;
+      }
+      RETURN_NOT_OK(builder->Append(PyByteArray_AS_STRING(obj), length));
+    } else {
       std::stringstream ss;
       ss << "Error converting from Python objects to bytes: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
+      RETURN_NOT_OK(InvalidConversion(obj, "str, bytes, bytearray", &ss));
       return Status::Invalid(ss.str());
     }
-
-    const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
-    if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
-      break;
-    }
-    RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
   }
 
   // If we consumed the whole array, this will be the length of arr
@@ -991,7 +997,7 @@ Status NumPyConverter::ConvertObjectIntegers() {
 Status NumPyConverter::ConvertObjectBytes() {
   PyAcquireGIL lock;
 
-  BinaryBuilder builder(type_, pool_);
+  BinaryBuilder builder(binary(), pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   if (length_ == 0) {
@@ -1111,6 +1117,8 @@ Status NumPyConverter::ConvertObjectsInfer() {
       return ConvertTimes();
     } else if (PyObject_IsInstance(obj, decimal_type_.obj()) == 1) {
       return ConvertDecimals();
+    } else if (PyByteArray_Check(obj)) {
+      return ConvertObjectBytes();
     } else if (PyList_Check(obj)) {
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
@@ -1128,7 +1136,7 @@ Status NumPyConverter::ConvertObjectsInfer() {
       return ConvertLists(inferred_type);
     } else {
       const std::string supported_types =
-          "string, bool, float, int, date, time, decimal, list, array";
+          "string, bool, float, int, date, time, decimal, bytearray, list, array";
       std::stringstream ss;
       ss << "Error inferring Arrow type for Python object array. ";
       RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
