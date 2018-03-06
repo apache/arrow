@@ -223,13 +223,15 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
       continue;
     } else if (PyBytes_Check(obj)) {
       const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
-      if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+      if (ARROW_PREDICT_FALSE(builder->value_data_length() + length >
+                              kBinaryMemoryLimit)) {
         break;
       }
       RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
     } else if (PyByteArray_Check(obj)) {
       const int32_t length = static_cast<int32_t>(PyByteArray_GET_SIZE(obj));
-      if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+      if (ARROW_PREDICT_FALSE(builder->value_data_length() + length >
+                              kBinaryMemoryLimit)) {
         break;
       }
       RETURN_NOT_OK(builder->Append(PyByteArray_AS_STRING(obj), length));
