@@ -847,6 +847,25 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
+FIXED_OFFSET_PREFIX = '+'
+
+
+def tzinfo_to_string(tz):
+    if tz.zone is None:
+        return '{}{:d}'.format(FIXED_OFFSET_PREFIX, tz._minutes)
+    else:
+        return tz.zone
+
+
+def string_to_tzinfo(tz):
+    import pytz
+    if tz.startswith(FIXED_OFFSET_PREFIX):
+        minutes = int(tz[len(FIXED_OFFSET_PREFIX):])
+        return pytz.FixedOffset(minutes)
+    else:
+        return pytz.timezone(tz)
+
+
 def timestamp(unit, tz=None):
     """
     Create instance of timestamp type with resolution and optional time zone
@@ -894,7 +913,7 @@ def timestamp(unit, tz=None):
         _timestamp_type_cache[unit_code] = out
     else:
         if not isinstance(tz, six.string_types):
-            tz = tz.zone
+            tz = tzinfo_to_string(tz)
 
         c_timezone = tobytes(tz)
         out.init(ctimestamp(unit_code, c_timezone))
