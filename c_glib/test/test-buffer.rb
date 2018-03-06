@@ -23,6 +23,16 @@ class TestBuffer < Test::Unit::TestCase
     @buffer = Arrow::Buffer.new(@data)
   end
 
+  def test_new_bytes
+    bytes_data = GLib::Bytes.new(@data)
+    buffer = Arrow::Buffer.new(bytes_data)
+    if GLib.check_binding_version?(3, 2, 2)
+      assert_equal(bytes_data.pointer, buffer.data.pointer)
+    else
+      assert_equal(@data, buffer.data.to_s)
+    end
+  end
+
   def test_equal
     assert_equal(@buffer,
                  Arrow::Buffer.new(@data.dup))

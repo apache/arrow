@@ -282,16 +282,79 @@ garrow_seekable_input_stream_read_tensor(GArrowSeekableInputStream *input_stream
                                        arrow_random_access_file.get(),
                                        &arrow_tensor);
   if (garrow_error_check(error, status, "[seekable-input-stream][read-tensor]")) {
-    return garrow_tensor_new_raw(&arrow_tensor, nullptr);
+    return garrow_tensor_new_raw(&arrow_tensor);
   } else {
     return NULL;
   }
 }
 
 
-G_DEFINE_TYPE(GArrowBufferInputStream,                       \
-              garrow_buffer_input_stream,                     \
-              GARROW_TYPE_SEEKABLE_INPUT_STREAM);
+typedef struct GArrowBufferInputStreamPrivate_ {
+  GArrowBuffer *buffer;
+} GArrowBufferInputStreamPrivate;
+
+enum {
+  PROP_0_,
+  PROP_BUFFER
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowBufferInputStream,                     \
+                           garrow_buffer_input_stream,                  \
+                           GARROW_TYPE_SEEKABLE_INPUT_STREAM);
+
+#define GARROW_BUFFER_INPUT_STREAM_GET_PRIVATE(obj)                     \
+  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                                   \
+                               GARROW_TYPE_BUFFER_INPUT_STREAM,         \
+                               GArrowBufferInputStreamPrivate))
+
+static void
+garrow_buffer_input_stream_dispose(GObject *object)
+{
+  auto priv = GARROW_BUFFER_INPUT_STREAM_GET_PRIVATE(object);
+
+  if (priv->buffer) {
+    g_object_unref(priv->buffer);
+    priv->buffer = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_buffer_input_stream_parent_class)->dispose(object);
+}
+
+static void
+garrow_buffer_input_stream_set_property(GObject *object,
+                                        guint prop_id,
+                                        const GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_BUFFER_INPUT_STREAM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_BUFFER:
+    priv->buffer = GARROW_BUFFER(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_buffer_input_stream_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_BUFFER_INPUT_STREAM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_BUFFER:
+    g_value_set_object(value, priv->buffer);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_buffer_input_stream_init(GArrowBufferInputStream *object)
@@ -301,6 +364,21 @@ garrow_buffer_input_stream_init(GArrowBufferInputStream *object)
 static void
 garrow_buffer_input_stream_class_init(GArrowBufferInputStreamClass *klass)
 {
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = garrow_buffer_input_stream_dispose;
+  gobject_class->set_property = garrow_buffer_input_stream_set_property;
+  gobject_class->get_property = garrow_buffer_input_stream_get_property;
+
+  spec = g_param_spec_object("buffer",
+                             "Buffer",
+                             "The data",
+                             GARROW_TYPE_BUFFER,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_BUFFER, spec);
 }
 
 /**
@@ -315,18 +393,24 @@ garrow_buffer_input_stream_new(GArrowBuffer *buffer)
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
   auto arrow_buffer_reader =
     std::make_shared<arrow::io::BufferReader>(arrow_buffer);
-  return garrow_buffer_input_stream_new_raw(&arrow_buffer_reader);
+  return garrow_buffer_input_stream_new_raw_buffer(&arrow_buffer_reader, buffer);
 }
 
 /**
  * garrow_buffer_input_stream_get_buffer:
  * @input_stream: A #GArrowBufferInputStream.
  *
- * Returns: (transfer full): The data of the array as #GArrowBuffer.
+ * Returns: (transfer full): The data of the stream as #GArrowBuffer.
  */
 GArrowBuffer *
 garrow_buffer_input_stream_get_buffer(GArrowBufferInputStream *input_stream)
 {
+  auto priv = GARROW_BUFFER_INPUT_STREAM_GET_PRIVATE(input_stream);
+  if (priv->buffer) {
+    g_object_ref(priv->buffer);
+    return priv->buffer;
+  }
+
   auto arrow_buffer_reader = garrow_buffer_input_stream_get_raw(input_stream);
   auto arrow_buffer = arrow_buffer_reader->buffer();
   return garrow_buffer_new_raw(&arrow_buffer);
@@ -627,9 +711,17 @@ garrow_seekable_input_stream_get_raw(GArrowSeekableInputStream *seekable_input_s
 GArrowBufferInputStream *
 garrow_buffer_input_stream_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader)
 {
+  return garrow_buffer_input_stream_new_raw_buffer(arrow_buffer_reader, nullptr);
+}
+
+GArrowBufferInputStream *
+garrow_buffer_input_stream_new_raw_buffer(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader,
+                                          GArrowBuffer *buffer)
+{
   auto buffer_input_stream =
     GARROW_BUFFER_INPUT_STREAM(g_object_new(GARROW_TYPE_BUFFER_INPUT_STREAM,
                                             "input-stream", arrow_buffer_reader,
+                                            "buffer", buffer,
                                             NULL));
   return buffer_input_stream;
 }
