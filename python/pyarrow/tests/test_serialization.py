@@ -410,6 +410,33 @@ def test_serialization_callback_numpy():
     pa.serialize(DummyClass(), context=context)
 
 
+def test_numpy_subclass_serialization():
+    # Check that we can properly serialize subclasses of np.ndarray.
+    class CustomNDArray(np.ndarray):
+        def __new__(cls, input_array):
+            array = np.asarray(input_array).view(cls)
+            return array
+
+    def serializer(obj):
+        return {'numpy': obj.view(np.ndarray)}
+
+    def deserializer(data):
+        array = data['numpy'].view(CustomNDArray)
+        return array
+
+    context = pa.default_serialization_context()
+
+    context.register_type(CustomNDArray, 'CustomNDArray',
+                          custom_serializer=serializer,
+                          custom_deserializer=deserializer)
+
+    x = CustomNDArray(np.zeros(3))
+    serialized = pa.serialize(x, context=context).to_buffer()
+    new_x = pa.deserialize(serialized, context=context)
+    assert type(new_x) == CustomNDArray
+    assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
+
+
 def test_buffer_serialization():
 
     class BufferClass(object):
