@@ -22,6 +22,12 @@ import json
 import re
 import six
 from six.moves.urllib.parse import urlparse
+# pathlib might not be available in Python 2
+try:
+    import pathlib
+    _has_pathlib = True
+except ImportError:
+    _has_pathlib = False
 
 import numpy as np
 
@@ -287,7 +293,7 @@ schema : arrow Schema
         # to be closed
         self.file_handle = None
 
-        if is_string(where):
+        if is_path(where):
             fs = _get_fs_from_path(where)
             sink = self.file_handle = fs.open(where, 'wb')
         else:
@@ -575,8 +581,9 @@ class ParquetPartitions(object):
         return self.levels[level].get_index(key)
 
 
-def is_string(x):
-    return isinstance(x, six.string_types)
+def is_path(x):
+    return (isinstance(x, six.string_types)
+            or (_has_pathlib and isinstance(x, pathlib.Path)))
 
 
 class ParquetManifest(object):
@@ -870,7 +877,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/'):
         # Dask passes a directory as a list of length 1
         path_or_paths = path_or_paths[0]
 
-    if is_string(path_or_paths) and fs.isdir(path_or_paths):
+    if is_path(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    pathsep=fs.pathsep)
         common_metadata_path = manifest.common_metadata_path
@@ -923,7 +930,7 @@ Returns
 
 def read_table(source, columns=None, nthreads=1, metadata=None,
                use_pandas_metadata=False):
-    if is_string(source):
+    if is_path(source):
         fs = _get_fs_from_path(source)
 
         if fs.isdir(source):
@@ -976,7 +983,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
-        if is_string(where):
+        if is_path(where):
             try:
                 os.remove(where)
             except os.error:
@@ -1135,7 +1142,7 @@ def read_schema(where):
 
 
 def _ensure_file(source):
-    if is_string(source):
+    if is_path(source):
         fs = _get_fs_from_path(source)
         try:
             return fs.open(source)
@@ -1153,6 +1160,8 @@ def _get_fs_from_path(path):
     return filesystem from path which could be an HDFS URI
     """
     # input can be hdfs URI such as hdfs://host:port/myfile.parquet
+    if _has_pathlib and isinstance(path, pathlib.Path):
+        path = str(path)
     parsed_uri = urlparse(path)
     if parsed_uri.scheme not in ['', 'file', 'hdfs']:
         raise ValueError("Invalid file URI scheme {}".format(
