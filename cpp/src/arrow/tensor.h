@@ -71,7 +71,7 @@ class ARROW_EXPORT Tensor {
   std::shared_ptr<Buffer> data() const { return data_; }
 
   const uint8_t* raw_data() const { return data_->data(); }
-  uint8_t* raw_data() { return data_->mutable_data(); }
+  uint8_t* raw_mutable_data() { return data_->mutable_data(); }
 
   const std::vector<int64_t>& shape() const { return shape_; }
   const std::vector<int64_t>& strides() const { return strides_; }
