@@ -395,6 +395,7 @@ class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
         if not pa.have_libhdfs3():
             pytest.skip('No libhdfs3 available on system')
 
+
 def _get_hdfs_uri(path):
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
     try:
