@@ -1163,9 +1163,6 @@ def _get_fs_from_path(path):
     if _has_pathlib and isinstance(path, pathlib.Path):
         path = str(path)
     parsed_uri = urlparse(path)
-    if parsed_uri.scheme not in ['', 'file', 'hdfs']:
-        raise ValueError("Invalid file URI scheme {}".format(
-            parsed_uri.scheme))
     if parsed_uri.scheme == 'hdfs':
         netloc_split = parsed_uri.netloc.split(':')
         host = netloc_split[0]
