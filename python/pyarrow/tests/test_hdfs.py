@@ -272,19 +272,11 @@ class HdfsTestCases(object):
 
         assert result == data
 
-    @test_parquet.parquet
-    def test_read_multiple_parquet_files(self):
+    def _write_multiple_hdfs_pq_files(self, tmpdir):
         import pyarrow.parquet as pq
-
         nfiles = 10
         size = 5
-
-        tmpdir = pjoin(self.tmp_path, 'multi-parquet-' + guid())
-
-        self.hdfs.mkdir(tmpdir)
-
         test_data = []
-        paths = []
         for i in range(nfiles):
             df = test_parquet._test_dataframe(size, seed=i)
 
@@ -300,10 +292,35 @@ class HdfsTestCases(object):
                 pq.write_table(table, f)
 
             test_data.append(table)
-            paths.append(path)
 
-        result = self.hdfs.read_parquet(tmpdir)
         expected = pa.concat_tables(test_data)
+        return expected
+
+    @test_parquet.parquet
+    def test_read_multiple_parquet_files(self):
+
+        tmpdir = pjoin(self.tmp_path, 'multi-parquet-' + guid())
+
+        self.hdfs.mkdir(tmpdir)
+
+        expected = self._write_multiple_hdfs_pq_files(tmpdir)
+        result = self.hdfs.read_parquet(tmpdir)
+
+        pdt.assert_frame_equal(result.to_pandas()
+                               .sort_values(by='index').reset_index(drop=True),
+                               expected.to_pandas())
+
+    @test_parquet.parquet
+    def test_read_multiple_parquet_files_with_uri(self):
+        import pyarrow.parquet as pq
+
+        tmpdir = pjoin(self.tmp_path, 'multi-parquet-uri-' + guid())
+
+        self.hdfs.mkdir(tmpdir)
+
+        expected = self._write_multiple_hdfs_pq_files(tmpdir)
+        path = _get_hdfs_uri(tmpdir)
+        result = pq.read_table(path)
 
         pdt.assert_frame_equal(result.to_pandas()
                                .sort_values(by='index').reset_index(drop=True),
@@ -315,14 +332,7 @@ class HdfsTestCases(object):
 
         tmpdir = pjoin(self.tmp_path, 'uri-parquet-' + guid())
         self.hdfs.mkdir(tmpdir)
-        host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
-        try:
-            port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
-        except ValueError:
-            raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
-                             'an integer')
-        path = "hdfs://{}:{}{}".format(host, port,
-                                       pjoin(tmpdir, 'test.parquet'))
+        path = _get_hdfs_uri(pjoin(tmpdir, 'test.parquet'))
 
         size = 5
         df = test_parquet._test_dataframe(size, seed=0)
@@ -384,3 +394,14 @@ class TestLibHdfs3(HdfsTestCases, unittest.TestCase):
     def check_driver(cls):
         if not pa.have_libhdfs3():
             pytest.skip('No libhdfs3 available on system')
+
+def _get_hdfs_uri(path):
+    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'localhost')
+    try:
+        port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
+    except ValueError:
+        raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
+                         'an integer')
+    uri = "hdfs://{}:{}{}".format(host, port, path)
+
+    return uri
