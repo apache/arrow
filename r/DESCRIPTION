@@ -1,0 +1,17 @@
+Package: rrrow
+Title: Bindings to 'Apache' 'Arrow'
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Romain", "François", email = "romain@purrple.cat", role = c("aut", "cre"))
+  )
+Description: R bindings to Apache Arrow.
+Depends: R (>= 3.4.3)
+License: Apache License (>= 2.0)
+Encoding: UTF-8
+LazyData: true
+LinkingTo: 
+    Rcpp
+Imports: 
+    Rcpp
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 6.0.1
