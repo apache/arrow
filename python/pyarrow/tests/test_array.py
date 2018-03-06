@@ -258,6 +258,26 @@ def test_union_from_sparse():
     assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
 
 
+def test_string_from_buffers():
+    array = pa.array(["a", None, "b", "c"])
+
+    buffers = array.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(array), buffers[1], buffers[2], buffers[0], array.null_count,
+        array.offset)
+    assert copied.to_pylist() == ["a", None, "b", "c"]
+
+    copied = pa.StringArray.from_buffers(
+        len(array), buffers[1], buffers[2], buffers[0])
+    assert copied.to_pylist() == ["a", None, "b", "c"]
+
+    sliced = array[1:]
+    copied = pa.StringArray.from_buffers(
+        len(sliced), buffers[1], buffers[2], buffers[0], -1, sliced.offset)
+    buffers = array.buffers()
+    assert copied.to_pylist() == [None, "b", "c"]
+
+
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
 
