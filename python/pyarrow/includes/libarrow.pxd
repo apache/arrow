@@ -103,6 +103,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int64_t length()
         int64_t null_count()
+        int64_t offset()
         Type type_id()
 
         int num_fields()
