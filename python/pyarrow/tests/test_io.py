@@ -237,6 +237,16 @@ def test_buffer_from_numpy():
 
 def test_buffer_equals():
     # Buffer.equals() returns true iff the buffers have the same contents
+    def eq(a, b):
+        assert a.equals(b)
+        assert a == b
+        assert not (a != b)
+
+    def ne(a, b):
+        assert not a.equals(b)
+        assert not (a == b)
+        assert a != b
+
     b1 = b'some data!'
     b2 = bytearray(b1)
     b3 = bytearray(b1)
@@ -246,12 +256,18 @@ def test_buffer_equals():
     buf3 = pa.frombuffer(b2)
     buf4 = pa.frombuffer(b3)
     buf5 = pa.frombuffer(np.frombuffer(b2, dtype=np.int16))
-    assert buf1.equals(buf1)
-    assert buf1.equals(buf2)
-    assert buf2.equals(buf3)
-    assert not buf2.equals(buf4)
+    eq(buf1, buf1)
+    eq(buf1, buf2)
+    eq(buf2, buf3)
+    ne(buf2, buf4)
     # Data type is indifferent
-    assert buf2.equals(buf5)
+    eq(buf2, buf5)
+
+
+def test_buffer_hashing():
+    # Buffers are unhashable
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(pa.frombuffer(b'123'))
 
 
 def test_foreign_buffer():
