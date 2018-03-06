@@ -38,3 +38,4 @@ python/.eggs/
 .idea/
 .pytest_cache/
 pkgs
+.Rproj.user
