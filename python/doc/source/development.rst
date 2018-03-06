@@ -117,7 +117,8 @@ dependencies will be automatically built by Arrow's third-party toolchain.
 
    $ sudo apt-get install libjemalloc-dev libboost-dev \
                           libboost-filesystem-dev \
-                          libboost-system-dev
+                          libboost-system-dev \
+                          libboost-regex-dev
 
 On Arch Linux, you can get these dependencies via pacman.
 
