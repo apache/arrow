@@ -483,10 +483,23 @@ cdef class Array:
         with nogil:
             check_status(ValidateArray(deref(self.ap)))
 
+    property offset:
+
+        def __get__(self):
+            """
+            A relative position into another array's data, to enable zero-copy
+            slicing. This value defaults to zero but must be applied on all
+            operations with the physical storage buffers.
+            """
+            return self.sp_array.get().offset()
+
     def buffers(self):
         """
         Return a list of Buffer objects pointing to this array's physical
         storage.
+
+        To correctly interpret these buffers, you need to also apply the offset
+        multiplied with the size of the stored data type.
         """
         res = []
         _append_array_buffers(self.sp_array.get().data().get(), res)
