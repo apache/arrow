@@ -44,9 +44,8 @@ Now, you can bootstrap a build environment
 conda create -n arrow-dev cmake git boost-cpp flatbuffers rapidjson cmake thrift-cpp snappy zlib brotli gflags lz4-c zstd -c conda-forge
 ```
 
-***Note:***
-> *Make sure to get the `conda-forge` build of `gflags` as the
-  naming of the library differs from that in the `defaults` channel*
+> **Note:** Make sure to get the `conda-forge` build of `gflags` as the
+> naming of the library differs from that in the `defaults` channel.
 
 Activate just created conda environment with pre-installed packages from
 previous step:
@@ -116,52 +115,85 @@ zstd%ZSTD_SUFFIX%.lib.
 ### Visual Studio
 
 Microsoft provides the free Visual Studio Community edition. When doing
-development, you must launch the developer command prompt using
+development, you must launch the developer command prompt using:
 
 #### Visual Studio 2015
 
-```"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64```
+```
+"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+```
 
 #### Visual Studio 2017
 
-```"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64```
+```
+"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
+```
 
 It's easiest to configure a console emulator like [cmder][3] to automatically
 launch this when starting a new development console.
+
+## Building with Ninja and clcache
+
+We recommend the [Ninja](https://ninja-build.org/) build system for better
+build parallelization, and the optional
+[clcache](https://github.com/frerich/clcache/) compiler cache which keeps
+track of past compilations to avoid running them over and over again
+(in a way similar to the Unix-specific "ccache").
+
+Activate your conda build environment to first install those utilities:
+
+```shell
+activate arrow-dev
+
+conda install -c conda-forge ninja
+pip install git+https://github.com/frerich/clcache.git
+```
+
+Change working directory in cmd.exe to the root directory of Arrow and
+do an out of source build by generating Ninja files:
+
+```shell
+cd cpp
+mkdir build
+cd build
+cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release
+```
 
 ## Building with NMake
 
 Activate your conda build environment:
 
-```
+```shell
 activate arrow-dev
 ```
 
 Change working directory in cmd.exe to the root directory of Arrow and
 do an out of source build using `nmake`:
 
-```
+```shell
 cd cpp
 mkdir build
 cd build
 cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release
 nmake
 ```
 
 When using conda, only release builds are currently supported.
 
-## Build using Visual Studio (MSVC) Solution Files
+## Building using Visual Studio (MSVC) Solution Files
 
 Activate your conda build environment:
 
-```
+```shell
 activate arrow-dev
 ```
 
 Change working directory in cmd.exe to the root directory of Arrow and
 do an out of source build by generating a MSVC solution:
 
-```
+```shell
 cd cpp
 mkdir build
 cd build
@@ -171,10 +203,11 @@ cmake --build . --config Release
 
 ## Debug build
 
-To build Debug version of Arrow you should have pre-insalled Debug version of
-boost libs.
+To build Debug version of Arrow you should have pre-installed a Debug version
+of boost libs.
 
-It's recommended to configure cmake build with following variables for Debug build:
+It's recommended to configure cmake build with the following variables for
+Debug build:
 
 `-DARROW_BOOST_USE_SHARED=OFF` - enables static linking with boost debug libs and
 simplifies run-time loading of 3rd parties. (Recommended)
@@ -185,7 +218,7 @@ simplifies run-time loading of 3rd parties. (Recommended)
 
 Command line to build Arrow in Debug might look as following:
 
-```
+```shell
 cd cpp
 mkdir build
 cd build
