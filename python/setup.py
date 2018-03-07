@@ -259,9 +259,9 @@ class build_ext(_build_ext):
                 if self.with_parquet and not self.with_static_parquet:
                     move_shared_libs(build_prefix, build_lib, "parquet")
                 if not self.with_static_boost:
-                    move_shared_libs(build_prefix, build_lib, "arrow_boost_filesystem")
-                    move_shared_libs(build_prefix, build_lib, "arrow_boost_system")
-                    move_shared_libs(build_prefix, build_lib, "arrow_boost_regex")
+                    move_shared_libs(build_prefix, build_lib, "boost_filesystem")
+                    move_shared_libs(build_prefix, build_lib, "boost_system")
+                    move_shared_libs(build_prefix, build_lib, "boost_regex")
 
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
