@@ -600,6 +600,15 @@ def test_buffers_primitive():
     assert 1 <= len(null_bitmap) <= 64  # XXX this is varying
     assert bytearray(null_bitmap)[0] == 0b00001011
 
+    # Slicing does not affect the buffers but the offset
+    a_sliced = a[1:]
+    buffers = a_sliced.buffers()
+    a_sliced.offset == 1
+    assert len(buffers) == 2
+    null_bitmap = buffers[0].to_pybytes()
+    assert 1 <= len(null_bitmap) <= 64  # XXX this is varying
+    assert bytearray(null_bitmap)[0] == 0b00001011
+
     assert struct.unpack('hhxxh', buffers[1].to_pybytes()) == (1, 2, 4)
 
     a = pa.array(np.int8([4, 5, 6]))
