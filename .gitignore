@@ -26,6 +26,11 @@
 .build_cache_dir
 MANIFEST
 
+# Generated Visual Studio files
+*.vcxproj
+*.vcxproj.*
+*.sln
+
 cpp/.idea/
 python/.eggs/
 .vscode
