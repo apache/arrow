@@ -48,6 +48,8 @@
 #include "plasma/malloc.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
+#include "plasma/proto_connector.h"
+#include "plasma_service.h"
 
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
@@ -186,22 +188,24 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                             std::shared_ptr<Buffer>* data, int device_num) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
                    << data_size << " and metadata size " << metadata_size;
-  RETURN_NOT_OK(
-      SendCreateRequest(store_conn_, object_id, data_size, metadata_size, device_num));
-  std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaCreateReply, &buffer));
-  ObjectID id;
+  auto request = std::unique_ptr<rpc::CreateRequest>(new rpc::CreateRequest());
+  request->set_object_id(object_id.binary());
+  request->set_data_size(data_size);
+  request->set_metadata_size(metadata_size);
+  auto response = std::unique_ptr<rpc::CreateReply>(new rpc::CreateReply());
+  store_service_->Create(controller_.get(), request.get(), response.get(), nullptr);
+
+  ObjectID id = ObjectID::from_binary(response->object_id());
   PlasmaObject object;
-  int store_fd;
-  int64_t mmap_size;
-  RETURN_NOT_OK(
-      ReadCreateReply(buffer.data(), buffer.size(), &id, &object, &store_fd, &mmap_size));
+  ReadPlasmaObject(&response->plasma_object(), &object);
+  int store_fd = response->store_fd();
+  int64_t mmap_size = response->mmap_size();
   // If the CreateReply included an error, then the store will not send a file
   // descriptor.
   if (device_num == 0) {
-    int fd = recv_fd(store_conn_);
+    int fd = recv_fd(store_channel_->conn());
     ARROW_CHECK(fd >= 0) << "recv not successful";
-    ARROW_CHECK(object.data_size == data_size);
+    ARROW_CHECK(object.data_size == data_size) << "check: " << object.data_size << " " << data_size;
     ARROW_CHECK(object.metadata_size == metadata_size);
     // The metadata should come right after the data.
     ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
@@ -440,7 +444,11 @@ Status PlasmaClient::PerformRelease(const ObjectID& object_id) {
   if (object_entry->second->count == 0) {
     // Tell the store that the client no longer needs the object.
     RETURN_NOT_OK(UnmapObject(object_id));
-    RETURN_NOT_OK(SendReleaseRequest(store_conn_, object_id));
+    auto request = std::unique_ptr<rpc::ReleaseRequest>(new rpc::ReleaseRequest());
+    request->set_object_id(object_id.binary());
+    auto response = std::unique_ptr<rpc::ReleaseReply>(new rpc::ReleaseReply());
+    store_service_->Release(controller_.get(), request.get(), response.get(), nullptr);
+    // RETURN_NOT_OK(SendReleaseRequest(store_conn_, object_id));
   }
   return Status::OK();
 }
@@ -577,9 +585,14 @@ Status PlasmaClient::Seal(const ObjectID& object_id) {
       << "Plasma client called seal an already sealed object";
   object_entry->second->is_sealed = true;
   /// Send the seal request to Plasma.
-  static unsigned char digest[kDigestSize];
-  RETURN_NOT_OK(Hash(object_id, &digest[0]));
-  RETURN_NOT_OK(SendSealRequest(store_conn_, object_id, &digest[0]));
+  static char digest[kDigestSize];
+  RETURN_NOT_OK(Hash(object_id, reinterpret_cast<uint8_t*>(&digest[0])));
+  auto request = std::unique_ptr<rpc::SealRequest>(new rpc::SealRequest());
+  request->set_object_id(object_id.binary());
+  request->set_digest(&digest[0]);
+  auto response = std::unique_ptr<rpc::SealReply>(new rpc::SealReply());
+  store_service_->Seal(controller_.get(), request.get(), response.get(), nullptr);
+
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
   // that are currently being used by this client. The corresponding increment
@@ -703,6 +716,9 @@ Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_
 Status PlasmaClient::Connect(const std::string& store_socket_name,
                              const std::string& manager_socket_name, int release_delay,
                              int num_retries) {
+  store_channel_.reset(new RpcChannelImpl(store_socket_name, num_retries, -1));
+  store_service_.reset(new rpc::PlasmaStore::Stub(store_channel_.get()));
+  controller_.reset(new SocketRpcController());
   RETURN_NOT_OK(ConnectIpcSocketRetry(store_socket_name, num_retries, -1, &store_conn_));
   if (manager_socket_name != "") {
     RETURN_NOT_OK(
@@ -712,11 +728,12 @@ Status PlasmaClient::Connect(const std::string& store_socket_name,
   }
   config_.release_delay = release_delay;
   in_use_object_bytes_ = 0;
+
   // Send a ConnectRequest to the store to get its memory capacity.
-  RETURN_NOT_OK(SendConnectRequest(store_conn_));
-  std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaConnectReply, &buffer));
-  RETURN_NOT_OK(ReadConnectReply(buffer.data(), buffer.size(), &store_capacity_));
+  auto request = std::unique_ptr<rpc::ConnectRequest>(new rpc::ConnectRequest());
+  auto response = std::unique_ptr<rpc::ConnectReply>(new rpc::ConnectReply());
+  store_service_->Connect(controller_.get(), request.get(), response.get(), nullptr);
+  store_capacity_ = response->memory_capacity();
   return Status::OK();
 }
 

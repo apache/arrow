@@ -56,6 +56,7 @@ Status PlasmaSend(int sock, int64_t message_type, flatbuffers::FlatBufferBuilder
   return WriteMessage(sock, message_type, fbb->GetSize(), fbb->GetBufferPointer());
 }
 
+/*
 // Create messages.
 
 Status SendCreateRequest(int sock, ObjectID object_id, int64_t data_size,
@@ -134,6 +135,7 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
 #endif
   return plasma_error_status(message->error());
 }
+*/
 
 Status SendAbortRequest(int sock, ObjectID object_id) {
   flatbuffers::FlatBufferBuilder fbb;
@@ -163,6 +165,7 @@ Status ReadAbortReply(uint8_t* data, size_t size, ObjectID* object_id) {
   return Status::OK();
 }
 
+/*
 // Seal messages.
 
 Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest) {
@@ -199,6 +202,10 @@ Status ReadSealReply(uint8_t* data, size_t size, ObjectID* object_id) {
   return plasma_error_status(message->error());
 }
 
+*/
+
+/*
+
 // Release messages.
 
 Status SendReleaseRequest(int sock, ObjectID object_id) {
@@ -229,6 +236,8 @@ Status ReadReleaseReply(uint8_t* data, size_t size, ObjectID* object_id) {
   *object_id = ObjectID::from_binary(message->object_id()->str());
   return plasma_error_status(message->error());
 }
+
+*/
 
 // Delete messages.
 

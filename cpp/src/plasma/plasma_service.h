@@ -40,14 +40,15 @@ class PlasmaService : public rpc::PlasmaStore {
                rpc::CreateReply* response,
                Closure* done) override;
 
-   void Get(::google::protobuf::RpcController* controller,
-                        const ::plasma::rpc::GetRequest* request,
-                        ::plasma::rpc::GetReply* response,
-                        ::google::protobuf::Closure* done) override {}
-   void Release(::google::protobuf::RpcController* controller,
-                        const ::plasma::rpc::ReleaseRequest* request,
-                        ::plasma::rpc::VOID* response,
-                        ::google::protobuf::Closure* done) override {}
+   void Get(RpcController* controller,
+            const rpc::GetRequest* request,
+            rpc::GetReply* response,
+            Closure* done) override {}
+
+   void Release(RpcController* controller,
+                const rpc::ReleaseRequest* request,
+                rpc::ReleaseReply* response,
+                Closure* done) override;
    void Contains(::google::protobuf::RpcController* controller,
                         const ::plasma::rpc::ContainsRequest* request,
                         ::plasma::rpc::ContainsReply* response,
@@ -75,6 +76,8 @@ class PlasmaService : public rpc::PlasmaStore {
   plasma::Client* client_;
   int fd_to_return_;
 };
+
+void ReadPlasmaObject(const rpc::PlasmaObjectSpec* spec, PlasmaObject* object);
 
 }  // namespace plasma
 

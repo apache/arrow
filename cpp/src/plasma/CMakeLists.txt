@@ -86,12 +86,11 @@ set(PLASMA_SRCS
   malloc.cc
   plasma.cc
   protocol.cc
-  plasma_service.cc
   format/plasma.pb.cc
   thirdparty/ae/ae.c
   thirdparty/xxhash.cc)
 
-set(PLASMA_LINK_LIBS arrow_static)
+set(PLASMA_LINK_LIBS arrow_static ${PROTOBUF_STATIC_LIB})
 
 if (ARROW_GPU)
   set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
@@ -133,7 +132,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
     " -Wno-conversion")
 endif()
 
-add_executable(plasma_store store.cc)
+add_executable(plasma_store store.cc plasma_service.cc)
 target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS} ${PROTOBUF_STATIC_LIB})
 
 add_executable(proto_connector proto_connector.cc ${CMAKE_CURRENT_SOURCE_DIR}/format/plasma.pb.cc)

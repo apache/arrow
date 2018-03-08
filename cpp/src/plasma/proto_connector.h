@@ -1,9 +1,21 @@
 #include "plasma/format/plasma.pb.h"
 
 #include "arrow/util/logging.h"
+#include "plasma/plasma.h"
 #include "plasma/io.h"
 
 using namespace google::protobuf;
+
+namespace plasma {
+
+void ReadPlasmaObject(const rpc::PlasmaObjectSpec* spec, PlasmaObject* object) {
+  object->store_fd = spec->segment_index();
+  object->data_offset = spec->data_offset();
+  object->data_size = spec->data_size();
+  object->metadata_offset = spec->metadata_offset();
+  object->metadata_size = spec->metadata_size();
+  object->device_num = spec->device_num();
+}
 
 class SocketRpcController: public google::protobuf::RpcController {
 public:
@@ -63,3 +75,5 @@ class RpcChannelImpl : public RpcChannel {
  private:
   int fd_;
 };
+
+}  // namespace plasma

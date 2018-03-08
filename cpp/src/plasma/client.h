@@ -39,6 +39,13 @@ using arrow::Status;
 
 namespace plasma {
 
+class SocketRpcController;
+class RpcChannelImpl;
+
+namespace rpc {
+  class PlasmaStore_Stub;
+}
+
 #define PLASMA_DEFAULT_RELEASE_DELAY 64
 
 // Use 100MB as an overestimate of the L3 cache size.
@@ -348,6 +355,12 @@ class ARROW_EXPORT PlasmaClient {
   void increment_object_count(const ObjectID& object_id, PlasmaObject* object,
                               bool is_sealed);
 
+  /// Controller for the RPCs.
+  std::unique_ptr<SocketRpcController> controller_;
+  /// Connection to the plasma store.
+  std::unique_ptr<RpcChannelImpl> store_channel_;
+  /// RPC stub for the plasma store.
+  std::unique_ptr<rpc::PlasmaStore_Stub> store_service_;
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
   /// File descriptor of the Unix domain socket that connects to the manager.

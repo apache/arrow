@@ -37,6 +37,17 @@ void UpdateObjectSpec(const PlasmaObject& object, rpc::PlasmaObjectSpec* spec) {
   spec->set_device_num(object.device_num);
 }
 
+/*
+void ReadPlasmaObject(const rpc::PlasmaObjectSpec* spec, PlasmaObject* object) {
+  object->store_fd = spec->segment_index();
+  object->data_offset = spec->data_offset();
+  object->data_size = spec->data_size();
+  object->metadata_offset = spec->metadata_offset();
+  object->metadata_size = spec->metadata_size();
+  object->device_num = spec->device_num();
+}
+*/
+
 void PlasmaService::Create(RpcController* controller,
                            const rpc::CreateRequest* request,
                            rpc::CreateReply* response,
@@ -64,6 +75,14 @@ void PlasmaService::Seal(RpcController* controller,
                          Closure* done) {
   ObjectID object_id = ObjectID::from_binary(request->object_id());
   store_->seal_object(object_id, request->digest().data());
+}
+
+void PlasmaService::Release(RpcController* controller,
+             const rpc::ReleaseRequest* request,
+             rpc::ReleaseReply* response,
+             Closure* done) {
+  ObjectID object_id = ObjectID::from_binary(request->object_id());
+  store_->release_object(object_id, client_);
 }
 
 }  // namespace plasma

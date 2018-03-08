@@ -35,9 +35,17 @@ message PlasmaObjectSpec {
   int32 device_num = 6;
 }
 
+message ConnectRequest {
+}
+
+message ConnectReply {
+  // The memory capacity of the store.
+  int64 memory_capacity = 1;
+}
+
 message CreateRequest {
   // ID of the object to be created.
-  string object_id = 1;
+  bytes object_id = 1;
   // The size of the object's data in bytes.
   int64 data_size = 2;
   // The size of the object's metadata in bytes.
@@ -48,7 +56,7 @@ message CreateRequest {
 
 message CreateReply {
   // ID of the object that was created.
-  string object_id = 1;
+  bytes object_id = 1;
   // The object that is returned with this reply.
   PlasmaObjectSpec plasma_object = 2;
   // Error that occurred for this call.
@@ -63,12 +71,16 @@ message CreateReply {
 
 message SealRequest {
   // ID of the object to be sealed.
-  string object_id = 1;
+  bytes object_id = 1;
   // Hash of the object data.
-  string digest = 2;
+  bytes digest = 2;
 }
 
 message SealReply {
+  // ID of the object that was sealed.
+  bytes object_id = 1;
+  // Error code.
+  PlasmaError error = 2;
 }
 
 message GetRequest {
@@ -78,9 +90,15 @@ message GetReply {
 }
 
 message ReleaseRequest {
+  // ID of the object to be released.
+  bytes object_id = 1;
 }
 
 message ReleaseReply {
+  // ID of the object that was released.
+  bytes object_id = 1;
+  // Error code.
+  PlasmaError error = 2;
 }
 
 message DeleteRequest {
@@ -99,12 +117,6 @@ message ContainsRequest {
 }
 
 message ContainsReply {
-}
-
-message ConnectRequest {
-}
-
-message ConnectReply {
 }
 
 message EvictRequest {
@@ -141,19 +153,19 @@ message VOID {
 }
 
 service PlasmaStore {
-    rpc Create (CreateRequest) returns (CreateReply);
+  rpc Connect (ConnectRequest) returns (ConnectReply);
 
-    rpc Get (GetRequest) returns (GetReply);
+  rpc Create (CreateRequest) returns (CreateReply);
 
-    rpc Release (ReleaseRequest) returns (VOID);
+  rpc Get (GetRequest) returns (GetReply);
 
-    rpc Contains (ContainsRequest) returns (ContainsReply);
+  rpc Release (ReleaseRequest) returns (ReleaseReply);
 
-    rpc Seal (SealRequest) returns (SealReply);
+  rpc Contains (ContainsRequest) returns (ContainsReply);
 
-    rpc Evict (EvictRequest) returns (EvictReply);
+  rpc Seal (SealRequest) returns (SealReply);
 
-    rpc Subscribe (SubscribeRequest) returns (VOID);
+  rpc Evict (EvictRequest) returns (EvictReply);
 
-    rpc Connect (ConnectRequest) returns (ConnectReply);
+  rpc Subscribe (SubscribeRequest) returns (VOID);
 }
