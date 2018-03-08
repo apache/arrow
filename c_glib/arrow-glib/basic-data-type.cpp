@@ -315,9 +315,39 @@ garrow_boolean_data_type_new(void)
 }
 
 
+G_DEFINE_ABSTRACT_TYPE(GArrowNumericDataType,                    \
+                       garrow_numeric_data_type,                 \
+                       GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
+
+static void
+garrow_numeric_data_type_init(GArrowNumericDataType *object)
+{
+}
+
+static void
+garrow_numeric_data_type_class_init(GArrowNumericDataTypeClass *klass)
+{
+}
+
+
+G_DEFINE_ABSTRACT_TYPE(GArrowIntegerDataType,                    \
+                       garrow_integer_data_type,                 \
+                       GARROW_TYPE_NUMERIC_DATA_TYPE)
+
+static void
+garrow_integer_data_type_init(GArrowIntegerDataType *object)
+{
+}
+
+static void
+garrow_integer_data_type_class_init(GArrowIntegerDataTypeClass *klass)
+{
+}
+
+
 G_DEFINE_TYPE(GArrowInt8DataType,                \
               garrow_int8_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_int8_data_type_init(GArrowInt8DataType *object)
@@ -349,7 +379,7 @@ garrow_int8_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowUInt8DataType,                \
               garrow_uint8_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_uint8_data_type_init(GArrowUInt8DataType *object)
@@ -381,7 +411,7 @@ garrow_uint8_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowInt16DataType,                \
               garrow_int16_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_int16_data_type_init(GArrowInt16DataType *object)
@@ -413,7 +443,7 @@ garrow_int16_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowUInt16DataType,                \
               garrow_uint16_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_uint16_data_type_init(GArrowUInt16DataType *object)
@@ -445,7 +475,7 @@ garrow_uint16_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowInt32DataType,                \
               garrow_int32_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_int32_data_type_init(GArrowInt32DataType *object)
@@ -477,7 +507,7 @@ garrow_int32_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowUInt32DataType,                \
               garrow_uint32_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_uint32_data_type_init(GArrowUInt32DataType *object)
@@ -509,7 +539,7 @@ garrow_uint32_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowInt64DataType,                \
               garrow_int64_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_int64_data_type_init(GArrowInt64DataType *object)
@@ -541,7 +571,7 @@ garrow_int64_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowUInt64DataType,                \
               garrow_uint64_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_uint64_data_type_init(GArrowUInt64DataType *object)
@@ -571,9 +601,24 @@ garrow_uint64_data_type_new(void)
 }
 
 
+G_DEFINE_ABSTRACT_TYPE(GArrowFloatingPointDataType,                    \
+                       garrow_floating_point_data_type,                \
+                       GARROW_TYPE_NUMERIC_DATA_TYPE)
+
+static void
+garrow_floating_point_data_type_init(GArrowFloatingPointDataType *object)
+{
+}
+
+static void
+garrow_floating_point_data_type_class_init(GArrowFloatingPointDataTypeClass *klass)
+{
+}
+
+
 G_DEFINE_TYPE(GArrowFloatDataType,                \
               garrow_float_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_FLOATING_POINT_DATA_TYPE)
 
 static void
 garrow_float_data_type_init(GArrowFloatDataType *object)
@@ -605,7 +650,7 @@ garrow_float_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowDoubleDataType,                \
               garrow_double_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_FLOATING_POINT_DATA_TYPE)
 
 static void
 garrow_double_data_type_init(GArrowDoubleDataType *object)
