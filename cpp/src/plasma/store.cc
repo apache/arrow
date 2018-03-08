@@ -673,19 +673,10 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 }
 
 Status PlasmaStore::process_message(Client* client) {
+  // TODO(pcm): Instantiate this only once.
   PlasmaService service(this);
 
-  service.set_current_client(client);
-
   return service.ProcessMessage(client);
-
-  // Status s = ReadMessage(client->fd, &type, &input_buffer_);
-  // int64_t size = 0;
-  // ARROW_CHECK_OK(ReadBytes(client->fd, reinterpret_cast<uint8_t*>(&size), sizeof(size)));
-  // std::cout << "size is " << size << std::endl;
-
-
-
 
   /*
 

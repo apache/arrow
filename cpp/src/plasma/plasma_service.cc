@@ -7,6 +7,9 @@
 namespace plasma {
 
 Status PlasmaService::ProcessMessage(Client* client) {
+  // Pass this on to the the next method executed on the PlasmaService.
+  client_ = client;
+
   int64_t type = 0;
   google::protobuf::Message* request = nullptr;
   ARROW_CHECK_OK(ReadProto(this, client->fd, &type, &request));
@@ -36,17 +39,6 @@ void UpdateObjectSpec(const PlasmaObject& object, rpc::PlasmaObjectSpec* spec) {
   spec->set_metadata_size(object.metadata_size);
   spec->set_device_num(object.device_num);
 }
-
-/*
-void ReadPlasmaObject(const rpc::PlasmaObjectSpec* spec, PlasmaObject* object) {
-  object->store_fd = spec->segment_index();
-  object->data_offset = spec->data_offset();
-  object->data_size = spec->data_size();
-  object->metadata_offset = spec->metadata_offset();
-  object->metadata_size = spec->metadata_size();
-  object->device_num = spec->device_num();
-}
-*/
 
 void PlasmaService::Create(RpcController* controller,
                            const rpc::CreateRequest* request,

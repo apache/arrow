@@ -61,15 +61,9 @@ class RpcChannelImpl : public RpcChannel {
                           const Message* request,
                           Message* response,
                           Closure* done) {
-    std::cout << "calling" << method->name() << std::endl;
-    std::cout << "size = " << request->ByteSize() << std::endl;
     ARROW_CHECK_OK(plasma::WriteProto(fd_, method->index(), request));
     int64_t type;
     ARROW_CHECK_OK(plasma::ReadProto(nullptr, fd_, &type, &response));
-    // int64_t size = request->ByteSize();
-    // request->SerializeToFileDescriptor(fd_);
-    // ARROW_CHECK_OK(plasma::WriteBytes(fd_, reinterpret_cast<uint8_t*>(&size), sizeof(size)));
-    // request->SerializeToFileDescriptor(fd_);
   }
   int conn() { return fd_; }
  private:

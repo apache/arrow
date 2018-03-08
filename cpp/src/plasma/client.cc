@@ -205,7 +205,7 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   if (device_num == 0) {
     int fd = recv_fd(store_channel_->conn());
     ARROW_CHECK(fd >= 0) << "recv not successful";
-    ARROW_CHECK(object.data_size == data_size) << "check: " << object.data_size << " " << data_size;
+    ARROW_CHECK(object.data_size == data_size);
     ARROW_CHECK(object.metadata_size == metadata_size);
     // The metadata should come right after the data.
     ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
@@ -448,7 +448,6 @@ Status PlasmaClient::PerformRelease(const ObjectID& object_id) {
     request->set_object_id(object_id.binary());
     auto response = std::unique_ptr<rpc::ReleaseReply>(new rpc::ReleaseReply());
     store_service_->Release(controller_.get(), request.get(), response.get(), nullptr);
-    // RETURN_NOT_OK(SendReleaseRequest(store_conn_, object_id));
   }
   return Status::OK();
 }

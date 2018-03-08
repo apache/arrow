@@ -135,9 +135,6 @@ endif()
 add_executable(plasma_store store.cc plasma_service.cc)
 target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS} ${PROTOBUF_STATIC_LIB})
 
-add_executable(proto_connector proto_connector.cc ${CMAKE_CURRENT_SOURCE_DIR}/format/plasma.pb.cc)
-target_link_libraries(proto_connector ${PROTOBUF_STATIC_LIB} ${PLASMA_LINK_LIBS} plasma_static)
-
 # Headers: top level
 install(FILES
   common.h

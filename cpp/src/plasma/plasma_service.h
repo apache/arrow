@@ -31,8 +31,6 @@ class PlasmaService : public rpc::PlasmaStore {
    PlasmaService(plasma::PlasmaStore* store) { store_ = store; }
    ~PlasmaService() {}
 
-   void set_current_client(Client* client) { client_ = client; }
-
    Status ProcessMessage(Client* client);
 
    void Create(RpcController* controller,
