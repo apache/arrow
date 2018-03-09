@@ -156,11 +156,9 @@ def _plasma_store_entry_point():
     """
     import os
     import pyarrow
-    import subprocess
     import sys
     plasma_store_executable = os.path.join(pyarrow.__path__[0], "plasma_store")
-    process = subprocess.Popen([plasma_store_executable] + sys.argv[1:])
-    process.wait()
+    os.execv(plasma_store_executable, sys.argv)
 
 # ----------------------------------------------------------------------
 # Deprecations
