@@ -123,8 +123,6 @@ endif()
 
 add_executable(plasma_store store.cc)
 target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS})
-SET_TARGET_PROPERTIES(plasma_store PROPERTIES
-  LINK_FLAGS "-Wl,--as-needed")
 
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)

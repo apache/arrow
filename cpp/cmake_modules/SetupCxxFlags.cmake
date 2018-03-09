@@ -18,10 +18,15 @@
 # Check if the target architecture and compiler supports some special
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
+
 # x86/amd64 compiler flags
 CHECK_CXX_COMPILER_FLAG("-msse3" CXX_SUPPORTS_SSE3)
+
 # power compiler flags
 CHECK_CXX_COMPILER_FLAG("-maltivec" CXX_SUPPORTS_ALTIVEC)
+
+# Support --as-needed in linking
+CHECK_CXX_COMPILER_FLAG("-Wl,--as-needed" CXX_SUPPORTS_SHARED_AS_NEEDED)
 
 # compiler flags that are common across debug/release builds
 
@@ -192,6 +197,10 @@ if (APPLE)
   # the default standard library which does not support C++11. libc++ is the
   # default from 10.9 onward.
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -stdlib=libc++")
+endif()
+
+if (CXX_SUPPORTS_SHARED_AS_NEEDED)
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--as-needed")
 endif()
 
 # compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
