@@ -116,7 +116,8 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
   DCHECK_NE(scale, NULLPTR);
 
   // TODO(phillipc): Make sure we perform PyDecimal_Check(python_decimal) as a DCHECK
-  OwnedRef as_tuple(PyObject_CallMethod(python_decimal, "as_tuple", ""));
+  OwnedRef as_tuple(PyObject_CallMethod(python_decimal, const_cast<char*>("as_tuple"),
+                                        const_cast<char*>("")));
   RETURN_IF_PYERROR();
   DCHECK(PyTuple_Check(as_tuple.obj()));
 
@@ -241,7 +242,8 @@ bool PyDecimal_Check(PyObject* obj) {
 
 bool PyDecimal_ISNAN(PyObject* obj) {
   DCHECK(PyDecimal_Check(obj)) << "obj is not an instance of decimal.Decimal";
-  OwnedRef is_nan(PyObject_CallMethod(obj, "is_nan", ""));
+  OwnedRef is_nan(
+      PyObject_CallMethod(obj, const_cast<char*>("is_nan"), const_cast<char*>("")));
   return PyObject_IsTrue(is_nan.obj()) == 1;
 }
 
