@@ -40,6 +40,8 @@ export PYARROW_BUILD_TYPE='release'
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
+export PYARROW_BUNDLE_BOOST=1
+export PYARROW_BOOST_NAMESPACE=arrow_boost
 export PKG_CONFIG_PATH=/arrow-dist/lib64/pkgconfig
 export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist'
 # Ensure the target directory exists
@@ -66,7 +68,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp --bundle-boost --boost-namespace=arrow_boost
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
