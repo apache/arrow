@@ -131,7 +131,7 @@ if (ARROW_RPATH_ORIGIN)
     set(_lib_install_rpath "\$ORIGIN")
   endif()
   set_target_properties(plasma_store PROPERTIES
-    INSTALL_RPATH ${_lib_install_rpath})
+      INSTALL_RPATH ${_lib_install_rpath})
 endif()
 
 # Headers: top level
