@@ -904,6 +904,11 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         @staticmethod
         CStatus FromPyObject(object obj, shared_ptr[CBuffer]* out)
 
+    cdef cppclass PyForeignBuffer(CBuffer):
+        @staticmethod
+        CStatus Make(const uint8_t* data, int64_t size, object base,
+                     shared_ptr[CBuffer]* out)
+
     cdef cppclass PyReadableFile(RandomAccessFile):
         PyReadableFile(object fo)
 

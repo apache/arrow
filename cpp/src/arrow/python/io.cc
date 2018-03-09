@@ -216,5 +216,19 @@ Status PyOutputStream::Write(const void* data, int64_t nbytes) {
   return file_->Write(data, nbytes);
 }
 
+// ----------------------------------------------------------------------
+// Foreign buffer
+
+Status PyForeignBuffer::Make(const uint8_t* data, int64_t size, PyObject* base,
+                             std::shared_ptr<Buffer>* out) {
+  PyForeignBuffer* buf = new PyForeignBuffer(data, size, base);
+  if (buf == NULL) {
+    return Status::OutOfMemory("could not allocate foreign buffer object");
+  } else {
+    *out = std::shared_ptr<Buffer>(buf);
+    return Status::OK();
+  }
+}
+
 }  // namespace py
 }  // namespace arrow

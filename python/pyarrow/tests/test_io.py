@@ -24,7 +24,6 @@ import sys
 import weakref
 
 import numpy as np
-import numpy.testing as npt
 
 import pandas as pd
 
@@ -271,11 +270,16 @@ def test_buffer_hashing():
 
 
 def test_foreign_buffer():
-    n = np.array([1, 2])
-    addr = n.__array_interface__["data"][0]
-    size = n.nbytes
-    fb = pa.ForeignBuffer(addr, size, n)
-    npt.assert_array_equal(np.asarray(fb), n.view(dtype=np.int8))
+    obj = np.array([1, 2], dtype=np.int32)
+    addr = obj.__array_interface__["data"][0]
+    size = obj.nbytes
+    buf = pa.foreign_buffer(addr, size, obj)
+    wr = weakref.ref(obj)
+    del obj
+    assert np.frombuffer(buf, dtype=np.int32).tolist() == [1, 2]
+    assert wr() is not None
+    del buf
+    assert wr() is None
 
 
 def test_allocate_buffer():

@@ -726,18 +726,6 @@ cdef class Buffer:
         return self.size
 
 
-cdef class ForeignBuffer(Buffer):
-
-    def __init__(self, addr, size, base):
-        cdef:
-            intptr_t c_addr = addr
-            int64_t c_size = size
-        self.base = base
-        cdef shared_ptr[CBuffer] buffer = make_shared[CBuffer](
-            <uint8_t*>c_addr, c_size)
-        self.init(<shared_ptr[CBuffer]> buffer)
-
-
 cdef class ResizableBuffer(Buffer):
 
     cdef void init_rz(self, const shared_ptr[CResizableBuffer]& buffer):
@@ -858,6 +846,21 @@ def frombuffer(object obj):
     """
     cdef shared_ptr[CBuffer] buf
     check_status(PyBuffer.FromPyObject(obj, &buf))
+    return pyarrow_wrap_buffer(buf)
+
+
+def foreign_buffer(address, size, base):
+    """
+    Construct an Arrow buffer with the given *address* and *size*,
+    backed by the Python *base* object.
+    """
+    cdef:
+        intptr_t c_addr = address
+        int64_t c_size = size
+        shared_ptr[CBuffer] buf
+
+    check_status(PyForeignBuffer.Make(<uint8_t*> c_addr, c_size,
+                                      base, &buf))
     return pyarrow_wrap_buffer(buf)
 
 

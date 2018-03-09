@@ -86,7 +86,7 @@ from pyarrow.lib import (null, bool_,
 from pyarrow.lib import TimestampType
 
 # Buffers, allocation
-from pyarrow.lib import (Buffer, ForeignBuffer, ResizableBuffer, compress,
+from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, compress,
                          decompress, allocate_buffer, frombuffer)
 
 from pyarrow.lib import (MemoryPool, total_allocated_bytes,

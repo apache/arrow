@@ -186,6 +186,7 @@ Tables and Record Batches
 
    column
    chunked_array
+   concat_tables
    ChunkedArray
    Column
    RecordBatch
@@ -213,6 +214,7 @@ Input / Output and Shared Memory
    compress
    decompress
    frombuffer
+   foreign_buffer
    Buffer
    ResizableBuffer
    BufferReader
