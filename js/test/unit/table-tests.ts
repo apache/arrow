@@ -327,27 +327,39 @@ describe(`Table`, () => {
             const filter_tests = [
                 {
                     name:     `filter on f32 >= 0`,
-                    filtered: table.filter(col('f32').gteq(0)),
+                    filtered: table.filter(col('f32').ge(0)),
                     expected: values.filter((row) => row[F32] >= 0)
                 }, {
                     name:     `filter on 0 <= f32`,
-                    filtered: table.filter(lit(0).lteq(col('f32'))),
+                    filtered: table.filter(lit(0).le(col('f32'))),
                     expected: values.filter((row) => 0 <= row[F32])
                 }, {
                     name:     `filter on i32 <= 0`,
-                    filtered: table.filter(col('i32').lteq(0)),
+                    filtered: table.filter(col('i32').le(0)),
                     expected: values.filter((row) => row[I32] <= 0)
                 }, {
                     name:     `filter on 0 >= i32`,
-                    filtered: table.filter(lit(0).gteq(col('i32'))),
+                    filtered: table.filter(lit(0).ge(col('i32'))),
                     expected: values.filter((row) => 0 >= row[I32])
                 }, {
+                    name:     `filter on f32 < 0`,
+                    filtered: table.filter(col('f32').lt(0)),
+                    expected: values.filter((row) => row[F32] < 0)
+                }, {
+                    name:     `filter on i32 > 1 (empty)`,
+                    filtered: table.filter(col('i32').gt(0)),
+                    expected: values.filter((row) => row[I32] > 0)
+                }, {
                     name:     `filter on f32 <= -.25 || f3 >= .25`,
-                    filtered: table.filter(col('f32').lteq(-.25).or(col('f32').gteq(.25))),
+                    filtered: table.filter(col('f32').le(-.25).or(col('f32').ge(.25))),
                     expected: values.filter((row) => row[F32] <= -.25 || row[F32] >= .25)
                 }, {
+                    name:     `filter on !(f32 <= -.25 || f3 >= .25) (not)`,
+                    filtered: table.filter(col('f32').le(-.25).or(col('f32').ge(.25)).not()),
+                    expected: values.filter((row) => !(row[F32] <= -.25 || row[F32] >= .25))
+                }, {
                     name:     `filter method combines predicates (f32 >= 0 && i32 <= 0)`,
-                    filtered: table.filter(col('i32').lteq(0)).filter(col('f32').gteq(0)),
+                    filtered: table.filter(col('i32').le(0)).filter(col('f32').ge(0)),
                     expected: values.filter((row) => row[I32] <= 0 && row[F32] >= 0)
                 }, {
                     name:     `filter on dictionary == 'a'`,
@@ -358,12 +370,16 @@ describe(`Table`, () => {
                     filtered: table.filter(lit('a').eq(col('dictionary'))),
                     expected: values.filter((row) => row[DICT] === 'a')
                 }, {
+                    name:     `filter on dictionary != 'b'`,
+                    filtered: table.filter(col('dictionary').ne('b')),
+                    expected: values.filter((row) => row[DICT] !== 'b')
+                }, {
                     name:     `filter on f32 >= i32`,
-                    filtered: table.filter(col('f32').gteq(col('i32'))),
+                    filtered: table.filter(col('f32').ge(col('i32'))),
                     expected: values.filter((row) => row[F32] >= row[I32])
                 }, {
                     name:     `filter on f32 <= i32`,
-                    filtered: table.filter(col('f32').lteq(col('i32'))),
+                    filtered: table.filter(col('f32').le(col('i32'))),
                     expected: values.filter((row) => row[F32] <= row[I32])
                 }, {
                     name:     `filter on f32*i32 > 0 (custom predicate)`,
@@ -455,17 +471,17 @@ describe(`Table`, () => {
                 expect(selected.toString()).toEqual(expected);
             });
             test(`table.filter(..).count() on always false predicates returns 0`, () => {
-                expect(table.filter(col('i32').gteq(100)).count()).toEqual(0);
+                expect(table.filter(col('i32').ge(100)).count()).toEqual(0);
                 expect(table.filter(col('dictionary').eq('z')).count()).toEqual(0);
             });
             describe(`lit-lit comparison`, () => {
                 test(`always-false count() returns 0`, () => {
                     expect(table.filter(lit('abc').eq('def')).count()).toEqual(0);
-                    expect(table.filter(lit(0).gteq(1)).count()).toEqual(0);
+                    expect(table.filter(lit(0).ge(1)).count()).toEqual(0);
                 });
                 test(`always-true count() returns length`, () => {
                     expect(table.filter(lit('abc').eq('abc')).count()).toEqual(table.length);
-                    expect(table.filter(lit(-100).lteq(0)).count()).toEqual(table.length);
+                    expect(table.filter(lit(-100).le(0)).count()).toEqual(table.length);
                 });
             });
             describe(`col-col comparison`, () => {
