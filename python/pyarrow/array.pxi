@@ -831,7 +831,8 @@ cdef class DictionaryArray(Array):
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, ordered=False,
-                    from_pandas=False, MemoryPool memory_pool=None):
+                    from_pandas=False, safe=True,
+                    MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
         non-negative integers) and corresponding array of dictionary values
@@ -847,6 +848,8 @@ cdef class DictionaryArray(Array):
             a pandas.Categorical (null encoded as -1)
         ordered : boolean, default False
             Set to True if the category values are ordered
+        safe : boolean, default True
+            If True, check that the dictionary indices are in range
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise uses default pool
 
@@ -885,7 +888,14 @@ cdef class DictionaryArray(Array):
 
         c_type.reset(new CDictionaryType(_indices.type.sp_type,
                                          _dictionary.sp_array, c_ordered))
-        c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
+
+        if safe:
+            with nogil:
+                check_status(
+                    CDictionaryArray.FromArrays(c_type, _indices.sp_array,
+                                                &c_result))
+        else:
+            c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
 
         result = DictionaryArray()
         result.init(c_result)
