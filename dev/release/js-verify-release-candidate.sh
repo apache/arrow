@@ -54,13 +54,14 @@ fetch_archive() {
   local dist_name=$1
   download_rc_file ${dist_name}.tar.gz
   download_rc_file ${dist_name}.tar.gz.asc
-  download_rc_file ${dist_name}.tar.gz.md5
+  download_rc_file ${dist_name}.tar.gz.sha1
   download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  gpg --print-md MD5 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.md5
   if [ "$(uname)" == "Darwin" ]; then
+    shasum -a 1 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha1
     shasum -a 512 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
   else
+    sha1sum ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha1
     sha512sum ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
   fi
 }
