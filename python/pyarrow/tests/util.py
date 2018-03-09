@@ -19,9 +19,12 @@
 Utility functions for testing
 """
 
-import decimal
-import random
 import contextlib
+import decimal
+import os
+import random
+
+import pyarrow as pa
 
 
 def randsign():
@@ -91,3 +94,15 @@ def randdecimal(precision, scale):
     return decimal.Decimal(
         '{}.{}'.format(whole, str(fractional).rjust(scale, '0'))
     )
+
+
+def get_modified_env_with_pythonpath():
+    # Prepend pyarrow root directory to PYTHONPATH
+    env = os.environ.copy()
+    existing_pythonpath = env.get('PYTHONPATH', '')
+
+    module_path = os.path.abspath(
+        os.path.dirname(os.path.dirname(pa.__file__)))
+
+    env['PYTHONPATH'] = os.pathsep.join((module_path, existing_pythonpath))
+    return env
