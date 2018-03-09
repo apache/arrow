@@ -94,11 +94,15 @@ class build_ext(_build_ext):
     description = "Build the C-extensions for arrow"
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
+                     ('boost-namespace=', None,
+                      'namespace of boost (default: boost)'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
                      ('with-orc', None, 'build the ORC extension'),
+                     ('bundle-boost', None,
+                      'bundle the (shared) Boost libraries'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
@@ -107,6 +111,8 @@ class build_ext(_build_ext):
         _build_ext.initialize_options(self)
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
+        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
+                                              'boost')
 
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
@@ -128,6 +134,10 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_ORC', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
+        # Default is True but this only is actually bundled when
+        # we also bundle arrow-cpp.
+        self.bundle_boost = strtobool(
+            os.environ.get('PYARROW_BUNDLE_BOOST', '1'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -186,15 +196,20 @@ class build_ext(_build_ext):
 
             if self.bundle_arrow_cpp:
                 cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
+                cmake_options.append('-DPYARROW_BUNDLE_BOOST=ON')
                 # ARROW-1090: work around CMake rough edges
                 if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
                     pkg_config = pjoin(os.environ['ARROW_HOME'], 'lib',
                                        'pkgconfig')
                     os.environ['PKG_CONFIG_PATH'] = pkg_config
                     del os.environ['ARROW_HOME']
+            else:
+                cmake_options.append('-DPYARROW_BUNDLE_BOOST=OFF')
 
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                                  .format(self.build_type.lower()))
+            cmake_options.append('-DBoost_NAMESPACE={}'.format(
+                self.boost_namespace))
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
             if sys.platform != 'win32':
@@ -258,10 +273,16 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_parquet and not self.with_static_parquet:
                     move_shared_libs(build_prefix, build_lib, "parquet")
-                if not self.with_static_boost:
-                    move_shared_libs(build_prefix, build_lib, "arrow_boost_filesystem")
-                    move_shared_libs(build_prefix, build_lib, "arrow_boost_system")
-                    move_shared_libs(build_prefix, build_lib, "arrow_boost_regex")
+                if not self.with_static_boost and self.bundle_boost:
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_filesystem".format(self.boost_namespace))
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_system".format(self.boost_namespace))
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_regex".format(self.boost_namespace))
 
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):

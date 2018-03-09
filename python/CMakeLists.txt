@@ -76,6 +76,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUNDLE_ARROW_CPP
     "Bundle the Arrow C++ libraries"
     OFF)
+  option(PYARROW_BUNDLE_BOOST
+    "Bundle the Boost libraries when we bundle Arrow C++"
+    ON)
   set(PYARROW_CXXFLAGS "" CACHE STRING
     "Compiler flags to append when compiling Arrow")
 endif()
@@ -266,7 +269,7 @@ if (PYARROW_BUNDLE_ARROW_CPP)
     SO_VERSION ${ARROW_SO_VERSION})
 
   # boost
-  if (PYARROW_BOOST_USE_SHARED)
+  if (PYARROW_BOOST_USE_SHARED AND PYARROW_BUNDLE_BOOST)
     set(Boost_USE_STATIC_LIBS OFF)
     set(Boost_USE_MULTITHREADED ON)
     if (MSVC AND ARROW_USE_STATIC_CRT)
