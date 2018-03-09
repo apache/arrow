@@ -388,6 +388,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_chunks()
         shared_ptr[CArray] chunk(int i)
         shared_ptr[CDataType] type()
+        shared_ptr[CChunkedArray] Slice(int64_t offset, int64_t length) const
+        shared_ptr[CChunkedArray] Slice(int64_t offset) const
 
     cdef cppclass CColumn" arrow::Column":
         CColumn(const shared_ptr[CField]& field,
