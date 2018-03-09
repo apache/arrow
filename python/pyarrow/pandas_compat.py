@@ -18,6 +18,7 @@
 import ast
 import collections
 import json
+import operator
 import re
 
 import pandas.core.internals as _int
@@ -99,8 +100,8 @@ _numpy_logical_type_map = {
     np.float32: 'float32',
     np.float64: 'float64',
     'datetime64[D]': 'date',
-    np.str_: 'unicode',
-    np.bytes_: 'bytes',
+    np.unicode_: 'string' if not PY2 else 'unicode',
+    np.bytes_: 'bytes' if not PY2 else 'string',
 }
 
 
@@ -615,6 +616,22 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
 
 
 def _backwards_compatible_index_name(raw_name, logical_name):
+    """Compute the name of an index column that is compatible with older
+    versions of :mod:`pyarrow`.
+
+    Parameters
+    ----------
+    raw_name : str
+    logical_name : str
+
+    Returns
+    -------
+    result : str
+
+    Notes
+    -----
+    * Part of :func:`~pyarrow.pandas_compat.table_to_blockmanager`
+    """
     # Part of table_to_blockmanager
     pattern = r'^__index_level_\d+__$'
     if raw_name == logical_name and re.match(pattern, raw_name) is not None:
@@ -623,8 +640,57 @@ def _backwards_compatible_index_name(raw_name, logical_name):
         return logical_name
 
 
+_pandas_logical_type_map = {
+    'date': 'datetime64[D]',
+    'unicode': np.unicode_,
+    'bytes': np.bytes_,
+    'string': np.str_,
+    'empty': np.object_,
+    'mixed': np.object_,
+}
+
+
+def _pandas_type_to_numpy_type(pandas_type):
+    """Get the numpy dtype that corresponds to a pandas type.
+
+    Parameters
+    ----------
+    pandas_type : str
+        The result of a call to pandas.lib.infer_dtype.
+
+    Returns
+    -------
+    dtype : np.dtype
+        The dtype that corresponds to `pandas_type`.
+    """
+    try:
+        return _pandas_logical_type_map[pandas_type]
+    except KeyError:
+        return np.dtype(pandas_type)
+
+
 def _reconstruct_columns_from_metadata(columns, column_indexes):
-    # Part of table_to_blockmanager
+    """Construct a pandas MultiIndex from `columns` and column index metadata
+    in `column_indexes`.
+
+    Parameters
+    ----------
+    columns : List[pd.Index]
+        The columns coming from a pyarrow.Table
+    column_indexes : List[Dict[str, str]]
+        The column index metadata deserialized from the JSON schema metadata
+        in a :class:`~pyarrow.Table`.
+
+    Returns
+    -------
+    result : MultiIndex
+        The index reconstructed using `column_indexes` metadata with levels of
+        the correct type.
+
+    Notes
+    -----
+    * Part of :func:`~pyarrow.pandas_compat.table_to_blockmanager`
+    """
 
     # Get levels and labels, and provide sane defaults if the index has a
     # single level to avoid if/else spaghetti.
@@ -635,21 +701,28 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
     # Convert each level to the dtype provided in the metadata
     levels_dtypes = [
-        (level, col_index.get('numpy_type', level.dtype))
+        (level, col_index.get('pandas_type', str(level.dtype)))
         for level, col_index in zip_longest(
             levels, column_indexes, fillvalue={}
         )
     ]
-    new_levels = [
-        _level if _level.dtype == _dtype else _level.astype(_dtype)
-        for _level, _dtype in levels_dtypes
-    ]
 
-    return pd.MultiIndex(
-        levels=new_levels,
-        labels=labels,
-        names=columns.names
-    )
+    new_levels = []
+    encoder = operator.methodcaller('encode', 'UTF-8')
+    for level, pandas_dtype in levels_dtypes:
+        dtype = _pandas_type_to_numpy_type(pandas_dtype)
+
+        # Since our metadata is UTF-8 encoded, Python turns things that were
+        # bytes into unicode strings when json.loads-ing them. We need to
+        # convert them back to bytes to preserve metadata.
+        if dtype == np.bytes_:
+            level = level.map(encoder)
+        elif level.dtype != dtype:
+            level = level.astype(dtype)
+
+        new_levels.append(level)
+
+    return pd.MultiIndex(levels=new_levels, labels=labels, names=columns.names)
 
 
 def _table_to_blocks(options, block_table, nthreads, memory_pool, categories):
