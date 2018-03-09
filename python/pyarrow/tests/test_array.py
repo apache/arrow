@@ -158,6 +158,16 @@ def test_array_ref_to_ndarray_base():
     assert sys.getrefcount(arr) == (refcount + 1)
 
 
+def test_array_eq_raises():
+    # ARROW-2150: we are raising when comparing arrays until we define the
+    # behavior to either be elementwise comparisons or data equality
+    arr1 = pa.array([1, 2, 3], type=pa.int32())
+    arr2 = pa.array([1, 2, 3], type=pa.int32())
+
+    with pytest.raises(NotImplementedError):
+        arr1 == arr2
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
