@@ -17,13 +17,13 @@
 
 import { TextEncoder } from 'text-encoding-utf-8';
 import Arrow from '../Arrow';
-import { type, TypedArray, TypedArrayConstructor, Vector } from '../../src/Arrow';
-import { packBools } from '../../src/util/bit'
+import { TypedArray, TypedArrayConstructor } from '../../src/Arrow';
 
 const utf8Encoder = new TextEncoder('utf-8');
 
+const { packBools } = Arrow.util;
 const { BoolData, FlatData, FlatListData, DictionaryData } = Arrow.data;
-const { IntVector, FloatVector, BoolVector, Utf8Vector, DictionaryVector } = Arrow.vector;
+const { Vector, IntVector, FloatVector, BoolVector, Utf8Vector, DictionaryVector } = Arrow.vector;
 const {
     Dictionary, Utf8, Bool,
     Float16, Float32, Float64,
@@ -143,7 +143,7 @@ describe('Float16Vector', () => {
     const values = concatTyped(Uint16Array, ...bytes);
     const vector = bytes
         .map((b) => new Uint16Array(b.buffer))
-        .map((b) => new FloatVector<type.Float16>(new FlatData(new Float16(), b.length, null, b)))
+        .map((b) => new FloatVector<Float16>(new FlatData(new Float16(), b.length, null, b)))
         .reduce((v: any, v2) => v.concat(v2));
     const n = values.length;
     const clamp = (x: number) => (x -  32767) / 32767;
@@ -336,7 +336,7 @@ describe(`DictionaryVector`, () => {
 
         describe(`sliced`, () => {
             basicVectorTests(vector.slice(10, 20), values.slice(10,20), extras);
-        })
+        });
     });
 
     describe(`index with nullCount > 0`, () => {

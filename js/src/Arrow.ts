@@ -18,7 +18,8 @@
 import * as type_ from './type';
 import * as data_ from './data';
 import * as vector_ from './vector';
-import * as util_ from './util/int';
+import * as util_int_ from './util/int';
+import * as util_bit_ from './util/bit';
 import * as visitor_ from './visitor';
 import * as view_ from './vector/view';
 import * as predicate_ from './predicate';
@@ -40,9 +41,10 @@ export { Table, DataFrame, NextFunc, BindFunc, CountByResult };
 export { Field, Schema, RecordBatch, Vector, Type };
 
 export namespace util {
-    export import Uint64 = util_.Uint64;
-    export import Int64 = util_.Int64;
-    export import Int128 = util_.Int128;
+    export import Uint64 = util_int_.Uint64;
+    export import Int64 = util_int_.Int64;
+    export import Int128 = util_int_.Int128;
+    export import packBools = util_bit_.packBools;
 }
 
 export namespace data {
@@ -173,6 +175,7 @@ export namespace predicate {
     export import Or = predicate_.Or;
     export import Col = predicate_.Col;
     export import And = predicate_.And;
+    export import Not = predicate_.Not;
     export import GTeq = predicate_.GTeq;
     export import LTeq = predicate_.LTeq;
     export import Value = predicate_.Value;
@@ -222,16 +225,16 @@ Table['empty'] = Table.empty;
 Vector['create'] = Vector.create;
 RecordBatch['from'] = RecordBatch.from;
 
-util_.Uint64['add'] = util_.Uint64.add;
-util_.Uint64['multiply'] = util_.Uint64.multiply;
+util_int_.Uint64['add'] = util_int_.Uint64.add;
+util_int_.Uint64['multiply'] = util_int_.Uint64.multiply;
 
-util_.Int64['add'] = util_.Int64.add;
-util_.Int64['multiply'] = util_.Int64.multiply;
-util_.Int64['fromString'] = util_.Int64.fromString;
+util_int_.Int64['add'] = util_int_.Int64.add;
+util_int_.Int64['multiply'] = util_int_.Int64.multiply;
+util_int_.Int64['fromString'] = util_int_.Int64.fromString;
 
-util_.Int128['add'] = util_.Int128.add;
-util_.Int128['multiply'] = util_.Int128.multiply;
-util_.Int128['fromString'] = util_.Int128.fromString;
+util_int_.Int128['add'] = util_int_.Int128.add;
+util_int_.Int128['multiply'] = util_int_.Int128.multiply;
+util_int_.Int128['fromString'] = util_int_.Int128.fromString;
 
 data_.ChunkedData['computeOffsets'] = data_.ChunkedData.computeOffsets;
 
