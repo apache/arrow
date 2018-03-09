@@ -134,16 +134,6 @@ if (ARROW_RPATH_ORIGIN)
     INSTALL_RPATH ${_lib_install_rpath})
 endif()
 
-if (ARROW_RPATH_ORIGIN)
-  if (APPLE)
-    set(_lib_install_rpath "@loader_path")
-  else()
-    set(_lib_install_rpath "\$ORIGIN")
-  endif()
-  set_target_properties(plasma_store PROPERTIES
-      INSTALL_RPATH ${_lib_install_rpath})
-endif()
-
 # Headers: top level
 install(FILES
   common.h
