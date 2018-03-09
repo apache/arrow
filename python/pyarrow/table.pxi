@@ -77,6 +77,52 @@ cdef class ChunkedArray:
         self._check_nullptr()
         return self.chunked_array.null_count()
 
+    def __getitem__(self, key):
+        cdef int64_t item
+        cdef int i
+        self._check_nullptr()
+        if isinstance(key, slice):
+            return _normalize_slice(self, key)
+        elif isinstance(key, six.integer_types):
+            item = key
+            if item >= self.chunked_array.length() or item < 0:
+                return IndexError("ChunkedArray selection out of bounds")
+            for i in range(self.num_chunks):
+                if item < self.chunked_array.chunk(i).get().length():
+                    return self.chunk(i)[item]
+                else:
+                    item -= self.chunked_array.chunk(i).get().length()
+        else:
+            raise TypeError("key must either be a slice or integer")
+
+    def slice(self, offset=0, length=None):
+        """
+        Compute zero-copy slice of this ChunkedArray
+
+        Parameters
+        ----------
+        offset : int, default 0
+            Offset from start of array to slice
+        length : int, default None
+            Length of slice (default is until end of batch starting from
+            offset)
+
+        Returns
+        -------
+        sliced : ChunkedArray
+        """
+        cdef shared_ptr[CChunkedArray] result
+
+        if offset < 0:
+            raise IndexError('Offset must be non-negative')
+
+        if length is None:
+            result = self.chunked_array.Slice(offset)
+        else:
+            result = self.chunked_array.Slice(offset, length)
+
+        return pyarrow_wrap_chunked_array(result)
+
     @property
     def num_chunks(self):
         """

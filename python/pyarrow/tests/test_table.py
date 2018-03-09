@@ -24,6 +24,21 @@ import pytest
 import pyarrow as pa
 
 
+def test_chunked_array_getitem():
+    data = [
+        pa.array([1, 2, 3]),
+        pa.array([4, 5, 6])
+    ]
+    data = pa.chunked_array(data)
+    assert data[1].as_py() == 2
+
+    data_slice = data[2:4]
+    assert data_slice.to_pylist() == [3, 4]
+
+    data_slice = data[4:-1]
+    assert data_slice.to_pylist() == [5]
+
+
 def test_column_basics():
     data = [
         pa.array([-10, -5, 0, 5, 10])
