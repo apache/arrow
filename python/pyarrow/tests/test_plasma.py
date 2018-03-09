@@ -165,10 +165,8 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
             time.sleep(0.1)
         rc = proc.poll()
         if rc is not None:
-            err = proc.stderr.read().decode()
             raise RuntimeError("plasma_store exited unexpectedly with "
-                               "code %d. Error output follows:\n%s\n"
-                               % (rc, err))
+                               "code %d" % (rc,))
 
         yield plasma_store_name, proc
     finally:
