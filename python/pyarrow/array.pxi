@@ -205,15 +205,25 @@ def asarray(values, type=None):
 
 
 def _normalize_slice(object arrow_obj, slice key):
-    cdef Py_ssize_t n = len(arrow_obj)
+    cdef:
+        Py_ssize_t start, stop, step
+        Py_ssize_t n = len(arrow_obj)
 
     start = key.start or 0
-    while start < 0:
+    if start < 0:
         start += n
+        if start < 0:
+            start = 0
+    elif start >= n:
+        start = n
 
     stop = key.stop if key.stop is not None else n
-    while stop < 0:
+    if stop < 0:
         stop += n
+        if stop < 0:
+            stop = 0
+    elif stop >= n:
+        stop = n
 
     step = key.step or 1
     if step != 1:

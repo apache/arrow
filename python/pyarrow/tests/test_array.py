@@ -132,16 +132,17 @@ def test_array_slice():
 
     # Test slice notation
     assert arr[2:].equals(arr.slice(2))
-
     assert arr[2:5].equals(arr.slice(2, 3))
-
     assert arr[-5:].equals(arr.slice(len(arr) - 5))
-
     with pytest.raises(IndexError):
         arr[::-1]
-
     with pytest.raises(IndexError):
         arr[::2]
+
+    n = len(arr)
+    for start in range(-n * 2, n * 2):
+        for stop in range(-n * 2, n * 2):
+            assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
 
 
 def test_array_factory_invalid_type():
