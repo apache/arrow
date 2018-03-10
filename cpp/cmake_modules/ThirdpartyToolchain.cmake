@@ -904,7 +904,7 @@ endif()
         PREFIX ${PROTOBUF_PREFIX}
         URL ${PROTOBUF_SRC_URL}
         BUILD_IN_SOURCE 1
-        CONFIGURE_COMMAND  pwd && ./autogen.sh && ./configure --prefix=${PROTOBUF_PREFIX}
+        CONFIGURE_COMMAND  pwd && ./autogen.sh && ./configure CXXFLAGS=-fPIC --prefix=${PROTOBUF_PREFIX}
         BUILD_COMMAND make
         INSTALL_COMMAND make install
     )
