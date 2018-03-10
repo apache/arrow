@@ -394,7 +394,7 @@ objects to contiguous NumPy arrays for use in pandas:
    c.to_pandas()
 
 Multiple tables can also be concatenated together to form a single table using
-``pa.concat_tables``, if the schemas are equal:
+``pyarrow.concat_tables``, if the schemas are equal:
 
 .. ipython:: python
 
@@ -407,7 +407,7 @@ Multiple tables can also be concatenated together to form a single table using
 This is similar to ``Table.from_batches``, but uses tables as input instead of
 record batches. Record batches can be made into tables, but not the other way
 around, so if your data is already in table form, then use
-``pa.concat_tables``.
+``pyarrow.concat_tables``.
 
 Custom Schema and Field Metadata
 --------------------------------
