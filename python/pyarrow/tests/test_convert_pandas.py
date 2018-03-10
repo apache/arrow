@@ -281,7 +281,7 @@ class TestConvertMetadata(object):
         indices = [[0, 1], [0, -1]]
 
         for inds in indices:
-            arr = pa.DictionaryArray.from_arrays(inds, ['a'])
+            arr = pa.DictionaryArray.from_arrays(inds, ['a'], safe=False)
             batch = pa.RecordBatch.from_arrays([arr], ['foo'])
             table = pa.Table.from_batches([batch, batch, batch])
 

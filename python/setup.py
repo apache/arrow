@@ -111,8 +111,7 @@ class build_ext(_build_ext):
         _build_ext.initialize_options(self)
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
-        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
-                                              'boost')
+        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE')
 
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
@@ -208,8 +207,10 @@ class build_ext(_build_ext):
 
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                                  .format(self.build_type.lower()))
-            cmake_options.append('-DBoost_NAMESPACE={}'.format(
-                self.boost_namespace))
+
+            if self.boost_namespace is not None:
+                cmake_options.append('-DBoost_NAMESPACE={}'
+                                     .format(self.boost_namespace))
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
             if sys.platform != 'win32':
