@@ -65,6 +65,14 @@ int AcceptClient(int socket_fd);
 
 uint8_t* read_message_async(int sock);
 
+class PlasmaIO {
+ public:
+  Status WriteProto(int fd, int64_t type, const google::protobuf::Message* message);
+  Status ReadProto(google::protobuf::Service* service, int fd, int64_t* type, google::protobuf::Message **message);
+ private:
+  std::vector<uint8_t> buffer_;
+};
+
 }  // namespace plasma
 
 #endif  // PLASMA_IO_H

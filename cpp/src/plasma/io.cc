@@ -272,4 +272,42 @@ uint8_t* read_message_async(int sock) {
   return message;
 }
 
+Status PlasmaIO::WriteProto(int fd, int64_t type, const google::protobuf::Message* message) {
+  int64_t version = PLASMA_PROTOCOL_VERSION;
+  RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)));
+  RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&type), sizeof(type)));
+  size_t size = message->ByteSize();
+  RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&size), sizeof(size)));
+  // TODO(pcm): Preallocate this!
+  buffer_.resize(size);
+  google::protobuf::io::ArrayOutputStream stream(buffer_.data(), size);
+  google::protobuf::io::CodedOutputStream output(&stream);
+  message->SerializeToCodedStream(&output);
+  return WriteBytes(fd, reinterpret_cast<uint8_t*>(buffer_.data()), size);
+}
+
+Status PlasmaIO::ReadProto(google::protobuf::Service* service, int fd, int64_t* type, google::protobuf::Message **message) {
+  int64_t version;
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)),
+                     *type = DISCONNECT_CLIENT);
+  ARROW_CHECK(version == PLASMA_PROTOCOL_VERSION) << "version = " << version;
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(type), sizeof(*type)),
+                     *type = DISCONNECT_CLIENT);
+  size_t length;
+  RETURN_NOT_OK_ELSE(
+      ReadBytes(fd, reinterpret_cast<uint8_t*>(&length), sizeof(length)),
+      *type = DISCONNECT_CLIENT);
+  // TODO(pcm): Preallocate this buffer!
+  buffer_.resize(length);
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer_.data(), length), *type = DISCONNECT_CLIENT);
+  google::protobuf::io::ArrayInputStream stream(buffer_.data(), length);
+  google::protobuf::io::CodedInputStream input(&stream);
+  if (*message == nullptr) {
+    const google::protobuf::ServiceDescriptor* service_descriptor = service->GetDescriptor();
+    *message = service->GetRequestPrototype(service_descriptor->method(*type)).New();
+  }
+  (*message)->MergeFromCodedStream(&input);
+  return Status::OK();
+}
+
 }  // namespace plasma

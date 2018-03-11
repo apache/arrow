@@ -61,13 +61,14 @@ class RpcChannelImpl : public RpcChannel {
                           const Message* request,
                           Message* response,
                           Closure* done) {
-    ARROW_CHECK_OK(plasma::WriteProto(fd_, method->index(), request));
+    ARROW_CHECK_OK(plasma_io_.WriteProto(fd_, method->index(), request));
     int64_t type;
-    ARROW_CHECK_OK(plasma::ReadProto(nullptr, fd_, &type, &response));
+    ARROW_CHECK_OK(plasma_io_.ReadProto(nullptr, fd_, &type, &response));
   }
   int conn() { return fd_; }
  private:
   int fd_;
+  PlasmaIO plasma_io_;
 };
 
 }  // namespace plasma

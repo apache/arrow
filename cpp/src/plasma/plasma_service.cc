@@ -12,7 +12,7 @@ Status PlasmaService::ProcessMessage(Client* client) {
 
   int64_t type = 0;
   google::protobuf::Message* request = nullptr;
-  ARROW_CHECK_OK(ReadProto(this, client->fd, &type, &request));
+  ARROW_CHECK_OK(plasma_io_.ReadProto(this, client->fd, &type, &request));
 
   const google::protobuf::ServiceDescriptor* service_descriptor = GetDescriptor();
   const google::protobuf::MethodDescriptor* method_descriptor = service_descriptor->method(type);
@@ -22,7 +22,7 @@ Status PlasmaService::ProcessMessage(Client* client) {
   fd_to_return_ = -1;
   CallMethod(method_descriptor, nullptr, request, response, nullptr);
 
-  HANDLE_SIGPIPE(WriteProto(client->fd, type, response), client->fd);
+  HANDLE_SIGPIPE(plasma_io_.WriteProto(client->fd, type, response), client->fd);
 
   if (fd_to_return_ != -1) {
     //if (error_code == PlasmaError_OK && device_num == 0) {

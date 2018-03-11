@@ -19,6 +19,7 @@
 #define PLASMA_SERVICE_H
 
 #include "plasma/format/plasma.pb.h"
+#include "plasma/io.h"
 #include "plasma/store.h"
 
 using google::protobuf::Closure;
@@ -72,6 +73,7 @@ class PlasmaService : public rpc::PlasmaStore {
  private:
   plasma::PlasmaStore* store_;
   plasma::Client* client_;
+  plasma::PlasmaIO plasma_io_;
   int fd_to_return_;
 };
 
