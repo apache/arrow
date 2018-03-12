@@ -222,37 +222,57 @@ public class JdbcToArrowUtils {
                     case Types.VARCHAR:
                     case Types.LONGVARCHAR:
                         VarCharVector varcharVector = (VarCharVector)root.getVector(columnName);
-                        String value = rs.getString(i);
+                        String value = rs.getString(i) != null ? rs.getString(i) : "";
                         varcharVector.setIndexDefined(i);
                         varcharVector.setValueLengthSafe(i, value.length());
                         varcharVector.setSafe(rowCount, value.getBytes(), 0, value.length());
                         varcharVector.setValueCount(rowCount + 1);
                         break;
                     case Types.DATE:
-                        DateMilliVector dateMilliVector = (DateMilliVector)root.getVector(columnName);
-                        dateMilliVector.setSafe(rowCount, rs.getDate(i).getTime());
+                        Date date = rs.getDate(i);
+                        DateMilliVector dateMilliVector = (DateMilliVector) root.getVector(columnName);
                         dateMilliVector.setValueCount(rowCount + 1);
+                        if (date != null) {
+                            dateMilliVector.setSafe(rowCount, rs.getDate(i).getTime());
+                        } else {
+                            dateMilliVector.setNull(rowCount);
+                        }
                         break;
                     case Types.TIME:
+                        Time time = rs.getTime(i);
                         TimeMilliVector timeMilliVector = (TimeMilliVector)root.getVector(columnName);
-                        timeMilliVector.setSafe(rowCount, (int)rs.getTime(i).getTime());
                         timeMilliVector.setValueCount(rowCount + 1);
+                        if (time != null) {
+                            timeMilliVector.setSafe(rowCount, (int) rs.getTime(i).getTime());
+                        } else {
+                            timeMilliVector.setNull(rowCount);
+                        }
+
                         break;
                     case Types.TIMESTAMP:
                         // timezone is null
+                        Timestamp timestamp = rs.getTimestamp(i);
                         TimeStampVector timeStampVector = (TimeStampVector)root.getVector(columnName);
-                        timeStampVector.setSafe(rowCount, rs.getTimestamp(i).getTime());
                         timeStampVector.setValueCount(rowCount + 1);
+                        if (timestamp != null) {
+                            timeStampVector.setSafe(rowCount, timestamp.getTime());
+                        } else {
+                            timeStampVector.setNull(rowCount);
+                        }
                         break;
                     case Types.BINARY:
                     case Types.VARBINARY:
                     case Types.LONGVARBINARY:
                         VarBinaryVector varBinaryVector = (VarBinaryVector)root.getVector(columnName);;
-                        byte[] bytes = rs.getBytes(i);
-                        varBinaryVector.setIndexDefined(i);
-                        varBinaryVector.setValueLengthSafe(i, bytes.length);
-                        varBinaryVector.setSafe(rowCount, bytes);
                         varBinaryVector.setValueCount(rowCount + 1);
+                        byte[] bytes = rs.getBytes(i);
+                        if (bytes != null) {
+                            varBinaryVector.setIndexDefined(i);
+                            varBinaryVector.setValueLengthSafe(i, bytes.length);
+                            varBinaryVector.setSafe(rowCount, bytes);
+                        } else {
+                            varBinaryVector.setNull(rowCount);
+                        }
                         break;
                     case Types.ARRAY:
                         // not handled
@@ -260,21 +280,29 @@ public class JdbcToArrowUtils {
                         break;
                     case Types.CLOB:
                         VarCharVector varcharVector1 = (VarCharVector)root.getVector(columnName);
-                        Clob clob = rs.getClob(i);
-                        int length = (int)clob.length();
-                        varcharVector1.setIndexDefined(i);
-                        varcharVector1.setValueLengthSafe(i, length);
-                        varcharVector1.setSafe(varcharVector1.getValueCapacity(), clob.getSubString(1, length).getBytes(), 0, length);
                         varcharVector1.setValueCount(rowCount + 1);
+                        Clob clob = rs.getClob(i);
+                        if (clob != null) {
+                            int length = (int) clob.length();
+                            varcharVector1.setIndexDefined(i);
+                            varcharVector1.setValueLengthSafe(i, length);
+                            varcharVector1.setSafe(varcharVector1.getValueCapacity(), clob.getSubString(1, length).getBytes(), 0, length);
+                        } else {
+                            varcharVector1.setNull(rowCount);
+                        }
                         break;
                     case Types.BLOB:
                         VarBinaryVector varBinaryVector1 = (VarBinaryVector)root.getVector(columnName);;
-                        Blob blob = rs.getBlob(i);
-                        byte[] data = blob.getBytes(0, (int)blob.length());
-                        varBinaryVector1.setIndexDefined(i);
-                        varBinaryVector1.setValueLengthSafe(i, (int)blob.length());
-                        varBinaryVector1.setSafe(i, data);
                         varBinaryVector1.setValueCount(rowCount + 1);
+                        Blob blob = rs.getBlob(i);
+                        if (blob != null) {
+                            byte[] data = blob.getBytes(0, (int) blob.length());
+                            varBinaryVector1.setIndexDefined(i);
+                            varBinaryVector1.setValueLengthSafe(i, (int) blob.length());
+                            varBinaryVector1.setSafe(i, data);
+                        } else {
+                            varBinaryVector1.setNull(rowCount);}
+
                         break;
 
                     default:

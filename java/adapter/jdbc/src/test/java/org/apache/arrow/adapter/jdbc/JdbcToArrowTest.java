@@ -92,7 +92,30 @@ public class JdbcToArrowTest {
     }
 
     @Test
-    public void sqlToArrowTest() throws Exception {
+    public void sqlToArrowTest1() throws Exception {
+
+        Table table =
+                mapper.readValue(
+                        this.getClass().getClassLoader().getResourceAsStream("test1_h2.yml"),
+                        Table.class);
+
+        try {
+            createTestData(table);
+
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+
+            System.out.print(root.getRowCount());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteTestData(table);
+        }
+
+    }
+
+    @Test
+    public void sqlToArrowTest2() throws Exception {
 
         Table table =
                 mapper.readValue(
@@ -119,15 +142,6 @@ public class JdbcToArrowTest {
         if (conn != null) {
             conn.close();
         }
-    }
-	
-   /**
-     * This Method returns named resource as input stream from classpath
-     * @param name of the resource
-     * @return resourec as InputStream
-     */
-    private InputStream getResource(String name) {
-    	return this.getClass().getClassLoader().getResourceAsStream(name);
     }
 
 }
