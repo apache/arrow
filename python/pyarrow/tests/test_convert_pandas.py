@@ -502,6 +502,14 @@ class TestConvertPrimitiveTypes(object):
         result = table.to_pandas()
         tm.assert_frame_equal(result, ex_frame)
 
+    def test_float_nulls_to_ints(self):
+        # ARROW-2135
+        df = pd.DataFrame({"a": [1.0, 2.0, pd.np.NaN]})
+        schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
+        table = pa.Table.from_pandas(df, schema=schema)
+        assert table[0].to_pylist() == [1, 2, None]
+        tm.assert_frame_equal(df, table.to_pandas())
+
     def test_integer_no_nulls(self):
         data = OrderedDict()
         fields = []
@@ -526,6 +534,17 @@ class TestConvertPrimitiveTypes(object):
         df = pd.DataFrame(data)
         schema = pa.schema(fields)
         _check_pandas_roundtrip(df, expected_schema=schema)
+
+    def test_all_integer_types(self):
+        # Test all Numpy integer aliases
+        data = OrderedDict()
+        numpy_dtypes = ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8',
+                        'byte', 'ubyte', 'short', 'ushort', 'intc', 'uintc',
+                        'int_', 'uint', 'longlong', 'ulonglong']
+        for dtype in numpy_dtypes:
+            data[dtype] = np.arange(12, dtype=dtype)
+        df = pd.DataFrame(data)
+        _check_pandas_roundtrip(df)
 
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype

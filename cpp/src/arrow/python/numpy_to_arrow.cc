@@ -79,6 +79,38 @@ inline bool PyObject_is_integer(PyObject* obj) {
   return !PyBool_Check(obj) && PyArray_IsIntegerScalar(obj);
 }
 
+Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
+  if (PyArray_NDIM(numpy_array) != 1) {
+    return Status::Invalid("only handle 1-dimensional arrays");
+  }
+
+  const int received_type = PyArray_DESCR(numpy_array)->type_num;
+  if (received_type != np_type) {
+    std::stringstream ss;
+    ss << "trying to convert NumPy type " << GetNumPyTypeName(np_type) << " but got "
+       << GetNumPyTypeName(received_type);
+    return Status::Invalid(ss.str());
+  }
+
+  return Status::OK();
+}
+
+Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
+                          std::shared_ptr<ResizableBuffer>* out) {
+  int64_t null_bytes = BitUtil::BytesForBits(length);
+  std::shared_ptr<ResizableBuffer> null_bitmap;
+
+  null_bitmap = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(null_bitmap->Resize(null_bytes));
+
+  memset(null_bitmap->mutable_data(), 0, static_cast<size_t>(null_bytes));
+  *out = null_bitmap;
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Conversion from NumPy-in-Pandas to Arrow null bitmap
+
 template <int TYPE>
 inline int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
   typedef internal::npy_traits<TYPE> traits;
@@ -98,6 +130,55 @@ inline int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
   return null_count;
 }
 
+class NumPyNullsConverter {
+ public:
+  /// Convert the given array's null values to a null bitmap.
+  /// The null bitmap is only allocated if null values are ever possible.
+  static Status Convert(MemoryPool* pool, PyArrayObject* arr,
+                        bool use_pandas_null_sentinels,
+                        std::shared_ptr<ResizableBuffer>* out_null_bitmap_,
+                        int64_t* out_null_count) {
+    NumPyNullsConverter converter(pool, arr, use_pandas_null_sentinels);
+    RETURN_NOT_OK(VisitNumpyArrayInline(arr, &converter));
+    *out_null_bitmap_ = converter.null_bitmap_;
+    *out_null_count = converter.null_count_;
+    return Status::OK();
+  }
+
+  template <int TYPE>
+  Status Visit(PyArrayObject* arr) {
+    typedef internal::npy_traits<TYPE> traits;
+
+    const bool null_sentinels_possible =
+        // Always treat Numpy's NaT as null
+        TYPE == NPY_DATETIME ||
+        // Observing pandas's null sentinels
+        (use_pandas_null_sentinels_ && traits::supports_nulls);
+
+    if (null_sentinels_possible) {
+      RETURN_NOT_OK(AllocateNullBitmap(pool_, PyArray_SIZE(arr), &null_bitmap_));
+      null_count_ = ValuesToBitmap<TYPE>(arr, null_bitmap_->mutable_data());
+    }
+    return Status::OK();
+  }
+
+ protected:
+  NumPyNullsConverter(MemoryPool* pool, PyArrayObject* arr,
+                      bool use_pandas_null_sentinels)
+      : pool_(pool),
+        arr_(arr),
+        use_pandas_null_sentinels_(use_pandas_null_sentinels),
+        null_bitmap_data_(nullptr),
+        null_count_(0) {}
+
+  MemoryPool* pool_;
+  PyArrayObject* arr_;
+  bool use_pandas_null_sentinels_;
+  std::shared_ptr<ResizableBuffer> null_bitmap_;
+  uint8_t* null_bitmap_data_;
+  int64_t null_count_;
+};
+
 // Returns null count
 int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   int64_t null_count = 0;
@@ -112,22 +193,6 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
     }
   }
   return null_count;
-}
-
-Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
-  if (PyArray_NDIM(numpy_array) != 1) {
-    return Status::Invalid("only handle 1-dimensional arrays");
-  }
-
-  const int received_type = PyArray_DESCR(numpy_array)->type_num;
-  if (received_type != np_type) {
-    std::stringstream ss;
-    ss << "trying to convert NumPy type " << GetNumPyTypeName(np_type) << " but got "
-       << GetNumPyTypeName(received_type);
-    return Status::Invalid(ss.str());
-  }
-
-  return Status::OK();
 }
 
 }  // namespace
@@ -296,7 +361,9 @@ class NumPyConverter {
         dtype_(PyArray_DESCR(arr_)),
         mask_(nullptr),
         use_pandas_null_sentinels_(use_pandas_null_sentinels),
-        decimal_type_() {
+        decimal_type_(),
+        null_bitmap_data_(nullptr),
+        null_count_(0) {
     if (mo != nullptr && mo != Py_None) {
       mask_ = reinterpret_cast<PyArrayObject*>(mo);
     }
@@ -351,14 +418,8 @@ class NumPyConverter {
 
  protected:
   Status InitNullBitmap() {
-    int64_t null_bytes = BitUtil::BytesForBits(length_);
-
-    null_bitmap_ = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(null_bitmap_->Resize(null_bytes));
-
+    RETURN_NOT_OK(AllocateNullBitmap(pool_, length_, &null_bitmap_));
     null_bitmap_data_ = null_bitmap_->mutable_data();
-    memset(null_bitmap_data_, 0, static_cast<size_t>(null_bytes));
-
     return Status::OK();
   }
 
@@ -409,32 +470,18 @@ class NumPyConverter {
 
   template <typename ArrowType>
   Status VisitNative() {
-    using traits = internal::arrow_traits<ArrowType::type_id>;
-
-    const bool null_sentinels_possible =
-        // NumPy has a NaT type
-        (ArrowType::type_id == Type::TIMESTAMP || ArrowType::type_id == Type::DATE32) ||
-
-        // Observing pandas's null sentinels
-        ((use_pandas_null_sentinels_ && traits::supports_nulls));
-
-    if (mask_ != nullptr || null_sentinels_possible) {
+    if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
+      null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
+    } else {
+      RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, use_pandas_null_sentinels_,
+                                                 &null_bitmap_, &null_count_));
     }
 
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(ConvertData<ArrowType>(&data));
 
-    int64_t null_count = 0;
-    if (mask_ != nullptr) {
-      null_count = MaskToBitmap(mask_, length_, null_bitmap_data_);
-    } else if (null_sentinels_possible) {
-      // TODO(wesm): this presumes the NumPy C type and arrow C type are the
-      // same
-      null_count = ValuesToBitmap<traits::npy_type>(arr_, null_bitmap_data_);
-    }
-
-    auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count, 0);
+    auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_, 0);
     return PushArray(arr_data);
   }
 
@@ -488,6 +535,7 @@ class NumPyConverter {
 
   std::shared_ptr<ResizableBuffer> null_bitmap_;
   uint8_t* null_bitmap_data_;
+  int64_t null_count_;
 };
 
 Status NumPyConverter::Convert() {
@@ -654,12 +702,10 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
       Status s = StaticCastBuffer<int64_t, int32_t>(**data, length_, pool_, data);
       RETURN_NOT_OK(s);
     } else {
-      // TODO(wesm): This is redundant, and recomputed in VisitNative()
-      const int64_t null_count = ValuesToBitmap<NPY_DATETIME>(arr_, null_bitmap_data_);
-
       RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
       if (!input_type->Equals(*type_)) {
-        RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count,
+        // The null bitmap was already computed in VisitNative()
+        RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
                                  type_, pool_, data));
       }
     }
