@@ -166,7 +166,7 @@ Please download, verify checksums and signatures, run the unit tests, and vote
 on the release. The easiest way is to use the JavaScript-specific release
 verification script dev/release/js-verify-release-candidate.sh.
 
-The vote will be open for at least 24 hours and will close once
+The vote will be open for at least 72 hours and will close once
 enough PMCs have approved the release.
 
 [ ] +1 Release this as Apache Arrow JavaScript ${js_version}
