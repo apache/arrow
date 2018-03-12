@@ -68,6 +68,9 @@ class Ndarray1DIndexer {
   int64_t stride_;
 };
 
+// Handling of Numpy Types by their static numbers
+// (the NPY_TYPES enum and related defines)
+
 static inline std::string GetNumPyTypeName(int npy_type) {
 #define TYPE_CASE(TYPE, NAME) \
   case NPY_##TYPE:            \
@@ -79,14 +82,20 @@ static inline std::string GetNumPyTypeName(int npy_type) {
     TYPE_CASE(INT16, "int16")
     TYPE_CASE(INT32, "int32")
     TYPE_CASE(INT64, "int64")
-#if (NPY_INT64 != NPY_LONGLONG)
+#if !NPY_INT32_IS_INT
+    TYPE_CASE(INT, "intc")
+#endif
+#if !NPY_INT64_IS_LONG_LONG
     TYPE_CASE(LONGLONG, "longlong")
 #endif
     TYPE_CASE(UINT8, "uint8")
     TYPE_CASE(UINT16, "uint16")
     TYPE_CASE(UINT32, "uint32")
     TYPE_CASE(UINT64, "uint64")
-#if (NPY_UINT64 != NPY_ULONGLONG)
+#if !NPY_INT32_IS_INT
+    TYPE_CASE(UINT, "uintc")
+#endif
+#if !NPY_INT64_IS_LONG_LONG
     TYPE_CASE(ULONGLONG, "ulonglong")
 #endif
     TYPE_CASE(FLOAT16, "float16")
@@ -100,8 +109,47 @@ static inline std::string GetNumPyTypeName(int npy_type) {
   }
 
 #undef TYPE_CASE
-  return "unrecognized type in GetNumPyTypeName";
+  std::stringstream ss;
+  ss << "unrecognized type (" << npy_type << ") in GetNumPyTypeName";
+  return ss.str();
 }
+
+#define TYPE_VISIT_INLINE(TYPE) \
+  case NPY_##TYPE:              \
+    return visitor->template Visit<NPY_##TYPE>(arr);
+
+template <typename VISITOR>
+inline Status VisitNumpyArrayInline(PyArrayObject* arr, VISITOR* visitor) {
+  switch (PyArray_TYPE(arr)) {
+    TYPE_VISIT_INLINE(BOOL);
+    TYPE_VISIT_INLINE(INT8);
+    TYPE_VISIT_INLINE(UINT8);
+    TYPE_VISIT_INLINE(INT16);
+    TYPE_VISIT_INLINE(UINT16);
+    TYPE_VISIT_INLINE(INT32);
+    TYPE_VISIT_INLINE(UINT32);
+    TYPE_VISIT_INLINE(INT64);
+    TYPE_VISIT_INLINE(UINT64);
+#if !NPY_INT32_IS_INT
+    TYPE_VISIT_INLINE(INT);
+    TYPE_VISIT_INLINE(UINT);
+#endif
+#if !NPY_INT64_IS_LONG_LONG
+    TYPE_VISIT_INLINE(LONGLONG);
+    TYPE_VISIT_INLINE(ULONGLONG);
+#endif
+    TYPE_VISIT_INLINE(FLOAT16);
+    TYPE_VISIT_INLINE(FLOAT32);
+    TYPE_VISIT_INLINE(FLOAT64);
+    TYPE_VISIT_INLINE(DATETIME);
+    TYPE_VISIT_INLINE(OBJECT);
+  }
+  std::stringstream ss;
+  ss << "NumPy type not implemented: " << GetNumPyTypeName(PyArray_TYPE(arr));
+  return Status::NotImplemented(ss.str());
+}
+
+#undef TYPE_VISIT_INLINE
 
 }  // namespace py
 }  // namespace arrow
