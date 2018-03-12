@@ -445,7 +445,7 @@ def test_buffer_serialization():
         pass
 
     def serialize_buffer_class(obj):
-        return pa.frombuffer(b"hello")
+        return pa.py_buffer(b"hello")
 
     def deserialize_buffer_class(serialized_obj):
         return serialized_obj
@@ -581,7 +581,7 @@ def test_serialize_subclasses():
 
 
 def test_serialize_to_components_invalid_cases():
-    buf = pa.frombuffer(b'hello')
+    buf = pa.py_buffer(b'hello')
 
     components = {
         'num_tensors': 0,
@@ -631,7 +631,7 @@ def test_deserialize_buffer_in_different_process():
     import subprocess
 
     f = tempfile.NamedTemporaryFile(delete=False)
-    b = pa.serialize(pa.frombuffer(b'hello')).to_buffer()
+    b = pa.serialize(pa.py_buffer(b'hello')).to_buffer()
     f.write(b.to_pybytes())
     f.close()
 

@@ -50,7 +50,7 @@ implements the buffer protocol. Let's consider a bytes object:
    import pyarrow as pa
 
    data = b'abcdefghijklmnopqrstuvwxyz'
-   buf = pa.frombuffer(data)
+   buf = pa.py_buffer(data)
    buf
    buf.size
 

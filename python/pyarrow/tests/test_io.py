@@ -170,7 +170,7 @@ def test_python_file_closing():
 def test_buffer_bytes():
     val = b'some data'
 
-    buf = pa.frombuffer(val)
+    buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
     assert not buf.is_mutable
 
@@ -182,7 +182,7 @@ def test_buffer_bytes():
 def test_buffer_memoryview():
     val = b'some data'
 
-    buf = pa.frombuffer(val)
+    buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
     assert not buf.is_mutable
 
@@ -194,7 +194,7 @@ def test_buffer_memoryview():
 def test_buffer_bytearray():
     val = bytearray(b'some data')
 
-    buf = pa.frombuffer(val)
+    buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
     assert buf.is_mutable
 
@@ -206,14 +206,14 @@ def test_buffer_bytearray():
 def test_buffer_invalid():
     with pytest.raises(TypeError,
                        match="(bytes-like object|buffer interface)"):
-        pa.frombuffer(None)
+        pa.py_buffer(None)
 
 
 def test_buffer_to_numpy():
     # Make sure creating a numpy array from an arrow buffer works
     byte_array = bytearray(20)
     byte_array[0] = 42
-    buf = pa.frombuffer(byte_array)
+    buf = pa.py_buffer(byte_array)
     array = np.frombuffer(buf, dtype="uint8")
     assert array[0] == byte_array[0]
     byte_array[0] += 1
@@ -224,14 +224,14 @@ def test_buffer_to_numpy():
 def test_buffer_from_numpy():
     # C-contiguous
     arr = np.arange(12, dtype=np.int8).reshape((3, 4))
-    buf = pa.frombuffer(arr)
+    buf = pa.py_buffer(arr)
     assert buf.to_pybytes() == arr.tobytes()
     # F-contiguous; note strides informations is lost
-    buf = pa.frombuffer(arr.T)
+    buf = pa.py_buffer(arr.T)
     assert buf.to_pybytes() == arr.tobytes()
     # Non-contiguous
     with pytest.raises(ValueError, match="not contiguous"):
-        buf = pa.frombuffer(arr.T[::2])
+        buf = pa.py_buffer(arr.T[::2])
 
 
 def test_buffer_equals():
@@ -250,11 +250,11 @@ def test_buffer_equals():
     b2 = bytearray(b1)
     b3 = bytearray(b1)
     b3[0] = 42
-    buf1 = pa.frombuffer(b1)
-    buf2 = pa.frombuffer(b2)
-    buf3 = pa.frombuffer(b2)
-    buf4 = pa.frombuffer(b3)
-    buf5 = pa.frombuffer(np.frombuffer(b2, dtype=np.int16))
+    buf1 = pa.py_buffer(b1)
+    buf2 = pa.py_buffer(b2)
+    buf3 = pa.py_buffer(b2)
+    buf4 = pa.py_buffer(b3)
+    buf5 = pa.py_buffer(np.frombuffer(b2, dtype=np.int16))
     eq(buf1, buf1)
     eq(buf1, buf2)
     eq(buf2, buf3)
@@ -266,7 +266,7 @@ def test_buffer_equals():
 def test_buffer_hashing():
     # Buffers are unhashable
     with pytest.raises(TypeError, match="unhashable"):
-        hash(pa.frombuffer(b'123'))
+        hash(pa.py_buffer(b'123'))
 
 
 def test_foreign_buffer():
@@ -307,7 +307,7 @@ def test_compress_decompress():
     test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
                  .astype(np.uint8)
                  .tostring())
-    test_buf = pa.frombuffer(test_data)
+    test_buf = pa.py_buffer(test_data)
 
     codecs = ['lz4', 'snappy', 'gzip', 'zstd', 'brotli']
     for codec in codecs:
@@ -333,7 +333,7 @@ def test_compress_decompress():
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
-    buf = pa.frombuffer(val)
+    buf = pa.py_buffer(val)
     assert not buf.is_mutable
     assert isinstance(buf, pa.Buffer)
 
@@ -368,9 +368,9 @@ def test_uninitialized_buffer():
     with check_uninitialized():
         memoryview(buf)
     with check_uninitialized():
-        buf.equals(pa.frombuffer(b''))
+        buf.equals(pa.py_buffer(b''))
     with check_uninitialized():
-        pa.frombuffer(b'').equals(buf)
+        pa.py_buffer(b'').equals(buf)
 
 
 def test_memory_output_stream():
@@ -400,7 +400,7 @@ def test_inmemory_write_after_closed():
 
 def test_buffer_protocol_ref_counting():
     def make_buffer(bytes_obj):
-        return bytearray(pa.frombuffer(bytes_obj))
+        return bytearray(pa.py_buffer(bytes_obj))
 
     buf = make_buffer(b'foo')
     gc.collect()

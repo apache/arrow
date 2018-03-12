@@ -26,6 +26,7 @@ import six
 import sys
 import threading
 import time
+import warnings
 
 
 # 64K
@@ -211,7 +212,7 @@ cdef class NativeFile:
         if isinstance(data, six.string_types):
             data = tobytes(data)
 
-        cdef Buffer arrow_buffer = frombuffer(data)
+        cdef Buffer arrow_buffer = py_buffer(data)
 
         cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
         cdef int64_t bufsize = len(arrow_buffer)
@@ -833,14 +834,14 @@ cdef class BufferReader(NativeFile):
         if isinstance(obj, Buffer):
             self.buffer = obj
         else:
-            self.buffer = frombuffer(obj)
+            self.buffer = py_buffer(obj)
 
         self.rd_file.reset(new CBufferReader(self.buffer.buffer))
         self.is_readable = True
         self.closed = False
 
 
-def frombuffer(object obj):
+def py_buffer(object obj):
     """
     Construct an Arrow buffer from a Python bytes object
     """
@@ -966,7 +967,7 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
         check_status(CCodec.Create(c_codec, &compressor))
 
     if not isinstance(buf, Buffer):
-        buf = frombuffer(buf)
+        buf = py_buffer(buf)
 
     c_buf = (<Buffer> buf).buffer.get()
 
@@ -1031,7 +1032,7 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
         check_status(CCodec.Create(c_codec, &compressor))
 
     if not isinstance(buf, Buffer):
-        buf = frombuffer(buf)
+        buf = py_buffer(buf)
 
     c_buf = (<Buffer> buf).buffer.get()
 
