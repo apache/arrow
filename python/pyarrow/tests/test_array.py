@@ -199,6 +199,27 @@ def test_dictionary_from_boxed_arrays():
         assert d1[i].as_py() == dictionary[indices[i]]
 
 
+def test_dictionary_from_arrays_boundscheck():
+    indices1 = pa.array([0, 1, 2, 0, 1, 2])
+    indices2 = pa.array([0, -1, 2])
+    indices3 = pa.array([0, 1, 2, 3])
+
+    dictionary = pa.array(['foo', 'bar', 'baz'])
+
+    # Works fine
+    pa.DictionaryArray.from_arrays(indices1, dictionary)
+
+    with pytest.raises(pa.ArrowException):
+        pa.DictionaryArray.from_arrays(indices2, dictionary)
+
+    with pytest.raises(pa.ArrowException):
+        pa.DictionaryArray.from_arrays(indices3, dictionary)
+
+    # If we are confident that the indices are "safe" we can pass safe=False to
+    # disable the boundschecking
+    pa.DictionaryArray.from_arrays(indices2, dictionary, safe=False)
+
+
 def test_dictionary_with_pandas():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
