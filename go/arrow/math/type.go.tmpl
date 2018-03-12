@@ -1,0 +1,29 @@
+{{$def := .D}}
+{{with .In}}
+package math
+
+import (
+	"github.com/apache/arrow/go/arrow/array"
+)
+
+type {{.Name}}Funcs struct {
+	sum func(a *array.{{.Name}}) {{.Type}}
+}
+
+var (
+	{{.Name}} {{.Name}}Funcs
+)
+
+// Sum returns the summation of all elements in a.
+func (f {{.Name}}Funcs) Sum(a *array.{{.Name}}) {{.Type}} {
+	return f.sum(a)
+}
+
+func sum_{{.Type}}_go(a *array.{{.Name}}) {{.Type}} {
+	acc := {{.Type}}(0)
+	for _, v := range a.{{.Name}}Values() {
+		acc += v
+	}
+	return acc
+}
+{{end}}

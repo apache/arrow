@@ -1,0 +1,17 @@
+{{with .In}}
+// +build !noasm
+
+package math
+
+func init{{.Name}}AVX2() {
+	{{.Name}}.sum = sum_{{.Type}}_avx2
+}
+
+func init{{.Name}}SSE4() {
+	{{.Name}}.sum = sum_{{.Type}}_sse4
+}
+
+func init{{.Name}}Go() {
+	{{.Name}}.sum = sum_{{.Type}}_go
+}
+{{end}}

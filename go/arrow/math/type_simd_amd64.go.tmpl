@@ -1,0 +1,26 @@
+{{$name := printf "%s_%s" .In.Type .D.arch}}
+{{with .In}}
+// +build !noasm
+
+package math
+
+import (
+	"unsafe"
+
+	"github.com/apache/arrow/go/arrow/array"
+)
+
+//go:noescape
+func _sum_{{$name}}(buf, len, res unsafe.Pointer)
+
+func sum_{{$name}}(a *array.{{.Name}}) {{.Type}} {
+	buf := a.{{.Name}}Values()
+	var (
+		p1  = unsafe.Pointer(&buf[0])
+		p2  = unsafe.Pointer(uintptr(len(buf)))
+		res {{.Type}}
+	)
+	_sum_{{$name}}(p1, p2, unsafe.Pointer(&res))
+	return res
+}
+{{end}}

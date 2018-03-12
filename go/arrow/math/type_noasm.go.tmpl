@@ -1,0 +1,9 @@
+{{with .In}}
+// +build noasm
+
+package math
+
+func init{{.Name}}Go() {
+	{{.Name}}.sum = sum_{{.Type}}_go
+}
+{{end}}
