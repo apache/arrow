@@ -380,7 +380,7 @@ class NumPyConverter {
 
   Status Convert();
 
-  const std::vector<std::shared_ptr<Array>>& result() const { return out_arrays_; }
+  const ArrayVector& result() const { return out_arrays_; }
 
   template <typename T>
   typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
@@ -405,6 +405,8 @@ class NumPyConverter {
 
   // NumPy unicode arrays
   Status Visit(const StringType& type);
+
+  Status Visit(const StructType& type);
 
   Status Visit(const FixedSizeBinaryType& type) {
     return TypeNotImplemented(type.ToString());
@@ -531,7 +533,7 @@ class NumPyConverter {
   OwnedRefNoGIL decimal_type_;
 
   // Used in visitor pattern
-  std::vector<std::shared_ptr<Array>> out_arrays_;
+  ArrayVector out_arrays_;
 
   std::shared_ptr<ResizableBuffer> null_bitmap_;
   uint8_t* null_bitmap_data_;
@@ -1605,6 +1607,113 @@ Status NumPyConverter::Visit(const StringType& type) {
   std::shared_ptr<Array> result;
   RETURN_NOT_OK(builder.Finish(&result));
   return PushArray(result->data());
+}
+
+Status NumPyConverter::Visit(const StructType& type) {
+  std::vector<NumPyConverter> sub_converters;
+  std::vector<OwnedRefNoGIL> sub_arrays;
+
+  {
+    PyAcquireGIL gil_lock;
+
+    // Create converters for each struct type field
+    if (dtype_->fields == NULL || !PyDict_Check(dtype_->fields)) {
+      return Status::TypeError("Expected struct array");
+    }
+
+    for (auto field : type.children()) {
+      PyObject* tup = PyDict_GetItemString(dtype_->fields, field->name().c_str());
+      if (tup == NULL) {
+        std::stringstream ss;
+        ss << "Missing field '" << field->name() << "' in struct array";
+        return Status::TypeError(ss.str());
+      }
+      PyArray_Descr* sub_dtype =
+          reinterpret_cast<PyArray_Descr*>(PyTuple_GET_ITEM(tup, 0));
+      DCHECK(PyArray_DescrCheck(sub_dtype));
+      int offset = static_cast<int>(PyLong_AsLong(PyTuple_GET_ITEM(tup, 1)));
+      RETURN_IF_PYERROR();
+      Py_INCREF(sub_dtype); /* PyArray_GetField() steals ref */
+      PyObject* sub_array = PyArray_GetField(arr_, sub_dtype, offset);
+      RETURN_IF_PYERROR();
+      sub_arrays.emplace_back(sub_array);
+      sub_converters.emplace_back(pool_, sub_array, nullptr /* mask */, field->type(),
+                                  use_pandas_null_sentinels_);
+    }
+  }
+
+  std::vector<ArrayVector> groups;
+  int64_t null_count = 0;
+
+  // Compute null bitmap and store it as a Boolean Array to include it
+  // in the rechunking below
+  {
+    if (mask_ != nullptr) {
+      RETURN_NOT_OK(InitNullBitmap());
+      null_count = MaskToBitmap(mask_, length_, null_bitmap_data_);
+    }
+    groups.push_back({std::make_shared<BooleanArray>(length_, null_bitmap_)});
+  }
+
+  // Convert child data
+  for (auto& converter : sub_converters) {
+    RETURN_NOT_OK(converter.Convert());
+    groups.push_back(converter.result());
+    const auto& group = groups.back();
+    int64_t n = 0;
+    for (const auto& array : group) {
+      n += array->length();
+    }
+  }
+  // Ensure the different array groups are chunked consistently
+  groups = ::arrow::internal::RechunkArraysConsistently(groups);
+  for (const auto& group : groups) {
+    int64_t n = 0;
+    for (const auto& array : group) {
+      n += array->length();
+    }
+  }
+
+  // Make struct array chunks by combining groups
+  size_t ngroups = groups.size();
+  size_t nchunks = groups[0].size();
+  for (size_t chunk = 0; chunk < nchunks; chunk++) {
+    // First group has the null bitmaps as Boolean Arrays
+    const auto& null_data = groups[0][chunk]->data();
+    DCHECK_EQ(null_data->type->id(), Type::BOOL);
+    DCHECK_EQ(null_data->buffers.size(), 2);
+    const auto& null_buffer = null_data->buffers[1];
+    // Careful: the rechunked null bitmap may have a non-zero offset
+    // to its buffer, and it may not even start on a byte boundary
+    int64_t null_offset = null_data->offset;
+    std::shared_ptr<Buffer> fixed_null_buffer;
+
+    if (!null_buffer) {
+      fixed_null_buffer = null_buffer;
+    } else if (null_offset % 8 == 0) {
+      fixed_null_buffer =
+          std::make_shared<Buffer>(null_buffer,
+                                   // byte offset
+                                   null_offset / 8,
+                                   // byte size
+                                   BitUtil::BytesForBits(null_data->length));
+    } else {
+      RETURN_NOT_OK(CopyBitmap(pool_, null_buffer->data(), null_offset, null_data->length,
+                               &fixed_null_buffer));
+    }
+
+    // Create struct array chunk and populate it
+    auto arr_data =
+        ArrayData::Make(type_, null_data->length, null_count ? kUnknownNullCount : 0, 0);
+    arr_data->buffers.push_back(fixed_null_buffer);
+    // Append child chunks
+    for (size_t i = 1; i < ngroups; i++) {
+      arr_data->child_data.push_back(groups[i][chunk]->data());
+    }
+    RETURN_NOT_OK(PushArray(arr_data));
+  }
+
+  return Status::OK();
 }
 
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
