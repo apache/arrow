@@ -788,8 +788,41 @@ cdef class UnionArray(Array):
         return pyarrow_wrap_array(out)
 
 cdef class StringArray(Array):
-    pass
 
+    @staticmethod
+    def from_buffers(int length, Buffer value_offsets, Buffer data,
+                     Buffer null_bitmap=None, int null_count=-1,
+                     int offset=0):
+        """
+        Construct a StringArray from value_offsets and data buffers.
+        If there are nulls in the data, also a null_bitmap and the matching
+        null_count must be passed.
+
+        Parameters
+        ----------
+        length : int
+        value_offsets : Buffer
+        data : Buffer
+        null_bitmap : Buffer, optional
+        null_count : int, default 0
+        offset : int, default 0
+
+        Returns
+        -------
+        string_array : StringArray
+        """
+        cdef shared_ptr[CBuffer] c_null_bitmap
+        cdef shared_ptr[CArray] out
+
+        if null_bitmap is not None:
+            c_null_bitmap = null_bitmap.buffer
+        else:
+            null_count = 0
+
+        out.reset(new CStringArray(
+            length, value_offsets.buffer, data.buffer, c_null_bitmap,
+            null_count, offset))
+        return pyarrow_wrap_array(out)
 
 cdef class BinaryArray(Array):
     pass
