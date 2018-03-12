@@ -67,6 +67,7 @@
     "@types/glob": "5.0.35",
     "@types/jest": "22.1.0",
     "ast-types": "0.10.1",
+    "babel-jest": "22.4.1",
     "benchmark": "2.1.4",
     "coveralls": "3.0.0",
     "del": "3.0.0",
