@@ -296,12 +296,13 @@ which are zero-copy convertible to Python ``memoryview`` objects:
 
    memoryview(components['data'][0])
 
-A memoryview can be converted back to a ``Buffer`` with ``pyarrow.frombuffer``:
+A memoryview can be converted back to a Arrow ``Buffer`` with
+``pyarrow.py_buffer``:
 
 .. ipython:: python
 
    mv = memoryview(components['data'][0])
-   buf = pa.frombuffer(mv)
+   buf = pa.py_buffer(mv)
 
 An object can be reconstructed from its component-based representation using
 ``deserialize_components``:
