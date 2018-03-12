@@ -35,6 +35,8 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 
+import static org.junit.Assert.*;
+
 
 /**
  * This is a Helper class which has functionalities to read and print the values from FieldVector object
@@ -42,16 +44,17 @@ import org.apache.arrow.vector.VarCharVector;
  */
 public class JdbcToArrowTestHelper {
 
-    public void getIntVectorValues(FieldVector fx){
+    public static boolean assertIntVectorValues(FieldVector fx, int rowCount, int[] values) {
         IntVector intVector = ((IntVector) fx);
-        for(int j = 0; j < intVector.getValueCount(); j++){
-            if(!intVector.isNull(j)){
-                int value = intVector.get(j);
-                System.out.println("Int Vector Value [" + j +"] : " + value);
-            } else {
-                System.out.println("Int Vector Value [" + j +"] : NULL ");
+
+        assertEquals(rowCount, intVector.getValueCount());
+
+        for(int j = 0; j < intVector.getValueCount(); j++) {
+            if(!intVector.isNull(j)) {
+                assertEquals(values[j], intVector.get(j));
             }
         }
+        return true;
     }
 
     public void getBigIntVectorValues(FieldVector fx){

@@ -104,7 +104,10 @@ public class JdbcToArrowTest {
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
-            System.out.print(root.getRowCount());
+            int[] values = {
+                    101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101,
+            };
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 15, values);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -127,7 +130,10 @@ public class JdbcToArrowTest {
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
-            System.out.print(root.getRowCount());
+            int[] values = {
+                    101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118
+            };
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 18, values);
 
         } catch (Exception e) {
             e.printStackTrace();
