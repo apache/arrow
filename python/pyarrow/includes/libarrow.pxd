@@ -372,6 +372,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const uint8_t* GetValue(int i, int32_t* length)
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
+        CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
+                     shared_ptr[CBuffer] data,
+                     shared_ptr[CBuffer] null_bitmap,
+                     int64_t null_count,
+                     int64_t offset)
+
         c_string GetString(int i)
 
     cdef cppclass CStructArray" arrow::StructArray"(CArray):
