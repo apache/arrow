@@ -67,11 +67,6 @@ constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max();
 
 namespace {
 
-inline bool PandasObjectIsNull(PyObject* obj) {
-  return obj == Py_None || obj == numpy_nan || internal::PyFloat_isnan(obj) ||
-         (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
-}
-
 inline bool PyObject_is_string(PyObject* obj) {
 #if PY_MAJOR_VERSION >= 3
   return PyUnicode_Check(obj) || PyBytes_Check(obj);
@@ -161,7 +156,7 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
   for (; offset < objects.size(); ++offset) {
     OwnedRef tmp_obj;
     obj = objects[offset];
-    if ((have_mask && mask_values[offset]) || PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
       continue;
     } else if (!PyBytes_Check(obj)) {
@@ -207,7 +202,7 @@ static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64
   for (; offset < objects.size(); ++offset) {
     OwnedRef tmp_obj;
     obj = objects[offset];
-    if ((have_mask && mask_values[offset]) || PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
       continue;
     } else if (PyUnicode_Check(obj)) {
@@ -256,7 +251,7 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
   for (; offset < objects.size(); ++offset) {
     OwnedRef tmp_obj;
     obj = objects[offset];
-    if ((have_mask && mask_values[offset]) || PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
       continue;
     } else if (PyUnicode_Check(obj)) {
@@ -722,7 +717,7 @@ Status NumPyConverter::ConvertDates() {
   PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
-    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else if (PyDate_CheckExact(obj)) {
       RETURN_NOT_OK(builder.Append(UnboxDate<ArrowType>::Unbox(obj)));
@@ -770,7 +765,7 @@ Status NumPyConverter::ConvertDecimals() {
       RETURN_IF_PYERROR();
     }
 
-    if (PandasObjectIsNull(object)) {
+    if (internal::PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       Decimal128 value;
@@ -798,7 +793,7 @@ Status NumPyConverter::ConvertDateTimes() {
     if (PyDateTime_Check(obj)) {
       RETURN_NOT_OK(
           builder.Append(PyDateTime_to_us(reinterpret_cast<PyDateTime_DateTime*>(obj))));
-    } else if (PandasObjectIsNull(obj)) {
+    } else if (internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       std::stringstream ss;
@@ -826,7 +821,7 @@ Status NumPyConverter::ConvertTimes() {
     obj = objects[i];
     if (PyTime_Check(obj)) {
       RETURN_NOT_OK(builder.Append(PyTime_to_us(obj)));
-    } else if (PandasObjectIsNull(obj)) {
+    } else if (internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       std::stringstream ss;
@@ -895,7 +890,7 @@ Status NumPyConverter::ConvertObjectFloats() {
   PyObject* obj;
   for (int64_t i = 0; i < objects.size(); ++i) {
     obj = objects[i];
-    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else if (PyFloat_Check(obj)) {
       double val = PyFloat_AsDouble(obj);
@@ -930,7 +925,7 @@ Status NumPyConverter::ConvertObjectIntegers() {
   PyObject* obj;
   for (int64_t i = 0; i < objects.size(); ++i) {
     obj = objects[i];
-    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else if (PyObject_is_integer(obj)) {
       const int64_t val = static_cast<int64_t>(PyLong_AsLong(obj));
@@ -999,7 +994,7 @@ Status NumPyConverter::ConvertBooleans() {
   PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
-    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
       ++null_count;
     } else if (obj == Py_True) {
       BitUtil::SetBit(bitmap, i);
@@ -1028,7 +1023,7 @@ Status NumPyConverter::ConvertObjectsInfer() {
 
   for (int64_t i = 0; i < length_; ++i) {
     PyObject* obj = objects[i];
-    if (PandasObjectIsNull(obj)) {
+    if (internal::PandasObjectIsNull(obj)) {
       continue;
     } else if (PyObject_is_string(obj)) {
       return ConvertObjectStrings();
@@ -1221,7 +1216,7 @@ inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>&
   BuilderT* value_builder = static_cast<BuilderT*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
-    if (mask || PandasObjectIsNull(object)) {
+    if (mask || internal::PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1266,7 +1261,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
   auto value_builder = static_cast<NullBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
-    if (mask || PandasObjectIsNull(object)) {
+    if (mask || internal::PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1312,7 +1307,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
   auto value_builder = static_cast<BinaryBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
-    if (mask || PandasObjectIsNull(object)) {
+    if (mask || internal::PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1365,7 +1360,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   auto value_builder = static_cast<StringBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
-    if (mask || PandasObjectIsNull(object)) {
+    if (mask || internal::PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1428,7 +1423,7 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
       auto value_builder = static_cast<ListBuilder*>(builder->value_builder());
 
       auto foreach_item = [this, &builder, &value_builder, &list_type](PyObject* object) {
-        if (PandasObjectIsNull(object)) {
+        if (internal::PandasObjectIsNull(object)) {
           return builder->AppendNull();
         } else {
           RETURN_NOT_OK(builder->Append(true));

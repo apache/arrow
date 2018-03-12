@@ -226,10 +226,6 @@ Status UInt64FromPythonInt(PyObject* obj, uint64_t* out) {
   return Status::OK();
 }
 
-bool PyFloat_isnan(PyObject* obj) {
-  return PyFloat_Check(obj) && std::isnan(PyFloat_AS_DOUBLE(obj));
-}
-
 bool PyDecimal_Check(PyObject* obj) {
   // TODO(phillipc): Is this expensive?
   OwnedRef Decimal;
@@ -281,6 +277,15 @@ Status DecimalMetadata::Update(PyObject* object) {
   int32_t scale;
   RETURN_NOT_OK(InferDecimalPrecisionAndScale(object, &precision, &scale));
   return Update(precision, scale);
+}
+
+bool PyFloat_IsNaN(PyObject* obj) {
+  return PyFloat_Check(obj) && std::isnan(PyFloat_AsDouble(obj));
+}
+
+bool PandasObjectIsNull(PyObject* obj) {
+  return obj == Py_None || obj == numpy_nan || PyFloat_IsNaN(obj) ||
+         (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
 }
 
 }  // namespace internal

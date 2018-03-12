@@ -88,7 +88,7 @@ class ScalarVisitor {
 
   Status Visit(PyObject* obj) {
     ++total_count_;
-    if (obj == Py_None) {
+    if (obj == Py_None || internal::PyFloat_IsNaN(obj)) {
       ++none_count_;
     } else if (PyBool_Check(obj)) {
       ++bool_count_;
@@ -412,9 +412,10 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
     // Iterate over the items adding each one
     if (PySequence_Check(obj)) {
+      auto self = static_cast<Derived*>(this);
       for (int64_t i = 0; i < size; ++i) {
         OwnedRef ref(PySequence_GetItem(obj, i));
-        RETURN_NOT_OK(static_cast<Derived*>(this)->AppendSingle(ref.obj()));
+        RETURN_NOT_OK(self->AppendSingle(ref.obj()));
       }
     } else {
       return Status::TypeError("Object is not a sequence");
@@ -424,7 +425,8 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
 
   // Append a missing item (default implementation)
   Status AppendNull() { return this->typed_builder_->AppendNull(); }
-  bool IsNull(PyObject* obj) const { return obj == Py_None; }
+
+  bool IsNull(PyObject* obj) const { return internal::PandasObjectIsNull(obj); }
 };
 
 class NullConverter : public TypedConverterVisitor<NullBuilder, NullConverter> {
@@ -438,7 +440,9 @@ class NullConverter : public TypedConverterVisitor<NullBuilder, NullConverter> {
 class BoolConverter : public TypedConverterVisitor<BooleanBuilder, BoolConverter> {
  public:
   // Append a non-missing item
-  Status AppendItem(PyObject* obj) { return typed_builder_->Append(obj == Py_True); }
+  Status AppendItem(PyObject* obj) {
+    return typed_builder_->Append(PyObject_IsTrue(obj) == 1);
+  }
 };
 
 class Int8Converter : public TypedConverterVisitor<Int8Builder, Int8Converter> {
@@ -850,11 +854,6 @@ class DecimalConverter
     const auto& type = static_cast<const DecimalType&>(*typed_builder_->type());
     RETURN_NOT_OK(internal::DecimalFromPythonDecimal(obj, type, &value));
     return typed_builder_->Append(value);
-  }
-
-  bool IsNull(PyObject* obj) const {
-    return obj == Py_None || obj == numpy_nan || internal::PyFloat_isnan(obj) ||
-           (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
   }
 };
 
