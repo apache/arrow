@@ -272,10 +272,20 @@ def test_string_from_buffers():
     assert copied.to_pylist() == ["a", None, "b", "c"]
 
     sliced = array[1:]
+    buffers = sliced.buffers()
     copied = pa.StringArray.from_buffers(
         len(sliced), buffers[1], buffers[2], buffers[0], -1, sliced.offset)
-    buffers = array.buffers()
     assert copied.to_pylist() == [None, "b", "c"]
+    assert copied.null_count == 1
+
+    # Slice but exclude all null entries so that we don't need to pass
+    # the null bitmap.
+    sliced = array[2:]
+    buffers = sliced.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(sliced), buffers[1], buffers[2], None, -1, sliced.offset)
+    assert copied.to_pylist() == ["b", "c"]
+    assert copied.null_count == 0
 
 
 def _check_cast_case(case, safe=True):
