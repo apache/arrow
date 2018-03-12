@@ -28,7 +28,8 @@ except DistributionNotFound:
         def parse_version(root):
             from setuptools_scm import version_from_scm
             import setuptools_scm.git
-            describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --match 'apache-arrow-[0-9]*'"
+            describe = (setuptools_scm.git.DEFAULT_DESCRIBE +
+                        " --match 'apache-arrow-[0-9]*'")
             # Strip catchall from the commandline
             describe = describe.replace("--match *.*", "")
             version = setuptools_scm.git.parse(root, describe)
@@ -86,8 +87,8 @@ from pyarrow.lib import (null, bool_,
 from pyarrow.lib import TimestampType
 
 # Buffers, allocation
-from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, compress,
-                         decompress, allocate_buffer, frombuffer)
+from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
+                         compress, decompress, allocate_buffer)
 
 from pyarrow.lib import (MemoryPool, total_allocated_bytes,
                          set_memory_pool, default_memory_pool,
@@ -163,7 +164,9 @@ def _plasma_store_entry_point():
 # ----------------------------------------------------------------------
 # Deprecations
 
-from pyarrow.util import _deprecate_class  # noqa
+from pyarrow.util import _deprecate_api  # noqa
+
+frombuffer = _deprecate_api('frombuffer', 'py_buffer', py_buffer, '0.9.0')
 
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in

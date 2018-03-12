@@ -23,7 +23,7 @@ import numpy as np
 
 from pyarrow.compat import builtin_pickle
 from pyarrow.lib import (SerializationContext, _default_serialization_context,
-                         frombuffer)
+                         py_buffer)
 
 try:
     import cloudpickle
@@ -46,7 +46,7 @@ def _deserialize_numpy_array_list(data):
 
 def _pickle_to_buffer(x):
     pickled = builtin_pickle.dumps(x, protocol=builtin_pickle.HIGHEST_PROTOCOL)
-    return frombuffer(pickled)
+    return py_buffer(pickled)
 
 
 def _load_pickle_from_buffer(data):

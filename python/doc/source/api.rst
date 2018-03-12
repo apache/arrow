@@ -213,7 +213,7 @@ Input / Output and Shared Memory
    allocate_buffer
    compress
    decompress
-   frombuffer
+   py_buffer
    foreign_buffer
    Buffer
    ResizableBuffer
