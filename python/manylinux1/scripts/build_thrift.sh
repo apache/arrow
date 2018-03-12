@@ -34,9 +34,11 @@ cmake -DCMAKE_BUILD_TYPE=release \
     "-DWITH_JAVA=OFF" \
     "-DWITH_PYTHON=OFF" \
     "-DWITH_CPP=ON" \
-    "-DWITH_STATIC_LIB=ON" ..
-make -j5
-make install
+    "-DWITH_STATIC_LIB=ON" \
+    -DBoost_NAMESPACE=arrow_boost \
+    -DBOOST_ROOT=/arrow_boost_dist \
+    -GNinja ..
+ninja install
 popd
 popd
 rm -rf thrift-${THRIFT_VERSION}.tar.gz thrift-${THRIFT_VERSION}

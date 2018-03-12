@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 
 #include "arrow/util/visibility.h"
 
@@ -40,10 +41,15 @@ class Table;
 namespace py {
 
 struct PandasOptions {
+  /// If true, we will convert all string columns to categoricals
   bool strings_to_categorical;
   bool zero_copy_only;
+  bool integer_object_nulls;
 
-  PandasOptions() : strings_to_categorical(false), zero_copy_only(false) {}
+  PandasOptions()
+      : strings_to_categorical(false),
+        zero_copy_only(false),
+        integer_object_nulls(false) {}
 };
 
 ARROW_EXPORT
@@ -63,6 +69,16 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 ARROW_EXPORT
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
                             int nthreads, MemoryPool* pool, PyObject** out);
+
+/// Convert a whole table as efficiently as possible to a pandas.DataFrame.
+///
+/// Explicitly name columns that should be a categorical
+/// This option is only used on conversions that are applied to a table.
+ARROW_EXPORT
+Status ConvertTableToPandas(PandasOptions options,
+                            const std::unordered_set<std::string>& categorical_columns,
+                            const std::shared_ptr<Table>& table, int nthreads,
+                            MemoryPool* pool, PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

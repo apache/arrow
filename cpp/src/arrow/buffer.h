@@ -54,7 +54,11 @@ class ARROW_EXPORT Buffer {
   ///
   /// \note The passed memory must be kept alive through some other means
   Buffer(const uint8_t* data, int64_t size)
-      : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
+      : is_mutable_(false),
+        data_(data),
+        mutable_data_(NULLPTR),
+        size_(size),
+        capacity_(size) {}
 
   /// \brief Construct from std::string without copying memory
   ///
@@ -113,7 +117,11 @@ class ARROW_EXPORT Buffer {
 
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
+#ifdef NDEBUG
   uint8_t* mutable_data() { return mutable_data_; }
+#else
+  uint8_t* mutable_data();
+#endif
 
   int64_t size() const { return size_; }
 

@@ -96,6 +96,14 @@ if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
   export PLASMA_VALGRIND=1
 fi
 
+# Set up huge pages for plasma test
+if [ $TRAVIS_OS_NAME == "linux" ]; then
+    sudo mkdir -p /mnt/hugepages
+    sudo mount -t hugetlbfs -o uid=`id -u` -o gid=`id -g` none /mnt/hugepages
+    sudo bash -c "echo `id -g` > /proc/sys/vm/hugetlb_shm_group"
+    sudo bash -c "echo 20000 > /proc/sys/vm/nr_hugepages"
+fi
+
 PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
 python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
 

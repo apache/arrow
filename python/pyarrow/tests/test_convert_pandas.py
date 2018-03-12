@@ -281,7 +281,7 @@ class TestConvertMetadata(object):
         indices = [[0, 1], [0, -1]]
 
         for inds in indices:
-            arr = pa.DictionaryArray.from_arrays(inds, ['a'])
+            arr = pa.DictionaryArray.from_arrays(inds, ['a'], safe=False)
             batch = pa.RecordBatch.from_arrays([arr], ['foo'])
             table = pa.Table.from_batches([batch, batch, batch])
 
@@ -305,7 +305,8 @@ class TestConvertMetadata(object):
 
     def test_binary_column_name(self):
         column_data = [u'い']
-        data = {u'あ'.encode('utf8'): column_data}
+        key = u'あ'.encode('utf8')
+        data = {key: column_data}
         df = pd.DataFrame(data)
 
         # we can't use _check_pandas_roundtrip here because our metdata
@@ -314,7 +315,7 @@ class TestConvertMetadata(object):
         df2 = t.to_pandas()
         assert df.values[0] == df2.values[0]
         assert df.index.values[0] == df2.index.values[0]
-        assert df.columns[0] == df2.columns[0].encode('utf8')
+        assert df.columns[0] == key
 
     def test_multiindex_duplicate_values(self):
         num_rows = 3
@@ -501,6 +502,14 @@ class TestConvertPrimitiveTypes(object):
         result = table.to_pandas()
         tm.assert_frame_equal(result, ex_frame)
 
+    def test_float_nulls_to_ints(self):
+        # ARROW-2135
+        df = pd.DataFrame({"a": [1.0, 2.0, pd.np.NaN]})
+        schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
+        table = pa.Table.from_pandas(df, schema=schema)
+        assert table[0].to_pylist() == [1, 2, None]
+        tm.assert_frame_equal(df, table.to_pandas())
+
     def test_integer_no_nulls(self):
         data = OrderedDict()
         fields = []
@@ -525,6 +534,17 @@ class TestConvertPrimitiveTypes(object):
         df = pd.DataFrame(data)
         schema = pa.schema(fields)
         _check_pandas_roundtrip(df, expected_schema=schema)
+
+    def test_all_integer_types(self):
+        # Test all Numpy integer aliases
+        data = OrderedDict()
+        numpy_dtypes = ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8',
+                        'byte', 'ubyte', 'short', 'ushort', 'intc', 'uintc',
+                        'int_', 'uint', 'longlong', 'ulonglong']
+        for dtype in numpy_dtypes:
+            data[dtype] = np.arange(12, dtype=dtype)
+        df = pd.DataFrame(data)
+        _check_pandas_roundtrip(df)
 
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype
@@ -632,6 +652,51 @@ class TestConvertPrimitiveTypes(object):
 
         _check_type(pa.int32())
         _check_type(pa.float64())
+
+
+@pytest.mark.parametrize('dtype',
+                         ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8'])
+def test_array_integer_object_nulls_option(dtype):
+    num_values = 100
+
+    null_mask = np.random.randint(0, 10, size=num_values) < 3
+    values = np.random.randint(0, 100, size=num_values, dtype=dtype)
+
+    array = pa.array(values, mask=null_mask)
+
+    if null_mask.any():
+        expected = values.astype('O')
+        expected[null_mask] = None
+    else:
+        expected = values
+
+    result = array.to_pandas(integer_object_nulls=True)
+
+    np.testing.assert_equal(result, expected)
+
+
+@pytest.mark.parametrize('dtype',
+                         ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8'])
+def test_table_integer_object_nulls_option(dtype):
+    num_values = 100
+
+    null_mask = np.random.randint(0, 10, size=num_values) < 3
+    values = np.random.randint(0, 100, size=num_values, dtype=dtype)
+
+    array = pa.array(values, mask=null_mask)
+
+    if null_mask.any():
+        expected = values.astype('O')
+        expected[null_mask] = None
+    else:
+        expected = values
+
+    expected = pd.DataFrame({dtype: expected})
+
+    table = pa.Table.from_arrays([array], [dtype])
+    result = table.to_pandas(integer_object_nulls=True)
+
+    tm.assert_frame_equal(result, expected)
 
 
 class TestConvertDateTimeLikeTypes(object):
@@ -1027,6 +1092,24 @@ class TestConvertStringLikeTypes(object):
         expected2 = pd.DataFrame({'strings': pd.Categorical(values)})
         tm.assert_frame_equal(result2, expected2, check_dtype=True)
 
+    def test_selective_categoricals(self):
+        values = ['', '', '', '', '']
+        df = pd.DataFrame({'strings': values})
+        field = pa.field('strings', pa.string())
+        schema = pa.schema([field])
+        table = pa.Table.from_pandas(df, schema=schema)
+        expected_str = pd.DataFrame({'strings': values})
+        expected_cat = pd.DataFrame({'strings': pd.Categorical(values)})
+
+        result1 = table.to_pandas(categories=['strings'])
+        tm.assert_frame_equal(result1, expected_cat, check_dtype=True)
+        result2 = table.to_pandas(categories=[])
+        tm.assert_frame_equal(result2, expected_str, check_dtype=True)
+        result3 = table.to_pandas(categories=('strings',))
+        tm.assert_frame_equal(result3, expected_cat, check_dtype=True)
+        result4 = table.to_pandas(categories=tuple())
+        tm.assert_frame_equal(result4, expected_str, check_dtype=True)
+
     def test_table_str_to_categorical_without_na(self):
         values = ['a', 'a', 'b', 'b', 'c']
         df = pd.DataFrame({'strings': values})
@@ -1142,6 +1225,20 @@ class TestConvertDecimalTypes(object):
         type2 = pa.decimal128(10, 3)
         with pytest.raises(pa.ArrowException):
             pa.array(data2, type=type2)
+
+    def test_decimal_with_different_precisions(self):
+        data = [
+            decimal.Decimal('0.01'),
+            decimal.Decimal('0.001'),
+        ]
+        series = pd.Series(data)
+        array = pa.array(series)
+        assert array.to_pylist() == data
+        assert array.type == pa.decimal128(3, 3)
+
+        array = pa.array(data, type=pa.decimal128(12, 5))
+        expected = [decimal.Decimal('0.01000'), decimal.Decimal('0.00100')]
+        assert array.to_pylist() == expected
 
 
 class TestListTypes(object):
@@ -1649,6 +1746,16 @@ def _fully_loaded_dataframe_example():
         data[10] = pd.interval_range(start=1, freq=1, periods=10)
 
     return pd.DataFrame(data, index=index)
+
+
+@pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
+def test_roundtrip_with_bytes_unicode(columns):
+    df = pd.DataFrame(columns=columns)
+    table1 = pa.Table.from_pandas(df)
+    table2 = pa.Table.from_pandas(table1.to_pandas())
+    assert table1.equals(table2)
+    assert table1.schema.equals(table2.schema)
+    assert table1.schema.metadata == table2.schema.metadata
 
 
 def _check_serialize_components_roundtrip(df):

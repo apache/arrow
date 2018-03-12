@@ -81,6 +81,27 @@ class ARROW_EXPORT PyOutputStream : public io::OutputStream {
 
 // TODO(wesm): seekable output files
 
+// A Buffer subclass that keeps a PyObject reference throughout its
+// lifetime, such that the Python object is kept alive as long as the
+// C++ buffer is still needed.
+// Keeping the reference in a Python wrapper would be incorrect as
+// the Python wrapper can get destroyed even though the wrapped C++
+// buffer is still alive (ARROW-2270).
+class ARROW_EXPORT PyForeignBuffer : public Buffer {
+ public:
+  static Status Make(const uint8_t* data, int64_t size, PyObject* base,
+                     std::shared_ptr<Buffer>* out);
+
+ private:
+  PyForeignBuffer(const uint8_t* data, int64_t size, PyObject* base)
+      : Buffer(data, size) {
+    Py_INCREF(base);
+    base_.reset(base);
+  }
+
+  OwnedRefNoGIL base_;
+};
+
 }  // namespace py
 }  // namespace arrow
 

@@ -22,10 +22,11 @@ import decimal
 import io
 import json
 import os
+import sys
 
 import pytest
 
-from pyarrow.compat import guid, u, BytesIO, unichar, frombytes
+from pyarrow.compat import guid, u, BytesIO, unichar
 from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
@@ -261,6 +262,19 @@ def test_pandas_parquet_1_0_rountrip(tmpdir):
     # We pass uint32_t as int64_t if we write Parquet version 1.0
     df['uint32'] = df['uint32'].values.astype(np.int64)
 
+    tm.assert_frame_equal(df, df_read)
+
+
+@parquet
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="need Python 3.6")
+def test_path_objects(tmpdir):
+    # Test compatibility with PEP 519 path-like objects
+    import pathlib
+    p = pathlib.Path(tmpdir) / 'zzz.parquet'
+    df = pd.DataFrame({'x': np.arange(10, dtype=np.int64)})
+    _write_table(df, p)
+    table_read = _read_table(p)
+    df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
@@ -510,20 +524,20 @@ def test_parquet_metadata_api():
 @pytest.mark.parametrize(
     'data, dtype, min_value, max_value, null_count, num_values',
     [
-        ([1, 2, 2, None, 4], np.uint8, u'1', u'4', 1, 4),
-        ([1, 2, 2, None, 4], np.uint16, u'1', u'4', 1, 4),
-        ([1, 2, 2, None, 4], np.uint32, u'1', u'4', 1, 4),
-        ([1, 2, 2, None, 4], np.uint64, u'1', u'4', 1, 4),
-        ([-1, 2, 2, None, 4], np.int16, u'-1', u'4', 1, 4),
-        ([-1, 2, 2, None, 4], np.int32, u'-1', u'4', 1, 4),
-        ([-1, 2, 2, None, 4], np.int64, u'-1', u'4', 1, 4),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, u'-1.1', u'4.4', 1, 4),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float64, u'-1.1', u'4.4', 1, 4),
+        ([1, 2, 2, None, 4], np.uint8, 1, 4, 1, 4),
+        ([1, 2, 2, None, 4], np.uint16, 1, 4, 1, 4),
+        ([1, 2, 2, None, 4], np.uint32, 1, 4, 1, 4),
+        ([1, 2, 2, None, 4], np.uint64, 1, 4, 1, 4),
+        ([-1, 2, 2, None, 4], np.int16, -1, 4, 1, 4),
+        ([-1, 2, 2, None, 4], np.int32, -1, 4, 1, 4),
+        ([-1, 2, 2, None, 4], np.int64, -1, 4, 1, 4),
+        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, -1.1, 4.4, 1, 4),
+        ([-1.1, 2.2, 2.3, None, 4.4], np.float64, -1.1, 4.4, 1, 4),
         (
             [u'', u'b', unichar(1000), None, u'aaa'],
-            str, u' ', frombytes((unichar(1000) + u' ').encode('utf-8')), 1, 4
+            str, b' ', (unichar(1000) + u' ').encode('utf-8'), 1, 4
         ),
-        ([True, False, False, True, True], np.bool, u'0', u'1', 0, 5),
+        ([True, False, False, True, True], np.bool, False, True, 0, 5),
     ]
 )
 def test_parquet_column_statistics_api(
@@ -1099,12 +1113,12 @@ def _test_read_common_metadata_files(fs, base_path):
     with fs.open(data_path, 'wb') as f:
         _write_table(table, f)
 
-    metadata_path = pjoin(base_path, '_metadata')
+    metadata_path = pjoin(base_path, '_common_metadata')
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
     dataset = pq.ParquetDataset(base_path, filesystem=fs)
-    assert dataset.metadata_path == metadata_path
+    assert dataset.common_metadata_path == metadata_path
 
     with fs.open(data_path) as f:
         common_schema = pq.read_metadata(f).schema
@@ -1417,7 +1431,14 @@ def _test_write_to_dataset_with_partitions(base_path, filesystem=None):
     output_table = pa.Table.from_pandas(output_df)
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
-    input_table = pq.ParquetDataset(base_path, filesystem=filesystem).read()
+    pq.write_metadata(output_table.schema,
+                      os.path.join(base_path, '_common_metadata'))
+    dataset = pq.ParquetDataset(base_path, filesystem=filesystem)
+    # ARROW-2209: Ensure the dataset schema also includes the partition columns
+    dataset_cols = set(dataset.schema.to_arrow_schema().names)
+    assert dataset_cols == set(output_table.schema.names)
+
+    input_table = dataset.read()
     input_df = input_table.to_pandas()
 
     # Read data back in and compare with original DataFrame

@@ -1934,14 +1934,10 @@ public class TestValueVector {
       assertEquals(4096, vector.getValueCapacity());
       assertEquals(64, vector.getDataBuffer().capacity());
 
-      boolean error = false;
-      try {
-        vector.setInitialCapacity(5, 0.1);
-      } catch (IllegalArgumentException e) {
-        error = true;
-      } finally {
-        assertTrue(error);
-      }
+      vector.setInitialCapacity(5, 0.01);
+      vector.allocateNew();
+      assertEquals(7, vector.getValueCapacity());
+      assertEquals(2, vector.getDataBuffer().capacity());
     }
   }
 }

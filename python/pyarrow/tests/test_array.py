@@ -132,16 +132,17 @@ def test_array_slice():
 
     # Test slice notation
     assert arr[2:].equals(arr.slice(2))
-
     assert arr[2:5].equals(arr.slice(2, 3))
-
     assert arr[-5:].equals(arr.slice(len(arr) - 5))
-
     with pytest.raises(IndexError):
         arr[::-1]
-
     with pytest.raises(IndexError):
         arr[::2]
+
+    n = len(arr)
+    for start in range(-n * 2, n * 2):
+        for stop in range(-n * 2, n * 2):
+            assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
 
 
 def test_array_factory_invalid_type():
@@ -156,6 +157,16 @@ def test_array_ref_to_ndarray_base():
     refcount = sys.getrefcount(arr)
     arr2 = pa.array(arr)  # noqa
     assert sys.getrefcount(arr) == (refcount + 1)
+
+
+def test_array_eq_raises():
+    # ARROW-2150: we are raising when comparing arrays until we define the
+    # behavior to either be elementwise comparisons or data equality
+    arr1 = pa.array([1, 2, 3], type=pa.int32())
+    arr2 = pa.array([1, 2, 3], type=pa.int32())
+
+    with pytest.raises(NotImplementedError):
+        arr1 == arr2
 
 
 def test_dictionary_from_numpy():
@@ -186,6 +197,27 @@ def test_dictionary_from_boxed_arrays():
 
     for i in range(len(indices)):
         assert d1[i].as_py() == dictionary[indices[i]]
+
+
+def test_dictionary_from_arrays_boundscheck():
+    indices1 = pa.array([0, 1, 2, 0, 1, 2])
+    indices2 = pa.array([0, -1, 2])
+    indices3 = pa.array([0, 1, 2, 3])
+
+    dictionary = pa.array(['foo', 'bar', 'baz'])
+
+    # Works fine
+    pa.DictionaryArray.from_arrays(indices1, dictionary)
+
+    with pytest.raises(pa.ArrowException):
+        pa.DictionaryArray.from_arrays(indices2, dictionary)
+
+    with pytest.raises(pa.ArrowException):
+        pa.DictionaryArray.from_arrays(indices3, dictionary)
+
+    # If we are confident that the indices are "safe" we can pass safe=False to
+    # disable the boundschecking
+    pa.DictionaryArray.from_arrays(indices2, dictionary, safe=False)
 
 
 def test_dictionary_with_pandas():
@@ -256,6 +288,36 @@ def test_union_from_sparse():
     result = pa.UnionArray.from_sparse(types, [binary, int64])
 
     assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+
+
+def test_string_from_buffers():
+    array = pa.array(["a", None, "b", "c"])
+
+    buffers = array.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(array), buffers[1], buffers[2], buffers[0], array.null_count,
+        array.offset)
+    assert copied.to_pylist() == ["a", None, "b", "c"]
+
+    copied = pa.StringArray.from_buffers(
+        len(array), buffers[1], buffers[2], buffers[0])
+    assert copied.to_pylist() == ["a", None, "b", "c"]
+
+    sliced = array[1:]
+    buffers = sliced.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(sliced), buffers[1], buffers[2], buffers[0], -1, sliced.offset)
+    assert copied.to_pylist() == [None, "b", "c"]
+    assert copied.null_count == 1
+
+    # Slice but exclude all null entries so that we don't need to pass
+    # the null bitmap.
+    sliced = array[2:]
+    buffers = sliced.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(sliced), buffers[1], buffers[2], None, -1, sliced.offset)
+    assert copied.to_pylist() == ["b", "c"]
+    assert copied.null_count == 0
 
 
 def _check_cast_case(case, safe=True):
@@ -600,6 +662,15 @@ def test_buffers_primitive():
     assert 1 <= len(null_bitmap) <= 64  # XXX this is varying
     assert bytearray(null_bitmap)[0] == 0b00001011
 
+    # Slicing does not affect the buffers but the offset
+    a_sliced = a[1:]
+    buffers = a_sliced.buffers()
+    a_sliced.offset == 1
+    assert len(buffers) == 2
+    null_bitmap = buffers[0].to_pybytes()
+    assert 1 <= len(null_bitmap) <= 64  # XXX this is varying
+    assert bytearray(null_bitmap)[0] == 0b00001011
+
     assert struct.unpack('hhxxh', buffers[1].to_pybytes()) == (1, 2, 4)
 
     a = pa.array(np.int8([4, 5, 6]))
@@ -653,3 +724,14 @@ def test_buffers_nested():
     assert bytearray(null_bitmap)[0] == 0b00000100
     values = buffers[4].to_pybytes()
     assert struct.unpack('4xh', values) == (43,)
+
+
+def test_invalid_tensor_constructor_repr():
+    t = pa.Tensor([1])
+    assert repr(t) == '<invalid pyarrow.Tensor>'
+
+
+def test_invalid_tensor_operation():
+    t = pa.Tensor()
+    with pytest.raises(TypeError):
+        t.to_numpy()

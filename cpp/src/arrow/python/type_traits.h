@@ -34,6 +34,9 @@ namespace arrow {
 namespace py {
 namespace internal {
 
+//
+// Type traits for Numpy -> Arrow equivalence
+//
 template <int TYPE>
 struct npy_traits {};
 
@@ -68,7 +71,11 @@ NPY_INT_DECL(UINT16, UInt16, uint16_t);
 NPY_INT_DECL(UINT32, UInt32, uint32_t);
 NPY_INT_DECL(UINT64, UInt64, uint64_t);
 
-#if NPY_INT64 != NPY_LONGLONG
+#if !NPY_INT32_IS_INT && NPY_BITSOF_INT == 32
+NPY_INT_DECL(INT, Int32, int32_t);
+NPY_INT_DECL(UINT, UInt32, uint32_t);
+#endif
+#if !NPY_INT64_IS_LONG_LONG && NPY_BITSOF_LONGLONG == 64
 NPY_INT_DECL(LONGLONG, Int64, int64_t);
 NPY_INT_DECL(ULONGLONG, UInt64, uint64_t);
 #endif
@@ -127,8 +134,14 @@ template <>
 struct npy_traits<NPY_OBJECT> {
   typedef PyObject* value_type;
   static constexpr bool supports_nulls = true;
+
+  static inline bool isnull(PyObject* v) { return v == Py_None; }
 };
 
+//
+// Type traits for Arrow -> Numpy equivalence
+// Note *supports_nulls* means the equivalent Numpy type support nulls
+//
 template <int TYPE>
 struct arrow_traits {};
 
@@ -252,30 +265,27 @@ struct arrow_traits<Type::BINARY> {
 static inline int NumPyTypeSize(int npy_type) {
   switch (npy_type) {
     case NPY_BOOL:
-      return 1;
     case NPY_INT8:
-      return 1;
-    case NPY_INT16:
-      return 2;
-    case NPY_INT32:
-      return 4;
-    case NPY_INT64:
-      return 8;
-#if (NPY_INT64 != NPY_LONGLONG)
-    case NPY_LONGLONG:
-      return 8;
-#endif
     case NPY_UINT8:
       return 1;
+    case NPY_INT16:
     case NPY_UINT16:
       return 2;
+    case NPY_INT32:
     case NPY_UINT32:
       return 4;
+    case NPY_INT64:
     case NPY_UINT64:
       return 8;
-#if (NPY_UINT64 != NPY_ULONGLONG)
+#if !NPY_INT32_IS_INT
+    case NPY_INT:
+    case NPY_UINT:
+      return NPY_BITSOF_INT / 8;
+#endif
+#if !NPY_INT64_IS_LONG_LONG
+    case NPY_LONGLONG:
     case NPY_ULONGLONG:
-      return 8;
+      return NPY_BITSOF_LONGLONG / 8;
 #endif
     case NPY_FLOAT16:
       return 2;

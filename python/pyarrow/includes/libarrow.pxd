@@ -103,6 +103,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int64_t length()
         int64_t null_count()
+        int64_t offset()
         Type type_id()
 
         int num_fields()
@@ -125,6 +126,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDictionaryArray" arrow::DictionaryArray"(CArray):
         CDictionaryArray(const shared_ptr[CDataType]& type,
                          const shared_ptr[CArray]& indices)
+
+        @staticmethod
+        CStatus FromArrays(const shared_ptr[CDataType]& type,
+                           const shared_ptr[CArray]& indices,
+                           shared_ptr[CArray]* out)
 
         shared_ptr[CArray] indices()
         shared_ptr[CArray] dictionary()
@@ -263,6 +269,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_fields()
         c_string ToString()
 
+        CStatus AddField(int i, const shared_ptr[CField]& field,
+                         shared_ptr[CSchema]* out)
+        CStatus RemoveField(int i, shared_ptr[CSchema]* out)
+
         # Removed const in Cython so don't have to cast to get code to generate
         shared_ptr[CSchema] AddMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
@@ -362,6 +372,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const uint8_t* GetValue(int i, int32_t* length)
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
+        CStringArray(int64_t length, shared_ptr[CBuffer] value_offsets,
+                     shared_ptr[CBuffer] data,
+                     shared_ptr[CBuffer] null_bitmap,
+                     int64_t null_count,
+                     int64_t offset)
+
         c_string GetString(int i)
 
     cdef cppclass CStructArray" arrow::StructArray"(CArray):
@@ -383,6 +399,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_chunks()
         shared_ptr[CArray] chunk(int i)
         shared_ptr[CDataType] type()
+        shared_ptr[CChunkedArray] Slice(int64_t offset, int64_t length) const
+        shared_ptr[CChunkedArray] Slice(int64_t offset) const
 
     cdef cppclass CColumn" arrow::Column":
         CColumn(const shared_ptr[CField]& field,
@@ -871,7 +889,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
                             shared_ptr[CTensor]* out)
 
-    CStatus TensorToNdarray(const CTensor& tensor, object base,
+    CStatus TensorToNdarray(const shared_ptr[CTensor]& tensor, object base,
                             PyObject** out)
 
     CStatus ConvertArrayToPandas(PandasOptions options,
@@ -882,10 +900,12 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                   const shared_ptr[CColumn]& arr,
                                   object py_ref, PyObject** out)
 
-    CStatus ConvertTableToPandas(PandasOptions options,
-                                 const shared_ptr[CTable]& table,
-                                 int nthreads, CMemoryPool* pool,
-                                 PyObject** out)
+    CStatus ConvertTableToPandas(
+        PandasOptions options,
+        const unordered_set[c_string]& categorical_columns,
+        const shared_ptr[CTable]& table,
+        int nthreads, CMemoryPool* pool,
+        PyObject** out)
 
     void c_set_default_memory_pool \
         " arrow::py::set_default_memory_pool"(CMemoryPool* pool)\
@@ -897,6 +917,11 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         @staticmethod
         CStatus FromPyObject(object obj, shared_ptr[CBuffer]* out)
 
+    cdef cppclass PyForeignBuffer(CBuffer):
+        @staticmethod
+        CStatus Make(const uint8_t* data, int64_t size, object base,
+                     shared_ptr[CBuffer]* out)
+
     cdef cppclass PyReadableFile(RandomAccessFile):
         PyReadableFile(object fo)
 
@@ -906,6 +931,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef struct PandasOptions:
         c_bool strings_to_categorical
         c_bool zero_copy_only
+        c_bool integer_object_nulls
 
 cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 

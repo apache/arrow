@@ -74,17 +74,24 @@ var custom = function () {};
 
 var Value = function() {};
 /** @type {?} */
-Value.prototype.gteq;
+Value.prototype.ge;
 /** @type {?} */
-Value.prototype.lteq;
+Value.prototype.le;
 /** @type {?} */
 Value.prototype.eq;
+/** @type {?} */
+Value.prototype.lt;
+/** @type {?} */
+Value.prototype.gt;
+/** @type {?} */
+Value.prototype.ne;
 
 var Col = function() {};
 /** @type {?} */
 Col.prototype.bind;
 var Or = function() {};
 var And = function() {};
+var Not = function() {};
 var GTeq = function () {};
 /** @type {?} */
 GTeq.prototype.and;
@@ -107,6 +114,8 @@ Predicate.prototype.bind;
 Predicate.prototype.and;
 /** @type {?} */
 Predicate.prototype.or;
+/** @type {?} */
+Predicate.prototype.not;
 /** @type {?} */
 Predicate.prototype.ands;
 var Literal = function() {};
@@ -208,6 +217,8 @@ Int128.prototype.times
 Int128.prototype.plus
 /** @type {?} */
 Int128.prototype.hex
+
+var packBools = function() {};
 
 var Type = function() {};
 /** @type {?} */
@@ -510,24 +521,42 @@ var FloatVector = function() {};
 FloatVector.from = function() {};
 
 var DateVector = function() {};
+/** @type {?} */
+DateVector.prototype.asEpochMilliseconds;
 var DecimalVector = function() {};
 var TimeVector = function() {};
 var TimestampVector = function() {};
+/** @type {?} */
+TimestampVector.prototype.asEpochMilliseconds;
 var IntervalVector = function() {};
 var BinaryVector = function() {};
+/** @type {?} */
+BinaryVector.prototype.asUtf8;
 var FixedSizeBinaryVector = function() {};
 var Utf8Vector = function() {};
+/** @type {?} */
+Utf8Vector.prototype.asBinary;
 var ListVector = function() {};
 var FixedSizeListVector = function() {};
 var MapVector = function() {};
+/** @type {?} */
+MapVector.prototype.asStruct;
 var StructVector = function() {};
+/** @type {?} */
+StructVector.prototype.asMap;
 var UnionVector = function() {};
 
 var DictionaryVector = function() {};
 /** @type {?} */
+DictionaryVector.prototype.indices;
+/** @type {?} */
+DictionaryVector.prototype.dictionary;
+/** @type {?} */
 DictionaryVector.prototype.getKey;
 /** @type {?} */
 DictionaryVector.prototype.getValue;
+/** @type {?} */
+DictionaryVector.prototype.reverseLookup;
 
 var FlatView = function() {};
 /** @type {?} */

@@ -100,6 +100,17 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   @Override
+  public void setInitialCapacity(int valueCount, double density) {
+    for (final ValueVector vector : (Iterable<ValueVector>) this) {
+      if (vector instanceof DensityAwareVector) {
+        ((DensityAwareVector)vector).setInitialCapacity(valueCount, density);
+      } else {
+        vector.setInitialCapacity(valueCount);
+      }
+    }
+  }
+
+  @Override
   public int getBufferSize() {
     if (valueCount == 0 || size() == 0) {
       return 0;

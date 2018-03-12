@@ -27,11 +27,11 @@ def implements(f):
     return decorator
 
 
-def _deprecate_class(old_name, new_name, klass, next_version='0.5.0'):
+def _deprecate_api(old_name, new_name, api, next_version):
     msg = ('pyarrow.{0} is deprecated as of {1}, please use {2} instead'
            .format(old_name, next_version, new_name))
 
-    def deprecated_factory(*args, **kwargs):
+    def wrapper(*args, **kwargs):
         warnings.warn(msg, FutureWarning)
-        return klass(*args)
-    return deprecated_factory
+        return api(*args)
+    return wrapper

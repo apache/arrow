@@ -326,9 +326,9 @@ export class IntervalMonthView extends PrimitiveView<Int32> {
 
 export function epochSecondsToMs(data: Int32Array, index: number) { return 1000 * data[index]; }
 export function epochDaysToMs(data: Int32Array, index: number) { return 86400000 * data[index]; }
-export function epochMillisecondsLongToMs(data: Int32Array, index: number) { return 4294967296 * (data[index + 1]) + data[index]; }
-export function epochMicrosecondsLongToMs(data: Int32Array, index: number) { return 4294967296 * (data[index + 1] / 1000) + (data[index] / 1000); }
-export function epochNanosecondsLongToMs(data: Int32Array, index: number) { return 4294967296 * (data[index + 1] / 1000000) + (data[index] / 1000000); }
+export function epochMillisecondsLongToMs(data: Int32Array, index: number) { return 4294967296 * (data[index + 1]) + (data[index] >>> 0); }
+export function epochMicrosecondsLongToMs(data: Int32Array, index: number) { return 4294967296 * (data[index + 1] / 1000) + ((data[index] >>> 0) / 1000); }
+export function epochNanosecondsLongToMs(data: Int32Array, index: number) { return 4294967296 * (data[index + 1] / 1000000) + ((data[index] >>> 0) / 1000000); }
 
 export function epochMillisecondsToDate(epochMs: number) { return new Date(epochMs); }
 export function epochDaysToDate(data: Int32Array, index: number) { return epochMillisecondsToDate(epochDaysToMs(data, index)); }

@@ -26,6 +26,7 @@ import six
 import sys
 import threading
 import time
+import warnings
 
 
 # 64K
@@ -36,6 +37,18 @@ DEFAULT_BUFFER_SIZE = 2 ** 16
 cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
+
+
+def _stringify_path(path):
+    """
+    Convert *path* to a string or unicode path if possible.
+    """
+    if isinstance(path, six.string_types):
+        return path
+    try:
+        return path.__fspath__()
+    except AttributeError:
+        raise TypeError("not a path-like object")
 
 
 cdef class NativeFile:
@@ -199,7 +212,7 @@ cdef class NativeFile:
         if isinstance(data, six.string_types):
             data = tobytes(data)
 
-        cdef Buffer arrow_buffer = frombuffer(data)
+        cdef Buffer arrow_buffer = py_buffer(data)
 
         cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
         cdef int64_t bufsize = len(arrow_buffer)
@@ -410,9 +423,21 @@ cdef class PythonFile(NativeFile):
     cdef:
         object handle
 
-    def __cinit__(self, handle, mode='w'):
+    def __cinit__(self, handle, mode=None):
         self.handle = handle
 
+        if mode is None:
+            try:
+                mode = handle.mode
+            except AttributeError:
+                # Not all file-like objects have a mode attribute
+                # (e.g. BytesIO)
+                try:
+                    mode = 'w' if handle.writable() else 'r'
+                except AttributeError:
+                    raise ValueError("could not infer open mode for file-like "
+                                     "object %r, please pass it explicitly"
+                                     % (handle,))
         if mode.startswith('w'):
             self.wr_file.reset(new PyOutputStream(handle))
             self.is_writable = True
@@ -647,6 +672,12 @@ cdef class Buffer:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
         return result
 
+    def __eq__(self, other):
+        if isinstance(other, Buffer):
+            return self.equals(other)
+        else:
+            return NotImplemented
+
     def to_pybytes(self):
         self._check_nullptr()
         return cp.PyBytes_FromStringAndSize(
@@ -803,14 +834,14 @@ cdef class BufferReader(NativeFile):
         if isinstance(obj, Buffer):
             self.buffer = obj
         else:
-            self.buffer = frombuffer(obj)
+            self.buffer = py_buffer(obj)
 
         self.rd_file.reset(new CBufferReader(self.buffer.buffer))
         self.is_readable = True
         self.closed = False
 
 
-def frombuffer(object obj):
+def py_buffer(object obj):
     """
     Construct an Arrow buffer from a Python bytes object
     """
@@ -819,16 +850,34 @@ def frombuffer(object obj):
     return pyarrow_wrap_buffer(buf)
 
 
+def foreign_buffer(address, size, base):
+    """
+    Construct an Arrow buffer with the given *address* and *size*,
+    backed by the Python *base* object.
+    """
+    cdef:
+        intptr_t c_addr = address
+        int64_t c_size = size
+        shared_ptr[CBuffer] buf
+
+    check_status(PyForeignBuffer.Make(<uint8_t*> c_addr, c_size,
+                                      base, &buf))
+    return pyarrow_wrap_buffer(buf)
+
+
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
     cdef NativeFile nf
 
-    if isinstance(source, six.string_types):
-        source = memory_map(source, mode='r')
-    elif isinstance(source, Buffer):
-        source = BufferReader(source)
-    elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
-        # Optimistically hope this is file-like
-        source = PythonFile(source, mode='r')
+    try:
+        source_path = _stringify_path(source)
+    except TypeError:
+        if isinstance(source, Buffer):
+            source = BufferReader(source)
+        elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
+            # Optimistically hope this is file-like
+            source = PythonFile(source, mode='r')
+    else:
+        source = memory_map(source_path, mode='r')
 
     if isinstance(source, NativeFile):
         nf = source
@@ -846,11 +895,14 @@ cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
 cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     cdef NativeFile nf
 
-    if isinstance(source, six.string_types):
-        source = OSFile(source, mode='w')
-    elif not isinstance(source, NativeFile) and hasattr(source, 'write'):
-        # Optimistically hope this is file-like
-        source = PythonFile(source, mode='w')
+    try:
+        source_path = _stringify_path(source)
+    except TypeError:
+        if not isinstance(source, NativeFile) and hasattr(source, 'write'):
+            # Optimistically hope this is file-like
+            source = PythonFile(source, mode='w')
+    else:
+        source = OSFile(source_path, mode='w')
 
     if isinstance(source, NativeFile):
         nf = source
@@ -915,7 +967,7 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
         check_status(CCodec.Create(c_codec, &compressor))
 
     if not isinstance(buf, Buffer):
-        buf = frombuffer(buf)
+        buf = py_buffer(buf)
 
     c_buf = (<Buffer> buf).buffer.get()
 
@@ -980,7 +1032,7 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
         check_status(CCodec.Create(c_codec, &compressor))
 
     if not isinstance(buf, Buffer):
-        buf = frombuffer(buf)
+        buf = py_buffer(buf)
 
     c_buf = (<Buffer> buf).buffer.get()
 

@@ -205,15 +205,25 @@ def asarray(values, type=None):
 
 
 def _normalize_slice(object arrow_obj, slice key):
-    cdef Py_ssize_t n = len(arrow_obj)
+    cdef:
+        Py_ssize_t start, stop, step
+        Py_ssize_t n = len(arrow_obj)
 
     start = key.start or 0
-    while start < 0:
+    if start < 0:
         start += n
+        if start < 0:
+            start = 0
+    elif start >= n:
+        start = n
 
     stop = key.stop if key.stop is not None else n
-    while stop < 0:
+    if stop < 0:
         stop += n
+        if stop < 0:
+            stop = 0
+    elif stop >= n:
+        stop = n
 
     step = key.step or 1
     if step != 1:
@@ -266,6 +276,10 @@ cdef class Array:
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
+
+    def __richcmp__(Array self, object other, int op):
+        raise NotImplementedError('Comparisons with pyarrow.Array are not '
+                                  'implemented')
 
     def _debug_print(self):
         with nogil:
@@ -430,7 +444,8 @@ cdef class Array:
         return pyarrow_wrap_array(result)
 
     def to_pandas(self, c_bool strings_to_categorical=False,
-                  c_bool zero_copy_only=False):
+                  c_bool zero_copy_only=False,
+                  c_bool integer_object_nulls=False):
         """
         Convert to an array object suitable for use in pandas
 
@@ -441,6 +456,8 @@ cdef class Array:
         zero_copy_only : boolean, default False
             Raise an ArrowException if this function call would require copying
             the underlying data
+        integer_object_nulls : boolean, default False
+            Cast integers with nulls to objects
 
         See also
         --------
@@ -454,7 +471,8 @@ cdef class Array:
 
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only)
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
                                               self, &out))
@@ -479,10 +497,23 @@ cdef class Array:
         with nogil:
             check_status(ValidateArray(deref(self.ap)))
 
+    property offset:
+
+        def __get__(self):
+            """
+            A relative position into another array's data, to enable zero-copy
+            slicing. This value defaults to zero but must be applied on all
+            operations with the physical storage buffers.
+            """
+            return self.sp_array.get().offset()
+
     def buffers(self):
         """
         Return a list of Buffer objects pointing to this array's physical
         storage.
+
+        To correctly interpret these buffers, you need to also apply the offset
+        multiplied with the size of the stored data type.
         """
         res = []
         _append_array_buffers(self.sp_array.get().data().get(), res)
@@ -496,11 +527,19 @@ cdef class Tensor:
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())
 
+    def _validate(self):
+        if self.tp is NULL:
+            raise TypeError(
+                'pyarrow.Tensor has not been initialized correctly Please use '
+                'pyarrow.Tensor.from_numpy to construct a pyarrow.Tensor')
+
     def __repr__(self):
+        if self.tp is NULL:
+            return '<invalid pyarrow.Tensor>'
         return """<pyarrow.Tensor>
-type: {0}
-shape: {1}
-strides: {2}""".format(self.type, self.shape, self.strides)
+type: {0.type}
+shape: {0.shape}
+strides: {0.strides}""".format(self)
 
     @staticmethod
     def from_numpy(obj):
@@ -514,56 +553,57 @@ strides: {2}""".format(self.type, self.shape, self.strides)
         """
         Convert arrow::Tensor to numpy.ndarray with zero copy
         """
-        cdef:
-            PyObject* out
+        self._validate()
+
+        cdef PyObject* out
 
         with nogil:
-            check_status(TensorToNdarray(deref(self.tp), self, &out))
+            check_status(TensorToNdarray(self.sp_tensor, self, &out))
         return PyObject_to_object(out)
 
     def equals(self, Tensor other):
         """
         Return true if the tensors contains exactly equal data
         """
+        self._validate()
         return self.tp.Equals(deref(other.tp))
 
-    property is_mutable:
+    def __eq__(self, other):
+        if isinstance(other, Tensor):
+            return self.equals(other)
+        else:
+            return NotImplemented
 
-        def __get__(self):
-            return self.tp.is_mutable()
+    @property
+    def is_mutable(self):
+        self._validate()
+        return self.tp.is_mutable()
 
-    property is_contiguous:
+    @property
+    def is_contiguous(self):
+        self._validate()
+        return self.tp.is_contiguous()
 
-        def __get__(self):
-            return self.tp.is_contiguous()
+    @property
+    def ndim(self):
+        self._validate()
+        return self.tp.ndim()
 
-    property ndim:
+    @property
+    def size(self):
+        self._validate()
+        return self.tp.size()
 
-        def __get__(self):
-            return self.tp.ndim()
+    @property
+    def shape(self):
+        # Cython knows how to convert a vector[T] to a Python list
+        self._validate()
+        return tuple(self.tp.shape())
 
-    property size:
-
-        def __get__(self):
-            return self.tp.size()
-
-    property shape:
-
-        def __get__(self):
-            cdef size_t i
-            py_shape = []
-            for i in range(self.tp.shape().size()):
-                py_shape.append(self.tp.shape()[i])
-            return py_shape
-
-    property strides:
-
-        def __get__(self):
-            cdef size_t i
-            py_strides = []
-            for i in range(self.tp.strides().size()):
-                py_strides.append(self.tp.strides()[i])
-            return py_strides
+    @property
+    def strides(self):
+        self._validate()
+        return tuple(self.tp.strides())
 
 
 cdef wrap_array_output(PyObject* output):
@@ -748,8 +788,41 @@ cdef class UnionArray(Array):
         return pyarrow_wrap_array(out)
 
 cdef class StringArray(Array):
-    pass
 
+    @staticmethod
+    def from_buffers(int length, Buffer value_offsets, Buffer data,
+                     Buffer null_bitmap=None, int null_count=-1,
+                     int offset=0):
+        """
+        Construct a StringArray from value_offsets and data buffers.
+        If there are nulls in the data, also a null_bitmap and the matching
+        null_count must be passed.
+
+        Parameters
+        ----------
+        length : int
+        value_offsets : Buffer
+        data : Buffer
+        null_bitmap : Buffer, optional
+        null_count : int, default 0
+        offset : int, default 0
+
+        Returns
+        -------
+        string_array : StringArray
+        """
+        cdef shared_ptr[CBuffer] c_null_bitmap
+        cdef shared_ptr[CArray] out
+
+        if null_bitmap is not None:
+            c_null_bitmap = null_bitmap.buffer
+        else:
+            null_count = 0
+
+        out.reset(new CStringArray(
+            length, value_offsets.buffer, data.buffer, c_null_bitmap,
+            null_count, offset))
+        return pyarrow_wrap_array(out)
 
 cdef class BinaryArray(Array):
     pass
@@ -791,7 +864,8 @@ cdef class DictionaryArray(Array):
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, ordered=False,
-                    from_pandas=False, MemoryPool memory_pool=None):
+                    from_pandas=False, safe=True,
+                    MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
         non-negative integers) and corresponding array of dictionary values
@@ -807,6 +881,8 @@ cdef class DictionaryArray(Array):
             a pandas.Categorical (null encoded as -1)
         ordered : boolean, default False
             Set to True if the category values are ordered
+        safe : boolean, default True
+            If True, check that the dictionary indices are in range
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise uses default pool
 
@@ -845,7 +921,14 @@ cdef class DictionaryArray(Array):
 
         c_type.reset(new CDictionaryType(_indices.type.sp_type,
                                          _dictionary.sp_array, c_ordered))
-        c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
+
+        if safe:
+            with nogil:
+                check_status(
+                    CDictionaryArray.FromArrays(c_type, _indices.sp_array,
+                                                &c_result))
+        else:
+            c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
 
         result = DictionaryArray()
         result.init(c_result)

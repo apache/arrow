@@ -204,6 +204,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
 
   if (MSVC)
+    option(ARROW_USE_CLCACHE
+      "Use clcache if available"
+      ON)
+
     set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
       "Brotli static lib suffix used on Windows with MSVC (default -static)")
     set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
@@ -257,6 +261,15 @@ if(ARROW_HDFS)
   set(ARROW_BOOST_HEADER_ONLY 0)
 else()
   set(ARROW_BOOST_HEADER_ONLY 1)
+endif()
+
+if (MSVC AND ARROW_USE_CLCACHE AND
+     (("${CMAKE_GENERATOR}" STREQUAL "NMake Makefiles") OR
+      ("${CMAKE_GENERATOR}" STREQUAL "Ninja")))
+  find_program(CLCACHE_FOUND clcache)
+  if(CLCACHE_FOUND)
+    set(CMAKE_CXX_COMPILER ${CLCACHE_FOUND})
+  endif(CLCACHE_FOUND)
 endif()
 
 ############################################################
@@ -574,11 +587,13 @@ set(ARROW_LINK_LIBS
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
-  ${BOOST_FILESYSTEM_LIBRARY})
+  ${BOOST_FILESYSTEM_LIBRARY}
+  ${BOOST_REGEX_LIBRARY})
 
 set(ARROW_STATIC_PRIVATE_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
-  ${BOOST_FILESYSTEM_LIBRARY})
+  ${BOOST_FILESYSTEM_LIBRARY}
+  ${BOOST_REGEX_LIBRARY})
 
 if (NOT MSVC)
   set(ARROW_LINK_LIBS

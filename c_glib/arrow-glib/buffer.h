@@ -36,6 +36,7 @@ struct _GArrowBufferClass
 
 GArrowBuffer  *garrow_buffer_new          (const guint8 *data,
                                            gint64 size);
+GArrowBuffer  *garrow_buffer_new_bytes    (GBytes *data);
 gboolean       garrow_buffer_equal        (GArrowBuffer *buffer,
                                            GArrowBuffer *other_buffer);
 gboolean       garrow_buffer_equal_n_bytes(GArrowBuffer *buffer,
@@ -70,6 +71,7 @@ struct _GArrowMutableBufferClass
 
 GArrowMutableBuffer *garrow_mutable_buffer_new  (guint8 *data,
                                                  gint64 size);
+GArrowMutableBuffer *garrow_mutable_buffer_new_bytes(GBytes *data);
 GArrowMutableBuffer *garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
                                                  gint64 offset,
                                                  gint64 size);

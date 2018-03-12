@@ -24,6 +24,7 @@ import pytest
 
 import pyarrow as pa
 
+import pyarrow.tests.util as test_util
 
 here = os.path.dirname(os.path.abspath(__file__))
 
@@ -85,9 +86,14 @@ def test_cython_api(tmpdir):
         with open('setup.py', 'w') as f:
             f.write(setup_code)
 
+        # ARROW-2263: Make environment with this pyarrow/ package first on the
+        # PYTHONPATH, for local dev environments
+        subprocess_env = test_util.get_modified_env_with_pythonpath()
+
         # Compile extension module
         subprocess.check_call([sys.executable, 'setup.py',
-                               'build_ext', '--inplace'])
+                               'build_ext', '--inplace'],
+                              env=subprocess_env)
 
         # Check basic functionality
         orig_path = sys.path[:]

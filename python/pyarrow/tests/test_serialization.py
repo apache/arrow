@@ -28,6 +28,8 @@ import sys
 import pyarrow as pa
 import numpy as np
 
+import pyarrow.tests.util as test_util
+
 try:
     import torch
 except ImportError:
@@ -372,6 +374,23 @@ def test_numpy_immutable(large_buffer):
         result[0] = 1.0
 
 
+def test_numpy_base_object(tmpdir):
+    # ARROW-2040: deserialized Numpy array should keep a reference to the
+    # owner of its memory
+    path = os.path.join(str(tmpdir), 'zzz.bin')
+    data = np.arange(12, dtype=np.int32)
+
+    with open(path, 'wb') as f:
+        f.write(pa.serialize(data).to_buffer())
+
+    serialized = pa.read_serialized(pa.OSFile(path))
+    result = serialized.deserialize()
+    assert_equal(result, data)
+    serialized = None
+    assert_equal(result, data)
+    assert result.base is not None
+
+
 # see https://issues.apache.org/jira/browse/ARROW-1695
 def test_serialization_callback_numpy():
 
@@ -393,13 +412,40 @@ def test_serialization_callback_numpy():
     pa.serialize(DummyClass(), context=context)
 
 
+def test_numpy_subclass_serialization():
+    # Check that we can properly serialize subclasses of np.ndarray.
+    class CustomNDArray(np.ndarray):
+        def __new__(cls, input_array):
+            array = np.asarray(input_array).view(cls)
+            return array
+
+    def serializer(obj):
+        return {'numpy': obj.view(np.ndarray)}
+
+    def deserializer(data):
+        array = data['numpy'].view(CustomNDArray)
+        return array
+
+    context = pa.default_serialization_context()
+
+    context.register_type(CustomNDArray, 'CustomNDArray',
+                          custom_serializer=serializer,
+                          custom_deserializer=deserializer)
+
+    x = CustomNDArray(np.zeros(3))
+    serialized = pa.serialize(x, context=context).to_buffer()
+    new_x = pa.deserialize(serialized, context=context)
+    assert type(new_x) == CustomNDArray
+    assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
+
+
 def test_buffer_serialization():
 
     class BufferClass(object):
         pass
 
     def serialize_buffer_class(obj):
-        return pa.frombuffer(b"hello")
+        return pa.py_buffer(b"hello")
 
     def deserialize_buffer_class(serialized_obj):
         return serialized_obj
@@ -535,7 +581,7 @@ def test_serialize_subclasses():
 
 
 def test_serialize_to_components_invalid_cases():
-    buf = pa.frombuffer(b'hello')
+    buf = pa.py_buffer(b'hello')
 
     components = {
         'num_tensors': 0,
@@ -580,32 +626,16 @@ def test_deserialize_in_different_process():
     p.join()
 
 
-def _get_modified_env_with_pythonpath():
-    # Prepend pyarrow root directory to PYTHONPATH
-    env = os.environ.copy()
-    existing_pythonpath = env.get('PYTHONPATH', '')
-    if sys.platform == 'win32':
-        sep = ';'
-    else:
-        sep = ':'
-
-    module_path = os.path.abspath(
-        os.path.dirname(os.path.dirname(pa.__file__)))
-
-    env['PYTHONPATH'] = sep.join((module_path, existing_pythonpath))
-    return env
-
-
 def test_deserialize_buffer_in_different_process():
     import tempfile
     import subprocess
 
     f = tempfile.NamedTemporaryFile(delete=False)
-    b = pa.serialize(pa.frombuffer(b'hello')).to_buffer()
+    b = pa.serialize(pa.py_buffer(b'hello')).to_buffer()
     f.write(b.to_pybytes())
     f.close()
 
-    subprocess_env = _get_modified_env_with_pythonpath()
+    subprocess_env = test_util.get_modified_env_with_pythonpath()
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
     python_file = os.path.join(dir_path, 'deserialize_buffer.py')
@@ -650,3 +680,14 @@ def test_set_pickle():
     serialized = pa.serialize(test_object, context=context).to_buffer()
     deserialized = pa.deserialize(serialized.to_pybytes(), context=context)
     assert deserialized == b'custom serialization 2'
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="need Python 3.6")
+def test_path_objects(tmpdir):
+    # Test compatibility with PEP 519 path-like objects
+    import pathlib
+    p = pathlib.Path(tmpdir) / 'zzz.bin'
+    obj = 1234
+    pa.serialize_to(obj, p)
+    res = pa.deserialize_from(p, None)
+    assert res == obj

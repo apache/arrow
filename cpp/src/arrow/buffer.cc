@@ -70,6 +70,14 @@ Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out)
   return FromString(data, default_memory_pool(), out);
 }
 
+#ifndef NDEBUG
+// DCHECK macros aren't allowed in public include files
+uint8_t* Buffer::mutable_data() {
+  DCHECK(is_mutable());
+  return mutable_data_;
+}
+#endif
+
 PoolBuffer::PoolBuffer(MemoryPool* pool) : ResizableBuffer(nullptr, 0) {
   if (pool == nullptr) {
     pool = default_memory_pool();

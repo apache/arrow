@@ -94,10 +94,15 @@ class build_ext(_build_ext):
     description = "Build the C-extensions for arrow"
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
+                     ('boost-namespace=', None,
+                      'namespace of boost (default: boost)'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
+                     ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
                      ('with-orc', None, 'build the ORC extension'),
+                     ('bundle-boost', None,
+                      'bundle the (shared) Boost libraries'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
@@ -106,6 +111,7 @@ class build_ext(_build_ext):
         _build_ext.initialize_options(self)
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
+        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE')
 
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
@@ -120,13 +126,17 @@ class build_ext(_build_ext):
         self.with_static_parquet = strtobool(
             os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
         self.with_static_boost = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_BOOST', '1'))
+            os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
         self.with_orc = strtobool(
             os.environ.get('PYARROW_WITH_ORC', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
+        # Default is True but this only is actually bundled when
+        # we also bundle arrow-cpp.
+        self.bundle_boost = strtobool(
+            os.environ.get('PYARROW_BUNDLE_BOOST', '1'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -170,6 +180,8 @@ class build_ext(_build_ext):
                 cmake_options.append('-DPYARROW_PARQUET_USE_SHARED=off')
             if not self.with_static_boost:
                 cmake_options.append('-DPYARROW_BOOST_USE_SHARED=on')
+            else:
+                cmake_options.append('-DPYARROW_BOOST_USE_SHARED=off')
 
             if self.with_plasma:
                 cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
@@ -183,15 +195,22 @@ class build_ext(_build_ext):
 
             if self.bundle_arrow_cpp:
                 cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
+                cmake_options.append('-DPYARROW_BUNDLE_BOOST=ON')
                 # ARROW-1090: work around CMake rough edges
                 if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
                     pkg_config = pjoin(os.environ['ARROW_HOME'], 'lib',
                                        'pkgconfig')
                     os.environ['PKG_CONFIG_PATH'] = pkg_config
                     del os.environ['ARROW_HOME']
+            else:
+                cmake_options.append('-DPYARROW_BUNDLE_BOOST=OFF')
 
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                                  .format(self.build_type.lower()))
+
+            if self.boost_namespace is not None:
+                cmake_options.append('-DBoost_NAMESPACE={}'
+                                     .format(self.boost_namespace))
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
             if sys.platform != 'win32':
@@ -255,6 +274,16 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_parquet and not self.with_static_parquet:
                     move_shared_libs(build_prefix, build_lib, "parquet")
+                if not self.with_static_boost and self.bundle_boost:
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_filesystem".format(self.boost_namespace))
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_system".format(self.boost_namespace))
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_regex".format(self.boost_namespace))
 
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
@@ -374,6 +403,10 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
     else:
         libs = glob.glob(pjoin(build_prefix, lib_filename) + '*')
 
+    if not libs:
+        raise Exception('Could not find library:' + lib_filename +
+                        ' in ' + build_prefix)
+
     # Longest suffix library should be copied, all others symlinked
     libs.sort(key=lambda s: -len(s))
     print(libs, libs[0])
@@ -422,6 +455,8 @@ def parse_version(root):
     from setuptools_scm import version_from_scm
     import setuptools_scm.git
     describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --match 'apache-arrow-[0-9]*'"
+    # Strip catchall from the commandline
+    describe = describe.replace("--match *.*", "")
     version = setuptools_scm.git.parse(root, describe)
     if not version:
         return version_from_scm(root)

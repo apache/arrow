@@ -20,6 +20,7 @@ package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -33,7 +34,7 @@ import org.apache.arrow.vector.util.CallBack;
  *
  * This class implements common functionality of composite vectors.
  */
-public abstract class AbstractContainerVector implements ValueVector {
+public abstract class AbstractContainerVector implements ValueVector, DensityAwareVector {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
 
   protected final String name;

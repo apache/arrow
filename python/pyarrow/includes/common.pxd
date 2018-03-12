@@ -23,6 +23,7 @@ from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector
 from libcpp.unordered_map cimport unordered_map
+from libcpp.unordered_set cimport unordered_set
 
 from cpython cimport PyObject
 cimport cpython
@@ -32,6 +33,7 @@ cdef extern from "arrow/python/platform.h":
 
 cdef extern from "<Python.h>":
     void Py_XDECREF(PyObject* o)
+    Py_ssize_t Py_REFCNT(PyObject* o)
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     # We can later add more of the common status factory methods as needed

@@ -116,11 +116,11 @@ TEST_F(TestChunkedArray, SliceEquals) {
 
   std::shared_ptr<ChunkedArray> slice = one_->Slice(125, 50);
   ASSERT_EQ(slice->length(), 50);
-  ASSERT_TRUE(slice->Equals(one_->Slice(125, 50)));
+  test::AssertChunkedEqual(*one_->Slice(125, 50), *slice);
 
   std::shared_ptr<ChunkedArray> slice2 = one_->Slice(75)->Slice(25)->Slice(25, 50);
   ASSERT_EQ(slice2->length(), 50);
-  ASSERT_TRUE(slice2->Equals(slice));
+  test::AssertChunkedEqual(*slice, *slice2);
 }
 
 class TestColumn : public TestChunkedArray {
@@ -390,7 +390,7 @@ TEST_F(TestTable, ConcatenateTables) {
 
   ASSERT_OK(ConcatenateTables({t1, t2}, &result));
   ASSERT_OK(Table::FromRecordBatches({batch1, batch2}, &expected));
-  ASSERT_TRUE(result->Equals(*expected));
+  test::AssertTablesEqual(*expected, *result);
 
   // Error states
   std::vector<std::shared_ptr<Table>> empty_tables;

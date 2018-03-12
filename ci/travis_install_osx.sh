@@ -17,10 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-sudo apt-get install -y -q \
-    gdb ccache libboost-dev libboost-filesystem-dev \
-    libboost-system-dev libboost-regex-dev libjemalloc-dev
-
-if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
-    sudo apt-get install -y -q valgrind
+if [ "$ARROW_CI_C_GLIB_AFFECTED" = "1" ]; then
+    brew update
+    brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
 fi
