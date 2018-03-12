@@ -467,6 +467,16 @@ class TestMemoryMappedFile : public ::testing::Test, public MemoryMapFixture {
 
 TEST_F(TestMemoryMappedFile, InvalidUsages) {}
 
+TEST_F(TestMemoryMappedFile, ZeroSizeFlie) {
+  std::string path = "io-memory-map-zero-size";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(0, path, &result));
+
+  int64_t size = 0;
+  ASSERT_OK(result->Tell(&size));
+  ASSERT_EQ(0, size);
+}
+
 TEST_F(TestMemoryMappedFile, WriteRead) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);

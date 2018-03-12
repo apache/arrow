@@ -592,6 +592,14 @@ def test_memory_map_writer(tmpdir):
     assert f.read(3) == b'foo'
 
 
+def test_memory_zero_length(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    f = open(path, 'wb')
+    f.close()
+    with pa.memory_map(path, mode='r+b') as memory_map:
+        assert memory_map.size() == 0
+
+
 def test_os_file_writer(tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
