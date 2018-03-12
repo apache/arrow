@@ -59,7 +59,7 @@ public class JdbcToArrow {
                 rs.close();
             }
             if (stmt != null) {
-                stmt.close();
+                stmt.close(); // test
             }
         }
     }
