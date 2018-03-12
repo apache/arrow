@@ -624,16 +624,22 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
       is_mutable_ = false;
     }
 
-    void* result = mmap(nullptr, static_cast<size_t>(file_->size()), prot_flags, map_mode,
-                        file_->fd(), 0);
-    if (result == MAP_FAILED) {
-      std::stringstream ss;
-      ss << "Memory mapping file failed, errno: " << errno;
-      return Status::IOError(ss.str());
+    size_ = file_->size();
+
+    void* result = nullptr;
+
+    // Memory mapping fails when file size is 0
+    if (size_ > 0) {
+      result =
+          mmap(nullptr, static_cast<size_t>(size_), prot_flags, map_mode, file_->fd(), 0);
+      if (result == MAP_FAILED) {
+        std::stringstream ss;
+        ss << "Memory mapping file failed: " << std::strerror(errno);
+        return Status::IOError(ss.str());
+      }
     }
 
     data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
-    size_ = file_->size();
 
     position_ = 0;
 
