@@ -367,5 +367,20 @@ TEST_F(DecimalTest, UpdateWithNaN) {
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.scale());
 }
 
+TEST(PythonTest, ConstructStringArrayWithLeadingZeros) {
+  PyAcquireGIL lock;
+
+  OwnedRef list_ref(PyList_New(2));
+  PyObject* list = list_ref.obj();
+  std::string str("str");
+
+  ASSERT_EQ(0, PyList_SetItem(list, 0, PyFloat_FromDouble(NAN)));
+  ASSERT_EQ(0, PyList_SetItem(list, 1, PyUnicode_FromString(str.c_str())));
+
+  std::shared_ptr<Array> out;
+  auto pool = default_memory_pool();
+  ASSERT_OK(ConvertPySequence(list, pool, &out));
+}
+
 }  // namespace py
 }  // namespace arrow
