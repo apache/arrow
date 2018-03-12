@@ -20,12 +20,15 @@
 
 #include "plasma/format/plasma.pb.h"
 #include "plasma/io.h"
-#include "plasma/store.h"
 
 using google::protobuf::Closure;
 using google::protobuf::RpcController;
 
 namespace plasma {
+
+class PlasmaStore;
+struct Client;
+class PlasmaObject;
 
 class PlasmaService : public rpc::PlasmaStore {
  public:

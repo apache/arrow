@@ -29,6 +29,7 @@
 #include "plasma/eviction_policy.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
+#include "plasma/plasma_service.h"
 
 namespace plasma {
 
@@ -172,6 +173,8 @@ class PlasmaStore {
 
   int remove_client_from_object_clients(ObjectTableEntry* entry, Client* client);
 
+  /// XXX document this
+  PlasmaService service_;
   /// Event loop of the plasma store.
   EventLoop* loop_;
   /// The plasma store information, including the object tables, that is exposed

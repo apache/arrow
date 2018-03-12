@@ -4,6 +4,8 @@
 #include "plasma/io.h"
 #include "plasma/malloc.h"
 
+#include "plasma/store.h"
+
 namespace plasma {
 
 Status PlasmaService::ProcessMessage(Client* client) {

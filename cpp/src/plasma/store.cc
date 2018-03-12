@@ -110,7 +110,7 @@ Client::Client(int fd) : fd(fd) {}
 
 PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
                          bool hugepages_enabled)
-    : loop_(loop), eviction_policy_(&store_info_) {
+    : loop_(loop), eviction_policy_(&store_info_), service_(this) {
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
@@ -674,9 +674,8 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 
 Status PlasmaStore::process_message(Client* client) {
   // TODO(pcm): Instantiate this only once.
-  PlasmaService service(this);
 
-  return service.ProcessMessage(client);
+  return service_.ProcessMessage(client);
 
   /*
 
