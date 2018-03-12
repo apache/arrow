@@ -634,7 +634,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
           mmap(nullptr, static_cast<size_t>(size_), prot_flags, map_mode, file_->fd(), 0);
       if (result == MAP_FAILED) {
         std::stringstream ss;
-        ss << "Memory mapping file failed, errno: " << errno;
+        ss << "Memory mapping file failed: " << std::strerror(errno);
         return Status::IOError(ss.str());
       }
     }
