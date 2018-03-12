@@ -46,7 +46,7 @@ class PlasmaService : public rpc::PlasmaStore {
 
    void Release(RpcController* controller,
                 const rpc::ReleaseRequest* request,
-                rpc::ReleaseReply* response,
+                rpc::Void* response,
                 Closure* done) override;
    void Contains(::google::protobuf::RpcController* controller,
                         const ::plasma::rpc::ContainsRequest* request,
@@ -55,7 +55,7 @@ class PlasmaService : public rpc::PlasmaStore {
 
    void Seal(RpcController* controller,
              const rpc::SealRequest* request,
-             rpc::SealReply* response,
+             rpc::Void* response,
              Closure* done) override;
 
    void Evict(::google::protobuf::RpcController* controller,
@@ -64,7 +64,7 @@ class PlasmaService : public rpc::PlasmaStore {
                         ::google::protobuf::Closure* done) override {}
    void Subscribe(::google::protobuf::RpcController* controller,
                         const ::plasma::rpc::SubscribeRequest* request,
-                        ::plasma::rpc::VOID* response,
+                        ::plasma::rpc::Void* response,
                         ::google::protobuf::Closure* done) override {}
    void Connect(::google::protobuf::RpcController* controller,
                         const ::plasma::rpc::ConnectRequest* request,

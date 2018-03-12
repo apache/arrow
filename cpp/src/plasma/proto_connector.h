@@ -62,8 +62,10 @@ class RpcChannelImpl : public RpcChannel {
                           Message* response,
                           Closure* done) {
     ARROW_CHECK_OK(plasma_io_.WriteProto(fd_, method->index(), request));
-    int64_t type;
-    ARROW_CHECK_OK(plasma_io_.ReadProto(nullptr, fd_, &type, &response));
+    if (response->GetDescriptor()->full_name() != "plasma.rpc.Void") {
+      int64_t type;
+      ARROW_CHECK_OK(plasma_io_.ReadProto(nullptr, fd_, &type, &response));
+    }
   }
   int conn() { return fd_; }
  private:

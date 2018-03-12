@@ -22,7 +22,9 @@ Status PlasmaService::ProcessMessage(Client* client) {
   fd_to_return_ = -1;
   CallMethod(method_descriptor, nullptr, request, response, nullptr);
 
-  HANDLE_SIGPIPE(plasma_io_.WriteProto(client->fd, type, response), client->fd);
+  if (response->GetDescriptor()->full_name() != "plasma.rpc.Void") {
+    HANDLE_SIGPIPE(plasma_io_.WriteProto(client->fd, type, response), client->fd);
+  }
 
   if (fd_to_return_ != -1) {
     //if (error_code == PlasmaError_OK && device_num == 0) {
@@ -63,7 +65,7 @@ void PlasmaService::Create(RpcController* controller,
 
 void PlasmaService::Seal(RpcController* controller,
                          const rpc::SealRequest* request,
-                         rpc::SealReply* response,
+                         rpc::Void* response,
                          Closure* done) {
   ObjectID object_id = ObjectID::from_binary(request->object_id());
   store_->seal_object(object_id, request->digest().data());
@@ -71,7 +73,7 @@ void PlasmaService::Seal(RpcController* controller,
 
 void PlasmaService::Release(RpcController* controller,
              const rpc::ReleaseRequest* request,
-             rpc::ReleaseReply* response,
+             rpc::Void* response,
              Closure* done) {
   ObjectID object_id = ObjectID::from_binary(request->object_id());
   store_->release_object(object_id, client_);

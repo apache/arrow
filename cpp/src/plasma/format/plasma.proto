@@ -76,13 +76,6 @@ message SealRequest {
   bytes digest = 2;
 }
 
-message SealReply {
-  // ID of the object that was sealed.
-  bytes object_id = 1;
-  // Error code.
-  PlasmaError error = 2;
-}
-
 message GetRequest {
 }
 
@@ -92,13 +85,6 @@ message GetReply {
 message ReleaseRequest {
   // ID of the object to be released.
   bytes object_id = 1;
-}
-
-message ReleaseReply {
-  // ID of the object that was released.
-  bytes object_id = 1;
-  // Error code.
-  PlasmaError error = 2;
 }
 
 message DeleteRequest {
@@ -149,7 +135,7 @@ message DataRequest {
 message DataReply {
 }
 
-message VOID {
+message Void {
 }
 
 service PlasmaStore {
@@ -159,13 +145,13 @@ service PlasmaStore {
 
   rpc Get (GetRequest) returns (GetReply);
 
-  rpc Release (ReleaseRequest) returns (ReleaseReply);
+  rpc Release (ReleaseRequest) returns (Void);
 
   rpc Contains (ContainsRequest) returns (ContainsReply);
 
-  rpc Seal (SealRequest) returns (SealReply);
+  rpc Seal (SealRequest) returns (Void);
 
   rpc Evict (EvictRequest) returns (EvictReply);
 
-  rpc Subscribe (SubscribeRequest) returns (VOID);
+  rpc Subscribe (SubscribeRequest) returns (Void);
 }

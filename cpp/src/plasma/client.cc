@@ -446,7 +446,7 @@ Status PlasmaClient::PerformRelease(const ObjectID& object_id) {
     RETURN_NOT_OK(UnmapObject(object_id));
     auto request = std::unique_ptr<rpc::ReleaseRequest>(new rpc::ReleaseRequest());
     request->set_object_id(object_id.binary());
-    auto response = std::unique_ptr<rpc::ReleaseReply>(new rpc::ReleaseReply());
+    auto response = std::unique_ptr<rpc::Void>(new rpc::Void());
     store_service_->Release(controller_.get(), request.get(), response.get(), nullptr);
   }
   return Status::OK();
@@ -589,7 +589,7 @@ Status PlasmaClient::Seal(const ObjectID& object_id) {
   auto request = std::unique_ptr<rpc::SealRequest>(new rpc::SealRequest());
   request->set_object_id(object_id.binary());
   request->set_digest(&digest[0]);
-  auto response = std::unique_ptr<rpc::SealReply>(new rpc::SealReply());
+  auto response = std::unique_ptr<rpc::Void>(new rpc::Void());
   store_service_->Seal(controller_.get(), request.get(), response.get(), nullptr);
 
   // We call PlasmaClient::Release to decrement the number of instances of this
