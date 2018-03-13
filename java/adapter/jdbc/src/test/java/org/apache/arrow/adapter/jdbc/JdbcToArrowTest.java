@@ -97,7 +97,7 @@ public class JdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("test1_int_h2.yml"),
                         Table.class);
 
         try {
