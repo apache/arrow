@@ -165,7 +165,7 @@ public class JdbcToArrowUtils {
 
     /**
      * Iterate the given JDBC {@link ResultSet} object to fetch the data and transpose it to populate
-     * the Arrow Vector obejcts.
+     * the given Arrow Vector objects.
      *
      * @param rs ResultSet to use to fetch the data from underlying database
      * @param root Arrow {@link VectorSchemaRoot} object to populate
