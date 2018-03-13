@@ -16,9 +16,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// int32
+type_ptr int32();
+RcppExport SEXP _rrrow_int32() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(int32());
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_bla", (DL_FUNC) &_rrrow_bla, 0},
+    {"_rrrow_int32", (DL_FUNC) &_rrrow_int32, 0},
     {NULL, NULL, 0}
 };
 
