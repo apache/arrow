@@ -327,16 +327,7 @@ Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values) {
 
 template <typename T>
 Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  const int64_t bytes_required = TypeTraits<T>::bytes_required(length_);
-  if (bytes_required > 0 && bytes_required < data_->size()) {
-    // Trim buffers
-    RETURN_NOT_OK(data_->Resize(bytes_required));
-  }
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, data_}, null_count_);
-
-  data_ = null_bitmap_ = nullptr;
-  capacity_ = length_ = null_count_ = 0;
-  return Status::OK();
+  return FinishInternalSlice(out, 0, length_, /* reset */ true);
 }
 
 template <typename T>
@@ -348,12 +339,16 @@ Status PrimitiveBuilder<T>::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
   if (bytes_required > 0 && bytes_required < data_->size()) {
     // Trim buffers
     RETURN_NOT_OK(data_->Resize(bytes_required));
+    // reset raw_data_ pointer
+    raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
   }
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, data_}, null_count_, offset);
+  *out = ArrayData::Make(type_, length, {null_bitmap_, data_}, null_count_, offset);
 
-  // don't reset
-  // data_ = null_bitmap_ = nullptr;
-  // capacity_ = length_ = null_count_ = 0;
+  if (reset) {
+    data_ = null_bitmap_ = nullptr;
+    capacity_ = length_ = null_count_ = 0;
+  }
+
   return Status::OK();
 }
 
@@ -421,7 +416,8 @@ Status AdaptiveIntBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                                                const int64_t offset,
                                                const int64_t length,
                                                const bool reset) {
-    const int64_t bytes_required = (length_ - offset) * int_size_;
+  auto actual_length = std::max(length_ - offset, length);
+    const int64_t bytes_required = (actual_length - offset) * int_size_;
     if (bytes_required > 0 && bytes_required < data_->size()) {
         // Trim buffers
         RETURN_NOT_OK(data_->Resize(bytes_required));
@@ -446,7 +442,7 @@ Status AdaptiveIntBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
         return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
     }
 
-    *out = ArrayData::Make(output_type, length_, {null_bitmap_, data_}, null_count_, offset);
+    *out = ArrayData::Make(output_type, actual_length, {null_bitmap_, data_}, null_count_, offset);
 
     if (reset) {
         data_ = null_bitmap_ = nullptr;
@@ -867,7 +863,6 @@ Status BooleanBuilder::Append(const std::vector<bool>& values) {
 
 // ----------------------------------------------------------------------
 // DictionaryBuilder
-
 using internal::WrappedBinary;
 
 template <typename T>
@@ -1061,10 +1056,9 @@ const uint8_t* DictionaryBuilder<FixedSizeBinaryType>::GetDictionaryValue(
 template <typename T>
 Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
-  auto number_entries = dict_builder_.length() - entry_id_offset_;
   std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.FinishSlice(&dictionary, entry_id_offset_, number_entries, false));
-  RETURN_NOT_OK(values_builder_.FinishInternalSlice(out, values_offset_, number_entries, false));
+  RETURN_NOT_OK(dict_builder_.FinishSlice(&dictionary, entry_id_offset_, dict_builder_.length() - entry_id_offset_, false));
+  RETURN_NOT_OK(values_builder_.FinishInternalSlice(out, values_offset_, values_builder_.length() - values_offset_, false));
 
   entry_id_offset_ = dict_builder_.length();
   values_offset_ = values_builder_.length();
@@ -1175,7 +1169,7 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
       typename TypeTraits<Type>::BuilderType& dictionary_builder, int64_t index) {     \
     int32_t v_len;                                                                     \
     const uint8_t* v = dictionary_builder.GetValue(                                    \
-        static_cast<int64_t>(index - entry_id_offset_), &v_len);                       \
+        static_cast<int64_t>(index), &v_len);                       \
     return WrappedBinary(v, v_len);                                                    \
   }                                                                                    \
                                                                                        \
@@ -1209,22 +1203,11 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
                                               const WrappedBinary& value) {            \
     int32_t other_length;                                                              \
     bool value_found = false;                                                          \
-    if (index >= entry_id_offset_) {                                                   \
-      const uint8_t* other_value = dict_builder_.GetValue(                             \
-          static_cast<int64_t>(index - entry_id_offset_), &other_length);              \
-      value_found = other_length == value.length_ &&                                   \
-                    memcmp(other_value, value.ptr_, value.length_) == 0;               \
-    }                                                                                  \
-                                                                                       \
-    bool value_found_overflow = false;                                                 \
-    if (entry_id_offset_ > 0) {                                                        \
-      const uint8_t* other_value_overflow =                                            \
-          overflow_dict_builder_.GetValue(static_cast<int64_t>(index), &other_length); \
-      value_found_overflow =                                                           \
-          other_length == value.length_ &&                                             \
-          memcmp(other_value_overflow, value.ptr_, value.length_) == 0;                \
-    }                                                                                  \
-    return !(value_found || value_found_overflow);                                     \
+    const uint8_t* other_value = dict_builder_.GetValue(                             \
+        static_cast<int64_t>(index - entry_id_offset_), &other_length);              \
+    value_found = other_length == value.length_ &&                                   \
+        memcmp(other_value, value.ptr_, value.length_) == 0;               \
+    return !value_found;
   }                                                                                    \
                                                                                        \
   template <>                                                                          \
