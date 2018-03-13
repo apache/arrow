@@ -43,29 +43,34 @@ public class JdbcToArrowUtils {
     private static final int DEFAULT_BUFFER_SIZE = 256;
 
     /**
-     * JDBC type Java type
-       CHAR	String
-       VARCHAR String
-       LONGVARCHAR String
-       NUMERIC java.math.BigDecimal
-       DECIMAL java.math.BigDecimal
-       BIT boolean
-       TINYINT byte
-       SMALLINT short
-       INTEGER int
-       BIGINT long
-       REAL float
-       FLOAT double
-       DOUBLE double
-       BINARY byte[]
-       VARBINARY byte[]
-       LONGVARBINARY byte[]
-       DATE java.sql.Date
-       TIME java.sql.Time
-       TIMESTAMP java.sql.Timestamp
-
+     * Create Arrow {@link Schema} object for the given JDBC {@link ResultSetMetaData}.
+     *
+     * This method current performs following mapping for JDBC SQL data types to corresponding Arrow data types.
+     *
+     * CHAR	--> ArrowType.Utf8
+     * VARCHAR --> ArrowType.Utf8
+     * LONGVARCHAR --> ArrowType.Utf8
+     * NUMERIC --> ArrowType.Decimal(precision, scale)
+     * DECIMAL --> ArrowType.Decimal(precision, scale)
+     * BIT --> ArrowType.Bool
+     * TINYINT --> ArrowType.Int(8, signed)
+     * SMALLINT --> ArrowType.Int(16, signed)
+     * INTEGER --> ArrowType.Int(32, signed)
+     * BIGINT --> ArrowType.Int(64, signed)
+     * REAL --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)
+     * FLOAT --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)
+     * DOUBLE --> ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
+     * BINARY --> ArrowType.Binary
+     * VARBINARY --> ArrowType.Binary
+     * LONGVARBINARY --> ArrowType.Binary
+     * DATE --> ArrowType.Date(DateUnit.MILLISECOND)
+     * TIME --> ArrowType.Time(TimeUnit.MILLISECOND, 32)
+     * TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone=null)
+     * CLOB --> ArrowType.Utf8
+     * BLOB --> ArrowType.Binary
+     *
      * @param rsmd
-     * @return
+     * @return {@link Schema}
      * @throws SQLException
      */
     public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd) throws SQLException {
@@ -158,6 +163,14 @@ public class JdbcToArrowUtils {
         }
     }
 
+    /**
+     * Iterate the given JDBC {@link ResultSet} object to fetch the data and transpose it to populate
+     * the Arrow Vector obejcts.
+     *
+     * @param rs ResultSet to use to fetch the data from underlying database
+     * @param root Arrow {@link VectorSchemaRoot} object to populate
+     * @throws Exception
+     */
     public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root) throws Exception {
 
         assert rs != null;
@@ -315,8 +328,4 @@ public class JdbcToArrowUtils {
         }
         root.setRowCount(rowCount);
     }
-
-
-
-
 }
