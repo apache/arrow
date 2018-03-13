@@ -5,7 +5,47 @@ bla <- function() {
     .Call(`_rrrow_bla`)
 }
 
+int8 <- function() {
+    .Call(`_rrrow_int8`)
+}
+
+int16 <- function() {
+    .Call(`_rrrow_int16`)
+}
+
 int32 <- function() {
     .Call(`_rrrow_int32`)
+}
+
+int64 <- function() {
+    .Call(`_rrrow_int64`)
+}
+
+uint8 <- function() {
+    .Call(`_rrrow_uint8`)
+}
+
+uint16 <- function() {
+    .Call(`_rrrow_uint16`)
+}
+
+uint32 <- function() {
+    .Call(`_rrrow_uint32`)
+}
+
+uint64 <- function() {
+    .Call(`_rrrow_uint64`)
+}
+
+float16 <- function() {
+    .Call(`_rrrow_float16`)
+}
+
+float32 <- function() {
+    .Call(`_rrrow_float32`)
+}
+
+float64 <- function() {
+    .Call(`_rrrow_float64`)
 }
 

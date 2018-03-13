@@ -8,6 +8,7 @@ using namespace arrow ;
 
 // [[Rcpp::export]]
 IntegerVector bla(){
+
   arrow::NumericBuilder<Int32Type> builder ;
 
   builder.Append(1);
