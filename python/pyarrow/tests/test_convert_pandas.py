@@ -1466,7 +1466,7 @@ class TestConvertStructTypes(object):
     Conversion tests for struct types.
     """
 
-    def test_structarray(self):
+    def test_to_pandas(self):
         ints = pa.array([None, 2, 3], type=pa.int64())
         strs = pa.array([u'a', None, u'c'], type=pa.string())
         bools = pa.array([True, False, None], type=pa.bool_())
@@ -1482,6 +1482,124 @@ class TestConvertStructTypes(object):
 
         series = pd.Series(arr.to_pandas())
         tm.assert_series_equal(series, expected)
+
+    def test_from_numpy(self):
+        dt = np.dtype([('x', np.int32),
+                       (('y_title', 'y'), np.bool_)])
+        ty = pa.struct([pa.field('x', pa.int32()),
+                        pa.field('y', pa.bool_())])
+
+        data = np.array([], dtype=dt)
+        arr = pa.array(data, type=ty)
+        assert arr.to_pylist() == []
+
+        data = np.array([(42, True), (43, False)], dtype=dt)
+        arr = pa.array(data, type=ty)
+        assert arr.to_pylist() == [{'x': 42, 'y': True},
+                                   {'x': 43, 'y': False}]
+
+        # With mask
+        arr = pa.array(data, mask=np.bool_([False, True]), type=ty)
+        assert arr.to_pylist() == [{'x': 42, 'y': True}, None]
+
+        # Trivial struct type
+        dt = np.dtype([])
+        ty = pa.struct([])
+
+        data = np.array([], dtype=dt)
+        arr = pa.array(data, type=ty)
+        assert arr.to_pylist() == []
+
+        data = np.array([(), ()], dtype=dt)
+        arr = pa.array(data, type=ty)
+        assert arr.to_pylist() == [{}, {}]
+
+    def test_from_numpy_nested(self):
+        dt = np.dtype([('x', np.dtype([('xx', np.int8),
+                                       ('yy', np.bool_)])),
+                       ('y', np.int16)])
+        ty = pa.struct([pa.field('x', pa.struct([pa.field('xx', pa.int8()),
+                                                 pa.field('yy', pa.bool_())])),
+                        pa.field('y', pa.int16())])
+
+        data = np.array([], dtype=dt)
+        arr = pa.array(data, type=ty)
+        assert arr.to_pylist() == []
+
+        data = np.array([((1, True), 2), ((3, False), 4)], dtype=dt)
+        arr = pa.array(data, type=ty)
+        assert arr.to_pylist() == [{'x': {'xx': 1, 'yy': True}, 'y': 2},
+                                   {'x': {'xx': 3, 'yy': False}, 'y': 4}]
+
+    @pytest.mark.large_memory
+    def test_from_numpy_large(self):
+        # Exercise rechunking + nulls
+        target_size = 3 * 1024**3  # 4GB
+        dt = np.dtype([('x', np.float64), ('y', 'object')])
+        bs = 65536 - dt.itemsize
+        block = b'.' * bs
+        n = target_size // (bs + dt.itemsize)
+        data = np.zeros(n, dtype=dt)
+        data['x'] = np.random.random_sample(n)
+        data['y'] = block
+        # Add implicit nulls
+        data['x'][data['x'] < 0.2] = np.nan
+
+        ty = pa.struct([pa.field('x', pa.float64()),
+                        pa.field('y', pa.binary(bs))])
+        arr = pa.array(data, type=ty, from_pandas=True)
+        assert arr.num_chunks == 2
+
+        def iter_chunked_array(arr):
+            for chunk in arr.iterchunks():
+                for item in chunk:
+                    yield item
+
+        def check(arr, data, mask=None):
+            assert len(arr) == len(data)
+            xs = data['x']
+            ys = data['y']
+            for i, obj in enumerate(iter_chunked_array(arr)):
+                try:
+                    d = obj.as_py()
+                    if mask is not None and mask[i]:
+                        assert d is None
+                    else:
+                        x = xs[i]
+                        if np.isnan(x):
+                            assert d['x'] is None
+                        else:
+                            assert d['x'] == x
+                        assert d['y'] == ys[i]
+                except Exception:
+                    print("Failed at index", i)
+                    raise
+
+        check(arr, data)
+        del arr
+
+        # Now with explicit mask
+        mask = np.random.random_sample(n) < 0.2
+        arr = pa.array(data, type=ty, mask=mask, from_pandas=True)
+        assert arr.num_chunks == 2
+
+        check(arr, data, mask)
+        del arr
+
+    def test_from_numpy_bad_input(self):
+        ty = pa.struct([pa.field('x', pa.int32()),
+                        pa.field('y', pa.bool_())])
+        dt = np.dtype([('x', np.int32),
+                       ('z', np.bool_)])
+
+        data = np.array([], dtype=dt)
+        with pytest.raises(TypeError,
+                           match="Missing field 'y'"):
+            pa.array(data, type=ty)
+        data = np.int32([])
+        with pytest.raises(TypeError,
+                           match="Expected struct array"):
+            pa.array(data, type=ty)
 
 
 class TestZeroCopyConversion(object):

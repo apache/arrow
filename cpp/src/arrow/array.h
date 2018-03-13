@@ -278,6 +278,17 @@ class ARROW_EXPORT Array {
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
+namespace internal {
+
+/// Given a number of ArrayVectors, treat each ArrayVector as the
+/// chunks of a chunked array.  Then rechunk each ArrayVector such that
+/// all ArrayVectors are chunked identically.  It is mandatory that
+/// all ArrayVectors contain the same total number of elements.
+ARROW_EXPORT
+std::vector<ArrayVector> RechunkArraysConsistently(const std::vector<ArrayVector>&);
+
+}  // namespace internal
+
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
   os << x.ToString();
   return os;

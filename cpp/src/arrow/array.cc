@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <set>
 #include <sstream>
 #include <utility>
 
@@ -751,6 +753,85 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
   DCHECK(out);
   return out;
 }
+
+// ----------------------------------------------------------------------
+// Misc APIs
+
+namespace internal {
+
+std::vector<ArrayVector> RechunkArraysConsistently(
+    const std::vector<ArrayVector>& groups) {
+  if (groups.size() <= 1) {
+    return groups;
+  }
+  int64_t total_length = 0;
+  for (const auto& array : groups.front()) {
+    total_length += array->length();
+  }
+#ifndef NDEBUG
+  for (const auto& group : groups) {
+    int64_t group_length = 0;
+    for (const auto& array : group) {
+      group_length += array->length();
+    }
+    DCHECK_EQ(group_length, total_length)
+        << "Array groups should have the same total number of elements";
+  }
+#endif
+  if (total_length == 0) {
+    return groups;
+  }
+
+  // Set up result vectors
+  std::vector<ArrayVector> rechunked_groups(groups.size());
+
+  // Set up progress counters
+  std::vector<ArrayVector::const_iterator> current_arrays;
+  std::vector<int64_t> array_offsets;
+  for (const auto& group : groups) {
+    current_arrays.emplace_back(group.cbegin());
+    array_offsets.emplace_back(0);
+  }
+
+  // Scan all array vectors at once, rechunking along the way
+  int64_t start = 0;
+  while (start < total_length) {
+    // First compute max possible length for next chunk
+    int64_t chunk_length = std::numeric_limits<int64_t>::max();
+    for (size_t i = 0; i < groups.size(); i++) {
+      auto& arr_it = current_arrays[i];
+      auto& offset = array_offsets[i];
+      // Skip any done arrays (including 0-length arrays)
+      while (offset == (*arr_it)->length()) {
+        ++arr_it;
+        offset = 0;
+      }
+      const auto& array = *arr_it;
+      DCHECK_GT(array->length(), offset);
+      chunk_length = std::min(chunk_length, array->length() - offset);
+    }
+    DCHECK_GT(chunk_length, 0);
+
+    // Then slice all arrays along this chunk size
+    for (size_t i = 0; i < groups.size(); i++) {
+      const auto& array = *current_arrays[i];
+      auto& offset = array_offsets[i];
+      if (offset == 0 && array->length() == chunk_length) {
+        // Slice spans entire array
+        rechunked_groups[i].emplace_back(array);
+      } else {
+        DCHECK_LT(chunk_length - offset, array->length());
+        rechunked_groups[i].emplace_back(array->Slice(offset, chunk_length));
+      }
+      offset += chunk_length;
+    }
+    start += chunk_length;
+  }
+
+  return rechunked_groups;
+}
+
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // Instantiate templates

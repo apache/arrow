@@ -401,8 +401,8 @@ void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE
 template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
   typename TypeTraits<TYPE>::BuilderType builder;
-  for (size_t i = 0; i < values.size(); ++i) {
-    ASSERT_OK(builder.Append(values[i]));
+  for (auto& value : values) {
+    ASSERT_OK(builder.Append(value));
   }
   ASSERT_OK(builder.Finish(out));
 }
