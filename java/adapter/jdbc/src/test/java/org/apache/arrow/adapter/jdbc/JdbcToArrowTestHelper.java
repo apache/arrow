@@ -193,33 +193,32 @@ public class JdbcToArrowTestHelper {
         return true;
     }
 
-    public void getVarBinaryVectorValues(FieldVector fx){
+    public static boolean assertVarBinaryVectorValues(FieldVector fx, int rowCount, byte[][] values){
         VarBinaryVector varBinaryVector =((VarBinaryVector) fx);
+
+        assertEquals(rowCount, varBinaryVector.getValueCount());
+
         for(int j = 0; j < varBinaryVector.getValueCount(); j++){
             if(!varBinaryVector.isNull(j)){
-                byte[] value = varBinaryVector.get(j);
-                long valHash = hashArray(value);
-                System.out.println("Var Binary Vector Value [" + j +"] : " + firstX(value, 5));
-            } else {
-                System.out.println("Var Binary Vector Value [" + j +"] : NULL ");
+                assertEquals(hashArray(values[j]), hashArray(varBinaryVector.get(j)));
             }
         }
+
+        return true;
     }
 
-
-
-    public void getVarcharVectorValues(FieldVector fx){
+    public static boolean assertVarcharVectorValues(FieldVector fx, int rowCount, byte[][] values) {
         VarCharVector varCharVector = ((VarCharVector)fx);
+
+        assertEquals(rowCount, varCharVector.getValueCount());
+
         for(int j = 0; j < varCharVector.getValueCount(); j++){
             if(!varCharVector.isNull(j)){
-                byte[] valArr = varCharVector.get(j);
-                //Text value = varCharVector.getObject(j);
-                //System.out.println("Var Char Vector Value [" + j +"] : " + value.toString());
-                System.out.println("Var Char Accessor as byte[" + j +"] " + firstX(valArr, 5));
-            } else {
-                System.out.println("\t\t varCharAccessor[" + j +"] : NULL ");
+                assertEquals(hashArray(values[j]), hashArray(varCharVector.get(j)));
             }
         }
+
+        return true;
     }
 
     public static long hashArray(byte[] data){
@@ -236,6 +235,16 @@ public class JdbcToArrowTestHelper {
             sb.append(String.format("0x%02x", data[i])+ " ");
         }
         return sb.toString();
+    }
+
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
     }
 
 }

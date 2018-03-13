@@ -27,6 +27,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
+import java.nio.charset.Charset;
 import java.sql.*;
 import java.util.List;
 
@@ -225,7 +226,7 @@ public class JdbcToArrowUtils {
                         String value = rs.getString(i) != null ? rs.getString(i) : "";
                         varcharVector.setIndexDefined(i);
                         varcharVector.setValueLengthSafe(i, value.length());
-                        varcharVector.setSafe(rowCount, value.getBytes(), 0, value.length());
+                        varcharVector.setSafe(rowCount, value.getBytes(Charset.forName("UTF-8")), 0, value.length());
                         varcharVector.setValueCount(rowCount + 1);
                         break;
                     case Types.DATE:
