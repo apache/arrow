@@ -311,8 +311,6 @@ schema : arrow Schema
     def __del__(self):
         if getattr(self, 'is_open', False):
             self.close()
-        if self.file_handle is not None:
-            self.file_handle.close()
 
     def __enter__(self):
         return self
@@ -332,6 +330,8 @@ schema : arrow Schema
         if self.is_open:
             self.writer.close()
             self.is_open = False
+        if self.file_handle is not None:
+            self.file_handle.close()
 
 
 def _get_pandas_index_columns(keyvalues):
