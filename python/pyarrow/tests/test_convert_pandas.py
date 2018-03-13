@@ -1048,9 +1048,12 @@ class TestConvertStringLikeTypes(object):
 
     @pytest.mark.large_memory
     def test_bytes_exceed_2gb(self):
-        val = 'x' * (1 << 20)
+        v1 = b'x' * 100000000
+        v2 = b'x' * 147483646
+
+        # ARROW-2227, hit exactly 2GB on the nose
         df = pd.DataFrame({
-            'strings': np.array([val] * 4000, dtype=object)
+            'strings': [v1] * 20 + [v2] + ['x'] * 20
         })
         arr = pa.array(df['strings'])
         assert isinstance(arr, pa.ChunkedArray)

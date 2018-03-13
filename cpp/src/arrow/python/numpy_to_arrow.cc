@@ -60,8 +60,6 @@ namespace py {
 
 using internal::NumPyTypeSize;
 
-constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max();
-
 // ----------------------------------------------------------------------
 // Conversion utilities
 

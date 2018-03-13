@@ -1236,7 +1236,7 @@ Status ListBuilder::Append(const int32_t* offsets, int64_t length,
 
 Status ListBuilder::AppendNextOffset() {
   int64_t num_values = value_builder_->length();
-  if (ARROW_PREDICT_FALSE(num_values >= std::numeric_limits<int32_t>::max())) {
+  if (ARROW_PREDICT_FALSE(num_values > kListMaximumElements)) {
     std::stringstream ss;
     ss << "ListArray cannot contain more then INT32_MAX - 1 child elements,"
        << " have " << num_values;
@@ -1252,14 +1252,14 @@ Status ListBuilder::Append(bool is_valid) {
 }
 
 Status ListBuilder::Init(int64_t elements) {
-  DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
+  DCHECK_LE(elements, kListMaximumElements);
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   // one more then requested for offsets
   return offsets_builder_.Resize((elements + 1) * sizeof(int32_t));
 }
 
 Status ListBuilder::Resize(int64_t capacity) {
-  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
+  DCHECK_LE(capacity, kListMaximumElements);
   // one more then requested for offsets
   RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
   return ArrayBuilder::Resize(capacity);
@@ -1303,14 +1303,14 @@ BinaryBuilder::BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(binary(), pool) {}
 
 Status BinaryBuilder::Init(int64_t elements) {
-  DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
+  DCHECK_LE(elements, kListMaximumElements);
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   // one more then requested for offsets
   return offsets_builder_.Resize((elements + 1) * sizeof(int32_t));
 }
 
 Status BinaryBuilder::Resize(int64_t capacity) {
-  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
+  DCHECK_LE(capacity, kListMaximumElements);
   // one more then requested for offsets
   RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
   return ArrayBuilder::Resize(capacity);
@@ -1318,7 +1318,7 @@ Status BinaryBuilder::Resize(int64_t capacity) {
 
 Status BinaryBuilder::ReserveData(int64_t elements) {
   if (value_data_length() + elements > value_data_capacity()) {
-    if (value_data_length() + elements > std::numeric_limits<int32_t>::max()) {
+    if (value_data_length() + elements > kBinaryMemoryLimit) {
       return Status::Invalid("Cannot reserve capacity larger than 2^31 - 1 for binary");
     }
     RETURN_NOT_OK(value_data_builder_.Reserve(elements));
@@ -1328,9 +1328,9 @@ Status BinaryBuilder::ReserveData(int64_t elements) {
 
 Status BinaryBuilder::AppendNextOffset() {
   const int64_t num_bytes = value_data_builder_.length();
-  if (ARROW_PREDICT_FALSE(num_bytes > kMaximumCapacity)) {
+  if (ARROW_PREDICT_FALSE(num_bytes > kBinaryMemoryLimit)) {
     std::stringstream ss;
-    ss << "BinaryArray cannot contain more than " << kMaximumCapacity << " bytes, have "
+    ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
        << num_bytes;
     return Status::Invalid(ss.str());
   }
