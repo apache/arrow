@@ -94,7 +94,7 @@ public class JdbcToArrowTest {
     }
 
     @Test
-    public void sqlToArrowTest1() throws Exception {
+    public void sqlToArrowTestInt() throws Exception {
 
         Table table =
                 mapper.readValue(
@@ -109,7 +109,112 @@ public class JdbcToArrowTest {
             int[] values = {
                     101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101,
             };
-            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 13, values);
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 15, values);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteTestData(table);
+        }
+
+    }
+
+    @Test
+    public void sqlToArrowTestBool() throws Exception {
+
+        Table table =
+                mapper.readValue(
+                        this.getClass().getClassLoader().getResourceAsStream("test1_bool_h2.yml"),
+                        Table.class);
+
+        try {
+            createTestData(table);
+
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+
+            int[] bools = {
+                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+            };
+            JdbcToArrowTestHelper.assertBitBooleanVectorValues(root.getVector("BOOL_FIELD2"), 15, bools);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteTestData(table);
+        }
+
+    }
+
+    @Test
+    public void sqlToArrowTestTinyInt() throws Exception {
+
+        Table table =
+                mapper.readValue(
+                        this.getClass().getClassLoader().getResourceAsStream("test1_tinyint_h2.yml"),
+                        Table.class);
+
+        try {
+            createTestData(table);
+
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+
+            int[] tinyints = {
+                    45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
+            };
+            JdbcToArrowTestHelper.assertTinyIntVectorValues(root.getVector("TINYINT_FIELD3"), 15, tinyints);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteTestData(table);
+        }
+
+    }
+
+    @Test
+    public void sqlToArrowTestSmallInt() throws Exception {
+
+        Table table =
+                mapper.readValue(
+                        this.getClass().getClassLoader().getResourceAsStream("test1_smallint_h2.yml"),
+                        Table.class);
+
+        try {
+            createTestData(table);
+
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+
+            int[] smallints = {
+                    12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000
+            };
+            JdbcToArrowTestHelper.assertSmallIntVectorValues(root.getVector("SMALLINT_FIELD4"), 15, smallints);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteTestData(table);
+        }
+
+    }
+
+    @Test
+    public void sqlToArrowTestBigInt() throws Exception {
+
+        Table table =
+                mapper.readValue(
+                        this.getClass().getClassLoader().getResourceAsStream("test1_bigint_h2.yml"),
+                        Table.class);
+
+        try {
+            createTestData(table);
+
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+
+            int[] bigints = {
+                    92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720,
+                    92233720, 92233720, 92233720, 92233720, 92233720, 92233720
+            };
+            JdbcToArrowTestHelper.assertBigIntVectorValues(root.getVector("BIGINT_FIELD5"), 15, bigints);
 
         } catch (Exception e) {
             e.printStackTrace();
