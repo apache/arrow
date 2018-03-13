@@ -26,6 +26,30 @@ import java.sql.*;
 /**
  * Utility class to convert JDBC objects to columnar Arrow format objects.
  *
+ * This utility uses following data mapping fto map JDBC/SQL datatype to Arrow data types.
+ *
+ * CHAR	--> ArrowType.Utf8
+ * VARCHAR --> ArrowType.Utf8
+ * LONGVARCHAR --> ArrowType.Utf8
+ * NUMERIC --> ArrowType.Decimal(precision, scale)
+ * DECIMAL --> ArrowType.Decimal(precision, scale)
+ * BIT --> ArrowType.Bool
+ * TINYINT --> ArrowType.Int(8, signed)
+ * SMALLINT --> ArrowType.Int(16, signed)
+ * INTEGER --> ArrowType.Int(32, signed)
+ * BIGINT --> ArrowType.Int(64, signed)
+ * REAL --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)
+ * FLOAT --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)
+ * DOUBLE --> ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
+ * BINARY --> ArrowType.Binary
+ * VARBINARY --> ArrowType.Binary
+ * LONGVARBINARY --> ArrowType.Binary
+ * DATE --> ArrowType.Date(DateUnit.MILLISECOND)
+ * TIME --> ArrowType.Time(TimeUnit.MILLISECOND, 32)
+ * TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone=null)
+ * CLOB --> ArrowType.Utf8
+ * BLOB --> ArrowType.Binary
+ *
  * @since 0.10.0
  * @see ArrowDataFetcher
  */

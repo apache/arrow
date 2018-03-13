@@ -36,7 +36,9 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
 
 /**
+ * Class that does most of the work to convert JDBC ResultSet data into Arrow columnar format Vector objects.
  *
+ * @since 0.10.0
  */
 public class JdbcToArrowUtils {
 
