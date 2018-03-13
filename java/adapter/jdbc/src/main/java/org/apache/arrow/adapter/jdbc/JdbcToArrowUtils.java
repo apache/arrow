@@ -224,8 +224,8 @@ public class JdbcToArrowUtils {
                     case Types.LONGVARCHAR:
                         VarCharVector varcharVector = (VarCharVector)root.getVector(columnName);
                         String value = rs.getString(i) != null ? rs.getString(i) : "";
-                        varcharVector.setIndexDefined(i);
-                        varcharVector.setValueLengthSafe(i, value.length());
+                        varcharVector.setIndexDefined(rowCount);
+                        varcharVector.setValueLengthSafe(rowCount, value.length());
                         varcharVector.setSafe(rowCount, value.getBytes(Charset.forName("UTF-8")), 0, value.length());
                         varcharVector.setValueCount(rowCount + 1);
                         break;
@@ -268,8 +268,8 @@ public class JdbcToArrowUtils {
                         varBinaryVector.setValueCount(rowCount + 1);
                         byte[] bytes = rs.getBytes(i);
                         if (bytes != null) {
-                            varBinaryVector.setIndexDefined(i);
-                            varBinaryVector.setValueLengthSafe(i, bytes.length);
+                            varBinaryVector.setIndexDefined(rowCount);
+                            varBinaryVector.setValueLengthSafe(rowCount, bytes.length);
                             varBinaryVector.setSafe(rowCount, bytes);
                         } else {
                             varBinaryVector.setNull(rowCount);
@@ -285,9 +285,9 @@ public class JdbcToArrowUtils {
                         Clob clob = rs.getClob(i);
                         if (clob != null) {
                             int length = (int) clob.length();
-                            varcharVector1.setIndexDefined(i);
-                            varcharVector1.setValueLengthSafe(i, length);
-                            varcharVector1.setSafe(varcharVector1.getValueCapacity(), clob.getSubString(1, length).getBytes(), 0, length);
+                            varcharVector1.setIndexDefined(rowCount);
+                            varcharVector1.setValueLengthSafe(rowCount, length);
+                            varcharVector1.setSafe(rowCount, clob.getSubString(1, length).getBytes(), 0, length);
                         } else {
                             varcharVector1.setNull(rowCount);
                         }
@@ -298,9 +298,9 @@ public class JdbcToArrowUtils {
                         Blob blob = rs.getBlob(i);
                         if (blob != null) {
                             byte[] data = blob.getBytes(0, (int) blob.length());
-                            varBinaryVector1.setIndexDefined(i);
-                            varBinaryVector1.setValueLengthSafe(i, (int) blob.length());
-                            varBinaryVector1.setSafe(i, data);
+                            varBinaryVector1.setIndexDefined(rowCount);
+                            varBinaryVector1.setValueLengthSafe(rowCount, (int) blob.length());
+                            varBinaryVector1.setSafe(rowCount, data);
                         } else {
                             varBinaryVector1.setNull(rowCount);}
 

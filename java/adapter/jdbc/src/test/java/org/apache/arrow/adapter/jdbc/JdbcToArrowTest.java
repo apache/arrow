@@ -135,28 +135,28 @@ public class JdbcToArrowTest {
             int[] ints = {
                     101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101
             };
-            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 13, ints);
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 15, ints);
 
             int[] bools = {
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             };
-            JdbcToArrowTestHelper.assertBitBooleanVectorValues(root.getVector("BOOL_FIELD2"), 13, bools);
+            JdbcToArrowTestHelper.assertBitBooleanVectorValues(root.getVector("BOOL_FIELD2"), 15, bools);
 
             int[] tinyints = {
                     45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
             };
-            JdbcToArrowTestHelper.assertTinyIntVectorValues(root.getVector("TINYINT_FIELD3"), 13, tinyints);
+            JdbcToArrowTestHelper.assertTinyIntVectorValues(root.getVector("TINYINT_FIELD3"), 15, tinyints);
 
             int[] smallints = {
                     12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000
             };
-            JdbcToArrowTestHelper.assertSmallIntVectorValues(root.getVector("SMALLINT_FIELD4"), 13, smallints);
+            JdbcToArrowTestHelper.assertSmallIntVectorValues(root.getVector("SMALLINT_FIELD4"), 15, smallints);
 
             int[] bigints = {
                     92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720,
                     92233720, 92233720, 92233720, 92233720, 92233720, 92233720
             };
-            JdbcToArrowTestHelper.assertBigIntVectorValues(root.getVector("BIGINT_FIELD5"), 13, bigints);
+            JdbcToArrowTestHelper.assertBigIntVectorValues(root.getVector("BIGINT_FIELD5"), 15, bigints);
 
             BigDecimal[] bigdecimals = {
                     new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
@@ -165,39 +165,39 @@ public class JdbcToArrowTest {
                     new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
                     new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23)
             };
-            JdbcToArrowTestHelper.assertDecimalVectorValues(root.getVector("DECIMAL_FIELD6"), 13, bigdecimals);
+            JdbcToArrowTestHelper.assertDecimalVectorValues(root.getVector("DECIMAL_FIELD6"), 15, bigdecimals);
 
             double[] doubles = {
                     56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345,
                     56478356785.345, 56478356785.345, 56478356785.345,
                     56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345
             };
-            JdbcToArrowTestHelper.assertFloat8VectorValues(root.getVector("DOUBLE_FIELD7"), 13, doubles);
+            JdbcToArrowTestHelper.assertFloat8VectorValues(root.getVector("DOUBLE_FIELD7"), 15, doubles);
 
             float[] reals = {
                     56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f,
                     56478356785.345f, 56478356785.345f, 56478356785.345f,
                     56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f
             };
-            JdbcToArrowTestHelper.assertFloat4VectorValues(root.getVector("REAL_FIELD8"), 13, reals);
+            JdbcToArrowTestHelper.assertFloat4VectorValues(root.getVector("REAL_FIELD8"), 15, reals);
 
             int[] times = {
                     74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000,
                     74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000
             };
-            JdbcToArrowTestHelper.assertTimeVectorValues(root.getVector("TIME_FIELD9"), 13, times);
+            JdbcToArrowTestHelper.assertTimeVectorValues(root.getVector("TIME_FIELD9"), 15, times);
 
             long[] dates = {
                     1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l,
                     1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l
             };
-            JdbcToArrowTestHelper.assertDateVectorValues(root.getVector("DATE_FIELD10"), 13, dates);
+            JdbcToArrowTestHelper.assertDateVectorValues(root.getVector("DATE_FIELD10"), 15, dates);
 
             long[] timestamps = {
                     1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l,
                     1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l
             };
-            JdbcToArrowTestHelper.assertTimeStampVectorValues(root.getVector("TIMESTAMP_FIELD11"), 13, timestamps);
+            JdbcToArrowTestHelper.assertTimeStampVectorValues(root.getVector("TIMESTAMP_FIELD11"), 15, timestamps);
 
             byte[][] bytes = {
                     JdbcToArrowTestHelper.hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
@@ -216,29 +216,29 @@ public class JdbcToArrowTest {
                     JdbcToArrowTestHelper.hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
                     JdbcToArrowTestHelper.hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279")
             };
-            JdbcToArrowTestHelper.assertVarBinaryVectorValues(root.getVector("BINARY_FIELD12"), 13, bytes);
+            JdbcToArrowTestHelper.assertVarBinaryVectorValues(root.getVector("BINARY_FIELD12"), 15, bytes);
 
             byte[] strb = "some text that needs to be converted to varchar".getBytes();
             byte[][] varchars = {
                 strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
             };
-            JdbcToArrowTestHelper.assertVarcharVectorValues(root.getVector("VARCHAR_FIELD13"), 13, varchars);
+            JdbcToArrowTestHelper.assertVarcharVectorValues(root.getVector("VARCHAR_FIELD13"), 15, varchars);
 
-            JdbcToArrowTestHelper.assertVarBinaryVectorValues(root.getVector("BLOB_FIELD14"), 13, bytes);
+            JdbcToArrowTestHelper.assertVarBinaryVectorValues(root.getVector("BLOB_FIELD14"), 15, bytes);
 
             strb = "some text that needs to be converted to clob".getBytes();
             varchars = new byte[][] {
                     strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
             };
-            JdbcToArrowTestHelper.assertVarcharVectorValues(root.getVector("CLOB_FIELD15"), 13, varchars);
+            JdbcToArrowTestHelper.assertVarcharVectorValues(root.getVector("CLOB_FIELD15"), 15, varchars);
 
             strb = "some char text".getBytes();
             varchars = new byte[][] {
                     strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
             };
-            JdbcToArrowTestHelper.assertVarcharVectorValues(root.getVector("CHAR_FIELD16"), 13, varchars);
+            JdbcToArrowTestHelper.assertVarcharVectorValues(root.getVector("CHAR_FIELD16"), 15, varchars);
 
-            JdbcToArrowTestHelper.assertBitBooleanVectorValues(root.getVector("BIT_FIELD17"), 13, bools);
+            JdbcToArrowTestHelper.assertBitBooleanVectorValues(root.getVector("BIT_FIELD17"), 15, bools);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
