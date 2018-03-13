@@ -533,7 +533,7 @@ class ApproxEqualsVisitor : public ArrayEqualsVisitor {
 };
 
 static bool BaseDataEquals(const Array& left, const Array& right) {
-  if (left.length() != right.length() || left.null_count() != right.null_count() ||
+    if (left.length() - left.offset() != right.length() - right.offset() || left.null_count() != right.null_count() ||
       left.type_id() != right.type_id()) {
     return false;
   }
