@@ -5,3 +5,7 @@ bla <- function() {
     .Call(`_rrrow_bla`)
 }
 
+int32 <- function() {
+    .Call(`_rrrow_int32`)
+}
+

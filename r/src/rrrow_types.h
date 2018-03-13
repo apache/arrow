@@ -3,5 +3,7 @@
 #include <Rcpp.h>
 #undef Free
 #include <arrow/api.h>
+#include <arrow/type.h>
 
-typedef Rcpp::XPtr<std::shared_ptr<arrow::Array>> array_ptr;
+using array_ptr = Rcpp::XPtr<std::shared_ptr<arrow::Array>> ;
+using type_ptr  = Rcpp::XPtr<std::shared_ptr<arrow::DataType>> ;
