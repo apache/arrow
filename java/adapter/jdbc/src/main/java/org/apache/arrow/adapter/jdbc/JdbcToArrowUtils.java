@@ -45,7 +45,7 @@ public class JdbcToArrowUtils {
     /**
      * Create Arrow {@link Schema} object for the given JDBC {@link ResultSetMetaData}.
      *
-     * This method current performs following mapping for JDBC SQL data types to corresponding Arrow data types.
+     * This method currently performs following type mapping for JDBC SQL data types to corresponding Arrow data types.
      *
      * CHAR	--> ArrowType.Utf8
      * VARCHAR --> ArrowType.Utf8
