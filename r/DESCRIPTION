@@ -15,4 +15,4 @@ LinkingTo:
 Imports: 
     Rcpp
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.0.1
+RoxygenNote: 6.0.1.9000
