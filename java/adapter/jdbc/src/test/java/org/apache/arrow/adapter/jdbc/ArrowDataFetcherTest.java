@@ -18,6 +18,7 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -25,7 +26,7 @@ import static org.junit.Assert.*;
 /**
  * Test class for {@link ArrowDataFetcher}.
  */
-public class ArrowDataFetcherTest {
+public class ArrowDataFetcherTest extends AbstractJdbcToArrowTest {
 
     @Test
     public void commaSeparatedQueryColumnsTest() {
@@ -38,4 +39,70 @@ public class ArrowDataFetcherTest {
         assertEquals(" one, two ", ArrowDataFetcher.commaSeparatedQueryColumns("one", "two"));
         assertEquals(" one, two, three ", ArrowDataFetcher.commaSeparatedQueryColumns("one", "two", "three"));
     }
+
+    @Test
+    public void arrowFetcherAllColumnsLimitOffsetTest() throws Exception {
+
+        Table table =
+                mapper.readValue(
+                        this.getClass().getClassLoader().getResourceAsStream("test1_int_h2.yml"),
+                        Table.class);
+
+        try {
+            createTestData(table);
+
+            ArrowDataFetcher arrowDataFetcher = JdbcToArrow.jdbcArrowDataFetcher(super.conn, "table1");
+
+            VectorSchemaRoot root = arrowDataFetcher.fetch(0, 10);
+
+            int[] values = {
+                    101, 101, 101, 101, 101, 101, 101, 101, 101, 101
+            };
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 10, values);
+
+            root = arrowDataFetcher.fetch(5, 5);
+
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 5, values);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteTestData(table);
+        }
+
+    }
+
+    @Test
+    public void arrowFetcherSingleColumnLimitOffsetTest() throws Exception {
+
+        Table table =
+                mapper.readValue(
+                        this.getClass().getClassLoader().getResourceAsStream("test1_int_h2.yml"),
+                        Table.class);
+
+        try {
+            createTestData(table);
+
+            ArrowDataFetcher arrowDataFetcher = JdbcToArrow.jdbcArrowDataFetcher(super.conn, "table1");
+
+            VectorSchemaRoot root = arrowDataFetcher.fetch(0, 10, "int_field1");
+
+            int[] values = {
+                    101, 101, 101, 101, 101, 101, 101, 101, 101, 101
+            };
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 10, values);
+
+            root = arrowDataFetcher.fetch(5, 5);
+
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 5, values);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            deleteTestData(table);
+        }
+
+    }
+
+
 }

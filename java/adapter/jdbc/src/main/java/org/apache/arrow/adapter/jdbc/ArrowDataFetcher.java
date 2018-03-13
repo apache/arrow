@@ -37,7 +37,7 @@ public class ArrowDataFetcher {
         this.tableName = tableName;
     }
 
-    public VectorSchemaRoot fetch(int limit, int offset, String... columns) throws Exception {
+    public VectorSchemaRoot fetch(int offset, int limit, String... columns) throws Exception {
         assert columns != null && columns.length > 0 : "columns can't be empty!";
         assert limit > 0 : "limit needs to be greater that 0";
         assert offset >= 0 : "offset needs to be greater than or equal to 0";
@@ -47,7 +47,7 @@ public class ArrowDataFetcher {
                         tableName, limit, offset));
     }
 
-    public VectorSchemaRoot fetch(int limit, int offset) throws Exception {
+    public VectorSchemaRoot fetch(int offset, int limit) throws Exception {
         assert limit > 0 : "limit needs to be greater that 0";
         assert offset >= 0 : "offset needs to be greater than or equal to 0";
 
