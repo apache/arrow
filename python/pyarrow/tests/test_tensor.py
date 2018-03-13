@@ -165,3 +165,30 @@ def test_read_tensor(tmpdir):
     read_mmap = pa.memory_map(path, mode='r')
     array = pa.read_tensor(read_mmap).to_numpy()
     np.testing.assert_equal(data, array)
+
+
+@pytest.mark.skipif(sys.version_info < (3,),
+                    reason="requires Python 3+")
+def test_tensor_memoryview():
+    # Tensors support the PEP 3118 buffer protocol
+    for dtype, expected_format in [(np.int8, '=b'),
+                                   (np.int64, '=q'),
+                                   (np.uint64, '=Q'),
+                                   (np.float16, 'e'),
+                                   (np.float64, 'd'),
+                                   ]:
+        data = np.arange(10, dtype=dtype)
+        dtype = data.dtype
+        lst = data.tolist()
+        tensor = pa.Tensor.from_numpy(data)
+        m = memoryview(tensor)
+        assert m.format == expected_format
+        assert m.shape == data.shape
+        assert m.strides == data.strides
+        assert m.ndim == 1
+        assert m.nbytes == data.nbytes
+        assert m.itemsize == data.itemsize
+        assert m.itemsize * 8 == tensor.type.bit_width
+        assert np.frombuffer(m, dtype).tolist() == lst
+        del tensor, data
+        assert np.frombuffer(m, dtype).tolist() == lst

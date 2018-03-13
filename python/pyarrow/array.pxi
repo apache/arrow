@@ -651,6 +651,30 @@ strides: {0.strides}""".format(self)
         self._validate()
         return tuple(self.tp.strides())
 
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._validate()
+
+        buffer.buf = <char *> self.tp.data().get().data()
+        pep3118_format = self.type.pep3118_format
+        if pep3118_format is None:
+            raise NotImplementedError("type %s not supported for buffer "
+                                      "protocol" % (self.type,))
+        buffer.format = pep3118_format
+        buffer.itemsize = self.type.bit_width // 8
+        buffer.internal = NULL
+        buffer.len = self.tp.size() * buffer.itemsize
+        buffer.ndim = self.tp.ndim()
+        buffer.obj = self
+        if self.tp.is_mutable():
+            buffer.readonly = 0
+        else:
+            buffer.readonly = 1
+        # NOTE: This assumes Py_ssize_t == int64_t, and that the shape
+        # and strides arrays lifetime is tied to the tensor's
+        buffer.shape = <Py_ssize_t *> &self.tp.shape()[0]
+        buffer.strides = <Py_ssize_t *> &self.tp.strides()[0]
+        buffer.suboffsets = NULL
+
 
 cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)

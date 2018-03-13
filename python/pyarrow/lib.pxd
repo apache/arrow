@@ -20,6 +20,8 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow cimport CStatus
 from cpython cimport PyObject
 from libcpp cimport nullptr
+from libcpp.cast cimport dynamic_cast
+
 
 cdef extern from "Python.h":
     int PySlice_Check(object)
@@ -42,6 +44,7 @@ cdef class DataType:
     cdef:
         shared_ptr[CDataType] sp_type
         CDataType* type
+        bytes pep3118_format
 
     cdef void init(self, const shared_ptr[CDataType]& type)
 
