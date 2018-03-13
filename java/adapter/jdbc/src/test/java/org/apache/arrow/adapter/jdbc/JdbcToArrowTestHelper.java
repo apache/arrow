@@ -39,7 +39,7 @@ import static org.junit.Assert.*;
 
 
 /**
- * This is a Helper class which has functionalities to read and print the values from FieldVector object
+ * This is a Helper class which has functionalities to read and assert the values from teh given FieldVector object
  *
  */
 public class JdbcToArrowTestHelper {
