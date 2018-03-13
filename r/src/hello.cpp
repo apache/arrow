@@ -12,8 +12,8 @@ IntegerVector bla(){
 
   builder.Append(1);
   builder.Append(2);
-  builder.Append(3);
   builder.AppendNull();
+  builder.Append(4);
   builder.Append(5);
   builder.Append(6);
   builder.Append(7);
@@ -27,5 +27,15 @@ IntegerVector bla(){
   // Get the pointer to the actual data
   const int32_t* data = int32_array->raw_values();
 
-  return wrap(data, data + array->length() )  ;
+  // Get the pointer to the null bitmap.
+  const uint8_t* null_bitmap = int32_array->null_bitmap_data();
+
+  int n = array->length( ) ;
+  IntegerVector out = no_init( array->length() ) ;
+
+  for(int i=0; i<n; i++){
+    out[i] = BitUtil::BitNotSet(null_bitmap, i) ? NA_INTEGER : data[i] ;
+  }
+
+  return out  ;
 }
