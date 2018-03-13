@@ -25,6 +25,9 @@ import java.sql.*;
 
 /**
  * Utility class to convert JDBC objects to columnar Arrow format objects.
+ *
+ * @since 0.10.0
+ * @see ArrowDataFetcher
  */
 public class JdbcToArrow {
 
