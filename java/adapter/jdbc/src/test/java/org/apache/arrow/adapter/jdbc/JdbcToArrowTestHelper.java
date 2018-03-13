@@ -57,16 +57,140 @@ public class JdbcToArrowTestHelper {
         return true;
     }
 
-    public void getBigIntVectorValues(FieldVector fx){
-        BigIntVector bigIntVector = ((BigIntVector)fx);
-        for(int j = 0; j < bigIntVector.getValueCount(); j++){
-            if(!bigIntVector.isNull(j)){
-                long value = bigIntVector.get(j);
-                System.out.println("Big Int Vector Value [" + j +"] : " + value);
-            } else {
-                System.out.println("Big Int Vector Value [" + j +"] : NULL ");
+    public static boolean assertBitBooleanVectorValues(FieldVector fx, int rowCount, int[] values){
+        BitVector bitVector = ((BitVector)fx);
+        assertEquals(rowCount, bitVector.getValueCount());
+        for(int j = 0; j < bitVector.getValueCount(); j++){
+            if(!bitVector.isNull(j)) {
+                assertEquals(values[j], bitVector.get(j));
             }
         }
+        return true;
+    }
+
+    public static boolean assertTinyIntVectorValues(FieldVector fx, int rowCount, int[] values){
+        TinyIntVector tinyIntVector = ((TinyIntVector)fx);
+
+        assertEquals(rowCount, tinyIntVector.getValueCount());
+
+        for(int j = 0; j < tinyIntVector.getValueCount(); j++){
+            if(!tinyIntVector.isNull(j)) {
+                assertEquals(values[j], tinyIntVector.get(j));
+            }
+        }
+        return true;
+    }
+
+    public static boolean assertSmallIntVectorValues(FieldVector fx, int rowCount, int[] values){
+        SmallIntVector smallIntVector = ((SmallIntVector)fx);
+
+        assertEquals(rowCount, smallIntVector.getValueCount());
+
+        for(int j = 0; j < smallIntVector.getValueCount(); j++){
+            if(!smallIntVector.isNull(j)){
+                assertEquals(values[j], smallIntVector.get(j));
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean assertBigIntVectorValues(FieldVector fx, int rowCount, int[] values){
+        BigIntVector bigIntVector = ((BigIntVector)fx);
+
+        assertEquals(rowCount, bigIntVector.getValueCount());
+
+        for(int j = 0; j < bigIntVector.getValueCount(); j++){
+            if(!bigIntVector.isNull(j)) {
+                assertEquals(values[j], bigIntVector.get(j));
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean assertDecimalVectorValues(FieldVector fx, int rowCount, BigDecimal[] values){
+        DecimalVector decimalVector = ((DecimalVector)fx);
+
+        assertEquals(rowCount, decimalVector.getValueCount());
+
+        for(int j = 0; j < decimalVector.getValueCount(); j++){
+            if(!decimalVector.isNull(j)){
+                assertEquals(values[j].doubleValue(), decimalVector.getObject(j).doubleValue(), 0);
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean assertFloat8VectorValues(FieldVector fx, int rowCount, double[] values){
+        Float8Vector float8Vector = ((Float8Vector)fx);
+
+        assertEquals(rowCount, float8Vector.getValueCount());
+
+        for(int j = 0; j < float8Vector.getValueCount(); j++){
+            if(!float8Vector.isNull(j)) {
+                assertEquals(values[j], float8Vector.get(j), 0.01);
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean assertFloat4VectorValues(FieldVector fx, int rowCount, float[] values){
+        Float4Vector float4Vector = ((Float4Vector)fx);
+
+        assertEquals(rowCount, float4Vector.getValueCount());
+
+        for(int j = 0; j < float4Vector.getValueCount(); j++){
+            if(!float4Vector.isNull(j)){
+                assertEquals(values[j], float4Vector.get(j), 0.01);
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean assertTimeVectorValues(FieldVector fx, int rowCount, int[] values){
+        TimeMilliVector timeMilliVector = ((TimeMilliVector)fx);
+
+        assertEquals(rowCount, timeMilliVector.getValueCount());
+
+        for(int j = 0; j < timeMilliVector.getValueCount(); j++){
+            if(!timeMilliVector.isNull(j)){
+                assertEquals(values[j], timeMilliVector.get(j));
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean assertDateVectorValues(FieldVector fx, int rowCount, long[] values){
+        DateMilliVector dateMilliVector = ((DateMilliVector)fx);
+
+        assertEquals(rowCount, dateMilliVector.getValueCount());
+
+        for(int j = 0; j < dateMilliVector.getValueCount(); j++){
+            if(!dateMilliVector.isNull(j)){
+                assertEquals(values[j], dateMilliVector.get(j));
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean assertTimeStampVectorValues(FieldVector fx, int rowCount, long[] values){
+        TimeStampVector timeStampVector = ((TimeStampVector)fx);
+
+        assertEquals(rowCount, timeStampVector.getValueCount());
+
+        for(int j = 0; j < timeStampVector.getValueCount(); j++){
+            if(!timeStampVector.isNull(j)){
+                assertEquals(values[j], timeStampVector.get(j));
+            }
+        }
+
+        return true;
     }
 
     public void getVarBinaryVectorValues(FieldVector fx){
@@ -82,113 +206,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public void getFloat4VectorValues(FieldVector fx){
-        Float4Vector float4Vector = ((Float4Vector)fx);
-        for(int j = 0; j < float4Vector.getValueCount(); j++){
-            if(!float4Vector.isNull(j)){
-                float value = float4Vector.get(j);
-                System.out.println("Float Vector Value [" + j +"] : " + value);
-            } else {
-                System.out.println("Float Vector Value [" + j +"] : NULL ");
-            }
-        }
-    }
 
-    public void getFloat8VectorValues(FieldVector fx){
-        Float8Vector float8Vector = ((Float8Vector)fx);
-        for(int j = 0; j < float8Vector.getValueCount(); j++){
-            if(!float8Vector.isNull(j)){
-                double value = float8Vector.get(j);
-                System.out.println("Double Vector Value [" + j +"] : " + value);
-            } else {
-                System.out.println("Double Vector Value [" + j +"] : NULL ");
-            }
-        }
-    }
-
-    public void getBitBooleanVectorValues(FieldVector fx){
-        BitVector bitVector = ((BitVector)fx);
-        for(int j = 0; j < bitVector.getValueCount(); j++){
-            if(!bitVector.isNull(j)){
-                int value = bitVector.get(j);
-                System.out.println("Bit Boolean Vector Value[" + j +"] : " + value);
-            } else {
-                System.out.println("Bit Boolean Vector Value[" + j +"] : NULL ");
-            }
-        }
-    }
-
-    public void getTinyIntVectorValues(FieldVector fx){
-        TinyIntVector tinyIntVector = ((TinyIntVector)fx);
-        for(int j = 0; j < tinyIntVector.getValueCount(); j++){
-            if(!tinyIntVector.isNull(j)){
-                byte value = tinyIntVector.get(j);
-                System.out.println("Tiny Int Vector Value[" + j +"] : " + value);
-            } else {
-                System.out.println("Tiny Int Vector Value[" + j +"] : NULL ");
-            }
-        }
-    }
-
-    public void getSmallIntVectorValues(FieldVector fx){
-        SmallIntVector smallIntVector = ((SmallIntVector)fx);
-        for(int j = 0; j < smallIntVector.getValueCount(); j++){
-            if(!smallIntVector.isNull(j)){
-                short value = smallIntVector.get(j);
-                System.out.println("Small Int Vector Value[" + j +"] : " + value);
-            } else {
-                System.out.println("Small Int Vector Value[" + j +"] : NULL ");
-            }
-        }
-    }
-
-    public void getDecimalVectorValues(FieldVector fx){
-        DecimalVector decimalVector = ((DecimalVector)fx);
-        for(int j = 0; j < decimalVector.getValueCount(); j++){
-            if(!decimalVector.isNull(j)){
-                BigDecimal value = decimalVector.getObject(j);
-                System.out.println("Decimal Vector Value[" + j +"] : " + value);
-            } else {
-                System.out.println("Decimal Vector Value[" + j +"] : NULL ");
-            }
-        }
-    }
-
-    public void getDateVectorValues(FieldVector fx){
-        DateMilliVector dateMilliVector = ((DateMilliVector)fx);
-        for(int j = 0; j < dateMilliVector.getValueCount(); j++){
-            if(!dateMilliVector.isNull(j)){
-                long value = dateMilliVector.get(j);
-                System.out.println("Date Milli Vector Value[" + j +"] : " + value);
-            } else {
-                System.out.println("Date Milli Vector Value[" + j +"] : NULL ");
-            }
-        }
-    }
-
-    public void getTimeVectorValues(FieldVector fx){
-        TimeMilliVector timeMilliVector = ((TimeMilliVector)fx);
-        for(int j = 0; j < timeMilliVector.getValueCount(); j++){
-            if(!timeMilliVector.isNull(j)){
-                int value = timeMilliVector.get(j);
-                System.out.println("Time Milli Vector Value[" + j +"] : " + value);
-            } else {
-                System.out.println("Time Milli Vector Value[" + j +"] : NULL ");
-            }
-        }
-    }
-
-    public void getTimeStampVectorValues(FieldVector fx){
-        TimeStampVector timeStampVector = ((TimeStampVector)fx);
-        for(int j = 0; j < timeStampVector.getValueCount(); j++){
-            if(!timeStampVector.isNull(j)){
-                long value = timeStampVector.get(j);
-                System.out.println("Time Stamp Vector Value [" + j +"] : " + value);
-            } else {
-                System.out.println("Time Stamp Vector Value [" + j +"] : NULL ");
-            }
-        }
-    }
 
     public void getVarcharVectorValues(FieldVector fx){
         VarCharVector varCharVector = ((VarCharVector)fx);

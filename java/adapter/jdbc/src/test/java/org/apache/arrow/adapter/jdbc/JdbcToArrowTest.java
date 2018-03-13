@@ -27,6 +27,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -118,11 +119,11 @@ public class JdbcToArrowTest {
     }
 
     @Test
-    public void sqlToArrowTest2() throws Exception {
+    public void sqlToArrowTestAllDataTypes() throws Exception {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test2_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("test1_all_datatypes_h2.yml"),
                         Table.class);
 
         try {
@@ -130,10 +131,72 @@ public class JdbcToArrowTest {
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
-            int[] values = {
-                    101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118
+            int[] ints = {
+                    101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101
             };
-            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 18, values);
+            JdbcToArrowTestHelper.assertIntVectorValues(root.getVector("INT_FIELD1"), 15, ints);
+
+            int[] bools = {
+                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+            };
+            JdbcToArrowTestHelper.assertBitBooleanVectorValues(root.getVector("BOOL_FIELD2"), 15, bools);
+
+            int[] tinyints = {
+                    45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
+            };
+            JdbcToArrowTestHelper.assertTinyIntVectorValues(root.getVector("TINYINT_FIELD3"), 15, tinyints);
+
+            int[] smallints = {
+                    12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000
+            };
+            JdbcToArrowTestHelper.assertSmallIntVectorValues(root.getVector("SMALLINT_FIELD4"), 15, smallints);
+
+            int[] bigints = {
+                    92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720,
+                    92233720, 92233720, 92233720, 92233720, 92233720, 92233720
+            };
+            JdbcToArrowTestHelper.assertBigIntVectorValues(root.getVector("BIGINT_FIELD5"), 15, bigints);
+
+            BigDecimal[] bigdecimals = {
+                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
+                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
+                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
+                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
+                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23)
+            };
+            JdbcToArrowTestHelper.assertDecimalVectorValues(root.getVector("DECIMAL_FIELD6"), 15, bigdecimals);
+
+            double[] doubles = {
+                    56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345,
+                    56478356785.345, 56478356785.345, 56478356785.345,
+                    56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345
+            };
+            JdbcToArrowTestHelper.assertFloat8VectorValues(root.getVector("DOUBLE_FIELD7"), 15, doubles);
+
+            float[] reals = {
+                    56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f,
+                    56478356785.345f, 56478356785.345f, 56478356785.345f,
+                    56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f
+            };
+            JdbcToArrowTestHelper.assertFloat4VectorValues(root.getVector("REAL_FIELD8"), 15, reals);
+
+            int[] times = {
+                    74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000,
+                    74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000
+            };
+            JdbcToArrowTestHelper.assertTimeVectorValues(root.getVector("TIME_FIELD9"), 15, times);
+
+            long[] dates = {
+                    1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l,
+                    1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l, 1518422400000l
+            };
+            JdbcToArrowTestHelper.assertDateVectorValues(root.getVector("DATE_FIELD10"), 15, dates);
+
+            long[] timestamps = {
+                    1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l,
+                    1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l
+            };
+            JdbcToArrowTestHelper.assertTimeStampVectorValues(root.getVector("TIMESTAMP_FIELD11"), 15, timestamps);
 
         } catch (Exception e) {
             e.printStackTrace();
