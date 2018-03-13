@@ -21,6 +21,13 @@ import inspect
 import json
 import re
 import six
+from six.moves.urllib.parse import urlparse
+# pathlib might not be available in Python 2
+try:
+    import pathlib
+    _has_pathlib = True
+except ImportError:
+    _has_pathlib = False
 
 import numpy as np
 
@@ -53,6 +60,7 @@ class ParquetFile(object):
     """
     def __init__(self, source, metadata=None, common_metadata=None):
         self.reader = ParquetReader()
+        source = _ensure_file(source)
         self.reader.open(source, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -279,8 +287,20 @@ schema : arrow Schema
             self.schema_changed = False
 
         self.schema = schema
+        self.where = where
+
+        # If we open a file using an implied filesystem, so it can be assured
+        # to be closed
+        self.file_handle = None
+
+        if is_path(where):
+            fs = _get_fs_from_path(where)
+            sink = self.file_handle = fs.open(where, 'wb')
+        else:
+            sink = where
+
         self.writer = _parquet.ParquetWriter(
-            where, schema,
+            sink, schema,
             version=version,
             compression=compression,
             use_dictionary=use_dictionary,
@@ -310,6 +330,8 @@ schema : arrow Schema
         if self.is_open:
             self.writer.close()
             self.is_open = False
+        if self.file_handle is not None:
+            self.file_handle.close()
 
 
 def _get_pandas_index_columns(keyvalues):
@@ -559,8 +581,9 @@ class ParquetPartitions(object):
         return self.levels[level].get_index(key)
 
 
-def is_string(x):
-    return isinstance(x, six.string_types)
+def is_path(x):
+    return (isinstance(x, six.string_types)
+            or (_has_pathlib and isinstance(x, pathlib.Path)))
 
 
 class ParquetManifest(object):
@@ -569,7 +592,7 @@ class ParquetManifest(object):
     """
     def __init__(self, dirpath, filesystem=None, pathsep='/',
                  partition_scheme='hive'):
-        self.filesystem = filesystem or LocalFileSystem.get_instance()
+        self.filesystem = filesystem or _get_fs_from_path(dirpath)
         self.pathsep = pathsep
         self.dirpath = dirpath
         self.partition_scheme = partition_scheme
@@ -692,7 +715,10 @@ class ParquetDataset(object):
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True):
         if filesystem is None:
-            self.fs = LocalFileSystem.get_instance()
+            a_path = path_or_paths
+            if isinstance(a_path, list):
+                a_path = a_path[0]
+            self.fs = _get_fs_from_path(a_path)
         else:
             self.fs = _ensure_filesystem(filesystem)
 
@@ -851,7 +877,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/'):
         # Dask passes a directory as a list of length 1
         path_or_paths = path_or_paths[0]
 
-    if is_string(path_or_paths) and fs.isdir(path_or_paths):
+    if is_path(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    pathsep=fs.pathsep)
         common_metadata_path = manifest.common_metadata_path
@@ -904,11 +930,11 @@ Returns
 
 def read_table(source, columns=None, nthreads=1, metadata=None,
                use_pandas_metadata=False):
-    if is_string(source):
-        fs = LocalFileSystem.get_instance()
+    if is_path(source):
+        fs = _get_fs_from_path(source)
+
         if fs.isdir(source):
-            return fs.read_parquet(source, columns=columns,
-                                   metadata=metadata)
+            return fs.read_parquet(source, columns=columns, metadata=metadata)
 
     pf = ParquetFile(source, metadata=metadata)
     return pf.read(columns=columns, nthreads=nthreads,
@@ -957,7 +983,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
-        if isinstance(where, six.string_types):
+        if is_path(where):
             try:
                 os.remove(where)
             except os.error:
@@ -1026,7 +1052,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     )
 
     if filesystem is None:
-        fs = LocalFileSystem.get_instance()
+        fs = _get_fs_from_path(root_path)
     else:
         fs = _ensure_filesystem(filesystem)
 
@@ -1113,3 +1139,40 @@ def read_schema(where):
     schema : pyarrow.Schema
     """
     return ParquetFile(where).schema.to_arrow_schema()
+
+
+def _ensure_file(source):
+    if is_path(source):
+        fs = _get_fs_from_path(source)
+        try:
+            return fs.open(source)
+        except IOError as e:
+            raise lib.ArrowIOError("failed to open file {}, {}"
+                                   .format(source, e))
+    elif not hasattr(source, 'seek'):
+        raise ValueError('Source does not appear file-like')
+    else:
+        return source
+
+
+def _get_fs_from_path(path):
+    """
+    return filesystem from path which could be an HDFS URI
+    """
+    # input can be hdfs URI such as hdfs://host:port/myfile.parquet
+    if _has_pathlib and isinstance(path, pathlib.Path):
+        path = str(path)
+    parsed_uri = urlparse(path)
+    if parsed_uri.scheme == 'hdfs':
+        netloc_split = parsed_uri.netloc.split(':')
+        host = netloc_split[0]
+        if host == '':
+            host = 'default'
+        port = 0
+        if len(netloc_split) == 2 and netloc_split[1].isnumeric():
+            port = int(netloc_split[1])
+        fs = pa.hdfs.connect(host=host, port=port)
+    else:
+        fs = LocalFileSystem.get_instance()
+
+    return fs
