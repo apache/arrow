@@ -6,19 +6,19 @@
 
 using namespace Rcpp;
 
-// test
-int test();
-RcppExport SEXP _rrrow_test() {
+// bla
+IntegerVector bla();
+RcppExport SEXP _rrrow_bla() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(test());
+    rcpp_result_gen = Rcpp::wrap(bla());
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_rrrow_test", (DL_FUNC) &_rrrow_test, 0},
+    {"_rrrow_bla", (DL_FUNC) &_rrrow_bla, 0},
     {NULL, NULL, 0}
 };
 
