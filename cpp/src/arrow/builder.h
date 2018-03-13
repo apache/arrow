@@ -125,17 +125,17 @@ class ARROW_EXPORT ArrayBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Array>* out);
 
-  /// \brief Return result of builder as a SliceArray object. Doesn't resets builder
+  /// \brief Return result of builder as a SliceArray object.
   ///
   /// \param[out] out the finalized Array object
   /// \return Status
-  Status FinishSlice(std::shared_ptr<Array>* out, const int64_t offset, const int64_t length);
+  Status FinishSlice(std::shared_ptr<Array>* out, const int64_t offset, const int64_t length, const bool reset);
 
   /// \brief Return result of builder as a slice ArrayData object. Doesn't resets builder
   ///
   /// \param[out] out the finalized Array object
   /// \return Status
-  virtual Status FinishInternalSlice(std::shared_ptr<ArrayData>* out, const int64_t offset, const int64_t length) = 0;
+  virtual Status FinishInternalSlice(std::shared_ptr<ArrayData>* out, const int64_t offset, const int64_t length, const bool reset) = 0;
 
   std::shared_ptr<DataType> type() const { return type_; }
 
@@ -198,7 +198,8 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 };
 
 template <typename Type>
@@ -259,7 +260,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
   Status Init(int64_t capacity) override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
@@ -458,7 +460,8 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 
  protected:
   Status ExpandIntSize(uint8_t new_int_size);
@@ -523,7 +526,8 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 
  protected:
   Status ExpandIntSize(uint8_t new_int_size);
@@ -623,7 +627,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
   Status Init(int64_t capacity) override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
@@ -663,7 +668,8 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 
   /// \brief Vector append
   ///
@@ -723,7 +729,8 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
@@ -790,7 +797,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
@@ -817,7 +825,8 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 };
 
 using DecimalBuilder = Decimal128Builder;
@@ -838,7 +847,8 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 
   /// Null bitmap is of equal length to every child field, and any zero byte
   /// will be considered as a null for that field, but users must using app-
@@ -939,7 +949,8 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 
   /// is the dictionary builder in the delta building mode
   bool is_building_delta() { return entry_id_offset_ > 0; }
@@ -961,7 +972,9 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   // offset for the entry ids. Used to build delta dictionaries,
   // increased on every InternalFinish by the number of current entries
   // in the dictionary
-  int64_t entry_id_offset_;
+  int64_t entry_id_offset_ = 0;
+  // offset for values. See comment above
+  int64_t values_offset_ = 0;
 
   // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
   // hash_table_size_, but uses far fewer CPU cycles
@@ -996,7 +1009,8 @@ class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                              const int64_t offset,
-                             const int64_t length) override;
+                             const int64_t length,
+                             const bool reset) override;
 
  protected:
   AdaptiveIntBuilder values_builder_;
