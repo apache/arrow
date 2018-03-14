@@ -456,6 +456,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         @staticmethod
         CStatus FromRecordBatches(
+            const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CRecordBatch]]& batches,
             shared_ptr[CTable]* table)
 
