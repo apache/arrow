@@ -29,8 +29,11 @@ import java.sql.*;
  * This utility uses following data mapping fto map JDBC/SQL datatype to Arrow data types.
  *
  * CHAR	--> ArrowType.Utf8
+ * NCHAR	--> ArrowType.Utf8
  * VARCHAR --> ArrowType.Utf8
+ * NVARCHAR --> ArrowType.Utf8
  * LONGVARCHAR --> ArrowType.Utf8
+ * LONGNVARCHAR --> ArrowType.Utf8
  * NUMERIC --> ArrowType.Decimal(precision, scale)
  * DECIMAL --> ArrowType.Decimal(precision, scale)
  * BIT --> ArrowType.Bool

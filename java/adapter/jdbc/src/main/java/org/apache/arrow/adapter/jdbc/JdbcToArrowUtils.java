@@ -50,8 +50,11 @@ public class JdbcToArrowUtils {
      * This method currently performs following type mapping for JDBC SQL data types to corresponding Arrow data types.
      *
      * CHAR	--> ArrowType.Utf8
+     * NCHAR	--> ArrowType.Utf8
      * VARCHAR --> ArrowType.Utf8
+     * NVARCHAR --> ArrowType.Utf8
      * LONGVARCHAR --> ArrowType.Utf8
+     * LONGNVARCHAR --> ArrowType.Utf8
      * NUMERIC --> ArrowType.Decimal(precision, scale)
      * DECIMAL --> ArrowType.Decimal(precision, scale)
      * BIT --> ArrowType.Bool
@@ -114,8 +117,11 @@ public class JdbcToArrowUtils {
                     fields.add(new Field(columnName, FieldType.nullable(new ArrowType.FloatingPoint(DOUBLE)), null));
                     break;
                 case Types.CHAR:
+                case Types.NCHAR:
                 case Types.VARCHAR:
+                case Types.NVARCHAR:
                 case Types.LONGVARCHAR:
+                case Types.LONGNVARCHAR:
                     fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
                     break;
                 case Types.DATE:
@@ -235,8 +241,11 @@ public class JdbcToArrowUtils {
                         float8Vector.setValueCount(rowCount + 1);
                         break;
                     case Types.CHAR:
+                    case Types.NCHAR:
                     case Types.VARCHAR:
+                    case Types.NVARCHAR:
                     case Types.LONGVARCHAR:
+                    case Types.LONGNVARCHAR:
                         VarCharVector varcharVector = (VarCharVector)root.getVector(columnName);
                         String value = rs.getString(i) != null ? rs.getString(i) : "";
                         varcharVector.setIndexDefined(rowCount);
