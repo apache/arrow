@@ -55,6 +55,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/util/macros.h"
@@ -68,34 +69,12 @@
 
 namespace arrow {
 
-// TODO(wesm): The source from Impala was depending on boost::make_unsigned
-//
-// We add a partial stub implementation here
-
 namespace detail {
 
-template <typename T>
-struct make_unsigned {};
-
-template <>
-struct make_unsigned<int8_t> {
-  typedef uint8_t type;
-};
-
-template <>
-struct make_unsigned<int16_t> {
-  typedef uint16_t type;
-};
-
-template <>
-struct make_unsigned<int32_t> {
-  typedef uint32_t type;
-};
-
-template <>
-struct make_unsigned<int64_t> {
-  typedef uint64_t type;
-};
+template <typename Integer>
+typename std::make_unsigned<Integer>::type as_unsigned(Integer x) {
+  return static_cast<typename std::make_unsigned<Integer>::type>(x);
+}
 
 }  // namespace detail
 
@@ -268,7 +247,7 @@ static inline int Popcount(uint64_t x) {
 template <typename T>
 static inline int PopcountSigned(T v) {
   // Converting to same-width unsigned then extending preserves the bit pattern.
-  return BitUtil::Popcount(static_cast<typename detail::make_unsigned<T>::type>(v));
+  return BitUtil::Popcount(detail::as_unsigned(v));
 }
 
 /// Returns the 'num_bits' least-significant bits of 'v'.
@@ -412,7 +391,7 @@ static inline T FromLittleEndian(T value) {
 template <typename T>
 static T ShiftRightLogical(T v, int shift) {
   // Conversion to unsigned ensures most significant bits always filled with 0's
-  return static_cast<typename detail::make_unsigned<T>::type>(v) >> shift;
+  return detail::as_unsigned(v) >> shift;
 }
 
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits);
