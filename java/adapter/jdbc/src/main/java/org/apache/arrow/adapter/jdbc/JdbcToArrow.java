@@ -26,7 +26,7 @@ import java.sql.*;
 /**
  * Utility class to convert JDBC objects to columnar Arrow format objects.
  *
- * This utility uses following data mapping fto map JDBC/SQL datatype to Arrow data types.
+ * This utility uses following data mapping to map JDBC/SQL datatype to Arrow data types.
  *
  * CHAR	--> ArrowType.Utf8
  * NCHAR	--> ArrowType.Utf8
