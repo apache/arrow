@@ -41,7 +41,7 @@ conda install -y -q pip \
       cloudpickle \
       numpy=1.13.1 \
       pandas \
-      cython
+      cython=0.27.3
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
 # significantly, and so we have disabled these tests in Travis CI for now
