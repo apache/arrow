@@ -1103,6 +1103,9 @@ def write_metadata(schema, where, version='1.0',
     coerce_timestamps : string, default None
         Cast timestamps a particular resolution.
         Valid values: {None, 'ms', 'us'}
+    filesystem : FileSystem, default None
+        If nothing passed, paths assumed to be found in the local on-disk
+        filesystem
     """
     writer = ParquetWriter(
         where, schema, version=version,
