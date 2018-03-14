@@ -462,7 +462,9 @@ class TestConvertPrimitiveTypes(object):
     def test_float_no_nulls(self):
         data = {}
         fields = []
-        dtypes = [('f4', pa.float32()), ('f8', pa.float64())]
+        dtypes = [('f2', pa.float16()),
+                  ('f4', pa.float32()),
+                  ('f8', pa.float64())]
         num_values = 100
 
         for numpy_dtype, arrow_dtype in dtypes:
@@ -478,8 +480,10 @@ class TestConvertPrimitiveTypes(object):
         num_values = 100
 
         null_mask = np.random.randint(0, 10, size=num_values) < 3
-        dtypes = [('f4', pa.float32()), ('f8', pa.float64())]
-        names = ['f4', 'f8']
+        dtypes = [('f2', pa.float16()),
+                  ('f4', pa.float32()),
+                  ('f8', pa.float64())]
+        names = ['f2', 'f4', 'f8']
         expected_cols = []
 
         arrays = []
@@ -652,6 +656,21 @@ class TestConvertPrimitiveTypes(object):
 
         _check_type(pa.int32())
         _check_type(pa.float64())
+
+    def test_half_floats_from_numpy(self):
+        arr = np.array([1.5, np.nan], dtype=np.float16)
+        a = pa.array(arr, type=pa.float16())
+        x, y = a.to_pylist()
+        assert isinstance(x, np.float16)
+        assert x == 1.5
+        assert isinstance(y, np.float16)
+        assert np.isnan(y)
+
+        a = pa.array(arr, type=pa.float16(), from_pandas=True)
+        x, y = a.to_pylist()
+        assert isinstance(x, np.float16)
+        assert x == 1.5
+        assert y is None
 
 
 @pytest.mark.parametrize('dtype',
@@ -1668,7 +1687,7 @@ class TestConvertMisc(object):
         (np.uint16, pa.uint16()),
         (np.uint32, pa.uint32()),
         (np.uint64, pa.uint64()),
-        # (np.float16, pa.float16()),  # XXX unsupported
+        (np.float16, pa.float16()),
         (np.float32, pa.float32()),
         (np.float64, pa.float64()),
         # XXX unsupported

@@ -68,8 +68,9 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
+@rem Note: avoid Cython 0.28.0 due to https://github.com/cython/cython/issues/2148
 conda create -n arrow -q -y python=%PYTHON% ^
-      six pytest setuptools numpy pandas cython ^
+      six pytest setuptools numpy pandas cython=0.27.3 ^
       thrift-cpp=0.11.0
 
 call activate arrow
