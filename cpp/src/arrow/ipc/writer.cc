@@ -618,6 +618,9 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 
   if (tensor.is_contiguous()) {
     RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length, body_length));
+    // It's important to align the stream position again so that the tensor data
+    // is aligned.
+    RETURN_NOT_OK(AlignStreamPosition(dst));
     auto data = tensor.data();
     if (data) {
       *body_length = data->size();
@@ -630,6 +633,9 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     Tensor dummy(tensor.type(), tensor.data(), tensor.shape());
     const auto& type = static_cast<const FixedWidthType&>(*tensor.type());
     RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length, body_length));
+    // It's important to align the stream position again so that the tensor data
+    // is aligned.
+    RETURN_NOT_OK(AlignStreamPosition(dst));
 
     const int elem_size = type.bit_width() / 8;
 

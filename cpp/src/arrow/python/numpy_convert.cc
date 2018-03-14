@@ -289,6 +289,9 @@ Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
     array_flags |= NPY_ARRAY_WRITEABLE;
   }
 
+  int64_t alignment = 64;
+  mutable_data = reinterpret_cast<void*>(((reinterpret_cast<int64_t>(mutable_data) + alignment - 1) / alignment) * alignment);
+
   PyObject* result =
       PyArray_NewFromDescr(&PyArray_Type, dtype, ndim, npy_shape.data(),
                            npy_strides.data(), mutable_data, array_flags, nullptr);
