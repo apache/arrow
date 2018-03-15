@@ -297,14 +297,9 @@ std::shared_ptr<Table> Table::Make(const std::shared_ptr<Schema>& schema,
   return std::make_shared<SimpleTable>(schema, arrays, num_rows);
 }
 
-Status Table::FromRecordBatches(const std::vector<std::shared_ptr<RecordBatch>>& batches,
+Status Table::FromRecordBatches(const std::shared_ptr<Schema>& schema,
+                                const std::vector<std::shared_ptr<RecordBatch>>& batches,
                                 std::shared_ptr<Table>* table) {
-  if (batches.size() == 0) {
-    return Status::Invalid("Must pass at least one record batch");
-  }
-
-  std::shared_ptr<Schema> schema = batches[0]->schema();
-
   const int nbatches = static_cast<int>(batches.size());
   const int ncolumns = static_cast<int>(schema->num_fields());
 
@@ -330,6 +325,15 @@ Status Table::FromRecordBatches(const std::vector<std::shared_ptr<RecordBatch>>&
 
   *table = Table::Make(schema, columns);
   return Status::OK();
+}
+
+Status Table::FromRecordBatches(const std::vector<std::shared_ptr<RecordBatch>>& batches,
+                                std::shared_ptr<Table>* table) {
+  if (batches.size() == 0) {
+    return Status::Invalid("Must pass at least one record batch");
+  }
+
+  return FromRecordBatches(batches[0]->schema(), batches, table);
 }
 
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
