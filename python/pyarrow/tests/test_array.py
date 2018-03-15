@@ -145,6 +145,15 @@ def test_array_slice():
             assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
 
 
+def test_struct_array_slice():
+    # ARROW-2311: slicing nested arrays needs special care
+    ty = pa.struct([pa.field('a', pa.int8()),
+                    pa.field('b', pa.float32())])
+    arr = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
+    assert arr[1:].to_pylist() == [{'a': 3, 'b': 4.5},
+                                   {'a': 5, 'b': 6.5}]
+
+
 def test_array_factory_invalid_type():
     arr = np.array([datetime.timedelta(1), datetime.timedelta(2)])
     with pytest.raises(ValueError):

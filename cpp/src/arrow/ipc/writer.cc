@@ -376,10 +376,6 @@ class RecordBatchSerializer : public ArrayVisitor {
     --max_recursion_depth_;
     for (int i = 0; i < array.num_fields(); ++i) {
       std::shared_ptr<Array> field = array.field(i);
-      if (array.offset() != 0 || array.length() < field->length()) {
-        // If offset is non-zero, slice the child array
-        field = field->Slice(array.offset(), array.length());
-      }
       RETURN_NOT_OK(VisitArray(*field));
     }
     ++max_recursion_depth_;

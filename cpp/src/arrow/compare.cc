@@ -136,11 +136,7 @@ class RangeEqualsVisitor {
       for (int j = 0; j < left.num_fields(); ++j) {
         // TODO: really we should be comparing stretches of non-null data rather
         // than looking at one value at a time.
-        const int64_t left_abs_index = i + left.offset();
-        const int64_t right_abs_index = o_i + right.offset();
-
-        equal_fields = left.field(j)->RangeEquals(left_abs_index, left_abs_index + 1,
-                                                  right_abs_index, right.field(j));
+        equal_fields = left.field(j)->RangeEquals(i, i + 1, o_i, right.field(j));
         if (!equal_fields) {
           return false;
         }
@@ -467,9 +463,9 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       return Status::OK();
     }
 
-    result_ =
-        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
-                                   right.value_offset(0), right.values());
+    result_ = left.values()->RangeEquals(
+        left.value_offset(0), left.value_offset(left.length()) - left.value_offset(0),
+        right.value_offset(0), right.values());
     return Status::OK();
   }
 

@@ -2983,14 +2983,14 @@ TEST_F(TestStructBuilder, TestEquality) {
   std::shared_ptr<Array> unequal_bitmap_array, unequal_offsets_array,
       unequal_values_array;
 
-  vector<int32_t> int_values = {1, 2, 3, 4};
+  vector<int32_t> int_values = {101, 102, 103, 104};
   vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
   vector<int> list_lengths = {3, 0, 3, 4};
   vector<int> list_offsets = {0, 3, 3, 6};
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 
-  vector<int32_t> unequal_int_values = {4, 2, 3, 1};
+  vector<int32_t> unequal_int_values = {104, 102, 103, 101};
   vector<char> unequal_list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'l', 'u', 'c', 'y'};
   vector<int> unequal_list_offsets = {0, 3, 4, 6};
   vector<uint8_t> unequal_list_is_valid = {1, 1, 1, 1};
@@ -3104,29 +3104,85 @@ TEST_F(TestStructBuilder, TestEquality) {
   EXPECT_FALSE(array->RangeEquals(0, 1, 0, unequal_values_array));
   EXPECT_TRUE(array->RangeEquals(1, 3, 1, unequal_values_array));
   EXPECT_FALSE(array->RangeEquals(3, 4, 3, unequal_values_array));
-
-  // ARROW-33 Slice / equality
-  std::shared_ptr<Array> slice, slice2;
-
-  slice = array->Slice(2);
-  slice2 = array->Slice(2);
-  ASSERT_EQ(array->length() - 2, slice->length());
-
-  ASSERT_TRUE(slice->Equals(slice2));
-  ASSERT_TRUE(array->RangeEquals(2, slice->length(), 0, slice));
-
-  slice = array->Slice(1, 2);
-  slice2 = array->Slice(1, 2);
-  ASSERT_EQ(2, slice->length());
-
-  ASSERT_TRUE(slice->Equals(slice2));
-  ASSERT_TRUE(array->RangeEquals(1, 3, 0, slice));
 }
 
 TEST_F(TestStructBuilder, TestZeroLength) {
   // All buffers are null
   Done();
   ASSERT_OK(ValidateArray(*result_));
+}
+
+TEST_F(TestStructBuilder, TestSlice) {
+  std::shared_ptr<Array> array, equal_array;
+  std::shared_ptr<Array> unequal_bitmap_array, unequal_offsets_array,
+      unequal_values_array;
+
+  vector<int32_t> int_values = {101, 102, 103, 104};
+  vector<char> list_values = {'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'};
+  vector<int> list_lengths = {3, 0, 3, 4};
+  vector<int> list_offsets = {0, 3, 3, 6};
+  vector<uint8_t> list_is_valid = {1, 0, 1, 1};
+  vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
+
+  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0));
+  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder());
+  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1));
+  ASSERT_OK(builder_->Reserve(list_lengths.size()));
+  ASSERT_OK(char_vb->Reserve(list_values.size()));
+  ASSERT_OK(int_vb->Reserve(int_values.size()));
+
+  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(
+      list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data()));
+  for (int8_t value : list_values) {
+    char_vb->UnsafeAppend(value);
+  }
+  for (int32_t value : int_values) {
+    int_vb->UnsafeAppend(value);
+  }
+  ASSERT_OK(builder_->Finish(&array));
+
+  std::shared_ptr<StructArray> slice, slice2;
+  std::shared_ptr<Int32Array> int_field;
+  std::shared_ptr<ListArray> list_field;
+
+  slice = std::dynamic_pointer_cast<StructArray>(array->Slice(2));
+  slice2 = std::dynamic_pointer_cast<StructArray>(array->Slice(2));
+  ASSERT_EQ(array->length() - 2, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(2, slice->length(), 0, slice));
+
+  int_field = std::dynamic_pointer_cast<Int32Array>(slice->field(1));
+  ASSERT_EQ(int_field->length(), slice->length());
+  ASSERT_EQ(int_field->Value(0), 103);
+  ASSERT_EQ(int_field->Value(1), 104);
+  ASSERT_EQ(int_field->null_count(), 0);
+  list_field = std::dynamic_pointer_cast<ListArray>(slice->field(0));
+  ASSERT_FALSE(list_field->IsNull(0));
+  ASSERT_FALSE(list_field->IsNull(1));
+  ASSERT_EQ(list_field->value_length(0), 3);
+  ASSERT_EQ(list_field->value_length(1), 4);
+  ASSERT_EQ(list_field->null_count(), 0);
+
+  slice = std::dynamic_pointer_cast<StructArray>(array->Slice(1, 2));
+  slice2 = std::dynamic_pointer_cast<StructArray>(array->Slice(1, 2));
+  ASSERT_EQ(2, slice->length());
+
+  ASSERT_TRUE(slice->Equals(slice2));
+  ASSERT_TRUE(array->RangeEquals(1, 3, 0, slice));
+
+  int_field = std::dynamic_pointer_cast<Int32Array>(slice->field(1));
+  ASSERT_EQ(int_field->length(), slice->length());
+  ASSERT_EQ(int_field->Value(0), 102);
+  ASSERT_EQ(int_field->Value(1), 103);
+  ASSERT_EQ(int_field->null_count(), 0);
+  list_field = std::dynamic_pointer_cast<ListArray>(slice->field(0));
+  ASSERT_TRUE(list_field->IsNull(0));
+  ASSERT_FALSE(list_field->IsNull(1));
+  ASSERT_EQ(list_field->value_length(0), 0);
+  ASSERT_EQ(list_field->value_length(1), 3);
+  ASSERT_EQ(list_field->null_count(), 1);
 }
 
 // ----------------------------------------------------------------------
