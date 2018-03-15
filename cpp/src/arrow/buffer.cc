@@ -70,9 +70,7 @@ Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out)
   return FromString(data, default_memory_pool(), out);
 }
 
-void Buffer::CheckMutable() const {
-  DCHECK(is_mutable()) << "buffer not mutable";
-}
+void Buffer::CheckMutable() const { DCHECK(is_mutable()) << "buffer not mutable"; }
 
 PoolBuffer::PoolBuffer(MemoryPool* pool) : ResizableBuffer(nullptr, 0) {
   if (pool == nullptr) {
