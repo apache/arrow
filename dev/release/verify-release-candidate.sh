@@ -246,12 +246,11 @@ cd ${DIST_NAME}
 test_package_java
 setup_miniconda
 test_and_install_cpp
+test_js
 test_integration
 test_glib
 install_parquet_cpp
 test_python
-
-test_js
 
 echo 'Release candidate looks good!'
 exit 0
