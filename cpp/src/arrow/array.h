@@ -149,6 +149,8 @@ struct ARROW_EXPORT ArrayData {
   std::shared_ptr<DataType> type;
   int64_t length;
   int64_t null_count;
+  // The logical start point into the physical buffers (in values, not bytes).
+  // Note that, for child data, this must be *added* to the child data's own offset.
   int64_t offset;
   std::vector<std::shared_ptr<Buffer>> buffers;
   std::vector<std::shared_ptr<ArrayData>> child_data;
@@ -599,7 +601,8 @@ class ARROW_EXPORT StructArray : public Array {
               int64_t offset = 0);
 
   // Return a shared pointer in case the requestor desires to share ownership
-  // with this array.
+  // with this array.  The returned array has its offset, length and null
+  // count adjusted.
   std::shared_ptr<Array> field(int pos) const;
 
  private:

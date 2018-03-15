@@ -353,7 +353,13 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 std::shared_ptr<Array> StructArray::field(int i) const {
   if (!boxed_fields_[i]) {
-    boxed_fields_[i] = MakeArray(data_->child_data[i]);
+    std::shared_ptr<ArrayData> field_data;
+    if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
+      field_data = SliceData(*data_->child_data[i].get(), data_->offset, data_->length);
+    } else {
+      field_data = data_->child_data[i];
+    }
+    boxed_fields_[i] = MakeArray(field_data);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
