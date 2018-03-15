@@ -172,8 +172,8 @@ class ARROW_EXPORT Table {
   /// \brief Construct table from RecordBatches, using schema supplied by the first
   /// RecordBatch.
   ///
-  /// \param[in] batches
-  /// \param[out] table
+  /// \param[in] batches a std::vector of record batches
+  /// \param[out] table the returned table
   /// \return Status Returns Status::Invalid if there is some problem
   static Status FromRecordBatches(
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
@@ -182,9 +182,9 @@ class ARROW_EXPORT Table {
   /// Construct table from RecordBatches, using supplied schema. There may be
   /// zero record batches
   ///
-  /// \param[in] schema
-  /// \param[in] batches
-  /// \param[out] table
+  /// \param[in] schema the arrow::Schema for each batch
+  /// \param[in] batches a std::vector of record batches
+  /// \param[out] table the returned table
   /// \return Status
   static Status FromRecordBatches(
       const std::shared_ptr<Schema>& schema,
