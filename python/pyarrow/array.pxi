@@ -1013,6 +1013,17 @@ cdef class DictionaryArray(Array):
 
 cdef class StructArray(Array):
 
+    def flatten(self, MemoryPool memory_pool=None):
+        cdef:
+            vector[shared_ptr[CArray]] arrays
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            CStructArray* sarr = <CStructArray*> self.ap
+
+        with nogil:
+            check_status(sarr.Flatten(pool, &arrays))
+
+        return [pyarrow_wrap_array(arr) for arr in arrays]
+
     @staticmethod
     def from_arrays(arrays, names=None):
         """

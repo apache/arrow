@@ -610,6 +610,12 @@ class ARROW_EXPORT StructArray : public Array {
   // count adjusted.
   std::shared_ptr<Array> field(int pos) const;
 
+  /// \brief Flatten this array as a vector of arrays, one for each field
+  ///
+  /// \param[in] pool The pool to allocate null bitmaps from, if necessary
+  /// \param[out] out The resulting vector of arrays
+  Status Flatten(MemoryPool* pool, ArrayVector* out) const;
+
  private:
   // For caching boxed child data
   mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
