@@ -117,11 +117,13 @@ class ARROW_EXPORT Buffer {
 
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
-#ifdef NDEBUG
-  uint8_t* mutable_data() { return mutable_data_; }
-#else
-  uint8_t* mutable_data();
+
+  uint8_t* mutable_data() {
+#ifndef NDEBUG
+    CheckMutable();
 #endif
+    return mutable_data_;
+  }
 
   int64_t size() const { return size_; }
 
@@ -136,6 +138,8 @@ class ARROW_EXPORT Buffer {
 
   // null by default, but may be set
   std::shared_ptr<Buffer> parent_;
+
+  void CheckMutable() const;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
