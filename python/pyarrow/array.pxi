@@ -1014,6 +1014,19 @@ cdef class DictionaryArray(Array):
 cdef class StructArray(Array):
 
     def flatten(self, MemoryPool memory_pool=None):
+        """
+        Flatten this StructArray, returning one individual array for each
+        field in the struct.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : List[Array]
+        """
         cdef:
             vector[shared_ptr[CArray]] arrays
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)

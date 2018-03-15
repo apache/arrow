@@ -174,9 +174,9 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
 
 namespace {
 
-void AlignedBitmapAnd(const uint8_t* left, int64_t left_offset,
-                      const uint8_t* right, int64_t right_offset,
-                      uint8_t* out, int64_t out_offset, int64_t length) {
+void AlignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                      int64_t right_offset, uint8_t* out, int64_t out_offset,
+                      int64_t length) {
   DCHECK_EQ(left_offset % 8, right_offset % 8);
   DCHECK_EQ(left_offset % 8, out_offset % 8);
 
@@ -189,9 +189,9 @@ void AlignedBitmapAnd(const uint8_t* left, int64_t left_offset,
   }
 }
 
-void UnalignedBitmapAnd(const uint8_t* left, int64_t left_offset,
-                        const uint8_t* right, int64_t right_offset,
-                        uint8_t* out, int64_t out_offset, int64_t length) {
+void UnalignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                        int64_t right_offset, uint8_t* out, int64_t out_offset,
+                        int64_t length) {
   auto left_reader = internal::BitmapReader(left, left_offset, length);
   auto right_reader = internal::BitmapReader(right, right_offset, length);
   auto writer = internal::BitmapWriter(out, out_offset, length);
@@ -206,14 +206,12 @@ void UnalignedBitmapAnd(const uint8_t* left, int64_t left_offset,
   writer.Finish();
 }
 
-}
+}  // namespace
 
 Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
-                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer)
-{
-  if ((out_offset % 8 == left_offset % 8) &&
-      (out_offset % 8 == right_offset % 8)) {
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
     // Fast case: can use bytewise AND
     const int64_t phys_bits = length + out_offset;
     RETURN_NOT_OK(GetEmptyBitmap(pool, phys_bits, out_buffer));

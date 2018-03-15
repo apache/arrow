@@ -789,22 +789,30 @@ def test_struct_array_flatten():
     assert ys.type == pa.float32()
     assert xs.to_pylist() == [1, 3, 5]
     assert ys.to_pylist() == [2.5, 4.5, 6.5]
-    # XXX
     xs, ys = a[1:].flatten()
-    #assert xs.to_pylist() == [3, 5]
-    #assert ys.to_pylist() == [4.5, 6.5]
+    assert xs.to_pylist() == [3, 5]
+    assert ys.to_pylist() == [4.5, 6.5]
 
     a = pa.array([(1, 2.5), None, (3, 4.5)], type=ty)
     xs, ys = a.flatten()
     assert xs.to_pylist() == [1, None, 3]
     assert ys.to_pylist() == [2.5, None, 4.5]
+    xs, ys = a[1:].flatten()
+    assert xs.to_pylist() == [None, 3]
+    assert ys.to_pylist() == [None, 4.5]
 
     a = pa.array([(1, None), (2, 3.5), (None, 4.5)], type=ty)
     xs, ys = a.flatten()
     assert xs.to_pylist() == [1, 2, None]
     assert ys.to_pylist() == [None, 3.5, 4.5]
+    xs, ys = a[1:].flatten()
+    assert xs.to_pylist() == [2, None]
+    assert ys.to_pylist() == [3.5, 4.5]
 
     a = pa.array([(1, None), None, (None, 2.5)], type=ty)
     xs, ys = a.flatten()
     assert xs.to_pylist() == [1, None, None]
     assert ys.to_pylist() == [None, None, 2.5]
+    xs, ys = a[1:].flatten()
+    assert xs.to_pylist() == [None, None]
+    assert ys.to_pylist() == [None, 2.5]

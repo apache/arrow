@@ -376,12 +376,15 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
   ArrayVector flattened;
   std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
 
-  for (const auto& child_data : data_->child_data) {
+  for (auto& child_data : data_->child_data) {
     std::shared_ptr<Buffer> flattened_null_bitmap;
     int64_t flattened_null_count = kUnknownNullCount;
 
+    if (data_->offset != 0 || data_->length != child_data->length) {
+      child_data = SliceData(*child_data, data_->offset, data_->length);
+    }
     std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
-    const int64_t child_offset = child_data->offset + data_->offset;
+    const int64_t child_offset = child_data->offset;
 
     if (null_bitmap && child_null_bitmap) {
       RETURN_NOT_OK(BitmapAnd(pool, child_null_bitmap->data(), child_offset,
@@ -394,8 +397,8 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
       if (child_offset == data_->offset) {
         flattened_null_bitmap = null_bitmap;
       } else {
-        RETURN_NOT_OK(CopyBitmap(pool, null_bitmap_data_, data_->offset,
-                                 data_->length, &flattened_null_bitmap));
+        RETURN_NOT_OK(CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length,
+                                 &flattened_null_bitmap));
       }
       flattened_null_count = data_->null_count;
     } else {
