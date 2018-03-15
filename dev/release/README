@@ -55,10 +55,11 @@ Once validation has passed, click the "release" button
 * Make release branch then tag the release
 
 git checkout -b release-js-X.Y.Z
-git tag -a apache-arrow-js-X.Y.Z
 
-* Build the source release (requires NodeJS)
+* Build the source release (requires NodeJS) and push tag. Omit "-p" for a dry
+  run
 
-dev/release/js-source-release.sh X.Y.Z $RC_NUM
+dev/release/js-source-release.sh -p X.Y.Z $RC_NUM
+git push apache apache-arrow-js-X.Y.Z
 
-* After release vote push tag, and rebase master on release branch
+* After release vote, rebase master on release branch
