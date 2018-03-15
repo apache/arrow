@@ -170,25 +170,29 @@ TEST(BitmapWriter, NormalOperation) {
     uint8_t bitmap[] = {0, 0, 0, 0};
     auto writer = internal::BitmapWriter(bitmap, 0, 12);
     WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
-    ASSERT_BYTES_EQ(bitmap, {0b00110110, 0b1010, 0, 0});
+    //                      {0b00110110, 0b1010, 0, 0}
+    ASSERT_BYTES_EQ(bitmap, {0x36, 0x0a, 0, 0});
   }
   {
     uint8_t bitmap[] = {0xff, 0xff, 0xff, 0xff};
     auto writer = internal::BitmapWriter(bitmap, 0, 12);
     WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
-    ASSERT_BYTES_EQ(bitmap, {0b00110110, 0b11111010, 0xff, 0xff});
+    //                      {0b00110110, 0b11111010, 0xff, 0xff}
+    ASSERT_BYTES_EQ(bitmap, {0x36, 0xfa, 0xff, 0xff});
   }
   {
     uint8_t bitmap[] = {0, 0, 0, 0};
     auto writer = internal::BitmapWriter(bitmap, 3, 12);
     WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
-    ASSERT_BYTES_EQ(bitmap, {0b10110000, 0b1010001, 0, 0});
+    //                      {0b10110000, 0b01010001, 0, 0}
+    ASSERT_BYTES_EQ(bitmap, {0xb0, 0x51, 0, 0});
   }
   {
     uint8_t bitmap[] = {0, 0, 0, 0};
     auto writer = internal::BitmapWriter(bitmap, 20, 12);
     WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
-    ASSERT_BYTES_EQ(bitmap, {0, 0, 0b01100000, 0b10100011});
+    //                      {0, 0, 0b01100000, 0b10100011}
+    ASSERT_BYTES_EQ(bitmap, {0, 0, 0x60, 0xa3});
   }
 }
 
