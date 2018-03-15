@@ -100,7 +100,11 @@ setup_miniconda() {
   export PATH=$MINICONDA/bin:$PATH
 
   conda create -n arrow-test -y -q python=3.6 \
-        nomkl numpy pandas six cython
+        nomkl \
+        numpy \
+        pandas \
+        six \
+        cython=0.27.3
   source activate arrow-test
 }
 
@@ -121,7 +125,7 @@ test_and_install_cpp() {
   make -j$NPROC
   make install
 
-  ctest -L unittest
+  ctest -VV -L unittest
   popd
 }
 
