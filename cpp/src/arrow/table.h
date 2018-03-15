@@ -169,9 +169,25 @@ class ARROW_EXPORT Table {
                                      const std::vector<std::shared_ptr<Array>>& arrays,
                                      int64_t num_rows = -1);
 
-  // Construct table from RecordBatch, but only if all of the batch schemas are
-  // equal. Returns Status::Invalid if there is some problem
+  /// \brief Construct table from RecordBatches, using schema supplied by the first
+  /// RecordBatch.
+  ///
+  /// \param[in] batches a std::vector of record batches
+  /// \param[out] table the returned table
+  /// \return Status Returns Status::Invalid if there is some problem
   static Status FromRecordBatches(
+      const std::vector<std::shared_ptr<RecordBatch>>& batches,
+      std::shared_ptr<Table>* table);
+
+  /// Construct table from RecordBatches, using supplied schema. There may be
+  /// zero record batches
+  ///
+  /// \param[in] schema the arrow::Schema for each batch
+  /// \param[in] batches a std::vector of record batches
+  /// \param[out] table the returned table
+  /// \return Status
+  static Status FromRecordBatches(
+      const std::shared_ptr<Schema>& schema,
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
 

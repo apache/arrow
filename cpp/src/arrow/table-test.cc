@@ -374,6 +374,17 @@ TEST_F(TestTable, FromRecordBatches) {
   ASSERT_RAISES(Invalid, Table::FromRecordBatches({batch1, batch2}, &result));
 }
 
+TEST_F(TestTable, FromRecordBatchesZeroLength) {
+  // ARROW-2307
+  MakeExample1(10);
+
+  std::shared_ptr<Table> result;
+  ASSERT_OK(Table::FromRecordBatches(schema_, {}, &result));
+
+  ASSERT_EQ(0, result->num_rows());
+  ASSERT_TRUE(result->schema()->Equals(*schema_));
+}
+
 TEST_F(TestTable, ConcatenateTables) {
   const int64_t length = 10;
 

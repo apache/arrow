@@ -379,6 +379,24 @@ def test_ipc_zero_copy_numpy():
     assert_frame_equal(df, rdf)
 
 
+def test_ipc_stream_no_batches():
+    # ARROW-2307
+    table = pa.Table.from_arrays([pa.array([1, 2, 3, 4]),
+                                  pa.array(['foo', 'bar', 'baz', 'qux'])],
+                                 names=['a', 'b'])
+
+    sink = pa.BufferOutputStream()
+    writer = pa.RecordBatchStreamWriter(sink, table.schema)
+    writer.close()
+
+    source = sink.get_result()
+    reader = pa.open_stream(source)
+    result = reader.read_all()
+
+    assert result.schema.equals(table.schema)
+    assert len(result) == 0
+
+
 def test_get_record_batch_size():
     N = 10
     itemsize = 8
