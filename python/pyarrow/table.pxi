@@ -975,7 +975,7 @@ cdef class Table:
         columns.reserve(K)
 
         for i in range(K):
-            if isinstance(arrays[i], Array):
+            if isinstance(arrays[i], (Array, list)):
                 columns.push_back(
                     make_shared[CColumn](
                         c_schema.get().field(i),
@@ -1003,26 +1003,41 @@ cdef class Table:
         return pyarrow_wrap_table(CTable.Make(c_schema, columns))
 
     @staticmethod
-    def from_batches(batches):
+    def from_batches(batches, Schema schema=None):
         """
         Construct a Table from a list of Arrow RecordBatches
 
         Parameters
         ----------
-
         batches: list of RecordBatch
-            RecordBatch list to be converted, schemas must be equal
+            RecordBatch list to be converted, all schemas must be equal
+        schema : Schema, default None
+            If not passed, will be inferred from the first RecordBatch
+
+        Returns
+        -------
+        table : Table
         """
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
             shared_ptr[CTable] c_table
+            shared_ptr[CSchema] c_schema
             RecordBatch batch
 
         for batch in batches:
             c_batches.push_back(batch.sp_batch)
 
+        if schema is None:
+            if len(batches) == 0:
+                raise ValueError('Must pass schema, or at least '
+                                 'one RecordBatch')
+            c_schema = c_batches[0].get().schema()
+        else:
+            c_schema = schema.sp_schema
+
         with nogil:
-            check_status(CTable.FromRecordBatches(c_batches, &c_table))
+            check_status(CTable.FromRecordBatches(c_schema, c_batches,
+                                                  &c_table))
 
         return pyarrow_wrap_table(c_table)
 
