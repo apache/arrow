@@ -388,7 +388,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                      int64_t offset=0)
 
         shared_ptr[CArray] field(int pos)
-        const vector[shared_ptr[CArray]] fields()
 
     CStatus ValidateArray(const CArray& array)
 

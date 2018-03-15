@@ -342,6 +342,7 @@ cdef class UnionValue(ArrayValue):
     def as_py(self):
         return self.getitem(self.index).as_py()
 
+
 cdef class FixedSizeBinaryValue(ArrayValue):
 
     def as_py(self):
@@ -358,20 +359,23 @@ cdef class FixedSizeBinaryValue(ArrayValue):
 
 
 cdef class StructValue(ArrayValue):
+
     def as_py(self):
         cdef:
             CStructArray* ap
             vector[shared_ptr[CField]] child_fields = self.type.type.children()
+
         ap = <CStructArray*> self.sp_array.get()
-        wrapped_arrays = (pyarrow_wrap_array(ap.field(i))
-                          for i in range(ap.num_fields()))
-        child_names = (child.get().name() for child in child_fields)
+        wrapped_arrays = [pyarrow_wrap_array(ap.field(i))
+                          for i in range(ap.num_fields())]
+        child_names = [child.get().name() for child in child_fields]
         # Return the struct as a dict
         return {
             frombytes(name): child_array[self.index].as_py()
             for name, child_array in
             zip(child_names, wrapped_arrays)
         }
+
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanValue,

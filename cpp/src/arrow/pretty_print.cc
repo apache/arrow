@@ -233,7 +233,8 @@ class ArrayPrinter : public PrettyPrinter {
     Newline();
     Write("-- values: ");
     auto values =
-        array.values()->Slice(array.value_offset(0), array.value_offset(array.length()));
+        array.values()->Slice(array.value_offset(0),
+                              array.value_offset(array.length()) - array.value_offset(0));
     RETURN_NOT_OK(PrettyPrint(*values, indent_ + 2, sink_));
 
     return Status::OK();
@@ -264,7 +265,7 @@ class ArrayPrinter : public PrettyPrinter {
     for (int i = 0; i < array.num_fields(); ++i) {
       children.emplace_back(array.field(i));
     }
-    return PrintChildren(children, array.offset(), array.length());
+    return PrintChildren(children, 0, array.length());
   }
 
   Status Visit(const UnionArray& array) {
