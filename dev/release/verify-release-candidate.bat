@@ -28,7 +28,7 @@
 @rem       cmake ^
 @rem       git ^
 @rem       boost-cpp ^
-@rem       snappy zlib brotli gflags lz4-c zstd || exit /B
+@rem       snappy zlib brotli gflags lz4-c zstd -c conda-forge || exit /B
 
 @rem Then run from the directory containing the RC tarball
 @rem
