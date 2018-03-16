@@ -304,25 +304,32 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
 
   // If we get here, then the objects aren't all currently in use by this
   // client, so we need to send a request to the plasma store.
-  RETURN_NOT_OK(SendGetRequest(store_conn_, object_ids, num_objects, timeout_ms));
-  std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaGetReply, &buffer));
-  std::vector<ObjectID> received_object_ids(num_objects);
+  auto request = std::unique_ptr<rpc::GetRequest>(new rpc::GetRequest());
+  for (int i = 0; i < num_objects; ++i) {
+    request->add_object_id(object_ids[i].binary());
+  }
+  request->set_timeout_ms(timeout_ms);
+  auto response = std::unique_ptr<rpc::GetReply>(new rpc::GetReply());
+  store_service_->Get(controller_.get(), request.get(), response.get(), nullptr);
+  std::vector<ObjectID> received_object_ids;
+  for (int i = 0; i < response->object_id_size(); ++i) {
+    received_object_ids.push_back(ObjectID::from_binary(response->object_id(i)));
+  }
   std::vector<PlasmaObject> object_data(num_objects);
-  PlasmaObject* object;
-  std::vector<int> store_fds;
-  std::vector<int64_t> mmap_sizes;
-  RETURN_NOT_OK(ReadGetReply(buffer.data(), buffer.size(), received_object_ids.data(),
-                             object_data.data(), num_objects, store_fds, mmap_sizes));
+  for (int i = 0; i < response->plasma_object_size(); ++i) {
+    ReadPlasmaObject(&response->plasma_object(i), &object_data[i]);
+  }
 
   // We mmap all of the file descriptors here so that we can avoid look them up
   // in the subsequent loop based on just the store file descriptor and without
   // having to know the relevant file descriptor received from recv_fd.
-  for (size_t i = 0; i < store_fds.size(); i++) {
+  for (size_t i = 0; i < response->store_fd_size(); i++) {
     int fd = recv_fd(store_conn_);
     ARROW_CHECK(fd >= 0);
-    lookup_or_mmap(fd, store_fds[i], mmap_sizes[i]);
+    lookup_or_mmap(fd, response->store_fd(i), response->mmap_size(i));
   }
+
+  PlasmaObject *object;
 
   for (int i = 0; i < num_objects; ++i) {
     DCHECK(received_object_ids[i] == object_ids[i]);

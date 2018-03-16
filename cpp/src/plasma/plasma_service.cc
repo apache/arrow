@@ -81,4 +81,20 @@ void PlasmaService::Release(RpcController* controller,
   store_->release_object(object_id, client_);
 }
 
+void PlasmaService::Get(RpcController* controller,
+         const rpc::GetRequest* request,
+         rpc::GetReply* response,
+         Closure* done) {
+  std::vector<ObjectID> object_ids_to_get;
+  for (const std::string& object_id : request->object_id()) {
+    object_ids_to_get.push_back(ObjectID::from_binary(object_id));
+  }
+  int64_t timeout_ms = request->timeout_ms();
+  store_->process_get_request(client_, object_ids_to_get, timeout_ms);
+}
+
+PlasmaIO* PlasmaService::plasma_io() {
+  return &plasma_io_;
+}
+
 }  // namespace plasma

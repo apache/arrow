@@ -77,9 +77,30 @@ message SealRequest {
 }
 
 message GetRequest {
+  // IDs of the objects stored at local Plasma store we are getting.
+  repeated bytes object_id = 1;
+  // The number of milliseconds before the request should timeout.
+  int64 timeout_ms = 2;
 }
 
 message GetReply {
+  // IDs of the objects being returned.
+  // This number can be smaller than the number of requested
+  // objects if not all requested objects are stored and sealed
+  // in the local Plasma store.
+  repeated bytes object_id = 1;
+  // Plasma object information, in the same order as their IDs. The number of
+  // elements in both object_ids and plasma_objects arrays must agree.
+  repeated PlasmaObjectSpec plasma_object = 2;
+  // A list of the file descriptors in the store that correspond to the file
+  // descriptors being sent to the client. The length of this list is the number
+  // of file descriptors that the store will send to the client after this
+  // message.
+  repeated int32 store_fd = 3;
+  // Size in bytes of the segment for each store file descriptor (needed to call
+  // mmap). This list must have the same length as store_fds.
+  repeated int64 mmap_size = 4;
+  // The number of elements in both object_ids and plasma_objects arrays must agree.
 }
 
 message ReleaseRequest {

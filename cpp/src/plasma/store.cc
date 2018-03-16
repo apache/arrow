@@ -278,8 +278,25 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   }
 
   // Send the get reply to the client.
-  Status s = SendGetReply(get_req->client->fd, &get_req->object_ids[0], get_req->objects,
-                          get_req->object_ids.size(), store_fds, mmap_sizes);
+  auto reply = std::unique_ptr<rpc::GetReply>(new rpc::GetReply());
+  for (const auto& object_id : get_req->object_ids) {
+    reply->add_object_id(object_id.binary());
+  }
+  for (const auto& object : get_req->objects) {
+    rpc::PlasmaObjectSpec* o = reply->add_plasma_object();
+    UpdateObjectSpec(object.second, o);
+  }
+  for (int store_fd : store_fds) {
+    reply->add_store_fd(store_fd);
+  }
+  for (int64_t mmap_size : mmap_sizes) {
+    reply->add_mmap_size(mmap_size);
+  }
+  const google::protobuf::MethodDescriptor *descriptor = service_.GetDescriptor()->FindMethodByName("Get");
+  int64_t type = descriptor->index();
+  Status s = service_.plasma_io()->WriteProto(get_req->client->fd, type, reply.get());
+  // Status s = SendGetReply(get_req->client->fd, &get_req->object_ids[0], get_req->objects,
+  //                         get_req->object_ids.size(), store_fds, mmap_sizes);
   warn_if_sigpipe(s.ok() ? 0 : -1, get_req->client->fd);
   // If we successfully sent the get reply message to the client, then also send
   // the file descriptors.

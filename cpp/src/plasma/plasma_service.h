@@ -37,6 +37,8 @@ class PlasmaService : public rpc::PlasmaStore {
 
    Status ProcessMessage(Client* client);
 
+   plasma::PlasmaIO* plasma_io();
+
    void Create(RpcController* controller,
                const rpc::CreateRequest* request,
                rpc::CreateReply* response,
@@ -45,7 +47,7 @@ class PlasmaService : public rpc::PlasmaStore {
    void Get(RpcController* controller,
             const rpc::GetRequest* request,
             rpc::GetReply* response,
-            Closure* done) override {}
+            Closure* done) override;
 
    void Release(RpcController* controller,
                 const rpc::ReleaseRequest* request,
@@ -81,6 +83,8 @@ class PlasmaService : public rpc::PlasmaStore {
 };
 
 void ReadPlasmaObject(const rpc::PlasmaObjectSpec* spec, PlasmaObject* object);
+
+void UpdateObjectSpec(const PlasmaObject& object, rpc::PlasmaObjectSpec* spec);
 
 }  // namespace plasma
 
