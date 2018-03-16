@@ -154,10 +154,10 @@ Subject: [VOTE] Release Apache Arrow JS ${js_version} - RC${rc}
 
 Hello all,
 
-I\'d like to propose the following release candidate (rc${rc}) of Apache Arrow
-JavaScript version ${js_version}.
+I would like to propose the following release candidate (rc${rc}) of Apache
+Arrow JavaScript version ${js_version}.
 
-The source release rc{$rc} is hosted at [1].
+The source release rc${rc} is hosted at [1].
 
 This release candidate is based on commit
 ${release_hash}
@@ -166,8 +166,7 @@ Please download, verify checksums and signatures, run the unit tests, and vote
 on the release. The easiest way is to use the JavaScript-specific release
 verification script dev/release/js-verify-release-candidate.sh.
 
-The vote will be open for at least 72 hours and will close once
-enough PMCs have approved the release.
+The vote will be open for at least 72 hours.
 
 [ ] +1 Release this as Apache Arrow JavaScript ${js_version}
 [ ] +0
