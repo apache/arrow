@@ -22,6 +22,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <random>
+
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"
@@ -38,14 +40,20 @@ class TestPlasmaStore : public ::testing::Test {
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() {
+    std::mt19937 rng;
+    rng.seed(std::random_device()());
+    std::string store_index = std::to_string(rng());
+
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
-    std::string plasma_command =
-        plasma_directory +
-        "/plasma_store -m 1000000000 -s /tmp/store 1> /dev/null 2> /dev/null &";
+    std::string plasma_command = plasma_directory +
+                                 "/plasma_store -m 1000000000 -s /tmp/store" +
+                                 store_index + " 1> /dev/null 2> /dev/null &";
     system(plasma_command.c_str());
-    ARROW_CHECK_OK(client_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
-    ARROW_CHECK_OK(client2_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
+    ARROW_CHECK_OK(
+        client_.Connect("/tmp/store" + store_index, "", PLASMA_DEFAULT_RELEASE_DELAY));
+    ARROW_CHECK_OK(
+        client2_.Connect("/tmp/store" + store_index, "", PLASMA_DEFAULT_RELEASE_DELAY));
   }
   virtual void Finish() {
     ARROW_CHECK_OK(client_.Disconnect());
