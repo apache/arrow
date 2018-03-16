@@ -16,8 +16,9 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.adapter.jdbc;
+package org.apache.arrow.adapter.jdbc.h2;
 
+import org.apache.arrow.adapter.jdbc.*;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.Test;
 
@@ -45,7 +46,7 @@ public class ArrowDataFetcherTest extends AbstractJdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_int_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_int_h2.yml"),
                         Table.class);
 
         try {
@@ -77,7 +78,7 @@ public class ArrowDataFetcherTest extends AbstractJdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_int_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_int_h2.yml"),
                         Table.class);
 
         try {

@@ -16,11 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.adapter.jdbc;
+package org.apache.arrow.adapter.jdbc.h2;
 
+import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
+import org.apache.arrow.adapter.jdbc.JdbcToArrow;
+import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.math.BigDecimal;
@@ -30,7 +32,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
 /**
  *
  */
-public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
+public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
 
     @Test
@@ -38,7 +40,7 @@ public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_int_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_int_h2.yml"),
                         Table.class);
 
         try {
@@ -64,7 +66,7 @@ public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_bool_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_bool_h2.yml"),
                         Table.class);
 
         try {
@@ -90,7 +92,7 @@ public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_tinyint_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_tinyint_h2.yml"),
                         Table.class);
 
         try {
@@ -116,7 +118,7 @@ public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_smallint_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_smallint_h2.yml"),
                         Table.class);
 
         try {
@@ -142,7 +144,7 @@ public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_bigint_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_bigint_h2.yml"),
                         Table.class);
 
         try {
@@ -169,7 +171,7 @@ public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
 
         Table table =
                 mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("test1_all_datatypes_h2.yml"),
+                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_all_datatypes_h2.yml"),
                         Table.class);
 
         try {

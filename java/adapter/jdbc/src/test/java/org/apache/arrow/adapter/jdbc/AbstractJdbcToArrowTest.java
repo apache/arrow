@@ -38,7 +38,7 @@ public abstract class AbstractJdbcToArrowTest {
     @Before
     public void setUp() throws Exception {
         Properties properties = new Properties();
-        properties.load(this.getClass().getClassLoader().getResourceAsStream("db.properties"));
+        properties.load(this.getClass().getClassLoader().getResourceAsStream("h2/db.properties"));
 
         mapper = new ObjectMapper(new YAMLFactory());
 
