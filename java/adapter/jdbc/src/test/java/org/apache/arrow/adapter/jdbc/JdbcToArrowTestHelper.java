@@ -151,7 +151,7 @@ public class JdbcToArrowTestHelper {
         return true;
     }
 
-    public static boolean assertTimeVectorValues(FieldVector fx, int rowCount, int[] values){
+    public static boolean assertTimeVectorValues(FieldVector fx, int rowCount, long[] values){
         TimeMilliVector timeMilliVector = ((TimeMilliVector)fx);
 
         assertEquals(rowCount, timeMilliVector.getValueCount());

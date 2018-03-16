@@ -226,9 +226,9 @@ public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
             };
             assertFloat4VectorValues(root.getVector("REAL_FIELD8"), 15, reals);
 
-            int[] times = {
-                    74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000,
-                    74735000, 74735000, 74735000, 74735000, 74735000, 74735000, 74735000
+            long[] times = {
+                    45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000,
+                    45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000
             };
             assertTimeVectorValues(root.getVector("TIME_FIELD9"), 15, times);
 
@@ -239,8 +239,8 @@ public class JdbcToArrowTest extends  AbstractJdbcToArrowTest {
             assertDateVectorValues(root.getVector("DATE_FIELD10"), 15, dates);
 
             long[] timestamps = {
-                    1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l,
-                    1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l, 1518468335000l
+                    1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l,
+                    1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l
             };
             assertTimeStampVectorValues(root.getVector("TIMESTAMP_FIELD11"), 15, timestamps);
 
