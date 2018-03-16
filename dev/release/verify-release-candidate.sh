@@ -104,7 +104,7 @@ setup_miniconda() {
         numpy \
         pandas \
         six \
-        cython=0.27.3
+        cython=0.27.3 -c conda-forge
   source activate arrow-test
 }
 
@@ -115,6 +115,7 @@ test_and_install_cpp() {
   pushd cpp/build
 
   cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+        -DCMAKE_INSTALL_LIBDIR=$ARROW_HOME/lib \
         -DARROW_PLASMA=on \
         -DARROW_PYTHON=on \
         -DARROW_BOOST_USE_SHARED=on \
@@ -138,6 +139,7 @@ install_parquet_cpp() {
   pushd parquet-cpp/build
 
   cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
+        -DCMAKE_INSTALL_LIBDIR=$PARQUET_HOME/lib \
         -DCMAKE_BUILD_TYPE=release \
         -DPARQUET_BOOST_USE_SHARED=on \
         -DPARQUET_BUILD_TESTS=off \
