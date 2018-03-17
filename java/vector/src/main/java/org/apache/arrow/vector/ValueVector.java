@@ -202,33 +202,33 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
   /**
    * Gets the number of values
-   * @return
+   * @return int
    */
   int getValueCount();
 
   /**
    * Set number of values in the vector
-   * @return
+   * @param valueCount int
    */
   void setValueCount(int valueCount);
 
   /**
    * Get friendly type object from the vector
-   * @param index
-   * @return
+   * @param index int
+   * @return Object
    */
   Object getObject(int index);
 
   /**
    * Returns number of null elements in the vector
-   * @return
+   * @return nullCount
    */
   int getNullCount();
 
   /**
    * Check whether an element in the vector is null
-   * @param index
-   * @return
+   * @param index int
+   * @return isNull or not
    */
   boolean isNull(int index);
 }

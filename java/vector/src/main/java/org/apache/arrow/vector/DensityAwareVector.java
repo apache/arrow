@@ -50,8 +50,8 @@ public interface DensityAwareVector {
 
   /**
    * Set value with density
-   * @param valueCount
-   * @param density
+   * @param valueCount valueCount
+   * @param density density
    */
   void setInitialCapacity(int valueCount, double density);
 }

@@ -105,6 +105,7 @@ public class BigIntVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder  nullableBigIntHolder
    */
   public void get(int index, NullableBigIntHolder holder) {
     if (isSet(index) == 0) {

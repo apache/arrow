@@ -110,6 +110,7 @@ public class IntVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index position of element
+   * @param holder NullableIntHolder
    */
   public void get(int index, NullableIntHolder holder) {
     if (isSet(index) == 0) {

@@ -294,7 +294,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * elements in the vector. This method must be called prior to using the ValueVector.
    *
    * @param valueCount the desired number of elements in the vector
-   * @throws org.apache.arrow.memory.OutOfMemoryException
+   * @throws org.apache.arrow.memory.OutOfMemoryException OutOfMemoryException
    */
   public void allocateNew(int valueCount) {
     long valueBufferSize = valueCount * typeWidth;
@@ -558,7 +558,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
-   * @param callBack
+   * @param callBack callBack
    * @return TransferPair
    */
   @Override
@@ -835,6 +835,10 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    ******************************************************************/
 
 
+  /**
+   * handleSafe
+   * @param index int
+   */
   protected void handleSafe(int index) {
     while (index >= getValueCapacity()) {
       decrementAllocationMonitor();

@@ -106,6 +106,7 @@ public class TimeSecVector extends BaseFixedWidthVector {
    * is null, holder.isSet will be zero.
    *
    * @param index   position of element
+   * @param holder NullableTimeSecHolder
    */
   public void get(int index, NullableTimeSecHolder holder) {
     if (isSet(index) == 0) {

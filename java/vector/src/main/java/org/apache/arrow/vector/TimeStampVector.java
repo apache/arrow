@@ -96,6 +96,11 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
    ******************************************************************/
 
 
+  /**
+   * setValue
+   * @param index int
+   * @param value long
+     */
   protected void setValue(int index, long value) {
     valueBuffer.setLong(index * TYPE_WIDTH, value);
   }

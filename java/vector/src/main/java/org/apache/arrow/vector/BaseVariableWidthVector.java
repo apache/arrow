@@ -408,7 +408,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *
    * @param totalBytes desired total memory capacity
    * @param valueCount the desired number of elements in the vector
-   * @throws org.apache.arrow.memory.OutOfMemoryException
+   * @throws org.apache.arrow.memory.OutOfMemoryException OutOfMemoryException
    */
   @Override
   public void allocateNew(int totalBytes, int valueCount) {
@@ -565,7 +565,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /**
    * Get the size (number of bytes) of underlying data buffer.
-   * @return
+   * @return getByteCapacity int
    */
   @Override
   public int getByteCapacity() {
@@ -652,7 +652,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
-   * @param callBack
+   * @param callBack callBack
    * @return TransferPair
    */
   @Override
@@ -1176,6 +1176,10 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    ******************************************************************/
 
 
+  /**
+   * fillHoles
+   * @param index int
+   */
   protected final void fillHoles(int index) {
     for (int i = lastSet + 1; i < index; i++) {
       setBytes(i, emptyByteArray, 0, emptyByteArray.length);

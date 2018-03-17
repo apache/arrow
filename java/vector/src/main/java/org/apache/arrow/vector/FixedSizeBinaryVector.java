@@ -184,6 +184,11 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    *                                                                *
    ******************************************************************/
 
+  /**
+   * set fixedSizeBinaryVector
+   * @param index int
+   * @param value byte[]
+     */
   public void set(int index, byte[] value) {
     assert index >= 0;
     assert byteWidth <= value.length;
@@ -191,11 +196,22 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     valueBuffer.setBytes(index * byteWidth, value, 0, byteWidth);
   }
 
+  /**
+   * setSafe
+   * @param index int
+   * @param value byte[]
+     */
   public void setSafe(int index, byte[] value) {
     handleSafe(index);
     set(index, value);
   }
 
+  /**
+   * set fixedSizeBinaryVector
+   * @param index int
+   * @param isSet int
+   * @param value byte[]
+     */
   public void set(int index, int isSet, byte[] value) {
     if (isSet > 0) {
       set(index, value);
@@ -204,6 +220,12 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * setSafe
+   * @param index int
+   * @param isSet int
+   * @param value byte[]
+     */
   public void setSafe(int index, int isSet, byte[] value) {
     handleSafe(index);
     set(index, isSet, value);
@@ -239,6 +261,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * Set the element at the given index to the given value.
    *
    * @param index  position of element
+   * @param isSet int
    * @param buffer ArrowBuf containing binary value.
    */
   public void set(int index, int isSet, ArrowBuf buffer) {
@@ -256,6 +279,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    *
    * @param index  position of element
    * @param buffer ArrowBuf containing binary value.
+   * @param isSet int
    */
   public void setSafe(int index, int isSet, ArrowBuf buffer) {
     handleSafe(index);
@@ -331,6 +355,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    *
    * @param buffer data buffer
    * @param index position of the element.
+   * @param byteWidth int
    * @return value stored at the index.
    */
   public static byte[] get(final ArrowBuf buffer, final int index, final int byteWidth) {
