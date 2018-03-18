@@ -16,7 +16,6 @@
 # under the License.
 
 
-from numbers import Number
 NA = None
 
 
