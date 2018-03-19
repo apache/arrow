@@ -1817,7 +1817,7 @@ TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder.Finish(false, &result));
 
   // Build expected data for the initial dictionary
   NumericBuilder<TypeParam> dict_builder1;
@@ -1876,7 +1876,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder.Finish(false, &result));
 
   // Build expected data for the initial dictionary
   NumericBuilder<TypeParam> dict_builder1;
@@ -1905,7 +1905,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(3)));
 
   std::shared_ptr<Array> result_delta1;
-  ASSERT_OK(builder.Finish(&result_delta1));
+  ASSERT_OK(builder.Finish(false, &result_delta1));
 
   // Build expected data for the delta dictionary
   NumericBuilder<TypeParam> dict_builder2;
@@ -1934,7 +1934,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(5)));
 
   std::shared_ptr<Array> result_delta2;
-  ASSERT_OK(builder.Finish(&result_delta2));
+  ASSERT_OK(builder.Finish(false, &result_delta2));
 
   // Build expected data for the delta dictionary again
   NumericBuilder<TypeParam> dict_builder3;
@@ -2030,7 +2030,7 @@ TEST(TestStringDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append("test"));
 
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder.Finish(false, &result));
 
   // Build expected data
   StringBuilder str_builder1;
@@ -2056,7 +2056,7 @@ TEST(TestStringDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append("test2"));
 
   std::shared_ptr<Array> result_delta;
-  ASSERT_OK(builder.Finish(&result_delta));
+  ASSERT_OK(builder.Finish(false, &result_delta));
 
   // Build expected data
   StringBuilder str_builder2;
@@ -2093,7 +2093,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   }
 
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder.Finish(false, &result));
 
   std::shared_ptr<Array> str_array1;
   ASSERT_OK(str_builder1.Finish(&str_array1));
@@ -2121,7 +2121,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   ASSERT_OK(str_builder2.Append("test_new_value1"));
 
   std::shared_ptr<Array> result2;
-  ASSERT_OK(builder.Finish(&result2));
+  ASSERT_OK(builder.Finish(false, &result2));
 
   std::shared_ptr<Array> str_array2;
   ASSERT_OK(str_builder2.Finish(&str_array2));
@@ -2149,7 +2149,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   ASSERT_OK(str_builder3.Append("test_new_value2"));
 
   std::shared_ptr<Array> result3;
-  ASSERT_OK(builder.Finish(&result3));
+  ASSERT_OK(builder.Finish(false, &result3));
 
   std::shared_ptr<Array> str_array3;
   ASSERT_OK(str_builder3.Finish(&str_array3));
@@ -2207,7 +2207,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append(test.data()));
 
   std::shared_ptr<Array> result1;
-  ASSERT_OK(builder.Finish(&result1));
+  ASSERT_OK(builder.Finish(false, &result1));
 
   // Build expected data
   FixedSizeBinaryBuilder fsb_builder1(arrow::fixed_size_binary(4));
@@ -2233,7 +2233,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append(test3.data()));
 
   std::shared_ptr<Array> result2;
-  ASSERT_OK(builder.Finish(&result2));
+  ASSERT_OK(builder.Finish(false, &result2));
 
   // Build expected data
   FixedSizeBinaryBuilder fsb_builder2(arrow::fixed_size_binary(4));

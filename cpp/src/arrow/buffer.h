@@ -53,12 +53,17 @@ class ARROW_EXPORT Buffer {
   /// \param[in] size buffer size
   ///
   /// \note The passed memory must be kept alive through some other means
-  Buffer(const uint8_t* data, int64_t size)
-      : is_mutable_(false),
+  Buffer(const uint8_t* data, int64_t size, int64_t capacity)
+    : is_mutable_(false),
         data_(data),
         mutable_data_(NULLPTR),
         size_(size),
-        capacity_(size) {}
+        capacity_(capacity) {}
+
+  /// Initialize with known capacity
+  Buffer(const uint8_t* data, int64_t size)
+    : Buffer(data, size, size) {}
+
 
   /// \brief Construct from std::string without copying memory
   ///
@@ -80,7 +85,7 @@ class ARROW_EXPORT Buffer {
   /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
   /// we might add utility methods to help determine if a buffer satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, const int64_t offset, const int64_t size)
-      : Buffer(parent->data() + offset, size) {
+     : Buffer(parent->data() + offset, size, parent->capacity()) {
     parent_ = parent;
   }
 
