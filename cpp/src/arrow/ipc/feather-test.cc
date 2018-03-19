@@ -406,6 +406,44 @@ TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
   }
 }
 
+TEST_F(TestTableWriter, SliceRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntBatchSized(30, &batch));
+  batch = batch->Slice(10, 10);
+
+  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
+  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
+  Finish();
+
+  std::shared_ptr<Column> col;
+  ASSERT_OK(reader_->GetColumn(0, &col));
+  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
+  ASSERT_EQ("f0", col->name());
+
+  ASSERT_OK(reader_->GetColumn(1, &col));
+  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
+  ASSERT_EQ("f1", col->name());
+}
+
+TEST_F(TestTableWriter, SliceStringsRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeStringTypesRecordBatch(&batch));
+  batch = batch->Slice(3, 3);
+
+  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
+  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
+  Finish();
+
+  std::shared_ptr<Column> col;
+  ASSERT_OK(reader_->GetColumn(0, &col));
+  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
+  ASSERT_EQ("f0", col->name());
+
+  ASSERT_OK(reader_->GetColumn(1, &col));
+  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
+  ASSERT_EQ("f1", col->name());
+}
+
 }  // namespace feather
 }  // namespace ipc
 }  // namespace arrow
