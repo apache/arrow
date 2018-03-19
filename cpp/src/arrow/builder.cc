@@ -417,7 +417,6 @@ Status AdaptiveIntBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
     // Trim buffers only if the builder state is reset afterwards
     RETURN_NOT_OK(data_->Resize(bytes_required));
     // adjust raw_data_ pointer
-    // TODO: is raw_data_ actually necessary?
     raw_data_ = data_->mutable_data();
   }
 
@@ -1359,6 +1358,7 @@ BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(binary(), pool) {
 Status BinaryBuilder::Init(int64_t elements) {
   DCHECK_LE(elements, kListMaximumElements);
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
+  is_final_offset_written_ = false;
   // one more then requested for offsets
   return offsets_builder_.Resize((elements + 1) * sizeof(int32_t));
 }
