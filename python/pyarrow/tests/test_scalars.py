@@ -173,25 +173,26 @@ class TestScalars(unittest.TestCase):
             assert v[i].as_py() == c
 
     def test_int_hash(self):
-        #ARROW-640
-        arr = pa.array([1,1,2,1])
-        arr2 = pa.array([1,1,2,1])
+        # ARROW-640
+        arr = pa.array([1, 1, 2, 1])
+        arr2 = pa.array([1, 1, 2, 1])
         assert arr[0].__hash__() == arr2[0].__hash__()
 
     def test_int_eq(self):
-        #ARROW-640
-        arr = pa.array([1,1,2,1])
-        arr2 = pa.array([1,1,2,1])
+        # ARROW-640
+        arr = pa.array([1, 1, 2, 1])
+        arr2 = pa.array([1, 1, 2, 1])
         assert arr[2] == arr2[2]
 
     def test_int_array_to_set(self):
-        #ARROW-640
-        arr = pa.array([1,1,2,1])
+        # ARROW-640
+        arr = pa.array([1, 1, 2, 1])
         set_from_array = set(arr)
         assert isinstance(set_from_array, set)
+        assert set_from_array == {1, 2}
 
     def test_non_int_hash_fails(self):
-        #ARROW-640
+        # ARROW-640
         strarr = pa.array(["foo", "bar"])
         floatarr = pa.array([1.2, 3.3])
         bytearr = pa.array([b'foo', None, b'bar'])
@@ -204,4 +205,3 @@ class TestScalars(unittest.TestCase):
 
         with pytest.raises(NotImplementedError):
             bytearr[0].__hash__()
-
