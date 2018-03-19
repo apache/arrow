@@ -300,13 +300,28 @@ class ARROW_EXPORT BufferBuilder {
 
   Status Finish(std::shared_ptr<Buffer>* out) {
     // Do not shrink to fit to avoid unneeded realloc
+    return FinishSlice(out, 0, size_, true);
+  }
+
+  Status FinishSlice(std::shared_ptr<Buffer>* out, const int64_t offset,
+                     const int64_t length, const bool reset=true) {
+    // Do not shrink to fit to avoid unneeded realloc
     if (size_ > 0) {
       RETURN_NOT_OK(buffer_->Resize(size_, false));
     }
-    *out = buffer_;
-    Reset();
+    if (size_ == 0 || (offset == 0 && length == size_)) {
+      // no need for slices for trivial cases
+      *out = buffer_;
+    } else {
+      *out = std::make_shared<Buffer>(buffer_, offset, length);
+    }
+
+    if (reset) {
+      Reset();
+    }
     return Status::OK();
   }
+
 
   void Reset() {
     buffer_ = NULLPTR;
@@ -355,6 +370,23 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
                   "Convenience buffer append only supports arithmetic types");
     BufferBuilder::UnsafeAppend(reinterpret_cast<const uint8_t*>(arithmetic_values),
                                 num_elements * sizeof(T));
+  }
+
+  Status FinishSliceByItem(std::shared_ptr<Buffer>* out, const int64_t offset,
+                     const int64_t length, const bool reset=true) {
+    // Do not shrink to fit to avoid unneeded realloc
+    if (size_ > 0) {
+      RETURN_NOT_OK(buffer_->Resize(size_, false));
+    }
+    if (size_ == 0) {
+      *out = buffer_;
+    } else {
+      *out = std::make_shared<Buffer>(buffer_, offset * sizeof(T), length * sizeof(T));
+    }
+    if (reset) {
+      Reset();
+    }
+    return Status::OK();
   }
 
   const T* data() const { return reinterpret_cast<const T*>(data_); }

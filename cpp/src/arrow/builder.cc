@@ -106,10 +106,8 @@ Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-Status ArrayBuilder::FinishSlice(std::shared_ptr<Array>* out,
-                                 const int64_t offset,
-                                 const int64_t length,
-                                 const bool reset) {
+Status ArrayBuilder::FinishSlice(std::shared_ptr<Array>* out, const int64_t offset,
+                                 const int64_t length, const bool reset) {
   std::shared_ptr<ArrayData> internal_data;
   RETURN_NOT_OK(FinishInternalSlice(&internal_data, offset, length, reset));
   *out = MakeArray(internal_data);
@@ -237,10 +235,9 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 Status NullBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+                                        const int64_t offset, const int64_t length,
+                                        const bool reset) {
+  return Status::NotImplemented("Slice finishes");
 }
 
 // ----------------------------------------------------------------------
@@ -333,8 +330,7 @@ Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
 template <typename T>
 Status PrimitiveBuilder<T>::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
                                                 const int64_t offset,
-                                                const int64_t length,
-                                           const bool reset) {
+                                                const int64_t length, const bool reset) {
   const int64_t bytes_required = TypeTraits<T>::bytes_required(length_);
   if (bytes_required > 0 && bytes_required < data_->size()) {
     // Trim buffers
@@ -409,46 +405,49 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-    return FinishInternalSlice(out, 0, length_, true);
+  return FinishInternalSlice(out, 0, length_, true);
 }
 
 Status AdaptiveIntBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
+                                               const int64_t offset, const int64_t length,
                                                const bool reset) {
-  auto actual_length = std::max(length_ - offset, length);
-    const int64_t bytes_required = (actual_length - offset) * int_size_;
-    if (bytes_required > 0 && bytes_required < data_->size()) {
-        // Trim buffers
-        RETURN_NOT_OK(data_->Resize(bytes_required));
-    }
+  auto actual_length = std::min(length_ - offset, length);
+  const int64_t bytes_required = (offset + actual_length) * int_size_;
+  if (bytes_required > 0 && bytes_required < data_->size() && reset) {
+    // Trim buffers only if the builder state is reset afterwards
+    RETURN_NOT_OK(data_->Resize(bytes_required));
+    // adjust raw_data_ pointer
+    // TODO: is raw_data_ actually necessary?
+    raw_data_ = data_->mutable_data();
+  }
 
-    std::shared_ptr<DataType> output_type;
-    switch (int_size_) {
-      case 1:
-        output_type = int8();
-        break;
-      case 2:
-        output_type = int16();
-        break;
-      case 4:
-        output_type = int32();
-        break;
-      case 8:
-        output_type = int64();
-        break;
-      default:
-        DCHECK(false);
-        return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
-    }
+  std::shared_ptr<DataType> output_type;
+  switch (int_size_) {
+    case 1:
+      output_type = int8();
+      break;
+    case 2:
+      output_type = int16();
+      break;
+    case 4:
+      output_type = int32();
+      break;
+    case 8:
+      output_type = int64();
+      break;
+    default:
+      DCHECK(false);
+      return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
+  }
 
-    *out = ArrayData::Make(output_type, actual_length, {null_bitmap_, data_}, null_count_, offset);
+  *out = ArrayData::Make(output_type, actual_length, {null_bitmap_, data_}, null_count_,
+                         offset);
 
-    if (reset) {
-        data_ = null_bitmap_ = nullptr;
-        capacity_ = length_ = null_count_ = 0;
-    }
-    return Status::OK();
+  if (reset) {
+    data_ = null_bitmap_ = nullptr;
+    capacity_ = length_ = null_count_ = 0;
+  }
+  return Status::OK();
 }
 
 Status AdaptiveIntBuilder::Append(const int64_t* values, int64_t length,
@@ -608,10 +607,9 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 Status AdaptiveUIntBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+                                                const int64_t offset,
+                                                const int64_t length, const bool reset) {
+  return Status::NotImplemented("Slice finishes");
 }
 
 Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
@@ -792,10 +790,9 @@ Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 Status BooleanBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                           const int64_t offset,
-                                           const int64_t length,
+                                           const int64_t offset, const int64_t length,
                                            const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+  return Status::NotImplemented("Slice finishes");
 }
 
 Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
@@ -1055,10 +1052,11 @@ const uint8_t* DictionaryBuilder<FixedSizeBinaryType>::GetDictionaryValue(
 
 template <typename T>
 Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-
   std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.FinishSlice(&dictionary, entry_id_offset_, dict_builder_.length() - entry_id_offset_, false));
-  RETURN_NOT_OK(values_builder_.FinishInternalSlice(out, values_offset_, values_builder_.length() - values_offset_, false));
+  RETURN_NOT_OK(dict_builder_.FinishSlice(
+      &dictionary, entry_id_offset_, dict_builder_.length() - entry_id_offset_, false));
+  RETURN_NOT_OK(values_builder_.FinishInternalSlice(
+      out, values_offset_, values_builder_.length() - values_offset_, false));
 
   entry_id_offset_ = dict_builder_.length();
   values_offset_ = values_builder_.length();
@@ -1079,46 +1077,39 @@ Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* o
 template <>
 Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(
     std::shared_ptr<ArrayData>* out) {
-  entry_id_offset_ += dict_builder_.length();
-
-  for (uint64_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {
-    const Scalar value = GetDictionaryValue(dict_builder_, index);
-    RETURN_NOT_OK(overflow_dict_builder_.Append(value));
-  }
-
   std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
+  RETURN_NOT_OK(dict_builder_.FinishSlice(
+      &dictionary, entry_id_offset_, dict_builder_.length() - entry_id_offset_, false));
+  RETURN_NOT_OK(values_builder_.FinishInternalSlice(
+      out, values_offset_, values_builder_.length() - values_offset_, false));
 
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
+  entry_id_offset_ = dict_builder_.length();
+  values_offset_ = values_builder_.length();
+
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-
-  RETURN_NOT_OK(dict_builder_.Init(capacity_));
-  RETURN_NOT_OK(values_builder_.Init(capacity_));
 
   return Status::OK();
 }
 
 template <typename T>
 Status DictionaryBuilder<T>::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+                                                 const int64_t offset,
+                                                 const int64_t length, const bool reset) {
+  return Status::NotImplemented("Slice finishes");
 }
 
 Status DictionaryBuilder<NullType>::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+                                                        const int64_t offset,
+                                                        const int64_t length,
+                                                        const bool reset) {
+  return Status::NotImplemented("Slice finishes");
 }
 
 template <>
-Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternalSlice(
+    std::shared_ptr<ArrayData>* out, const int64_t offset, const int64_t length,
+    const bool reset) {
+  return Status::NotImplemented("Slice finishes");
 }
 
 template <typename T>
@@ -1133,8 +1124,8 @@ int64_t DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
 
 template <typename T>
 bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
-  const bool value_found = GetDictionaryValue(dict_builder_, static_cast<int64_t>(index)) ==
-          value;
+  const bool value_found =
+      GetDictionaryValue(dict_builder_, static_cast<int64_t>(index)) == value;
   return !value_found;
 }
 
@@ -1142,20 +1133,10 @@ template <>
 bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
                                                            const Scalar& value) {
   int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
-  bool value_found = false;
-  if (index >= entry_id_offset_) {
-    const Scalar other =
-        GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
-    value_found = memcmp(other, value, width) == 0;
-  }
-
-  bool value_found_overflow = false;
-  if (entry_id_offset_ > 0) {
-    const Scalar other_overflow =
-        GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index));
-    value_found_overflow = memcmp(other_overflow, value, width) == 0;
-  }
-  return !(value_found || value_found_overflow);
+  const Scalar other =
+    GetDictionaryValue(dict_builder_, static_cast<int64_t>(index));
+  bool value_found = memcmp(other, value, width) == 0;
+  return !value_found;
 }
 
 template <typename T>
@@ -1163,81 +1144,76 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   return dict_builder_.Append(value);
 }
 
-#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                                        \
-  template <>                                                                          \
-  WrappedBinary DictionaryBuilder<Type>::GetDictionaryValue(                           \
-      typename TypeTraits<Type>::BuilderType& dictionary_builder, int64_t index) {     \
-    int32_t v_len;                                                                     \
-    const uint8_t* v = dictionary_builder.GetValue(                                    \
-        static_cast<int64_t>(index), &v_len);                       \
-    return WrappedBinary(v, v_len);                                                    \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::AppendDictionary(const WrappedBinary& value) {       \
-    return dict_builder_.Append(value.ptr_, value.length_);                            \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {                    \
-    const BinaryArray& binary_array = static_cast<const BinaryArray&>(array);          \
-    WrappedBinary value(nullptr, 0);                                                   \
-    for (int64_t i = 0; i < array.length(); i++) {                                     \
-      if (array.IsNull(i)) {                                                           \
-        RETURN_NOT_OK(AppendNull());                                                   \
-      } else {                                                                         \
-        value.ptr_ = binary_array.GetValue(i, &value.length_);                         \
-        RETURN_NOT_OK(Append(value));                                                  \
-      }                                                                                \
-    }                                                                                  \
-    return Status::OK();                                                               \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  int64_t DictionaryBuilder<Type>::HashValue(const WrappedBinary& value) {             \
-    return HashUtil::Hash(value.ptr_, value.length_, 0);                               \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  bool DictionaryBuilder<Type>::SlotDifferent(hash_slot_t index,                       \
-                                              const WrappedBinary& value) {            \
-    int32_t other_length;                                                              \
-    bool value_found = false;                                                          \
-    const uint8_t* other_value = dict_builder_.GetValue(                             \
-        static_cast<int64_t>(index - entry_id_offset_), &other_length);              \
-    value_found = other_length == value.length_ &&                                   \
-        memcmp(other_value, value.ptr_, value.length_) == 0;               \
-    return !value_found;
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::FinishInternal(std::shared_ptr<ArrayData>* out) {    \
-    entry_id_offset_ += dict_builder_.length();                                        \
-    for (uint64_t index = 0, limit = dict_builder_.length(); index < limit; ++index) { \
-      int32_t out_length;                                                              \
-      const uint8_t* value = dict_builder_.GetValue(index, &out_length);               \
-      RETURN_NOT_OK(overflow_dict_builder_.Append(value, out_length));                 \
-    }                                                                                  \
-                                                                                       \
-    std::shared_ptr<Array> dictionary;                                                 \
-    RETURN_NOT_OK(dict_builder_.Finish(&dictionary));                                  \
-                                                                                       \
-    RETURN_NOT_OK(values_builder_.FinishInternal(out));                                \
-    (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);         \
-                                                                                       \
-    RETURN_NOT_OK(dict_builder_.Init(capacity_));                                      \
-    RETURN_NOT_OK(values_builder_.Init(capacity_));                                    \
-    return Status::OK();                                                               \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::FinishInternalSlice(                                 \
-                                               std::shared_ptr<ArrayData>* out,        \
-                                               const int64_t offset,                   \
-                                               const int64_t length,                   \
-                                               const bool reset) {                     \
-    return Status::NotImplemented("Slice finishes");                                   \
-}
+#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                                          \
+  template <>                                                                            \
+  WrappedBinary DictionaryBuilder<Type>::GetDictionaryValue(                             \
+      typename TypeTraits<Type>::BuilderType& dictionary_builder, int64_t index) {       \
+    int32_t v_len;                                                                       \
+    const uint8_t* v = dictionary_builder.GetValue(static_cast<int64_t>(index), &v_len); \
+    return WrappedBinary(v, v_len);                                                      \
+  }                                                                                      \
+                                                                                         \
+  template <>                                                                            \
+  Status DictionaryBuilder<Type>::AppendDictionary(const WrappedBinary& value) {         \
+    return dict_builder_.Append(value.ptr_, value.length_);                              \
+  }                                                                                      \
+                                                                                         \
+  template <>                                                                            \
+  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {                      \
+    const BinaryArray& binary_array = static_cast<const BinaryArray&>(array);            \
+    WrappedBinary value(nullptr, 0);                                                     \
+    for (int64_t i = 0; i < array.length(); i++) {                                       \
+      if (array.IsNull(i)) {                                                             \
+        RETURN_NOT_OK(AppendNull());                                                     \
+      } else {                                                                           \
+        value.ptr_ = binary_array.GetValue(i, &value.length_);                           \
+        RETURN_NOT_OK(Append(value));                                                    \
+      }                                                                                  \
+    }                                                                                    \
+    return Status::OK();                                                                 \
+  }                                                                                      \
+                                                                                         \
+  template <>                                                                            \
+  int64_t DictionaryBuilder<Type>::HashValue(const WrappedBinary& value) {               \
+    return HashUtil::Hash(value.ptr_, value.length_, 0);                                 \
+  }                                                                                      \
+                                                                                         \
+  template <>                                                                            \
+  bool DictionaryBuilder<Type>::SlotDifferent(hash_slot_t index,                         \
+                                              const WrappedBinary& value) {              \
+    int32_t other_length;                                                                \
+    bool value_found = false;                                                            \
+    const uint8_t* other_value =                                                         \
+        dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);              \
+    value_found = other_length == value.length_ &&                                       \
+                  memcmp(other_value, value.ptr_, value.length_) == 0;                   \
+    return !value_found;                                                                 \
+  }                                                                                      \
+                                                                                         \
+  template <>                                                                            \
+  Status DictionaryBuilder<Type>::FinishInternal(std::shared_ptr<ArrayData>* out) {      \
+                                                                                         \
+    std::shared_ptr<Array> dictionary;                                                   \
+    RETURN_NOT_OK(dict_builder_.FinishSlice(&dictionary, entry_id_offset_,               \
+                                            dict_builder_.length() - entry_id_offset_,   \
+                                            false));                                     \
+                                                                                         \
+    RETURN_NOT_OK(values_builder_.FinishInternalSlice(                                   \
+        out, values_offset_, values_builder_.length() - values_offset_, false));         \
+    (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);           \
+                                                                                         \
+    entry_id_offset_ = dict_builder_.length();                                           \
+    values_offset_ = values_builder_.length();                                           \
+                                                                                         \
+    return Status::OK();                                                                 \
+  }                                                                                      \
+                                                                                         \
+  template <>                                                                            \
+  Status DictionaryBuilder<Type>::FinishInternalSlice(                                   \
+      std::shared_ptr<ArrayData>* out, const int64_t offset, const int64_t length,       \
+      const bool reset) {                                                                \
+    return Status::NotImplemented("Slice finishes");                                     \
+  }
 
 BINARY_DICTIONARY_SPECIALIZATIONS(StringType);
 BINARY_DICTIONARY_SPECIALIZATIONS(BinaryType);
@@ -1282,10 +1258,9 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 Status Decimal128Builder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+                                              const int64_t offset, const int64_t length,
+                                              const bool reset) {
+  return Status::NotImplemented("Slice finishes");
 }
 // ----------------------------------------------------------------------
 // ListBuilder
@@ -1358,10 +1333,9 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 Status ListBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+                                        const int64_t offset, const int64_t length,
+                                        const bool reset) {
+  return Status::NotImplemented("Slice finishes");
 }
 
 void ListBuilder::Reset() {
@@ -1407,6 +1381,12 @@ Status BinaryBuilder::ReserveData(int64_t elements) {
 }
 
 Status BinaryBuilder::AppendNextOffset() {
+  if (is_final_offset_written_) {
+    // the final (closing) offset was written, just set the
+    // flag to false
+    is_final_offset_written_ = false;
+    return Status::OK();
+  }
   const int64_t num_bytes = value_data_builder_.length();
   if (ARROW_PREDICT_FALSE(num_bytes > kBinaryMemoryLimit)) {
     std::stringstream ss;
@@ -1416,6 +1396,16 @@ Status BinaryBuilder::AppendNextOffset() {
   }
   return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
 }
+
+  // write final offset
+  Status BinaryBuilder::AppendFinalOffset() {
+    if (ARROW_PREDICT_FALSE(is_final_offset_written_)) {
+      return Status::Invalid("Final offset allready added");
+    }
+    RETURN_NOT_OK(AppendNextOffset());
+    is_final_offset_written_ = true;
+    return Status::OK();
+  }
 
 Status BinaryBuilder::Append(const uint8_t* value, int32_t length) {
   RETURN_NOT_OK(Reserve(1));
@@ -1433,8 +1423,7 @@ Status BinaryBuilder::AppendNull() {
 }
 
 Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  // Write final offset (values length)
-  RETURN_NOT_OK(AppendNextOffset());
+  RETURN_NOT_OK(AppendFinalOffset());
   std::shared_ptr<Buffer> offsets, value_data;
 
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
@@ -1443,6 +1432,28 @@ Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets, value_data}, null_count_,
                          0);
   Reset();
+  return Status::OK();
+
+}
+
+Status BinaryBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
+                                          const int64_t offset, const int64_t length,
+                                          const bool reset) {
+
+  auto actual_length = std::min(length_ - offset, length);
+  RETURN_NOT_OK(AppendFinalOffset());
+  std::shared_ptr<Buffer> offsets, value_data;
+
+  RETURN_NOT_OK(offsets_builder_.FinishSliceByItem(&offsets, 0, actual_length + 1, reset));
+  RETURN_NOT_OK(value_data_builder_.FinishSliceByItem(&value_data,
+                                                0,
+                                                offsets_builder_.data()[offset+actual_length], reset));
+
+  *out = ArrayData::Make(type_, actual_length, {null_bitmap_, offsets, value_data}, null_count_,
+                         offset);
+  if (reset) {
+    Reset();
+  }
   return Status::OK();
 }
 
@@ -1463,12 +1474,6 @@ const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
   return value_data_builder_.data() + offset;
 }
 
-Status BinaryBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                          const int64_t offset,
-                                          const int64_t length,
-                                          const bool reset) {
-    return Status::NotImplemented("Slice finishes");
-}
 
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
 
@@ -1548,10 +1553,20 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 Status FixedSizeBinaryBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+                                                   const int64_t offset,
+                                                   const int64_t length,
+                                                   const bool reset) {
+  auto actual_length = std::min(length_ - offset, length);
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(byte_builder_.FinishSlice(&data, 0, actual_length * byte_width_, false));
+
+  *out = ArrayData::Make(type_, actual_length, {null_bitmap_, data}, null_count_, offset);
+
+  if (reset) {
+      null_bitmap_ = nullptr;
+      capacity_ = length_ = null_count_ = 0;
+  }
+  return Status::OK();
 }
 
 const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
@@ -1582,10 +1597,9 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 Status StructBuilder::FinishInternalSlice(std::shared_ptr<ArrayData>* out,
-                                               const int64_t offset,
-                                               const int64_t length,
-                                           const bool reset) {
-    return Status::NotImplemented("Slice finishes");
+                                          const int64_t offset, const int64_t length,
+                                          const bool reset) {
+  return Status::NotImplemented("Slice finishes");
 }
 
   // ----------------------------------------------------------------------

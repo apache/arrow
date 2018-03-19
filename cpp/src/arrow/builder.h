@@ -309,6 +309,15 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
     raw_data_[length_++] = val;
   }
 
+  /// Append an array of scalar elements without capacity check
+  ///
+  /// Same warning as with UnsafeAppend with a single element
+  void UnsafeAppend(const value_type* val, int64_t num_elements) {
+    std::memcpy(raw_data_, val, num_elements);
+    // length is updated here
+    ArrayBuilder::UnsafeSetNotNull(num_elements);
+  }
+
  protected:
   using PrimitiveBuilder<T>::length_;
   using PrimitiveBuilder<T>::null_bitmap_data_;
@@ -747,7 +756,10 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
   Status AppendNextOffset();
+  Status AppendFinalOffset();
   void Reset();
+  // used to decide if we should write the next offset
+  bool is_final_offset_written_ = false;
 };
 
 /// \class StringBuilder
