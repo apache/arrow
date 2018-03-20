@@ -94,3 +94,22 @@ xptr_DataType decimal_type(int32_t precision, int32_t scale){
 xptr_DataType fixed_size_binary(int32_t byte_width){
   return metadata( std::bind(arrow::fixed_size_binary, byte_width), "arrow::FixedSizeBinaryType", "arrow::FixedWidthType", "arrow::DataType") ;
 }
+
+namespace Rcpp {
+  template <>
+  arrow::TimeUnit::type as<arrow::TimeUnit::type>( SEXP x ){
+    if( !Rf_inherits(x, "arrow::TimeUnit::type") ) stop("incompatible") ;
+    return static_cast<arrow::TimeUnit::type>(as<int>(x)) ;
+  }
+}
+
+// [[Rcpp::export]]
+xptr_DataType timestamp(arrow::TimeUnit::type unit){
+  return metadata(
+    [=](){ return arrow::timestamp(unit) ;},
+    "arrow::TimestampType", "arrow::FixedWidthType", "arrow::DataType"
+  ) ;
+}
+
+
+
