@@ -13,6 +13,9 @@ SystemRequirements: C++11
 LinkingTo: 
     Rcpp
 Imports: 
-    Rcpp
+    Rcpp,
+    rlang,
+    purrr,
+    assertthat
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.0.1.9000
