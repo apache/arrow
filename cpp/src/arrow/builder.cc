@@ -220,11 +220,7 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
 // ----------------------------------------------------------------------
 // Null builder
 
-Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  return FinishInternal(true, out);
-}
-
-  Status NullBuilder::FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) {
+Status NullBuilder::FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) {
   *out = ArrayData::Make(null(), length_, {nullptr}, length_);
   if (reset_builder) {
     length_ = null_count_ = 0;
@@ -325,7 +321,8 @@ Status PrimitiveBuilder<T>::FinishInternal(bool reset_builder,
     // reset raw_data_ pointer
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
   }
-  *out = ArrayData::Make(type_, length, {null_bitmap_, data_}, null_count_, elements_offset_);
+  *out = ArrayData::Make(type_, length, {null_bitmap_, data_}, null_count_,
+                         elements_offset_);
 
   if (reset_builder) {
     data_ = null_bitmap_ = nullptr;
@@ -353,7 +350,10 @@ template class PrimitiveBuilder<FloatType>;
 template class PrimitiveBuilder<DoubleType>;
 
 AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool)
-    : PartiallyFinishableArrayBuilder(int64(), pool), data_(nullptr), raw_data_(nullptr), int_size_(1) {}
+    : PartiallyFinishableArrayBuilder(int64(), pool),
+      data_(nullptr),
+      raw_data_(nullptr),
+      int_size_(1) {}
 
 Status AdaptiveIntBuilderBase::Init(int64_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
@@ -395,8 +395,8 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return FinishInternal(true, out);
 }
 
-  Status AdaptiveIntBuilder::FinishInternal(bool reset_builder,
-                                                 std::shared_ptr<ArrayData>* out) {
+Status AdaptiveIntBuilder::FinishInternal(bool reset_builder,
+                                          std::shared_ptr<ArrayData>* out) {
   auto length = length_ - elements_offset_;
   const int64_t bytes_required = length_ * int_size_;
   if (bytes_required > 0 && bytes_required < data_->size() && reset_builder) {
@@ -561,7 +561,7 @@ AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
     : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveUIntBuilder::FinishInternal(bool reset_builder,
-                                             std::shared_ptr<ArrayData>* out) {
+                                           std::shared_ptr<ArrayData>* out) {
   auto length = length_ - elements_offset_;
   const int64_t bytes_required = length_ * int_size_;
   if (bytes_required > 0 && bytes_required < data_->size() && reset_builder) {
@@ -1048,7 +1048,7 @@ Status DictionaryBuilder<T>::FinishInternal(bool reset_builder,
 }
 
 Status DictionaryBuilder<NullType>::FinishInternal(bool reset_builder,
-                                                     std::shared_ptr<ArrayData>* out) {
+                                                   std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Array> dictionary = std::make_shared<NullArray>(0);
 
   RETURN_NOT_OK(values_builder_.FinishInternal(reset_builder, out));
@@ -1057,8 +1057,8 @@ Status DictionaryBuilder<NullType>::FinishInternal(bool reset_builder,
 }
 
 template <>
-Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(bool reset_builder,
-                                                              std::shared_ptr<ArrayData>* out) {
+Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(
+    bool reset_builder, std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Array> dictionary, values;
   RETURN_NOT_OK(dict_builder_.Finish(reset_builder, &dictionary));
   RETURN_NOT_OK(values_builder_.Finish(reset_builder, &values));
@@ -1068,7 +1068,6 @@ Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(bool reset_builder
 
   return Status::OK();
 }
-
 
 template <typename T>
 int64_t DictionaryBuilder<T>::HashValue(const Scalar& value) {
@@ -1091,8 +1090,7 @@ template <>
 bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
                                                            const Scalar& value) {
   int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
-  const Scalar other =
-    GetDictionaryValue(dict_builder_, static_cast<int64_t>(index));
+  const Scalar other = GetDictionaryValue(dict_builder_, static_cast<int64_t>(index));
   bool value_found = memcmp(other, value, width) == 0;
   return !value_found;
 }
@@ -1151,7 +1149,6 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   template <>                                                                            \
   Status DictionaryBuilder<Type>::FinishInternal(bool reset_builder,                     \
                                                  std::shared_ptr<ArrayData>* out) {      \
-                                                                                         \
     std::shared_ptr<Array> dictionary, values;                                           \
     RETURN_NOT_OK(dict_builder_.Finish(reset_builder, &dictionary));                     \
                                                                                          \
@@ -1160,8 +1157,7 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
     (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);           \
                                                                                          \
     return Status::OK();                                                                 \
-  }                                                                                      \
-                                                                                         \
+  }
 
 BINARY_DICTIONARY_SPECIALIZATIONS(StringType);
 BINARY_DICTIONARY_SPECIALIZATIONS(BinaryType);
@@ -1282,7 +1278,8 @@ ArrayBuilder* ListBuilder::value_builder() const {
 
 BinaryBuilder::BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : PartiallyFinishableArrayBuilder(type, pool),
-      offsets_builder_(pool), value_data_builder_(pool) {}
+      offsets_builder_(pool),
+      value_data_builder_(pool) {}
 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(binary(), pool) {}
 
@@ -1328,15 +1325,15 @@ Status BinaryBuilder::AppendNextOffset() {
   return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
 }
 
-  // write final offset
-  Status BinaryBuilder::AppendFinalOffset() {
-    if (ARROW_PREDICT_FALSE(is_final_offset_written_)) {
-      return Status::Invalid("Final offset allready added");
-    }
-    RETURN_NOT_OK(AppendNextOffset());
-    is_final_offset_written_ = true;
-    return Status::OK();
+// write final offset
+Status BinaryBuilder::AppendFinalOffset() {
+  if (ARROW_PREDICT_FALSE(is_final_offset_written_)) {
+    return Status::Invalid("Final offset allready added");
   }
+  RETURN_NOT_OK(AppendNextOffset());
+  is_final_offset_written_ = true;
+  return Status::OK();
+}
 
 Status BinaryBuilder::Append(const uint8_t* value, int32_t length) {
   RETURN_NOT_OK(Reserve(1));
@@ -1353,36 +1350,20 @@ Status BinaryBuilder::AppendNull() {
   return Status::OK();
 }
 
-Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  RETURN_NOT_OK(AppendFinalOffset());
-  std::shared_ptr<Buffer> offsets, value_data;
-
-  RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
-  RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
-
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets, value_data}, null_count_,
-                         0);
-  Reset();
-  return Status::OK();
-
-}
-
 Status BinaryBuilder::FinishInternal(bool reset_builder,
-                                       std::shared_ptr<ArrayData>* out) {
+                                     std::shared_ptr<ArrayData>* out) {
   auto slice_length = length_ - elements_offset_;
   RETURN_NOT_OK(AppendFinalOffset());
   std::shared_ptr<Buffer> offsets, value_data;
 
-  RETURN_NOT_OK(offsets_builder_.FinishSliceByItem(&offsets, 0, slice_length + 1,
-                                                   reset_builder));
-  auto last_offset = offsets_builder_.data()[elements_offset_+slice_length];
-  RETURN_NOT_OK(value_data_builder_.FinishSliceByItem(&value_data,
-                                                      0,
-                                                      last_offset,
-                                                      reset_builder));
+  RETURN_NOT_OK(
+      offsets_builder_.FinishSliceByItem(&offsets, 0, slice_length + 1, reset_builder));
+  auto last_offset = offsets_builder_.data()[elements_offset_ + slice_length];
+  RETURN_NOT_OK(
+      value_data_builder_.FinishSliceByItem(&value_data, 0, last_offset, reset_builder));
 
-  *out = ArrayData::Make(type_, slice_length, {null_bitmap_, offsets, value_data}, null_count_,
-                         elements_offset_);
+  *out = ArrayData::Make(type_, slice_length, {null_bitmap_, offsets, value_data},
+                         null_count_, elements_offset_);
   if (reset_builder) {
     Reset();
   }
@@ -1405,7 +1386,6 @@ const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
   }
   return value_data_builder_.data() + offset;
 }
-
 
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
 
@@ -1473,21 +1453,18 @@ Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
   return ArrayBuilder::Resize(capacity);
 }
 
-Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  return FinishInternal(true, out);
-}
-
-  Status FixedSizeBinaryBuilder::FinishInternal(bool reset_builder,
-                                                std::shared_ptr<ArrayData>* out) {
+Status FixedSizeBinaryBuilder::FinishInternal(bool reset_builder,
+                                              std::shared_ptr<ArrayData>* out) {
   auto slice_length = length_ - elements_offset_;
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.FinishSlice(&data, 0, slice_length * byte_width_, false));
 
-  *out = ArrayData::Make(type_, slice_length, {null_bitmap_, data}, null_count_, elements_offset_);
+  *out = ArrayData::Make(type_, slice_length, {null_bitmap_, data}, null_count_,
+                         elements_offset_);
 
   if (reset_builder) {
-      null_bitmap_ = nullptr;
-      capacity_ = length_ = null_count_ = 0;
+    null_bitmap_ = nullptr;
+    capacity_ = length_ = null_count_ = 0;
   }
   return Status::OK();
 }

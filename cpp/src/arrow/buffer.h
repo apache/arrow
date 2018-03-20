@@ -54,16 +54,14 @@ class ARROW_EXPORT Buffer {
   ///
   /// \note The passed memory must be kept alive through some other means
   Buffer(const uint8_t* data, int64_t size, int64_t capacity)
-    : is_mutable_(false),
+      : is_mutable_(false),
         data_(data),
         mutable_data_(NULLPTR),
         size_(size),
         capacity_(capacity) {}
 
   /// Initialize with known capacity
-  Buffer(const uint8_t* data, int64_t size)
-    : Buffer(data, size, size) {}
-
+  Buffer(const uint8_t* data, int64_t size) : Buffer(data, size, size) {}
 
   /// \brief Construct from std::string without copying memory
   ///
@@ -85,7 +83,7 @@ class ARROW_EXPORT Buffer {
   /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
   /// we might add utility methods to help determine if a buffer satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, const int64_t offset, const int64_t size)
-     : Buffer(parent->data() + offset, size, parent->capacity()) {
+      : Buffer(parent->data() + offset, size, parent->capacity()) {
     parent_ = parent;
   }
 
@@ -309,7 +307,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   Status FinishSlice(std::shared_ptr<Buffer>* out, const int64_t offset,
-                     const int64_t length, const bool reset=true) {
+                     const int64_t length, const bool reset = true) {
     // Do not shrink to fit to avoid unneeded realloc
     if (size_ > 0) {
       RETURN_NOT_OK(buffer_->Resize(size_, false));
@@ -326,7 +324,6 @@ class ARROW_EXPORT BufferBuilder {
     }
     return Status::OK();
   }
-
 
   void Reset() {
     buffer_ = NULLPTR;
@@ -378,7 +375,7 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
   }
 
   Status FinishSliceByItem(std::shared_ptr<Buffer>* out, const int64_t offset,
-                     const int64_t length, const bool reset=true) {
+                           const int64_t length, const bool reset = true) {
     // Do not shrink to fit to avoid unneeded realloc
     if (size_ > 0) {
       RETURN_NOT_OK(buffer_->Resize(size_, false));

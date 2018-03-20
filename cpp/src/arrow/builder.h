@@ -178,14 +178,13 @@ class ARROW_EXPORT ArrayBuilder {
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
-
-  // An array build which supports partial finishes
-  //
-  // After a partial finish the state of the array builder
-  // is not reset and additional elements are appended to the
-  // previous state instead. Subsequent finishes will yield
-  // results which represent the elements added since the last
-  // finish, i.e. SliceBuffers or delta dictionaries
+// An array build which supports partial finishes
+//
+// After a partial finish the state of the array builder
+// is not reset and additional elements are appended to the
+// previous state instead. Subsequent finishes will yield
+// results which represent the elements added since the last
+// finish, i.e. SliceBuffers or delta dictionaries
 class PartiallyFinishableArrayBuilder : public ArrayBuilder {
  public:
   using ArrayBuilder::ArrayBuilder;
@@ -193,7 +192,9 @@ class PartiallyFinishableArrayBuilder : public ArrayBuilder {
   // Finishes the builder into out without resetting the builder if reset_builder
   // is false. Use with caution, it doesn't set elements_offset.
   virtual Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) = 0;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override { return FinishInternal(true, out); }
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    return FinishInternal(true, out);
+  }
   Status Finish(std::shared_ptr<Array>* out) { return Finish(true, out); }
   Status Finish(bool reset_builder, std::shared_ptr<Array>* out) {
     std::shared_ptr<ArrayData> internal_data;
@@ -203,6 +204,7 @@ class PartiallyFinishableArrayBuilder : public ArrayBuilder {
     return Status::OK();
   }
   int64_t elements_offset() { return elements_offset_; }
+
  protected:
   int64_t elements_offset_ = 0;
 };
@@ -219,7 +221,6 @@ class ARROW_EXPORT NullBuilder : public PartiallyFinishableArrayBuilder {
   }
 
   Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
 
 template <typename Type>
@@ -738,7 +739,6 @@ class ARROW_EXPORT BinaryBuilder : public PartiallyFinishableArrayBuilder {
   /// number of bytes to the value data buffer without additional allocations
   Status ReserveData(int64_t elements);
   Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
@@ -806,7 +806,6 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public PartiallyFinishableArrayBuild
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(bool reset_builders, std::shared_ptr<ArrayData>* out) override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
