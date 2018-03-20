@@ -137,6 +137,7 @@ cdef class ListValue(ArrayValue):
         CListArray* ap
 
     cdef getitem(self, int64_t i)
+    cdef int64_t length(self)
 
 
 cdef class UnionValue(ArrayValue):
@@ -164,6 +165,7 @@ cdef class Array:
 
     cdef void init(self, const shared_ptr[CArray]& sp_array)
     cdef getitem(self, int64_t i)
+    cdef int64_t length(self)
 
 
 cdef class Tensor:

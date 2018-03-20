@@ -110,6 +110,20 @@ def test_to_pandas_zero_copy():
         np_arr.sum()
 
 
+def test_array_getitem():
+    arr = pa.array(range(10, 15))
+    lst = arr.to_pylist()
+
+    for idx in range(-len(arr), len(arr)):
+        assert arr[idx].as_py() == lst[idx]
+    for idx in range(-2 * len(arr), -len(arr)):
+        with pytest.raises(IndexError):
+            arr[idx]
+    for idx in range(len(arr), 2 * len(arr)):
+        with pytest.raises(IndexError):
+            arr[idx]
+
+
 def test_array_slice():
     arr = pa.array(range(10))
 
