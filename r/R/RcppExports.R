@@ -85,3 +85,15 @@ timestamp2 <- function(unit, timezone) {
     .Call(`_rrrow_timestamp2`, unit, timezone)
 }
 
+time32 <- function(unit) {
+    .Call(`_rrrow_time32_`, unit)
+}
+
+time64 <- function(unit) {
+    .Call(`_rrrow_time64_`, unit)
+}
+
+list_ <- function(x) {
+    .Call(`_rrrow_list_`, x)
+}
+

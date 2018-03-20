@@ -222,6 +222,39 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// time32_
+xptr_DataType time32_(arrow::TimeUnit::type unit);
+RcppExport SEXP _rrrow_time32_(SEXP unitSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
+    rcpp_result_gen = Rcpp::wrap(time32_(unit));
+    return rcpp_result_gen;
+END_RCPP
+}
+// time64_
+xptr_DataType time64_(arrow::TimeUnit::type unit);
+RcppExport SEXP _rrrow_time64_(SEXP unitSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
+    rcpp_result_gen = Rcpp::wrap(time64_(unit));
+    return rcpp_result_gen;
+END_RCPP
+}
+// list_
+SEXP list_(SEXP x);
+RcppExport SEXP _rrrow_list_(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(list_(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_bla", (DL_FUNC) &_rrrow_bla, 0},
@@ -245,6 +278,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_fixed_size_binary", (DL_FUNC) &_rrrow_fixed_size_binary, 1},
     {"_rrrow_timestamp1", (DL_FUNC) &_rrrow_timestamp1, 1},
     {"_rrrow_timestamp2", (DL_FUNC) &_rrrow_timestamp2, 2},
+    {"_rrrow_time32_", (DL_FUNC) &_rrrow_time32_, 1},
+    {"_rrrow_time64_", (DL_FUNC) &_rrrow_time64_, 1},
+    {"_rrrow_list_", (DL_FUNC) &_rrrow_list_, 1},
     {NULL, NULL, 0}
 };
 

@@ -119,4 +119,40 @@ xptr_DataType timestamp2(arrow::TimeUnit::type unit, const std::string& timezone
   ) ;
 }
 
+// [[Rcpp::export(name="time32")]]
+xptr_DataType time32_(arrow::TimeUnit::type unit){
+  return metadata(
+    [=](){ return arrow::time32(unit) ;},
+    "arrow::Time32Type", "arrow::TimeType", "arrow::FixedWidthType", "arrow::DataType"
+  ) ;
+}
+
+// [[Rcpp::export(name="time64")]]
+xptr_DataType time64_(arrow::TimeUnit::type unit){
+  return metadata(
+    [=](){ return arrow::time64(unit) ;},
+    "arrow::Time64Type", "arrow::TimeType", "arrow::FixedWidthType", "arrow::DataType"
+  ) ;
+}
+
+// [[Rcpp::export]]
+SEXP list_( SEXP x ){
+  if( Rf_inherits(x, "arrow::Field")){
+    return metadata(
+      [=](){ return arrow::list(*xptr_Field(x)) ; },
+      "arrow::ListType", "arrow::NestedType", "arrow::DataType"
+    ) ;
+  }
+
+  if( Rf_inherits(x, "arrow::DataType") ){
+    return metadata(
+      [=](){ return arrow::list(*xptr_DataType(x)) ; },
+      "arrow::ListType", "arrow::NestedType", "arrow::DataType"
+    ) ;
+  }
+
+
+  stop("incompatible") ;
+  return R_NilValue ;
+}
 
