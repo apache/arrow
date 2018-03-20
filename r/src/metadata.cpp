@@ -194,3 +194,22 @@ std::string DataType_ToString( xptr_DataType type){
   return ptr->ToString() ;
 }
 
+// [[Rcpp::export]]
+xptr_Schema schema_( ListOf<xptr_Field> fields ){
+
+  int n = fields.size() ;
+  std::vector<std::shared_ptr<arrow::Field>> vec_fields ;
+  for(int i=0; i<n; i++){
+    vec_fields.emplace_back( *fields[i] ) ;
+  }
+
+  xptr_Schema s( new std::shared_ptr<arrow::Schema>( arrow::schema(vec_fields) ) );
+  s.attr("class") = CharacterVector::create( "arrow::Schema" ) ;
+  return s ;
+}
+
+// [[Rcpp::export]]
+std::string Schema_ToString( xptr_Schema type){
+  std::shared_ptr<arrow::Schema> ptr(*type) ;
+  return ptr->ToString() ;
+}
