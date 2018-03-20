@@ -77,3 +77,11 @@ fixed_size_binary <- function(byte_width) {
     .Call(`_rrrow_fixed_size_binary`, byte_width)
 }
 
+timestamp1 <- function(unit) {
+    .Call(`_rrrow_timestamp1`, unit)
+}
+
+timestamp2 <- function(unit, timezone) {
+    .Call(`_rrrow_timestamp2`, unit, timezone)
+}
+

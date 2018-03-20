@@ -104,12 +104,19 @@ namespace Rcpp {
 }
 
 // [[Rcpp::export]]
-xptr_DataType timestamp(arrow::TimeUnit::type unit){
+xptr_DataType timestamp1(arrow::TimeUnit::type unit){
   return metadata(
     [=](){ return arrow::timestamp(unit) ;},
     "arrow::TimestampType", "arrow::FixedWidthType", "arrow::DataType"
   ) ;
 }
 
+// [[Rcpp::export]]
+xptr_DataType timestamp2(arrow::TimeUnit::type unit, const std::string& timezone ){
+  return metadata(
+    [=](){ return arrow::timestamp(unit, timezone) ;},
+    "arrow::TimestampType", "arrow::FixedWidthType", "arrow::DataType"
+  ) ;
+}
 
 
