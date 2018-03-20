@@ -579,16 +579,19 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
         values_bytes = bin_values.raw_value_offsets()[values.length()];
 
         // Write the variable-length offsets
-        RETURN_NOT_OK(WritePadded(stream_.get(), reinterpret_cast<const uint8_t*>(
-                                                     bin_values.raw_value_offsets()),
-                                  offset_bytes, &bytes_written));
+        RETURN_NOT_OK(
+            WritePadded(stream_.get(),
+                        reinterpret_cast<const uint8_t*>(bin_values.raw_value_offsets() +
+                                                         bin_values.offset()),
+                        offset_bytes, &bytes_written));
       } else {
         RETURN_NOT_OK(WritePaddedBlank(stream_.get(), offset_bytes, &bytes_written));
       }
       meta->total_bytes += bytes_written;
 
       if (bin_values.value_data()) {
-        values_buffer = bin_values.value_data()->data();
+        values_buffer = bin_values.value_data()->data() +
+                        (bin_values.offset() * fw_type.bit_width() / 8);
       }
     } else {
       const auto& prim_values = static_cast<const PrimitiveArray&>(values);
