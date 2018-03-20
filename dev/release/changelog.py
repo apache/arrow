@@ -43,7 +43,7 @@ asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
                             basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
 
 
-locale.setlocale(locale.LC_ALL, 'en_US.utf8')
+locale.setlocale(locale.LC_ALL, 'en_US.utf-8')
 
 
 def get_issues_for_version(version):
@@ -84,7 +84,8 @@ def format_changelog_website(issues, out):
         'Wish': NEW_FEATURE,
         'Task': NEW_FEATURE,
         'Test': BUGFIX,
-        'Bug': BUGFIX
+        'Bug': BUGFIX,
+        'Sub-task': NEW_FEATURE
     }
 
     issues_by_category = defaultdict(list)
