@@ -277,11 +277,12 @@ TEST(TestBufferBuilder, FinishSlice) {
   ASSERT_STREQ("bar", reinterpret_cast<const char*>(out->data()));
 }
 
-template<typename T>
+template <typename T>
 class TestTypedBufferBuilder : public testing::Test {};
 
-typedef ::testing::Types<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t,
-    int64_t, uint64_t, float, double> PrimitiveTypes;
+typedef ::testing::Types<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t,
+                         uint64_t, float, double>
+    PrimitiveTypes;
 
 TYPED_TEST_CASE(TestTypedBufferBuilder, PrimitiveTypes);
 
@@ -294,22 +295,19 @@ TYPED_TEST(TestTypedBufferBuilder, ReuseBuilder) {
   builder.Append(values1.data(), values1.size());
 
   std::shared_ptr<Buffer> out1;
-  builder.FinishSlice(&out1, 0,
-                      values1.size() * sizeof(TypeParam), /* reset */false);
+  builder.FinishSlice(&out1, 0, values1.size() * sizeof(TypeParam), /* reset */ false);
 
   ASSERT_EQ(values1.size() * sizeof(TypeParam), out1->size());
-  ASSERT_EQ(0, memcmp(values1.data(), out1->data(),
-                      values1.size() * sizeof(TypeParam)));
+  ASSERT_EQ(0, memcmp(values1.data(), out1->data(), values1.size() * sizeof(TypeParam)));
 
   builder.Append(values2.data(), values2.size());
 
   std::shared_ptr<Buffer> out2;
   builder.FinishSlice(&out2, values1.size() * sizeof(TypeParam),
-                      values2.size() * sizeof(TypeParam), /* reset */true);
+                      values2.size() * sizeof(TypeParam), /* reset */ true);
 
   ASSERT_EQ(values2.size() * sizeof(TypeParam), out2->size());
-  ASSERT_EQ(0, memcmp(values2.data(), out2->data(),
-                      values2.size() * sizeof(TypeParam)));
+  ASSERT_EQ(0, memcmp(values2.data(), out2->data(), values2.size() * sizeof(TypeParam)));
 }
 
 TYPED_TEST(TestTypedBufferBuilder, FinishSliceByItem) {
@@ -321,20 +319,18 @@ TYPED_TEST(TestTypedBufferBuilder, FinishSliceByItem) {
   builder.Append(values1.data(), values1.size());
 
   std::shared_ptr<Buffer> out1;
-  builder.FinishSliceByItem(&out1, 0, values1.size(), /* reset */false);
+  builder.FinishSliceByItem(&out1, 0, values1.size(), /* reset */ false);
 
   ASSERT_EQ(values1.size() * sizeof(TypeParam), out1->size());
-  ASSERT_EQ(0, memcmp(values1.data(), out1->data(),
-                      values1.size() * sizeof(TypeParam)));
+  ASSERT_EQ(0, memcmp(values1.data(), out1->data(), values1.size() * sizeof(TypeParam)));
 
   builder.Append(values2.data(), values2.size());
 
   std::shared_ptr<Buffer> out2;
-  builder.FinishSliceByItem(&out2, values1.size(), values2.size(), /* reset */true);
+  builder.FinishSliceByItem(&out2, values1.size(), values2.size(), /* reset */ true);
 
   ASSERT_EQ(values2.size() * sizeof(TypeParam), out2->size());
-  ASSERT_EQ(0, memcmp(values2.data(), out2->data(),
-                      values2.size() * sizeof(TypeParam)));
+  ASSERT_EQ(0, memcmp(values2.data(), out2->data(), values2.size() * sizeof(TypeParam)));
 }
 
 }  // namespace arrow

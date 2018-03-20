@@ -345,7 +345,8 @@ class ARROW_EXPORT BufferBuilder {
 template <typename T>
 class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) : BufferBuilder(pool) {}
+  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+      : BufferBuilder(pool) {}
 
   Status Append(T arithmetic_value) {
     static_assert(std::is_arithmetic<T>::value,
