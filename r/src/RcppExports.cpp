@@ -126,6 +126,68 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// boolean
+xptr_DataType boolean();
+RcppExport SEXP _rrrow_boolean() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(boolean());
+    return rcpp_result_gen;
+END_RCPP
+}
+// utf8
+xptr_DataType utf8();
+RcppExport SEXP _rrrow_utf8() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(utf8());
+    return rcpp_result_gen;
+END_RCPP
+}
+// date32
+xptr_DataType date32();
+RcppExport SEXP _rrrow_date32() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(date32());
+    return rcpp_result_gen;
+END_RCPP
+}
+// date64
+xptr_DataType date64();
+RcppExport SEXP _rrrow_date64() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(date64());
+    return rcpp_result_gen;
+END_RCPP
+}
+// null
+xptr_DataType null();
+RcppExport SEXP _rrrow_null() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(null());
+    return rcpp_result_gen;
+END_RCPP
+}
+// decimal_type
+xptr_DataType decimal_type(int32_t precision, int32_t scale);
+RcppExport SEXP _rrrow_decimal_type(SEXP precisionSEXP, SEXP scaleSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int32_t >::type precision(precisionSEXP);
+    Rcpp::traits::input_parameter< int32_t >::type scale(scaleSEXP);
+    rcpp_result_gen = Rcpp::wrap(decimal_type(precision, scale));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_bla", (DL_FUNC) &_rrrow_bla, 0},
@@ -140,6 +202,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_float16", (DL_FUNC) &_rrrow_float16, 0},
     {"_rrrow_float32", (DL_FUNC) &_rrrow_float32, 0},
     {"_rrrow_float64", (DL_FUNC) &_rrrow_float64, 0},
+    {"_rrrow_boolean", (DL_FUNC) &_rrrow_boolean, 0},
+    {"_rrrow_utf8", (DL_FUNC) &_rrrow_utf8, 0},
+    {"_rrrow_date32", (DL_FUNC) &_rrrow_date32, 0},
+    {"_rrrow_date64", (DL_FUNC) &_rrrow_date64, 0},
+    {"_rrrow_null", (DL_FUNC) &_rrrow_null, 0},
+    {"_rrrow_decimal_type", (DL_FUNC) &_rrrow_decimal_type, 2},
     {NULL, NULL, 0}
 };
 
