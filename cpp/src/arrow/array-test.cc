@@ -536,6 +536,30 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
   ASSERT_TRUE(array->RangeEquals(5, 15, 0, slice));
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestPartialFinish) {
+  const int64_t size = 1000;
+  this->RandomData(size * 2);
+
+  // build an array of all values
+  std::shared_ptr<Array> all_values_array;
+  ASSERT_OK(MakeArray(this->valid_bytes_, this->draws_, size * 2, this->builder_.get(),
+                      &all_values_array));
+
+  for (uint64_t idx = 0; idx < size; ++idx) {
+    if (this->valid_bytes_[idx] > 0) {
+      this->builder_->Append(this->draws_[idx]);
+    } else {
+      this->builder_->AppendNull();
+    }
+  }
+
+  std::shared_ptr<Array> result1;
+  this->builder_->Finish(false, &result1);
+
+  ASSERT_EQ(size, result1->length());
+  ASSERT_TRUE(all_values_array->RangeEquals(0, size, 0, result1));
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   DECL_T();
 
