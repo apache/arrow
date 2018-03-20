@@ -6,6 +6,19 @@
 
 using namespace Rcpp;
 
+// field
+xptr_Field field(const std::string& name, xptr_DataType type, bool nullable);
+RcppExport SEXP _rrrow_field(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type name(nameSEXP);
+    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< bool >::type nullable(nullableSEXP);
+    rcpp_result_gen = Rcpp::wrap(field(name, type, nullable));
+    return rcpp_result_gen;
+END_RCPP
+}
 // bla
 IntegerVector bla();
 RcppExport SEXP _rrrow_bla() {
@@ -255,8 +268,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// struct_
+xptr_DataType struct_(ListOf<xptr_Field> fields);
+RcppExport SEXP _rrrow_struct_(SEXP fieldsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< ListOf<xptr_Field> >::type fields(fieldsSEXP);
+    rcpp_result_gen = Rcpp::wrap(struct_(fields));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_rrrow_field", (DL_FUNC) &_rrrow_field, 3},
     {"_rrrow_bla", (DL_FUNC) &_rrrow_bla, 0},
     {"_rrrow_int8", (DL_FUNC) &_rrrow_int8, 0},
     {"_rrrow_int16", (DL_FUNC) &_rrrow_int16, 0},
@@ -281,6 +306,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_time32_", (DL_FUNC) &_rrrow_time32_, 1},
     {"_rrrow_time64_", (DL_FUNC) &_rrrow_time64_, 1},
     {"_rrrow_list_", (DL_FUNC) &_rrrow_list_, 1},
+    {"_rrrow_struct_", (DL_FUNC) &_rrrow_struct_, 1},
     {NULL, NULL, 0}
 };
 
