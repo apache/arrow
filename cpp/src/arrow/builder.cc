@@ -315,11 +315,12 @@ Status PrimitiveBuilder<T>::FinishInternal(bool reset_builder,
                                            std::shared_ptr<ArrayData>* out) {
   auto length = length_ - elements_offset_;
   const int64_t bytes_required = TypeTraits<T>::bytes_required(length_);
-  if (bytes_required > 0 && bytes_required < data_->size()) {
+  if (bytes_required > 0 && bytes_required < data_->size() && reset_builder) {
     // Trim buffers
     RETURN_NOT_OK(data_->Resize(bytes_required));
-    // reset raw_data_ pointer
+    // reset raw_data_ pointer and capacity
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
+    capacity_ = data()->capacity();
   }
   *out = ArrayData::Make(type_, length, {null_bitmap_, data_}, null_count_,
                          elements_offset_);
@@ -766,7 +767,7 @@ Status BooleanBuilder::FinishInternal(bool reset_builder,
   auto length = length_ - elements_offset_;
   const int64_t bytes_required = BitUtil::BytesForBits(length_);
 
-  if (bytes_required > 0 && bytes_required < data_->size() && !reset_builder) {
+  if (bytes_required > 0 && bytes_required < data_->size() && reset_builder) {
     // Trim buffers only if buffer is reset afterwards
     RETURN_NOT_OK(data_->Resize(bytes_required));
     // reset raw_data_ pointer and capacity_
