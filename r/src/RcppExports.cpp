@@ -279,6 +279,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// DataType_ToString
+std::string DataType_ToString(xptr_DataType type);
+RcppExport SEXP _rrrow_DataType_ToString(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType_ToString(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_field", (DL_FUNC) &_rrrow_field, 3},
@@ -307,6 +318,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_time64_", (DL_FUNC) &_rrrow_time64_, 1},
     {"_rrrow_list_", (DL_FUNC) &_rrrow_list_, 1},
     {"_rrrow_struct_", (DL_FUNC) &_rrrow_struct_, 1},
+    {"_rrrow_DataType_ToString", (DL_FUNC) &_rrrow_DataType_ToString, 1},
     {NULL, NULL, 0}
 };
 
