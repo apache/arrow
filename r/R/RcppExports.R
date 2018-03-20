@@ -49,3 +49,27 @@ float64 <- function() {
     .Call(`_rrrow_float64`)
 }
 
+boolean <- function() {
+    .Call(`_rrrow_boolean`)
+}
+
+utf8 <- function() {
+    .Call(`_rrrow_utf8`)
+}
+
+date32 <- function() {
+    .Call(`_rrrow_date32`)
+}
+
+date64 <- function() {
+    .Call(`_rrrow_date64`)
+}
+
+null <- function() {
+    .Call(`_rrrow_null`)
+}
+
+decimal_type <- function(precision, scale) {
+    .Call(`_rrrow_decimal_type`, precision, scale)
+}
+

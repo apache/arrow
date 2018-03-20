@@ -56,3 +56,42 @@ xptr_DataType float32(){ return metadata_float<arrow::float32>() ; }
 // [[Rcpp::export]]
 xptr_DataType float64(){ return metadata_float<arrow::float64>() ; }
 
+// [[Rcpp::export]]
+xptr_DataType boolean(){
+  return metadata<arrow::boolean>( "arrow::BooleanType", "arrow::FixedWidthType", "arrow::DataType" ) ;
+}
+
+// [[Rcpp::export]]
+xptr_DataType utf8(){
+  return metadata<arrow::utf8>( "arrow::StringType", "arrow::BinaryType", "arrow::DataType" ) ;
+}
+
+// binary ?
+
+template <typename std::shared_ptr<arrow::DataType> (*fun)() >
+xptr_DataType metadata_date( ){
+  return metadata<fun>( "arrow::DateType", "arrow::FixedWidthType", "arrow::DataType" ) ;
+}
+
+// [[Rcpp::export]]
+xptr_DataType date32(){
+  return metadata<arrow::date32>( "arrow::BooleanType", "arrow::FixedWidthType", "arrow::DataType" ) ;
+}
+
+// [[Rcpp::export]]
+xptr_DataType date64(){
+  return metadata<arrow::date64>( "arrow::BooleanType", "arrow::FixedWidthType", "arrow::DataType" ) ;
+}
+
+// [[Rcpp::export]]
+xptr_DataType null(){
+  return metadata<arrow::null>( "arrow::NullType", "arrow::DataType" ) ;
+}
+
+// [[Rcpp::export]]
+xptr_DataType decimal_type(int32_t precision, int32_t scale){
+  auto ptr = arrow::decimal(precision, scale) ;
+  xptr_DataType res( new std::shared_ptr<arrow::DataType>(ptr) ) ;
+  res.attr("class") = CharacterVector::create( ptr->name(),  "arrow::DecimalType", "arrow::FixedSizeBinaryType", "arrow::FixedWidthType", "arrow::DataType" ) ;
+  return res ;
+}
