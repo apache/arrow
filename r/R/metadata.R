@@ -7,8 +7,15 @@ timestamp <- function(unit, timezone){
   }
 }
 
+#' @importFrom glue glue
 #' @export
 `print.arrow::DataType` <- function(x, ...){
-  cat( "<arrow::DataType>\n")
+  cat( glue( "DataType({s})", s = DataType_ToString(x)))
+  invisible(x)
+}
+
+#' @export
+`print.arrow::StructType` <- function(x, ...){
+  cat( glue( "StructType({s})", s = DataType_ToString(x)))
   invisible(x)
 }

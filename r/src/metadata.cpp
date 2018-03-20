@@ -178,13 +178,19 @@ SEXP list_( SEXP x ){
 xptr_DataType struct_( ListOf<xptr_Field> fields ){
 
   int n = fields.size() ;
-  std::vector<std::shared_ptr<arrow::Field>> vec_fields(n) ;
+  std::vector<std::shared_ptr<arrow::Field>> vec_fields ;
   for(int i=0; i<n; i++){
-    vec_fields.push_back( std::shared_ptr<arrow::Field>(*fields[i])) ;
+    vec_fields.emplace_back( *fields[i] ) ;
   }
-  return metadata(
-    arrow::struct_(vec_fields),
-    "arrow::StructType", "arrow::NestedType", "arrow::DataType"
-  ) ;
+
+  std::shared_ptr<arrow::DataType> s( arrow::struct_(vec_fields) ) ;
+  return metadata(s, "arrow::StructType", "arrow::NestedType", "arrow::DataType") ;
 
 }
+
+// [[Rcpp::export]]
+std::string DataType_ToString( xptr_DataType type){
+  std::shared_ptr<arrow::DataType> ptr(*type) ;
+  return ptr->ToString() ;
+}
+

@@ -128,3 +128,7 @@ struct_ <- function(fields) {
     .Call(`_rrrow_struct_`, fields)
 }
 
+DataType_ToString <- function(type) {
+    .Call(`_rrrow_DataType_ToString`, type)
+}
+
