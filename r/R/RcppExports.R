@@ -73,3 +73,7 @@ decimal_type <- function(precision, scale) {
     .Call(`_rrrow_decimal_type`, precision, scale)
 }
 
+fixed_size_binary <- function(byte_width) {
+    .Call(`_rrrow_fixed_size_binary`, byte_width)
+}
+

@@ -188,6 +188,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fixed_size_binary
+xptr_DataType fixed_size_binary(int32_t byte_width);
+RcppExport SEXP _rrrow_fixed_size_binary(SEXP byte_widthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int32_t >::type byte_width(byte_widthSEXP);
+    rcpp_result_gen = Rcpp::wrap(fixed_size_binary(byte_width));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_bla", (DL_FUNC) &_rrrow_bla, 0},
@@ -208,6 +219,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_date64", (DL_FUNC) &_rrrow_date64, 0},
     {"_rrrow_null", (DL_FUNC) &_rrrow_null, 0},
     {"_rrrow_decimal_type", (DL_FUNC) &_rrrow_decimal_type, 2},
+    {"_rrrow_fixed_size_binary", (DL_FUNC) &_rrrow_fixed_size_binary, 1},
     {NULL, NULL, 0}
 };
 
