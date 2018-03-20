@@ -25,3 +25,9 @@ timestamp <- function(unit, timezone){
   cat( glue( "ListType({s})", s = DataType_ToString(x)))
   invisible(x)
 }
+
+#' @export
+`print.arrow::Schema` <- function(x, ...){
+  cat( glue( "{s}", s = Schema_ToString(x)))
+  invisible(x)
+}

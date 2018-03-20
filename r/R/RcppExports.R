@@ -132,3 +132,11 @@ DataType_ToString <- function(type) {
     .Call(`_rrrow_DataType_ToString`, type)
 }
 
+schema_ <- function(fields) {
+    .Call(`_rrrow_schema_`, fields)
+}
+
+Schema_ToString <- function(type) {
+    .Call(`_rrrow_Schema_ToString`, type)
+}
+
