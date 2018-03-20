@@ -345,7 +345,7 @@ class ARROW_EXPORT BufferBuilder {
 template <typename T>
 class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool) : BufferBuilder(pool) {}
+  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) : BufferBuilder(pool) {}
 
   Status Append(T arithmetic_value) {
     static_assert(std::is_arithmetic<T>::value,
@@ -374,6 +374,9 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
                                 num_elements * sizeof(T));
   }
 
+  /// Same as FinishSlice but uses typed item counts as offsets and length,
+  /// i.e. with TypedBufferBuilder<uint32_t> offset of 4 means that the
+  /// offset is 12 bytese or 4 uints
   Status FinishSliceByItem(std::shared_ptr<Buffer>* out, const int64_t offset,
                            const int64_t length, const bool reset = true) {
     // Do not shrink to fit to avoid unneeded realloc
