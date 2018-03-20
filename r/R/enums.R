@@ -1,12 +1,9 @@
-TimeUnit <- structure(
-  list( SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L),
-  class = c( "arrow::TimeUnit::type", "arrow-enum" )
-)
-
+#' @export
 `$.arrow-enum` <- function(x, y){
   structure( unclass(x)[[y]], class = class(x) )
 }
 
+#' @export
 `print.arrow-enum` <- function(x, ...){
   NextMethod()
 }

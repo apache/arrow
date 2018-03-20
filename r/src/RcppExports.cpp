@@ -199,6 +199,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// timestamp1
+xptr_DataType timestamp1(arrow::TimeUnit::type unit);
+RcppExport SEXP _rrrow_timestamp1(SEXP unitSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
+    rcpp_result_gen = Rcpp::wrap(timestamp1(unit));
+    return rcpp_result_gen;
+END_RCPP
+}
+// timestamp2
+xptr_DataType timestamp2(arrow::TimeUnit::type unit, const std::string& timezone);
+RcppExport SEXP _rrrow_timestamp2(SEXP unitSEXP, SEXP timezoneSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::TimeUnit::type >::type unit(unitSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type timezone(timezoneSEXP);
+    rcpp_result_gen = Rcpp::wrap(timestamp2(unit, timezone));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_bla", (DL_FUNC) &_rrrow_bla, 0},
@@ -220,6 +243,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rrrow_null", (DL_FUNC) &_rrrow_null, 0},
     {"_rrrow_decimal_type", (DL_FUNC) &_rrrow_decimal_type, 2},
     {"_rrrow_fixed_size_binary", (DL_FUNC) &_rrrow_fixed_size_binary, 1},
+    {"_rrrow_timestamp1", (DL_FUNC) &_rrrow_timestamp1, 1},
+    {"_rrrow_timestamp2", (DL_FUNC) &_rrrow_timestamp2, 2},
     {NULL, NULL, 0}
 };
 
