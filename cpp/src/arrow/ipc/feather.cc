@@ -602,9 +602,10 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       }
 
       if (prim_values.values()) {
-        if (prim_values.offset() != 0 && (fw_type.bit_width() % 8 != 0))
+        if (prim_values.offset() != 0 && (fw_type.bit_width() % 8 != 0)) {
           return arrow::Status::Invalid(
-              "Buffer offset only allowed for table with byte sized fada");
+              "Buffer offset only allowed for table with byte sized data");
+        }
         values_buffer = prim_values.values()->data() +
                         (prim_values.offset() * fw_type.bit_width() / 8);
       }
