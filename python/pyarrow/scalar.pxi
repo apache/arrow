@@ -74,11 +74,7 @@ cdef class ArrayValue(Scalar):
                 "Cannot compare Arrow values that don't support as_py()")
 
     def __hash__(self):
-        if isinstance(self.as_py(), int):
             return hash(self.as_py())
-        else:
-            raise NotImplementedError(
-                "Cannot hash non int Arrow scalar values.")
 
 cdef class BooleanValue(ArrayValue):
 

@@ -174,34 +174,32 @@ class TestScalars(unittest.TestCase):
 
     def test_int_hash(self):
         # ARROW-640
-        arr = pa.array([1, 1, 2, 1])
-        arr2 = pa.array([1, 1, 2, 1])
-        assert arr[0].__hash__() == arr2[0].__hash__()
+        int_arr = pa.array([1, 1, 2, 1])
+        assert hash(int_arr[0]) == hash(1)
 
-    def test_int_eq(self):
+    def test_float_hash(self):
         # ARROW-640
-        arr = pa.array([1, 1, 2, 1])
-        arr2 = pa.array([1, 1, 2, 1])
-        assert arr[2] == arr2[2]
+        float_arr = pa.array([1.4, 1.2, 2.5, 1.8])
+        assert hash(float_arr[0]) == hash(1.4)
 
-    def test_int_array_to_set(self):
+    def test_string_hash(self):
+        # ARROW-640
+        str_arr = pa.array(["foo", "bar"])
+        assert hash(str_arr[1]) == hash("bar")
+
+    def test_bytes_hash(self):
+        # ARROW-640
+        byte_arr = pa.array([b'foo', None, b'bar'])
+        assert hash(byte_arr[2]) == hash(b"bar")
+
+    def test_array_to_set(self):
         # ARROW-640
         arr = pa.array([1, 1, 2, 1])
         set_from_array = set(arr)
         assert isinstance(set_from_array, set)
-        assert set_from_array == {1, 2}
 
-    def test_non_int_hash_fails(self):
+    def test_array_to_set_unique(self):
         # ARROW-640
-        strarr = pa.array(["foo", "bar"])
-        floatarr = pa.array([1.2, 3.3])
-        bytearr = pa.array([b'foo', None, b'bar'])
-
-        with pytest.raises(NotImplementedError):
-            strarr[0].__hash__()
-
-        with pytest.raises(NotImplementedError):
-            floatarr[0].__hash__()
-
-        with pytest.raises(NotImplementedError):
-            bytearr[0].__hash__()
+        arr = pa.array([1, 1, 2, 1])
+        set_from_array = set(arr)
+        assert set_from_array == {1, 2}
