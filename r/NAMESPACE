@@ -3,6 +3,7 @@
 S3method("$","arrow-enum")
 S3method(print,"arrow-enum")
 S3method(print,"arrow::DataType")
+S3method(print,"arrow::ListType")
 S3method(print,"arrow::StructType")
 export(boolean)
 export(date32)

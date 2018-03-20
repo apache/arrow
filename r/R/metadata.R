@@ -19,3 +19,9 @@ timestamp <- function(unit, timezone){
   cat( glue( "StructType({s})", s = DataType_ToString(x)))
   invisible(x)
 }
+
+#' @export
+`print.arrow::ListType` <- function(x, ...){
+  cat( glue( "ListType({s})", s = DataType_ToString(x)))
+  invisible(x)
+}
