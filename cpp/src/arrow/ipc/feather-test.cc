@@ -408,8 +408,8 @@ TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
 
 TEST_F(TestTableWriter, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntBatchSized(30, &batch));
-  batch = batch->Slice(10, 10);
+  ASSERT_OK(MakeIntBatchSized(300, &batch));
+  batch = batch->Slice(100, 100);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
   ASSERT_OK(writer_->Append("f1", *batch->column(1)));
@@ -428,7 +428,7 @@ TEST_F(TestTableWriter, SliceRoundTrip) {
 TEST_F(TestTableWriter, SliceStringsRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeStringTypesRecordBatch(&batch));
-  batch = batch->Slice(3, 3);
+  batch = batch->Slice(300, 30);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
   ASSERT_OK(writer_->Append("f1", *batch->column(1)));

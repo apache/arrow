@@ -579,10 +579,9 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
         values_bytes = bin_values.raw_value_offsets()[values.length()];
 
         // Write the variable-length offsets
-        RETURN_NOT_OK(
-            WritePadded(stream_.get(),
-                        reinterpret_cast<const uint8_t*>(bin_values.raw_value_offsets()),
-                        offset_bytes, &bytes_written));
+        RETURN_NOT_OK(WritePadded(stream_.get(), reinterpret_cast<const uint8_t*>(
+                                                     bin_values.raw_value_offsets()),
+                                  offset_bytes, &bytes_written));
       } else {
         RETURN_NOT_OK(WritePaddedBlank(stream_.get(), offset_bytes, &bytes_written));
       }
@@ -603,9 +602,11 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       }
 
       if (prim_values.values()) {
-        if (prim_values.offset() != 0 &&  (fw_type.bit_width() % 8 != 0))
-          return arrow::Status::Invalid("Buffer offset only allowed for table with byte sized fada");
-        values_buffer = prim_values.values()->data() + (prim_values.offset() * fw_type.bit_width()/8);
+        if (prim_values.offset() != 0 && (fw_type.bit_width() % 8 != 0))
+          return arrow::Status::Invalid(
+              "Buffer offset only allowed for table with byte sized fada");
+        values_buffer = prim_values.values()->data() +
+                        (prim_values.offset() * fw_type.bit_width() / 8);
       }
     }
     if (values_buffer) {
