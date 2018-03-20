@@ -113,14 +113,14 @@ class ARROW_EXPORT ArrayBuilder {
   std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
 
   /// \brief Return result of builder as an internal generic ArrayData
-  /// object. Resets builder except for dictionary builder
+  /// object.
   ///
   /// \param[out] out the finalized ArrayData object
   /// \return Status
   virtual Status FinishInternal(std::shared_ptr<ArrayData>* out) = 0;
 
   /// \brief Return result of builder as an Array object.
-  ///        Resets the builder except for DictionaryBuilder
+  ///        Resets the builder.
   ///
   /// \param[out] out the finalized Array object
   /// \return Status
