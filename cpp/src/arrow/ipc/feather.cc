@@ -554,6 +554,9 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
     // Write the null bitmask
     if (values.null_count() > 0) {
+      if (values.offset() > 0) {
+        return Status::NotImplemented("Cannot write a slice with nulls to feather.");
+      }
       // We assume there is one bit for each value in values.nulls, aligned on a
       // byte boundary, and we write this much data into the stream
       int64_t null_bitmap_size = GetOutputLength(BitUtil::BytesForBits(values.length()));
