@@ -194,6 +194,9 @@ def test_array_from_buffers():
     assert arr.type == pa.int16()
     assert arr.to_pylist() == [None, 6, 7]
 
+    with pytest.raises(TypeError):
+        pa.Array.from_buffers(pa.int16(), 3, [u'', u''], offset=1)
+
 
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)

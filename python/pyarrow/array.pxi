@@ -401,7 +401,8 @@ cdef class Array:
             shared_ptr[CArrayData] ad
 
         for buf in buffers:
-            c_buffers.push_back(buf.buffer)
+            # None will produce a null buffer pointer
+            c_buffers.push_back(pyarrow_unwrap_buffer(buf))
         ad = CArrayData.Make(type.sp_type, length, c_buffers,
                              null_count, offset)
         return pyarrow_wrap_array(MakeArray(ad))
