@@ -56,6 +56,8 @@ matrix:
     - CC="clang-5.0"
     - CXX="clang++-5.0"
     before_script:
+    # Always run RAT checks, in case another build in matrix breaks RAT
+    - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
     # (ARROW_CI_CPP_AFFECTED implies ARROW_CI_PYTHON_AFFECTED)
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh

@@ -19,10 +19,6 @@
 
 set -e
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
-pushd $CPP_BUILD_DIR
-
-ctest -VV -L unittest
-
-popd
+# Check licenses according to Apache policy
+git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar.gz
+./dev/release/run-rat.sh arrow-src.tar.gz

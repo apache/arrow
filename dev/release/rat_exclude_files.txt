@@ -39,6 +39,11 @@ cpp/src/plasma/thirdparty/dlmalloc.c
 cpp/src/plasma/thirdparty/xxhash.cc
 cpp/src/plasma/thirdparty/xxhash.h
 dev/release/rat_exclude_files.txt
+go/arrow/Gopkg.lock
+go/arrow/internal/cpu/*
+go/arrow/type_string.go
+go/*.tmpldata
+go/*.s
 js/.npmignore
 js/closure-compiler-scripts/*
 python/cmake_modules
