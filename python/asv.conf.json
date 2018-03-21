@@ -35,6 +35,10 @@
     // of the repository.
     "repo_subdir": "python",
 
+    "build_command": ["/bin/bash", "asv-build.sh"],
+    "install_command": ["/bin/bash", "asv-install.sh"],
+    "uninstall_command": ["/bin/bash", "asv-uninstall.sh"],
+
     // List of branches to benchmark. If not provided, defaults to "master"
     // (for git) or "default" (for mercurial).
     // "branches": ["master"], // for git
@@ -78,11 +82,19 @@
     // },
     "matrix": {
         "boost-cpp": [],
+        "brotli": [],
         "cmake": [],
         "cython": [],
+        "flatbuffers": [],
+        "libprotobuf": [],
+        "lz4-c": [],
+        "ninja": [],
         "numpy": ["1.14"],
         "pandas": ["0.22"],
         "pip+setuptools_scm": [],
+        "rapidjson": [],
+        "snappy": [],
+        "zstd": [],
     },
 
     // Combinations of libraries/python versions can be excluded/included
