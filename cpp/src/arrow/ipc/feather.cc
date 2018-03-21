@@ -47,6 +47,24 @@ namespace feather {
 
 static const uint8_t kPaddingBytes[kFeatherDefaultAlignment] = {0};
 
+static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
+                                        const std::shared_ptr<Buffer> input,
+                                        MemoryPool* pool,
+                                        std::shared_ptr<Buffer>* buffer) {
+  if (!input) {
+    *buffer = input;
+    return Status::OK();
+  }
+  int64_t min_length = PaddedLength(BitUtil::BytesForBits(length));
+  if (offset != 0 || min_length < input->size()) {
+    // With a sliced array / non-zero offset, we must copy the bitmap
+    RETURN_NOT_OK(CopyBitmap(pool, input->data(), offset, length, buffer));
+  } else {
+    *buffer = input;
+  }
+  return Status::OK();
+}
+
 static inline int64_t PaddedLength(int64_t nbytes) {
   static const int64_t alignment = kFeatherDefaultAlignment;
   return ((nbytes + alignment - 1) / alignment) * alignment;
@@ -500,7 +518,8 @@ static Status SanitizeUnsupportedTypes(const Array& values, std::shared_ptr<Arra
 
 class TableWriter::TableWriterImpl : public ArrayVisitor {
  public:
-  TableWriterImpl() : initialized_stream_(false), metadata_(0) {}
+  TableWriterImpl(MemoryPool* pool)
+      : initialized_stream_(false), metadata_(0), pool_(pool) {}
 
   Status Open(const std::shared_ptr<io::OutputStream>& stream) {
     stream_ = stream;
@@ -554,15 +573,22 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
     // Write the null bitmask
     if (values.null_count() > 0) {
-      if (values.offset() > 0) {
-        return Status::NotImplemented("Cannot write a slice with nulls to feather.");
-      }
       // We assume there is one bit for each value in values.nulls, aligned on a
       // byte boundary, and we write this much data into the stream
       int64_t null_bitmap_size = GetOutputLength(BitUtil::BytesForBits(values.length()));
       if (values.null_bitmap()) {
-        RETURN_NOT_OK(WritePadded(stream_.get(), values.null_bitmap()->data(),
-                                  null_bitmap_size, &bytes_written));
+        auto null_bitmap = values.null_bitmap();
+        if (values.offset() > 0) {
+          if (not pool_) {
+            return Status::Invalid(
+                "Require memory pol to write array slice (i.e. offset > 0) with nulls.");
+          }
+          RETURN_NOT_OK(GetTruncatedBitmap(values.offset(), values.length(), null_bitmap,
+                                           pool_, &null_bitmap));
+        }
+
+        RETURN_NOT_OK(WritePadded(stream_.get(), null_bitmap->data(), null_bitmap_size,
+                                  &bytes_written));
       } else {
         RETURN_NOT_OK(WritePaddedBlank(stream_.get(), null_bitmap_size, &bytes_written));
       }
@@ -722,19 +748,20 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
   bool initialized_stream_;
   TableBuilder metadata_;
+  MemoryPool* pool_;
 
   std::unique_ptr<ColumnBuilder> current_column_;
 
   Status AppendPrimitive(const PrimitiveArray& values, ArrayMetadata* out);
 };
 
-TableWriter::TableWriter() { impl_.reset(new TableWriterImpl()); }
+TableWriter::TableWriter(MemoryPool* pool) { impl_.reset(new TableWriterImpl(pool)); }
 
 TableWriter::~TableWriter() {}
 
 Status TableWriter::Open(const std::shared_ptr<io::OutputStream>& stream,
-                         std::unique_ptr<TableWriter>* out) {
-  out->reset(new TableWriter());
+                         std::unique_ptr<TableWriter>* out, MemoryPool* pool) {
+  out->reset(new TableWriter(pool));
   return (*out)->impl_->Open(stream);
 }
 

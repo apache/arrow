@@ -21,6 +21,7 @@
 #ifndef ARROW_IPC_FEATHER_H
 #define ARROW_IPC_FEATHER_H
 
+#include <arrow/memory_pool.h>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -107,7 +108,7 @@ class ARROW_EXPORT TableWriter {
   /// \param[out] out the returned table writer
   /// \return Status
   static Status Open(const std::shared_ptr<io::OutputStream>& stream,
-                     std::unique_ptr<TableWriter>* out);
+                     std::unique_ptr<TableWriter>* out, MemoryPool* pool = nullptr);
 
   /// \brief Set the description field in the file metadata
   void SetDescription(const std::string& desc);
@@ -127,7 +128,7 @@ class ARROW_EXPORT TableWriter {
   Status Finalize();
 
  private:
-  TableWriter();
+  TableWriter(MemoryPool* pool);
   class ARROW_NO_EXPORT TableWriterImpl;
   std::unique_ptr<TableWriterImpl> impl_;
 };
