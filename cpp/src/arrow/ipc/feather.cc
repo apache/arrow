@@ -518,7 +518,7 @@ static Status SanitizeUnsupportedTypes(const Array& values, std::shared_ptr<Arra
 
 class TableWriter::TableWriterImpl : public ArrayVisitor {
  public:
-  TableWriterImpl(MemoryPool* pool)
+  explicit TableWriterImpl(MemoryPool* pool)
       : initialized_stream_(false), metadata_(0), pool_(pool) {}
 
   Status Open(const std::shared_ptr<io::OutputStream>& stream) {
@@ -579,7 +579,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       if (values.null_bitmap()) {
         auto null_bitmap = values.null_bitmap();
         if (values.offset() > 0) {
-          if (not pool_) {
+          if (!pool_) {
             return Status::Invalid(
                 "Require memory pol to write array slice (i.e. offset > 0) with nulls.");
           }
