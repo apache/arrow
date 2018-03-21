@@ -22,7 +22,6 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
-#include <valarray>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -70,14 +69,14 @@ void BitmapFromVector(const std::vector<int>& values, int64_t bit_offset,
     ASSERT_TRUE(reader.IsSet());     \
     ASSERT_FALSE(reader.IsNotSet()); \
     reader.Next();                   \
-  } while (0)
+  } while (false)
 
 #define ASSERT_READER_NOT_SET(reader) \
   do {                                \
     ASSERT_FALSE(reader.IsSet());     \
     ASSERT_TRUE(reader.IsNotSet());   \
     reader.Next();                    \
-  } while (0)
+  } while (false)
 
 // Assert that a BitmapReader yields the given bit values
 void ASSERT_READER_VALUES(internal::BitmapReader& reader, std::vector<int> values) {
@@ -92,8 +91,7 @@ void ASSERT_READER_VALUES(internal::BitmapReader& reader, std::vector<int> value
 
 // Assert equal contents of a memory area and a vector of bytes
 void ASSERT_BYTES_EQ(const uint8_t* left, const std::vector<uint8_t>& right) {
-  // No direct conversion from (T*, size) to vector<T>
-  auto left_array = std::valarray<uint8_t>(left, right.size());
+  auto left_array = std::vector<uint8_t>(left, left + right.size());
   ASSERT_EQ(std::vector<uint8_t>(std::begin(left_array), std::end(left_array)), right);
 }
 

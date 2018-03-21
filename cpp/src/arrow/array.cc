@@ -380,12 +380,15 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
     std::shared_ptr<Buffer> flattened_null_bitmap;
     int64_t flattened_null_count = kUnknownNullCount;
 
+    // Need to adjust for parent offset
     if (data_->offset != 0 || data_->length != child_data->length) {
       child_data = SliceData(*child_data, data_->offset, data_->length);
     }
     std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
     const int64_t child_offset = child_data->offset;
 
+    // The validity of a flattened datum is the logical AND of the struct
+    // element's validity and the individual field element's validity.
     if (null_bitmap && child_null_bitmap) {
       RETURN_NOT_OK(BitmapAnd(pool, child_null_bitmap->data(), child_offset,
                               null_bitmap_data_, data_->offset, data_->length,
