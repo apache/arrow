@@ -22,12 +22,14 @@
 #include <string>
 #include <vector>
 
+#include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
+#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/api.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/test-common.h"
@@ -244,6 +246,57 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
 
   ASSERT_EQ(MetadataVersion::V4, message->metadata_version());
+}
+
+TEST_F(TestIpcRoundTrip, WriteMetadataUnaligned) {
+  ASSERT_OK(
+      io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata-unaligned", &mmap_));
+  ASSERT_OK(mmap_->Seek(3));
+
+  std::string metadata = "some metadata";
+
+  // 17 bytes + 7 bytes padding
+  const int64_t padded_metadata_size = 24;
+
+  auto metadata_buf = std::make_shared<Buffer>(metadata);
+
+  int32_t out_metadata_size = 0;
+  ASSERT_OK(internal::WriteMessage(*metadata_buf, mmap_.get(), &out_metadata_size));
+  ASSERT_EQ(padded_metadata_size, out_metadata_size);
+
+  int64_t stream_position = 0;
+  ASSERT_OK(mmap_->Tell(&stream_position));
+  ASSERT_EQ(32, stream_position);
+
+  // Write Message object
+  flatbuffers::FlatBufferBuilder fbb;
+
+  const int64_t fake_body_size = 27;
+  auto message =
+      flatbuf::CreateMessage(fbb, internal::kCurrentMetadataVersion,
+                             flatbuf::MessageHeader_RecordBatch, 0, fake_body_size);
+  fbb.Finish(message);
+
+  auto fb = std::make_shared<Buffer>(fbb.GetBufferPointer(), fbb.GetSize());
+
+  ASSERT_OK(mmap_->Seek(3));
+  Message msg(fb, nullptr);
+
+  int64_t out_length = 0;
+  int64_t message_size = BitUtil::RoundUpToMultipleOf8(fb->size() + 4);
+  ASSERT_OK(msg.SerializeTo(mmap_.get(), &out_length));
+  ASSERT_EQ(message_size, out_length);
+
+  // Read back
+  std::unique_ptr<Message> result;
+  ASSERT_OK(mmap_->Seek(3));
+  ASSERT_OK(ReadMessage(mmap_.get(), &result));
+  ASSERT_OK(mmap_->Tell(&stream_position));
+  ASSERT_EQ(message_size + 8 + fake_body_size, stream_position);
+
+  const Buffer& result_meta = *result->metadata();
+  const Buffer& expected_meta = *fb;
+  ASSERT_TRUE(result_meta.Equals(expected_meta, expected_meta.size()));
 }
 
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {

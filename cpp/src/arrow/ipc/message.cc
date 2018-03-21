@@ -28,6 +28,7 @@
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -208,6 +209,8 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
 }
 
 Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
+  RETURN_NOT_OK(internal::AlignInputStream(file));
+
   int32_t message_length = 0;
   int64_t bytes_read = 0;
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,

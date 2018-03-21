@@ -15,42 +15,48 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IPC_UTIL_H
-#define ARROW_IPC_UTIL_H
+#include "arrow/ipc/util.h"
 
 #include <cstdint>
 
-#include "arrow/array.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 
 namespace arrow {
 namespace ipc {
-
-// Buffers are padded to 64-byte boundaries (for SIMD)
-static constexpr int kArrowAlignment = 64;
-
-// Align on 8-byte boundaries in IPC
-static constexpr int kArrowIpcAlignment = 8;
-
-static constexpr uint8_t kPaddingBytes[kArrowAlignment] = {0};
-
-static inline int64_t PaddedLength(int64_t nbytes, int64_t alignment = kArrowAlignment) {
-  return ((nbytes + alignment - 1) / alignment) * alignment;
-}
-
 namespace internal {
 
 // Adds padding bytes if necessary to ensure all memory blocks are written on
 // 8-byte boundaries.
-Status AlignOutputStream(io::OutputStream* stream,
-                         int64_t alignment = kArrowIpcAlignment);
+Status AlignOutputStream(io::OutputStream* stream, int64_t alignment) {
+  int64_t position;
+  RETURN_NOT_OK(stream->Tell(&position));
+  int64_t remainder = PaddedLength(position, alignment) - position;
+  if (remainder > 0) {
+    return stream->Write(kPaddingBytes, remainder);
+  }
+  return Status::OK();
+}
 
-Status AlignInputStream(io::InputStream* stream, int64_t alignment = kArrowIpcAlignment);
+Status AlignInputStream(io::InputStream* stream, int64_t alignment) {
+  int64_t position;
+  RETURN_NOT_OK(stream->Tell(&position));
+  int64_t remainder = PaddedLength(position, alignment) - position;
+
+  static uint8_t kScratchBuffer[8] = {0};
+  if (remainder > 0) {
+    int64_t bytes_read = 0;
+    RETURN_NOT_OK(stream->Read(remainder, &bytes_read, kScratchBuffer));
+
+    // If we are not at EOS, ensure we can read the exact number of bytes to
+    // next 8-byte offset
+    if (bytes_read > 0 && bytes_read != remainder) {
+      return Status::IOError("Unable to align InputStream");
+    }
+  }
+  return Status::OK();
+}
 
 }  // namespace internal
-
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_UTIL_H

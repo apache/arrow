@@ -48,6 +48,28 @@ class OutputStream;
 
 namespace ipc {
 
+/// \class PreparedMessage
+/// \brief An encapsulated IPC message ready to be written to some OutputStream
+///
+/// This data structure allows us to prepare a message once (e.g. by traversing
+/// a RecordBatch) and write it later. This can be helpful if you need to
+/// compute the total size of a message before beginning to write it.
+struct ARROW_EXPORT PreparedMessage {
+  std::shared_ptr<Buffer> metadata;
+
+  // One or more buffers to be written end-to-end to form the message body,
+  // including any padding to 8-byte offsets
+  std::vector<std::shared_ptr<Buffer>> body_buffers;
+
+  // Body length to be populated by the producer of this message
+  int64_t total_body_length;
+
+  int64_t GetTotalSize() const;
+
+  Status WriteTo(io::OutputStream* stream, int32_t* out_metadata_length,
+                 int64_t* out_body_length) const;
+};
+
 /// \class RecordBatchWriter
 /// \brief Abstract interface for writing a stream of record batches
 class ARROW_EXPORT RecordBatchWriter {
@@ -187,6 +209,21 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         int max_recursion_depth = kMaxNestingDepth,
                         bool allow_64bit = false);
 
+/// \brief Created a PreparedMessage from a RecordBatch, which can later be
+/// written to an OutputStream
+ARROW_EXPORT
+Status PrepareRecordBatchMessage(const RecordBatch& batch, MemoryPool* pool,
+                                 PreparedMessage* message,
+                                 int max_recursion_depth = kMaxNestingDepth);
+
+/// \brief Created a PreparedMessage from an array representing a
+/// DictionaryBatch, which can later be written to an OutputStream
+ARROW_EXPORT
+Status PrepareDictionaryMessage(int64_t dictionary_id,
+                                const std::shared_ptr<Array>& dictionary,
+                                MemoryPool* pool, PreparedMessage* message,
+                                int max_recursion_depth = kMaxNestingDepth);
+
 /// \brief Serialize record batch as encapsulated IPC message in a new buffer
 ///
 /// \param[in] batch the record batch
@@ -268,6 +305,11 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
+
+/// \brief Create a PreparedMessage from a Tensor, which can later be
+/// written to an OutputStream
+ARROW_EXPORT
+Status PrepareTensorMessage(const Tensor& tensor, MemoryPool* pool, PreparedMessage* out);
 
 }  // namespace ipc
 }  // namespace arrow

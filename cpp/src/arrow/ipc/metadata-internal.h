@@ -96,6 +96,8 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names);
 
+int64_t GetSerializedMetadataSize(int64_t flatbuffer_size);
+
 /// Write a serialized message metadata with a length-prefix and padding to an
 /// 8-byte offset
 ///

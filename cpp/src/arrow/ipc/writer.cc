@@ -47,6 +47,58 @@ using internal::FileBlock;
 using internal::kArrowMagicBytes;
 
 // ----------------------------------------------------------------------
+// Writing a generic IPC message
+
+int64_t PreparedMessage::GetTotalSize() const {
+  int64_t metadata_size = internal::GetSerializedMetadataSize(this->metadata->size());
+  return metadata_size + this->total_body_length;
+}
+
+Status PreparedMessage::WriteTo(io::OutputStream* dst, int32_t* out_metadata_length,
+                                int64_t* out_body_length) const {
+  RETURN_NOT_OK(internal::WriteMessage(*this->metadata, dst, out_metadata_length));
+
+#ifndef NDEBUG
+  int64_t current_position = -1;
+  RETURN_NOT_OK(dst->Tell(&current_position));
+  DCHECK(BitUtil::IsMultipleOf8(current_position));
+#endif
+
+  // Now write the buffers
+  int64_t body_length = 0;
+  for (size_t i = 0; i < this->body_buffers.size(); ++i) {
+    const Buffer* buffer = this->body_buffers[i].get();
+    int64_t size = 0;
+    int64_t padding = 0;
+
+    // The buffer might be null if we are handling zero row lengths.
+    if (buffer) {
+      size = buffer->size();
+      padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+    }
+
+    if (size > 0) {
+      RETURN_NOT_OK(dst->Write(buffer->data(), size));
+      body_length += size;
+    }
+
+    if (padding > 0) {
+      RETURN_NOT_OK(dst->Write(kPaddingBytes, padding));
+      body_length += padding;
+    }
+  }
+
+#ifndef NDEBUG
+  RETURN_NOT_OK(dst->Tell(&current_position));
+  DCHECK(BitUtil::IsMultipleOf8(current_position));
+#endif
+
+  *out_body_length = body_length;
+
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
 // Record batch write path
 
 static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
@@ -124,20 +176,27 @@ class RecordBatchSerializer : public ArrayVisitor {
       std::shared_ptr<Buffer> bitmap;
       RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
                                        pool_, &bitmap));
-      buffers_.push_back(bitmap);
+      buffers_.emplace_back(std::move(bitmap));
     } else {
+      static const std::shared_ptr<Buffer> kNullBuffer =
+          std::make_shared<Buffer>(nullptr, 0);
       // Push a dummy zero-length buffer, not to be copied
-      buffers_.push_back(std::make_shared<Buffer>(nullptr, 0));
+      buffers_.push_back(kNullBuffer);
     }
     return arr.Accept(this);
   }
 
-  Status Assemble(const RecordBatch& batch, int64_t* body_length) {
-    if (field_nodes_.size() > 0) {
-      field_nodes_.clear();
-      buffer_meta_.clear();
-      buffers_.clear();
-    }
+  // Override this for writing dictionary metadata
+  virtual Status WriteMetadataMessage(int64_t num_rows, int64_t body_length,
+                                      std::shared_ptr<Buffer>* out) {
+    return WriteRecordBatchMessage(num_rows, body_length, field_nodes_, buffer_meta_,
+                                   out);
+  }
+
+  Status Prepare(const RecordBatch& batch, PreparedMessage* out) {
+    field_nodes_.clear();
+    buffer_meta_.clear();
+    buffers_.clear();
 
     // Perform depth-first traversal of the row-batch
     for (int i = 0; i < batch.num_columns(); ++i) {
@@ -166,67 +225,18 @@ class RecordBatchSerializer : public ArrayVisitor {
       offset += size + padding;
     }
 
-    *body_length = offset - buffer_start_offset_;
-    DCHECK(BitUtil::IsMultipleOf8(*body_length));
+    int64_t body_length = offset - buffer_start_offset_;
+    DCHECK(BitUtil::IsMultipleOf8(body_length));
 
-    return Status::OK();
-  }
-
-  // Override this for writing dictionary metadata
-  virtual Status WriteMetadataMessage(int64_t num_rows, int64_t body_length,
-                                      std::shared_ptr<Buffer>* out) {
-    return WriteRecordBatchMessage(num_rows, body_length, field_nodes_, buffer_meta_,
-                                   out);
-  }
-
-  Status Write(const RecordBatch& batch, io::OutputStream* dst, int32_t* metadata_length,
-               int64_t* body_length) {
-    RETURN_NOT_OK(Assemble(batch, body_length));
-
-#ifndef NDEBUG
-    int64_t start_position, current_position;
-    RETURN_NOT_OK(dst->Tell(&start_position));
-#endif
-
-    // Now that we have computed the locations of all of the buffers in shared
-    // memory, the data header can be converted to a flatbuffer and written out
+    // Now that we have computed the locations of all of the buffers in the
+    // body, the data header can be converted to a flatbuffer and written out
     //
     // Note: The memory written here is prefixed by the size of the flatbuffer
     // itself as an int32_t.
-    std::shared_ptr<Buffer> metadata_fb;
-    RETURN_NOT_OK(WriteMetadataMessage(batch.num_rows(), *body_length, &metadata_fb));
-    RETURN_NOT_OK(internal::WriteMessage(*metadata_fb, dst, metadata_length));
+    RETURN_NOT_OK(WriteMetadataMessage(batch.num_rows(), body_length, &out->metadata));
 
-#ifndef NDEBUG
-    RETURN_NOT_OK(dst->Tell(&current_position));
-    DCHECK(BitUtil::IsMultipleOf8(current_position));
-#endif
-
-    // Now write the buffers
-    for (size_t i = 0; i < buffers_.size(); ++i) {
-      const Buffer* buffer = buffers_[i].get();
-      int64_t size = 0;
-      int64_t padding = 0;
-
-      // The buffer might be null if we are handling zero row lengths.
-      if (buffer) {
-        size = buffer->size();
-        padding = BitUtil::RoundUpToMultipleOf8(size) - size;
-      }
-
-      if (size > 0) {
-        RETURN_NOT_OK(dst->Write(buffer->data(), size));
-      }
-
-      if (padding > 0) {
-        RETURN_NOT_OK(dst->Write(kPaddingBytes, padding));
-      }
-    }
-
-#ifndef NDEBUG
-    RETURN_NOT_OK(dst->Tell(&current_position));
-    DCHECK(BitUtil::IsMultipleOf8(current_position));
-#endif
+    out->body_buffers = std::move(buffers_);
+    out->total_body_length = body_length;
 
     return Status::OK();
   }
@@ -500,14 +510,14 @@ class DictionaryWriter : public RecordBatchSerializer {
                                   buffer_meta_, out);
   }
 
-  Status Write(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-               io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length) {
+  Status Prepare(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+                 PreparedMessage* out) {
     dictionary_id_ = dictionary_id;
 
     // Make a dummy record batch. A bit tedious as we have to make a schema
     auto schema = arrow::schema({arrow::field("dictionary", dictionary->type())});
     auto batch = RecordBatch::Make(schema, dictionary->length(), {dictionary});
-    return RecordBatchSerializer::Write(*batch, dst, metadata_length, body_length);
+    return RecordBatchSerializer::Prepare(*batch, out);
   }
 
  private:
@@ -515,25 +525,45 @@ class DictionaryWriter : public RecordBatchSerializer {
   int64_t dictionary_id_;
 };
 
-// Adds padding bytes if necessary to ensure all memory blocks are written on
-// 64-byte boundaries.
-Status AlignStreamPosition(io::OutputStream* stream) {
-  int64_t position;
-  RETURN_NOT_OK(stream->Tell(&position));
-  int64_t remainder = PaddedLength(position) - position;
-  if (remainder > 0) {
-    return stream->Write(kPaddingBytes, remainder);
-  }
-  return Status::OK();
-}
-
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
                         int64_t* body_length, MemoryPool* pool, int max_recursion_depth,
                         bool allow_64bit) {
+  PreparedMessage message;
   RecordBatchSerializer writer(pool, buffer_start_offset, max_recursion_depth,
                                allow_64bit);
-  return writer.Write(batch, dst, metadata_length, body_length);
+  RETURN_NOT_OK(writer.Prepare(batch, &message));
+  return message.WriteTo(dst, metadata_length, body_length);
+}
+
+Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
+                       int64_t buffer_start_offset, io::OutputStream* dst,
+                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
+  PreparedMessage message;
+  DictionaryWriter writer(pool, buffer_start_offset, kMaxNestingDepth, false);
+  RETURN_NOT_OK(writer.Prepare(dictionary_id, dictionary, &message));
+  return message.WriteTo(dst, metadata_length, body_length);
+}
+
+Status PrepareRecordBatchMessage(const RecordBatch& batch, MemoryPool* pool,
+                                 PreparedMessage* message, int max_recursion_depth) {
+  RecordBatchSerializer writer(pool, 0, max_recursion_depth, true);
+  return writer.Prepare(batch, message);
+}
+
+Status PrepareDictionaryMessage(int64_t dictionary_id,
+                                const std::shared_ptr<Array>& dictionary,
+                                MemoryPool* pool, PreparedMessage* message,
+                                int max_recursion_depth) {
+  DictionaryWriter writer(pool, 0, kMaxNestingDepth, false);
+  return writer.Prepare(dictionary_id, dictionary, message);
+}
+
+Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
+  PreparedMessage message;
+  RETURN_NOT_OK(PrepareRecordBatchMessage(batch, default_memory_pool(), &message));
+  *size = message.GetTotalSize();
+  return Status::OK();
 }
 
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
@@ -547,13 +577,6 @@ Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& b
   }
   RETURN_NOT_OK(writer->Close());
   return Status::OK();
-}
-
-Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-                             io::OutputStream* dst, int32_t* metadata_length,
-                             int64_t* body_length, MemoryPool* pool) {
-  return WriteRecordBatch(batch, buffer_start_offset, dst, metadata_length, body_length,
-                          pool, kMaxNestingDepth, true);
 }
 
 namespace {
@@ -614,8 +637,6 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length) {
-  RETURN_NOT_OK(AlignStreamPosition(dst));
-
   if (tensor.is_contiguous()) {
     RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length, body_length));
     auto data = tensor.data();
@@ -645,10 +666,10 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
   }
 }
 
-Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
-                        std::unique_ptr<Message>* out) {
-  const Tensor* tensor_to_write = &tensor;
+Status PrepareTensorMessage(const Tensor& tensor, MemoryPool* pool,
+                            PreparedMessage* out) {
   std::unique_ptr<Tensor> temp_tensor;
+  const Tensor* tensor_to_write = &tensor;
 
   if (!tensor.is_contiguous()) {
     RETURN_NOT_OK(GetContiguousTensor(tensor, pool, &temp_tensor));
@@ -656,26 +677,23 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
   }
 
   std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(internal::WriteTensorMessage(*tensor_to_write, 0, &metadata));
-  out->reset(new Message(metadata, tensor_to_write->data()));
+  RETURN_NOT_OK(internal::WriteTensorMessage(*tensor_to_write, 0, &out->metadata));
+  auto data = tensor_to_write->data();
+  out->body_buffers = {data};
+
+  if (data) {
+    out->total_body_length = BitUtil::RoundUpToMultipleOf8(data->size());
+  } else {
+    out->total_body_length = 0;
+  }
   return Status::OK();
 }
 
-Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-                       int64_t buffer_start_offset, io::OutputStream* dst,
-                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
-  DictionaryWriter writer(pool, buffer_start_offset, kMaxNestingDepth, false);
-  return writer.Write(dictionary_id, dictionary, dst, metadata_length, body_length);
-}
-
-Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
-  // emulates the behavior of Write without actually writing
-  int32_t metadata_length = 0;
-  int64_t body_length = 0;
-  io::MockOutputStream dst;
-  RETURN_NOT_OK(WriteRecordBatch(batch, 0, &dst, &metadata_length, &body_length,
-                                 default_memory_pool(), kMaxNestingDepth, true));
-  *size = dst.GetExtentBytesWritten();
+Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
+                        std::unique_ptr<Message>* out) {
+  PreparedMessage tensor_message;
+  RETURN_NOT_OK(PrepareTensorMessage(tensor, pool, &tensor_message));
+  out->reset(new Message(tensor_message.metadata, tensor_message.body_buffers[0]));
   return Status::OK();
 }
 
