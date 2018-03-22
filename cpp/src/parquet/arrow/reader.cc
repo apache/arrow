@@ -443,7 +443,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
 }
 
 Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
-                                   std::shared_ptr<Table>* table) {
+                                   std::shared_ptr<Table>* out) {
   std::shared_ptr<::arrow::Schema> schema;
   RETURN_NOT_OK(GetSchema(indices, &schema));
 
@@ -473,7 +473,9 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
     RETURN_NOT_OK(ParallelFor(nthreads, num_fields, ReadColumnFunc));
   }
 
-  *table = Table::Make(schema, columns);
+  std::shared_ptr<Table> table = Table::Make(schema, columns);
+  RETURN_NOT_OK(table->Validate());
+  *out = table;
   return Status::OK();
 }
 

@@ -165,6 +165,31 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
   CheckFlatSchema(arrow_schema);
 }
 
+TEST_F(TestConvertParquetSchema, DuplicateFieldNames) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("xxx", Repetition::REQUIRED, ParquetType::BOOLEAN));
+  auto arrow_field1 = std::make_shared<Field>("xxx", BOOL, false);
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("xxx", Repetition::REQUIRED, ParquetType::INT32));
+  auto arrow_field2 = std::make_shared<Field>("xxx", INT32, false);
+
+  ASSERT_OK(ConvertSchema(parquet_fields));
+  arrow_fields = {arrow_field1, arrow_field2};
+  CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields));
+
+  ASSERT_OK(ConvertSchema(parquet_fields, std::vector<int>({0, 1})));
+  arrow_fields = {arrow_field1, arrow_field2};
+  CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields));
+
+  ASSERT_OK(ConvertSchema(parquet_fields, std::vector<int>({1, 0})));
+  arrow_fields = {arrow_field2, arrow_field1};
+  CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields));
+}
+
 TEST_F(TestConvertParquetSchema, ParquetKeyValueMetadata) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;

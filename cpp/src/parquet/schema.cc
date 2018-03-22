@@ -273,16 +273,14 @@ int GroupNode::FieldIndex(const std::string& name) const {
 }
 
 int GroupNode::FieldIndex(const Node& node) const {
-  int result = FieldIndex(node.name());
-  if (result < 0) {
-    return -1;
+  auto search = field_name_to_idx_.equal_range(node.name());
+  for (auto it = search.first; it != search.second; ++it) {
+    const int idx = it->second;
+    if (&node == field(idx).get()) {
+      return idx;
+    }
   }
-  DCHECK(result < field_count());
-  if (!node.Equals(field(result).get())) {
-    // Same name but not the same node
-    return -1;
-  }
-  return result;
+  return -1;
 }
 
 void GroupNode::Visit(Node::Visitor* visitor) { visitor->Visit(this); }
@@ -721,16 +719,14 @@ int SchemaDescriptor::ColumnIndex(const std::string& node_path) const {
 }
 
 int SchemaDescriptor::ColumnIndex(const Node& node) const {
-  int result = ColumnIndex(node.path()->ToDotString());
-  if (result < 0) {
-    return -1;
+  auto search = leaf_to_idx_.equal_range(node.path()->ToDotString());
+  for (auto it = search.first; it != search.second; ++it) {
+    const int idx = it->second;
+    if (&node == Column(idx)->schema_node().get()) {
+      return idx;
+    }
   }
-  DCHECK(result < num_columns());
-  if (!node.Equals(Column(result)->schema_node().get())) {
-    // Same path but not the same node
-    return -1;
-  }
-  return result;
+  return -1;
 }
 
 const schema::Node* SchemaDescriptor::GetColumnRoot(int i) const {

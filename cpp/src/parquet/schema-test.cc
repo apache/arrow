@@ -292,6 +292,17 @@ class TestGroupNode : public ::testing::Test {
 
     return fields;
   }
+
+  NodeVector Fields2() {
+    // Fields with a duplicate name
+    NodeVector fields;
+
+    fields.push_back(Int32("duplicate", Repetition::REQUIRED));
+    fields.push_back(Int64("unique"));
+    fields.push_back(Double("duplicate"));
+
+    return fields;
+  }
 };
 
 TEST_F(TestGroupNode, Attrs) {
@@ -346,14 +357,23 @@ TEST_F(TestGroupNode, FieldIndex) {
   GroupNode group("group", Repetition::REQUIRED, fields);
   for (size_t i = 0; i < fields.size(); i++) {
     auto field = group.field(static_cast<int>(i));
-    ASSERT_EQ(i, group.FieldIndex(*field.get()));
+    ASSERT_EQ(i, group.FieldIndex(*field));
   }
 
   // Test a non field node
   auto non_field_alien = Int32("alien", Repetition::REQUIRED);   // other name
   auto non_field_familiar = Int32("one", Repetition::REPEATED);  // other node
-  ASSERT_TRUE(group.FieldIndex(*non_field_alien.get()) < 0);
-  ASSERT_TRUE(group.FieldIndex(*non_field_familiar.get()) < 0);
+  ASSERT_TRUE(group.FieldIndex(*non_field_alien) < 0);
+  ASSERT_TRUE(group.FieldIndex(*non_field_familiar) < 0);
+}
+
+TEST_F(TestGroupNode, FieldIndexDuplicateName) {
+  NodeVector fields = Fields2();
+  GroupNode group("group", Repetition::REQUIRED, fields);
+  for (size_t i = 0; i < fields.size(); i++) {
+    auto field = group.field(static_cast<int>(i));
+    ASSERT_EQ(i, group.FieldIndex(*field));
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -677,14 +697,14 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
 
   for (int i = 0; i < nleaves; ++i) {
     auto col = descr_.Column(i);
-    ASSERT_EQ(i, descr_.ColumnIndex(*col->schema_node().get()));
+    ASSERT_EQ(i, descr_.ColumnIndex(*col->schema_node()));
   }
 
   // Test non-column nodes find
   NodePtr non_column_alien = Int32("alien", Repetition::REQUIRED);  // other path
   NodePtr non_column_familiar = Int32("a", Repetition::REPEATED);   // other node
-  ASSERT_TRUE(descr_.ColumnIndex(*non_column_alien.get()) < 0);
-  ASSERT_TRUE(descr_.ColumnIndex(*non_column_familiar.get()) < 0);
+  ASSERT_TRUE(descr_.ColumnIndex(*non_column_alien) < 0);
+  ASSERT_TRUE(descr_.ColumnIndex(*non_column_familiar) < 0);
 
   ASSERT_EQ(inta.get(), descr_.GetColumnRoot(0));
   ASSERT_EQ(bag.get(), descr_.GetColumnRoot(3));

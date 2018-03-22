@@ -71,7 +71,7 @@ inline bool ColumnIndicesToFieldIndices(const SchemaDescriptor& descr,
   out->clear();
   for (auto& column_idx : column_indices) {
     auto field_node = descr.GetColumnRoot(column_idx);
-    auto field_idx = group->FieldIndex(field_node->name());
+    auto field_idx = group->FieldIndex(*field_node);
     if (field_idx < 0) {
       return false;
     }

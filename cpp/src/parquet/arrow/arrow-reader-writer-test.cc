@@ -1669,6 +1669,27 @@ TEST(TestArrowReadWrite, TableWithChunkedColumns) {
   }
 }
 
+TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
+  // See ARROW-1974
+  using ::arrow::ArrayFromVector;
+
+  auto f0 = field("duplicate", ::arrow::int8());
+  auto f1 = field("duplicate", ::arrow::int16());
+  auto schema = ::arrow::schema({f0, f1});
+
+  std::vector<int8_t> a0_values = {1, 2, 3};
+  std::vector<int16_t> a1_values = {14, 15, 16};
+
+  std::shared_ptr<Array> a0, a1;
+
+  ArrayFromVector<::arrow::Int8Type, int8_t>(a0_values, &a0);
+  ArrayFromVector<::arrow::Int16Type, int16_t>(a1_values, &a1);
+
+  auto table = Table::Make(schema, {std::make_shared<Column>(f0->name(), a0),
+                                    std::make_shared<Column>(f1->name(), a1)});
+  CheckSimpleRoundtrip(table, table->num_rows());
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;
