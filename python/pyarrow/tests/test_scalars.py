@@ -197,9 +197,4 @@ class TestScalars(unittest.TestCase):
         arr = pa.array([1, 1, 2, 1])
         set_from_array = set(arr)
         assert isinstance(set_from_array, set)
-
-    def test_array_to_set_unique(self):
-        # ARROW-640
-        arr = pa.array([1, 1, 2, 1])
-        set_from_array = set(arr)
         assert set_from_array == {1, 2}
