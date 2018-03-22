@@ -47,6 +47,7 @@ export PATH=$(pwd)/apache-maven-3.5.2/bin:$PATH
 
 pushd arrow/java
 rm -rf target/site/apidocs/*
+mvn -Drat.skip=true clean
 mvn -Drat.skip=true install
 mvn -Drat.skip=true site
 mkdir -p ../site/asf-site/docs/java/
