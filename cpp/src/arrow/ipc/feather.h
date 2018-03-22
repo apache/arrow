@@ -108,7 +108,7 @@ class ARROW_EXPORT TableWriter {
   /// \param[out] out the returned table writer
   /// \return Status
   static Status Open(const std::shared_ptr<io::OutputStream>& stream,
-                     std::unique_ptr<TableWriter>* out, MemoryPool* pool = nullptr);
+                     std::unique_ptr<TableWriter>* out);
 
   /// \brief Set the description field in the file metadata
   void SetDescription(const std::string& desc);
@@ -128,7 +128,7 @@ class ARROW_EXPORT TableWriter {
   Status Finalize();
 
  private:
-  explicit TableWriter(MemoryPool* pool);
+  explicit TableWriter();
   class ARROW_NO_EXPORT TableWriterImpl;
   std::unique_ptr<TableWriterImpl> impl_;
 };
