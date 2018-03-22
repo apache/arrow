@@ -178,6 +178,26 @@ def test_array_eq_raises():
         arr1 == arr2
 
 
+def test_array_from_buffers():
+    values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
+    nulls_buf = pa.py_buffer(np.uint8([0b00001101]))
+    arr = pa.Array.from_buffers(pa.int16(), 4, [nulls_buf, values_buf])
+    assert arr.type == pa.int16()
+    assert arr.to_pylist() == [4, None, 6, 7]
+
+    arr = pa.Array.from_buffers(pa.int16(), 4, [None, values_buf])
+    assert arr.type == pa.int16()
+    assert arr.to_pylist() == [4, 5, 6, 7]
+
+    arr = pa.Array.from_buffers(pa.int16(), 3, [nulls_buf, values_buf],
+                                offset=1)
+    assert arr.type == pa.int16()
+    assert arr.to_pylist() == [None, 6, 7]
+
+    with pytest.raises(TypeError):
+        pa.Array.from_buffers(pa.int16(), 3, [u'', u''], offset=1)
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
