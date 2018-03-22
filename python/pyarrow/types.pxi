@@ -247,6 +247,13 @@ cdef class TimestampType(DataType):
             # Return DatetimeTZ
             return pdcompat.make_datetimetz(self.tz)
 
+    def __getstate__(self):
+        return self.unit, self.tz
+
+    def __setstate__(self, state):
+        cdef DataType reconstituted = timestamp(*state)
+        self.init(reconstituted.sp_type)
+
 
 cdef class Time32Type(DataType):
 
@@ -1192,6 +1199,7 @@ def union(children_fields, mode):
 
 cdef dict _type_aliases = {
     'null': null,
+    'bool': bool_,
     'i1': int8,
     'int8': int8,
     'i2': int16,
@@ -1208,9 +1216,14 @@ cdef dict _type_aliases = {
     'uint32': uint32,
     'u8': uint64,
     'uint64': uint64,
+    'f2': float16,
+    'halffloat': float16,
+    'float16': float16,
     'f4': float32,
+    'float': float32,
     'float32': float32,
     'f8': float64,
+    'double': float64,
     'float64': float64,
     'string': string,
     'str': string,
