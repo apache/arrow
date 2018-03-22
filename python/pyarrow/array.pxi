@@ -344,7 +344,7 @@ cdef class Array:
         """
         Convert pandas.Series to an Arrow Array, using pandas's semantics about
         what values indicate nulls. See pyarrow.array for more general
-        conversion from arrays or sequences to Arrow arrays
+        conversion from arrays or sequences to Arrow arrays.
 
         Parameters
         ----------
@@ -371,6 +371,41 @@ cdef class Array:
         """
         return array(obj, mask=mask, type=type, memory_pool=memory_pool,
                      from_pandas=True)
+
+    @staticmethod
+    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0):
+        """
+        Construct an Array from a sequence of buffers.  The concrete type
+        returned depends on the datatype.
+
+        Parameters
+        ----------
+        type : DataType
+            The value type of the array
+        length : int
+            The number of values in the array
+        buffers: List[Buffer]
+            The buffers backing this array
+        null_count : int, default -1
+        offset : int, default 0
+            The array's logical offset (in values, not in bytes) from the
+            start of each buffer
+
+        Returns
+        -------
+        array : Array
+        """
+        cdef:
+            Buffer buf
+            vector[shared_ptr[CBuffer]] c_buffers
+            shared_ptr[CArrayData] ad
+
+        for buf in buffers:
+            # None will produce a null buffer pointer
+            c_buffers.push_back(pyarrow_unwrap_buffer(buf))
+        ad = CArrayData.Make(type.sp_type, length, c_buffers,
+                             null_count, offset)
+        return pyarrow_wrap_array(MakeArray(ad))
 
     property null_count:
 
@@ -787,6 +822,7 @@ cdef class UnionArray(Array):
             check_status(CUnionArray.MakeSparse(deref(types.ap), c, &out))
         return pyarrow_wrap_array(out)
 
+
 cdef class StringArray(Array):
 
     @staticmethod
@@ -823,6 +859,7 @@ cdef class StringArray(Array):
             length, value_offsets.buffer, data.buffer, c_null_bitmap,
             null_count, offset))
         return pyarrow_wrap_array(out)
+
 
 cdef class BinaryArray(Array):
     pass
