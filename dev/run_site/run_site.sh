@@ -21,4 +21,6 @@ export BUNDLE_PATH=$(pwd)
 export HOME=$(pwd)
 bundle install --path .
 HOST_IP=$(grep $(hostname) /etc/hosts | cut -f 1)
-bundle exec jekyll serve -c _config.yml -s asf-site --host ${HOST_IP} --port 4000
+pushd asf-site
+bundle exec jekyll serve -c ../_config.yml -s . --host ${HOST_IP} --port 4000
+popd
