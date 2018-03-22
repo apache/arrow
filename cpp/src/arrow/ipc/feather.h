@@ -128,7 +128,7 @@ class ARROW_EXPORT TableWriter {
   Status Finalize();
 
  private:
-  explicit TableWriter();
+  TableWriter();
   class ARROW_NO_EXPORT TableWriterImpl;
   std::unique_ptr<TableWriterImpl> impl_;
 };

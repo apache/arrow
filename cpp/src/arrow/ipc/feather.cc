@@ -75,28 +75,22 @@ static Status WritePadded(io::OutputStream* stream, const uint8_t* data, int64_t
   return Status::OK();
 }
 
-static Status WriteBitOffset(io::OutputStream* stream, const uint8_t* data,
-                             int64_t length, uint8_t bit_offset) {
-  const uint8_t lshift = 8 - bit_offset;
-
-  while (length--) {
-    uint8_t r = *data++ >> bit_offset;
-    uint8_t l = *data << lshift;
-    uint8_t value = l | r;
-    RETURN_NOT_OK(stream->Write(&value, 1));
-  }
-  return Status::OK();
-}
-
 static Status WritePaddedWithOffset(io::OutputStream* stream, const uint8_t* data,
-                                    int64_t bit_offset, int64_t length,
+                                    int64_t bit_offset, const int64_t length,
                                     int64_t* bytes_written) {
   data = data + bit_offset / 8;
   bit_offset = bit_offset % 8;
   if (bit_offset == 0) {
     RETURN_NOT_OK(stream->Write(data, length));
   } else {
-    RETURN_NOT_OK(WriteBitOffset(stream, data, length, bit_offset));
+    const uint8_t lshift = 8 - bit_offset;
+
+    for (const uint8_t* end = data + length; data != end;) {
+      uint8_t r = *data++ >> bit_offset;
+      uint8_t l = *data << lshift;
+      uint8_t value = l | r;
+      RETURN_NOT_OK(stream->Write(&value, 1));
+    }
   }
 
   int64_t remainder = PaddedLength(length) - length;
@@ -532,7 +526,7 @@ static Status SanitizeUnsupportedTypes(const Array& values, std::shared_ptr<Arra
 
 class TableWriter::TableWriterImpl : public ArrayVisitor {
  public:
-  explicit TableWriterImpl() : initialized_stream_(false), metadata_(0) {}
+  TableWriterImpl() : initialized_stream_(false), metadata_(0) {}
 
   Status Open(const std::shared_ptr<io::OutputStream>& stream) {
     stream_ = stream;
