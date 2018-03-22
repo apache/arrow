@@ -88,10 +88,11 @@ def test_is_nested_or_struct():
 
 
 def test_is_union():
-    assert types.is_union(pa.union([pa.field('a', pa.int32()),
-                                    pa.field('b', pa.int8()),
-                                    pa.field('c', pa.string())],
-                                   pa.lib.UnionMode_SPARSE))
+    for mode in [pa.lib.UnionMode_SPARSE, pa.lib.UnionMode_DENSE]:
+        assert types.is_union(pa.union([pa.field('a', pa.int32()),
+                                        pa.field('b', pa.int8()),
+                                        pa.field('c', pa.string())],
+                                       mode=mode))
     assert not types.is_union(pa.list_(pa.int32()))
 
 
@@ -139,6 +140,26 @@ def test_is_temporal_date_time_timestamp():
 def test_timestamp_type():
     # See ARROW-1683
     assert isinstance(pa.timestamp('ns'), pa.TimestampType)
+
+
+def test_union_type():
+    def check_fields(ty, fields):
+        assert ty.num_children == len(fields)
+        assert [ty[i] for i in range(ty.num_children)] == fields
+
+    fields = [pa.field('x', pa.list_(pa.int32())),
+              pa.field('y', pa.binary())]
+    for mode in ('sparse', pa.lib.UnionMode_SPARSE):
+        ty = pa.union(fields, mode=mode)
+        assert ty.mode == 'sparse'
+        check_fields(ty, fields)
+    for mode in ('dense', pa.lib.UnionMode_DENSE):
+        ty = pa.union(fields, mode=mode)
+        assert ty.mode == 'dense'
+        check_fields(ty, fields)
+    for mode in ('unknown', 2):
+        with pytest.raises(ValueError, match='Invalid union mode'):
+            pa.union(fields, mode=mode)
 
 
 def test_types_hashable():

@@ -189,9 +189,6 @@ cdef class UnionType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
-        self.child_types = [
-            pyarrow_wrap_data_type(type.get().child(i).get().type())
-            for i in range(self.num_children)]
 
     property num_children:
 
@@ -202,19 +199,24 @@ cdef class UnionType(DataType):
 
         def __get__(self):
             cdef CUnionType* type = <CUnionType*> self.sp_type.get()
-            return type.mode()
+            cdef int mode = type.mode()
+            if mode == _UnionMode_DENSE:
+                return 'dense'
+            if mode == _UnionMode_SPARSE:
+                return 'sparse'
+            assert 0
 
     def __getitem__(self, i):
-        return self.child_types[i]
+        return pyarrow_wrap_field(self.type.child(i))
 
     def __getstate__(self):
-        children = [pyarrow_wrap_field(self.type.child(i))
-                    for i in range(self.num_children)]
+        children = [self[i] for i in range(self.num_children)]
         return children, self.mode
 
     def __setstate__(self, state):
         cdef DataType reconstituted = union(*state)
         self.init(reconstituted.sp_type)
+
 
 cdef class TimestampType(DataType):
 
@@ -1145,6 +1147,16 @@ def struct(fields):
 def union(children_fields, mode):
     """
     Create UnionType from children fields.
+
+    Parameters
+    ----------
+    fields : sequence of Field values
+    mode : str
+        'dense' or 'sparse'
+
+    Returns
+    -------
+    type : DataType
     """
     cdef:
         Field child_field
@@ -1153,16 +1165,27 @@ def union(children_fields, mode):
         shared_ptr[CDataType] union_type
         int i
 
+    if isinstance(mode, int):
+        if mode not in (_UnionMode_SPARSE, _UnionMode_DENSE):
+            raise ValueError("Invalid union mode {0!r}".format(mode))
+    else:
+        if mode == 'sparse':
+            mode = _UnionMode_SPARSE
+        elif mode == 'dense':
+            mode = _UnionMode_DENSE
+        else:
+            raise ValueError("Invalid union mode {0!r}".format(mode))
+
     for i, child_field in enumerate(children_fields):
         type_codes.push_back(i)
         c_fields.push_back(child_field.sp_field)
 
-        if mode == UnionMode_SPARSE:
-            union_type.reset(new CUnionType(c_fields, type_codes,
-                                            _UnionMode_SPARSE))
-        else:
-            union_type.reset(new CUnionType(c_fields, type_codes,
-                                            _UnionMode_DENSE))
+    if mode == UnionMode_SPARSE:
+        union_type.reset(new CUnionType(c_fields, type_codes,
+                                        _UnionMode_SPARSE))
+    else:
+        union_type.reset(new CUnionType(c_fields, type_codes,
+                                        _UnionMode_DENSE))
 
     return pyarrow_wrap_data_type(union_type)
 
