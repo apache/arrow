@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "A Native Go Library for Apache Arrow"
-date: "2018-03-21 00:00:00 -0400"
+date: "2018-03-22 00:00:00 -0400"
 author: pmc
 categories: [application]
 ---
