@@ -126,11 +126,6 @@ class ARROW_EXPORT ArrayBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Array>* out);
 
-  /// \brief Return result of builder as a SliceArray object.
-  ///
-  /// \param[out] out the finalized Array object
-  /// \return Status
-
   std::shared_ptr<DataType> type() const { return type_; }
 
   // Unsafe operations (don't check capacity/don't resize)
@@ -196,6 +191,12 @@ class PartiallyFinishableArrayBuilder : public ArrayBuilder {
     return FinishInternal(true, out);
   }
   Status Finish(std::shared_ptr<Array>* out) { return Finish(true, out); }
+
+  /// \brief Return result of builder as a SliceArray object.
+  ///
+  /// \param[reset_builder] reset the state of the builder
+  /// \param[out] out the finalized Array object
+  /// \return Status
   Status Finish(bool reset_builder, std::shared_ptr<Array>* out) {
     std::shared_ptr<ArrayData> internal_data;
     RETURN_NOT_OK(FinishInternal(reset_builder, &internal_data));
