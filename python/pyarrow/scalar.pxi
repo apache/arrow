@@ -334,9 +334,9 @@ cdef class UnionValue(ArrayValue):
         cdef int8_t type_id = self.ap.raw_type_ids()[i]
         cdef shared_ptr[CArray] child = self.ap.child(type_id)
         if self.ap.mode() == _UnionMode_SPARSE:
-            return box_scalar(self.type[type_id], child, i)
+            return box_scalar(self.type[type_id].type, child, i)
         else:
-            return box_scalar(self.type[type_id], child,
+            return box_scalar(self.type[type_id].type, child,
                               self.ap.value_offset(i))
 
     def as_py(self):
