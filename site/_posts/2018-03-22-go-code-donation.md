@@ -45,11 +45,11 @@ This past October, engineers [Stuart Carnie][2], [Nathaniel Cook][3], and
 [Chris Goller][4], employees of [InfluxData][5], began developing a native [Go
 language implementation of the [Apache Arrow][6] in-memory columnar format for
 use in Go-based database systems like InfluxDB. We are excited to announce that
-InfluxData has donated this native Go implementation to the Apache Arrow
-project, where it will continue to be developed. This work features low-level
-integration with the Go runtime and native support for SIMD instruction
-sets. We are looking forward to working more closely with the Go community on
-solving in-memory analytics and data interoperability problems.
+InfluxData has [donated this native Go implementation to the Apache Arrow
+project][10], where it will continue to be developed. This work features
+low-level integration with the Go runtime and native support for SIMD
+instruction sets. We are looking forward to working more closely with the Go
+community on solving in-memory analytics and data interoperability problems.
 
 <div align="center">
 <img src="{{ site.base-url }}/img/native_go_implementation.png"
@@ -79,3 +79,4 @@ at [https://arrow.apache.org][9] and join the mailing list
 [7]: https://www.apache.org
 [8]: https://lists.apache.org/list.html?dev@arrow.apache.org
 [9]: https://arrow.apache.org
+[10]: https://www.businesswire.com/news/home/20180322005393/en/InfluxData-Announces-Language-Implementation-Contribution-Apache-Arrow
