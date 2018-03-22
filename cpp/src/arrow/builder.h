@@ -194,7 +194,7 @@ class PartiallyFinishableArrayBuilder : public ArrayBuilder {
 
   /// \brief Return result of builder as a SliceArray object.
   ///
-  /// \param[reset_builder] reset the state of the builder
+  /// \param[in] reset_builder reset the state of the builder
   /// \param[out] out the finalized Array object
   /// \return Status
   Status Finish(bool reset_builder, std::shared_ptr<Array>* out) {
