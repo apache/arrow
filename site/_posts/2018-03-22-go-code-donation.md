@@ -42,7 +42,7 @@ and so we’ve been keen to see future work on native implementations in growing
 systems languages like Go and Rust.
 
 This past October, engineers [Stuart Carnie][2], [Nathaniel Cook][3], and
-[Chris Goller], employees of [InfluxData][5], began developing a native [Go
+[Chris Goller][4], employees of [InfluxData][5], began developing a native [Go
 language implementation of the [Apache Arrow][6] in-memory columnar format for
 use in Go-based database systems like InfluxDB. We are excited to announce that
 InfluxData has donated this native Go implementation to the Apache Arrow
