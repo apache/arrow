@@ -47,6 +47,13 @@ std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type
                                      offset);
 }
 
+std::shared_ptr<ArrayData> ArrayData::Make(
+    const std::shared_ptr<DataType>& type, int64_t length,
+    const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t null_count,
+    int64_t offset) {
+  return std::make_shared<ArrayData>(type, length, buffers, null_count, offset);
+}
+
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length, int64_t null_count,
                                            int64_t offset) {

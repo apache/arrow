@@ -98,6 +98,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         vector[shared_ptr[CBuffer]] buffers
         vector[shared_ptr[CArrayData]] child_data
 
+        @staticmethod
+        shared_ptr[CArrayData] Make(const shared_ptr[CDataType]& type,
+                                    int64_t length,
+                                    vector[shared_ptr[CBuffer]]& buffers,
+                                    int64_t null_count,
+                                    int64_t offset)
+
     cdef cppclass CArray" arrow::Array":
         shared_ptr[CDataType] type()
 
