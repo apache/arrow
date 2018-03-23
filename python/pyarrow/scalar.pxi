@@ -294,10 +294,10 @@ cdef class BinaryValue(ArrayValue):
 cdef class ListValue(ArrayValue):
 
     def __len__(self):
-        return self.ap.value_length(self.index)
+        return self.length()
 
     def __getitem__(self, i):
-        return self.getitem(i)
+        return self.getitem(_normalize_index(i, self.length()))
 
     def __iter__(self):
         for i in range(len(self)):
@@ -312,6 +312,9 @@ cdef class ListValue(ArrayValue):
     cdef getitem(self, int64_t i):
         cdef int64_t j = self.ap.value_offset(self.index) + i
         return box_scalar(self.value_type, self.ap.values(), j)
+
+    cdef int64_t length(self):
+        return self.ap.value_length(self.index)
 
     def as_py(self):
         cdef:
