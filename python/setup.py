@@ -190,7 +190,7 @@ class build_ext(_build_ext):
                 cmake_options.append('-DPYARROW_BUILD_ORC=on')
 
             if len(self.cmake_cxxflags) > 0:
-                cmake_options.append('-DPYARROW_CXXFLAGS="{0}"'
+                cmake_options.append('-DPYARROW_CXXFLAGS={0}'
                                      .format(self.cmake_cxxflags))
 
             if self.bundle_arrow_cpp:
