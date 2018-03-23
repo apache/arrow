@@ -75,6 +75,44 @@ static Status WritePadded(io::OutputStream* stream, const uint8_t* data, int64_t
   return Status::OK();
 }
 
+static Status WritePaddedWithOffset(io::OutputStream* stream, const uint8_t* data,
+                                    int64_t bit_offset, const int64_t length,
+                                    int64_t* bytes_written) {
+  data = data + bit_offset / 8;
+  bit_offset = bit_offset % 8;
+  if (bit_offset == 0) {
+    RETURN_NOT_OK(stream->Write(data, length));
+  } else {
+    constexpr int64_t buffersize = 256;
+    uint8_t buffer[buffersize];
+    const uint8_t lshift = 8 - bit_offset;
+    const uint8_t* buffer_end = buffer + buffersize;
+    uint8_t* buffer_it = buffer;
+
+    for (const uint8_t* end = data + length; data != end;) {
+      uint8_t r = *data++ >> bit_offset;
+      uint8_t l = *data << lshift;
+      uint8_t value = l | r;
+      *buffer_it++ = value;
+      if (buffer_it == buffer_end) {
+        RETURN_NOT_OK(stream->Write(buffer, buffersize));
+        buffer_it = buffer;
+      }
+    }
+    if (buffer_it != buffer) {
+      RETURN_NOT_OK(stream->Write(buffer, buffer_it - buffer));
+      buffer_it = buffer;
+    }
+  }
+
+  int64_t remainder = PaddedLength(length) - length;
+  if (remainder != 0) {
+    RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder));
+  }
+  *bytes_written = length + remainder;
+  return Status::OK();
+}
+
 /// For compability, we need to write any data sometimes just to keep producing
 /// files that can be read with an older reader.
 static Status WritePaddedBlank(io::OutputStream* stream, int64_t length,
@@ -558,8 +596,10 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       // byte boundary, and we write this much data into the stream
       int64_t null_bitmap_size = GetOutputLength(BitUtil::BytesForBits(values.length()));
       if (values.null_bitmap()) {
-        RETURN_NOT_OK(WritePadded(stream_.get(), values.null_bitmap()->data(),
-                                  null_bitmap_size, &bytes_written));
+        auto null_bitmap = values.null_bitmap();
+        RETURN_NOT_OK(WritePaddedWithOffset(stream_.get(), null_bitmap->data(),
+                                            values.offset(), null_bitmap_size,
+                                            &bytes_written));
       } else {
         RETURN_NOT_OK(WritePaddedBlank(stream_.get(), null_bitmap_size, &bytes_written));
       }
@@ -603,7 +643,12 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       }
 
       if (prim_values.values()) {
-        values_buffer = prim_values.values()->data();
+        if (prim_values.offset() != 0 && (fw_type.bit_width() % 8 != 0)) {
+          return arrow::Status::NotImplemented(
+              "Buffer offset only allowed for table with byte sized data");
+        }
+        values_buffer = prim_values.values()->data() +
+                        (prim_values.offset() * fw_type.bit_width() / 8);
       }
     }
     if (values_buffer) {
