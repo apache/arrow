@@ -21,7 +21,6 @@
 #ifndef ARROW_IPC_FEATHER_H
 #define ARROW_IPC_FEATHER_H
 
-#include <arrow/memory_pool.h>
 #include <cstdint>
 #include <memory>
 #include <string>

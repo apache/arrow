@@ -83,13 +83,25 @@ static Status WritePaddedWithOffset(io::OutputStream* stream, const uint8_t* dat
   if (bit_offset == 0) {
     RETURN_NOT_OK(stream->Write(data, length));
   } else {
+    constexpr int64_t buffersize = 256;
+    uint8_t buffer[buffersize];
     const uint8_t lshift = 8 - bit_offset;
+    const uint8_t* buffer_end = buffer + buffersize;
+    uint8_t* buffer_it = buffer;
 
     for (const uint8_t* end = data + length; data != end;) {
       uint8_t r = *data++ >> bit_offset;
       uint8_t l = *data << lshift;
       uint8_t value = l | r;
-      RETURN_NOT_OK(stream->Write(&value, 1));
+      *buffer_it++ = value;
+      if (buffer_it == buffer_end) {
+        RETURN_NOT_OK(stream->Write(buffer, buffersize));
+        buffer_it = buffer;
+      }
+    }
+    if (buffer_it != buffer) {
+      RETURN_NOT_OK(stream->Write(buffer, buffer_it - buffer));
+      buffer_it = buffer;
     }
   }
 
