@@ -232,6 +232,17 @@ def _normalize_slice(object arrow_obj, slice key):
         return arrow_obj.slice(start, stop - start)
 
 
+cdef Py_ssize_t _normalize_index(Py_ssize_t index,
+                                 Py_ssize_t length) except -1:
+    if index < 0:
+        index += length
+        if index < 0:
+            raise IndexError("index out of bounds")
+    elif index >= length:
+        raise IndexError("index out of bounds")
+    return index
+
+
 cdef class _FunctionContext:
     cdef:
         unique_ptr[CFunctionContext] ctx
@@ -344,7 +355,7 @@ cdef class Array:
         """
         Convert pandas.Series to an Arrow Array, using pandas's semantics about
         what values indicate nulls. See pyarrow.array for more general
-        conversion from arrays or sequences to Arrow arrays
+        conversion from arrays or sequences to Arrow arrays.
 
         Parameters
         ----------
@@ -372,6 +383,41 @@ cdef class Array:
         return array(obj, mask=mask, type=type, memory_pool=memory_pool,
                      from_pandas=True)
 
+    @staticmethod
+    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0):
+        """
+        Construct an Array from a sequence of buffers.  The concrete type
+        returned depends on the datatype.
+
+        Parameters
+        ----------
+        type : DataType
+            The value type of the array
+        length : int
+            The number of values in the array
+        buffers: List[Buffer]
+            The buffers backing this array
+        null_count : int, default -1
+        offset : int, default 0
+            The array's logical offset (in values, not in bytes) from the
+            start of each buffer
+
+        Returns
+        -------
+        array : Array
+        """
+        cdef:
+            Buffer buf
+            vector[shared_ptr[CBuffer]] c_buffers
+            shared_ptr[CArrayData] ad
+
+        for buf in buffers:
+            # None will produce a null buffer pointer
+            c_buffers.push_back(pyarrow_unwrap_buffer(buf))
+        ad = CArrayData.Make(type.sp_type, length, c_buffers,
+                             null_count, offset)
+        return pyarrow_wrap_array(MakeArray(ad))
+
     property null_count:
 
         def __get__(self):
@@ -392,6 +438,9 @@ cdef class Array:
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
+        return self.length()
+
+    cdef int64_t length(self):
         if self.sp_array.get():
             return self.sp_array.get().length()
         else:
@@ -406,10 +455,7 @@ cdef class Array:
         if PySlice_Check(key):
             return _normalize_slice(self, key)
 
-        while key < 0:
-            key += len(self)
-
-        return self.getitem(key)
+        return self.getitem(_normalize_index(key, self.length()))
 
     cdef getitem(self, int64_t i):
         return box_scalar(self.type, self.sp_array, i)
@@ -787,6 +833,7 @@ cdef class UnionArray(Array):
             check_status(CUnionArray.MakeSparse(deref(types.ap), c, &out))
         return pyarrow_wrap_array(out)
 
+
 cdef class StringArray(Array):
 
     @staticmethod
@@ -823,6 +870,7 @@ cdef class StringArray(Array):
             length, value_offsets.buffer, data.buffer, c_null_bitmap,
             null_count, offset))
         return pyarrow_wrap_array(out)
+
 
 cdef class BinaryArray(Array):
     pass

@@ -28,7 +28,7 @@ See the [release notes][10] for more about what's new.
 
 ### Source release
 
-* **Source Release**: [apache-arrow-0.8.0.tar.gz][6]
+* **Source Release**: [apache-arrow-0.9.0.tar.gz][6]
 * **Verification**: [sha512][3], [asc][7] ([verification instructions][12])
 * [Git tag {{site.data.versions['current'].git-tag}}][2]
 * [PGP keys for release signatures][11]
@@ -53,8 +53,8 @@ Install them with:
 
 
 ```shell
-conda install arrow-cpp=0.8.* -c conda-forge
-conda install pyarrow=0.8.* -c conda-forge
+conda install arrow-cpp=0.9.* -c conda-forge
+conda install pyarrow=0.9.* -c conda-forge
 ```
 
 ### Python Wheels on PyPI (Unofficial)
@@ -62,10 +62,10 @@ conda install pyarrow=0.8.* -c conda-forge
 We have provided binary wheels on PyPI for Linux, macOS, and Windows:
 
 ```shell
-pip install pyarrow==0.8.*
+pip install pyarrow==0.9.*
 ```
 
-We recommend pinning `0.8.*` in `requirements.txt` to install the latest patch
+We recommend pinning `0.9.*` in `requirements.txt` to install the latest patch
 release.
 
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled

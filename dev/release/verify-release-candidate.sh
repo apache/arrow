@@ -100,7 +100,11 @@ setup_miniconda() {
   export PATH=$MINICONDA/bin:$PATH
 
   conda create -n arrow-test -y -q python=3.6 \
-        nomkl numpy pandas six cython
+        nomkl \
+        numpy \
+        pandas \
+        six \
+        cython=0.27.3 -c conda-forge
   source activate arrow-test
 }
 
@@ -111,6 +115,7 @@ test_and_install_cpp() {
   pushd cpp/build
 
   cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+        -DCMAKE_INSTALL_LIBDIR=$ARROW_HOME/lib \
         -DARROW_PLASMA=on \
         -DARROW_PYTHON=on \
         -DARROW_BOOST_USE_SHARED=on \
@@ -121,7 +126,7 @@ test_and_install_cpp() {
   make -j$NPROC
   make install
 
-  ctest -L unittest
+  ctest -VV -L unittest
   popd
 }
 
@@ -134,6 +139,7 @@ install_parquet_cpp() {
   pushd parquet-cpp/build
 
   cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
+        -DCMAKE_INSTALL_LIBDIR=$PARQUET_HOME/lib \
         -DCMAKE_BUILD_TYPE=release \
         -DPARQUET_BOOST_USE_SHARED=on \
         -DPARQUET_BUILD_TESTS=off \
@@ -246,12 +252,11 @@ cd ${DIST_NAME}
 test_package_java
 setup_miniconda
 test_and_install_cpp
+test_js
 test_integration
 test_glib
 install_parquet_cpp
 test_python
-
-test_js
 
 echo 'Release candidate looks good!'
 exit 0

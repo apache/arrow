@@ -294,10 +294,10 @@ cdef class BinaryValue(ArrayValue):
 cdef class ListValue(ArrayValue):
 
     def __len__(self):
-        return self.ap.value_length(self.index)
+        return self.length()
 
     def __getitem__(self, i):
-        return self.getitem(i)
+        return self.getitem(_normalize_index(i, self.length()))
 
     def __iter__(self):
         for i in range(len(self)):
@@ -312,6 +312,9 @@ cdef class ListValue(ArrayValue):
     cdef getitem(self, int64_t i):
         cdef int64_t j = self.ap.value_offset(self.index) + i
         return box_scalar(self.value_type, self.ap.values(), j)
+
+    cdef int64_t length(self):
+        return self.ap.value_length(self.index)
 
     def as_py(self):
         cdef:
@@ -334,13 +337,14 @@ cdef class UnionValue(ArrayValue):
         cdef int8_t type_id = self.ap.raw_type_ids()[i]
         cdef shared_ptr[CArray] child = self.ap.child(type_id)
         if self.ap.mode() == _UnionMode_SPARSE:
-            return box_scalar(self.type[type_id], child, i)
+            return box_scalar(self.type[type_id].type, child, i)
         else:
-            return box_scalar(self.type[type_id], child,
+            return box_scalar(self.type[type_id].type, child,
                               self.ap.value_offset(i))
 
     def as_py(self):
         return self.getitem(self.index).as_py()
+
 
 cdef class FixedSizeBinaryValue(ArrayValue):
 
@@ -358,20 +362,23 @@ cdef class FixedSizeBinaryValue(ArrayValue):
 
 
 cdef class StructValue(ArrayValue):
+
     def as_py(self):
         cdef:
             CStructArray* ap
             vector[shared_ptr[CField]] child_fields = self.type.type.children()
+
         ap = <CStructArray*> self.sp_array.get()
-        wrapped_arrays = (pyarrow_wrap_array(ap.field(i))
-                          for i in range(ap.num_fields()))
-        child_names = (child.get().name() for child in child_fields)
+        wrapped_arrays = [pyarrow_wrap_array(ap.field(i))
+                          for i in range(ap.num_fields())]
+        child_names = [child.get().name() for child in child_fields]
         # Return the struct as a dict
         return {
             frombytes(name): child_array[self.index].as_py()
             for name, child_array in
             zip(child_names, wrapped_arrays)
         }
+
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanValue,

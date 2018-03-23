@@ -84,14 +84,12 @@ cdef class ChunkedArray:
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         elif isinstance(key, six.integer_types):
-            item = key
-            if item >= self.chunked_array.length() or item < 0:
-                return IndexError("ChunkedArray selection out of bounds")
+            index = _normalize_index(key, self.chunked_array.length())
             for i in range(self.num_chunks):
-                if item < self.chunked_array.chunk(i).get().length():
-                    return self.chunk(i)[item]
+                if index < self.chunked_array.chunk(i).get().length():
+                    return self.chunk(i)[index]
                 else:
-                    item -= self.chunked_array.chunk(i).get().length()
+                    index -= self.chunked_array.chunk(i).get().length()
         else:
             raise TypeError("key must either be a slice or integer")
 
@@ -630,12 +628,10 @@ cdef class RecordBatch:
         return pyarrow_wrap_array(self.batch.column(i))
 
     def __getitem__(self, key):
-        cdef:
-            Py_ssize_t start, stop
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         else:
-            return self.column(key)
+            return self.column(_normalize_index(key, self.num_columns))
 
     def serialize(self, memory_pool=None):
         """
@@ -975,7 +971,7 @@ cdef class Table:
         columns.reserve(K)
 
         for i in range(K):
-            if isinstance(arrays[i], Array):
+            if isinstance(arrays[i], (Array, list)):
                 columns.push_back(
                     make_shared[CColumn](
                         c_schema.get().field(i),
@@ -1003,26 +999,41 @@ cdef class Table:
         return pyarrow_wrap_table(CTable.Make(c_schema, columns))
 
     @staticmethod
-    def from_batches(batches):
+    def from_batches(batches, Schema schema=None):
         """
         Construct a Table from a list of Arrow RecordBatches
 
         Parameters
         ----------
-
         batches: list of RecordBatch
-            RecordBatch list to be converted, schemas must be equal
+            RecordBatch list to be converted, all schemas must be equal
+        schema : Schema, default None
+            If not passed, will be inferred from the first RecordBatch
+
+        Returns
+        -------
+        table : Table
         """
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
             shared_ptr[CTable] c_table
+            shared_ptr[CSchema] c_schema
             RecordBatch batch
 
         for batch in batches:
             c_batches.push_back(batch.sp_batch)
 
+        if schema is None:
+            if len(batches) == 0:
+                raise ValueError('Must pass schema, or at least '
+                                 'one RecordBatch')
+            c_schema = c_batches[0].get().schema()
+        else:
+            c_schema = schema.sp_schema
+
         with nogil:
-            check_status(CTable.FromRecordBatches(c_batches, &c_table))
+            check_status(CTable.FromRecordBatches(c_schema, c_batches,
+                                                  &c_table))
 
         return pyarrow_wrap_table(c_table)
 
@@ -1168,8 +1179,9 @@ cdef class Table:
         column.init(self.table.column(index))
         return column
 
-    def __getitem__(self, int64_t i):
-        return self.column(i)
+    def __getitem__(self, key):
+        cdef int index = <int> _normalize_index(key, self.num_columns)
+        return self.column(index)
 
     def itercolumns(self):
         """

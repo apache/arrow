@@ -69,7 +69,8 @@ if "%JOB%" == "Build_Debug" (
 )
 
 conda create -n arrow -q -y python=%PYTHON% ^
-      six pytest setuptools numpy pandas cython ^
+      six pytest setuptools numpy pandas ^
+      cython=0.27.3 ^
       thrift-cpp=0.11.0
 
 call activate arrow

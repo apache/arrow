@@ -15,10 +15,42 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pickle
+
 import pytest
 
 import pyarrow as pa
 import pyarrow.types as types
+
+
+MANY_TYPES = [
+    pa.null(),
+    pa.bool_(),
+    pa.int32(),
+    pa.time32('s'),
+    pa.time64('us'),
+    pa.date32(),
+    pa.timestamp('us'),
+    pa.timestamp('us', tz='UTC'),
+    pa.timestamp('us', tz='Europe/Paris'),
+    pa.float16(),
+    pa.float32(),
+    pa.float64(),
+    pa.decimal128(19, 4),
+    pa.string(),
+    pa.binary(),
+    pa.binary(10),
+    pa.list_(pa.int32()),
+    pa.struct([pa.field('a', pa.int32()),
+               pa.field('b', pa.int8()),
+               pa.field('c', pa.string())]),
+    pa.union([pa.field('a', pa.binary(10)),
+              pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
+    pa.union([pa.field('a', pa.binary(10)),
+              pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+    # XXX Needs array pickling
+    # pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
+]
 
 
 def test_is_boolean():
@@ -88,10 +120,11 @@ def test_is_nested_or_struct():
 
 
 def test_is_union():
-    assert types.is_union(pa.union([pa.field('a', pa.int32()),
-                                    pa.field('b', pa.int8()),
-                                    pa.field('c', pa.string())],
-                                   pa.lib.UnionMode_SPARSE))
+    for mode in [pa.lib.UnionMode_SPARSE, pa.lib.UnionMode_DENSE]:
+        assert types.is_union(pa.union([pa.field('a', pa.int32()),
+                                        pa.field('b', pa.int8()),
+                                        pa.field('c', pa.string())],
+                                       mode=mode))
     assert not types.is_union(pa.list_(pa.int32()))
 
 
@@ -141,28 +174,39 @@ def test_timestamp_type():
     assert isinstance(pa.timestamp('ns'), pa.TimestampType)
 
 
-def test_types_hashable():
-    types = [
-        pa.null(),
-        pa.int32(),
-        pa.time32('s'),
-        pa.time64('us'),
-        pa.date32(),
-        pa.timestamp('us'),
-        pa.string(),
-        pa.binary(),
-        pa.binary(10),
-        pa.list_(pa.int32()),
-        pa.struct([pa.field('a', pa.int32()),
-                   pa.field('b', pa.int8()),
-                   pa.field('c', pa.string())])
-    ]
+def test_union_type():
+    def check_fields(ty, fields):
+        assert ty.num_children == len(fields)
+        assert [ty[i] for i in range(ty.num_children)] == fields
 
+    fields = [pa.field('x', pa.list_(pa.int32())),
+              pa.field('y', pa.binary())]
+    for mode in ('sparse', pa.lib.UnionMode_SPARSE):
+        ty = pa.union(fields, mode=mode)
+        assert ty.mode == 'sparse'
+        check_fields(ty, fields)
+    for mode in ('dense', pa.lib.UnionMode_DENSE):
+        ty = pa.union(fields, mode=mode)
+        assert ty.mode == 'dense'
+        check_fields(ty, fields)
+    for mode in ('unknown', 2):
+        with pytest.raises(ValueError, match='Invalid union mode'):
+            pa.union(fields, mode=mode)
+
+
+def test_types_hashable():
     in_dict = {}
-    for i, type_ in enumerate(types):
+    for i, type_ in enumerate(MANY_TYPES):
         assert hash(type_) == hash(type_)
         in_dict[type_] = i
         assert in_dict[type_] == i
+    assert len(in_dict) == len(MANY_TYPES)
+
+
+def test_types_picklable():
+    for ty in MANY_TYPES:
+        data = pickle.dumps(ty)
+        assert pickle.loads(data) == ty
 
 
 @pytest.mark.parametrize('t,check_func', [

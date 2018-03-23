@@ -41,13 +41,16 @@ namespace arrow {
 class Array;
 class Decimal128;
 
+constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
+constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
+
 namespace internal {
 
 struct ArrayData;
 
 }  // namespace internal
 
-static constexpr int64_t kMinBuilderCapacity = 1 << 5;
+constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
 /// Base class for all data array builders.
 //
@@ -701,8 +704,6 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
  protected:
   TypedBufferBuilder<int32_t> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
-
-  static constexpr int64_t kMaximumCapacity = std::numeric_limits<int32_t>::max() - 1;
 
   Status AppendNextOffset();
   void Reset();

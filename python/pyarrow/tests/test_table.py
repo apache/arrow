@@ -31,6 +31,12 @@ def test_chunked_array_getitem():
     ]
     data = pa.chunked_array(data)
     assert data[1].as_py() == 2
+    assert data[-1].as_py() == 6
+    assert data[-6].as_py() == 1
+    with pytest.raises(IndexError):
+        data[6]
+    with pytest.raises(IndexError):
+        data[-7]
 
     data_slice = data[2:4]
     assert data_slice.to_pylist() == [3, 4]

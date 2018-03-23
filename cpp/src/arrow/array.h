@@ -111,6 +111,11 @@ struct ARROW_EXPORT ArrayData {
                                          int64_t null_count = kUnknownNullCount,
                                          int64_t offset = 0);
 
+  static std::shared_ptr<ArrayData> Make(
+      const std::shared_ptr<DataType>& type, int64_t length,
+      const std::vector<std::shared_ptr<Buffer>>& buffers,
+      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
   static std::shared_ptr<ArrayData> Make(const std::shared_ptr<DataType>& type,
                                          int64_t length,
                                          int64_t null_count = kUnknownNullCount,
@@ -149,6 +154,8 @@ struct ARROW_EXPORT ArrayData {
   std::shared_ptr<DataType> type;
   int64_t length;
   int64_t null_count;
+  // The logical start point into the physical buffers (in values, not bytes).
+  // Note that, for child data, this must be *added* to the child data's own offset.
   int64_t offset;
   std::vector<std::shared_ptr<Buffer>> buffers;
   std::vector<std::shared_ptr<ArrayData>> child_data;
@@ -277,6 +284,17 @@ class ARROW_EXPORT Array {
 };
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
+
+namespace internal {
+
+/// Given a number of ArrayVectors, treat each ArrayVector as the
+/// chunks of a chunked array.  Then rechunk each ArrayVector such that
+/// all ArrayVectors are chunked identically.  It is mandatory that
+/// all ArrayVectors contain the same total number of elements.
+ARROW_EXPORT
+std::vector<ArrayVector> RechunkArraysConsistently(const std::vector<ArrayVector>&);
+
+}  // namespace internal
 
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
   os << x.ToString();
@@ -588,7 +606,8 @@ class ARROW_EXPORT StructArray : public Array {
               int64_t offset = 0);
 
   // Return a shared pointer in case the requestor desires to share ownership
-  // with this array.
+  // with this array.  The returned array has its offset, length and null
+  // count adjusted.
   std::shared_ptr<Array> field(int pos) const;
 
  private:

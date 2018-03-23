@@ -110,6 +110,20 @@ def test_to_pandas_zero_copy():
         np_arr.sum()
 
 
+def test_array_getitem():
+    arr = pa.array(range(10, 15))
+    lst = arr.to_pylist()
+
+    for idx in range(-len(arr), len(arr)):
+        assert arr[idx].as_py() == lst[idx]
+    for idx in range(-2 * len(arr), -len(arr)):
+        with pytest.raises(IndexError):
+            arr[idx]
+    for idx in range(len(arr), 2 * len(arr)):
+        with pytest.raises(IndexError):
+            arr[idx]
+
+
 def test_array_slice():
     arr = pa.array(range(10))
 
@@ -145,6 +159,15 @@ def test_array_slice():
             assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
 
 
+def test_struct_array_slice():
+    # ARROW-2311: slicing nested arrays needs special care
+    ty = pa.struct([pa.field('a', pa.int8()),
+                    pa.field('b', pa.float32())])
+    arr = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
+    assert arr[1:].to_pylist() == [{'a': 3, 'b': 4.5},
+                                   {'a': 5, 'b': 6.5}]
+
+
 def test_array_factory_invalid_type():
     arr = np.array([datetime.timedelta(1), datetime.timedelta(2)])
     with pytest.raises(ValueError):
@@ -167,6 +190,26 @@ def test_array_eq_raises():
 
     with pytest.raises(NotImplementedError):
         arr1 == arr2
+
+
+def test_array_from_buffers():
+    values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
+    nulls_buf = pa.py_buffer(np.uint8([0b00001101]))
+    arr = pa.Array.from_buffers(pa.int16(), 4, [nulls_buf, values_buf])
+    assert arr.type == pa.int16()
+    assert arr.to_pylist() == [4, None, 6, 7]
+
+    arr = pa.Array.from_buffers(pa.int16(), 4, [None, values_buf])
+    assert arr.type == pa.int16()
+    assert arr.to_pylist() == [4, 5, 6, 7]
+
+    arr = pa.Array.from_buffers(pa.int16(), 3, [nulls_buf, values_buf],
+                                offset=1)
+    assert arr.type == pa.int16()
+    assert arr.to_pylist() == [None, 6, 7]
+
+    with pytest.raises(TypeError):
+        pa.Array.from_buffers(pa.int16(), 3, [u'', u''], offset=1)
 
 
 def test_dictionary_from_numpy():

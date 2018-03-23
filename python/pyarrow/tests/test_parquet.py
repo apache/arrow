@@ -1431,8 +1431,15 @@ def _test_write_to_dataset_with_partitions(base_path, filesystem=None):
     output_table = pa.Table.from_pandas(output_df)
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
-    pq.write_metadata(output_table.schema,
-                      os.path.join(base_path, '_common_metadata'))
+
+    metadata_path = os.path.join(base_path, '_common_metadata')
+
+    if filesystem is not None:
+        with filesystem.open(metadata_path, 'wb') as f:
+            pq.write_metadata(output_table.schema, f)
+    else:
+        pq.write_metadata(output_table.schema, metadata_path)
+
     dataset = pq.ParquetDataset(base_path, filesystem=filesystem)
     # ARROW-2209: Ensure the dataset schema also includes the partition columns
     dataset_cols = set(dataset.schema.to_arrow_schema().names)
