@@ -180,7 +180,10 @@ same time because they are interdependent.
 
 ### Updating Java Maven artifacts in Maven central
 
-See instructions at end of https://github.com/apache/arrow/blob/master/dev/release/README
+See instructions at end of
+https://github.com/apache/arrow/blob/master/dev/release/README. You must set up
+Maven to be able to publish to Apache's repositories. Read more at
+http://www.apache.org/dev/publishing-maven-artifacts.html.
 
 [1]: https://github.com/apache/arrow/blob/master/dev/release/README
 [2]: https://github.com/apache/arrow-dist
