@@ -18,9 +18,16 @@
 
 package org.apache.arrow.adapter.jdbc.h2;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.arrow.adapter.jdbc.*;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
 
 import static org.junit.Assert.*;
 
@@ -28,6 +35,29 @@ import static org.junit.Assert.*;
  * Test class for {@link ArrowDataFetcher}.
  */
 public class ArrowDataFetcherTest extends AbstractJdbcToArrowTest {
+
+    private Connection conn = null;
+    private ObjectMapper mapper = null;
+
+    @Before
+    public void setUp() throws Exception {
+        String url = "jdbc:h2:mem:ArrowDataFetcherTest";
+        String driver = "org.h2.Driver";
+
+        mapper = new ObjectMapper(new YAMLFactory());
+
+        Class.forName(driver);
+
+        conn = DriverManager.getConnection(url);
+    }
+
+    @After
+    public void destroy() throws Exception {
+        if (conn != null) {
+            conn.close();
+            conn = null;
+        }
+    }
 
     @Test
     public void commaSeparatedQueryColumnsTest() {
@@ -50,9 +80,9 @@ public class ArrowDataFetcherTest extends AbstractJdbcToArrowTest {
                         Table.class);
 
         try {
-            createTestData(table);
+            createTestData(conn, table);
 
-            ArrowDataFetcher arrowDataFetcher = JdbcToArrow.jdbcArrowDataFetcher(super.conn, "table1");
+            ArrowDataFetcher arrowDataFetcher = JdbcToArrow.jdbcArrowDataFetcher(conn, "table1");
 
             VectorSchemaRoot root = arrowDataFetcher.fetch(0, 10);
 
@@ -68,7 +98,7 @@ public class ArrowDataFetcherTest extends AbstractJdbcToArrowTest {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            deleteTestData(table);
+            deleteTestData(conn, table);
         }
 
     }
@@ -82,9 +112,9 @@ public class ArrowDataFetcherTest extends AbstractJdbcToArrowTest {
                         Table.class);
 
         try {
-            createTestData(table);
+            createTestData(conn, table);
 
-            ArrowDataFetcher arrowDataFetcher = JdbcToArrow.jdbcArrowDataFetcher(super.conn, "table1");
+            ArrowDataFetcher arrowDataFetcher = JdbcToArrow.jdbcArrowDataFetcher(conn, "table1");
 
             VectorSchemaRoot root = arrowDataFetcher.fetch(0, 10, "int_field1");
 
@@ -100,7 +130,7 @@ public class ArrowDataFetcherTest extends AbstractJdbcToArrowTest {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            deleteTestData(table);
+            deleteTestData(conn, table);
         }
 
     }

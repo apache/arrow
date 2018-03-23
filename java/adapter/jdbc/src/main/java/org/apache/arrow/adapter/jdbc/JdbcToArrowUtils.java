@@ -18,7 +18,6 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -29,6 +28,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import java.nio.charset.Charset;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
@@ -82,7 +82,8 @@ public class JdbcToArrowUtils {
 
         assert rsmd != null;
 
-        ImmutableList.Builder<Field> fields = ImmutableList.builder();
+//        ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        List<Field> fields = new ArrayList<>();
         int columnCount = rsmd.getColumnCount();
         for (int i = 1; i <= columnCount; i++) {
             String columnName = rsmd.getColumnName(i);
@@ -156,7 +157,7 @@ public class JdbcToArrowUtils {
             }
         }
 
-        return new Schema(fields.build(), null);
+        return new Schema(fields, null);
     }
 
     private static void allocateVectors(VectorSchemaRoot root, int size) {

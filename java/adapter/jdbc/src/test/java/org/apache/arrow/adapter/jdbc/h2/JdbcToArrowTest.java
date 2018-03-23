@@ -18,14 +18,20 @@
 
 package org.apache.arrow.adapter.jdbc.h2;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.util.Properties;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
 
@@ -34,6 +40,28 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
  */
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
+    private Connection conn = null;
+    private ObjectMapper mapper = null;
+
+    @Before
+    public void setUp() throws Exception {
+        String url = "jdbc:h2:mem:JdbcToArrowTest";
+        String driver = "org.h2.Driver";
+
+        mapper = new ObjectMapper(new YAMLFactory());
+
+        Class.forName(driver);
+
+        conn = DriverManager.getConnection(url);
+    }
+
+    @After
+    public void destroy() throws Exception {
+        if (conn != null) {
+            conn.close();
+            conn = null;
+        }
+    }
 
     @Test
     public void sqlToArrowTestInt() throws Exception {
@@ -44,7 +72,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                         Table.class);
 
         try {
-            createTestData(table);
+            createTestData(conn, table);
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
@@ -56,7 +84,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            deleteTestData(table);
+            deleteTestData(conn, table);
         }
 
     }
@@ -70,7 +98,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                         Table.class);
 
         try {
-            createTestData(table);
+            createTestData(conn, table);
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
@@ -82,7 +110,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            deleteTestData(table);
+            deleteTestData(conn, table);
         }
 
     }
@@ -96,7 +124,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                         Table.class);
 
         try {
-            createTestData(table);
+            createTestData(conn, table);
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
@@ -108,7 +136,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            deleteTestData(table);
+            deleteTestData(conn, table);
         }
 
     }
@@ -122,7 +150,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                         Table.class);
 
         try {
-            createTestData(table);
+            createTestData(conn, table);
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
@@ -134,7 +162,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            deleteTestData(table);
+            deleteTestData(conn, table);
         }
 
     }
@@ -148,7 +176,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                         Table.class);
 
         try {
-            createTestData(table);
+            createTestData(conn, table);
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
@@ -161,7 +189,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            deleteTestData(table);
+            deleteTestData(conn, table);
         }
 
     }
@@ -175,7 +203,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                         Table.class);
 
         try {
-            createTestData(table);
+            createTestData(conn, table);
 
             VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
 
@@ -289,16 +317,9 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            deleteTestData(table);
+            deleteTestData(conn, table);
         }
 
-    }
-
-    @After
-    public void destroy() throws Exception {
-        if (conn != null) {
-            conn.close();
-        }
     }
 
 }

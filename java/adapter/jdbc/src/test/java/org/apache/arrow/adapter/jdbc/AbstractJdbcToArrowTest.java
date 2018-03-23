@@ -18,37 +18,15 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import org.junit.Before;
-
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.Statement;
-import java.util.Properties;
 
 /**
  * Class to abstract out some common test functionality for testing JDBC to Arrow.
  */
 public abstract class AbstractJdbcToArrowTest {
 
-    protected Connection conn = null;
-    protected ObjectMapper mapper = null;
-
-    @Before
-    public void setUp() throws Exception {
-        Properties properties = new Properties();
-        properties.load(this.getClass().getClassLoader().getResourceAsStream("h2/db.properties"));
-
-        mapper = new ObjectMapper(new YAMLFactory());
-
-        Class.forName(properties.getProperty("driver"));
-
-        conn = DriverManager
-                .getConnection(properties.getProperty("url"), properties);;
-    }
-
-    protected void createTestData(Table table) throws Exception {
+    protected void createTestData(Connection conn, Table table) throws Exception {
 
         Statement stmt = null;
         try {
@@ -71,7 +49,7 @@ public abstract class AbstractJdbcToArrowTest {
     }
 
 
-    protected void deleteTestData(Table table) throws Exception {
+    protected void deleteTestData(Connection conn, Table table) throws Exception {
         Statement stmt = null;
         try {
             stmt = conn.createStatement();
@@ -85,5 +63,4 @@ public abstract class AbstractJdbcToArrowTest {
             }
         }
     }
-
 }
