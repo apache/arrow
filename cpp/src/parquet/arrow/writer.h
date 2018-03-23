@@ -31,7 +31,6 @@ namespace arrow {
 class Array;
 class MemoryPool;
 class PrimitiveArray;
-class RowBatch;
 class Schema;
 class Status;
 class StringArray;

@@ -1504,6 +1504,38 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   ASSERT_TRUE(table->Equals(*concatenated));
 }
 
+TEST(TestArrowReadWrite, GetRecordBatchReader) {
+  const int num_columns = 20;
+  const int num_rows = 1000;
+
+  std::shared_ptr<Table> table;
+  MakeDoubleTable(num_columns, num_rows, 1, &table);
+
+  std::shared_ptr<Buffer> buffer;
+  WriteTableToBuffer(table, 1, num_rows / 2, default_arrow_writer_properties(), &buffer);
+
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(),
+                              ::parquet::default_reader_properties(), nullptr, &reader));
+
+  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0, 1}, &rb_reader));
+
+  std::shared_ptr<::arrow::RecordBatch> batch;
+
+  ASSERT_OK(rb_reader->ReadNext(&batch));
+  ASSERT_EQ(500, batch->num_rows());
+  ASSERT_EQ(20, batch->num_columns());
+
+  ASSERT_OK(rb_reader->ReadNext(&batch));
+  ASSERT_EQ(500, batch->num_rows());
+  ASSERT_EQ(20, batch->num_columns());
+
+  ASSERT_OK(rb_reader->ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+}
+
 TEST(TestArrowReadWrite, ScanContents) {
   const int num_columns = 20;
   const int num_rows = 1000;

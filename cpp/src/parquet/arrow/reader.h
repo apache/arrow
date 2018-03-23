@@ -30,7 +30,7 @@ namespace arrow {
 
 class Array;
 class MemoryPool;
-class RowBatch;
+class RecordBatchReader;
 class Status;
 class Table;
 }  // namespace arrow
@@ -112,6 +112,11 @@ class PARQUET_EXPORT FileReader {
   // Returns error status if the column of interest is not flat.
   ::arrow::Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
 
+  /// \brief Return arrow schema by apply selection of column indices.
+  /// \returns error status if passed wrong indices.
+  ::arrow::Status GetSchema(const std::vector<int>& indices,
+                            std::shared_ptr<::arrow::Schema>* out);
+
   // Read column as a whole into an Array.
   ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::Array>* out);
 
@@ -148,6 +153,21 @@ class PARQUET_EXPORT FileReader {
   // leaf indices which are unrelated to the schema field are ignored
   ::arrow::Status ReadSchemaField(int i, const std::vector<int>& indices,
                                   std::shared_ptr<::arrow::Array>* out);
+
+  /// \brief Return a RecordBatchReader of row groups selected from row_group_indices, the
+  ///    ordering in row_group_indices matters.
+  /// \returns error Status if row_group_indices contains invalid index
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+
+  /// \brief Return a RecordBatchReader of row groups selected from row_group_indices,
+  ///     whose columns are selected by column_indices. The ordering in row_group_indices
+  ///     and column_indices matter.
+  /// \returns error Status if either row_group_indices or column_indices contains invalid
+  ///    index
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       const std::vector<int>& column_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   // Read a table of columns into a Table
   ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);
