@@ -166,8 +166,8 @@ cdef class StructType(DataType):
         DataType.init(self, type)
 
     def __getitem__(self, i):
-        return pyarrow_wrap_field(
-            self.type.child(_normalize_index(i, self.num_children)))
+        cdef int index = <int> _normalize_index(i, self.num_children)
+        return pyarrow_wrap_field(self.type.child(index))
 
     property num_children:
 
@@ -205,7 +205,7 @@ cdef class UnionType(DataType):
             assert 0
 
     def __getitem__(self, i):
-        cdef int index = _normalize_index(i, self.num_children)
+        cdef int index = <int> _normalize_index(i, self.num_children)
         return pyarrow_wrap_field(self.type.child(index))
 
     def __getstate__(self):
@@ -440,8 +440,8 @@ cdef class Schema:
         return self.schema.num_fields()
 
     def __getitem__(self, key):
-        return pyarrow_wrap_field(self.schema.field(
-            _normalize_index(key, self.schema.num_fields())))
+        cdef int index = <int> _normalize_index(key, self.schema.num_fields())
+        return pyarrow_wrap_field(self.schema.field(index))
 
     def __iter__(self):
         for i in range(len(self)):

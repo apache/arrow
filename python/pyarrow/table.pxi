@@ -1180,7 +1180,8 @@ cdef class Table:
         return column
 
     def __getitem__(self, key):
-        return self.column(_normalize_index(key, self.num_columns))
+        cdef int index = <int> _normalize_index(key, self.num_columns)
+        return self.column(index)
 
     def itercolumns(self):
         """
