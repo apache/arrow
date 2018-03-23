@@ -131,6 +131,12 @@ class TestScalars(unittest.TestCase):
         assert v.as_py() == ['foo', None]
         assert v[0].as_py() == 'foo'
         assert v[1] is pa.NA
+        assert v[-1] == v[1]
+        assert v[-2] == v[0]
+        with pytest.raises(IndexError):
+            v[-3]
+        with pytest.raises(IndexError):
+            v[2]
 
         assert arr[1] is pa.NA
 

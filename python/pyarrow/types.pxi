@@ -166,10 +166,8 @@ cdef class StructType(DataType):
         DataType.init(self, type)
 
     def __getitem__(self, i):
-        if i < 0 or i >= self.num_children:
-            raise IndexError(i)
-
-        return pyarrow_wrap_field(self.type.child(i))
+        cdef int index = <int> _normalize_index(i, self.num_children)
+        return pyarrow_wrap_field(self.type.child(index))
 
     property num_children:
 
@@ -207,7 +205,8 @@ cdef class UnionType(DataType):
             assert 0
 
     def __getitem__(self, i):
-        return pyarrow_wrap_field(self.type.child(i))
+        cdef int index = <int> _normalize_index(i, self.num_children)
+        return pyarrow_wrap_field(self.type.child(index))
 
     def __getstate__(self):
         children = [self[i] for i in range(self.num_children)]
@@ -440,24 +439,9 @@ cdef class Schema:
     def __len__(self):
         return self.schema.num_fields()
 
-    def __getitem__(self, int i):
-        cdef:
-            Field result = Field()
-            int num_fields = self.schema.num_fields()
-            int index
-
-        if not -num_fields <= i < num_fields:
-            raise IndexError(
-                'Schema field index {:d} is out of range'.format(i)
-            )
-
-        index = i if i >= 0 else num_fields + i
-        assert index >= 0
-
-        result.init(self.schema.field(index))
-        result.type = pyarrow_wrap_data_type(result.field.type())
-
-        return result
+    def __getitem__(self, key):
+        cdef int index = <int> _normalize_index(key, self.schema.num_fields())
+        return pyarrow_wrap_field(self.schema.field(index))
 
     def __iter__(self):
         for i in range(len(self)):

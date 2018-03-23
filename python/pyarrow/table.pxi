@@ -84,14 +84,12 @@ cdef class ChunkedArray:
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         elif isinstance(key, six.integer_types):
-            item = key
-            if item >= self.chunked_array.length() or item < 0:
-                return IndexError("ChunkedArray selection out of bounds")
+            index = _normalize_index(key, self.chunked_array.length())
             for i in range(self.num_chunks):
-                if item < self.chunked_array.chunk(i).get().length():
-                    return self.chunk(i)[item]
+                if index < self.chunked_array.chunk(i).get().length():
+                    return self.chunk(i)[index]
                 else:
-                    item -= self.chunked_array.chunk(i).get().length()
+                    index -= self.chunked_array.chunk(i).get().length()
         else:
             raise TypeError("key must either be a slice or integer")
 
@@ -630,12 +628,10 @@ cdef class RecordBatch:
         return pyarrow_wrap_array(self.batch.column(i))
 
     def __getitem__(self, key):
-        cdef:
-            Py_ssize_t start, stop
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         else:
-            return self.column(key)
+            return self.column(_normalize_index(key, self.num_columns))
 
     def serialize(self, memory_pool=None):
         """
@@ -1183,8 +1179,9 @@ cdef class Table:
         column.init(self.table.column(index))
         return column
 
-    def __getitem__(self, int64_t i):
-        return self.column(i)
+    def __getitem__(self, key):
+        cdef int index = <int> _normalize_index(key, self.num_columns)
+        return self.column(index)
 
     def itercolumns(self):
         """
