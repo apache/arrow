@@ -17,7 +17,7 @@
     <groupId>org.apache.arrow.adapter.jdbc</groupId>
     <artifactId>arrow-jdbc</artifactId>
     <packaging>jar</packaging>
-    <version>0.10.0-SNAPSHOT</version>
+    <version>0.9.0-SNAPSHOT</version>
     <name>Arrow JDBC Adapter</name>
     <url>http://maven.apache.org</url>
     <dependencies>
@@ -26,13 +26,13 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory</artifactId>
-            <version>0.9.0-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-vector -->
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-            <version>0.9.0-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- Test -->
