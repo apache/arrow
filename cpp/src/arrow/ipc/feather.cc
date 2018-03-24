@@ -101,7 +101,6 @@ static Status WritePaddedWithOffset(io::OutputStream* stream, const uint8_t* dat
     }
     if (buffer_it != buffer) {
       RETURN_NOT_OK(stream->Write(buffer, buffer_it - buffer));
-      buffer_it = buffer;
     }
   }
 
