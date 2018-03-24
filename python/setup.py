@@ -136,7 +136,7 @@ class build_ext(_build_ext):
         # Default is True but this only is actually bundled when
         # we also bundle arrow-cpp.
         self.bundle_boost = strtobool(
-            os.environ.get('PYARROW_BUNDLE_BOOST', '1'))
+            os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -195,15 +195,15 @@ class build_ext(_build_ext):
 
             if self.bundle_arrow_cpp:
                 cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
-                cmake_options.append('-DPYARROW_BUNDLE_BOOST=ON')
                 # ARROW-1090: work around CMake rough edges
                 if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
                     pkg_config = pjoin(os.environ['ARROW_HOME'], 'lib',
                                        'pkgconfig')
                     os.environ['PKG_CONFIG_PATH'] = pkg_config
                     del os.environ['ARROW_HOME']
-            else:
-                cmake_options.append('-DPYARROW_BUNDLE_BOOST=OFF')
+
+            if self.bundle_boost:
+                cmake_options.append('-DPYARROW_BUNDLE_BOOST=ON')
 
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                                  .format(self.build_type.lower()))

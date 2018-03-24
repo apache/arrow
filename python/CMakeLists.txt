@@ -78,7 +78,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     OFF)
   option(PYARROW_BUNDLE_BOOST
     "Bundle the Boost libraries when we bundle Arrow C++"
-    ON)
+    OFF)
   set(PYARROW_CXXFLAGS "" CACHE STRING
     "Compiler flags to append when compiling Arrow")
 endif()
