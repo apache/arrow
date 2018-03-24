@@ -606,6 +606,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     }
 
     int64_t values_bytes = 0;
+    int64_t bit_offset = 0;
 
     const uint8_t* values_buffer = nullptr;
 
@@ -634,25 +635,17 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       const auto& prim_values = static_cast<const PrimitiveArray&>(values);
       const auto& fw_type = static_cast<const FixedWidthType&>(*values.type());
 
-      if (values.type_id() == Type::BOOL) {
-        // Booleans are bit-packed
-        values_bytes = BitUtil::BytesForBits(values.length());
-      } else {
-        values_bytes = values.length() * fw_type.bit_width() / 8;
-      }
+      values_bytes = BitUtil::BytesForBits(values.length() * fw_type.bit_width());
 
       if (prim_values.values()) {
-        if (prim_values.offset() != 0 && (fw_type.bit_width() % 8 != 0)) {
-          return arrow::Status::NotImplemented(
-              "Buffer offset only allowed for table with byte sized data");
-        }
         values_buffer = prim_values.values()->data() +
                         (prim_values.offset() * fw_type.bit_width() / 8);
+        bit_offset = (prim_values.offset() * fw_type.bit_width()) % 8;
       }
     }
     if (values_buffer) {
-      RETURN_NOT_OK(
-          WritePadded(stream_.get(), values_buffer, values_bytes, &bytes_written));
+      RETURN_NOT_OK(WritePaddedWithOffset(stream_.get(), values_buffer, bit_offset,
+                                          values_bytes, &bytes_written));
     } else {
       RETURN_NOT_OK(WritePaddedBlank(stream_.get(), values_bytes, &bytes_written));
     }
