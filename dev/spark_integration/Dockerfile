@@ -17,24 +17,23 @@
 FROM maven:3.5.2-jdk-8-slim
 
 # Basic OS utilities
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && \
+    apt-get install -y \
         wget \
-        git build-essential \
-        software-properties-common
-
-# This will install conda in /home/ubuntu/miniconda
-RUN wget -O /tmp/miniconda.sh \
+        git \
+        build-essential \
+        software-properties-common && \
+    apt-get clean && \
+    # install conda in /home/ubuntu/miniconda
+    wget -O /tmp/miniconda.sh \
     https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
     bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
-    rm /tmp/miniconda.sh
-
-# Python dependencies
-RUN apt-get install -y \
-        pkg-config
-
-# Create Conda environment
-ENV PATH="/home/ubuntu/miniconda/bin:${PATH}"
-RUN conda create -y -q -n pyarrow-dev \
+    rm /tmp/miniconda.sh && \
+    # Python dependencies
+    apt-get install -y \
+        pkg-config && \
+    # Create Conda environment
+    /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
         # Python
         python=2.7 \
         numpy \
@@ -59,7 +58,10 @@ RUN conda create -y -q -n pyarrow-dev \
         jemalloc \
         lz4-c \
         zstd \
-        -c conda-forge
+        -c conda-forge && \
+    /home/ubuntu/miniconda/bin/conda clean --all
+
+ENV PATH="/home/ubuntu/miniconda/bin:${PATH}"
 
 ADD . /apache-arrow
 WORKDIR /apache-arrow
