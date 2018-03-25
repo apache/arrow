@@ -158,7 +158,7 @@ based bindings. Here are languages that support GObject Introspection:
   * Lua: [LGI](https://github.com/pavouk/lgi) should be used.
     * Examples: `example/lua/` directory.
 
-  * Go: [Go-gir-generator](https://github.com/linuxdeepin/go-gir-generator) should be used.
+  * Go: [Go-gir-generator](https://github.com/linuxdeepin/go-gir-generator) should be used. (Note that you should use Apache Arrow for Go than Arrow GLib.)
 
 See also
 [Projects/GObjectIntrospection/Users - GNOME Wiki!](https://wiki.gnome.org/Projects/GObjectIntrospection/Users)

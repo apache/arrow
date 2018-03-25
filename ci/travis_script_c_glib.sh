@@ -63,13 +63,4 @@ else
 fi
 popd
 
-pushd example/go
-make generate
-make
-./write-batch
-./read-batch
-./write-stream
-./read-stream
-popd
-
 popd
