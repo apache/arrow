@@ -58,35 +58,6 @@ elif [ $BUILD_SYSTEM = "autotools" ]; then
   fi
 fi
 
-if [ $BUILD_SYSTEM = "autotools" ]; then
-  go get github.com/linuxdeepin/go-gir-generator || :
-  pushd $GOPATH/src/github.com/linuxdeepin/go-gir-generator
-
-  # For old GObject Introspection.
-  # We can remove this when we use more later Ubuntu.
-  mv lib.in/glib-2.0/config.json{,.orig}
-  sed \
-    -e 's/\("unref_to_array"\)/"get_data", \1/g' \
-    lib.in/glib-2.0/config.json.orig > lib.in/glib-2.0/config.json
-
-  # Workaround. TODO: We should send a patch to go-gir-generator.
-  rm lib.in/gio-2.0/gdk_workaround.go
-  mv lib.in/gio-2.0/config.json{,.orig}
-  sed \
-    -e 's/\("Settings",\)/\/\/ \1/g' \
-    -e 's/\("SettingsBackend",\)/\/\/ \1/g' \
-    lib.in/gio-2.0/config.json.orig > lib.in/gio-2.0/config.json
-
-  mv Makefile{,.orig}
-  sed -e 's/ gudev-1.0//' Makefile.orig > Makefile
-  mkdir -p out/src/gir/gudev-1.0
-  make build copyfile
-  mkdir -p $GOPATH/bin/
-  cp -a out/gir-generator $GOPATH/bin/
-  cp -a out/src/gir/ $GOPATH/src/gir/
-  popd
-fi
-
 pushd $ARROW_C_GLIB_DIR
 
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
