@@ -70,6 +70,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Building wheel ==="
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp --bundle-boost --boost-namespace=arrow_boost
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
     $PIP install -r requirements.txt
@@ -88,4 +89,5 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     deactivate
 
     mv repaired_wheels/*.whl /io/dist
+    mv dist/*.tar.gz /io/dist
 done
