@@ -227,12 +227,16 @@ Status UInt64FromPythonInt(PyObject* obj, uint64_t* out) {
 }
 
 bool PyDecimal_Check(PyObject* obj) {
-  // TODO(phillipc): Is this expensive?
-  OwnedRef Decimal;
-  Status status = ImportDecimalType(&Decimal);
-  DCHECK_OK(status);
-  const int32_t result = PyObject_IsInstance(obj, Decimal.obj());
-  DCHECK_NE(result, -1) << " error during PyObject_IsInstance check";
+  static OwnedRef decimal_type;
+  if (!decimal_type.obj()) {
+    Status status = ImportDecimalType(&decimal_type);
+    DCHECK_OK(status);
+    DCHECK(PyType_Check(decimal_type.obj()));
+  }
+  // PyObject_IsInstance() is slower as it has to check for virtual subclasses
+  const int result =
+      PyType_IsSubtype(Py_TYPE(obj), reinterpret_cast<PyTypeObject*>(decimal_type.obj()));
+  DCHECK_NE(result, -1) << " error during PyType_IsSubtype check";
   return result == 1;
 }
 
