@@ -203,7 +203,7 @@ still in Alpha stages, and subject to API changes without deprecation warnings.
 ### API documentation
 
 To generate the (html) API documentation, run the following command in the apidoc
-directoy:
+directory:
 
     doxygen Doxyfile
 
