@@ -154,7 +154,8 @@ The pip binary packages (called "wheels") are generated from the
 * Push arrow-dist updates to **both** apache/arrow-dist and your fork of
   arrow-dist.
 * Wait for builds to complete
-* Download all wheel files from the new BinTray package version ([example][4])
+* Download all wheel and tar.gz files from the new BinTray package version
+  ([example][4])
 
 Now, you can finally upload the wheels to PyPI using the `twine` CLI tool. You
 must be permissioned on PyPI to upload here; ask Wes McKinney or Uwe Korn if
