@@ -177,3 +177,30 @@ class TestScalars(unittest.TestCase):
                                            categorical.categories)
         for i, c in enumerate(values):
             assert v[i].as_py() == c
+
+    def test_int_hash(self):
+        # ARROW-640
+        int_arr = pa.array([1, 1, 2, 1])
+        assert hash(int_arr[0]) == hash(1)
+
+    def test_float_hash(self):
+        # ARROW-640
+        float_arr = pa.array([1.4, 1.2, 2.5, 1.8])
+        assert hash(float_arr[0]) == hash(1.4)
+
+    def test_string_hash(self):
+        # ARROW-640
+        str_arr = pa.array(["foo", "bar"])
+        assert hash(str_arr[1]) == hash("bar")
+
+    def test_bytes_hash(self):
+        # ARROW-640
+        byte_arr = pa.array([b'foo', None, b'bar'])
+        assert hash(byte_arr[2]) == hash(b"bar")
+
+    def test_array_to_set(self):
+        # ARROW-640
+        arr = pa.array([1, 1, 2, 1])
+        set_from_array = set(arr)
+        assert isinstance(set_from_array, set)
+        assert set_from_array == {1, 2}

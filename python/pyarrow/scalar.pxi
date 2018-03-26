@@ -73,6 +73,8 @@ cdef class ArrayValue(Scalar):
             raise NotImplementedError(
                 "Cannot compare Arrow values that don't support as_py()")
 
+    def __hash__(self):
+            return hash(self.as_py())
 
 cdef class BooleanValue(ArrayValue):
 
