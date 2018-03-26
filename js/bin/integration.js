@@ -110,7 +110,7 @@ switch (mode) {
             gulp, args,
             {
                 cwd: path.resolve(__dirname, '..'),
-                stdio: ['inherit', 'inherit', 'inherit']
+                stdio: ['ignore', 'inherit', 'inherit']
             }
         ).status || process.exitCode || 0;
         // for (let i = -1, n = jsonPaths.length; ++i < n;) {
