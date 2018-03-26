@@ -180,7 +180,7 @@ class ARROW_EXPORT ArrayBuilder {
 // previous state instead. Subsequent finishes will yield
 // results which represent the elements added since the last
 // finish, i.e. SliceBuffers or delta dictionaries
-class PartiallyFinishableArrayBuilder : public ArrayBuilder {
+class ARROW_EXPORT PartiallyFinishableArrayBuilder : public ArrayBuilder {
  public:
   using ArrayBuilder::ArrayBuilder;
 
