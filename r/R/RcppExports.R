@@ -2,6 +2,15 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @export
+ArrayBuilder <- function(xptr_type) {
+    .Call(`_rrrow_ArrayBuilder`, xptr_type)
+}
+
+ArrayBuilder__num_children <- function(xptr_type) {
+    .Call(`_rrrow_ArrayBuilder__num_children`, xptr_type)
+}
+
+#' @export
 field <- function(name, type, nullable = TRUE) {
     .Call(`_rrrow_field`, name, type, nullable)
 }

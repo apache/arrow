@@ -6,6 +6,28 @@
 
 using namespace Rcpp;
 
+// ArrayBuilder
+xptr_ArrayBuilder ArrayBuilder(xptr_DataType xptr_type);
+RcppExport SEXP _rrrow_ArrayBuilder(SEXP xptr_typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_DataType >::type xptr_type(xptr_typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayBuilder(xptr_type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayBuilder__num_children
+int ArrayBuilder__num_children(xptr_ArrayBuilder xptr_type);
+RcppExport SEXP _rrrow_ArrayBuilder__num_children(SEXP xptr_typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_ArrayBuilder >::type xptr_type(xptr_typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayBuilder__num_children(xptr_type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // field
 xptr_Field field(const std::string& name, xptr_DataType type, bool nullable);
 RcppExport SEXP _rrrow_field(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
@@ -314,6 +336,8 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_rrrow_ArrayBuilder", (DL_FUNC) &_rrrow_ArrayBuilder, 1},
+    {"_rrrow_ArrayBuilder__num_children", (DL_FUNC) &_rrrow_ArrayBuilder__num_children, 1},
     {"_rrrow_field", (DL_FUNC) &_rrrow_field, 3},
     {"_rrrow_bla", (DL_FUNC) &_rrrow_bla, 0},
     {"_rrrow_int8", (DL_FUNC) &_rrrow_int8, 0},
