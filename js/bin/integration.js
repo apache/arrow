@@ -106,13 +106,13 @@ switch (mode) {
         jsonPaths.forEach((p, i) => {
             args.push('-j', p, '-a', arrowPaths[i]);
         });
-        child_process.spawnSync(
+        process.exitCode = child_process.spawnSync(
             gulp, args,
             {
                 cwd: path.resolve(__dirname, '..'),
                 stdio: ['ignore', 'inherit', 'inherit']
             }
-        );
+        ).status || process.exitCode || 0;
         // for (let i = -1, n = jsonPaths.length; ++i < n;) {
         //     const jsonPath = jsonPaths[i];
         //     const arrowPath = arrowPaths[i];
