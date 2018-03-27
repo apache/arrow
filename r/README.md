@@ -28,7 +28,7 @@ devtools::install_github("romainfrancois/arrow/r")
 
 ## Example
 
-More examples to come.
+factory functions:
 
 ``` r
 library(rrrow)
@@ -44,3 +44,24 @@ int32()
 struct( x = int32(), y = int64() )
 #> StructType(struct<x: int32, y: int64>)
 ```
+
+ArrayBuilder
+
+``` r
+# make a builder for an array of type int32. 
+(b <- ArrayBuilder( int32() ) )
+#> <pointer: 0x7fe5d26b8e10>
+#> attr(,"class")
+#> [1] "arrow::NumericBuilder<arrow::Int32Type>"
+#> [2] "arrow::ArrayBuilder"
+ArrayBuilder__num_children(b)
+#> [1] 0
+```
+
+This is just kicking the tires with the C++ class system for now.
+Eventully, we probably will have something like `b$num_children()` or
+perhaps the `ArrayBuilder` class won’t even be public.
+
+At the moment the internal code is hand written, we are considering
+moving to [RcppR6](https://github.com/richfitz/RcppR6) as a development
+time dependency to generate the bindings.
