@@ -184,6 +184,9 @@ Status ReadMessage(const int64_t offset, const int32_t metadata_length,
 ARROW_EXPORT
 Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
 
+ARROW_EXPORT
+Status ReadMessageAligned(io::RandomAccessFile* file, std::unique_ptr<Message>* message);
+
 }  // namespace ipc
 }  // namespace arrow
 
