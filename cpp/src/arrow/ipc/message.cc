@@ -207,41 +207,13 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   return Message::ReadFrom(metadata, file, message);
 }
 
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
-  int32_t message_length = 0;
-  int64_t bytes_read = 0;
-  RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
-                           reinterpret_cast<uint8_t*>(&message_length)));
-
-  if (bytes_read != sizeof(int32_t)) {
-    *message = nullptr;
-    return Status::OK();
-  }
-
-  if (message_length == 0) {
-    // Optional 0 EOS control message
-    *message = nullptr;
-    return Status::OK();
-  }
-
-  std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(file->Read(message_length, &metadata));
-  if (metadata->size() != message_length) {
-    std::stringstream ss;
-    ss << "Expected to read " << message_length << " metadata bytes, but "
-       << "only read " << metadata->size();
-    return Status::Invalid(ss.str());
-  }
-
-  return Message::ReadFrom(metadata, file, message);
-}
-
 int64_t PaddedLength(int64_t nbytes) {
   int alignment = 64;
   return ((nbytes + alignment - 1) / alignment) * alignment;
 }
 
-Status ReadMessageAligned(io::RandomAccessFile* file, std::unique_ptr<Message>* message) {
+Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message,
+                   bool aligned) {
   int32_t message_length = 0;
   int64_t bytes_read = 0;
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
@@ -267,10 +239,16 @@ Status ReadMessageAligned(io::RandomAccessFile* file, std::unique_ptr<Message>* 
     return Status::Invalid(ss.str());
   }
 
-  int64_t offset;
-  RETURN_NOT_OK(file->Tell(&offset));
-  offset = PaddedLength(offset);
-  RETURN_NOT_OK(file->Seek(offset));
+  // If requested, align the file before reading the message.
+  if (aligned) {
+    io::RandomAccessFile* seekable_file =
+        reinterpret_cast<io::RandomAccessFile*>(file);
+    int64_t offset;
+    RETURN_NOT_OK(seekable_file->Tell(&offset));
+    offset = PaddedLength(offset);
+    RETURN_NOT_OK(seekable_file->Seek(offset));
+    file = reinterpret_cast<io::InputStream*>(seekable_file);
+  }
 
   return Message::ReadFrom(metadata, file, message);
 }
