@@ -369,8 +369,7 @@ ACCEPT_VISITOR(DictionaryType);
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
   std::shared_ptr<DataType> NAME() {                                     \
-    static std::shared_ptr<DataType> result = std::make_shared<KLASS>(); \
-    return result;                                                       \
+    return std::make_shared<KLASS>();                                    \
   }
 
 TYPE_FACTORY(null, NullType);
