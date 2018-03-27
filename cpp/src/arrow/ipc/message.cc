@@ -28,6 +28,7 @@
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -205,11 +206,6 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
 
   auto metadata = SliceBuffer(buffer, 4, buffer->size() - 4);
   return Message::ReadFrom(metadata, file, message);
-}
-
-int64_t PaddedLength(int64_t nbytes) {
-  int alignment = 64;
-  return ((nbytes + alignment - 1) / alignment) * alignment;
 }
 
 Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message,
