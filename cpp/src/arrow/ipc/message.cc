@@ -237,13 +237,12 @@ Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message,
 
   // If requested, align the file before reading the message.
   if (aligned) {
-    io::RandomAccessFile* seekable_file =
-        reinterpret_cast<io::RandomAccessFile*>(file);
     int64_t offset;
-    RETURN_NOT_OK(seekable_file->Tell(&offset));
-    offset = PaddedLength(offset);
-    RETURN_NOT_OK(seekable_file->Seek(offset));
-    file = reinterpret_cast<io::InputStream*>(seekable_file);
+    RETURN_NOT_OK(file->Tell(&offset));
+    int64_t aligned_offset = PaddedLength(offset);
+    int64_t num_extra_bytes = aligned_offset - offset;
+    std::shared_ptr<Buffer> dummy_buffer;
+    RETURN_NOT_OK(file->Read(num_extra_bytes, &dummy_buffer));
   }
 
   return Message::ReadFrom(metadata, file, message);
