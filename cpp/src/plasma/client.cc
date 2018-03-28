@@ -253,6 +253,7 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
 
 Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
                          int64_t timeout_ms, ObjectBuffer* object_buffers) {
+  std::cout << "beginning of get" << std::endl;
   // Fill out the info for the objects that are already in use locally.
   bool all_present = true;
   for (int i = 0; i < num_objects; ++i) {
@@ -298,9 +299,13 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
     }
   }
 
+  std::cout << "before return" << std::endl;
+
   if (all_present) {
     return Status::OK();
   }
+
+  std::cout << "not all present" << std::endl;
 
   // If we get here, then the objects aren't all currently in use by this
   // client, so we need to send a request to the plasma store.
@@ -310,6 +315,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
   }
   request->set_timeout_ms(timeout_ms);
   auto response = std::unique_ptr<rpc::GetReply>(new rpc::GetReply());
+  std::cout << "sending get request" << std::endl;
   store_service_->Get(controller_.get(), request.get(), response.get(), nullptr);
   std::vector<ObjectID> received_object_ids;
   for (int i = 0; i < response->object_id_size(); ++i) {

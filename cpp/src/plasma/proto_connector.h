@@ -61,6 +61,7 @@ class RpcChannelImpl : public RpcChannel {
                           const Message* request,
                           Message* response,
                           Closure* done) {
+    std::cout << "method index: " << method->index() << std::endl;
     ARROW_CHECK_OK(plasma_io_.WriteProto(fd_, method->index(), request));
     if (response->GetDescriptor()->full_name() != "plasma.rpc.Void") {
       int64_t type;

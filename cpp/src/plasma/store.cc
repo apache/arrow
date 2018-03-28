@@ -294,6 +294,7 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   }
   const google::protobuf::MethodDescriptor *descriptor = service_.GetDescriptor()->FindMethodByName("Get");
   int64_t type = descriptor->index();
+  std::cout << "return from get request" << std::endl;
   Status s = service_.plasma_io()->WriteProto(get_req->client->fd, type, reply.get());
   // Status s = SendGetReply(get_req->client->fd, &get_req->object_ids[0], get_req->objects,
   //                         get_req->object_ids.size(), store_fds, mmap_sizes);

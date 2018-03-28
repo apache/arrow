@@ -24,7 +24,8 @@ Status PlasmaService::ProcessMessage(Client* client) {
   fd_to_return_ = -1;
   CallMethod(method_descriptor, nullptr, request, response, nullptr);
 
-  if (response->GetDescriptor()->full_name() != "plasma.rpc.Void") {
+  if (response->GetDescriptor()->full_name() != "plasma.rpc.Void" &&
+      response->GetDescriptor()->full_name() != "plasma.rpc.GetReply") {
     HANDLE_SIGPIPE(plasma_io_.WriteProto(client->fd, type, response), client->fd);
   }
 
@@ -48,6 +49,7 @@ void PlasmaService::Create(RpcController* controller,
                            const rpc::CreateRequest* request,
                            rpc::CreateReply* response,
                            Closure* done) {
+  std::cout << "got create request" << std::endl;
   PlasmaObject object;
   ObjectID object_id = ObjectID::from_binary(request->object_id());
   int error_code =
@@ -69,6 +71,7 @@ void PlasmaService::Seal(RpcController* controller,
                          const rpc::SealRequest* request,
                          rpc::Void* response,
                          Closure* done) {
+  std::cout << "got seal request" << std::endl;
   ObjectID object_id = ObjectID::from_binary(request->object_id());
   store_->seal_object(object_id, request->digest().data());
 }
@@ -90,6 +93,7 @@ void PlasmaService::Get(RpcController* controller,
     object_ids_to_get.push_back(ObjectID::from_binary(object_id));
   }
   int64_t timeout_ms = request->timeout_ms();
+  std::cout << "got get request" << std::endl;
   store_->process_get_request(client_, object_ids_to_get, timeout_ms);
 }
 
