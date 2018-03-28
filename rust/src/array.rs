@@ -151,6 +151,17 @@ impl From<Vec<String>> for Array {
     }
 }
 
+impl From<Vec<Rc<Array>>> for Array {
+    fn from(v: Vec<Rc<Array>>) -> Self {
+        Array {
+            len: v.len() as i32,
+            null_count: 0,
+            null_bitmap: Bitmap::new(v.len()),
+            data: ArrayData::Struct(v.iter().map(|a| a.clone()).collect())
+        }
+    }
+}
+
 /// List of variable-width data such as Utf8 strings
 pub struct ListData {
     pub offsets: Vec<i32>,
@@ -174,31 +185,7 @@ impl ListData {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_bitmap_length() {
-        assert_eq!(64, Bitmap::new(63).len());
-        assert_eq!(64, Bitmap::new(64).len());
-        assert_eq!(128, Bitmap::new(65).len());
-    }
-
-    #[test]
-    fn test_set_bit() {
-        let mut b = Bitmap::new(64);
-        assert_eq!(false, b.is_set(12));
-        b.set(12);
-        assert_eq!(true, b.is_set(12));
-    }
-
-    #[test]
-    fn test_clear_bit() {
-        let mut b = Bitmap::new(64);
-        assert_eq!(false, b.is_set(12));
-        b.set(12);
-        assert_eq!(true, b.is_set(12));
-        b.clear(12);
-        assert_eq!(false, b.is_set(12));
-    }
+    use super::super::datatypes::*;
 
     #[test]
     fn test_utf8_offsets() {
@@ -241,6 +228,19 @@ mod tests {
         assert_eq!(false, a.null_bitmap.is_set(2));
         assert_eq!(false, a.null_bitmap.is_set(3));
         assert_eq!(true, a.null_bitmap.is_set(4));
+    }
+
+    #[test]
+    fn test_struct() {
+
+        let _schema = Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Float32, false),
+        ]);
+
+        let a = Rc::new(Array::from(vec![1,2,3,4,5]));
+        let b = Rc::new(Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]));
+        let _ = Rc::new(Array::from(vec![a,b]));
     }
 }
 

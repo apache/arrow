@@ -50,3 +50,37 @@ impl Bitmap {
         self.bits[byte_offset] = self.bits[byte_offset] ^ (1_u8 << ((i % 8) as u8));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bitmap_length() {
+        assert_eq!(64, Bitmap::new(63).len());
+        assert_eq!(64, Bitmap::new(64).len());
+        assert_eq!(128, Bitmap::new(65).len());
+    }
+
+    #[test]
+    fn test_set_bit() {
+        let mut b = Bitmap::new(64);
+        assert_eq!(false, b.is_set(12));
+        b.set(12);
+        assert_eq!(true, b.is_set(12));
+    }
+
+    #[test]
+    fn test_clear_bit() {
+        let mut b = Bitmap::new(64);
+        assert_eq!(false, b.is_set(12));
+        b.set(12);
+        assert_eq!(true, b.is_set(12));
+        b.clear(12);
+        assert_eq!(false, b.is_set(12));
+    }
+
+}
+
+
+
