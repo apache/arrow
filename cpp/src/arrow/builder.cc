@@ -1404,7 +1404,6 @@ Status StringBuilder::Append(const std::vector<std::string>& values) {
                         reinterpret_cast<const uint8_t*>(str.data()), str.size());
                     this->UnsafeAppendToBitmap(true);
                   }
-
                 });
   return Status::OK();
 }
