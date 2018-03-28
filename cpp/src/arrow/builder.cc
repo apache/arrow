@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/builder.h"
-
+#include <numeric>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
