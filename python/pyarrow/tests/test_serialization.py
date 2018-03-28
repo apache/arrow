@@ -708,3 +708,9 @@ def test_tensor_alignment():
     ys = pa.deserialize(pa.serialize(xs).to_buffer())
     for y in ys:
         assert y.ctypes.data % 64 == 0
+
+    xs = [np.random.normal(size=i * (5,)) for i in range(1, 8)]
+    xs = [xs[i][(i + 1) * (slice(1, 3),)] for i in range(len(xs))]
+    ys = pa.deserialize(pa.serialize(xs).to_buffer())
+    for y in ys:
+        assert y.ctypes.data % 64 == 0
