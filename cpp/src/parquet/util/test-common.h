@@ -23,6 +23,7 @@
 #include <random>
 #include <vector>
 
+#include "parquet/exception.h"
 #include "parquet/types.h"
 
 using std::vector;
@@ -34,6 +35,20 @@ namespace test {
 typedef ::testing::Types<BooleanType, Int32Type, Int64Type, Int96Type, FloatType,
                          DoubleType, ByteArrayType, FLBAType>
     ParquetTypes;
+
+class ParquetTestException : public parquet::ParquetException {
+  using ParquetException::ParquetException;
+};
+
+const char* get_data_dir() {
+  const auto result = std::getenv("PARQUET_TEST_DATA");
+  if (!result || !result[0]) {
+    throw ParquetTestException(
+        "Please point the PARQUET_TEST_DATA environment "
+        "variable to the test data directory");
+  }
+  return result;
+}
 
 template <typename T>
 static inline void assert_vector_equal(const vector<T>& left, const vector<T>& right) {

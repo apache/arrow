@@ -39,6 +39,8 @@
 
 #include "parquet/file_writer.h"
 
+#include "parquet/util/test-common.h"
+
 #include "arrow/api.h"
 #include "arrow/test-util.h"
 #include "arrow/type_traits.h"
@@ -2100,8 +2102,7 @@ TEST(TestImpalaConversion, NanosecondToImpala) {
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
   // PARQUET-995
-  const char* data_dir = std::getenv("PARQUET_TEST_DATA");
-  std::string dir_string(data_dir);
+  std::string dir_string(test::get_data_dir());
   std::stringstream ss;
   ss << dir_string << "/"
      << "alltypes_plain.parquet";
@@ -2121,7 +2122,7 @@ class TestArrowReaderAdHocSpark
           std::tuple<std::string, std::shared_ptr<::DataType>>> {};
 
 TEST_P(TestArrowReaderAdHocSpark, ReadDecimals) {
-  std::string path(std::getenv("PARQUET_TEST_DATA"));
+  std::string path(test::get_data_dir());
 
   std::string filename;
   std::shared_ptr<::DataType> decimal_type;

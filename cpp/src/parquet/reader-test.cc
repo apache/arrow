@@ -30,6 +30,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/printer.h"
 #include "parquet/util/memory.h"
+#include "parquet/util/test-common.h"
 
 using std::string;
 
@@ -37,10 +38,8 @@ namespace parquet {
 
 using ReadableFile = ::arrow::io::ReadableFile;
 
-const char* data_dir = std::getenv("PARQUET_TEST_DATA");
-
 std::string alltypes_plain() {
-  std::string dir_string(data_dir);
+  std::string dir_string(test::get_data_dir());
   std::stringstream ss;
   ss << dir_string << "/"
      << "alltypes_plain.parquet";
@@ -48,7 +47,7 @@ std::string alltypes_plain() {
 }
 
 std::string nation_dict_truncated_data_page() {
-  std::string dir_string(data_dir);
+  std::string dir_string(test::get_data_dir());
   std::stringstream ss;
   ss << dir_string << "/"
      << "nation.dict-malformed.parquet";
@@ -171,7 +170,7 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
 class TestLocalFile : public ::testing::Test {
  public:
   void SetUp() {
-    std::string dir_string(data_dir);
+    std::string dir_string(test::get_data_dir());
 
     std::stringstream ss;
     ss << dir_string << "/"
