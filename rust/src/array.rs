@@ -64,6 +64,8 @@ impl Array {
 
 }
 
+//TODO: use macros to generate this boilerplate code
+
 impl From<Vec<bool>> for Array {
     fn from(v: Vec<bool>) -> Self {
         Array { len: v.len() as i32, null_count: 0, null_bitmap: Bitmap::new(v.len()), data: ArrayData::Boolean(v) }
@@ -88,9 +90,39 @@ impl From<Vec<i32>> for Array {
     }
 }
 
+impl From<Vec<Option<i32>>> for Array {
+    fn from(v: Vec<Option<i32>>) -> Self {
+        let mut null_count = 0;
+        let mut null_bitmap = Bitmap::new(v.len());
+        for i in 0 .. v.len() {
+            if v[i].is_none() {
+                null_count+=1;
+                null_bitmap.set(i);
+            }
+        }
+        let values = v.iter().map(|x| x.unwrap_or(0)).collect::<Vec<i32>>();
+        Array { len: v.len() as i32, null_count, null_bitmap, data: ArrayData::Int32(values) }
+    }
+}
+
 impl From<Vec<i64>> for Array {
     fn from(v: Vec<i64>) -> Self {
         Array { len: v.len() as i32, null_count: 0, null_bitmap: Bitmap::new(v.len()), data: ArrayData::Int64(v) }
+    }
+}
+
+impl From<Vec<Option<i64>>> for Array {
+    fn from(v: Vec<Option<i64>>) -> Self {
+        let mut null_count = 0;
+        let mut null_bitmap = Bitmap::new(v.len());
+        for i in 0 .. v.len() {
+            if v[i].is_none() {
+                null_count+=1;
+                null_bitmap.set(i);
+            }
+        }
+        let values = v.iter().map(|x| x.unwrap_or(0)).collect::<Vec<i64>>();
+        Array { len: v.len() as i32, null_count, null_bitmap, data: ArrayData::Int64(values) }
     }
 }
 
@@ -200,16 +232,16 @@ mod tests {
         }
     }
 
-//    #[test]
-//    fn test_optional_i32() {
-//        let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
-//        assert_eq!(5, a.len());
-//        assert_eq!(false, a.null_bitmap.is_set(0));
-//        assert_eq!(true, a.null_bitmap.is_set(1));
-//        assert_eq!(false, a.null_bitmap.is_set(2));
-//        assert_eq!(false, a.null_bitmap.is_set(3));
-//        assert_eq!(true, a.null_bitmap.is_set(4));
-//    }
+    #[test]
+    fn test_optional_i32() {
+       let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
+        assert_eq!(5, a.len());
+        assert_eq!(false, a.null_bitmap.is_set(0));
+        assert_eq!(true, a.null_bitmap.is_set(1));
+        assert_eq!(false, a.null_bitmap.is_set(2));
+        assert_eq!(false, a.null_bitmap.is_set(3));
+        assert_eq!(true, a.null_bitmap.is_set(4));
+    }
 }
 
 
