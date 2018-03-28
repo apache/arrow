@@ -574,6 +574,8 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(values->length()));
     ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer.Close());
+    // writer.Close() should be idempotent
+    ASSERT_OK_NO_THROW(writer.Close());
   }
 
   std::shared_ptr<InMemoryOutputStream> sink_;
