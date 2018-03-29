@@ -34,6 +34,8 @@ Table.from = function() {};
 /** @type {?} */
 Table.fromAsync = function() {};
 /** @type {?} */
+Table.fromStruct = function() {};
+/** @type {?} */
 Table.empty = function() {};
 /** @type {?} */
 Table.prototype.schema;

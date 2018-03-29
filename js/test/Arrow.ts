@@ -43,8 +43,8 @@ import { read, readAsync } from '../src/Arrow';
 export { read, readAsync };
 import { View,  VectorLike } from '../src/Arrow';
 export { View,  VectorLike };
-import { Table, Field, Schema, RecordBatch, Type } from '../src/Arrow';
-export { Table, Field, Schema, RecordBatch, Type };
+import { Table, Field, Schema, RecordBatch, Type, vector } from '../src/Arrow';
+export { Table, Field, Schema, RecordBatch, Type, vector };
 
 import { TypedArray, TypedArrayConstructor, IntBitWidth, TimeBitWidth } from '../src/Arrow';
 export { TypedArray, TypedArrayConstructor, IntBitWidth, TimeBitWidth };
