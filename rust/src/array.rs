@@ -86,6 +86,7 @@ pub struct Array {
 
 impl Array {
 
+    /// Create a new array where there are no null values
     pub fn new(len: usize, data: ArrayData) -> Self {
         Array { len: len as i32, data, validity_bitmap: None, null_count: 0 }
     }
@@ -100,64 +101,88 @@ impl Array {
 
 }
 
+/// type-safe array operations
 trait ArrayOps<T> {
     fn get(&self, i: usize) -> Result<T,Error>;
 }
 
-impl ArrayOps<i32> for Array {
-    fn get(&self, i: usize) -> Result<i32,Error> {
-        match self.data() {
-            &ArrayData::Int32(ptr) => Ok(unsafe {*ptr.offset(i as isize)}),
-            _ => Err(Error::from("Request for i32 but array is not i32"))
-        }
-    }
-}
-
-//TODO: use macros to generate this boilerplate code
-
-impl From<Vec<bool>> for Array {
-    fn from(v: Vec<bool>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::from(v) }
-    }
-}
-
-impl From<Vec<f32>> for Array {
-    fn from(v: Vec<f32>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::from(v) }
-    }
-}
-
-impl From<Vec<f64>> for Array {
-    fn from(v: Vec<f64>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::from(v) }
-    }
-}
-
-impl From<Vec<i32>> for Array {
-    fn from(v: Vec<i32>) -> Self {
-        Array {
-            len: v.len() as i32,
-            null_count: 0,
-            validity_bitmap: None,
-            data: ArrayData::from(v)
-        }
-    }
-}
-
-impl From<Vec<Option<i32>>> for Array {
-    fn from(v: Vec<Option<i32>>) -> Self {
-        let mut null_count = 0;
-        let mut validity_bitmap = Bitmap::new(v.len());
-        for i in 0 .. v.len() {
-            if v[i].is_none() {
-                null_count+=1;
-                validity_bitmap.clear(i);
+macro_rules! array_ops {
+    ($DT:ty, $AT:ident) => {
+        impl ArrayOps<$DT> for Array {
+            fn get(&self, i: usize) -> Result<$DT,Error> {
+                match self.data() {
+                    &ArrayData::$AT(ptr) => Ok(unsafe {*ptr.offset(i as isize)}),
+                    _ => Err(Error::from("Request for $DT but array is not $DT"))
+                }
             }
         }
-        let values = v.iter().map(|x| x.unwrap_or(0)).collect::<Vec<i32>>();
-        Array { len: values.len() as i32, null_count, validity_bitmap: Some(validity_bitmap), data: ArrayData::from(values) }
     }
 }
+
+array_ops!(bool, Boolean);
+array_ops!(f64, Float64);
+array_ops!(f32, Float32);
+array_ops!(u8, UInt8);
+array_ops!(u16, UInt16);
+array_ops!(u32, UInt32);
+array_ops!(u64, UInt64);
+array_ops!(i8, Int8);
+array_ops!(i16, Int16);
+array_ops!(i32, Int32);
+array_ops!(i64, Int64);
+
+macro_rules! array_from_primitive {
+    ($DT:ty) => {
+        impl From<Vec<$DT>> for Array {
+            fn from(v: Vec<$DT>) -> Self {
+                Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::from(v) }
+            }
+        }
+    }
+
+}
+
+array_from_primitive!(bool);
+array_from_primitive!(f32);
+array_from_primitive!(f64);
+array_from_primitive!(u16);
+array_from_primitive!(u32);
+array_from_primitive!(u64);
+array_from_primitive!(i8);
+array_from_primitive!(i16);
+array_from_primitive!(i32);
+array_from_primitive!(i64);
+
+macro_rules! array_from_optional_primitive {
+    ($DT:ty, $DEFAULT:expr) => {
+        impl From<Vec<Option<$DT>>> for Array {
+            fn from(v: Vec<Option<$DT>>) -> Self {
+                let mut null_count = 0;
+                let mut validity_bitmap = Bitmap::new(v.len());
+                for i in 0 .. v.len() {
+                    if v[i].is_none() {
+                        null_count+=1;
+                        validity_bitmap.clear(i);
+                    }
+                }
+                let values = v.iter().map(|x| x.unwrap_or($DEFAULT)).collect::<Vec<$DT>>();
+                Array { len: values.len() as i32, null_count, validity_bitmap: Some(validity_bitmap), data: ArrayData::from(values) }
+            }
+        }
+    }
+
+}
+
+array_from_optional_primitive!(bool, false);
+array_from_optional_primitive!(f32, 0_f32);
+array_from_optional_primitive!(f64, 0_f64);
+array_from_optional_primitive!(u16, 0_u16);
+array_from_optional_primitive!(u32, 0_u32);
+array_from_optional_primitive!(u64, 0_u64);
+array_from_optional_primitive!(i8, 0_i8);
+array_from_optional_primitive!(i16, 0_i16);
+array_from_optional_primitive!(i32, 0_i32);
+array_from_optional_primitive!(i64, 0_i64);
 
 /// This method mostly just used for unit tests
 impl From<Vec<&'static str>> for Array {
