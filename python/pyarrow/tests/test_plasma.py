@@ -799,15 +799,15 @@ class TestPlasmaClient(object):
         # them go out of scope.
         for _ in range(100):
             create_object(
-                self.plasma_client,
+                self.plasma_client2,
                 np.random.randint(1, DEFAULT_PLASMA_STORE_MEMORY // 20), 0)
         # Create large objects that require the full object store size, and
         # verify that they fit.
         for _ in range(2):
-            create_object(self.plasma_client, DEFAULT_PLASMA_STORE_MEMORY, 0)
+            create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY, 0)
         # Verify that an object that is too large does not fit.
         with pytest.raises(pa.lib.PlasmaStoreFull):
-            create_object(self.plasma_client, DEFAULT_PLASMA_STORE_MEMORY + 1,
+            create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY + 1,
                           0)
 
 
