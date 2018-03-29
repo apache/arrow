@@ -1399,8 +1399,8 @@ Status StringBuilder::Append(const std::vector<std::string>& values,
     if (null_bytes[i]) {
       UnsafeAppendToBitmap(false);
     } else {
-      value_data_builder_.Append(reinterpret_cast<const uint8_t*>(values[i].data()),
-                                 values[i].size());
+      RETURN_NOT_OK(value_data_builder_.Append(
+          reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
       UnsafeAppendToBitmap(true);
     }
   }
