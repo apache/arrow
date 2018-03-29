@@ -16,7 +16,7 @@
 # under the License.
 
 [package]
-name = "arrow"
+name = "apache-arrow"
 version = "0.1.0"
 description = "Rust implementation of Apache Arrow"
 homepage = "https://github.com/apache/arrow"
