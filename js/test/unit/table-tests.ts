@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import Arrow, { RecordBatch } from '../Arrow';
+import Arrow, { vector, RecordBatch } from '../Arrow';
 
 const { predicate, Table } = Arrow;
 
@@ -24,7 +24,7 @@ const { col, lit, custom } = predicate;
 const F32 = 0, I32 = 1, DICT = 2;
 const test_data = [
     {name: `single record batch`,
-     table: Table.from({
+     table: () => Table.from({
           'schema': {
             'fields': [
               {
@@ -114,7 +114,7 @@ const test_data = [
           }]
         }),
         // Use Math.fround to coerce to float32
-     values: [
+     values: () => [
          [Math.fround(-0.3), -1, 'a'],
          [Math.fround(-0.2),  1, 'b'],
          [Math.fround(-0.1), -1, 'c'],
@@ -124,7 +124,7 @@ const test_data = [
          [Math.fround( 0.3), -1, 'a']
      ]},
      {name: `multiple record batches`,
-      table: Table.from({
+      table: () => Table.from({
           'schema': {
             'fields': [
               {
@@ -257,7 +257,7 @@ const test_data = [
             ]
           }]
       }),
-      values: [
+      values: () => [
             [Math.fround(-0.3), -1, 'a'],
             [Math.fround(-0.2),  1, 'b'],
             [Math.fround(-0.1), -1, 'c'],
@@ -267,7 +267,123 @@ const test_data = [
             [Math.fround( 0.3), -1, 'a'],
             [Math.fround( 0.2),  1, 'b'],
             [Math.fround( 0.1), -1, 'c'],
-      ]}
+      ]},
+    {name: `struct`,
+     table: () => Table.fromStruct(Table.from({
+          'schema': {
+            'fields': [
+              {
+                'name': 'struct',
+                'type': {
+                  'name': 'struct'
+                },
+                'nullable': false,
+                'children': [
+                  {
+                    'name': 'f32',
+                    'type': {
+                      'name': 'floatingpoint',
+                      'precision': 'SINGLE'
+                    },
+                    'nullable': false,
+                    'children': [],
+                  },
+                  {
+                    'name': 'i32',
+                    'type': {
+                      'name': 'int',
+                      'isSigned': true,
+                      'bitWidth': 32
+                    },
+                    'nullable': false,
+                    'children': [],
+                  },
+                  {
+                    'name': 'dictionary',
+                    'type': {
+                      'name': 'utf8'
+                    },
+                    'nullable': false,
+                    'children': [],
+                    'dictionary': {
+                      'id': 0,
+                      'indexType': {
+                        'name': 'int',
+                        'isSigned': true,
+                        'bitWidth': 8
+                      },
+                      'isOrdered': false
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          'dictionaries': [{
+            'id': 0,
+            'data': {
+              'count': 3,
+              'columns': [
+                {
+                  'name': 'DICT0',
+                  'count': 3,
+                  'VALIDITY': [],
+                  'OFFSET': [
+                    0,
+                    1,
+                    2,
+                    3
+                  ],
+                  'DATA': [
+                    'a',
+                    'b',
+                    'c',
+                  ]
+                }
+              ]
+            }
+          }],
+          'batches': [{
+            'count': 7,
+            'columns': [
+              {
+                'name': 'struct',
+                'count': 7,
+                'VALIDITY': [],
+                'children': [
+                  {
+                    'name': 'f32',
+                    'count': 7,
+                    'VALIDITY': [],
+                    'DATA': [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3]
+                  },
+                  {
+                    'name': 'i32',
+                    'count': 7,
+                    'VALIDITY': [],
+                    'DATA': [-1, 1, -1, 1, -1, 1, -1]
+                  },
+                  {
+                    'name': 'dictionary',
+                    'count': 7,
+                    'VALIDITY': [],
+                    'DATA': [0, 1, 2, 0, 1, 2, 0]
+                  }
+                ]
+              }
+            ]
+          }]
+        }).getColumn('struct') as vector.StructVector),
+        // Use Math.fround to coerce to float32
+     values: () => [
+         [Math.fround(-0.3), -1, 'a'],
+         [Math.fround(-0.2),  1, 'b'],
+         [Math.fround(-0.1), -1, 'c'],
+         [Math.fround( 0  ),  1, 'a'],
+         [Math.fround( 0.1), -1, 'b'],
+         [Math.fround( 0.2),  1, 'c'],
+         [Math.fround( 0.3), -1, 'a']
+     ]},
 ];
 
 describe(`Table`, () => {
@@ -282,8 +398,8 @@ describe(`Table`, () => {
     });
     for (let datum of test_data) {
         describe(datum.name, () => {
-            const table = datum.table;
-            const values = datum.values;
+            const table = datum.table();
+            const values = datum.values();
 
             test(`has the correct length`, () => {
                 expect(table.length).toEqual(values.length);
