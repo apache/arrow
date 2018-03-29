@@ -211,7 +211,6 @@ public class DecimalVector extends BaseFixedWidthVector {
    * @param value array of bytes containing decimal in big endian byte order.
    */
   public void setBigEndian(int index, byte[] value) {
-    assert value.length <= TYPE_WIDTH;
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     final int length = value.length;
     int startIndex = index * TYPE_WIDTH;
@@ -223,13 +222,32 @@ public class DecimalVector extends BaseFixedWidthVector {
         valueBuffer.setByte(startIndex + 3, value[i-3]);
         startIndex += 4;
       }
-    } else {
+
+      return;
+    }
+
+    if (length == 0) {
+      valueBuffer.setZero(startIndex, TYPE_WIDTH);
+      return;
+    }
+
+    if (length < 16) {
       for (int i = length - 1; i >= 0; i--) {
         valueBuffer.setByte(startIndex, value[i]);
         startIndex++;
       }
-      valueBuffer.setZero(startIndex, TYPE_WIDTH - length);
+
+      final byte pad = (byte) (value[0] < 0 ? 0xFF : 0x00);
+      final int maxStartIndex = (index + 1) * TYPE_WIDTH;
+      while (startIndex < maxStartIndex) {
+        valueBuffer.setByte(startIndex, pad);
+        startIndex++;
+      }
+
+      return;
     }
+
+    throw new IllegalArgumentException("Invalid decimal value length. Valid length in [1 - 16], got " + length);
   }
 
   /**
