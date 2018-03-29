@@ -21,12 +21,13 @@ pub struct Bitmap {
 
 impl Bitmap {
 
-    pub fn new(n: usize) -> Self {
-        let r = n % 64;
-        let len = if r==0 { n } else { n + 64-r };
+    pub fn new(num_bits: usize) -> Self {
+        let num_bytes = num_bits/8 + if (num_bits%8 > 0) { 1 } else { 0 };
+        let r = num_bytes % 64;
+        let len = if r==0 { num_bytes } else { num_bytes + 64-r };
         let mut v = Vec::with_capacity(len);
         for _ in 0 .. len {
-            v.push(0);
+            v.push(255); // 1 is not null
         }
         Bitmap { bits: v }
     }
@@ -57,27 +58,19 @@ mod tests {
 
     #[test]
     fn test_bitmap_length() {
-        assert_eq!(64, Bitmap::new(63).len());
-        assert_eq!(64, Bitmap::new(64).len());
-        assert_eq!(128, Bitmap::new(65).len());
+        assert_eq!(64, Bitmap::new(63*8).len());
+        assert_eq!(64, Bitmap::new(64*8).len());
+        assert_eq!(128, Bitmap::new(65*8).len());
     }
 
     #[test]
-    fn test_set_bit() {
-        let mut b = Bitmap::new(64);
-        assert_eq!(false, b.is_set(12));
-        b.set(12);
-        assert_eq!(true, b.is_set(12));
-    }
-
-    #[test]
-    fn test_clear_bit() {
-        let mut b = Bitmap::new(64);
-        assert_eq!(false, b.is_set(12));
-        b.set(12);
+    fn test_set_clear_bit() {
+        let mut b = Bitmap::new(64*8);
         assert_eq!(true, b.is_set(12));
         b.clear(12);
         assert_eq!(false, b.is_set(12));
+        b.set(12);
+        assert_eq!(true, b.is_set(12));
     }
 
 }
