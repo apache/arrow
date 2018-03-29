@@ -103,6 +103,10 @@ impl Array {
 
 /// type-safe array operations
 trait ArrayOps<T> {
+    /// Get one element from an array. Note that this is an expensive call since it
+    /// will pattern match the type of the array on every invocation. We should add
+    /// other efficient iterator and map methods so we can perform columnar operations
+    /// instead.
     fn get(&self, i: usize) -> Result<T,Error>;
 }
 
