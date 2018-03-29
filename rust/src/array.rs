@@ -30,20 +30,52 @@ use bytes::{Bytes, BytesMut, BufMut};
 use libc;
 
 pub enum ArrayData {
-    Boolean(Vec<bool>),
-    Float32(Vec<f32>),
-    Float64(Vec<f64>),
-    Int8(Vec<i8>),
-    Int16(Vec<i16>),
+    Boolean(*const bool),
+    Float32(*const f32),
+    Float64(*const f64),
+    Int8(*const i8),
+    Int16(*const i16),
     Int32(*const i32),
-    Int64(Vec<i64>),
-    UInt8(Vec<u8>),
-    UInt16(Vec<u16>),
-    UInt32(Vec<u32>),
-    UInt64(Vec<u64>),
+    Int64(*const i64),
+    UInt8(*const u8),
+    UInt16(*const u16),
+    UInt32(*const u32),
+    UInt64(*const u64),
     Utf8(ListData),
     Struct(Vec<Rc<Array>>)
 }
+
+macro_rules! arraydata_from_primitive {
+    ($DT:ty, $AT:ident) => {
+        impl From<Vec<$DT>> for ArrayData {
+            fn from(v: Vec<$DT>) -> Self {
+                // allocate aligned memory buffer
+                let len = v.len();
+                let sz = mem::size_of::<$DT>();
+                let buffer = allocate_aligned((len * sz) as i64).unwrap();
+                // copy data from the vec into the new buffer
+                ArrayData::$AT(unsafe {
+                    let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
+                    libc::memcpy(dst, mem::transmute::<*const $DT, *const libc::c_void>(v.as_ptr()), len * sz);
+                    mem::transmute::<*const u8, *const $DT>(buffer)
+                })
+            }
+        }
+
+    }
+}
+
+arraydata_from_primitive!(bool, Boolean);
+arraydata_from_primitive!(f32, Float32);
+arraydata_from_primitive!(f64, Float64);
+arraydata_from_primitive!(i8, Int8);
+arraydata_from_primitive!(i16, Int16);
+arraydata_from_primitive!(i32, Int32);
+arraydata_from_primitive!(i64, Int64);
+arraydata_from_primitive!(u8, UInt8);
+arraydata_from_primitive!(u16, UInt16);
+arraydata_from_primitive!(u32, UInt32);
+arraydata_from_primitive!(u64, UInt64);
 
 pub struct Array {
     pub len: i32,
@@ -85,34 +117,19 @@ impl ArrayOps<i32> for Array {
 
 impl From<Vec<bool>> for Array {
     fn from(v: Vec<bool>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::Boolean(v) }
+        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::from(v) }
     }
 }
 
 impl From<Vec<f32>> for Array {
     fn from(v: Vec<f32>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::Float32(v) }
+        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::from(v) }
     }
 }
 
 impl From<Vec<f64>> for Array {
     fn from(v: Vec<f64>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::Float64(v) }
-    }
-}
-
-impl From<Vec<i32>> for ArrayData {
-    fn from(v: Vec<i32>) -> Self {
-        // allocate aligned memory buffer
-        let len = v.len();
-        let sz = mem::size_of::<i32>();
-        let buffer = allocate_aligned((len * sz) as i64).unwrap();
-        // copy data from the vec into the new buffer
-        ArrayData::Int32(unsafe {
-            let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
-            libc::memcpy(dst, mem::transmute::<*const i32, *const libc::c_void>(v.as_ptr()), len * sz);
-            mem::transmute::<*const u8, *const i32>(buffer)
-        })
+        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::from(v) }
     }
 }
 
@@ -139,28 +156,6 @@ impl From<Vec<Option<i32>>> for Array {
         }
         let values = v.iter().map(|x| x.unwrap_or(0)).collect::<Vec<i32>>();
         Array { len: values.len() as i32, null_count, validity_bitmap: Some(validity_bitmap), data: ArrayData::from(values) }
-    }
-}
-
-impl From<Vec<i64>> for Array {
-    fn from(v: Vec<i64>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::Int64(v) }
-    }
-}
-
-impl From<Vec<Option<i64>>> for Array {
-    fn from(v: Vec<Option<i64>>) -> Self {
-        let mut null_count = 0;
-        let mut validity_bitmap = Bitmap::new(v.len());
-        for i in 0 .. v.len() {
-            if v[i].is_none() {
-                null_count+=1;
-            } else {
-                validity_bitmap.set(i);
-            }
-        }
-        let values = v.iter().map(|x| x.unwrap_or(0)).collect::<Vec<i64>>();
-        Array { len: v.len() as i32, null_count, validity_bitmap: Some(validity_bitmap), data: ArrayData::Int64(values) }
     }
 }
 
@@ -255,6 +250,18 @@ mod tests {
             },
             _ => panic!()
         }
+    }
+
+    #[test]
+    fn test_from_bool() {
+        let a = Array::from(vec![false, false, true, false]);
+        assert_eq!(4, a.len());
+    }
+
+    #[test]
+    fn test_from_f32() {
+        let a = Array::from(vec![1.23, 2.34, 3.45, 4.56]);
+        assert_eq!(4, a.len());
     }
 
     #[test]
