@@ -100,6 +100,23 @@ CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t 
       own_data_(false),
       is_ipc_(false) {}
 
+Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
+                              std::shared_ptr<CudaBuffer>* out) {
+  int64_t offset = 0, size = buffer->size();
+  while (!(*out = std::dynamic_pointer_cast<CudaBuffer>(buffer))) {
+    const std::shared_ptr<Buffer> parent = buffer->parent();
+    if (!parent) {
+      return Status::TypeError("buffer is not backed by a CudaBuffer");
+    }
+    offset += buffer->data() - parent->data();
+    buffer = parent;
+  }
+  if (offset != 0 || (*out)->size() != size) {
+    *out = std::make_shared<CudaBuffer>(*out, offset, size);
+  }
+  return Status::OK();
+}
+
 Status CudaBuffer::CopyToHost(const int64_t position, const int64_t nbytes,
                               void* out) const {
   return context_->CopyDeviceToHost(out, data_ + position, nbytes);
@@ -129,8 +146,13 @@ CudaHostBuffer::~CudaHostBuffer() {
 // ----------------------------------------------------------------------
 // CudaBufferReader
 
-CudaBufferReader::CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer)
-    : io::BufferReader(buffer), cuda_buffer_(buffer), context_(buffer->context()) {}
+CudaBufferReader::CudaBufferReader(const std::shared_ptr<Buffer>& buffer)
+    : io::BufferReader(buffer) {
+  if (!CudaBuffer::FromBuffer(buffer, &cuda_buffer_).ok()) {
+    throw std::bad_cast();
+  }
+  context_ = cuda_buffer_->context();
+}
 
 CudaBufferReader::~CudaBufferReader() {}
 

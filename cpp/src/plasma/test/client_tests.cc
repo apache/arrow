@@ -362,6 +362,29 @@ using arrow::gpu::CudaBuffer;
 using arrow::gpu::CudaBufferReader;
 using arrow::gpu::CudaBufferWriter;
 
+namespace {
+
+void AssertCudaRead(const std::shared_ptr<Buffer>& buffer,
+                    const std::vector<uint8_t>& expected_data) {
+  std::shared_ptr<CudaBuffer> gpu_buffer;
+  const size_t data_size = expected_data.size();
+
+  ARROW_CHECK_OK(CudaBuffer::FromBuffer(buffer, &gpu_buffer));
+  ASSERT_EQ(gpu_buffer->size(), data_size);
+
+  CudaBufferReader reader(gpu_buffer);
+  uint8_t read_data[data_size];
+  int64_t read_data_size;
+  ARROW_CHECK_OK(reader.Read(data_size, &read_data_size, read_data));
+  ASSERT_EQ(read_data_size, data_size);
+
+  for (size_t i = 0; i < data_size; i++) {
+    ASSERT_EQ(read_data[i], expected_data[i]);
+  }
+}
+
+}  // namespace
+
 TEST_F(TestPlasmaStore, GetGPUTest) {
   ObjectID object_id = ObjectID::from_random();
   ObjectBuffer object_buffer;
@@ -374,26 +397,22 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   // First create object.
   uint8_t data[] = {4, 5, 3, 1};
   int64_t data_size = sizeof(data);
-  uint8_t metadata[] = {5};
+  uint8_t metadata[] = {42};
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data_buffer;
   std::shared_ptr<CudaBuffer> gpu_buffer;
   ARROW_CHECK_OK(
       client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer, 1));
-  gpu_buffer = std::dynamic_pointer_cast<CudaBuffer>(data_buffer);
+  ARROW_CHECK_OK(CudaBuffer::FromBuffer(data_buffer, &gpu_buffer));
   CudaBufferWriter writer(gpu_buffer);
-  writer.Write(data, data_size);
+  ARROW_CHECK_OK(writer.Write(data, data_size));
   ARROW_CHECK_OK(client_.Seal(object_id));
 
   ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
-  gpu_buffer = std::dynamic_pointer_cast<CudaBuffer>(object_buffer.data);
-  CudaBufferReader reader(gpu_buffer);
-  uint8_t read_data[data_size];
-  int64_t read_data_size;
-  reader.Read(data_size, &read_data_size, read_data);
-  for (int64_t i = 0; i < data_size; i++) {
-    ASSERT_EQ(data[i], read_data[i]);
-  }
+  // Check data
+  AssertCudaRead(object_buffer.data, {4, 5, 3, 1});
+  // Check metadata
+  AssertCudaRead(object_buffer.metadata, {42});
 }
 
 TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
@@ -433,7 +452,7 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   ASSERT_EQ(has_object, true);
 }
 
-#endif
+#endif  // PLASMA_GPU
 
 }  // namespace plasma
 
