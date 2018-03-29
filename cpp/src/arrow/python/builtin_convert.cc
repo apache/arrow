@@ -655,6 +655,17 @@ class TimestampConverter
   TimeUnit::type unit_;
 };
 
+class Float16Converter
+    : public TypedConverterVisitor<HalfFloatBuilder, Float16Converter> {
+ public:
+  // Append a non-missing item
+  Status AppendItem(PyObject* obj) {
+    npy_half val;
+    RETURN_NOT_OK(PyFloat_AsHalf(obj, &val));
+    return typed_builder_->Append(val);
+  }
+};
+
 class Float32Converter : public TypedConverterVisitor<FloatBuilder, Float32Converter> {
  public:
   // Append a non-missing item
@@ -887,6 +898,8 @@ std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
     case Type::TIMESTAMP:
       return std::unique_ptr<SeqConverter>(
           new TimestampConverter(static_cast<const TimestampType&>(*type).unit()));
+    case Type::HALF_FLOAT:
+      return std::unique_ptr<SeqConverter>(new Float16Converter);
     case Type::FLOAT:
       return std::unique_ptr<SeqConverter>(new Float32Converter);
     case Type::DOUBLE:

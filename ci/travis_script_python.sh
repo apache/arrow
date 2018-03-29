@@ -36,6 +36,7 @@ source activate $CONDA_ENV_DIR
 python --version
 which python
 
+# Note: avoid Cython 0.28.0 due to https://github.com/cython/cython/issues/2148
 conda install -y -q pip \
       nomkl \
       cloudpickle \

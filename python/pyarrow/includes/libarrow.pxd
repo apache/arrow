@@ -334,6 +334,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CTimestampArray" arrow::TimestampArray"(CArray):
         int64_t Value(int i)
 
+    cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):
+        uint16_t Value(int i)
+
     cdef cppclass CFloatArray" arrow::FloatArray"(CArray):
         float Value(int i)
 
@@ -875,6 +878,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
+
+    object PyHalf_FromHalf(npy_half value)
+
     CStatus ConvertPySequence(object obj, CMemoryPool* pool,
                               shared_ptr[CArray]* out)
     CStatus ConvertPySequence(object obj, const shared_ptr[CDataType]& type,

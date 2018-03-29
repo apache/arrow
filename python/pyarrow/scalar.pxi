@@ -251,6 +251,13 @@ cdef class TimestampValue(ArrayValue):
         return converter(value, tzinfo=tzinfo)
 
 
+cdef class HalfFloatValue(ArrayValue):
+
+    def as_py(self):
+        cdef CHalfFloatArray* ap = <CHalfFloatArray*> self.sp_array.get()
+        return PyHalf_FromHalf(ap.Value(self.index))
+
+
 cdef class FloatValue(ArrayValue):
 
     def as_py(self):
@@ -397,6 +404,7 @@ cdef dict _scalar_classes = {
     _Type_TIME32: Time32Value,
     _Type_TIME64: Time64Value,
     _Type_TIMESTAMP: TimestampValue,
+    _Type_HALF_FLOAT: HalfFloatValue,
     _Type_FLOAT: FloatValue,
     _Type_DOUBLE: DoubleValue,
     _Type_LIST: ListValue,

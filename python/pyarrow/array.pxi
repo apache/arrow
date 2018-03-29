@@ -735,6 +735,10 @@ cdef class Time64Array(NumericArray):
     pass
 
 
+cdef class HalfFloatArray(FloatingPointArray):
+    pass
+
+
 cdef class FloatArray(FloatingPointArray):
     pass
 
@@ -1056,6 +1060,7 @@ cdef dict _array_classes = {
     _Type_TIMESTAMP: TimestampArray,
     _Type_TIME32: Time32Array,
     _Type_TIME64: Time64Array,
+    _Type_HALF_FLOAT: HalfFloatArray,
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,

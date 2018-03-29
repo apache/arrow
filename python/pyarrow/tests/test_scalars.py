@@ -18,6 +18,7 @@
 
 import pytest
 
+import numpy as np
 import pandas as pd
 
 from pyarrow.compat import unittest, u, unicode_type
@@ -75,6 +76,16 @@ class TestScalars(unittest.TestCase):
 
         v = arr[2]
         assert v.as_py() == 3.0
+
+    def test_half_float(self):
+        arr = pa.array([np.float16(1.5), None], type=pa.float16())
+        v = arr[0]
+        assert isinstance(v, pa.HalfFloatValue)
+        assert repr(v) == "1.5"
+        assert v.as_py() == 1.5
+        assert v == 1.5
+
+        assert arr[1] is pa.NA
 
     def test_string_unicode(self):
         arr = pa.array([u'foo', None, u'mañana'])
