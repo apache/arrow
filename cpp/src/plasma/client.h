@@ -121,36 +121,40 @@ class ARROW_EXPORT PlasmaClient {
   ///        device_num = 1 corresponds to GPU0,
   ///        device_num = 2 corresponds to GPU1, etc.
   /// \return The return status.
-  Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
+  ///
+  /// The returned object must be released once it is done with, then it
+  /// must be either sealed or aborted.
+  Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
 
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
-  /// timeout
-  /// expires. The caller is responsible for releasing any retrieved objects,
-  /// but
-  /// the caller should not release objects that were not retrieved.
+  /// timeout expires.
   ///
   /// \param object_ids The IDs of the objects to get.
   /// \param num_objects The number of object IDs to get.
   /// \param timeout_ms The amount of time in milliseconds to wait before this
   ///        request times out. If this value is -1, then no timeout is set.
   /// \param object_buffers An array where the results will be stored. If the
-  /// data
-  ///        size field is -1, then the object was not retrieved.
+  ///        data size field is -1, then the object was not retrieved.
   /// \return The return status.
+  ///
+  /// The caller is responsible for releasing any retrieved objects, but it
+  /// should not release objects that were not retrieved. Consider using
+  /// GetAuto() if you want objects to be automatic released when their buffers
+  /// get out of scope.
   Status Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
              ObjectBuffer* object_buffers);
 
-  /// XXX
+  /// Like Get(), but the returned buffers will automatically release their
+  /// objects when going out scope, so you don't need (and must not) call
+  /// Release().
   Status GetAuto(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
                  ObjectBuffer* object_buffers);
 
   /// Tell Plasma that the client no longer needs the object. This should be
-  /// called
-  /// after Get when the client is done with the object. After this call,
-  /// the address returned by Get is no longer valid. This should be called
-  /// once for each call to Get (with the same object ID).
+  /// called after Get() or Create() when the client is done with the object.
+  /// After this call, the buffer returned by Get() is no longer valid.
   ///
   /// \param object_id The ID of the object that is no longer needed.
   /// \return The return status.
@@ -335,6 +339,7 @@ class ARROW_EXPORT PlasmaClient {
  private:
   FRIEND_TEST(TestPlasmaStore, GetTest);
   FRIEND_TEST(TestPlasmaStore, GetAutoTest);
+  FRIEND_TEST(TestPlasmaStore, AbortTest);
 
   /// This is a helper method for unmapping objects for which all references have
   /// gone out of scope, either by calling Release or Abort.

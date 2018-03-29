@@ -103,6 +103,8 @@ CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t 
 Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
                               std::shared_ptr<CudaBuffer>* out) {
   int64_t offset = 0, size = buffer->size();
+  // The original CudaBuffer may have been wrapped in another Buffer
+  // (for example through slicing).
   while (!(*out = std::dynamic_pointer_cast<CudaBuffer>(buffer))) {
     const std::shared_ptr<Buffer> parent = buffer->parent();
     if (!parent) {
@@ -111,6 +113,7 @@ Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
     offset += buffer->data() - parent->data();
     buffer = parent;
   }
+  // Re-slice to represent the same memory area
   if (offset != 0 || (*out)->size() != size) {
     *out = std::make_shared<CudaBuffer>(*out, offset, size);
   }

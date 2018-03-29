@@ -24,6 +24,8 @@
 
 #include <random>
 
+#include "arrow/test-util.h"
+
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"
@@ -34,6 +36,15 @@
 namespace plasma {
 
 std::string test_executable;  // NOLINT
+
+void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
+                             const std::vector<uint8_t>& metadata,
+                             const std::vector<uint8_t>& data) {
+  ASSERT_EQ(object_buffer.metadata_size, metadata.size());
+  ASSERT_EQ(object_buffer.data_size, data.size());
+  arrow::test::AssertBufferEqual(*object_buffer.metadata, metadata);
+  arrow::test::AssertBufferEqual(*object_buffer.data, data);
+}
 
 class TestPlasmaStore : public ::testing::Test {
  public:
@@ -55,10 +66,25 @@ class TestPlasmaStore : public ::testing::Test {
     ARROW_CHECK_OK(
         client2_.Connect("/tmp/store" + store_index, "", PLASMA_DEFAULT_RELEASE_DELAY));
   }
-  virtual void Finish() {
+  virtual void TearDown() {
     ARROW_CHECK_OK(client_.Disconnect());
     ARROW_CHECK_OK(client2_.Disconnect());
-    system("killall plasma_store &");
+    // Kill all plasma_store processes
+    // XXX should only kill the processes we launched
+    system("killall -9 plasma_store");
+  }
+
+  void CreateObject(PlasmaClient& client, const ObjectID& object_id,
+                    const std::vector<uint8_t>& metadata,
+                    const std::vector<uint8_t>& data) {
+    std::shared_ptr<Buffer> data_buffer;
+    ARROW_CHECK_OK(client.Create(object_id, data.size(), &metadata[0], metadata.size(),
+                                 &data_buffer));
+    for (size_t i = 0; i < data.size(); i++) {
+      data_buffer->mutable_data()[i] = data[i];
+    }
+    ARROW_CHECK_OK(client.Seal(object_id));
+    ARROW_CHECK_OK(client.Release(object_id));
   }
 
  protected:
@@ -101,12 +127,8 @@ TEST_F(TestPlasmaStore, ContainsTest) {
 
   // Test for the object being in local Plasma store.
   // First create object.
-  int64_t data_size = 100;
-  uint8_t metadata[] = {5};
-  int64_t metadata_size = sizeof(metadata);
-  std::shared_ptr<Buffer> data;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
-  ARROW_CHECK_OK(client_.Seal(object_id));
+  std::vector<uint8_t> data(100, 0);
+  CreateObject(client_, object_id, {42}, data);
   // Avoid race condition of Plasma Manager waiting for notification.
   ObjectBuffer object_buffer;
   ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
@@ -123,32 +145,21 @@ TEST_F(TestPlasmaStore, GetTest) {
     // Test for object non-existence.
     ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
     ASSERT_EQ(object_buffer.data_size, -1);
+    EXPECT_FALSE(client_.IsInUse(object_id));
 
     // Test for the object being in local Plasma store.
     // First create object.
-    int64_t data_size = 4;
-    uint8_t metadata[] = {5};
-    int64_t metadata_size = sizeof(metadata);
-    std::shared_ptr<Buffer> data_buffer;
-    uint8_t* data;
-    ARROW_CHECK_OK(
-        client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer));
-    data = data_buffer->mutable_data();
-    for (int64_t i = 0; i < data_size; i++) {
-      data[i] = static_cast<uint8_t>(i % 4);
-    }
-    ARROW_CHECK_OK(client_.Seal(object_id));
+    std::vector<uint8_t> data = {3, 5, 6, 7, 9};
+    CreateObject(client_, object_id, {42}, data);
+    ARROW_CHECK_OK(client_.FlushReleaseHistory());
+    EXPECT_FALSE(client_.IsInUse(object_id));
 
     ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
-    const uint8_t* object_data = object_buffer.data->data();
-    for (int64_t i = 0; i < data_size; i++) {
-      ASSERT_EQ(data[i], object_data[i]);
-    }
+    AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
+    ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_TRUE(client_.IsInUse(object_id));
   }
   // With Get(), need to manually call Release()
-  EXPECT_TRUE(client_.IsInUse(object_id));
-  ARROW_CHECK_OK(client_.Release(object_id));  // For Create()
   ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_TRUE(client_.IsInUse(object_id));
   ARROW_CHECK_OK(client_.Release(object_id));  // For Get()
@@ -159,8 +170,6 @@ TEST_F(TestPlasmaStore, GetTest) {
 TEST_F(TestPlasmaStore, GetAutoTest) {
   ObjectID object_id = ObjectID::from_random();
   EXPECT_FALSE(client_.IsInUse(object_id));
-  // XXX factor out stuff
-  // XXX need CreateAuto() too?
   {
     ObjectBuffer object_buffer;
 
@@ -170,27 +179,14 @@ TEST_F(TestPlasmaStore, GetAutoTest) {
 
     // Test for the object being in local Plasma store.
     // First create object.
-    int64_t data_size = 4;
-    uint8_t metadata[] = {5};
-    int64_t metadata_size = sizeof(metadata);
-    std::shared_ptr<Buffer> data_buffer;
-    uint8_t* data;
-    ARROW_CHECK_OK(
-        client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer));
-    data = data_buffer->mutable_data();
-    for (int64_t i = 0; i < data_size; i++) {
-      data[i] = static_cast<uint8_t>(i % 4);
-    }
-    ARROW_CHECK_OK(client_.Seal(object_id));
-    ARROW_CHECK_OK(client_.Release(object_id));  // For Create()
+    std::vector<uint8_t> data = {3, 5, 6, 7, 9};
+    CreateObject(client_, object_id, {42}, data);
     ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_FALSE(client_.IsInUse(object_id));
 
     ARROW_CHECK_OK(client_.GetAuto(&object_id, 1, -1, &object_buffer));
-    const uint8_t* object_data = object_buffer.data->data();
-    for (int64_t i = 0; i < data_size; i++) {
-      ASSERT_EQ(data[i], object_data[i]);
-    }
+    AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
+    ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_TRUE(client_.IsInUse(object_id));
   }
   // With GetAuto(), object is automatically released
@@ -247,26 +243,24 @@ TEST_F(TestPlasmaStore, AbortTest) {
   ASSERT_TRUE(status.IsInvalid());
   // Release, then abort.
   ARROW_CHECK_OK(client_.Release(object_id));
+  ARROW_CHECK_OK(client_.FlushReleaseHistory());
+  EXPECT_TRUE(client_.IsInUse(object_id));
+
   ARROW_CHECK_OK(client_.Abort(object_id));
+  ARROW_CHECK_OK(client_.FlushReleaseHistory());
+  EXPECT_FALSE(client_.IsInUse(object_id));
 
   // Test for object non-existence after the abort.
   ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
   ASSERT_EQ(object_buffer.data_size, -1);
 
   // Create the object successfully this time.
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
-  data_ptr = data->mutable_data();
-  for (int64_t i = 0; i < data_size; i++) {
-    data_ptr[i] = static_cast<uint8_t>(i % 4);
-  }
-  ARROW_CHECK_OK(client_.Seal(object_id));
+  CreateObject(client_, object_id, {42, 43}, {1, 2, 3, 4, 5});
 
   // Test that we can get the object.
   ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
-  const uint8_t* buffer_ptr = object_buffer.data->data();
-  for (int64_t i = 0; i < data_size; i++) {
-    ASSERT_EQ(data_ptr[i], buffer_ptr[i]);
-  }
+  AssertObjectBufferEqual(object_buffer, {42, 43}, {1, 2, 3, 4, 5});
+  ARROW_CHECK_OK(client_.Release(object_id));
 }
 
 TEST_F(TestPlasmaStore, MultipleClientTest) {
