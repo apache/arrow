@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -188,6 +189,59 @@ public class TestDecimalVector {
       assertEquals(decimal6, decimalVector.getObject(5));
       assertEquals(decimal7, decimalVector.getObject(6));
       assertEquals(decimal8, decimalVector.getObject(7));
+    }
+  }
+
+  /**
+   * Test {@link DecimalVector#setBigEndian(int, byte[])} which takes BE layout input and stores in LE layout.
+   * Cases to cover: input byte array in different lengths in range [1-16] and negative values.
+   */
+  @Test
+  public void decimalBE2LE() {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal", new ArrowType.Decimal(21, 2), allocator)) {
+      decimalVector.allocateNew();
+
+      BigInteger[] testBigInts = new BigInteger[] {
+          new BigInteger("0"),
+          new BigInteger("-1"),
+          new BigInteger("23"),
+          new BigInteger("234234"),
+          new BigInteger("-234234234"),
+          new BigInteger("234234234234"),
+          new BigInteger("-56345345345345"),
+          new BigInteger("29823462983462893462934679234653456345"), // converts to 16 byte array
+          new BigInteger("-3894572983475982374598324598234346536"), // converts to 16 byte array
+          new BigInteger("-345345"),
+          new BigInteger("754533")
+      };
+
+      int insertionIdx = 0;
+      insertionIdx++; // insert a null
+      for (BigInteger val : testBigInts) {
+        decimalVector.setBigEndian(insertionIdx++, val.toByteArray());
+      }
+      insertionIdx++; // insert a null
+      // insert a zero length buffer
+      decimalVector.setBigEndian(insertionIdx++, new byte[0]);
+
+      // Try inserting a buffer larger than 16bytes and expect a failure
+      try {
+        decimalVector.setBigEndian(insertionIdx, new byte[17]);
+        fail("above statement should have failed");
+      } catch (IllegalArgumentException ex) {
+        assertTrue(ex.getMessage().equals("Invalid decimal value length. Valid length in [1 - 16], got 17"));
+      }
+      decimalVector.setValueCount(insertionIdx);
+
+      // retrieve values and check if they are correct
+      int outputIdx = 0;
+      assertTrue(decimalVector.isNull(outputIdx++));
+      for (BigInteger expected : testBigInts) {
+        final BigDecimal actual = decimalVector.getObject(outputIdx++);
+        assertEquals(expected, actual.unscaledValue());
+      }
+      assertTrue(decimalVector.isNull(outputIdx++));
+      assertEquals(BigInteger.valueOf(0), decimalVector.getObject(outputIdx).unscaledValue());
     }
   }
 }
