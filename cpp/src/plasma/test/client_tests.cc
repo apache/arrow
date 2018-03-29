@@ -155,6 +155,7 @@ TEST_F(TestPlasmaStore, GetTest) {
     EXPECT_FALSE(client_.IsInUse(object_id));
 
     ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+    ASSERT_EQ(object_buffer.device_num, 0);
     AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
     ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_TRUE(client_.IsInUse(object_id));
@@ -185,6 +186,7 @@ TEST_F(TestPlasmaStore, GetAutoTest) {
     EXPECT_FALSE(client_.IsInUse(object_id));
 
     ARROW_CHECK_OK(client_.GetAuto(&object_id, 1, -1, &object_buffer));
+    ASSERT_EQ(object_buffer.device_num, 0);
     AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
     ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_TRUE(client_.IsInUse(object_id));
@@ -403,6 +405,7 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   ARROW_CHECK_OK(client_.Seal(object_id));
 
   ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  ASSERT_EQ(object_buffer.device_num, 1);
   // Check data
   AssertCudaRead(object_buffer.data, {4, 5, 3, 1});
   // Check metadata
