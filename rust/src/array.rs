@@ -25,6 +25,9 @@ use super::bitmap::Bitmap;
 
 use bytes::{Bytes, BytesMut, BufMut};
 
+//TODO: make arrays immutable
+//TODO: make memory regions 8-byte aligned (look into RawVec and allocator API)
+
 pub enum ArrayData {
     Boolean(Vec<bool>),
     Float32(Vec<f32>),
