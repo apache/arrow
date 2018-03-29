@@ -19,30 +19,15 @@ use std::convert::From;
 use std::iter::Iterator;
 use std::mem;
 use std::rc::Rc;
-use std::slice;
 use std::str;
 use std::string::String;
 
 use super::bitmap::Bitmap;
+use super::error::*;
 use super::memory::*;
 
 use bytes::{Bytes, BytesMut, BufMut};
 use libc;
-
-struct ArrowVec {
-    memory: *const u8,
-    len: usize
-}
-
-//trait ArrowVecOps<T> {
-//    fn get(&self, i: usize) -> T;
-//}
-//
-//impl ArrowVecOps<i32> for ArrowVec {
-//    fn get(&self, i: usize) -> i32 {
-//        unimplemented!()
-//    }
-//}
 
 pub enum ArrayData {
     Boolean(Vec<bool>),
@@ -83,6 +68,19 @@ impl Array {
 
 }
 
+trait ArrayOps<T> {
+    fn get(&self, i: usize) -> Result<T,Error>;
+}
+
+impl ArrayOps<i32> for Array {
+    fn get(&self, i: usize) -> Result<i32,Error> {
+        match self.data() {
+            &ArrayData::Int32(ptr) => Ok(unsafe {*ptr.offset(i as isize)}),
+            _ => Err(Error::from("Request for i32 but array is not i32"))
+        }
+    }
+}
+
 //TODO: use macros to generate this boilerplate code
 
 impl From<Vec<bool>> for Array {
@@ -105,12 +103,16 @@ impl From<Vec<f64>> for Array {
 
 impl From<Vec<i32>> for ArrayData {
     fn from(v: Vec<i32>) -> Self {
+        // allocate aligned memory buffer
         let len = v.len();
         let sz = mem::size_of::<i32>();
         let buffer = allocate_aligned((len * sz) as i64).unwrap();
-        let dst = unsafe { mem::transmute::<*const u8, *mut libc::c_void>(buffer) };
-        unsafe { libc::memcpy(dst, mem::transmute::<*const i32, *const libc::c_void>(v.as_ptr()), sz) };
-        ArrayData::Int32(unsafe { mem::transmute::<*const u8, *const i32>(buffer) })
+        // copy data from the vec into the new buffer
+        ArrayData::Int32(unsafe {
+            let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
+            libc::memcpy(dst, mem::transmute::<*const i32, *const libc::c_void>(v.as_ptr()), len * sz);
+            mem::transmute::<*const u8, *const i32>(buffer)
+        })
     }
 }
 
@@ -257,8 +259,15 @@ mod tests {
 
     #[test]
     fn test_from_i32() {
-        let a = Array::from(vec![5, 4, 3, 2, 1]);
+
+        let a = Array::from(vec![15, 14, 13, 12, 11]);
         assert_eq!(5, a.len());
+
+        assert_eq!(15, a.get(0).unwrap());
+        assert_eq!(14, a.get(1).unwrap());
+        assert_eq!(13, a.get(2).unwrap());
+        assert_eq!(12, a.get(3).unwrap());
+        assert_eq!(11, a.get(4).unwrap());
     }
 
     #[test]
