@@ -231,6 +231,10 @@ cdef class UInt64Array(IntegerArray):
     pass
 
 
+cdef class HalfFloatArray(FloatingPointArray):
+    pass
+
+
 cdef class FloatArray(FloatingPointArray):
     pass
 

@@ -197,6 +197,7 @@ class PandasBlock {
     INT32,
     UINT64,
     INT64,
+    HALF_FLOAT,
     FLOAT,
     DOUBLE,
     BOOL,
@@ -815,6 +816,31 @@ using Int32Block = IntBlock<Type::INT32, int32_t>;
 using UInt64Block = IntBlock<Type::UINT64, uint64_t>;
 using Int64Block = IntBlock<Type::INT64, int64_t>;
 
+class Float16Block : public PandasBlock {
+ public:
+  using PandasBlock::PandasBlock;
+  Status Allocate() override { return AllocateNDArray(NPY_FLOAT16); }
+
+  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+               int64_t rel_placement) override {
+    Type::type type = col->type()->id();
+
+    if (type != Type::HALF_FLOAT) {
+      std::stringstream ss;
+      ss << "Cannot write Arrow data of type " << col->type()->ToString();
+      ss << " to a Pandas float16 block.";
+      return Status::NotImplemented(ss.str());
+    }
+
+    npy_half* out_buffer =
+        reinterpret_cast<npy_half*>(block_data_) + rel_placement * num_rows_;
+
+    ConvertNumericNullable<npy_half>(*col->data().get(), NPY_HALF_NAN, out_buffer);
+    placement_data_[rel_placement] = abs_placement;
+    return Status::OK();
+  }
+};
+
 class Float32Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
@@ -1225,6 +1251,7 @@ Status MakeBlock(PandasOptions options, PandasBlock::type type, int64_t num_rows
     BLOCK_CASE(INT32, Int32Block);
     BLOCK_CASE(UINT64, UInt64Block);
     BLOCK_CASE(INT64, Int64Block);
+    BLOCK_CASE(HALF_FLOAT, Float16Block);
     BLOCK_CASE(FLOAT, Float32Block);
     BLOCK_CASE(DOUBLE, Float64Block);
     BLOCK_CASE(BOOL, BoolBlock);
@@ -1269,6 +1296,9 @@ static Status GetPandasBlockType(const Column& col, const PandasOptions& options
       INTEGER_CASE(UINT64);
     case Type::INT64:
       INTEGER_CASE(INT64);
+    case Type::HALF_FLOAT:
+      *output_type = PandasBlock::HALF_FLOAT;
+      break;
     case Type::FLOAT:
       *output_type = PandasBlock::FLOAT;
       break;

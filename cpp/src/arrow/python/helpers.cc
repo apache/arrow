@@ -58,6 +58,24 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   }
 }
 
+PyObject* PyHalf_FromHalf(npy_half value) {
+  PyObject* result = PyArrayScalar_New(Half);
+  if (result != NULL) {
+    PyArrayScalar_ASSIGN(result, Half, value);
+  }
+  return result;
+}
+
+Status PyFloat_AsHalf(PyObject* obj, npy_half* out) {
+  if (PyArray_IsScalar(obj, Half)) {
+    *out = PyArrayScalar_VAL(obj, Half);
+    return Status::OK();
+  } else {
+    // XXX: cannot use npy_double_to_half() without linking with Numpy
+    return Status::TypeError("Expected np.float16 instance");
+  }
+}
+
 namespace internal {
 
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
