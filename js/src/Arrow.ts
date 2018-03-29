@@ -221,6 +221,7 @@ try {
 Schema['from'] = Schema.from;
 Table['from'] = Table.from;
 Table['fromAsync'] = Table.fromAsync;
+Table['fromStruct'] = Table.fromStruct;
 Table['empty'] = Table.empty;
 Vector['create'] = Vector.create;
 RecordBatch['from'] = RecordBatch.from;
