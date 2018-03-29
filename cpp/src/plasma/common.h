@@ -104,4 +104,29 @@ struct PlasmaStoreInfo;
 extern const PlasmaStoreInfo* plasma_config;
 }  // namespace plasma
 
+// ----------------------------------------------------------------------
+// From googletest
+// XXX also in parquet-cpp
+
+// When you need to test the private or protected members of a class,
+// use the FRIEND_TEST macro to declare your tests as friends of the
+// class.  For example:
+//
+// class MyClass {
+//  private:
+//   void MyMethod();
+//   FRIEND_TEST(MyClassTest, MyMethod);
+// };
+//
+// class MyClassTest : public testing::Test {
+//   // ...
+// };
+//
+// TEST_F(MyClassTest, MyMethod) {
+//   // Can call MyClass::MyMethod() here.
+// }
+
+#define FRIEND_TEST(test_case_name, test_name) \
+  friend class test_case_name##_##test_name##_Test
+
 #endif  // PLASMA_COMMON_H

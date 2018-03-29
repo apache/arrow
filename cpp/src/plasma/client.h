@@ -123,6 +123,7 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
+
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
   /// timeout
@@ -140,6 +141,10 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
              ObjectBuffer* object_buffers);
+
+  /// XXX
+  Status GetAuto(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
+                 ObjectBuffer* object_buffers);
 
   /// Tell Plasma that the client no longer needs the object. This should be
   /// called
@@ -328,6 +333,9 @@ class ARROW_EXPORT PlasmaClient {
   int get_manager_fd() const;
 
  private:
+  FRIEND_TEST(TestPlasmaStore, GetTest);
+  FRIEND_TEST(TestPlasmaStore, GetAutoTest);
+
   /// This is a helper method for unmapping objects for which all references have
   /// gone out of scope, either by calling Release or Abort.
   ///
@@ -339,6 +347,15 @@ class ARROW_EXPORT PlasmaClient {
   Status FlushReleaseHistory();
 
   Status PerformRelease(const ObjectID& object_id);
+
+  /// Common helper for Get() and GetAuto()
+  Status GetBuffers(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
+                    std::function<std::shared_ptr<Buffer>(const ObjectID&,
+                                                          const std::shared_ptr<Buffer>&)>
+                        wrap_buffer,
+                    ObjectBuffer* object_buffers);
+
+  bool IsInUse(const ObjectID& object_id);
 
   uint8_t* lookup_or_mmap(int fd, int store_fd_val, int64_t map_size);
 

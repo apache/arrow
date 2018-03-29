@@ -29,7 +29,7 @@ from cpython.pycapsule cimport *
 import collections
 import pyarrow
 
-from pyarrow.lib cimport Buffer, NativeFile, check_status
+from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
@@ -85,6 +85,8 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Get(const CUniqueID* object_ids, int64_t num_objects,
                     int64_t timeout_ms, CObjectBuffer* object_buffers)
+        CStatus GetAuto(const CUniqueID* object_ids, int64_t num_objects,
+                        int64_t timeout_ms, CObjectBuffer* object_buffers)
 
         CStatus Seal(const CUniqueID& object_id)
 
@@ -248,12 +250,7 @@ cdef class PlasmaClient:
             check_status(self.client.get().Get(ids.data(), ids.size(),
                          timeout_ms, result[0].data()))
 
-    cdef _make_plasma_buffer(self, ObjectID object_id,
-                             shared_ptr[CBuffer] buffer, int64_t size):
-        result = PlasmaBuffer(object_id, self)
-        result.init(buffer)
-        return result
-
+    # XXX C++ API should instead expose some kind of CreateAuto()
     cdef _make_mutable_plasma_buffer(self, ObjectID object_id, uint8_t* data,
                                      int64_t size):
         cdef shared_ptr[CBuffer] buffer
@@ -333,10 +330,7 @@ cdef class PlasmaClient:
         result = []
         for i in range(object_buffers.size()):
             if object_buffers[i].data_size != -1:
-                result.append(
-                    self._make_plasma_buffer(object_ids[i],
-                                             object_buffers[i].data,
-                                             object_buffers[i].data_size))
+                result.append(pyarrow_wrap_buffer(object_buffers[i].data))
             else:
                 result.append(None)
         return result
@@ -367,10 +361,8 @@ cdef class PlasmaClient:
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
         result = []
         for i in range(object_buffers.size()):
-            result.append(
-                self._make_plasma_buffer(object_ids[i],
-                                         object_buffers[i].metadata,
-                                         object_buffers[i].metadata_size))
+            # XXX what if metadata_size == -1?
+            result.append(pyarrow_wrap_buffer(object_buffers[i].metadata))
         return result
 
     def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,
