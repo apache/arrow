@@ -34,4 +34,4 @@ name = "arrow"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "*"
+bytes = "0.4.6"
