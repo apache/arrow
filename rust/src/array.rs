@@ -62,14 +62,14 @@ pub enum ArrayData<'a> {
 pub struct Array<'a> {
     pub len: i32,
     pub null_count: i32,
-    pub validity_bitmap: Bitmap,
+    pub validity_bitmap: Option<Bitmap>,
     pub data: ArrayData<'a>
 }
 
 impl<'a> Array<'a> {
 
     pub fn new(len: usize, data: ArrayData<'a>) -> Self {
-        Array { len: len as i32, data, validity_bitmap: Bitmap::new(len), null_count: 0 }
+        Array { len: len as i32, data, validity_bitmap: None, null_count: 0 }
     }
 
     pub fn data(&self) -> &ArrayData {
@@ -86,19 +86,19 @@ impl<'a> Array<'a> {
 
 impl<'a> From<Vec<bool>> for Array<'a> {
     fn from(v: Vec<bool>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: Bitmap::new(v.len()), data: ArrayData::Boolean(v) }
+        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::Boolean(v) }
     }
 }
 
 impl<'a> From<Vec<f32>> for Array<'a> {
     fn from(v: Vec<f32>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: Bitmap::new(v.len()), data: ArrayData::Float32(v) }
+        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::Float32(v) }
     }
 }
 
 impl<'a> From<Vec<f64>> for Array<'a> {
     fn from(v: Vec<f64>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: Bitmap::new(v.len()), data: ArrayData::Float64(v) }
+        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::Float64(v) }
     }
 }
 
@@ -106,7 +106,7 @@ impl<'a> From<Vec<i32>> for Array<'a> {
     fn from(v: Vec<i32>) -> Self {
         let mem = allocate_aligned((v.len() * 4) as i64).unwrap();
         let slice = unsafe { slice::from_raw_parts(v.as_ptr(), v.len()) };
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: Bitmap::new(v.len()),
+        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None,
             data: ArrayData::Int32(slice) }
     }
 }
@@ -124,29 +124,29 @@ impl<'a> From<Vec<Option<i32>>> for Array<'a> {
         let values = v.iter().map(|x| x.unwrap_or(0)).collect::<Vec<i32>>();
         let mem = allocate_aligned((values.len() * 4) as i64).unwrap();
         let slice = unsafe { slice::from_raw_parts(values.as_ptr(), values.len()) };
-        Array { len: values.len() as i32, null_count, validity_bitmap, data: ArrayData::Int32(slice) }
+        Array { len: values.len() as i32, null_count, validity_bitmap: Some(validity_bitmap), data: ArrayData::Int32(slice) }
     }
 }
 
 impl<'a> From<Vec<i64>> for Array<'a> {
     fn from(v: Vec<i64>) -> Self {
-        Array { len: v.len() as i32, null_count: 0, validity_bitmap: Bitmap::new(v.len()), data: ArrayData::Int64(v) }
+        Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::Int64(v) }
     }
 }
 
 impl<'a> From<Vec<Option<i64>>> for Array<'a> {
     fn from(v: Vec<Option<i64>>) -> Self {
         let mut null_count = 0;
-        let mut null_bitmap = Bitmap::new(v.len());
+        let mut validity_bitmap = Bitmap::new(v.len());
         for i in 0 .. v.len() {
             if v[i].is_none() {
                 null_count+=1;
             } else {
-                null_bitmap.set(i);
+                validity_bitmap.set(i);
             }
         }
         let values = v.iter().map(|x| x.unwrap_or(0)).collect::<Vec<i64>>();
-        Array { len: v.len() as i32, null_count, validity_bitmap: null_bitmap, data: ArrayData::Int64(values) }
+        Array { len: v.len() as i32, null_count, validity_bitmap: Some(validity_bitmap), data: ArrayData::Int64(values) }
     }
 }
 
@@ -169,7 +169,7 @@ impl<'a> From<Vec<String>> for Array<'a> {
         Array {
             len: v.len() as i32,
             null_count: 0,
-            validity_bitmap: Bitmap::new(v.len()),
+            validity_bitmap: None,
             data: ArrayData::Utf8(ListData { offsets, bytes: buf.freeze() })
         }
     }
@@ -180,7 +180,7 @@ impl<'a> From<Vec<Rc<Array<'a>>>> for Array<'a> {
         Array {
             len: v.len() as i32,
             null_count: 0,
-            validity_bitmap: Bitmap::new(v.len()),
+            validity_bitmap: None,
             data: ArrayData::Struct(v.iter().map(|a| a.clone()).collect())
         }
     }
@@ -247,12 +247,6 @@ mod tests {
     fn test_from_i32() {
         let a = Array::from(vec![5, 4, 3, 2, 1]);
         assert_eq!(5, a.len());
-        // 1 == not null
-        assert_eq!(true, a.validity_bitmap.is_set(0));
-        assert_eq!(true, a.validity_bitmap.is_set(1));
-        assert_eq!(true, a.validity_bitmap.is_set(2));
-        assert_eq!(true, a.validity_bitmap.is_set(3));
-        assert_eq!(true, a.validity_bitmap.is_set(4));
     }
 
     #[test]
@@ -260,11 +254,12 @@ mod tests {
         let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
         assert_eq!(5, a.len());
         // 1 == not null
-        assert_eq!(true, a.validity_bitmap.is_set(0));
-        assert_eq!(false, a.validity_bitmap.is_set(1));
-        assert_eq!(true, a.validity_bitmap.is_set(2));
-        assert_eq!(true, a.validity_bitmap.is_set(3));
-        assert_eq!(false, a.validity_bitmap.is_set(4));
+        let validity_bitmap = a.validity_bitmap.unwrap();
+        assert_eq!(true, validity_bitmap.is_set(0));
+        assert_eq!(false, validity_bitmap.is_set(1));
+        assert_eq!(true, validity_bitmap.is_set(2));
+        assert_eq!(true, validity_bitmap.is_set(3));
+        assert_eq!(false, validity_bitmap.is_set(4));
     }
 
     #[test]

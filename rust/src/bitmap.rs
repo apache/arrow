@@ -22,7 +22,7 @@ pub struct Bitmap {
 impl Bitmap {
 
     pub fn new(num_bits: usize) -> Self {
-        let num_bytes = num_bits/8 + if (num_bits%8 > 0) { 1 } else { 0 };
+        let num_bytes = num_bits/8 + if num_bits%8 > 0 { 1 } else { 0 };
         let r = num_bytes % 64;
         let len = if r==0 { num_bytes } else { num_bytes + 64-r };
         let mut v = Vec::with_capacity(len);
