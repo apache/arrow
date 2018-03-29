@@ -989,6 +989,39 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
   }
 }
 
+TEST_F(TestStringBuilder, TestAppendVector) {
+  vector<string> strings = {"", "bb", "a", "", "ccc"};
+  vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+
+  int N = static_cast<int>(strings.size());
+  int reps = 1000;
+
+  for (int j = 0; j < reps; ++j) {
+    ASSERT_OK(builder_->Append(strings, is_null.data()));
+  }
+  Done();
+
+  ASSERT_EQ(reps * N, result_->length());
+  ASSERT_EQ(reps, result_->null_count());
+  ASSERT_EQ(reps * 6, result_->value_data()->size());
+
+  int32_t length;
+  int32_t pos = 0;
+  for (int i = 0; i < N * reps; ++i) {
+    if (is_null[i % N]) {
+      ASSERT_TRUE(result_->IsNull(i));
+    } else {
+      ASSERT_FALSE(result_->IsNull(i));
+      result_->GetValue(i, &length);
+      ASSERT_EQ(pos, result_->value_offset(i));
+      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
+      ASSERT_EQ(strings[i % N], result_->GetString(i));
+
+      pos += length;
+    }
+  }
+}
+
 TEST_F(TestStringBuilder, TestZeroLength) {
   // All buffers are null
   Done();

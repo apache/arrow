@@ -16,11 +16,11 @@
 // under the License.
 
 #include "arrow/builder.h"
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <numeric>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -1384,6 +1384,28 @@ const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
 }
 
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
+
+Status StringBuilder::Append(const std::vector<std::string>& values,
+                             uint8_t* null_bytes) {
+  std::size_t total_length = std::accumulate(
+      values.begin(), values.end(), 0ULL,
+      [](uint64_t sum, const std::string& str) { return sum + str.size(); });
+  RETURN_NOT_OK(Reserve(values.size()));
+  RETURN_NOT_OK(value_data_builder_.Reserve(total_length));
+  RETURN_NOT_OK(offsets_builder_.Reserve(values.size()));
+
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    RETURN_NOT_OK(AppendNextOffset());
+    if (null_bytes[i]) {
+      UnsafeAppendToBitmap(false);
+    } else {
+      RETURN_NOT_OK(value_data_builder_.Append(
+          reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
+      UnsafeAppendToBitmap(true);
+    }
+  }
+  return Status::OK();
+}
 
 // ----------------------------------------------------------------------
 // Fixed width binary
