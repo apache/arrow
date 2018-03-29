@@ -35,3 +35,4 @@ path = "src/lib.rs"
 
 [dependencies]
 bytes = "0.4.6"
+libc = "0.2.40"

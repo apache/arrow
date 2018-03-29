@@ -16,8 +16,11 @@
 // under the License.
 
 extern crate bytes;
+extern crate libc;
 
+pub mod array;
 pub mod bitmap;
 pub mod datatypes;
-pub mod array;
+pub mod error;
+pub mod memory;
 

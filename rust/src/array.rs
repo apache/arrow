@@ -28,6 +28,7 @@ use bytes::{Bytes, BytesMut, BufMut};
 //TODO: make arrays immutable
 //TODO: make memory regions 8-byte aligned (look into RawVec and allocator API)
 
+
 pub enum ArrayData {
     Boolean(Vec<bool>),
     Float32(Vec<f32>),
@@ -223,14 +224,27 @@ mod tests {
     }
 
     #[test]
-    fn test_optional_i32() {
-       let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
+    fn test_from_i32() {
+        let a = Array::from(vec![5, 4, 3, 2, 1]);
         assert_eq!(5, a.len());
-        assert_eq!(false, a.null_bitmap.is_set(0));
+        // 1 == not null
+        assert_eq!(true, a.null_bitmap.is_set(0));
         assert_eq!(true, a.null_bitmap.is_set(1));
-        assert_eq!(false, a.null_bitmap.is_set(2));
-        assert_eq!(false, a.null_bitmap.is_set(3));
+        assert_eq!(true, a.null_bitmap.is_set(2));
+        assert_eq!(true, a.null_bitmap.is_set(3));
         assert_eq!(true, a.null_bitmap.is_set(4));
+    }
+
+    #[test]
+    fn test_from_optional_i32() {
+        let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
+        assert_eq!(5, a.len());
+        // 1 == not null
+        assert_eq!(true, a.null_bitmap.is_set(0));
+        assert_eq!(false, a.null_bitmap.is_set(1));
+        assert_eq!(true, a.null_bitmap.is_set(2));
+        assert_eq!(true, a.null_bitmap.is_set(3));
+        assert_eq!(false, a.null_bitmap.is_set(4));
     }
 
     #[test]
@@ -245,6 +259,8 @@ mod tests {
         let b = Rc::new(Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]));
         let _ = Rc::new(Array::from(vec![a,b]));
     }
+
+
 }
 
 
