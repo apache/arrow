@@ -190,7 +190,6 @@ class TestPlasmaClient(object):
         plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
         # Connect to Plasma.
         self.plasma_client = plasma.connect(plasma_store_name, "", 64)
-        # For the eviction test
         self.plasma_client2 = plasma.connect(plasma_store_name, "", 0)
 
     def teardown_method(self, test_method):
@@ -310,6 +309,36 @@ class TestPlasmaClient(object):
                     #     metadata_buffers[i // 2], metadata_results[i])
                 else:
                     assert results[i] is None
+
+    def test_buffer_lifetime(self):
+        # ARROW-2195
+        arr = pa.array([1, 12, 23, 3, 34], pa.int32())
+        batch = pa.RecordBatch.from_arrays([arr], ['field1'])
+
+        # Serialize RecordBatch into Plasma store
+        sink = pa.MockOutputStream()
+        writer = pa.RecordBatchStreamWriter(sink, batch.schema)
+        writer.write_batch(batch)
+        writer.close()
+
+        object_id = random_object_id()
+        data_buffer = self.plasma_client.create(object_id, sink.size())
+        stream = pa.FixedSizeBufferWriter(data_buffer)
+        writer = pa.RecordBatchStreamWriter(stream, batch.schema)
+        writer.write_batch(batch)
+        writer.close()
+        self.plasma_client.seal(object_id)
+        del data_buffer
+
+        # Unserialize RecordBatch from Plasma store
+        [data_buffer] = self.plasma_client2.get_buffers([object_id])
+        reader = pa.RecordBatchStreamReader(data_buffer)
+        read_batch = reader.read_next_batch()
+        # Lose reference to returned buffer.  The RecordBatch must still
+        # be backed by valid memory.
+        del data_buffer, reader
+
+        assert read_batch.equals(batch)
 
     def test_put_and_get(self):
         for value in [["hello", "world", 3, 1.0], None, "hello"]:
