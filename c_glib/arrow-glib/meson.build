@@ -184,8 +184,7 @@ pkgconfig.generate(filebase: meson.project_name(),
                    description: 'C API for Apache Arrow based on GLib',
                    version: version,
                    requires: ['gio-2.0', 'arrow'],
-                   libraries: [libarrow_glib],
-                   subdirs: ['arrow-glib'])
+                   libraries: [libarrow_glib])
 
 arrow_glib_gir = gnome.generate_gir(libarrow_glib,
                                     sources: sources + c_headers + enums,
