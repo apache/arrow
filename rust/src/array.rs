@@ -101,31 +101,6 @@ impl Array {
 
 }
 
-trait BooleanOps<T> {
-    fn compare_array(&self, other: &Array, f: &Fn(T,T) -> bool) -> Result<Vec<bool>, Error>;
-}
-
-impl BooleanOps<i32> for Array {
-
-    fn compare_array(&self, other: &Array, f: &Fn(i32,i32) -> bool) -> Result<Vec<bool>, Error> {
-        match (&self.data, &other.data) {
-            (&ArrayData::Int32(l), &ArrayData::Int32(r)) => {
-                let mut b: Vec<bool> = Vec::with_capacity(self.len as usize);
-                for i in 0..self.len as isize {
-                    let lv : i32 = unsafe { *l.offset(i) };
-                    let rv : i32 = unsafe { *r.offset(i) };
-                    b.push(f(lv,rv));
-                }
-                Ok(b)
-            },
-            _ => Err(Error::from("Cannot compare arrays of this type"))
-        }
-    }
-
-}
-
-
-
 /// type-safe array operations
 trait ArrayOps<T> {
     /// Get one element from an array. Note that this is an expensive call since it
@@ -133,6 +108,10 @@ trait ArrayOps<T> {
     /// other efficient iterator and map methods so we can perform columnar operations
     /// instead.
     fn get(&self, i: usize) -> Result<T,Error>;
+
+    /// Compare two arrays using a boolean closure e.g. eq, gt, lt, and so on
+    fn compare_array(&self, other: &Array, f: &Fn(T,T) -> bool) -> Result<Vec<bool>, Error>;
+
 }
 
 macro_rules! array_ops {
@@ -142,6 +121,20 @@ macro_rules! array_ops {
                 match self.data() {
                     &ArrayData::$AT(ptr) => Ok(unsafe {*ptr.offset(i as isize)}),
                     _ => Err(Error::from("Request for $DT but array is not $DT"))
+                }
+            }
+            fn compare_array(&self, other: &Array, f: &Fn($DT,$DT) -> bool) -> Result<Vec<bool>, Error> {
+                match (&self.data, &other.data) {
+                    (&ArrayData::$AT(l), &ArrayData::$AT(r)) => {
+                        let mut b: Vec<bool> = Vec::with_capacity(self.len as usize);
+                        for i in 0..self.len as isize {
+                            let lv : $DT = unsafe { *l.offset(i) };
+                            let rv : $DT = unsafe { *r.offset(i) };
+                            b.push(f(lv,rv));
+                        }
+                        Ok(b)
+                    },
+                    _ => Err(Error::from("Cannot compare arrays of this type"))
                 }
             }
         }
