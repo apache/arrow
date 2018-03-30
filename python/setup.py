@@ -39,6 +39,8 @@ from distutils.command.clean import clean as _clean
 from distutils.util import strtobool
 from distutils import sysconfig
 
+from setuptools import setup
+
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
@@ -494,6 +496,7 @@ setup(
     tests_require=['pytest', 'pandas'],
     description="Python library for Apache Arrow",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 2.7',
