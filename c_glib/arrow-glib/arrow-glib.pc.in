@@ -25,4 +25,4 @@ Description: C API for Apache Arrow based on GLib
 Version: @VERSION@
 Libs: -L${libdir} -larrow-glib
 Cflags: -I${includedir}
-Requires: gobject-2.0 arrow
+Requires: gio-2.0 arrow
