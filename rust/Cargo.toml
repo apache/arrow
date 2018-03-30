@@ -34,5 +34,5 @@ name = "arrow"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.4.6"
-libc = "0.2.40"
+bytes = "0.4"
+libc = "0.2"

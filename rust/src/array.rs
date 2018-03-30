@@ -99,7 +99,51 @@ impl Array {
         self.len as usize
     }
 
+//    /// compare two arrays of the same type and return an array of boolean values
+//    fn boolean_compare(&self, other: &Array) -> Result<Array, Error> {
+//        if self.len() == other.len() {
+//            let len = self.len() as usize;
+//            match (self.data(), other.data()) {
+//                (&ArrayData::Int32(l), &ArrayData::Int32(r)) => {
+//                    let mut b: Vec<bool> = Vec::with_capacity(len);
+//                    for i in 0..len as isize {
+//                        b.push(unsafe { *l.offset(i) == *r.offset(i) });
+//                    }
+//                    Ok(Array::new(len, ArrayData::from(b)))
+//                }
+//                _ => Err(Error::from("Cannot compare two arrays of differing types"))
+//            }
+//        } else {
+//            Err(Error::from("Cannot compare two arrays of differing lengths"))
+//        }
+//    }
+
 }
+
+trait BooleanOps<T> {
+    fn compare_array(&self, other: &Array, f: Box<Fn(T,T) -> bool>) -> Vec<bool>;
+}
+
+impl BooleanOps<i32> for Array {
+
+    fn compare_array(&self, other: &Array, f: Box<Fn(i32,i32) -> bool>) -> Vec<bool> {
+        match (&self.data, &other.data) {
+            (&ArrayData::Int32(l), &ArrayData::Int32(r)) => {
+                let mut b: Vec<bool> = Vec::with_capacity(self.len as usize);
+                for i in 0..self.len as isize {
+                    let lv : i32 = unsafe { *l.offset(i) };
+                    let rv : i32 = unsafe { *r.offset(i) };
+                    b.push(f(lv,rv));
+                }
+                b
+            },
+            _ => panic!()
+        }
+    }
+
+}
+
+
 
 /// type-safe array operations
 trait ArrayOps<T> {
@@ -332,8 +376,22 @@ mod tests {
         let _ = Rc::new(Array::from(vec![a,b]));
     }
 
+    #[test]
+    fn test_array_eq() {
+        let a = Array::from(vec![1,2,3,4,5]);
+        let b = Array::from(vec![5,4,3,2,1]);
+        let c = a.eq(&b).unwrap();
+
+        assert_eq!(false, c.get(0).unwrap());
+        assert_eq!(false, c.get(1).unwrap());
+        assert_eq!(true, c.get(2).unwrap());
+        assert_eq!(false, c.get(3).unwrap());
+        assert_eq!(false, c.get(4).unwrap());
+    }
+
 
 }
+
 
 
 
