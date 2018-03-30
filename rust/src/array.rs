@@ -109,9 +109,11 @@ trait ArrayOps<T> {
     /// instead.
     fn get(&self, i: usize) -> Result<T,Error>;
 
-    /// Compare two arrays using a boolean closure e.g. eq, gt, lt, and so on
-    fn compare_array(&self, other: &Array, f: &Fn(T,T) -> bool) -> Result<Vec<bool>, Error>;
+    /// Compare two same-typed arrays using a boolean closure e.g. eq, gt, lt, and so on
+    fn compare(&self, other: &Array, f: &Fn(T,T) -> bool) -> Result<Vec<bool>, Error>;
 
+    /// Perform a computation on two same-typed arrays and produce a result of the same type e.g. c = a + b
+    fn compute(&self, other: &Array, f: &Fn(T,T) -> T) -> Result<Vec<T>, Error>;
 }
 
 macro_rules! array_ops {
@@ -123,10 +125,24 @@ macro_rules! array_ops {
                     _ => Err(Error::from("Request for $DT but array is not $DT"))
                 }
             }
-            fn compare_array(&self, other: &Array, f: &Fn($DT,$DT) -> bool) -> Result<Vec<bool>, Error> {
+            fn compare(&self, other: &Array, f: &Fn($DT,$DT) -> bool) -> Result<Vec<bool>, Error> {
                 match (&self.data, &other.data) {
                     (&ArrayData::$AT(l), &ArrayData::$AT(r)) => {
                         let mut b: Vec<bool> = Vec::with_capacity(self.len as usize);
+                        for i in 0..self.len as isize {
+                            let lv : $DT = unsafe { *l.offset(i) };
+                            let rv : $DT = unsafe { *r.offset(i) };
+                            b.push(f(lv,rv));
+                        }
+                        Ok(b)
+                    },
+                    _ => Err(Error::from("Cannot compare arrays of this type"))
+                }
+            }
+            fn compute(&self, other: &Array, f: &Fn($DT,$DT) -> $DT) -> Result<Vec<$DT>, Error> {
+                match (&self.data, &other.data) {
+                    (&ArrayData::$AT(l), &ArrayData::$AT(r)) => {
+                        let mut b: Vec<$DT> = Vec::with_capacity(self.len as usize);
                         for i in 0..self.len as isize {
                             let lv : $DT = unsafe { *l.offset(i) };
                             let rv : $DT = unsafe { *r.offset(i) };
@@ -354,7 +370,7 @@ mod tests {
     fn test_array_eq() {
         let a = Array::from(vec![1,2,3,4,5]);
         let b = Array::from(vec![5,4,3,2,1]);
-        let c = a.compare_array(&b, &|a: i32,b: i32| a == b).unwrap();
+        let c = a.compare(&b, &|a: i32,b: i32| a == b).unwrap();
         assert_eq!(c, vec![false,false,true,false,false]);
     }
 
@@ -362,7 +378,7 @@ mod tests {
     fn test_array_lt() {
         let a = Array::from(vec![1,2,3,4,5]);
         let b = Array::from(vec![5,4,3,2,1]);
-        let c = a.compare_array(&b, &|a: i32,b: i32| a < b).unwrap();
+        let c = a.compare(&b, &|a: i32,b: i32| a < b).unwrap();
         assert_eq!(c, vec![true,true,false,false,false]);
     }
 
@@ -370,8 +386,24 @@ mod tests {
     fn test_array_gt() {
         let a = Array::from(vec![1,2,3,4,5]);
         let b = Array::from(vec![5,4,3,2,1]);
-        let c = a.compare_array(&b, &|a: i32,b: i32| a > b).unwrap();
+        let c = a.compare(&b, &|a: i32,b: i32| a > b).unwrap();
         assert_eq!(c, vec![false,false,false,true,true]);
+    }
+
+    #[test]
+    fn test_array_add() {
+        let a = Array::from(vec![1,2,3,4,5]);
+        let b = Array::from(vec![5,4,3,2,1]);
+        let c = a.compute(&b, &|a: i32,b: i32| a + b).unwrap();
+        assert_eq!(c, vec![6,6,6,6,6]);
+    }
+
+    #[test]
+    fn test_array_multiply() {
+        let a = Array::from(vec![1,2,3,4,5]);
+        let b = Array::from(vec![5,4,3,2,1]);
+        let c = a.compute(&b, &|a: i32,b: i32| a * b).unwrap();
+        assert_eq!(c, vec![5,8,9,8,5]);
     }
 }
 
