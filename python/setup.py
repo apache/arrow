@@ -435,11 +435,8 @@ if not os.path.exists('../.git') and os.path.exists('../java/pom.xml'):
     os.environ["SETUPTOOLS_SCM_PRETEND_VERSION"] = version_tag.text.replace(
         "-SNAPSHOT", "a0")
 
-long_description = """Apache Arrow is a columnar in-memory analytics layer
-designed to accelerate big data. It houses a set of canonical in-memory
-representations of flat and hierarchical data along with multiple
-language-bindings for structure manipulation. It also provides IPC
-and common algorithm implementations."""
+with open('README.md') as f:
+    long_description = f.read()
 
 
 class BinaryDistribution(Distribution):
