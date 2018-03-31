@@ -16,6 +16,7 @@
 // under the License.
 
 use std::mem;
+use std::slice;
 use libc;
 
 use super::memory::*;
@@ -27,12 +28,20 @@ pub struct Buffer<T> {
 
 impl<T> Buffer<T> {
 
+    pub fn new(data: *const T, len: i32) -> Self {
+        Buffer { data, len }
+    }
+
     pub fn len(&self) -> i32 {
         self.len
     }
 
     pub fn data(&self) -> *const T {
         self.data
+    }
+
+    pub fn slice(&self, start: usize, end: usize) -> &[T] {
+        unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end-start) as usize) }
     }
 
     pub fn get(&self, i: usize) -> &T {

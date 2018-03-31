@@ -22,6 +22,7 @@ pub mod array;
 pub mod bitmap;
 pub mod buffer;
 pub mod datatypes;
+pub mod list;
 pub mod error;
 pub mod memory;
 

@@ -23,9 +23,8 @@ use std::string::String;
 
 use super::bitmap::Bitmap;
 use super::buffer::Buffer;
+use super::list::List;
 use super::error::*;
-
-use bytes::{Bytes, BytesMut, BufMut};
 
 pub enum ArrayData {
     Boolean(Buffer<bool>),
@@ -39,7 +38,7 @@ pub enum ArrayData {
     UInt16(Buffer<u16>),
     UInt32(Buffer<u32>),
     UInt64(Buffer<u64>),
-    Utf8(ListData),
+    Utf8(List<u8>),
     Struct(Vec<Rc<Array>>)
 }
 
@@ -220,18 +219,11 @@ impl From<Vec<&'static str>> for Array {
 
 impl From<Vec<String>> for Array {
     fn from(v: Vec<String>) -> Self {
-        let mut offsets : Vec<i32> = Vec::with_capacity(v.len() + 1);
-        let mut buf = BytesMut::with_capacity(v.len() * 32);
-        offsets.push(0_i32);
-        v.iter().for_each(|s| {
-            buf.put(s.as_bytes());
-            offsets.push(buf.len() as i32);
-        });
         Array {
             len: v.len() as i32,
             null_count: 0,
             validity_bitmap: None,
-            data: ArrayData::Utf8(ListData { offsets, bytes: buf.freeze() })
+            data: ArrayData::Utf8(List::from(v))
         }
     }
 }
@@ -247,26 +239,6 @@ impl From<Vec<Rc<Array>>> for Array {
     }
 }
 
-/// List of variable-width data such as Utf8 strings
-pub struct ListData {
-    pub offsets: Vec<i32>,
-    pub bytes: Bytes
-}
-
-impl ListData {
-
-    pub fn len(&self) -> usize {
-        self.offsets.len()-1
-    }
-
-    pub fn slice(&self, index: usize) -> &[u8] {
-        let start = self.offsets[index] as usize;
-        let end = self.offsets[index+1] as usize;
-        &self.bytes[start..end]
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,13 +249,13 @@ mod tests {
         let a = Array::from(vec!["this", "is", "a", "test"]);
         assert_eq!(4, a.len());
         match a.data() {
-            &ArrayData::Utf8(ListData { ref offsets, ref bytes }) => {
-                assert_eq!(11, bytes.len());
-                assert_eq!(0, offsets[0]);
-                assert_eq!(4, offsets[1]);
-                assert_eq!(6, offsets[2]);
-                assert_eq!(7, offsets[3]);
-                assert_eq!(11, offsets[4]);
+            &ArrayData::Utf8(List{ ref data, ref offsets }) => {
+                assert_eq!(11, data.len());
+                assert_eq!(0, *offsets.get(0));
+                assert_eq!(4, *offsets.get(1));
+                assert_eq!(6, *offsets.get(2));
+                assert_eq!(7, *offsets.get(3));
+                assert_eq!(11, *offsets.get(4));
             },
             _ => panic!()
         }
