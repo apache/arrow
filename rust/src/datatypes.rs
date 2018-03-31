@@ -82,3 +82,19 @@ impl Schema {
 
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_define_schema() {
+        let _person = Schema::new(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new("address", DataType::Struct(vec![
+                Field::new("street", DataType::Utf8, false),
+                Field::new("zip", DataType::UInt16, false),
+            ]), false),
+        ]);
+    }
+}
