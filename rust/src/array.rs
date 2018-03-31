@@ -17,7 +17,6 @@
 
 use std::convert::From;
 use std::iter::Iterator;
-use std::mem;
 use std::rc::Rc;
 use std::str;
 use std::string::String;
@@ -25,10 +24,8 @@ use std::string::String;
 use super::bitmap::Bitmap;
 use super::buffer::Buffer;
 use super::error::*;
-use super::memory::*;
 
 use bytes::{Bytes, BytesMut, BufMut};
-use libc;
 
 pub enum ArrayData {
     Boolean(Buffer<bool>),
