@@ -25,8 +25,6 @@ This is a starting point for a native Rust implementation of Arrow.
 
 The current code demonstrates arrays of primitive types and structs.
 
-Contiguous memory buffers are used but they are not aligned at 8-byte boundaries yet.
-
 ## Example
 
 ```rust

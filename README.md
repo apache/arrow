@@ -45,6 +45,7 @@ Major components of the project include:
  - [Java libraries](https://github.com/apache/arrow/tree/master/java)
  - [JavaScript libraries](https://github.com/apache/arrow/tree/master/js)
  - [Python bindings to C++](https://github.com/apache/arrow/tree/master/python)
+ - [Rust libraries](https://github.com/apache/arrow/tree/master/rust)
 
 Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at
 [arrow.apache.org](https://arrow.apache.org).
