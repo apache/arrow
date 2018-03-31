@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use super::buffer::Buffer;
+
 pub struct Bitmap {
-    bits: Vec<u8>
+    bits: Buffer<u8>
 }
 
 impl Bitmap {
@@ -29,26 +31,30 @@ impl Bitmap {
         for _ in 0 .. len {
             v.push(255); // 1 is not null
         }
-        Bitmap { bits: v }
+        Bitmap { bits: Buffer::from(v) }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> i32 {
         self.bits.len()
     }
 
     pub fn is_set(&self, i: usize) -> bool {
         let byte_offset = i / 8;
-        self.bits[byte_offset] & (1_u8 << ((i % 8) as u8)) > 0
+        self.bits.get(byte_offset) & (1_u8 << ((i % 8) as u8)) > 0
     }
 
     pub fn set(&mut self, i: usize) {
         let byte_offset = i / 8;
-        self.bits[byte_offset] = self.bits[byte_offset] | (1_u8 << ((i % 8) as u8));
+        let v : u8 = {
+            self.bits.get(byte_offset) | (1_u8 << ((i % 8) as u8))
+        };
+        self.bits.set(byte_offset, v);
     }
 
     pub fn clear(&mut self, i: usize) {
         let byte_offset = i / 8;
-        self.bits[byte_offset] = self.bits[byte_offset] ^ (1_u8 << ((i % 8) as u8));
+        let v : u8 = self.bits.get(byte_offset) ^ (1_u8 << ((i % 8) as u8));
+        self.bits.set(byte_offset, v);
     }
 }
 

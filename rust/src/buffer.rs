@@ -34,6 +34,17 @@ impl<T> Buffer<T> {
     pub fn data(&self) -> *const T {
         self.data
     }
+
+    pub fn get(&self, i: usize) -> &T {
+        unsafe { &(*self.data.offset(i as isize)) }
+    }
+
+    pub fn set(&mut self, i: usize, v: T) {
+        unsafe {
+            let p = mem::transmute::<*const T, *mut T>(self.data);
+            *p.offset(i as isize) = v;
+        }
+    }
 }
 
 macro_rules! array_from_primitive {
