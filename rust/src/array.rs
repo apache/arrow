@@ -29,6 +29,10 @@ use super::memory::*;
 use bytes::{Bytes, BytesMut, BufMut};
 use libc;
 
+struct PrimitiveArray<T> {
+    buffer: Buffer<T>
+}
+
 pub enum ArrayData {
     Boolean(*const bool),
     Float32(*const f32),
