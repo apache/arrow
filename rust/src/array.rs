@@ -23,28 +23,25 @@ use std::str;
 use std::string::String;
 
 use super::bitmap::Bitmap;
+use super::buffer::Buffer;
 use super::error::*;
 use super::memory::*;
 
 use bytes::{Bytes, BytesMut, BufMut};
 use libc;
 
-struct PrimitiveArray<T> {
-    buffer: Buffer<T>
-}
-
 pub enum ArrayData {
-    Boolean(*const bool),
-    Float32(*const f32),
-    Float64(*const f64),
-    Int8(*const i8),
-    Int16(*const i16),
-    Int32(*const i32),
-    Int64(*const i64),
-    UInt8(*const u8),
-    UInt16(*const u16),
-    UInt32(*const u32),
-    UInt64(*const u64),
+    Boolean(Buffer<bool>),
+    Float32(Buffer<f32>),
+    Float64(Buffer<f64>),
+    Int8(Buffer<i8>),
+    Int16(Buffer<i16>),
+    Int32(Buffer<i32>),
+    Int64(Buffer<i64>),
+    UInt8(Buffer<u8>),
+    UInt16(Buffer<u16>),
+    UInt32(Buffer<u32>),
+    UInt64(Buffer<u64>),
     Utf8(ListData),
     Struct(Vec<Rc<Array>>)
 }
@@ -53,16 +50,7 @@ macro_rules! arraydata_from_primitive {
     ($DT:ty, $AT:ident) => {
         impl From<Vec<$DT>> for ArrayData {
             fn from(v: Vec<$DT>) -> Self {
-                // allocate aligned memory buffer
-                let len = v.len();
-                let sz = mem::size_of::<$DT>();
-                let buffer = allocate_aligned((len * sz) as i64).unwrap();
-                // copy data from the vec into the new buffer
-                ArrayData::$AT(unsafe {
-                    let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
-                    libc::memcpy(dst, mem::transmute::<*const $DT, *const libc::c_void>(v.as_ptr()), len * sz);
-                    mem::transmute::<*const u8, *const $DT>(buffer)
-                })
+                ArrayData::$AT(Buffer::from(v))
             }
         }
 
@@ -125,17 +113,17 @@ macro_rules! array_ops {
         impl ArrayOps<$DT> for Array {
             fn get(&self, i: usize) -> Result<$DT,Error> {
                 match self.data() {
-                    &ArrayData::$AT(ptr) => Ok(unsafe {*ptr.offset(i as isize)}),
+                    &ArrayData::$AT(ref buf) => Ok(unsafe {*buf.data().offset(i as isize)}),
                     _ => Err(Error::from("Request for $DT but array is not $DT"))
                 }
             }
             fn compare(&self, other: &Array, f: &Fn($DT,$DT) -> bool) -> Result<Vec<bool>, Error> {
                 match (&self.data, &other.data) {
-                    (&ArrayData::$AT(l), &ArrayData::$AT(r)) => {
+                    (&ArrayData::$AT(ref l), &ArrayData::$AT(ref r)) => {
                         let mut b: Vec<bool> = Vec::with_capacity(self.len as usize);
                         for i in 0..self.len as isize {
-                            let lv : $DT = unsafe { *l.offset(i) };
-                            let rv : $DT = unsafe { *r.offset(i) };
+                            let lv : $DT = unsafe { *l.data().offset(i) };
+                            let rv : $DT = unsafe { *r.data().offset(i) };
                             b.push(f(lv,rv));
                         }
                         Ok(b)
@@ -145,11 +133,11 @@ macro_rules! array_ops {
             }
             fn compute(&self, other: &Array, f: &Fn($DT,$DT) -> $DT) -> Result<Vec<$DT>, Error> {
                 match (&self.data, &other.data) {
-                    (&ArrayData::$AT(l), &ArrayData::$AT(r)) => {
+                    (&ArrayData::$AT(ref l), &ArrayData::$AT(ref r)) => {
                         let mut b: Vec<$DT> = Vec::with_capacity(self.len as usize);
                         for i in 0..self.len as isize {
-                            let lv : $DT = unsafe { *l.offset(i) };
-                            let rv : $DT = unsafe { *r.offset(i) };
+                            let lv : $DT = unsafe { *l.data().offset(i) };
+                            let rv : $DT = unsafe { *r.data().offset(i) };
                             b.push(f(lv,rv));
                         }
                         Ok(b)

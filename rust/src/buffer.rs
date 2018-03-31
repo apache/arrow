@@ -20,9 +20,20 @@ use libc;
 
 use super::memory::*;
 
-struct Buffer<T> {
+pub struct Buffer<T> {
     data: *const T,
     len: i32
+}
+
+impl<T> Buffer<T> {
+
+    pub fn len(&self) -> i32 {
+        self.len
+    }
+
+    pub fn data(&self) -> *const T {
+        self.data
+    }
 }
 
 macro_rules! array_from_primitive {
@@ -49,6 +60,7 @@ macro_rules! array_from_primitive {
 array_from_primitive!(bool);
 array_from_primitive!(f32);
 array_from_primitive!(f64);
+array_from_primitive!(u8);
 array_from_primitive!(u16);
 array_from_primitive!(u32);
 array_from_primitive!(u64);
