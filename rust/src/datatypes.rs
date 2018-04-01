@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+use std::fmt;
 
 #[derive(Debug,Clone)]
 pub enum DataType {
@@ -40,7 +41,7 @@ pub struct Field {
 }
 
 impl Field {
-
+    
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
         Field {
             name: name.to_string(),
@@ -72,14 +73,16 @@ impl Schema {
             .enumerate()
             .find(|&(_,c)| c.name == name)
     }
+}
 
-    pub fn to_string(&self) -> String {
-        let s : Vec<String> = self.columns.iter()
+impl fmt::Display for Schema {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s: Vec<String> = self.columns
+            .iter()
             .map(|c| c.to_string())
             .collect();
-        s.join(",")
+        write!(f, "{}", s.join(",").to_string())
     }
-
 }
 
 #[cfg(test)]
@@ -92,9 +95,10 @@ mod tests {
             Field::new("first_name", DataType::Utf8, false),
             Field::new("last_name", DataType::Utf8, false),
             Field::new("address", DataType::Struct(vec![
-                Field::new("street", DataType::Utf8, false),
-                Field::new("zip", DataType::UInt16, false),
-            ]), false),
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]), false),
         ]);
+        assert_eq!(_person.to_string(), "first_name: Utf8,last_name: Utf8,address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
     }
 }
