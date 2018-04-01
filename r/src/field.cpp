@@ -1,5 +1,5 @@
 #include <Rcpp.h>
-#include "rrrow_types.h"
+#include "arrow_types.h"
 
 // [[Rcpp::plugins(cpp11)]]
 

@@ -1,4 +1,4 @@
-Package: rrrow
+Package: arrow
 Title: Bindings to 'Apache' 'Arrow'
 Version: 0.0.0.9000
 Authors@R: c(

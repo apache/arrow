@@ -12,14 +12,14 @@ knitr::opts_chunk$set(
   out.width = "100%"
 )
 ```
-# rrrow
 
-rrrow is an R front end to Apache Arrow. 
+# arrow
+
+arrow is an R front end to Apache Arrow. 
 
 ## Installation
 
-I've only tested this locally for now, here is how I install it, borrowed
-from [rarrow](https://github.com/jimhester/rarrow). 
+This is work in progress, and will have to be adjusted for various platforms. 
 
 First you need the Arrow C++ library installed
 
@@ -35,17 +35,15 @@ make install
 Then you can install the development version of the package: 
 
 ```r
-# devtools::install_github("apache/arrow/r")
-devtools::install_github("romainfrancois/arrow/r")
+devtools::install_github("apache/arrow/r")
 ```
-
 
 ## Example
 
 factory functions: 
 
 ```{r}
-library(rrrow)
+library(arrow)
 
 # metadata factories
 int32()
