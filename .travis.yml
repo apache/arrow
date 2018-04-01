@@ -195,7 +195,7 @@ matrix:
   - language: rust
     rust: 
       - stable
-      - nightly
+        nightly
     matrix:
       allow_failures:
         - rust: nightly
