@@ -2,7 +2,8 @@ Package: rrrow
 Title: Bindings to 'Apache' 'Arrow'
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Romain", "François", email = "romain@purrple.cat", role = c("aut", "cre"))
+    person("Romain", "François", email = "romain@purrple.cat", role = c("aut", "cre")), 
+    person("The Apache Software Foundation", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: R bindings to Apache Arrow.
 Depends: R (>= 3.4.3)
