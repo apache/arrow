@@ -49,9 +49,11 @@ impl Field {
             nullable: nullable
         }
     }
+}
 
-    pub fn to_string(&self) -> String {
-        format!("{}: {:?}", self.name, self.data_type)
+impl fmt::Display for Field {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {:?}", self.name, self.data_type)
     }
 }
 
@@ -81,7 +83,7 @@ impl fmt::Display for Schema {
             .iter()
             .map(|c| c.to_string())
             .collect();
-        write!(f, "{}", s.join(",").to_string())
+        write!(f, "{}", s.join(","))
     }
 }
 
