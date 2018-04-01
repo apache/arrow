@@ -88,6 +88,11 @@ python/MANIFEST.in
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py
 python/requirements.txt
+r/DESCRIPTION
+r/NAMESPACE
+r/man/*.Rd
+r/R/RcppExports.R
+r/src/RcppExports.cpp
 pax_global_header
 MANIFEST.in
 __init__.pxd
