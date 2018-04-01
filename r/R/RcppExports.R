@@ -3,149 +3,149 @@
 
 #' @export
 ArrayBuilder <- function(xptr_type) {
-    .Call(`_rrrow_ArrayBuilder`, xptr_type)
+    .Call(`_arrow_ArrayBuilder`, xptr_type)
 }
 
 ArrayBuilder__num_children <- function(xptr_type) {
-    .Call(`_rrrow_ArrayBuilder__num_children`, xptr_type)
+    .Call(`_arrow_ArrayBuilder__num_children`, xptr_type)
 }
 
 #' @export
 field <- function(name, type, nullable = TRUE) {
-    .Call(`_rrrow_field`, name, type, nullable)
+    .Call(`_arrow_field`, name, type, nullable)
 }
 
 bla <- function() {
-    .Call(`_rrrow_bla`)
+    .Call(`_arrow_bla`)
 }
 
 #' @export
 int8 <- function() {
-    .Call(`_rrrow_int8`)
+    .Call(`_arrow_int8`)
 }
 
 #' @export
 int16 <- function() {
-    .Call(`_rrrow_int16`)
+    .Call(`_arrow_int16`)
 }
 
 #' @export
 int32 <- function() {
-    .Call(`_rrrow_int32`)
+    .Call(`_arrow_int32`)
 }
 
 #' @export
 int64 <- function() {
-    .Call(`_rrrow_int64`)
+    .Call(`_arrow_int64`)
 }
 
 #' @export
 uint8 <- function() {
-    .Call(`_rrrow_uint8`)
+    .Call(`_arrow_uint8`)
 }
 
 #' @export
 uint16 <- function() {
-    .Call(`_rrrow_uint16`)
+    .Call(`_arrow_uint16`)
 }
 
 #' @export
 uint32 <- function() {
-    .Call(`_rrrow_uint32`)
+    .Call(`_arrow_uint32`)
 }
 
 #' @export
 uint64 <- function() {
-    .Call(`_rrrow_uint64`)
+    .Call(`_arrow_uint64`)
 }
 
 #' @export
 float16 <- function() {
-    .Call(`_rrrow_float16`)
+    .Call(`_arrow_float16`)
 }
 
 #' @export
 float32 <- function() {
-    .Call(`_rrrow_float32`)
+    .Call(`_arrow_float32`)
 }
 
 #' @export
 float64 <- function() {
-    .Call(`_rrrow_float64`)
+    .Call(`_arrow_float64`)
 }
 
 #' @export
 boolean <- function() {
-    .Call(`_rrrow_boolean`)
+    .Call(`_arrow_boolean`)
 }
 
 #' @export
 utf8 <- function() {
-    .Call(`_rrrow_utf8`)
+    .Call(`_arrow_utf8`)
 }
 
 #' @export
 date32 <- function() {
-    .Call(`_rrrow_date32`)
+    .Call(`_arrow_date32`)
 }
 
 #' @export
 date64 <- function() {
-    .Call(`_rrrow_date64`)
+    .Call(`_arrow_date64`)
 }
 
 #' @export
 null <- function() {
-    .Call(`_rrrow_null`)
+    .Call(`_arrow_null`)
 }
 
 #' @export
 decimal_type <- function(precision, scale) {
-    .Call(`_rrrow_decimal_type`, precision, scale)
+    .Call(`_arrow_decimal_type`, precision, scale)
 }
 
 #' @export
 fixed_size_binary <- function(byte_width) {
-    .Call(`_rrrow_fixed_size_binary`, byte_width)
+    .Call(`_arrow_fixed_size_binary`, byte_width)
 }
 
 timestamp1 <- function(unit) {
-    .Call(`_rrrow_timestamp1`, unit)
+    .Call(`_arrow_timestamp1`, unit)
 }
 
 timestamp2 <- function(unit, timezone) {
-    .Call(`_rrrow_timestamp2`, unit, timezone)
+    .Call(`_arrow_timestamp2`, unit, timezone)
 }
 
 #' @export
 time32 <- function(unit) {
-    .Call(`_rrrow_time32_`, unit)
+    .Call(`_arrow_time32_`, unit)
 }
 
 #' @export
 time64 <- function(unit) {
-    .Call(`_rrrow_time64_`, unit)
+    .Call(`_arrow_time64_`, unit)
 }
 
 #' @export
 list_ <- function(x) {
-    .Call(`_rrrow_list_`, x)
+    .Call(`_arrow_list_`, x)
 }
 
 #' @export
 struct_ <- function(fields) {
-    .Call(`_rrrow_struct_`, fields)
+    .Call(`_arrow_struct_`, fields)
 }
 
 DataType_ToString <- function(type) {
-    .Call(`_rrrow_DataType_ToString`, type)
+    .Call(`_arrow_DataType_ToString`, type)
 }
 
 schema_ <- function(fields) {
-    .Call(`_rrrow_schema_`, fields)
+    .Call(`_arrow_schema_`, fields)
 }
 
 Schema_ToString <- function(type) {
-    .Call(`_rrrow_Schema_ToString`, type)
+    .Call(`_arrow_Schema_ToString`, type)
 }
 

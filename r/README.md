@@ -1,14 +1,14 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# rrrow
+# arrow
 
-rrrow is an R front end to Apache Arrow.
+arrow is an R front end to Apache Arrow.
 
 ## Installation
 
-I’ve only tested this locally for now, here is how I install it,
-borrowed from [rarrow](https://github.com/jimhester/rarrow).
+This is work in progress, and will have to be adjusted for various
+platforms.
 
 First you need the Arrow C++ library installed
 
@@ -22,8 +22,7 @@ First you need the Arrow C++ library installed
 Then you can install the development version of the package:
 
 ``` r
-# devtools::install_github("apache/arrow/r")
-devtools::install_github("romainfrancois/arrow/r")
+devtools::install_github("apache/arrow/r")
 ```
 
 ## Example
@@ -31,9 +30,9 @@ devtools::install_github("romainfrancois/arrow/r")
 factory functions:
 
 ``` r
-library(rrrow)
+library(arrow)
 #> 
-#> Attaching package: 'rrrow'
+#> Attaching package: 'arrow'
 #> The following object is masked from 'package:utils':
 #> 
 #>     timestamp
@@ -50,7 +49,7 @@ ArrayBuilder
 ``` r
 # make a builder for an array of type int32. 
 (b <- ArrayBuilder( int32() ) )
-#> <pointer: 0x7fe5d26b8e10>
+#> <pointer: 0x7f82b3d9f470>
 #> attr(,"class")
 #> [1] "arrow::NumericBuilder<arrow::Int32Type>"
 #> [2] "arrow::ArrayBuilder"
