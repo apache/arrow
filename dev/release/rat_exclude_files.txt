@@ -90,6 +90,8 @@ python/pyarrow/tests/__init__.py
 python/requirements.txt
 r/DESCRIPTION
 r/NAMESPACE
+r/.Rbuildignore
+r/arrow.Rproj
 r/man/*.Rd
 r/R/RcppExports.R
 r/src/RcppExports.cpp
