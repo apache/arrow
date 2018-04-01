@@ -56,6 +56,12 @@ impl<T> Buffer<T> {
     }
 }
 
+impl<T> Drop for Buffer<T> {
+    fn drop(&mut self) {
+        mem::drop(self.data)
+    }
+}
+
 macro_rules! array_from_primitive {
     ($DT:ty) => {
         impl From<Vec<$DT>> for Buffer<$DT> {
@@ -93,6 +99,7 @@ array_from_primitive!(i64);
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_buffer_i32() {
         let b: Buffer<i32> = Buffer::from(vec![1, 2, 3, 4, 5]);
