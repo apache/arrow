@@ -39,8 +39,6 @@ from distutils.command.clean import clean as _clean
 from distutils.util import strtobool
 from distutils import sysconfig
 
-from setuptools import setup
-
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
