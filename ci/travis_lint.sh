@@ -49,3 +49,12 @@ if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
   flake8 --count --config=$PYTHON_DIR/.flake8.cython \
          $PYTHON_DIR/pyarrow
 fi
+
+# Fale fast on rust style issues
+if [ "$ARROW_CI_RUST_AFFECTED" != "0" ]; then
+
+  RUST_DIR=$TRAVIS_BUILD_DIR/rust
+  cd $RUST_DIR && cargo fmt  -- --write-mode=diff
+
+fi
+  
