@@ -716,7 +716,7 @@ Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
   RETURN_NOT_OK(file->Seek(offset));
 
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, &message, true));
+  RETURN_NOT_OK(ReadContiguousPayload(file, &message, true /* aligned */));
   return ReadTensor(*message, out);
 }
 
