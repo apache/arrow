@@ -91,7 +91,7 @@ class PlasmaBuffer : public Buffer {
   ObjectID object_id_;
 };
 
-PlasmaBuffer::~PlasmaBuffer() { (void)client_->Release(object_id_); }
+PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
 struct ObjectInUseEntry {
   /// A count of the number of times this client has called PlasmaClient::Create
