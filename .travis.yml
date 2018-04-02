@@ -192,6 +192,12 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
+  - language: rust
+    rust: stable
+    before_script:
+    - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)

@@ -26,7 +26,7 @@ import subprocess
 
 perr = functools.partial(print, file=sys.stderr)
 
-LANGUAGE_TOPICS = ['c_glib', 'cpp', 'java', 'js', 'python']
+LANGUAGE_TOPICS = ['c_glib', 'cpp', 'java', 'js', 'python', 'rust']
 
 ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site']
 
@@ -127,7 +127,7 @@ def get_affected_topics(affected_files):
         elif p in ('java', 'js'):
             affected[p] = True
             affected['integration'] = True
-        elif p in ('c_glib', 'integration', 'python', 'site'):
+        elif p in ('c_glib', 'integration', 'python', 'site', 'rust'):
             affected[p] = True
 
     return affected
