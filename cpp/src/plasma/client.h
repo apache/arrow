@@ -28,6 +28,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "plasma/common.h"
 #ifdef PLASMA_GPU
