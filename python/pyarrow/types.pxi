@@ -849,7 +849,7 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
-_FIXED_OFFSET_RE = re.compile(r'([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])')
+_FIXED_OFFSET_RE = re.compile(r'([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$')
 
 
 def tzinfo_to_string(tz):
