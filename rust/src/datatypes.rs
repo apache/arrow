@@ -20,7 +20,7 @@ use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ArrowError {
-    ParseError(String)
+    ParseError(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,7 +42,6 @@ pub enum DataType {
 }
 
 impl DataType {
-
     fn from(json: &Value) -> Result<DataType, ArrowError> {
         //println!("DataType::from({:?})", json);
         match json {
@@ -53,8 +52,10 @@ impl DataType {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
                     Some(p) if p == "SINGLE" => Ok(DataType::Float32),
                     Some(p) if p == "DOUBLE" => Ok(DataType::Float64),
-                    _ => Err(ArrowError::ParseError(format!("floatingpoint precision missing or invalid")))
-                }
+                    _ => Err(ArrowError::ParseError(format!(
+                        "floatingpoint precision missing or invalid"
+                    ))),
+                },
                 Some(s) if s == "int" => match map.get("isSigned") {
                     Some(Value::Bool(true)) => match map.get("bitWidth") {
                         Some(Value::Number(n)) => match n.as_u64() {
@@ -62,34 +63,48 @@ impl DataType {
                             Some(16) => Ok(DataType::Int16),
                             Some(32) => Ok(DataType::Int32),
                             Some(64) => Ok(DataType::Int32),
-                            _ => Err(ArrowError::ParseError(format!("int bitWidth missing or invalid")))
-                        }
-                        _ => Err(ArrowError::ParseError(format!("int bitWidth missing or invalid")))
-                    }
+                            _ => Err(ArrowError::ParseError(format!(
+                                "int bitWidth missing or invalid"
+                            ))),
+                        },
+                        _ => Err(ArrowError::ParseError(format!(
+                            "int bitWidth missing or invalid"
+                        ))),
+                    },
                     Some(Value::Bool(false)) => match map.get("bitWidth") {
                         Some(Value::Number(n)) => match n.as_u64() {
                             Some(8) => Ok(DataType::UInt8),
                             Some(16) => Ok(DataType::UInt16),
                             Some(32) => Ok(DataType::UInt32),
                             Some(64) => Ok(DataType::UInt64),
-                            _ => Err(ArrowError::ParseError(format!("int bitWidth missing or invalid")))
-                        }
-                        _ => Err(ArrowError::ParseError(format!("int bitWidth missing or invalid")))
-                    }
-                    _ => Err(ArrowError::ParseError(format!("int signed missing or invalid")))
-                }
-                Some(other) => Err(ArrowError::ParseError(format!("invalid type name: {}", other))),
+                            _ => Err(ArrowError::ParseError(format!(
+                                "int bitWidth missing or invalid"
+                            ))),
+                        },
+                        _ => Err(ArrowError::ParseError(format!(
+                            "int bitWidth missing or invalid"
+                        ))),
+                    },
+                    _ => Err(ArrowError::ParseError(format!(
+                        "int signed missing or invalid"
+                    ))),
+                },
+                Some(other) => Err(ArrowError::ParseError(format!(
+                    "invalid type name: {}",
+                    other
+                ))),
                 None => match map.get("fields") {
                     Some(Value::Array(fields_array)) => {
-                        let fields = fields_array.iter()
+                        let fields = fields_array
+                            .iter()
                             .map(|f| Field::from(f))
-                            .collect::<Result<Vec<Field>,ArrowError>>();
+                            .collect::<Result<Vec<Field>, ArrowError>>();
                         Ok(DataType::Struct(fields?))
-                    },
-                    _ => Err(ArrowError::ParseError(format!("empty type")))
-                }
-            }
-            _ => Err(ArrowError::ParseError(format!("invalid json value type")))
+                    }
+                    _ => Err(ArrowError::ParseError(format!("empty type"))),
+                },
+            },
+            _ => Err(ArrowError::ParseError(format!("invalid json value type"))),
         }
     }
 
@@ -125,7 +140,6 @@ pub struct Field {
 }
 
 impl Field {
-
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
         Field {
             name: name.to_string(),
@@ -140,19 +154,37 @@ impl Field {
             &Value::Object(ref map) => {
                 let name = match map.get("name") {
                     Some(Value::String(name)) => name.to_string(),
-                    _ => return Err(ArrowError::ParseError(format!("Field missing 'name' attribute")))
+                    _ => {
+                        return Err(ArrowError::ParseError(format!(
+                            "Field missing 'name' attribute"
+                        )))
+                    }
                 };
                 let nullable = match map.get("nullable") {
                     Some(Value::Bool(b)) => *b,
-                    _ => return Err(ArrowError::ParseError(format!("Field missing 'nullable' attribute")))
+                    _ => {
+                        return Err(ArrowError::ParseError(format!(
+                            "Field missing 'nullable' attribute"
+                        )))
+                    }
                 };
                 let data_type = match map.get("type") {
                     Some(t) => DataType::from(t)?,
-                    _ => return Err(ArrowError::ParseError(format!("Field missing 'type' attribute")))
+                    _ => {
+                        return Err(ArrowError::ParseError(format!(
+                            "Field missing 'type' attribute"
+                        )))
+                    }
                 };
-                Ok(Field { name, nullable, data_type })
-            },
-            _ => Err(ArrowError::ParseError(format!("Invalid json value type for field")))
+                Ok(Field {
+                    name,
+                    nullable,
+                    data_type,
+                })
+            }
+            _ => Err(ArrowError::ParseError(format!(
+                "Invalid json value type for field"
+            ))),
         }
     }
 
