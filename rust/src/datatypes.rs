@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use serde_json::Value;
+
 #[derive(Debug, Clone)]
 pub enum DataType {
     Boolean,
@@ -32,6 +34,30 @@ pub enum DataType {
     Struct(Vec<Field>),
 }
 
+impl DataType {
+    pub fn to_json(&self) -> Value {
+        match self {
+            &DataType::Boolean => json!({"name": "bool"}),
+            &DataType::Int8 => json!({"name": "int", "bitWidth": "8", "isSigned": "true"}),
+            &DataType::Int16 => json!({"name": "int", "bitWidth": "16", "isSigned": "true"}),
+            &DataType::Int32 => json!({"name": "int", "bitWidth": "32", "isSigned": "true"}),
+            &DataType::Int64 => json!({"name": "int", "bitWidth": "64", "isSigned": "true"}),
+            &DataType::UInt8 => json!({"name": "int", "bitWidth": "8", "isSigned": "false"}),
+            &DataType::UInt16 => json!({"name": "int", "bitWidth": "16", "isSigned": "false"}),
+            &DataType::UInt32 => json!({"name": "int", "bitWidth": "32", "isSigned": "false"}),
+            &DataType::UInt64 => json!({"name": "int", "bitWidth": "64", "isSigned": "false"}),
+            &DataType::Float32 => json!({"name": "floatingpoint", "precision": "SINGLE"}),
+            &DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
+            &DataType::Utf8 => json!({"name": "utf8"}),
+            &DataType::Struct(ref fields) => {
+                let field_json_array =
+                    Value::Array(fields.iter().map(|f| f.to_json()).collect::<Vec<Value>>());
+                json!({ "fields": field_json_array })
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Field {
     pub name: String,
@@ -46,6 +72,18 @@ impl Field {
             data_type: data_type,
             nullable: nullable,
         }
+    }
+
+    pub fn to_json(&self) -> Value {
+        json!({
+            "name": self.name,
+            "nullable": self.nullable,
+            "type": self.data_type.to_json(),
+        })
+
+        //        let mut map = Map::new();
+        //        map.insert("name".to_string(), Value::String(self.name.clone()));
+        //        Value::from(map)
     }
 
     pub fn to_string(&self) -> String {
@@ -87,8 +125,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_define_schema() {
-        let _person = Schema::new(vec![
+    fn create_struct_type() {
+        let _person = DataType::Struct(vec![
             Field::new("first_name", DataType::Utf8, false),
             Field::new("last_name", DataType::Utf8, false),
             Field::new(
@@ -100,5 +138,35 @@ mod tests {
                 false,
             ),
         ]);
+    }
+
+    #[test]
+    fn struct_field_to_json() {
+        let f = Field::new(
+            "address",
+            DataType::Struct(vec![
+                Field::new("street", DataType::Utf8, false),
+                Field::new("zip", DataType::UInt16, false),
+            ]),
+            false,
+        );
+        assert_eq!(
+            "{\"name\":\"address\",\"nullable\":false,\"type\":{\"\
+             fields\":[\
+             {\"name\":\"street\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},\
+             {\"name\":\"zip\",\"nullable\":false,\"type\":\
+             {\"bitWidth\":\"16\",\"isSigned\":\"false\",\"name\":\"int\"}}\
+             ]}}",
+            f.to_json().to_string()
+        );
+    }
+
+    #[test]
+    fn primitive_field_to_json() {
+        let f = Field::new("first_name", DataType::Utf8, false);
+        assert_eq!(
+            "{\"name\":\"first_name\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}}",
+            f.to_json().to_string()
+        );
     }
 }
