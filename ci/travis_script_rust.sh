@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,14 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-libdir=@libdir@
-includedir=@includedir@
+set -e
 
-Name: Apache Arrow GLib
-Description: C API for Apache Arrow based on GLib
-Version: @VERSION@
-Libs: -L${libdir} -larrow-glib
-Cflags: -I${includedir}
-Requires: gio-2.0 arrow
+RUST_DIR=${TRAVIS_BUILD_DIR}/rust
+
+pushd $RUST_DIR
+
+rustup component add rustfmt-preview
+cargo fmt --all -- --write-mode=diff
+cargo build
+cargo test
+
+popd

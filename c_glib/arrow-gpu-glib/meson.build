@@ -59,8 +59,7 @@ pkgconfig.generate(filebase: 'arrow-gpu-glib',
                    description: 'C API for Apache Arrow GPU based on GLib',
                    version: version,
                    requires: ['arrow-glib', 'arrow-gpu'],
-                   libraries: [libarrow_gpu_glib],
-                   subdirs: ['arrow-gpu-glib'])
+                   libraries: [libarrow_gpu_glib])
 
 gnome.generate_gir(libarrow_gpu_glib,
                    dependencies: arrow_glib_gir_dependency,
