@@ -1109,6 +1109,22 @@ class TestConvertStringLikeTypes(object):
         with pytest.raises(pa.ArrowInvalid):
             pa.Table.from_pandas(df, schema=schema)
 
+    def test_variable_size_bytes(self):
+        s = pd.Series([b'123', b'', b'a', None])
+        arr = pa.Array.from_pandas(s, type=pa.binary())
+        assert arr.type == pa.binary()
+        _check_series_roundtrip(s, type_=pa.binary())
+
+    def test_binary_from_bytearray(self):
+        s = pd.Series([bytearray(b'123'), bytearray(b''), bytearray(b'a')])
+        # Explicitly set type
+        arr = pa.Array.from_pandas(s, type=pa.binary())
+        assert arr.type == pa.binary()
+        # Infer type from bytearrays
+        arr = pa.Array.from_pandas(s)
+        assert arr.type == pa.binary()
+        _check_series_roundtrip(s, type_=pa.binary())
+
     def test_table_empty_str(self):
         values = ['', '', '', '', '']
         df = pd.DataFrame({'strings': values})
@@ -1703,7 +1719,7 @@ class TestConvertMisc(object):
         # XXX unsupported
         # (np.dtype([('a', 'i2')]), pa.struct([pa.field('a', pa.int16())])),
         (np.object, pa.string()),
-        # (np.object, pa.binary()),  # XXX unsupported
+        (np.object, pa.binary()),
         (np.object, pa.binary(10)),
         (np.object, pa.list_(pa.int64())),
         ]
