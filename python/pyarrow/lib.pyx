@@ -126,5 +126,8 @@ include "feather.pxi"
 # Python serialization
 include "serialization.pxi"
 
+# Micro-benchmark routines
+include "benchmark.pxi"
+
 # Public API
 include "public-api.pxi"
