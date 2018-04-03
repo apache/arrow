@@ -24,5 +24,6 @@ RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 pushd $RUST_DIR
 
 cargo test
+cargo fmt  -- --write-mode=diff
 
 popd
