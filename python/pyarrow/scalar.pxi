@@ -237,8 +237,7 @@ cdef class TimestampValue(ArrayValue):
         value = self.value
 
         if not dtype.timezone().empty():
-            import pytz
-            tzinfo = pytz.timezone(frombytes(dtype.timezone()))
+            tzinfo = string_to_tzinfo(frombytes(dtype.timezone()))
         else:
             tzinfo = None
 
