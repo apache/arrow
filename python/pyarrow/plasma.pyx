@@ -247,7 +247,7 @@ cdef class PlasmaClient:
             ids.push_back(object_id.data)
         result[0].resize(ids.size())
         with nogil:
-            check_status(self.client.get().Get(ids.data(), ids.size(),
+            check_status(self.client.get().GetAuto(ids.data(), ids.size(),
                          timeout_ms, result[0].data()))
 
     # XXX C++ API should instead expose some kind of CreateAuto()

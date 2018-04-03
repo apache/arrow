@@ -123,8 +123,8 @@ class ARROW_EXPORT PlasmaClient {
   ///        device_num = 2 corresponds to GPU1, etc.
   /// \return The return status.
   ///
-  /// The returned object must be released once it is done with, then it
-  /// must be either sealed or aborted.
+  /// The returned object must be released once it is done with.  It must also
+  /// be either sealed or aborted.
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
 
