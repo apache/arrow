@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::mem;
 use libc;
+use std::mem;
 
 use super::error::Error;
 

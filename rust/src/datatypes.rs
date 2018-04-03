@@ -16,7 +16,7 @@
 // under the License.
 use std::fmt;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum DataType {
     Boolean,
     Int8,
@@ -30,23 +30,22 @@ pub enum DataType {
     Float32,
     Float64,
     Utf8,
-    Struct(Vec<Field>)
+    Struct(Vec<Field>),
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Field {
     pub name: String,
     pub data_type: DataType,
-    pub nullable: bool
+    pub nullable: bool,
 }
 
 impl Field {
-    
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
         Field {
             name: name.to_string(),
             data_type: data_type,
-            nullable: nullable
+            nullable: nullable,
         }
     }
 }
@@ -57,32 +56,33 @@ impl fmt::Display for Field {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Schema {
-    pub columns: Vec<Field>
+    pub columns: Vec<Field>,
 }
 
 impl Schema {
-
     /// create an empty schema
-    pub fn empty() -> Self { Schema { columns: vec![] } }
+    pub fn empty() -> Self {
+        Schema { columns: vec![] }
+    }
 
-    pub fn new(columns: Vec<Field>) -> Self { Schema { columns: columns } }
+    pub fn new(columns: Vec<Field>) -> Self {
+        Schema { columns: columns }
+    }
 
     /// look up a column by name and return a reference to the column along with it's index
     pub fn column(&self, name: &str) -> Option<(usize, &Field)> {
-        self.columns.iter()
+        self.columns
+            .iter()
             .enumerate()
-            .find(|&(_,c)| c.name == name)
+            .find(|&(_, c)| c.name == name)
     }
 }
 
 impl fmt::Display for Schema {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s: Vec<String> = self.columns
-            .iter()
-            .map(|c| c.to_string())
-            .collect();
+        let s: Vec<String> = self.columns.iter().map(|c| c.to_string()).collect();
         write!(f, "{}", s.join(","))
     }
 }
@@ -96,10 +96,14 @@ mod tests {
         let _person = Schema::new(vec![
             Field::new("first_name", DataType::Utf8, false),
             Field::new("last_name", DataType::Utf8, false),
-            Field::new("address", DataType::Struct(vec![
+            Field::new(
+                "address",
+                DataType::Struct(vec![
                     Field::new("street", DataType::Utf8, false),
                     Field::new("zip", DataType::UInt16, false),
-                ]), false),
+                ]),
+                false,
+            ),
         ]);
         assert_eq!(_person.to_string(), "first_name: Utf8,last_name: Utf8,address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
     }

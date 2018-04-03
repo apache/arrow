@@ -17,31 +17,30 @@
 
 use std::str;
 
-use bytes::{BytesMut, BufMut};
+use bytes::{BufMut, BytesMut};
 
 use super::buffer::Buffer;
 
 pub struct List<T> {
     pub data: Buffer<T>,
-    pub offsets: Buffer<i32>
+    pub offsets: Buffer<i32>,
 }
 
 impl<T> List<T> {
-
     pub fn len(&self) -> i32 {
-        self.offsets.len()-1
+        self.offsets.len() - 1
     }
 
     pub fn slice(&self, index: usize) -> &[T] {
         let start = *self.offsets.get(index) as usize;
-        let end = *self.offsets.get(index+1) as usize;
+        let end = *self.offsets.get(index + 1) as usize;
         &self.data.slice(start, end)
     }
 }
 
 impl From<Vec<String>> for List<u8> {
     fn from(v: Vec<String>) -> Self {
-        let mut offsets : Vec<i32> = Vec::with_capacity(v.len() + 1);
+        let mut offsets: Vec<i32> = Vec::with_capacity(v.len() + 1);
         let mut buf = BytesMut::with_capacity(v.len() * 32);
         offsets.push(0_i32);
         v.iter().for_each(|s| {
@@ -51,7 +50,10 @@ impl From<Vec<String>> for List<u8> {
         let bytes = buf.freeze();
         let buffer = Buffer::new(bytes.as_ptr(), bytes.len() as i32);
 
-        List { data: buffer, offsets: Buffer::from(offsets) }
+        List {
+            data: buffer,
+            offsets: Buffer::from(offsets),
+        }
     }
 }
 
@@ -61,8 +63,6 @@ impl From<Vec<&'static str>> for List<u8> {
         List::from(v.iter().map(|s| s.to_string()).collect::<Vec<String>>())
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

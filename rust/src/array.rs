@@ -39,18 +39,17 @@ pub enum ArrayData {
     UInt32(Buffer<u32>),
     UInt64(Buffer<u64>),
     Utf8(List<u8>),
-    Struct(Vec<Rc<Array>>)
+    Struct(Vec<Rc<Array>>),
 }
 
 macro_rules! arraydata_from_primitive {
-    ($DT:ty, $AT:ident) => {
+    ($DT: ty, $AT: ident) => {
         impl From<Vec<$DT>> for ArrayData {
             fn from(v: Vec<$DT>) -> Self {
                 ArrayData::$AT(Buffer::from(v))
             }
         }
-
-    }
+    };
 }
 
 arraydata_from_primitive!(bool, Boolean);
@@ -69,14 +68,18 @@ pub struct Array {
     pub len: i32,
     pub null_count: i32,
     pub validity_bitmap: Option<Bitmap>,
-    pub data: ArrayData
+    pub data: ArrayData,
 }
 
 impl Array {
-
     /// Create a new array where there are no null values
     pub fn new(len: usize, data: ArrayData) -> Self {
-        Array { len: len as i32, data, validity_bitmap: None, null_count: 0 }
+        Array {
+            len: len as i32,
+            data,
+            validity_bitmap: None,
+            null_count: 0,
+        }
     }
 
     pub fn data(&self) -> &ArrayData {
@@ -86,7 +89,6 @@ impl Array {
     pub fn len(&self) -> usize {
         self.len as usize
     }
-
 }
 
 /// type-safe array operations
@@ -95,54 +97,54 @@ trait ArrayOps<T> {
     /// will pattern match the type of the array on every invocation. We should add
     /// other efficient iterator and map methods so we can perform columnar operations
     /// instead.
-    fn get(&self, i: usize) -> Result<T,Error>;
+    fn get(&self, i: usize) -> Result<T, Error>;
 
     /// Compare two same-typed arrays using a boolean closure e.g. eq, gt, lt, and so on
-    fn compare(&self, other: &Array, f: &Fn(T,T) -> bool) -> Result<Vec<bool>, Error>;
+    fn compare(&self, other: &Array, f: &Fn(T, T) -> bool) -> Result<Vec<bool>, Error>;
 
     /// Perform a computation on two same-typed arrays and produce a result of the same type e.g. c = a + b
-    fn compute(&self, other: &Array, f: &Fn(T,T) -> T) -> Result<Vec<T>, Error>;
+    fn compute(&self, other: &Array, f: &Fn(T, T) -> T) -> Result<Vec<T>, Error>;
 }
 
 macro_rules! array_ops {
-    ($DT:ty, $AT:ident) => {
+    ($DT: ty, $AT: ident) => {
         impl ArrayOps<$DT> for Array {
-            fn get(&self, i: usize) -> Result<$DT,Error> {
+            fn get(&self, i: usize) -> Result<$DT, Error> {
                 match self.data() {
-                    &ArrayData::$AT(ref buf) => Ok(unsafe {*buf.data().offset(i as isize)}),
-                    _ => Err(Error::from("Request for $DT but array is not $DT"))
+                    &ArrayData::$AT(ref buf) => Ok(unsafe { *buf.data().offset(i as isize) }),
+                    _ => Err(Error::from("Request for $DT but array is not $DT")),
                 }
             }
-            fn compare(&self, other: &Array, f: &Fn($DT,$DT) -> bool) -> Result<Vec<bool>, Error> {
+            fn compare(&self, other: &Array, f: &Fn($DT, $DT) -> bool) -> Result<Vec<bool>, Error> {
                 match (&self.data, &other.data) {
                     (&ArrayData::$AT(ref l), &ArrayData::$AT(ref r)) => {
                         let mut b: Vec<bool> = Vec::with_capacity(self.len as usize);
                         for i in 0..self.len as isize {
-                            let lv : $DT = unsafe { *l.data().offset(i) };
-                            let rv : $DT = unsafe { *r.data().offset(i) };
-                            b.push(f(lv,rv));
+                            let lv: $DT = unsafe { *l.data().offset(i) };
+                            let rv: $DT = unsafe { *r.data().offset(i) };
+                            b.push(f(lv, rv));
                         }
                         Ok(b)
-                    },
-                    _ => Err(Error::from("Cannot compare arrays of this type"))
+                    }
+                    _ => Err(Error::from("Cannot compare arrays of this type")),
                 }
             }
-            fn compute(&self, other: &Array, f: &Fn($DT,$DT) -> $DT) -> Result<Vec<$DT>, Error> {
+            fn compute(&self, other: &Array, f: &Fn($DT, $DT) -> $DT) -> Result<Vec<$DT>, Error> {
                 match (&self.data, &other.data) {
                     (&ArrayData::$AT(ref l), &ArrayData::$AT(ref r)) => {
                         let mut b: Vec<$DT> = Vec::with_capacity(self.len as usize);
                         for i in 0..self.len as isize {
-                            let lv : $DT = unsafe { *l.data().offset(i) };
-                            let rv : $DT = unsafe { *r.data().offset(i) };
-                            b.push(f(lv,rv));
+                            let lv: $DT = unsafe { *l.data().offset(i) };
+                            let rv: $DT = unsafe { *r.data().offset(i) };
+                            b.push(f(lv, rv));
                         }
                         Ok(b)
-                    },
-                    _ => Err(Error::from("Cannot compare arrays of this type"))
+                    }
+                    _ => Err(Error::from("Cannot compare arrays of this type")),
                 }
             }
         }
-    }
+    };
 }
 
 array_ops!(bool, Boolean);
@@ -158,14 +160,18 @@ array_ops!(i32, Int32);
 array_ops!(i64, Int64);
 
 macro_rules! array_from_primitive {
-    ($DT:ty) => {
+    ($DT: ty) => {
         impl From<Vec<$DT>> for Array {
             fn from(v: Vec<$DT>) -> Self {
-                Array { len: v.len() as i32, null_count: 0, validity_bitmap: None, data: ArrayData::from(v) }
+                Array {
+                    len: v.len() as i32,
+                    null_count: 0,
+                    validity_bitmap: None,
+                    data: ArrayData::from(v),
+                }
             }
         }
-    }
-
+    };
 }
 
 array_from_primitive!(bool);
@@ -180,23 +186,29 @@ array_from_primitive!(i32);
 array_from_primitive!(i64);
 
 macro_rules! array_from_optional_primitive {
-    ($DT:ty, $DEFAULT:expr) => {
+    ($DT: ty, $DEFAULT: expr) => {
         impl From<Vec<Option<$DT>>> for Array {
             fn from(v: Vec<Option<$DT>>) -> Self {
                 let mut null_count = 0;
                 let mut validity_bitmap = Bitmap::new(v.len());
-                for i in 0 .. v.len() {
+                for i in 0..v.len() {
                     if v[i].is_none() {
-                        null_count+=1;
+                        null_count += 1;
                         validity_bitmap.clear(i);
                     }
                 }
-                let values = v.iter().map(|x| x.unwrap_or($DEFAULT)).collect::<Vec<$DT>>();
-                Array { len: values.len() as i32, null_count, validity_bitmap: Some(validity_bitmap), data: ArrayData::from(values) }
+                let values = v.iter()
+                    .map(|x| x.unwrap_or($DEFAULT))
+                    .collect::<Vec<$DT>>();
+                Array {
+                    len: values.len() as i32,
+                    null_count,
+                    validity_bitmap: Some(validity_bitmap),
+                    data: ArrayData::from(values),
+                }
             }
         }
-    }
-
+    };
 }
 
 array_from_optional_primitive!(bool, false);
@@ -223,7 +235,7 @@ impl From<Vec<String>> for Array {
             len: v.len() as i32,
             null_count: 0,
             validity_bitmap: None,
-            data: ArrayData::Utf8(List::from(v))
+            data: ArrayData::Utf8(List::from(v)),
         }
     }
 }
@@ -234,7 +246,7 @@ impl From<Vec<Rc<Array>>> for Array {
             len: v.len() as i32,
             null_count: 0,
             validity_bitmap: None,
-            data: ArrayData::Struct(v.iter().map(|a| a.clone()).collect())
+            data: ArrayData::Struct(v.iter().map(|a| a.clone()).collect()),
         }
     }
 }
@@ -249,15 +261,18 @@ mod tests {
         let a = Array::from(vec!["this", "is", "a", "test"]);
         assert_eq!(4, a.len());
         match a.data() {
-            &ArrayData::Utf8(List{ ref data, ref offsets }) => {
+            &ArrayData::Utf8(List {
+                ref data,
+                ref offsets,
+            }) => {
                 assert_eq!(11, data.len());
                 assert_eq!(0, *offsets.get(0));
                 assert_eq!(4, *offsets.get(1));
                 assert_eq!(6, *offsets.get(2));
                 assert_eq!(7, *offsets.get(3));
                 assert_eq!(11, *offsets.get(4));
-            },
-            _ => panic!()
+            }
+            _ => panic!(),
         }
     }
 
@@ -271,8 +286,8 @@ mod tests {
                 assert_eq!("is", str::from_utf8(d.slice(1)).unwrap());
                 assert_eq!("a", str::from_utf8(d.slice(2)).unwrap());
                 assert_eq!("test", str::from_utf8(d.slice(3)).unwrap());
-            },
-            _ => panic!()
+            }
+            _ => panic!(),
         }
     }
 
@@ -290,7 +305,6 @@ mod tests {
 
     #[test]
     fn test_from_i32() {
-
         let a = Array::from(vec![15, 14, 13, 12, 11]);
         assert_eq!(5, a.len());
 
@@ -316,58 +330,53 @@ mod tests {
 
     #[test]
     fn test_struct() {
-
         let _schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Float32, false),
         ]);
 
-        let a = Rc::new(Array::from(vec![1,2,3,4,5]));
+        let a = Rc::new(Array::from(vec![1, 2, 3, 4, 5]));
         let b = Rc::new(Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]));
-        let _ = Rc::new(Array::from(vec![a,b]));
+        let _ = Rc::new(Array::from(vec![a, b]));
     }
 
     #[test]
     fn test_array_eq() {
-        let a = Array::from(vec![1,2,3,4,5]);
-        let b = Array::from(vec![5,4,3,2,1]);
-        let c = a.compare(&b, &|a: i32,b: i32| a == b).unwrap();
-        assert_eq!(c, vec![false,false,true,false,false]);
+        let a = Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Array::from(vec![5, 4, 3, 2, 1]);
+        let c = a.compare(&b, &|a: i32, b: i32| a == b).unwrap();
+        assert_eq!(c, vec![false, false, true, false, false]);
     }
 
     #[test]
     fn test_array_lt() {
-        let a = Array::from(vec![1,2,3,4,5]);
-        let b = Array::from(vec![5,4,3,2,1]);
-        let c = a.compare(&b, &|a: i32,b: i32| a < b).unwrap();
-        assert_eq!(c, vec![true,true,false,false,false]);
+        let a = Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Array::from(vec![5, 4, 3, 2, 1]);
+        let c = a.compare(&b, &|a: i32, b: i32| a < b).unwrap();
+        assert_eq!(c, vec![true, true, false, false, false]);
     }
 
     #[test]
     fn test_array_gt() {
-        let a = Array::from(vec![1,2,3,4,5]);
-        let b = Array::from(vec![5,4,3,2,1]);
-        let c = a.compare(&b, &|a: i32,b: i32| a > b).unwrap();
-        assert_eq!(c, vec![false,false,false,true,true]);
+        let a = Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Array::from(vec![5, 4, 3, 2, 1]);
+        let c = a.compare(&b, &|a: i32, b: i32| a > b).unwrap();
+        assert_eq!(c, vec![false, false, false, true, true]);
     }
 
     #[test]
     fn test_array_add() {
-        let a = Array::from(vec![1,2,3,4,5]);
-        let b = Array::from(vec![5,4,3,2,1]);
-        let c = a.compute(&b, &|a: i32,b: i32| a + b).unwrap();
-        assert_eq!(c, vec![6,6,6,6,6]);
+        let a = Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Array::from(vec![5, 4, 3, 2, 1]);
+        let c = a.compute(&b, &|a: i32, b: i32| a + b).unwrap();
+        assert_eq!(c, vec![6, 6, 6, 6, 6]);
     }
 
     #[test]
     fn test_array_multiply() {
-        let a = Array::from(vec![1,2,3,4,5]);
-        let b = Array::from(vec![5,4,3,2,1]);
-        let c = a.compute(&b, &|a: i32,b: i32| a * b).unwrap();
-        assert_eq!(c, vec![5,8,9,8,5]);
+        let a = Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Array::from(vec![5, 4, 3, 2, 1]);
+        let c = a.compute(&b, &|a: i32, b: i32| a * b).unwrap();
+        assert_eq!(c, vec![5, 8, 9, 8, 5]);
     }
 }
-
-
-
-

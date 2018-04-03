@@ -18,20 +18,25 @@
 use super::buffer::Buffer;
 
 pub struct Bitmap {
-    bits: Buffer<u8>
+    bits: Buffer<u8>,
 }
 
 impl Bitmap {
-
     pub fn new(num_bits: usize) -> Self {
-        let num_bytes = num_bits/8 + if num_bits%8 > 0 { 1 } else { 0 };
+        let num_bytes = num_bits / 8 + if num_bits % 8 > 0 { 1 } else { 0 };
         let r = num_bytes % 64;
-        let len = if r==0 { num_bytes } else { num_bytes + 64-r };
+        let len = if r == 0 {
+            num_bytes
+        } else {
+            num_bytes + 64 - r
+        };
         let mut v = Vec::with_capacity(len);
-        for _ in 0 .. len {
+        for _ in 0..len {
             v.push(255); // 1 is not null
         }
-        Bitmap { bits: Buffer::from(v) }
+        Bitmap {
+            bits: Buffer::from(v),
+        }
     }
 
     pub fn len(&self) -> i32 {
@@ -45,15 +50,13 @@ impl Bitmap {
 
     pub fn set(&mut self, i: usize) {
         let byte_offset = i / 8;
-        let v : u8 = {
-            self.bits.get(byte_offset) | (1_u8 << ((i % 8) as u8))
-        };
+        let v: u8 = { self.bits.get(byte_offset) | (1_u8 << ((i % 8) as u8)) };
         self.bits.set(byte_offset, v);
     }
 
     pub fn clear(&mut self, i: usize) {
         let byte_offset = i / 8;
-        let v : u8 = self.bits.get(byte_offset) ^ (1_u8 << ((i % 8) as u8));
+        let v: u8 = self.bits.get(byte_offset) ^ (1_u8 << ((i % 8) as u8));
         self.bits.set(byte_offset, v);
     }
 }
@@ -64,14 +67,14 @@ mod tests {
 
     #[test]
     fn test_bitmap_length() {
-        assert_eq!(64, Bitmap::new(63*8).len());
-        assert_eq!(64, Bitmap::new(64*8).len());
-        assert_eq!(128, Bitmap::new(65*8).len());
+        assert_eq!(64, Bitmap::new(63 * 8).len());
+        assert_eq!(64, Bitmap::new(64 * 8).len());
+        assert_eq!(128, Bitmap::new(65 * 8).len());
     }
 
     #[test]
     fn test_set_clear_bit() {
-        let mut b = Bitmap::new(64*8);
+        let mut b = Bitmap::new(64 * 8);
         assert_eq!(true, b.is_set(12));
         b.clear(12);
         assert_eq!(false, b.is_set(12));
@@ -80,6 +83,3 @@ mod tests {
     }
 
 }
-
-
-
