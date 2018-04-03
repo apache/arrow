@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import re
+
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
 cdef dict _pandas_type_map = {
@@ -840,6 +842,63 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
+_FIXED_OFFSET_RE = re.compile(r'([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$')
+
+
+def tzinfo_to_string(tz):
+    """
+    Converts a time zone object into a string indicating the name of a time
+    zone, one of:
+    * As used in the Olson time zone database (the "tz database" or
+      "tzdata"), such as "America/New_York"
+    * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
+
+    Parameters
+    ----------
+      tz : datetime.tzinfo
+        Time zone object
+
+    Returns
+    -------
+      name : string
+        Time zone name
+    """
+    if tz.zone is None:
+        sign = '+' if tz._minutes >= 0 else '-'
+        hours, minutes = divmod(abs(tz._minutes), 60)
+        return '{}{:02d}:{:02d}'.format(sign, hours, minutes)
+    else:
+        return tz.zone
+
+
+def string_to_tzinfo(name):
+    """
+    Converts a string indicating the name of a time zone into a time zone
+    object, one of:
+    * As used in the Olson time zone database (the "tz database" or
+      "tzdata"), such as "America/New_York"
+    * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
+
+    Parameters
+    ----------
+      name: string
+        Time zone name
+
+    Returns
+    -------
+      tz : datetime.tzinfo
+        Time zone object
+    """
+    import pytz
+    m = _FIXED_OFFSET_RE.match(name)
+    if m:
+        sign = 1 if m.group(1) == '+' else -1
+        hours, minutes = map(int, m.group(2, 3))
+        return pytz.FixedOffset(sign * (hours * 60 + minutes))
+    else:
+        return pytz.timezone(name)
+
+
 def timestamp(unit, tz=None):
     """
     Create instance of timestamp type with resolution and optional time zone
@@ -887,7 +946,7 @@ def timestamp(unit, tz=None):
         _timestamp_type_cache[unit_code] = out
     else:
         if not isinstance(tz, six.string_types):
-            tz = tz.zone
+            tz = tzinfo_to_string(tz)
 
         c_timezone = tobytes(tz)
         out.init(ctimestamp(unit_code, c_timezone))

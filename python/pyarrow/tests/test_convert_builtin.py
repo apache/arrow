@@ -26,6 +26,7 @@ import decimal
 import itertools
 import numpy as np
 import six
+import pytz
 
 
 int_type_pairs = [
@@ -649,3 +650,14 @@ def test_decimal_array_with_none_and_nan():
 
     array = pa.array(values, type=pa.decimal128(10, 4))
     assert array.to_pylist() == [decimal.Decimal('1.2340'), None, None, None]
+
+
+@pytest.mark.parametrize('tz,name', [
+    (pytz.FixedOffset(90), '+01:30'),
+    (pytz.FixedOffset(-90), '-01:30'),
+    (pytz.utc, 'UTC'),
+    (pytz.timezone('America/New_York'), 'America/New_York')
+])
+def test_timezone_string(tz, name):
+    assert pa.lib.tzinfo_to_string(tz) == name
+    assert pa.lib.string_to_tzinfo(name) == tz
