@@ -129,7 +129,7 @@ def get_extension_dtype_info(column):
         }
         physical_dtype = str(cats.codes.dtype)
     elif hasattr(dtype, 'tz'):
-        metadata = {'timezone': str(dtype.tz)}
+        metadata = {'timezone': pa.lib.tzinfo_to_string(dtype.tz)}
         physical_dtype = 'datetime64[ns]'
     else:
         metadata = None
@@ -419,7 +419,7 @@ def dataframe_to_serialized_dict(frame):
         block_data = {}
 
         if isinstance(block, _int.DatetimeTZBlock):
-            block_data['timezone'] = values.tz.zone
+            block_data['timezone'] = pa.lib.tzinfo_to_string(values.tz)
             values = values.values
         elif isinstance(block, _int.CategoricalBlock):
             block_data.update(dictionary=values.categories,
@@ -483,6 +483,7 @@ def _reconstruct_block(item):
 
 def _make_datetimetz(tz):
     from pyarrow.compat import DatetimeTZDtype
+    tz = pa.lib.string_to_tzinfo(tz)
     return DatetimeTZDtype('ns', tz=tz)
 
 

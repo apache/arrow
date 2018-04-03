@@ -15,13 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-extern crate bytes;
-extern crate libc;
+#ifndef ARROW_PYTHON_BENCHMARK_H
+#define ARROW_PYTHON_BENCHMARK_H
 
-pub mod array;
-pub mod bitmap;
-pub mod buffer;
-pub mod datatypes;
-pub mod list;
-pub mod error;
-pub mod memory;
+#include "arrow/python/platform.h"
+
+#include "arrow/util/visibility.h"
+
+namespace arrow {
+namespace py {
+namespace benchmark {
+
+// Micro-benchmark routines for use from ASV
+
+// Run PandasObjectIsNull() once over every object in *list*
+ARROW_EXPORT
+void Benchmark_PandasObjectIsNull(PyObject* list);
+
+}  // namespace benchmark
+}  // namespace py
+}  // namespace arrow
+
+#endif  // ARROW_PYTHON_BENCHMARK_H

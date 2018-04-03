@@ -978,6 +978,10 @@ cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
     void set_numpy_nan(object o)
 
 
+cdef extern from 'arrow/python/benchmark.h' namespace 'arrow::py::benchmark':
+    void Benchmark_PandasObjectIsNull(object lst) except *
+
+
 cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
     enum CompressionType" arrow::Compression::type":
         CompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"

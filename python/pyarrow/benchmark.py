@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,15 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+# flake8: noqa
 
-RUST_DIR=${TRAVIS_BUILD_DIR}/rust
-
-pushd $RUST_DIR
-
-rustup component add rustfmt-preview
-cargo fmt --all -- --write-mode=diff
-cargo build
-cargo test
-
-popd
+from pyarrow.lib import benchmark_PandasObjectIsNull

@@ -39,7 +39,12 @@ mod tests {
 
     #[test]
     fn test_allocate() {
-        let _ = allocate_aligned(32 * 1024).unwrap();
+        for _ in 0 .. 10 {
+            let p = allocate_aligned(1024).unwrap();
+            // make sure this is 64-byte aligned
+            assert_eq!(0, (p as usize) % 64);
+        }
+
     }
 
 }

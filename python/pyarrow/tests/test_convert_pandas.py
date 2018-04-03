@@ -1039,6 +1039,16 @@ class TestConvertDateTimeLikeTypes(object):
         expected = pd.Series([None, date(1991, 1, 1), None])
         assert pa.Array.from_pandas(expected).equals(result)
 
+    def test_fixed_offset_timezone(self):
+        df = pd.DataFrame({
+            'a': [
+                pd.Timestamp('2012-11-11 00:00:00+01:00'),
+                pd.NaT
+                ]
+             })
+        _check_pandas_roundtrip(df)
+        _check_serialize_components_roundtrip(df)
+
 
 class TestConvertStringLikeTypes(object):
     """

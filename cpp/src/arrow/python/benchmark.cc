@@ -15,13 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-extern crate bytes;
-extern crate libc;
+#include <arrow/python/benchmark.h>
+#include <arrow/python/helpers.h>
 
-pub mod array;
-pub mod bitmap;
-pub mod buffer;
-pub mod datatypes;
-pub mod list;
-pub mod error;
-pub mod memory;
+namespace arrow {
+namespace py {
+namespace benchmark {
+
+void Benchmark_PandasObjectIsNull(PyObject* list) {
+  if (!PyList_CheckExact(list)) {
+    PyErr_SetString(PyExc_TypeError, "expected a list");
+    return;
+  }
+  Py_ssize_t i, n = PyList_GET_SIZE(list);
+  for (i = 0; i < n; i++) {
+    internal::PandasObjectIsNull(PyList_GET_ITEM(list, i));
+  }
+}
+
+}  // namespace benchmark
+}  // namespace py
+}  // namespace arrow
