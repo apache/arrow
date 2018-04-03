@@ -58,10 +58,9 @@ impl<T> Buffer<T> {
         BufferIterator {
             data: self.data,
             len: self.len,
-            index: 0
+            index: 0,
         }
     }
-
 }
 
 impl<T> Drop for Buffer<T> {
@@ -73,16 +72,19 @@ impl<T> Drop for Buffer<T> {
 pub struct BufferIterator<T> {
     data: *const T,
     len: i32,
-    index: isize
+    index: isize,
 }
 
-impl<T> Iterator for BufferIterator<T> where T: Copy {
+impl<T> Iterator for BufferIterator<T>
+where
+    T: Copy,
+{
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.len as isize {
             self.index += 1;
-            Some(unsafe { *self.data.offset(self.index-1) })
+            Some(unsafe { *self.data.offset(self.index - 1) })
         } else {
             None
         }
@@ -140,7 +142,7 @@ mod tests {
     fn test_iterator_i32() {
         let b: Buffer<i32> = Buffer::from(vec![1, 2, 3, 4, 5]);
         let it = b.iter();
-        let v : Vec<i32> = it.map(|n| n+1).collect();
-        assert_eq!(vec![2,3,4,5,6], v);
+        let v: Vec<i32> = it.map(|n| n + 1).collect();
+        assert_eq!(vec![2, 3, 4, 5, 6], v);
     }
 }
