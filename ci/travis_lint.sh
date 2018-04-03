@@ -57,4 +57,3 @@ if [ "$ARROW_CI_RUST_AFFECTED" != "0" ]; then
   cd $RUST_DIR && cargo fmt  -- --write-mode=diff
 
 fi
-  
