@@ -23,6 +23,9 @@ RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
 pushd $RUST_DIR
 
+rustup component add rustfmt-preview
+cargo fmt --all -- --write-mode=diff
+cargo build
 cargo test
 
 popd

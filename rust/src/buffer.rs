@@ -23,11 +23,10 @@ use super::memory::*;
 
 pub struct Buffer<T> {
     data: *const T,
-    len: i32
+    len: i32,
 }
 
 impl<T> Buffer<T> {
-
     pub fn new(data: *const T, len: i32) -> Self {
         Buffer { data, len }
     }
@@ -41,7 +40,7 @@ impl<T> Buffer<T> {
     }
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
-        unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end-start) as usize) }
+        unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
 
     pub fn get(&self, i: usize) -> &T {
@@ -91,7 +90,7 @@ impl<T> Iterator for BufferIterator<T> where T: Copy {
 }
 
 macro_rules! array_from_primitive {
-    ($DT:ty) => {
+    ($DT: ty) => {
         impl From<Vec<$DT>> for Buffer<$DT> {
             fn from(v: Vec<$DT>) -> Self {
                 // allocate aligned memory buffer
@@ -102,13 +101,17 @@ macro_rules! array_from_primitive {
                     len: len as i32,
                     data: unsafe {
                         let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
-                        libc::memcpy(dst, mem::transmute::<*const $DT, *const libc::c_void>(v.as_ptr()), len * sz);
+                        libc::memcpy(
+                            dst,
+                            mem::transmute::<*const $DT, *const libc::c_void>(v.as_ptr()),
+                            len * sz,
+                        );
                         mem::transmute::<*mut libc::c_void, *const $DT>(dst)
-                    }
+                    },
                 }
             }
         }
-    }
+    };
 }
 
 array_from_primitive!(bool);
@@ -122,7 +125,6 @@ array_from_primitive!(i8);
 array_from_primitive!(i16);
 array_from_primitive!(i32);
 array_from_primitive!(i64);
-
 
 #[cfg(test)]
 mod tests {

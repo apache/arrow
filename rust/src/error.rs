@@ -17,13 +17,15 @@
 
 use std::convert::*;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Error {
-    msg: String
+    msg: String,
 }
 
 impl From<&'static str> for Error where {
     fn from(msg: &'static str) -> Self {
-        Error { msg: String::from(msg) }
+        Error {
+            msg: String::from(msg),
+        }
     }
 }
