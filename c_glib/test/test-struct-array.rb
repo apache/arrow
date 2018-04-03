@@ -37,9 +37,10 @@ class TestStructArray < Test::Unit::TestCase
     struct_array1 = build_struct_array(fields, structs)
 
     data_type = Arrow::StructDataType.new(fields)
+    nulls = Arrow::Buffer.new([0b11].pack("C*"))
     children = [
-      Arrow::Int8Array.new(2, Arrow::Buffer.new([-29, 2].pack("C*")), nil, 0),
-      Arrow::BooleanArray.new(2, Arrow::Buffer.new([0b01].pack("C*")), nil, 0),
+      Arrow::Int8Array.new(2, Arrow::Buffer.new([-29, 2].pack("C*")), nulls, 0),
+      Arrow::BooleanArray.new(2, Arrow::Buffer.new([0b01].pack("C*")), nulls, 0),
     ]
     assert_equal(struct_array1,
                  Arrow::StructArray.new(data_type,
