@@ -92,9 +92,12 @@ r/DESCRIPTION
 r/NAMESPACE
 r/.Rbuildignore
 r/arrow.Rproj
+r/README.Rmd
+r/README.md
 r/man/*.Rd
 r/R/RcppExports.R
 r/src/RcppExports.cpp
+r/src/Makevars
 pax_global_header
 MANIFEST.in
 __init__.pxd
