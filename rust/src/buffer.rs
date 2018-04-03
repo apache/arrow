@@ -89,6 +89,12 @@ impl<T> Iterator for BufferIterator<T> where T: Copy {
     }
 }
 
+impl<T> Drop for Buffer<T> {
+    fn drop(&mut self) {
+        mem::drop(self.data)
+    }
+}
+
 macro_rules! array_from_primitive {
     ($DT: ty) => {
         impl From<Vec<$DT>> for Buffer<$DT> {
