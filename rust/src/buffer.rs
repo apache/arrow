@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use bytes::Bytes;
 use std::mem;
 use std::slice;
 use libc;
@@ -28,10 +29,6 @@ pub struct Buffer<T> {
 
 impl<T> Buffer<T> {
 
-    pub fn new(data: *const T, len: i32) -> Self {
-        Buffer { data, len }
-    }
-
     pub fn len(&self) -> i32 {
         self.len
     }
@@ -41,6 +38,9 @@ impl<T> Buffer<T> {
     }
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
+        assert!(start<=end);
+        assert!(start<self.len as usize);
+        assert!(end<=self.len as usize);
         unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end-start) as usize) }
     }
 
@@ -89,6 +89,22 @@ array_from_primitive!(i16);
 array_from_primitive!(i32);
 array_from_primitive!(i64);
 
+impl From<Bytes> for Buffer<u8> {
+    fn from(bytes: Bytes) -> Self {
+        // allocate aligned
+        let len = bytes.len();
+        let sz = mem::size_of::<u8>();
+        let buf_mem = allocate_aligned((len * sz) as i64).unwrap();
+        Buffer {
+            len: len as i32,
+            data: unsafe {
+                let dst = mem::transmute::<*const u8, *mut libc::c_void>(buf_mem);
+                libc::memcpy(dst, mem::transmute::<*const u8, *const libc::c_void>(bytes.as_ptr()), len * sz);
+                mem::transmute::<*mut libc::c_void, *const u8>(dst)
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -98,4 +114,5 @@ mod tests {
         let b: Buffer<i32> = Buffer::from(vec![1, 2, 3, 4, 5]);
         assert_eq!(5, b.len);
     }
+
 }

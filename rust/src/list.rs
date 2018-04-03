@@ -48,10 +48,7 @@ impl From<Vec<String>> for List<u8> {
             buf.put(s.as_bytes());
             offsets.push(buf.len() as i32);
         });
-        let bytes = buf.freeze();
-        let buffer = Buffer::new(bytes.as_ptr(), bytes.len() as i32);
-
-        List { data: buffer, offsets: Buffer::from(offsets) }
+        List { data: Buffer::from(buf.freeze()), offsets: Buffer::from(offsets) }
     }
 }
 
@@ -61,8 +58,6 @@ impl From<Vec<&'static str>> for List<u8> {
         List::from(v.iter().map(|s| s.to_string()).collect::<Vec<String>>())
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
