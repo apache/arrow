@@ -21,7 +21,8 @@ class TestListArray < Test::Unit::TestCase
   def test_new
     value_offsets = Arrow::Buffer.new([0, 2, 5, 5].pack("l*"))
     data = Arrow::Buffer.new([1, 2, 3, 4, 5].pack("c*"))
-    values = Arrow::Int8Array.new(5, data, nil, 0)
+    nulls = Arrow::Buffer.new([0b11111].pack("C*"))
+    values = Arrow::Int8Array.new(5, data, nulls, 0)
     assert_equal(build_list_array(Arrow::Int8DataType.new,
                                   [[1, 2], [3, 4, 5], nil]),
                  Arrow::ListArray.new(3,
