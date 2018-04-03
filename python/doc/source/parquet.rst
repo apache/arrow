@@ -68,7 +68,8 @@ Let's look at a simple table:
 
    df = pd.DataFrame({'one': [-1, np.nan, 2.5],
                       'two': ['foo', 'bar', 'baz'],
-                      'three': [True, False, True]})
+                      'three': [True, False, True]},
+                      index=list('abc'))
    table = pa.Table.from_pandas(df)
 
 We write this to Parquet format with ``write_table``:
@@ -93,6 +94,13 @@ the whole file (due to the columnar layout):
 .. ipython:: python
 
    pq.read_table('example.parquet', columns=['one', 'three'])
+
+When reading a subset of columns from a file that used a Pandas dataframe as the
+source, we use ``read_pandas`` to maintain any additional index column data:
+
+.. ipython:: python
+
+   pq.read_pandas('example.parquet', columns=['two']).to_pandas()
 
 We need not use a string to specify the origin of the file. It can be any of:
 
