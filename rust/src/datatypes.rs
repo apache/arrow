@@ -162,10 +162,6 @@ impl Field {
             "nullable": self.nullable,
             "type": self.data_type.to_json(),
         })
-
-        //        let mut map = Map::new();
-        //        map.insert("name".to_string(), Value::String(self.name.clone()));
-        //        Value::from(map)
     }
 
     pub fn to_string(&self) -> String {
