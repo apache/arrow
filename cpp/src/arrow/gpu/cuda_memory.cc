@@ -98,11 +98,17 @@ CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t 
     : Buffer(parent, offset, size),
       context_(parent->context()),
       own_data_(false),
-      is_ipc_(false) {}
+      is_ipc_(false) {
+  if (parent->is_mutable()) {
+    is_mutable_ = true;
+    mutable_data_ = const_cast<uint8_t*>(data_);
+  }
+}
 
 Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
                               std::shared_ptr<CudaBuffer>* out) {
   int64_t offset = 0, size = buffer->size();
+  bool is_mutable = buffer->is_mutable();
   // The original CudaBuffer may have been wrapped in another Buffer
   // (for example through slicing).
   while (!(*out = std::dynamic_pointer_cast<CudaBuffer>(buffer))) {
@@ -114,8 +120,9 @@ Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
     buffer = parent;
   }
   // Re-slice to represent the same memory area
-  if (offset != 0 || (*out)->size() != size) {
+  if (offset != 0 || (*out)->size() != size || !is_mutable) {
     *out = std::make_shared<CudaBuffer>(*out, offset, size);
+    (*out)->is_mutable_ = is_mutable;
   }
   return Status::OK();
 }

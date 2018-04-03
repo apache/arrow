@@ -25,6 +25,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
@@ -49,12 +50,8 @@ constexpr int64_t kL3CacheSizeBytes = 100000000;
 struct ObjectBuffer {
   /// The data buffer.
   std::shared_ptr<Buffer> data;
-  /// The size in bytes of the data object.
-  int64_t data_size;
   /// The metadata buffer.
   std::shared_ptr<Buffer> metadata;
-  /// The metadata size in bytes.
-  int64_t metadata_size;
   /// The device number.
   int device_num;
 };
@@ -133,25 +130,32 @@ class ARROW_EXPORT PlasmaClient {
   /// timeout expires.
   ///
   /// \param object_ids The IDs of the objects to get.
+  /// \param timeout_ms The amount of time in milliseconds to wait before this
+  ///        request times out. If this value is -1, then no timeout is set.
+  /// \param[out] object_buffers The object results.
+  /// \return The return status.
+  ///
+  /// If an object was not retrieved, the corresponding metadata and data
+  /// fields in the ObjectBuffer structure will evaluate to false.
+  /// Objects are automatically released by the client when their buffers
+  /// get out of scope.
+  Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
+             std::vector<ObjectBuffer>* object_buffers);
+
+  /// Deprecated variant of Get() that doesn't automatically release buffers
+  /// when they get out of scope.
+  ///
+  /// \param object_ids The IDs of the objects to get.
   /// \param num_objects The number of object IDs to get.
   /// \param timeout_ms The amount of time in milliseconds to wait before this
   ///        request times out. If this value is -1, then no timeout is set.
-  /// \param object_buffers An array where the results will be stored. If the
-  ///        data size field is -1, then the object was not retrieved.
+  /// \param object_buffers An array where the results will be stored.
   /// \return The return status.
   ///
   /// The caller is responsible for releasing any retrieved objects, but it
-  /// should not release objects that were not retrieved. Consider using
-  /// GetAuto() if you want objects to be automatic released when their buffers
-  /// get out of scope.
+  /// should not release objects that were not retrieved.
   Status Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
              ObjectBuffer* object_buffers);
-
-  /// Like Get(), but the returned buffers will automatically release their
-  /// objects when going out scope, so you don't need (and must not) call
-  /// Release().
-  Status GetAuto(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
-                 ObjectBuffer* object_buffers);
 
   /// Tell Plasma that the client no longer needs the object. This should be
   /// called after Get() or Create() when the client is done with the object.
@@ -339,7 +343,7 @@ class ARROW_EXPORT PlasmaClient {
 
  private:
   FRIEND_TEST(TestPlasmaStore, GetTest);
-  FRIEND_TEST(TestPlasmaStore, GetAutoTest);
+  FRIEND_TEST(TestPlasmaStore, LegacyGetTest);
   FRIEND_TEST(TestPlasmaStore, AbortTest);
 
   /// This is a helper method for unmapping objects for which all references have
@@ -354,11 +358,10 @@ class ARROW_EXPORT PlasmaClient {
 
   Status PerformRelease(const ObjectID& object_id);
 
-  /// Common helper for Get() and GetAuto()
+  /// Common helper for Get() variants
   Status GetBuffers(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
-                    std::function<std::shared_ptr<Buffer>(const ObjectID&,
-                                                          const std::shared_ptr<Buffer>&)>
-                        wrap_buffer,
+                    const std::function<std::shared_ptr<Buffer>(
+                        const ObjectID&, const std::shared_ptr<Buffer>&)>& wrap_buffer,
                     ObjectBuffer* object_buffers);
 
   bool IsInUse(const ObjectID& object_id);

@@ -97,15 +97,29 @@ TEST_F(TestCudaBuffer, FromBuffer) {
   buffer = std::static_pointer_cast<Buffer>(device_buffer);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize);
+  ASSERT_EQ(result->is_mutable(), true);
+  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
   AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
+
   buffer = SliceBuffer(device_buffer, 0, kSize);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize);
+  ASSERT_EQ(result->is_mutable(), false);
   AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
-  buffer = SliceBuffer(device_buffer, 3, kSize - 10);
-  buffer = SliceBuffer(buffer, 8, kSize - 20);
+
+  buffer = SliceMutableBuffer(device_buffer, 0, kSize);
+  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_EQ(result->size(), kSize);
+  ASSERT_EQ(result->is_mutable(), true);
+  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
+  AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
+
+  buffer = SliceMutableBuffer(device_buffer, 3, kSize - 10);
+  buffer = SliceMutableBuffer(buffer, 8, kSize - 20);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize - 20);
+  ASSERT_EQ(result->is_mutable(), true);
+  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
   AssertCudaBufferEquals(*result, host_buffer->data() + 11, kSize - 20);
 }
 

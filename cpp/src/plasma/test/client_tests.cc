@@ -40,8 +40,6 @@ std::string test_executable;  // NOLINT
 void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
                              const std::vector<uint8_t>& metadata,
                              const std::vector<uint8_t>& data) {
-  ASSERT_EQ(object_buffer.metadata_size, metadata.size());
-  ASSERT_EQ(object_buffer.data_size, data.size());
   arrow::test::AssertBufferEqual(*object_buffer.metadata, metadata);
   arrow::test::AssertBufferEqual(*object_buffer.data, data);
 }
@@ -130,24 +128,62 @@ TEST_F(TestPlasmaStore, ContainsTest) {
   std::vector<uint8_t> data(100, 0);
   CreateObject(client_, object_id, {42}, data);
   // Avoid race condition of Plasma Manager waiting for notification.
-  ObjectBuffer object_buffer;
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  std::vector<ObjectBuffer> object_buffers;
+  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
   ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
   ASSERT_EQ(has_object, true);
 }
 
 TEST_F(TestPlasmaStore, GetTest) {
+  std::vector<ObjectBuffer> object_buffers;
+
   ObjectID object_id = ObjectID::from_random();
+
+  // Test for object non-existence.
+  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_EQ(object_buffers.size(), 1);
+  ASSERT_FALSE(object_buffers[0].metadata);
+  ASSERT_FALSE(object_buffers[0].data);
   EXPECT_FALSE(client_.IsInUse(object_id));
+
+  // Test for the object being in local Plasma store.
+  // First create object.
+  std::vector<uint8_t> data = {3, 5, 6, 7, 9};
+  CreateObject(client_, object_id, {42}, data);
+  ARROW_CHECK_OK(client_.FlushReleaseHistory());
+  EXPECT_FALSE(client_.IsInUse(object_id));
+
+  object_buffers.clear();
+  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_EQ(object_buffers.size(), 1);
+  ASSERT_EQ(object_buffers[0].device_num, 0);
+  AssertObjectBufferEqual(object_buffers[0], {42}, {3, 5, 6, 7, 9});
+
+  // Metadata keeps object in use
+  {
+    auto metadata = object_buffers[0].metadata;
+    object_buffers.clear();
+    ::arrow::test::AssertBufferEqual(*metadata, {42});
+    ARROW_CHECK_OK(client_.FlushReleaseHistory());
+    EXPECT_TRUE(client_.IsInUse(object_id));
+  }
+  // Object is automatically released
+  ARROW_CHECK_OK(client_.FlushReleaseHistory());
+  EXPECT_FALSE(client_.IsInUse(object_id));
+}
+
+TEST_F(TestPlasmaStore, LegacyGetTest) {
+  // Test for old non-releasing Get() variant
+  ObjectID object_id = ObjectID::from_random();
   {
     ObjectBuffer object_buffer;
 
     // Test for object non-existence.
     ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
-    ASSERT_EQ(object_buffer.data_size, -1);
+    ASSERT_FALSE(object_buffer.metadata);
+    ASSERT_FALSE(object_buffer.data);
     EXPECT_FALSE(client_.IsInUse(object_id));
 
-    // Test for the object being in local Plasma store.
     // First create object.
     std::vector<uint8_t> data = {3, 5, 6, 7, 9};
     CreateObject(client_, object_id, {42}, data);
@@ -155,43 +191,12 @@ TEST_F(TestPlasmaStore, GetTest) {
     EXPECT_FALSE(client_.IsInUse(object_id));
 
     ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
-    ASSERT_EQ(object_buffer.device_num, 0);
     AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
-    ARROW_CHECK_OK(client_.FlushReleaseHistory());
-    EXPECT_TRUE(client_.IsInUse(object_id));
   }
-  // With Get(), need to manually call Release()
+  // Object needs releasing manually
   ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_TRUE(client_.IsInUse(object_id));
-  ARROW_CHECK_OK(client_.Release(object_id));  // For Get()
-  ARROW_CHECK_OK(client_.FlushReleaseHistory());
-  EXPECT_FALSE(client_.IsInUse(object_id));
-}
-
-TEST_F(TestPlasmaStore, GetAutoTest) {
-  ObjectID object_id = ObjectID::from_random();
-  EXPECT_FALSE(client_.IsInUse(object_id));
-  {
-    ObjectBuffer object_buffer;
-
-    // Test for object non-existence.
-    ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
-    ASSERT_EQ(object_buffer.data_size, -1);
-
-    // Test for the object being in local Plasma store.
-    // First create object.
-    std::vector<uint8_t> data = {3, 5, 6, 7, 9};
-    CreateObject(client_, object_id, {42}, data);
-    ARROW_CHECK_OK(client_.FlushReleaseHistory());
-    EXPECT_FALSE(client_.IsInUse(object_id));
-
-    ARROW_CHECK_OK(client_.GetAuto(&object_id, 1, -1, &object_buffer));
-    ASSERT_EQ(object_buffer.device_num, 0);
-    AssertObjectBufferEqual(object_buffer, {42}, {3, 5, 6, 7, 9});
-    ARROW_CHECK_OK(client_.FlushReleaseHistory());
-    EXPECT_TRUE(client_.IsInUse(object_id));
-  }
-  // With GetAuto(), object is automatically released
+  ARROW_CHECK_OK(client_.Release(object_id));
   ARROW_CHECK_OK(client_.FlushReleaseHistory());
   EXPECT_FALSE(client_.IsInUse(object_id));
 }
@@ -199,8 +204,8 @@ TEST_F(TestPlasmaStore, GetAutoTest) {
 TEST_F(TestPlasmaStore, MultipleGetTest) {
   ObjectID object_id1 = ObjectID::from_random();
   ObjectID object_id2 = ObjectID::from_random();
-  ObjectID object_ids[2] = {object_id1, object_id2};
-  ObjectBuffer object_buffer[2];
+  std::vector<ObjectID> object_ids = {object_id1, object_id2};
+  std::vector<ObjectBuffer> object_buffers;
 
   int64_t data_size = 4;
   uint8_t metadata[] = {5};
@@ -214,18 +219,18 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   data->mutable_data()[0] = 2;
   ARROW_CHECK_OK(client_.Seal(object_id2));
 
-  ARROW_CHECK_OK(client_.Get(object_ids, 2, -1, object_buffer));
-  ASSERT_EQ(object_buffer[0].data->data()[0], 1);
-  ASSERT_EQ(object_buffer[1].data->data()[0], 2);
+  ARROW_CHECK_OK(client_.Get(object_ids, -1, &object_buffers));
+  ASSERT_EQ(object_buffers[0].data->data()[0], 1);
+  ASSERT_EQ(object_buffers[1].data->data()[0], 2);
 }
 
 TEST_F(TestPlasmaStore, AbortTest) {
   ObjectID object_id = ObjectID::from_random();
-  ObjectBuffer object_buffer;
+  std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence.
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
-  ASSERT_EQ(object_buffer.data_size, -1);
+  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_FALSE(object_buffers[0].data);
 
   // Test object abort.
   // First create object.
@@ -253,20 +258,21 @@ TEST_F(TestPlasmaStore, AbortTest) {
   EXPECT_FALSE(client_.IsInUse(object_id));
 
   // Test for object non-existence after the abort.
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
-  ASSERT_EQ(object_buffer.data_size, -1);
+  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_FALSE(object_buffers[0].data);
 
   // Create the object successfully this time.
   CreateObject(client_, object_id, {42, 43}, {1, 2, 3, 4, 5});
 
   // Test that we can get the object.
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
-  AssertObjectBufferEqual(object_buffer, {42, 43}, {1, 2, 3, 4, 5});
+  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
+  AssertObjectBufferEqual(object_buffers[0], {42, 43}, {1, 2, 3, 4, 5});
   ARROW_CHECK_OK(client_.Release(object_id));
 }
 
 TEST_F(TestPlasmaStore, MultipleClientTest) {
   ObjectID object_id = ObjectID::from_random();
+  std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence on the first client.
   bool has_object;
@@ -282,8 +288,8 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
-  ObjectBuffer object_buffer;
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_TRUE(object_buffers[0].data);
   ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
   ASSERT_EQ(has_object, true);
 
@@ -295,7 +301,8 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   ARROW_CHECK_OK(client_.Disconnect());
   // Test that the second client can seal and get the created object.
   ARROW_CHECK_OK(client2_.Seal(object_id));
-  ARROW_CHECK_OK(client2_.Get(&object_id, 1, -1, &object_buffer));
+  ARROW_CHECK_OK(client2_.Get({object_id}, -1, &object_buffers));
+  ASSERT_TRUE(object_buffers[0].data);
   ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
   ASSERT_EQ(has_object, true);
 }
@@ -383,11 +390,12 @@ void AssertCudaRead(const std::shared_ptr<Buffer>& buffer,
 
 TEST_F(TestPlasmaStore, GetGPUTest) {
   ObjectID object_id = ObjectID::from_random();
-  ObjectBuffer object_buffer;
+  std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence.
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
-  ASSERT_EQ(object_buffer.data_size, -1);
+  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_EQ(object_buffers.size(), 1);
+  ASSERT_FALSE(object_buffers[0].data);
 
   // Test for the object being in local Plasma store.
   // First create object.
@@ -404,16 +412,19 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   ARROW_CHECK_OK(writer.Write(data, data_size));
   ARROW_CHECK_OK(client_.Seal(object_id));
 
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
-  ASSERT_EQ(object_buffer.device_num, 1);
+  object_buffers.clear();
+  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
+  ASSERT_EQ(object_buffers.size(), 1);
+  ASSERT_EQ(object_buffers[0].device_num, 1);
   // Check data
-  AssertCudaRead(object_buffer.data, {4, 5, 3, 1});
+  AssertCudaRead(object_buffers[0].data, {4, 5, 3, 1});
   // Check metadata
-  AssertCudaRead(object_buffer.metadata, {42});
+  AssertCudaRead(object_buffers[0].metadata, {42});
 }
 
 TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   ObjectID object_id = ObjectID::from_random();
+  std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence on the first client.
   bool has_object;
@@ -430,8 +441,7 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
       client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
   ARROW_CHECK_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
-  ObjectBuffer object_buffer;
-  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  ARROW_CHECK_OK(client_.Get({object_id}, -1, &object_buffers));
   ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
   ASSERT_EQ(has_object, true);
 
@@ -444,9 +454,13 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   ARROW_CHECK_OK(client_.Disconnect());
   // Test that the second client can seal and get the created object.
   ARROW_CHECK_OK(client2_.Seal(object_id));
-  ARROW_CHECK_OK(client2_.Get(&object_id, 1, -1, &object_buffer));
+  object_buffers.clear();
   ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
   ASSERT_EQ(has_object, true);
+  ARROW_CHECK_OK(client2_.Get({object_id}, -1, &object_buffers));
+  ASSERT_EQ(object_buffers.size(), 1);
+  ASSERT_EQ(object_buffers[0].device_num, 1);
+  AssertCudaRead(object_buffers[0].metadata, {5});
 }
 
 #endif  // PLASMA_GPU

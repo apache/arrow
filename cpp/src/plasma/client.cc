@@ -273,22 +273,19 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   return Status::OK();
 }
 
-Status PlasmaClient::GetBuffers(const ObjectID* object_ids, int64_t num_objects,
-                                int64_t timeout_ms,
-                                std::function<std::shared_ptr<Buffer>(
-                                    const ObjectID&, const std::shared_ptr<Buffer>&)>
-                                    wrap_buffer,
-                                ObjectBuffer* object_buffers) {
+Status PlasmaClient::GetBuffers(
+    const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
+    const std::function<std::shared_ptr<Buffer>(
+        const ObjectID&, const std::shared_ptr<Buffer>&)>& wrap_buffer,
+    ObjectBuffer* object_buffers) {
   // Fill out the info for the objects that are already in use locally.
   bool all_present = true;
-  for (int i = 0; i < num_objects; ++i) {
+  for (int64_t i = 0; i < num_objects; ++i) {
     auto object_entry = objects_in_use_.find(object_ids[i]);
     if (object_entry == objects_in_use_.end()) {
       // This object is not currently in use by this client, so we need to send
       // a request to the store.
       all_present = false;
-      // Make a note to ourselves that the object is not present.
-      object_buffers[i].data_size = -1;
     } else {
       // NOTE: If the object is still unsealed, we will deadlock, since we must
       // have been the one who created it.
@@ -312,8 +309,6 @@ Status PlasmaClient::GetBuffers(const ObjectID* object_ids, int64_t num_objects,
       object_buffers[i].data = SliceBuffer(physical_buf, 0, object->data_size);
       object_buffers[i].metadata =
           SliceBuffer(physical_buf, object->data_size, object->metadata_size);
-      object_buffers[i].data_size = object->data_size;
-      object_buffers[i].metadata_size = object->metadata_size;
       object_buffers[i].device_num = object->device_num;
       // Increment the count of the number of instances of this object that this
       // client is using. Cache the reference to the object.
@@ -327,7 +322,7 @@ Status PlasmaClient::GetBuffers(const ObjectID* object_ids, int64_t num_objects,
 
   // If we get here, then the objects aren't all currently in use by this
   // client, so we need to send a request to the plasma store.
-  RETURN_NOT_OK(SendGetRequest(store_conn_, object_ids, num_objects, timeout_ms));
+  RETURN_NOT_OK(SendGetRequest(store_conn_, &object_ids[0], num_objects, timeout_ms));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaGetReply, &buffer));
   std::vector<ObjectID> received_object_ids(num_objects);
@@ -347,10 +342,10 @@ Status PlasmaClient::GetBuffers(const ObjectID* object_ids, int64_t num_objects,
     lookup_or_mmap(fd, store_fds[i], mmap_sizes[i]);
   }
 
-  for (int i = 0; i < num_objects; ++i) {
+  for (int64_t i = 0; i < num_objects; ++i) {
     DCHECK(received_object_ids[i] == object_ids[i]);
     object = &object_data[i];
-    if (object_buffers[i].data_size != -1) {
+    if (object_buffers[i].data) {
       // If the object was already in use by the client, then the store should
       // have returned it.
       DCHECK_NE(object->data_size, -1);
@@ -390,37 +385,36 @@ Status PlasmaClient::GetBuffers(const ObjectID* object_ids, int64_t num_objects,
       object_buffers[i].data = SliceBuffer(physical_buf, 0, object->data_size);
       object_buffers[i].metadata =
           SliceBuffer(physical_buf, object->data_size, object->metadata_size);
-      object_buffers[i].data_size = object->data_size;
-      object_buffers[i].metadata_size = object->metadata_size;
       object_buffers[i].device_num = object->device_num;
       // Increment the count of the number of instances of this object that this
       // client is using. Cache the reference to the object.
       increment_object_count(received_object_ids[i], object, true);
     } else {
-      // The object was not retrieved. Make sure we already put a -1 here to
-      // indicate that the object was not retrieved. The caller is not
-      // responsible for releasing this object.
-      DCHECK_EQ(object_buffers[i].data_size, -1);
-      object_buffers[i].data_size = -1;
+      // The object was not retrieved.  The caller can detect this condition
+      // by checking the boolean value of the metadata/data buffers.
+      DCHECK(!object_buffers[i].metadata);
+      DCHECK(!object_buffers[i].data);
     }
   }
   return Status::OK();
 }
 
-Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
-                         int64_t timeout_ms, ObjectBuffer* object_buffers) {
-  const auto wrap_buffer = [](const ObjectID& object_id,
-                              const std::shared_ptr<Buffer>& buffer) { return buffer; };
-  return GetBuffers(object_ids, num_objects, timeout_ms, wrap_buffer, object_buffers);
-}
-
-Status PlasmaClient::GetAuto(const ObjectID* object_ids, int64_t num_objects,
-                             int64_t timeout_ms, ObjectBuffer* object_buffers) {
+Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
+                         std::vector<ObjectBuffer>* out) {
   const auto wrap_buffer = [=](const ObjectID& object_id,
                                const std::shared_ptr<Buffer>& buffer) {
     return std::make_shared<PlasmaBuffer>(this, object_id, buffer);
   };
-  return GetBuffers(object_ids, num_objects, timeout_ms, wrap_buffer, object_buffers);
+  const size_t num_objects = object_ids.size();
+  *out = std::vector<ObjectBuffer>(num_objects);
+  return GetBuffers(&object_ids[0], num_objects, timeout_ms, wrap_buffer, &(*out)[0]);
+}
+
+Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
+                         int64_t timeout_ms, ObjectBuffer* out) {
+  const auto wrap_buffer = [](const ObjectID& object_id,
+                              const std::shared_ptr<Buffer>& buffer) { return buffer; };
+  return GetBuffers(object_ids, num_objects, timeout_ms, wrap_buffer, out);
 }
 
 Status PlasmaClient::UnmapObject(const ObjectID& object_id) {
@@ -585,24 +579,26 @@ static inline bool compute_object_hash_parallel(XXH64_state_t* hash_state,
 }
 
 static uint64_t compute_object_hash(const ObjectBuffer& obj_buffer) {
+  DCHECK(obj_buffer.metadata);
+  DCHECK(obj_buffer.data);
   XXH64_state_t hash_state;
   if (obj_buffer.device_num != 0) {
     // TODO(wap): Create cuda program to hash data on gpu.
     return 0;
   }
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
-  if (obj_buffer.data_size >= kBytesInMB) {
+  if (obj_buffer.data->size() >= kBytesInMB) {
     compute_object_hash_parallel(
         &hash_state, reinterpret_cast<const unsigned char*>(obj_buffer.data->data()),
-        obj_buffer.data_size);
+        obj_buffer.data->size());
   } else {
     XXH64_update(&hash_state,
                  reinterpret_cast<const unsigned char*>(obj_buffer.data->data()),
-                 obj_buffer.data_size);
+                 obj_buffer.data->size());
   }
   XXH64_update(&hash_state,
                reinterpret_cast<const unsigned char*>(obj_buffer.metadata->data()),
-               obj_buffer.metadata_size);
+               obj_buffer.metadata->size());
   return XXH64_digest(&hash_state);
 }
 
@@ -686,17 +682,16 @@ Status PlasmaClient::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {
 Status PlasmaClient::Hash(const ObjectID& object_id, uint8_t* digest) {
   // Get the plasma object data. We pass in a timeout of 0 to indicate that
   // the operation should timeout immediately.
-  ObjectBuffer object_buffer;
-  RETURN_NOT_OK(Get(&object_id, 1, 0, &object_buffer));
+  std::vector<ObjectBuffer> object_buffers;
+  RETURN_NOT_OK(Get({object_id}, 0, &object_buffers));
   // If the object was not retrieved, return false.
-  if (object_buffer.data_size == -1) {
+  if (!object_buffers[0].data) {
     return Status::PlasmaObjectNonexistent("Object not found");
   }
   // Compute the hash.
-  uint64_t hash = compute_object_hash(object_buffer);
+  uint64_t hash = compute_object_hash(object_buffers[0]);
   memcpy(digest, &hash, sizeof(hash));
-  // Release the plasma object.
-  return Release(object_id);
+  return Status::OK();
 }
 
 Status PlasmaClient::Subscribe(int* fd) {
