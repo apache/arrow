@@ -23,8 +23,8 @@ use std::string::String;
 
 use super::bitmap::Bitmap;
 use super::buffer::Buffer;
-use super::list::List;
 use super::error::*;
+use super::list::List;
 
 pub enum ArrayData {
     Boolean(Buffer<bool>),
@@ -43,7 +43,7 @@ pub enum ArrayData {
 }
 
 macro_rules! arraydata_from_primitive {
-    ($DT: ty, $AT: ident) => {
+    ($DT:ty, $AT:ident) => {
         impl From<Vec<$DT>> for ArrayData {
             fn from(v: Vec<$DT>) -> Self {
                 ArrayData::$AT(Buffer::from(v))
@@ -107,7 +107,7 @@ trait ArrayOps<T> {
 }
 
 macro_rules! array_ops {
-    ($DT: ty, $AT: ident) => {
+    ($DT:ty, $AT:ident) => {
         impl ArrayOps<$DT> for Array {
             fn get(&self, i: usize) -> Result<$DT, Error> {
                 match self.data() {
@@ -160,7 +160,7 @@ array_ops!(i32, Int32);
 array_ops!(i64, Int64);
 
 macro_rules! array_from_primitive {
-    ($DT: ty) => {
+    ($DT:ty) => {
         impl From<Vec<$DT>> for Array {
             fn from(v: Vec<$DT>) -> Self {
                 Array {
@@ -186,7 +186,7 @@ array_from_primitive!(i32);
 array_from_primitive!(i64);
 
 macro_rules! array_from_optional_primitive {
-    ($DT: ty, $DEFAULT: expr) => {
+    ($DT:ty, $DEFAULT:expr) => {
         impl From<Vec<Option<$DT>>> for Array {
             fn from(v: Vec<Option<$DT>>) -> Self {
                 let mut null_count = 0;
@@ -253,8 +253,8 @@ impl From<Vec<Rc<Array>>> for Array {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::datatypes::*;
+    use super::*;
 
     #[test]
     fn test_utf8_offsets() {

@@ -16,9 +16,9 @@
 // under the License.
 
 use bytes::Bytes;
+use libc;
 use std::mem;
 use std::slice;
-use libc;
 
 use super::memory::*;
 
@@ -28,7 +28,6 @@ pub struct Buffer<T> {
 }
 
 impl<T> Buffer<T> {
-
     pub fn len(&self) -> i32 {
         self.len
     }
@@ -38,10 +37,10 @@ impl<T> Buffer<T> {
     }
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
-        assert!(start<=end);
-        assert!(start<self.len as usize);
-        assert!(end<=self.len as usize);
-        unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end-start) as usize) }
+        assert!(start <= end);
+        assert!(start < self.len as usize);
+        assert!(end <= self.len as usize);
+        unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
 
     pub fn get(&self, i: usize) -> &T {
@@ -59,10 +58,9 @@ impl<T> Buffer<T> {
         BufferIterator {
             data: self.data,
             len: self.len,
-            index: 0
+            index: 0,
         }
     }
-
 }
 
 impl<T> Drop for Buffer<T> {
@@ -74,16 +72,19 @@ impl<T> Drop for Buffer<T> {
 pub struct BufferIterator<T> {
     data: *const T,
     len: i32,
-    index: isize
+    index: isize,
 }
 
-impl<T> Iterator for BufferIterator<T> where T: Copy {
+impl<T> Iterator for BufferIterator<T>
+where
+    T: Copy,
+{
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.len as isize {
             self.index += 1;
-            Some(unsafe { *self.data.offset(self.index-1) })
+            Some(unsafe { *self.data.offset(self.index - 1) })
         } else {
             None
         }
@@ -97,7 +98,7 @@ impl<T> Drop for Buffer<T> {
 }
 
 macro_rules! array_from_primitive {
-    ($DT: ty) => {
+    ($DT:ty) => {
         impl From<Vec<$DT>> for Buffer<$DT> {
             fn from(v: Vec<$DT>) -> Self {
                 // allocate aligned memory buffer
@@ -143,9 +144,13 @@ impl From<Bytes> for Buffer<u8> {
             len: len as i32,
             data: unsafe {
                 let dst = mem::transmute::<*const u8, *mut libc::c_void>(buf_mem);
-                libc::memcpy(dst, mem::transmute::<*const u8, *const libc::c_void>(bytes.as_ptr()), len * sz);
+                libc::memcpy(
+                    dst,
+                    mem::transmute::<*const u8, *const libc::c_void>(bytes.as_ptr()),
+                    len * sz,
+                );
                 mem::transmute::<*mut libc::c_void, *const u8>(dst)
-            }
+            },
         }
     }
 }
@@ -164,7 +169,7 @@ mod tests {
     fn test_iterator_i32() {
         let b: Buffer<i32> = Buffer::from(vec![1, 2, 3, 4, 5]);
         let it = b.iter();
-        let v : Vec<i32> = it.map(|n| n+1).collect();
-        assert_eq!(vec![2,3,4,5,6], v);
+        let v: Vec<i32> = it.map(|n| n + 1).collect();
+        assert_eq!(vec![2, 3, 4, 5, 6], v);
     }
 }

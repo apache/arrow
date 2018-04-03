@@ -47,7 +47,10 @@ impl From<Vec<String>> for List<u8> {
             buf.put(s.as_bytes());
             offsets.push(buf.len() as i32);
         });
-        List { data: Buffer::from(buf.freeze()), offsets: Buffer::from(offsets) }
+        List {
+            data: Buffer::from(buf.freeze()),
+            offsets: Buffer::from(offsets),
+        }
     }
 }
 
