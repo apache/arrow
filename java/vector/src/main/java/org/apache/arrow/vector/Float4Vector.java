@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.Float4ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.Float4Holder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -44,8 +44,7 @@ public class Float4Vector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public Float4Vector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.FLOAT4.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.FLOAT4.getType()), allocator);
   }
 
   /**
@@ -75,8 +74,8 @@ public class Float4Vector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.FLOAT4;
+  public MinorType getMinorType() {
+    return MinorType.FLOAT4;
   }
 
 

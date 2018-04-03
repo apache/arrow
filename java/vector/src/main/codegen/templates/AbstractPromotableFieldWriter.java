@@ -86,7 +86,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   <#if minor.class == "Decimal">
   public void writeBigEndianBytesToDecimal(byte[] value) {
-    getWriter(Types.MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
+    getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
   }
   </#if>
 

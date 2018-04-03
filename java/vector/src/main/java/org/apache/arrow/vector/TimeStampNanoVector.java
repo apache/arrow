@@ -23,7 +23,7 @@ import org.apache.arrow.vector.complex.impl.TimeStampNanoReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.TimeStampNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
@@ -43,8 +43,7 @@ public class TimeStampNanoVector extends TimeStampVector {
    * @param allocator allocator for memory management.
    */
   public TimeStampNanoVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.TIMESTAMPNANO.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.TIMESTAMPNANO.getType()), allocator);
   }
 
   /**
@@ -74,8 +73,8 @@ public class TimeStampNanoVector extends TimeStampVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.TIMESTAMPNANO;
+  public MinorType getMinorType() {
+    return MinorType.TIMESTAMPNANO;
   }
 
 

@@ -23,10 +23,9 @@ import org.apache.arrow.vector.complex.impl.UInt4ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.UInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.slf4j.Logger;
 
 /**
  * UInt4Vector implements a fixed width (4 bytes) vector of
@@ -38,8 +37,7 @@ public class UInt4Vector extends BaseFixedWidthVector {
   private final FieldReader reader;
 
   public UInt4Vector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.UINT4.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.UINT4.getType()), allocator);
   }
 
   public UInt4Vector(String name, FieldType fieldType, BufferAllocator allocator) {
@@ -53,8 +51,8 @@ public class UInt4Vector extends BaseFixedWidthVector {
   }
 
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.UINT4;
+  public MinorType getMinorType() {
+    return MinorType.UINT4;
   }
 
 
