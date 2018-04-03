@@ -15,36 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use libc;
-use std::mem;
+#ifndef ARROW_PYTHON_BENCHMARK_H
+#define ARROW_PYTHON_BENCHMARK_H
 
-use super::error::Error;
+#include "arrow/python/platform.h"
 
-const ALIGNMENT: usize = 64;
+#include "arrow/util/visibility.h"
 
-pub fn allocate_aligned(size: i64) -> Result<*const u8, Error> {
-    unsafe {
-        let mut page: *mut libc::c_void = mem::uninitialized();
-        let result = libc::posix_memalign(&mut page, ALIGNMENT, size as usize);
-        match result {
-            0 => Ok(mem::transmute::<*mut libc::c_void, *const u8>(page)),
-            _ => Err(Error::from("Failed to allocate memory")),
-        }
-    }
-}
+namespace arrow {
+namespace py {
+namespace benchmark {
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// Micro-benchmark routines for use from ASV
 
-    #[test]
-    fn test_allocate() {
-        for _ in 0 .. 10 {
-            let p = allocate_aligned(1024).unwrap();
-            // make sure this is 64-byte aligned
-            assert_eq!(0, (p as usize) % 64);
-        }
+// Run PandasObjectIsNull() once over every object in *list*
+ARROW_EXPORT
+void Benchmark_PandasObjectIsNull(PyObject* list);
 
-    }
+}  // namespace benchmark
+}  // namespace py
+}  // namespace arrow
 
-}
+#endif  // ARROW_PYTHON_BENCHMARK_H

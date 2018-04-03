@@ -15,36 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use libc;
-use std::mem;
+#include <arrow/python/benchmark.h>
+#include <arrow/python/helpers.h>
 
-use super::error::Error;
+namespace arrow {
+namespace py {
+namespace benchmark {
 
-const ALIGNMENT: usize = 64;
-
-pub fn allocate_aligned(size: i64) -> Result<*const u8, Error> {
-    unsafe {
-        let mut page: *mut libc::c_void = mem::uninitialized();
-        let result = libc::posix_memalign(&mut page, ALIGNMENT, size as usize);
-        match result {
-            0 => Ok(mem::transmute::<*mut libc::c_void, *const u8>(page)),
-            _ => Err(Error::from("Failed to allocate memory")),
-        }
-    }
+void Benchmark_PandasObjectIsNull(PyObject* list) {
+  if (!PyList_CheckExact(list)) {
+    PyErr_SetString(PyExc_TypeError, "expected a list");
+    return;
+  }
+  Py_ssize_t i, n = PyList_GET_SIZE(list);
+  for (i = 0; i < n; i++) {
+    internal::PandasObjectIsNull(PyList_GET_ITEM(list, i));
+  }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_allocate() {
-        for _ in 0 .. 10 {
-            let p = allocate_aligned(1024).unwrap();
-            // make sure this is 64-byte aligned
-            assert_eq!(0, (p as usize) % 64);
-        }
-
-    }
-
-}
+}  // namespace benchmark
+}  // namespace py
+}  // namespace arrow

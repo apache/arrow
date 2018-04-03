@@ -50,6 +50,7 @@ set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
 set(ARROW_PYTHON_SRCS
   arrow_to_pandas.cc
   arrow_to_python.cc
+  benchmark.cc
   builtin_convert.cc
   common.cc
   config.cc
@@ -99,6 +100,7 @@ install(FILES
   api.h
   arrow_to_pandas.h
   arrow_to_python.h
+  benchmark.h
   builtin_convert.h
   common.h
   config.h

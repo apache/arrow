@@ -344,9 +344,11 @@ cdef class Column:
         result = pd.Series(values, name=self.name)
 
         if isinstance(self.type, TimestampType):
-            if self.type.tz is not None:
+            tz = self.type.tz
+            if tz is not None:
+                tz = string_to_tzinfo(tz)
                 result = (result.dt.tz_localize('utc')
-                          .dt.tz_convert(self.type.tz))
+                          .dt.tz_convert(tz))
 
         return result
 
