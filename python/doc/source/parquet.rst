@@ -109,7 +109,7 @@ We need not use a string to specify the origin of the file. It can be any of:
 * A Python file object
 
 In general, a Python file object will have the worst read performance, while a
-string file path or an instance of :class:`~.NativeFIle` (especially memory
+string file path or an instance of :class:`~.NativeFile` (especially memory
 maps) will perform the best.
 
 Finer-grained Reading and Writing
