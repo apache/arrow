@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -82,8 +83,11 @@ impl Schema {
 
 impl fmt::Display for Schema {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s: Vec<String> = self.columns.iter().map(|c| c.to_string()).collect();
-        write!(f, "{}", s.join(","))
+        f.write_str(&self.columns
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>()
+            .join(", "))
     }
 }
 
@@ -105,6 +109,6 @@ mod tests {
                 false,
             ),
         ]);
-        assert_eq!(_person.to_string(), "first_name: Utf8,last_name: Utf8,address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
+        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
     }
 }
