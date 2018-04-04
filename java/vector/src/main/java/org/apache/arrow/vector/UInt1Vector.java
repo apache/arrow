@@ -23,7 +23,7 @@ import org.apache.arrow.vector.complex.impl.UInt1ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.UInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -37,8 +37,7 @@ public class UInt1Vector extends BaseFixedWidthVector {
   private final FieldReader reader;
 
   public UInt1Vector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.UINT1.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.UINT1.getType()), allocator);
   }
 
   public UInt1Vector(String name, FieldType fieldType, BufferAllocator allocator) {
@@ -52,8 +51,8 @@ public class UInt1Vector extends BaseFixedWidthVector {
   }
 
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.UINT1;
+  public MinorType getMinorType() {
+    return MinorType.UINT1;
   }
 
 

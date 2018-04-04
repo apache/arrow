@@ -20,7 +20,7 @@ package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.joda.time.Period;
 import org.junit.After;
 import org.junit.Before;
@@ -70,8 +70,8 @@ public class TestCopyFrom {
 
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls() {
-    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -130,8 +130,8 @@ public class TestCopyFrom {
 
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls1() {
-    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator);
-         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();

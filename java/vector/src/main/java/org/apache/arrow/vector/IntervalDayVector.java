@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.IntervalDayReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.Period;
@@ -47,8 +47,7 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public IntervalDayVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.INTERVALDAY.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.INTERVALDAY.getType()), allocator);
   }
 
   /**
@@ -78,8 +77,8 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.INTERVALDAY;
+  public MinorType getMinorType() {
+    return MinorType.INTERVALDAY;
   }
 
 

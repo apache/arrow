@@ -23,7 +23,7 @@ import org.apache.arrow.vector.complex.impl.TimeStampMicroReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.TimeStampMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
@@ -43,8 +43,7 @@ public class TimeStampMicroVector extends TimeStampVector {
    * @param allocator allocator for memory management.
    */
   public TimeStampMicroVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.TIMESTAMPMICRO.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.TIMESTAMPMICRO.getType()), allocator);
   }
 
   /**
@@ -74,8 +73,8 @@ public class TimeStampMicroVector extends TimeStampVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.TIMESTAMPMICRO;
+  public MinorType getMinorType() {
+    return MinorType.TIMESTAMPMICRO;
   }
 
 

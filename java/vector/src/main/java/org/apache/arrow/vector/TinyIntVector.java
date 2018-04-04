@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.TinyIntReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.TinyIntHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -44,8 +44,7 @@ public class TinyIntVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public TinyIntVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.TINYINT.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.TINYINT.getType()), allocator);
   }
 
   /**
@@ -75,8 +74,8 @@ public class TinyIntVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.TINYINT;
+  public MinorType getMinorType() {
+    return MinorType.TINYINT;
   }
 
 

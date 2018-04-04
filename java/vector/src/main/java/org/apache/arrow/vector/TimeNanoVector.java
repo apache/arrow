@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.TimeNanoReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.TimeNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeNanoHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -44,8 +44,7 @@ public class TimeNanoVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public TimeNanoVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.TIMENANO.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.TIMENANO.getType()), allocator);
   }
 
   /**
@@ -75,8 +74,8 @@ public class TimeNanoVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.TIMENANO;
+  public MinorType getMinorType() {
+    return MinorType.TIMENANO;
   }
 
 

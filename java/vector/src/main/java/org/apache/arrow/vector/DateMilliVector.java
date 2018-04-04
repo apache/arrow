@@ -24,12 +24,10 @@ import org.apache.arrow.vector.complex.impl.DateMilliReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.DateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDateMilliHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
-import org.joda.time.LocalDateTimes;
-import org.slf4j.Logger;
 
 /**
  * DateMilliVector implements a fixed width vector (8 bytes) of
@@ -47,8 +45,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public DateMilliVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.DATEMILLI.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.DATEMILLI.getType()), allocator);
   }
 
   /**
@@ -78,8 +75,8 @@ public class DateMilliVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.DATEMILLI;
+  public MinorType getMinorType() {
+    return MinorType.DATEMILLI;
   }
 
 
