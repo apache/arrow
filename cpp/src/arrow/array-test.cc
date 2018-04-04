@@ -991,13 +991,13 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
 
 TEST_F(TestStringBuilder, TestAppendVector) {
   vector<string> strings = {"", "bb", "a", "", "ccc"};
-  vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+  vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
 
   int N = static_cast<int>(strings.size());
   int reps = 1000;
 
   for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder_->Append(strings, is_null.data()));
+    ASSERT_OK(builder_->Append(strings, valid_bytes.data()));
   }
   Done();
 
@@ -1008,9 +1008,7 @@ TEST_F(TestStringBuilder, TestAppendVector) {
   int32_t length;
   int32_t pos = 0;
   for (int i = 0; i < N * reps; ++i) {
-    if (is_null[i % N]) {
-      ASSERT_TRUE(result_->IsNull(i));
-    } else {
+    if (valid_bytes[i % N]) {
       ASSERT_FALSE(result_->IsNull(i));
       result_->GetValue(i, &length);
       ASSERT_EQ(pos, result_->value_offset(i));
@@ -1018,6 +1016,8 @@ TEST_F(TestStringBuilder, TestAppendVector) {
       ASSERT_EQ(strings[i % N], result_->GetString(i));
 
       pos += length;
+    } else {
+      ASSERT_TRUE(result_->IsNull(i));
     }
   }
 }

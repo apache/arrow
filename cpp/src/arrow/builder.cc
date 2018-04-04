@@ -1386,7 +1386,7 @@ const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
 
 Status StringBuilder::Append(const std::vector<std::string>& values,
-                             uint8_t* null_bytes) {
+                             const uint8_t* valid_bytes) {
   std::size_t total_length = std::accumulate(
       values.begin(), values.end(), 0ULL,
       [](uint64_t sum, const std::string& str) { return sum + str.size(); });
@@ -1394,16 +1394,22 @@ Status StringBuilder::Append(const std::vector<std::string>& values,
   RETURN_NOT_OK(value_data_builder_.Reserve(total_length));
   RETURN_NOT_OK(offsets_builder_.Reserve(values.size()));
 
-  for (std::size_t i = 0; i < values.size(); ++i) {
-    RETURN_NOT_OK(AppendNextOffset());
-    if (null_bytes[i]) {
-      UnsafeAppendToBitmap(false);
-    } else {
+  if (valid_bytes) {
+    for (std::size_t i = 0; i < values.size(); ++i) {
+      RETURN_NOT_OK(AppendNextOffset());
+      if (valid_bytes[i]) {
+        RETURN_NOT_OK(value_data_builder_.Append(
+            reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
+      }
+    }
+  } else {
+    for (std::size_t i = 0; i < values.size(); ++i) {
+      RETURN_NOT_OK(AppendNextOffset());
       RETURN_NOT_OK(value_data_builder_.Append(
           reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
-      UnsafeAppendToBitmap(true);
     }
   }
+  UnsafeAppendToBitmap(valid_bytes, values.size());
   return Status::OK();
 }
 
