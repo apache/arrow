@@ -136,37 +136,35 @@ struct ARROW_EXPORT PyBytesView {
   PyBytesView() : bytes(nullptr), size(0), ref(nullptr) {}
 
   // View the given Python object as binary-like, i.e. bytes
-  static Status FromBinary(PyObject* obj, PyBytesView* out) {
-    return FromBinary(obj, out, "a bytes object");
-  }
+  Status FromBinary(PyObject* obj) { return FromBinary(obj, "a bytes object"); }
 
   // View the given Python object as string-like, i.e. str or (utf8) bytes
-  // XXX make this non-static?
-  static Status FromString(PyObject* obj, PyBytesView* out, bool check_valid = false) {
+  Status FromString(PyObject* obj, bool check_valid = false) {
     if (PyUnicode_Check(obj)) {
 #if PY_MAJOR_VERSION >= 3
       Py_ssize_t size;
       // The utf-8 representation is cached on the unicode object
       const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
       RETURN_IF_PYERROR();
-      *out = PyBytesView(data, size);
+      this->bytes = data;
+      this->size = size;
+      this->ref.reset();
       return Status::OK();
 #else
       PyObject* converted = PyUnicode_AsUTF8String(obj);
       RETURN_IF_PYERROR();
-      *out = PyBytesView(PyBytes_AS_STRING(converted), PyBytes_GET_SIZE(converted),
-                         converted);
+      this->bytes = PyBytes_AS_STRING(converted);
+      this->size = PyBytes_GET_SIZE(converted);
+      this->ref.reset(converted);
       return Status::OK();
 #endif
     } else {
-      PyBytesView view;
-      RETURN_NOT_OK(FromBinary(obj, &view, "a string or bytes object"));
+      RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
       if (check_valid) {
         // Check the bytes are valid utf-8
-        OwnedRef decoded(PyUnicode_FromStringAndSize(view.bytes, view.size));
+        OwnedRef decoded(PyUnicode_FromStringAndSize(bytes, size));
         RETURN_IF_PYERROR();
       }
-      *out = std::move(view);
       return Status::OK();
     }
   }
@@ -175,13 +173,16 @@ struct ARROW_EXPORT PyBytesView {
   PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = nullptr)
       : bytes(b), size(s), ref(obj) {}
 
-  static Status FromBinary(PyObject* obj, PyBytesView* out,
-                           const std::string& expected_msg) {
+  Status FromBinary(PyObject* obj, const std::string& expected_msg) {
     if (PyBytes_Check(obj)) {
-      *out = PyBytesView(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj));
+      this->bytes = PyBytes_AS_STRING(obj);
+      this->size = PyBytes_GET_SIZE(obj);
+      this->ref.reset();
       return Status::OK();
     } else if (PyByteArray_Check(obj)) {
-      *out = PyBytesView(PyByteArray_AS_STRING(obj), PyByteArray_GET_SIZE(obj));
+      this->bytes = PyByteArray_AS_STRING(obj);
+      this->size = PyByteArray_GET_SIZE(obj);
+      this->ref.reset();
       return Status::OK();
     } else {
       std::stringstream ss;

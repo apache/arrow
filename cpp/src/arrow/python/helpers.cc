@@ -142,7 +142,7 @@ Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRe
 Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
   PyBytesView view;
   // XXX For some reason, we must accept unicode objects here
-  RETURN_NOT_OK(PyBytesView::FromString(obj, &view));
+  RETURN_NOT_OK(view.FromString(obj));
   int32_t length;
   RETURN_NOT_OK(CastSize(view.size, &length));
   // Did we reach the builder size limit?
@@ -164,7 +164,7 @@ Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
 Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_full) {
   PyBytesView view;
   // XXX For some reason, we must accept unicode objects here
-  RETURN_NOT_OK(PyBytesView::FromString(obj, &view));
+  RETURN_NOT_OK(view.FromString(obj));
   const auto expected_length =
       static_cast<const FixedSizeBinaryType&>(*builder->type()).byte_width();
   if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
@@ -193,7 +193,7 @@ Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_fu
 Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid,
                      bool* is_full) {
   PyBytesView view;
-  RETURN_NOT_OK(PyBytesView::FromString(obj, &view, check_valid));
+  RETURN_NOT_OK(view.FromString(obj, check_valid));
   int32_t length;
   RETURN_NOT_OK(CastSize(view.size, &length));
   // Did we reach the builder size limit?

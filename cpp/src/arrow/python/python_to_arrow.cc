@@ -489,7 +489,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     RETURN_NOT_OK(builder->AppendBytes(data, size));
   } else if (PyUnicode_Check(elem)) {
     PyBytesView view;
-    RETURN_NOT_OK(PyBytesView::FromString(elem, &view));
+    RETURN_NOT_OK(view.FromString(elem));
     int32_t size;
     RETURN_NOT_OK(internal::CastSize(view.size, &size));
     RETURN_NOT_OK(builder->AppendString(view.bytes, size));

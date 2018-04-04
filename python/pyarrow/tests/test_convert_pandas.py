@@ -30,7 +30,7 @@ import numpy.testing as npt
 import pandas as pd
 import pandas.util.testing as tm
 
-from pyarrow.compat import u, PY2
+from pyarrow.compat import PY2
 import pyarrow as pa
 import pyarrow.types as patypes
 
