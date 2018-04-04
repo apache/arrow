@@ -182,7 +182,8 @@ Status ReadMessage(const int64_t offset, const int32_t metadata_length,
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
 ARROW_EXPORT
-Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
+Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message,
+                   bool aligned = false);
 
 }  // namespace ipc
 }  // namespace arrow

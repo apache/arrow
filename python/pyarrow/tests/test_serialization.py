@@ -691,3 +691,26 @@ def test_path_objects(tmpdir):
     pa.serialize_to(obj, p)
     res = pa.deserialize_from(p, None)
     assert res == obj
+
+
+def test_tensor_alignment():
+    # Deserialized numpy arrays should be 64-byte aligned.
+    x = np.random.normal(size=(10, 20, 30))
+    y = pa.deserialize(pa.serialize(x).to_buffer())
+    assert y.ctypes.data % 64 == 0
+
+    xs = [np.random.normal(size=i) for i in range(100)]
+    ys = pa.deserialize(pa.serialize(xs).to_buffer())
+    for y in ys:
+        assert y.ctypes.data % 64 == 0
+
+    xs = [np.random.normal(size=i * (1,)) for i in range(20)]
+    ys = pa.deserialize(pa.serialize(xs).to_buffer())
+    for y in ys:
+        assert y.ctypes.data % 64 == 0
+
+    xs = [np.random.normal(size=i * (5,)) for i in range(1, 8)]
+    xs = [xs[i][(i + 1) * (slice(1, 3),)] for i in range(len(xs))]
+    ys = pa.deserialize(pa.serialize(xs).to_buffer())
+    for y in ys:
+        assert y.ctypes.data % 64 == 0
