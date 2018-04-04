@@ -35,7 +35,7 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.BufferLayout.BufferType;
 import org.apache.arrow.vector.TypeLayout;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -170,8 +170,8 @@ public class JsonFileWriter implements AutoCloseable {
         generator.writeArrayFieldStart(bufferType.getName());
         final int bufferValueCount = (bufferType.equals(OFFSET)) ? valueCount + 1 : valueCount;
         for (int i = 0; i < bufferValueCount; i++) {
-          if (bufferType.equals(DATA) && (vector.getMinorType() == Types.MinorType.VARCHAR ||
-                  vector.getMinorType() == Types.MinorType.VARBINARY)) {
+          if (bufferType.equals(DATA) && (vector.getMinorType() == MinorType.VARCHAR ||
+                  vector.getMinorType() == MinorType.VARBINARY)) {
             writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v-1), vector, i);
           } else {
             writeValueToGenerator(bufferType, vectorBuffer, null, vector, i);

@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.IntReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.IntHolder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -45,8 +45,7 @@ public class IntVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public IntVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.INT.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.INT.getType()), allocator);
   }
 
   /**
@@ -79,8 +78,8 @@ public class IntVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.INT;
+  public MinorType getMinorType() {
+    return MinorType.INT;
   }
 
 

@@ -18,18 +18,15 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.VarCharReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-
-import java.nio.ByteBuffer;
 
 /**
  * VarCharVector implements a variable width vector of VARCHAR
@@ -46,7 +43,7 @@ public class VarCharVector extends BaseVariableWidthVector {
    * @param allocator allocator for memory management.
    */
   public VarCharVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType()), allocator);
+    this(name, FieldType.nullable(MinorType.VARCHAR.getType()), allocator);
   }
 
   /**
@@ -76,8 +73,8 @@ public class VarCharVector extends BaseVariableWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.VARCHAR;
+  public MinorType getMinorType() {
+    return MinorType.VARCHAR;
   }
 
 

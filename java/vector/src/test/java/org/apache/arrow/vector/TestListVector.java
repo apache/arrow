@@ -27,7 +27,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -759,7 +758,7 @@ public class TestListVector {
       String emptyListStr = listVector.getField().toString();
       assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
 
-      listVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
+      listVector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
       String emptyVectorStr = listVector.getField().toString();
       assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
     }

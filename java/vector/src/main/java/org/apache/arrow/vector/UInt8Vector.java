@@ -23,10 +23,9 @@ import org.apache.arrow.vector.complex.impl.UInt8ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.UInt8Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.slf4j.Logger;
 
 /**
  * UInt8Vector implements a fixed width vector (8 bytes) of
@@ -38,8 +37,7 @@ public class UInt8Vector extends BaseFixedWidthVector {
   private final FieldReader reader;
 
   public UInt8Vector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.UINT8.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.UINT8.getType()), allocator);
   }
 
   public UInt8Vector(String name, FieldType fieldType, BufferAllocator allocator) {
@@ -53,8 +51,8 @@ public class UInt8Vector extends BaseFixedWidthVector {
   }
 
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.UINT8;
+  public MinorType getMinorType() {
+    return MinorType.UINT8;
   }
 
 
