@@ -133,6 +133,12 @@ impl DataType {
     }
 }
 
+impl fmt::Display for DataType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_json())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
     pub name: String,
@@ -260,7 +266,6 @@ mod tests {
                 false,
             ),
         ]);
-        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
     }
 
     #[test]
@@ -323,5 +328,22 @@ mod tests {
         let value: Value = serde_json::from_str(json).unwrap();
         let dt = DataType::from(&value).unwrap();
         assert_eq!(DataType::Int32, dt);
+    }
+
+    #[test]
+    fn create_schema_string() {
+        let _person = Schema::new(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ]);
+        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
     }
 }
