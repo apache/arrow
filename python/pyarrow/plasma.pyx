@@ -29,7 +29,7 @@ from cpython.pycapsule cimport *
 import collections
 import pyarrow
 
-from pyarrow.lib cimport Buffer, NativeFile, check_status
+from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
@@ -83,8 +83,8 @@ cdef extern from "plasma/client.h" nogil:
                        const uint8_t* metadata, int64_t metadata_size,
                        const shared_ptr[CBuffer]* data)
 
-        CStatus Get(const CUniqueID* object_ids, int64_t num_objects,
-                    int64_t timeout_ms, CObjectBuffer* object_buffers)
+        CStatus Get(const c_vector[CUniqueID] object_ids, int64_t timeout_ms,
+                    c_vector[CObjectBuffer]* object_buffers)
 
         CStatus Seal(const CUniqueID& object_id)
 
@@ -117,9 +117,7 @@ cdef extern from "plasma/client.h" nogil:
 cdef extern from "plasma/client.h" nogil:
 
     cdef struct CObjectBuffer" plasma::ObjectBuffer":
-        int64_t data_size
         shared_ptr[CBuffer] data
-        int64_t metadata_size
         shared_ptr[CBuffer] metadata
 
 
@@ -239,21 +237,16 @@ cdef class PlasmaClient:
 
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
-        cdef c_vector[CUniqueID] ids
-        cdef ObjectID object_id
+        cdef:
+            c_vector[CUniqueID] ids
+            ObjectID object_id
+
         for object_id in object_ids:
             ids.push_back(object_id.data)
-        result[0].resize(ids.size())
         with nogil:
-            check_status(self.client.get().Get(ids.data(), ids.size(),
-                         timeout_ms, result[0].data()))
+            check_status(self.client.get().Get(ids, timeout_ms, result))
 
-    cdef _make_plasma_buffer(self, ObjectID object_id,
-                             shared_ptr[CBuffer] buffer, int64_t size):
-        result = PlasmaBuffer(object_id, self)
-        result.init(buffer)
-        return result
-
+    # XXX C++ API should instead expose some kind of CreateAuto()
     cdef _make_mutable_plasma_buffer(self, ObjectID object_id, uint8_t* data,
                                      int64_t size):
         cdef shared_ptr[CBuffer] buffer
@@ -332,11 +325,8 @@ cdef class PlasmaClient:
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
         result = []
         for i in range(object_buffers.size()):
-            if object_buffers[i].data_size != -1:
-                result.append(
-                    self._make_plasma_buffer(object_ids[i],
-                                             object_buffers[i].data,
-                                             object_buffers[i].data_size))
+            if object_buffers[i].data.get() != nullptr:
+                result.append(pyarrow_wrap_buffer(object_buffers[i].data))
             else:
                 result.append(None)
         return result
@@ -367,10 +357,10 @@ cdef class PlasmaClient:
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
         result = []
         for i in range(object_buffers.size()):
-            result.append(
-                self._make_plasma_buffer(object_ids[i],
-                                         object_buffers[i].metadata,
-                                         object_buffers[i].metadata_size))
+            if object_buffers[i].metadata.get() != nullptr:
+                result.append(pyarrow_wrap_buffer(object_buffers[i].metadata))
+            else:
+                result.append(None)
         return result
 
     def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,

@@ -80,6 +80,49 @@ TEST_F(TestCudaBuffer, CopyFromHost) {
   AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
 }
 
+TEST_F(TestCudaBuffer, FromBuffer) {
+  const int64_t kSize = 1000;
+  // Initialize device buffer with random data
+  std::shared_ptr<PoolBuffer> host_buffer;
+  std::shared_ptr<CudaBuffer> device_buffer;
+  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
+  ASSERT_OK(test::MakeRandomBytePoolBuffer(kSize, default_memory_pool(), &host_buffer));
+  ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), 1000));
+  // Sanity check
+  AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
+
+  // Get generic Buffer from device buffer
+  std::shared_ptr<Buffer> buffer;
+  std::shared_ptr<CudaBuffer> result;
+  buffer = std::static_pointer_cast<Buffer>(device_buffer);
+  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_EQ(result->size(), kSize);
+  ASSERT_EQ(result->is_mutable(), true);
+  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
+  AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
+
+  buffer = SliceBuffer(device_buffer, 0, kSize);
+  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_EQ(result->size(), kSize);
+  ASSERT_EQ(result->is_mutable(), false);
+  AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
+
+  buffer = SliceMutableBuffer(device_buffer, 0, kSize);
+  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_EQ(result->size(), kSize);
+  ASSERT_EQ(result->is_mutable(), true);
+  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
+  AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
+
+  buffer = SliceMutableBuffer(device_buffer, 3, kSize - 10);
+  buffer = SliceMutableBuffer(buffer, 8, kSize - 20);
+  ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
+  ASSERT_EQ(result->size(), kSize - 20);
+  ASSERT_EQ(result->is_mutable(), true);
+  ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
+  AssertCudaBufferEquals(*result, host_buffer->data() + 11, kSize - 20);
+}
+
 // IPC only supported on Linux
 #if defined(__linux)
 

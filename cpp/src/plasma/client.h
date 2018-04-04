@@ -25,9 +25,11 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "plasma/common.h"
 #ifdef PLASMA_GPU
@@ -48,12 +50,8 @@ constexpr int64_t kL3CacheSizeBytes = 100000000;
 struct ObjectBuffer {
   /// The data buffer.
   std::shared_ptr<Buffer> data;
-  /// The size in bytes of the data object.
-  int64_t data_size;
   /// The metadata buffer.
   std::shared_ptr<Buffer> metadata;
-  /// The metadata size in bytes.
-  int64_t metadata_size;
   /// The device number.
   int device_num;
 };
@@ -121,31 +119,47 @@ class ARROW_EXPORT PlasmaClient {
   ///        device_num = 1 corresponds to GPU0,
   ///        device_num = 2 corresponds to GPU1, etc.
   /// \return The return status.
-  Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
+  ///
+  /// The returned object must be released once it is done with.  It must also
+  /// be either sealed or aborted.
+  Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
+
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
-  /// timeout
-  /// expires. The caller is responsible for releasing any retrieved objects,
-  /// but
-  /// the caller should not release objects that were not retrieved.
+  /// timeout expires.
+  ///
+  /// \param object_ids The IDs of the objects to get.
+  /// \param timeout_ms The amount of time in milliseconds to wait before this
+  ///        request times out. If this value is -1, then no timeout is set.
+  /// \param[out] object_buffers The object results.
+  /// \return The return status.
+  ///
+  /// If an object was not retrieved, the corresponding metadata and data
+  /// fields in the ObjectBuffer structure will evaluate to false.
+  /// Objects are automatically released by the client when their buffers
+  /// get out of scope.
+  Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
+             std::vector<ObjectBuffer>* object_buffers);
+
+  /// Deprecated variant of Get() that doesn't automatically release buffers
+  /// when they get out of scope.
   ///
   /// \param object_ids The IDs of the objects to get.
   /// \param num_objects The number of object IDs to get.
   /// \param timeout_ms The amount of time in milliseconds to wait before this
   ///        request times out. If this value is -1, then no timeout is set.
-  /// \param object_buffers An array where the results will be stored. If the
-  /// data
-  ///        size field is -1, then the object was not retrieved.
+  /// \param object_buffers An array where the results will be stored.
   /// \return The return status.
+  ///
+  /// The caller is responsible for releasing any retrieved objects, but it
+  /// should not release objects that were not retrieved.
   Status Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
              ObjectBuffer* object_buffers);
 
   /// Tell Plasma that the client no longer needs the object. This should be
-  /// called
-  /// after Get when the client is done with the object. After this call,
-  /// the address returned by Get is no longer valid. This should be called
-  /// once for each call to Get (with the same object ID).
+  /// called after Get() or Create() when the client is done with the object.
+  /// After this call, the buffer returned by Get() is no longer valid.
   ///
   /// \param object_id The ID of the object that is no longer needed.
   /// \return The return status.
@@ -328,6 +342,10 @@ class ARROW_EXPORT PlasmaClient {
   int get_manager_fd() const;
 
  private:
+  FRIEND_TEST(TestPlasmaStore, GetTest);
+  FRIEND_TEST(TestPlasmaStore, LegacyGetTest);
+  FRIEND_TEST(TestPlasmaStore, AbortTest);
+
   /// This is a helper method for unmapping objects for which all references have
   /// gone out of scope, either by calling Release or Abort.
   ///
@@ -339,6 +357,14 @@ class ARROW_EXPORT PlasmaClient {
   Status FlushReleaseHistory();
 
   Status PerformRelease(const ObjectID& object_id);
+
+  /// Common helper for Get() variants
+  Status GetBuffers(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
+                    const std::function<std::shared_ptr<Buffer>(
+                        const ObjectID&, const std::shared_ptr<Buffer>&)>& wrap_buffer,
+                    ObjectBuffer* object_buffers);
+
+  bool IsInUse(const ObjectID& object_id);
 
   uint8_t* lookup_or_mmap(int fd, int store_fd_val, int64_t map_size);
 
