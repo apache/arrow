@@ -713,7 +713,7 @@ class ParquetDataset(object):
         Check that individual file schemas are all the same / compatible
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
-                 metadata=None, split_row_groups=False, validate_schema=True):
+                 metadata=None, split_row_groups=False, validate_schema=True, filters=None):
         if filesystem is None:
             a_path = path_or_paths
             if isinstance(a_path, list):
@@ -743,6 +743,23 @@ class ParquetDataset(object):
 
         if validate_schema:
             self.validate_schemas()
+
+        if filters:
+            filtered_pieces = []
+            for piece in self.pieces:
+                for i, partition_key in enumerate(piece.partition_keys):
+                    part_column, part_value_index = partition_key
+                    for filter in filters:
+                        filt_column, filt_operator, filt_value = filter
+                        if filt_operator != '=':
+                            continue
+                        if filt_column == part_column and self.partitions.get_index(i, filt_column, filt_value) != part_value_index:
+                            break
+                    else:
+                        filtered_pieces.append(piece)
+            self.pieces = filtered_pieces
+
+
 
     def validate_schemas(self):
         open_file = self._get_open_file_func()
