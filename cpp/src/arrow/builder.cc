@@ -1399,14 +1399,14 @@ Status StringBuilder::Append(const std::vector<std::string>& values,
       RETURN_NOT_OK(AppendNextOffset());
       if (valid_bytes[i]) {
         RETURN_NOT_OK(value_data_builder_.Append(
-                        reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
+            reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
       }
     }
   } else {
     for (std::size_t i = 0; i < values.size(); ++i) {
       RETURN_NOT_OK(AppendNextOffset());
       RETURN_NOT_OK(value_data_builder_.Append(
-                      reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
+          reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
     }
   }
   UnsafeAppendToBitmap(valid_bytes, values.size());
