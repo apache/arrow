@@ -166,4 +166,59 @@ mod tests {
         let v: Vec<i32> = it.map(|n| n + 1).collect();
         assert_eq!(vec![2, 3, 4, 5, 6], v);
     }
+
+    #[test]
+    fn test_buffer_eq() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
+        let c = a.iter()
+            .zip(b.iter())
+            .map(|(a, b)| a == b)
+            .collect::<Vec<bool>>();
+        assert_eq!(c, vec![false, false, true, false, false]);
+    }
+
+    #[test]
+    fn test_buffer_lt() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
+        let c = a.iter()
+            .zip(b.iter())
+            .map(|(a, b)| a < b)
+            .collect::<Vec<bool>>();
+        assert_eq!(c, vec![true, true, false, false, false]);
+    }
+
+    #[test]
+    fn test_buffer_gt() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
+        let c = a.iter()
+            .zip(b.iter())
+            .map(|(a, b)| a > b)
+            .collect::<Vec<bool>>();
+        assert_eq!(c, vec![false, false, false, true, true]);
+    }
+
+    #[test]
+    fn test_buffer_add() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
+        let c = a.iter()
+            .zip(b.iter())
+            .map(|(a, b)| a + b)
+            .collect::<Vec<i32>>();
+        assert_eq!(c, vec![6, 6, 6, 6, 6]);
+    }
+
+    #[test]
+    fn test_buffer_multiply() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
+        let c = a.iter()
+            .zip(b.iter())
+            .map(|(a, b)| a * b)
+            .collect::<Vec<i32>>();
+        assert_eq!(c, vec![5, 8, 9, 8, 5]);
+    }
 }
