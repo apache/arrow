@@ -57,8 +57,8 @@ impl DataType {
                     ))),
                 },
                 Some(s) if s == "int" => match map.get("isSigned") {
-                    Some(Value::Bool(true)) => match map.get("bitWidth") {
-                        Some(Value::Number(n)) => match n.as_u64() {
+                    Some(&Value::Bool(true)) => match map.get("bitWidth") {
+                        Some(&Value::Number(ref n)) => match n.as_u64() {
                             Some(8) => Ok(DataType::Int8),
                             Some(16) => Ok(DataType::Int16),
                             Some(32) => Ok(DataType::Int32),
@@ -71,8 +71,8 @@ impl DataType {
                             "int bitWidth missing or invalid"
                         ))),
                     },
-                    Some(Value::Bool(false)) => match map.get("bitWidth") {
-                        Some(Value::Number(n)) => match n.as_u64() {
+                    Some(&Value::Bool(false)) => match map.get("bitWidth") {
+                        Some(&Value::Number(ref n)) => match n.as_u64() {
                             Some(8) => Ok(DataType::UInt8),
                             Some(16) => Ok(DataType::UInt16),
                             Some(32) => Ok(DataType::UInt32),
@@ -94,7 +94,7 @@ impl DataType {
                     other
                 ))),
                 None => match map.get("fields") {
-                    Some(Value::Array(fields_array)) => {
+                    Some(&Value::Array(ref fields_array)) => {
                         let fields = fields_array
                             .iter()
                             .map(|f| Field::from(f))
@@ -153,7 +153,7 @@ impl Field {
         match json {
             &Value::Object(ref map) => {
                 let name = match map.get("name") {
-                    Some(Value::String(name)) => name.to_string(),
+                    Some(&Value::String(ref name)) => name.to_string(),
                     _ => {
                         return Err(ArrowError::ParseError(format!(
                             "Field missing 'name' attribute"
@@ -161,7 +161,7 @@ impl Field {
                     }
                 };
                 let nullable = match map.get("nullable") {
-                    Some(Value::Bool(b)) => *b,
+                    Some(&Value::Bool(b)) => b,
                     _ => {
                         return Err(ArrowError::ParseError(format!(
                             "Field missing 'nullable' attribute"
