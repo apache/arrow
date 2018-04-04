@@ -28,6 +28,7 @@
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -207,7 +208,8 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   return Message::ReadFrom(metadata, file, message);
 }
 
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
+Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message,
+                   bool aligned) {
   int32_t message_length = 0;
   int64_t bytes_read = 0;
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
@@ -231,6 +233,16 @@ Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
     ss << "Expected to read " << message_length << " metadata bytes, but "
        << "only read " << metadata->size();
     return Status::Invalid(ss.str());
+  }
+
+  // If requested, align the file before reading the message.
+  if (aligned) {
+    int64_t offset;
+    RETURN_NOT_OK(file->Tell(&offset));
+    int64_t aligned_offset = PaddedLength(offset);
+    int64_t num_extra_bytes = aligned_offset - offset;
+    std::shared_ptr<Buffer> dummy_buffer;
+    RETURN_NOT_OK(file->Read(num_extra_bytes, &dummy_buffer));
   }
 
   return Message::ReadFrom(metadata, file, message);
