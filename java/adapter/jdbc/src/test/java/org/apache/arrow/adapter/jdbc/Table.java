@@ -19,7 +19,7 @@
 package org.apache.arrow.adapter.jdbc;
 
 /**
- *
+ * POJO to handle the YAML data from the test YAML file.
  */
 public class Table {
 

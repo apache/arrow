@@ -23,6 +23,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.Table;
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.After;
 import org.junit.Before;
@@ -42,6 +43,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
     private Connection conn = null;
     private ObjectMapper mapper = null;
+
 
     @Before
     public void setUp() throws Exception {
@@ -71,10 +73,11 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                         this.getClass().getClassLoader().getResourceAsStream("h2/test1_int_h2.yml"),
                         Table.class);
 
+        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         try {
             createTestData(conn, table);
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
 
             int[] values = {
                     101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101,
@@ -82,7 +85,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             assertIntVectorValues(root.getVector("INT_FIELD1"), 15, values);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw e;
         } finally {
             deleteTestData(conn, table);
         }
@@ -96,11 +99,12 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                 mapper.readValue(
                         this.getClass().getClassLoader().getResourceAsStream("h2/test1_bool_h2.yml"),
                         Table.class);
+        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
 
         try {
             createTestData(conn, table);
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
 
             int[] bools = {
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
@@ -122,11 +126,11 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                 mapper.readValue(
                         this.getClass().getClassLoader().getResourceAsStream("h2/test1_tinyint_h2.yml"),
                         Table.class);
-
+        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         try {
             createTestData(conn, table);
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
 
             int[] tinyints = {
                     45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
@@ -148,11 +152,11 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                 mapper.readValue(
                         this.getClass().getClassLoader().getResourceAsStream("h2/test1_smallint_h2.yml"),
                         Table.class);
-
+        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         try {
             createTestData(conn, table);
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
 
             int[] smallints = {
                     12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000
@@ -174,11 +178,11 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                 mapper.readValue(
                         this.getClass().getClassLoader().getResourceAsStream("h2/test1_bigint_h2.yml"),
                         Table.class);
-
+        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         try {
             createTestData(conn, table);
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
 
             int[] bigints = {
                     92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720,
@@ -202,10 +206,11 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                         this.getClass().getClassLoader().getResourceAsStream("h2/test1_all_datatypes_h2.yml"),
                         Table.class);
 
+        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         try {
             createTestData(conn, table);
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery());
+            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
 
             int[] ints = {
                     101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101

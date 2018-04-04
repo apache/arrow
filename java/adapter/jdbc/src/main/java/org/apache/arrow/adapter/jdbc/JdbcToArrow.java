@@ -21,7 +21,12 @@ package org.apache.arrow.adapter.jdbc;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
-import java.sql.*;
+import com.google.common.base.Preconditions;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.ResultSet;
 
 /**
  * Utility class to convert JDBC objects to columnar Arrow format objects.
@@ -54,7 +59,6 @@ import java.sql.*;
  * BLOB --> ArrowType.Binary
  *
  * @since 0.10.0
- * @see ArrowDataFetcher
  */
 public class JdbcToArrow {
 
@@ -64,53 +68,48 @@ public class JdbcToArrow {
      * @param connection Database connection to be used. This method will not close the passed connection object. Since hte caller has passed
      *                   the connection object it's the responsibility of the caller to close or return the connection to the pool.
      * @param query The DB Query to fetch the data.
-     * @return
-     * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statment objects.
+     * @return Arrow Data Objects {@link VectorSchemaRoot}
+     * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statement objects.
      */
-    public static VectorSchemaRoot sqlToArrow(Connection connection, String query) throws Exception {
+    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, RootAllocator rootAllocator) throws SQLException {
+        Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
+        Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
 
-        assert connection != null: "JDBC conncetion object can not be null";
-        assert query != null && query.length() > 0: "SQL query can not be null or empty";
-
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-
-        Statement stmt = null;
-        ResultSet rs = null;
-        try {
-            stmt = connection.createStatement();
-            rs = stmt.executeQuery(query);
-            ResultSetMetaData rsmd = rs.getMetaData();
-            VectorSchemaRoot root = VectorSchemaRoot.create(
-                    JdbcToArrowUtils.jdbcToArrowSchema(rsmd), rootAllocator);
-            JdbcToArrowUtils.jdbcToArrowVectors(rs, root);
-            return root;
-        } catch (Exception exc) {
-            // just throw it out after logging
-            throw exc;
-        } finally {
-            if (rs != null) {
-                rs.close();
-            }
-            if (stmt != null) {
-                stmt.close(); // test
-            }
+        try (Statement stmt = connection.createStatement()) {
+            return sqlToArrow(stmt.executeQuery(query), rootAllocator);
         }
     }
 
     /**
-     * This method returns ArrowDataFetcher Object that can be used to fetch and iterate on the data in the given
-     * database table.
+     * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
      *
-     * @param connection - Database connection Object
-     * @param tableName - Table name from which records will be fetched
-     *
-     * @return ArrowDataFetcher - Instance of ArrowDataFetcher which can be used to get Arrow Vector obejcts by calling its functionality
+     * @param resultSet
+     * @return Arrow Data Objects {@link VectorSchemaRoot}
+     * @throws Exception
      */
-    public static ArrowDataFetcher jdbcArrowDataFetcher(Connection connection, String tableName) {
-        assert connection != null: "JDBC conncetion object can not be null";
-        assert tableName != null && tableName.length() > 0: "Table name can not be null or empty";
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException {
+        Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
 
-        return new ArrowDataFetcher(connection, tableName);
+        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
+        VectorSchemaRoot root = sqlToArrow(resultSet, rootAllocator);
+        rootAllocator.close();
+        return root;
     }
 
+    /**
+     * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+     *
+     * @param resultSet
+     * @return Arrow Data Objects {@link VectorSchemaRoot}
+     * @throws Exception
+     */
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, RootAllocator rootAllocator) throws SQLException {
+        Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+        Preconditions.checkNotNull(rootAllocator, "Root Allocator object can not be null");
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(
+                JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData()), rootAllocator);
+        JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root);
+        return root;
+    }
 }
