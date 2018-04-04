@@ -324,6 +324,14 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
   }
 }
 
+void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected) {
+  ASSERT_EQ(buffer.size(), expected.size());
+  const uint8_t* buffer_data = buffer.data();
+  for (size_t i = 0; i < expected.size(); ++i) {
+    ASSERT_EQ(buffer_data[i], expected[i]);
+  }
+}
+
 void PrintColumn(const Column& col, std::stringstream* ss) {
   const ChunkedArray& carr = *col.data();
   for (int i = 0; i < carr.num_chunks(); ++i) {

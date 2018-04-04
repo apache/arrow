@@ -98,7 +98,34 @@ CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t 
     : Buffer(parent, offset, size),
       context_(parent->context()),
       own_data_(false),
-      is_ipc_(false) {}
+      is_ipc_(false) {
+  if (parent->is_mutable()) {
+    is_mutable_ = true;
+    mutable_data_ = const_cast<uint8_t*>(data_);
+  }
+}
+
+Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
+                              std::shared_ptr<CudaBuffer>* out) {
+  int64_t offset = 0, size = buffer->size();
+  bool is_mutable = buffer->is_mutable();
+  // The original CudaBuffer may have been wrapped in another Buffer
+  // (for example through slicing).
+  while (!(*out = std::dynamic_pointer_cast<CudaBuffer>(buffer))) {
+    const std::shared_ptr<Buffer> parent = buffer->parent();
+    if (!parent) {
+      return Status::TypeError("buffer is not backed by a CudaBuffer");
+    }
+    offset += buffer->data() - parent->data();
+    buffer = parent;
+  }
+  // Re-slice to represent the same memory area
+  if (offset != 0 || (*out)->size() != size || !is_mutable) {
+    *out = std::make_shared<CudaBuffer>(*out, offset, size);
+    (*out)->is_mutable_ = is_mutable;
+  }
+  return Status::OK();
+}
 
 Status CudaBuffer::CopyToHost(const int64_t position, const int64_t nbytes,
                               void* out) const {
@@ -129,8 +156,13 @@ CudaHostBuffer::~CudaHostBuffer() {
 // ----------------------------------------------------------------------
 // CudaBufferReader
 
-CudaBufferReader::CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer)
-    : io::BufferReader(buffer), cuda_buffer_(buffer), context_(buffer->context()) {}
+CudaBufferReader::CudaBufferReader(const std::shared_ptr<Buffer>& buffer)
+    : io::BufferReader(buffer) {
+  if (!CudaBuffer::FromBuffer(buffer, &cuda_buffer_).ok()) {
+    throw std::bad_cast();
+  }
+  context_ = cuda_buffer_->context();
+}
 
 CudaBufferReader::~CudaBufferReader() {}
 
