@@ -149,7 +149,6 @@ impl Field {
         }
     }
 
-
     pub fn from(json: &Value) -> Result<Self, ArrowError> {
         //println!("Field::from({:?}", json);
         match json {
@@ -203,12 +202,10 @@ impl Field {
     }
 }
 
-
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}: {:?}", self.name, self.data_type)
     }
-
 }
 
 #[derive(Debug, Clone)]
