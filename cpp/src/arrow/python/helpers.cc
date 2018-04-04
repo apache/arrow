@@ -17,6 +17,8 @@
 
 #include <limits>
 #include <sstream>
+#include <type_traits>
+#include <typeinfo>
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
@@ -99,6 +101,7 @@ Status PyUnicode_AsStdString(PyObject* obj, std::string* out) {
 }
 
 std::string PyObject_StdStringRepr(PyObject* obj) {
+#if PY_MAJOR_VERSION >= 3
   OwnedRef unicode_ref(PyObject_Repr(obj));
   OwnedRef bytes_ref;
 
@@ -106,18 +109,27 @@ std::string PyObject_StdStringRepr(PyObject* obj) {
     bytes_ref.reset(
         PyUnicode_AsEncodedString(unicode_ref.obj(), "utf8", "backslashreplace"));
   }
+#else
+  OwnedRef bytes_ref(PyObject_Repr(obj));
   if (!bytes_ref) {
     PyErr_Clear();
     std::stringstream ss;
     ss << "<object of type '" << Py_TYPE(obj)->tp_name << "' repr() failed>";
     return ss.str();
   }
+#endif
   return PyBytes_AsStdString(bytes_ref.obj());
 }
 
 Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
-  OwnedRef unicode_ref(PyObject_Str(obj));
-  return PyUnicode_AsStdString(unicode_ref.obj(), out);
+  OwnedRef string_ref(PyObject_Str(obj));
+  RETURN_IF_PYERROR();
+#if PY_MAJOR_VERSION >= 3
+  return PyUnicode_AsStdString(string_ref.obj(), out);
+#else
+  *out = PyBytes_AsStdString(string_ref.obj());
+  return Status::OK();
+#endif
 }
 
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
@@ -214,10 +226,50 @@ Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid,
 
 namespace {
 
-template <typename UInt>
-Status UnsignedIntFromPython(PyObject* obj, UInt* out) {
-  static_assert(std::is_unsigned<UInt>::value, "requires unsigned integer type");
-  static_assert(sizeof(UInt) <= sizeof(unsigned long long),  // NOLINT
+Status IntegerOverflowStatus(const std::string& overflow_message) {
+  if (overflow_message.empty()) {
+    return Status::Invalid("Value too large to fit in C integer type");
+  } else {
+    return Status::Invalid(overflow_message);
+  }
+}
+
+// Extract C signed int from Python object
+template <typename Int,
+          typename std::enable_if<std::is_signed<Int>::value, Int>::type = 0>
+Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
+  static_assert(sizeof(Int) <= sizeof(long long),  // NOLINT
+                "integer type larger than long long");
+
+  if (sizeof(Int) > sizeof(long)) {  // NOLINT
+    const auto value = PyLong_AsLongLong(obj);
+    if (ARROW_PREDICT_FALSE(value == -1)) {
+      RETURN_IF_PYERROR();
+    }
+    if (ARROW_PREDICT_FALSE(value < std::numeric_limits<Int>::min() ||
+                            value > std::numeric_limits<Int>::max())) {
+      return IntegerOverflowStatus(overflow_message);
+    }
+    *out = static_cast<Int>(value);
+  } else {
+    const auto value = PyLong_AsLong(obj);
+    if (ARROW_PREDICT_FALSE(value == -1)) {
+      RETURN_IF_PYERROR();
+    }
+    if (ARROW_PREDICT_FALSE(value < std::numeric_limits<Int>::min() ||
+                            value > std::numeric_limits<Int>::max())) {
+      return IntegerOverflowStatus(overflow_message);
+    }
+    *out = static_cast<Int>(value);
+  }
+  return Status::OK();
+}
+
+// Extract C unsigned int from Python object
+template <typename Int,
+          typename std::enable_if<std::is_unsigned<Int>::value, Int>::type = 0>
+Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
+  static_assert(sizeof(Int) <= sizeof(unsigned long long),  // NOLINT
                 "integer type larger than unsigned long long");
 
   OwnedRef ref;
@@ -230,60 +282,22 @@ Status UnsignedIntFromPython(PyObject* obj, UInt* out) {
     }
     obj = ref.obj();
   }
-  if (sizeof(UInt) > sizeof(unsigned long)) {  // NOLINT
+  if (sizeof(Int) > sizeof(unsigned long)) {  // NOLINT
     const auto value = PyLong_AsUnsignedLongLong(obj);
     if (ARROW_PREDICT_FALSE(value == static_cast<decltype(value)>(-1))) {
       RETURN_IF_PYERROR();
     }
-    if (ARROW_PREDICT_FALSE(value > std::numeric_limits<UInt>::max())) {
-      std::stringstream ss;
-      ss << "value too large to fit in " << typeid(UInt).name();
-      return Status::Invalid(ss.str());
+    if (ARROW_PREDICT_FALSE(value > std::numeric_limits<Int>::max())) {
+      return IntegerOverflowStatus(overflow_message);
     }
-    *out = static_cast<UInt>(value);
+    *out = static_cast<Int>(value);
   } else {
     const auto value = PyLong_AsUnsignedLong(obj);
     if (ARROW_PREDICT_FALSE(value == static_cast<decltype(value)>(-1))) {
       RETURN_IF_PYERROR();
     }
-    if (ARROW_PREDICT_FALSE(value > std::numeric_limits<UInt>::max())) {
-      std::stringstream ss;
-      ss << "value too large to fit in " << typeid(UInt).name();
-      return Status::Invalid(ss.str());
-    }
-    *out = static_cast<UInt>(value);
-  }
-  return Status::OK();
-}
-
-template <typename Int>
-Status SignedIntFromPython(PyObject* obj, Int* out) {
-  static_assert(std::is_signed<Int>::value, "requires signed integer type");
-  static_assert(sizeof(Int) <= sizeof(long long),  // NOLINT
-                "integer type larger than long long");
-
-  if (sizeof(Int) > sizeof(long)) {  // NOLINT
-    const auto value = PyLong_AsLongLong(obj);
-    if (ARROW_PREDICT_FALSE(value == -1)) {
-      RETURN_IF_PYERROR();
-    }
-    if (ARROW_PREDICT_FALSE(value < std::numeric_limits<Int>::min() ||
-                            value > std::numeric_limits<Int>::max())) {
-      std::stringstream ss;
-      ss << "value too large to fit in " << typeid(Int).name();
-      return Status::Invalid(ss.str());
-    }
-    *out = static_cast<Int>(value);
-  } else {
-    const auto value = PyLong_AsLong(obj);
-    if (ARROW_PREDICT_FALSE(value == -1)) {
-      RETURN_IF_PYERROR();
-    }
-    if (ARROW_PREDICT_FALSE(value < std::numeric_limits<Int>::min() ||
-                            value > std::numeric_limits<Int>::max())) {
-      std::stringstream ss;
-      ss << "value too large to fit in " << typeid(Int).name();
-      return Status::Invalid(ss.str());
+    if (ARROW_PREDICT_FALSE(value > std::numeric_limits<Int>::max())) {
+      return IntegerOverflowStatus(overflow_message);
     }
     *out = static_cast<Int>(value);
   }
@@ -292,37 +306,22 @@ Status SignedIntFromPython(PyObject* obj, Int* out) {
 
 }  // namespace
 
-Status UInt8FromPythonInt(PyObject* obj, uint8_t* out) {
-  return UnsignedIntFromPython(obj, out);
+template <typename Int>
+Status CIntFromPython(PyObject* obj, Int* out, const std::string& overflow_message) {
+  if (PyBool_Check(obj)) {
+    return Status::TypeError("Expected integer, got bool");
+  }
+  return CIntFromPythonImpl(obj, out, overflow_message);
 }
 
-Status UInt16FromPythonInt(PyObject* obj, uint16_t* out) {
-  return UnsignedIntFromPython(obj, out);
-}
-
-Status UInt32FromPythonInt(PyObject* obj, uint32_t* out) {
-  return UnsignedIntFromPython(obj, out);
-}
-
-Status UInt64FromPythonInt(PyObject* obj, uint64_t* out) {
-  return UnsignedIntFromPython(obj, out);
-}
-
-Status Int8FromPythonInt(PyObject* obj, int8_t* out) {
-  return SignedIntFromPython(obj, out);
-}
-
-Status Int16FromPythonInt(PyObject* obj, int16_t* out) {
-  return SignedIntFromPython(obj, out);
-}
-
-Status Int32FromPythonInt(PyObject* obj, int32_t* out) {
-  return SignedIntFromPython(obj, out);
-}
-
-Status Int64FromPythonInt(PyObject* obj, int64_t* out) {
-  return SignedIntFromPython(obj, out);
-}
+template Status CIntFromPython(PyObject*, int8_t*, const std::string&);
+template Status CIntFromPython(PyObject*, int16_t*, const std::string&);
+template Status CIntFromPython(PyObject*, int32_t*, const std::string&);
+template Status CIntFromPython(PyObject*, int64_t*, const std::string&);
+template Status CIntFromPython(PyObject*, uint8_t*, const std::string&);
+template Status CIntFromPython(PyObject*, uint16_t*, const std::string&);
+template Status CIntFromPython(PyObject*, uint32_t*, const std::string&);
+template Status CIntFromPython(PyObject*, uint64_t*, const std::string&);
 
 }  // namespace internal
 }  // namespace py

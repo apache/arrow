@@ -429,83 +429,15 @@ class BoolConverter : public TypedConverterVisitor<BooleanBuilder, BoolConverter
   }
 };
 
-class Int8Converter : public TypedConverterVisitor<Int8Builder, Int8Converter> {
+template <typename IntType>
+class TypedIntConverter
+    : public TypedConverterVisitor<NumericBuilder<IntType>, TypedIntConverter<IntType>> {
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    int8_t value;
-    RETURN_NOT_OK(internal::Int8FromPythonInt(obj, &value));
-    return typed_builder_->Append(value);
-  }
-};
-
-class Int16Converter : public TypedConverterVisitor<Int16Builder, Int16Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    int16_t value;
-    RETURN_NOT_OK(internal::Int16FromPythonInt(obj, &value));
-    return typed_builder_->Append(value);
-  }
-};
-
-class Int32Converter : public TypedConverterVisitor<Int32Builder, Int32Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    int32_t value;
-    RETURN_NOT_OK(internal::Int32FromPythonInt(obj, &value));
-    return typed_builder_->Append(value);
-  }
-};
-
-class Int64Converter : public TypedConverterVisitor<Int64Builder, Int64Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    int64_t value;
-    RETURN_NOT_OK(internal::Int64FromPythonInt(obj, &value));
-    return typed_builder_->Append(value);
-  }
-};
-
-class UInt8Converter : public TypedConverterVisitor<UInt8Builder, UInt8Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    uint8_t value;
-    RETURN_NOT_OK(internal::UInt8FromPythonInt(obj, &value));
-    return typed_builder_->Append(value);
-  }
-};
-
-class UInt16Converter : public TypedConverterVisitor<UInt16Builder, UInt16Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    uint16_t value;
-    RETURN_NOT_OK(internal::UInt16FromPythonInt(obj, &value));
-    return typed_builder_->Append(value);
-  }
-};
-
-class UInt32Converter : public TypedConverterVisitor<UInt32Builder, UInt32Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    uint32_t value;
-    RETURN_NOT_OK(internal::UInt32FromPythonInt(obj, &value));
-    return typed_builder_->Append(value);
-  }
-};
-
-class UInt64Converter : public TypedConverterVisitor<UInt64Builder, UInt64Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    uint64_t val;
-    RETURN_NOT_OK(internal::UInt64FromPythonInt(obj, &val));
-    return typed_builder_->Append(val);
+    typename IntType::c_type value;
+    RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
+    return this->typed_builder_->Append(value);
   }
 };
 
@@ -518,12 +450,7 @@ class Date32Converter : public TypedConverterVisitor<Date32Builder, Date32Conver
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       t = static_cast<int32_t>(PyDate_to_s(pydate));
     } else {
-      const auto casted_val = static_cast<int64_t>(PyLong_AsLongLong(obj));
-      RETURN_IF_PYERROR();
-      if (casted_val > std::numeric_limits<int32_t>::max()) {
-        return Status::Invalid("Integer as date32 larger than INT32_MAX");
-      }
-      t = static_cast<int32_t>(casted_val);
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
     }
     return typed_builder_->Append(t);
   }
@@ -538,8 +465,7 @@ class Date64Converter : public TypedConverterVisitor<Date64Builder, Date64Conver
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       t = PyDate_to_ms(pydate);
     } else {
-      t = static_cast<int64_t>(PyLong_AsLongLong(obj));
-      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date64"));
     }
     return typed_builder_->Append(t);
   }
@@ -590,8 +516,7 @@ class TimestampConverter
 
       t = reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
     } else {
-      t = static_cast<int64_t>(PyLong_AsLongLong(obj));
-      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t));
     }
     return typed_builder_->Append(t);
   }
@@ -756,21 +681,21 @@ std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
     case Type::BOOL:
       return std::unique_ptr<SeqConverter>(new BoolConverter);
     case Type::INT8:
-      return std::unique_ptr<SeqConverter>(new Int8Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int8Type>);
     case Type::INT16:
-      return std::unique_ptr<SeqConverter>(new Int16Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int16Type>);
     case Type::INT32:
-      return std::unique_ptr<SeqConverter>(new Int32Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int32Type>);
     case Type::INT64:
-      return std::unique_ptr<SeqConverter>(new Int64Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int64Type>);
     case Type::UINT8:
-      return std::unique_ptr<SeqConverter>(new UInt8Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt8Type>);
     case Type::UINT16:
-      return std::unique_ptr<SeqConverter>(new UInt16Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt16Type>);
     case Type::UINT32:
-      return std::unique_ptr<SeqConverter>(new UInt32Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt32Type>);
     case Type::UINT64:
-      return std::unique_ptr<SeqConverter>(new UInt64Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt64Type>);
     case Type::DATE32:
       return std::unique_ptr<SeqConverter>(new Date32Converter);
     case Type::DATE64:

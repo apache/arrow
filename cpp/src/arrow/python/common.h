@@ -35,9 +35,9 @@ class MemoryPool;
 
 namespace py {
 
-Status CheckPyError(StatusCode code = StatusCode::UnknownError);
+ARROW_EXPORT Status CheckPyError(StatusCode code = StatusCode::UnknownError);
 
-Status PassPyError();
+ARROW_EXPORT Status PassPyError();
 
 // TODO(wesm): We can just let errors pass through. To be explored later
 #define RETURN_IF_PYERROR() RETURN_NOT_OK(CheckPyError());

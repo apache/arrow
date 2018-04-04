@@ -930,15 +930,10 @@ Status NumPyConverter::ConvertObjectIntegers() {
     obj = objects[i];
     if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
-    } else if (PyObject_is_integer(obj)) {
-      const int64_t val = static_cast<int64_t>(PyLong_AsLong(obj));
-      RETURN_IF_PYERROR();
-      RETURN_NOT_OK(builder.Append(val));
     } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Int64: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "integer", &ss));
-      return Status::Invalid(ss.str());
+      int64_t val;
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &val));
+      RETURN_NOT_OK(builder.Append(val));
     }
   }
 

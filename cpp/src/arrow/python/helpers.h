@@ -85,14 +85,8 @@ inline bool IsPyBinary(PyObject* obj) {
 // \param[in] obj A Python integer
 // \param[out] out A pointer to a C integer to hold the result of the conversion
 // \return The status of the operation
-Status Int8FromPythonInt(PyObject* obj, int8_t* out);
-Status Int16FromPythonInt(PyObject* obj, int16_t* out);
-Status Int32FromPythonInt(PyObject* obj, int32_t* out);
-Status Int64FromPythonInt(PyObject* obj, int64_t* out);
-Status UInt8FromPythonInt(PyObject* obj, uint8_t* out);
-Status UInt16FromPythonInt(PyObject* obj, uint16_t* out);
-Status UInt32FromPythonInt(PyObject* obj, uint32_t* out);
-Status UInt64FromPythonInt(PyObject* obj, uint64_t* out);
+template <typename Int>
+Status CIntFromPython(PyObject* obj, Int* out, const std::string& overflow_message = "");
 
 // \brief Convert a Python unicode string to a std::string
 Status PyUnicode_AsStdString(PyObject* obj, std::string* out);
