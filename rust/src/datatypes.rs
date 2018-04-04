@@ -133,12 +133,6 @@ impl DataType {
     }
 }
 
-impl fmt::Display for DataType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_json())
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
     pub name: String,
