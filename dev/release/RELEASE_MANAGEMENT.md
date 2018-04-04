@@ -157,9 +157,15 @@ The pip binary packages (called "wheels") are generated from the
 * Download all wheel and tar.gz files from the new BinTray package version
   ([example][4])
 
-Now, you can finally upload the wheels to PyPI using the `twine` CLI tool. You
-must be permissioned on PyPI to upload here; ask Wes McKinney or Uwe Korn if
-you need help with this.
+
+Now, you can finally upload the wheels to PyPI using the `twine` CLI tool. 
+Please make sure you use `twine>=1.11.0`. This supports the markdown 
+long description in setup.py which also requires `setuptools>=38.6.0`. 
+`setuptools` is handled in previous steps by the `.travis.yml` and 
+`appveyor.yml` build configurations. 
+
+You must be permissioned on PyPI to upload here; ask Wes McKinney or Uwe Korn 
+if you need help with this.
 
 #### Updating conda packages
 
