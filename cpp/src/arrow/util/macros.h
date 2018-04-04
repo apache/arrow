@@ -96,7 +96,7 @@
 
 // ----------------------------------------------------------------------
 // From googletest
-// XXX also in parquet-cpp
+// (also in parquet-cpp)
 
 // When you need to test the private or protected members of a class,
 // use the FRIEND_TEST macro to declare your tests as friends of the

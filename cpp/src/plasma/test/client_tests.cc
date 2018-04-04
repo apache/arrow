@@ -68,7 +68,7 @@ class TestPlasmaStore : public ::testing::Test {
     ARROW_CHECK_OK(client_.Disconnect());
     ARROW_CHECK_OK(client2_.Disconnect());
     // Kill all plasma_store processes
-    // XXX should only kill the processes we launched
+    // TODO should only kill the processes we launched
     system("killall -9 plasma_store");
   }
 
