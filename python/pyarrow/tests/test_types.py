@@ -230,6 +230,19 @@ def test_exact_primitive_types(t, check_func):
     assert check_func(t)
 
 
+def test_bit_width():
+    for ty, expected in [(pa.bool_(), 1),
+                         (pa.int8(), 8),
+                         (pa.uint32(), 32),
+                         (pa.float16(), 16),
+                         (pa.decimal128(19, 4), 128),
+                         (pa.binary(42), 42 * 8)]:
+        assert ty.bit_width == expected
+    for ty in [pa.binary(), pa.string(), pa.list_(pa.int16())]:
+        with pytest.raises(ValueError, match="fixed width"):
+            ty.bit_width
+
+
 def test_fixed_size_binary_byte_width():
     ty = pa.binary(5)
     assert ty.byte_width == 5
