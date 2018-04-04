@@ -465,7 +465,7 @@ class TestFeatherReader(unittest.TestCase):
 
         # non-strings
         df = pd.DataFrame({'a': ['a', 1, 2.0]})
-        self._assert_error_on_write(df, ValueError)
+        self._assert_error_on_write(df, TypeError)
 
     @pytest.mark.slow
     def test_large_dataframe(self):

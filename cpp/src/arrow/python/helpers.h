@@ -20,6 +20,7 @@
 
 #include "arrow/python/platform.h"
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -63,6 +64,72 @@ Status ImportModule(const std::string& module_name, OwnedRef* ref);
 // module
 Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRef* ref);
 
+// \brief Check whether obj is an integer, independent of Python versions.
+inline bool IsPyInteger(PyObject* obj) {
+#if PYARROW_IS_PY2
+  return PyLong_Check(obj) || PyInt_Check(obj);
+#else
+  return PyLong_Check(obj);
+#endif
+}
+
+// \brief Use pandas missing value semantics to check if a value is null
+bool PandasObjectIsNull(PyObject* obj);
+
+// \brief Check whether obj is nan
+bool PyFloat_IsNaN(PyObject* obj);
+
+inline bool IsPyBinary(PyObject* obj) {
+  return PyBytes_Check(obj) || PyByteArray_Check(obj);
+}
+
+// \brief Convert a Python integer into a C integer
+// \param[in] obj A Python integer
+// \param[out] out A pointer to a C integer to hold the result of the conversion
+// \return The status of the operation
+Status Int8FromPythonInt(PyObject* obj, int8_t* out);
+Status Int16FromPythonInt(PyObject* obj, int16_t* out);
+Status Int32FromPythonInt(PyObject* obj, int32_t* out);
+Status Int64FromPythonInt(PyObject* obj, int64_t* out);
+Status UInt8FromPythonInt(PyObject* obj, uint8_t* out);
+Status UInt16FromPythonInt(PyObject* obj, uint16_t* out);
+Status UInt32FromPythonInt(PyObject* obj, uint32_t* out);
+Status UInt64FromPythonInt(PyObject* obj, uint64_t* out);
+
+// \brief Convert a Python unicode string to a std::string
+Status PyUnicode_AsStdString(PyObject* obj, std::string* out);
+
+// \brief Convert a Python bytes object to a std::string
+std::string PyBytes_AsStdString(PyObject* obj);
+
+// \brief Call str() on the given object and return the result as a std::string
+Status PyObject_StdStringStr(PyObject* obj, std::string* out);
+
+// \brief Return the repr() of the given object (always succeeds)
+std::string PyObject_StdStringRepr(PyObject* obj);
+
+// \brief Cast the given size to int32_t, with error checking
+inline Status CastSize(Py_ssize_t size, int32_t* out,
+                       const std::string& error_msg = "Maximum size exceeded (2GB)") {
+  // size is assumed to be positive
+  if (size > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid(error_msg);
+  }
+  *out = static_cast<int32_t>(size);
+  return Status::OK();
+}
+
+Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid = false,
+                     bool* is_full = nullptr);
+Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full = nullptr);
+Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
+                     bool* is_full = nullptr);
+
+//
+// Decimal helpers
+// XXX decimal.h?
+//
+
 // \brief Import
 Status ImportDecimalType(OwnedRef* decimal_type);
 
@@ -87,27 +154,12 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
 Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
                                 Decimal128* out);
 
-// \brief Check whether obj is an integer, independent of Python versions.
-bool IsPyInteger(PyObject* obj);
-
-// \brief Use pandas missing value semantics to check if a value is null
-bool PandasObjectIsNull(PyObject* obj);
-
-// \brief Check whether obj is nan
-bool PyFloat_IsNaN(PyObject* obj);
-
 // \brief Check whether obj is an instance of Decimal
 bool PyDecimal_Check(PyObject* obj);
 
 // \brief Check whether obj is nan. This function will abort the program if the argument
 // is not a Decimal instance
 bool PyDecimal_ISNAN(PyObject* obj);
-
-// \brief Convert a Python integer into an unsigned 64-bit integer
-// \param[in] obj A Python integer
-// \param[out] out A pointer to a C uint64_t to hold the result of the conversion
-// \return The status of the operation
-Status UInt64FromPythonInt(PyObject* obj, uint64_t* out);
 
 // \brief Helper class to track and update the precision and scale of a decimal
 class DecimalMetadata {

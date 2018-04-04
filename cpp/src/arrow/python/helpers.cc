@@ -78,6 +78,50 @@ Status PyFloat_AsHalf(PyObject* obj, npy_half* out) {
 
 namespace internal {
 
+std::string PyBytes_AsStdString(PyObject* obj) {
+  DCHECK(PyBytes_Check(obj));
+  return std::string(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj));
+}
+
+Status PyUnicode_AsStdString(PyObject* obj, std::string* out) {
+  DCHECK(PyUnicode_Check(obj));
+#if PY_MAJOR_VERSION >= 3
+  Py_ssize_t size;
+  // The utf-8 representation is cached on the unicode object
+  const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
+  RETURN_IF_PYERROR();
+  *out = std::string(data, size);
+  return Status::OK();
+#else
+  OwnedRef bytes_ref(PyUnicode_AsUTF8String(obj));
+  RETURN_IF_PYERROR();
+  *out = PyBytes_AsStdString(bytes_ref.obj());
+  return Status::OK();
+#endif
+}
+
+std::string PyObject_StdStringRepr(PyObject* obj) {
+  OwnedRef unicode_ref(PyObject_Repr(obj));
+  OwnedRef bytes_ref;
+
+  if (unicode_ref) {
+    bytes_ref.reset(
+        PyUnicode_AsEncodedString(unicode_ref.obj(), "utf8", "backslashreplace"));
+  }
+  if (!bytes_ref) {
+    PyErr_Clear();
+    std::stringstream ss;
+    ss << "<object of type '" << Py_TYPE(obj)->tp_name << "' repr() failed>";
+    return ss.str();
+  }
+  return PyBytes_AsStdString(bytes_ref.obj());
+}
+
+Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
+  OwnedRef unicode_ref(PyObject_Str(obj));
+  return PyUnicode_AsStdString(unicode_ref.obj(), out);
+}
+
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
   PyObject* module = PyImport_ImportModule(module_name.c_str());
   RETURN_IF_PYERROR();
@@ -97,6 +141,195 @@ Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRe
   return Status::OK();
 }
 
+Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
+  PyBytesView view;
+  // XXX For some reason, we must accept unicode objects here
+  RETURN_NOT_OK(PyBytesView::FromString(obj, &view));
+  int32_t length;
+  RETURN_NOT_OK(CastSize(view.size, &length));
+  // Did we reach the builder size limit?
+  if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+    if (is_full) {
+      *is_full = true;
+      return Status::OK();
+    } else {
+      return Status::Invalid("Maximum array size reached (2GB)");
+    }
+  }
+  RETURN_NOT_OK(builder->Append(view.bytes, length));
+  if (is_full) {
+    *is_full = false;
+  }
+  return Status::OK();
+}
+
+Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_full) {
+  PyBytesView view;
+  // XXX For some reason, we must accept unicode objects here
+  RETURN_NOT_OK(PyBytesView::FromString(obj, &view));
+  const auto expected_length =
+      static_cast<const FixedSizeBinaryType&>(*builder->type()).byte_width();
+  if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
+    std::stringstream ss;
+    ss << "Got bytestring of length " << view.size << " (expected " << expected_length
+       << ")";
+    return Status::Invalid(ss.str());
+  }
+  // Did we reach the builder size limit?
+  if (ARROW_PREDICT_FALSE(builder->value_data_length() + view.size >
+                          kBinaryMemoryLimit)) {
+    if (is_full) {
+      *is_full = true;
+      return Status::OK();
+    } else {
+      return Status::Invalid("Maximum array size reached (2GB)");
+    }
+  }
+  RETURN_NOT_OK(builder->Append(view.bytes));
+  if (is_full) {
+    *is_full = false;
+  }
+  return Status::OK();
+}
+
+Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid,
+                     bool* is_full) {
+  PyBytesView view;
+  RETURN_NOT_OK(PyBytesView::FromString(obj, &view, check_valid));
+  int32_t length;
+  RETURN_NOT_OK(CastSize(view.size, &length));
+  // Did we reach the builder size limit?
+  if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+    if (is_full) {
+      *is_full = true;
+      return Status::OK();
+    } else {
+      return Status::Invalid("Maximum array size reached (2GB)");
+    }
+  }
+  RETURN_NOT_OK(builder->Append(view.bytes, length));
+  if (is_full) {
+    *is_full = false;
+  }
+  return Status::OK();
+}
+
+namespace {
+
+template <typename UInt>
+Status UnsignedIntFromPython(PyObject* obj, UInt* out) {
+  static_assert(std::is_unsigned<UInt>::value, "requires unsigned integer type");
+  static_assert(sizeof(UInt) <= sizeof(unsigned long long),  // NOLINT
+                "integer type larger than unsigned long long");
+
+  OwnedRef ref;
+  // PyLong_AsUnsignedLong() and PyLong_AsUnsignedLongLong() don't handle
+  // conversion from non-ints (e.g. np.uint64), so do it ourselves
+  if (!PyLong_Check(obj)) {
+    ref.reset(PyNumber_Long(obj));
+    if (!ref) {
+      RETURN_IF_PYERROR();
+    }
+    obj = ref.obj();
+  }
+  if (sizeof(UInt) > sizeof(unsigned long)) {  // NOLINT
+    const auto value = PyLong_AsUnsignedLongLong(obj);
+    if (ARROW_PREDICT_FALSE(value == static_cast<decltype(value)>(-1))) {
+      RETURN_IF_PYERROR();
+    }
+    if (ARROW_PREDICT_FALSE(value > std::numeric_limits<UInt>::max())) {
+      std::stringstream ss;
+      ss << "value too large to fit in " << typeid(UInt).name();
+      return Status::Invalid(ss.str());
+    }
+    *out = static_cast<UInt>(value);
+  } else {
+    const auto value = PyLong_AsUnsignedLong(obj);
+    if (ARROW_PREDICT_FALSE(value == static_cast<decltype(value)>(-1))) {
+      RETURN_IF_PYERROR();
+    }
+    if (ARROW_PREDICT_FALSE(value > std::numeric_limits<UInt>::max())) {
+      std::stringstream ss;
+      ss << "value too large to fit in " << typeid(UInt).name();
+      return Status::Invalid(ss.str());
+    }
+    *out = static_cast<UInt>(value);
+  }
+  return Status::OK();
+}
+
+template <typename Int>
+Status SignedIntFromPython(PyObject* obj, Int* out) {
+  static_assert(std::is_signed<Int>::value, "requires signed integer type");
+  static_assert(sizeof(Int) <= sizeof(long long),  // NOLINT
+                "integer type larger than long long");
+
+  if (sizeof(Int) > sizeof(long)) {  // NOLINT
+    const auto value = PyLong_AsLongLong(obj);
+    if (ARROW_PREDICT_FALSE(value == -1)) {
+      RETURN_IF_PYERROR();
+    }
+    if (ARROW_PREDICT_FALSE(value < std::numeric_limits<Int>::min() ||
+                            value > std::numeric_limits<Int>::max())) {
+      std::stringstream ss;
+      ss << "value too large to fit in " << typeid(Int).name();
+      return Status::Invalid(ss.str());
+    }
+    *out = static_cast<Int>(value);
+  } else {
+    const auto value = PyLong_AsLong(obj);
+    if (ARROW_PREDICT_FALSE(value == -1)) {
+      RETURN_IF_PYERROR();
+    }
+    if (ARROW_PREDICT_FALSE(value < std::numeric_limits<Int>::min() ||
+                            value > std::numeric_limits<Int>::max())) {
+      std::stringstream ss;
+      ss << "value too large to fit in " << typeid(Int).name();
+      return Status::Invalid(ss.str());
+    }
+    *out = static_cast<Int>(value);
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
+Status UInt8FromPythonInt(PyObject* obj, uint8_t* out) {
+  return UnsignedIntFromPython(obj, out);
+}
+
+Status UInt16FromPythonInt(PyObject* obj, uint16_t* out) {
+  return UnsignedIntFromPython(obj, out);
+}
+
+Status UInt32FromPythonInt(PyObject* obj, uint32_t* out) {
+  return UnsignedIntFromPython(obj, out);
+}
+
+Status UInt64FromPythonInt(PyObject* obj, uint64_t* out) {
+  return UnsignedIntFromPython(obj, out);
+}
+
+Status Int8FromPythonInt(PyObject* obj, int8_t* out) {
+  return SignedIntFromPython(obj, out);
+}
+
+Status Int16FromPythonInt(PyObject* obj, int16_t* out) {
+  return SignedIntFromPython(obj, out);
+}
+
+Status Int32FromPythonInt(PyObject* obj, int32_t* out) {
+  return SignedIntFromPython(obj, out);
+}
+
+Status Int64FromPythonInt(PyObject* obj, int64_t* out) {
+  return SignedIntFromPython(obj, out);
+}
+
+//
+// Python Decimal support
+//
+
 Status ImportDecimalType(OwnedRef* decimal_type) {
   OwnedRef decimal_module;
   RETURN_NOT_OK(ImportModule("decimal", &decimal_module));
@@ -106,20 +339,7 @@ Status ImportDecimalType(OwnedRef* decimal_type) {
 
 Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
   // Call Python's str(decimal_object)
-  OwnedRef str_obj(PyObject_Str(python_decimal));
-  RETURN_IF_PYERROR();
-
-  PyObjectStringify str(str_obj.obj());
-  RETURN_IF_PYERROR();
-
-  const char* bytes = str.bytes;
-  DCHECK_NE(bytes, nullptr);
-
-  Py_ssize_t size = str.size;
-
-  std::string c_string(bytes, size);
-  *out = c_string;
-  return Status::OK();
+  return PyObject_StdStringStr(python_decimal, out);
 }
 
 // \brief Infer the precision and scale of a Python decimal.Decimal instance
@@ -216,31 +436,6 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
     DCHECK_NE(out, NULLPTR);
     RETURN_NOT_OK(out->Rescale(inferred_scale, scale, out));
   }
-  return Status::OK();
-}
-
-bool IsPyInteger(PyObject* obj) {
-#if PYARROW_IS_PY2
-  return PyLong_Check(obj) || PyInt_Check(obj);
-#else
-  return PyLong_Check(obj);
-#endif
-}
-
-Status UInt64FromPythonInt(PyObject* obj, uint64_t* out) {
-  OwnedRef ref;
-  // PyLong_AsUnsignedLongLong() doesn't handle conversion from non-ints
-  // (e.g. np.uint64), so do it ourselves
-  if (!PyLong_Check(obj)) {
-    ref.reset(PyNumber_Long(obj));
-    RETURN_IF_PYERROR();
-    obj = ref.obj();
-  }
-  auto result = static_cast<uint64_t>(PyLong_AsUnsignedLongLong(obj));
-  if (result == static_cast<uint64_t>(-1)) {
-    RETURN_IF_PYERROR();
-  }
-  *out = static_cast<uint64_t>(result);
   return Status::OK();
 }
 

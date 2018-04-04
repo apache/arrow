@@ -1065,13 +1065,13 @@ class TestConvertStringLikeTypes(object):
         _check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_bytes_to_binary(self):
-        values = [u('qux'), b'foo', None, 'bar', 'qux', np.nan]
+        values = [u'qux', b'foo', None, bytearray(b'barz'), 'qux', np.nan]
         df = pd.DataFrame({'strings': values})
 
         table = pa.Table.from_pandas(df)
         assert table[0].type == pa.binary()
 
-        values2 = [b'qux', b'foo', None, b'bar', b'qux', np.nan]
+        values2 = [b'qux', b'foo', None, b'barz', b'qux', np.nan]
         expected = pd.DataFrame({'strings': values2})
         _check_pandas_roundtrip(df, expected)
 
@@ -1093,7 +1093,7 @@ class TestConvertStringLikeTypes(object):
         assert table[0].data.num_chunks == 2
 
     def test_fixed_size_bytes(self):
-        values = [b'foo', None, b'bar', None, None, b'hey']
+        values = [b'foo', None, bytearray(b'bar'), None, None, b'hey']
         df = pd.DataFrame({'strings': values})
         schema = pa.schema([pa.field('strings', pa.binary(3))])
         table = pa.Table.from_pandas(df, schema=schema)
