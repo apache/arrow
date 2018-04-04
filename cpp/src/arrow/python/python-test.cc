@@ -248,13 +248,13 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
 }
 
 TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
-    Decimal128 value;
-    OwnedRef python_decimal(this->CreatePythonDecimal("-1.000"));
-    auto type = ::arrow::decimal(10, 9);
-    const auto& decimal_type = static_cast<const DecimalType&>(*type);
-    ASSERT_OK(
+  Decimal128 value;
+  OwnedRef python_decimal(this->CreatePythonDecimal("-1.000"));
+  auto type = ::arrow::decimal(10, 9);
+  const auto& decimal_type = static_cast<const DecimalType&>(*type);
+  ASSERT_OK(
       internal::DecimalFromPythonDecimal(python_decimal.obj(), decimal_type, &value));
-    ASSERT_EQ(-1000000000, (int64_t)(value));
+  ASSERT_EQ(-1000000000, (int64_t)(value));
 }
 
 TEST_F(DecimalTest, TestOverflowFails) {
