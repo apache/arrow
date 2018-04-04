@@ -718,7 +718,8 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 
   using BinaryBuilder::Append;
 
-  Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
+  Status Append(const std::vector<std::string>& values,
+                const uint8_t* valid_bytes = NULLPTR);
 };
 
 // ----------------------------------------------------------------------
