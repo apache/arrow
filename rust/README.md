@@ -28,14 +28,14 @@ The current code demonstrates arrays of primitive types and structs.
 ## Example
 
 ```rust
-let _schema = Schema::new(vec![
-    Field::new("a", DataType::Int32, false),
-    Field::new("b", DataType::Float32, false),
-]);
+let mut builder : Builder<i64> = Builder::new();
+for i in 0..10 {
+    builder.push(i);
+}
+let buffer = builder.build();
 
-let a = Rc::new(Array::from(vec![1,2,3,4,5]));
-let b = Rc::new(Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]));
-let _ = Rc::new(Array::from(vec![a,b]));
+println!("buffer length: {}", buffer.len());
+println!("buffer contents: {:?}", buffer.iter().collect::<Vec<i64>>());
 ```
 
 ## Run Tests
