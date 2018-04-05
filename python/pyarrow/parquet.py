@@ -711,6 +711,10 @@ class ParquetDataset(object):
         Divide files into pieces for each row group in the file
     validate_schema : boolean, default True
         Check that individual file schemas are all the same / compatible
+    filters : List[Tuple] or None (default)
+        List of filters to apply, like ``[('x', '=', 0), ...]``. This implements
+        partition-level (hive) filtering only, i.e., to prevent the loading
+        of some files of the dataset.
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
