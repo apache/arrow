@@ -1020,7 +1020,10 @@ def test_read_partitioned_directory_filtered(tmpdir):
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    dataset = pq.ParquetDataset(base_path, filesystem=fs, filters=[('foo', '=', '1'), ('bar', '!=', 'b')])
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[('foo', '=', '1'), ('bar', '!=', 'b')]
+    )
     table = dataset.read()
     result_df = (table.to_pandas()
                  .sort_values(by='index')
@@ -1028,7 +1031,6 @@ def test_read_partitioned_directory_filtered(tmpdir):
 
     assert 0 not in result_df['foo'].values
     assert 'b' not in result_df['bar'].values
-
 
 
 @pytest.yield_fixture

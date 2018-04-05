@@ -21,7 +21,6 @@ import inspect
 import json
 import re
 import six
-import itertools
 from six.moves.urllib.parse import urlparse
 # pathlib might not be available in Python 2
 try:
@@ -714,7 +713,8 @@ class ParquetDataset(object):
         Check that individual file schemas are all the same / compatible
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
-                 metadata=None, split_row_groups=False, validate_schema=True, filters=None):
+                 metadata=None, split_row_groups=False, validate_schema=True,
+                 filters=None):
         if filesystem is None:
             a_path = path_or_paths
             if isinstance(a_path, list):
@@ -873,7 +873,7 @@ class ParquetDataset(object):
                        for level, part_key in enumerate(piece.partition_keys))
 
         def all_filters_accept(piece):
-            return all(one_filter_accepts(piece,f) for f in filters)
+            return all(one_filter_accepts(piece, f) for f in filters)
 
         self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
