@@ -92,7 +92,8 @@ class build_ext(_build_ext):
     # github.com/libdynd/dynd-python
 
     description = "Build the C-extensions for arrow"
-    user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
+    user_options = ([('cmake-generator=', None, 'CMake generator'),
+                     ('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
@@ -109,6 +110,9 @@ class build_ext(_build_ext):
 
     def initialize_options(self):
         _build_ext.initialize_options(self)
+        self.cmake_generator = os.environ.get('PYARROW_CMAKE_GENERATOR')
+        if not self.cmake_generator and sys.platform == 'win32':
+            self.cmake_generator = 'Visual Studio 14 2015 Win64'
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
         self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE', 'boost')
@@ -133,8 +137,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_ORC', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
-        # Default is True but this only is actually bundled when
-        # we also bundle arrow-cpp.
         self.bundle_boost = strtobool(
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
 
@@ -174,6 +176,8 @@ class build_ext(_build_ext):
                 static_lib_option,
             ]
 
+            if self.cmake_generator:
+                cmake_options += ['-G', self.cmake_generator]
             if self.with_parquet:
                 cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
             if self.with_static_parquet:
@@ -230,16 +234,12 @@ class build_ext(_build_ext):
                 self.spawn(args)
                 print("-- Finished cmake --build for pyarrow")
             else:
-                cmake_generator = 'Visual Studio 14 2015 Win64'
                 if not is_64_bit:
                     raise RuntimeError('Not supported on 32-bit Windows')
 
                 # Generate the build files
                 cmake_command = (['cmake'] + extra_cmake_args +
-                                 cmake_options +
-                                 [source, '-G', cmake_generator])
-                if "-G" in self.extra_cmake_args:
-                    cmake_command = cmake_command[:-2]
+                                 cmake_options + [source])
 
                 print("-- Runnning cmake for pyarrow")
                 self.spawn(cmake_command)
@@ -359,7 +359,12 @@ class build_ext(_build_ext):
         if sys.platform == 'win32':
             head, tail = os.path.split(name)
             suffix = sysconfig.get_config_var('SO')
-            return pjoin(head, self.build_type, tail + suffix)
+            # Visual Studio seems to differ from other generators in
+            # where it places output files.
+            if self.cmake_generator.startswith('Visual Studio'):
+                return pjoin(head, self.build_type, tail + suffix)
+            else:
+                return pjoin(head, tail + suffix)
         else:
             suffix = sysconfig.get_config_var('SO')
             return pjoin(self.build_type, name + suffix)
