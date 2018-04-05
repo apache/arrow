@@ -25,17 +25,37 @@ This is a starting point for a native Rust implementation of Arrow.
 
 The current code demonstrates arrays of primitive types and structs.
 
-## Example
+## Creating an Array from a Vec
 
 ```rust
-let mut builder : Builder<i64> = Builder::new();
+// create a memory-aligned Arrow array from an existing Vec
+let array = Array::from(vec![1,2,3,4,5]);
+
+match array.data() {
+    &ArrayData::Int32(ref buffer) => {
+        println!("array contents: {:?}", buffer.iter().collect::<Vec<i32>>());
+    }
+    _ => {}
+}
+```
+
+## Creating an Array from a Builder
+
+```rust
+let mut builder: Builder<i32> = Builder::new();
 for i in 0..10 {
     builder.push(i);
 }
 let buffer = builder.build();
+let array = Array::from(buffer);
+```
 
-println!("buffer length: {}", buffer.len());
-println!("buffer contents: {:?}", buffer.iter().collect::<Vec<i64>>());
+## Run Examples
+
+Examples can be run using the `cargo run --example` command. For example:
+
+```bash
+cargo run --example array_from_builder
 ```
 
 ## Run Tests

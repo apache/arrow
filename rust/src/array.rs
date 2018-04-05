@@ -48,6 +48,11 @@ macro_rules! arraydata_from_primitive {
                 ArrayData::$AT(Buffer::from(v))
             }
         }
+        impl From<Buffer<$DT>> for ArrayData {
+            fn from(v: Buffer<$DT>) -> Self {
+                ArrayData::$AT(v)
+            }
+        }
     };
 }
 
@@ -94,6 +99,16 @@ macro_rules! array_from_primitive {
     ($DT:ty) => {
         impl From<Vec<$DT>> for Array {
             fn from(v: Vec<$DT>) -> Self {
+                Array {
+                    len: v.len() as i32,
+                    null_count: 0,
+                    validity_bitmap: None,
+                    data: ArrayData::from(v),
+                }
+            }
+        }
+        impl From<Buffer<$DT>> for Array {
+            fn from(v: Buffer<$DT>) -> Self {
                 Array {
                     len: v.len() as i32,
                     null_count: 0,
