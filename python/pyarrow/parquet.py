@@ -712,9 +712,9 @@ class ParquetDataset(object):
     validate_schema : boolean, default True
         Check that individual file schemas are all the same / compatible
     filters : List[Tuple] or None (default)
-        List of filters to apply, like ``[('x', '=', 0), ...]``. This implements
-        partition-level (hive) filtering only, i.e., to prevent the loading
-        of some files of the dataset.
+        List of filters to apply, like ``[('x', '=', 0), ...]``. This
+        implements partition-level (hive) filtering only, i.e., to prevent the
+        loading of some files of the dataset.
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
@@ -864,7 +864,8 @@ class ParquetDataset(object):
             if p_column != f_column:
                 return True
 
-            f_value_index = self.partitions.get_index(level, p_column, str(f_value))
+            f_value_index = self.partitions.get_index(level, p_column,
+                                                      str(f_value))
             if op == "=":
                 return f_value_index == p_value_index
             elif op == "!=":
