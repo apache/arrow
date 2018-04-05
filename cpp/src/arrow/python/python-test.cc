@@ -254,7 +254,7 @@ TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
   const auto& decimal_type = static_cast<const DecimalType&>(*type);
   ASSERT_OK(
       internal::DecimalFromPythonDecimal(python_decimal.obj(), decimal_type, &value));
-  ASSERT_EQ(-1000000000, (int64_t)(value));
+  ASSERT_EQ(-1000000000, value);
 }
 
 TEST_F(DecimalTest, TestOverflowFails) {
