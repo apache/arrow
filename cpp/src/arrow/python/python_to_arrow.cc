@@ -84,7 +84,9 @@ class SequenceBuilder {
     if (*tag == -1) {
       *tag = num_tags_++;
     }
-    RETURN_NOT_OK(offsets_.Append(static_cast<int32_t>(offset)));
+    int32_t offset32;
+    RETURN_NOT_OK(internal::CastSize(offset, &offset32));
+    RETURN_NOT_OK(offsets_.Append(offset32));
     RETURN_NOT_OK(types_.Append(*tag));
     return nones_.AppendToBitmap(true);
   }
@@ -173,26 +175,34 @@ class SequenceBuilder {
   /// \param size
   /// The size of the sublist
   Status AppendList(Py_ssize_t size) {
+    int32_t offset;
+    RETURN_NOT_OK(internal::CastSize(list_offsets_.back() + size, &offset));
     RETURN_NOT_OK(Update(list_offsets_.size() - 1, &list_tag_));
-    list_offsets_.push_back(list_offsets_.back() + static_cast<int32_t>(size));
+    list_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendTuple(Py_ssize_t size) {
+    int32_t offset;
+    RETURN_NOT_OK(internal::CastSize(tuple_offsets_.back() + size, &offset));
     RETURN_NOT_OK(Update(tuple_offsets_.size() - 1, &tuple_tag_));
-    tuple_offsets_.push_back(tuple_offsets_.back() + static_cast<int32_t>(size));
+    tuple_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendDict(Py_ssize_t size) {
+    int32_t offset;
+    RETURN_NOT_OK(internal::CastSize(dict_offsets_.back() + size, &offset));
     RETURN_NOT_OK(Update(dict_offsets_.size() - 1, &dict_tag_));
-    dict_offsets_.push_back(dict_offsets_.back() + static_cast<int32_t>(size));
+    dict_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendSet(Py_ssize_t size) {
+    int32_t offset;
+    RETURN_NOT_OK(internal::CastSize(set_offsets_.back() + size, &offset));
     RETURN_NOT_OK(Update(set_offsets_.size() - 1, &set_tag_));
-    set_offsets_.push_back(set_offsets_.back() + static_cast<int32_t>(size));
+    set_offsets_.push_back(offset);
     return Status::OK();
   }
 
@@ -365,17 +375,8 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
   *result = NULL;
   if (context == Py_None) {
     std::stringstream ss;
-    OwnedRef repr(PyObject_Repr(elem));
-    RETURN_IF_PYERROR();
-#if PY_MAJOR_VERSION >= 3
-    OwnedRef ascii(PyUnicode_AsASCIIString(repr.obj()));
-    RETURN_IF_PYERROR();
-    ss << "error while calling callback on " << PyBytes_AsString(ascii.obj())
+    ss << "error while calling callback on " << internal::PyObject_StdStringRepr(elem)
        << ": handler not registered";
-#else
-    ss << "error while calling callback on " << PyString_AsString(repr.obj())
-       << ": handler not registered";
-#endif
     return Status::SerializationError(ss.str());
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
@@ -483,24 +484,15 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 #endif
   } else if (PyBytes_Check(elem)) {
     auto data = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(elem));
-    const int64_t size = static_cast<int64_t>(PyBytes_GET_SIZE(elem));
-    if (size > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot writes bytes over 2GB");
-    }
-    RETURN_NOT_OK(builder->AppendBytes(data, static_cast<int32_t>(size)));
+    int32_t size;
+    RETURN_NOT_OK(internal::CastSize(PyBytes_GET_SIZE(elem), &size));
+    RETURN_NOT_OK(builder->AppendBytes(data, size));
   } else if (PyUnicode_Check(elem)) {
-    Py_ssize_t size;
-#if PY_MAJOR_VERSION >= 3
-    char* data = PyUnicode_AsUTF8AndSize(elem, &size);
-#else
-    OwnedRef str(PyUnicode_AsUTF8String(elem));
-    char* data = PyString_AS_STRING(str.obj());
-    size = PyString_GET_SIZE(str.obj());
-#endif
-    if (size > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot writes bytes over 2GB");
-    }
-    RETURN_NOT_OK(builder->AppendString(data, static_cast<int32_t>(size)));
+    PyBytesView view;
+    RETURN_NOT_OK(view.FromString(elem));
+    int32_t size;
+    RETURN_NOT_OK(internal::CastSize(view.size, &size));
+    RETURN_NOT_OK(builder->AppendString(view.bytes, size));
   } else if (PyList_CheckExact(elem)) {
     RETURN_NOT_OK(builder->AppendList(PyList_Size(elem)));
     sublists->push_back(elem);

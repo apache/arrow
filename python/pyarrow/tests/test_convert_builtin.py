@@ -215,6 +215,26 @@ def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
+@pytest.mark.parametrize("bits", [8, 16, 32, 64])
+def test_signed_integer_overflow(bits):
+    ty = getattr(pa, "int%d" % bits)()
+    # XXX ideally would raise OverflowError
+    with pytest.raises((ValueError, pa.ArrowException)):
+        pa.array([2 ** (bits - 1)], ty)
+    with pytest.raises((ValueError, pa.ArrowException)):
+        pa.array([-2 ** (bits - 1) - 1], ty)
+
+
+@pytest.mark.parametrize("bits", [8, 16, 32, 64])
+def test_unsigned_integer_overflow(bits):
+    ty = getattr(pa, "uint%d" % bits)()
+    # XXX ideally would raise OverflowError
+    with pytest.raises((ValueError, pa.ArrowException)):
+        pa.array([2 ** bits], ty)
+    with pytest.raises((ValueError, pa.ArrowException)):
+        pa.array([-1], ty)
+
+
 def test_garbage_collection():
     import gc
 
@@ -260,12 +280,14 @@ def test_sequence_bytes():
     u1 = b'ma\xc3\xb1ana'
     data = [b'foo',
             u1.decode('utf-8'),  # unicode gets encoded,
+            bytearray(b'bar'),
             None]
-    arr = pa.array(data)
-    assert len(arr) == 3
-    assert arr.null_count == 1
-    assert arr.type == pa.binary()
-    assert arr.to_pylist() == [b'foo', u1, None]
+    for ty in [None, pa.binary()]:
+        arr = pa.array(data, type=ty)
+        assert len(arr) == 4
+        assert arr.null_count == 1
+        assert arr.type == pa.binary()
+        assert arr.to_pylist() == [b'foo', u1, b'bar', None]
 
 
 def test_sequence_utf8_to_unicode():
@@ -281,12 +303,12 @@ def test_sequence_utf8_to_unicode():
 
 
 def test_sequence_fixed_size_bytes():
-    data = [b'foof', None, b'barb', b'2346']
+    data = [b'foof', None, bytearray(b'barb'), b'2346']
     arr = pa.array(data, type=pa.binary(4))
     assert len(arr) == 4
     assert arr.null_count == 1
     assert arr.type == pa.binary(4)
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == [b'foof', None, b'barb', b'2346']
 
 
 def test_fixed_size_bytes_does_not_accept_varying_lengths():
@@ -473,7 +495,7 @@ def test_sequence_mixed_types_with_specified_type_fails():
     data = ['-10', '-5', {'a': 1}, '0', '5', '10']
 
     type = pa.string()
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(TypeError):
         pa.array(data, type=type)
 
 

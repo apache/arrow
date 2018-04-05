@@ -33,6 +33,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/util/datetime.h"
@@ -42,26 +43,9 @@ namespace py {
 
 Status InvalidConversion(PyObject* obj, const std::string& expected_types,
                          std::ostream* out) {
-  OwnedRef type(PyObject_Type(obj));
-  RETURN_IF_PYERROR();
-  DCHECK_NE(type.obj(), nullptr);
-
-  OwnedRef type_name(PyObject_GetAttrString(type.obj(), "__name__"));
-  RETURN_IF_PYERROR();
-  DCHECK_NE(type_name.obj(), nullptr);
-
-  PyObjectStringify bytestring(type_name.obj());
-  RETURN_IF_PYERROR();
-
-  const char* bytes = bytestring.bytes;
-  DCHECK_NE(bytes, nullptr) << "bytes from type(...).__name__ were null";
-
-  Py_ssize_t size = bytestring.size;
-
-  std::string cpp_type_name(bytes, size);
-
-  (*out) << "Got Python object of type " << cpp_type_name
+  (*out) << "Got Python object of type " << Py_TYPE(obj)->tp_name
          << " but can only handle these types: " << expected_types;
+  // XXX streamline this?
   return Status::OK();
 }
 
@@ -100,7 +84,7 @@ class ScalarVisitor {
       ++date_count_;
     } else if (PyDateTime_CheckExact(obj)) {
       ++timestamp_count_;
-    } else if (PyBytes_Check(obj)) {
+    } else if (internal::IsPyBinary(obj)) {
       ++binary_count_;
     } else if (PyUnicode_Check(obj)) {
       ++unicode_count_;
@@ -445,122 +429,15 @@ class BoolConverter : public TypedConverterVisitor<BooleanBuilder, BoolConverter
   }
 };
 
-class Int8Converter : public TypedConverterVisitor<Int8Builder, Int8Converter> {
+template <typename IntType>
+class TypedIntConverter
+    : public TypedConverterVisitor<NumericBuilder<IntType>, TypedIntConverter<IntType>> {
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    const auto val = static_cast<int64_t>(PyLong_AsLongLong(obj));
-
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<int8_t>::max() ||
-                            val < std::numeric_limits<int8_t>::min())) {
-      return Status::Invalid(
-          "Cannot coerce values to array type that would "
-          "lose data");
-    }
-    RETURN_IF_PYERROR();
-    return typed_builder_->Append(static_cast<int8_t>(val));
-  }
-};
-
-class Int16Converter : public TypedConverterVisitor<Int16Builder, Int16Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    const auto val = static_cast<int64_t>(PyLong_AsLongLong(obj));
-
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<int16_t>::max() ||
-                            val < std::numeric_limits<int16_t>::min())) {
-      return Status::Invalid(
-          "Cannot coerce values to array type that would "
-          "lose data");
-    }
-    RETURN_IF_PYERROR();
-    return typed_builder_->Append(static_cast<int16_t>(val));
-  }
-};
-
-class Int32Converter : public TypedConverterVisitor<Int32Builder, Int32Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    const auto val = static_cast<int64_t>(PyLong_AsLongLong(obj));
-
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<int32_t>::max() ||
-                            val < std::numeric_limits<int32_t>::min())) {
-      return Status::Invalid(
-          "Cannot coerce values to array type that would "
-          "lose data");
-    }
-    RETURN_IF_PYERROR();
-    return typed_builder_->Append(static_cast<int32_t>(val));
-  }
-};
-
-class Int64Converter : public TypedConverterVisitor<Int64Builder, Int64Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    const auto val = static_cast<int64_t>(PyLong_AsLongLong(obj));
-    RETURN_IF_PYERROR();
-    return typed_builder_->Append(val);
-  }
-};
-
-class UInt8Converter : public TypedConverterVisitor<UInt8Builder, UInt8Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    const auto val = static_cast<uint64_t>(PyLong_AsLongLong(obj));
-    RETURN_IF_PYERROR();
-
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint8_t>::max())) {
-      return Status::Invalid(
-          "Cannot coerce values to array type that would "
-          "lose data");
-    }
-    return typed_builder_->Append(static_cast<uint8_t>(val));
-  }
-};
-
-class UInt16Converter : public TypedConverterVisitor<UInt16Builder, UInt16Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    const auto val = static_cast<uint64_t>(PyLong_AsLongLong(obj));
-    RETURN_IF_PYERROR();
-
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint16_t>::max())) {
-      return Status::Invalid(
-          "Cannot coerce values to array type that would "
-          "lose data");
-    }
-    return typed_builder_->Append(static_cast<uint16_t>(val));
-  }
-};
-
-class UInt32Converter : public TypedConverterVisitor<UInt32Builder, UInt32Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    const auto val = static_cast<uint64_t>(PyLong_AsLongLong(obj));
-    RETURN_IF_PYERROR();
-
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint32_t>::max())) {
-      return Status::Invalid(
-          "Cannot coerce values to array type that would "
-          "lose data");
-    }
-    return typed_builder_->Append(static_cast<uint32_t>(val));
-  }
-};
-
-class UInt64Converter : public TypedConverterVisitor<UInt64Builder, UInt64Converter> {
- public:
-  // Append a non-missing item
-  Status AppendItem(PyObject* obj) {
-    uint64_t val;
-    RETURN_NOT_OK(internal::UInt64FromPythonInt(obj, &val));
-    return typed_builder_->Append(val);
+    typename IntType::c_type value;
+    RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
+    return this->typed_builder_->Append(value);
   }
 };
 
@@ -573,12 +450,7 @@ class Date32Converter : public TypedConverterVisitor<Date32Builder, Date32Conver
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       t = static_cast<int32_t>(PyDate_to_s(pydate));
     } else {
-      const auto casted_val = static_cast<int64_t>(PyLong_AsLongLong(obj));
-      RETURN_IF_PYERROR();
-      if (casted_val > std::numeric_limits<int32_t>::max()) {
-        return Status::Invalid("Integer as date32 larger than INT32_MAX");
-      }
-      t = static_cast<int32_t>(casted_val);
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
     }
     return typed_builder_->Append(t);
   }
@@ -593,8 +465,7 @@ class Date64Converter : public TypedConverterVisitor<Date64Builder, Date64Conver
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       t = PyDate_to_ms(pydate);
     } else {
-      t = static_cast<int64_t>(PyLong_AsLongLong(obj));
-      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date64"));
     }
     return typed_builder_->Append(t);
   }
@@ -645,8 +516,7 @@ class TimestampConverter
 
       t = reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
     } else {
-      t = static_cast<int64_t>(PyLong_AsLongLong(obj));
-      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t));
     }
     return typed_builder_->Append(t);
   }
@@ -690,27 +560,7 @@ class BytesConverter : public TypedConverterVisitor<BinaryBuilder, BytesConverte
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    PyObject* bytes_obj;
-    const char* bytes;
-    Py_ssize_t length;
-    OwnedRef tmp;
-
-    if (PyUnicode_Check(obj)) {
-      tmp.reset(PyUnicode_AsUTF8String(obj));
-      RETURN_IF_PYERROR();
-      bytes_obj = tmp.obj();
-    } else if (PyBytes_Check(obj)) {
-      bytes_obj = obj;
-    } else {
-      std::stringstream ss;
-      ss << "Error converting to Binary type: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "bytes", &ss));
-      return Status::Invalid(ss.str());
-    }
-    // No error checking
-    length = PyBytes_GET_SIZE(bytes_obj);
-    bytes = PyBytes_AS_STRING(bytes_obj);
-    return typed_builder_->Append(bytes, static_cast<int32_t>(length));
+    return internal::BuilderAppend(typed_builder_, obj);
   }
 };
 
@@ -719,27 +569,7 @@ class FixedWidthBytesConverter
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    PyObject* bytes_obj;
-    OwnedRef tmp;
-    Py_ssize_t expected_length =
-        std::dynamic_pointer_cast<FixedSizeBinaryType>(typed_builder_->type())
-            ->byte_width();
-    if (PyUnicode_Check(obj)) {
-      tmp.reset(PyUnicode_AsUTF8String(obj));
-      RETURN_IF_PYERROR();
-      bytes_obj = tmp.obj();
-    } else if (PyBytes_Check(obj)) {
-      bytes_obj = obj;
-    } else {
-      std::stringstream ss;
-      ss << "Error converting to FixedSizeBinary type: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "bytes", &ss));
-      return Status::Invalid(ss.str());
-    }
-    // No error checking
-    RETURN_NOT_OK(CheckPythonBytesAreFixedLength(bytes_obj, expected_length));
-    return typed_builder_->Append(
-        reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(bytes_obj)));
+    return internal::BuilderAppend(typed_builder_, obj);
   }
 };
 
@@ -747,32 +577,7 @@ class UTF8Converter : public TypedConverterVisitor<StringBuilder, UTF8Converter>
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    PyObject* bytes_obj;
-    OwnedRef tmp;
-    const char* bytes;
-    Py_ssize_t length;
-
-    if (PyBytes_Check(obj)) {
-      tmp.reset(
-          PyUnicode_FromStringAndSize(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj)));
-      RETURN_IF_PYERROR();
-      bytes_obj = obj;
-    } else if (!PyUnicode_Check(obj)) {
-      OwnedRef repr(PyObject_Repr(obj));
-      PyObjectStringify stringified(repr.obj());
-      std::stringstream ss;
-      ss << "Non bytes/unicode value encountered: " << stringified.bytes;
-      return Status::Invalid(ss.str());
-    } else {
-      tmp.reset(PyUnicode_AsUTF8String(obj));
-      RETURN_IF_PYERROR();
-      bytes_obj = tmp.obj();
-    }
-
-    // No error checking
-    length = PyBytes_GET_SIZE(bytes_obj);
-    bytes = PyBytes_AS_STRING(bytes_obj);
-    return typed_builder_->Append(bytes, static_cast<int32_t>(length));
+    return internal::BuilderAppend(typed_builder_, obj, true /* check_valid */);
   }
 };
 
@@ -876,21 +681,21 @@ std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
     case Type::BOOL:
       return std::unique_ptr<SeqConverter>(new BoolConverter);
     case Type::INT8:
-      return std::unique_ptr<SeqConverter>(new Int8Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int8Type>);
     case Type::INT16:
-      return std::unique_ptr<SeqConverter>(new Int16Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int16Type>);
     case Type::INT32:
-      return std::unique_ptr<SeqConverter>(new Int32Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int32Type>);
     case Type::INT64:
-      return std::unique_ptr<SeqConverter>(new Int64Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int64Type>);
     case Type::UINT8:
-      return std::unique_ptr<SeqConverter>(new UInt8Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt8Type>);
     case Type::UINT16:
-      return std::unique_ptr<SeqConverter>(new UInt16Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt16Type>);
     case Type::UINT32:
-      return std::unique_ptr<SeqConverter>(new UInt32Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt32Type>);
     case Type::UINT64:
-      return std::unique_ptr<SeqConverter>(new UInt64Converter);
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt64Type>);
     case Type::DATE32:
       return std::unique_ptr<SeqConverter>(new Date32Converter);
     case Type::DATE64:
@@ -1030,17 +835,6 @@ Status ConvertPySequence(PyObject* obj, int64_t size,
                          const std::shared_ptr<DataType>& type, MemoryPool* pool,
                          std::shared_ptr<Array>* out) {
   return ConvertPySequenceReal(obj, size, &type, pool, out);
-}
-
-Status CheckPythonBytesAreFixedLength(PyObject* obj, Py_ssize_t expected_length) {
-  const Py_ssize_t length = PyBytes_GET_SIZE(obj);
-  if (length != expected_length) {
-    std::stringstream ss;
-    ss << "Found byte string of length " << length << ", expected length is "
-       << expected_length;
-    return Status::Invalid(ss.str());
-  }
-  return Status::OK();
 }
 
 }  // namespace py
