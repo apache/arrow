@@ -1,0 +1,5 @@
+os: Visual Studio 2015
+
+build_script:
+  - git clone https://github.com/apache/arrow
+  - cmd: "echo Hello, world!"

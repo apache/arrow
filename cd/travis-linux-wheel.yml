@@ -1,0 +1,7 @@
+language: python
+python: 3.5
+sudo: required
+dist: trusty
+
+script:
+- echo "Hello, World"

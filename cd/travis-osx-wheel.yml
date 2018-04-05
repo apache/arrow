@@ -1,0 +1,7 @@
+os: osx
+sudo: required
+language: objective-c
+
+script:
+  - git clone https://github.com/apache/arrow
+  - echo "Hello, World"
