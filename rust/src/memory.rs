@@ -18,17 +18,19 @@
 use libc;
 use std::mem;
 
-use super::error::Error;
+use super::error::ArrowError;
 
 const ALIGNMENT: usize = 64;
 
-pub fn allocate_aligned(size: i64) -> Result<*const u8, Error> {
+pub fn allocate_aligned(size: i64) -> Result<*const u8, ArrowError> {
     unsafe {
         let mut page: *mut libc::c_void = mem::uninitialized();
         let result = libc::posix_memalign(&mut page, ALIGNMENT, size as usize);
         match result {
             0 => Ok(mem::transmute::<*mut libc::c_void, *const u8>(page)),
-            _ => Err(Error::from("Failed to allocate memory")),
+            _ => Err(ArrowError::MemoryError(format!(
+                "Failed to allocate memory"
+            ))),
         }
     }
 }
