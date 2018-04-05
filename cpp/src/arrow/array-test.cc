@@ -1412,9 +1412,9 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   auto type = fixed_size_binary(0);
   FixedSizeBinaryBuilder builder(type);
 
-  ASSERT_OK(builder.Append(nullptr));
-  ASSERT_OK(builder.Append(nullptr));
-  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.Append(""));
+  ASSERT_OK(builder.Append(std::string()));
+  ASSERT_OK(builder.Append(static_cast<const uint8_t*>(nullptr)));
   ASSERT_OK(builder.AppendNull());
   ASSERT_OK(builder.AppendNull());
   ASSERT_OK(builder.AppendNull());
