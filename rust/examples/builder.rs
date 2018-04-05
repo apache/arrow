@@ -20,8 +20,7 @@ extern crate arrow;
 use arrow::buffer::*;
 
 fn main() {
-
-    let mut builder : Builder<i64> = Builder::new();
+    let mut builder: Builder<i64> = Builder::new();
     for i in 0..10 {
         builder.push(i);
     }
@@ -33,7 +32,6 @@ fn main() {
     // note that the builder can no longer be used once it has built a buffer, so either
     // of the follow calls will fail
 
-//    builder.push(123);
-//    builder.build();
-
+    //    builder.push(123);
+    //    builder.build();
 }

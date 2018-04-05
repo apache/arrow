@@ -31,7 +31,6 @@ pub struct Builder<T> {
 }
 
 impl<T> Builder<T> {
-
     /// Creates a builder with a default capacity
     pub fn new() -> Self {
         Builder::with_capacity(64)
@@ -44,7 +43,7 @@ impl<T> Builder<T> {
         Builder {
             len: 0,
             capacity,
-            data: unsafe { mem::transmute::<*const u8, *mut T>(buffer) }
+            data: unsafe { mem::transmute::<*const u8, *mut T>(buffer) },
         }
     }
 
@@ -68,7 +67,9 @@ impl<T> Builder<T> {
             }
         }
         assert!(self.len < self.capacity);
-        unsafe { *self.data.offset(self.len as isize) = v; }
+        unsafe {
+            *self.data.offset(self.len as isize) = v;
+        }
         self.len += 1;
     }
 
@@ -79,7 +80,7 @@ impl<T> Builder<T> {
         self.data = ptr::null_mut(); // ensure builder cannot be re-used
         Buffer {
             len: self.len as i32,
-            data: p
+            data: p,
         }
     }
 }
@@ -158,7 +159,7 @@ where
 }
 
 macro_rules! array_from_primitive {
-    ($DT: ty) => {
+    ($DT:ty) => {
         impl From<Vec<$DT>> for Buffer<$DT> {
             fn from(v: Vec<$DT>) -> Self {
                 // allocate aligned memory buffer
