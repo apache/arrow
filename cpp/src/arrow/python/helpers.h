@@ -102,7 +102,7 @@ std::string PyObject_StdStringRepr(PyObject* obj);
 
 // \brief Cast the given size to int32_t, with error checking
 inline Status CastSize(Py_ssize_t size, int32_t* out,
-                       const std::string& error_msg = "Maximum size exceeded (2GB)") {
+                       const char* error_msg = "Maximum size exceeded (2GB)") {
   // size is assumed to be positive
   if (size > std::numeric_limits<int32_t>::max()) {
     return Status::Invalid(error_msg);

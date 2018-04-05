@@ -196,15 +196,6 @@ Status DecimalMetadata::Update(PyObject* object) {
   return Update(precision, scale);
 }
 
-bool PyFloat_IsNaN(PyObject* obj) {
-  return PyFloat_Check(obj) && std::isnan(PyFloat_AsDouble(obj));
-}
-
-bool PandasObjectIsNull(PyObject* obj) {
-  return obj == Py_None || obj == numpy_nan || PyFloat_IsNaN(obj) ||
-         (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
-}
-
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow

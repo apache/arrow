@@ -173,7 +173,7 @@ struct ARROW_EXPORT PyBytesView {
   PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = nullptr)
       : bytes(b), size(s), ref(obj) {}
 
-  Status FromBinary(PyObject* obj, const std::string& expected_msg) {
+  Status FromBinary(PyObject* obj, const char* expected_msg) {
     if (PyBytes_Check(obj)) {
       this->bytes = PyBytes_AS_STRING(obj);
       this->size = PyBytes_GET_SIZE(obj);

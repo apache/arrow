@@ -33,10 +33,6 @@ from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
 cimport cpython as cp
 
-cdef _pandas():
-    import pandas as pd
-    return pd
-
 arrow_init_numpy()
 set_numpy_nan(np.nan)
 
