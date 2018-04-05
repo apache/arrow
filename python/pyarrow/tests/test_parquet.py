@@ -1022,7 +1022,7 @@ def test_read_partitioned_directory_filtered(tmpdir):
 
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
-        filters=[('foo', '=', '1'), ('bar', '!=', 'b')]
+        filters=[('foo', '=', 1), ('bar', '!=', 'b')]
     )
     table = dataset.read()
     result_df = (table.to_pandas()
