@@ -56,7 +56,7 @@ for config in cwd.glob('*.yml'):
 
     if 'travis' in str(config):
         target = '.travis.yml'
-    elif 'appveyor' in str('config'):
+    elif 'appveyor' in str(config):
         target = 'appveyor.yml'
     else:
         ValueError('raise sommething')
@@ -76,7 +76,7 @@ for config in cwd.glob('*.yml'):
 
 def acquire_credentials_cb(url, username_from_url, allowed_types):
     print('credentials', url, username_from_url, allowed_types)
-    token = '64692d0e3c55a2e5652c3c350ffbbd51fd354af8'
+    token = '<top secret>'
     return UserPass(token, 'x-oauth-basic')
 
 
