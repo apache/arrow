@@ -21,6 +21,7 @@ import inspect
 import json
 import re
 import six
+import itertools
 from six.moves.urllib.parse import urlparse
 # pathlib might not be available in Python 2
 try:
@@ -745,21 +746,7 @@ class ParquetDataset(object):
             self.validate_schemas()
 
         if filters:
-            filtered_pieces = []
-            for piece in self.pieces:
-                for i, partition_key in enumerate(piece.partition_keys):
-                    part_column, part_value_index = partition_key
-                    for filter in filters:
-                        filt_column, filt_operator, filt_value = filter
-                        if filt_operator != '=':
-                            continue
-                        if filt_column == part_column and self.partitions.get_index(i, filt_column, filt_value) != part_value_index:
-                            break
-                    else:
-                        filtered_pieces.append(piece)
-            self.pieces = filtered_pieces
-
-
+            self._filter(filters)
 
     def validate_schemas(self):
         open_file = self._get_open_file_func()
@@ -865,6 +852,30 @@ class ParquetDataset(object):
                                    metadata=meta,
                                    common_metadata=self.common_metadata)
         return open_file
+
+    def _filter(self, filters):
+        def filter_accepts_partition(part_key, filter, level):
+            p_column, p_value_index = part_key
+            f_column, op, f_value = filter
+            if p_column != f_column:
+                return True
+
+            f_value_index = self.partitions.get_index(level, p_column, f_value)
+            if op == "=":
+                return f_value_index == p_value_index
+            elif op == "!=":
+                return f_value_index != p_value_index
+            else:
+                return True
+
+        def one_filter_accepts(piece, filter):
+            return all(filter_accepts_partition(part_key, filter, level)
+                       for level, part_key in enumerate(piece.partition_keys))
+
+        def all_filters_accept(piece):
+            return all(one_filter_accepts(piece,f) for f in filters)
+
+        self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
 
 def _ensure_filesystem(fs):
