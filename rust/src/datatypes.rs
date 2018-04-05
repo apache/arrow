@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::fmt;
 use serde_json;
 use serde_json::Value;
 
@@ -201,6 +202,12 @@ impl Field {
     }
 }
 
+impl fmt::Display for Field {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {:?}", self.name, self.data_type)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Schema {
     pub columns: Vec<Field>,
@@ -223,10 +230,15 @@ impl Schema {
             .enumerate()
             .find(|&(_, c)| c.name == name)
     }
+}
 
-    pub fn to_string(&self) -> String {
-        let s: Vec<String> = self.columns.iter().map(|c| c.to_string()).collect();
-        s.join(",")
+impl fmt::Display for Schema {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.columns
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>()
+            .join(", "))
     }
 }
 
@@ -310,5 +322,22 @@ mod tests {
         let value: Value = serde_json::from_str(json).unwrap();
         let dt = DataType::from(&value).unwrap();
         assert_eq!(DataType::Int32, dt);
+    }
+
+    #[test]
+    fn create_schema_string() {
+        let _person = Schema::new(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ]);
+        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
     }
 }
