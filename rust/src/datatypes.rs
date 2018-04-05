@@ -18,11 +18,7 @@
 use std::fmt;
 use serde_json;
 use serde_json::Value;
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ArrowError {
-    ParseError(String),
-}
+use super::error::ArrowError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
