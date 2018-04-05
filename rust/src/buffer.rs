@@ -18,10 +18,73 @@
 use bytes::Bytes;
 use libc;
 use std::mem;
+use std::ptr;
 use std::slice;
 
 use super::memory::*;
 
+/// Buffer builder with zero-copy build method
+pub struct Builder<T> {
+    data: *mut T,
+    len: usize,
+    capacity: usize,
+}
+
+impl<T> Builder<T> {
+
+    /// Creates a builder with a default capacity
+    pub fn new() -> Self {
+        Builder::with_capacity(64)
+    }
+
+    /// Creates a builder with a fixed capacity
+    pub fn with_capacity(capacity: usize) -> Self {
+        let sz = mem::size_of::<T>();
+        let buffer = allocate_aligned((capacity * sz) as i64).unwrap();
+        Builder {
+            len: 0,
+            capacity,
+            data: unsafe { mem::transmute::<*const u8, *mut T>(buffer) }
+        }
+    }
+
+    /// Push a value into the builder, growing the internal buffer as needed
+    pub fn push(&mut self, v: T) {
+        assert!(!self.data.is_null());
+        if self.len == self.capacity {
+            let sz = mem::size_of::<T>();
+            let new_capacity = self.capacity * 2;
+            unsafe {
+                let old_buffer = self.data;
+                let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
+                libc::memcpy(
+                    mem::transmute::<*const u8, *mut libc::c_void>(new_buffer),
+                    mem::transmute::<*const T, *const libc::c_void>(old_buffer),
+                    self.len * sz,
+                );
+                self.capacity = new_capacity;
+                self.data = mem::transmute::<*const u8, *mut T>(new_buffer);
+                mem::drop(old_buffer);
+            }
+        }
+        assert!(self.len < self.capacity);
+        unsafe { *self.data.offset(self.len as isize) = v; }
+        self.len += 1;
+    }
+
+    /// Build a Buffer from the existing memory
+    pub fn build(&mut self) -> Buffer<T> {
+        assert!(!self.data.is_null());
+        let p = unsafe { mem::transmute::<*mut T, *const T>(self.data) };
+        self.data = ptr::null_mut(); // ensure builder cannot be re-used
+        Buffer {
+            len: self.len as i32,
+            data: p
+        }
+    }
+}
+
+/// Buffer<T> is essentially just a Vec<T> aligned at a 64-byte boundary
 pub struct Buffer<T> {
     data: *const T,
     len: i32,
@@ -43,10 +106,12 @@ impl<T> Buffer<T> {
         unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
 
+    /// Get a reference to the value at the specified offset
     pub fn get(&self, i: usize) -> &T {
         unsafe { &(*self.data.offset(i as isize)) }
     }
 
+    /// Deprecated method (used by Bitmap)
     pub fn set(&mut self, i: usize, v: T) {
         unsafe {
             let p = mem::transmute::<*const T, *mut T>(self.data);
@@ -54,6 +119,7 @@ impl<T> Buffer<T> {
         }
     }
 
+    /// Return an iterator over the values in the buffer
     pub fn iter(&self) -> BufferIterator<T> {
         BufferIterator {
             data: self.data,
@@ -152,6 +218,39 @@ impl From<Bytes> for Buffer<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_builder_i32_empty() {
+        let mut b: Builder<i32> = Builder::with_capacity(5);
+        let a = b.build();
+        assert_eq!(0, a.len());
+    }
+
+    #[test]
+    fn test_builder_i32() {
+        let mut b: Builder<i32> = Builder::with_capacity(5);
+        for i in 0..5 {
+            b.push(i);
+        }
+        let a = b.build();
+        assert_eq!(5, a.len());
+        for i in 0..5 {
+            assert_eq!(&i, a.get(i as usize));
+        }
+    }
+
+    #[test]
+    fn test_builder_i32_grow_buffer() {
+        let mut b: Builder<i32> = Builder::with_capacity(2);
+        for i in 0..5 {
+            b.push(i);
+        }
+        let a = b.build();
+        assert_eq!(5, a.len());
+        for i in 0..5 {
+            assert_eq!(&i, a.get(i as usize));
+        }
+    }
 
     #[test]
     fn test_buffer_i32() {
