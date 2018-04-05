@@ -92,7 +92,7 @@ where
 }
 
 macro_rules! array_from_primitive {
-    ($DT:ty) => {
+    ($DT: ty) => {
         impl From<Vec<$DT>> for Buffer<$DT> {
             fn from(v: Vec<$DT>) -> Self {
                 // allocate aligned memory buffer
