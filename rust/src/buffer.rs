@@ -23,68 +23,6 @@ use std::slice;
 
 use super::memory::*;
 
-/// Buffer builder with zero-copy build method
-pub struct Builder<T> {
-    data: *mut T,
-    len: usize,
-    capacity: usize,
-}
-
-impl<T> Builder<T> {
-    /// Creates a builder with a default capacity
-    pub fn new() -> Self {
-        Builder::with_capacity(64)
-    }
-
-    /// Creates a builder with a fixed capacity
-    pub fn with_capacity(capacity: usize) -> Self {
-        let sz = mem::size_of::<T>();
-        let buffer = allocate_aligned((capacity * sz) as i64).unwrap();
-        Builder {
-            len: 0,
-            capacity,
-            data: unsafe { mem::transmute::<*const u8, *mut T>(buffer) },
-        }
-    }
-
-    /// Push a value into the builder, growing the internal buffer as needed
-    pub fn push(&mut self, v: T) {
-        assert!(!self.data.is_null());
-        if self.len == self.capacity {
-            let sz = mem::size_of::<T>();
-            let new_capacity = self.capacity * 2;
-            unsafe {
-                let old_buffer = self.data;
-                let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
-                libc::memcpy(
-                    mem::transmute::<*const u8, *mut libc::c_void>(new_buffer),
-                    mem::transmute::<*const T, *const libc::c_void>(old_buffer),
-                    self.len * sz,
-                );
-                self.capacity = new_capacity;
-                self.data = mem::transmute::<*const u8, *mut T>(new_buffer);
-                mem::drop(old_buffer);
-            }
-        }
-        assert!(self.len < self.capacity);
-        unsafe {
-            *self.data.offset(self.len as isize) = v;
-        }
-        self.len += 1;
-    }
-
-    /// Build a Buffer from the existing memory
-    pub fn finish(&mut self) -> Buffer<T> {
-        assert!(!self.data.is_null());
-        let p = unsafe { mem::transmute::<*mut T, *const T>(self.data) };
-        self.data = ptr::null_mut(); // ensure builder cannot be re-used
-        Buffer {
-            len: self.len as i32,
-            data: p,
-        }
-    }
-}
-
 /// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
 /// memory region is aligned at a 64-byte boundary
 pub struct Buffer<T> {
@@ -93,6 +31,11 @@ pub struct Buffer<T> {
 }
 
 impl<T> Buffer<T> {
+
+    pub fn from_raw_parts(data: *const T, len: i32) -> Self {
+        Buffer { data, len }
+    }
+
     pub fn len(&self) -> i32 {
         self.len
     }
@@ -220,39 +163,6 @@ impl From<Bytes> for Buffer<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_builder_i32_empty() {
-        let mut b: Builder<i32> = Builder::with_capacity(5);
-        let a = b.finish();
-        assert_eq!(0, a.len());
-    }
-
-    #[test]
-    fn test_builder_i32() {
-        let mut b: Builder<i32> = Builder::with_capacity(5);
-        for i in 0..5 {
-            b.push(i);
-        }
-        let a = b.finish();
-        assert_eq!(5, a.len());
-        for i in 0..5 {
-            assert_eq!(&i, a.get(i as usize));
-        }
-    }
-
-    #[test]
-    fn test_builder_i32_grow_buffer() {
-        let mut b: Builder<i32> = Builder::with_capacity(2);
-        for i in 0..5 {
-            b.push(i);
-        }
-        let a = b.finish();
-        assert_eq!(5, a.len());
-        for i in 0..5 {
-            assert_eq!(&i, a.get(i as usize));
-        }
-    }
 
     #[test]
     fn test_buffer_i32() {

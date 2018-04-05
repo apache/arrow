@@ -19,6 +19,7 @@ extern crate arrow;
 
 use arrow::array::*;
 use arrow::buffer::*;
+use arrow::builder::*;
 
 fn main() {
     let mut builder: Builder<i32> = Builder::new();

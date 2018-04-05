@@ -24,6 +24,7 @@ extern crate serde_json;
 pub mod array;
 pub mod bitmap;
 pub mod buffer;
+pub mod builder;
 pub mod datatypes;
 pub mod error;
 pub mod list;
