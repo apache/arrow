@@ -74,7 +74,7 @@ impl<T> Builder<T> {
     }
 
     /// Build a Buffer from the existing memory
-    pub fn build(&mut self) -> Buffer<T> {
+    pub fn finish(&mut self) -> Buffer<T> {
         assert!(!self.data.is_null());
         let p = unsafe { mem::transmute::<*mut T, *const T>(self.data) };
         self.data = ptr::null_mut(); // ensure builder cannot be re-used
@@ -85,7 +85,8 @@ impl<T> Builder<T> {
     }
 }
 
-/// Buffer<T> is essentially just a Vec<T> aligned at a 64-byte boundary
+/// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
+/// memory region is aligned at a 64-byte boundary
 pub struct Buffer<T> {
     data: *const T,
     len: i32,
@@ -223,7 +224,7 @@ mod tests {
     #[test]
     fn test_builder_i32_empty() {
         let mut b: Builder<i32> = Builder::with_capacity(5);
-        let a = b.build();
+        let a = b.finish();
         assert_eq!(0, a.len());
     }
 
@@ -233,7 +234,7 @@ mod tests {
         for i in 0..5 {
             b.push(i);
         }
-        let a = b.build();
+        let a = b.finish();
         assert_eq!(5, a.len());
         for i in 0..5 {
             assert_eq!(&i, a.get(i as usize));
@@ -246,7 +247,7 @@ mod tests {
         for i in 0..5 {
             b.push(i);
         }
-        let a = b.build();
+        let a = b.finish();
         assert_eq!(5, a.len());
         for i in 0..5 {
             assert_eq!(&i, a.get(i as usize));

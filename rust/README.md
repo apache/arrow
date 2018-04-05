@@ -46,7 +46,7 @@ let mut builder: Builder<i32> = Builder::new();
 for i in 0..10 {
     builder.push(i);
 }
-let buffer = builder.build();
+let buffer = builder.finish();
 let array = Array::from(buffer);
 ```
 

@@ -25,7 +25,7 @@ fn main() {
     for i in 0..10 {
         builder.push(i);
     }
-    let buffer = builder.build();
+    let buffer = builder.finish();
 
     println!("buffer length: {}", buffer.len());
     println!("buffer contents: {:?}", buffer.iter().collect::<Vec<i32>>());
