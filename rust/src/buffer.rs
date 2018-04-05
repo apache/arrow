@@ -31,7 +31,6 @@ pub struct Buffer<T> {
 }
 
 impl<T> Buffer<T> {
-
     pub fn from_raw_parts(data: *const T, len: i32) -> Self {
         Buffer { data, len }
     }

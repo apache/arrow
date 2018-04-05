@@ -55,7 +55,7 @@ impl<T> Builder<T> {
             let sz = mem::size_of::<T>();
             let new_capacity = self.capacity * 2;
             unsafe {
-                let old_buffer   = self.data;
+                let old_buffer = self.data;
                 let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
                 libc::memcpy(
                     mem::transmute::<*const u8, *mut libc::c_void>(new_buffer),
