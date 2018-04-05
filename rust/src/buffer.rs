@@ -18,16 +18,23 @@
 use bytes::Bytes;
 use libc;
 use std::mem;
+use std::ptr;
 use std::slice;
 
 use super::memory::*;
 
+/// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
+/// memory region is aligned at a 64-byte boundary
 pub struct Buffer<T> {
     data: *const T,
     len: i32,
 }
 
 impl<T> Buffer<T> {
+    pub fn from_raw_parts(data: *const T, len: i32) -> Self {
+        Buffer { data, len }
+    }
+
     pub fn len(&self) -> i32 {
         self.len
     }
@@ -43,10 +50,12 @@ impl<T> Buffer<T> {
         unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
 
+    /// Get a reference to the value at the specified offset
     pub fn get(&self, i: usize) -> &T {
         unsafe { &(*self.data.offset(i as isize)) }
     }
 
+    /// Deprecated method (used by Bitmap)
     pub fn set(&mut self, i: usize, v: T) {
         unsafe {
             let p = mem::transmute::<*const T, *mut T>(self.data);
@@ -54,6 +63,7 @@ impl<T> Buffer<T> {
         }
     }
 
+    /// Return an iterator over the values in the buffer
     pub fn iter(&self) -> BufferIterator<T> {
         BufferIterator {
             data: self.data,
@@ -92,7 +102,7 @@ where
 }
 
 macro_rules! array_from_primitive {
-    ($DT: ty) => {
+    ($DT:ty) => {
         impl From<Vec<$DT>> for Buffer<$DT> {
             fn from(v: Vec<$DT>) -> Self {
                 // allocate aligned memory buffer
