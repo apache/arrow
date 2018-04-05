@@ -73,9 +73,6 @@ ARROW_EXPORT
 Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,
                          std::ostream* out);
 
-ARROW_EXPORT Status CheckPythonBytesAreFixedLength(PyObject* obj,
-                                                   Py_ssize_t expected_length);
-
 }  // namespace py
 }  // namespace arrow
 

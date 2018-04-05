@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_HELPERS_H
-#define PYARROW_HELPERS_H
+#ifndef ARROW_PYTHON_HELPERS_H
+#define ARROW_PYTHON_HELPERS_H
 
 #include "arrow/python/platform.h"
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -31,8 +32,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Decimal128;
 
 namespace py {
 
@@ -63,32 +62,14 @@ Status ImportModule(const std::string& module_name, OwnedRef* ref);
 // module
 Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRef* ref);
 
-// \brief Import
-Status ImportDecimalType(OwnedRef* decimal_type);
-
-// \brief Convert a Python Decimal object to a C++ string
-// \param[in] python_decimal A Python decimal.Decimal instance
-// \param[out] The string representation of the Python Decimal instance
-// \return The status of the operation
-Status PythonDecimalToString(PyObject* python_decimal, std::string* out);
-
-// \brief Convert a C++ std::string to a Python Decimal instance
-// \param[in] decimal_constructor The decimal type object
-// \param[in] decimal_string A decimal string
-// \return An instance of decimal.Decimal
-PyObject* DecimalFromString(PyObject* decimal_constructor,
-                            const std::string& decimal_string);
-
-// \brief Convert a Python decimal to an Arrow Decimal128 object
-// \param[in] python_decimal A Python decimal.Decimal instance
-// \param[in] arrow_type An instance of arrow::DecimalType
-// \param[out] out A pointer to a Decimal128
-// \return The status of the operation
-Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
-                                Decimal128* out);
-
 // \brief Check whether obj is an integer, independent of Python versions.
-bool IsPyInteger(PyObject* obj);
+inline bool IsPyInteger(PyObject* obj) {
+#if PYARROW_IS_PY2
+  return PyLong_Check(obj) || PyInt_Check(obj);
+#else
+  return PyLong_Check(obj);
+#endif
+}
 
 // \brief Use pandas missing value semantics to check if a value is null
 bool PandasObjectIsNull(PyObject* obj);
@@ -96,45 +77,48 @@ bool PandasObjectIsNull(PyObject* obj);
 // \brief Check whether obj is nan
 bool PyFloat_IsNaN(PyObject* obj);
 
-// \brief Check whether obj is an instance of Decimal
-bool PyDecimal_Check(PyObject* obj);
+inline bool IsPyBinary(PyObject* obj) {
+  return PyBytes_Check(obj) || PyByteArray_Check(obj);
+}
 
-// \brief Check whether obj is nan. This function will abort the program if the argument
-// is not a Decimal instance
-bool PyDecimal_ISNAN(PyObject* obj);
-
-// \brief Convert a Python integer into an unsigned 64-bit integer
+// \brief Convert a Python integer into a C integer
 // \param[in] obj A Python integer
-// \param[out] out A pointer to a C uint64_t to hold the result of the conversion
+// \param[out] out A pointer to a C integer to hold the result of the conversion
 // \return The status of the operation
-Status UInt64FromPythonInt(PyObject* obj, uint64_t* out);
+template <typename Int>
+Status CIntFromPython(PyObject* obj, Int* out, const std::string& overflow_message = "");
 
-// \brief Helper class to track and update the precision and scale of a decimal
-class DecimalMetadata {
- public:
-  DecimalMetadata();
-  DecimalMetadata(int32_t precision, int32_t scale);
+// \brief Convert a Python unicode string to a std::string
+Status PyUnicode_AsStdString(PyObject* obj, std::string* out);
 
-  // \brief Adjust the precision and scale of a decimal type given a new precision and a
-  // new scale \param[in] suggested_precision A candidate precision \param[in]
-  // suggested_scale A candidate scale \return The status of the operation
-  Status Update(int32_t suggested_precision, int32_t suggested_scale);
+// \brief Convert a Python bytes object to a std::string
+std::string PyBytes_AsStdString(PyObject* obj);
 
-  // \brief A convenient interface for updating the precision and scale based on a Python
-  // Decimal object \param object A Python Decimal object \return The status of the
-  // operation
-  Status Update(PyObject* object);
+// \brief Call str() on the given object and return the result as a std::string
+Status PyObject_StdStringStr(PyObject* obj, std::string* out);
 
-  int32_t precision() const { return precision_; }
-  int32_t scale() const { return scale_; }
+// \brief Return the repr() of the given object (always succeeds)
+std::string PyObject_StdStringRepr(PyObject* obj);
 
- private:
-  int32_t precision_;
-  int32_t scale_;
-};
+// \brief Cast the given size to int32_t, with error checking
+inline Status CastSize(Py_ssize_t size, int32_t* out,
+                       const char* error_msg = "Maximum size exceeded (2GB)") {
+  // size is assumed to be positive
+  if (size > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid(error_msg);
+  }
+  *out = static_cast<int32_t>(size);
+  return Status::OK();
+}
+
+Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid = false,
+                     bool* is_full = nullptr);
+Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full = nullptr);
+Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
+                     bool* is_full = nullptr);
 
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
 
-#endif  // PYARROW_HELPERS_H
+#endif  // ARROW_PYTHON_HELPERS_H

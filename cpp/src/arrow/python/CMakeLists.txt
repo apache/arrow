@@ -54,6 +54,7 @@ set(ARROW_PYTHON_SRCS
   builtin_convert.cc
   common.cc
   config.cc
+  decimal.cc
   helpers.cc
   init.cc
   io.cc
@@ -104,6 +105,7 @@ install(FILES
   builtin_convert.h
   common.h
   config.h
+  decimal.h
   helpers.h
   init.h
   io.h

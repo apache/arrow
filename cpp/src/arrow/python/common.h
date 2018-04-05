@@ -19,7 +19,9 @@
 #define ARROW_PYTHON_COMMON_H
 
 #include <memory>
+#include <sstream>
 #include <string>
+#include <utility>
 
 #include "arrow/python/config.h"
 
@@ -32,6 +34,15 @@ namespace arrow {
 class MemoryPool;
 
 namespace py {
+
+ARROW_EXPORT Status CheckPyError(StatusCode code = StatusCode::UnknownError);
+
+ARROW_EXPORT Status PassPyError();
+
+// TODO(wesm): We can just let errors pass through. To be explored later
+#define RETURN_IF_PYERROR() RETURN_NOT_OK(CheckPyError());
+
+#define PY_RETURN_IF_ERROR(CODE) RETURN_NOT_OK(CheckPyError(CODE));
 
 class ARROW_EXPORT PyAcquireGIL {
  public:
@@ -70,6 +81,11 @@ class ARROW_EXPORT OwnedRef {
   OwnedRef(OwnedRef&& other) : OwnedRef(other.detach()) {}
   explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
+  OwnedRef& operator=(OwnedRef&& other) {
+    obj_ = other.detach();
+    return *this;
+  }
+
   ~OwnedRef() { reset(); }
 
   void reset(PyObject* obj) {
@@ -88,6 +104,8 @@ class ARROW_EXPORT OwnedRef {
   PyObject* obj() const { return obj_; }
 
   PyObject** ref() { return &obj_; }
+
+  operator bool() const { return obj_ != NULLPTR; }
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(OwnedRef);
@@ -110,36 +128,72 @@ class ARROW_EXPORT OwnedRefNoGIL : public OwnedRef {
   }
 };
 
-struct ARROW_EXPORT PyObjectStringify {
-  OwnedRef tmp_obj;
+// A temporary conversion of a Python object to a bytes area.
+struct ARROW_EXPORT PyBytesView {
   const char* bytes;
   Py_ssize_t size;
 
-  explicit PyObjectStringify(PyObject* obj) {
-    PyObject* bytes_obj;
+  PyBytesView() : bytes(nullptr), size(0), ref(nullptr) {}
+
+  // View the given Python object as binary-like, i.e. bytes
+  Status FromBinary(PyObject* obj) { return FromBinary(obj, "a bytes object"); }
+
+  // View the given Python object as string-like, i.e. str or (utf8) bytes
+  Status FromString(PyObject* obj, bool check_valid = false) {
     if (PyUnicode_Check(obj)) {
-      bytes_obj = PyUnicode_AsUTF8String(obj);
-      tmp_obj.reset(bytes_obj);
-      bytes = PyBytes_AsString(bytes_obj);
-      size = PyBytes_GET_SIZE(bytes_obj);
-    } else if (PyBytes_Check(obj)) {
-      bytes = PyBytes_AsString(obj);
-      size = PyBytes_GET_SIZE(obj);
+#if PY_MAJOR_VERSION >= 3
+      Py_ssize_t size;
+      // The utf-8 representation is cached on the unicode object
+      const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
+      RETURN_IF_PYERROR();
+      this->bytes = data;
+      this->size = size;
+      this->ref.reset();
+      return Status::OK();
+#else
+      PyObject* converted = PyUnicode_AsUTF8String(obj);
+      RETURN_IF_PYERROR();
+      this->bytes = PyBytes_AS_STRING(converted);
+      this->size = PyBytes_GET_SIZE(converted);
+      this->ref.reset(converted);
+      return Status::OK();
+#endif
     } else {
-      bytes = NULLPTR;
-      size = -1;
+      RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
+      if (check_valid) {
+        // Check the bytes are valid utf-8
+        OwnedRef decoded(PyUnicode_FromStringAndSize(bytes, size));
+        RETURN_IF_PYERROR();
+      }
+      return Status::OK();
     }
   }
+
+ protected:
+  PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = nullptr)
+      : bytes(b), size(s), ref(obj) {}
+
+  Status FromBinary(PyObject* obj, const char* expected_msg) {
+    if (PyBytes_Check(obj)) {
+      this->bytes = PyBytes_AS_STRING(obj);
+      this->size = PyBytes_GET_SIZE(obj);
+      this->ref.reset();
+      return Status::OK();
+    } else if (PyByteArray_Check(obj)) {
+      this->bytes = PyByteArray_AS_STRING(obj);
+      this->size = PyByteArray_GET_SIZE(obj);
+      this->ref.reset();
+      return Status::OK();
+    } else {
+      std::stringstream ss;
+      ss << "Expected " << expected_msg << ", got a '" << Py_TYPE(obj)->tp_name
+         << "' object";
+      return Status::TypeError(ss.str());
+    }
+  }
+
+  OwnedRef ref;
 };
-
-Status CheckPyError(StatusCode code = StatusCode::UnknownError);
-
-Status PassPyError();
-
-// TODO(wesm): We can just let errors pass through. To be explored later
-#define RETURN_IF_PYERROR() RETURN_NOT_OK(CheckPyError());
-
-#define PY_RETURN_IF_ERROR(CODE) RETURN_NOT_OK(CheckPyError(CODE));
 
 // Return the common PyArrow memory pool
 ARROW_EXPORT void set_default_memory_pool(MemoryPool* pool);

@@ -28,6 +28,7 @@
 
 #include "arrow/python/arrow_to_pandas.h"
 #include "arrow/python/builtin_convert.h"
+#include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 
 namespace arrow {
