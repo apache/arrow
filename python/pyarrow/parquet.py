@@ -711,9 +711,14 @@ class ParquetDataset(object):
         Divide files into pieces for each row group in the file
     validate_schema : boolean, default True
         Check that individual file schemas are all the same / compatible
+    filters : List[Tuple] or None (default)
+        List of filters to apply, like ``[('x', '=', 0), ...]``. This
+        implements partition-level (hive) filtering only, i.e., to prevent the
+        loading of some files of the dataset.
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
-                 metadata=None, split_row_groups=False, validate_schema=True):
+                 metadata=None, split_row_groups=False, validate_schema=True,
+                 filters=None):
         if filesystem is None:
             a_path = path_or_paths
             if isinstance(a_path, list):
@@ -743,6 +748,9 @@ class ParquetDataset(object):
 
         if validate_schema:
             self.validate_schemas()
+
+        if filters:
+            self._filter(filters)
 
     def validate_schemas(self):
         open_file = self._get_open_file_func()
@@ -848,6 +856,31 @@ class ParquetDataset(object):
                                    metadata=meta,
                                    common_metadata=self.common_metadata)
         return open_file
+
+    def _filter(self, filters):
+        def filter_accepts_partition(part_key, filter, level):
+            p_column, p_value_index = part_key
+            f_column, op, f_value = filter
+            if p_column != f_column:
+                return True
+
+            f_value_index = self.partitions.get_index(level, p_column,
+                                                      str(f_value))
+            if op == "=":
+                return f_value_index == p_value_index
+            elif op == "!=":
+                return f_value_index != p_value_index
+            else:
+                return True
+
+        def one_filter_accepts(piece, filter):
+            return all(filter_accepts_partition(part_key, filter, level)
+                       for level, part_key in enumerate(piece.partition_keys))
+
+        def all_filters_accept(piece):
+            return all(one_filter_accepts(piece, f) for f in filters)
+
+        self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
 
 def _ensure_filesystem(fs):
