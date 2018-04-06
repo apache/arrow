@@ -4,9 +4,9 @@ language: objective-c
 
 env:
   global:
-    - PLAT=x86_64
-    - BUILD_REF=7b2c79765cf92760e1f8cca079159d9613b86412
-    - PYARROW_VERSION=0.9.0
+    - PLAT={PLAT}
+    - BUILD_REF={BUILD_REF}
+    - PYARROW_VERSION={PYARROW_VERSION}
 
 matrix:
   exclude:

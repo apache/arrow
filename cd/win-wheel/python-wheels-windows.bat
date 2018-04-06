@@ -44,6 +44,8 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 
+echo %ARROW_HOME%
+
 @rem Build and test Arrow C++ libraries
 mkdir %ARROW_SRC%\cpp\build
 pushd %ARROW_SRC%\cpp\build
