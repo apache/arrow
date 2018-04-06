@@ -18,7 +18,6 @@
 use bytes::Bytes;
 use libc;
 use std::mem;
-use std::ptr;
 use std::slice;
 
 use super::memory::*;
