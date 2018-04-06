@@ -437,8 +437,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 
   explicit FixedSizeBinaryType(int32_t byte_width)
       : FixedWidthType(Type::FIXED_SIZE_BINARY), byte_width_(byte_width) {}
-  explicit FixedSizeBinaryType(int32_t byte_width, Type::type type_id)
-      : FixedWidthType(type_id), byte_width_(byte_width) {}
+  explicit FixedSizeBinaryType(int32_t byte_width, Type::type override_type_id)
+      : FixedWidthType(override_type_id), byte_width_(byte_width) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
