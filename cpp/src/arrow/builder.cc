@@ -1422,12 +1422,6 @@ FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& 
       byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
 
-Status FixedSizeBinaryBuilder::Append(const uint8_t* value) {
-  RETURN_NOT_OK(Reserve(1));
-  UnsafeAppendToBitmap(true);
-  return byte_builder_.Append(value, byte_width_);
-}
-
 Status FixedSizeBinaryBuilder::Append(const uint8_t* data, int64_t length,
                                       const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
