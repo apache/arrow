@@ -20,6 +20,9 @@ package org.apache.arrow.adapter.jdbc;
 
 
 import com.google.common.base.Preconditions;
+import com.google.common.io.ByteStreams;
+import com.google.common.io.CharStreams;
+
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -43,11 +46,12 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
 import java.math.BigDecimal;
-
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.sql.Blob;
-import java.sql.Clob;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -60,7 +64,6 @@ import java.util.List;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
-
 
 /**
  * Class that does most of the work to convert JDBC ResultSet data into Arrow columnar format Vector objects.
@@ -168,7 +171,7 @@ public class JdbcToArrowUtils {
                     break;
                 case Types.ARRAY:
                     // TODO Need to handle this type
-//                    fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
+                	// fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
                    break;
                 case Types.CLOB:
                     fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
@@ -206,7 +209,7 @@ public class JdbcToArrowUtils {
      * @param root Arrow {@link VectorSchemaRoot} object to populate
      * @throws Exception
      */
-    public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root) throws SQLException {
+    public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root) throws SQLException, IOException {
 
         Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
         Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
@@ -219,7 +222,6 @@ public class JdbcToArrowUtils {
         int rowCount = 0;
         while (rs.next()) {
             // for each column get the value based on the type
-
             // need to change this to build Java lists and then build Arrow vectors
             for (int i = 1; i <= columnCount; i++) {
                 String columnName = rsmd.getColumnName(i);
@@ -243,7 +245,7 @@ public class JdbcToArrowUtils {
                         break;
                     case Types.BIGINT:
                         updateVector((BigIntVector)root.getVector(columnName),
-                                rs.getInt(i), rowCount);
+                                rs.getLong(i), rowCount);
                         break;
                     case Types.NUMERIC:
                     case Types.DECIMAL:
@@ -288,15 +290,15 @@ public class JdbcToArrowUtils {
                         break;
                     case Types.ARRAY:
                         // TODO Need to handle this type
-//                    fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
+                    	// fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
                         break;
                     case Types.CLOB:
-                        updateVector((VarCharVector)root.getVector(columnName),
-                            rs.getClob(i), rowCount);
+                        updateVector((VarCharVector)root.getVector(columnName), 
+                        		rs.getCharacterStream(i), rowCount);
                         break;
                     case Types.BLOB:
-                        updateVector((VarBinaryVector)root.getVector(columnName),
-                            rs.getBlob(i), rowCount);
+                    	updateVector((VarBinaryVector)root.getVector(columnName),
+                    			rs.getBinaryStream(i), rowCount);
                         break;
 
                     default:
@@ -329,7 +331,7 @@ public class JdbcToArrowUtils {
         intVector.setValueCount(rowCount + 1);
     }
 
-    private static  void updateVector(BigIntVector bigIntVector, int value, int rowCount) {
+    private static  void updateVector(BigIntVector bigIntVector, long value, int rowCount) {
         bigIntVector.setSafe(rowCount, value);
         bigIntVector.setValueCount(rowCount + 1);
     }
@@ -398,34 +400,38 @@ public class JdbcToArrowUtils {
             varBinaryVector.setNull(rowCount);
         }
     }
-
-    private static void updateVector(VarCharVector varcharVector, Clob clob, int rowCount) throws SQLException {
+    
+    private static void updateVector(VarCharVector varcharVector, Reader clobReader, int rowCount) throws SQLException, IOException {
+    	Preconditions.checkNotNull(clobReader, "Reader object for Clob can't be null");
+       	
+        ByteBuffer clobBuff = ByteBuffer.wrap(CharStreams.toString(clobReader).getBytes());
+        clobReader.close();
         varcharVector.setValueCount(rowCount + 1);
-        if (clob != null) {
-            int length = (int) clob.length();
-            String value = clob.getSubString(1, length);
-            if (value != null) {
-                varcharVector.setIndexDefined(rowCount);
-                varcharVector.setValueLengthSafe(rowCount, length);
-                varcharVector.setSafe(rowCount, value.getBytes(StandardCharsets.UTF_8), 0, length);
-            } else {
-                varcharVector.setNull(rowCount);
-            }
+        if (clobBuff != null) {
+            int length = clobBuff.capacity();
+            varcharVector.setIndexDefined(rowCount);
+            varcharVector.setValueLengthSafe(rowCount, length);
+            varcharVector.setSafe(rowCount, clobBuff, 0, length);
         } else {
             varcharVector.setNull(rowCount);
         }
     }
 
-    private static void updateVector(VarBinaryVector varBinaryVector, Blob blob, int rowCount) throws SQLException {
-        varBinaryVector.setValueCount(rowCount + 1);
-        if (blob != null) {
-            byte[] data = blob.getBytes(0, (int) blob.length());
+    private static void updateVector(VarBinaryVector varBinaryVector, InputStream blobStream, int rowCount) throws SQLException, IOException {
+    	Preconditions.checkNotNull(blobStream, "InputStream object for Blob can't be null");
+               
+        ByteBuffer blobBuff = ByteBuffer.wrap(ByteStreams.toByteArray(blobStream));
+        blobStream.close();
+            	
+    	varBinaryVector.setValueCount(rowCount + 1);
+        if (blobBuff != null) {
+        	int length = blobBuff.capacity();
             varBinaryVector.setIndexDefined(rowCount);
-            varBinaryVector.setValueLengthSafe(rowCount, (int) blob.length());
-            varBinaryVector.setSafe(rowCount, data);
+            varBinaryVector.setValueLengthSafe(rowCount, length);
+            varBinaryVector.setSafe(rowCount, blobBuff, 0, length);
         } else {
             varBinaryVector.setNull(rowCount);
         }
-
     }
+    
 }
