@@ -17,11 +17,14 @@ before_install:
 install:
 script:
   - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow
-  - mkdir -p arrow/dist
+  - mkdir -p dist
 
-  - docker build -t arrow-base-x86_64 -f arrow/python/manylinux1/Dockerfile-x86_64 .
+  - pushd arrow/python/manylinux1
+  - git clone ../../ arrow
+  - docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
   - docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3
     -e SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
     -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+  - popd
 
   - sudo mv arrow/python/manylinux1/dist/* dist/

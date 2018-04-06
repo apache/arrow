@@ -48,7 +48,7 @@ install:
   - BUILD_DEPENDS="numpy==$NP_BUILD_DEP six cython"
   - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
 
-  - mkdir -p arrow/dist
+  - mkdir -p dist
   - clean_code arrow $BUILD_REF
   - build_wheel arrow $PLAT
   - mv -v arrow/python/dist/* dist/
