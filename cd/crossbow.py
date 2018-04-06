@@ -7,6 +7,9 @@ import pygit2
 from pygit2 import Signature, Repository, UserPass, RemoteCallbacks
 from pathlib import Path
 
+ARROW_REPO = 'https://github.com/kszucs/arrow'
+ARROW_BRANCH = 'cd'
+
 # we should handle this later
 signature = Signature('John Doe', 'jdoe@example.com', 12346, 0)
 author = committer = signature
@@ -53,6 +56,10 @@ for config in cwd.glob('*.yml'):
 
     # creating the file inside git object db
     content = config.read_text()
+
+    # FANCY templating
+    content = content.format(ARROW_REPO=ARROW_REPO, ARROW_BRANCH=ARROW_BRANCH)
+
     blob_id = repo.create_blob(content)
     blob = repo[blob_id]
 
@@ -78,7 +85,7 @@ for config in cwd.glob('*.yml'):
 def acquire_credentials_cb(url, username_from_url, allowed_types):
     print('credentials', url, username_from_url, allowed_types)
     # its a libgit2 bug, that it infinitly retries the authentication
-    token = '5f3ea541b44a23150d95eaa9b87a65edabf91ff3'
+    token = '<top secret>'
     return UserPass(token, 'x-oauth-basic')
 
 

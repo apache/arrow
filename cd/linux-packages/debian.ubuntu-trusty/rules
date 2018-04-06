@@ -1,0 +1,52 @@
+#!/usr/bin/make -f
+# -*- makefile-gmake -*-
+#
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+# This has to be exported to make some magic below work.
+export DH_OPTIONS
+
+BUILD_TYPE=release
+
+%:
+	dh $@ --with gir
+
+override_dh_auto_configure:
+	dh_auto_configure \
+	  --sourcedirectory=cpp \
+	  --builddirectory=cpp_build \
+	  -- \
+	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+	  -DARROW_BUILD_TESTS=OFF \
+	  -DARROW_ORC=ON
+	dh_auto_configure \
+	  --sourcedirectory=c_glib \
+	  --builddirectory=c_glib_build \
+	  -- \
+	  --with-arrow-cpp-build-dir=$${PWD}/cpp_build \
+	  --with-arrow-cpp-build-type=$(BUILD_TYPE) \
+	  --enable-gtk-doc \
+	  --with-html-dir=\$${prefix}/share/doc/libarrow-glib-doc
+
+override_dh_auto_build:
+	dh_auto_build				\
+	  --sourcedirectory=cpp			\
+	  --builddirectory=cpp_build
+	env							\
+	  LD_LIBRARY_PATH=$${PWD}/cpp_build/$(BUILD_TYPE)	\
+	    dh_auto_build					\
+	      --sourcedirectory=c_glib				\
+	      --builddirectory=c_glib_build
+
+override_dh_auto_install:
+	dh_auto_install				\
+	  --sourcedirectory=cpp			\
+	  --builddirectory=cpp_build
+	dh_auto_install				\
+	  --sourcedirectory=c_glib		\
+	  --builddirectory=c_glib_build
+	mv debian/tmp/usr/lib/*/girepository-1.0/	\
+	  debian/tmp/usr/lib/
+
+# disable 'make check'.
+override_dh_auto_test:

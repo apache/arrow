@@ -1,0 +1,244 @@
+# -*- rpm -*-
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+%define _centos_ver %{?centos_ver:%{centos_ver}}%{!?centos_ver:7}
+
+%define use_python %{_centos_ver} >= 6
+%define use_glib %{_centos_ver} >= 7
+
+Name:		@PACKAGE@
+Version:	@VERSION@
+Release:	1%{?dist}
+Summary:	Apache Arrow is a data processing library for analysis
+
+Group:		Development/Libraries
+License:	Apache-2.0
+URL:		https://arrow.apache.org/
+Source0:	https://dist.apache.org/repos/dist/release/arrow/arrow-%{version}/apache-@PACKAGE@-%{version}.tar.gz
+
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-%(%{__id_u} -n)
+BuildRequires:	pkgconfig
+BuildRequires:	gcc-c++
+BuildRequires:	cmake3
+BuildRequires:	boost-devel
+BuildRequires:	git
+BuildRequires:	jemalloc-devel
+%if %{use_python}
+BuildRequires:	python34-devel
+BuildRequires:	python34-numpy
+%endif
+%if %{use_glib}
+BuildRequires:	gtk-doc
+BuildRequires:	gobject-introspection-devel
+%endif
+
+%description
+Apache Arrow is a data processing library for analysis.
+
+%prep
+%setup -q -n apache-@PACKAGE@-%{version}
+
+%build
+build_type=release
+mkdir cpp/build
+cd cpp/build
+%cmake3 .. \
+  -DCMAKE_BUILD_TYPE=$build_type \
+  -DARROW_ORC=ON \
+%if %{use_python}
+  -DARROW_PYTHON=ON \
+  -DPythonInterp_FIND_VERSION=ON \
+  -DPythonInterp_FIND_VERSION_MAJOR=3 \
+%endif
+%if %{_centos_ver} == 6
+  -DARROW_BOOST_VENDORED=ON \
+%endif
+  -DARROW_ORC=ON \
+  -DARROW_BUILD_TESTS=OFF
+make %{?_smp_mflags}
+cd -
+
+%if %{use_glib}
+cd c_glib
+%configure \
+  --with-arrow-cpp-build-dir=$PWD/../cpp/build \
+  --with-arrow-cpp-build-type=$build_type
+sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
+sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
+LD_LIBRARY_PATH=$PWD/arrow-glib/.libs/:$PWD/../cpp/build/$build_type \
+  make %{?_smp_mflags}
+cd -
+%endif
+
+%install
+cd cpp/build
+make install DESTDIR=$RPM_BUILD_ROOT
+cd -
+
+%if %{use_glib}
+cd c_glib
+make install DESTDIR=$RPM_BUILD_ROOT
+rm $RPM_BUILD_ROOT%{_libdir}/*.la
+cd -
+%endif
+
+%package libs
+Summary:	Runtime libraries for Apache Arrow C++
+Group:		System Environment/Libraries
+License:	Apache-2.0
+Requires:	boost-system
+Requires:	boost-filesystem
+Requires:	boost-regex
+Requires:	jemalloc
+
+%description libs
+This package contains the libraries for Apache Arrow C++.
+
+%files libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow.so.*
+
+%package devel
+Summary:	Libraries and header files for Apache Arrow C++
+Group:		Development/Libraries
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+
+%description devel
+Libraries and header files for Apache Arrow C++.
+
+%files devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/
+%{_libdir}/libarrow.a
+%{_libdir}/libarrow.so
+%{_libdir}/pkgconfig/arrow.pc
+%{_libdir}/pkgconfig/arrow-compute.pc
+
+%if %{use_python}
+%package python-libs
+Summary:	Apache Arrow CPython extensions
+Group:		System Environment/Libraries
+License:	Apache-2.0
+Requires:	arrow-libs = %{version}-%{release}
+Requires:	python34-numpy
+
+%description python-libs
+This package contains the Apache Arrow CPython extensions.
+
+%files python-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_python.so.*
+
+%package python-devel
+Summary:	Libraries and header files for Apache Arrow CPython extensions
+Group:		Development/Libraries
+License:	Apache-2.0
+Requires:	arrow-devel = %{version}-%{release}
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	python34-devel
+
+%description python-devel
+Libraries and header files for Apache Arrow CPython extensions.
+
+%files python-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_python.a
+%{_libdir}/libarrow_python.so
+%{_libdir}/pkgconfig/arrow-python.pc
+%endif
+
+%if %{use_glib}
+%package glib-libs
+Summary:	Runtime libraries for Apache Arrow GLib
+Group:		System Environment/Libraries
+License:	Apache-2.0
+Requires:	arrow-libs = %{version}-%{release}
+Requires:	glib2
+
+%description glib-libs
+This package contains the libraries for Apache Arrow GLib.
+
+%files glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow-glib.so.*
+%{_datadir}/gir-1.0/*.gir
+
+%package glib-devel
+Summary:	Libraries and header files for Apache Arrow GLib
+Group:		Development/Libraries
+License:	Apache-2.0
+Requires:	arrow-devel = %{version}-%{release}
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	glib2-devel
+Requires:	gobject-introspection-devel
+
+%description glib-devel
+Libraries and header files for Apache Arrow GLib.
+
+%files glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow-glib/
+%{_libdir}/libarrow-glib.a
+%{_libdir}/libarrow-glib.so
+%{_libdir}/pkgconfig/arrow-glib.pc
+%{_libdir}/girepository-1.0/*.typelib
+%{_datadir}/arrow-glib/example/
+
+%package glib-doc
+Summary:	Documentation for Apache Arrow GLib
+Group:		Documentation
+License:	Apache-2.0
+Requires:	arrow-devel = %{version}-%{release}
+Requires:	%{name}-libs = %{version}-%{release}
+
+%description glib-doc
+Documentation for Apache Arrow GLib.
+
+%files glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_docdir}/arrow-glib/
+%{_datadir}/gtk-doc/html/arrow-glib/
+%endif
+
+%changelog
+* Fri Mar 16 2018 Kouhei Sutou <kou@clear-code.com> - 0.9.0-1
+- New upstream release.
+
+* Sun Dec 17 2017 Uwe Korn <uwelk@xhochy.com> - 0.8.0-1
+- New upstream release.
+
+* Wed Sep 27 2017 Kouhei Sutou <kou@clear-code.com> - 0.7.1-1
+- New upstream release.
+
+* Tue Sep 12 2017 Wes McKinney <wes.mckinney@twosigma.com> - 0.7.0-1
+- New upstream release.
+
+* Fri Aug 11 2017 Kouhei Sutou <kou@clear-code.com> - 0.6.0-1
+- New upstream release.
+
+* Wed Aug 02 2017 Kouhei Sutou <kou@clear-code.com> - 0.6.0.20170802-1
+- New upstream release.

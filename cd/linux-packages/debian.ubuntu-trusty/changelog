@@ -1,0 +1,42 @@
+apache-arrow (0.9.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Kouhei Sutou <kou@clear-code.com>  Fri, 16 Mar 2018 16:56:31 -0000
+
+apache-arrow (0.8.0-2) unstable; urgency=low
+
+  * Fix .typelib path.
+    Reported by Mike Sam. Thanks!!!
+
+ -- Kouhei Sutou <kou@clear-code.com>  Thu, 25 Jan 2018 21:44:11 +0900
+
+apache-arrow (0.8.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Uwe L. Korn <uwelk@xhochy.com>  Sun, 17 Dec 2017 20:24:44 -0000
+
+apache-arrow (0.7.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Kouhei Sutou <kou@clear-code.com>  Wed, 27 Sep 2017 13:19:05 -0000
+
+apache-arrow (0.7.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Wes McKinney <wes.mckinney@twosigma.com>  Tue, 12 Sep 2017 22:01:14 -0000
+
+apache-arrow (0.6.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Kouhei Sutou <kou@clear-code.com>  Fri, 11 Aug 2017 21:27:51 -0000
+
+apache-arrow (0.6.0.20170802-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Kouhei Sutou <kou@clear-code.com>  Wed, 02 Aug 2017 22:28:18 -0000

@@ -1,0 +1,9 @@
+Document: arrow-glib
+Title: arrow-glib Reference Manual
+Author: Kouhei Sutou
+Abstract: Apache Arrow is a data processing library for analysis.
+Section: Programming
+
+Format: HTML
+Index: /usr/share/doc/libarrow-glib-doc/arrow-glib/index.html
+Files: /usr/share/doc/libarrow-glib-doc/arrow-glib/*.html

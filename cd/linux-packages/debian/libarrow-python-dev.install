@@ -1,0 +1,3 @@
+usr/lib/*/libarrow_python.a
+usr/lib/*/libarrow_python.so
+usr/lib/*/pkgconfig/arrow-python.pc
