@@ -1,7 +1,7 @@
 os: linux
 dist: trusty
 sudo: required
-language: cpp
+language: ruby
 
 env:
   global:

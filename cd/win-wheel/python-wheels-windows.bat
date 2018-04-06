@@ -30,6 +30,8 @@ conda install -n arrow -q -y -c conda-forge ^
 
 call activate arrow
 
+pushd %ARROW_SRC%
+
 @rem fix up symlinks
 git config core.symlinks true
 git reset --hard || exit /B

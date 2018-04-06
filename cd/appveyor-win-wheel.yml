@@ -24,11 +24,9 @@ init:
 build_script:
   - set ARROW_SRC=C:\apache-arrow
 
-  - mkdir %ARROW_SRC%
-  - git clone -b {ARROW_BRANCH} {ARROW_REPO} %ARROW_SRC% || exit /B
-  - pushd %ARROW_SRC%
-
   - mkdir wheels
+  - git clone -b {ARROW_BRANCH} {ARROW_REPO} %ARROW_SRC% || exit /B
+
   - call %ARROW_SRC%\cd\win-wheel\python-wheels-windows.bat
 
 after_build:
