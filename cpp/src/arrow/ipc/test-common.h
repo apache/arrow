@@ -232,8 +232,8 @@ Status MakeRandomBinaryArray(int64_t length, bool include_nulls, MemoryPool* poo
   return builder.Finish(out);
 }
 
-Status MakeStringTypesRecordBatchWithNulls(std::shared_ptr<RecordBatch>* out,
-                                           bool with_nulls = true) {
+Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch> *out,
+                                  bool with_nulls = true) {
   const int64_t length = 500;
   auto string_type = utf8();
   auto binary_type = binary();
@@ -258,8 +258,8 @@ Status MakeStringTypesRecordBatchWithNulls(std::shared_ptr<RecordBatch>* out,
   return Status::OK();
 }
 
-Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
-  return MakeStringTypesRecordBatchWithNulls(out, true);
+Status MakeStringTypesRecordBatchWithoutNulls(std::shared_ptr<RecordBatch> *out) {
+  return MakeStringTypesRecordBatch(out, true);
 }
 
 Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {

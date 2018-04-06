@@ -427,7 +427,7 @@ TEST_F(TestTableWriter, SliceRoundTrip) {
 
 TEST_F(TestTableWriter, SliceStringsRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatchWithNulls(&batch, false));
+  ASSERT_OK(MakeStringTypesRecordBatch(&batch, false));
   batch = batch->Slice(320, 30);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
@@ -447,7 +447,7 @@ TEST_F(TestTableWriter, SliceStringsRoundTrip) {
 
 TEST_F(TestTableWriter, SliceStringsWithNullsRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatchWithNulls(&batch, true));
+  ASSERT_OK(MakeStringTypesRecordBatch(&batch, true));
   batch = batch->Slice(320, 30);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
@@ -467,7 +467,7 @@ TEST_F(TestTableWriter, SliceStringsWithNullsRoundTrip) {
 
 TEST_F(TestTableWriter, SliceAtNonEightOffsetStringsWithNullsRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatchWithNulls(&batch, true));
+  ASSERT_OK(MakeStringTypesRecordBatch(&batch, true));
   batch = batch->Slice(323, 30);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
@@ -487,7 +487,7 @@ TEST_F(TestTableWriter, SliceAtNonEightOffsetStringsWithNullsRoundTrip) {
 
 TEST_F(TestTableWriter, SliceAtNonEightOffsetStringsWithNullsMultipleChunksRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatchWithNulls(&batch, true));
+  ASSERT_OK(MakeStringTypesRecordBatch(&batch, true));
   batch = batch->Slice(100, 300);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
