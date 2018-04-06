@@ -22,11 +22,17 @@ init:
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
 build_script:
-  - cmd: mkdir wheels
-  - call scripts\python-wheels-windows.bat
+  - set ARROW_SRC=C:\apache-arrow
+
+  - mkdir %ARROW_SRC%
+  - git clone -b {ARROW_BRANCH} {ARROW_REPO} %ARROW_SRC% || exit /B
+  - pushd %ARROW_SRC%
+
+  - mkdir wheels
+  - call %ARROW_SRC%\cd\win-wheel\python-wheels-windows.bat
 
 after_build:
-  xcopy C:\apache-arrow\python\dist\* wheels\
+  xcopy %ARROW_SRC%\python\dist\* wheels\
 
 artifacts:
   - path: wheels\*.whl
