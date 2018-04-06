@@ -406,10 +406,18 @@ TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
   }
 }
 
-TEST_F(TestTableWriter, SliceRoundTrip) {
+class TestTableWriterSlice : public TestTableWriter,
+                             public ::testing::WithParamInterface<std::tuple<int, int>> {
+};
+
+TEST_P(TestTableWriterSlice, SliceRoundTrip) {
+  auto p = GetParam();
+  auto start = std::get<0>(p);
+  auto size = std::get<1>(p);
+
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntBatchSized(300, &batch));
-  batch = batch->Slice(100, 100);
+  ASSERT_OK(MakeIntBatchSized(start * 2, &batch));
+  batch = batch->Slice(start, size);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
   ASSERT_OK(writer_->Append("f1", *batch->column(1)));
@@ -425,30 +433,14 @@ TEST_F(TestTableWriter, SliceRoundTrip) {
   ASSERT_EQ("f1", col->name());
 }
 
-TEST_F(TestTableWriter, SliceStringsRoundTrip) {
+TEST_P(TestTableWriterSlice, SliceStringsRoundTrip) {
+  auto p = GetParam();
+  auto start = std::get<0>(p);
+  auto size = std::get<1>(p);
+  auto with_nulls = start % 2 == 0;
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatch(&batch, false));
-  batch = batch->Slice(320, 30);
-
-  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
-  Finish();
-
-  std::shared_ptr<Column> col;
-  ASSERT_OK(reader_->GetColumn(0, &col));
-  SCOPED_TRACE(col->data()->chunk(0)->ToString() + "\n" + batch->column(0)->ToString());
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
-  ASSERT_EQ("f0", col->name());
-
-  ASSERT_OK(reader_->GetColumn(1, &col));
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
-  ASSERT_EQ("f1", col->name());
-}
-
-TEST_F(TestTableWriter, SliceStringsWithNullsRoundTrip) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatch(&batch, true));
-  batch = batch->Slice(320, 30);
+  ASSERT_OK(MakeStringTypesRecordBatch(&batch, with_nulls));
+  batch = batch->Slice(start, size);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
   ASSERT_OK(writer_->Append("f1", *batch->column(1)));
@@ -465,10 +457,13 @@ TEST_F(TestTableWriter, SliceStringsWithNullsRoundTrip) {
   ASSERT_EQ("f1", col->name());
 }
 
-TEST_F(TestTableWriter, SliceAtNonEightOffsetStringsWithNullsRoundTrip) {
+TEST_P(TestTableWriterSlice, SliceBooleanRoundTrip) {
+  auto p = GetParam();
+  auto start = std::get<0>(p);
+  auto size = std::get<1>(p);
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatch(&batch, true));
-  batch = batch->Slice(323, 30);
+  ASSERT_OK(MakeBooleanBatchSized(600, &batch));
+  batch = batch->Slice(start, size);
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
   ASSERT_OK(writer_->Append("f1", *batch->column(1)));
@@ -485,45 +480,14 @@ TEST_F(TestTableWriter, SliceAtNonEightOffsetStringsWithNullsRoundTrip) {
   ASSERT_EQ("f1", col->name());
 }
 
-TEST_F(TestTableWriter, SliceAtNonEightOffsetStringsWithNullsMultipleChunksRoundTrip) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatch(&batch, true));
-  batch = batch->Slice(100, 300);
-
-  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
-  Finish();
-
-  std::shared_ptr<Column> col;
-  ASSERT_OK(reader_->GetColumn(0, &col));
-  SCOPED_TRACE(col->data()->chunk(0)->ToString() + "\n" + batch->column(0)->ToString());
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
-  ASSERT_EQ("f0", col->name());
-
-  ASSERT_OK(reader_->GetColumn(1, &col));
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
-  ASSERT_EQ("f1", col->name());
-}
-
-TEST_F(TestTableWriter, SliceAtNonEightOffsetBoolean) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeBooleanBatchSized(400, &batch));
-  batch = batch->Slice(77, 37);
-
-  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
-  Finish();
-
-  std::shared_ptr<Column> col;
-  ASSERT_OK(reader_->GetColumn(0, &col));
-  SCOPED_TRACE(col->data()->chunk(0)->ToString() + "\n" + batch->column(0)->ToString());
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
-  ASSERT_EQ("f0", col->name());
-
-  ASSERT_OK(reader_->GetColumn(1, &col));
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
-  ASSERT_EQ("f1", col->name());
-}
+INSTANTIATE_TEST_CASE_P(
+    TestTableWriterSliceOffsets, TestTableWriterSlice,
+    ::testing::Values(std::make_tuple(300, 30), std::make_tuple(301, 30),
+                      std::make_tuple(302, 30), std::make_tuple(303, 30),
+                      std::make_tuple(304, 30), std::make_tuple(305, 30),
+                      std::make_tuple(306, 30), std::make_tuple(307, 30),
+                      std::make_tuple(300, 1), std::make_tuple(300, 8),
+                      std::make_tuple(1, 2)));
 
 }  // namespace feather
 }  // namespace ipc
