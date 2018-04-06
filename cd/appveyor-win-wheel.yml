@@ -16,7 +16,7 @@ environment:
   pyarrow_version: 0.9.0
   pyarrow_ref: 7b2c79765cf92760e1f8cca079159d9613b86412
   parquet_cpp_ref: apache-parquet-cpp-1.4.0
-  ARROW_SRC=C:\apache-arrow
+  ARROW_SRC: C:\apache-arrow
 
 init:
   - set MINICONDA=C:\Miniconda35-x64
