@@ -730,7 +730,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
-  Status Append(const uint8_t* value);
+  Status Append(const uint8_t* value) {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+    return byte_builder_.Append(value, byte_width_);
+  }
+  Status Append(const char* value) {
+    return Append(reinterpret_cast<const uint8_t*>(value));
+  }
 
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& value) {
