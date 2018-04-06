@@ -1,8 +1,13 @@
-language: python
-python: 3.5
-sudo: required
+os: linux
 dist: trusty
+sudo: required
+language: cpp
+
+env:
+  global:
+    - PLAT=x86_64
+    - BUILD_REF=7b2c79765cf92760e1f8cca079159d9613b86412
+    - PYARROW_VERSION=0.9.0
 
 script:
-  - git clone https://github.com/apache/arrow
-  - echo "Hello, World"
+  - cd cpp-linux && travis_wait 40 && rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no

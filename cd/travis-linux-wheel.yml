@@ -1,7 +1,27 @@
-language: python
-python: 3.5
-sudo: required
-dist: trusty
+env:
+  global:
+    - PLAT=x86_64
+    - BUILD_REF=7b2c79765cf92760e1f8cca079159d9613b86412
+    - PYARROW_VERSION=0.9.0
 
+os: linux
+dist: trusty
+sudo: required
+language: cpp
+
+services:
+  - docker
+before_script:
+  - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+before_install:
+install:
 script:
-- echo "Hello, World"
+  - git clone https://github.com/apache/arrow arrow
+  - mkdir -p arrow/dist
+  - pushd arrow/python/manylinux1
+  - docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
+  - docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3
+    -e SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
+    -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+  - popd
+  - sudo mv arrow/python/manylinux1/dist/* dist/

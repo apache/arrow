@@ -2,6 +2,61 @@ os: osx
 sudo: required
 language: objective-c
 
-script:
+env:
+  global:
+    - PLAT=x86_64
+    - BUILD_REF=7b2c79765cf92760e1f8cca079159d9613b86412
+    - PYARROW_VERSION=0.9.0
+
+matrix:
+  exclude:
+    - python: 3.5
+  include:
+    - env:
+        - MB_PYTHON_VERSION=2.7
+        - NP_BUILD_DEP="1.10.1"
+        - NP_TEST_DEP="1.10.1"
+        - PANDAS_DEP="0.20.3"
+    - env:
+        - MB_PYTHON_VERSION=3.5
+        - NP_BUILD_DEP="1.10.1"
+        - NP_TEST_DEP="1.10.1"
+        - PANDAS_DEP="0.20.3"
+    - env:
+        - MB_PYTHON_VERSION=3.6
+        - NP_BUILD_DEP="1.11.3"
+        - NP_TEST_DEP="1.11.3"
+        - PANDAS_DEP="0.20.3"
+
+before_install:
+  - git clone https://github.com/matthew-brett/multibuild
   - git clone https://github.com/apache/arrow
-  - echo "Hello, World"
+
+  # Also remove artifacts that depend on Boost
+  - brew uninstall boost cgal postgis sfcgal
+  - brew update
+  - brew upgrade cmake
+  - brew install bison flex
+
+  - pushd arrow/cd/osx-wheel
+  - source multibuild/common_utils.sh
+  - source multibuild/travis_osx_steps.sh
+  - before_install
+  - popd
+
+install:
+  - BUILD_DEPENDS="numpy==$NP_BUILD_DEP six cython"
+  - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
+
+  - mkdir -p arrow/dist
+  - clean_code arrow $BUILD_REF
+  - build_wheel arrow $PLAT
+  - mv -v arrow/python/dist/* dist/
+
+script:
+  - echo "SCRIPT"
+  - pwd
+
+after_success:
+  - echo "After success"
+  - pwd

@@ -17,10 +17,9 @@ message = 'disco!'
 # --remote arg when it will clone otherwise locally
 repo = Repository('/Users/krisz/Workspace/crossbow')
 
-head = repo[repo.head.target]  # master's head
-tree = head.tree
+master = repo.branches['master']
+head = repo[master.target]
 
-print(tree)
 
 remote = repo.remotes['origin']
 refspecs = []
@@ -33,7 +32,8 @@ cwd = Path(__file__).parent
 
 for config in cwd.glob('*.yml'):
     branch_name = config.stem
-    refspecs.append('refs/heads/{}'.format(branch_name))
+    reference = 'refs/heads/{}'.format(branch_name)
+    refspecs.append(reference)
 
 
     if branch_name in repo.branches:
@@ -43,16 +43,18 @@ for config in cwd.glob('*.yml'):
         # otherwise we initialize it
         branch = repo.branches.create(branch_name, head)
 
-    # do the actual checkout
-    repo.checkout(branch)
+    # # do the actual checkout
+    # repo.checkout(branch)
 
     # creating the tree we are going to push
     builder = repo.TreeBuilder(head.tree)
 
+    print('creating blob')
+
     # creating the file inside git object db
     content = config.read_text()
-    blob_sha = repo.create_blob(content)
-    blob = repo[blob_sha]
+    blob_id = repo.create_blob(content)
+    blob = repo[blob_id]
 
     if 'travis' in str(config):
         target = '.travis.yml'
@@ -61,22 +63,22 @@ for config in cwd.glob('*.yml'):
     else:
         ValueError('raise sommething')
 
-    builder.insert(target, blob_sha, pygit2.GIT_FILEMODE_BLOB)
-    tree_sha = builder.write()
+    print('adding file {}'.format(target))
+    builder.insert(target, blob_id, pygit2.GIT_FILEMODE_BLOB)
+    tree_id = builder.write()
 
-    print(tree_sha)
 
-    parent_shas = [repo.head.target]  # point to the currently checked out branch's head
-    commit_sha = repo.create_commit('HEAD', author, committer, message, tree_sha,
-                                    [repo.head.target])
+    commit_id = repo.create_commit(reference, author, committer, message, tree_id,
+                                   [branch.target])
 
-    commit = repo[commit_sha]
+    commit = repo[commit_id]
     print(commit)
 
 
 def acquire_credentials_cb(url, username_from_url, allowed_types):
     print('credentials', url, username_from_url, allowed_types)
-    token = '<top secret>'
+    # its a libgit2 bug, that it infinitly retries the authentication
+    token = '5f3ea541b44a23150d95eaa9b87a65edabf91ff3'
     return UserPass(token, 'x-oauth-basic')
 
 
