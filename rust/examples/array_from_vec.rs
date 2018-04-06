@@ -15,17 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-extern crate bytes;
-extern crate libc;
+extern crate arrow;
 
-#[macro_use]
-extern crate serde_json;
+use arrow::array::*;
 
-pub mod array;
-pub mod bitmap;
-pub mod buffer;
-pub mod builder;
-pub mod datatypes;
-pub mod error;
-pub mod list;
-pub mod memory;
+fn main() {
+    // create a memory-aligned Arrow array from an existing Vec
+    let array = Array::from(vec![1, 2, 3, 4, 5]);
+
+    match array.data() {
+        &ArrayData::Int32(ref buffer) => {
+            println!("array contents: {:?}", buffer.iter().collect::<Vec<i32>>());
+        }
+        _ => {}
+    }
+}

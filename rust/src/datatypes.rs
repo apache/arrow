@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::fmt;
+use super::error::ArrowError;
 use serde_json;
 use serde_json::Value;
-use super::error::ArrowError;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
