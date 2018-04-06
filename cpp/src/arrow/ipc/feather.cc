@@ -591,8 +591,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
     // Write the null bitmask
     if (values.null_count() > 0) {
-      // We assume there is one bit for each value in values.nulls, aligned on a
-      // byte boundary, and we write this much data into the stream
+      // We assume there is one bit for each value in values.nulls, starting at the zero offset.
       int64_t null_bitmap_size = GetOutputLength(BitUtil::BytesForBits(values.length()));
       if (values.null_bitmap()) {
         auto null_bitmap = values.null_bitmap();
