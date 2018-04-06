@@ -662,4 +662,34 @@ class TestArrayBuilder < Test::Unit::TestCase
       include ArrayBuilderAppendNullsTests
     end
   end
+
+  sub_test_case("StringArrayBuilder") do
+    def create_builder
+      Arrow::StringArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::StringDataType.new
+    end
+
+    def builder_class_name
+      "string-array-builder"
+    end
+
+    def sample_values
+      [
+        "hello",
+        "world!!",
+        "",
+      ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+    end
+  end
 end

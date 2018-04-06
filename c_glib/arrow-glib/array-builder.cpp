@@ -2184,6 +2184,72 @@ garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
   return garrow_error_check(error, status, "[string-array-builder][append]");
 }
 
+/**
+ * garrow_string_array_builder_append_values:
+ * @builder: A #GArrowStringArrayBuilder.
+ * @values: (array length=values_length): The array of
+ *   strings.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's efficient than multiple
+ * `append()` and `append_null()` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.10.0
+ */
+gboolean
+garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
+                                          const gchar **values,
+                                          gint64 values_length,
+                                          const gboolean *is_valids,
+                                          gint64 is_valids_length,
+                                          GError **error)
+{
+  const char *context = "[string-array-builder][append-values]";
+  auto arrow_builder =
+    static_cast<arrow::StringBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  if (is_valids_length > 0) {
+    if (values_length != is_valids_length) {
+      g_set_error(error,
+                  GARROW_ERROR,
+                  GARROW_ERROR_INVALID,
+                  "%s: values length and is_valids length must be equal: "
+                  "<%" G_GINT64_FORMAT "> != "
+                  "<%" G_GINT64_FORMAT ">",
+                  context,
+                  values_length,
+                  is_valids_length);
+      return FALSE;
+    }
+  }
+
+  std::vector<std::string> value_vector;
+  if (is_valids_length > 0) {
+    uint8_t valid_bytes[is_valids_length];
+    for (gint64 i = 0; i < values_length; ++i) {
+      value_vector.push_back(std::string(values[i]));
+      valid_bytes[i] = is_valids[i];
+    }
+    auto status = arrow_builder->Append(value_vector, valid_bytes);
+    return garrow_error_check(error, status, context);
+  } else {
+    for (gint64 i = 0; i < values_length; ++i) {
+      value_vector.push_back(std::string(values[i]));
+    }
+    auto status = arrow_builder->Append(value_vector, nullptr);
+    return garrow_error_check(error, status, context);
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowDate32ArrayBuilder,
               garrow_date32_array_builder,
