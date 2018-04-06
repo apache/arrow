@@ -10,6 +10,6 @@ env:
     - PYARROW_VERSION=0.9.0
 
 script:
-  - git clone -b {ARROW_BRANCH} {ARROW_REPO}
-  - pushd arrow/linux-packages
+  - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow
+  - pushd arrow/cd/linux-packages
   - travis_wait 40 && rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no

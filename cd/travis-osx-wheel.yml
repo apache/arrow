@@ -30,7 +30,7 @@ matrix:
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild
-  - git clone https://github.com/apache/arrow
+  - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow  # TODO pin it
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal
@@ -38,11 +38,11 @@ before_install:
   - brew upgrade cmake
   - brew install bison flex
 
-  - pushd arrow/cd/osx-wheel
+  - export CONFIG_PATH=`pwd`/arrow/cd/osx-wheel/config.sh
   - source multibuild/common_utils.sh
   - source multibuild/travis_osx_steps.sh
+
   - before_install
-  - popd
 
 install:
   - BUILD_DEPENDS="numpy==$NP_BUILD_DEP six cython"

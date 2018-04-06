@@ -28,7 +28,7 @@ class ApacheArrowPackageTask < PackageTask
 
   private
   def arrow_source_dir
-    File.join(File.dirname(__FILE__), "..", "arrow")
+    File.join(File.dirname(__FILE__), "..", "..", "arrow")
   end
 
   def detect_version(release_time)
