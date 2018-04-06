@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use bytes::Bytes;
 use libc;
 use std::mem;
 use std::ptr;
@@ -46,6 +45,18 @@ impl<T> Builder<T> {
             capacity,
             data: unsafe { mem::transmute::<*const u8, *mut T>(buffer) },
         }
+    }
+
+    /// Get the internal byte-aligned memory buffer as a mutable slice
+    pub fn slice_mut(&self, start: usize, end: usize) -> &mut [T] {
+        unsafe {
+            slice::from_raw_parts_mut(self.data.offset(start as isize), (end - start) as usize)
+        }
+    }
+
+    /// Override the length
+    pub fn set_len(&mut self, len: usize) {
+        self.len = len;
     }
 
     /// Push a value into the builder, growing the internal buffer as needed
