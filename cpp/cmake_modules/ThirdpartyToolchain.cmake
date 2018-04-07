@@ -915,8 +915,13 @@ if (ARROW_ORC)
   endif ()
 
   include_directories (SYSTEM ${PROTOBUF_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(protobuf
-    STATIC_LIB ${PROTOBUF_STATIC_LIB})
+  if (ARROW_PROTOBUF_USE_SHARED)
+    ADD_THIRDPARTY_LIB(protobuf
+      SHARED_LIB ${PROTOBUF_LIBRARY})
+  else ()
+    ADD_THIRDPARTY_LIB(protobuf
+      STATIC_LIB ${PROTOBUF_STATIC_LIB})
+  endif ()
 
   if (PROTOBUF_VENDORED)
     add_dependencies (protobuf protobuf_ep)
