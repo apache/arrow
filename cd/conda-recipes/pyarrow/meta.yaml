@@ -1,0 +1,65 @@
+{% set version = "0.9.0" %}
+{% set commit = "c695a5ddc8d26c977b5ecd0c55212e900726953e" %}
+{% set checksum = "d4cb93d0f63da1ce48f08af05c63cdec82194078221f7f4c5696cb84776f60db" %}
+
+package:
+  name: pyarrow
+  version: {{ version }}
+
+source:
+  fn: {{ commit }}.tar.gz
+  url: https://github.com/apache/arrow/archive/{{ commit }}.tar.gz
+  sha256: {{ checksum }}
+
+build:
+  number: 1
+  skip: true  # [win32]
+  skip: true  # [win and py<35]
+  features:
+    - vc14  # [win and py>=35]
+
+requirements:
+  build:
+    - python
+    - toolchain
+    - setuptools
+    - setuptools_scm
+    - cython
+    - cmake
+    - numpy 1.10.*  # [not (win and py>=36)]
+    - numpy 1.12.*  # [win and py>=36]
+    - six
+    - arrow-cpp 0.9.0
+    - parquet-cpp 1.4.0
+
+  run:
+    - python
+    - setuptools
+    - numpy >=1.10  # [not (win and py>=36)]
+    - numpy >=1.12  # [win and py>=36]
+    - pandas
+    - six
+    - arrow-cpp 0.9.0
+    - parquet-cpp 1.4.0
+    - futures  # [py27]
+
+test:
+  imports:
+    - pyarrow
+    - pyarrow.parquet
+    - pyarrow.plasma  # [unix]
+
+about:
+  home: http://github.com/apache/arrow
+  license: Apache 2.0
+  summary: 'Python libraries for Apache Arrow'
+
+extra:
+  recipe-maintainers:
+    - wesm
+    - xhochy
+    - jreback
+    - cpcloud
+    - pcmoritz
+    - robertnishihara
+    - siddharthteotia

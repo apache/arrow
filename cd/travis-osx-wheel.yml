@@ -38,7 +38,7 @@ before_install:
   - brew upgrade cmake
   - brew install bison flex
 
-  - export CONFIG_PATH=`pwd`/arrow/cd/osx-wheel/config.sh
+  - export CONFIG_PATH=`pwd`/arrow/cd/python-wheels/osx-build.sh
   - source multibuild/common_utils.sh
   - source multibuild/travis_osx_steps.sh
 

@@ -1,0 +1,74 @@
+{% set version = "0.9.0" %}
+{% set commit = "f9f8320339692d4134d1ef42c32cb7c8d547593e" %}
+{% set checksum = "6fa549d8aa01e457ae6b9962179caec3df9153659d5b3ff82449719d48517dc9" %}
+
+package:
+  name: arrow-cpp
+  version: {{ version }}
+
+
+source:
+  fn: {{ commit }}.tar.gz
+  url: https://github.com/apache/arrow/archive/{{ commit }}.tar.gz
+  sha256: {{ checksum }}
+
+build:
+  number: 6
+  skip: true  # [win32]
+  skip: true  # [win and py<35]
+  features:
+    - vc14  # [win and py>=35]
+
+requirements:
+  build:
+    - toolchain
+    - cmake
+    - boost-cpp 1.66.0
+    - flatbuffers
+    - rapidjson
+    - zlib 1.2.*
+    - snappy
+    - brotli
+    - zstd
+    - lz4-c
+    - jemalloc 4.4.0  # [unix]
+    - python
+    - numpy 1.10.*  # [not (win and py>=36)]
+    - numpy 1.12.*  # [win and py>=36]
+
+  run:
+    - boost-cpp 1.66.0
+    - python
+    - numpy >=1.10  # [not (win and py>=36)]
+    - numpy >=1.12  # [win and py>=36]
+    - vc 14.*  # [win and py>=35]
+    - snappy  # [win and py>=35]
+
+test:
+  commands:
+    - test -f $PREFIX/lib/libarrow.a  # [unix]
+    - test -f $PREFIX/lib/libarrow.so  # [linux]
+    - test -f $PREFIX/lib/libarrow_python.so  # [linux]
+    - test -f $PREFIX/lib/libplasma.so  # [linux]
+    - test -f $PREFIX/lib/libarrow.dylib  # [osx]
+    - test -f $PREFIX/lib/libarrow_python.dylib  # [osx]
+    - test -f $PREFIX/lib/libplasma.dylib  # [osx]
+    - if not exist %LIBRARY_INC%\\arrow\\api.h exit 1               # [win]
+    - if not exist %PREFIX%\\Library\\bin\\arrow.dll exit 1         # [win]
+    - if not exist %PREFIX%\\Library\\bin\\arrow_python.dll exit 1  # [win]
+
+about:
+  home: http://github.com/apache/arrow
+  license: Apache 2.0
+  summary: 'C++ libraries for Apache Arrow'
+
+extra:
+  recipe-maintainers:
+    - wesm
+    - xhochy
+    - leifwalsh
+    - jreback
+    - cpcloud
+    - pcmoritz
+    - robertnishihara
+    - siddharthteotia

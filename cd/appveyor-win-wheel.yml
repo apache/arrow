@@ -25,7 +25,7 @@ init:
 build_script:
   - mkdir wheels
   - git clone -b {ARROW_BRANCH} {ARROW_REPO} %ARROW_SRC% || exit /B
-  - call %ARROW_SRC%\cd\win-wheel\python-wheels-windows.bat
+  - call %ARROW_SRC%\cd\python-wheels\win-build.bat
 
 after_build:
   xcopy %ARROW_SRC%\python\dist\* wheels\
