@@ -3,10 +3,10 @@ environment:
     - TARGET_ARCH: x64
       CONDA_PY: 35
       CONDA_INSTALL_LOCN: C:\\Miniconda35-x64
-
     - TARGET_ARCH: x64
       CONDA_PY: 36
       CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
+  ARROW_SRC: C:\apache-arrow
 
 install:
     - cmd: rmdir C:\cygwin /s /q
@@ -27,5 +27,7 @@ install:
 build: off
 
 test_script:
-  - conda.exe build conda-recipes/arrow-cpp conda-recipes/pyarrow
+  - git clone -b {ARROW_BRANCH} {ARROW_REPO} %ARROW_SRC% || exit /B
+  - pushd %ARROW_SRC%\cd\conda-recipes
+  - conda.exe build arrow-cpp pyarrow
 
