@@ -1,15 +1,9 @@
-{% set version = "0.9.0" %}
-{% set commit = "c695a5ddc8d26c977b5ecd0c55212e900726953e" %}
-{% set checksum = "d4cb93d0f63da1ce48f08af05c63cdec82194078221f7f4c5696cb84776f60db" %}
-
 package:
-  name: pyarrow
-  version: {{ version }}
+  name: arrow-cpp
+  version: '0.9.0'  # this should be read from an env variable
 
 source:
-  fn: {{ commit }}.tar.gz
-  url: https://github.com/apache/arrow/archive/{{ commit }}.tar.gz
-  sha256: {{ checksum }}
+  path: ../../../
 
 build:
   number: 1

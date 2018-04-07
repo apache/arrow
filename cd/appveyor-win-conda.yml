@@ -1,5 +1,31 @@
-os: Visual Studio 2015
+environment:
+  matrix:
+    - TARGET_ARCH: x64
+      CONDA_PY: 35
+      CONDA_INSTALL_LOCN: C:\\Miniconda35-x64
 
-build_script:
-  - git clone https://github.com/apache/arrow
-  - cmd: "echo Hello, world!"
+    - TARGET_ARCH: x64
+      CONDA_PY: 36
+      CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
+
+install:
+    - cmd: rmdir C:\cygwin /s /q
+    # Add path, activate `conda` and update conda.
+    - cmd: call %CONDA_INSTALL_LOCN%\Scripts\activate.bat
+    - cmd: conda.exe update --yes --quiet conda
+    - cmd: set PYTHONUNBUFFERED=1
+    # Add our channels.
+    - cmd: conda.exe config --set show_channel_urls true
+    - cmd: conda.exe config --remove channels defaults
+    - cmd: conda.exe config --add channels defaults
+    - cmd: conda.exe config --add channels conda-forge
+    # Configure the VM.
+    - cmd: conda.exe install -n root --quiet --yes conda-forge-build-setup
+    - cmd: run_conda_forge_build_setup
+
+# Skip .NET project specific build phase.
+build: off
+
+test_script:
+  - conda.exe build conda-recipes/arrow-cpp conda-recipes/pyarrow
+
