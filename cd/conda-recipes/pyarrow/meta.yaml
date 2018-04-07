@@ -3,7 +3,7 @@ package:
   version: '0.9.0'  # this should be read from an env variable
 
 source:
-  path: ../../../
+  path: arrow
 
 build:
   number: 1

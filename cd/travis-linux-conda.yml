@@ -11,11 +11,12 @@ env:
 
 install:
     # Install Miniconda.
+    - echo `pwd`
     - |
       echo ""
       echo "Installing a fresh version of Miniconda."
       MINICONDA_URL="https://repo.continuum.io/miniconda"
-      MINICONDA_FILE="Miniconda3-latest-MacOSX-x86_64.sh"
+      MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
       curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
       bash $MINICONDA_FILE -b
 
@@ -23,7 +24,7 @@ install:
     - |
       echo ""
       echo "Configuring conda."
-      source /Users/travis/miniconda3/bin/activate root
+      source /home/travis/miniconda3/bin/activate root
       conda config --remove channels defaults
       conda config --add channels defaults
       conda config --add channels conda-forge
@@ -33,6 +34,9 @@ install:
 
 script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - pushd arrow/cd/conda-recipes
+
+  # move out recipes to not depend on itself
+  - mv arrow/cd/conda-recipes ./
+  - pushd conda-recipes
   - conda build arrow-cpp pyarrow
 
