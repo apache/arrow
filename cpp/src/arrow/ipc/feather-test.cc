@@ -452,14 +452,10 @@ TEST_P(TestTableWriterSlice, SliceBooleanRoundTrip) {
   CheckSlice(batch);
 }
 
-INSTANTIATE_TEST_CASE_P(
-    TestTableWriterSliceOffsets, TestTableWriterSlice,
-    ::testing::Values(std::make_tuple(300, 30), std::make_tuple(301, 30),
-                      std::make_tuple(302, 30), std::make_tuple(303, 30),
-                      std::make_tuple(304, 30), std::make_tuple(305, 30),
-                      std::make_tuple(306, 30), std::make_tuple(307, 30),
-                      std::make_tuple(300, 1), std::make_tuple(300, 8),
-                      std::make_tuple(1, 2)));
+INSTANTIATE_TEST_CASE_P(TestTableWriterSliceOffsets, TestTableWriterSlice,
+                        ::testing::Combine(::testing::Values(0, 1, 300, 301, 302, 303,
+                                                             304, 305, 306, 307),
+                                           ::testing::Values(0, 1, 7, 8, 30, 32, 100)));
 
 }  // namespace feather
 }  // namespace ipc
