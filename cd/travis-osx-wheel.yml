@@ -29,8 +29,8 @@ matrix:
         - PANDAS_DEP="0.20.3"
 
 before_install:
-  - git clone https://github.com/matthew-brett/multibuild
-  - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow  # TODO pin it
+  - git clone https://github.com/matthew-brett/multibuild # TODO pin it
+  - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal

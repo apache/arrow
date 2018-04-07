@@ -1,8 +1,47 @@
+language: generic
+
 os: osx
-sudo: required
-language: objective-c
+osx_image: xcode6.4
+
+env:
+  matrix:
+    - CONDA_PY=27
+    - CONDA_PY=35
+    - CONDA_PY=36
+
+before_install:
+    # Remove homebrew.
+    - |
+      echo ""
+      echo "Removing homebrew from Travis CI to avoid conflicts."
+      curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
+      chmod +x ~/uninstall_homebrew
+      ~/uninstall_homebrew -fq
+      rm ~/uninstall_homebrew
+
+install:
+    # Install Miniconda.
+    - |
+      echo ""
+      echo "Installing a fresh version of Miniconda."
+      MINICONDA_URL="https://repo.continuum.io/miniconda"
+      MINICONDA_FILE="Miniconda3-latest-MacOSX-x86_64.sh"
+      curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
+      bash $MINICONDA_FILE -b
+
+    # Configure conda.
+    - |
+      echo ""
+      echo "Configuring conda."
+      source /Users/travis/miniconda3/bin/activate root
+      conda config --remove channels defaults
+      conda config --add channels defaults
+      conda config --add channels conda-forge
+      conda config --set show_channel_urls true
+      conda install --yes --quiet conda-forge-build-setup
+      source run_conda_forge_build_setup
 
 script:
-  - git clone https://github.com/apache/arrow
-  - echo "Hello, World"
-
+  - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow
+  - pushd arrow/cd/conda-recipes
+  - conda build arrow-cpp pyarrow
