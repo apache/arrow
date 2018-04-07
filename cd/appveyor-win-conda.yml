@@ -27,7 +27,7 @@ install:
 build: off
 
 test_script:
-  - git clone -b {ARROW_BRANCH} {ARROW_REPO} %ARROW_SRC% || exit /B
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} %ARROW_SRC% || exit /B
   - pushd %ARROW_SRC%\cd\conda-recipes
   - conda.exe build arrow-cpp pyarrow
 

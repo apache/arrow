@@ -1,8 +1,8 @@
 env:
   global:
-    - PLAT={PLAT}
-    - BUILD_REF={BUILD_REF}
-    - PYARROW_VERSION={PYARROW_VERSION}
+    - PLAT={{ PLAT }}
+    - BUILD_REF={{ BUILD_REF }}
+    - PYARROW_VERSION={{ PYARROW_VERSION }}
 
 os: linux
 dist: trusty
@@ -16,7 +16,7 @@ before_script:
 before_install:
 install:
 script:
-  - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
   - mkdir -p dist
 
   - pushd arrow/python/manylinux1

@@ -4,9 +4,9 @@ language: objective-c
 
 env:
   global:
-    - PLAT={PLAT}
-    - BUILD_REF={BUILD_REF}
-    - PYARROW_VERSION={PYARROW_VERSION}
+    - PLAT={{ PLAT }}
+    - BUILD_REF={{ BUILD_REF }}
+    - PYARROW_VERSION={{ PYARROW_VERSION }}
 
 matrix:
   exclude:
@@ -30,7 +30,7 @@ matrix:
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
-  - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal

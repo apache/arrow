@@ -42,6 +42,6 @@ install:
       source run_conda_forge_build_setup
 
 script:
-  - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
   - pushd arrow/cd/conda-recipes
   - conda build arrow-cpp pyarrow

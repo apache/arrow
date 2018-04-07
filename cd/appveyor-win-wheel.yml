@@ -22,9 +22,10 @@ init:
   - set MINICONDA=C:\Miniconda35-x64
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
+
 build_script:
   - mkdir wheels
-  - git clone -b {ARROW_BRANCH} {ARROW_REPO} %ARROW_SRC% || exit /B
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} %ARROW_SRC% || exit /B
   - call %ARROW_SRC%\cd\python-wheels\win-build.bat
 
 after_build:
