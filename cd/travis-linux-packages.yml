@@ -2,12 +2,16 @@ os: linux
 dist: trusty
 sudo: required
 language: ruby
+python: 3.5
 
 env:
   global:
     - PLAT={PLAT}
     - BUILD_REF={BUILD_REF}
     - PYARROW_VERSION={PYARROW_VERSION}
+
+install:
+  - sudo apt-get update -y && sudo apt-get install -y build-essential libboost-dev
 
 script:
   - git clone -b {ARROW_BRANCH} {ARROW_REPO} arrow
