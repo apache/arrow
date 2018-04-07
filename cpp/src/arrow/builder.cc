@@ -1413,6 +1413,41 @@ Status StringBuilder::Append(const std::vector<std::string>& values,
   return Status::OK();
 }
 
+Status StringBuilder::Append(const char** values,
+                             int64_t length,
+                             const uint8_t* valid_bytes) {
+  std::size_t total_length = 0;
+  std::vector<std::size_t> value_lengths(length);
+  for (int64_t i = 0; i < length; ++i) {
+    if (values[i]) {
+      auto value_length = strlen(values[i]);
+      value_lengths[i] = value_length;
+      total_length += value_length;
+    }
+  }
+  RETURN_NOT_OK(Reserve(length));
+  RETURN_NOT_OK(value_data_builder_.Reserve(total_length));
+  RETURN_NOT_OK(offsets_builder_.Reserve(length));
+
+  if (valid_bytes) {
+    for (int64_t i = 0; i < length; ++i) {
+      RETURN_NOT_OK(AppendNextOffset());
+      if (valid_bytes[i]) {
+        RETURN_NOT_OK(value_data_builder_.Append(
+            reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+      }
+    }
+  } else {
+    for (int64_t i = 0; i < length; ++i) {
+      RETURN_NOT_OK(AppendNextOffset());
+      RETURN_NOT_OK(value_data_builder_.Append(
+          reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+    }
+  }
+  UnsafeAppendToBitmap(valid_bytes, length);
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // Fixed width binary
 
