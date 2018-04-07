@@ -408,76 +408,48 @@ TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
 
 class TestTableWriterSlice : public TestTableWriter,
                              public ::testing::WithParamInterface<std::tuple<int, int>> {
+ public:
+  void CheckSlice(std::shared_ptr<RecordBatch> batch) {
+    auto p = GetParam();
+    auto start = std::get<0>(p);
+    auto size = std::get<1>(p);
+
+    batch = batch->Slice(start, size);
+
+    ASSERT_OK(writer_->Append("f0", *batch->column(0)));
+    ASSERT_OK(writer_->Append("f1", *batch->column(1)));
+    Finish();
+
+    std::shared_ptr<Column> col;
+    ASSERT_OK(reader_->GetColumn(0, &col));
+    ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
+    ASSERT_EQ("f0", col->name());
+
+    ASSERT_OK(reader_->GetColumn(1, &col));
+    ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
+    ASSERT_EQ("f1", col->name());
+  }
 };
 
 TEST_P(TestTableWriterSlice, SliceRoundTrip) {
-  auto p = GetParam();
-  auto start = std::get<0>(p);
-  auto size = std::get<1>(p);
-
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntBatchSized(start * 2, &batch));
-  batch = batch->Slice(start, size);
-
-  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
-  Finish();
-
-  std::shared_ptr<Column> col;
-  ASSERT_OK(reader_->GetColumn(0, &col));
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
-  ASSERT_EQ("f0", col->name());
-
-  ASSERT_OK(reader_->GetColumn(1, &col));
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
-  ASSERT_EQ("f1", col->name());
+  ASSERT_OK(MakeIntBatchSized(600, &batch));
+  CheckSlice(batch);
 }
 
 TEST_P(TestTableWriterSlice, SliceStringsRoundTrip) {
   auto p = GetParam();
   auto start = std::get<0>(p);
-  auto size = std::get<1>(p);
   auto with_nulls = start % 2 == 0;
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeStringTypesRecordBatch(&batch, with_nulls));
-  batch = batch->Slice(start, size);
-
-  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
-  Finish();
-
-  std::shared_ptr<Column> col;
-  ASSERT_OK(reader_->GetColumn(0, &col));
-  SCOPED_TRACE(col->data()->chunk(0)->ToString() + "\n" + batch->column(0)->ToString());
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
-  ASSERT_EQ("f0", col->name());
-
-  ASSERT_OK(reader_->GetColumn(1, &col));
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
-  ASSERT_EQ("f1", col->name());
+  CheckSlice(batch);
 }
 
 TEST_P(TestTableWriterSlice, SliceBooleanRoundTrip) {
-  auto p = GetParam();
-  auto start = std::get<0>(p);
-  auto size = std::get<1>(p);
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeBooleanBatchSized(600, &batch));
-  batch = batch->Slice(start, size);
-
-  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
-  Finish();
-
-  std::shared_ptr<Column> col;
-  ASSERT_OK(reader_->GetColumn(0, &col));
-  SCOPED_TRACE(col->data()->chunk(0)->ToString() + "\n" + batch->column(0)->ToString());
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
-  ASSERT_EQ("f0", col->name());
-
-  ASSERT_OK(reader_->GetColumn(1, &col));
-  ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
-  ASSERT_EQ("f1", col->name());
+  CheckSlice(batch);
 }
 
 INSTANTIATE_TEST_CASE_P(
