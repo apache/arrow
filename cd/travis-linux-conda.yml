@@ -34,9 +34,6 @@ install:
 
 script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-
-  # move out recipes to not depend on itself
-  - mv arrow/cd/conda-recipes ./
-  - pushd conda-recipes
+  - pushd arrow/cd/conda-recipes
   - conda build arrow-cpp pyarrow
 
