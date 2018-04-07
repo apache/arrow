@@ -2232,20 +2232,15 @@ garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
     }
   }
 
-  std::vector<std::string> value_vector;
   if (is_valids_length > 0) {
     uint8_t valid_bytes[is_valids_length];
     for (gint64 i = 0; i < values_length; ++i) {
-      value_vector.push_back(std::string(values[i]));
       valid_bytes[i] = is_valids[i];
     }
-    auto status = arrow_builder->Append(value_vector, valid_bytes);
+    auto status = arrow_builder->Append(values, values_length, valid_bytes);
     return garrow_error_check(error, status, context);
   } else {
-    for (gint64 i = 0; i < values_length; ++i) {
-      value_vector.push_back(std::string(values[i]));
-    }
-    auto status = arrow_builder->Append(value_vector, nullptr);
+    auto status = arrow_builder->Append(values, values_length, nullptr);
     return garrow_error_check(error, status, context);
   }
 }
