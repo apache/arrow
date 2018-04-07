@@ -258,7 +258,7 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
   return Status::OK();
 }
 
-Status MakeStringTypesRecordBatchWithoutNulls(std::shared_ptr<RecordBatch>* out) {
+Status MakeStringTypesRecordBatchWithNulls(std::shared_ptr<RecordBatch>* out) {
   return MakeStringTypesRecordBatch(out, true);
 }
 
