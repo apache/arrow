@@ -17,3 +17,7 @@ script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
   - (cd arrow/cd/linux-packages && rake yum:build PARALLEL=yes DEBUG=no)
   #- (cd arrow/cd/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
+
+notifications:
+  email:
+    - {{ EMAIL }}

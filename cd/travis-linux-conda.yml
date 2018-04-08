@@ -37,3 +37,6 @@ script:
   - pushd arrow/cd/conda-recipes
   - conda build arrow-cpp pyarrow
 
+notifications:
+  email:
+    - {{ EMAIL }}

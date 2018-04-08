@@ -60,3 +60,7 @@ script:
 after_success:
   - echo "After success"
   - pwd
+
+notifications:
+  email:
+    - {{ EMAIL }}

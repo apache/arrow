@@ -33,3 +33,8 @@ after_build:
 
 artifacts:
   - path: wheels\*.whl
+
+notifications:
+  - provider: Email
+    to:
+      - {{ EMAIL }}

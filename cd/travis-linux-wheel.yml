@@ -8,13 +8,12 @@ os: linux
 dist: trusty
 sudo: required
 language: cpp
-
 services:
   - docker
+
 before_script:
   - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
-before_install:
-install:
+
 script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
   - mkdir -p dist
@@ -28,3 +27,7 @@ script:
   - popd
 
   - sudo mv arrow/python/manylinux1/dist/* dist/
+
+notifications:
+  email:
+    - {{ EMAIL }}

@@ -31,3 +31,8 @@ test_script:
   - pushd %ARROW_SRC%\cd\conda-recipes
   - conda.exe build arrow-cpp pyarrow
 
+
+notifications:
+  - provider: Email
+    to:
+      - {{ EMAIL }}
