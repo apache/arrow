@@ -1418,11 +1418,14 @@ Status StringBuilder::Append(const char** values,
                              const uint8_t* valid_bytes) {
   std::size_t total_length = 0;
   std::vector<std::size_t> value_lengths(length);
+  bool have_null_value = false;
   for (int64_t i = 0; i < length; ++i) {
     if (values[i]) {
       auto value_length = strlen(values[i]);
       value_lengths[i] = value_length;
       total_length += value_length;
+    } else {
+      have_null_value = true;
     }
   }
   RETURN_NOT_OK(Reserve(length));
@@ -1437,14 +1440,28 @@ Status StringBuilder::Append(const char** values,
             reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
       }
     }
+    UnsafeAppendToBitmap(valid_bytes, length);
   } else {
-    for (int64_t i = 0; i < length; ++i) {
-      RETURN_NOT_OK(AppendNextOffset());
-      RETURN_NOT_OK(value_data_builder_.Append(
-          reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+    if (have_null_value) {
+      std::vector<uint8_t> valid_vector(length, 0);
+      for (int64_t i = 0; i < length; ++i) {
+        RETURN_NOT_OK(AppendNextOffset());
+        if (values[i]) {
+          RETURN_NOT_OK(value_data_builder_.Append(
+              reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+          valid_vector[i] = 1;
+        }
+      }
+      UnsafeAppendToBitmap(valid_vector.data(), length);
+    } else {
+      for (int64_t i = 0; i < length; ++i) {
+        RETURN_NOT_OK(AppendNextOffset());
+        RETURN_NOT_OK(value_data_builder_.Append(
+            reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+      }
+      UnsafeAppendToBitmap(nullptr, length);
     }
   }
-  UnsafeAppendToBitmap(valid_bytes, length);
   return Status::OK();
 }
 
