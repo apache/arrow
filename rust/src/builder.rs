@@ -49,6 +49,9 @@ impl<T> Builder<T> {
 
     /// Get the internal byte-aligned memory buffer as a mutable slice
     pub fn slice_mut(&self, start: usize, end: usize) -> &mut [T] {
+        assert!(start <= end);
+        assert!(start < self.len as usize);
+        assert!(end <= self.len as usize);
         unsafe {
             slice::from_raw_parts_mut(self.data.offset(start as isize), (end - start) as usize)
         }
