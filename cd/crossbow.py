@@ -4,128 +4,80 @@
 # TODO: probably should turn off auto cancellation feature of travis
 # TODO: dry-run / render feature
 
-# we might weaken the dependencies later, but a release manager probably
-# can have these installed
 import re
 import sys
 import pygit2
 
-from pygit2 import Signature, Repository, UserPass, RemoteCallbacks
 from pathlib import Path
-
-if len(sys.argv) > 1:
-    pattern = sys.argv[1]
-else:
-    pattern = False
-
-ARROW_REPO = 'https://github.com/kszucs/arrow'
-ARROW_BRANCH = 'cd'
-
-PLAT = 'x86_64'
-
-# by default we should query the current  build ref
-# BUILD_REF = '7b2c79765cf92760e1f8cca079159d9613b86412'
-arrow_path = Path(__file__).absolute().parents[1]
-print(arrow_path)
-
-arrow_repo = Repository(str(arrow_path))
-
-BUILD_REF = arrow_repo.head.target
-
-PYARROW_VERSION = '0.9.0'
+from datetime import datetime
+from jinja2 import FileSystemLoader, Environment
+from pygit2 import Signature, Repository, UserPass, RemoteCallbacks
 
 
-# we should handle this later
-signature = Signature('John Doe', 'jdoe@example.com', 12346, 0)
-author = committer = signature
-
-message = 'disco!'
+CWD = Path(__file__).parent
 
 
-# --remote arg when it will clone otherwise locally
-repo = Repository('/Users/krisz/Workspace/crossbow')
+def get_sha_version():
+    arrow_path = Path(__file__).absolute().parents[1]
+    repo = Repository(str(arrow_path))
 
-master = repo.branches['master']
-head = repo[master.target]
+    sha = repo.head.target
+    version = '0.9.0'  # TODO
 
-
-remote = repo.remotes['origin']
-refspecs = []
-
-# create the build variants based on the arguments
-
-# iterate over the variants
-cwd = Path(__file__).parent
+    return sha, version
 
 
-for config in cwd.glob('*.yml'):
-    branch_name = config.stem
-
-    if pattern and not re.search(pattern, branch_name):
-        continue
-
-    reference = 'refs/heads/{}'.format(branch_name)
-    refspecs.append(reference)
+def read_templates(pattern=None):
+    for template in CWD.glob('*.yml'):
+        if pattern is None or re.search(pattern, template.stem):
+            yield template
 
 
-    if branch_name in repo.branches:
-        # choose the appropiate branch
+def render_template(path, params):
+    env = Environment(loader=FileSystemLoader(str(path.parent)))
+    template = env.get_template(path.name)
+    return template.render(**params)
+
+
+def create_commit(repo, branch_name, filename, content):
+    master = repo.branches['master']
+    master_head = repo[master.target]
+    try:
         branch = repo.branches[branch_name]
-    else:
-        # otherwise we initialize it
-        branch = repo.branches.create(branch_name, head)
+    except KeyError:
+        branch = repo.branches.create(branch_name, master_head)
 
-    # # do the actual checkout
-    # repo.checkout(branch)
+    # creating the tree we are going to push based on master's tree
+    builder = repo.TreeBuilder(master_head.tree)
 
-    # creating the tree we are going to push
-    builder = repo.TreeBuilder(head.tree)
-
-    print('creating blob')
-
-    # creating the file inside git object db
-    content = config.read_text()
-
-    # FANCY templating
-    content = content.format(
-        ARROW_REPO=ARROW_REPO,
-        ARROW_BRANCH=ARROW_BRANCH,
-        PLAT=PLAT,
-        BUILD_REF=BUILD_REF,
-        PYARROW_VERSION=PYARROW_VERSION
-    )
-
+    # insert the file and creating the new filetree
     blob_id = repo.create_blob(content)
     blob = repo[blob_id]
 
-    if 'travis' in str(config):
-        target = '.travis.yml'
-    elif 'appveyor' in str(config):
-        target = 'appveyor.yml'
-    else:
-        ValueError('raise sommething')
-
-    print('adding file {}'.format(target))
-    builder.insert(target, blob_id, pygit2.GIT_FILEMODE_BLOB)
+    builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
     tree_id = builder.write()
 
+    # creating the new commit
+    timestamp = int((datetime.now() - datetime(1970, 1, 1)).total_seconds())
+    name = next(repo.config.get_multivar('user.name'))
+    email = next(repo.config.get_multivar('user.email'))
+    message = 'disco!'
 
-    commit_id = repo.create_commit(reference, author, committer, message, tree_id,
-                                   [branch.target])
+    author = Signature('Crossbow', 'mailing@list.com', timestamp)
+    committer = Signature(name, email, timestamp)
 
-    commit = repo[commit_id]
-    print(commit)
+    reference = 'refs/heads/{}'.format(branch_name)
+    commit_id = repo.create_commit(reference, author, committer, message,
+                                   tree_id, [branch.target])
 
-
-def acquire_credentials_cb(url, username_from_url, allowed_types):
-    print('credentials', url, username_from_url, allowed_types)
-    # its a libgit2 bug, that it infinitly retries the authentication
-    token = 'b713b374ac028e9f1579b5facca6c175f0dd02b5'
-    return UserPass(token, 'x-oauth-basic')
+    return repo[commit_id]
 
 
 class GitRemoteCallbacks(pygit2.RemoteCallbacks):
 
+    def __init__(self):
+        self.attempts = 0
+        super(GitRemoteCallbacks, self).__init__()
 
     def push_update_reference(self, refname, message):
         print(refname, message)
@@ -133,7 +85,81 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
     def update_tips(self, refname, old, new):
         print(refname, old, new)
 
+    def credentials(self, url, username_from_url, allowed_types):
+        # its a libgit2 bug, that it infinitly retries the authentication
+        self.attempts += 1
 
-callbacks = GitRemoteCallbacks(credentials=acquire_credentials_cb)
+        if self.attempts >= 5:
+            # pygit2 doesn't propagate the exception properly
+            msg = 'Wrong oauth personal access token'
+            print(msg)
+            raise ValueError(msg)
 
-remote.push(refspecs, callbacks=callbacks)
+        if allowed_types & pygit2.credentials.GIT_CREDTYPE_USERPASS_PLAINTEXT:
+            return UserPass(token, 'x-oauth-basic')
+        else:
+            return None
+
+
+def push_branches(repo, branches, token):
+    callbacks = GitRemoteCallbacks()
+
+    remote = repo.remotes['origin']
+    refs = ['refs/heads/{}'.format(branch) for branch in branches]
+    return remote.push(refs, callbacks=callbacks)
+
+
+ARROW_REPO = 'https://github.com/kszucs/arrow'
+ARROW_BRANCH = 'cd'
+EMAIL = 'szucs.krisztian@gmail.com'
+PLAT = 'x86_64'
+BUILD_REF, PYARROW_VERSION = get_sha_version()
+
+
+if len(sys.argv) > 1:
+    pattern = sys.argv[1]
+else:
+    pattern = None
+
+
+dry_run = False
+for arg in sys.argv:
+    if arg == '--dry-run':
+        dry_run = True
+
+
+repo = Repository('/Users/krisz/Workspace/crossbow')
+branches = []
+
+for path in read_templates(pattern):
+    # TODO create the build variants based on the arguments
+    branch_name = path.stem
+    branches.append(branch_name)
+
+    params = dict(
+        ARROW_REPO=ARROW_REPO,
+        ARROW_BRANCH=ARROW_BRANCH,
+        PLAT=PLAT,
+        BUILD_REF=BUILD_REF,
+        PYARROW_VERSION=PYARROW_VERSION,
+        EMAIL=EMAIL
+    )
+    content = render_template(path, params)
+
+    if branch_name.startswith('travis'):
+        filename = '.travis.yml'
+    elif branch_name.startswith('appveyor'):
+        filename = 'appveyor.yml'
+    else:
+        ValueError('raise something')
+
+    if dry_run:
+        print(content)
+    else:
+        create_commit(repo, branch_name, filename, content)
+
+
+token = '<top secret>'
+
+if not dry_run:
+    push_branches(repo, branches, token=token)
