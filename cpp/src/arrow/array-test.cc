@@ -1023,7 +1023,7 @@ TEST_F(TestStringBuilder, TestAppendVector) {
 }
 
 TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
-  const char* strings[] = {nullptr, "", "a", nullptr, "ccc"};
+  const char* strings[] = {nullptr, "aaa", nullptr, "ignored", ""};
   vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
 
   int N = static_cast<int>(sizeof(strings) / sizeof(strings[0]));
@@ -1035,24 +1035,19 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
   Done();
 
   ASSERT_EQ(reps * N, result_->length());
-  ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 4, result_->value_data()->size());
+  ASSERT_EQ(reps * 3, result_->null_count());
+  ASSERT_EQ(reps * 3, result_->value_data()->size());
 
   int32_t length;
   int32_t pos = 0;
   for (int i = 0; i < N * reps; ++i) {
-    if (valid_bytes[i % N]) {
+    auto string = strings[i % N];
+    if (string && valid_bytes[i % N]) {
       ASSERT_FALSE(result_->IsNull(i));
       result_->GetValue(i, &length);
       ASSERT_EQ(pos, result_->value_offset(i));
-      auto string = strings[i % N];
-      if (string) {
-        ASSERT_EQ(static_cast<int32_t>(strlen(strings[i % N])), length);
-        ASSERT_EQ(strings[i % N], result_->GetString(i));
-      } else {
-        ASSERT_EQ(0, length);
-        ASSERT_EQ("", result_->GetString(i));
-      }
+      ASSERT_EQ(static_cast<int32_t>(strlen(string)), length);
+      ASSERT_EQ(strings[i % N], result_->GetString(i));
 
       pos += length;
     } else {

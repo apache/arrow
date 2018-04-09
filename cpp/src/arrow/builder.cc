@@ -1432,14 +1432,21 @@ Status StringBuilder::Append(const char** values, int64_t length,
   RETURN_NOT_OK(offsets_builder_.Reserve(length));
 
   if (valid_bytes) {
+    int64_t valid_bytes_offset = 0;
     for (int64_t i = 0; i < length; ++i) {
       RETURN_NOT_OK(AppendNextOffset());
       if (valid_bytes[i]) {
-        RETURN_NOT_OK(value_data_builder_.Append(
-            reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+        if (values[i]) {
+          RETURN_NOT_OK(value_data_builder_.Append(
+              reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+        } else {
+          UnsafeAppendToBitmap(valid_bytes + valid_bytes_offset, i - valid_bytes_offset);
+          UnsafeAppendToBitmap(false);
+          valid_bytes_offset = i + 1;
+        }
       }
     }
-    UnsafeAppendToBitmap(valid_bytes, length);
+    UnsafeAppendToBitmap(valid_bytes + valid_bytes_offset, length - valid_bytes_offset);
   } else {
     if (have_null_value) {
       std::vector<uint8_t> valid_vector(length, 0);
