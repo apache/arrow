@@ -396,12 +396,13 @@ struct CastFunctor<Date64Type, TimestampType> {
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
 
+    // Ensure that intraday milliseconds have been zeroed out
+    auto out_data = GetMutableValues<int64_t>(output, 1);
+
     if (input.null_count != 0) {
       internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
                                         input.length);
 
-      // Ensure that intraday milliseconds have been zeroed out
-      auto out_data = GetMutableValues<int64_t>(output, 1);
       for (int64_t i = 0; i < input.length; ++i) {
         const int64_t remainder = out_data[i] % kMillisecondsInDay;
         if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && bit_reader.IsSet() &&
@@ -414,7 +415,6 @@ struct CastFunctor<Date64Type, TimestampType> {
         bit_reader.Next();
       }
     } else {
-      auto out_data = GetMutableValues<int64_t>(output, 1);
       for (int64_t i = 0; i < input.length; ++i) {
         const int64_t remainder = out_data[i] % kMillisecondsInDay;
         if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && remainder > 0)) {
