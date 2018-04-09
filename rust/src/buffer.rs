@@ -74,7 +74,10 @@ impl<T> Buffer<T> {
 
 impl<T> Drop for Buffer<T> {
     fn drop(&mut self) {
-        mem::drop(self.data)
+        unsafe {
+            let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
+            libc::free(p);
+        }
     }
 }
 
