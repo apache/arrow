@@ -36,13 +36,12 @@ source activate $CONDA_ENV_DIR
 python --version
 which python
 
-# Note: avoid Cython 0.28.0 due to https://github.com/cython/cython/issues/2148
 conda install -y -q pip \
       nomkl \
       cloudpickle \
       numpy=1.13.1 \
       pandas \
-      cython=0.27.3
+      cython
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
 # significantly, and so we have disabled these tests in Travis CI for now

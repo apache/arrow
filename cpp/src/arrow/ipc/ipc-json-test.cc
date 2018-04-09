@@ -375,9 +375,9 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
                     &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
-                    &MakeStringTypesRecordBatch, &MakeStruct, &MakeUnion, &MakeDates,   \
-                    &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal,           \
-                    &MakeDictionary);
+                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
+                    &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary,             \
+                    &MakeDecimal, &MakeDictionary);
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:

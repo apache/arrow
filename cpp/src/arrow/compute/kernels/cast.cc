@@ -396,21 +396,34 @@ struct CastFunctor<Date64Type, TimestampType> {
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
 
-    internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
-                                      input.length);
-
     // Ensure that intraday milliseconds have been zeroed out
     auto out_data = GetMutableValues<int64_t>(output, 1);
-    for (int64_t i = 0; i < input.length; ++i) {
-      const int64_t remainder = out_data[i] % kMillisecondsInDay;
-      if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && bit_reader.IsSet() &&
-                              remainder > 0)) {
-        ctx->SetStatus(
-            Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
-        break;
+
+    if (input.null_count != 0) {
+      internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
+                                        input.length);
+
+      for (int64_t i = 0; i < input.length; ++i) {
+        const int64_t remainder = out_data[i] % kMillisecondsInDay;
+        if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && bit_reader.IsSet() &&
+                                remainder > 0)) {
+          ctx->SetStatus(
+              Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
+          break;
+        }
+        out_data[i] -= remainder;
+        bit_reader.Next();
       }
-      out_data[i] -= remainder;
-      bit_reader.Next();
+    } else {
+      for (int64_t i = 0; i < input.length; ++i) {
+        const int64_t remainder = out_data[i] % kMillisecondsInDay;
+        if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && remainder > 0)) {
+          ctx->SetStatus(
+              Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
+          break;
+        }
+        out_data[i] -= remainder;
+      }
     }
   }
 };
