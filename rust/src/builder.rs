@@ -15,11 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use bytes::Bytes;
 use libc;
 use std::mem;
 use std::ptr;
-use std::slice;
 
 use super::buffer::*;
 use super::memory::*;

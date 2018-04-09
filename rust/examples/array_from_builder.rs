@@ -18,7 +18,6 @@
 extern crate arrow;
 
 use arrow::array::*;
-use arrow::buffer::*;
 use arrow::builder::*;
 
 fn main() {
