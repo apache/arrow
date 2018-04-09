@@ -104,7 +104,7 @@ setup_miniconda() {
         numpy \
         pandas \
         six \
-        cython=0.27.3 -c conda-forge
+        cython -c conda-forge
   source activate arrow-test
 }
 
