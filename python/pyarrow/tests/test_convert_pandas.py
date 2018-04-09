@@ -807,6 +807,31 @@ class TestConvertDateTimeLikeTypes(object):
 
         assert arr2.equals(arr.cast('date32'))
 
+    def test_pandas_datetime_to_date64(self):
+        s = pd.to_datetime([
+            '2018-05-10T10:24:01',
+            '2018-05-11T10:24:01',
+            '2018-05-12T10:24:01',
+        ])
+
+        expected_msg = 'Timestamp value had non-zero intraday milliseconds'
+        with pytest.raises(pa.ArrowInvalid, msg=expected_msg):
+            pa.Array.from_pandas(s, type=pa.date64())
+
+        s = pd.to_datetime([
+            '2018-05-10T00:00:00',
+            '2018-05-11T00:00:00',
+            '2018-05-12T00:00:00',
+        ])
+        arr = pa.Array.from_pandas(s, type=pa.date64())
+
+        expected = pa.array([
+            date(2018, 5, 10),
+            date(2018, 5, 11),
+            date(2018, 5, 12)
+        ])
+        assert arr.equals(expected)
+
     def test_date_infer(self):
         df = pd.DataFrame({
             'date': [date(2000, 1, 1),
