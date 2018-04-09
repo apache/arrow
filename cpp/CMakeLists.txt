@@ -139,6 +139,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Use vendored Boost instead of existing Boost"
     OFF)
 
+  option(ARROW_PROTOBUF_USE_SHARED
+    "Rely on Protocol Buffers shared libraries where relevant"
+    OFF)
+
   option(ARROW_PYTHON
     "Build the Arrow CPython extensions"
     OFF)
@@ -531,6 +535,7 @@ endif(UNIX)
 # Linker and Dependencies
 ############################################################
 
+set(ARROW_LINK_LIBS)
 set(ARROW_STATIC_LINK_LIBS)
 
 if (ARROW_WITH_BROTLI)
@@ -568,8 +573,16 @@ endif()
 if (ARROW_ORC)
   SET(ARROW_STATIC_LINK_LIBS
     orc
-    protobuf
     ${ARROW_STATIC_LINK_LIBS})
+  if (ARROW_PROTOBUF_USE_SHARED)
+    SET(ARROW_LINK_LIBS
+      protobuf
+      ${ARROW_LINK_LIBS})
+  else()
+    SET(ARROW_STATIC_LINK_LIBS
+      protobuf
+      ${ARROW_STATIC_LINK_LIBS})
+  endif()
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
@@ -583,7 +596,8 @@ set(ARROW_BENCHMARK_LINK_LIBS
   ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_LINK_LIBS
-  ${ARROW_STATIC_LINK_LIBS})
+  ${ARROW_STATIC_LINK_LIBS}
+  ${ARROW_LINK_LIBS})
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
