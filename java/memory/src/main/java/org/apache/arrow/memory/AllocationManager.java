@@ -275,7 +275,7 @@ public class AllocationManager {
     }
 
     /**
-     * Print the current ledger state to a the provided StringBuilder.
+     * Print the current ledger state to the provided StringBuilder.
      *
      * @param sb        The StringBuilder to populate.
      * @param indent    The level of indentation to position the data.
@@ -329,7 +329,7 @@ public class AllocationManager {
      * should release its
      * ownership back to the AllocationManager
      *
-     * @param decrement amout to decrease the reference count by
+     * @param decrement amount to decrease the reference count by
      * @return the new reference count
      */
     public int decrement(int decrement) {

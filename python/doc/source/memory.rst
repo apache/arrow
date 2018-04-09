@@ -84,7 +84,7 @@ IO objects:
 * Write-only files supporting random access
 * File supporting reads, writes, and random access
 
-In the the interest of making these objects behave more like Python's built-in
+In the interest of making these objects behave more like Python's built-in
 ``file`` objects, we have defined a :class:`~pyarrow.NativeFile` base class
 which is intended to mimic Python files and able to be used in functions where
 a Python file (such as ``file`` or ``BytesIO``) is expected.

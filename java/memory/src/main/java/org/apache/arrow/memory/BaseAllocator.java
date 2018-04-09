@@ -802,7 +802,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
 
     /**
-     * Allocate the a buffer of the requested size.
+     * Allocate a buffer of the requested size.
      * <p>
      * <p>
      * The implementation of the allocator's inner class provides this.
