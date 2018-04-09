@@ -18,6 +18,7 @@
 use libc;
 use std::mem;
 use std::ptr;
+use std::slice;
 
 use super::buffer::*;
 use super::memory::*;
