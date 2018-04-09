@@ -1036,7 +1036,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
 
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->value_data()->size());
+  ASSERT_EQ(reps * 4, result_->value_data()->size());
 
   int32_t length;
   int32_t pos = 0;
