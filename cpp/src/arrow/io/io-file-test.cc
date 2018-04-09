@@ -359,36 +359,23 @@ TEST_F(TestReadableFile, ReadAt) {
   OpenFile();
 
   int64_t bytes_read;
-  int64_t position;
 
   ASSERT_OK(file_->ReadAt(0, 4, &bytes_read, buffer));
   ASSERT_EQ(4, bytes_read);
   ASSERT_EQ(0, std::memcmp(buffer, "test", 4));
 
-  // position advanced
-  ASSERT_OK(file_->Tell(&position));
-  ASSERT_EQ(4, position);
-
-  ASSERT_OK(file_->ReadAt(4, 10, &bytes_read, buffer));
-  ASSERT_EQ(4, bytes_read);
-  ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
-
-  // position advanced to EOF
-  ASSERT_OK(file_->Tell(&position));
-  ASSERT_EQ(8, position);
+  ASSERT_OK(file_->ReadAt(1, 10, &bytes_read, buffer));
+  ASSERT_EQ(7, bytes_read);
+  ASSERT_EQ(0, std::memcmp(buffer, "estdata", 7));
 
   // Check buffer API
   std::shared_ptr<Buffer> buffer2;
 
-  ASSERT_OK(file_->ReadAt(0, 4, &buffer2));
-  ASSERT_EQ(4, buffer2->size());
+  ASSERT_OK(file_->ReadAt(2, 5, &buffer2));
+  ASSERT_EQ(5, buffer2->size());
 
-  Buffer expected(reinterpret_cast<const uint8_t*>(test_data), 4);
+  Buffer expected(reinterpret_cast<const uint8_t*>(test_data + 2), 5);
   ASSERT_TRUE(buffer2->Equals(expected));
-
-  // position advanced
-  ASSERT_OK(file_->Tell(&position));
-  ASSERT_EQ(4, position);
 }
 
 TEST_F(TestReadableFile, NonExistentFile) {
@@ -457,14 +444,15 @@ TEST_F(TestReadableFile, ThreadSafety) {
   ASSERT_OK(ReadableFile::Open(path_, &pool, &file_));
 
   std::atomic<int> correct_count(0);
-  int niter = 10000;
+  int niter = 30000;
 
   auto ReadData = [&correct_count, &data, &niter, this]() {
     std::shared_ptr<Buffer> buffer;
 
     for (int i = 0; i < niter; ++i) {
-      ASSERT_OK(file_->ReadAt(0, 3, &buffer));
-      if (0 == memcmp(data.c_str(), buffer->data(), 3)) {
+      const int offset = i % 3;
+      ASSERT_OK(file_->ReadAt(offset, 3, &buffer));
+      if (0 == memcmp(data.c_str() + offset, buffer->data(), 3)) {
         correct_count += 1;
       }
     }

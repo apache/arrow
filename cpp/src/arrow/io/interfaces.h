@@ -128,7 +128,8 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   virtual bool supports_zero_copy() const = 0;
 
   /// \brief Read nbytes at position, provide default implementations using Read(...), but
-  /// can be overridden. Default implementation is thread-safe.
+  /// can be overridden. Default implementation is thread-safe.  It is unspecified
+  /// whether this method updates the file position or not.
   ///
   /// \note Child classes must explicitly call this implementation or provide their own.
   ///
@@ -141,7 +142,8 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
                         void* out) = 0;
 
   /// \brief Read nbytes at position, provide default implementations using Read(...), but
-  /// can be overridden. Default implementation is thread-safe.
+  /// can be overridden. Default implementation is thread-safe.  It is unspecified
+  /// whether this method updates the file position or not.
   ///
   /// \note Child classes must explicitly call this implementation or provide their own.
   ///

@@ -157,6 +157,24 @@ Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStrea
   return Message::Open(metadata, body, out);
 }
 
+Status Message::ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& metadata,
+                         io::RandomAccessFile* file, std::unique_ptr<Message>* out) {
+  auto fb_message = flatbuf::GetMessage(metadata->data());
+
+  int64_t body_length = fb_message->bodyLength();
+
+  std::shared_ptr<Buffer> body;
+  RETURN_NOT_OK(file->ReadAt(offset, body_length, &body));
+  if (body->size() < body_length) {
+    std::stringstream ss;
+    ss << "Expected to be able to read " << body_length << " bytes for message body, got "
+       << body->size();
+    return Status::IOError(ss.str());
+  }
+
+  return Message::Open(metadata, body, out);
+}
+
 Status Message::SerializeTo(io::OutputStream* file, int64_t* output_length) const {
   int32_t metadata_length = 0;
   RETURN_NOT_OK(internal::WriteMessage(*metadata(), file, &metadata_length));
@@ -210,7 +228,7 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   }
 
   auto metadata = SliceBuffer(buffer, 4, buffer->size() - 4);
-  return Message::ReadFrom(metadata, file, message);
+  return Message::ReadFrom(offset + metadata_length, metadata, file, message);
 }
 
 Status ReadMessage(io::InputStream* file, bool aligned,
