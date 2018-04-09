@@ -223,8 +223,23 @@ Status MakeRandomBinaryArray(int64_t length, bool include_nulls, MemoryPool* poo
     if (include_nulls && values_index == 0) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
-      const std::string value =
-          i < int64_t(values.size()) ? values[values_index] : std::to_string(i);
+      const std::string& value = values[values_index];
+      RETURN_NOT_OK(builder.Append(reinterpret_cast<const RawType*>(value.data()),
+                                   static_cast<int32_t>(value.size())));
+    }
+  }
+  return builder.Finish(out);
+}
+
+template <class Builder, class RawType>
+Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls,
+                                       MemoryPool* pool, std::shared_ptr<Array>* out) {
+  Builder builder(pool);
+  for (int64_t i = 0; i < length; ++i) {
+    if (include_nulls && (i % 7 == 0)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else {
+      const std::string value = std::to_string(i);
       RETURN_NOT_OK(builder.Append(reinterpret_cast<const RawType*>(value.data()),
                                    static_cast<int32_t>(value.size())));
     }
@@ -246,12 +261,14 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
 
   // Quirk with RETURN_NOT_OK macro and templated functions
   {
-    auto s = MakeRandomBinaryArray<StringBuilder, char>(length, with_nulls, pool, &a0);
+    auto s = MakeBinaryArrayWithUniqueValues<StringBuilder, char>(length, with_nulls,
+                                                                  pool, &a0);
     RETURN_NOT_OK(s);
   }
 
   {
-    auto s = MakeRandomBinaryArray<BinaryBuilder, uint8_t>(length, with_nulls, pool, &a1);
+    auto s = MakeBinaryArrayWithUniqueValues<BinaryBuilder, uint8_t>(length, with_nulls,
+                                                                     pool, &a1);
     RETURN_NOT_OK(s);
   }
   *out = RecordBatch::Make(schema, length, {a0, a1});
