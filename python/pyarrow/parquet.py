@@ -60,7 +60,6 @@ class ParquetFile(object):
     """
     def __init__(self, source, metadata=None, common_metadata=None):
         self.reader = ParquetReader()
-        source = _ensure_file(source)
         self.reader.open(source, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
