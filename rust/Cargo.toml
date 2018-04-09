@@ -44,3 +44,7 @@ criterion = "0.2"
 [[bench]]
 name = "array_from_vec"
 harness = false
+
+[[bench]]
+name = "array_from_builder"
+harness = false
