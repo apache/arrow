@@ -864,12 +864,23 @@ class ParquetDataset(object):
             if p_column != f_column:
                 return True
 
-            f_value_index = self.partitions.get_index(level, p_column,
-                                                      str(f_value))
+            p_value = (self.partitions
+                       .levels[level]
+                       .dictionary[p_value_index]
+                       .as_py())
+
             if op == "=":
-                return f_value_index == p_value_index
+                return p_value == f_value
             elif op == "!=":
-                return f_value_index != p_value_index
+                return p_value != f_value
+            elif op == '<':
+                return p_value < f_value
+            elif op == '>':
+                return p_value > f_value
+            elif op == '<=':
+                return p_value <= f_value
+            elif op == '>=':
+                return p_value >= f_value
             else:
                 return True
 

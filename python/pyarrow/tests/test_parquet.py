@@ -997,7 +997,7 @@ def test_read_partitioned_directory(tmpdir):
 
 
 @parquet
-def test_read_partitioned_directory_filtered(tmpdir):
+def test_read_partitioned_directory_filtered_equivalency(tmpdir):
     fs = LocalFileSystem.get_instance()
     base_path = str(tmpdir)
 
@@ -1015,8 +1015,7 @@ def test_read_partitioned_directory_filtered(tmpdir):
         'index': np.arange(N),
         'foo': np.array(foo_keys, dtype='i4').repeat(15),
         'bar': np.tile(np.tile(np.array(bar_keys, dtype=object), 5), 2),
-        'values': np.random.randn(N)
-    }, columns=['index', 'foo', 'bar', 'values'])
+    }, columns=['index', 'foo', 'bar'])
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
@@ -1031,6 +1030,78 @@ def test_read_partitioned_directory_filtered(tmpdir):
 
     assert 0 not in result_df['foo'].values
     assert 'b' not in result_df['bar'].values
+
+
+@parquet
+def test_read_partitioned_directory_filtered_cutoff_exclusive(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    import pyarrow.parquet as pq
+
+    foo_keys = [0, 1, 2, 3, 4]
+    partition_spec = [
+        ['foo', foo_keys]
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'foo': np.array(foo_keys, dtype='i4'),
+    }, columns=['index', 'foo'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[
+            ('foo', '<', 4),
+            ('foo', '>', 1),
+        ]
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas()
+                 .sort_values(by='index')
+                 .reset_index(drop=True))
+
+    result_list = [x for x in map(int, result_df['foo'].values)]
+    assert result_list == [2, 3]
+
+
+@parquet
+def test_read_partitioned_directory_filtered_cutoff_inclusive(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    import pyarrow.parquet as pq
+
+    foo_keys = [0, 1, 2, 3, 4]
+    partition_spec = [
+        ['foo', foo_keys]
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'foo': np.array(foo_keys, dtype='i4'),
+    }, columns=['index', 'foo'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[
+            ('foo', '<=', 3),
+            ('foo', '>=', 2),
+        ]
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas()
+                 .sort_values(by='index')
+                 .reset_index(drop=True))
+
+    result_list = [x for x in map(int, result_df['foo'].values)]
+    assert result_list == [2, 3]
 
 
 @pytest.yield_fixture
