@@ -44,7 +44,9 @@ impl From<Vec<String>> for List<u8> {
         let mut buf = BytesMut::with_capacity(v.len() * 32);
         offsets.push(0_i32);
         v.iter().for_each(|s| {
-            buf.put(s.as_bytes());
+            let slice = s.as_bytes();
+            buf.reserve(slice.len());
+            buf.put(slice);
             offsets.push(buf.len() as i32);
         });
         List {
