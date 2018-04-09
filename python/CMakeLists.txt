@@ -141,13 +141,18 @@ endif()
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# set compile output directory
-string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
+if (MSVC)
+  # MSVC makes its own output directories based on the build configuration
+  set(BUILD_SUBDIR_NAME "")
+else()
+  # Set compile output directory
+  string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
+endif()
 
 # If build in-source, create the latest symlink. If build out-of-source, which is
 # preferred, simply output the binaries in the build folder
 if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
-  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}/")
+  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}")
   # Link build/latest to the current build directory, to avoid developers
   # accidentally running the latest debug build when in fact they're building
   # release builds.
@@ -155,15 +160,10 @@ if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
   if (NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-EXECUTE_PROCESS(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-  ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+  EXECUTE_PROCESS(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
+    ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
-  if (MSVC)
-    # MSVC makes its own output directories based on the build configuration
-    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/")
-  else()
-    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
-  endif()
+  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
 endif()
 
 message(STATUS "Build output directory: ${BUILD_OUTPUT_ROOT_DIRECTORY}")

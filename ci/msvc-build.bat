@@ -104,12 +104,12 @@ cmake -G "%GENERATOR%" ^
 cmake --build . --target install --config %CONFIGURATION%  || exit /B
 
 @rem Needed so python-test.exe works
-set OLD_PYTHONPATH=%PYTHONPATH%
-set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
+set OLD_PYTHONHOME=%PYTHONHOME%
+set PYTHONHOME=%CONDA_PREFIX%
 
 ctest -VV  || exit /B
 
-set PYTHONPATH=%OLD_PYTHONPATH%
+set PYTHONHOME=%OLD_PYTHONHOME%
 popd
 
 @rem Build parquet-cpp
@@ -124,7 +124,8 @@ cmake -G "%GENERATOR%" ^
      -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
      -DPARQUET_BOOST_USE_SHARED=OFF ^
-     -DPARQUET_BUILD_TESTS=off .. || exit /B
+     -DPARQUET_BUILD_TESTS=OFF ^
+     .. || exit /B
 cmake --build . --target install --config %CONFIGURATION% || exit /B
 popd
 
@@ -135,13 +136,39 @@ popd
 pushd python
 
 set PYARROW_CXXFLAGS=/WX
-python setup.py build_ext --with-parquet --bundle-arrow-cpp --with-static-boost ^
+set PYARROW_CMAKE_GENERATOR=%GENERATOR%
+set PYARROW_BUNDLE_ARROW_CPP=ON
+set PYARROW_BUNDLE_BOOST=OFF
+set PYARROW_WITH_STATIC_BOOST=ON
+set PYARROW_WITH_PARQUET=ON
+
+python setup.py build_ext ^
     install -q --single-version-externally-managed --record=record.text ^
-    bdist_wheel || exit /B
+    bdist_wheel -q || exit /B
+
+for /F %%i in ('dir /B /S dist\*.whl') do set WHEEL_PATH=%%i
 
 @rem Test directly from installed location
 
+@rem Needed for test_cython
 SET PYARROW_PATH=%CONDA_PREFIX%\Lib\site-packages\pyarrow
 py.test -r sxX --durations=15 -v %PYARROW_PATH% --parquet || exit /B
 
 popd
+
+@rem Test pyarrow wheel from pristine environment
+
+call deactivate
+
+conda create -n wheel_test -q -y python=%PYTHON%
+
+call activate wheel_test
+
+pip install %WHEEL_PATH% || exit /B
+
+python -c "import pyarrow" || exit /B
+python -c "import pyarrow.parquet" || exit /B
+
+pip install pandas pytest pytest-faulthandler
+
+py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
