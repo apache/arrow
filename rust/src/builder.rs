@@ -46,6 +46,21 @@ impl<T> Builder<T> {
         }
     }
 
+    /// Get the internal byte-aligned memory buffer as a mutable slice
+    pub fn slice_mut(&self, start: usize, end: usize) -> &mut [T] {
+        assert!(start <= end);
+        assert!(start < self.len as usize);
+        assert!(end <= self.len as usize);
+        unsafe {
+            slice::from_raw_parts_mut(self.data.offset(start as isize), (end - start) as usize)
+        }
+    }
+
+    /// Override the length
+    pub fn set_len(&mut self, len: usize) {
+        self.len = len;
+    }
+
     /// Push a value into the builder, growing the internal buffer as needed
     pub fn push(&mut self, v: T) {
         assert!(!self.data.is_null());
