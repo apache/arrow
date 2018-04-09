@@ -40,8 +40,8 @@ pub enum DataType {
 impl DataType {
     fn from(json: &Value) -> Result<DataType, ArrowError> {
         //println!("DataType::from({:?})", json);
-        match json {
-            &Value::Object(ref map) => match map.get("name") {
+        match *json {
+            Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "bool" => Ok(DataType::Boolean),
                 Some(s) if s == "utf8" => Ok(DataType::Utf8),
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
@@ -107,21 +107,21 @@ impl DataType {
     }
 
     pub fn to_json(&self) -> Value {
-        match self {
-            &DataType::Boolean => json!({"name": "bool"}),
-            &DataType::Int8 => json!({"name": "int", "bitWidth": 8, "isSigned": true}),
-            &DataType::Int16 => json!({"name": "int", "bitWidth": 16, "isSigned": true}),
-            &DataType::Int32 => json!({"name": "int", "bitWidth": 32, "isSigned": true}),
-            &DataType::Int64 => json!({"name": "int", "bitWidth": 64, "isSigned": true}),
-            &DataType::UInt8 => json!({"name": "int", "bitWidth": 8, "isSigned": false}),
-            &DataType::UInt16 => json!({"name": "int", "bitWidth": 16, "isSigned": false}),
-            &DataType::UInt32 => json!({"name": "int", "bitWidth": 32, "isSigned": false}),
-            &DataType::UInt64 => json!({"name": "int", "bitWidth": 64, "isSigned": false}),
-            &DataType::Float16 => json!({"name": "floatingpoint", "precision": "HALF"}),
-            &DataType::Float32 => json!({"name": "floatingpoint", "precision": "SINGLE"}),
-            &DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
-            &DataType::Utf8 => json!({"name": "utf8"}),
-            &DataType::Struct(ref fields) => {
+        match *self {
+            DataType::Boolean => json!({"name": "bool"}),
+            DataType::Int8 => json!({"name": "int", "bitWidth": 8, "isSigned": true}),
+            DataType::Int16 => json!({"name": "int", "bitWidth": 16, "isSigned": true}),
+            DataType::Int32 => json!({"name": "int", "bitWidth": 32, "isSigned": true}),
+            DataType::Int64 => json!({"name": "int", "bitWidth": 64, "isSigned": true}),
+            DataType::UInt8 => json!({"name": "int", "bitWidth": 8, "isSigned": false}),
+            DataType::UInt16 => json!({"name": "int", "bitWidth": 16, "isSigned": false}),
+            DataType::UInt32 => json!({"name": "int", "bitWidth": 32, "isSigned": false}),
+            DataType::UInt64 => json!({"name": "int", "bitWidth": 64, "isSigned": false}),
+            DataType::Float16 => json!({"name": "floatingpoint", "precision": "HALF"}),
+            DataType::Float32 => json!({"name": "floatingpoint", "precision": "SINGLE"}),
+            DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
+            DataType::Utf8 => json!({"name": "utf8"}),
+            DataType::Struct(ref fields) => {
                 let field_json_array =
                     Value::Array(fields.iter().map(|f| f.to_json()).collect::<Vec<Value>>());
                 json!({ "fields": field_json_array })
@@ -148,8 +148,8 @@ impl Field {
 
     pub fn from(json: &Value) -> Result<Self, ArrowError> {
         //println!("Field::from({:?}", json);
-        match json {
-            &Value::Object(ref map) => {
+        match *json {
+            Value::Object(ref map) => {
                 let name = match map.get("name") {
                     Some(&Value::String(ref name)) => name.to_string(),
                     _ => {
