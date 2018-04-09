@@ -407,7 +407,7 @@ struct CastFunctor<Date64Type, TimestampType> {
         if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && bit_reader.IsSet() &&
                                 remainder > 0)) {
           ctx->SetStatus(
-            Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
+              Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
           break;
         }
         out_data[i] -= remainder;
@@ -419,7 +419,7 @@ struct CastFunctor<Date64Type, TimestampType> {
         const int64_t remainder = out_data[i] % kMillisecondsInDay;
         if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && remainder > 0)) {
           ctx->SetStatus(
-            Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
+              Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
           break;
         }
         out_data[i] -= remainder;
