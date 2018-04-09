@@ -36,15 +36,23 @@ find_path (PROTOBUF_INCLUDE_DIR google/protobuf/io/coded_stream.h HINTS
   NO_DEFAULT_PATH
   PATH_SUFFIXES "include")
 
+set (lib_dirs "lib")
+if (EXISTS "${_protobuf_path}/lib64")
+  set (lib_dirs "lib64" ${lib_dirs})
+endif ()
+if (EXISTS "${_protobuf_path}/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
+  set (lib_dirs "lib/${CMAKE_LIBRARY_ARCHITECTURE}" ${lib_dirs})
+endif ()
+
 find_library (PROTOBUF_LIBRARY NAMES protobuf PATHS
   ${_protobuf_path}
   NO_DEFAULT_PATH
-  PATH_SUFFIXES "lib")
+  PATH_SUFFIXES ${lib_dirs})
 
 find_library (PROTOC_LIBRARY NAMES protoc PATHS
   ${_protobuf_path}
   NO_DEFAULT_PATH
-  PATH_SUFFIXES "lib")
+  PATH_SUFFIXES ${lib_dirs})
 
 find_program(PROTOBUF_EXECUTABLE protoc HINTS
   ${_protobuf_path}
@@ -53,6 +61,8 @@ find_program(PROTOBUF_EXECUTABLE protoc HINTS
 
 if (PROTOBUF_INCLUDE_DIR AND PROTOBUF_LIBRARY AND PROTOC_LIBRARY AND PROTOBUF_EXECUTABLE)
   set (PROTOBUF_FOUND TRUE)
+  set (PROTOBUF_SHARED_LIB ${PROTOBUF_LIBRARY})
+  set (PROTOC_SHARED_LIB ${PROTOC_LIBRARY})
   get_filename_component (PROTOBUF_LIBS ${PROTOBUF_LIBRARY} PATH)
   set (PROTOBUF_LIB_NAME protobuf)
   set (PROTOC_LIB_NAME protoc)
@@ -64,7 +74,9 @@ endif ()
 
 if (PROTOBUF_FOUND)
   message (STATUS "Found the Protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
+  message (STATUS "Found the Protobuf shared library: ${PROTOBUF_SHARED_LIB}")
   message (STATUS "Found the Protobuf library: ${PROTOBUF_STATIC_LIB}")
+  message (STATUS "Found the Protoc shared library: ${PROTOC_SHARED_LIB}")
   message (STATUS "Found the Protoc library: ${PROTOC_STATIC_LIB}")
   message (STATUS "Found the Protoc executable: ${PROTOBUF_EXECUTABLE}")
 else()
