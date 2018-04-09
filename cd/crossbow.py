@@ -6,28 +6,20 @@
 
 import re
 import sys
+import click
 import pygit2
+# later we can remove these dependencies if required
 
 from pathlib import Path
 from datetime import datetime
 from jinja2 import FileSystemLoader, Environment
-from pygit2 import Signature, Repository, UserPass, RemoteCallbacks
+from setuptools_scm import get_version
 
 
 CWD = Path(__file__).parent
 
 
-def get_sha_version():
-    arrow_path = Path(__file__).absolute().parents[1]
-    repo = Repository(str(arrow_path))
-
-    sha = repo.head.target
-    version = '0.9.0'  # TODO
-
-    return sha, version
-
-
-def read_templates(pattern=None):
+def list_templates(pattern):
     for template in CWD.glob('*.yml'):
         if pattern is None or re.search(pattern, template.stem):
             yield template
@@ -42,6 +34,7 @@ def render_template(path, params):
 def create_commit(repo, branch_name, filename, content):
     master = repo.branches['master']
     master_head = repo[master.target]
+
     try:
         branch = repo.branches[branch_name]
     except KeyError:
@@ -63,19 +56,20 @@ def create_commit(repo, branch_name, filename, content):
     email = next(repo.config.get_multivar('user.email'))
     message = 'disco!'
 
-    author = Signature('Crossbow', 'mailing@list.com', timestamp)
-    committer = Signature(name, email, timestamp)
+    author = pygit2.Signature('Crossbow', 'mailing@list.com', timestamp)
+    committer = pygit2.Signature(name, email, timestamp)
 
     reference = 'refs/heads/{}'.format(branch_name)
     commit_id = repo.create_commit(reference, author, committer, message,
                                    tree_id, [branch.target])
 
-    return repo[commit_id]
+    return branch
 
 
 class GitRemoteCallbacks(pygit2.RemoteCallbacks):
 
-    def __init__(self):
+    def __init__(self, token):
+        self.token = token
         self.attempts = 0
         super(GitRemoteCallbacks, self).__init__()
 
@@ -96,70 +90,95 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
             raise ValueError(msg)
 
         if allowed_types & pygit2.credentials.GIT_CREDTYPE_USERPASS_PLAINTEXT:
-            return UserPass(token, 'x-oauth-basic')
+            return pygit2.UserPass(self.token, 'x-oauth-basic')
         else:
             return None
 
 
 def push_branches(repo, branches, token):
-    callbacks = GitRemoteCallbacks()
+    callbacks = GitRemoteCallbacks(token)
 
     remote = repo.remotes['origin']
-    refs = ['refs/heads/{}'.format(branch) for branch in branches]
+    refs = [branch.name for branch in branches]
+
     return remote.push(refs, callbacks=callbacks)
 
 
-ARROW_REPO = 'https://github.com/kszucs/arrow'
-ARROW_BRANCH = 'cd'
+# this should be the mailing list
 EMAIL = 'szucs.krisztian@gmail.com'
-PLAT = 'x86_64'
-BUILD_REF, PYARROW_VERSION = get_sha_version()
 
 
-if len(sys.argv) > 1:
-    pattern = sys.argv[1]
-else:
-    pattern = None
+@click.command()
+@click.argument('pattern', required=False)
+@click.option('--dry-run/--push', default=False,
+              help='Just display the rendered CI configurations without '
+                   'submitting them')
+@click.option('--queue-repo', default=None,
+              help='The repository path or url used for scheduling the builds.'
+                   'Defaults to ../crossbow')
+@click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
+              help='Oauth token for Github authentication')
+def build(pattern, dry_run, queue_repo, github_token):
+    # initialize a repo object to interact with arrow's git data
+    path = Path(__file__).absolute().parents[1]
+    repo = pygit2.Repository(str(path))
+
+    # get the currently checked out commit's sha and generate
+    # the corresponding version number (same as pyarrow's)
+    sha = repo.head.target
+    version = get_version(path)
+
+    origin = repo.remotes['origin']
+    branch = repo.branches[repo.head.shorthand]
+
+    click.echo('Repository: {}@{}'.format(origin.url, branch.branch_name))
+    click.echo('Commit SHA: {}'.format(sha))
+    click.echo('Version: {}'.format(version))
+
+    # initializing or cloning the scheduling repository
+    if queue_repo is None:
+        queue_repo = '/'.join(origin.url.split('/')[:-1] + ['crossbow'])
+
+    try:
+        queue_repo = pygit2.Repository(queue_repo)
+    except pygit2.GitError:
+        queue_repo = pygit2.Repository(str(path.parent / 'crossbow'))
+
+    # reading the build templates and constructing the CI configurations
+    updated_branches = []
+    for template_path in list_templates(pattern):
+        filename = template_path.name
+        if filename.startswith('travis'):
+            target_filename = '.travis.yml'
+        elif filename.startswith('appveyor'):
+            target_filename = 'appveyor.yml'
+        else:
+            ValueError('Unkown CI service provider for {}'.format(filename))
+
+        params = {
+            'PLAT': 'x86_64',
+            'EMAIL': EMAIL,
+            'BUILD_REF': sha,
+            'ARROW_REPO': origin.url,
+            'ARROW_BRANCH': branch.branch_name,
+            'PYARROW_VERSION': version,
+        }
+
+        content = render_template(template_path, params)
+
+        if dry_run:
+            click.echo('\n')
+            click.echo('-' * 79)
+            click.echo(content)
+        else:
+            target_branch_name = template_path.stem
+            updated_branch = create_commit(queue_repo, target_branch_name,
+                                           target_filename, content)
+            updated_branches.append(updated_branch)
+
+    if not dry_run:
+        push_branches(queue_repo, updated_branches, token=github_token)
 
 
-dry_run = False
-for arg in sys.argv:
-    if arg == '--dry-run':
-        dry_run = True
-
-
-repo = Repository('/Users/krisz/Workspace/crossbow')
-branches = []
-
-for path in read_templates(pattern):
-    # TODO create the build variants based on the arguments
-    branch_name = path.stem
-    branches.append(branch_name)
-
-    params = dict(
-        ARROW_REPO=ARROW_REPO,
-        ARROW_BRANCH=ARROW_BRANCH,
-        PLAT=PLAT,
-        BUILD_REF=BUILD_REF,
-        PYARROW_VERSION=PYARROW_VERSION,
-        EMAIL=EMAIL
-    )
-    content = render_template(path, params)
-
-    if branch_name.startswith('travis'):
-        filename = '.travis.yml'
-    elif branch_name.startswith('appveyor'):
-        filename = 'appveyor.yml'
-    else:
-        ValueError('raise something')
-
-    if dry_run:
-        print(content)
-    else:
-        create_commit(repo, branch_name, filename, content)
-
-
-token = '<top secret>'
-
-if not dry_run:
-    push_branches(repo, branches, token=token)
+if __name__ == '__main__':
+    build()
