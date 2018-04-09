@@ -727,8 +727,7 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   /// \param[in] valid_bytes an optional sequence of bytes where non-zero
   /// indicates a valid (non-null) value
   /// \return Status
-  Status Append(const char** values,
-                int64_t length,
+  Status Append(const char** values, int64_t length,
                 const uint8_t* valid_bytes = NULLPTR);
 };
 

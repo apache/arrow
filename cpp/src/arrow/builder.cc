@@ -1413,8 +1413,7 @@ Status StringBuilder::Append(const std::vector<std::string>& values,
   return Status::OK();
 }
 
-Status StringBuilder::Append(const char** values,
-                             int64_t length,
+Status StringBuilder::Append(const char** values, int64_t length,
                              const uint8_t* valid_bytes) {
   std::size_t total_length = 0;
   std::vector<std::size_t> value_lengths(length);
