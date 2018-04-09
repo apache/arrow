@@ -44,7 +44,7 @@ package org.apache.arrow.vector;
  * varchar length).
  *
  * Also from container vectors, we propagate the density down
- * the the inner vectors so that they can use it appropriately.
+ * the inner vectors so that they can use it appropriately.
  */
 public interface DensityAwareVector {
 
