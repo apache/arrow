@@ -48,9 +48,9 @@ impl DataType {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
                     Some(p) if p == "SINGLE" => Ok(DataType::Float32),
                     Some(p) if p == "DOUBLE" => Ok(DataType::Float64),
-                    _ => Err(ArrowError::ParseError(format!(
-                        "floatingpoint precision missing or invalid"
-                    ))),
+                    _ => Err(ArrowError::ParseError(
+                        "floatingpoint precision missing or invalid".to_string(),
+                    )),
                 },
                 Some(s) if s == "int" => match map.get("isSigned") {
                     Some(&Value::Bool(true)) => match map.get("bitWidth") {
@@ -59,13 +59,13 @@ impl DataType {
                             Some(16) => Ok(DataType::Int16),
                             Some(32) => Ok(DataType::Int32),
                             Some(64) => Ok(DataType::Int32),
-                            _ => Err(ArrowError::ParseError(format!(
-                                "int bitWidth missing or invalid"
-                            ))),
+                            _ => Err(ArrowError::ParseError(
+                                "int bitWidth missing or invalid".to_string(),
+                            )),
                         },
-                        _ => Err(ArrowError::ParseError(format!(
-                            "int bitWidth missing or invalid"
-                        ))),
+                        _ => Err(ArrowError::ParseError(
+                            "int bitWidth missing or invalid".to_string(),
+                        )),
                     },
                     Some(&Value::Bool(false)) => match map.get("bitWidth") {
                         Some(&Value::Number(ref n)) => match n.as_u64() {
@@ -73,17 +73,17 @@ impl DataType {
                             Some(16) => Ok(DataType::UInt16),
                             Some(32) => Ok(DataType::UInt32),
                             Some(64) => Ok(DataType::UInt64),
-                            _ => Err(ArrowError::ParseError(format!(
-                                "int bitWidth missing or invalid"
-                            ))),
+                            _ => Err(ArrowError::ParseError(
+                                "int bitWidth missing or invalid".to_string(),
+                            )),
                         },
-                        _ => Err(ArrowError::ParseError(format!(
-                            "int bitWidth missing or invalid"
-                        ))),
+                        _ => Err(ArrowError::ParseError(
+                            "int bitWidth missing or invalid".to_string(),
+                        )),
                     },
-                    _ => Err(ArrowError::ParseError(format!(
-                        "int signed missing or invalid"
-                    ))),
+                    _ => Err(ArrowError::ParseError(
+                        "int signed missing or invalid".to_string(),
+                    )),
                 },
                 Some(other) => Err(ArrowError::ParseError(format!(
                     "invalid type name: {}",
@@ -97,10 +97,12 @@ impl DataType {
                             .collect::<Result<Vec<Field>, ArrowError>>();
                         Ok(DataType::Struct(fields?))
                     }
-                    _ => Err(ArrowError::ParseError(format!("empty type"))),
+                    _ => Err(ArrowError::ParseError("empty type".to_string())),
                 },
             },
-            _ => Err(ArrowError::ParseError(format!("invalid json value type"))),
+            _ => Err(ArrowError::ParseError(
+                "invalid json value type".to_string(),
+            )),
         }
     }
 
@@ -151,25 +153,25 @@ impl Field {
                 let name = match map.get("name") {
                     Some(&Value::String(ref name)) => name.to_string(),
                     _ => {
-                        return Err(ArrowError::ParseError(format!(
-                            "Field missing 'name' attribute"
-                        )))
+                        return Err(ArrowError::ParseError(
+                            "Field missing 'name' attribute".to_string(),
+                        ))
                     }
                 };
                 let nullable = match map.get("nullable") {
                     Some(&Value::Bool(b)) => b,
                     _ => {
-                        return Err(ArrowError::ParseError(format!(
-                            "Field missing 'nullable' attribute"
-                        )))
+                        return Err(ArrowError::ParseError(
+                            "Field missing 'nullable' attribute".to_string(),
+                        ))
                     }
                 };
                 let data_type = match map.get("type") {
                     Some(t) => DataType::from(t)?,
                     _ => {
-                        return Err(ArrowError::ParseError(format!(
-                            "Field missing 'type' attribute"
-                        )))
+                        return Err(ArrowError::ParseError(
+                            "Field missing 'type' attribute".to_string(),
+                        ))
                     }
                 };
                 Ok(Field {
@@ -178,9 +180,9 @@ impl Field {
                     data_type,
                 })
             }
-            _ => Err(ArrowError::ParseError(format!(
-                "Invalid json value type for field"
-            ))),
+            _ => Err(ArrowError::ParseError(
+                "Invalid json value type for field".to_string(),
+            )),
         }
     }
 
