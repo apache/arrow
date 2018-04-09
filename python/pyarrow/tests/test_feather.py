@@ -17,6 +17,7 @@
 
 import os
 import sys
+import tempfile
 import unittest
 import pytest
 
@@ -27,14 +28,13 @@ from pandas.util.testing import assert_frame_equal
 import pandas as pd
 
 import pyarrow as pa
-from pyarrow.compat import guid
 from pyarrow.feather import (read_feather, write_feather,
                              FeatherReader)
 from pyarrow.lib import FeatherWriter
 
 
-def random_path():
-    return 'feather_{}'.format(guid())
+def random_path(prefix='feather_'):
+    return tempfile.mktemp(prefix=prefix)
 
 
 class TestFeatherReader(unittest.TestCase):
@@ -400,7 +400,7 @@ class TestFeatherReader(unittest.TestCase):
         # GH #209
         name = (b'Besa_Kavaj\xc3\xab.feather').decode('utf-8')
         df = pd.DataFrame({'foo': [1, 2, 3, 4]})
-        self._check_pandas_roundtrip(df, path=name)
+        self._check_pandas_roundtrip(df, path=random_path(prefix=name))
 
     def test_read_columns(self):
         data = {'foo': [1, 2, 3, 4],
