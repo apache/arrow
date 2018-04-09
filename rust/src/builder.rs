@@ -99,7 +99,10 @@ impl<T> Builder<T> {
 impl<T> Drop for Builder<T> {
     fn drop(&mut self) {
         if !self.data.is_null() {
-            mem::drop(self.data)
+            unsafe {
+                let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
+                libc::free(p);
+            }
         }
     }
 }
