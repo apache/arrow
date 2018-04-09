@@ -34,9 +34,15 @@ fn array_from_builder(n: usize) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("array_from_builder 128", |b| b.iter(|| array_from_builder(128)));
-    c.bench_function("array_from_builder 256", |b| b.iter(|| array_from_builder(256)));
-    c.bench_function("array_from_builder 512", |b| b.iter(|| array_from_builder(512)));
+    c.bench_function("array_from_builder 128", |b| {
+        b.iter(|| array_from_builder(128))
+    });
+    c.bench_function("array_from_builder 256", |b| {
+        b.iter(|| array_from_builder(256))
+    });
+    c.bench_function("array_from_builder 512", |b| {
+        b.iter(|| array_from_builder(512))
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);
