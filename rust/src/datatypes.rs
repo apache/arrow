@@ -16,7 +16,6 @@
 // under the License.
 
 use super::error::ArrowError;
-use serde_json;
 use serde_json::Value;
 use std::fmt;
 
@@ -241,6 +240,7 @@ impl fmt::Display for Schema {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json;
 
     #[test]
     fn create_struct_type() {
