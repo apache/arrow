@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-# TODO: create a docker container too for this sscript with dependencies pre-installed
-# TODO: probably should turn off auto cancellation feature of travis
-# TODO: dry-run / render feature
-
 import re
 import sys
 import click
@@ -74,10 +70,10 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
         super(GitRemoteCallbacks, self).__init__()
 
     def push_update_reference(self, refname, message):
-        print(refname, message)
+        pass
 
     def update_tips(self, refname, old, new):
-        print(refname, old, new)
+        pass
 
     def credentials(self, url, username_from_url, allowed_types):
         # its a libgit2 bug, that it infinitly retries the authentication
@@ -178,6 +174,10 @@ def build(pattern, dry_run, queue_repo, github_token):
 
     if not dry_run:
         push_branches(queue_repo, updated_branches, token=github_token)
+
+    click.echo('Pushed branches:')
+    for updated_branch in updated_branches:
+        click.echo(' - {}'.format(updated_branch.shorthand))
 
 
 if __name__ == '__main__':
