@@ -1158,7 +1158,8 @@ class TestConvertStringLikeTypes(object):
         _check_series_roundtrip(s, type_=pa.binary())
 
     def test_binary_from_bytearray(self):
-        s = pd.Series([bytearray(b'123'), bytearray(b''), bytearray(b'a'), None])
+        s = pd.Series([bytearray(b'123'), bytearray(b''), bytearray(b'a'),
+                       None])
         # Explicitly set type
         _check_series_roundtrip(s, type_=pa.binary())
         # Infer type from bytearrays
