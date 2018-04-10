@@ -25,7 +25,6 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -44,18 +43,15 @@ import static org.junit.Assert.assertNotNull;
  */
 public class JdbcToArrowTestHelper {
 
-    public static void assertIntVectorValues(FieldVector fx, int rowCount, int[] values) {
-        IntVector intVector = ((IntVector) fx);
+    public static void assertIntVectorValues(IntVector intVector, int rowCount, int [] values) {
         assertEquals(rowCount, intVector.getValueCount());
 
         for(int j = 0; j < intVector.getValueCount(); j++) {
-            //assertNotNull(intVector.get(j));
-            assertEquals(values[j], intVector.get(j));
+            assertEquals((int)values[j], intVector.get(j));
         }
     }
 
-    public static void assertBitBooleanVectorValues(FieldVector fx, int rowCount, int[] values){
-        BitVector bitVector = ((BitVector)fx);
+    public static void assertBitBooleanVectorValues(BitVector bitVector, int rowCount, int[] values){
         assertEquals(rowCount, bitVector.getValueCount());
         
         for(int j = 0; j < bitVector.getValueCount(); j++){
@@ -63,8 +59,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertTinyIntVectorValues(FieldVector fx, int rowCount, int[] values){
-        TinyIntVector tinyIntVector = ((TinyIntVector)fx);
+    public static void assertTinyIntVectorValues(TinyIntVector tinyIntVector, int rowCount, int[] values){
         assertEquals(rowCount, tinyIntVector.getValueCount());
 
         for(int j = 0; j < tinyIntVector.getValueCount(); j++){
@@ -72,8 +67,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertSmallIntVectorValues(FieldVector fx, int rowCount, int[] values){
-        SmallIntVector smallIntVector = ((SmallIntVector)fx);
+    public static void assertSmallIntVectorValues(SmallIntVector smallIntVector, int rowCount, int[] values){
         assertEquals(rowCount, smallIntVector.getValueCount());
 
         for(int j = 0; j < smallIntVector.getValueCount(); j++){
@@ -81,8 +75,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertBigIntVectorValues(FieldVector fx, int rowCount, int[] values){
-        BigIntVector bigIntVector = ((BigIntVector)fx);
+    public static void assertBigIntVectorValues(BigIntVector bigIntVector, int rowCount, int[] values){
         assertEquals(rowCount, bigIntVector.getValueCount());
 
         for(int j = 0; j < bigIntVector.getValueCount(); j++){
@@ -90,8 +83,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertDecimalVectorValues(FieldVector fx, int rowCount, BigDecimal[] values){
-        DecimalVector decimalVector = ((DecimalVector)fx);
+    public static void assertDecimalVectorValues(DecimalVector decimalVector, int rowCount, BigDecimal[] values){
         assertEquals(rowCount, decimalVector.getValueCount());
 
         for(int j = 0; j < decimalVector.getValueCount(); j++){
@@ -100,8 +92,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertFloat8VectorValues(FieldVector fx, int rowCount, double[] values){
-        Float8Vector float8Vector = ((Float8Vector)fx);
+    public static void assertFloat8VectorValues(Float8Vector float8Vector, int rowCount, double[] values){
         assertEquals(rowCount, float8Vector.getValueCount());
 
         for(int j = 0; j < float8Vector.getValueCount(); j++){
@@ -109,8 +100,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertFloat4VectorValues(FieldVector fx, int rowCount, float[] values){
-        Float4Vector float4Vector = ((Float4Vector)fx);
+    public static void assertFloat4VectorValues(Float4Vector float4Vector, int rowCount, float[] values){
         assertEquals(rowCount, float4Vector.getValueCount());
 
         for(int j = 0; j < float4Vector.getValueCount(); j++){
@@ -118,8 +108,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertTimeVectorValues(FieldVector fx, int rowCount, long[] values){
-        TimeMilliVector timeMilliVector = ((TimeMilliVector)fx);
+    public static void assertTimeVectorValues(TimeMilliVector timeMilliVector, int rowCount, long[] values){
         assertEquals(rowCount, timeMilliVector.getValueCount());
 
         for(int j = 0; j < timeMilliVector.getValueCount(); j++){
@@ -127,8 +116,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertDateVectorValues(FieldVector fx, int rowCount, long[] values){
-        DateMilliVector dateMilliVector = ((DateMilliVector)fx);
+    public static void assertDateVectorValues(DateMilliVector dateMilliVector, int rowCount, long[] values){
         assertEquals(rowCount, dateMilliVector.getValueCount());
 
         for(int j = 0; j < dateMilliVector.getValueCount(); j++){
@@ -136,8 +124,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertTimeStampVectorValues(FieldVector fx, int rowCount, long[] values){
-        TimeStampVector timeStampVector = ((TimeStampVector)fx);
+    public static void assertTimeStampVectorValues(TimeStampVector timeStampVector, int rowCount, long[] values){
         assertEquals(rowCount, timeStampVector.getValueCount());
 
         for(int j = 0; j < timeStampVector.getValueCount(); j++){
@@ -145,9 +132,8 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertVarBinaryVectorValues (FieldVector fx, int rowCount, byte[][] values) {
+    public static void assertVarBinaryVectorValues (VarBinaryVector varBinaryVector, int rowCount, byte[][] values) {
     	try {
-	    	VarBinaryVector varBinaryVector =((VarBinaryVector) fx);
 	        assertEquals(rowCount, varBinaryVector.getValueCount());
 	
 	        for(int j = 0; j < varBinaryVector.getValueCount(); j++){
@@ -158,9 +144,8 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertVarcharVectorValues(FieldVector fx, int rowCount, byte[][] values) {
+    public static void assertVarcharVectorValues(VarCharVector varCharVector, int rowCount, byte[][] values) {
         try {
-	    	VarCharVector varCharVector = ((VarCharVector)fx);
 	        assertEquals(rowCount, varCharVector.getValueCount());
 	
 	        for(int j = 0; j < varCharVector.getValueCount(); j++){
@@ -169,22 +154,6 @@ public class JdbcToArrowTestHelper {
         } catch (AssertionError ae) {
         	ae.printStackTrace();
         } 
-    }
-
-    public static long hashArray(byte[] data){
-        long ret = 0;
-        for(int i = 0; i < data.length;i++)
-            ret+=data[i];
-        return ret;
-    }
-
-    public static String firstX(byte[] data, int items){
-        int toProcess = Math.min(items, data.length);
-        StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < toProcess; i++) {
-            sb.append(String.format("0x%02x", data[i])+ " ");
-        }
-        return sb.toString();
     }
 
     public static byte[] hexStringToByteArray(String s) {
