@@ -720,6 +720,18 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 
   Status Append(const std::vector<std::string>& values,
                 const uint8_t* valid_bytes = NULLPTR);
+
+  /// \brief Append a sequence of nul-terminated strings in one shot.
+  ///        If one of the values is NULL, it is processed as a null
+  ///        value even if the corresponding valid_bytes entry is 1.
+  ///
+  /// \param[in] values a contiguous C array of nul-terminated char *
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value
+  /// \return Status
+  Status Append(const char** values, int64_t length,
+                const uint8_t* valid_bytes = NULLPTR);
 };
 
 // ----------------------------------------------------------------------
