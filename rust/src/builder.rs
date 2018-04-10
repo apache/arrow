@@ -23,6 +23,12 @@ use std::slice;
 use super::buffer::*;
 use super::memory::*;
 
+#[cfg(windows)]
+#[link(name = "msvcrt")]
+extern {
+    fn _aligned_free(prt: *const u8);
+}
+
 /// Buffer builder with zero-copy build method
 pub struct Builder<T> {
     data: *mut T,
@@ -101,8 +107,13 @@ impl<T> Drop for Builder<T> {
     fn drop(&mut self) {
         if !self.data.is_null() {
             unsafe {
-                let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
-                libc::free(p);
+                if cfg!(windows) {
+                    let p = mem::transmute::<*const T, *const u8>(self.data);
+                    _aligned_free(p);
+                } else {
+                    let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
+                    libc::free(p);
+                }
             }
         }
     }
