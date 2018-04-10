@@ -22,6 +22,24 @@ use super::error::ArrowError;
 
 const ALIGNMENT: usize = 64;
 
+#[cfg(windows)]
+#[link(name = "msvcrt")]
+extern "C" {
+    fn _aligned_malloc(size: libc::size_t, alignment: libc::size_t) -> libc::size_t;
+}
+
+#[cfg(windows)]
+pub fn allocate_aligned(size: i64) -> Result<*const u8, ArrowError> {
+    let page = unsafe { _aligned_malloc(size as libc::size_t, ALIGNMENT as libc::size_t) };
+    match page {
+        0 => Err(ArrowError::MemoryError(
+            "Failed to allocate memory".to_string(),
+        )),
+        _ => Ok(unsafe { mem::transmute::<libc::size_t, *const u8>(page) }),
+    }
+}
+
+#[cfg(not(windows))]
 pub fn allocate_aligned(size: i64) -> Result<*const u8, ArrowError> {
     unsafe {
         let mut page: *mut libc::c_void = mem::uninitialized();
