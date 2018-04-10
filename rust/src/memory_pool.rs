@@ -26,18 +26,17 @@ const ALIGNMENT: usize = 64;
 
 /// Memory pool for allocating memory. It's also responsible for tracking memory usage.
 pub trait MemoryPool {
+    /// Allocate memory.
+    /// The implementation should ensures that allocated memory is aligned.
+    fn allocate(&self, size: usize) -> Result<*mut u8>;
 
-  /// Allocate memory.
-  /// The implementation should ensures that allocated memory is aligned.
-  fn allocate(&self, size: usize) -> Result<*mut u8>;
+    /// Reallocate memory.
+    /// If the implementation doesn't support reallocating aligned memory, it allocates new memory
+    /// and copied old memory to it.
+    fn reallocate(&self, old_size: usize, new_size: usize, pointer: *mut u8) -> Result<*mut u8>;
 
-  /// Reallocate memory.
-  /// If the implementation doesn't support reallocating aligned memory, it allocates new memory
-  /// and copied old memory to it.
-  fn reallocate(&self, old_size: usize, new_size: usize, pointer: *mut u8) -> Result<*mut u8>;
-
-  /// Free memory.
-  fn free(&self, ptr: *mut u8);
+    /// Free memory.
+    fn free(&self, ptr: *mut u8);
 }
 
 /// Implementation of memory pool using lib api.
@@ -45,54 +44,50 @@ pub trait MemoryPool {
 struct LibcMemoryPool;
 
 impl MemoryPool for LibcMemoryPool {
-  fn allocate(&self, size: usize) -> Result<*mut u8> {
-    unsafe {
-      let mut page: *mut libc::c_void = mem::uninitialized();
-      let result = libc::posix_memalign(&mut page, ALIGNMENT, size);
-      match result {
-        0 => Ok(mem::transmute::<*mut libc::c_void, *mut u8>(page)),
-        _ => Err(ArrowError::MemoryError(
-          "Failed to allocate memory".to_string(),
-        )),
-      }
+    fn allocate(&self, size: usize) -> Result<*mut u8> {
+        unsafe {
+            let mut page: *mut libc::c_void = mem::uninitialized();
+            let result = libc::posix_memalign(&mut page, ALIGNMENT, size);
+            match result {
+                0 => Ok(mem::transmute::<*mut libc::c_void, *mut u8>(page)),
+                _ => Err(ArrowError::MemoryError(
+                    "Failed to allocate memory".to_string(),
+                )),
+            }
+        }
     }
-  }
 
-  fn reallocate(&self, old_size: usize, new_size: usize, pointer: *mut u8) -> Result<*mut u8> {
-    unsafe {
-      let result = self.allocate(new_size)?;
-      let dst = mem::transmute::<*mut u8, *mut libc::c_void>(result);
-      libc::memcpy(
-        dst,
-        mem::transmute::<*mut u8, *const libc::c_void>(pointer),
-        cmp::min(old_size, new_size),
-      );
+    fn reallocate(&self, old_size: usize, new_size: usize, pointer: *mut u8) -> Result<*mut u8> {
+        unsafe {
+            let result = self.allocate(new_size)?;
+            let dst = mem::transmute::<*mut u8, *mut libc::c_void>(result);
+            libc::memcpy(
+                dst,
+                mem::transmute::<*mut u8, *const libc::c_void>(pointer),
+                cmp::min(old_size, new_size),
+            );
 
-      Ok(result)
+            Ok(result)
+        }
     }
-  }
 
-  fn free(&self, ptr: *mut u8) {
-    unsafe {
-      libc::free(mem::transmute::<*mut u8, *mut libc::c_void>(ptr))
+    fn free(&self, ptr: *mut u8) {
+        unsafe { libc::free(mem::transmute::<*mut u8, *mut libc::c_void>(ptr)) }
     }
-  }
 }
-
 
 #[cfg(test)]
 mod tests {
-  use super::*;
+    use super::*;
 
-  #[test]
-  fn test_allocate() {
-    let memory_pool = LibcMemoryPool {};
+    #[test]
+    fn test_allocate() {
+        let memory_pool = LibcMemoryPool {};
 
-    for _ in 0..10 {
-      let p = memory_pool.allocate(1024).unwrap();
-      // make sure this is 64-byte aligned
-      assert_eq!(0, (p as usize) % 64);
+        for _ in 0..10 {
+            let p = memory_pool.allocate(1024).unwrap();
+            // make sure this is 64-byte aligned
+            assert_eq!(0, (p as usize) % 64);
+        }
     }
-  }
-
 }
