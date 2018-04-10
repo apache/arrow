@@ -29,3 +29,4 @@ pub mod datatypes;
 pub mod error;
 pub mod list;
 pub mod memory;
+pub mod memory_pool;

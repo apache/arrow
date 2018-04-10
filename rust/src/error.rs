@@ -20,3 +20,5 @@ pub enum ArrowError {
     MemoryError(String),
     ParseError(String),
 }
+
+pub type Result<T> = ::std::result::Result<T, ArrowError>;
