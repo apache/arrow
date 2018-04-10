@@ -743,7 +743,9 @@ Status NumPyConverter::ConvertDecimals() {
 
   if (type_ == NULLPTR) {
     for (PyObject* object : objects) {
-      RETURN_NOT_OK(max_decimal_metadata.Update(object));
+      if (!internal::PandasObjectIsNull(object)) {
+        RETURN_NOT_OK(max_decimal_metadata.Update(object));
+      }
     }
 
     type_ =
