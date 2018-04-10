@@ -28,4 +28,5 @@ pub mod builder;
 pub mod datatypes;
 pub mod error;
 pub mod list;
+pub mod list_builder;
 pub mod memory;
