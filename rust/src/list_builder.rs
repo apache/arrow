@@ -18,7 +18,7 @@
 use super::builder::*;
 use super::list::List;
 
-struct ListBuilder<T> {
+pub struct ListBuilder<T> {
     data: Builder<T>,
     offsets: Builder<i32>,
 }
