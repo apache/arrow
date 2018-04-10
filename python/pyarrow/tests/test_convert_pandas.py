@@ -1326,6 +1326,22 @@ class TestConvertDecimalTypes(object):
         expected = [decimal.Decimal('0.01000'), decimal.Decimal('0.00100')]
         assert array.to_pylist() == expected
 
+    def test_decimal_with_None_explicit_type(self):
+        data = [
+            decimal.Decimal('3.14'),
+            None,
+        ]
+        series = pd.Series(data)
+        _check_series_roundtrip(series, type_=pa.decimal128(12, 5))
+
+    def test_decimal_with_None_infer_type(self):
+        data = [
+            decimal.Decimal('3.14'),
+            None,
+        ]
+        series = pd.Series(data)
+        _check_series_roundtrip(series)
+
 
 class TestListTypes(object):
     """
