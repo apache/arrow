@@ -79,15 +79,19 @@ impl<T> Buffer<T> {
 }
 
 impl<T> Drop for Buffer<T> {
+    #[cfg(windows)]
     fn drop(&mut self) {
         unsafe {
-            if cfg!(windows) {
-                let p = mem::transmute::<*const T, *const u8>(self.data);
-                _aligned_free(p);
-            } else {
-                let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
-                libc::free(p);
-            }
+            let p = mem::transmute::<*const T, *const u8>(self.data);
+            _aligned_free(p);
+        }
+    }
+
+    #[cfg(not(windows))]
+    fn drop(&mut self) {
+        unsafe {
+            let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
+            libc::free(p);
         }
     }
 }

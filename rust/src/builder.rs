@@ -104,16 +104,22 @@ impl<T> Builder<T> {
 }
 
 impl<T> Drop for Builder<T> {
+    #[cfg(windows)]
     fn drop(&mut self) {
         if !self.data.is_null() {
             unsafe {
-                if cfg!(windows) {
-                    let p = mem::transmute::<*const T, *const u8>(self.data);
-                    _aligned_free(p);
-                } else {
-                    let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
-                    libc::free(p);
-                }
+                let p = mem::transmute::<*const T, *const u8>(self.data);
+                _aligned_free(p);
+            }
+        }
+    }
+
+    #[cfg(not(windows))]
+    fn drop(&mut self) {
+        if !self.data.is_null() {
+            unsafe {
+                let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
+                libc::free(p);
             }
         }
     }
