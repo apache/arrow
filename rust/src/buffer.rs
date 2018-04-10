@@ -24,7 +24,7 @@ use super::memory::*;
 
 #[cfg(windows)]
 #[link(name = "msvcrt")]
-extern {
+extern "C" {
     fn _aligned_free(prt: *const u8);
 }
 
