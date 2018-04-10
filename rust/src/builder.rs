@@ -16,6 +16,7 @@
 // under the License.
 
 use libc;
+use std::cmp;
 use std::mem;
 use std::ptr;
 use std::slice;
@@ -53,6 +54,14 @@ impl<T> Builder<T> {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
     /// Get the internal byte-aligned memory buffer as a mutable slice
     pub fn slice_mut(&self, start: usize, end: usize) -> &mut [T] {
         assert!(start <= end);
@@ -72,26 +81,53 @@ impl<T> Builder<T> {
     pub fn push(&mut self, v: T) {
         assert!(!self.data.is_null());
         if self.len == self.capacity {
-            let sz = mem::size_of::<T>();
-            let new_capacity = self.capacity * 2;
-            unsafe {
-                let old_buffer = self.data;
-                let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
-                libc::memcpy(
-                    mem::transmute::<*const u8, *mut libc::c_void>(new_buffer),
-                    mem::transmute::<*const T, *const libc::c_void>(old_buffer),
-                    self.len * sz,
-                );
-                self.capacity = new_capacity;
-                self.data = mem::transmute::<*const u8, *mut T>(new_buffer);
-                mem::drop(old_buffer);
-            }
+            let new_capacity = self.capacity;
+            self.grow(new_capacity * 2);
         }
         assert!(self.len < self.capacity);
         unsafe {
             *self.data.offset(self.len as isize) = v;
         }
         self.len += 1;
+    }
+
+    /// push a slice of type T, growing the internal buffer as needed
+    pub fn push_slice(&mut self, slice: &[T]) {
+        self.reserve(slice.len());
+        let sz = mem::size_of::<T>();
+        unsafe {
+            libc::memcpy(
+                mem::transmute::<*mut T, *mut libc::c_void>(self.data.offset(self.len() as isize)),
+                mem::transmute::<*const T, *const libc::c_void>(slice.as_ptr()),
+                slice.len() * sz,
+            );
+        }
+        self.len += slice.len();
+    }
+
+    /// Reserve memory for n elements of type T
+    pub fn reserve(&mut self, n: usize) {
+        if self.len + n > self.capacity {
+            let new_capacity = cmp::max(self.capacity * 2, n);
+            self.grow(new_capacity);
+        }
+    }
+
+    /// Grow the buffer to the new size n (number of elements of type T)
+    fn grow(&mut self, new_capacity: usize) {
+        let sz = mem::size_of::<T>();
+        unsafe {
+            let old_buffer = self.data;
+            let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
+            libc::memcpy(
+                mem::transmute::<*const u8, *mut libc::c_void>(new_buffer),
+                mem::transmute::<*const T, *const libc::c_void>(old_buffer),
+                self.len * sz,
+            );
+            self.capacity = new_capacity;
+            self.data = mem::transmute::<*const u8, *mut T>(new_buffer);
+            libc::free(mem::transmute::<*mut T, *mut libc::c_void>(old_buffer));
+        }
     }
 
     /// Build a Buffer from the existing memory
@@ -160,6 +196,28 @@ mod tests {
         for i in 0..5 {
             assert_eq!(&i, a.get(i as usize));
         }
+    }
+
+    #[test]
+    fn test_reserve() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        assert_eq!(2, b.capacity());
+        b.reserve(2);
+        assert_eq!(2, b.capacity());
+        b.reserve(3);
+        assert_eq!(4, b.capacity());
+    }
+
+    #[test]
+    fn test_push_slice() {
+        let mut b: Builder<u8> = Builder::new();
+        b.push_slice("Hello, ".as_bytes());
+        b.push_slice("World!".as_bytes());
+        let buffer = b.finish();
+        assert_eq!(13, buffer.len());
+
+        let s = String::from_utf8(buffer.iter().collect::<Vec<u8>>()).unwrap();
+        assert_eq!("Hello, World!", s);
     }
 
 }
