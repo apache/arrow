@@ -123,6 +123,7 @@ macro_rules! array_from_primitive {
 array_from_primitive!(bool);
 array_from_primitive!(f32);
 array_from_primitive!(f64);
+array_from_primitive!(u8);
 array_from_primitive!(u16);
 array_from_primitive!(u32);
 array_from_primitive!(u64);
@@ -160,6 +161,7 @@ macro_rules! array_from_optional_primitive {
 array_from_optional_primitive!(bool, false);
 array_from_optional_primitive!(f32, 0_f32);
 array_from_optional_primitive!(f64, 0_f64);
+array_from_optional_primitive!(u8, 0_u8);
 array_from_optional_primitive!(u16, 0_u16);
 array_from_optional_primitive!(u32, 0_u32);
 array_from_optional_primitive!(u64, 0_u64);
