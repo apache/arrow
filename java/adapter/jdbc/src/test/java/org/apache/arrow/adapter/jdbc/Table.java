@@ -25,6 +25,7 @@ public class Table {
 
     private String name;
     private String create;
+    private String [] inserts;
     private String[] data;
     private String query;
     private String drop;
@@ -32,7 +33,15 @@ public class Table {
     public Table() {
     }
 
-    public String getName() {
+    public String[] getInserts() {
+		return inserts;
+	}
+
+	public void setInserts(String[] inserts) {
+		this.inserts = inserts;
+	}
+
+	public String getName() {
         return name;
     }
 
