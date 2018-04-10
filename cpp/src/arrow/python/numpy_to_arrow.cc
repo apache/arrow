@@ -758,11 +758,11 @@ Status NumPyConverter::ConvertDecimals() {
   for (PyObject* object : objects) {
     const int is_decimal = PyObject_IsInstance(object, decimal_type_.obj());
 
-    if (ARROW_PREDICT_FALSE(is_decimal == 1)) {
+    if (is_decimal == 1) {
       Decimal128 value;
       RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
       RETURN_NOT_OK(builder.Append(value));
-    } else if (ARROW_PREDICT_FALSE(is_decimal == 0 && internal::PandasObjectIsNull(object))) {
+    } else if (is_decimal == 0 && internal::PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       // PyObject_IsInstance could error and set an exception
