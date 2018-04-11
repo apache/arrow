@@ -23,8 +23,6 @@
 #include <limits>
 #include <sstream>
 
-#include <boost/regex.hpp>
-
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
@@ -253,27 +251,86 @@ static void StringToInteger(const std::string& str, Decimal128* out) {
   }
 }
 
-static const boost::regex DECIMAL_REGEX(
-    // sign of the number
-    "(?<SIGN>[-+]?)"
+namespace {
 
-    // digits around the decimal point
-    "(((?<LEFT_DIGITS>\\d+)\\.(?<FIRST_RIGHT_DIGITS>\\d*)|\\.(?<SECOND_RIGHT_DIGITS>\\d+)"
-    ")"
+struct DecimalComponents {
+  std::string sign;
+  std::string whole_digits;
+  std::string fractional_digits;
+  std::string exponent_sign;
+  std::string exponent_digits;
+};
 
-    // optional exponent
-    "([eE](?<FIRST_EXP_VALUE>[-+]?\\d+))?"
+inline bool IsSign(char c) { return c == '-' || c == '+'; }
 
-    // otherwise
-    "|"
+inline bool IsDot(char c) { return c == '.'; }
 
-    // we're just an integer
-    "(?<INTEGER>\\d+)"
+inline bool IsDigit(char c) { return c >= '0' && c <= '9'; }
 
-    // or an integer with an exponent
-    "(?:[eE](?<SECOND_EXP_VALUE>[-+]?\\d+))?)");
+inline bool StartsExponent(char c) { return c == 'e' || c == 'E'; }
 
-static inline bool is_zero_character(char c) { return c == '0'; }
+inline size_t ParseDigitsRun(const char* s, size_t start, size_t size, std::string* out) {
+  size_t pos;
+  for (pos = start; pos < size; ++pos) {
+    if (!IsDigit(s[pos])) {
+      break;
+    }
+  }
+  *out = std::string(s + start, pos - start);
+  return pos;
+}
+
+bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) {
+  size_t pos = 0;
+
+  if (size == 0) {
+    return false;
+  }
+  // Sign of the number
+  if (IsSign(s[pos])) {
+    out->sign = std::string(s + pos, 1);
+    ++pos;
+  }
+  // First run of digits
+  pos = ParseDigitsRun(s, pos, size, &out->whole_digits);
+  if (pos == size) {
+    return !out->whole_digits.empty();
+  }
+  // Optional dot (if given in fractional form)
+  bool has_dot = IsDot(s[pos]);
+  if (has_dot) {
+    // Second run of digits
+    ++pos;
+    pos = ParseDigitsRun(s, pos, size, &out->fractional_digits);
+  }
+  if (out->whole_digits.empty() && out->fractional_digits.empty()) {
+    // Need at least some digits (whole or fractional)
+    return false;
+  }
+  if (pos == size) {
+    return true;
+  }
+  // Optional exponent
+  if (StartsExponent(s[pos])) {
+    ++pos;
+    if (pos == size) {
+      return false;
+    }
+    // Optional exponent sign
+    if (IsSign(s[pos])) {
+      out->exponent_sign = std::string(s + pos, 1);
+      ++pos;
+    }
+    pos = ParseDigitsRun(s, pos, size, &out->exponent_digits);
+    if (out->exponent_digits.empty()) {
+      // Need some exponent digits
+      return false;
+    }
+  }
+  return pos == size;
+}
+
+}  // namespace
 
 Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
                               int32_t* scale) {
@@ -281,84 +338,39 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* pr
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
 
-  // case of all zeros
-  if (std::all_of(s.cbegin(), s.cend(), is_zero_character)) {
-    if (precision != nullptr) {
-      *precision = 0;
-    }
-
-    if (scale != nullptr) {
-      *scale = 0;
-    }
-
-    *out = 0;
-    return Status::OK();
-  }
-
-  boost::smatch results;
-  const bool matches = boost::regex_match(s, results, DECIMAL_REGEX);
-
-  if (!matches) {
+  DecimalComponents dec;
+  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
     std::stringstream ss;
-    ss << "The string " << s << " is not a valid decimal number";
+    ss << "The string '" << s << "' is not a valid decimal number";
     return Status::Invalid(ss.str());
   }
+  std::string exponent_value = dec.exponent_sign + dec.exponent_digits;
 
-  const std::string sign = results["SIGN"];
-  const std::string integer = results["INTEGER"];
-
-  const std::string left_digits = results["LEFT_DIGITS"];
-  const std::string first_right_digits = results["FIRST_RIGHT_DIGITS"];
-
-  const std::string second_right_digits = results["SECOND_RIGHT_DIGITS"];
-
-  const std::string first_exp_value = results["FIRST_EXP_VALUE"];
-  const std::string second_exp_value = results["SECOND_EXP_VALUE"];
-
-  std::string whole_part;
-  std::string fractional_part;
-  std::string exponent_value;
-
-  if (!integer.empty()) {
-    whole_part = integer;
-  } else if (!left_digits.empty()) {
-    DCHECK(second_right_digits.empty()) << s << " " << second_right_digits;
-    whole_part = left_digits;
-    fractional_part = first_right_digits;
-  } else {
-    DCHECK(first_right_digits.empty()) << s << " " << first_right_digits;
-    fractional_part = second_right_digits;
-  }
-
-  // skip leading zeros before the decimal point
-  std::string::const_iterator without_leading_zeros =
-      std::find_if_not(whole_part.cbegin(), whole_part.cend(), is_zero_character);
-  whole_part = std::string(without_leading_zeros, whole_part.cend());
-
-  if (!first_exp_value.empty()) {
-    exponent_value = first_exp_value;
-  } else {
-    exponent_value = second_exp_value;
+  // Count number of significant digits (without leading zeros)
+  size_t first_non_zero = dec.whole_digits.find_first_not_of('0');
+  size_t significant_digits = dec.fractional_digits.size();
+  if (first_non_zero != std::string::npos) {
+    significant_digits += dec.whole_digits.size() - first_non_zero;
   }
 
   if (precision != nullptr) {
-    *precision = static_cast<int32_t>(whole_part.size() + fractional_part.size());
+    *precision = static_cast<int32_t>(significant_digits);
   }
 
   if (scale != nullptr) {
     if (!exponent_value.empty()) {
       auto adjusted_exponent = static_cast<int32_t>(std::stol(exponent_value));
-      auto len = static_cast<int32_t>(whole_part.size() + fractional_part.size());
+      auto len = static_cast<int32_t>(significant_digits);
       *scale = -adjusted_exponent + len - 1;
     } else {
-      *scale = static_cast<int32_t>(fractional_part.size());
+      *scale = static_cast<int32_t>(dec.fractional_digits.size());
     }
   }
 
   if (out != nullptr) {
     *out = 0;
-    StringToInteger(whole_part + fractional_part, out);
-    if (sign == "-") {
+    StringToInteger(dec.whole_digits + dec.fractional_digits, out);
+    if (dec.sign == "-") {
       out->Negate();
     }
 
