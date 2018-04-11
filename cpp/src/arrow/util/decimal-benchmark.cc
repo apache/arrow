@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "arrow/util/decimal.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace Decimal {
@@ -32,7 +33,7 @@ static void BM_FromString(benchmark::State& state) {  // NOLINT non-const refere
     for (const auto& value : values) {
       Decimal128 dec;
       int32_t scale, precision;
-      Decimal128::FromString(value, &dec, &scale, &precision);
+      ARROW_UNUSED(Decimal128::FromString(value, &dec, &scale, &precision));
     }
   }
   state.SetItemsProcessed(state.iterations() * values.size());
