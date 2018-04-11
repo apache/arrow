@@ -1163,7 +1163,7 @@ class TestConvertStringLikeTypes(object):
         # Explicitly set type
         _check_series_roundtrip(s, type_=pa.binary())
         # Infer type from bytearrays
-        _check_series_roundtrip(s)
+        _check_series_roundtrip(s, expected_pa_type=pa.binary())
 
     def test_table_empty_str(self):
         values = ['', '', '', '', '']
