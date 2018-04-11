@@ -18,66 +18,113 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import java.math.BigDecimal;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * POJO to handle the YAML data from the test YAML file.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Table {
 
     private String name;
     private String create;
-    private String [] inserts;
     private String[] data;
     private String query;
     private String drop;
-
+    
+	private int [] integers;
+	private int [] booleans;
+	private BigDecimal [] decimals;
+	private double [] doubles;
+	
+	private String intQuery;
+	private String booleanQuery;
+	private String decimalQuery;
+	private String doubleQuery;
+    
     public Table() {
     }
-
-    public String[] getInserts() {
-		return inserts;
-	}
-
-	public void setInserts(String[] inserts) {
-		this.inserts = inserts;
-	}
 
 	public String getName() {
         return name;
     }
-
     public void setName(String name) {
         this.name = name;
     }
-
     public String getCreate() {
         return create;
     }
-
     public void setCreate(String create) {
         this.create = create;
     }
-
     public String[] getData() {
         return data;
     }
-
     public void setData(String[] data) {
         this.data = data;
     }
-
     public String getQuery() {
         return query;
     }
-
     public void setQuery(String query) {
         this.query = query;
     }
-
     public String getDrop() {
         return drop;
     }
-
     public void setDrop(String drop) {
         this.drop = drop;
     }
+        
+	public int[] getIntegers() {
+		return integers;
+	}
+	public void setIntegers(int[] integers) {
+		this.integers = integers;
+	}
+	public int[] getBooleans() {
+		return booleans;
+	}
+	public void setBooleans(int[] booleans) {
+		this.booleans = booleans;
+	}
+	public BigDecimal [] getDecimals() {
+		return decimals;
+	}
+	public void setDecimals(BigDecimal [] decimals) {
+		this.decimals = decimals;
+	}
+	public double[] getDoubles() {
+		return doubles;
+	}
+	public void setDoubles(double[] doubles) {
+		this.doubles = doubles;
+	}
+	public String getIntQuery() {
+		return intQuery;
+	}
+	public void setIntQuery(String intQuery) {
+		this.intQuery = intQuery;
+	}
+	public String getBooleanQuery() {
+		return booleanQuery;
+	}
+	public void setBooleanQuery(String booleanQuery) {
+		this.booleanQuery = booleanQuery;
+	}
+	public String getDecimalQuery() {
+		return decimalQuery;
+	}
+	public void setDecimalQuery(String decimalQuery) {
+		this.decimalQuery = decimalQuery;
+	}
+	public String getDoubleQuery() {
+		return doubleQuery;
+	}
+	public void setDoubleQyery(String doubleQuery) {
+		this.doubleQuery = doubleQuery;
+	}
 }

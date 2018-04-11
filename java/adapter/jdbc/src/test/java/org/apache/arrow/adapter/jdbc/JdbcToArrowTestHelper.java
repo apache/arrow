@@ -47,7 +47,7 @@ public class JdbcToArrowTestHelper {
         assertEquals(rowCount, intVector.getValueCount());
 
         for(int j = 0; j < intVector.getValueCount(); j++) {
-            assertEquals((int)values[j], intVector.get(j));
+            assertEquals(values[j], intVector.get(j));
         }
     }
 
