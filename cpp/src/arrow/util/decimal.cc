@@ -261,13 +261,13 @@ struct DecimalComponents {
   std::string exponent_digits;
 };
 
-inline bool IsSign(char c) { return (c == '-' || c == '+'); }
+inline bool IsSign(char c) { return c == '-' || c == '+'; }
 
 inline bool IsDot(char c) { return c == '.'; }
 
-inline bool IsDigit(char c) { return (c >= '0' && c <= '9'); }
+inline bool IsDigit(char c) { return c >= '0' && c <= '9'; }
 
-inline bool StartsExponent(char c) { return (c == 'e' || c == 'E'); }
+inline bool StartsExponent(char c) { return c == 'e' || c == 'E'; }
 
 inline size_t ParseDigitsRun(const char* s, size_t start, size_t size, std::string* out) {
   size_t pos;
@@ -375,7 +375,7 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* pr
     }
 
     if (scale != nullptr && *scale < 0) {
-      const auto abs_scale = std::abs(*scale);
+      const int32_t abs_scale = std::abs(*scale);
       *out *= ScaleMultipliers[abs_scale];
 
       if (precision != nullptr) {
