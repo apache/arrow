@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -112,14 +113,14 @@ class ARROW_EXPORT ArrayBuilder {
   std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
 
   /// \brief Return result of builder as an internal generic ArrayData
-  /// object. Resets builder except for dictionary builder
+  /// object.
   ///
   /// \param[out] out the finalized ArrayData object
   /// \return Status
   virtual Status FinishInternal(std::shared_ptr<ArrayData>* out) = 0;
 
   /// \brief Return result of builder as an Array object.
-  ///        Resets the builder except for DictionaryBuilder
+  ///        Resets the builder.
   ///
   /// \param[out] out the finalized Array object
   /// \return Status
@@ -172,10 +173,47 @@ class ARROW_EXPORT ArrayBuilder {
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
-class ARROW_EXPORT NullBuilder : public ArrayBuilder {
+// An array build which supports partial finishes
+//
+// After a partial finish the state of the array builder
+// is not reset and additional elements are appended to the
+// previous state instead. Subsequent finishes will yield
+// results which represent the elements added since the last
+// finish, i.e. SliceBuffers or delta dictionaries
+class ARROW_EXPORT PartiallyFinishableArrayBuilder : public ArrayBuilder {
+ public:
+  using ArrayBuilder::ArrayBuilder;
+
+  // Finishes the builder into out without resetting the builder if reset_builder
+  // is false. Use with caution, it doesn't set elements_offset.
+  virtual Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) = 0;
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    return FinishInternal(true, out);
+  }
+  Status Finish(std::shared_ptr<Array>* out) { return Finish(true, out); }
+
+  /// \brief Return result of builder as a SliceArray object.
+  ///
+  /// \param[in] reset_builder reset the state of the builder
+  /// \param[out] out the finalized Array object
+  /// \return Status
+  Status Finish(bool reset_builder, std::shared_ptr<Array>* out) {
+    std::shared_ptr<ArrayData> internal_data;
+    RETURN_NOT_OK(FinishInternal(reset_builder, &internal_data));
+    *out = MakeArray(internal_data);
+    elements_offset_ = reset_builder ? 0 : length_;
+    return Status::OK();
+  }
+  int64_t elements_offset() { return elements_offset_; }
+
+ protected:
+  int64_t elements_offset_ = 0;
+};
+
+class ARROW_EXPORT NullBuilder : public PartiallyFinishableArrayBuilder {
  public:
   explicit NullBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : ArrayBuilder(null(), pool) {}
+      : PartiallyFinishableArrayBuilder(null(), pool) {}
 
   Status AppendNull() {
     ++null_count_;
@@ -183,16 +221,17 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
 };
 
 template <typename Type>
-class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
+class ARROW_EXPORT PrimitiveBuilder : public PartiallyFinishableArrayBuilder {
  public:
   using value_type = typename Type::c_type;
 
   explicit PrimitiveBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(type, pool), data_(NULLPTR), raw_data_(NULLPTR) {}
+      : PartiallyFinishableArrayBuilder(type, pool), data_(NULLPTR), raw_data_(NULLPTR) {}
 
   using ArrayBuilder::Advance;
 
@@ -241,7 +280,9 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \return Status
   Status Append(const std::vector<value_type>& values);
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
+
   Status Init(int64_t capacity) override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
@@ -288,6 +329,15 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
     raw_data_[length_++] = val;
   }
 
+  /// Append an array of scalar elements without capacity check
+  ///
+  /// Same warning as with UnsafeAppend with a single element
+  void UnsafeAppend(const value_type* val, int64_t num_elements) {
+    std::memcpy(raw_data_, val, num_elements);
+    // length is updated here
+    ArrayBuilder::UnsafeSetNotNull(num_elements);
+  }
+
  protected:
   using PrimitiveBuilder<T>::length_;
   using PrimitiveBuilder<T>::null_bitmap_data_;
@@ -317,7 +367,7 @@ using DoubleBuilder = NumericBuilder<DoubleType>;
 
 namespace internal {
 
-class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
+class ARROW_EXPORT AdaptiveIntBuilderBase : public PartiallyFinishableArrayBuilder {
  public:
   explicit AdaptiveIntBuilderBase(MemoryPool* pool);
 
@@ -436,7 +486,8 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   Status Append(const uint64_t* values, int64_t length,
                 const uint8_t* valid_bytes = NULLPTR);
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
 
  protected:
   Status ExpandIntSize(uint8_t new_int_size);
@@ -498,7 +549,8 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   Status Append(const int64_t* values, int64_t length,
                 const uint8_t* valid_bytes = NULLPTR);
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
 
  protected:
   Status ExpandIntSize(uint8_t new_int_size);
@@ -516,7 +568,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   Status ExpandIntSizeN();
 };
 
-class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
+class ARROW_EXPORT BooleanBuilder : public PartiallyFinishableArrayBuilder {
  public:
   explicit BooleanBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
@@ -595,7 +647,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   /// \return Status
   Status Append(const std::vector<bool>& values);
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
   Status Init(int64_t capacity) override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
@@ -666,7 +719,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 
 /// \class BinaryBuilder
 /// \brief Builder class for variable-length binary data
-class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
+class ARROW_EXPORT BinaryBuilder : public PartiallyFinishableArrayBuilder {
  public:
   explicit BinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
@@ -689,7 +742,8 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   /// \brief Ensures there is enough allocated capacity to append the indicated
   /// number of bytes to the value data buffer without additional allocations
   Status ReserveData(int64_t elements);
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
@@ -706,7 +760,10 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
   Status AppendNextOffset();
+  Status AppendFinalOffset();
   void Reset();
+  // used to decide if we should write the next offset
+  bool is_final_offset_written_ = false;
 };
 
 /// \class StringBuilder
@@ -737,7 +794,7 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 // ----------------------------------------------------------------------
 // FixedSizeBinaryBuilder
 
-class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
+class ARROW_EXPORT FixedSizeBinaryBuilder : public PartiallyFinishableArrayBuilder {
  public:
   FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
@@ -765,7 +822,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builders, std::shared_ptr<ArrayData>* out) override;
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
@@ -788,8 +846,6 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   using FixedSizeBinaryBuilder::Append;
 
   Status Append(const Decimal128& val);
-
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
 
 using DecimalBuilder = Decimal128Builder;
@@ -881,7 +937,7 @@ struct DictionaryScalar<FixedSizeBinaryType> {
 ///
 /// data
 template <typename T>
-class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
+class ARROW_EXPORT DictionaryBuilder : public PartiallyFinishableArrayBuilder {
  public:
   using Scalar = typename internal::DictionaryScalar<T>::type;
 
@@ -905,10 +961,11 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
 
   /// is the dictionary builder in the delta building mode
-  bool is_building_delta() { return entry_id_offset_ > 0; }
+  bool is_building_delta() { return dict_builder_.elements_offset() > 0; }
 
  protected:
   Status DoubleTableSize();
@@ -923,11 +980,6 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 
   /// Size of the table. Must be a power of 2.
   int64_t hash_table_size_;
-
-  // offset for the entry ids. Used to build delta dictionaries,
-  // increased on every InternalFinish by the number of current entries
-  // in the dictionary
-  int64_t entry_id_offset_;
 
   // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
   // hash_table_size_, but uses far fewer CPU cycles
@@ -944,7 +996,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 };
 
 template <>
-class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
+class ARROW_EXPORT DictionaryBuilder<NullType> : public PartiallyFinishableArrayBuilder {
  public:
   ~DictionaryBuilder() override;
 
@@ -959,7 +1011,8 @@ class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+  using PartiallyFinishableArrayBuilder::FinishInternal;
+  Status FinishInternal(bool reset_builder, std::shared_ptr<ArrayData>* out) override;
 
  protected:
   AdaptiveIntBuilder values_builder_;

@@ -53,12 +53,15 @@ class ARROW_EXPORT Buffer {
   /// \param[in] size buffer size
   ///
   /// \note The passed memory must be kept alive through some other means
-  Buffer(const uint8_t* data, int64_t size)
+  Buffer(const uint8_t* data, int64_t size, int64_t capacity)
       : is_mutable_(false),
         data_(data),
         mutable_data_(NULLPTR),
         size_(size),
-        capacity_(size) {}
+        capacity_(capacity) {}
+
+  /// Initialize with known capacity
+  Buffer(const uint8_t* data, int64_t size) : Buffer(data, size, size) {}
 
   /// \brief Construct from std::string without copying memory
   ///
@@ -80,7 +83,7 @@ class ARROW_EXPORT Buffer {
   /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
   /// we might add utility methods to help determine if a buffer satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, const int64_t offset, const int64_t size)
-      : Buffer(parent->data() + offset, size) {
+      : Buffer(parent->data() + offset, size, parent->capacity()) {
     parent_ = parent;
   }
 
@@ -300,11 +303,25 @@ class ARROW_EXPORT BufferBuilder {
 
   Status Finish(std::shared_ptr<Buffer>* out) {
     // Do not shrink to fit to avoid unneeded realloc
+    return FinishSlice(out, 0, size_, true);
+  }
+
+  Status FinishSlice(std::shared_ptr<Buffer>* out, const int64_t offset,
+                     const int64_t length, const bool reset = true) {
+    // Do not shrink to fit to avoid unneeded realloc
     if (size_ > 0) {
       RETURN_NOT_OK(buffer_->Resize(size_, false));
     }
-    *out = buffer_;
-    Reset();
+    if (size_ == 0 || (offset == 0 && length == size_)) {
+      // no need for slices for trivial cases
+      *out = buffer_;
+    } else {
+      *out = std::make_shared<Buffer>(buffer_, offset, length);
+    }
+
+    if (reset) {
+      Reset();
+    }
     return Status::OK();
   }
 
@@ -328,7 +345,8 @@ class ARROW_EXPORT BufferBuilder {
 template <typename T>
 class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool) : BufferBuilder(pool) {}
+  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+      : BufferBuilder(pool) {}
 
   Status Append(T arithmetic_value) {
     static_assert(std::is_arithmetic<T>::value,
@@ -355,6 +373,26 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
                   "Convenience buffer append only supports arithmetic types");
     BufferBuilder::UnsafeAppend(reinterpret_cast<const uint8_t*>(arithmetic_values),
                                 num_elements * sizeof(T));
+  }
+
+  /// Same as FinishSlice but uses typed item counts as offsets and length,
+  /// i.e. with TypedBufferBuilder<uint32_t> offset of 4 means that the
+  /// offset is 12 bytese or 4 uints
+  Status FinishSliceByItem(std::shared_ptr<Buffer>* out, const int64_t offset,
+                           const int64_t length, const bool reset = true) {
+    // Do not shrink to fit to avoid unneeded realloc
+    if (size_ > 0) {
+      RETURN_NOT_OK(buffer_->Resize(size_, false));
+    }
+    if (size_ == 0) {
+      *out = buffer_;
+    } else {
+      *out = std::make_shared<Buffer>(buffer_, offset * sizeof(T), length * sizeof(T));
+    }
+    if (reset) {
+      Reset();
+    }
+    return Status::OK();
   }
 
   const T* data() const { return reinterpret_cast<const T*>(data_); }

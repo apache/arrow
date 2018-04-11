@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -181,7 +182,7 @@ TEST(TestBuffer, Copy) {
 }
 
 TEST(TestBuffer, SliceBuffer) {
-  std::string data_str = "some data to slice";
+  std::string data_str = "some data toxo slice";
 
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
 
@@ -234,6 +235,104 @@ TEST(TestBufferBuilder, ResizeReserve) {
   // Reserve elements
   ASSERT_OK(builder.Reserve(60));
   ASSERT_EQ(128, builder.capacity());
+}
+
+TEST(TestBufferBuilder, ReuseBuilder) {
+  const std::string data1 = "foo";
+  const std::string data2 = "bar";
+
+  BufferBuilder builder;
+
+  ASSERT_OK(builder.Append(data1.c_str(), data1.length()));
+
+  std::shared_ptr<Buffer> out1;
+  ASSERT_OK(builder.FinishSlice(&out1, 0, data1.length(), false));
+
+  ASSERT_EQ(3, out1->size());
+  ASSERT_STREQ(data1.c_str(), reinterpret_cast<const char*>(out1->data()));
+
+  ASSERT_OK(builder.Append(data2.c_str(), data2.length()));
+
+  std::shared_ptr<Buffer> out2;
+  ASSERT_OK(builder.FinishSlice(&out2, data1.length(), data2.length(), true));
+
+  ASSERT_EQ(3, out2->size());
+  ASSERT_STREQ(data2.c_str(), reinterpret_cast<const char*>(out2->data()));
+}
+
+TEST(TestBufferBuilder, FinishSlice) {
+  const std::string data = "foo_bar";
+  auto data_ptr = data.c_str();
+
+  BufferBuilder builder;
+
+  ASSERT_OK(builder.Append(data_ptr, data.length()));
+  ASSERT_EQ(data.length(), builder.length());
+
+  // Partially finish
+  std::shared_ptr<Buffer> out;
+  ASSERT_OK(builder.FinishSlice(&out, 4, 3, true));
+
+  ASSERT_EQ(3, out->size());
+  ASSERT_STREQ("bar", reinterpret_cast<const char*>(out->data()));
+}
+
+template <typename T>
+class TestTypedBufferBuilder : public testing::Test {};
+
+typedef ::testing::Types<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t,
+                         uint64_t, float, double>
+    PrimitiveTypes;
+
+TYPED_TEST_CASE(TestTypedBufferBuilder, PrimitiveTypes);
+
+TYPED_TEST(TestTypedBufferBuilder, ReuseBuilder) {
+  std::vector<TypeParam> values1 = {1, 2, 3, 4};
+  std::vector<TypeParam> values2 = {5, 6, 7, 8};
+
+  TypedBufferBuilder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(values1.data(), values1.size()));
+
+  std::shared_ptr<Buffer> out1;
+  ASSERT_OK(builder.FinishSlice(&out1, 0, values1.size() * sizeof(TypeParam),
+                                /* reset */ false));
+
+  ASSERT_EQ(values1.size() * sizeof(TypeParam), out1->size());
+  ASSERT_EQ(0, memcmp(values1.data(), out1->data(), values1.size() * sizeof(TypeParam)));
+
+  ASSERT_OK(builder.Append(values2.data(), values2.size()));
+
+  std::shared_ptr<Buffer> out2;
+  ASSERT_OK(builder.FinishSlice(&out2, values1.size() * sizeof(TypeParam),
+                                values2.size() * sizeof(TypeParam), /* reset */ true));
+
+  ASSERT_EQ(values2.size() * sizeof(TypeParam), out2->size());
+  ASSERT_EQ(0, memcmp(values2.data(), out2->data(), values2.size() * sizeof(TypeParam)));
+}
+
+TYPED_TEST(TestTypedBufferBuilder, FinishSliceByItem) {
+  std::vector<TypeParam> values1 = {1, 2, 3, 4};
+  std::vector<TypeParam> values2 = {5, 6, 7, 8};
+
+  TypedBufferBuilder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(values1.data(), values1.size()));
+
+  std::shared_ptr<Buffer> out1;
+  ASSERT_OK(builder.FinishSliceByItem(&out1, 0, values1.size(), /* reset */ false));
+
+  ASSERT_EQ(values1.size() * sizeof(TypeParam), out1->size());
+  ASSERT_EQ(0, memcmp(values1.data(), out1->data(), values1.size() * sizeof(TypeParam)));
+
+  ASSERT_OK(builder.Append(values2.data(), values2.size()));
+
+  std::shared_ptr<Buffer> out2;
+  ASSERT_OK(
+      builder.FinishSliceByItem(&out2, values1.size(), values2.size(), /* reset */ true));
+
+  ASSERT_EQ(values2.size() * sizeof(TypeParam), out2->size());
+  ASSERT_EQ(0, memcmp(values2.data(), out2->data(), values2.size() * sizeof(TypeParam)));
 }
 
 }  // namespace arrow

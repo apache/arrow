@@ -536,6 +536,44 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
   ASSERT_TRUE(array->RangeEquals(5, 15, 0, slice));
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestPartialFinish) {
+  const int64_t size = 1000;
+  this->RandomData(size * 2);
+
+  // build an array of all values
+  std::shared_ptr<Array> all_values_array;
+  ASSERT_OK(MakeArray(this->valid_bytes_, this->draws_, size * 2, this->builder_.get(),
+                      &all_values_array));
+
+  for (uint64_t idx = 0; idx < size; ++idx) {
+    if (this->valid_bytes_[idx] > 0) {
+      ASSERT_OK(this->builder_->Append(this->draws_[idx]));
+    } else {
+      ASSERT_OK(this->builder_->AppendNull());
+    }
+  }
+
+  std::shared_ptr<Array> result1;
+  ASSERT_OK(this->builder_->Finish(false, &result1));
+
+  ASSERT_EQ(size, result1->length());
+  ASSERT_TRUE(all_values_array->RangeEquals(0, size, 0, result1));
+
+  for (uint64_t idx = size; idx < size * 2; ++idx) {
+    if (this->valid_bytes_[idx] > 0) {
+      ASSERT_OK(this->builder_->Append(this->draws_[idx]));
+    } else {
+      ASSERT_OK(this->builder_->AppendNull());
+    }
+  }
+
+  std::shared_ptr<Array> result2;
+  ASSERT_OK(this->builder_->Finish(true, &result2));
+
+  ASSERT_EQ(size, result2->length());
+  ASSERT_TRUE(all_values_array->RangeEquals(size, size * 2, 0, result2));
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   DECL_T();
 
@@ -1093,6 +1131,27 @@ TEST_F(TestStringBuilder, TestZeroLength) {
   Done();
 }
 
+TEST_F(TestStringBuilder, TestPartialFinish) {
+  StringBuilder builder, builder_expected;
+  ASSERT_OK(builder.Append("foo"));
+  ASSERT_OK(builder_expected.Append("foo"));
+
+  std::shared_ptr<Array> result1, expected1;
+  ASSERT_OK(builder.Finish(false, &result1));
+  ASSERT_OK(builder_expected.Finish(&expected1));
+  ASSERT_EQ(1, result1->length());
+  ASSERT_TRUE(result1->Equals(expected1));
+
+  ASSERT_OK(builder.Append("foo"));
+  ASSERT_OK(builder_expected.Append("foo"));
+  std::shared_ptr<Array> result2, expected2;
+  ASSERT_OK(builder.Finish(false, &result2));
+  ASSERT_OK(builder_expected.Finish(&expected2));
+  ASSERT_EQ(1, result2->length());
+  ASSERT_EQ(1, result2->offset());
+  ASSERT_TRUE(result2->Equals(expected2));
+}
+
 // Binary container type
 // TODO(emkornfield) there should be some way to refactor these to avoid code duplicating
 // with String
@@ -1303,6 +1362,27 @@ TEST_F(TestBinaryBuilder, TestCapacityReserve) {
 TEST_F(TestBinaryBuilder, TestZeroLength) {
   // All buffers are null
   Done();
+}
+
+TEST_F(TestBinaryBuilder, TestPartialFinish) {
+  BinaryBuilder builder, builder_expected;
+  ASSERT_OK(builder.Append("foo"));
+  ASSERT_OK(builder_expected.Append("foo"));
+
+  std::shared_ptr<Array> result1, expected1;
+  ASSERT_OK(builder.Finish(false, &result1));
+  ASSERT_OK(builder_expected.Finish(&expected1));
+  ASSERT_EQ(1, result1->length());
+  ASSERT_TRUE(result1->Equals(expected1));
+
+  ASSERT_OK(builder.Append("foo"));
+  ASSERT_OK(builder_expected.Append("foo"));
+  std::shared_ptr<Array> result2, expected2;
+  ASSERT_OK(builder.Finish(false, &result2));
+  ASSERT_OK(builder_expected.Finish(&expected2));
+  ASSERT_EQ(1, result2->length());
+  ASSERT_EQ(1, result2->offset());
+  ASSERT_TRUE(result2->Equals(expected2));
 }
 
 // ----------------------------------------------------------------------
@@ -1538,6 +1618,26 @@ TEST_F(TestFWBinaryArray, Slice) {
   ASSERT_TRUE(array->RangeEquals(1, 3, 0, slice));
 }
 
+TEST_F(TestFWBinaryArray, TestPartialFinish) {
+  auto type = fixed_size_binary(4);
+  FixedSizeBinaryBuilder builder(type);
+
+  ASSERT_OK(builder.Append("foo"));
+  std::shared_ptr<Array> result1;
+  ASSERT_OK(builder.Finish(false, &result1));
+  ASSERT_EQ(1, result1->length());
+  ASSERT_STREQ("foo", reinterpret_cast<const char*>(
+                          static_cast<const FixedSizeBinaryArray&>(*result1).Value(0)));
+
+  ASSERT_OK(builder.Append("bar"));
+  std::shared_ptr<Array> result2;
+  ASSERT_OK(builder.Finish(&result2));
+  ASSERT_EQ(1, result2->length());
+  ASSERT_EQ(1, result2->offset());
+  ASSERT_STREQ("bar", reinterpret_cast<const char*>(
+                          static_cast<const FixedSizeBinaryArray&>(*result2).Value(0)));
+}
+
 // ----------------------------------------------------------------------
 // AdaptiveInt tests
 
@@ -1669,6 +1769,31 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendVector) {
   ASSERT_TRUE(expected_->Equals(result_));
 }
 
+TEST_F(TestAdaptiveIntBuilder, TestPartialFinish) {
+  ASSERT_OK(builder_->Append(0));
+  ASSERT_OK(
+      builder_->Append(static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1));
+
+  std::shared_ptr<Array> result1, expected1;
+  ASSERT_OK(builder_->Finish(false, &result1));
+
+  std::vector<int64_t> expected_values1(
+      {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
+
+  ArrayFromVector<Int64Type, int64_t>(expected_values1, &expected1);
+  ASSERT_TRUE(expected1->Equals(result1));
+
+  ASSERT_OK(builder_->Append(65536));
+  ASSERT_OK(builder_->Append(1024));
+
+  std::shared_ptr<Array> result2, expected2;
+  ASSERT_OK(builder_->Finish(false, &result2));
+
+  std::vector<int64_t> expected_values2({65536, 1024});
+  ArrayFromVector<Int64Type, int64_t>(expected_values2, &expected_);
+  ASSERT_TRUE(expected_->Equals(result2));
+}
+
 class TestAdaptiveUIntBuilder : public TestBuilder {
  public:
   void SetUp() {
@@ -1762,6 +1887,31 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendVector) {
 
   ArrayFromVector<UInt64Type, uint64_t>(expected_values, &expected_);
   ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestPartialFinish) {
+  ASSERT_OK(builder_->Append(0));
+  ASSERT_OK(
+      builder_->Append(static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1));
+
+  std::shared_ptr<Array> result1, expected1;
+  ASSERT_OK(builder_->Finish(false, &result1));
+
+  std::vector<uint64_t> expected_values1(
+      {0, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1});
+
+  ArrayFromVector<UInt64Type, uint64_t>(expected_values1, &expected1);
+  ASSERT_TRUE(expected1->Equals(result1));
+
+  ASSERT_OK(builder_->Append(65536));
+  ASSERT_OK(builder_->Append(1024));
+
+  std::shared_ptr<Array> result2, expected2;
+  ASSERT_OK(builder_->Finish(false, &result2));
+
+  std::vector<uint64_t> expected_values2({65536, 1024});
+  ArrayFromVector<UInt64Type, uint64_t>(expected_values2, &expected_);
+  ASSERT_TRUE(expected_->Equals(result2));
 }
 
 // ----------------------------------------------------------------------
@@ -1883,7 +2033,7 @@ TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder.Finish(false, &result));
 
   // Build expected data for the initial dictionary
   NumericBuilder<TypeParam> dict_builder1;
@@ -1942,7 +2092,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder.Finish(false, &result));
 
   // Build expected data for the initial dictionary
   NumericBuilder<TypeParam> dict_builder1;
@@ -1971,7 +2121,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(3)));
 
   std::shared_ptr<Array> result_delta1;
-  ASSERT_OK(builder.Finish(&result_delta1));
+  ASSERT_OK(builder.Finish(false, &result_delta1));
 
   // Build expected data for the delta dictionary
   NumericBuilder<TypeParam> dict_builder2;
@@ -2000,7 +2150,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(5)));
 
   std::shared_ptr<Array> result_delta2;
-  ASSERT_OK(builder.Finish(&result_delta2));
+  ASSERT_OK(builder.Finish(false, &result_delta2));
 
   // Build expected data for the delta dictionary again
   NumericBuilder<TypeParam> dict_builder3;
@@ -2096,7 +2246,7 @@ TEST(TestStringDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append("test"));
 
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder.Finish(false, &result));
 
   // Build expected data
   StringBuilder str_builder1;
@@ -2122,7 +2272,7 @@ TEST(TestStringDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append("test2"));
 
   std::shared_ptr<Array> result_delta;
-  ASSERT_OK(builder.Finish(&result_delta));
+  ASSERT_OK(builder.Finish(false, &result_delta));
 
   // Build expected data
   StringBuilder str_builder2;
@@ -2159,7 +2309,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   }
 
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder.Finish(false, &result));
 
   std::shared_ptr<Array> str_array1;
   ASSERT_OK(str_builder1.Finish(&str_array1));
@@ -2187,7 +2337,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   ASSERT_OK(str_builder2.Append("test_new_value1"));
 
   std::shared_ptr<Array> result2;
-  ASSERT_OK(builder.Finish(&result2));
+  ASSERT_OK(builder.Finish(false, &result2));
 
   std::shared_ptr<Array> str_array2;
   ASSERT_OK(str_builder2.Finish(&str_array2));
@@ -2215,7 +2365,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   ASSERT_OK(str_builder3.Append("test_new_value2"));
 
   std::shared_ptr<Array> result3;
-  ASSERT_OK(builder.Finish(&result3));
+  ASSERT_OK(builder.Finish(false, &result3));
 
   std::shared_ptr<Array> str_array3;
   ASSERT_OK(str_builder3.Finish(&str_array3));
@@ -2273,7 +2423,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append(test.data()));
 
   std::shared_ptr<Array> result1;
-  ASSERT_OK(builder.Finish(&result1));
+  ASSERT_OK(builder.Finish(false, &result1));
 
   // Build expected data
   FixedSizeBinaryBuilder fsb_builder1(arrow::fixed_size_binary(4));
@@ -2299,7 +2449,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append(test3.data()));
 
   std::shared_ptr<Array> result2;
-  ASSERT_OK(builder.Finish(&result2));
+  ASSERT_OK(builder.Finish(false, &result2));
 
   // Build expected data
   FixedSizeBinaryBuilder fsb_builder2(arrow::fixed_size_binary(4));
