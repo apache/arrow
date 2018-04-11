@@ -69,10 +69,14 @@ arraydata_from_primitive!(u32, UInt32);
 arraydata_from_primitive!(u64, UInt64);
 
 pub struct Array {
-    pub len: i32,
-    pub null_count: i32,
-    pub validity_bitmap: Option<Bitmap>,
-    pub data: ArrayData,
+    /// number of elements in the array
+    len: i32,
+    /// number of null elements in the array
+    null_count: i32,
+    /// If null_count is greater than zero then the validity_bitmap will be Some(Bitmap)
+    validity_bitmap: Option<Bitmap>,
+    /// The array of elements
+    data: ArrayData,
 }
 
 impl Array {
@@ -86,12 +90,24 @@ impl Array {
         }
     }
 
+    /// Get a reference to the array data
     pub fn data(&self) -> &ArrayData {
         &self.data
     }
 
+    /// number of elements in the array
     pub fn len(&self) -> usize {
         self.len as usize
+    }
+
+    /// number of null elements in the array
+    pub fn null_count(&self) -> usize {
+        self.null_count as usize
+    }
+
+    /// If null_count is greater than zero then the validity_bitmap will be Some(Bitmap)
+    pub fn validity_bitmap(&self) -> &Option<Bitmap> {
+        &self.validity_bitmap
     }
 }
 
@@ -208,17 +224,14 @@ mod tests {
     fn test_utf8_offsets() {
         let a = Array::from(vec!["this", "is", "a", "test"]);
         assert_eq!(4, a.len());
-        match a.data() {
-            &ArrayData::Utf8(List {
-                ref data,
-                ref offsets,
-            }) => {
-                assert_eq!(11, data.len());
-                assert_eq!(0, *offsets.get(0));
-                assert_eq!(4, *offsets.get(1));
-                assert_eq!(6, *offsets.get(2));
-                assert_eq!(7, *offsets.get(3));
-                assert_eq!(11, *offsets.get(4));
+        match *a.data() {
+            ArrayData::Utf8(ref list) => {
+                assert_eq!(11, list.data().len());
+                assert_eq!(0, *list.offsets().get(0));
+                assert_eq!(4, *list.offsets().get(1));
+                assert_eq!(6, *list.offsets().get(2));
+                assert_eq!(7, *list.offsets().get(3));
+                assert_eq!(11, *list.offsets().get(4));
             }
             _ => panic!(),
         }
@@ -227,8 +240,8 @@ mod tests {
     #[test]
     fn test_utf8_slices() {
         let a = Array::from(vec!["this", "is", "a", "test"]);
-        match a.data() {
-            &ArrayData::Utf8(ref d) => {
+        match *a.data() {
+            ArrayData::Utf8(ref d) => {
                 assert_eq!(4, d.len());
                 assert_eq!("this", str::from_utf8(d.slice(0)).unwrap());
                 assert_eq!("is", str::from_utf8(d.slice(1)).unwrap());
@@ -255,8 +268,8 @@ mod tests {
     fn test_from_i32() {
         let a = Array::from(vec![15, 14, 13, 12, 11]);
         assert_eq!(5, a.len());
-        match a.data() {
-            &ArrayData::Int32(ref b) => {
+        match *a.data() {
+            ArrayData::Int32(ref b) => {
                 assert_eq!(vec![15, 14, 13, 12, 11], b.iter().collect::<Vec<i32>>());
             }
             _ => panic!(),

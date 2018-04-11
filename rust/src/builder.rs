@@ -54,10 +54,12 @@ impl<T> Builder<T> {
         }
     }
 
+    /// Get the number of elements in the builder
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Get the capacity of the builder (number of elements)
     pub fn capacity(&self) -> usize {
         self.capacity
     }

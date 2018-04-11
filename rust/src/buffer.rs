@@ -31,7 +31,9 @@ extern "C" {
 /// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
 /// memory region is aligned at a 64-byte boundary
 pub struct Buffer<T> {
+    /// Contiguous memory region holding instances of primitive T
     data: *const T,
+    /// Number of elements in the buffer
     len: i32,
 }
 
@@ -40,6 +42,7 @@ impl<T> Buffer<T> {
         Buffer { data, len }
     }
 
+    /// Get the number of elements in the buffer
     pub fn len(&self) -> i32 {
         self.len
     }
@@ -96,6 +99,7 @@ impl<T> Drop for Buffer<T> {
     }
 }
 
+/// Iterator over the elements of a buffer
 pub struct BufferIterator<T> {
     data: *const T,
     len: i32,
