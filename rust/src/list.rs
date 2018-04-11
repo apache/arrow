@@ -17,9 +17,8 @@
 
 use std::str;
 
-use bytes::{BufMut, BytesMut};
-
 use super::buffer::Buffer;
+use super::list_builder::ListBuilder;
 
 pub struct List<T> {
     pub data: Buffer<T>,
@@ -40,19 +39,11 @@ impl<T> List<T> {
 
 impl From<Vec<String>> for List<u8> {
     fn from(v: Vec<String>) -> Self {
-        let mut offsets: Vec<i32> = Vec::with_capacity(v.len() + 1);
-        let mut buf = BytesMut::with_capacity(v.len() * 32);
-        offsets.push(0_i32);
+        let mut b: ListBuilder<u8> = ListBuilder::with_capacity(v.len());
         v.iter().for_each(|s| {
-            let slice = s.as_bytes();
-            buf.reserve(slice.len());
-            buf.put(slice);
-            offsets.push(buf.len() as i32);
+            b.push(s.as_bytes());
         });
-        List {
-            data: Buffer::from(buf.freeze()),
-            offsets: Buffer::from(offsets),
-        }
+        b.finish()
     }
 }
 
