@@ -893,6 +893,12 @@ GArrowStringArrayBuilder *garrow_string_array_builder_new(void);
 gboolean garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
                                             const gchar *value,
                                             GError **error);
+gboolean garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
+                                                   const gchar **values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
 
 
 #define GARROW_TYPE_DATE32_ARRAY_BUILDER        \
