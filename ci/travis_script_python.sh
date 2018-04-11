@@ -84,7 +84,7 @@ fi
 export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 
 pip install -q -r requirements.txt
-python setup.py build_ext --with-parquet --with-plasma --with-orc\
+python setup.py build_ext -q --with-parquet --with-plasma --with-orc\
        install -q --single-version-externally-managed --record=record.text
 popd
 
@@ -105,7 +105,7 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
 fi
 
 PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
-python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
+python -m pytest -r sxX --durations=15 $PYARROW_PATH --parquet
 
 if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
   # Build documentation once
