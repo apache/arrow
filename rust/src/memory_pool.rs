@@ -39,7 +39,7 @@ pub trait MemoryPool {
     fn free(&self, ptr: *mut u8);
 }
 
-/// Implementation of memory pool using lib api.
+/// Implementation of memory pool using libc api.
 #[allow(dead_code)]
 struct LibcMemoryPool;
 
@@ -59,14 +59,11 @@ impl MemoryPool for LibcMemoryPool {
 
     fn reallocate(&self, old_size: usize, new_size: usize, pointer: *mut u8) -> Result<*mut u8> {
         unsafe {
+            let old_src = mem::transmute::<*mut u8, *mut libc::c_void>(pointer);
             let result = self.allocate(new_size)?;
             let dst = mem::transmute::<*mut u8, *mut libc::c_void>(result);
-            libc::memcpy(
-                dst,
-                mem::transmute::<*mut u8, *const libc::c_void>(pointer),
-                cmp::min(old_size, new_size),
-            );
-
+            libc::memcpy(dst, old_src, cmp::min(old_size, new_size));
+            libc::free(old_src);
             Ok(result)
         }
     }
