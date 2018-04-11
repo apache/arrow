@@ -23,7 +23,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.google.common.base.Preconditions;
 
-import java.io.IOException;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -72,7 +72,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statement objects.
      */
-    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, RootAllocator rootAllocator) throws SQLException, IOException {
+    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, RootAllocator rootAllocator) throws SQLException {
         Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
         Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
                         		
@@ -88,7 +88,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws Exception
      */
-    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException, IOException {
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
 
         RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
@@ -104,7 +104,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws Exception
      */
-    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, RootAllocator rootAllocator) throws SQLException, IOException {
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, RootAllocator rootAllocator) throws SQLException {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
         Preconditions.checkNotNull(rootAllocator, "Root Allocator object can not be null");
 
