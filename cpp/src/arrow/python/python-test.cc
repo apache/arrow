@@ -371,7 +371,7 @@ TEST_F(DecimalTest, UpdateWithNaN) {
 
 TEST(PythonTest, ConstructStringArrayWithLeadingZeros) {
   PyAcquireGIL lock;
- 
+
   OwnedRef list_ref(PyList_New(2));
   PyObject* list = list_ref.obj();
   std::string str("str");
@@ -406,19 +406,19 @@ public:
   }
 
 };
-  
+
 // Regression for ARROW-2101
 TEST_F(NdarrayToArrowTest, BytesToStringWhenTypeSpecified)
 {
   OwnedRef array;
   this->CreateNdarrayWithOneString("x", array);
-  
+
   auto arrow_type = ::arrow::utf8();
   std::shared_ptr<ChunkedArray> arrow_array;
   ASSERT_OK(NdarrayToArrow(default_memory_pool(), reinterpret_cast<PyObject*>(array.obj()), 0,
 			   true, arrow_type, &arrow_array));
 
-  ASSERT_TRUE(arrow_array->type()->Equals(::arrow::utf8())); 
+  ASSERT_TRUE(arrow_array->type()->Equals(::arrow::utf8()));
 }
 
 TEST_F(NdarrayToArrowTest, BytesToStringBadData)
@@ -426,7 +426,7 @@ TEST_F(NdarrayToArrowTest, BytesToStringBadData)
   OwnedRef array;
   // Put in a bad unicode character
   this->CreateNdarrayWithOneString("\x80\x81", array);
-  
+
   auto arrow_type = ::arrow::utf8();
   std::shared_ptr<ChunkedArray> arrow_array;
   auto result = NdarrayToArrow(default_memory_pool(), reinterpret_cast<PyObject*>(array.obj()), 0,
@@ -435,6 +435,6 @@ TEST_F(NdarrayToArrowTest, BytesToStringBadData)
   ASSERT_EQ("'utf-8' codec can't decode byte 0x80 in position 0: invalid start byte", result.message());
 }
 
-  
+
 }  // namespace py
 }  // namespace arrow

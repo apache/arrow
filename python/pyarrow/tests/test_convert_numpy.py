@@ -33,5 +33,3 @@ def test_convert_numpy_array_of_bytes_to_arrow_array_of_strings_bad_data():
     with pytest.raises(pa.lib.ArrowException,
                        message="Unknown error: 'utf-8' codec can't decode byte 0x80 in position 0: invalid start byte"):
         pa.array(np.array([b'\x80\x81'], dtype=object), pa.string())
-
-    

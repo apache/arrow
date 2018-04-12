@@ -235,7 +235,7 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
 /// be length of arr if fully consumed
 /// \param[out] have_bytes true if we encountered any PyBytes object
 static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offset,
-                                  bool check_valid, StringBuilder* builder, 
+                                  bool check_valid, StringBuilder* builder,
 				  int64_t* end_offset,
                                   bool* have_bytes) {
   PyObject* obj;
@@ -866,8 +866,8 @@ Status NumPyConverter::ConvertObjectStrings() {
     while (offset < length_) {
       bool chunk_have_bytes = false;
       // Always set check_valid to true when force_string is true
-      
-      RETURN_NOT_OK(	      
+
+      RETURN_NOT_OK(
 	  AppendObjectStrings(arr_, mask_, offset, force_string /* check_valid */, &builder, &offset, &chunk_have_bytes));
 
       global_have_bytes = global_have_bytes | chunk_have_bytes;
@@ -1144,7 +1144,7 @@ Status NumPyConverter::ConvertObjects() {
 
   RETURN_NOT_OK(InitNullBitmap());
 
-  
+
   // This means we received an explicit type from the user
   if (type_) {
     switch (type_->id()) {
