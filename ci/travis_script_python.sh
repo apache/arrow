@@ -107,7 +107,7 @@ fi
 PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
 python -m pytest -r sxX --durations=15 $PYARROW_PATH --parquet
 
-if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
+if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Build documentation once
   conda install -y -q \
         ipython \
@@ -118,5 +118,24 @@ if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
 
   pushd $ARROW_PYTHON_DIR/doc
   sphinx-build -q -b html -d _build/doctrees -W source _build/html
+  popd
+fi
+
+if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+  # Check the ASV benchmarking setup.
+  # Unfortunately this won't ensure that all benchmarks succeed
+  # (see https://github.com/airspeed-velocity/asv/issues/449)
+  source deactivate
+  conda create -y -q -n pyarrow_asv python=$PYTHON_VERSION
+  source activate pyarrow_asv
+  pip install -q git+https://github.com/pitrou/asv.git@customize_commands
+
+  pushd $TRAVIS_BUILD_DIR/python
+  # Workaround for https://github.com/airspeed-velocity/asv/issues/631
+  git fetch --depth=100 origin master:master
+  # Generate machine information (mandatory)
+  asv machine --yes
+  # Run benchmarks on the changeset being tested
+  asv run --no-pull --show-stderr --quick ${TRAVIS_COMMIT}^!
   popd
 fi
