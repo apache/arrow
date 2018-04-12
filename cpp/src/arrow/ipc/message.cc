@@ -248,6 +248,9 @@ Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message,
   return Message::ReadFrom(metadata, file, message);
 }
 
+Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
+  return ReadMessage(file, message, false /* aligned */);
+}
 // ----------------------------------------------------------------------
 // Implement InputStream message reader
 
