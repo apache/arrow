@@ -743,7 +743,9 @@ Status NumPyConverter::ConvertDecimals() {
 
   if (type_ == NULLPTR) {
     for (PyObject* object : objects) {
-      RETURN_NOT_OK(max_decimal_metadata.Update(object));
+      if (!internal::PandasObjectIsNull(object)) {
+        RETURN_NOT_OK(max_decimal_metadata.Update(object));
+      }
     }
 
     type_ =
@@ -758,22 +760,19 @@ Status NumPyConverter::ConvertDecimals() {
   for (PyObject* object : objects) {
     const int is_decimal = PyObject_IsInstance(object, decimal_type_.obj());
 
-    if (ARROW_PREDICT_FALSE(is_decimal == 0)) {
+    if (is_decimal == 1) {
+      Decimal128 value;
+      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
+      RETURN_NOT_OK(builder.Append(value));
+    } else if (is_decimal == 0 && internal::PandasObjectIsNull(object)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else {
+      // PyObject_IsInstance could error and set an exception
+      RETURN_IF_PYERROR();
       std::stringstream ss;
       ss << "Error converting from Python objects to Decimal: ";
       RETURN_NOT_OK(InvalidConversion(object, "decimal.Decimal", &ss));
       return Status::Invalid(ss.str());
-    } else if (ARROW_PREDICT_FALSE(is_decimal == -1)) {
-      DCHECK_NE(PyErr_Occurred(), nullptr);
-      RETURN_IF_PYERROR();
-    }
-
-    if (internal::PandasObjectIsNull(object)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else {
-      Decimal128 value;
-      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
-      RETURN_NOT_OK(builder.Append(value));
     }
   }
   return PushBuilderResult(&builder);

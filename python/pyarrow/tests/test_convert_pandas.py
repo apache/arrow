@@ -80,8 +80,14 @@ def _check_pandas_roundtrip(df, expected=None, nthreads=1,
                                             else False))
 
 
-def _check_series_roundtrip(s, type_=None):
+def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
     arr = pa.array(s, from_pandas=True, type=type_)
+
+    if type_ is not None and expected_pa_type is None:
+        expected_pa_type = type_
+
+    if expected_pa_type is not None:
+        assert arr.type == expected_pa_type
 
     result = pd.Series(arr.to_pandas(), name=s.name)
     if patypes.is_timestamp(arr.type) and arr.type.tz is not None:
@@ -1149,19 +1155,15 @@ class TestConvertStringLikeTypes(object):
 
     def test_variable_size_bytes(self):
         s = pd.Series([b'123', b'', b'a', None])
-        arr = pa.Array.from_pandas(s, type=pa.binary())
-        assert arr.type == pa.binary()
         _check_series_roundtrip(s, type_=pa.binary())
 
     def test_binary_from_bytearray(self):
-        s = pd.Series([bytearray(b'123'), bytearray(b''), bytearray(b'a')])
+        s = pd.Series([bytearray(b'123'), bytearray(b''), bytearray(b'a'),
+                       None])
         # Explicitly set type
-        arr = pa.Array.from_pandas(s, type=pa.binary())
-        assert arr.type == pa.binary()
-        # Infer type from bytearrays
-        arr = pa.Array.from_pandas(s)
-        assert arr.type == pa.binary()
         _check_series_roundtrip(s, type_=pa.binary())
+        # Infer type from bytearrays
+        _check_series_roundtrip(s, expected_pa_type=pa.binary())
 
     def test_table_empty_str(self):
         values = ['', '', '', '', '']
@@ -1325,6 +1327,18 @@ class TestConvertDecimalTypes(object):
         array = pa.array(data, type=pa.decimal128(12, 5))
         expected = [decimal.Decimal('0.01000'), decimal.Decimal('0.00100')]
         assert array.to_pylist() == expected
+
+    def test_decimal_with_None_explicit_type(self):
+        series = pd.Series([decimal.Decimal('3.14'), None])
+        _check_series_roundtrip(series, type_=pa.decimal128(12, 5))
+
+        # Test that having all None values still produces decimal array
+        series = pd.Series([None] * 2)
+        _check_series_roundtrip(series, type_=pa.decimal128(12, 5))
+
+    def test_decimal_with_None_infer_type(self):
+        series = pd.Series([decimal.Decimal('3.14'), None])
+        _check_series_roundtrip(series, expected_pa_type=pa.decimal128(3, 2))
 
 
 class TestListTypes(object):
