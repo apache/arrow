@@ -36,12 +36,25 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.holders.NullableBigIntHolder;
+import org.apache.arrow.vector.holders.NullableBitHolder;
+import org.apache.arrow.vector.holders.NullableDateMilliHolder;
+import org.apache.arrow.vector.holders.NullableDecimalHolder;
+import org.apache.arrow.vector.holders.NullableFloat4Holder;
+import org.apache.arrow.vector.holders.NullableFloat8Holder;
+import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.holders.NullableSmallIntHolder;
+import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
+import org.apache.arrow.vector.holders.NullableTinyIntHolder;
+import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
+import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DecimalUtility;
 
 import java.math.BigDecimal;
 
@@ -56,6 +69,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
@@ -101,13 +115,14 @@ public class JdbcToArrowUtils {
      * CLOB --> ArrowType.Utf8
      * BLOB --> ArrowType.Binary
      *
-     * @param rsmd
+     * @param rsmd ResultSetMetaData
      * @return {@link Schema}
      * @throws SQLException
      */
-    public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd) throws SQLException {
+    public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, Calendar calendar) throws SQLException {
 
         Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
+        Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
         List<Field> fields = new ArrayList<>();
         int columnCount = rsmd.getColumnCount();
@@ -158,8 +173,7 @@ public class JdbcToArrowUtils {
                     fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32)), null));
                     break;
                 case Types.TIMESTAMP:
-                    // TODO Need to handle timezone
-                    fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)), null));
+                    fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar.getTimeZone().getID())), null));
                     break;
                 case Types.BINARY:
                 case Types.VARBINARY:
@@ -204,12 +218,13 @@ public class JdbcToArrowUtils {
      *
      * @param rs ResultSet to use to fetch the data from underlying database
      * @param root Arrow {@link VectorSchemaRoot} object to populate
-     * @throws Exception
+     * @throws SQLException
      */
-    public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root) throws SQLException {
+    public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, Calendar calendar) throws SQLException {
 
         Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
         Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
+        Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
         ResultSetMetaData rsmd = rs.getMetaData();
         int columnCount = rsmd.getColumnCount();
@@ -218,46 +233,43 @@ public class JdbcToArrowUtils {
 
         int rowCount = 0;
         while (rs.next()) {
-            // for each column get the value based on the type
-
-            // need to change this to build Java lists and then build Arrow vectors
             for (int i = 1; i <= columnCount; i++) {
                 String columnName = rsmd.getColumnName(i);
                 switch (rsmd.getColumnType(i)) {
                     case Types.BOOLEAN:
                     case Types.BIT:
                         updateVector((BitVector)root.getVector(columnName),
-                                rs.getBoolean(i), rowCount);
+                                rs.getBoolean(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.TINYINT:
                         updateVector((TinyIntVector)root.getVector(columnName),
-                                rs.getInt(i), rowCount);
+                                rs.getInt(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.SMALLINT:
                         updateVector((SmallIntVector)root.getVector(columnName),
-                                rs.getInt(i), rowCount);
+                                rs.getInt(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.INTEGER:
                         updateVector((IntVector)root.getVector(columnName),
-                                rs.getInt(i), rowCount);
+                                rs.getInt(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.BIGINT:
                         updateVector((BigIntVector)root.getVector(columnName),
-                                rs.getInt(i), rowCount);
+                                rs.getLong(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.NUMERIC:
                     case Types.DECIMAL:
                         updateVector((DecimalVector)root.getVector(columnName),
-                                rs.getBigDecimal(i), rowCount);
+                                rs.getBigDecimal(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.REAL:
                     case Types.FLOAT:
                         updateVector((Float4Vector)root.getVector(columnName),
-                                rs.getFloat(i), rowCount);
+                                rs.getFloat(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.DOUBLE:
                         updateVector((Float8Vector)root.getVector(columnName),
-                                rs.getDouble(i), rowCount);
+                                rs.getDouble(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.CHAR:
                     case Types.NCHAR:
@@ -266,25 +278,26 @@ public class JdbcToArrowUtils {
                     case Types.LONGVARCHAR:
                     case Types.LONGNVARCHAR:
                         updateVector((VarCharVector)root.getVector(columnName),
-                                rs.getString(i), rowCount);
+                                rs.getString(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.DATE:
                         updateVector((DateMilliVector) root.getVector(columnName),
-                                rs.getDate(i), rowCount);
+                                rs.getDate(i, calendar), !rs.wasNull(), rowCount);
                         break;
                     case Types.TIME:
                         updateVector((TimeMilliVector) root.getVector(columnName),
-                                rs.getTime(i), rowCount);
+                                rs.getTime(i, calendar), !rs.wasNull(), rowCount);
                         break;
                     case Types.TIMESTAMP:
+                        // TODO: Need to handle precision such as milli, micro, nano
                         updateVector((TimeStampVector)root.getVector(columnName),
-                                rs.getTimestamp(i), rowCount);
+                                rs.getTimestamp(i, calendar), !rs.wasNull(), rowCount);
                         break;
                     case Types.BINARY:
                     case Types.VARBINARY:
                     case Types.LONGVARBINARY:
                         updateVector((VarBinaryVector)root.getVector(columnName),
-                                rs.getBytes(i), rowCount);
+                                rs.getBytes(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.ARRAY:
                         // TODO Need to handle this type
@@ -292,11 +305,11 @@ public class JdbcToArrowUtils {
                         break;
                     case Types.CLOB:
                         updateVector((VarCharVector)root.getVector(columnName),
-                            rs.getClob(i), rowCount);
+                            rs.getClob(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.BLOB:
                         updateVector((VarBinaryVector)root.getVector(columnName),
-                            rs.getBlob(i), rowCount);
+                            rs.getBlob(i), !rs.wasNull(), rowCount);
                         break;
 
                     default:
@@ -309,77 +322,127 @@ public class JdbcToArrowUtils {
         root.setRowCount(rowCount);
     }
 
-    private static void updateVector(BitVector bitVector, boolean value, int rowCount) {
-        bitVector.setSafe(rowCount, value? 1: 0);
+    private static void updateVector(BitVector bitVector, boolean value, boolean isNonNull, int rowCount) {
+        NullableBitHolder holder = new NullableBitHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = value ? 1 : 0;
+        }
+        bitVector.setSafe(rowCount, holder);
         bitVector.setValueCount(rowCount + 1);
     }
 
-    private static void updateVector(TinyIntVector tinyIntVector, int value, int rowCount) {
-        tinyIntVector.setSafe(rowCount, value);
+    private static void updateVector(TinyIntVector tinyIntVector, int value, boolean isNonNull, int rowCount) {
+        NullableTinyIntHolder holder = new NullableTinyIntHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = (byte) value;
+        }
+        tinyIntVector.setSafe(rowCount, holder);
         tinyIntVector.setValueCount(rowCount + 1);
     }
 
-    private static  void updateVector(SmallIntVector smallIntVector, int value, int rowCount) {
+    private static  void updateVector(SmallIntVector smallIntVector, int value, boolean isNonNull, int rowCount) {
+        NullableSmallIntHolder holder = new NullableSmallIntHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = (short) value;
+        }
         smallIntVector.setSafe(rowCount, value);
         smallIntVector.setValueCount(rowCount + 1);
     }
 
-    private static  void updateVector(IntVector intVector, int value, int rowCount) {
-        intVector.setSafe(rowCount, value);
+    private static  void updateVector(IntVector intVector, int value, boolean isNonNull, int rowCount) {
+        NullableIntHolder holder = new NullableIntHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = value;
+        }
+        intVector.setSafe(rowCount, holder);
         intVector.setValueCount(rowCount + 1);
     }
 
-    private static  void updateVector(BigIntVector bigIntVector, int value, int rowCount) {
-        bigIntVector.setSafe(rowCount, value);
+    private static  void updateVector(BigIntVector bigIntVector, long value, boolean isNonNull, int rowCount) {
+        NullableBigIntHolder holder = new NullableBigIntHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = value;
+        }
+        bigIntVector.setSafe(rowCount, holder);
         bigIntVector.setValueCount(rowCount + 1);
     }
 
-    private static void updateVector(DecimalVector decimalVector, BigDecimal value, int rowCount) {
-        decimalVector.setSafe(rowCount, value);
+    private static void updateVector(DecimalVector decimalVector, BigDecimal value, boolean isNonNull, int rowCount) {
+        NullableDecimalHolder holder = new NullableDecimalHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.precision = value.precision();
+            holder.scale = value.scale();
+            holder.buffer = decimalVector.getAllocator().buffer(DEFAULT_BUFFER_SIZE);
+            holder.start = 0;
+            DecimalUtility.writeBigDecimalToArrowBuf(value, holder.buffer, holder.start);
+        }
+        decimalVector.setSafe(rowCount, holder);
         decimalVector.setValueCount(rowCount + 1);
     }
 
-    private static void updateVector(Float4Vector float4Vector, float value, int rowCount) {
-        float4Vector.setSafe(rowCount, value);
+    private static void updateVector(Float4Vector float4Vector, float value, boolean isNonNull, int rowCount) {
+        NullableFloat4Holder holder = new NullableFloat4Holder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = value;
+        }
+        float4Vector.setSafe(rowCount, holder);
         float4Vector.setValueCount(rowCount + 1);
     }
 
-    private static void updateVector(Float8Vector float8Vector, double value, int rowCount) {
-        float8Vector.setSafe(rowCount, value);
+    private static void updateVector(Float8Vector float8Vector, double value, boolean isNonNull, int rowCount) {
+        NullableFloat8Holder holder = new NullableFloat8Holder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = value;
+        }
+        float8Vector.setSafe(rowCount, holder);
         float8Vector.setValueCount(rowCount + 1);
     }
 
-    private static void updateVector(VarCharVector varcharVector, String value, int rowCount) {
-        if (value != null) {
-            varcharVector.setIndexDefined(rowCount);
-            varcharVector.setValueLengthSafe(rowCount, value.length());
-            varcharVector.setSafe(rowCount, value.getBytes(StandardCharsets.UTF_8), 0, value.length());
-            varcharVector.setValueCount(rowCount + 1);
+    private static void updateVector(VarCharVector varcharVector, String value, boolean isNonNull, int rowCount) {
+        NullableVarCharHolder holder = new NullableVarCharHolder();
+        holder.isSet = isNonNull? 1: 0;
+        varcharVector.setIndexDefined(rowCount);
+        if (isNonNull) {
+            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+            holder.buffer = varcharVector.getAllocator().buffer(bytes.length);
+            holder.buffer.setBytes(0, bytes, 0, bytes.length);
+            holder.start = 0;
+            holder.end = bytes.length;
         }
-        // TODO: not sure how to handle null string value ???
+        varcharVector.setSafe(rowCount, holder);
+        varcharVector.setValueCount(rowCount + 1);
     }
 
-    private static void updateVector(DateMilliVector dateMilliVector, Date date, int rowCount) {
-        //TODO: Need to handle Timezone
+    private static void updateVector(DateMilliVector dateMilliVector, Date date, boolean isNonNull, int rowCount) {
+        NullableDateMilliHolder holder = new NullableDateMilliHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = date.getTime();
+        }
+        dateMilliVector.setSafe(rowCount, holder);
         dateMilliVector.setValueCount(rowCount + 1);
-        if (date != null) {
-            dateMilliVector.setSafe(rowCount, date.getTime());
-        } else {
-            dateMilliVector.setNull(rowCount);
-        }
     }
 
-    private static void updateVector(TimeMilliVector timeMilliVector, Time time, int rowCount) {
+    private static void updateVector(TimeMilliVector timeMilliVector, Time time, boolean isNonNull, int rowCount) {
+        NullableTimeMilliHolder holder = new NullableTimeMilliHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull && time != null) {
+            holder.value = (int)time.getTime();
+        }
+        timeMilliVector.setSafe(rowCount, holder);
         timeMilliVector.setValueCount(rowCount + 1);
-        if (time != null) {
-            timeMilliVector.setSafe(rowCount, (int) time.getTime());
-        } else {
-            timeMilliVector.setNull(rowCount);
-        }
     }
 
-    private static void updateVector(TimeStampVector timeStampVector, Timestamp timestamp, int rowCount) {
-        //TODO Need to handle timezone ???
+    private static void updateVector(TimeStampVector timeStampVector, Timestamp timestamp, boolean isNonNull, int rowCount) {
+        //TODO: Need to handle precision such as milli, micro, nano
         timeStampVector.setValueCount(rowCount + 1);
         if (timestamp != null) {
             timeStampVector.setSafe(rowCount, timestamp.getTime());
@@ -388,9 +451,9 @@ public class JdbcToArrowUtils {
         }
     }
 
-    private static void updateVector(VarBinaryVector varBinaryVector, byte[] bytes, int rowCount) {
+    private static void updateVector(VarBinaryVector varBinaryVector, byte[] bytes, boolean isNonNull, int rowCount) {
         varBinaryVector.setValueCount(rowCount + 1);
-        if (bytes != null) {
+        if (isNonNull && bytes != null) {
             varBinaryVector.setIndexDefined(rowCount);
             varBinaryVector.setValueLengthSafe(rowCount, bytes.length);
             varBinaryVector.setSafe(rowCount, bytes);
@@ -399,9 +462,9 @@ public class JdbcToArrowUtils {
         }
     }
 
-    private static void updateVector(VarCharVector varcharVector, Clob clob, int rowCount) throws SQLException {
+    private static void updateVector(VarCharVector varcharVector, Clob clob, boolean isNonNull, int rowCount) throws SQLException {
         varcharVector.setValueCount(rowCount + 1);
-        if (clob != null) {
+        if (isNonNull && clob != null) {
             int length = (int) clob.length();
             String value = clob.getSubString(1, length);
             if (value != null) {
@@ -416,9 +479,9 @@ public class JdbcToArrowUtils {
         }
     }
 
-    private static void updateVector(VarBinaryVector varBinaryVector, Blob blob, int rowCount) throws SQLException {
+    private static void updateVector(VarBinaryVector varBinaryVector, Blob blob, boolean isNonNull, int rowCount) throws SQLException {
         varBinaryVector.setValueCount(rowCount + 1);
-        if (blob != null) {
+        if (isNonNull && blob != null) {
             byte[] data = blob.getBytes(0, (int) blob.length());
             varBinaryVector.setIndexDefined(rowCount);
             varBinaryVector.setValueLengthSafe(rowCount, (int) blob.length());
@@ -426,6 +489,6 @@ public class JdbcToArrowUtils {
         } else {
             varBinaryVector.setNull(rowCount);
         }
-
     }
+
 }
