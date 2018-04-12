@@ -183,7 +183,14 @@ Status ReadMessage(const int64_t offset, const int32_t metadata_length,
 /// in a stream)
 ARROW_EXPORT
 Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message,
-                   bool aligned = false);
+                   bool aligned);
+
+/// \brief Read encapulated RPC message (metadata and body) from InputStream.
+///
+/// This is a version of ReadMessage that does not have the aligned argument
+/// for backwards compatibility.
+ARROW_EXPORT
+Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
 
 }  // namespace ipc
 }  // namespace arrow
