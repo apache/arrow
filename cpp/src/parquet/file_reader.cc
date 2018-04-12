@@ -112,7 +112,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
-    if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION)) {
+    if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
       // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
       // dictionary page header size in total_compressed_size and total_uncompressed_size
       // (see IMPALA-694). We add padding to compensate.
