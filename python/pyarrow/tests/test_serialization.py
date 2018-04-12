@@ -315,8 +315,11 @@ def test_default_dict_serialization(large_buffer):
 
 def test_numpy_serialization(large_buffer):
     for t in ["bool", "int8", "uint8", "int16", "uint16", "int32",
-              "uint32", "float16", "float32", "float64"]:
+              "uint32", "float16", "float32", "float64", "<U1", "<U2", "<U3",
+              "<U4", "|S1", "|S2", "|S3", "|S4", "|O"]:
         obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
+        serialization_roundtrip(obj, large_buffer)
+        obj = obj[1:99, 10:90]
         serialization_roundtrip(obj, large_buffer)
 
 
