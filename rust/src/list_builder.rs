@@ -18,16 +18,19 @@
 use super::builder::*;
 use super::list::List;
 
+/// Builder for List<T>
 pub struct ListBuilder<T> {
     data: Builder<T>,
     offsets: Builder<i32>,
 }
 
 impl<T> ListBuilder<T> {
+    /// Create a ListBuilder with a default capacity
     pub fn new() -> Self {
         ListBuilder::with_capacity(64)
     }
 
+    /// Create a ListBuilder with the specified capacity
     pub fn with_capacity(n: usize) -> Self {
         let data = Builder::with_capacity(n);
         let mut offsets = Builder::with_capacity(n);
@@ -35,16 +38,15 @@ impl<T> ListBuilder<T> {
         ListBuilder { data, offsets }
     }
 
+    /// Push one array slot to the builder
     pub fn push(&mut self, slice: &[T]) {
         self.data.push_slice(slice);
         self.offsets.push(self.data.len() as i32);
     }
 
+    /// Create an immutable List<T> from the builder
     pub fn finish(&mut self) -> List<T> {
-        List {
-            data: self.data.finish(),
-            offsets: self.offsets.finish(),
-        }
+        List::from_raw_parts(self.data.finish(), self.offsets.finish())
     }
 }
 

@@ -19,6 +19,7 @@ use super::error::ArrowError;
 use serde_json::Value;
 use std::fmt;
 
+/// Arrow data type
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
     Boolean,
@@ -38,6 +39,7 @@ pub enum DataType {
 }
 
 impl DataType {
+    /// Parse a data type from a JSON representation
     fn from(json: &Value) -> Result<DataType, ArrowError> {
         //println!("DataType::from({:?})", json);
         match *json {
@@ -106,6 +108,7 @@ impl DataType {
         }
     }
 
+    /// Generate a JSON representation of the data type
     pub fn to_json(&self) -> Value {
         match *self {
             DataType::Boolean => json!({"name": "bool"}),
@@ -130,11 +133,12 @@ impl DataType {
     }
 }
 
+/// Arrow Field
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
-    pub name: String,
-    pub data_type: DataType,
-    pub nullable: bool,
+    name: String,
+    data_type: DataType,
+    nullable: bool,
 }
 
 impl Field {
@@ -146,6 +150,7 @@ impl Field {
         }
     }
 
+    /// Parse a field definition from a JSON representation
     pub fn from(json: &Value) -> Result<Self, ArrowError> {
         //println!("Field::from({:?}", json);
         match *json {
@@ -186,6 +191,7 @@ impl Field {
         }
     }
 
+    /// Generate a JSON representation of the field
     pub fn to_json(&self) -> Value {
         json!({
             "name": self.name,
@@ -205,6 +211,7 @@ impl fmt::Display for Field {
     }
 }
 
+/// Arrow Schema
 #[derive(Debug, Clone)]
 pub struct Schema {
     pub columns: Vec<Field>,

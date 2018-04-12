@@ -20,16 +20,37 @@ use std::str;
 use super::buffer::Buffer;
 use super::list_builder::ListBuilder;
 
+/// List<T> is a nested type in which each array slot contains a variable-size sequence of values of
+/// the same type T
 pub struct List<T> {
-    pub data: Buffer<T>,
-    pub offsets: Buffer<i32>,
+    /// Contiguous region of memory holding contents of the lists
+    data: Buffer<T>,
+    /// offsets to start of each array slot
+    offsets: Buffer<i32>,
 }
 
 impl<T> List<T> {
+    /// Create a List from raw parts
+    pub fn from_raw_parts(data: Buffer<T>, offsets: Buffer<i32>) -> Self {
+        List { data, offsets }
+    }
+
+    /// Get the length of the List (number of array slots)
     pub fn len(&self) -> i32 {
         self.offsets.len() - 1
     }
 
+    /// Get a reference to the raw data in the list
+    pub fn data(&self) -> &Buffer<T> {
+        &self.data
+    }
+
+    /// Get a reference to the offsets in the list
+    pub fn offsets(&self) -> &Buffer<i32> {
+        &self.offsets
+    }
+
+    /// Get the contents of a single array slot
     pub fn slice(&self, index: usize) -> &[T] {
         let start = *self.offsets.get(index) as usize;
         let end = *self.offsets.get(index + 1) as usize;
@@ -37,6 +58,7 @@ impl<T> List<T> {
     }
 }
 
+/// Create a List<u8> from a Vec<String>
 impl From<Vec<String>> for List<u8> {
     fn from(v: Vec<String>) -> Self {
         let mut b: ListBuilder<u8> = ListBuilder::with_capacity(v.len());
@@ -47,7 +69,7 @@ impl From<Vec<String>> for List<u8> {
     }
 }
 
-/// This method mostly just used for unit tests
+/// Create a List<u8> from a Vec<&str>
 impl From<Vec<&'static str>> for List<u8> {
     fn from(v: Vec<&'static str>) -> Self {
         List::from(v.iter().map(|s| s.to_string()).collect::<Vec<String>>())
