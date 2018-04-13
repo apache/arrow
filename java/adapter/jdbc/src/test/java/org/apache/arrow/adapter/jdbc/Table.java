@@ -19,7 +19,12 @@
 package org.apache.arrow.adapter.jdbc;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -34,17 +39,23 @@ public class Table {
     private String[] data;
     private String query;
     private String drop;
-    
-	private int [] integers;
+	private int [] ints;
 	private int [] booleans;
-	private BigDecimal [] decimals;
+	private int [] tinyInts;
+	private int [] smallInts;
+	private int [] bigInts;
+	private long [] times;
+	private long [] dates;
+	private long [] timestamps;
+	private String [] bytes;
+	private String [] varchars; 
+	private String [] chars;
+	private String [] clobs;
+	private float [] reals;
 	private double [] doubles;
-	
-	private String intQuery;
-	private String booleanQuery;
-	private String decimalQuery;
-	private String doubleQuery;
-    
+	private BigDecimal [] decimals;
+	private String [] selectQuereis;
+		
     public Table() {
     }
 
@@ -78,12 +89,11 @@ public class Table {
     public void setDrop(String drop) {
         this.drop = drop;
     }
-        
-	public int[] getIntegers() {
-		return integers;
+	public int[] getInts() {
+		return ints;
 	}
-	public void setIntegers(int[] integers) {
-		this.integers = integers;
+	public void setInts(int[] ints) {
+		this.ints = ints;
 	}
 	public int[] getBooleans() {
 		return booleans;
@@ -103,28 +113,123 @@ public class Table {
 	public void setDoubles(double[] doubles) {
 		this.doubles = doubles;
 	}
-	public String getIntQuery() {
-		return intQuery;
+	public int[] getTinyInts() {
+		return tinyInts;
 	}
-	public void setIntQuery(String intQuery) {
-		this.intQuery = intQuery;
+	public void setTinyInts(int[] tinyInts) {
+		this.tinyInts = tinyInts;
 	}
-	public String getBooleanQuery() {
-		return booleanQuery;
+	public int[] getSmallInts() {
+		return smallInts;
 	}
-	public void setBooleanQuery(String booleanQuery) {
-		this.booleanQuery = booleanQuery;
+	public void setSmallInts(int[] smallInts) {
+		this.smallInts = smallInts;
 	}
-	public String getDecimalQuery() {
-		return decimalQuery;
+	public int[] getBigInts() {
+		return bigInts;
 	}
-	public void setDecimalQuery(String decimalQuery) {
-		this.decimalQuery = decimalQuery;
+	public void setBigInts(int[] bigInts) {
+		this.bigInts = bigInts;
 	}
-	public String getDoubleQuery() {
-		return doubleQuery;
+	public long[] getTimes() {
+		return times;
 	}
-	public void setDoubleQyery(String doubleQuery) {
-		this.doubleQuery = doubleQuery;
+	public void setTimes(long[] times) {
+		this.times = times;
 	}
+	public long[] getDates() {
+		return dates;
+	}
+	public void setDates(long[] dates) {
+		this.dates = dates;
+	}
+	public long[] getTimestamps() {
+		return timestamps;
+	}
+	public void setTimestamps(long[] timestamps) {
+		this.timestamps = timestamps;
+	}
+	public String [] getBytes() {
+		return bytes;
+	}
+	public void setBytes(String [] bytes) {
+		this.bytes = bytes;
+	}
+	public String []getVarchars() {
+		return varchars;
+	}
+	public void setVarchars(String [] varchars) {
+		this.varchars = varchars;
+	}
+	public String [] getChars() {
+		return chars;
+	}
+	public void setChars(String [] chars) {
+		this.chars = chars;
+	}
+	public String [] getClobs() {
+		return clobs;
+	}
+	public void setClobs(String [] clobs) {
+		this.clobs = clobs;
+	}
+	public float[] getReals() {
+		return reals;
+	}
+	public void setReals(float[] reals) {
+		this.reals = reals;
+	}
+	public String[] getSelectQuereis() {
+		return selectQuereis;
+	}
+	public void setSelectQuereis(String[] selectQuereis) {
+		this.selectQuereis = selectQuereis;
+	}
+	
+	public String getSelectQuery(String columnName) {
+		String queryString = "select " + columnName + " from";
+		String query =  Arrays.stream(selectQuereis).parallel().filter(q -> q.toUpperCase().contains(queryString.toUpperCase())).findFirst().get();
+		return query;
+	}
+	
+	public byte [][] getHexStringAsByte () {
+		return getHexToByteArray (bytes);
+	}
+	public byte [][] getClobAsByte () {
+		return getByteArray (clobs);
+	}
+	public byte [][] getCharAsByte () {
+		return getByteArray (chars);
+	}
+	public byte [][] getVarCharAsByte () {
+		return getByteArray (varchars);
+	}
+	
+	private byte [][] getByteArray (String [] data) {
+		byte [][] byteArr = new byte [data.length][];
+		
+		for (int i = 0; i < data.length; i++) {
+			byteArr [i] = data [i].getBytes(StandardCharsets.UTF_8);
+		}
+		return 	byteArr;	
+   }
+   
+	private byte [][] getHexToByteArray (String [] data){
+		byte [][] byteArr = new byte [data.length][];
+		
+		for (int i = 0; i < data.length; i++) {
+			byteArr [i] = hexStringToByteArray(data [i]);
+		}
+		return 	byteArr;
+	}
+	
+   private static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
+    }
 }
