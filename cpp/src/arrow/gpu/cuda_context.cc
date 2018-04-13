@@ -40,7 +40,7 @@ struct CudaDevice {
 
 class CudaContext::CudaContextImpl {
  public:
-  CudaContextImpl() {}
+  CudaContextImpl() : bytes_allocated_(0) {}
 
   Status Init(const CudaDevice& device) {
     device_ = device;
