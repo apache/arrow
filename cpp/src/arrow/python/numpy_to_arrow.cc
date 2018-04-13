@@ -852,7 +852,7 @@ Status NumPyConverter::ConvertObjectStrings() {
   // not convertible to utf8, the call to AppendObjectStrings
   // below will fail because we pass force_string as the
   // value for check_valid.
-  bool force_string = type_ != std::nullptr && type_->Equals(utf8());
+  bool force_string = type_ != nullptr && type_->Equals(utf8());
   bool global_have_bytes = false;
   if (length_ == 0) {
     // Produce an empty chunk
@@ -1412,7 +1412,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       // If a type was specified and it was utf8, then we set
       // check_valid to true. If any of the input cannot be
       // converted, then we will exit early here.
-      bool check_valid = type_ != std::nullptr && type_->Equals(::arrow::utf8());
+      bool check_valid = type_ != nullptr && type_->Equals(::arrow::utf8());
       RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, check_valid,
                                         value_builder, &offset, &have_bytes));
       if (offset < PyArray_SIZE(numpy_array)) {
