@@ -21,6 +21,7 @@ RUN apt-get update && \
     apt-get install -y \
         git \
         wget \
+        ccache \
         build-essential
 
 # install conda in /home/ubuntu/miniconda
