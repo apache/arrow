@@ -35,5 +35,13 @@ if [ ! -d parquet-cpp ]; then
     exit 1
 fi
 
+<<<<<<< HEAD
 docker-compose -f arrow/dev/docker-compose.yml build "${@}"
 docker-compose -f arrow/dev/docker-compose.yml run --rm "${@}"
+=======
+GID=$(id -g ${USERNAME})
+docker-compose -f arrow/dev/docker-compose.yml run \
+    --rm "${1}"
+
+#-u "${UID}:${GID}" "${1}"
+>>>>>>> ARROW-2300: [C++/Python] Integration test for HDFS
