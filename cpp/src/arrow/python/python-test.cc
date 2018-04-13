@@ -30,7 +30,6 @@
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
-#include "arrow/python/numpy_to_arrow.h"
 
 namespace arrow {
 namespace py {
@@ -383,58 +382,6 @@ TEST(PythonTest, ConstructStringArrayWithLeadingZeros) {
   auto pool = default_memory_pool();
   ASSERT_OK(ConvertPySequence(list, pool, &out));
 }
-
-class NdarrayToArrowTest: public ::testing::Test {
-
-public:
-
-  void CreateNdarrayWithOneString(const char* value, OwnedRef& ref)
-  {
-    npy_intp dims[1];
-    dims[0] = 1;
-    auto array_object = PyArray_SimpleNew(1, dims, NPY_OBJECT);
-    auto array = reinterpret_cast<PyArrayObject*>(array_object);
-    ASSERT_TRUE(array != 0);
-    dims[0] = 0;
-    auto dest = PyArray_GetPtr(array, dims);
-    auto bytes_object = PyBytes_FromString(value);
-    ASSERT_NE(-1, PyArray_SETITEM(array, reinterpret_cast<char*>(dest), bytes_object));
-
-    Py_XDECREF(bytes_object);
-
-    ref.reset(array_object);
-  }
-
-};
-
-// Regression for ARROW-2101
-TEST_F(NdarrayToArrowTest, BytesToStringWhenTypeSpecified)
-{
-  OwnedRef array;
-  this->CreateNdarrayWithOneString("x", array);
-
-  auto arrow_type = ::arrow::utf8();
-  std::shared_ptr<ChunkedArray> arrow_array;
-  ASSERT_OK(NdarrayToArrow(default_memory_pool(), reinterpret_cast<PyObject*>(array.obj()), 0,
-			   true, arrow_type, &arrow_array));
-
-  ASSERT_TRUE(arrow_array->type()->Equals(::arrow::utf8()));
-}
-
-TEST_F(NdarrayToArrowTest, BytesToStringBadData)
-{
-  OwnedRef array;
-  // Put in a bad unicode character
-  this->CreateNdarrayWithOneString("\x80\x81", array);
-
-  auto arrow_type = ::arrow::utf8();
-  std::shared_ptr<ChunkedArray> arrow_array;
-  auto result = NdarrayToArrow(default_memory_pool(), reinterpret_cast<PyObject*>(array.obj()), 0,
-			       true, arrow_type, &arrow_array);
-  ASSERT_RAISES(UnknownError, result);
-  ASSERT_EQ("'utf-8' codec can't decode byte 0x80 in position 0: invalid start byte", result.message());
-}
-
 
 }  // namespace py
 }  // namespace arrow

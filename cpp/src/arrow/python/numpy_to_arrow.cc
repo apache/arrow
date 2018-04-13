@@ -236,8 +236,7 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
 /// \param[out] have_bytes true if we encountered any PyBytes object
 static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offset,
                                   bool check_valid, StringBuilder* builder,
-				  int64_t* end_offset,
-                                  bool* have_bytes) {
+                                  int64_t* end_offset, bool* have_bytes) {
   PyObject* obj;
 
   Ndarray1DIndexer<PyObject*> objects(arr);
@@ -260,8 +259,7 @@ static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64
       *have_bytes = true;
     }
     bool is_full;
-    RETURN_NOT_OK(
-        internal::BuilderAppend(builder, obj, check_valid, &is_full));
+    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, check_valid, &is_full));
     if (is_full) {
       break;
     }
@@ -854,7 +852,7 @@ Status NumPyConverter::ConvertObjectStrings() {
   // not convertible to utf8, the call to AppendObjectStrings
   // below will fail because we pass force_string as the
   // value for check_valid.
-  bool force_string = type_ != 0 && type_->Equals(utf8());
+  bool force_string = type_ != std::nullptr && type_->Equals(utf8());
   bool global_have_bytes = false;
   if (length_ == 0) {
     // Produce an empty chunk
@@ -866,9 +864,9 @@ Status NumPyConverter::ConvertObjectStrings() {
     while (offset < length_) {
       bool chunk_have_bytes = false;
       // Always set check_valid to true when force_string is true
-
-      RETURN_NOT_OK(
-	  AppendObjectStrings(arr_, mask_, offset, force_string /* check_valid */, &builder, &offset, &chunk_have_bytes));
+      RETURN_NOT_OK(AppendObjectStrings(arr_, mask_, offset,
+                                        force_string /* check_valid */, &builder, &offset,
+                                        &chunk_have_bytes));
 
       global_have_bytes = global_have_bytes | chunk_have_bytes;
       std::shared_ptr<Array> chunk;
@@ -1144,7 +1142,6 @@ Status NumPyConverter::ConvertObjects() {
 
   RETURN_NOT_OK(InitNullBitmap());
 
-
   // This means we received an explicit type from the user
   if (type_) {
     switch (type_->id()) {
@@ -1415,11 +1412,9 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       // If a type was specified and it was utf8, then we set
       // check_valid to true. If any of the input cannot be
       // converted, then we will exit early here.
-      auto check_valid = type_ != 0 && type_->Equals(::arrow::utf8());
-      RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0,
-					check_valid,
-					value_builder, &offset,
-                                        &have_bytes));
+      bool check_valid = type_ != std::nullptr && type_->Equals(::arrow::utf8());
+      RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, check_valid,
+                                        value_builder, &offset, &have_bytes));
       if (offset < PyArray_SIZE(numpy_array)) {
         return Status::Invalid("Array cell value exceeded 2GB");
       }
