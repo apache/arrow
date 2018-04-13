@@ -377,8 +377,7 @@ class ARROW_EXPORT PlasmaClient {
   void increment_object_count(const ObjectID& object_id, PlasmaObject* object,
                               bool is_sealed);
 
-  bool compute_object_hash_parallel(XXH64_state_t* hash_state,
-                                    const unsigned char* data,
+  bool compute_object_hash_parallel(XXH64_state_t* hash_state, const unsigned char* data,
                                     int64_t nbytes);
 
   uint64_t compute_object_hash(const ObjectBuffer& obj_buffer);
