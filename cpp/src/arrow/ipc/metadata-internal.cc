@@ -817,6 +817,9 @@ static Status VisitField(const flatbuf::Field* field, DictionaryTypeMap* id_to_f
   if (dict_metadata == nullptr) {
     // Field is not dictionary encoded. Visit children
     auto children = field->children();
+    if (children == nullptr) {
+      return Status::IOError("Children-pointer of flatbuffer-encoded Field is null.");
+    }
     for (flatbuffers::uoffset_t i = 0; i < children->size(); ++i) {
       RETURN_NOT_OK(VisitField(children->Get(i), id_to_field));
     }
@@ -832,9 +835,16 @@ static Status VisitField(const flatbuf::Field* field, DictionaryTypeMap* id_to_f
 
 Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_field) {
   auto schema = static_cast<const flatbuf::Schema*>(opaque_schema);
+  if (schema->fields() == nullptr) {
+    return Status::IOError("Fields-pointer of flatbuffer-encoded Schema is null.");
+  }
   int num_fields = static_cast<int>(schema->fields()->size());
   for (int i = 0; i < num_fields; ++i) {
-    RETURN_NOT_OK(VisitField(schema->fields()->Get(i), id_to_field));
+    auto field = schema->fields()->Get(i);
+    if (field == nullptr) {
+      return Status::IOError("Field-pointer of flatbuffer-encoded Schema is null.");
+    }
+    RETURN_NOT_OK(VisitField(field, id_to_field));
   }
   return Status::OK();
 }
@@ -842,6 +852,9 @@ Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_fi
 Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_memo,
                  std::shared_ptr<Schema>* out) {
   auto schema = static_cast<const flatbuf::Schema*>(opaque_schema);
+  if (schema->fields() == nullptr) {
+    return Status::IOError("Fields-pointer of flatbuffer-encoded Schema is null.");
+  }
   int num_fields = static_cast<int>(schema->fields()->size());
 
   std::vector<std::shared_ptr<Field>> fields(num_fields);
@@ -855,6 +868,14 @@ Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_mem
   if (fb_metadata != nullptr) {
     metadata->reserve(fb_metadata->size());
     for (const auto& pair : *fb_metadata) {
+      if (pair->key() == nullptr) {
+        return Status::IOError(
+            "Key-pointer in custom metadata of flatbuffer-encoded Schema is null.");
+      }
+      if (pair->value() == nullptr) {
+        return Status::IOError(
+            "Value-pointer in custom metadata of flatbuffer-encoded Schema is null.");
+      }
       metadata->Append(pair->key()->str(), pair->value()->str());
     }
   }
