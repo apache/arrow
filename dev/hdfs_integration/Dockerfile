@@ -14,15 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM ubuntu:16.04
+FROM ubuntu:14.04
 
 # Basic OS utilities
 RUN apt-get update && \
     apt-get install -y \
         git \
         wget \
-        gcc-4.9 \
-        g++-4.9 \
         build-essential
 
 # install conda in /home/ubuntu/miniconda

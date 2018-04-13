@@ -28,8 +28,8 @@ export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 export PARQUET_HOME=$CONDA_PREFIX
 
-export CC=gcc-4.9
-export CXX=g++-4.9
+# export CC=gcc-4.9
+# export CXX=g++-4.9
 
 # install arrow
 mkdir -p arrow/cpp/build
