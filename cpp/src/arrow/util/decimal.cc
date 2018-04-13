@@ -843,7 +843,7 @@ static bool RescaleWouldCauseDataLoss(const Decimal128& value, int32_t delta_sca
   }
 
   *result = value * multiplier;
-  return *result < value;
+  return (value < 0) ? *result > value : *result < value;
 }
 
 Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
