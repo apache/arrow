@@ -100,7 +100,6 @@ mod tests {
             assert_eq!(0, (p1 as usize) % ALIGNMENT);
             assert_eq!(0, (p2 as usize) % ALIGNMENT);
             memory_pool.free(p2);
-            memory_pool.free(p1);
         }
     }
 }
