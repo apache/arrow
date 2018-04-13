@@ -84,7 +84,23 @@ mod tests {
         for _ in 0..10 {
             let p = memory_pool.allocate(1024).unwrap();
             // make sure this is 64-byte aligned
-            assert_eq!(0, (p as usize) % 64);
+            assert_eq!(0, (p as usize) % ALIGNMENT);
+            memory_pool.free(p);
+        }
+    }
+
+    #[test]
+    fn test_reallocate() {
+        let memory_pool = LibcMemoryPool {};
+
+        for _ in 0..10 {
+            let p1 = memory_pool.allocate(1024).unwrap();
+            let p2 = memory_pool.reallocate(1024, 2048, p1).unwrap();
+            // make sure this is 64-byte aligned
+            assert_eq!(0, (p1 as usize) % ALIGNMENT);
+            assert_eq!(0, (p2 as usize) % ALIGNMENT);
+            memory_pool.free(p2);
+            memory_pool.free(p1);
         }
     }
 }
