@@ -21,6 +21,8 @@ package org.apache.arrow.adapter.jdbc;
 import java.math.BigDecimal;
 import java.util.Arrays;
 
+import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateMilliVector;
@@ -34,8 +36,8 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
-
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
 /**
  * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object
@@ -47,10 +49,10 @@ public class JdbcToArrowTestHelper {
         assertEquals(rowCount, intVector.getValueCount());
 
         for(int j = 0; j < intVector.getValueCount(); j++) {
-            assertEquals(values[j], intVector.get(j));
-        }
+        	assertEquals(values[j], intVector.get(j));
+        } 
     }
-
+        
     public static void assertBitBooleanVectorValues(BitVector bitVector, int rowCount, int[] values){
         assertEquals(rowCount, bitVector.getValueCount());
         
@@ -153,9 +155,17 @@ public class JdbcToArrowTestHelper {
 	        }
         } catch (AssertionError ae) {
         	ae.printStackTrace();
+        }
+    }
+    
+    public static void assertNullValues(BaseValueVector vector, int rowCount) {
+        assertEquals(rowCount, vector.getValueCount());
+
+        for(int j = 0; j < vector.getValueCount(); j++) {
+        	assertTrue(vector.isNull(j));
         } 
     }
-
+    
     public static byte[] hexStringToByteArray(String s) {
         int len = s.length();
         byte[] data = new byte[len / 2];
