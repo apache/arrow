@@ -18,11 +18,11 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.google.common.base.Preconditions;
-
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -69,15 +69,17 @@ public class JdbcToArrow {
      * @param connection Database connection to be used. This method will not close the passed connection object. Since hte caller has passed
      *                   the connection object it's the responsibility of the caller to close or return the connection to the pool.
      * @param query The DB Query to fetch the data.
+     * @param allocator Memory allocator
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statement objects.
      */
-    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, RootAllocator rootAllocator) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator) throws SQLException {
         Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
         Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
-                        		
+        Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
+
         try (Statement stmt = connection.createStatement()) {
-        	return sqlToArrow(stmt.executeQuery(query), rootAllocator);
+            return sqlToArrow(stmt.executeQuery(query), allocator);
         }
     }
 
@@ -101,15 +103,16 @@ public class JdbcToArrow {
      * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
      *
      * @param resultSet
+     * @param allocator Memory allocator
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws Exception
      */
-    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, RootAllocator rootAllocator) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator) throws SQLException {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
-        Preconditions.checkNotNull(rootAllocator, "Root Allocator object can not be null");
+        Preconditions.checkNotNull(allocator, "Root Allocator object can not be null");
 
         VectorSchemaRoot root = VectorSchemaRoot.create(
-                JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData()), rootAllocator);
+                JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData()), allocator);
         JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root);
         return root;
     }
