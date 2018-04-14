@@ -34,27 +34,27 @@ commit creation and pushing the changes.
 
 ## Install
 
-> The following guide depends on GitHub, but theoretically any git server can be 
+> The following guide depends on GitHub, but theoretically any git server can be
 > used.
 
 1. [Create the queue repository](https://help.github.com/articles/creating-a-new-repository)
-2. Clone the newly created, by default the scripts looks for `crossbow` next to 
+2. Clone the newly created, by default the scripts looks for `crossbow` next to
    arrow repository.
-   
+
    ```bash
    git clone https://github.com/<user>/crossbow crossbow
-   ``` 
-  
+   ```
+
 2. [Create a Personal Access
    Token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
 3. Export the token as an environment variable:
-   
+
    ```bash
    export CROSSBOW_GITHUB_TOKEN=<token>
    ```
-   
-   > or pass as an argument to the CLI script `--github-token` 
-   
+
+   > or pass as an argument to the CLI script `--github-token`
+
 4. Install the python dependencies for the script:
 
    ```bash
@@ -71,11 +71,11 @@ commit creation and pushing the changes.
 The script does the following:
 1. Detects the current repository, thus supports forks. The following snippet
    will build kszucs's fork instead of the upstream apache/arrow repository.
-  
+
    ```bash
    $ git clone https://github.com/kszucs/arrow
    $ git clone https://github.com/kszucs/crossbow
-   
+
    $ cd arrow/cd
    $ python crossbow.py
    ```
@@ -83,18 +83,18 @@ The script does the following:
 2. Gets the HEAD commit of the currently checked out branch and generates
    the version number based on [setuptools_scm](https://pypi.python.org/pypi/setuptools_scm).
    So to build a particular branch, just check out before running the script:
-   
+
    ```bash
    git checkout ARROW-<ticket number>
    python cd/crossbow.py --dry-run
    ```
-   
+
    > Note that the arrow branch must be pushed beforehand, because the script
    > will clone the selected branch.
-   
-3. Reads and renders the required build configurations with the parameters 
-   substituted. 
-2. Create a commit per build configuration to its own branch. For example 
+
+3. Reads and renders the required build configurations with the parameters
+   substituted.
+2. Create a commit per build configuration to its own branch. For example
    to build `travis-linux-conda.yml` it will place a commit to the tip of
    `crossbow@travis-linux-conda` branch.
 3. Pushes the modified branches to GitHub which triggers the builds.
@@ -123,15 +123,15 @@ Pushed branches:
  - travis-osx-conda
 ```
 
-Just render but don't commit nor execute:
+Just render without applying or committing the changes:
 
-```bash 
+```bash
 $ python crossbow.py --dry-run
 ```
 
 Run only `conda` package builds but on all platforms:
 
-```bash 
+```bash
 $ python crossbow.py conda
 Repository: https://github.com/kszucs/arrow@cd
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
@@ -144,7 +144,7 @@ Pushed branches:
 
 Run `wheel` builds:
 
-```bash 
+```bash
 $ python crossbow.py wheel
 Repository: https://github.com/kszucs/arrow@cd
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
@@ -157,7 +157,7 @@ Pushed branches:
 
 Run only `linux-conda` package build:
 
-```bash 
+```bash
 $ python crossbow.py linux-conda
 Repository: https://github.com/kszucs/arrow@cd
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
