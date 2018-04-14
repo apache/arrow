@@ -65,14 +65,16 @@ class PythonFile {
 
   Status Seek(int64_t position, int whence) {
     // whence: 0 for relative to start of file, 2 for end of file
-    PyObject* result = cpp_PyObject_CallMethod(file_, "seek", "(ii)", position, whence);
+    PyObject* result = cpp_PyObject_CallMethod(file_, "seek", "(ni)",
+                                               static_cast<Py_ssize_t>(position), whence);
     Py_XDECREF(result);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
     return Status::OK();
   }
 
   Status Read(int64_t nbytes, PyObject** out) {
-    PyObject* result = cpp_PyObject_CallMethod(file_, "read", "(i)", nbytes);
+    PyObject* result =
+        cpp_PyObject_CallMethod(file_, "read", "(n)", static_cast<Py_ssize_t>(nbytes));
     PY_RETURN_IF_ERROR(StatusCode::IOError);
     *out = result;
     return Status::OK();

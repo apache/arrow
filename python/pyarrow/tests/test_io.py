@@ -21,6 +21,7 @@ import gc
 import os
 import pytest
 import sys
+import tempfile
 import weakref
 
 import numpy as np
@@ -29,6 +30,25 @@ import pandas as pd
 
 from pyarrow.compat import u, guid
 import pyarrow as pa
+
+
+def check_large_seeks(file_factory):
+    if sys.platform in ('win32', 'darwin'):
+        pytest.skip("need sparse file support")
+    try:
+        filename = tempfile.mktemp(prefix='test_io')
+        with open(filename, 'wb') as f:
+            f.truncate(2 ** 32 + 10)
+            f.seek(2 ** 32 + 5)
+            f.write(b'mark\n')
+        with file_factory(filename) as f:
+            assert f.seek(2 ** 32 + 5) == 2 ** 32 + 5
+            assert f.tell() == 2 ** 32 + 5
+            assert f.read(5) == b'mark\n'
+            assert f.tell() == 2 ** 32 + 10
+    finally:
+        os.unlink(filename)
+
 
 # ----------------------------------------------------------------------
 # Python file-like objects
@@ -81,6 +101,13 @@ def test_python_file_read():
     assert len(v) == 11
 
     f.close()
+
+
+def test_python_file_large_seeks():
+    def factory(filename):
+        return pa.PythonFile(open(filename, 'rb'))
+
+    check_large_seeks(factory)
 
 
 def test_bytes_reader():
@@ -544,6 +571,10 @@ def test_os_file_reader(sample_disk_data):
     _check_native_file_reader(pa.OSFile, sample_disk_data)
 
 
+def test_os_file_large_seeks():
+    check_large_seeks(pa.OSFile)
+
+
 def _try_delete(path):
     try:
         os.remove(path)
@@ -598,6 +629,10 @@ def test_memory_zero_length(tmpdir):
     f.close()
     with pa.memory_map(path, mode='r+b') as memory_map:
         assert memory_map.size() == 0
+
+
+def test_memory_map_large_seeks():
+    check_large_seeks(pa.memory_map)
 
 
 def test_os_file_writer(tmpdir):

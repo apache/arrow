@@ -37,11 +37,22 @@ except ImportError:
 # python_to_arrow.cc)
 
 def _serialize_numpy_array_list(obj):
-    return obj.tolist(), obj.dtype.str
+    if obj.dtype.str != '|O':
+        # Make the array c_contiguous if necessary so that we can call change
+        # the view.
+        if not obj.flags.c_contiguous:
+            obj = np.ascontiguousarray(obj)
+        return obj.view('uint8'), obj.dtype.str
+    else:
+        return obj.tolist(), obj.dtype.str
 
 
 def _deserialize_numpy_array_list(data):
-    return np.array(data[0], dtype=np.dtype(data[1]))
+    if data[1] != '|O':
+        assert data[0].dtype == np.uint8
+        return data[0].view(data[1])
+    else:
+        return np.array(data[0], dtype=np.dtype(data[1]))
 
 
 def _pickle_to_buffer(x):
