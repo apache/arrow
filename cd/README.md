@@ -37,17 +37,20 @@ commit creation and pushing the changes.
 > The following guide depends on GitHub, but theoretically any git server can be
 > used.
 
-1. [Create the queue repository](https://help.github.com/articles/creating-a-new-repository)
-2. Clone the newly created, by default the scripts looks for `crossbow` next to
+1. [Create the queue
+   repository](https://help.github.com/articles/creating-a-new-repository)
+2. Enable [TravisCI](https://travis-ci.org/getting_started) and
+   [Appveyor](https://www.appveyor.com/docs/) integrations on it
+3. Clone the newly created, by default the scripts looks for `crossbow` next to
    arrow repository.
 
    ```bash
    git clone https://github.com/<user>/crossbow crossbow
    ```
 
-2. [Create a Personal Access
+4. [Create a Personal Access
    Token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
-3. Export the token as an environment variable:
+5. Export the token as an environment variable:
 
    ```bash
    export CROSSBOW_GITHUB_TOKEN=<token>
@@ -55,12 +58,12 @@ commit creation and pushing the changes.
 
    > or pass as an argument to the CLI script `--github-token`
 
-4. Install the python dependencies for the script:
+6. Install the python dependencies for the script:
 
    ```bash
    conda install -y jinja2 pygit2 click
    ```
-5. Try running it:
+7. Try running it:
    ```bash
    $ python crossbow.py --help
    ```
@@ -69,6 +72,7 @@ commit creation and pushing the changes.
 ## Usage
 
 The script does the following:
+
 1. Detects the current repository, thus supports forks. The following snippet
    will build kszucs's fork instead of the upstream apache/arrow repository.
 
