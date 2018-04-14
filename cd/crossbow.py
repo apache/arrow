@@ -44,7 +44,7 @@ def render_template(path, params):
     return template.render(**params)
 
 
-def create_commit(repo, branch_name, filename, content):
+def create_commit(repo, branch_name, filename, content, message):
     master = repo.branches['master']
     master_head = repo[master.target]
 
@@ -67,9 +67,8 @@ def create_commit(repo, branch_name, filename, content):
     timestamp = int((datetime.now() - datetime(1970, 1, 1)).total_seconds())
     name = next(repo.config.get_multivar('user.name'))
     email = next(repo.config.get_multivar('user.email'))
-    message = 'disco!'
 
-    author = pygit2.Signature('Crossbow', 'mailing@list.com', timestamp)
+    author = pygit2.Signature('crossbow', 'mailing@list.com', timestamp)
     committer = pygit2.Signature(name, email, timestamp)
 
     reference = 'refs/heads/{}'.format(branch_name)
@@ -143,6 +142,7 @@ def build(pattern, dry_run, queue_repo, github_token):
 
     origin = repo.remotes['origin']
     branch = repo.branches[repo.head.shorthand]
+    ghrepo = origin.url
 
     click.echo('Repository: {}@{}'.format(origin.url, branch.branch_name))
     click.echo('Commit SHA: {}'.format(sha))
@@ -178,6 +178,8 @@ def build(pattern, dry_run, queue_repo, github_token):
         }
 
         content = render_template(template_path, params)
+        message = '[BUILD] {} of {}@{}'.format(version, origin.url,
+                                               branch.branch_name)
 
         if dry_run:
             click.echo('\n')
@@ -186,7 +188,7 @@ def build(pattern, dry_run, queue_repo, github_token):
         else:
             target_branch_name = template_path.stem
             updated_branch = create_commit(queue_repo, target_branch_name,
-                                           target_filename, content)
+                                           target_filename, content, message)
             updated_branches.append(updated_branch)
 
     if not dry_run:
