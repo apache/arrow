@@ -159,6 +159,18 @@ Pushed branches:
  - appveyor-win-wheel
 ```
 
+Run `osx` builds:
+
+```bash
+$ python crossbow.py osx
+Repository: https://github.com/kszucs/arrow@cd
+Commit SHA: cad1df2c7f650ad3434319bbbefed0d4abe45e4a
+Version: 0.9.1.dev130+gcad1df2c.d20180414
+Pushed branches:
+ - travis-osx-wheel
+ - travis-osx-conda
+```
+
 Run only `linux-conda` package build:
 
 ```bash
