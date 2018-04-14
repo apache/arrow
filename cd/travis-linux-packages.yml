@@ -2,7 +2,6 @@ os: linux
 dist: trusty
 sudo: required
 language: ruby
-python: 3.5
 
 env:
   global:
@@ -10,33 +9,40 @@ env:
     - BUILD_REF={{ BUILD_REF }}
     - PYARROW_VERSION={{ PYARROW_VERSION }}
 
-install:
-  - sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
-  - apt update -y
-  - apt install -y \
-    autoconf-archive \
-    build-essential \
-    cmake \
-    debhelper\
-    devscripts \
-    git \
-    gtk-doc-tools \
-    libboost-filesystem-dev \
-    libboost-regex-dev \
-    libboost-system-dev \
-    libgirepository1.0-dev \
-    libglib2.0-doc \
-    libjemalloc-dev \
-    lsb-release \
-    nvidia-cuda-toolkit \
-    pkg-config \
-    python3-dev \
-    python3-numpy
+matrix:
+  include:
+    - script:
+        - (cd arrow/cd/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
+    - script:
+        - (cd arrow/cd/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=yes DEBUG=no)
+    - script:
+        - (cd arrow/cd/linux-packages && rake yum:build PARALLEL=yes DEBUG=no)
 
-script:
+before_install:
+  - sudo apt update -y -qq
+  - |
+    sudo apt install -y -qq \
+        autoconf-archive \
+        build-essential \
+        cmake \
+        debhelper \
+        devscripts \
+        git \
+        gtk-doc-tools \
+        libboost-filesystem-dev \
+        libboost-regex-dev \
+        libboost-system-dev \
+        libgirepository1.0-dev \
+        libglib2.0-doc \
+        libjemalloc-dev \
+        lsb-release \
+        nvidia-cuda-toolkit \
+        pkg-config \
+        python3-dev \
+        python3-numpy
+
+before_script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - (cd arrow/cd/linux-packages && rake yum:build PARALLEL=yes DEBUG=no)
-  #- (cd arrow/cd/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
 
 notifications:
   email:
