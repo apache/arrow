@@ -447,10 +447,11 @@ class BinaryDistribution(Distribution):
         return True
 
 
-install_requires = ['numpy >= 1.10', 'six >= 1.0.0']
-
-if sys.version_info.major == 2:
-    install_requires.append('futures')
+install_requires = (
+    'numpy >= 1.10',
+    'six >= 1.0.0',
+    'futures;python_version<"3.2"'
+)
 
 
 def parse_version(root):
