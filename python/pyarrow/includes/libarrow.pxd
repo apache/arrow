@@ -399,6 +399,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CArray] field(int pos)
 
+        CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CArray]]* out)
+
     CStatus ValidateArray(const CArray& array)
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
