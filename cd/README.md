@@ -4,7 +4,7 @@ Currently Arrow ships the following pre-built binaries:
 - C++ and Python [conda-forge packages](conda-recipes) for Linux, Mac and
   Windows
 - Python [Wheels](python-wheels) for Linux, Mac and Windows
-- C++ GLib [Linux packages](linux-packages) for multiple distros
+- C++ and GLib [Linux packages](linux-packages) for multiple distributions
 
 The content of this directory aims for automatizing the historically error prone
 process of Arrow packaging as well as running nightly builds.
@@ -22,9 +22,9 @@ Individual builds are executed on public CI services, currently:
 ### Queue
 
 Because of the nature of how the CI services work, the scheduling of happens
-through an additional git repository, which acts like job queue for the builds.
+through an additional git repository, which acts like a job queue for the builds.
 A job is a git commit on a particular git branch, containing only the required
-configuration file to run the CI build.
+configuration file to run the CI build (currently `.travis.yml` or `appveyor.yml`).
 
 ### Scheduler
 
