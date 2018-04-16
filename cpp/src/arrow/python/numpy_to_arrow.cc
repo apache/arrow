@@ -228,12 +228,15 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
 /// can fit
 ///
 /// \param[in] offset starting offset for appending
+/// \param[in] check_valid if set to true and the input array
+/// contains values that cannot be converted to unicode, returns
+/// a Status code containing a Python exception message
 /// \param[out] end_offset ending offset where we stopped appending. Will
 /// be length of arr if fully consumed
 /// \param[out] have_bytes true if we encountered any PyBytes object
 static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offset,
-                                  StringBuilder* builder, int64_t* end_offset,
-                                  bool* have_bytes) {
+                                  bool check_valid, StringBuilder* builder,
+                                  int64_t* end_offset, bool* have_bytes) {
   PyObject* obj;
 
   Ndarray1DIndexer<PyObject*> objects(arr);
@@ -256,8 +259,7 @@ static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64
       *have_bytes = true;
     }
     bool is_full;
-    RETURN_NOT_OK(
-        internal::BuilderAppend(builder, obj, false /* check_valid */, &is_full));
+    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, check_valid, &is_full));
     if (is_full) {
       break;
     }
@@ -843,6 +845,13 @@ Status NumPyConverter::ConvertObjectStrings() {
   StringBuilder builder(pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
+  // If the creator of this NumPyConverter specified a type,
+  // then we want to force the output type to be utf8. If
+  // the input data is PyBytes and not PyUnicode and
+  // not convertible to utf8, the call to AppendObjectStrings
+  // below will fail because we pass force_string as the
+  // value for check_valid.
+  bool force_string = type_ != nullptr && type_->Equals(utf8());
   bool global_have_bytes = false;
   if (length_ == 0) {
     // Produce an empty chunk
@@ -853,8 +862,10 @@ Status NumPyConverter::ConvertObjectStrings() {
     int64_t offset = 0;
     while (offset < length_) {
       bool chunk_have_bytes = false;
-      RETURN_NOT_OK(
-          AppendObjectStrings(arr_, mask_, offset, &builder, &offset, &chunk_have_bytes));
+      // Always set check_valid to true when force_string is true
+      RETURN_NOT_OK(AppendObjectStrings(arr_, mask_, offset,
+                                        force_string /* check_valid */, &builder, &offset,
+                                        &chunk_have_bytes));
 
       global_have_bytes = global_have_bytes | chunk_have_bytes;
       std::shared_ptr<Array> chunk;
@@ -863,8 +874,13 @@ Status NumPyConverter::ConvertObjectStrings() {
     }
   }
 
-  // If we saw PyBytes, convert everything to BinaryArray
-  if (global_have_bytes) {
+  // If we saw bytes, convert it to a binary array. If
+  // force_string was set to true, the input data could
+  // have been bytes but we've checked to make sure that
+  // it can be converted to utf-8 in the call to
+  // AppendObjectStrings. In that case, we can safely leave
+  // it as a utf8 type.
+  if (!force_string && global_have_bytes) {
     for (size_t i = 0; i < out_arrays_.size(); ++i) {
       auto binary_data = out_arrays_[i]->data()->Copy();
       binary_data->type = ::arrow::binary();
@@ -1392,8 +1408,12 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
       int64_t offset = 0;
-      RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, value_builder, &offset,
-                                        &have_bytes));
+      // If a type was specified and it was utf8, then we set
+      // check_valid to true. If any of the input cannot be
+      // converted, then we will exit early here.
+      bool check_valid = type_ != nullptr && type_->Equals(::arrow::utf8());
+      RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, check_valid,
+                                        value_builder, &offset, &have_bytes));
       if (offset < PyArray_SIZE(numpy_array)) {
         return Status::Invalid("Array cell value exceeded 2GB");
       }
