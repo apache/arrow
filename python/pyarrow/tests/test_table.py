@@ -44,6 +44,10 @@ def test_chunked_array_getitem():
     data_slice = data[4:-1]
     assert data_slice.to_pylist() == [5]
 
+    data_slice = data[99:99]
+    assert data_slice.type == data.type
+    assert data_slice.to_pylist() == []
+
 
 def test_column_basics():
     data = [
