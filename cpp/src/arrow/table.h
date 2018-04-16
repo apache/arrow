@@ -40,6 +40,7 @@ class Status;
 class ARROW_EXPORT ChunkedArray {
  public:
   explicit ChunkedArray(const ArrayVector& chunks);
+  ChunkedArray(const ArrayVector& chunks, const std::shared_ptr<DataType>& type);
 
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
@@ -68,7 +69,7 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Slice from offset until end of the chunked array
   std::shared_ptr<ChunkedArray> Slice(int64_t offset) const;
 
-  std::shared_ptr<DataType> type() const;
+  std::shared_ptr<DataType> type() const { return type_; }
 
   bool Equals(const ChunkedArray& other) const;
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
@@ -77,6 +78,7 @@ class ARROW_EXPORT ChunkedArray {
   ArrayVector chunks_;
   int64_t length_;
   int64_t null_count_;
+  std::shared_ptr<DataType> type_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
