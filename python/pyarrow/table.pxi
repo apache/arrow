@@ -271,12 +271,21 @@ cdef class Column:
     def __repr__(self):
         from pyarrow.compat import StringIO
         result = StringIO()
-        result.write(object.__repr__(self))
+        result.write('<Column name={0!r} type={1!r}>'
+                     .format(self.name, self.type))
         data = self.data
         for i, chunk in enumerate(data.chunks):
             result.write('\nchunk {0}: {1}'.format(i, repr(chunk)))
 
         return result.getvalue()
+
+    def __richcmp__(Column self, Column other, int op):
+        if op == cp.Py_EQ:
+            return self.equals(other)
+        elif op == cp.Py_NE:
+            return not self.equals(other)
+        else:
+            raise TypeError('Invalid comparison')
 
     @staticmethod
     def from_array(*args):
@@ -314,6 +323,29 @@ cdef class Column:
 
         casted_data = pyarrow_wrap_chunked_array(out.chunked_array())
         return column(self.name, casted_data)
+
+    def flatten(self, MemoryPool memory_pool=None):
+        """
+        Flatten this Column.  If it has a struct type, the column is
+        flattened into one column per struct field.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : List[Column]
+        """
+        cdef:
+            vector[shared_ptr[CColumn]] flattened
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(self.column.Flatten(pool, &flattened))
+
+        return [pyarrow_wrap_column(col) for col in flattened]
 
     def to_pandas(self,
                   c_bool strings_to_categorical=False,
@@ -843,6 +875,14 @@ cdef class Table:
             )
         return 0
 
+    def _validate(self):
+        """
+        Validate table consistency.
+        """
+        self._check_nullptr()
+        with nogil:
+            check_status(self.table.Validate())
+
     def replace_schema_metadata(self, dict metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema
@@ -866,6 +906,29 @@ cdef class Table:
             new_table = self.table.ReplaceSchemaMetadata(c_meta)
 
         return pyarrow_wrap_table(new_table)
+
+    def flatten(self, MemoryPool memory_pool=None):
+        """
+        Flatten this Table.  Each column with a struct type is flattened
+        into one column per struct field.  Other columns are left unchanged.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : Table
+        """
+        cdef:
+            shared_ptr[CTable] flattened
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(self.table.Flatten(pool, &flattened))
+
+        return pyarrow_wrap_table(flattened)
 
     def equals(self, Table other):
         """
