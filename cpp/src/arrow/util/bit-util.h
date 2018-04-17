@@ -531,6 +531,11 @@ ARROW_EXPORT
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                   int64_t right_offset, int64_t bit_length);
 
+ARROW_EXPORT
+Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
+
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_BIT_UTIL_H
