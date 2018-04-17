@@ -34,7 +34,7 @@ namespace io {
 
 static std::string GenerateRandomData(size_t nbytes) {
   // MSVC doesn't accept uint8_t for std::independent_bits_engine<>
-  typedef unsigned long UInt;
+  typedef unsigned long UInt;  // NOLINT
   std::independent_bits_engine<std::default_random_engine, 8 * sizeof(UInt), UInt> engine;
 
   std::vector<UInt> data(nbytes / sizeof(UInt) + 1);
