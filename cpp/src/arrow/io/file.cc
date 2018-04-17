@@ -388,8 +388,10 @@ class OSFile {
 
   Status Close() {
     if (is_open_) {
-      RETURN_NOT_OK(FileClose(fd_));
+      // Even if closing fails, the fd will likely be closed (perhaps it's
+      // already closed).
       is_open_ = false;
+      RETURN_NOT_OK(FileClose(fd_));
     }
     return Status::OK();
   }

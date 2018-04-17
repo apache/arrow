@@ -68,8 +68,8 @@ static inline bool FileExists(const std::string& path) {
 static inline void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
                                        const wchar_t* source_file,
                                        unsigned int source_line, uintptr_t reserved) {
-  wprintf(L"Invalid parameter in function %s. Source: %s line %d expression %s", func,
-          source_file, source_line, expr);
+  wprintf(L"Invalid parameter in function '%s'. Source: '%s' line %d expression '%s'\n",
+          func, source_file, source_line, expr);
 }
 #endif
 
@@ -82,8 +82,12 @@ static inline bool FileIsClosed(int fd) {
   // Disables possible assertion alert box on invalid input arguments
   _CrtSetReportMode(_CRT_ASSERT, 0);
 
-  int ret = static_cast<int>(_close(fd));
-  return (ret == -1);
+  int new_fd = _dup(fd);
+  if (new_fd == -1) {
+    return errno == EBADF;
+  }
+  _close(new_fd);
+  return false;
 #else
   if (-1 != fcntl(fd, F_GETFD)) {
     return false;
