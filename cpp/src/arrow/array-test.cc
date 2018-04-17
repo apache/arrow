@@ -725,8 +725,8 @@ TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
       chunk_values.push_back(values[i]);
       chunk_is_valid.push_back(is_valid[i]);
     }
-    ASSERT_OK(builder.Append(chunk_values, chunk_is_valid));
-    ASSERT_OK(builder_nn.Append(chunk_values));
+    ASSERT_OK(builder.AppendValues(chunk_values, chunk_is_valid));
+    ASSERT_OK(builder_nn.AppendValues(chunk_values));
   }
 
   std::shared_ptr<Array> result, result_nn;
@@ -1031,7 +1031,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
   int reps = 1000;
 
   for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder_->Append(strings, N, valid_bytes.data()));
+    ASSERT_OK(builder_->AppendValues(strings, N, valid_bytes.data()));
   }
   Done();
 
@@ -2397,7 +2397,7 @@ TEST(TestDecimalDictionaryBuilder, Basic) {
   auto dtype = arrow::dictionary(int8(), decimal_array);
 
   Int8Builder int_builder;
-  ASSERT_OK(int_builder.Append({0, 0, 1, 0}));
+  ASSERT_OK(int_builder.AppendValues({0, 0, 1, 0}));
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
@@ -3031,7 +3031,7 @@ TEST_F(TestStructBuilder, BulkAppend) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
 
   ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
                                   list_is_valid.data()));

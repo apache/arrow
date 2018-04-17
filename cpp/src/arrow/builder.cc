@@ -1056,7 +1056,7 @@ typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
 template <typename T>
 Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   entry_id_offset_ += dict_builder_.length();
-  RETURN_NOT_OK(overflow_dict_builder_.Append(
+  RETURN_NOT_OK(overflow_dict_builder_.AppendValues(
       reinterpret_cast<const DictionaryBuilder<T>::Scalar*>(dict_builder_.data()->data()),
       dict_builder_.length(), nullptr));
 
