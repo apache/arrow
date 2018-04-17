@@ -16,11 +16,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-curl -sL https://github.com/google/flatbuffers/archive/v1.6.0.tar.gz -o flatbuffers-1.6.0.tar.gz
-tar xf flatbuffers-1.6.0.tar.gz
-pushd flatbuffers-1.6.0
-cmake "-DCMAKE_CXX_FLAGS=-fPIC" "-DCMAKE_INSTALL_PREFIX:PATH=/usr" "-DFLATBUFFERS_BUILD_TESTS=OFF"
-make -j5
-make install
+export FLATBUFFERS_VERSION=1.9.0
+curl -sL https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz \
+    -o flatbuffers-${FLATBUFFERS_VERSION}.tar.gz
+tar xf flatbuffers-${FLATBUFFERS_VERSION}.tar.gz
+pushd flatbuffers-${FLATBUFFERS_VERSION}
+cmake \
+    "-DCMAKE_CXX_FLAGS=-fPIC" \
+    "-DCMAKE_INSTALL_PREFIX:PATH=/usr" \
+    -DFLATBUFFERS_BUILD_TESTS=OFF \
+    -DCMAKE_BUILD_TYPE=Release \
+    -GNinja
+ninja install
 popd
-rm -rf flatbuffers-1.6.0.tar.gz flatbuffers-1.6.0
+rm -rf flatbuffers-${FLATBUFFERS_VERSION}.tar.gz flatbuffers-${FLATBUFFERS_VERSION}
