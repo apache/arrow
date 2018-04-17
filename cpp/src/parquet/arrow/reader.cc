@@ -1235,17 +1235,6 @@ struct TransferFunctor<::arrow::Decimal128Type, Int64Type> {
   } break;
 
 Status PrimitiveImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>* out) {
-  if (!record_reader_->HasMoreData()) {
-    // Exhausted all row groups.
-    *out = nullptr;
-    return Status::OK();
-  }
-
-  if (field_->type()->id() == ::arrow::Type::NA) {
-    *out = std::make_shared<::arrow::NullArray>(records_to_read);
-    return Status::OK();
-  }
-
   try {
     // Pre-allocation gives much better performance for flat columns
     record_reader_->Reserve(records_to_read);
@@ -1282,6 +1271,11 @@ Status PrimitiveImpl::NextBatch(int64_t records_to_read, std::shared_ptr<Array>*
     TRANSFER_CASE(DATE32, ::arrow::Date32Type, Int32Type)
     TRANSFER_CASE(DATE64, ::arrow::Date64Type, Int32Type)
     TRANSFER_CASE(FIXED_SIZE_BINARY, ::arrow::FixedSizeBinaryType, FLBAType)
+    case ::arrow::Type::NA: {
+      *out = std::make_shared<::arrow::NullArray>(record_reader_->values_written());
+      RETURN_NOT_OK(WrapIntoListArray<Int32Type>(out));
+      break;
+    }
     case ::arrow::Type::DECIMAL: {
       switch (descr_->physical_type()) {
         case ::parquet::Type::INT32: {

@@ -193,9 +193,9 @@ class LevelBuilder {
   }
 
   Status HandleNonNullList(int16_t def_level, int16_t rep_level, int64_t index) {
-    int32_t inner_offset = offsets_[rep_level][index];
-    int32_t inner_length = offsets_[rep_level][index + 1] - inner_offset;
-    int64_t recursion_level = rep_level + 1;
+    const int32_t inner_offset = offsets_[rep_level][index];
+    const int32_t inner_length = offsets_[rep_level][index + 1] - inner_offset;
+    const int64_t recursion_level = rep_level + 1;
     if (inner_length == 0) {
       return def_levels_.Append(def_level);
     }
@@ -205,14 +205,21 @@ class LevelBuilder {
                                inner_length);
     } else {
       // We have reached the leaf: primitive list, handle remaining nullables
+      const bool nullable_level = nullable_[recursion_level];
+      const int64_t level_null_count = null_counts_[recursion_level];
+      const uint8_t* level_valid_bitmap = valid_bitmaps_[recursion_level];
+
       for (int64_t i = 0; i < inner_length; i++) {
         if (i > 0) {
           RETURN_NOT_OK(rep_levels_.Append(static_cast<int16_t>(rep_level + 1)));
         }
-        if (nullable_[recursion_level] &&
-            ((null_counts_[recursion_level] == 0) ||
-             BitUtil::GetBit(valid_bitmaps_[recursion_level],
-                             inner_offset + i + array_offsets_[recursion_level]))) {
+        if (level_null_count && level_valid_bitmap == nullptr) {
+          // Special case: this is a null array (all elements are null)
+          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
+        } else if (nullable_level && ((level_null_count == 0) ||
+            BitUtil::GetBit(level_valid_bitmap,
+                            inner_offset + i + array_offsets_[recursion_level]))) {
+          // Non-null element in a null level
           RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
         } else {
           // This can be produced in two case:

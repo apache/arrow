@@ -1000,23 +1000,56 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
 
 TEST_F(TestNullParquetIO, NullColumn) {
-  std::shared_ptr<Array> values = std::make_shared<::arrow::NullArray>(SMALL_SIZE);
-  std::shared_ptr<Table> table = MakeSimpleTable(values, true);
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
-  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
-                                values->length(), default_writer_properties()));
+  for (int32_t num_rows : {0, SMALL_SIZE}) {
+    std::shared_ptr<Array> values = std::make_shared<::arrow::NullArray>(num_rows);
+    std::shared_ptr<Table> table = MakeSimpleTable(values, true /* nullable */);
+    this->sink_ = std::make_shared<InMemoryOutputStream>();
 
-  std::shared_ptr<Table> out;
-  std::unique_ptr<FileReader> reader;
-  this->ReaderFromSink(&reader);
-  this->ReadTableFromFile(std::move(reader), &out);
-  ASSERT_EQ(1, out->num_columns());
-  ASSERT_EQ(100, out->num_rows());
+    const int64_t chunk_size = std::max(static_cast<int64_t>(1), table->num_rows());
+    ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
+                                  chunk_size, default_writer_properties()));
 
-  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
-  ASSERT_EQ(1, chunked_array->num_chunks());
+    std::shared_ptr<Table> out;
+    std::unique_ptr<FileReader> reader;
+    this->ReaderFromSink(&reader);
+    this->ReadTableFromFile(std::move(reader), &out);
+    ASSERT_EQ(1, out->num_columns());
+    ASSERT_EQ(num_rows, out->num_rows());
 
-  internal::AssertArraysEqual(*values, *chunked_array->chunk(0));
+    std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+    ASSERT_EQ(1, chunked_array->num_chunks());
+    internal::AssertArraysEqual(*values, *chunked_array->chunk(0));
+  }
+}
+
+TEST_F(TestNullParquetIO, NullListColumn) {
+  std::vector<int32_t> offsets1 = {0};
+  std::vector<int32_t> offsets2 = {0, 2, 2, 3, 115};
+  for (std::vector<int32_t> offsets : {offsets1, offsets2}) {
+    std::shared_ptr<Array> offsets_array, values_array, list_array;
+    ::arrow::ArrayFromVector<::arrow::Int32Type, int32_t>(offsets, &offsets_array);
+    values_array = std::make_shared<::arrow::NullArray>(offsets.back());
+    ASSERT_OK(::arrow::ListArray::FromArrays(*offsets_array, *values_array,
+                                             default_memory_pool(), &list_array));
+
+    std::shared_ptr<Table> table = MakeSimpleTable(list_array, false /* nullable */);
+    this->sink_ = std::make_shared<InMemoryOutputStream>();
+
+    const int64_t chunk_size = std::max(static_cast<int64_t>(1), table->num_rows());
+    ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
+                                  chunk_size, default_writer_properties()));
+
+    std::shared_ptr<Table> out;
+    std::unique_ptr<FileReader> reader;
+    this->ReaderFromSink(&reader);
+    this->ReadTableFromFile(std::move(reader), &out);
+    ASSERT_EQ(1, out->num_columns());
+    ASSERT_EQ(offsets.size() - 1, out->num_rows());
+
+    std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+    ASSERT_EQ(1, chunked_array->num_chunks());
+    internal::AssertArraysEqual(*list_array, *chunked_array->chunk(0));
+  }
 }
 
 TEST_F(TestNullParquetIO, NullDictionaryColumn) {
