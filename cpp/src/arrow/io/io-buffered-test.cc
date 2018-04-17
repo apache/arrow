@@ -33,9 +33,11 @@ namespace arrow {
 namespace io {
 
 static std::string GenerateRandomData(size_t nbytes) {
-  std::independent_bits_engine<std::default_random_engine, 8, uint8_t> engine;
+  // MSVC doesn't accept uint8_t for std::independent_bits_engine<>
+  typedef unsigned long UInt;
+  std::independent_bits_engine<std::default_random_engine, 8 * sizeof(UInt), UInt> engine;
 
-  std::vector<uint8_t> data(nbytes);
+  std::vector<UInt> data(nbytes / sizeof(UInt) + 1);
   std::generate(begin(data), end(data), std::ref(engine));
   return std::string(reinterpret_cast<char*>(data.data()), nbytes);
 }
