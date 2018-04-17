@@ -30,6 +30,7 @@ set(ARROW_SRCS
   type.cc
   visitor.cc
 
+  io/buffered.cc
   io/file.cc
   io/interfaces.cc
   io/memory.cc
