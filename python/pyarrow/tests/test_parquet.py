@@ -813,6 +813,9 @@ def _check_roundtrip(table, expected=None, **params):
     result = _roundtrip_table(table, **params)
     assert result.equals(expected)
 
+    result = _roundtrip_table(result, **params)
+    assert result.equals(expected)
+
 
 @parquet
 def test_multithreaded_read():
