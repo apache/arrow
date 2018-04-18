@@ -16,8 +16,8 @@
 // under the License.
 
 use libc;
-use std::mem;
 use std::cmp;
+use std::mem;
 
 use super::error::ArrowError;
 use super::error::Result;

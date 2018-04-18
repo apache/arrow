@@ -55,12 +55,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_list_u8() {
+    fn test_list_u8_default_capacity() {
         let mut b: ListBuilder<u8> = ListBuilder::new();
         b.push("Hello, ".as_bytes());
         b.push("World!".as_bytes());
         let buffer = b.finish();
 
+        assert_eq!(2, buffer.len());
+        assert_eq!("Hello, ".as_bytes(), buffer.slice(0));
+        assert_eq!("World!".as_bytes(), buffer.slice(1));
+    }
+
+    #[test]
+    fn test_list_u8_zero_capacity() {
+        let mut b: ListBuilder<u8> = ListBuilder::with_capacity(0);
+        b.push("Hello, ".as_bytes());
+        b.push("World!".as_bytes());
+        let buffer = b.finish();
         assert_eq!(2, buffer.len());
         assert_eq!("Hello, ".as_bytes(), buffer.slice(0));
         assert_eq!("World!".as_bytes(), buffer.slice(1));

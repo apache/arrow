@@ -83,8 +83,9 @@ impl<T> Builder<T> {
     pub fn push(&mut self, v: T) {
         assert!(!self.data.is_null());
         if self.len == self.capacity {
-            let new_capacity = self.capacity;
-            self.grow(new_capacity * 2);
+            // grow capacity by 64 bytes or double the current capacity, whichever is greater
+            let new_capacity = cmp::max(64, self.capacity * 2);
+            self.grow(new_capacity);
         }
         assert!(self.len < self.capacity);
         unsafe {
@@ -172,6 +173,14 @@ mod tests {
         let mut b: Builder<i32> = Builder::with_capacity(5);
         let a = b.finish();
         assert_eq!(0, a.len());
+    }
+
+    #[test]
+    fn test_builder_i32_alloc_zero_bytes() {
+        let mut b: Builder<i32> = Builder::with_capacity(0);
+        b.push(123);
+        let a = b.finish();
+        assert_eq!(1, a.len());
     }
 
     #[test]
