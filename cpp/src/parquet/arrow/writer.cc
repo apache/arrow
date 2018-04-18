@@ -969,7 +969,7 @@ class FileWriter::Impl {
       ::arrow::compute::Datum cast_output;
       RETURN_NOT_OK(Cast(&ctx, cast_input, dict_type.dictionary()->type(), CastOptions(),
                          &cast_output));
-      return WriteColumnChunk(cast_output.chunked_array(), 0, data->length());
+      return WriteColumnChunk(cast_output.chunked_array(), offset, size);
     }
 
     ColumnWriter* column_writer;

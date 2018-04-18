@@ -1759,6 +1759,69 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
   CheckSimpleRoundtrip(table, table->num_rows());
 }
 
+TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
+  // This is a regression test for this:
+  //
+  // https://issues.apache.org/jira/browse/ARROW-1938
+  //
+  // As of the writing of this test, columns of type
+  // dictionary are written as their raw/expanded values.
+  // The regression was that the whole column was being
+  // written for each chunk.
+  using ::arrow::ArrayFromVector;
+
+  std::vector<std::string> values = {"first", "second", "third"};
+  auto type = ::arrow::utf8();
+  std::shared_ptr<Array> dict_values;
+  ArrayFromVector<::arrow::StringType, std::string>(values, &dict_values);
+
+  auto dict_type = ::arrow::dictionary(::arrow::int32(), dict_values);
+  auto f0 = field("dictionary", dict_type);
+  std::vector<std::shared_ptr<::arrow::Field>> fields;
+  fields.emplace_back(f0);
+  auto schema = ::arrow::schema(fields);
+
+  std::shared_ptr<Array> f0_values, f1_values;
+  ArrayFromVector<::arrow::Int32Type, int32_t>({0, 1, 0, 2, 1}, &f0_values);
+  ArrayFromVector<::arrow::Int32Type, int32_t>({2, 0, 1, 0, 2}, &f1_values);
+  ::arrow::ArrayVector dict_arrays = {
+      std::make_shared<::arrow::DictionaryArray>(dict_type, f0_values),
+      std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values)};
+
+  std::vector<std::shared_ptr<::arrow::Column>> columns;
+  auto column = MakeColumn("column", dict_arrays, false);
+  columns.emplace_back(column);
+
+  auto table = Table::Make(schema, columns);
+
+  std::shared_ptr<Table> result;
+  DoSimpleRoundtrip(table, 1,
+                    // Just need to make sure that we make
+                    // a chunk size that is smaller than the
+                    // total number of values
+                    2, {}, &result);
+
+  std::vector<std::string> expected_values = {"first",  "second", "first", "third",
+                                              "second", "third",  "first", "second",
+                                              "first",  "third"};
+  columns.clear();
+
+  std::shared_ptr<Array> expected_array;
+  ArrayFromVector<::arrow::StringType, std::string>(expected_values, &expected_array);
+
+  // The column name gets changed on output to the name of the
+  // field, and it also turns into a nullable column
+  columns.emplace_back(MakeColumn("dictionary", expected_array, true));
+
+  fields.clear();
+  fields.emplace_back(::arrow::field("dictionary", ::arrow::utf8()));
+  schema = ::arrow::schema(fields);
+
+  auto expected_table = Table::Make(schema, columns);
+
+  AssertTablesEqual(*expected_table, *result, false);
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;
