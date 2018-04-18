@@ -683,8 +683,7 @@ Status RecordBatchFileReader::ReadRecordBatch(int i,
   return impl_->ReadRecordBatch(i, batch);
 }
 
-static Status ReadContiguousPayload(io::InputStream* file,
-                                    bool aligned,
+static Status ReadContiguousPayload(io::InputStream* file, bool aligned,
                                     std::unique_ptr<Message>* message) {
   RETURN_NOT_OK(ReadMessage(file, aligned, message));
   if (*message == nullptr) {
