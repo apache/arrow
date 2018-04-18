@@ -103,11 +103,12 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
   if (include_nulls) {
     std::shared_ptr<PoolBuffer> valid_bytes;
     RETURN_NOT_OK(test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes));
-    RETURN_NOT_OK(builder.Append(reinterpret_cast<const int32_t*>(data->data()), length,
-                                 valid_bytes->data()));
+    RETURN_NOT_OK(builder.AppendValues(reinterpret_cast<const int32_t*>(data->data()),
+                                       length, valid_bytes->data()));
     return builder.Finish(out);
   }
-  RETURN_NOT_OK(builder.Append(reinterpret_cast<const int32_t*>(data->data()), length));
+  RETURN_NOT_OK(
+      builder.AppendValues(reinterpret_cast<const int32_t*>(data->data()), length));
   return builder.Finish(out);
 }
 

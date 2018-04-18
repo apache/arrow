@@ -33,7 +33,7 @@ static void BM_BuildPrimitiveArrayNoNulls(
     Int64Builder builder;
     for (int i = 0; i < kFinalSize; i++) {
       // Build up an array of 512 MiB in size
-      ABORT_NOT_OK(builder.Append(data.data(), data.size(), nullptr));
+      ABORT_NOT_OK(builder.AppendValues(data.data(), data.size(), nullptr));
     }
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
@@ -69,7 +69,7 @@ static void BM_BuildAdaptiveIntNoNulls(
     AdaptiveIntBuilder builder;
     for (int64_t i = 0; i < size; i += chunk_size) {
       // Build up an array of 512 MiB in size
-      ABORT_NOT_OK(builder.Append(data.data() + i, chunk_size, nullptr));
+      ABORT_NOT_OK(builder.AppendValues(data.data() + i, chunk_size, nullptr));
     }
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
@@ -107,7 +107,7 @@ static void BM_BuildAdaptiveUIntNoNulls(
     AdaptiveUIntBuilder builder;
     for (int64_t i = 0; i < size; i += chunk_size) {
       // Build up an array of 512 MiB in size
-      ABORT_NOT_OK(builder.Append(data.data() + i, chunk_size, nullptr));
+      ABORT_NOT_OK(builder.AppendValues(data.data() + i, chunk_size, nullptr));
     }
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));

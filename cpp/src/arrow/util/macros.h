@@ -73,6 +73,23 @@
 
 // ----------------------------------------------------------------------
 
+// clang-format off
+// [[deprecated]] is only available in C++14, use this for the time being
+// This macro takes an optional deprecation message
+#if __cplusplus <= 201103L
+# ifdef __GNUC__
+#  define ARROW_DEPRECATED(...) __attribute__((deprecated(__VA_ARGS__)))
+# elif defined(_MSC_VER)
+#  define ARROW_DEPRECATED(...) __declspec(deprecated(__VA_ARGS__))
+# else
+#  define ARROW_DEPRECATED(...)
+# endif
+#else
+#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
+#endif
+
+// ----------------------------------------------------------------------
+
 // macros to disable padding
 // these macros are portable across different compilers and platforms
 //[https://github.com/google/flatbuffers/blob/master/include/flatbuffers/flatbuffers.h#L1355]
