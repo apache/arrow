@@ -254,7 +254,7 @@ class SeqVisitor {
   // Visits a specific element (inner part of the loop).
   Status VisitElem(const OwnedRef& item_ref, int level) {
     DCHECK_NE(item_ref.obj(), NULLPTR);
-    if (PyList_Check(item_ref.obj())) {
+    if (PyList_Check(item_ref.obj()) || PyArray_Check(item_ref.obj())) {
       RETURN_NOT_OK(Visit(item_ref.obj(), level + 1));
     } else if (PyDict_Check(item_ref.obj())) {
       return Status::NotImplemented("No type inference for dicts");
