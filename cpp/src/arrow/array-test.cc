@@ -592,7 +592,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   DECL_T();
 
   int64_t size = 10000;
@@ -604,8 +604,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
   // first slug
   int64_t K = 1000;
 
-  ASSERT_OK(this->builder_->Append(draws.data(), K, valid_bytes.data()));
-  ASSERT_OK(this->builder_nn_->Append(draws.data(), K));
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), K, valid_bytes.data()));
+  ASSERT_OK(this->builder_nn_->AppendValues(draws.data(), K));
 
   ASSERT_EQ(1000, this->builder_->length());
   ASSERT_EQ(1024, this->builder_->capacity());
@@ -614,8 +614,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
   ASSERT_EQ(1024, this->builder_nn_->capacity());
 
   // Append the next 9000
-  ASSERT_OK(this->builder_->Append(draws.data() + K, size - K, valid_bytes.data() + K));
-  ASSERT_OK(this->builder_nn_->Append(draws.data() + K, size - K));
+  ASSERT_OK(
+      this->builder_->AppendValues(draws.data() + K, size - K, valid_bytes.data() + K));
+  ASSERT_OK(this->builder_nn_->AppendValues(draws.data() + K, size - K));
 
   ASSERT_EQ(size, this->builder_->length());
   ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
@@ -624,7 +625,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendVectorStdBool) {
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   // ARROW-1383
   DECL_T();
 
@@ -641,8 +642,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVectorStdBool) {
   for (int64_t i = 0; i < K; ++i) {
     is_valid.push_back(this->valid_bytes_[i] != 0);
   }
-  ASSERT_OK(this->builder_->Append(draws.data(), K, is_valid));
-  ASSERT_OK(this->builder_nn_->Append(draws.data(), K));
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), K, is_valid));
+  ASSERT_OK(this->builder_nn_->AppendValues(draws.data(), K));
 
   ASSERT_EQ(1000, this->builder_->length());
   ASSERT_EQ(1024, this->builder_->capacity());
@@ -657,8 +658,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVectorStdBool) {
     is_valid.push_back(this->valid_bytes_[i] != 0);
   }
 
-  ASSERT_OK(this->builder_->Append(partial_draws, is_valid));
-  ASSERT_OK(this->builder_nn_->Append(partial_draws));
+  ASSERT_OK(this->builder_->AppendValues(partial_draws, is_valid));
+  ASSERT_OK(this->builder_nn_->AppendValues(partial_draws));
 
   ASSERT_EQ(size, this->builder_->length());
   ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
@@ -724,8 +725,8 @@ TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
       chunk_values.push_back(values[i]);
       chunk_is_valid.push_back(is_valid[i]);
     }
-    ASSERT_OK(builder.Append(chunk_values, chunk_is_valid));
-    ASSERT_OK(builder_nn.Append(chunk_values));
+    ASSERT_OK(builder.AppendValues(chunk_values, chunk_is_valid));
+    ASSERT_OK(builder_nn.AppendValues(chunk_values));
   }
 
   std::shared_ptr<Array> result, result_nn;
@@ -997,7 +998,7 @@ TEST_F(TestStringBuilder, TestAppendVector) {
   int reps = 1000;
 
   for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder_->Append(strings, valid_bytes.data()));
+    ASSERT_OK(builder_->AppendValues(strings, valid_bytes.data()));
   }
   Done();
 
@@ -1030,7 +1031,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
   int reps = 1000;
 
   for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder_->Append(strings, N, valid_bytes.data()));
+    ASSERT_OK(builder_->AppendValues(strings, N, valid_bytes.data()));
   }
   Done();
 
@@ -1063,7 +1064,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
   int reps = 1000;
 
   for (int j = 0; j < reps; ++j) {
-    ASSERT_OK(builder_->Append(strings, N));
+    ASSERT_OK(builder_->AppendValues(strings, N));
   }
   Done();
 
@@ -1427,8 +1428,9 @@ TEST_F(TestFWBinaryArray, Builder) {
 
   const uint8_t* raw_is_valid = is_valid.data();
 
-  ASSERT_OK(builder_->Append(raw_data, 50, raw_is_valid));
-  ASSERT_OK(builder_->Append(raw_data + 50 * byte_width, length - 50, raw_is_valid + 50));
+  ASSERT_OK(builder_->AppendValues(raw_data, 50, raw_is_valid));
+  ASSERT_OK(
+      builder_->AppendValues(raw_data + 50 * byte_width, length - 50, raw_is_valid + 50));
   ASSERT_OK(builder_->Finish(&result));
   CheckResult(*result);
 
@@ -1659,10 +1661,10 @@ TEST_F(TestAdaptiveIntBuilder, TestInt64) {
   ASSERT_TRUE(expected_->Equals(result_));
 }
 
-TEST_F(TestAdaptiveIntBuilder, TestAppendVector) {
+TEST_F(TestAdaptiveIntBuilder, TestAppendValues) {
   std::vector<int64_t> expected_values(
       {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
-  ASSERT_OK(builder_->Append(expected_values.data(), expected_values.size()));
+  ASSERT_OK(builder_->AppendValues(expected_values.data(), expected_values.size()));
   Done();
 
   ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
@@ -1754,10 +1756,10 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt64) {
   ASSERT_TRUE(expected_->Equals(result_));
 }
 
-TEST_F(TestAdaptiveUIntBuilder, TestAppendVector) {
+TEST_F(TestAdaptiveUIntBuilder, TestAppendValues) {
   std::vector<uint64_t> expected_values(
       {0, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1});
-  ASSERT_OK(builder_->Append(expected_values.data(), expected_values.size()));
+  ASSERT_OK(builder_->AppendValues(expected_values.data(), expected_values.size()));
   Done();
 
   ArrayFromVector<UInt64Type, uint64_t>(expected_values, &expected_);
@@ -2395,7 +2397,7 @@ TEST(TestDecimalDictionaryBuilder, Basic) {
   auto dtype = arrow::dictionary(int8(), decimal_array);
 
   Int8Builder int_builder;
-  ASSERT_OK(int_builder.Append({0, 0, 1, 0}));
+  ASSERT_OK(int_builder.AppendValues({0, 0, 1, 0}));
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
@@ -2497,17 +2499,17 @@ TEST_F(TestListArray, Equality) {
   vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
 
   // setup two equal arrays
-  ASSERT_OK(builder_->Append(equal_offsets.data(), equal_offsets.size()));
-  ASSERT_OK(vb->Append(equal_values.data(), equal_values.size()));
+  ASSERT_OK(builder_->AppendValues(equal_offsets.data(), equal_offsets.size()));
+  ASSERT_OK(vb->AppendValues(equal_values.data(), equal_values.size()));
 
   ASSERT_OK(builder_->Finish(&array));
-  ASSERT_OK(builder_->Append(equal_offsets.data(), equal_offsets.size()));
-  ASSERT_OK(vb->Append(equal_values.data(), equal_values.size()));
+  ASSERT_OK(builder_->AppendValues(equal_offsets.data(), equal_offsets.size()));
+  ASSERT_OK(vb->AppendValues(equal_values.data(), equal_values.size()));
 
   ASSERT_OK(builder_->Finish(&equal_array));
   // now an unequal one
-  ASSERT_OK(builder_->Append(unequal_offsets.data(), unequal_offsets.size()));
-  ASSERT_OK(vb->Append(unequal_values.data(), unequal_values.size()));
+  ASSERT_OK(builder_->AppendValues(unequal_offsets.data(), unequal_offsets.size()));
+  ASSERT_OK(vb->AppendValues(unequal_values.data(), unequal_values.size()));
 
   ASSERT_OK(builder_->Finish(&unequal_array));
 
@@ -2678,7 +2680,7 @@ TEST_F(TestListArray, BulkAppend) {
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
   ASSERT_OK(vb->Reserve(values.size()));
 
-  ASSERT_OK(builder_->Append(offsets.data(), offsets.size(), is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(offsets.data(), offsets.size(), is_valid.data()));
   for (int32_t value : values) {
     ASSERT_OK(vb->Append(value));
   }
@@ -2696,8 +2698,8 @@ TEST_F(TestListArray, BulkAppendInvalid) {
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
   ASSERT_OK(vb->Reserve(values.size()));
 
-  ASSERT_OK(builder_->Append(offsets.data(), offsets.size(), is_valid.data()));
-  ASSERT_OK(builder_->Append(offsets.data(), offsets.size(), is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(offsets.data(), offsets.size(), is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(offsets.data(), offsets.size(), is_valid.data()));
   for (int32_t value : values) {
     ASSERT_OK(vb->Append(value));
   }
@@ -3029,10 +3031,10 @@ TEST_F(TestStructBuilder, BulkAppend) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
 
-  ASSERT_OK(
-      list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data()));
+  ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
+                                  list_is_valid.data()));
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }
@@ -3061,10 +3063,10 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
   ASSERT_OK(char_vb->Reserve(list_values.size()));
   ASSERT_OK(int_vb->Reserve(int_values.size()));
 
-  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
 
-  ASSERT_OK(
-      list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data()));
+  ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
+                                  list_is_valid.data()));
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }
@@ -3103,9 +3105,9 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(int_vb->Reserve(int_values.size()));
 
   // setup two equal arrays, one of which takes an unequal bitmap
-  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
-  ASSERT_OK(
-      list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
+                                  list_is_valid.data()));
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }
@@ -3119,9 +3121,9 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
-  ASSERT_OK(
-      list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
+                                  list_is_valid.data()));
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }
@@ -3136,10 +3138,10 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
   // setup an unequal one with the unequal bitmap
-  ASSERT_OK(
-      builder_->Append(unequal_struct_is_valid.size(), unequal_struct_is_valid.data()));
-  ASSERT_OK(
-      list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(unequal_struct_is_valid.size(),
+                                   unequal_struct_is_valid.data()));
+  ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
+                                  list_is_valid.data()));
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }
@@ -3154,9 +3156,10 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
   // setup an unequal one with unequal offsets
-  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
-  ASSERT_OK(list_vb->Append(unequal_list_offsets.data(), unequal_list_offsets.size(),
-                            unequal_list_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(list_vb->AppendValues(unequal_list_offsets.data(),
+                                  unequal_list_offsets.size(),
+                                  unequal_list_is_valid.data()));
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }
@@ -3171,9 +3174,9 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
   // setup anunequal one with unequal values
-  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
-  ASSERT_OK(
-      list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
+                                  list_is_valid.data()));
   for (int8_t value : unequal_list_values) {
     char_vb->UnsafeAppend(value);
   }
@@ -3230,9 +3233,9 @@ TEST_F(TestStructBuilder, TestSlice) {
   ASSERT_OK(char_vb->Reserve(list_values.size()));
   ASSERT_OK(int_vb->Reserve(int_values.size()));
 
-  ASSERT_OK(builder_->Append(struct_is_valid.size(), struct_is_valid.data()));
-  ASSERT_OK(
-      list_vb->Append(list_offsets.data(), list_offsets.size(), list_is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
+  ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
+                                  list_is_valid.data()));
   for (int8_t value : list_values) {
     char_vb->UnsafeAppend(value);
   }

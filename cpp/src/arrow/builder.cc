@@ -265,8 +265,8 @@ Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
-                                   const uint8_t* valid_bytes) {
+Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
+                                         const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
@@ -282,7 +282,13 @@ Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
 
 template <typename T>
 Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
-                                   const std::vector<bool>& is_valid) {
+                                   const uint8_t* valid_bytes) {
+  return AppendValues(values, length, valid_bytes);
+}
+
+template <typename T>
+Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
+                                         const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
 
@@ -298,14 +304,31 @@ Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
 }
 
 template <typename T>
+Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
+                                   const std::vector<bool>& is_valid) {
+  return AppendValues(values, length, is_valid);
+}
+
+template <typename T>
+Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values,
+                                         const std::vector<bool>& is_valid) {
+  return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
+}
+
+template <typename T>
 Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values,
                                    const std::vector<bool>& is_valid) {
-  return Append(values.data(), static_cast<int64_t>(values.size()), is_valid);
+  return AppendValues(values, is_valid);
+}
+
+template <typename T>
+Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values) {
+  return AppendValues(values.data(), static_cast<int64_t>(values.size()));
 }
 
 template <typename T>
 Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values) {
-  return Append(values.data(), static_cast<int64_t>(values.size()));
+  return AppendValues(values);
 }
 
 template <typename T>
@@ -411,8 +434,8 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-Status AdaptiveIntBuilder::Append(const int64_t* values, int64_t length,
-                                  const uint8_t* valid_bytes) {
+Status AdaptiveIntBuilder::AppendValues(const int64_t* values, int64_t length,
+                                        const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
@@ -466,6 +489,11 @@ Status AdaptiveIntBuilder::Append(const int64_t* values, int64_t length,
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
 
   return Status::OK();
+}
+
+Status AdaptiveIntBuilder::Append(const int64_t* values, int64_t length,
+                                  const uint8_t* valid_bytes) {
+  return AppendValues(values, length, valid_bytes);
 }
 
 template <typename new_type, typename old_type>
@@ -567,8 +595,8 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
-                                   const uint8_t* valid_bytes) {
+Status AdaptiveUIntBuilder::AppendValues(const uint64_t* values, int64_t length,
+                                         const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
@@ -622,6 +650,11 @@ Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
 
   return Status::OK();
+}
+
+Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
+                                   const uint8_t* valid_bytes) {
+  return AppendValues(values, length, valid_bytes);
 }
 
 template <typename new_type, typename old_type>
@@ -744,8 +777,8 @@ Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
-                              const uint8_t* valid_bytes) {
+Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
+                                    const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   for (int64_t i = 0; i < length; ++i) {
@@ -758,7 +791,12 @@ Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
 }
 
 Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
-                              const std::vector<bool>& is_valid) {
+                              const uint8_t* valid_bytes) {
+  return AppendValues(values, length, valid_bytes);
+}
+
+Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
+                                    const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
 
@@ -771,17 +809,31 @@ Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
   return Status::OK();
 }
 
+Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
+                              const std::vector<bool>& is_valid) {
+  return AppendValues(values, length, is_valid);
+}
+
+Status BooleanBuilder::AppendValues(const std::vector<uint8_t>& values,
+                                    const std::vector<bool>& is_valid) {
+  return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
+}
+
 Status BooleanBuilder::Append(const std::vector<uint8_t>& values,
                               const std::vector<bool>& is_valid) {
-  return Append(values.data(), static_cast<int64_t>(values.size()), is_valid);
+  return AppendValues(values, is_valid);
+}
+
+Status BooleanBuilder::AppendValues(const std::vector<uint8_t>& values) {
+  return AppendValues(values.data(), static_cast<int64_t>(values.size()));
 }
 
 Status BooleanBuilder::Append(const std::vector<uint8_t>& values) {
-  return Append(values.data(), static_cast<int64_t>(values.size()));
+  return AppendValues(values);
 }
 
-Status BooleanBuilder::Append(const std::vector<bool>& values,
-                              const std::vector<bool>& is_valid) {
+Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
+                                    const std::vector<bool>& is_valid) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
@@ -795,7 +847,12 @@ Status BooleanBuilder::Append(const std::vector<bool>& values,
   return Status::OK();
 }
 
-Status BooleanBuilder::Append(const std::vector<bool>& values) {
+Status BooleanBuilder::Append(const std::vector<bool>& values,
+                              const std::vector<bool>& is_valid) {
+  return AppendValues(values, is_valid);
+}
+
+Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
 
@@ -805,6 +862,10 @@ Status BooleanBuilder::Append(const std::vector<bool>& values) {
 
   ArrayBuilder::UnsafeSetNotNull(length);
   return Status::OK();
+}
+
+Status BooleanBuilder::Append(const std::vector<bool>& values) {
+  return AppendValues(values);
 }
 
 // ----------------------------------------------------------------------
@@ -995,7 +1056,7 @@ typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
 template <typename T>
 Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   entry_id_offset_ += dict_builder_.length();
-  RETURN_NOT_OK(overflow_dict_builder_.Append(
+  RETURN_NOT_OK(overflow_dict_builder_.AppendValues(
       reinterpret_cast<const DictionaryBuilder<T>::Scalar*>(dict_builder_.data()->data()),
       dict_builder_.length(), nullptr));
 
@@ -1226,12 +1287,17 @@ ListBuilder::ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_b
       offsets_builder_(pool),
       value_builder_(std::move(value_builder)) {}
 
-Status ListBuilder::Append(const int32_t* offsets, int64_t length,
-                           const uint8_t* valid_bytes) {
+Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
+                                 const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   offsets_builder_.UnsafeAppend(offsets, length);
   return Status::OK();
+}
+
+Status ListBuilder::Append(const int32_t* offsets, int64_t length,
+                           const uint8_t* valid_bytes) {
+  return AppendValues(offsets, length, valid_bytes);
 }
 
 Status ListBuilder::AppendNextOffset() {
@@ -1385,8 +1451,8 @@ const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
 
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
 
-Status StringBuilder::Append(const std::vector<std::string>& values,
-                             const uint8_t* valid_bytes) {
+Status StringBuilder::AppendValues(const std::vector<std::string>& values,
+                                   const uint8_t* valid_bytes) {
   std::size_t total_length = std::accumulate(
       values.begin(), values.end(), 0ULL,
       [](uint64_t sum, const std::string& str) { return sum + str.size(); });
@@ -1413,8 +1479,13 @@ Status StringBuilder::Append(const std::vector<std::string>& values,
   return Status::OK();
 }
 
-Status StringBuilder::Append(const char** values, int64_t length,
+Status StringBuilder::Append(const std::vector<std::string>& values,
                              const uint8_t* valid_bytes) {
+  return AppendValues(values, valid_bytes);
+}
+
+Status StringBuilder::AppendValues(const char** values, int64_t length,
+                                   const uint8_t* valid_bytes) {
   std::size_t total_length = 0;
   std::vector<std::size_t> value_lengths(length);
   bool have_null_value = false;
@@ -1471,6 +1542,11 @@ Status StringBuilder::Append(const char** values, int64_t length,
   return Status::OK();
 }
 
+Status StringBuilder::Append(const char** values, int64_t length,
+                             const uint8_t* valid_bytes) {
+  return AppendValues(values, length, valid_bytes);
+}
+
 // ----------------------------------------------------------------------
 // Fixed width binary
 
@@ -1480,11 +1556,16 @@ FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& 
       byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
 
-Status FixedSizeBinaryBuilder::Append(const uint8_t* data, int64_t length,
-                                      const uint8_t* valid_bytes) {
+Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
+                                            const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   return byte_builder_.Append(data, length * byte_width_);
+}
+
+Status FixedSizeBinaryBuilder::Append(const uint8_t* data, int64_t length,
+                                      const uint8_t* valid_bytes) {
+  return AppendValues(data, length, valid_bytes);
 }
 
 Status FixedSizeBinaryBuilder::Append(const std::string& value) {
