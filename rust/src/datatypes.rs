@@ -150,6 +150,18 @@ impl Field {
         }
     }
 
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn data_type(&self) -> &DataType {
+        &self.data_type
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        self.nullable
+    }
+
     /// Parse a field definition from a JSON representation
     pub fn from(json: &Value) -> Result<Self, ArrowError> {
         //println!("Field::from({:?}", json);
@@ -214,7 +226,7 @@ impl fmt::Display for Field {
 /// Arrow Schema
 #[derive(Debug, Clone)]
 pub struct Schema {
-    pub columns: Vec<Field>,
+    columns: Vec<Field>,
 }
 
 impl Schema {
@@ -225,6 +237,10 @@ impl Schema {
 
     pub fn new(columns: Vec<Field>) -> Self {
         Schema { columns: columns }
+    }
+
+    pub fn columns(&self) -> &Vec<Field> {
+        &self.columns
     }
 
     /// look up a column by name and return a reference to the column along with it's index
