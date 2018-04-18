@@ -347,9 +347,18 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
 
       int64_t values_read = 0;
       while (col_reader->HasNext()) {
-        total_rows[col] +=
+        int64_t levels_read =
             ScanAllValues(column_batch_size, def_levels.data(), rep_levels.data(),
                           values.data(), &values_read, col_reader.get());
+        if (col_reader->descr()->max_repetition_level() > 0) {
+          for (int64_t i = 0; i < levels_read; i++) {
+            if (rep_levels[i] == 0) {
+              total_rows[col]++;
+            }
+          }
+        } else {
+          total_rows[col] += levels_read;
+        }
       }
       col++;
     }
