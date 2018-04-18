@@ -602,7 +602,14 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
 
   const bool is_nanosecond = type.unit() == TimeUnit::NANO;
 
-  if (is_nanosecond && ctx_->properties->support_deprecated_int96_timestamps()) {
+  // In the case where support_deprecated_int96_timestamps was specified
+  // and coerce_timestamps_enabled was specified, a nanosecond column
+  // will have a physical type of int64. In that case, we fall through
+  // to the else if below.
+  //
+  // See https://issues.apache.org/jira/browse/ARROW-2082
+  if (is_nanosecond && ctx_->properties->support_deprecated_int96_timestamps() &&
+      !ctx_->properties->coerce_timestamps_enabled()) {
     return TypedWriteBatch<Int96Type, ::arrow::TimestampType>(values, num_levels,
                                                               def_levels, rep_levels);
   } else if (is_nanosecond ||

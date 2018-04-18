@@ -1436,6 +1436,64 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   AssertTablesEqual(*ex_table, *result);
 }
 
+// Regression for ARROW-2802
+TEST(TestArrowReadWrite, CoerceTimestampsAndSupportDeprecatedInt96) {
+  using ::arrow::Column;
+  using ::arrow::Field;
+  using ::arrow::Schema;
+  using ::arrow::Table;
+  using ::arrow::TimeUnit;
+  using ::arrow::TimestampType;
+  using ::arrow::TimestampBuilder;
+  using ::arrow::default_memory_pool;
+
+  auto timestamp_type = std::make_shared<TimestampType>(TimeUnit::NANO);
+
+  TimestampBuilder builder(timestamp_type, default_memory_pool());
+  for (std::int64_t ii = 0; ii < 10; ++ii) {
+    ASSERT_OK(builder.Append(1000000000L * ii));
+  }
+  std::shared_ptr<Array> values;
+  ASSERT_OK(builder.Finish(&values));
+
+  std::vector<std::shared_ptr<Field>> fields;
+  auto field = std::make_shared<Field>("nanos", timestamp_type);
+  fields.emplace_back(field);
+
+  auto schema = std::make_shared<Schema>(fields);
+
+  std::vector<std::shared_ptr<Column>> columns;
+  auto column = std::make_shared<Column>("nanos", values);
+  columns.emplace_back(column);
+
+  auto table = Table::Make(schema, columns);
+
+  auto arrow_writer_properties = ArrowWriterProperties::Builder()
+                                     .coerce_timestamps(TimeUnit::MICRO)
+                                     ->enable_deprecated_int96_timestamps()
+                                     ->build();
+
+  std::shared_ptr<Table> result;
+  DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result, arrow_writer_properties);
+
+  ASSERT_EQ(table->num_columns(), result->num_columns());
+  ASSERT_EQ(table->num_rows(), result->num_rows());
+
+  auto actual_column = result->column(0);
+  auto data = actual_column->data();
+  auto expected_values =
+      static_cast<::arrow::NumericArray<TimestampType>*>(values.get())->raw_values();
+  for (int ii = 0; ii < data->num_chunks(); ++ii) {
+    auto chunk =
+        static_cast<::arrow::NumericArray<TimestampType>*>(data->chunk(ii).get());
+    auto values = chunk->raw_values();
+    for (int64_t jj = 0; jj < chunk->length(); ++jj, ++expected_values) {
+      // Check that the nanos have been converted to micros
+      ASSERT_EQ(*expected_values / 1000, values[jj]);
+    }
+  }
+}
+
 void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
                      std::shared_ptr<Table>* out) {
   std::shared_ptr<::arrow::Column> column;
