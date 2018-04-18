@@ -15,37 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Ensure 64-bit off_t for platforms where it matters
-#ifdef _FILE_OFFSET_BITS
-#undef _FILE_OFFSET_BITS
-#endif
-
-#define _FILE_OFFSET_BITS 64
-
-// define max read/write count
-#if defined(_MSC_VER)
-#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
-#else
-
-#ifdef __APPLE__
-// due to macOS bug, we need to set read/write max
-#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
-#else
-// see notes on Linux read/write manpage
-#define ARROW_MAX_IO_CHUNKSIZE 0x7ffff000
-#endif
-
-#endif
-
-#include "arrow/io/file.h"
-
-#if _WIN32 || _WIN64
-#if _WIN64
-#define ENVIRONMENT64
-#else
-#define ENVIRONMENT32
-#endif
-#endif
+#include "arrow/io/windows_compatibility.h"
 
 // sys/mman.h not present in Visual Studio or Cygwin
 #ifdef _WIN32
@@ -55,304 +25,33 @@
 #include "arrow/io/mman.h"
 #undef Realloc
 #undef Free
-#include <windows.h>
 #else
 #include <sys/mman.h>
 #endif
+
+#include <string.h>
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
-#include <sstream>  // IWYU pragma: keep
-
-#if defined(_MSC_VER)
-#include <codecvt>
-#include <locale>
-#endif
-
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>  // IWYU pragma: keep
-
-#ifndef _MSC_VER  // POSIX-like platforms
-
-#include <unistd.h>
-
-// Not available on some platforms
-#ifndef errno_t
-#define errno_t int
-#endif
-
-#endif  // _MSC_VER
-
-// defines that don't exist in MinGW
-#if defined(__MINGW32__)
-#define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR
-#elif defined(_MSC_VER)  // Visual Studio
-
-#else  // gcc / clang on POSIX platforms
-#define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
-#endif
-
-// ----------------------------------------------------------------------
-// file compatibility stuff
-
-#if defined(__MINGW32__)  // MinGW
-// nothing
-#elif defined(_MSC_VER)  // Visual Studio
-#include <io.h>
-#else  // POSIX / Linux
-// nothing
-#endif
-
-// POSIX systems do not have this
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
+#include <sstream>
 
 // ----------------------------------------------------------------------
 // Other Arrow includes
 
+#include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
 
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
 
-#if defined(_MSC_VER)
-#include <boost/filesystem.hpp>           // NOLINT
-#include <boost/system/system_error.hpp>  // NOLINT
-namespace fs = boost::filesystem;
-#define PlatformFilename fs::path
-
 namespace arrow {
 namespace io {
-
-#else
-namespace arrow {
-namespace io {
-
-struct PlatformFilename {
-  PlatformFilename() {}
-  explicit PlatformFilename(const std::string& path) { utf8_path = path; }
-
-  const char* c_str() const { return utf8_path.c_str(); }
-
-  const std::string& string() const { return utf8_path; }
-
-  size_t length() const { return utf8_path.size(); }
-
-  std::string utf8_path;
-};
-#endif
-
-static inline Status CheckFileOpResult(int ret, int errno_actual,
-                                       const PlatformFilename& file_name,
-                                       const std::string& opname) {
-  if (ret == -1) {
-    std::stringstream ss;
-    ss << "Failed to " << opname << " file: " << file_name.string();
-    ss << " , error: " << std::strerror(errno_actual);
-    return Status::IOError(ss.str());
-  }
-  return Status::OK();
-}
-
-#define CHECK_LSEEK(retval) \
-  if ((retval) == -1) return Status::IOError("lseek failed");
-
-static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
-#if defined(_MSC_VER)
-  return _lseeki64(fd, pos, whence);
-#else
-  return lseek(fd, pos, whence);
-#endif
-}
-
-static inline Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
-  int ret;
-  errno_t errno_actual = 0;
-#if defined(_MSC_VER)
-  errno_actual = _wsopen_s(fd, file_name.wstring().c_str(), _O_RDONLY | _O_BINARY,
-                           _SH_DENYNO, _S_IREAD);
-  ret = *fd;
-#else
-  ret = *fd = open(file_name.c_str(), O_RDONLY | O_BINARY);
-  errno_actual = errno;
-#endif
-
-  return CheckFileOpResult(ret, errno_actual, file_name, "open local");
-}
-
-static inline Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
-                                       bool truncate, int* fd) {
-  int ret;
-  errno_t errno_actual = 0;
-
-#if defined(_MSC_VER)
-  int oflag = _O_CREAT | _O_BINARY;
-  int pmode = _S_IWRITE;
-  if (!write_only) {
-    pmode |= _S_IREAD;
-  }
-
-  if (truncate) {
-    oflag |= _O_TRUNC;
-  }
-
-  if (write_only) {
-    oflag |= _O_WRONLY;
-  } else {
-    oflag |= _O_RDWR;
-  }
-
-  errno_actual = _wsopen_s(fd, file_name.wstring().c_str(), oflag, _SH_DENYNO, pmode);
-  ret = *fd;
-
-#else
-  int oflag = O_CREAT | O_BINARY;
-
-  if (truncate) {
-    oflag |= O_TRUNC;
-  }
-
-  if (write_only) {
-    oflag |= O_WRONLY;
-  } else {
-    oflag |= O_RDWR;
-  }
-
-  ret = *fd = open(file_name.c_str(), oflag, ARROW_WRITE_SHMODE);
-#endif
-  return CheckFileOpResult(ret, errno_actual, file_name, "open local");
-}
-
-static inline Status FileTell(int fd, int64_t* pos) {
-  int64_t current_pos;
-
-#if defined(_MSC_VER)
-  current_pos = _telli64(fd);
-  if (current_pos == -1) {
-    return Status::IOError("_telli64 failed");
-  }
-#else
-  current_pos = lseek64_compat(fd, 0, SEEK_CUR);
-  CHECK_LSEEK(current_pos);
-#endif
-
-  *pos = current_pos;
-  return Status::OK();
-}
-
-static inline Status FileSeek(int fd, int64_t pos) {
-  int64_t ret = lseek64_compat(fd, pos, SEEK_SET);
-  CHECK_LSEEK(ret);
-  return Status::OK();
-}
-
-static inline Status FileRead(const int fd, uint8_t* buffer, const int64_t nbytes,
-                              int64_t* bytes_read) {
-  *bytes_read = 0;
-
-  while (*bytes_read != -1 && *bytes_read < nbytes) {
-    int64_t chunksize =
-        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - *bytes_read);
-#if defined(_MSC_VER)
-    int64_t ret = static_cast<int64_t>(
-        _read(fd, buffer + *bytes_read, static_cast<uint32_t>(chunksize)));
-#else
-    int64_t ret = static_cast<int64_t>(
-        read(fd, buffer + *bytes_read, static_cast<size_t>(chunksize)));
-#endif
-
-    if (ret != -1) {
-      *bytes_read += ret;
-      if (ret < chunksize) {
-        // EOF
-        break;
-      }
-    } else {
-      *bytes_read = ret;
-    }
-  }
-
-  if (*bytes_read == -1) {
-    return Status::IOError(std::string("Error reading bytes from file: ") +
-                           std::string(strerror(errno)));
-  }
-
-  return Status::OK();
-}
-
-static inline Status FileWrite(const int fd, const uint8_t* buffer,
-                               const int64_t nbytes) {
-  int ret = 0;
-  int64_t bytes_written = 0;
-
-  while (ret != -1 && bytes_written < nbytes) {
-    int64_t chunksize =
-        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_written);
-#if defined(_MSC_VER)
-    ret = static_cast<int>(
-        _write(fd, buffer + bytes_written, static_cast<uint32_t>(chunksize)));
-#else
-    ret = static_cast<int>(
-        write(fd, buffer + bytes_written, static_cast<size_t>(chunksize)));
-#endif
-
-    if (ret != -1) {
-      bytes_written += ret;
-    }
-  }
-
-  if (ret == -1) {
-    return Status::IOError(std::string("Error writing bytes from file: ") +
-                           std::string(strerror(errno)));
-  }
-  return Status::OK();
-}
-
-static inline Status FileGetSize(int fd, int64_t* size) {
-  int64_t ret;
-
-  // Save current position
-  int64_t current_position = lseek64_compat(fd, 0, SEEK_CUR);
-  CHECK_LSEEK(current_position);
-
-  // move to end of the file
-  ret = lseek64_compat(fd, 0, SEEK_END);
-  CHECK_LSEEK(ret);
-
-  // Get file length
-  ret = lseek64_compat(fd, 0, SEEK_CUR);
-  CHECK_LSEEK(ret);
-
-  *size = ret;
-
-  // Restore file position
-  ret = lseek64_compat(fd, current_position, SEEK_SET);
-  CHECK_LSEEK(ret);
-
-  return Status::OK();
-}
-
-static inline Status FileClose(int fd) {
-  int ret;
-
-#if defined(_MSC_VER)
-  ret = static_cast<int>(_close(fd));
-#else
-  ret = static_cast<int>(close(fd));
-#endif
-
-  if (ret == -1) {
-    return Status::IOError("error closing file");
-  }
-  return Status::OK();
-}
 
 class OSFile {
  public:
@@ -360,29 +59,54 @@ class OSFile {
 
   ~OSFile() {}
 
+  // Note: only one of the Open* methods below may be called on a given instance
+
   Status OpenWriteable(const std::string& path, bool append, bool write_only) {
     RETURN_NOT_OK(SetFileName(path));
 
-    RETURN_NOT_OK(FileOpenWriteable(file_name_, write_only, !append, &fd_));
+    RETURN_NOT_OK(internal::FileOpenWriteable(file_name_, write_only, !append, &fd_));
     is_open_ = true;
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
     if (append) {
-      RETURN_NOT_OK(FileGetSize(fd_, &size_));
+      RETURN_NOT_OK(internal::FileGetSize(fd_, &size_));
     } else {
       size_ = 0;
     }
     return Status::OK();
   }
 
+  // This is different from OpenWriteable(string, ...) in that it doesn't
+  // truncate nor mandate a seekable file
+  Status OpenWriteable(int fd) {
+    if (!internal::FileGetSize(fd, &size_).ok()) {
+      // Non-seekable file
+      size_ = -1;
+    }
+    RETURN_NOT_OK(SetFileName(fd));
+    is_open_ = true;
+    mode_ = FileMode::WRITE;
+    fd_ = fd;
+    return Status::OK();
+  }
+
   Status OpenReadable(const std::string& path) {
     RETURN_NOT_OK(SetFileName(path));
 
-    RETURN_NOT_OK(FileOpenReadable(file_name_, &fd_));
-    RETURN_NOT_OK(FileGetSize(fd_, &size_));
+    RETURN_NOT_OK(internal::FileOpenReadable(file_name_, &fd_));
+    RETURN_NOT_OK(internal::FileGetSize(fd_, &size_));
 
     is_open_ = true;
     mode_ = FileMode::READ;
+    return Status::OK();
+  }
+
+  Status OpenReadable(int fd) {
+    RETURN_NOT_OK(internal::FileGetSize(fd, &size_));
+    RETURN_NOT_OK(SetFileName(fd));
+    is_open_ = true;
+    mode_ = FileMode::READ;
+    fd_ = fd;
     return Status::OK();
   }
 
@@ -391,13 +115,13 @@ class OSFile {
       // Even if closing fails, the fd will likely be closed (perhaps it's
       // already closed).
       is_open_ = false;
-      RETURN_NOT_OK(FileClose(fd_));
+      RETURN_NOT_OK(internal::FileClose(fd_));
     }
     return Status::OK();
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-    return FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes, bytes_read);
+    return internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes, bytes_read);
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
@@ -410,17 +134,17 @@ class OSFile {
     if (pos < 0) {
       return Status::Invalid("Invalid position");
     }
-    return FileSeek(fd_, pos);
+    return internal::FileSeek(fd_, pos);
   }
 
-  Status Tell(int64_t* pos) const { return FileTell(fd_, pos); }
+  Status Tell(int64_t* pos) const { return internal::FileTell(fd_, pos); }
 
   Status Write(const void* data, int64_t length) {
     std::lock_guard<std::mutex> guard(lock_);
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
-    return FileWrite(fd_, reinterpret_cast<const uint8_t*>(data), length);
+    return internal::FileWrite(fd_, reinterpret_cast<const uint8_t*>(data), length);
   }
 
   int fd() const { return fd_; }
@@ -435,20 +159,15 @@ class OSFile {
 
  protected:
   Status SetFileName(const std::string& file_name) {
-#if defined(_MSC_VER)
-    try {
-      std::codecvt_utf8_utf16<wchar_t> utf16_converter;
-      file_name_.assign(file_name, utf16_converter);
-    } catch (boost::system::system_error& e) {
-      return Status::Invalid(e.what());
-    }
-#else
-    file_name_ = PlatformFilename(file_name);
-#endif
-    return Status::OK();
+    return internal::FileNameFromString(file_name, &file_name_);
+  }
+  Status SetFileName(int fd) {
+    std::stringstream ss;
+    ss << "<fd " << fd << ">";
+    return SetFileName(ss.str());
   }
 
-  PlatformFilename file_name_;
+  internal::PlatformFilename file_name_;
 
   std::mutex lock_;
 
@@ -469,6 +188,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
   explicit ReadableFileImpl(MemoryPool* pool) : OSFile(), pool_(pool) {}
 
   Status Open(const std::string& path) { return OpenReadable(path); }
+  Status Open(int fd) { return OpenReadable(fd); }
 
   Status ReadBuffer(int64_t nbytes, std::shared_ptr<Buffer>* out) {
     std::shared_ptr<ResizableBuffer> buffer;
@@ -492,14 +212,23 @@ ReadableFile::ReadableFile(MemoryPool* pool) { impl_.reset(new ReadableFileImpl(
 ReadableFile::~ReadableFile() { DCHECK(impl_->Close().ok()); }
 
 Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
-  *file = std::shared_ptr<ReadableFile>(new ReadableFile(default_memory_pool()));
-  return (*file)->impl_->Open(path);
+  return Open(path, default_memory_pool(), file);
 }
 
 Status ReadableFile::Open(const std::string& path, MemoryPool* memory_pool,
                           std::shared_ptr<ReadableFile>* file) {
   *file = std::shared_ptr<ReadableFile>(new ReadableFile(memory_pool));
   return (*file)->impl_->Open(path);
+}
+
+Status ReadableFile::Open(int fd, MemoryPool* memory_pool,
+                          std::shared_ptr<ReadableFile>* file) {
+  *file = std::shared_ptr<ReadableFile>(new ReadableFile(memory_pool));
+  return (*file)->impl_->Open(fd);
+}
+
+Status ReadableFile::Open(int fd, std::shared_ptr<ReadableFile>* file) {
+  return Open(fd, default_memory_pool(), file);
 }
 
 Status ReadableFile::Close() { return impl_->Close(); }
@@ -545,8 +274,9 @@ int ReadableFile::file_descriptor() const { return impl_->fd(); }
 class FileOutputStream::FileOutputStreamImpl : public OSFile {
  public:
   Status Open(const std::string& path, bool append) {
-    return OpenWriteable(path, append, true);
+    return OpenWriteable(path, append, true /* write_only */);
   }
+  Status Open(int fd) { return OpenWriteable(fd); }
 };
 
 FileOutputStream::FileOutputStream() { impl_.reset(new FileOutputStreamImpl()); }
@@ -567,6 +297,11 @@ Status FileOutputStream::Open(const std::string& path, bool append,
   return std::static_pointer_cast<FileOutputStream>(*out)->impl_->Open(path, append);
 }
 
+Status FileOutputStream::Open(int fd, std::shared_ptr<OutputStream>* out) {
+  *out = std::shared_ptr<FileOutputStream>(new FileOutputStream());
+  return std::static_pointer_cast<FileOutputStream>(*out)->impl_->Open(fd);
+}
+
 Status FileOutputStream::Open(const std::string& path,
                               std::shared_ptr<FileOutputStream>* file) {
   return Open(path, false, file);
@@ -577,6 +312,11 @@ Status FileOutputStream::Open(const std::string& path, bool append,
   // private ctor
   *file = std::shared_ptr<FileOutputStream>(new FileOutputStream());
   return (*file)->impl_->Open(path, append);
+}
+
+Status FileOutputStream::Open(int fd, std::shared_ptr<FileOutputStream>* file) {
+  *file = std::shared_ptr<FileOutputStream>(new FileOutputStream());
+  return (*file)->impl_->Open(fd);
 }
 
 Status FileOutputStream::Close() { return impl_->Close(); }
@@ -682,20 +422,10 @@ MemoryMappedFile::~MemoryMappedFile() {}
 
 Status MemoryMappedFile::Create(const std::string& path, int64_t size,
                                 std::shared_ptr<MemoryMappedFile>* out) {
-  int ret;
-  errno_t errno_actual;
   std::shared_ptr<FileOutputStream> file;
   RETURN_NOT_OK(FileOutputStream::Open(path, &file));
 
-#ifdef _MSC_VER
-  errno_actual = _chsize_s(file->file_descriptor(), static_cast<size_t>(size));
-  ret = errno_actual == 0 ? 0 : -1;
-#else
-  ret = ftruncate(file->file_descriptor(), static_cast<size_t>(size));
-  errno_actual = errno;
-#endif
-
-  RETURN_NOT_OK(CheckFileOpResult(ret, errno_actual, PlatformFilename(path), "truncate"));
+  RETURN_NOT_OK(internal::FileTruncate(file->file_descriptor(), size));
 
   RETURN_NOT_OK(file->Close());
   return MemoryMappedFile::Open(path, FileMode::READWRITE, out);

@@ -20,10 +20,15 @@
 
 #include <iostream>
 #include <memory>
+#include <string>
 
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
+
+#if defined(_MSC_VER)
+#include <boost/filesystem.hpp>  // NOLINT
+#endif
 
 namespace arrow {
 namespace io {
@@ -113,6 +118,52 @@ class StdinStream : public InputStream {
 };
 
 }  // namespace io
+
+namespace internal {
+
+#if defined(_MSC_VER)
+// namespace fs = boost::filesystem;
+// #define PlatformFilename fs::path
+typedef ::boost::filesystem::path PlatformFilename;
+
+#else
+
+struct PlatformFilename {
+  PlatformFilename() {}
+  explicit PlatformFilename(const std::string& path) { utf8_path = path; }
+
+  const char* c_str() const { return utf8_path.c_str(); }
+
+  const std::string& string() const { return utf8_path; }
+
+  size_t length() const { return utf8_path.size(); }
+
+  std::string utf8_path;
+};
+#endif
+
+Status FileNameFromString(const std::string& file_name, PlatformFilename* out);
+
+Status FileOpenReadable(const PlatformFilename& file_name, int* fd);
+Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
+                         bool truncate, int* fd);
+
+Status FileRead(int fd, uint8_t* buffer, const int64_t nbytes, int64_t* bytes_read);
+Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,
+                  int64_t* bytes_read);
+Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes);
+Status FileTruncate(int fd, const int64_t size);
+
+Status FileTell(int fd, int64_t* pos);
+Status FileSeek(int fd, int64_t pos);
+Status FileSeek(int fd, int64_t pos, int whence);
+Status FileGetSize(int fd, int64_t* size);
+
+Status FileClose(int fd);
+
+Status CreatePipe(int fd[2]);
+
+}  // namespace internal
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_IO_UTIL_H
