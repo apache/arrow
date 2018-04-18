@@ -372,6 +372,53 @@ std::shared_ptr<Array> StructArray::field(int i) const {
   return boxed_fields_[i];
 }
 
+Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
+  ArrayVector flattened;
+  std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
+
+  for (auto& child_data : data_->child_data) {
+    std::shared_ptr<Buffer> flattened_null_bitmap;
+    int64_t flattened_null_count = kUnknownNullCount;
+
+    // Need to adjust for parent offset
+    if (data_->offset != 0 || data_->length != child_data->length) {
+      child_data = SliceData(*child_data, data_->offset, data_->length);
+    }
+    std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
+    const int64_t child_offset = child_data->offset;
+
+    // The validity of a flattened datum is the logical AND of the struct
+    // element's validity and the individual field element's validity.
+    if (null_bitmap && child_null_bitmap) {
+      RETURN_NOT_OK(BitmapAnd(pool, child_null_bitmap->data(), child_offset,
+                              null_bitmap_data_, data_->offset, data_->length,
+                              child_offset, &flattened_null_bitmap));
+    } else if (child_null_bitmap) {
+      flattened_null_bitmap = child_null_bitmap;
+      flattened_null_count = child_data->null_count;
+    } else if (null_bitmap) {
+      if (child_offset == data_->offset) {
+        flattened_null_bitmap = null_bitmap;
+      } else {
+        RETURN_NOT_OK(CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length,
+                                 &flattened_null_bitmap));
+      }
+      flattened_null_count = data_->null_count;
+    } else {
+      flattened_null_count = 0;
+    }
+
+    auto flattened_data = child_data->Copy();
+    flattened_data->buffers[0] = flattened_null_bitmap;
+    flattened_data->null_count = flattened_null_count;
+
+    flattened.push_back(MakeArray(flattened_data));
+  }
+
+  *out = flattened;
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // UnionArray
 

@@ -23,7 +23,7 @@ set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 set(GFLAGS_VERSION "2.2.0")
 set(GTEST_VERSION "1.8.0")
 set(GBENCHMARK_VERSION "1.1.0")
-set(FLATBUFFERS_VERSION "1.7.1")
+set(FLATBUFFERS_VERSION "1.9.0")
 set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
 set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
@@ -440,12 +440,14 @@ if (ARROW_IPC)
     else()
       set(FLATBUFFERS_CMAKE_CXX_FLAGS -fPIC)
     endif()
+    # We always need to do release builds, otherwise flatc will not be installed.
     ExternalProject_Add(flatbuffers_ep
       URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
       CMAKE_ARGS
       "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
       "-DFLATBUFFERS_BUILD_TESTS=OFF"
+      "-DCMAKE_BUILD_TYPE=RELEASE"
       "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
       "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
       ${EP_LOG_OPTIONS})

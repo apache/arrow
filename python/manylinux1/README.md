@@ -41,3 +41,25 @@ docker run --shm-size=2g --rm -t -i -v $PWD:/io arrow-base-x86_64 /io/build_arro
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
+
+### Updating the build environment
+
+In addition to the docker images that contains the Arrow C++ and Parquet C++
+builds, we also have another base image that only contains their dependencies.
+This image is less often updated. In the case we want to update a dependency to
+a new version, we also need to adjust it. You can rebuild this image using
+
+```bash
+docker build -t arrow_manylinux1_x86_64_base -f Dockerfile-x86_64_base .
+```
+
+For each dependency, we have a bash script in the directory `scripts/` that
+downloads the sources, builds and installs them. At the end of each dependency
+build the sources are removed again so that only the binary installation of a
+dependency is persisted in the docker image. When you do local adjustments to
+this image, you need to change the `FROM` line in `Dockerfile-x86_64` to pick up
+the new image:
+
+```
+FROM arrow_manylinux1_x86_64_base
+```

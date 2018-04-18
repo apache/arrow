@@ -21,16 +21,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>  // IWYU pragma: keep
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <thread>
 #include <vector>
-
-#ifndef _MSC_VER
-#include <fcntl.h>
-#endif
 
 #include <gtest/gtest.h>
 
@@ -44,38 +39,6 @@
 
 namespace arrow {
 namespace io {
-
-static bool FileExists(const std::string& path) {
-  return std::ifstream(path.c_str()).good();
-}
-
-#if defined(_MSC_VER)
-void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
-                         const wchar_t* source_file, unsigned int source_line,
-                         uintptr_t reserved) {
-  wprintf(L"Invalid parameter in function %s. Source: %s line %d expression %s", func,
-          source_file, source_line, expr);
-}
-#endif
-
-static bool FileIsClosed(int fd) {
-#if defined(_MSC_VER)
-  // Disables default behavior on wrong params which causes the application to crash
-  // https://msdn.microsoft.com/en-us/library/ksazx244.aspx
-  _set_invalid_parameter_handler(InvalidParamHandler);
-
-  // Disables possible assertion alert box on invalid input arguments
-  _CrtSetReportMode(_CRT_ASSERT, 0);
-
-  int ret = static_cast<int>(_close(fd));
-  return (ret == -1);
-#else
-  if (-1 != fcntl(fd, F_GETFD)) {
-    return false;
-  }
-  return errno == EBADF;
-#endif
-}
 
 class FileTestFixture : public ::testing::Test {
  public:
@@ -155,12 +118,7 @@ TEST_F(TestFileOutputStream, Close) {
   // Idempotent
   ASSERT_OK(file_->Close());
 
-  std::shared_ptr<ReadableFile> rd_file;
-  ASSERT_OK(ReadableFile::Open(path_, &rd_file));
-
-  int64_t size = 0;
-  ASSERT_OK(rd_file->GetSize(&size));
-  ASSERT_EQ(strlen(data), size);
+  AssertFileContents(path_, data);
 
   ASSERT_OK(stream_->Write(data, strlen(data)));
 
@@ -171,9 +129,7 @@ TEST_F(TestFileOutputStream, Close) {
   // Idempotent
   ASSERT_OK(stream_->Close());
 
-  ASSERT_OK(ReadableFile::Open(path_, &rd_file));
-  ASSERT_OK(rd_file->GetSize(&size));
-  ASSERT_EQ(strlen(data), size);
+  AssertFileContents(path_, data);
 }
 
 TEST_F(TestFileOutputStream, InvalidWrites) {
@@ -215,12 +171,7 @@ TEST_F(TestFileOutputStream, TruncatesNewFile) {
   ASSERT_OK(FileOutputStream::Open(path_, &file_));
   ASSERT_OK(file_->Close());
 
-  std::shared_ptr<ReadableFile> rd_file;
-  ASSERT_OK(ReadableFile::Open(path_, &rd_file));
-
-  int64_t size;
-  ASSERT_OK(rd_file->GetSize(&size));
-  ASSERT_EQ(0, size);
+  AssertFileContents(path_, "");
 
   ASSERT_OK(FileOutputStream::Open(path_, &stream_));
 
@@ -230,9 +181,7 @@ TEST_F(TestFileOutputStream, TruncatesNewFile) {
   ASSERT_OK(FileOutputStream::Open(path_, &stream_));
   ASSERT_OK(stream_->Close());
 
-  ASSERT_OK(ReadableFile::Open(path_, &rd_file));
-  ASSERT_OK(rd_file->GetSize(&size));
-  ASSERT_EQ(0, size);
+  AssertFileContents(path_, "");
 }
 
 // ----------------------------------------------------------------------

@@ -140,8 +140,8 @@ class ARROW_EXPORT DataType {
 
   // Return whether the types are equal
   //
-  // Types that are logically convertable from one to another e.g. List<UInt8>
-  // and Binary are NOT equal).
+  // Types that are logically convertible from one to another (e.g. List<UInt8>
+  // and Binary) are NOT equal.
   virtual bool Equals(const DataType& other) const;
   bool Equals(const std::shared_ptr<DataType>& other) const;
 

@@ -1228,6 +1228,21 @@ class TestConvertStringLikeTypes(object):
             table.to_pandas(strings_to_categorical=True,
                             zero_copy_only=True)
 
+    # Regression test for ARROW-2101
+    def test_array_of_bytes_to_strings(self):
+        converted = pa.array(np.array([b'x'], dtype=object), pa.string())
+        assert converted.type == pa.string()
+
+    # Make sure that if an ndarray of bytes is passed to the array
+    # constructor and the type is string, it will fail if those bytes
+    # cannot be converted to utf-8
+    def test_array_of_bytes_to_strings_bad_data(self):
+        with pytest.raises(
+                pa.lib.ArrowException,
+                message="Unknown error: 'utf-8' codec can't decode byte 0x80 "
+                "in position 0: invalid start byte"):
+            pa.array(np.array([b'\x80\x81'], dtype=object), pa.string())
+
 
 class TestConvertDecimalTypes(object):
     """

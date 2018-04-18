@@ -223,7 +223,7 @@ class SequenceBuilder {
       DCHECK(data->length() == offsets.back());
       std::shared_ptr<Array> offset_array;
       Int32Builder builder(::arrow::int32(), pool_);
-      RETURN_NOT_OK(builder.Append(offsets.data(), offsets.size()));
+      RETURN_NOT_OK(builder.AppendValues(offsets.data(), offsets.size()));
       RETURN_NOT_OK(builder.Finish(&offset_array));
       std::shared_ptr<Array> list_array;
       RETURN_NOT_OK(ListArray::FromArrays(*offset_array, *data, pool_, &list_array));

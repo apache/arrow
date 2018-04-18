@@ -152,6 +152,24 @@ def test_empty_list(seq):
     assert arr.to_pylist() == []
 
 
+@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+def test_nested_lists(seq):
+    arr = pa.array(seq([[], [1, 2], None]))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64())
+    assert arr.to_pylist() == [[], [1, 2], None]
+
+
+@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+def test_nested_arrays(seq):
+    arr = pa.array(seq([np.array([], dtype=int), np.array([1, 2]), None]))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64())
+    assert arr.to_pylist() == [[], [1, 2], None]
+
+
 def test_sequence_all_none():
     arr = pa.array([None, None])
     assert len(arr) == 2
@@ -474,15 +492,6 @@ def test_sequence_mixed_nesting_levels():
 
     with pytest.raises(pa.ArrowInvalid):
         pa.array([[1], [2], [None, [1]]])
-
-
-def test_sequence_list_of_int():
-    data = [[1, 2, 3], [], None, [1, 2]]
-    arr = pa.array(data)
-    assert len(arr) == 4
-    assert arr.null_count == 1
-    assert arr.type == pa.list_(pa.int64())
-    assert arr.to_pylist() == data
 
 
 def test_sequence_mixed_types_fails():

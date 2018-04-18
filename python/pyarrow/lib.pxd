@@ -254,6 +254,10 @@ cdef class Decimal128Array(FixedSizeBinaryArray):
     pass
 
 
+cdef class StructArray(Array):
+    pass
+
+
 cdef class ListArray(Array):
     pass
 
