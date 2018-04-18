@@ -208,8 +208,8 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   return Message::ReadFrom(metadata, file, message);
 }
 
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message,
-                   bool aligned) {
+Status ReadMessage(io::InputStream* file, bool aligned,
+                   std::unique_ptr<Message>* message) {
   int32_t message_length = 0;
   int64_t bytes_read = 0;
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
@@ -249,7 +249,7 @@ Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message,
 }
 
 Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
-  return ReadMessage(file, message, false /* aligned */);
+  return ReadMessage(file, false /* aligned */, message);
 }
 // ----------------------------------------------------------------------
 // Implement InputStream message reader
