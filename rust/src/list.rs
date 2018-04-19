@@ -90,4 +90,14 @@ mod tests {
         assert_eq!("test", str::from_utf8(list.slice(3)).unwrap());
     }
 
+    #[test]
+    fn test_utf8_empty_strings() {
+        let list = List::from(vec!["", "", "", ""]);
+        assert_eq!(4, list.len());
+        assert_eq!("", str::from_utf8(list.slice(0)).unwrap());
+        assert_eq!("", str::from_utf8(list.slice(1)).unwrap());
+        assert_eq!("", str::from_utf8(list.slice(2)).unwrap());
+        assert_eq!("", str::from_utf8(list.slice(3)).unwrap());
+    }
+
 }
