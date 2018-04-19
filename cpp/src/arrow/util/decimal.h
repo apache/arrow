@@ -20,6 +20,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <type_traits>
 
@@ -133,6 +134,20 @@ class ARROW_EXPORT Decimal128 {
 
   /// \brief Convert Decimal128 from one scale to another
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;
+
+  template <typename T, typename = EnableIfIsOneOf<T, int32_t, int64_t>>
+  Status ToInteger(T* out) const {
+    constexpr auto min_value = std::numeric_limits<T>::min();
+    constexpr auto max_value = std::numeric_limits<T>::max();
+    const auto& self = *this;
+    if (self < min_value || self > max_value) {
+      std::stringstream buf;
+      buf << "Invalid cast from Decimal128 to " << sizeof(T) << " byte integer";
+      return Status::Invalid(buf.str());
+    }
+    *out = static_cast<T>(low_bits_);
+    return Status::OK();
+  }
 
  private:
   int64_t high_bits_;
