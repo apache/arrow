@@ -196,7 +196,7 @@ ARROW_EXPORT
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
-/// \brief Read record batch from encapulated Message
+/// \brief Read record batch from encapsulated Message
 ///
 /// \param[in] message a message instance containing metadata and body
 /// \param[in] schema the record batch schema

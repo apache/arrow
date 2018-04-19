@@ -158,7 +158,7 @@ class ARROW_EXPORT MessageReader {
   virtual Status ReadNextMessage(std::unique_ptr<Message>* message) = 0;
 };
 
-/// \brief Read encapulated RPC message from position in file
+/// \brief Read encapsulated RPC message from position in file
 ///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
 /// offset. If the message has a body with non-zero length, it will also be
@@ -176,16 +176,16 @@ ARROW_EXPORT
 Status ReadMessage(const int64_t offset, const int32_t metadata_length,
                    io::RandomAccessFile* file, std::unique_ptr<Message>* message);
 
-/// \brief Read encapulated RPC message (metadata and body) from InputStream
+/// \brief Read encapsulated RPC message (metadata and body) from InputStream
 ///
 /// Read length-prefixed message with as-yet unknown length. Returns null if
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
 ARROW_EXPORT
-Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message,
-                   bool aligned);
+Status ReadMessage(io::InputStream* stream, bool aligned,
+                   std::unique_ptr<Message>* message);
 
-/// \brief Read encapulated RPC message (metadata and body) from InputStream.
+/// \brief Read encapsulated RPC message (metadata and body) from InputStream.
 ///
 /// This is a version of ReadMessage that does not have the aligned argument
 /// for backwards compatibility.
