@@ -59,6 +59,12 @@
     }                                \
   } while (false)
 
+// This is used by other codebases. The macros above
+// should probably have that prefix, but there is a
+// lot of code that already uses that macro and changing
+// it would be of no benefit.
+#define ARROW_RETURN_NOT_OK(s) RETURN_NOT_OK(s)
+
 namespace arrow {
 
 enum class StatusCode : char {
