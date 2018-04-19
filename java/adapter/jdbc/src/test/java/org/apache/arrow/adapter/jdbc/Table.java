@@ -54,9 +54,18 @@ public class Table {
 	private float [] reals;
 	private double [] doubles;
 	private BigDecimal [] decimals;
-	private String [] selectQuereis;
-		
-    public Table() {
+	private String allColumns;	
+	private long [] pstTime;
+	private long [] estTime;
+	private long [] gmtTime;
+	private long [] pstDate;
+	private long [] estDate;
+	private long [] gmtDate;
+	private long [] pstTimestamp;
+	private long [] estTimestamp;
+	private long [] gmtTimestamp;
+	
+	public Table() {
     }
 
 	public String getName() {
@@ -179,19 +188,12 @@ public class Table {
 	public void setReals(float[] reals) {
 		this.reals = reals;
 	}
-	public String[] getSelectQuereis() {
-		return selectQuereis;
+	public String getAllColumns() {
+		return allColumns;
 	}
-	public void setSelectQuereis(String[] selectQuereis) {
-		this.selectQuereis = selectQuereis;
+	public void setAllColumns(String allColumns) {
+		this.allColumns = allColumns;
 	}
-	
-	public String getSelectQuery(String columnName) {
-		String queryString = "select " + columnName + " from";
-		String query =  Arrays.stream(selectQuereis).parallel().filter(q -> q.toUpperCase().contains(queryString.toUpperCase())).findFirst().get();
-		return query;
-	}
-	
 	public byte [][] getHexStringAsByte () {
 		return getHexToByteArray (bytes);
 	}
@@ -204,6 +206,60 @@ public class Table {
 	public byte [][] getVarCharAsByte () {
 		return getByteArray (varchars);
 	}
+	public long[] getPstTime() {
+		return pstTime;
+	}
+	public void setPstTime(long[] pstTime) {
+		this.pstTime = pstTime;
+	}
+	public long[] getEstTime() {
+		return estTime;
+	}
+	public void setEstTime(long[] estTime) {
+		this.estTime = estTime;
+	}
+	public long[] getGmtTime() {
+		return gmtTime;
+	}
+	public void setGmtTime(long[] gmtTime) {
+		this.gmtTime = gmtTime;
+	}
+	public long[] getPstDate() {
+		return pstDate;
+	}
+	public void setPstDate(long[] pstDate) {
+		this.pstDate = pstDate;
+	}
+	public long[] getEstDate() {
+		return estDate;
+	}
+	public void setEstDate(long[] estDate) {
+		this.estDate = estDate;
+	}
+	public long[] getGmtDate() {
+		return gmtDate;
+	}
+	public void setGmtDate(long[] gmtDate) {
+		this.gmtDate = gmtDate;
+	}
+	public long[] getPstTimestamp() {
+		return pstTimestamp;
+	}
+	public void setPstTimestamp(long[] pstTimestamp) {
+		this.pstTimestamp = pstTimestamp;
+	}
+	public long[] getEstTimestamp() {
+		return estTimestamp;
+	}
+	public void setEstTimestamp(long[] estTimestamp) {
+		this.estTimestamp = estTimestamp;
+	}
+	public long[] getGmtTimestamp() {
+		return gmtTimestamp;
+	}
+	public void setGmtTimestamp(long[] gmtTimestamp) {
+		this.gmtTimestamp = gmtTimestamp;
+	}
 	
 	private byte [][] getByteArray (String [] data) {
 		byte [][] byteArr = new byte [data.length][];
@@ -212,8 +268,7 @@ public class Table {
 			byteArr [i] = data [i].getBytes(StandardCharsets.UTF_8);
 		}
 		return 	byteArr;	
-   }
-   
+    }
 	private byte [][] getHexToByteArray (String [] data){
 		byte [][] byteArr = new byte [data.length][];
 		
@@ -222,8 +277,7 @@ public class Table {
 		}
 		return 	byteArr;
 	}
-	
-   private static byte[] hexStringToByteArray(String s) {
+	private static byte[] hexStringToByteArray(String s) {
         int len = s.length();
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
