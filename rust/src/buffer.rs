@@ -53,7 +53,7 @@ impl<T> Buffer<T> {
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
         assert!(start <= end);
-        assert!(start < self.len as usize);
+        assert!(start <= self.len as usize);
         assert!(end <= self.len as usize);
         unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
