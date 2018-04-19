@@ -471,7 +471,7 @@ def test_sequence_timestamp_from_int_with_unit():
     assert arr_ns.type == ns
     assert str(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
 
-    with pytest.raises(pa.ArrowTypeError):
+    with pytest.raises(pa.ArrowException):
         class CustomClass():
             pass
         pa.array([1, CustomClass()], type=ns)
