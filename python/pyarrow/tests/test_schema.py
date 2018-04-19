@@ -75,9 +75,7 @@ def test_type_comparisons():
     val = pa.int32()
     assert val == pa.int32()
     assert val == 'int32'
-
-    with pytest.raises(TypeError):
-        val == 5
+    assert val != 5
 
 
 def test_type_for_alias():
