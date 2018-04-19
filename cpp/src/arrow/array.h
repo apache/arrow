@@ -30,6 +30,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"
@@ -583,7 +584,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
  protected:
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
     this->PrimitiveArray::SetData(data);
-    byte_width_ = static_cast<const FixedSizeBinaryType&>(*type()).byte_width();
+    byte_width_ = checked_cast<const FixedSizeBinaryType&>(*type()).byte_width();
   }
 
   int32_t byte_width_;
@@ -693,7 +694,7 @@ class ARROW_EXPORT UnionArray : public Array {
   const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
 
-  UnionMode::type mode() const { return static_cast<const UnionType&>(*type()).mode(); }
+  UnionMode::type mode() const { return checked_cast<const UnionType&>(*type()).mode(); }
 
   // Return the given field as an individual array.
   // For sparse unions, the returned array has its offset, length and null

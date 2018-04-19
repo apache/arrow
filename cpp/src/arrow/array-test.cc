@@ -33,6 +33,7 @@
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 
 namespace arrow {
@@ -223,10 +224,10 @@ class TestPrimitiveBuilder : public TestBuilder {
 
     std::unique_ptr<ArrayBuilder> tmp;
     ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
-    builder_.reset(static_cast<BuilderType*>(tmp.release()));
+    builder_.reset(checked_cast<BuilderType*>(tmp.release()));
 
     ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
-    builder_nn_.reset(static_cast<BuilderType*>(tmp.release()));
+    builder_nn_.reset(checked_cast<BuilderType*>(tmp.release()));
   }
 
   void RandomData(int64_t N, double pct_null = 0.1) {
@@ -733,8 +734,8 @@ TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
   ASSERT_OK(builder.Finish(&result));
   ASSERT_OK(builder_nn.Finish(&result_nn));
 
-  const auto& arr = static_cast<const BooleanArray&>(*result);
-  const auto& arr_nn = static_cast<const BooleanArray&>(*result_nn);
+  const auto& arr = checked_cast<const BooleanArray&>(*result);
+  const auto& arr_nn = checked_cast<const BooleanArray&>(*result_nn);
   for (int i = 0; i < length; ++i) {
     if (is_valid[i]) {
       ASSERT_FALSE(arr.IsNull(i));
@@ -897,9 +898,9 @@ TEST_F(TestStringArray, CompareNullByteSlots) {
   ASSERT_OK(builder2.Finish(&array2));
   ASSERT_OK(builder3.Finish(&array3));
 
-  const auto& a1 = static_cast<const StringArray&>(*array);
-  const auto& a2 = static_cast<const StringArray&>(*array2);
-  const auto& a3 = static_cast<const StringArray&>(*array3);
+  const auto& a1 = checked_cast<const StringArray&>(*array);
+  const auto& a2 = checked_cast<const StringArray&>(*array2);
+  const auto& a3 = checked_cast<const StringArray&>(*array3);
 
   // The validity bitmaps are the same, the data is different, but the unequal
   // portion is masked out
@@ -1198,7 +1199,7 @@ TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
   std::shared_ptr<Array> left_arr;
   ASSERT_OK(builder.Finish(&left_arr));
 
-  const BinaryArray& left = static_cast<const BinaryArray&>(*left_arr);
+  const BinaryArray& left = checked_cast<const BinaryArray&>(*left_arr);
   std::shared_ptr<Array> right =
       std::make_shared<BinaryArray>(left.length(), left.value_offsets(), nullptr,
                                     left.null_bitmap(), left.null_count());
@@ -1396,7 +1397,7 @@ TEST_F(TestFWBinaryArray, Builder) {
 
   auto CheckResult = [&length, &is_valid, &raw_data, &byte_width](const Array& result) {
     // Verify output
-    const auto& fw_result = static_cast<const FixedSizeBinaryArray&>(result);
+    const auto& fw_result = checked_cast<const FixedSizeBinaryArray&>(result);
 
     ASSERT_EQ(length, result.length());
 
@@ -1466,8 +1467,8 @@ TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
   ASSERT_OK(builder1.Finish(&array1));
   ASSERT_OK(builder2.Finish(&array2));
 
-  const auto& a1 = static_cast<const FixedSizeBinaryArray&>(*array1);
-  const auto& a2 = static_cast<const FixedSizeBinaryArray&>(*array2);
+  const auto& a1 = checked_cast<const FixedSizeBinaryArray&>(*array1);
+  const auto& a2 = checked_cast<const FixedSizeBinaryArray&>(*array2);
 
   FixedSizeBinaryArray equal1(type, 2, a1.values(), a1.null_bitmap(), 1);
   FixedSizeBinaryArray equal2(type, 2, a2.values(), a1.null_bitmap(), 1);
@@ -1490,7 +1491,7 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
 
-  const auto& fw_array = static_cast<const FixedSizeBinaryArray&>(*array);
+  const auto& fw_array = checked_cast<const FixedSizeBinaryArray&>(*array);
 
   // data is never allocated
   ASSERT_TRUE(fw_array.values() == nullptr);
@@ -2473,7 +2474,7 @@ class TestListArray : public TestBuilder {
 
     std::unique_ptr<ArrayBuilder> tmp;
     ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
-    builder_.reset(static_cast<ListBuilder*>(tmp.release()));
+    builder_.reset(checked_cast<ListBuilder*>(tmp.release()));
   }
 
   void Done() {
@@ -2490,7 +2491,7 @@ class TestListArray : public TestBuilder {
 };
 
 TEST_F(TestListArray, Equality) {
-  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
 
   std::shared_ptr<Array> array, equal_array, unequal_array;
   vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
@@ -2654,7 +2655,7 @@ TEST_F(TestListArray, TestBasics) {
   vector<int> lengths = {3, 0, 4};
   vector<uint8_t> is_valid = {1, 0, 1};
 
-  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
 
   ASSERT_OK(builder_->Reserve(lengths.size()));
   ASSERT_OK(vb->Reserve(values.size()));
@@ -2677,7 +2678,7 @@ TEST_F(TestListArray, BulkAppend) {
   vector<uint8_t> is_valid = {1, 0, 1};
   vector<int32_t> offsets = {0, 3, 3};
 
-  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
   ASSERT_OK(vb->Reserve(values.size()));
 
   ASSERT_OK(builder_->AppendValues(offsets.data(), offsets.size(), is_valid.data()));
@@ -2695,7 +2696,7 @@ TEST_F(TestListArray, BulkAppendInvalid) {
   vector<uint8_t> is_valid = {1, 0, 1};
   vector<int32_t> offsets = {0, 2, 4};  // should be 0, 3, 3 given the is_null array
 
-  Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
   ASSERT_OK(vb->Reserve(values.size()));
 
   ASSERT_OK(builder_->AppendValues(offsets.data(), offsets.size(), is_valid.data()));
@@ -2928,7 +2929,7 @@ class TestStructBuilder : public TestBuilder {
 
     std::unique_ptr<ArrayBuilder> tmp;
     ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
-    builder_.reset(static_cast<StructBuilder*>(tmp.release()));
+    builder_.reset(checked_cast<StructBuilder*>(tmp.release()));
     ASSERT_EQ(2, static_cast<int>(builder_->num_fields()));
   }
 
@@ -2950,12 +2951,12 @@ TEST_F(TestStructBuilder, TestAppendNull) {
   ASSERT_OK(builder_->AppendNull());
   ASSERT_EQ(2, static_cast<int>(builder_->num_fields()));
 
-  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0));
+  ListBuilder* list_vb = checked_cast<ListBuilder*>(builder_->field_builder(0));
   ASSERT_OK(list_vb->AppendNull());
   ASSERT_OK(list_vb->AppendNull());
   ASSERT_EQ(2, list_vb->length());
 
-  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1));
+  Int32Builder* int_vb = checked_cast<Int32Builder*>(builder_->field_builder(1));
   ASSERT_OK(int_vb->AppendNull());
   ASSERT_OK(int_vb->AppendNull());
   ASSERT_EQ(2, int_vb->length());
@@ -2987,9 +2988,9 @@ TEST_F(TestStructBuilder, TestBasics) {
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 
-  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0));
-  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder());
-  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1));
+  ListBuilder* list_vb = checked_cast<ListBuilder*>(builder_->field_builder(0));
+  Int8Builder* char_vb = checked_cast<Int8Builder*>(list_vb->value_builder());
+  Int32Builder* int_vb = checked_cast<Int32Builder*>(builder_->field_builder(1));
   ASSERT_EQ(2, static_cast<int>(builder_->num_fields()));
 
   EXPECT_OK(builder_->Resize(list_lengths.size()));
@@ -3023,9 +3024,9 @@ TEST_F(TestStructBuilder, BulkAppend) {
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 
-  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0));
-  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder());
-  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1));
+  ListBuilder* list_vb = checked_cast<ListBuilder*>(builder_->field_builder(0));
+  Int8Builder* char_vb = checked_cast<Int8Builder*>(list_vb->value_builder());
+  Int32Builder* int_vb = checked_cast<Int32Builder*>(builder_->field_builder(1));
 
   ASSERT_OK(builder_->Resize(list_lengths.size()));
   ASSERT_OK(char_vb->Resize(list_values.size()));
@@ -3055,9 +3056,9 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 0, 1, 1};  // should be 1, 1, 1, 1
 
-  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0));
-  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder());
-  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1));
+  ListBuilder* list_vb = checked_cast<ListBuilder*>(builder_->field_builder(0));
+  Int8Builder* char_vb = checked_cast<Int8Builder*>(list_vb->value_builder());
+  Int32Builder* int_vb = checked_cast<Int32Builder*>(builder_->field_builder(1));
 
   ASSERT_OK(builder_->Reserve(list_lengths.size()));
   ASSERT_OK(char_vb->Reserve(list_values.size()));
@@ -3097,9 +3098,9 @@ TEST_F(TestStructBuilder, TestEquality) {
   vector<uint8_t> unequal_list_is_valid = {1, 1, 1, 1};
   vector<uint8_t> unequal_struct_is_valid = {1, 0, 0, 1};
 
-  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0));
-  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder());
-  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1));
+  ListBuilder* list_vb = checked_cast<ListBuilder*>(builder_->field_builder(0));
+  Int8Builder* char_vb = checked_cast<Int8Builder*>(list_vb->value_builder());
+  Int32Builder* int_vb = checked_cast<Int32Builder*>(builder_->field_builder(1));
   ASSERT_OK(builder_->Reserve(list_lengths.size()));
   ASSERT_OK(char_vb->Reserve(list_values.size()));
   ASSERT_OK(int_vb->Reserve(int_values.size()));
@@ -3226,9 +3227,9 @@ TEST_F(TestStructBuilder, TestSlice) {
   vector<uint8_t> list_is_valid = {1, 0, 1, 1};
   vector<uint8_t> struct_is_valid = {1, 1, 1, 1};
 
-  ListBuilder* list_vb = static_cast<ListBuilder*>(builder_->field_builder(0));
-  Int8Builder* char_vb = static_cast<Int8Builder*>(list_vb->value_builder());
-  Int32Builder* int_vb = static_cast<Int32Builder*>(builder_->field_builder(1));
+  ListBuilder* list_vb = checked_cast<ListBuilder*>(builder_->field_builder(0));
+  Int8Builder* char_vb = checked_cast<Int8Builder*>(list_vb->value_builder());
+  Int32Builder* int_vb = checked_cast<Int32Builder*>(builder_->field_builder(1));
   ASSERT_OK(builder_->Reserve(list_lengths.size()));
   ASSERT_OK(char_vb->Reserve(list_values.size()));
   ASSERT_OK(int_vb->Reserve(int_values.size()));
