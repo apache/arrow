@@ -133,13 +133,11 @@ cdef class DataType:
     def __repr__(self):
         return '{0.__class__.__name__}({0})'.format(self)
 
-    def __richcmp__(DataType self, object other, int op):
-        if op == cp.Py_EQ:
+    def __eq__(self, other):
+        try:
             return self.equals(other)
-        elif op == cp.Py_NE:
-            return not self.equals(other)
-        else:
-            raise TypeError('Invalid comparison')
+        except (TypeError, ValueError):
+            return False
 
     def equals(self, other):
         """
@@ -393,13 +391,11 @@ cdef class Field:
         """
         return self.field.Equals(deref(other.field))
 
-    def __richcmp__(Field self, Field other, int op):
-        if op == cp.Py_EQ:
+    def __eq__(self, other):
+        try:
             return self.equals(other)
-        elif op == cp.Py_NE:
-            return not self.equals(other)
-        else:
-            raise TypeError('Invalid comparison')
+        except TypeError:
+            return False
 
     def __reduce__(self):
         return Field, (), self.__getstate__()
