@@ -52,7 +52,7 @@ public class JdbcToArrowTestHelper {
         	assertEquals(values[j], intVector.get(j));
         } 
     }
-        
+
     public static void assertBitBooleanVectorValues(BitVector bitVector, int rowCount, int[] values){
         assertEquals(rowCount, bitVector.getValueCount());
         
@@ -135,26 +135,18 @@ public class JdbcToArrowTestHelper {
     }
 
     public static void assertVarBinaryVectorValues (VarBinaryVector varBinaryVector, int rowCount, byte[][] values) {
-    	try {
-	        assertEquals(rowCount, varBinaryVector.getValueCount());
-	
-	        for(int j = 0; j < varBinaryVector.getValueCount(); j++){
-	            assertEquals(Arrays.hashCode(values[j]), Arrays.hashCode(varBinaryVector.get(j)));
-	        }
-        } catch (AssertionError ae) {
-        	ae.printStackTrace();
+        assertEquals(rowCount, varBinaryVector.getValueCount());
+
+        for(int j = 0; j < varBinaryVector.getValueCount(); j++){
+            assertEquals(Arrays.hashCode(values[j]), Arrays.hashCode(varBinaryVector.get(j)));
         }
     }
 
     public static void assertVarcharVectorValues(VarCharVector varCharVector, int rowCount, byte[][] values) {
-        try {
-	        assertEquals(rowCount, varCharVector.getValueCount());
-	
-	        for(int j = 0; j < varCharVector.getValueCount(); j++){
-	            assertEquals(Arrays.hashCode(values[j]), Arrays.hashCode(varCharVector.get(j)));
-	        }
-        } catch (AssertionError ae) {
-        	ae.printStackTrace();
+        assertEquals(rowCount, varCharVector.getValueCount());
+
+        for(int j = 0; j < varCharVector.getValueCount(); j++){
+            assertEquals(Arrays.hashCode(values[j]), Arrays.hashCode(varCharVector.get(j)));
         }
     }
     
