@@ -316,7 +316,7 @@ def test_sequence_utf8_to_unicode():
 
     # test a non-utf8 unicode string
     val = (u'mañana').encode('utf-16-le')
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowInvalid):
         pa.array([val], type=pa.string())
 
 
@@ -471,7 +471,7 @@ def test_sequence_timestamp_from_int_with_unit():
     assert arr_ns.type == ns
     assert str(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
 
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowTypeError):
         class CustomClass():
             pass
         pa.array([1, CustomClass()], type=ns)
@@ -496,7 +496,7 @@ def test_sequence_mixed_nesting_levels():
 
 def test_sequence_mixed_types_fails():
     data = ['a', 1, 2.0]
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowTypeError):
         pa.array(data)
 
 

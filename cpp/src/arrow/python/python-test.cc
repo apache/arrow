@@ -77,6 +77,52 @@ TEST(OwnedRefNoGIL, TestMoves) {
   ASSERT_EQ(Py_REFCNT(v), 1);
 }
 
+TEST(CheckPyError, TestStatus) {
+  PyAcquireGIL lock;
+  Status st;
+
+  auto check_error = [](Status& st, const char* expected_message = "some error") {
+    st = CheckPyError();
+    ASSERT_EQ(st.message(), expected_message);
+    ASSERT_FALSE(PyErr_Occurred());
+  };
+
+  for (PyObject* exc_type : {PyExc_Exception, PyExc_SyntaxError}) {
+    PyErr_SetString(exc_type, "some error");
+    check_error(st);
+    ASSERT_TRUE(st.IsUnknownError());
+  }
+
+  PyErr_SetString(PyExc_TypeError, "some error");
+  check_error(st);
+  ASSERT_TRUE(st.IsTypeError());
+
+  PyErr_SetString(PyExc_ValueError, "some error");
+  check_error(st);
+  ASSERT_TRUE(st.IsInvalid());
+
+  PyErr_SetString(PyExc_KeyError, "some error");
+  check_error(st, "'some error'");
+  ASSERT_TRUE(st.IsKeyError());
+
+  for (PyObject* exc_type : {PyExc_OSError, PyExc_IOError}) {
+    PyErr_SetString(exc_type, "some error");
+    check_error(st);
+    ASSERT_TRUE(st.IsIOError());
+  }
+
+  PyErr_SetString(PyExc_NotImplementedError, "some error");
+  check_error(st);
+  ASSERT_TRUE(st.IsNotImplemented());
+
+  // No override if a specific status code is given
+  PyErr_SetString(PyExc_TypeError, "some error");
+  st = CheckPyError(StatusCode::SerializationError);
+  ASSERT_TRUE(st.IsSerializationError());
+  ASSERT_EQ(st.message(), "some error");
+  ASSERT_FALSE(PyErr_Occurred());
+}
+
 class DecimalTest : public ::testing::Test {
  public:
   DecimalTest() : lock_(), decimal_constructor_() {
@@ -221,7 +267,7 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
   ASSERT_EQ(PyList_SetItem(list, 1, integer), 0);
   ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
 
-  ASSERT_RAISES(UnknownError, ConvertPySequence(list, pool, &arr));
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, pool, &arr));
 }
 
 TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {

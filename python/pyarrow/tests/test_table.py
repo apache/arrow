@@ -234,7 +234,7 @@ def test_recordbatchlist_schema_equals():
     batch1 = pa.RecordBatch.from_pandas(data1)
     batch2 = pa.RecordBatch.from_pandas(data2)
 
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowInvalid):
         pa.Table.from_batches([batch1, batch2])
 
 
