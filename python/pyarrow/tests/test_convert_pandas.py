@@ -1836,6 +1836,11 @@ class TestConvertMisc(object):
         for values in arrays:
             _check_array_roundtrip(values)
 
+    def test_empty_category(self):
+        # ARROW-2443
+        df = pd.DataFrame({'cat': pd.Categorical([])})
+        _check_pandas_roundtrip(df)
+
     def test_mixed_types_fails(self):
         data = pd.DataFrame({'a': ['a', 1, 2.0]})
         with pytest.raises(pa.ArrowException):

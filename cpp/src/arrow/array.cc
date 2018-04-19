@@ -581,10 +581,6 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
 Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
                                    const std::shared_ptr<Array>& indices,
                                    std::shared_ptr<Array>* out) {
-  if (indices->length() == 0) {
-    return Status::Invalid("Dictionary indices must have non-zero length");
-  }
-
   DCHECK_EQ(type->id(), Type::DICTIONARY);
   const auto& dict = static_cast<const DictionaryType&>(*type);
   DCHECK_EQ(indices->type_id(), dict.index_type()->id());
