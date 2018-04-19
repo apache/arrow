@@ -683,14 +683,18 @@ Status RecordBatchFileReader::ReadRecordBatch(int i,
   return impl_->ReadRecordBatch(i, batch);
 }
 
-static Status ReadContiguousPayload(io::InputStream* file,
-                                    std::unique_ptr<Message>* message,
-                                    bool aligned = false) {
-  RETURN_NOT_OK(ReadMessage(file, message, aligned));
+static Status ReadContiguousPayload(io::InputStream* file, bool aligned,
+                                    std::unique_ptr<Message>* message) {
+  RETURN_NOT_OK(ReadMessage(file, aligned, message));
   if (*message == nullptr) {
     return Status::Invalid("Unable to read metadata at offset");
   }
   return Status::OK();
+}
+
+static Status ReadContiguousPayload(io::InputStream* file,
+                                    std::unique_ptr<Message>* message) {
+  return ReadContiguousPayload(file, false /* aligned */, message);
 }
 
 Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out) {
@@ -716,7 +720,7 @@ Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
   RETURN_NOT_OK(file->Seek(offset));
 
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, &message, true /* aligned */));
+  RETURN_NOT_OK(ReadContiguousPayload(file, true /* aligned */, &message));
   return ReadTensor(*message, out);
 }
 
