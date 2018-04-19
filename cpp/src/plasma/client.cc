@@ -38,7 +38,6 @@
 
 #include <algorithm>
 #include <mutex>
-#include <thread>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -70,7 +69,6 @@ using arrow::MutableBuffer;
 // Number of threads used for memcopy and hash computations.
 constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
-static std::vector<std::thread> threadpool_(kThreadPoolSize);
 
 /// A Buffer class that automatically releases the backing plasma object
 /// when it goes out of scope.
@@ -122,7 +120,7 @@ static std::unordered_map<ObjectID, GpuProcessHandle*, UniqueIDHasher> gpu_objec
 static std::mutex gpu_mutex;
 #endif
 
-PlasmaClient::PlasmaClient() {
+PlasmaClient::PlasmaClient() : threadpool_(kThreadPoolSize) {
 #ifdef PLASMA_GPU
   CudaDeviceManager::GetInstance(&manager_);
 #endif
@@ -542,7 +540,7 @@ static void ComputeBlockHash(const unsigned char* data, int64_t nbytes, uint64_t
   *hash = XXH64_digest(&hash_state);
 }
 
-static inline bool compute_object_hash_parallel(XXH64_state_t* hash_state,
+bool PlasmaClient::compute_object_hash_parallel(XXH64_state_t* hash_state,
                                                 const unsigned char* data,
                                                 int64_t nbytes) {
   // Note that this function will likely be faster if the address of data is
@@ -578,7 +576,7 @@ static inline bool compute_object_hash_parallel(XXH64_state_t* hash_state,
   return true;
 }
 
-static uint64_t compute_object_hash(const ObjectBuffer& obj_buffer) {
+uint64_t PlasmaClient::compute_object_hash(const ObjectBuffer& obj_buffer) {
   DCHECK(obj_buffer.metadata);
   DCHECK(obj_buffer.data);
   XXH64_state_t hash_state;
