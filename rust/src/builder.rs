@@ -65,7 +65,7 @@ impl<T> Builder<T> {
     }
 
     /// Get the internal byte-aligned memory buffer as a mutable slice
-    pub fn slice_mut(&self, start: usize, end: usize) -> &mut [T] {
+    pub fn slice_mut(&mut self, start: usize, end: usize) -> &mut [T] {
         assert!(start <= end);
         assert!(start < self.capacity as usize);
         assert!(end <= self.capacity as usize);
