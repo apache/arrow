@@ -288,7 +288,7 @@ cdef class Array:
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
 
-    def __richcmp__(Array self, object other, int op):
+    def __eq__(self, other):
         raise NotImplementedError('Comparisons with pyarrow.Array are not '
                                   'implemented')
 

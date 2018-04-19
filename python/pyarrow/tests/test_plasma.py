@@ -819,6 +819,19 @@ def test_object_id_size():
     plasma.ObjectID(20 * b"0")
 
 
+@pytest.mark.plasma
+def test_object_id_equality_operators():
+    import pyarrow.plasma as plasma
+
+    oid1 = plasma.ObjectID(20 * b'0')
+    oid2 = plasma.ObjectID(20 * b'0')
+    oid3 = plasma.ObjectID(19 * b'0' + b'1')
+
+    assert oid1 == oid2
+    assert oid2 != oid3
+    assert oid1 != 'foo'
+
+
 @pytest.mark.skipif(not os.path.exists("/mnt/hugepages"),
                     reason="requires hugepage support")
 def test_use_huge_pages():
