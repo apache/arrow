@@ -25,6 +25,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -39,6 +40,8 @@
 
 using arrow::Buffer;
 using arrow::Status;
+
+typedef struct XXH64_state_s XXH64_state_t;
 
 namespace plasma {
 
@@ -374,6 +377,11 @@ class ARROW_EXPORT PlasmaClient {
   void increment_object_count(const ObjectID& object_id, PlasmaObject* object,
                               bool is_sealed);
 
+  bool compute_object_hash_parallel(XXH64_state_t* hash_state, const unsigned char* data,
+                                    int64_t nbytes);
+
+  uint64_t compute_object_hash(const ObjectBuffer& obj_buffer);
+
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
   /// File descriptor of the Unix domain socket that connects to the manager.
@@ -402,6 +410,8 @@ class ARROW_EXPORT PlasmaClient {
   /// information to make sure that it does not delay in releasing so much
   /// memory that the store is unable to evict enough objects to free up space.
   int64_t store_capacity_;
+  /// Threadpool for parallel memcopy and hash computation.
+  std::vector<std::thread> threadpool_;
 #ifdef PLASMA_GPU
   /// Cuda Device Manager.
   arrow::gpu::CudaDeviceManager* manager_;
