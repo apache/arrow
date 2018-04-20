@@ -150,6 +150,18 @@ impl Field {
         }
     }
 
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn data_type(&self) -> &DataType {
+        &self.data_type
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        self.nullable
+    }
+
     /// Parse a field definition from a JSON representation
     pub fn from(json: &Value) -> Result<Self, ArrowError> {
         //println!("Field::from({:?}", json);
@@ -214,7 +226,7 @@ impl fmt::Display for Field {
 /// Arrow Schema
 #[derive(Debug, Clone)]
 pub struct Schema {
-    pub columns: Vec<Field>,
+    columns: Vec<Field>,
 }
 
 impl Schema {
@@ -225,6 +237,10 @@ impl Schema {
 
     pub fn new(columns: Vec<Field>) -> Self {
         Schema { columns: columns }
+    }
+
+    pub fn columns(&self) -> &Vec<Field> {
+        &self.columns
     }
 
     /// look up a column by name and return a reference to the column along with it's index
@@ -345,4 +361,29 @@ mod tests {
         ]);
         assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false }, Field { name: \"zip\", data_type: UInt16, nullable: false }])")
     }
+
+    #[test]
+    fn schema_field_accessors() {
+        let _person = Schema::new(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ]);
+
+        // test schema accessors
+        assert_eq!(_person.columns().len(), 3);
+
+        // test field accessors
+        assert_eq!(_person.columns()[0].name(), "first_name");
+        assert_eq!(_person.columns()[0].data_type(), &DataType::Utf8);
+        assert_eq!(_person.columns()[0].is_nullable(), false);
+    }
+
 }
