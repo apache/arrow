@@ -42,10 +42,10 @@ namespace arrow {
 #define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
 #define ARROW_IGNORE_EXPR(expr) ((void)(expr));
 
-#define ARROW_CHECK(condition)                               \
-  (condition) ? 0 : ::arrow::internal::FatalLog(ARROW_FATAL) \
-                        << __FILE__ << ":" << __LINE__       \
-                        << " Check failed: " #condition " "
+#define ARROW_CHECK(condition)                           \
+  (condition) ? 0                                        \
+              : ::arrow::internal::FatalLog(ARROW_FATAL) \
+                    << __FILE__ << ":" << __LINE__ << " Check failed: " #condition " "
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
 // of 'msg' followed by the status.
@@ -114,8 +114,7 @@ class NullLog {
 class CerrLog {
  public:
   CerrLog(int severity)  // NOLINT(runtime/explicit)
-      : severity_(severity),
-        has_logged_(false) {}
+      : severity_(severity), has_logged_(false) {}
 
   virtual ~CerrLog() {
     if (has_logged_) {
