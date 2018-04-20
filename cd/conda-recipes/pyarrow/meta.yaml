@@ -1,12 +1,12 @@
 package:
   name: pyarrow
-  version: '0.9.0'  # this should be read from an env variable
+  version: version: {{ ARROW_VERSION }}
 
 source:
   path: ../../../
 
 build:
-  number: 1
+  number: 0
   skip: true  # [win32]
   skip: true  # [win and py<35]
   features:

@@ -60,6 +60,7 @@ before_install:
 
 before_script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
+  - git -C arrow checkout {{ ARROW_SHA }}
 
 notifications:
   email:

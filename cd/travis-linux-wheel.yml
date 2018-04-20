@@ -33,6 +33,7 @@ before_script:
 
 script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
+  - git -C arrow checkout {{ ARROW_SHA }}
   - mkdir -p dist
 
   - pushd arrow/python/manylinux1

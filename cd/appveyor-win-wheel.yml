@@ -43,6 +43,7 @@ init:
 build_script:
   - mkdir wheels
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} %ARROW_SRC% || exit /B
+  - git -C arrow checkout {{ ARROW_SHA }} || exit /B
   - call %ARROW_SRC%\cd\python-wheels\win-build.bat
 
 after_build:

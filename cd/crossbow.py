@@ -283,8 +283,10 @@ def build(pattern, dry_run, queue_repo, github_token):
         'PLAT': 'x86_64',
         'EMAIL': EMAIL,
         'BUILD_REF': arrow.sha,
+        'ARROW_SHA': arrow.sha,
         'ARROW_REPO': arrow.origin.url,
         'ARROW_BRANCH': arrow.current_branch.branch_name,
+        'ARROW_VERSION': arrow.version,
         'PYARROW_VERSION': arrow.version,
     }
 

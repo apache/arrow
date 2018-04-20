@@ -21,6 +21,7 @@ os: osx
 osx_image: xcode6.4
 
 env:
+  - ARROW_VERSION={{ ARROW_VERSION }}
   matrix:
     - CONDA_PY=27
     - CONDA_PY=35
@@ -60,6 +61,7 @@ install:
 
 script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
+  - git checkout {{ ARROW_SHA }}
   - pushd arrow/cd/conda-recipes
   - conda build arrow-cpp pyarrow
 
