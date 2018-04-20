@@ -137,7 +137,7 @@ bool Message::Equals(const Message& other) const {
 Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
                          std::unique_ptr<Message>* out) {
   auto data = metadata->data();
-  flatbuffers::Verifier verifier(data, metadata->size());
+  flatbuffers::Verifier verifier(data, metadata->size(), 128);
   if (!flatbuf::VerifyMessageBuffer(verifier)) {
     return Status::IOError("Invalid flatbuffers message.");
   }
