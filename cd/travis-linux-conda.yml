@@ -21,6 +21,7 @@ os: linux
 dist: trusty
 
 env:
+  - ARROW_VERSION={{ ARROW_VERSION }}
   matrix:
     - CONDA_PY=27
     - CONDA_PY=35
