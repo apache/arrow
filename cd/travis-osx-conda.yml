@@ -61,7 +61,7 @@ install:
 
 script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - git checkout {{ ARROW_SHA }}
+  - git -C arrow checkout {{ ARROW_SHA }}
   - pushd arrow/cd/conda-recipes
   - conda build arrow-cpp pyarrow
 

@@ -1,6 +1,6 @@
 package:
   name: pyarrow
-  version: version: {{ ARROW_VERSION }}
+  version: {{ ARROW_VERSION }}
 
 source:
   path: ../../../
@@ -33,7 +33,7 @@ requirements:
     - numpy >=1.12  # [win and py>=36]
     - pandas
     - six
-    - arrow-cpp 0.9.0
+    - arrow-cpp {{ ARROW_VERSION }}
     - parquet-cpp 1.4.0
     - futures  # [py27]
 
