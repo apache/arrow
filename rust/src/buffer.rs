@@ -22,12 +22,6 @@ use std::slice;
 
 use super::memory::*;
 
-#[cfg(windows)]
-#[link(name = "msvcrt")]
-extern "C" {
-    fn _aligned_free(prt: *const u8);
-}
-
 /// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
 /// memory region is aligned at a 64-byte boundary
 pub struct Buffer<T> {
@@ -82,19 +76,10 @@ impl<T> Buffer<T> {
 }
 
 impl<T> Drop for Buffer<T> {
-    #[cfg(windows)]
     fn drop(&mut self) {
         unsafe {
             let p = mem::transmute::<*const T, *const u8>(self.data);
-            _aligned_free(p);
-        }
-    }
-
-    #[cfg(not(windows))]
-    fn drop(&mut self) {
-        unsafe {
-            let p = mem::transmute::<*const T, *mut libc::c_void>(self.data);
-            libc::free(p);
+            free_aligned(p);
         }
     }
 }
