@@ -277,6 +277,13 @@ mod tests {
     }
 
     #[test]
+    fn test_from_empty_vec() {
+        let v: Vec<i32> = vec![];
+        let a = Array::from(v);
+        assert_eq!(0, a.len());
+    }
+
+    #[test]
     fn test_from_optional_i32() {
         let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
         assert_eq!(5, a.len());
