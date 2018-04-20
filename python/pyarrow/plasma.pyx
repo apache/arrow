@@ -139,10 +139,11 @@ cdef class ObjectID:
                              " is " + str(object_id))
         self.data = CUniqueID.from_binary(object_id)
 
-    def __richcmp__(ObjectID self, ObjectID object_id, operation):
-        if operation != 2:
-            raise ValueError("operation != 2 (only equality is supported)")
-        return self.data == object_id.data
+    def __eq__(self, other):
+        try:
+            return self.data == (<ObjectID?>other).data
+        except TypeError:
+            return False
 
     def __hash__(self):
         return hash(self.data.binary())
