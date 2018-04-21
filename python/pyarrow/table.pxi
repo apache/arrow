@@ -1270,6 +1270,28 @@ cdef class Table:
 
         return pyarrow_wrap_table(c_table)
 
+    def drop(self, columns):
+        """
+        Drop one or more columns and return a new table.
+        """
+        indices = []
+        for col in columns:
+            idx = self.schema.get_field_index(col)
+            if idx == -1:
+                raise KeyError("Column %s not found", col)
+            indices.append(idx)
+
+        indices.sort()
+        indices.reverse()
+
+        for i, idx in enumerate(indices):
+            if i == 0:
+                table = self.remove_column(idx)
+            else:
+                table.remove_column(idx)
+
+        return table
+
 
 def concat_tables(tables):
     """

@@ -327,17 +327,14 @@ def test_table_add_column():
 def test_table_drop():
     """ drop one or more columns given labels"""
     a = pa.array(range(5))
-    b = pa.array([-10, -5, 0, 5, 10]) 
+    b = pa.array([-10, -5, 0, 5, 10])
     c = pa.array(range(5, 10))
 
     table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
-    t2 = table.drop(['a','b'])
+    t2 = table.drop(['a', 'b'])
 
-    exp =  pa.Table.from_arrays([c], names=('c',))
+    exp = pa.Table.from_arrays([c], names=('c',))
     assert exp.equals(t2)
-
-
-    
 
 
 def test_table_remove_column():
