@@ -1273,6 +1273,10 @@ cdef class Table:
     def drop(self, columns):
         """
         Drop one or more columns and return a new table.
+
+        columns: list of str
+
+        Returns pa.Table
         """
         indices = []
         for col in columns:
@@ -1283,12 +1287,10 @@ cdef class Table:
 
         indices.sort()
         indices.reverse()
-
-        for i, idx in enumerate(indices):
-            if i == 0:
-                table = self.remove_column(idx)
-            else:
-                table = table.remove_column(idx)
+        
+        table = self
+        for idx in indices:
+            table = table.remove_column(idx)
 
         return table
 
