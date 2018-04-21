@@ -1288,7 +1288,7 @@ cdef class Table:
             if i == 0:
                 table = self.remove_column(idx)
             else:
-                table.remove_column(idx)
+                table = table.remove_column(idx)
 
         return table
 
