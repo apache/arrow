@@ -169,6 +169,11 @@ def test_is_temporal_date_time_timestamp():
     assert not types.is_temporal(pa.int32())
 
 
+def test_is_primitive():
+    assert types.is_primitive(pa.int32())
+    assert not types.is_primitive(pa.list_(pa.int32()))
+
+
 def test_timestamp_type():
     # See ARROW-1683
     assert isinstance(pa.timestamp('ns'), pa.TimestampType)

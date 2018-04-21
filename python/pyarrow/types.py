@@ -283,3 +283,10 @@ def is_dictionary(t):
     Return True if value is an instance of a dictionary-encoded type
     """
     return t.id == lib.Type_DICTIONARY
+
+
+def is_primitive(t):
+    """
+    Return True if the value is an instance of a primitive type
+    """
+    return lib._is_primitive(t.id)
