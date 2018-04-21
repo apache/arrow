@@ -291,10 +291,10 @@ class TestConvertMetadata(object):
             batch = pa.RecordBatch.from_arrays([arr], ['foo'])
             table = pa.Table.from_batches([batch, batch, batch])
 
-            with pytest.raises(pa.ArrowException):
+            with pytest.raises(pa.ArrowInvalid):
                 arr.to_pandas()
 
-            with pytest.raises(pa.ArrowException):
+            with pytest.raises(pa.ArrowInvalid):
                 table.to_pandas()
 
     def test_unicode_with_unicode_column_and_index(self):
@@ -1238,7 +1238,7 @@ class TestConvertStringLikeTypes(object):
     # cannot be converted to utf-8
     def test_array_of_bytes_to_strings_bad_data(self):
         with pytest.raises(
-                pa.lib.ArrowException,
+                pa.lib.ArrowInvalid,
                 message="Unknown error: 'utf-8' codec can't decode byte 0x80 "
                 "in position 0: invalid start byte"):
             pa.array(np.array([b'\x80\x81'], dtype=object), pa.string())
@@ -1321,12 +1321,12 @@ class TestConvertDecimalTypes(object):
     def test_decimal_fails_with_truncation(self):
         data1 = [decimal.Decimal('1.234')]
         type1 = pa.decimal128(10, 2)
-        with pytest.raises(pa.ArrowException):
+        with pytest.raises(pa.ArrowInvalid):
             pa.array(data1, type=type1)
 
         data2 = [decimal.Decimal('1.2345')]
         type2 = pa.decimal128(10, 3)
-        with pytest.raises(pa.ArrowException):
+        with pytest.raises(pa.ArrowInvalid):
             pa.array(data2, type=type2)
 
     def test_decimal_with_different_precisions(self):
@@ -1737,33 +1737,29 @@ class TestZeroCopyConversion(object):
         tm.assert_series_equal(pd.Series(result), pd.Series(values),
                                check_names=False)
 
+    def check_zero_copy_failure(self, arr):
+        with pytest.raises(pa.ArrowInvalid):
+            arr.to_pandas(zero_copy_only=True)
+
     def test_zero_copy_failure_on_object_types(self):
-        with pytest.raises(pa.ArrowException):
-            pa.array(['A', 'B', 'C']).to_pandas(zero_copy_only=True)
+        self.check_zero_copy_failure(pa.array(['A', 'B', 'C']))
 
     def test_zero_copy_failure_with_int_when_nulls(self):
-        with pytest.raises(pa.ArrowException):
-            pa.array([0, 1, None]).to_pandas(zero_copy_only=True)
+        self.check_zero_copy_failure(pa.array([0, 1, None]))
 
     def test_zero_copy_failure_with_float_when_nulls(self):
-        with pytest.raises(pa.ArrowException):
-            pa.array([0.0, 1.0, None]).to_pandas(zero_copy_only=True)
+        self.check_zero_copy_failure(pa.array([0.0, 1.0, None]))
 
     def test_zero_copy_failure_on_bool_types(self):
-        with pytest.raises(pa.ArrowException):
-            pa.array([True, False]).to_pandas(zero_copy_only=True)
+        self.check_zero_copy_failure(pa.array([True, False]))
 
     def test_zero_copy_failure_on_list_types(self):
-        arr = np.array([[1, 2], [8, 9]], dtype=object)
-
-        with pytest.raises(pa.ArrowException):
-            pa.array(arr).to_pandas(zero_copy_only=True)
+        arr = pa.array([[1, 2], [8, 9]], type=pa.list_(pa.int64()))
+        self.check_zero_copy_failure(arr)
 
     def test_zero_copy_failure_on_timestamp_types(self):
         arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
-
-        with pytest.raises(pa.ArrowException):
-            pa.array(arr).to_pandas(zero_copy_only=True)
+        self.check_zero_copy_failure(pa.array(arr))
 
 
 class TestConvertMisc(object):
@@ -1843,11 +1839,11 @@ class TestConvertMisc(object):
 
     def test_mixed_types_fails(self):
         data = pd.DataFrame({'a': ['a', 1, 2.0]})
-        with pytest.raises(pa.ArrowException):
+        with pytest.raises(pa.ArrowTypeError):
             pa.Table.from_pandas(data)
 
         data = pd.DataFrame({'a': [1, True]})
-        with pytest.raises(pa.ArrowException):
+        with pytest.raises(pa.ArrowTypeError):
             pa.Table.from_pandas(data)
 
     def test_strided_data_import(self):
