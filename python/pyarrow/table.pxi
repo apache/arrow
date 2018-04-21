@@ -1278,7 +1278,7 @@ cdef class Table:
         for col in columns:
             idx = self.schema.get_field_index(col)
             if idx == -1:
-                raise KeyError("Column %s not found", col)
+                raise KeyError("Column {!r} not found".format(col))
             indices.append(idx)
 
         indices.sort()

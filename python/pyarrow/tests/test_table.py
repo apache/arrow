@@ -336,6 +336,10 @@ def test_table_drop():
     exp = pa.Table.from_arrays([c], names=('c',))
     assert exp.equals(t2)
 
+    # -- raise KeyError if column not in Table
+    with pytest.raises(KeyError, match="Column 'd' not found"):
+        table.drop(['d'])
+
 
 def test_table_remove_column():
     data = [
