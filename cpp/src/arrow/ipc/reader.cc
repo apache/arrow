@@ -328,6 +328,9 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
   if (message->header_type() != flatbuf::MessageHeader_RecordBatch) {
     DCHECK_EQ(message->header_type(), flatbuf::MessageHeader_RecordBatch);
   }
+  if (message->header() == nullptr) {
+    return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
+  }
   auto batch = reinterpret_cast<const flatbuf::RecordBatch*>(message->header());
   return ReadRecordBatch(batch, schema, max_recursion_depth, file, out);
 }
@@ -426,6 +429,9 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     RETURN_NOT_OK(
         ReadMessageAndValidate(message_reader_.get(), Message::SCHEMA, false, &message));
 
+    if (message->header() == nullptr) {
+      return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
+    }
     RETURN_NOT_OK(internal::GetDictionaryTypes(message->header(), &dictionary_types_));
 
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
