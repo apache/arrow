@@ -36,6 +36,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
+#include "arrow/util/io-util.h"
 
 namespace arrow {
 namespace io {
@@ -43,7 +44,7 @@ namespace io {
 class FileTestFixture : public ::testing::Test {
  public:
   void SetUp() {
-    path_ = "arrow-test-io-file-output-stream.txt";
+    path_ = "arrow-test-io-file.txt";
     EnsureFileDeleted();
   }
 
@@ -68,6 +69,17 @@ class TestFileOutputStream : public FileTestFixture {
     ASSERT_OK(FileOutputStream::Open(path_, append, &file_));
     ASSERT_OK(FileOutputStream::Open(path_, append, &stream_));
   }
+  void OpenFileDescriptor() {
+    internal::PlatformFilename file_name;
+    ASSERT_OK(internal::FileNameFromString(path_, &file_name));
+    int fd_file, fd_stream;
+    ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
+                                          false /* truncate */, &fd_file));
+    ASSERT_OK(FileOutputStream::Open(fd_file, &file_));
+    ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
+                                          false /* truncate */, &fd_stream));
+    ASSERT_OK(FileOutputStream::Open(fd_stream, &stream_));
+  }
 
  protected:
   std::shared_ptr<FileOutputStream> file_;
@@ -90,19 +102,27 @@ TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
 #endif
 
 TEST_F(TestFileOutputStream, DestructorClosesFile) {
-  int fd;
-  {
-    std::shared_ptr<FileOutputStream> file;
-    ASSERT_OK(FileOutputStream::Open(path_, &file));
-    fd = file->file_descriptor();
-  }
-  ASSERT_TRUE(FileIsClosed(fd));
-  {
-    std::shared_ptr<OutputStream> stream;
-    ASSERT_OK(FileOutputStream::Open(path_, &stream));
-    fd = std::static_pointer_cast<FileOutputStream>(stream)->file_descriptor();
-  }
-  ASSERT_TRUE(FileIsClosed(fd));
+  int fd_file, fd_stream;
+
+  OpenFile();
+  fd_file = file_->file_descriptor();
+  fd_stream = std::static_pointer_cast<FileOutputStream>(stream_)->file_descriptor();
+  ASSERT_FALSE(FileIsClosed(fd_file));
+  file_.reset();
+  ASSERT_TRUE(FileIsClosed(fd_file));
+  ASSERT_FALSE(FileIsClosed(fd_stream));
+  stream_.reset();
+  ASSERT_TRUE(FileIsClosed(fd_stream));
+
+  OpenFileDescriptor();
+  fd_file = file_->file_descriptor();
+  fd_stream = std::static_pointer_cast<FileOutputStream>(stream_)->file_descriptor();
+  ASSERT_FALSE(FileIsClosed(fd_file));
+  file_.reset();
+  ASSERT_TRUE(FileIsClosed(fd_file));
+  ASSERT_FALSE(FileIsClosed(fd_stream));
+  stream_.reset();
+  ASSERT_TRUE(FileIsClosed(fd_stream));
 }
 
 TEST_F(TestFileOutputStream, Close) {
@@ -130,6 +150,33 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(stream_->Close());
 
   AssertFileContents(path_, data);
+}
+
+TEST_F(TestFileOutputStream, FromFileDescriptor) {
+  OpenFileDescriptor();
+  stream_.reset();
+
+  std::string data1 = "test";
+  ASSERT_OK(file_->Write(data1.data(), data1.size()));
+  int fd = file_->file_descriptor();
+  ASSERT_OK(file_->Close());
+  ASSERT_TRUE(FileIsClosed(fd));
+
+  AssertFileContents(path_, data1);
+
+  // Re-open at end of file
+  internal::PlatformFilename file_name;
+  ASSERT_OK(internal::FileNameFromString(path_, &file_name));
+  ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
+                                        false /* truncate */, &fd));
+  ASSERT_OK(internal::FileSeek(fd, 0, SEEK_END));
+  ASSERT_OK(FileOutputStream::Open(fd, &stream_));
+
+  std::string data2 = "data";
+  ASSERT_OK(stream_->Write(data2.data(), data2.size()));
+  ASSERT_OK(stream_->Close());
+
+  AssertFileContents(path_, data1 + data2);
 }
 
 TEST_F(TestFileOutputStream, InvalidWrites) {
@@ -225,6 +272,32 @@ TEST_F(TestReadableFile, Close) {
 
   // Idempotent
   ASSERT_OK(file_->Close());
+  ASSERT_TRUE(FileIsClosed(fd));
+}
+
+TEST_F(TestReadableFile, FromFileDescriptor) {
+  MakeTestFile();
+
+  internal::PlatformFilename file_name;
+  int fd = -2;
+  ASSERT_OK(internal::FileNameFromString(path_, &file_name));
+  ASSERT_OK(internal::FileOpenReadable(file_name, &fd));
+  ASSERT_GE(fd, 0);
+  ASSERT_OK(internal::FileSeek(fd, 4));
+
+  ASSERT_OK(ReadableFile::Open(fd, &file_));
+  ASSERT_EQ(file_->file_descriptor(), fd);
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(file_->Read(5, &buf));
+  ASSERT_EQ(buf->size(), 4);
+  ASSERT_TRUE(buf->Equals(Buffer("data")));
+
+  ASSERT_FALSE(FileIsClosed(fd));
+  ASSERT_OK(file_->Close());
+  ASSERT_TRUE(FileIsClosed(fd));
+  // Idempotent
+  ASSERT_OK(file_->Close());
+  ASSERT_TRUE(FileIsClosed(fd));
 }
 
 TEST_F(TestReadableFile, SeekTellSize) {
@@ -404,6 +477,65 @@ TEST_F(TestReadableFile, ThreadSafety) {
   thread2.join();
 
   ASSERT_EQ(niter * 2, correct_count);
+}
+
+// ----------------------------------------------------------------------
+// Pipe I/O tests using FileOutputStream
+// (cannot test using ReadableFile as it currently requires seeking)
+
+class TestPipeIO : public ::testing::Test {
+ public:
+  void MakePipe() {
+    int fd[2];
+    ASSERT_OK(internal::CreatePipe(fd));
+    r_ = fd[0];
+    w_ = fd[1];
+    ASSERT_GE(r_, 0);
+    ASSERT_GE(w_, 0);
+  }
+  void ClosePipe() {
+    if (r_ != -1) {
+      ASSERT_OK(internal::FileClose(r_));
+      r_ = -1;
+    }
+    if (w_ != -1) {
+      ASSERT_OK(internal::FileClose(w_));
+      w_ = -1;
+    }
+  }
+  void TearDown() { ClosePipe(); }
+
+ protected:
+  int r_ = -1, w_ = -1;
+};
+
+TEST_F(TestPipeIO, TestWrite) {
+  std::string data1 = "test", data2 = "data!";
+  std::shared_ptr<FileOutputStream> file;
+  uint8_t buffer[10];
+  int64_t bytes_read;
+
+  MakePipe();
+  ASSERT_OK(FileOutputStream::Open(w_, &file));
+  w_ = -1;  // now owned by FileOutputStream
+
+  ASSERT_OK(file->Write(data1.data(), data1.size()));
+  ASSERT_OK(internal::FileRead(r_, buffer, 4, &bytes_read));
+  ASSERT_EQ(bytes_read, 4);
+  ASSERT_EQ(0, std::memcmp(buffer, "test", 4));
+
+  ASSERT_OK(file->Write(data2.data(), data2.size()));
+  ASSERT_OK(internal::FileRead(r_, buffer, 4, &bytes_read));
+  ASSERT_EQ(bytes_read, 4);
+  ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
+
+  ASSERT_OK(file->Close());
+  ASSERT_OK(internal::FileRead(r_, buffer, 2, &bytes_read));
+  ASSERT_EQ(bytes_read, 1);
+  ASSERT_EQ(0, std::memcmp(buffer, "!", 1));
+  // EOF reached
+  ASSERT_OK(internal::FileRead(r_, buffer, 2, &bytes_read));
+  ASSERT_EQ(bytes_read, 0);
 }
 
 // ----------------------------------------------------------------------

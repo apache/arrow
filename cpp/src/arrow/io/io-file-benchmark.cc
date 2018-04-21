@@ -19,25 +19,109 @@
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
 #include "arrow/test-util.h"
+#include "arrow/util/io-util.h"
 
 #include "benchmark/benchmark.h"
 
 #include <algorithm>
+#include <atomic>
+#include <cstdlib>
 #include <iostream>
+#include <thread>
 #include <valarray>
+
+#include <fcntl.h>
+#include <poll.h>
+#include <unistd.h>
 
 namespace arrow {
 
-// XXX Writing to /dev/null is irrealistic as the kernel likely doesn't
-// copy the data at all.  Use a socketpair instead?
 std::string GetNullFile() { return "/dev/null"; }
 
 const std::valarray<int64_t> small_sizes = {8, 24, 33, 1, 32, 192, 16, 40};
 const std::valarray<int64_t> large_sizes = {8192, 100000};
 
+class BackgroundReader {
+  // A class that reads data in the background from a file descriptor
+
+ public:
+  static std::shared_ptr<BackgroundReader> StartReader(int fd) {
+    std::shared_ptr<BackgroundReader> reader(new BackgroundReader(fd));
+    reader->worker_.reset(new std::thread([=] { reader->LoopReading(); }));
+    return reader;
+  }
+  void Stop() {
+    const uint8_t data[] = "x";
+    ABORT_NOT_OK(internal::FileWrite(wakeup_w_, data, 1));
+  }
+  void Join() { worker_->join(); }
+
+  ~BackgroundReader() {
+    for (int fd : {fd_, wakeup_r_, wakeup_w_}) {
+      ABORT_NOT_OK(internal::FileClose(fd));
+    }
+  }
+
+ protected:
+  explicit BackgroundReader(int fd) : fd_(fd), total_bytes_(0) {
+    // Prepare self-pipe trick
+    int wakeupfd[2];
+    ABORT_NOT_OK(internal::CreatePipe(wakeupfd));
+    wakeup_r_ = wakeupfd[0];
+    wakeup_w_ = wakeupfd[1];
+    // Put fd in non-blocking mode
+    fcntl(fd, F_SETFL, O_NONBLOCK);
+  }
+
+  void LoopReading() {
+    struct pollfd pollfds[2];
+    pollfds[0].fd = fd_;
+    pollfds[0].events = POLLIN;
+    pollfds[1].fd = wakeup_r_;
+    pollfds[1].events = POLLIN;
+    while (true) {
+      int ret = poll(pollfds, 2, -1 /* timeout */);
+      if (ret < 1) {
+        std::cerr << "poll() failed with code " << ret << "\n";
+        abort();
+      }
+      if (pollfds[1].revents & POLLIN) {
+        // We're done
+        break;
+      }
+      if (!(pollfds[0].revents & POLLIN)) {
+        continue;
+      }
+      int64_t bytes_read;
+      // There could be a spurious wakeup followed by EAGAIN
+      ARROW_UNUSED(internal::FileRead(fd_, buffer_, buffer_size_, &bytes_read));
+      total_bytes_ += bytes_read;
+    }
+  }
+
+  int fd_, wakeup_r_, wakeup_w_;
+  int64_t total_bytes_;
+
+  static const int64_t buffer_size_ = 16384;
+  uint8_t buffer_[buffer_size_];
+
+  std::unique_ptr<std::thread> worker_;
+};
+
+// Set up a pipe with an OutputStream at one end and a BackgroundReader at
+// the other end.
+static void SetupPipeWriter(std::shared_ptr<io::OutputStream>* stream,
+                            std::shared_ptr<BackgroundReader>* reader) {
+  int fd[2];
+  ABORT_NOT_OK(internal::CreatePipe(fd));
+  ABORT_NOT_OK(io::FileOutputStream::Open(fd[1], stream));
+  *reader = BackgroundReader::StartReader(fd[0]);
+}
+
 static void BenchmarkStreamingWrites(benchmark::State& state,
                                      std::valarray<int64_t> sizes,
-                                     io::OutputStream* stream) {
+                                     io::OutputStream* stream,
+                                     BackgroundReader* reader = nullptr) {
   const std::string datastr(*std::max_element(std::begin(sizes), std::end(sizes)), 'x');
   const void* data = datastr.data();
   const int64_t sum_sizes = sizes.sum();
@@ -47,10 +131,23 @@ static void BenchmarkStreamingWrites(benchmark::State& state,
       ABORT_NOT_OK(stream->Write(data, size));
     }
   }
-  state.SetBytesProcessed(int64_t(state.iterations()) * sum_sizes);
+  const int64_t total_bytes = static_cast<int64_t>(state.iterations()) * sum_sizes;
+  state.SetBytesProcessed(total_bytes);
+
+  if (reader != nullptr) {
+    // Wake up and stop
+    reader->Stop();
+    reader->Join();
+  }
+  ABORT_NOT_OK(stream->Close());
 }
 
-static void BM_FileOutputStreamSmallWrites(
+// Benchmark writing to /dev/null
+//
+// This situation is irrealistic as the kernel likely doesn't
+// copy the data at all, so we only measure small writes.
+
+static void BM_FileOutputStreamSmallWritesToNull(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> stream;
   ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &stream));
@@ -58,15 +155,7 @@ static void BM_FileOutputStreamSmallWrites(
   BenchmarkStreamingWrites(state, small_sizes, stream.get());
 }
 
-static void BM_FileOutputStreamLargeWrites(
-    benchmark::State& state) {  // NOLINT non-const reference
-  std::shared_ptr<io::OutputStream> stream;
-  ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &stream));
-
-  BenchmarkStreamingWrites(state, large_sizes, stream.get());
-}
-
-static void BM_BufferedOutputStreamSmallWrites(
+static void BM_BufferedOutputStreamSmallWritesToNull(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> stream;
   ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &stream));
@@ -75,21 +164,75 @@ static void BM_BufferedOutputStreamSmallWrites(
   BenchmarkStreamingWrites(state, small_sizes, stream.get());
 }
 
-static void BM_BufferedOutputStreamLargeWrites(
+// Benchmark writing a pipe
+//
+// This is slightly more realistic than the above
+
+static void BM_FileOutputStreamSmallWritesToPipe(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> stream;
-  ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &stream));
-  stream = std::make_shared<io::BufferedOutputStream>(std::move(stream));
+  std::shared_ptr<BackgroundReader> reader;
+  SetupPipeWriter(&stream, &reader);
 
-  BenchmarkStreamingWrites(state, large_sizes, stream.get());
+  BenchmarkStreamingWrites(state, small_sizes, stream.get(), reader.get());
 }
 
-BENCHMARK(BM_FileOutputStreamSmallWrites)->Repetitions(2)->MinTime(1.0);
+static void BM_FileOutputStreamLargeWritesToPipe(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::shared_ptr<io::OutputStream> stream;
+  std::shared_ptr<BackgroundReader> reader;
+  SetupPipeWriter(&stream, &reader);
 
-BENCHMARK(BM_FileOutputStreamLargeWrites)->Repetitions(2)->MinTime(1.0);
+  BenchmarkStreamingWrites(state, large_sizes, stream.get(), reader.get());
+}
 
-BENCHMARK(BM_BufferedOutputStreamSmallWrites)->Repetitions(2)->MinTime(1.0);
+static void BM_BufferedOutputStreamSmallWritesToPipe(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::shared_ptr<io::OutputStream> stream;
+  std::shared_ptr<BackgroundReader> reader;
+  SetupPipeWriter(&stream, &reader);
+  stream = std::make_shared<io::BufferedOutputStream>(std::move(stream));
 
-BENCHMARK(BM_BufferedOutputStreamLargeWrites)->Repetitions(2)->MinTime(1.0);
+  BenchmarkStreamingWrites(state, small_sizes, stream.get(), reader.get());
+}
+
+static void BM_BufferedOutputStreamLargeWritesToPipe(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::shared_ptr<io::OutputStream> stream;
+  std::shared_ptr<BackgroundReader> reader;
+  SetupPipeWriter(&stream, &reader);
+  stream = std::make_shared<io::BufferedOutputStream>(std::move(stream));
+
+  BenchmarkStreamingWrites(state, large_sizes, stream.get(), reader.get());
+}
+
+// We use real time as we don't want to count CPU time spent in the
+// BackgroundReader thread
+
+BENCHMARK(BM_FileOutputStreamSmallWritesToNull)
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->UseRealTime();
+BENCHMARK(BM_FileOutputStreamSmallWritesToPipe)
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->UseRealTime();
+BENCHMARK(BM_FileOutputStreamLargeWritesToPipe)
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->UseRealTime();
+
+BENCHMARK(BM_BufferedOutputStreamSmallWritesToNull)
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->UseRealTime();
+BENCHMARK(BM_BufferedOutputStreamSmallWritesToPipe)
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->UseRealTime();
+BENCHMARK(BM_BufferedOutputStreamLargeWritesToPipe)
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->UseRealTime();
 
 }  // namespace arrow
