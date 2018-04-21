@@ -895,7 +895,7 @@ cdef class Table:
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
-                    nthreads=None):
+                    nthreads=None, columns=None):
         """
         Convert pandas.DataFrame to an Arrow Table
 
@@ -911,6 +911,9 @@ cdef class Table:
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
+        columns : list, optional
+           List of column to be converted. If None, use all columns.
+
 
         Returns
         -------
@@ -932,7 +935,8 @@ cdef class Table:
             df,
             schema=schema,
             preserve_index=preserve_index,
-            nthreads=nthreads
+            nthreads=nthreads,
+            columns=columns
         )
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
