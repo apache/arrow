@@ -195,7 +195,7 @@ These settings can also be set on a per-column basis:
    pq.write_table(table, where, compression={'foo': 'snappy', 'bar': 'gzip'},
                   use_dictionary=['foo', 'bar'])
 
-Reading Multiples Files and Partitioned Datasets
+Partitioned Datasets (Multiple Files)
 ------------------------------------------------
 
 Multiple Parquet files constitute a Parquet *dataset*. These may present in a
@@ -225,6 +225,36 @@ A dataset partitioned by year and month may look like on disk:
        ...
      ...
 
+Writing to Partitioned Datasets
+------------------------------------------------
+
+You can write a partitioned dataset for any ``pyarrow`` file system that is a file-store (e.g. local, HDFS, S3). The
+default behaviour when no filesystem is added is to use the local filesystem.
+
+.. code-block:: python
+
+   # Local dataset write
+   pq.write_to_dataset(table, root_path='dataset_name', partition_columns=['one', 'two'])
+
+The root path in this case specifies the parent directory to which data will be saved. The partition columns are the
+column names by which to partition the dataset. Columns are partitioned in the order they are given. The partition
+splits are determined by the unique values in the partition columns.
+
+To use another filesystem you only need to add the filesystem parameter, the individual table writes are wrapped
+using ``with`` statements so the ``pq.write_to_dataset`` function does not need to be.
+
+.. code-block:: python
+
+   # Remote file-system example
+   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path)
+   pq.write_to_dataset(table, root_path='dataset_name', partition_cols=['one', 'two'], filesystem=fs)
+
+Compatibility Note: if using ``pq.write_to_dataset`` to create a table that will then be used by HIVE then partition
+column values must be compatible with the allowed character set of the HIVE version you are running.
+
+Reading from Partitioned Datasets
+------------------------------------------------
+
 The :class:`~.ParquetDataset` class accepts either a directory name or a list
 or file paths, and can discover and infer some common partition structures,
 such as those produced by Hive:
@@ -233,6 +263,18 @@ such as those produced by Hive:
 
    dataset = pq.ParquetDataset('dataset_name/')
    table = dataset.read()
+
+You can also use the convenience function ``read_table`` exposed by ``pyarrow.parquet``
+that avoids the need for an additional Dataset object creation step.
+
+.. code-block:: python
+
+   table = pq.read_table('dataset_name')
+
+Note: the partition columns in the original table will have their types converted to Arrow dictionary types
+(pandas categorical) on load. Ordering of partition columns is not preserved through the save/load process. If reading
+from a remote filesystem into a pandas dataframe you may need to run ``sort_index`` to maintain row ordering
+(as long as the ``preserve_index`` option was enabled on write).
 
 Using with Spark
 ----------------
@@ -263,11 +305,11 @@ a parquet file into a Pandas dataframe.
 This is suitable for executing inside a Jupyter notebook running on a Python 3
 kernel.
 
-Dependencies: 
+Dependencies:
 
-* python 3.6.2 
-* azure-storage 0.36.0 
-* pyarrow 0.8.0 
+* python 3.6.2
+* azure-storage 0.36.0
+* pyarrow 0.8.0
 
 .. code-block:: python
 
@@ -295,3 +337,4 @@ Notes:
 * The ``account_key`` can be found under ``Settings -> Access keys`` in the Microsoft Azure portal for a given container
 * The code above works for a container with private access, Lease State = Available, Lease Status = Unlocked
 * The parquet file was Blob Type = Block blob
+
