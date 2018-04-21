@@ -680,6 +680,10 @@ class ARROW_EXPORT UnionArray : public Array {
 
   UnionMode::type mode() const { return static_cast<const UnionType&>(*type()).mode(); }
 
+  // Return the given field as an individual array.
+  // For sparse unions, the returned array has its offset, length and null
+  // count adjusted.
+  // For dense unions, the returned array is unchanged.
   std::shared_ptr<Array> child(int pos) const;
 
   /// Only use this while the UnionArray is in scope

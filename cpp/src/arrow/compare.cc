@@ -189,15 +189,10 @@ class RangeEqualsVisitor {
       id = left_ids[i];
       child_num = type_id_to_child_num[id];
 
-      const int64_t left_abs_index = i + left.offset();
-      const int64_t right_abs_index = o_i + right.offset();
-
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.
       if (union_mode == UnionMode::SPARSE) {
-        if (!left.child(child_num)->RangeEquals(left_abs_index, left_abs_index + 1,
-                                                right_abs_index,
-                                                right.child(child_num))) {
+        if (!left.child(child_num)->RangeEquals(i, i + 1, o_i, right.child(child_num))) {
           return false;
         }
       } else {

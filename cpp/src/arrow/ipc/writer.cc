@@ -409,7 +409,7 @@ class RecordBatchSerializer : public ArrayVisitor {
 
       // Allocate an array of child offsets. Set all to -1 to indicate that we
       // haven't observed a first occurrence of a particular child yet
-      std::vector<int32_t> child_offsets(max_code + 1);
+      std::vector<int32_t> child_offsets(max_code + 1, -1);
       std::vector<int32_t> child_lengths(max_code + 1, 0);
 
       if (offset != 0) {
@@ -427,16 +427,23 @@ class RecordBatchSerializer : public ArrayVisitor {
         int32_t* shifted_offsets =
             reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
+        // Offsets may not be ascending, so we need to find out the start offset
+        // for each child
         for (int64_t i = 0; i < length; ++i) {
           const uint8_t code = type_ids[i];
-          int32_t shift = child_offsets[code];
-          if (shift == -1) {
-            child_offsets[code] = shift = unshifted_offsets[i];
+          if (child_offsets[code] == -1) {
+            child_offsets[code] = unshifted_offsets[i];
+          } else {
+            child_offsets[code] = std::min(child_offsets[code], unshifted_offsets[i]);
           }
-          shifted_offsets[i] = unshifted_offsets[i] - shift;
+        }
 
+        // Now compute shifted offsets by subtracting child offset
+        for (int64_t i = 0; i < length; ++i) {
+          const uint8_t code = type_ids[i];
+          shifted_offsets[i] = unshifted_offsets[i] - child_offsets[code];
           // Update the child length to account for observed value
-          ++child_lengths[code];
+          child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
         }
 
         value_offsets = shifted_offsets_buffer;
@@ -449,24 +456,25 @@ class RecordBatchSerializer : public ArrayVisitor {
 
         // TODO: ARROW-809, for sliced unions, tricky to know how much to
         // truncate the children. For now, we are truncating the children to be
-        // no longer than the parent union
-        const uint8_t code = type.type_codes()[i];
-        const int64_t child_length = child_lengths[code];
-        if (offset != 0 || length < child_length) {
-          child = child->Slice(child_offsets[code], std::min(length, child_length));
+        // no longer than the parent union.
+        if (offset != 0) {
+          const uint8_t code = type.type_codes()[i];
+          const int64_t child_offset = child_offsets[code];
+          const int64_t child_length = child_lengths[code];
+
+          if (child_offset > 0) {
+            child = child->Slice(child_offset, child_length);
+          } else if (child_length < child->length()) {
+            // This case includes when child is not encountered at all
+            child = child->Slice(0, child_length);
+          }
         }
         RETURN_NOT_OK(VisitArray(*child));
       }
     } else {
       for (int i = 0; i < array.num_fields(); ++i) {
-        std::shared_ptr<Array> child = array.child(i);
-
-        // Sparse union, slicing is simpler
-        if (offset != 0 || length < child->length()) {
-          // If offset is non-zero, slice the child array
-          child = child->Slice(offset, length);
-        }
-        RETURN_NOT_OK(VisitArray(*child));
+        // Sparse union, slicing is done for us by child()
+        RETURN_NOT_OK(VisitArray(*array.child(i)));
       }
     }
     ++max_recursion_depth_;
