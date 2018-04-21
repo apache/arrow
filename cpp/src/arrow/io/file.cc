@@ -125,7 +125,8 @@ class OSFile {
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
-    return internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position, nbytes, bytes_read);
+    return internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position, nbytes,
+                                bytes_read);
   }
 
   Status Seek(int64_t pos) {
