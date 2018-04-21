@@ -1152,7 +1152,30 @@ cdef class Table:
         self._check_nullptr()
         return pyarrow_wrap_schema(self.table.schema())
 
-    def column(self, int i):
+    def column(self, i):
+        """
+        Select a column by its column name, or numeric index.
+
+        Parameters
+        ----------
+        i : int or string
+
+        Returns
+        -------
+        pyarrow.Column
+        """
+        if isinstance(i, six.string_types):
+            field_index = self.schema.get_field_index(i)
+            if field_index < 0:
+                raise KeyError("Column {} does not exist in table".format(i))
+            else:
+                return self._column(field_index)
+        elif isinstance(i, six.integer_types):
+            return self._column(i)
+        else:
+            raise TypeError("Index must either be string or integer")
+
+    def _column(self, int i):
         """
         Select a column by its numeric index.
 

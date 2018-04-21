@@ -301,6 +301,23 @@ def test_table_from_arrays_invalid_names():
         pa.Table.from_arrays(data, names=['a'])
 
 
+def test_table_select_column():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+
+    assert table.column('a').equals(table.column(0))
+
+    with pytest.raises(KeyError):
+        table.column('d')
+
+    with pytest.raises(TypeError):
+        table.column(None)
+
+
 def test_table_add_column():
     data = [
         pa.array(range(5)),
