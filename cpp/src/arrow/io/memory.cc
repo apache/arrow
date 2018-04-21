@@ -257,6 +257,9 @@ Status BufferReader::Tell(int64_t* position) const {
 bool BufferReader::supports_zero_copy() const { return true; }
 
 Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
+  if (nbytes < 0) {
+    return Status::IOError("Cannot read a negative number of bytes from BufferReader.");
+  }
   *bytes_read = std::min(nbytes, size_ - position_);
   if (*bytes_read) {
     memcpy(buffer, data_ + position_, *bytes_read);
@@ -266,6 +269,9 @@ Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
 }
 
 Status BufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  if (nbytes < 0) {
+    return Status::IOError("Cannot read a negative number of bytes from BufferReader.");
+  }
   int64_t size = std::min(nbytes, size_ - position_);
 
   if (size > 0 && buffer_ != nullptr) {
