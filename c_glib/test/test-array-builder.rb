@@ -41,6 +41,19 @@ module ArrayBuilderAppendValuesTests
                  builder.finish)
   end
 
+  def test_with_large_is_valids
+    builder = create_builder
+    n = 10000
+    large_sample_values = sample_values * n
+    large_is_valids = [true, true, false] * n
+    builder.append_values(large_sample_values, large_is_valids)
+    sample_values_with_null = sample_values
+    sample_values_with_null[2] = nil
+    large_sample_values_with_null = sample_values_with_null * n
+    assert_equal(build_array(large_sample_values_with_null),
+                 builder.finish)
+  end
+
   def test_mismatch_length
     builder = create_builder
     message = "[#{builder_class_name}][append-values]: " +
