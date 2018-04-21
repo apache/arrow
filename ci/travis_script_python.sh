@@ -136,6 +136,6 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   # Generate machine information (mandatory)
   asv machine --yes
   # Run benchmarks on the changeset being tested
-  asv run --no-pull --show-stderr --quick ${TRAVIS_COMMIT}^!
+  asv run --no-pull --show-stderr --quick HEAD^!
   popd
 fi

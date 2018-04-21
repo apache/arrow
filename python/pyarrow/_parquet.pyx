@@ -221,6 +221,8 @@ cdef class ColumnChunkMetaData:
     property statistics:
 
         def __get__(self):
+            if not self.metadata.is_stats_set():
+                return None
             statistics = RowGroupStatistics()
             statistics.init(self.metadata.statistics())
             return statistics
