@@ -512,7 +512,16 @@ Status UnionArray::MakeSparse(const Array& type_ids,
 
 std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
-    boxed_fields_[i] = MakeArray(data_->child_data[i]);
+    std::shared_ptr<ArrayData> child_data = data_->child_data[i];
+    if (mode() == UnionMode::SPARSE) {
+      // Sparse union: need to adjust child if union is sliced
+      // (for dense unions, the need to lookup through the offsets
+      //  makes this unnecessary)
+      if (data_->offset != 0 || child_data->length > data_->length) {
+        child_data = SliceData(*child_data.get(), data_->offset, data_->length);
+      }
+    }
+    boxed_fields_[i] = MakeArray(child_data);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
