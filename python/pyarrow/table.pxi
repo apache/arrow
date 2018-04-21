@@ -726,7 +726,7 @@ cdef class RecordBatch:
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
-                    nthreads=None):
+                    nthreads=None, columns=None):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
 
@@ -742,15 +742,18 @@ cdef class RecordBatch:
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
+        columns : list, optional
+           List of column to be converted. If None, use all columns.
 
         Returns
         -------
         pyarrow.RecordBatch
         """
         names, arrays, metadata = pdcompat.dataframe_to_arrays(
-            df, schema, preserve_index, nthreads=nthreads
+            df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
         return cls.from_arrays(arrays, names, metadata)
+
 
     @staticmethod
     def from_arrays(list arrays, list names, dict metadata=None):
