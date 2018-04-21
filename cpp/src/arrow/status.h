@@ -26,34 +26,11 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-// Return the given status if it is not OK.
-#define ARROW_RETURN_NOT_OK(s)           \
-  do {                                   \
-    ::arrow::Status _s = (s);            \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-      return _s;                         \
-    }                                    \
-  } while (false)
-
-// If 'to_call' returns a bad status, CHECK immediately with a logged message
-// of 'msg' followed by the status.
-#define ARROW_CHECK_OK_PREPEND(to_call, msg)                \
-  do {                                                      \
-    ::arrow::Status _s = (to_call);                         \
-    ARROW_CHECK(_s.ok()) << (msg) << ": " << _s.ToString(); \
-  } while (false)
-
-// If the status is bad, CHECK immediately, appending the status to the
-// logged message.
-#define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
-
-namespace arrow {
-
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
 #define RETURN_NOT_OK(s)                                                            \
   do {                                                                              \
-    Status _s = (s);                                                                \
+    ::arrow::Status _s = (s);                                                       \
     if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
       std::stringstream ss;                                                         \
       ss << __FILE__ << ":" << __LINE__ << " code: " << #s << "\n" << _s.message(); \
@@ -65,7 +42,7 @@ namespace arrow {
 
 #define RETURN_NOT_OK(s)                 \
   do {                                   \
-    Status _s = (s);                     \
+    ::arrow::Status _s = (s);            \
     if (ARROW_PREDICT_FALSE(!_s.ok())) { \
       return _s;                         \
     }                                    \
@@ -75,12 +52,20 @@ namespace arrow {
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
   do {                               \
-    Status _s = (s);                 \
+    ::arrow::Status _s = (s);        \
     if (!_s.ok()) {                  \
       else_;                         \
       return _s;                     \
     }                                \
   } while (false)
+
+// This is used by other codebases. The macros above
+// should probably have that prefix, but there is a
+// lot of code that already uses that macro and changing
+// it would be of no benefit.
+#define ARROW_RETURN_NOT_OK(s) RETURN_NOT_OK(s)
+
+namespace arrow {
 
 enum class StatusCode : char {
   OK = 0,
