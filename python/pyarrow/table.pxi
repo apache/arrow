@@ -1174,7 +1174,7 @@ cdef class Table:
             return self._column(i)
         else:
             raise TypeError("Index must either be string or integer")
- 
+
     def _column(self, int i):
         """
         Select a column by its numeric index.
