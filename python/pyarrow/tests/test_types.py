@@ -22,6 +22,7 @@ import pickle
 import pytest
 
 import pandas as pd
+import numpy as np
 import pyarrow as pa
 import pyarrow.types as types
 
@@ -511,7 +512,12 @@ def test_is_boolean_value():
 @pytest.mark.parametrize("data", [
     list(range(10)),
     pd.Categorical(list(range(10))),
-    ['foo', 'bar', None, 'baz', 'qux']
+    ['foo', 'bar', None, 'baz', 'qux'],
+    np.array([
+        '2007-07-13T01:23:34.123456789', 
+        '2006-01-13T12:34:56.432539784',
+        '2010-08-13T05:46:57.437699912'
+    ], dtype='datetime64[ns]')
 ])
 def test_schema_from_pandas(data):
     df = pd.DataFrame({'a': data})

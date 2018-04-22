@@ -384,7 +384,7 @@ def dataframe_to_types(df, preserve_index):
             type_ = pa.array(c, from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
-            dtype = pa.lib.nd_array_to_arrow_type(values, type_)
+            type_ = pa.lib.nd_array_to_arrow_type(values, type_)
             if type_ is None:
                 type_ = pa.array(c, from_pandas=True).type
         types.append(type_)
