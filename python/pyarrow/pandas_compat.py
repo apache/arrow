@@ -316,7 +316,9 @@ def _index_level_name(index, i, column_names):
         return '__index_level_{:d}__'.format(i)
 
 
-def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
+def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None):
+    if columns is None:
+        columns = df.columns
     column_names = []
     index_columns = []
     index_column_names = []
@@ -334,7 +336,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
             'Duplicate column names found: {}'.format(list(df.columns))
         )
 
-    for name in df.columns:
+    for name in columns:
         col = df[name]
         name = _column_name_to_strings(name)
 

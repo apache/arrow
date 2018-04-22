@@ -133,6 +133,17 @@ class TestConvertMetadata(object):
         table = pa.Table.from_pandas(df)
         assert table.column(0).name == '0'
 
+    def test_from_pandas_with_columns(self):
+        df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]})
+
+        table = pa.Table.from_pandas(df, columns=[0, 1])
+        expected = pa.Table.from_pandas(df[[0, 1]])
+        assert expected.equals(table)
+
+        record_batch_table = pa.RecordBatch.from_pandas(df, columns=[0, 1])
+        record_batch_expected = pa.RecordBatch.from_pandas(df[[0, 1]])
+        assert record_batch_expected.equals(record_batch_table)
+
     def test_column_index_names_are_preserved(self):
         df = pd.DataFrame({'data': [1, 2, 3]})
         df.columns.names = ['a']
