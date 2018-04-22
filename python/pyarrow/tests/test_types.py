@@ -21,6 +21,7 @@ import numpy as np
 import pickle
 import pytest
 
+import pandas as pd
 import pyarrow as pa
 import pyarrow.types as types
 
@@ -505,3 +506,15 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(False)
     assert pa.types.is_boolean_value(np.bool_(True))
     assert pa.types.is_boolean_value(np.bool_(False))
+
+
+@pytest.mark.parametrize("data", [
+    list(range(10)),
+    pd.Categorical(list(range(10))),
+    ['foo', 'bar', None, 'baz', 'qux']
+])
+def test_schema_from_pandas(data):
+    df = pd.DataFrame({'a': data})
+    schema = pa.Schema.from_pandas(df)
+    expected = pa.Table.from_pandas(df).schema
+    assert schema == expected
