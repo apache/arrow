@@ -87,6 +87,33 @@ def test_long_array_format():
     assert result == expected
 
 
+def test_to_numpy_zero_copy():
+    import gc
+
+    arr = pa.array(range(10))
+
+    for i in range(10):
+        np_arr = arr.to_numpy()
+        assert sys.getrefcount(np_arr) == 2
+        np_arr = None  # noqa
+
+    assert sys.getrefcount(arr) == 2
+
+    for i in range(10):
+        arr = pa.array(range(10))
+        np_arr = arr.to_numpy()
+        arr = None
+        gc.collect()
+
+        # Ensure base is still valid
+
+        # Because of py.test's assert inspection magic, if you put getrefcount
+        # on the line being examined, it will be 1 higher than you expect
+        base_refcount = sys.getrefcount(np_arr.base)
+        assert base_refcount == 2
+        np_arr.sum()
+
+
 def test_to_pandas_zero_copy():
     import gc
 
@@ -607,6 +634,31 @@ def test_array_pickle(data, typ):
     array = pa.array(data, type=typ)
     result = pickle.loads(pickle.dumps(array))
     assert array.equals(result)
+
+
+@pytest.mark.parametrize(
+    'narr',
+    [
+        np.arange(10, dtype=np.int64),
+        np.arange(10, dtype=np.int32),
+        np.arange(10, dtype=np.int16),
+        np.arange(10, dtype=np.int8),
+        np.arange(10, dtype=np.uint64),
+        np.arange(10, dtype=np.uint32),
+        np.arange(10, dtype=np.uint16),
+        np.arange(10, dtype=np.uint8),
+        np.arange(10, dtype=np.float64),
+        np.arange(10, dtype=np.float32),
+        np.arange(10, dtype=np.float16),
+    ]
+)
+def test_to_numpy_roundtrip(narr):
+    arr = pa.array(narr)
+    assert narr.dtype == arr.to_numpy().dtype
+    assert np.array_equal(narr, arr.to_numpy())
+    assert np.array_equal(narr[:6], arr[:6].to_numpy())
+    assert np.array_equal(narr[2:], arr[2:].to_numpy())
+    assert np.array_equal(narr[2:6], arr[2:6].to_numpy())
 
 
 @pytest.mark.parametrize(
