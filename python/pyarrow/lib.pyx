@@ -106,6 +106,9 @@ include "scalar.pxi"
 # Array types
 include "array.pxi"
 
+# Builders
+include "builder.pxi"
+
 # Column, Table, Record Batch
 include "table.pxi"
 
