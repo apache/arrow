@@ -17,12 +17,10 @@
 
 from collections import OrderedDict
 
-import numpy as np
 import pickle
 import pytest
 
 import pandas as pd
-import numpy as np
 import pyarrow as pa
 import pyarrow.types as types
 
@@ -446,78 +444,10 @@ def test_field_equality_operators():
     assert f1 != 'foo'
 
 
-def test_field_metadata():
-    f1 = pa.field('a', pa.int8())
-    f2 = pa.field('a', pa.int8(), metadata={})
-    f3 = pa.field('a', pa.int8(), metadata={b'bizz': b'bazz'})
-
-    assert f1.metadata is None
-    assert f2.metadata == {}
-    assert f3.metadata[b'bizz'] == b'bazz'
-
-
-def test_field_add_remove_metadata():
-    f0 = pa.field('foo', pa.int32())
-
-    assert f0.metadata is None
-
-    metadata = {b'foo': b'bar', b'pandas': b'badger'}
-
-    f1 = f0.add_metadata(metadata)
-    assert f1.metadata == metadata
-
-    f3 = f1.remove_metadata()
-    assert f3.metadata is None
-
-    # idempotent
-    f4 = f3.remove_metadata()
-    assert f4.metadata is None
-
-    f5 = pa.field('foo', pa.int32(), True, metadata)
-    f6 = f0.add_metadata(metadata)
-    assert f5.equals(f6)
-
-
-def test_empty_table():
-    schema = pa.schema([
-        pa.field("oneField", pa.int64())
-    ])
-    table = schema.empty_table()
-    assert isinstance(table, pa.Table)
-    assert table.num_rows == 0
-    assert table.schema == schema
-
-
-def test_is_integer_value():
-    assert pa.types.is_integer_value(1)
-    assert pa.types.is_integer_value(np.int64(1))
-    assert not pa.types.is_integer_value('1')
-
-
-def test_is_float_value():
-    assert not pa.types.is_float_value(1)
-    assert pa.types.is_float_value(1.)
-    assert pa.types.is_float_value(np.float64(1))
-    assert not pa.types.is_float_value('1.0')
-
-
-def test_is_boolean_value():
-    assert not pa.types.is_boolean_value(1)
-    assert pa.types.is_boolean_value(True)
-    assert pa.types.is_boolean_value(False)
-    assert pa.types.is_boolean_value(np.bool_(True))
-    assert pa.types.is_boolean_value(np.bool_(False))
-
-
 @pytest.mark.parametrize("data", [
     list(range(10)),
     pd.Categorical(list(range(10))),
-    ['foo', 'bar', None, 'baz', 'qux'],
-    np.array([
-        '2007-07-13T01:23:34.123456789', 
-        '2006-01-13T12:34:56.432539784',
-        '2010-08-13T05:46:57.437699912'
-    ], dtype='datetime64[ns]')
+    ['foo', 'bar', None, 'baz', 'qux']
 ])
 def test_schema_from_pandas(data):
     df = pd.DataFrame({'a': data})

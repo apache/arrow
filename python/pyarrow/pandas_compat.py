@@ -316,7 +316,7 @@ def _index_level_name(index, i, column_names):
         return '__index_level_{:d}__'.format(i)
 
 
-def _get_columns_to_convert(df, schema, preserve_index):
+def _get_columns_to_convert(df, schema, preserve_index, columns):
     if schema is not None and columns is not None:
         raise ValueError('Schema and columns arguments are mutually '
                          'exclusive, pass only one of them')
@@ -370,10 +370,10 @@ def _get_columns_to_convert(df, schema, preserve_index):
         columns_to_convert, convert_types
 
 
-def dataframe_to_types(df, preserve_index):
+def dataframe_to_types(df, preserve_index, columns=None):
     names, column_names, index_columns, index_column_names, \
         columns_to_convert, _ = _get_columns_to_convert(
-            df, None, preserve_index
+            df, None, preserve_index, columns
         )
 
     types = []
@@ -384,7 +384,7 @@ def dataframe_to_types(df, preserve_index):
             type_ = pa.array(c, from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
-            type_ = pa.lib.nd_array_to_arrow_type(values, type_)
+            dtype = pa.lib.nd_array_to_arrow_type(values, type_)
             if type_ is None:
                 type_ = pa.array(c, from_pandas=True).type
         types.append(type_)
@@ -397,10 +397,10 @@ def dataframe_to_types(df, preserve_index):
     return names, types, metadata
 
 
-def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
+def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None):
     names, column_names, index_columns, index_column_names, \
         columns_to_convert, convert_types = _get_columns_to_convert(
-            df, schema, preserve_index
+            df, schema, preserve_index, columns
         )
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
