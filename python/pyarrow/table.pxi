@@ -754,7 +754,6 @@ cdef class RecordBatch:
         )
         return cls.from_arrays(arrays, names, metadata)
 
-
     @staticmethod
     def from_arrays(list arrays, list names, dict metadata=None):
         """
@@ -1287,7 +1286,7 @@ cdef class Table:
 
         indices.sort()
         indices.reverse()
-        
+
         table = self
         for idx in indices:
             table = table.remove_column(idx)
