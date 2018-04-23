@@ -283,6 +283,18 @@ cdef _append_array_buffers(const CArrayData* ad, list res):
 
 cdef class Array:
 
+    def __init__(self, *args, **kwargs):
+        """
+        Do not call this constructor directly, use factories
+        like ``pyarrow.array``.
+        """
+        # Check if the constructor was called with arguments.
+        # This was probably by accident from a user. Instead of segfaulting
+        # we should provide them with a meaningful error.
+        if len(args) > 0 or len(kwargs) > 0:
+            raise RuntimeError("Don't call pyarrow.Array directly, use "
+                               "pyarrow.array instead")
+
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
