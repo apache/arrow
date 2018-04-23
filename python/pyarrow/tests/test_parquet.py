@@ -1139,8 +1139,8 @@ class TestParquetFilter:
         dataset = pq.ParquetDataset(
             base_path, filesystem=fs,
             filters=[
-                ('foo', '<=', 3),
-                ('foo', '>=', 2),
+                ('integers', '<=', 3),
+                ('integers', '>=', 2),
             ]
         )
         table = dataset.read()
@@ -1148,7 +1148,7 @@ class TestParquetFilter:
                      .sort_values(by='index')
                      .reset_index(drop=True))
 
-        result_list = [x for x in map(int, result_df['foo'].values)]
+        result_list = [int(x) for x in map(int, result_df['integers'].values)]
         assert result_list == [2, 3]
 
 
