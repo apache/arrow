@@ -607,11 +607,10 @@ Status PlasmaClient::Seal(const ObjectID& object_id) {
 
   if (object_entry == objects_in_use_.end()) {
     return Status::PlasmaObjectNonexistent(
-        "Plasma client called seal an object without a reference to it");
+        "Seal() called on an object without a reference to it");
   }
   if (object_entry->second->is_sealed) {
-    return Status::PlasmaObjectAlreadySealed(
-        "Plasma client called seal an already sealed object");
+    return Status::PlasmaObjectAlreadySealed("Seal() called on an already sealed object");
   }
 
   object_entry->second->is_sealed = true;
