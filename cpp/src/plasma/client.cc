@@ -604,10 +604,15 @@ Status PlasmaClient::Seal(const ObjectID& object_id) {
   // Make sure this client has a reference to the object before sending the
   // request to Plasma.
   auto object_entry = objects_in_use_.find(object_id);
-  ARROW_CHECK(object_entry != objects_in_use_.end())
-      << "Plasma client called seal an object without a reference to it";
-  ARROW_CHECK(!object_entry->second->is_sealed)
-      << "Plasma client called seal an already sealed object";
+
+  if (object_entry == objects_in_use_.end()) {
+    return Status::PlasmaObjectNonexistent(
+        "Seal() called on an object without a reference to it");
+  }
+  if (object_entry->second->is_sealed) {
+    return Status::PlasmaObjectAlreadySealed("Seal() called on an already sealed object");
+  }
+
   object_entry->second->is_sealed = true;
   /// Send the seal request to Plasma.
   static unsigned char digest[kDigestSize];

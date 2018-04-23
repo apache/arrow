@@ -80,7 +80,8 @@ enum class StatusCode : char {
   PythonError = 12,
   PlasmaObjectExists = 20,
   PlasmaObjectNonexistent = 21,
-  PlasmaStoreFull = 22
+  PlasmaStoreFull = 22,
+  PlasmaObjectAlreadySealed = 23,
 };
 
 #if defined(__clang__)
@@ -144,6 +145,10 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::PlasmaObjectNonexistent, msg);
   }
 
+  static Status PlasmaObjectAlreadySealed(const std::string& msg) {
+    return Status(StatusCode::PlasmaObjectAlreadySealed, msg);
+  }
+
   static Status PlasmaStoreFull(const std::string& msg) {
     return Status(StatusCode::PlasmaStoreFull, msg);
   }
@@ -167,6 +172,10 @@ class ARROW_EXPORT Status {
   // An object was requested that doesn't exist in the plasma store.
   bool IsPlasmaObjectNonexistent() const {
     return code() == StatusCode::PlasmaObjectNonexistent;
+  }
+  // An already sealed object is tried to be sealed again.
+  bool IsPlasmaObjectAlreadySealed() const {
+    return code() == StatusCode::PlasmaObjectAlreadySealed;
   }
   // An object is too large to fit into the plasma store.
   bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
