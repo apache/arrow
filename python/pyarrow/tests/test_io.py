@@ -100,6 +100,8 @@ def test_python_file_read():
     assert v == b'sample data'
     assert len(v) == 11
 
+    assert f.size() == len(data)
+
     f.close()
 
 

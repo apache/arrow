@@ -255,25 +255,32 @@ Status FileSeek(int fd, int64_t pos, int whence) {
 Status FileSeek(int fd, int64_t pos) { return FileSeek(fd, pos, SEEK_SET); }
 
 Status FileGetSize(int fd, int64_t* size) {
-  int64_t ret;
+#if defined(_MSC_VER)
+  struct __stat64 st;
+#else
+  struct stat st;
+#endif
+  st.st_size = -1;
 
-  // XXX Should use fstat() instead, but this function also ensures the
-  // file is seekable
+#if defined(_MSC_VER)
+  int ret = _fstat64(fd, &st);
+#else
+  int ret = fstat(fd, &st);
+#endif
 
-  // Save current position
-  int64_t current_position = lseek64_compat(fd, 0, SEEK_CUR);
-  CHECK_LSEEK(current_position);
-
-  // Move to end of the file, which returns the file length
-  ret = lseek64_compat(fd, 0, SEEK_END);
-  CHECK_LSEEK(ret);
-
-  *size = ret;
-
-  // Restore file position
-  ret = lseek64_compat(fd, current_position, SEEK_SET);
-  CHECK_LSEEK(ret);
-
+  if (ret == -1) {
+    return Status::IOError("error stat()ing file");
+  }
+  if (st.st_size == 0) {
+    // Maybe the file doesn't support getting its size, double-check by
+    // trying to tell() (seekable files usually have a size, while
+    // non-seekable files don't)
+    int64_t position;
+    RETURN_NOT_OK(FileTell(fd, &position));
+  } else if (st.st_size < 0) {
+    return Status::IOError("error getting file size");
+  }
+  *size = st.st_size;
   return Status::OK();
 }
 
