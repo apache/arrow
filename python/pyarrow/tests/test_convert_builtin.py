@@ -678,8 +678,8 @@ def test_struct_from_dicts_inference():
     expected_type = pa.struct([pa.field('a', pa.int64()),
                                pa.field('b', pa.string()),
                                pa.field('c', pa.bool_())])
-    data = [{'a': 5, 'b': 'foo', 'c': True},
-            {'a': 6, 'b': 'bar', 'c': False}]
+    data = [{'a': 5, 'b': u'foo', 'c': True},
+            {'a': 6, 'b': u'bar', 'c': False}]
     arr = pa.array(data)
     check_struct_type(arr.type, expected_type)
     assert arr.to_pylist() == data
@@ -688,11 +688,11 @@ def test_struct_from_dicts_inference():
     data = [{'a': 5, 'c': True},
             None,
             {},
-            {'a': None, 'b': 'bar'}]
+            {'a': None, 'b': u'bar'}]
     expected = [{'a': 5, 'b': None, 'c': True},
                 None,
                 {'a': None, 'b': None, 'c': None},
-                {'a': None, 'b': 'bar', 'c': None}]
+                {'a': None, 'b': u'bar', 'c': None}]
     arr = pa.array(data)
     check_struct_type(arr.type, expected_type)
     assert arr.to_pylist() == expected
