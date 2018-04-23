@@ -322,6 +322,9 @@ TEST_F(TestReadableFile, SeekTellSize) {
   ASSERT_OK(file_->GetSize(&size));
   ASSERT_EQ(8, size);
 
+  ASSERT_OK(file_->Tell(&position));
+  ASSERT_EQ(100, position);
+
   // does not support zero copy
   ASSERT_FALSE(file_->supports_zero_copy());
 }
@@ -526,6 +529,12 @@ TEST_F(TestPipeIO, TestWrite) {
   ASSERT_EQ(bytes_read, 0);
 }
 
+TEST_F(TestPipeIO, ReadableFileFails) {
+  // ReadableFile fails on non-seekable fd
+  std::shared_ptr<ReadableFile> file;
+  ASSERT_RAISES(IOError, ReadableFile::Open(r_, &file));
+}
+
 // ----------------------------------------------------------------------
 // Memory map tests
 
@@ -541,7 +550,7 @@ TEST_F(TestMemoryMappedFile, ZeroSizeFlie) {
   std::shared_ptr<MemoryMappedFile> result;
   ASSERT_OK(InitMemoryMap(0, path, &result));
 
-  int64_t size = 0;
+  int64_t size = -1;
   ASSERT_OK(result->Tell(&size));
   ASSERT_EQ(0, size);
 }
@@ -554,7 +563,7 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
 
   const int reps = 5;
 
-  std::string path = "ipc-write-read-test";
+  std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
   ASSERT_OK(InitMemoryMap(reps * buffer_size, path, &result));
 
@@ -568,6 +577,20 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
 
     position += buffer_size;
   }
+}
+
+TEST_F(TestMemoryMappedFile, GetSize) {
+  std::string path = "io-memory-map-get-size";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(16384, path, &result));
+
+  int64_t size = -1;
+  ASSERT_OK(result->GetSize(&size));
+  ASSERT_EQ(16384, size);
+
+  int64_t position = -1;
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(0, position);
 }
 
 TEST_F(TestMemoryMappedFile, ReadOnly) {
