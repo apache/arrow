@@ -341,6 +341,23 @@ def test_table_add_column():
     assert t4.equals(expected)
 
 
+def test_table_drop():
+    """ drop one or more columns given labels"""
+    a = pa.array(range(5))
+    b = pa.array([-10, -5, 0, 5, 10])
+    c = pa.array(range(5, 10))
+
+    table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
+    t2 = table.drop(['a', 'b'])
+
+    exp = pa.Table.from_arrays([c], names=('c',))
+    assert exp.equals(t2)
+
+    # -- raise KeyError if column not in Table
+    with pytest.raises(KeyError, match="Column 'd' not found"):
+        table.drop(['d'])
+
+
 def test_table_remove_column():
     data = [
         pa.array(range(5)),
