@@ -268,11 +268,11 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
     int64_t size;
     RETURN_NOT_OK(src->ReadAt(offset, sizeof(int64_t), &bytes_read,
                               reinterpret_cast<uint8_t*>(&size)));
-    RETURN_NOT_OK(src->Tell(&offset));
+    offset += sizeof(int64_t);
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(src->ReadAt(offset, size, &buffer));
     out->buffers.push_back(buffer);
-    RETURN_NOT_OK(src->Tell(&offset));
+    offset += size;
   }
 
   return Status::OK();

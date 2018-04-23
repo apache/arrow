@@ -283,7 +283,7 @@ class TableReader::TableReaderImpl {
     }
 
     std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(source->Read(magic_size, &buffer));
+    RETURN_NOT_OK(source->ReadAt(0, magic_size, &buffer));
 
     if (memcmp(buffer->data(), kFeatherMagicBytes, magic_size)) {
       return Status::Invalid("Not a feather file");
