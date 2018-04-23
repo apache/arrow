@@ -43,6 +43,12 @@ def test_getitem_NA():
     assert arr[1] is pa.NA
 
 
+def test_constructor_raises():
+    # This could happen by wrong capitalization.
+    with pytest.raises(RuntimeError):
+        pa.Array([1, 2])
+
+
 def test_list_format():
     arr = pa.array([[1], None, [2, 3, None]])
     result = fmt.array_format(arr)
