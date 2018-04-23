@@ -17,6 +17,7 @@
 # under the License.
 
 import argparse
+import codecs
 import difflib
 import fnmatch
 import os
@@ -59,20 +60,39 @@ if __name__ == "__main__":
     if arguments.fix:
         # Print out each file on its own line, but run
         # clang format once for all of the files
-        for filename in formatted_filenames:
-            print("Formatting {}".format(filename))
+        print("\n".join(map(lambda x: "Formatting {}".format(x),
+                            formatted_filenames)))
         subprocess.check_call([arguments.clang_format_binary,
                                "-i"] + formatted_filenames)
     else:
         for filename in formatted_filenames:
             print("Checking {}".format(filename))
-            with open(filename) as reader:
+            #
+            # Due to some incompatibilities between Python 2 and
+            # Python 3, there are some specific actions we take here
+            # to make sure the difflib.unified_diff call works.
+            #
+            # In Python 2, the call to subprocess.check_output return
+            # a 'str' type. In Python 3, however, the call returns a
+            # 'bytes' type unless the 'encoding' argument is
+            # specified. Unfortunately, the 'encoding' argument is not
+            # in the Python 2 API. We could do an if/else here based
+            # on the version of Python we are running, but it's more
+            # straightforward to read the file in binary and do utf-8
+            # conversion. In Python 2, it's just converting string
+            # types to unicode types, whereas in Python 3 it's
+            # converting bytes types to utf-8 encoded str types. This
+            # approach ensures that the arguments to
+            # difflib.unified_diff are acceptable string types in both
+            # Python 2 and Python 3.
+            with open(filename, "rb") as reader:
                 # Run clang-format and capture its output
                 formatted = subprocess.check_output(
                     [arguments.clang_format_binary,
-                     filename]).decode("utf-8")
+                     filename])
+                formatted = codecs.decode(formatted, "utf-8")
                 # Read the original file
-                original = reader.read()
+                original = codecs.decode(reader.read(), "utf-8")
                 # Run the equivalent of diff -u
                 diff = list(difflib.unified_diff(
                     original.splitlines(True),
@@ -83,6 +103,7 @@ if __name__ == "__main__":
                 if diff:
                     # Print out the diff to stderr
                     error = True
+                    print(",".join(map(str, map(type, diff))))
                     sys.stderr.writelines(diff)
 
     sys.exit(1 if error else 0)
