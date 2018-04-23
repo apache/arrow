@@ -194,9 +194,8 @@ bool* TestRowGroupStatistics<BooleanType>::GetValuesPointer(std::vector<bool>& v
 }
 
 template <typename TestType>
-typename std::vector<typename TestType::c_type>
-TestRowGroupStatistics<TestType>::GetDeepCopy(
-    const std::vector<typename TestType::c_type>& values) {
+typename std::vector<typename TestType::c_type> TestRowGroupStatistics<
+    TestType>::GetDeepCopy(const std::vector<typename TestType::c_type>& values) {
   return values;
 }
 
@@ -284,19 +283,19 @@ TYPED_TEST_CASE(TestRowGroupStatistics, TestTypes);
 
 TYPED_TEST(TestRowGroupStatistics, MinMaxEncode) {
   this->SetUpSchema(Repetition::REQUIRED);
-  this->TestMinMaxEncode();
+  ASSERT_NO_FATAL_FAILURE(this->TestMinMaxEncode());
 }
 
 TYPED_TEST(TestRowGroupStatistics, Reset) {
   this->SetUpSchema(Repetition::OPTIONAL);
-  this->TestReset();
+  ASSERT_NO_FATAL_FAILURE(this->TestReset());
 }
 
 TYPED_TEST(TestRowGroupStatistics, FullRoundtrip) {
   this->SetUpSchema(Repetition::OPTIONAL);
-  this->TestFullRoundtrip(100, 31);
-  this->TestFullRoundtrip(1000, 415);
-  this->TestFullRoundtrip(10000, 926);
+  ASSERT_NO_FATAL_FAILURE(this->TestFullRoundtrip(100, 31));
+  ASSERT_NO_FATAL_FAILURE(this->TestFullRoundtrip(1000, 415));
+  ASSERT_NO_FATAL_FAILURE(this->TestFullRoundtrip(10000, 926));
 }
 
 template <typename TestType>
@@ -308,7 +307,7 @@ TYPED_TEST_CASE(TestNumericRowGroupStatistics, NumericTypes);
 
 TYPED_TEST(TestNumericRowGroupStatistics, Merge) {
   this->SetUpSchema(Repetition::OPTIONAL);
-  this->TestMerge();
+  ASSERT_NO_FATAL_FAILURE(this->TestMerge());
 }
 
 // Statistics are restricted for few types in older parquet version
@@ -632,7 +631,7 @@ TYPED_TEST(TestStatistics, MinMax) {
   this->AddNodes("Column ");
   this->SetUpSchema();
   this->WriteParquet();
-  this->VerifyParquetStats();
+  ASSERT_NO_FATAL_FAILURE(this->VerifyParquetStats());
 }
 
 // Ensure UNKNOWN sort order is handled properly

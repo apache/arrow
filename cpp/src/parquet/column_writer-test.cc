@@ -110,11 +110,11 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     this->WriteRequiredWithSettings(encoding, compression, enable_dictionary,
                                     enable_statistics, num_rows);
-    this->ReadAndCompare(compression, num_rows);
+    ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows));
 
     this->WriteRequiredWithSettingsSpaced(encoding, compression, enable_dictionary,
                                           enable_statistics, num_rows);
-    this->ReadAndCompare(compression, num_rows);
+    ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows));
   }
 
   void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
@@ -644,9 +644,11 @@ TEST(TestLevels, TestLevelsDecodeMultipleBitWidth) {
       int16_t max_level = static_cast<int16_t>((1 << bit_width) - 1);
       // Generate levels
       GenerateLevels(min_repeat_factor, max_repeat_factor, max_level, input_levels);
-      EncodeLevels(encoding, max_level, static_cast<int>(input_levels.size()),
-                   input_levels.data(), bytes);
-      VerifyDecodingLevels(encoding, max_level, input_levels, bytes);
+      ASSERT_NO_FATAL_FAILURE(EncodeLevels(encoding, max_level,
+                                           static_cast<int>(input_levels.size()),
+                                           input_levels.data(), bytes));
+      ASSERT_NO_FATAL_FAILURE(
+          VerifyDecodingLevels(encoding, max_level, input_levels, bytes));
       input_levels.clear();
     }
   }
@@ -672,10 +674,12 @@ TEST(TestLevels, TestLevelsDecodeMultipleSetData) {
     Encoding::type encoding = encodings[encode];
     for (int rf = 0; rf < setdata_factor; rf++) {
       int offset = rf * split_level_size;
-      EncodeLevels(encoding, max_level, split_level_size,
-                   reinterpret_cast<int16_t*>(input_levels.data()) + offset, bytes[rf]);
+      ASSERT_NO_FATAL_FAILURE(EncodeLevels(
+          encoding, max_level, split_level_size,
+          reinterpret_cast<int16_t*>(input_levels.data()) + offset, bytes[rf]));
     }
-    VerifyDecodingMultipleSetData(encoding, max_level, input_levels, bytes);
+    ASSERT_NO_FATAL_FAILURE(
+        VerifyDecodingMultipleSetData(encoding, max_level, input_levels, bytes));
   }
 }
 

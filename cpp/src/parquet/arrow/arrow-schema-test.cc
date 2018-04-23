@@ -62,8 +62,8 @@ class TestConvertParquetSchema : public ::testing::Test {
     for (int i = 0; i < expected_schema->num_fields(); ++i) {
       auto lhs = result_schema_->field(i);
       auto rhs = expected_schema->field(i);
-      EXPECT_TRUE(lhs->Equals(rhs))
-          << i << " " << lhs->ToString() << " != " << rhs->ToString();
+      EXPECT_TRUE(lhs->Equals(rhs)) << i << " " << lhs->ToString()
+                                    << " != " << rhs->ToString();
     }
   }
 
@@ -162,7 +162,7 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
 
-  CheckFlatSchema(arrow_schema);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
 TEST_F(TestConvertParquetSchema, DuplicateFieldNames) {
@@ -179,15 +179,18 @@ TEST_F(TestConvertParquetSchema, DuplicateFieldNames) {
 
   ASSERT_OK(ConvertSchema(parquet_fields));
   arrow_fields = {arrow_field1, arrow_field2};
-  CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields));
+  ASSERT_NO_FATAL_FAILURE(
+      CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields)));
 
   ASSERT_OK(ConvertSchema(parquet_fields, std::vector<int>({0, 1})));
   arrow_fields = {arrow_field1, arrow_field2};
-  CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields));
+  ASSERT_NO_FATAL_FAILURE(
+      CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields)));
 
   ASSERT_OK(ConvertSchema(parquet_fields, std::vector<int>({1, 0})));
   arrow_fields = {arrow_field2, arrow_field1};
-  CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields));
+  ASSERT_NO_FATAL_FAILURE(
+      CheckFlatSchema(std::make_shared<::arrow::Schema>(arrow_fields)));
 }
 
 TEST_F(TestConvertParquetSchema, ParquetKeyValueMetadata) {
@@ -256,7 +259,7 @@ TEST_F(TestConvertParquetSchema, ParquetFlatDecimals) {
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
 
-  CheckFlatSchema(arrow_schema);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
 TEST_F(TestConvertParquetSchema, ParquetLists) {
@@ -438,7 +441,7 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
 
-  CheckFlatSchema(arrow_schema);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
 TEST_F(TestConvertParquetSchema, UnsupportedThings) {
@@ -476,7 +479,7 @@ TEST_F(TestConvertParquetSchema, ParquetNestedSchema) {
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
 
-  CheckFlatSchema(arrow_schema);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
 TEST_F(TestConvertParquetSchema, ParquetNestedSchemaPartial) {
@@ -527,7 +530,7 @@ TEST_F(TestConvertParquetSchema, ParquetNestedSchemaPartial) {
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields, std::vector<int>{0, 3, 4}));
 
-  CheckFlatSchema(arrow_schema);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
 TEST_F(TestConvertParquetSchema, ParquetNestedSchemaPartialOrdering) {
@@ -578,7 +581,7 @@ TEST_F(TestConvertParquetSchema, ParquetNestedSchemaPartialOrdering) {
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields, std::vector<int>{3, 4, 0}));
 
-  CheckFlatSchema(arrow_schema);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   std::vector<NodePtr> parquet_fields;
@@ -604,10 +607,9 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
     auto inner_group_type = std::make_shared<::arrow::StructType>(inner_group_fields);
     auto outer_group_fields = {
         std::make_shared<Field>("leaf2", INT32, true),
-        std::make_shared<Field>(
-            "innerGroup",
-            ::arrow::list(std::make_shared<Field>("innerGroup", inner_group_type, false)),
-            false)};
+        std::make_shared<Field>("innerGroup", ::arrow::list(std::make_shared<Field>(
+                                                  "innerGroup", inner_group_type, false)),
+                                false)};
     auto outer_group_type = std::make_shared<::arrow::StructType>(outer_group_fields);
 
     arrow_fields.push_back(std::make_shared<Field>("leaf1", INT32, true));
@@ -619,7 +621,7 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   auto arrow_schema = std::make_shared<::arrow::Schema>(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
 
-  CheckFlatSchema(arrow_schema);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
 class TestConvertArrowSchema : public ::testing::Test {
@@ -705,7 +707,7 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 
-  CheckFlatSchema(parquet_fields);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
 TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {
@@ -765,7 +767,7 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 
-  CheckFlatSchema(parquet_fields);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
 TEST_F(TestConvertArrowSchema, ParquetLists) {
@@ -810,7 +812,7 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 
-  CheckFlatSchema(parquet_fields);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
 TEST_F(TestConvertArrowSchema, UnsupportedTypes) {
@@ -830,7 +832,7 @@ TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 
-  CheckFlatSchema(parquet_fields);
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
 TEST(InvalidSchema, ParquetNegativeDecimalScale) {

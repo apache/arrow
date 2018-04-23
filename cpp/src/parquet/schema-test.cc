@@ -140,7 +140,7 @@ TEST_F(TestPrimitiveNode, Attrs) {
 TEST_F(TestPrimitiveNode, FromParquet) {
   SchemaElement elt =
       NewPrimitive(name_, FieldRepetitionType::OPTIONAL, format::Type::INT32, 0);
-  Convert(&elt);
+  ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(name_, prim_node_->name());
   ASSERT_EQ(id_, prim_node_->id());
   ASSERT_EQ(Repetition::OPTIONAL, prim_node_->repetition());
@@ -151,7 +151,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, format::Type::BYTE_ARRAY, 0);
   elt.__set_converted_type(ConvertedType::UTF8);
 
-  Convert(&elt);
+  ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(Repetition::REQUIRED, prim_node_->repetition());
   ASSERT_EQ(Type::BYTE_ARRAY, prim_node_->physical_type());
   ASSERT_EQ(LogicalType::UTF8, prim_node_->logical_type());
@@ -161,7 +161,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
                      format::Type::FIXED_LEN_BYTE_ARRAY, 0);
   elt.__set_type_length(16);
 
-  Convert(&elt);
+  ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(name_, prim_node_->name());
   ASSERT_EQ(id_, prim_node_->id());
   ASSERT_EQ(Repetition::OPTIONAL, prim_node_->repetition());
@@ -176,7 +176,7 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   elt.__set_scale(2);
   elt.__set_precision(12);
 
-  Convert(&elt);
+  ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, prim_node_->physical_type());
   ASSERT_EQ(LogicalType::DECIMAL, prim_node_->logical_type());
   ASSERT_EQ(6, prim_node_->type_length());
@@ -432,7 +432,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
   elements.push_back(
       NewPrimitive("item", FieldRepetitionType::OPTIONAL, format::Type::INT64, 4));
 
-  Convert(&elements[0], static_cast<int>(elements.size()));
+  ASSERT_NO_FATAL_FAILURE(Convert(&elements[0], static_cast<int>(elements.size())));
 
   // Construct the expected schema
   NodeVector fields;
@@ -470,10 +470,10 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
   // practicality matter.
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::REQUIRED, 1, 0);
   elements[1] = NewPrimitive("a", FieldRepetitionType::REQUIRED, format::Type::INT32, 1);
-  Convert(elements, 2);
+  ASSERT_NO_FATAL_FAILURE(Convert(elements, 2));
 
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::OPTIONAL, 1, 0);
-  Convert(elements, 2);
+  ASSERT_NO_FATAL_FAILURE(Convert(elements, 2));
 }
 
 TEST_F(TestSchemaConverter, NotEnoughChildren) {

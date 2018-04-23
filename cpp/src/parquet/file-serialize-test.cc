@@ -184,7 +184,7 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 TYPED_TEST_CASE(TestSerialize, TestTypes);
 
 TYPED_TEST(TestSerialize, SmallFileUncompressed) {
-  this->FileSerializeTest(Compression::UNCOMPRESSED);
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::UNCOMPRESSED));
 }
 
 TYPED_TEST(TestSerialize, TooFewRows) {
@@ -202,18 +202,24 @@ TYPED_TEST(TestSerialize, RepeatedTooFewRows) {
 }
 
 TYPED_TEST(TestSerialize, SmallFileSnappy) {
-  this->FileSerializeTest(Compression::SNAPPY);
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::SNAPPY));
 }
 
 TYPED_TEST(TestSerialize, SmallFileBrotli) {
-  this->FileSerializeTest(Compression::BROTLI);
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::BROTLI));
 }
 
-TYPED_TEST(TestSerialize, SmallFileGzip) { this->FileSerializeTest(Compression::GZIP); }
+TYPED_TEST(TestSerialize, SmallFileGzip) {
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::GZIP));
+}
 
-TYPED_TEST(TestSerialize, SmallFileLz4) { this->FileSerializeTest(Compression::LZ4); }
+TYPED_TEST(TestSerialize, SmallFileLz4) {
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::LZ4));
+}
 
-TYPED_TEST(TestSerialize, SmallFileZstd) { this->FileSerializeTest(Compression::ZSTD); }
+TYPED_TEST(TestSerialize, SmallFileZstd) {
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::ZSTD));
+}
 
 }  // namespace test
 

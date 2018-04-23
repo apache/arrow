@@ -225,7 +225,7 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
                     static_cast<int>(encode_buffer_->size()));
     int values_decoded = decoder.Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
-    VerifyResults<T>(decode_buf_, draws_, num_values_);
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
   }
 
  protected:
@@ -234,7 +234,9 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
 
 TYPED_TEST_CASE(TestPlainEncoding, ParquetTypes);
 
-TYPED_TEST(TestPlainEncoding, BasicRoundTrip) { this->Execute(10000, 1); }
+TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(this->Execute(10000, 1));
+}
 
 // ----------------------------------------------------------------------
 // Dictionary encoding tests
@@ -278,14 +280,14 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     // TODO(wesm): The DictionaryDecoder must stay alive because the decoded
     // values' data is owned by a buffer inside the DictionaryEncoder. We
     // should revisit when data lifetime is reviewed more generally.
-    VerifyResults<T>(decode_buf_, draws_, num_values_);
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
 
     // Also test spaced decoding
     decoder.SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
     values_decoded =
         decoder.DecodeSpaced(decode_buf_, num_values_, 0, valid_bits.data(), 0);
     ASSERT_EQ(num_values_, values_decoded);
-    VerifyResults<T>(decode_buf_, draws_, num_values_);
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
   }
 
  protected:
@@ -295,7 +297,9 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
 
 TYPED_TEST_CASE(TestDictionaryEncoding, DictEncodedTypes);
 
-TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) { this->Execute(2500, 2); }
+TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2500, 2));
+}
 
 TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
   PlainDecoder<BooleanType> dict_decoder(nullptr);

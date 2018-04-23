@@ -154,30 +154,33 @@ using TestFLBAFlatScanner = TestFlatScanner<FLBAType>;
 TYPED_TEST_CASE(TestFlatScanner, TestTypes);
 
 TYPED_TEST(TestFlatScanner, TestPlainScanner) {
-  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0, Encoding::PLAIN);
+  ASSERT_NO_FATAL_FAILURE(
+      this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0, Encoding::PLAIN));
 }
 
 TYPED_TEST(TestFlatScanner, TestDictScanner) {
-  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0,
-                   Encoding::RLE_DICTIONARY);
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0,
+                                           Encoding::RLE_DICTIONARY));
 }
 
 TEST_F(TestBooleanFlatScanner, TestPlainScanner) {
-  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0);
+  ASSERT_NO_FATAL_FAILURE(
+      this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0));
 }
 
 TEST_F(TestFLBAFlatScanner, TestPlainScanner) {
-  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH);
+  ASSERT_NO_FATAL_FAILURE(
+      this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH));
 }
 
 TEST_F(TestFLBAFlatScanner, TestDictScanner) {
-  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH,
-                   Encoding::RLE_DICTIONARY);
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteAll(num_pages, num_levels_per_page, batch_size,
+                                           FLBA_LENGTH, Encoding::RLE_DICTIONARY));
 }
 
 TEST_F(TestFLBAFlatScanner, TestPlainDictScanner) {
-  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH,
-                   Encoding::PLAIN_DICTIONARY);
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteAll(num_pages, num_levels_per_page, batch_size,
+                                           FLBA_LENGTH, Encoding::PLAIN_DICTIONARY));
 }
 
 // PARQUET 502
@@ -190,7 +193,7 @@ TEST_F(TestFLBAFlatScanner, TestSmallBatch) {
                                     data_buffer_, pages_);
   num_levels_ = 1 * 100;
   InitScanner(&d);
-  CheckResults(1, &d);
+  ASSERT_NO_FATAL_FAILURE(CheckResults(1, &d));
 }
 
 TEST_F(TestFLBAFlatScanner, TestDescriptorAPI) {

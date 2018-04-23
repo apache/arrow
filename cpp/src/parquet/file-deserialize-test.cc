@@ -129,10 +129,10 @@ TEST_F(TestPageSerde, DataPage) {
   AddDummyStats(stats_size, data_page_header_);
   data_page_header_.num_values = num_rows;
 
-  WriteDataPageHeader();
+  ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader());
   InitSerializedPageReader(num_rows);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
-  CheckDataPageHeader(data_page_header_, current_page.get());
+  ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
 TEST_F(TestPageSerde, TestLargePageHeaders) {
@@ -144,7 +144,7 @@ TEST_F(TestPageSerde, TestLargePageHeaders) {
   data_page_header_.num_values = num_rows;
 
   int max_header_size = 512 * 1024;  // 512 KB
-  WriteDataPageHeader(max_header_size);
+  ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(max_header_size));
   ASSERT_GE(max_header_size, out_stream_->Tell());
 
   // check header size is between 256 KB to 16 MB
@@ -153,7 +153,7 @@ TEST_F(TestPageSerde, TestLargePageHeaders) {
 
   InitSerializedPageReader(num_rows);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
-  CheckDataPageHeader(data_page_header_, current_page.get());
+  ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
 }
 
 TEST_F(TestPageSerde, TestFailLargePageHeaders) {
@@ -164,7 +164,7 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
 
   // Serialize the Page header
   int max_header_size = 512 * 1024;  // 512 KB
-  WriteDataPageHeader(max_header_size);
+  ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(max_header_size));
   ASSERT_GE(max_header_size, out_stream_->Tell());
 
   int smaller_max_size = 128 * 1024;
@@ -209,7 +209,8 @@ TEST_F(TestPageSerde, Compression) {
       ASSERT_OK(codec->Compress(data_size, data, max_compressed_size, &buffer[0],
                                 &actual_size));
 
-      WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size));
+      ASSERT_NO_FATAL_FAILURE(
+          WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size)));
       out_stream_->Write(buffer.data(), actual_size);
     }
 
@@ -233,7 +234,7 @@ TEST_F(TestPageSerde, LZONotSupported) {
   // Must await PARQUET-530
   int data_size = 1024;
   std::vector<uint8_t> faux_data(data_size);
-  WriteDataPageHeader(1024, data_size, data_size);
+  ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(1024, data_size, data_size));
   out_stream_->Write(faux_data.data(), data_size);
   ASSERT_THROW(InitSerializedPageReader(data_size, Compression::LZO), ParquetException);
 }
@@ -262,7 +263,7 @@ TEST_F(TestParquetFileReader, InvalidHeader) {
 
   auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_header),
                                          strlen(bad_header));
-  AssertInvalidFileThrows(buffer);
+  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 
 TEST_F(TestParquetFileReader, InvalidFooter) {
@@ -270,13 +271,13 @@ TEST_F(TestParquetFileReader, InvalidFooter) {
   const char* bad_file = "PAR1PAR";
   auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_file),
                                          strlen(bad_file));
-  AssertInvalidFileThrows(buffer);
+  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 
   // Magic number incorrect
   const char* bad_file2 = "PAR1PAR2";
   buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_file2),
                                     strlen(bad_file2));
-  AssertInvalidFileThrows(buffer);
+  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 
 TEST_F(TestParquetFileReader, IncompleteMetadata) {
@@ -292,7 +293,7 @@ TEST_F(TestParquetFileReader, IncompleteMetadata) {
   stream.Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic));
 
   auto buffer = stream.GetBuffer();
-  AssertInvalidFileThrows(buffer);
+  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 
 }  // namespace parquet
