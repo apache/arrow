@@ -90,6 +90,21 @@ class TestPlasmaStore : public ::testing::Test {
   PlasmaClient client2_;
 };
 
+TEST_F(TestPlasmaStore, SealErrorsTest) {
+  ObjectID object_id = ObjectID::from_random();
+
+  Status result = client_.Seal(object_id);
+  ASSERT_EQ(result.IsPlasmaObjectNonexistent(), true);
+
+  // Create object.
+  std::vector<uint8_t> data(100, 0);
+  CreateObject(client_, object_id, {42}, data);
+
+  // Trying to seal it again.
+  result = client_.Seal(object_id);
+  ASSERT_EQ(result.IsPlasmaObjectAlreadySealed(), true);
+}
+
 TEST_F(TestPlasmaStore, DeleteTest) {
   ObjectID object_id = ObjectID::from_random();
 
