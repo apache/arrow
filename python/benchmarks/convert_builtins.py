@@ -51,8 +51,7 @@ class InferPyListToArray(object):
     """
     size = 10 ** 5
     types = ('int64', 'float64', 'bool', 'decimal', 'binary', 'ascii',
-             'unicode', 'int64 list')
-    # TODO add 'struct' when supported
+             'unicode', 'int64 list', 'struct')
 
     param_names = ['type']
     params = [types]
