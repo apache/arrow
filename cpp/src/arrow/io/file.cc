@@ -125,9 +125,8 @@ class OSFile {
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
-    std::lock_guard<std::mutex> guard(lock_);
-    RETURN_NOT_OK(Seek(position));
-    return Read(nbytes, bytes_read, out);
+    return internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position, nbytes,
+                                bytes_read);
   }
 
   Status Seek(int64_t pos) {
@@ -203,6 +202,19 @@ class ReadableFile::ReadableFileImpl : public OSFile {
     return Status::OK();
   }
 
+  Status ReadBufferAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
+    std::shared_ptr<ResizableBuffer> buffer;
+    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
+
+    int64_t bytes_read = 0;
+    RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buffer->mutable_data()));
+    if (bytes_read < nbytes) {
+      RETURN_NOT_OK(buffer->Resize(bytes_read));
+    }
+    *out = buffer;
+    return Status::OK();
+  }
+
  private:
   MemoryPool* pool_;
 };
@@ -247,9 +259,7 @@ Status ReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_rea
 
 Status ReadableFile::ReadAt(int64_t position, int64_t nbytes,
                             std::shared_ptr<Buffer>* out) {
-  std::lock_guard<std::mutex> guard(impl_->lock());
-  RETURN_NOT_OK(Seek(position));
-  return impl_->ReadBuffer(nbytes, out);
+  return impl_->ReadBufferAt(position, nbytes, out);
 }
 
 Status ReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
@@ -459,42 +469,38 @@ Status MemoryMappedFile::Close() {
   return Status::OK();
 }
 
-Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-  nbytes = std::max<int64_t>(
-      0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
-  if (nbytes > 0) {
-    std::memcpy(out, memory_map_->head(), static_cast<size_t>(nbytes));
-  }
-  *bytes_read = nbytes;
-  memory_map_->advance(nbytes);
-  return Status::OK();
-}
-
-Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  nbytes = std::max<int64_t>(
-      0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
-
-  if (nbytes > 0) {
-    *out = SliceBuffer(memory_map_, memory_map_->position(), nbytes);
-  } else {
-    *out = std::make_shared<Buffer>(nullptr, 0);
-  }
-  memory_map_->advance(nbytes);
-  return Status::OK();
-}
-
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 void* out) {
-  std::lock_guard<std::mutex> guard(memory_map_->lock());
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, bytes_read, out);
+  nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - position));
+  if (nbytes > 0) {
+    std::memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));
+  }
+  *bytes_read = nbytes;
+  return Status::OK();
 }
 
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
                                 std::shared_ptr<Buffer>* out) {
-  std::lock_guard<std::mutex> guard(memory_map_->lock());
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, out);
+  nbytes = std::max<int64_t>(0, std::min(nbytes, memory_map_->size() - position));
+
+  if (nbytes > 0) {
+    *out = SliceBuffer(memory_map_, position, nbytes);
+  } else {
+    *out = std::make_shared<Buffer>(nullptr, 0);
+  }
+  return Status::OK();
+}
+
+Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+  RETURN_NOT_OK(ReadAt(memory_map_->position(), nbytes, bytes_read, out));
+  memory_map_->advance(*bytes_read);
+  return Status::OK();
+}
+
+Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  RETURN_NOT_OK(ReadAt(memory_map_->position(), nbytes, out));
+  memory_map_->advance((*out)->size());
+  return Status::OK();
 }
 
 bool MemoryMappedFile::supports_zero_copy() const { return true; }
