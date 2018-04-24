@@ -23,10 +23,8 @@
 #include <Win32_Interop/win32_types.h>
 #endif
 
-#include <assert.h>
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
