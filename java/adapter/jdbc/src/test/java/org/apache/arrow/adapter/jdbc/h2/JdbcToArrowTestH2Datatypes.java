@@ -30,7 +30,6 @@ import java.util.TimeZone;
 
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.Table;
-import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -55,7 +54,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.ZoneId;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBigIntVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBitBooleanVectorValues;
@@ -406,7 +404,7 @@ public class JdbcToArrowTestH2Datatypes {
 	    } 
 	    
 	    private String getQuery(String whereClause, boolean isNotNull,  int index, String... columns) {
-	        StringBuffer query = new  StringBuffer(String.format("select %s from %s ", 
+	        StringBuilder query = new  StringBuilder(String.format("select %s from %s ", 
 	        		columns.length > 1 ? String.join(",", columns) : columns[index], table.getName()));
 	        query.append(whereClause != null && !whereClause.isEmpty() ? " where " + whereClause + " and " : " where ");
 	        columns = columns.length == 1 && columns[0].contains(",") ? columns[0].split(",") : columns;
