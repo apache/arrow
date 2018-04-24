@@ -1013,14 +1013,12 @@ class TestParquetFilter:
             ['string', string_keys],
             ['boolean', boolean_keys]
         ]
-        N = 30
 
         df = pd.DataFrame({
-            'index': np.arange(N),
             'integer': np.array(integer_keys, dtype='i4').repeat(15),
             'string': np.tile(np.tile(np.array(string_keys, dtype=object), 5), 2),
             'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5), 3),
-        }, columns=['index', 'integer', 'string', 'boolean'])
+        }, columns=['integer', 'string', 'boolean'])
 
         _generate_partition_directories(fs, base_path, partition_spec, df)
 
@@ -1030,7 +1028,6 @@ class TestParquetFilter:
         )
         table = dataset.read()
         result_df = (table.to_pandas()
-                     .sort_values(by='index')
                      .reset_index(drop=True))
 
         assert 0 not in result_df['integer'].values

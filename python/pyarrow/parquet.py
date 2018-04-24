@@ -859,17 +859,20 @@ class ParquetDataset(object):
 
     def _filter(self, filters):
         def filter_accepts_partition(part_key, filter, level):
+
             p_column, p_value_index = part_key
             f_column, op, f_value = filter
             if p_column != f_column:
                 return True
 
-            p_value = (self.partitions
+            f_type = type(f_value)
+            p_value = f_type((self.partitions
                        .levels[level]
                        .dictionary[p_value_index]
-                       .as_py())
+                       .as_py()))
+            
 
-            if op == "=":
+            if op == "=" or op == "==":
                 return p_value == f_value
             elif op == "!=":
                 return p_value != f_value
@@ -882,7 +885,7 @@ class ParquetDataset(object):
             elif op == '>=':
                 return p_value >= f_value
             else:
-                return True
+                raise ValueError("'%s' is not a valid operator in predicates.")
 
         def one_filter_accepts(piece, filter):
             return all(filter_accepts_partition(part_key, filter, level)
