@@ -475,6 +475,15 @@ class ARROW_EXPORT StructType : public NestedType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
+
+  /// Returns null if name not found
+  std::shared_ptr<Field> GetChildByName(const std::string& name) const;
+
+  /// Returns -1 if name not found
+  int64_t GetChildIndex(const std::string& name) const;
+
+ private:
+  mutable std::unordered_map<std::string, int> name_to_index_;
 };
 
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
