@@ -42,8 +42,8 @@ from distutils import sysconfig
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.19.1':
-    raise Exception('Please upgrade to Cython 0.19.1 or newer')
+if Cython.__version__ < '0.27':
+    raise Exception('Please upgrade to Cython 0.27 or newer')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -92,7 +92,8 @@ class build_ext(_build_ext):
     # github.com/libdynd/dynd-python
 
     description = "Build the C-extensions for arrow"
-    user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
+    user_options = ([('cmake-generator=', None, 'CMake generator'),
+                     ('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
@@ -109,6 +110,9 @@ class build_ext(_build_ext):
 
     def initialize_options(self):
         _build_ext.initialize_options(self)
+        self.cmake_generator = os.environ.get('PYARROW_CMAKE_GENERATOR')
+        if not self.cmake_generator and sys.platform == 'win32':
+            self.cmake_generator = 'Visual Studio 14 2015 Win64'
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
         self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE', 'boost')
@@ -133,10 +137,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_ORC', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
-        # Default is True but this only is actually bundled when
-        # we also bundle arrow-cpp.
         self.bundle_boost = strtobool(
-            os.environ.get('PYARROW_BUNDLE_BOOST', '1'))
+            os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -174,6 +176,8 @@ class build_ext(_build_ext):
                 static_lib_option,
             ]
 
+            if self.cmake_generator:
+                cmake_options += ['-G', self.cmake_generator]
             if self.with_parquet:
                 cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
             if self.with_static_parquet:
@@ -195,15 +199,15 @@ class build_ext(_build_ext):
 
             if self.bundle_arrow_cpp:
                 cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
-                cmake_options.append('-DPYARROW_BUNDLE_BOOST=ON')
                 # ARROW-1090: work around CMake rough edges
                 if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
                     pkg_config = pjoin(os.environ['ARROW_HOME'], 'lib',
                                        'pkgconfig')
                     os.environ['PKG_CONFIG_PATH'] = pkg_config
                     del os.environ['ARROW_HOME']
-            else:
-                cmake_options.append('-DPYARROW_BUNDLE_BOOST=OFF')
+
+            if self.bundle_boost:
+                cmake_options.append('-DPYARROW_BUNDLE_BOOST=ON')
 
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                                  .format(self.build_type.lower()))
@@ -230,16 +234,12 @@ class build_ext(_build_ext):
                 self.spawn(args)
                 print("-- Finished cmake --build for pyarrow")
             else:
-                cmake_generator = 'Visual Studio 14 2015 Win64'
                 if not is_64_bit:
                     raise RuntimeError('Not supported on 32-bit Windows')
 
                 # Generate the build files
                 cmake_command = (['cmake'] + extra_cmake_args +
-                                 cmake_options +
-                                 [source, '-G', cmake_generator])
-                if "-G" in self.extra_cmake_args:
-                    cmake_command = cmake_command[:-2]
+                                 cmake_options + [source])
 
                 print("-- Runnning cmake for pyarrow")
                 self.spawn(cmake_command)
@@ -359,7 +359,12 @@ class build_ext(_build_ext):
         if sys.platform == 'win32':
             head, tail = os.path.split(name)
             suffix = sysconfig.get_config_var('SO')
-            return pjoin(head, self.build_type, tail + suffix)
+            # Visual Studio seems to differ from other generators in
+            # where it places output files.
+            if self.cmake_generator.startswith('Visual Studio'):
+                return pjoin(head, self.build_type, tail + suffix)
+            else:
+                return pjoin(head, tail + suffix)
         else:
             suffix = sysconfig.get_config_var('SO')
             return pjoin(self.build_type, name + suffix)
@@ -433,11 +438,8 @@ if not os.path.exists('../.git') and os.path.exists('../java/pom.xml'):
     os.environ["SETUPTOOLS_SCM_PRETEND_VERSION"] = version_tag.text.replace(
         "-SNAPSHOT", "a0")
 
-long_description = """Apache Arrow is a columnar in-memory analytics layer
-designed to accelerate big data. It houses a set of canonical in-memory
-representations of flat and hierarchical data along with multiple
-language-bindings for structure manipulation. It also provides IPC
-and common algorithm implementations."""
+with open('README.md') as f:
+    long_description = f.read()
 
 
 class BinaryDistribution(Distribution):
@@ -445,10 +447,11 @@ class BinaryDistribution(Distribution):
         return True
 
 
-install_requires = ['numpy >= 1.10', 'six >= 1.0.0']
-
-if sys.version_info.major == 2:
-    install_requires.append('futures')
+install_requires = (
+    'numpy >= 1.10',
+    'six >= 1.0.0',
+    'futures;python_version<"3.2"'
+)
 
 
 def parse_version(root):
@@ -489,15 +492,15 @@ setup(
         ]
     },
     use_scm_version={"root": "..", "relative_to": __file__, "parse": parse_version},
-    setup_requires=['setuptools_scm', 'cython >= 0.23'] + setup_requires,
+    setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas'],
     description="Python library for Apache Arrow",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
         ],

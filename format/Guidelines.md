@@ -32,4 +32,4 @@ Consumption of vectors should at least convert the unsupported input vectors to 
 ## Extensibility
 An execution engine implementor can also extend their memory representation with their own vectors internally as long as they are never exposed. Before sending data to another system expecting Arrow data these custom vectors should be converted to a type that exist in the Arrow spec.
 An example of this is operating on compressed data.
-These custom vectors are not exchanged externaly and there is no support for custom metadata.
+These custom vectors are not exchanged externally and there is no support for custom metadata.

@@ -283,12 +283,24 @@ cdef _append_array_buffers(const CArrayData* ad, list res):
 
 cdef class Array:
 
+    def __init__(self, *args, **kwargs):
+        """
+        Do not call this constructor directly, use factories
+        like ``pyarrow.array``.
+        """
+        # Check if the constructor was called with arguments.
+        # This was probably by accident from a user. Instead of segfaulting
+        # we should provide them with a meaningful error.
+        if len(args) > 0 or len(kwargs) > 0:
+            raise RuntimeError("Don't call pyarrow.Array directly, use "
+                               "pyarrow.array instead")
+
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
 
-    def __richcmp__(Array self, object other, int op):
+    def __eq__(self, other):
         raise NotImplementedError('Comparisons with pyarrow.Array are not '
                                   'implemented')
 
@@ -651,6 +663,30 @@ strides: {0.strides}""".format(self)
         self._validate()
         return tuple(self.tp.strides())
 
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._validate()
+
+        buffer.buf = <char *> self.tp.data().get().data()
+        pep3118_format = self.type.pep3118_format
+        if pep3118_format is None:
+            raise NotImplementedError("type %s not supported for buffer "
+                                      "protocol" % (self.type,))
+        buffer.format = pep3118_format
+        buffer.itemsize = self.type.bit_width // 8
+        buffer.internal = NULL
+        buffer.len = self.tp.size() * buffer.itemsize
+        buffer.ndim = self.tp.ndim()
+        buffer.obj = self
+        if self.tp.is_mutable():
+            buffer.readonly = 0
+        else:
+            buffer.readonly = 1
+        # NOTE: This assumes Py_ssize_t == int64_t, and that the shape
+        # and strides arrays lifetime is tied to the tensor's
+        buffer.shape = <Py_ssize_t *> &self.tp.shape()[0]
+        buffer.strides = <Py_ssize_t *> &self.tp.strides()[0]
+        buffer.suboffsets = NULL
+
 
 cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)
@@ -732,6 +768,10 @@ cdef class Time32Array(NumericArray):
 
 
 cdef class Time64Array(NumericArray):
+    pass
+
+
+cdef class HalfFloatArray(FloatingPointArray):
     pass
 
 
@@ -985,6 +1025,30 @@ cdef class DictionaryArray(Array):
 
 cdef class StructArray(Array):
 
+    def flatten(self, MemoryPool memory_pool=None):
+        """
+        Flatten this StructArray, returning one individual array for each
+        field in the struct.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : List[Array]
+        """
+        cdef:
+            vector[shared_ptr[CArray]] arrays
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            CStructArray* sarr = <CStructArray*> self.ap
+
+        with nogil:
+            check_status(sarr.Flatten(pool, &arrays))
+
+        return [pyarrow_wrap_array(arr) for arr in arrays]
+
     @staticmethod
     def from_arrays(arrays, names=None):
         """
@@ -1056,6 +1120,7 @@ cdef dict _array_classes = {
     _Type_TIMESTAMP: TimestampArray,
     _Type_TIME32: Time32Array,
     _Type_TIME64: Time64Array,
+    _Type_HALF_FLOAT: HalfFloatArray,
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,

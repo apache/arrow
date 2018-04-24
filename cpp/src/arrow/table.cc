@@ -39,13 +39,25 @@ namespace arrow {
 ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
   length_ = 0;
   null_count_ = 0;
+  DCHECK_GT(chunks.size(), 0)
+      << "cannot construct ChunkedArray from empty vector and omitted type";
+  type_ = chunks[0]->type();
   for (const std::shared_ptr<Array>& chunk : chunks) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
 }
 
-std::shared_ptr<DataType> ChunkedArray::type() const { return chunks_[0]->type(); }
+ChunkedArray::ChunkedArray(const ArrayVector& chunks,
+                           const std::shared_ptr<DataType>& type)
+    : chunks_(chunks), type_(type) {
+  length_ = 0;
+  null_count_ = 0;
+  for (const std::shared_ptr<Array>& chunk : chunks) {
+    length_ += chunk->length();
+    null_count_ += chunk->null_count();
+  }
+}
 
 bool ChunkedArray::Equals(const ChunkedArray& other) const {
   if (length_ != other.length()) {
@@ -107,20 +119,20 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length
   DCHECK_LE(offset, length_);
 
   int curr_chunk = 0;
-  while (offset >= chunk(curr_chunk)->length()) {
+  while (curr_chunk < num_chunks() && offset >= chunk(curr_chunk)->length()) {
     offset -= chunk(curr_chunk)->length();
     curr_chunk++;
   }
 
   ArrayVector new_chunks;
-  while (length > 0 && curr_chunk < num_chunks()) {
+  while (curr_chunk < num_chunks() && length > 0) {
     new_chunks.push_back(chunk(curr_chunk)->Slice(offset, length));
     length -= chunk(curr_chunk)->length() - offset;
     offset = 0;
     curr_chunk++;
   }
 
-  return std::make_shared<ChunkedArray>(new_chunks);
+  return std::make_shared<ChunkedArray>(new_chunks, type_);
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset) const {
@@ -129,15 +141,15 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset) const {
 
 Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
     : field_(field) {
-  data_ = std::make_shared<ChunkedArray>(chunks);
+  data_ = std::make_shared<ChunkedArray>(chunks, field->type());
 }
 
 Column::Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data)
     : field_(field) {
   if (!data) {
-    data_ = std::make_shared<ChunkedArray>(ArrayVector({}));
+    data_ = std::make_shared<ChunkedArray>(ArrayVector({}), field->type());
   } else {
-    data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
+    data_ = std::make_shared<ChunkedArray>(ArrayVector({data}), field->type());
   }
 }
 

@@ -222,7 +222,7 @@ enum ObjectStatus:int {
   Remote,
   // Object is not stored in the system.
   Nonexistent,
-  // Object is currently transferred from a remote Plasma store the the local
+  // Object is currently transferred from a remote Plasma store the local
   // Plasma Store.
   Transfer
 }

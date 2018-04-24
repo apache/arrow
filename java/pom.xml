@@ -625,4 +625,17 @@
     <module>tools</module>
     <module>adapter/jdbc</module>
   </modules>
+
+  <profiles>
+    <profile>
+      <id>java-8</id>
+      <activation>
+	<jdk>[1.8,)</jdk>
+      </activation>
+      <properties>
+	<doclint>none</doclint>
+      </properties>
+    </profile>
+  </profiles>
+
 </project>

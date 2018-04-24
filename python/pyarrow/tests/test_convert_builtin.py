@@ -26,6 +26,7 @@ import decimal
 import itertools
 import numpy as np
 import six
+import pytz
 
 
 int_type_pairs = [
@@ -151,6 +152,24 @@ def test_empty_list(seq):
     assert arr.to_pylist() == []
 
 
+@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+def test_nested_lists(seq):
+    arr = pa.array(seq([[], [1, 2], None]))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64())
+    assert arr.to_pylist() == [[], [1, 2], None]
+
+
+@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+def test_nested_arrays(seq):
+    arr = pa.array(seq([np.array([], dtype=int), np.array([1, 2]), None]))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64())
+    assert arr.to_pylist() == [[], [1, 2], None]
+
+
 def test_sequence_all_none():
     arr = pa.array([None, None])
     assert len(arr) == 2
@@ -214,6 +233,26 @@ def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
+@pytest.mark.parametrize("bits", [8, 16, 32, 64])
+def test_signed_integer_overflow(bits):
+    ty = getattr(pa, "int%d" % bits)()
+    # XXX ideally would raise OverflowError
+    with pytest.raises((ValueError, pa.ArrowException)):
+        pa.array([2 ** (bits - 1)], ty)
+    with pytest.raises((ValueError, pa.ArrowException)):
+        pa.array([-2 ** (bits - 1) - 1], ty)
+
+
+@pytest.mark.parametrize("bits", [8, 16, 32, 64])
+def test_unsigned_integer_overflow(bits):
+    ty = getattr(pa, "uint%d" % bits)()
+    # XXX ideally would raise OverflowError
+    with pytest.raises((ValueError, pa.ArrowException)):
+        pa.array([2 ** bits], ty)
+    with pytest.raises((ValueError, pa.ArrowException)):
+        pa.array([-1], ty)
+
+
 def test_garbage_collection():
     import gc
 
@@ -259,12 +298,14 @@ def test_sequence_bytes():
     u1 = b'ma\xc3\xb1ana'
     data = [b'foo',
             u1.decode('utf-8'),  # unicode gets encoded,
+            bytearray(b'bar'),
             None]
-    arr = pa.array(data)
-    assert len(arr) == 3
-    assert arr.null_count == 1
-    assert arr.type == pa.binary()
-    assert arr.to_pylist() == [b'foo', u1, None]
+    for ty in [None, pa.binary()]:
+        arr = pa.array(data, type=ty)
+        assert len(arr) == 4
+        assert arr.null_count == 1
+        assert arr.type == pa.binary()
+        assert arr.to_pylist() == [b'foo', u1, b'bar', None]
 
 
 def test_sequence_utf8_to_unicode():
@@ -275,17 +316,17 @@ def test_sequence_utf8_to_unicode():
 
     # test a non-utf8 unicode string
     val = (u'mañana').encode('utf-16-le')
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowInvalid):
         pa.array([val], type=pa.string())
 
 
 def test_sequence_fixed_size_bytes():
-    data = [b'foof', None, b'barb', b'2346']
+    data = [b'foof', None, bytearray(b'barb'), b'2346']
     arr = pa.array(data, type=pa.binary(4))
     assert len(arr) == 4
     assert arr.null_count == 1
     assert arr.type == pa.binary(4)
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == [b'foof', None, b'barb', b'2346']
 
 
 def test_fixed_size_bytes_does_not_accept_varying_lengths():
@@ -453,18 +494,9 @@ def test_sequence_mixed_nesting_levels():
         pa.array([[1], [2], [None, [1]]])
 
 
-def test_sequence_list_of_int():
-    data = [[1, 2, 3], [], None, [1, 2]]
-    arr = pa.array(data)
-    assert len(arr) == 4
-    assert arr.null_count == 1
-    assert arr.type == pa.list_(pa.int64())
-    assert arr.to_pylist() == data
-
-
 def test_sequence_mixed_types_fails():
     data = ['a', 1, 2.0]
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowTypeError):
         pa.array(data)
 
 
@@ -472,7 +504,7 @@ def test_sequence_mixed_types_with_specified_type_fails():
     data = ['-10', '-5', {'a': 1}, '0', '5', '10']
 
     type = pa.string()
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(TypeError):
         pa.array(data, type=type)
 
 
@@ -649,3 +681,14 @@ def test_decimal_array_with_none_and_nan():
 
     array = pa.array(values, type=pa.decimal128(10, 4))
     assert array.to_pylist() == [decimal.Decimal('1.2340'), None, None, None]
+
+
+@pytest.mark.parametrize('tz,name', [
+    (pytz.FixedOffset(90), '+01:30'),
+    (pytz.FixedOffset(-90), '-01:30'),
+    (pytz.utc, 'UTC'),
+    (pytz.timezone('America/New_York'), 'America/New_York')
+])
+def test_timezone_string(tz, name):
+    assert pa.lib.tzinfo_to_string(tz) == name
+    assert pa.lib.string_to_tzinfo(name) == tz

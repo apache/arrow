@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.FixedSizeBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -82,8 +82,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.FIXEDSIZEBINARY;
+  public MinorType getMinorType() {
+    return MinorType.FIXEDSIZEBINARY;
   }
 
 

@@ -78,7 +78,7 @@ from pyarrow.lib import (null, bool_,
                          BooleanValue,
                          Int8Value, Int16Value, Int32Value, Int64Value,
                          UInt8Value, UInt16Value, UInt32Value, UInt64Value,
-                         FloatValue, DoubleValue, ListValue,
+                         HalfFloatValue, FloatValue, DoubleValue, ListValue,
                          BinaryValue, StringValue, FixedSizeBinaryValue,
                          DecimalValue,
                          Date32Value, Date64Value, TimestampValue)

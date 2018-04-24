@@ -18,6 +18,7 @@
 
 import pytest
 
+import numpy as np
 import pandas as pd
 
 from pyarrow.compat import unittest, u, unicode_type
@@ -75,6 +76,16 @@ class TestScalars(unittest.TestCase):
 
         v = arr[2]
         assert v.as_py() == 3.0
+
+    def test_half_float(self):
+        arr = pa.array([np.float16(1.5), None], type=pa.float16())
+        v = arr[0]
+        assert isinstance(v, pa.HalfFloatValue)
+        assert repr(v) == "1.5"
+        assert v.as_py() == 1.5
+        assert v == 1.5
+
+        assert arr[1] is pa.NA
 
     def test_string_unicode(self):
         arr = pa.array([u'foo', None, u'mañana'])
@@ -177,3 +188,30 @@ class TestScalars(unittest.TestCase):
                                            categorical.categories)
         for i, c in enumerate(values):
             assert v[i].as_py() == c
+
+    def test_int_hash(self):
+        # ARROW-640
+        int_arr = pa.array([1, 1, 2, 1])
+        assert hash(int_arr[0]) == hash(1)
+
+    def test_float_hash(self):
+        # ARROW-640
+        float_arr = pa.array([1.4, 1.2, 2.5, 1.8])
+        assert hash(float_arr[0]) == hash(1.4)
+
+    def test_string_hash(self):
+        # ARROW-640
+        str_arr = pa.array(["foo", "bar"])
+        assert hash(str_arr[1]) == hash("bar")
+
+    def test_bytes_hash(self):
+        # ARROW-640
+        byte_arr = pa.array([b'foo', None, b'bar'])
+        assert hash(byte_arr[2]) == hash(b"bar")
+
+    def test_array_to_set(self):
+        # ARROW-640
+        arr = pa.array([1, 1, 2, 1])
+        set_from_array = set(arr)
+        assert isinstance(set_from_array, set)
+        assert set_from_array == {1, 2}

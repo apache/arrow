@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,26 +17,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PROGRAMS =					\
-	read-batch				\
-	read-stream				\
-	write-batch				\
-	write-stream
+set -e
 
-all: build
+# ASV doesn't activate its conda environment for us
+source activate $ASV_ENV_PATH
 
-generate:
-	$$GOPATH/bin/gir-generator		\
-	  -o $$GOPATH/src/gir/arrow-1.0		\
-	  -config arrow-1.0/config.json		\
-	  arrow-1.0/arrow.go.in
+# Build Arrow C++ libraries
+export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
+export ARROW_HOME=$CONDA_PREFIX
 
-build: $(PROGRAMS)
+echo $CONDA_PREFIX
 
-clean:
-	rm -f $(PROGRAMS)
+pushd ../cpp
+mkdir -p build
+pushd build
 
-.SUFFIXES: .go
+cmake -GNinja \
+      -DCMAKE_BUILD_TYPE=release \
+      -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+      -DARROW_CXXFLAGS=$CXXFLAGS \
+      -DARROW_PYTHON=ON \
+      -DARROW_BUILD_TESTS=OFF \
+      ..
+cmake --build . --target install
 
-.go:
-	go build -o $@ $<
+popd
+popd
+
+# Build pyarrow wrappers
+export SETUPTOOLS_SCM_PRETEND_VERSION=0.0.1
+export PYARROW_BUILD_TYPE=release
+
+python setup.py clean
+find pyarrow -name "*.so" -delete
+python setup.py develop

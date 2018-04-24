@@ -30,7 +30,6 @@ import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
@@ -65,9 +64,9 @@ public class TestUnionVector {
       unionVector.allocateNew();
 
       // write some data
-      unionVector.setType(0, Types.MinorType.UINT4);
+      unionVector.setType(0, MinorType.UINT4);
       unionVector.setSafe(0, uInt4Holder);
-      unionVector.setType(2, Types.MinorType.UINT4);
+      unionVector.setType(2, MinorType.UINT4);
       unionVector.setSafe(2, uInt4Holder);
       unionVector.setValueCount(4);
 

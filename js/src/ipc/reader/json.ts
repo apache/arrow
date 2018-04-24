@@ -106,7 +106,7 @@ export class JSONDataLoader extends TypeDataLoader {
             return new Uint8Array(int64DataFromJSON(sources[offset] as string[]));
         } else if (DataType.isDecimal(type) === true) {
             return new Uint8Array(decimalDataFromJSON(sources[offset] as string[]));
-        } else if (DataType.isBinary(type) === true) {
+        } else if (DataType.isBinary(type) === true || DataType.isFixedSizeBinary(type) === true) {
             return new Uint8Array(binaryDataFromJSON(sources[offset] as string[]));
         } else if (DataType.isBool(type) === true) {
             return new Uint8Array(packBools(sources[offset] as number[]).buffer);

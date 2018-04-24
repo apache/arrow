@@ -15,25 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package arrow
+extern crate bytes;
+extern crate libc;
 
-/*
-#include "arrow.gen.h"
-#cgo pkg-config: arrow-glib
+#[macro_use]
+extern crate serde_json;
 
-[<.g_list_funcs>]
-[<.g_error_free>]
-[<.g_free>]
-*/
-import "C"
-import "unsafe"
-
-import (
-	"gir/glib-2.0"
-	"gir/gobject-2.0"
-	"gir/gio-2.0"
-)
-
-[<.go_utils>]
-
-[<.go_bindings>]
+pub mod array;
+pub mod bitmap;
+pub mod buffer;
+pub mod builder;
+pub mod datatypes;
+pub mod error;
+pub mod list;
+pub mod list_builder;
+pub mod memory;
+#[cfg(not(windows))]
+pub mod memory_pool;

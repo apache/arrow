@@ -44,6 +44,10 @@ def test_chunked_array_getitem():
     data_slice = data[4:-1]
     assert data_slice.to_pylist() == [5]
 
+    data_slice = data[99:99]
+    assert data_slice.type == data.type
+    assert data_slice.to_pylist() == []
+
 
 def test_column_basics():
     data = [
@@ -230,7 +234,7 @@ def test_recordbatchlist_schema_equals():
     batch1 = pa.RecordBatch.from_pandas(data1)
     batch2 = pa.RecordBatch.from_pandas(data2)
 
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowInvalid):
         pa.Table.from_batches([batch1, batch2])
 
 
@@ -297,6 +301,23 @@ def test_table_from_arrays_invalid_names():
         pa.Table.from_arrays(data, names=['a'])
 
 
+def test_table_select_column():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+
+    assert table.column('a').equals(table.column(0))
+
+    with pytest.raises(KeyError):
+        table.column('d')
+
+    with pytest.raises(TypeError):
+        table.column(None)
+
+
 def test_table_add_column():
     data = [
         pa.array(range(5)),
@@ -318,6 +339,23 @@ def test_table_add_column():
     expected = pa.Table.from_arrays([data[1]] + data,
                                     names=('d', 'a', 'b', 'c'))
     assert t4.equals(expected)
+
+
+def test_table_drop():
+    """ drop one or more columns given labels"""
+    a = pa.array(range(5))
+    b = pa.array([-10, -5, 0, 5, 10])
+    c = pa.array(range(5, 10))
+
+    table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
+    t2 = table.drop(['a', 'b'])
+
+    exp = pa.Table.from_arrays([c], names=('c',))
+    assert exp.equals(t2)
+
+    # -- raise KeyError if column not in Table
+    with pytest.raises(KeyError, match="Column 'd' not found"):
+        table.drop(['d'])
 
 
 def test_table_remove_column():

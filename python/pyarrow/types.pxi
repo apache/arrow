@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import re
+
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
 cdef dict _pandas_type_map = {
@@ -41,6 +43,42 @@ cdef dict _pandas_type_map = {
     _Type_DECIMAL: np.object_,
 }
 
+cdef dict _pep3118_type_map = {
+    _Type_INT8: b'b',
+    _Type_INT16: b'h',
+    _Type_INT32: b'i',
+    _Type_INT64: b'q',
+    _Type_UINT8: b'B',
+    _Type_UINT16: b'H',
+    _Type_UINT32: b'I',
+    _Type_UINT64: b'Q',
+    _Type_HALF_FLOAT: b'e',
+    _Type_FLOAT: b'f',
+    _Type_DOUBLE: b'd',
+}
+
+
+cdef bytes _datatype_to_pep3118(CDataType* type):
+    """
+    Construct a PEP 3118 format string describing the given datatype.
+    None is returned for unsupported types.
+    """
+    try:
+        char = _pep3118_type_map[type.id()]
+    except KeyError:
+        return None
+    else:
+        if char in b'bBhHiIqQ':
+            # Use "standard" int widths, not native
+            return b'=' + char
+        else:
+            return char
+
+
+# Workaround for Cython parsing bug
+# https://github.com/cython/cython/issues/2143
+ctypedef CFixedWidthType* _CFixedWidthTypePtr
+
 
 cdef class DataType:
     """
@@ -52,11 +90,21 @@ cdef class DataType:
     cdef void init(self, const shared_ptr[CDataType]& type):
         self.sp_type = type
         self.type = type.get()
+        self.pep3118_format = _datatype_to_pep3118(self.type)
 
     property id:
 
         def __get__(self):
             return self.type.id()
+
+    property bit_width:
+
+        def __get__(self):
+            cdef _CFixedWidthTypePtr ty
+            ty = dynamic_cast[_CFixedWidthTypePtr](self.type)
+            if ty == nullptr:
+                raise ValueError("Non-fixed width type")
+            return ty.bit_width()
 
     def __str__(self):
         if self.type is NULL:
@@ -85,13 +133,11 @@ cdef class DataType:
     def __repr__(self):
         return '{0.__class__.__name__}({0})'.format(self)
 
-    def __richcmp__(DataType self, object other, int op):
-        if op == cp.Py_EQ:
+    def __eq__(self, other):
+        try:
             return self.equals(other)
-        elif op == cp.Py_NE:
-            return not self.equals(other)
-        else:
-            raise TypeError('Invalid comparison')
+        except (TypeError, ValueError):
+            return False
 
     def equals(self, other):
         """
@@ -345,13 +391,11 @@ cdef class Field:
         """
         return self.field.Equals(deref(other.field))
 
-    def __richcmp__(Field self, Field other, int op):
-        if op == cp.Py_EQ:
+    def __eq__(self, other):
+        try:
             return self.equals(other)
-        elif op == cp.Py_NE:
-            return not self.equals(other)
-        else:
-            raise TypeError('Invalid comparison')
+        except TypeError:
+            return False
 
     def __reduce__(self):
         return Field, (), self.__getstate__()
@@ -840,6 +884,63 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
+_FIXED_OFFSET_RE = re.compile(r'([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$')
+
+
+def tzinfo_to_string(tz):
+    """
+    Converts a time zone object into a string indicating the name of a time
+    zone, one of:
+    * As used in the Olson time zone database (the "tz database" or
+      "tzdata"), such as "America/New_York"
+    * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
+
+    Parameters
+    ----------
+      tz : datetime.tzinfo
+        Time zone object
+
+    Returns
+    -------
+      name : string
+        Time zone name
+    """
+    if tz.zone is None:
+        sign = '+' if tz._minutes >= 0 else '-'
+        hours, minutes = divmod(abs(tz._minutes), 60)
+        return '{}{:02d}:{:02d}'.format(sign, hours, minutes)
+    else:
+        return tz.zone
+
+
+def string_to_tzinfo(name):
+    """
+    Converts a string indicating the name of a time zone into a time zone
+    object, one of:
+    * As used in the Olson time zone database (the "tz database" or
+      "tzdata"), such as "America/New_York"
+    * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
+
+    Parameters
+    ----------
+      name: string
+        Time zone name
+
+    Returns
+    -------
+      tz : datetime.tzinfo
+        Time zone object
+    """
+    import pytz
+    m = _FIXED_OFFSET_RE.match(name)
+    if m:
+        sign = 1 if m.group(1) == '+' else -1
+        hours, minutes = map(int, m.group(2, 3))
+        return pytz.FixedOffset(sign * (hours * 60 + minutes))
+    else:
+        return pytz.timezone(name)
+
+
 def timestamp(unit, tz=None):
     """
     Create instance of timestamp type with resolution and optional time zone
@@ -887,7 +988,7 @@ def timestamp(unit, tz=None):
         _timestamp_type_cache[unit_code] = out
     else:
         if not isinstance(tz, six.string_types):
-            tz = tz.zone
+            tz = tzinfo_to_string(tz)
 
         c_timezone = tobytes(tz)
         out.init(ctimestamp(unit_code, c_timezone))

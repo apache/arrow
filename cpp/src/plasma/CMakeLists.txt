@@ -147,6 +147,7 @@ install(FILES
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # Plasma store
+set_target_properties(plasma_store PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 install(TARGETS plasma_store DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support

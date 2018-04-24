@@ -25,6 +25,8 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/python/helpers.h"
+
 namespace arrow {
 namespace py {
 
@@ -87,19 +89,32 @@ Status CheckPyError(StatusCode code) {
     PyObject* exc_value = nullptr;
     PyObject* traceback = nullptr;
 
+    PyErr_Fetch(&exc_type, &exc_value, &traceback);
+    PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
+
     OwnedRef exc_type_ref(exc_type);
     OwnedRef exc_value_ref(exc_value);
     OwnedRef traceback_ref(traceback);
 
-    PyErr_Fetch(&exc_type, &exc_value, &traceback);
+    std::string message;
+    RETURN_NOT_OK(internal::PyObject_StdStringStr(exc_value, &message));
 
-    PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
-
-    OwnedRef exc_value_str(PyObject_Str(exc_value));
-    PyObjectStringify stringified(exc_value_str.obj());
-    std::string message(stringified.bytes);
-
-    PyErr_Clear();
+    if (code == StatusCode::UnknownError) {
+      // Try to match the Python exception type with an appropriate Status code
+      if (PyErr_GivenExceptionMatches(exc_type, PyExc_MemoryError)) {
+        code = StatusCode::OutOfMemory;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_KeyError)) {
+        code = StatusCode::KeyError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_TypeError)) {
+        code = StatusCode::TypeError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_ValueError)) {
+        code = StatusCode::Invalid;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_EnvironmentError)) {
+        code = StatusCode::IOError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_NotImplementedError)) {
+        code = StatusCode::NotImplemented;
+      }
+    }
     return Status(code, message);
   }
   return Status::OK();

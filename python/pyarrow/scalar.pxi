@@ -73,6 +73,8 @@ cdef class ArrayValue(Scalar):
             raise NotImplementedError(
                 "Cannot compare Arrow values that don't support as_py()")
 
+    def __hash__(self):
+            return hash(self.as_py())
 
 cdef class BooleanValue(ArrayValue):
 
@@ -235,8 +237,7 @@ cdef class TimestampValue(ArrayValue):
         value = self.value
 
         if not dtype.timezone().empty():
-            import pytz
-            tzinfo = pytz.timezone(frombytes(dtype.timezone()))
+            tzinfo = string_to_tzinfo(frombytes(dtype.timezone()))
         else:
             tzinfo = None
 
@@ -247,6 +248,13 @@ cdef class TimestampValue(ArrayValue):
                 'Cannot convert nanosecond timestamps without pandas'
             )
         return converter(value, tzinfo=tzinfo)
+
+
+cdef class HalfFloatValue(ArrayValue):
+
+    def as_py(self):
+        cdef CHalfFloatArray* ap = <CHalfFloatArray*> self.sp_array.get()
+        return PyHalf_FromHalf(ap.Value(self.index))
 
 
 cdef class FloatValue(ArrayValue):
@@ -395,6 +403,7 @@ cdef dict _scalar_classes = {
     _Type_TIME32: Time32Value,
     _Type_TIME64: Time64Value,
     _Type_TIMESTAMP: TimestampValue,
+    _Type_HALF_FLOAT: HalfFloatValue,
     _Type_FLOAT: FloatValue,
     _Type_DOUBLE: DoubleValue,
     _Type_LIST: ListValue,

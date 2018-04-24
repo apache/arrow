@@ -230,6 +230,19 @@ def test_exact_primitive_types(t, check_func):
     assert check_func(t)
 
 
+def test_bit_width():
+    for ty, expected in [(pa.bool_(), 1),
+                         (pa.int8(), 8),
+                         (pa.uint32(), 32),
+                         (pa.float16(), 16),
+                         (pa.decimal128(19, 4), 128),
+                         (pa.binary(42), 42 * 8)]:
+        assert ty.bit_width == expected
+    for ty in [pa.binary(), pa.string(), pa.list_(pa.int16())]:
+        with pytest.raises(ValueError, match="fixed width"):
+            ty.bit_width
+
+
 def test_fixed_size_binary_byte_width():
     ty = pa.binary(5)
     assert ty.byte_width == 5
@@ -238,3 +251,27 @@ def test_fixed_size_binary_byte_width():
 def test_decimal_byte_width():
     ty = pa.decimal128(19, 4)
     assert ty.byte_width == 16
+
+
+@pytest.mark.parametrize(('index', 'ty'), enumerate(MANY_TYPES), ids=str)
+def test_type_equality_operators(index, ty):
+    non_pyarrow = ['foo', 16, {'s', 'e', 't'}]
+
+    # could use two parametrization levels, but that'd bloat pytest's output
+    for i, other in enumerate(MANY_TYPES + non_pyarrow):
+        if i == index:
+            assert ty == other
+        else:
+            assert ty != other
+
+
+def test_field_equality_operators():
+    f1 = pa.field('a', pa.int8(), nullable=True)
+    f2 = pa.field('a', pa.int8(), nullable=True)
+    f3 = pa.field('b', pa.int8(), nullable=True)
+    f4 = pa.field('b', pa.int8(), nullable=False)
+
+    assert f1 == f2
+    assert f1 != f3
+    assert f3 != f4
+    assert f1 != 'foo'

@@ -41,6 +41,19 @@ module ArrayBuilderAppendValuesTests
                  builder.finish)
   end
 
+  def test_with_large_is_valids
+    builder = create_builder
+    n = 10000
+    large_sample_values = sample_values * n
+    large_is_valids = [true, true, false] * n
+    builder.append_values(large_sample_values, large_is_valids)
+    sample_values_with_null = sample_values
+    sample_values_with_null[2] = nil
+    large_sample_values_with_null = sample_values_with_null * n
+    assert_equal(build_array(large_sample_values_with_null),
+                 builder.finish)
+  end
+
   def test_mismatch_length
     builder = create_builder
     message = "[#{builder_class_name}][append-values]: " +
@@ -660,6 +673,36 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+  end
+
+  sub_test_case("StringArrayBuilder") do
+    def create_builder
+      Arrow::StringArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::StringDataType.new
+    end
+
+    def builder_class_name
+      "string-array-builder"
+    end
+
+    def sample_values
+      [
+        "hello",
+        "world!!",
+        "",
+      ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
     end
   end
 end

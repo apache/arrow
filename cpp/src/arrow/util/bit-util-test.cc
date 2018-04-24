@@ -18,6 +18,8 @@
 #include <climits>
 #include <cstdint>
 #include <cstring>
+#include <functional>
+#include <initializer_list>
 #include <limits>
 #include <memory>
 #include <vector>
@@ -39,6 +41,58 @@ static void EnsureCpuInfoInitialized() {
   if (!CpuInfo::initialized()) {
     CpuInfo::Init();
   }
+}
+
+void WriteVectorToWriter(internal::BitmapWriter& writer, const std::vector<int> values) {
+  for (const auto& value : values) {
+    if (value) {
+      writer.Set();
+    } else {
+      writer.Clear();
+    }
+    writer.Next();
+  }
+  writer.Finish();
+}
+
+void BitmapFromVector(const std::vector<int>& values, int64_t bit_offset,
+                      std::shared_ptr<Buffer>* out_buffer, int64_t* out_length) {
+  const int64_t length = values.size();
+  *out_length = length;
+  ASSERT_OK(GetEmptyBitmap(default_memory_pool(), length + bit_offset, out_buffer));
+  auto writer = internal::BitmapWriter((*out_buffer)->mutable_data(), bit_offset, length);
+  WriteVectorToWriter(writer, values);
+}
+
+#define ASSERT_READER_SET(reader)    \
+  do {                               \
+    ASSERT_TRUE(reader.IsSet());     \
+    ASSERT_FALSE(reader.IsNotSet()); \
+    reader.Next();                   \
+  } while (false)
+
+#define ASSERT_READER_NOT_SET(reader) \
+  do {                                \
+    ASSERT_FALSE(reader.IsSet());     \
+    ASSERT_TRUE(reader.IsNotSet());   \
+    reader.Next();                    \
+  } while (false)
+
+// Assert that a BitmapReader yields the given bit values
+void ASSERT_READER_VALUES(internal::BitmapReader& reader, std::vector<int> values) {
+  for (const auto& value : values) {
+    if (value) {
+      ASSERT_READER_SET(reader);
+    } else {
+      ASSERT_READER_NOT_SET(reader);
+    }
+  }
+}
+
+// Assert equal contents of a memory area and a vector of bytes
+void ASSERT_BYTES_EQ(const uint8_t* left, const std::vector<uint8_t>& right) {
+  auto left_array = std::vector<uint8_t>(left, left + right.size());
+  ASSERT_EQ(std::vector<uint8_t>(std::begin(left_array), std::end(left_array)), right);
 }
 
 TEST(BitUtilTests, TestIsMultipleOf64) {
@@ -71,6 +125,20 @@ TEST(BitUtilTests, TestNextPower2) {
   ASSERT_EQ(1LL << 62, NextPower2((1LL << 62) - 1));
 }
 
+TEST(BitmapReader, NormalOperation) {
+  std::shared_ptr<Buffer> buffer;
+  int64_t length;
+
+  for (int64_t offset : {0, 1, 3, 5, 7, 8, 12, 13, 21, 38, 75, 120}) {
+    BitmapFromVector({0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1}, offset, &buffer,
+                     &length);
+    ASSERT_EQ(length, 14);
+
+    auto reader = internal::BitmapReader(buffer->mutable_data(), offset, length);
+    ASSERT_READER_VALUES(reader, {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1});
+  }
+}
+
 TEST(BitmapReader, DoesNotReadOutOfBounds) {
   uint8_t bitmap[16] = {0};
 
@@ -93,6 +161,37 @@ TEST(BitmapReader, DoesNotReadOutOfBounds) {
 
   // Does not access invalid memory
   internal::BitmapReader r3(nullptr, 0, 0);
+}
+
+TEST(BitmapWriter, NormalOperation) {
+  {
+    uint8_t bitmap[] = {0, 0, 0, 0};
+    auto writer = internal::BitmapWriter(bitmap, 0, 12);
+    WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+    //                      {0b00110110, 0b1010, 0, 0}
+    ASSERT_BYTES_EQ(bitmap, {0x36, 0x0a, 0, 0});
+  }
+  {
+    uint8_t bitmap[] = {0xff, 0xff, 0xff, 0xff};
+    auto writer = internal::BitmapWriter(bitmap, 0, 12);
+    WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+    //                      {0b00110110, 0b11111010, 0xff, 0xff}
+    ASSERT_BYTES_EQ(bitmap, {0x36, 0xfa, 0xff, 0xff});
+  }
+  {
+    uint8_t bitmap[] = {0, 0, 0, 0};
+    auto writer = internal::BitmapWriter(bitmap, 3, 12);
+    WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+    //                      {0b10110000, 0b01010001, 0, 0}
+    ASSERT_BYTES_EQ(bitmap, {0xb0, 0x51, 0, 0});
+  }
+  {
+    uint8_t bitmap[] = {0, 0, 0, 0};
+    auto writer = internal::BitmapWriter(bitmap, 20, 12);
+    WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+    //                      {0, 0, 0b01100000, 0b10100011}
+    ASSERT_BYTES_EQ(bitmap, {0, 0, 0x60, 0xa3});
+  }
 }
 
 TEST(BitmapWriter, DoesNotWriteOutOfBounds) {
@@ -126,6 +225,51 @@ TEST(BitmapWriter, DoesNotWriteOutOfBounds) {
   num_values = r2.position();
 
   ASSERT_EQ((length - 5), num_values);
+}
+
+TEST(BitmapAnd, Aligned) {
+  std::shared_ptr<Buffer> left, right, out;
+  int64_t length;
+
+  for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120}) {
+    BitmapFromVector({0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1}, left_offset, &left,
+                     &length);
+    for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
+      BitmapFromVector({0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0}, right_offset, &right,
+                       &length);
+      for (int64_t out_offset : {left_offset, left_offset + 16, left_offset + 24}) {
+        ASSERT_OK(BitmapAnd(default_memory_pool(), left->mutable_data(), left_offset,
+                            right->mutable_data(), right_offset, length, out_offset,
+                            &out));
+        auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+        ASSERT_READER_VALUES(reader, {0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0});
+      }
+    }
+  }
+}
+
+TEST(BitmapAnd, Unaligned) {
+  std::shared_ptr<Buffer> left, right, out;
+  int64_t length;
+  auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120};
+
+  for (int64_t left_offset : offset_values) {
+    BitmapFromVector({0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1}, left_offset, &left,
+                     &length);
+
+    for (int64_t right_offset : offset_values) {
+      BitmapFromVector({0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0}, right_offset, &right,
+                       &length);
+
+      for (int64_t out_offset : offset_values) {
+        ASSERT_OK(BitmapAnd(default_memory_pool(), left->mutable_data(), left_offset,
+                            right->mutable_data(), right_offset, length, out_offset,
+                            &out));
+        auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+        ASSERT_READER_VALUES(reader, {0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0});
+      }
+    }
+  }
 }
 
 static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,

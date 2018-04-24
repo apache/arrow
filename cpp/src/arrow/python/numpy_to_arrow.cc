@@ -49,6 +49,7 @@
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
+#include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy-internal.h"
 #include "arrow/python/numpy_convert.h"
@@ -64,14 +65,6 @@ using internal::NumPyTypeSize;
 // Conversion utilities
 
 namespace {
-
-inline bool PyObject_is_string(PyObject* obj) {
-#if PY_MAJOR_VERSION >= 3
-  return PyUnicode_Check(obj) || PyBytes_Check(obj);
-#else
-  return PyString_Check(obj) || PyUnicode_Check(obj);
-#endif
-}
 
 inline bool PyObject_is_integer(PyObject* obj) {
   return !PyBool_Check(obj) && PyArray_IsIntegerScalar(obj);
@@ -195,18 +188,15 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
 
 }  // namespace
 
-/// Append as many string objects from NumPy arrays to a `StringBuilder` as we
+/// Append as many string objects from NumPy arrays to a `BinaryBuilder` as we
 /// can fit
 ///
 /// \param[in] offset starting offset for appending
 /// \param[out] end_offset ending offset where we stopped appending. Will
 /// be length of arr if fully consumed
-/// \param[out] have_bytes true if we encountered any PyBytes object
 static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
                                    int64_t offset, BinaryBuilder* builder,
-                                   int64_t* end_offset, bool* have_bytes) {
-  PyObject* obj;
-
+                                   int64_t* end_offset) {
   Ndarray1DIndexer<PyObject*> objects(arr);
   Ndarray1DIndexer<uint8_t> mask_values;
 
@@ -217,23 +207,16 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
   }
 
   for (; offset < objects.size(); ++offset) {
-    OwnedRef tmp_obj;
-    obj = objects[offset];
+    PyObject* obj = objects[offset];
     if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
       continue;
-    } else if (!PyBytes_Check(obj)) {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to bytes: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
-      return Status::Invalid(ss.str());
     }
-
-    const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
-    if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+    bool is_full;
+    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, &is_full));
+    if (is_full) {
       break;
     }
-    RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
   }
 
   // If we consumed the whole array, this will be the length of arr
@@ -245,12 +228,15 @@ static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
 /// can fit
 ///
 /// \param[in] offset starting offset for appending
+/// \param[in] check_valid if set to true and the input array
+/// contains values that cannot be converted to unicode, returns
+/// a Status code containing a Python exception message
 /// \param[out] end_offset ending offset where we stopped appending. Will
 /// be length of arr if fully consumed
 /// \param[out] have_bytes true if we encountered any PyBytes object
 static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offset,
-                                  StringBuilder* builder, int64_t* end_offset,
-                                  bool* have_bytes) {
+                                  bool check_valid, StringBuilder* builder,
+                                  int64_t* end_offset, bool* have_bytes) {
   PyObject* obj;
 
   Ndarray1DIndexer<PyObject*> objects(arr);
@@ -268,27 +254,15 @@ static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64
     if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
       continue;
-    } else if (PyUnicode_Check(obj)) {
-      obj = PyUnicode_AsUTF8String(obj);
-      if (obj == NULL) {
-        PyErr_Clear();
-        return Status::Invalid("failed converting unicode to UTF8");
-      }
-      tmp_obj.reset(obj);
-    } else if (PyBytes_Check(obj)) {
-      *have_bytes = true;
-    } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to String/UTF8: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
-      return Status::Invalid(ss.str());
     }
-
-    const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
-    if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+    if (internal::IsPyBinary(obj)) {
+      *have_bytes = true;
+    }
+    bool is_full;
+    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, check_valid, &is_full));
+    if (is_full) {
       break;
     }
-    RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
   }
 
   // If we consumed the whole array, this will be the length of arr
@@ -317,28 +291,12 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
     if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
       continue;
-    } else if (PyUnicode_Check(obj)) {
-      obj = PyUnicode_AsUTF8String(obj);
-      if (obj == NULL) {
-        PyErr_Clear();
-        return Status::Invalid("failed converting unicode to UTF8");
-      }
-
-      tmp_obj.reset(obj);
-    } else if (!PyBytes_Check(obj)) {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to FixedSizeBinary: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
-      return Status::Invalid(ss.str());
     }
-
-    RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
-    if (ARROW_PREDICT_FALSE(builder->value_data_length() + byte_width >
-                            kBinaryMemoryLimit)) {
+    bool is_full;
+    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, &is_full));
+    if (is_full) {
       break;
     }
-    RETURN_NOT_OK(
-        builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj))));
   }
 
   // If we consumed the whole array, this will be the length of arr
@@ -506,6 +464,7 @@ class NumPyConverter {
   Status ConvertBooleans();
   Status ConvertObjectStrings();
   Status ConvertObjectFloats();
+  Status ConvertObjectBytes();
   Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
   Status ConvertObjectIntegers();
   Status ConvertLists(const std::shared_ptr<DataType>& type);
@@ -786,7 +745,9 @@ Status NumPyConverter::ConvertDecimals() {
 
   if (type_ == NULLPTR) {
     for (PyObject* object : objects) {
-      RETURN_NOT_OK(max_decimal_metadata.Update(object));
+      if (!internal::PandasObjectIsNull(object)) {
+        RETURN_NOT_OK(max_decimal_metadata.Update(object));
+      }
     }
 
     type_ =
@@ -801,22 +762,19 @@ Status NumPyConverter::ConvertDecimals() {
   for (PyObject* object : objects) {
     const int is_decimal = PyObject_IsInstance(object, decimal_type_.obj());
 
-    if (ARROW_PREDICT_FALSE(is_decimal == 0)) {
+    if (is_decimal == 1) {
+      Decimal128 value;
+      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
+      RETURN_NOT_OK(builder.Append(value));
+    } else if (is_decimal == 0 && internal::PandasObjectIsNull(object)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else {
+      // PyObject_IsInstance could error and set an exception
+      RETURN_IF_PYERROR();
       std::stringstream ss;
       ss << "Error converting from Python objects to Decimal: ";
       RETURN_NOT_OK(InvalidConversion(object, "decimal.Decimal", &ss));
       return Status::Invalid(ss.str());
-    } else if (ARROW_PREDICT_FALSE(is_decimal == -1)) {
-      DCHECK_NE(PyErr_Occurred(), nullptr);
-      RETURN_IF_PYERROR();
-    }
-
-    if (internal::PandasObjectIsNull(object)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else {
-      Decimal128 value;
-      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
-      RETURN_NOT_OK(builder.Append(value));
     }
   }
   return PushBuilderResult(&builder);
@@ -887,6 +845,13 @@ Status NumPyConverter::ConvertObjectStrings() {
   StringBuilder builder(pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
+  // If the creator of this NumPyConverter specified a type,
+  // then we want to force the output type to be utf8. If
+  // the input data is PyBytes and not PyUnicode and
+  // not convertible to utf8, the call to AppendObjectStrings
+  // below will fail because we pass force_string as the
+  // value for check_valid.
+  bool force_string = type_ != nullptr && type_->Equals(utf8());
   bool global_have_bytes = false;
   if (length_ == 0) {
     // Produce an empty chunk
@@ -897,8 +862,10 @@ Status NumPyConverter::ConvertObjectStrings() {
     int64_t offset = 0;
     while (offset < length_) {
       bool chunk_have_bytes = false;
-      RETURN_NOT_OK(
-          AppendObjectStrings(arr_, mask_, offset, &builder, &offset, &chunk_have_bytes));
+      // Always set check_valid to true when force_string is true
+      RETURN_NOT_OK(AppendObjectStrings(arr_, mask_, offset,
+                                        force_string /* check_valid */, &builder, &offset,
+                                        &chunk_have_bytes));
 
       global_have_bytes = global_have_bytes | chunk_have_bytes;
       std::shared_ptr<Array> chunk;
@@ -907,8 +874,13 @@ Status NumPyConverter::ConvertObjectStrings() {
     }
   }
 
-  // If we saw PyBytes, convert everything to BinaryArray
-  if (global_have_bytes) {
+  // If we saw bytes, convert it to a binary array. If
+  // force_string was set to true, the input data could
+  // have been bytes but we've checked to make sure that
+  // it can be converted to utf-8 in the call to
+  // AppendObjectStrings. In that case, we can safely leave
+  // it as a utf8 type.
+  if (!force_string && global_have_bytes) {
     for (size_t i = 0; i < out_arrays_.size(); ++i) {
       auto binary_data = out_arrays_[i]->data()->Copy();
       binary_data->type = ::arrow::binary();
@@ -973,19 +945,37 @@ Status NumPyConverter::ConvertObjectIntegers() {
     obj = objects[i];
     if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
-    } else if (PyObject_is_integer(obj)) {
-      const int64_t val = static_cast<int64_t>(PyLong_AsLong(obj));
-      RETURN_IF_PYERROR();
-      RETURN_NOT_OK(builder.Append(val));
     } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Int64: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "integer", &ss));
-      return Status::Invalid(ss.str());
+      int64_t val;
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &val));
+      RETURN_NOT_OK(builder.Append(val));
     }
   }
 
   return PushBuilderResult(&builder);
+}
+
+Status NumPyConverter::ConvertObjectBytes() {
+  PyAcquireGIL lock;
+
+  BinaryBuilder builder(binary(), pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
+
+  if (length_ == 0) {
+    // Produce an empty chunk
+    std::shared_ptr<Array> chunk;
+    RETURN_NOT_OK(builder.Finish(&chunk));
+    out_arrays_.emplace_back(std::move(chunk));
+  } else {
+    int64_t offset = 0;
+    while (offset < length_) {
+      RETURN_NOT_OK(AppendObjectBinaries(arr_, mask_, offset, &builder, &offset));
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(builder.Finish(&chunk));
+      out_arrays_.emplace_back(std::move(chunk));
+    }
+  }
+  return Status::OK();
 }
 
 Status NumPyConverter::ConvertObjectFixedWidthBytes(
@@ -1071,7 +1061,9 @@ Status NumPyConverter::ConvertObjectsInfer() {
     PyObject* obj = objects[i];
     if (internal::PandasObjectIsNull(obj)) {
       continue;
-    } else if (PyObject_is_string(obj)) {
+    } else if (PyUnicode_Check(obj) || internal::IsPyBinary(obj)) {
+      // The exact Arrow type (Binary or String) will be decided based on
+      // Python object types
       return ConvertObjectStrings();
     } else if (PyFloat_Check(obj)) {
       return ConvertObjectFloats();
@@ -1105,7 +1097,7 @@ Status NumPyConverter::ConvertObjectsInfer() {
       return ConvertLists(inferred_type);
     } else {
       const std::string supported_types =
-          "string, bool, float, int, date, time, decimal, list, array";
+          "string, bool, float, int, date, time, decimal, bytearray, list, array";
       std::stringstream ss;
       ss << "Error inferring Arrow type for Python object array. ";
       RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
@@ -1154,6 +1146,8 @@ Status NumPyConverter::ConvertObjects() {
     switch (type_->id()) {
       case Type::STRING:
         return ConvertObjectStrings();
+      case Type::BINARY:
+        return ConvertObjectBytes();
       case Type::FIXED_SIZE_BINARY:
         return ConvertObjectFixedWidthBytes(type_);
       case Type::BOOL:
@@ -1339,8 +1333,6 @@ template <>
 inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
     const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
   PyAcquireGIL lock;
-  // TODO: If there are bytes involed, convert to Binary representation
-  bool have_bytes = false;
 
   Ndarray1DIndexer<uint8_t> mask_values;
 
@@ -1363,8 +1355,8 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
       int64_t offset = 0;
-      RETURN_NOT_OK(AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset,
-                                         &have_bytes));
+      RETURN_NOT_OK(
+          AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset));
       if (offset < PyArray_SIZE(numpy_array)) {
         return Status::Invalid("Array cell value exceeded 2GB");
       }
@@ -1416,8 +1408,12 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
       int64_t offset = 0;
-      RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, value_builder, &offset,
-                                        &have_bytes));
+      // If a type was specified and it was utf8, then we set
+      // check_valid to true. If any of the input cannot be
+      // converted, then we will exit early here.
+      bool check_valid = type_ != nullptr && type_->Equals(::arrow::utf8());
+      RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, check_valid,
+                                        value_builder, &offset, &have_bytes));
       if (offset < PyArray_SIZE(numpy_array)) {
         return Status::Invalid("Array cell value exceeded 2GB");
       }

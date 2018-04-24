@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.TimeMilliReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.TimeMilliHolder;
 import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
@@ -46,8 +46,7 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public TimeMilliVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.TIMEMILLI.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.TIMEMILLI.getType()), allocator);
   }
 
   /**
@@ -77,8 +76,8 @@ public class TimeMilliVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.TIMEMILLI;
+  public MinorType getMinorType() {
+    return MinorType.TIMEMILLI;
   }
 
 

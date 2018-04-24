@@ -33,7 +33,7 @@ static void BM_BuildPrimitiveArrayNoNulls(
     Int64Builder builder;
     for (int i = 0; i < kFinalSize; i++) {
       // Build up an array of 512 MiB in size
-      ABORT_NOT_OK(builder.Append(data.data(), data.size(), nullptr));
+      ABORT_NOT_OK(builder.AppendValues(data.data(), data.size(), nullptr));
     }
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
@@ -69,7 +69,7 @@ static void BM_BuildAdaptiveIntNoNulls(
     AdaptiveIntBuilder builder;
     for (int64_t i = 0; i < size; i += chunk_size) {
       // Build up an array of 512 MiB in size
-      ABORT_NOT_OK(builder.Append(data.data() + i, chunk_size, nullptr));
+      ABORT_NOT_OK(builder.AppendValues(data.data() + i, chunk_size, nullptr));
     }
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
@@ -107,7 +107,7 @@ static void BM_BuildAdaptiveUIntNoNulls(
     AdaptiveUIntBuilder builder;
     for (int64_t i = 0; i < size; i += chunk_size) {
       // Build up an array of 512 MiB in size
-      ABORT_NOT_OK(builder.Append(data.data() + i, chunk_size, nullptr));
+      ABORT_NOT_OK(builder.AppendValues(data.data() + i, chunk_size, nullptr));
     }
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
@@ -131,6 +131,25 @@ static void BM_BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const 
   state.SetBytesProcessed(state.iterations() * iterations * value.size());
 }
 
+static void BM_BuildFixedSizeBinaryArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const int64_t iterations = 1 << 20;
+  const int width = 10;
+
+  auto type = fixed_size_binary(width);
+  const char value[width + 1] = "1234567890";
+
+  while (state.KeepRunning()) {
+    FixedSizeBinaryBuilder builder(type);
+    for (int64_t i = 0; i < iterations; i++) {
+      ABORT_NOT_OK(builder.Append(value));
+    }
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+  state.SetBytesProcessed(state.iterations() * iterations * width);
+}
+
 BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildVectorNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildAdaptiveIntNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
@@ -140,5 +159,6 @@ BENCHMARK(BM_BuildAdaptiveIntNoNullsScalarAppend)
 BENCHMARK(BM_BuildAdaptiveUIntNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_BuildBinaryArray)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildFixedSizeBinaryArray)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 
 }  // namespace arrow

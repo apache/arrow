@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliTZHolder;
 import org.apache.arrow.vector.types.TimeUnit;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -77,8 +77,8 @@ public class TimeStampMilliTZVector extends TimeStampVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.TIMESTAMPMILLITZ;
+  public MinorType getMinorType() {
+    return MinorType.TIMESTAMPMILLITZ;
   }
 
 

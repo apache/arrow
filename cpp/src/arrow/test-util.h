@@ -20,6 +20,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <random>
@@ -70,7 +72,8 @@
   do {                                   \
     ::arrow::Status _s = (s);            \
     if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-      exit(EXIT_FAILURE);                \
+      std::cerr << s.ToString() << "\n"; \
+      std::abort();                      \
     }                                    \
   } while (false);
 
@@ -321,6 +324,14 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
                << "\nExpected: " << pp_expected.str();
       }
     }
+  }
+}
+
+void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected) {
+  ASSERT_EQ(buffer.size(), expected.size());
+  const uint8_t* buffer_data = buffer.data();
+  for (size_t i = 0; i < expected.size(); ++i) {
+    ASSERT_EQ(buffer_data[i], expected[i]);
   }
 }
 

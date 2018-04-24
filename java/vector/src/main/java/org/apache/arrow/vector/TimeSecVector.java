@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.TimeSecReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.TimeSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeSecHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -44,8 +44,7 @@ public class TimeSecVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public TimeSecVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.TIMESEC.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.TIMESEC.getType()), allocator);
   }
 
   /**
@@ -75,8 +74,8 @@ public class TimeSecVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.TIMESEC;
+  public MinorType getMinorType() {
+    return MinorType.TIMESEC;
   }
 
 
