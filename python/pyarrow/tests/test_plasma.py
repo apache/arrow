@@ -854,5 +854,5 @@ def test_plasma_client_sharing():
         object_id = plasma_client.put(np.zeros(3))
         buf = plasma_client.get(object_id)
         del plasma_client
-        assert buf == np.zeros(3)
+        assert (buf == np.zeros(3)).all()
         del buf  # This segfaulted pre ARROW-2448.
