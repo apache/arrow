@@ -107,7 +107,7 @@ class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
  public:
   ~PlasmaBuffer();
 
-  PlasmaBuffer(PlasmaClient::Impl* client, const ObjectID& object_id,
+  PlasmaBuffer(std::shared_ptr<PlasmaClient::Impl> client, const ObjectID& object_id,
                const std::shared_ptr<Buffer>& buffer)
       : Buffer(buffer, 0, buffer->size()), client_(client), object_id_(object_id) {
     if (buffer->is_mutable()) {
@@ -116,7 +116,7 @@ class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
   }
 
  private:
-  PlasmaClient::Impl* client_;
+  std::shared_ptr<PlasmaClient::Impl> client_;
   ObjectID object_id_;
 };
 
@@ -155,7 +155,7 @@ struct ClientMmapTableEntry {
   int count;
 };
 
-class PlasmaClient::Impl {
+class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Impl> {
  public:
   Impl();
   ~Impl();
@@ -558,7 +558,7 @@ Status PlasmaClient::Impl::Get(const std::vector<ObjectID>& object_ids,
                                int64_t timeout_ms, std::vector<ObjectBuffer>* out) {
   const auto wrap_buffer = [=](const ObjectID& object_id,
                                const std::shared_ptr<Buffer>& buffer) {
-    return std::make_shared<PlasmaBuffer>(this, object_id, buffer);
+    return std::make_shared<PlasmaBuffer>(shared_from_this(), object_id, buffer);
   };
   const size_t num_objects = object_ids.size();
   *out = std::vector<ObjectBuffer>(num_objects);
