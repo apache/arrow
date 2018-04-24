@@ -842,6 +842,9 @@ def test_use_huge_pages():
         create_object(plasma_client, 100000000)
 
 
+# This is checking to make sure plasma_clients cannot be destroyed
+# before all the PlasmaBuffers that have handles to them are
+# destroyed, see ARROW-2448.
 @pytest.mark.plasma
 def test_plasma_client_sharing():
     import pyarrow.plasma as plasma
@@ -851,4 +854,5 @@ def test_plasma_client_sharing():
         object_id = plasma_client.put(np.zeros(3))
         buf = plasma_client.get(object_id)
         del plasma_client
+        assert buf == np.zeros(3)
         del buf  # This segfaulted pre ARROW-2448.
