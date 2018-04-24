@@ -35,6 +35,7 @@ class MemoryPool;
 
 namespace py {
 
+// TODO: inline the successful case
 ARROW_EXPORT Status CheckPyError(StatusCode code = StatusCode::UnknownError);
 
 ARROW_EXPORT Status PassPyError();
