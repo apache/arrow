@@ -123,7 +123,7 @@ impl<T> Builder<T> {
             );
             self.capacity = new_capacity;
             self.data = mem::transmute::<*const u8, *mut T>(new_buffer);
-            libc::free(mem::transmute::<*mut T, *mut libc::c_void>(old_buffer));
+            free_aligned(mem::transmute::<*mut T, *const u8>(old_buffer));
         }
     }
 
