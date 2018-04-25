@@ -47,7 +47,6 @@ import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
 import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
-import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.holders.VarBinaryHolder;
 import org.apache.arrow.vector.holders.VarCharHolder;
@@ -92,6 +91,7 @@ public class JdbcToArrowUtils {
 
     private static final int DEFAULT_BUFFER_SIZE = 256;
     private static final int DEFAULT_STREAM_BUFFER_SIZE = 1024;
+    private static final int DEFAULT_CLOB_SUBSTRING_READ_SIZE = 256;
 
     /**
      * Create Arrow {@link Schema} object for the given JDBC {@link ResultSetMetaData}.
@@ -462,17 +462,6 @@ public class JdbcToArrowUtils {
         }
     }
 
-    private static void updateVector(VarBinaryVector varBinaryVector, byte[] bytes, boolean isNonNull, int rowCount) {
-        varBinaryVector.setValueCount(rowCount + 1);
-        if (isNonNull && bytes != null) {
-            varBinaryVector.setIndexDefined(rowCount);
-            varBinaryVector.setValueLengthSafe(rowCount, bytes.length);
-            varBinaryVector.setSafe(rowCount, bytes);
-        } else {
-            varBinaryVector.setNull(rowCount);
-        }
-    }
-
     private static void updateVector(VarBinaryVector varBinaryVector, InputStream is, boolean isNonNull, int rowCount) throws IOException {
         varBinaryVector.setValueCount(rowCount + 1);
         if (isNonNull && is != null) {
@@ -486,8 +475,8 @@ public class JdbcToArrowUtils {
                 if (read == -1) {
                     break;
                 }
+                arrowBuf.setBytes(total, new ByteArrayInputStream(bytes, 0, read), read);
                 total += read;
-                arrowBuf.setBytes(!arrowBuf.hasArray()? 0: arrowBuf.arrayOffset(), new ByteArrayInputStream(bytes, 0, read), read);
             }
             holder.end = total;
             holder.buffer = arrowBuf;
@@ -503,19 +492,19 @@ public class JdbcToArrowUtils {
         if (isNonNull && clob != null) {
             VarCharHolder holder = new VarCharHolder();
             ArrowBuf arrowBuf = varcharVector.getDataBuffer();
-            InputStream is = clob.getAsciiStream();
             holder.start = 0;
-            byte[] bytes = new byte[DEFAULT_STREAM_BUFFER_SIZE];
-            int total = 0;
-            while (true) {
-                int read = is.read(bytes, 0, DEFAULT_STREAM_BUFFER_SIZE);
-                if (read == -1) {
-                    break;
-                }
-                total += read;
-                arrowBuf.setBytes(!arrowBuf.hasArray()? 0: arrowBuf.arrayOffset(), new ByteArrayInputStream(bytes, 0, read), read);
+            long length = clob.length();
+            int read = 1;
+            int readSize = length < DEFAULT_CLOB_SUBSTRING_READ_SIZE? (int)length: DEFAULT_CLOB_SUBSTRING_READ_SIZE;
+            int totalBytes = 0;
+            while (read <= length) {
+                String str = clob.getSubString(read, readSize);
+                byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
+                arrowBuf.setBytes(totalBytes, new ByteArrayInputStream(bytes, 0, bytes.length), bytes.length);
+                totalBytes += bytes.length;
+                read += readSize;
             }
-            holder.end = total;
+            holder.end = totalBytes;
             holder.buffer = arrowBuf;
             varcharVector.set(rowCount, holder);
             varcharVector.setIndexDefined(rowCount);
