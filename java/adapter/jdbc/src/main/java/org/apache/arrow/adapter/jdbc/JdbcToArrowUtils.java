@@ -301,7 +301,7 @@ public class JdbcToArrowUtils {
                         break;
                     case Types.ARRAY:
                         // TODO Need to handle this type
-//                    fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
+                    	// fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
                         break;
                     case Types.CLOB:
                         updateVector((VarCharVector)root.getVector(columnName),
@@ -349,6 +349,13 @@ public class JdbcToArrowUtils {
             holder.value = (short) value;
         }
         smallIntVector.setSafe(rowCount, value);
+    private static  void updateVector(SmallIntVector smallIntVector, int value, boolean isNonNull, int rowCount) {
+        NullableSmallIntHolder holder = new NullableSmallIntHolder();
+        holder.isSet = isNonNull? 1: 0;
+        if (isNonNull) {
+            holder.value = (short) value;
+        }
+        smallIntVector.setSafe(rowCount, holder);
         smallIntVector.setValueCount(rowCount + 1);
     }
 
@@ -416,6 +423,8 @@ public class JdbcToArrowUtils {
             holder.buffer.setBytes(0, bytes, 0, bytes.length);
             holder.start = 0;
             holder.end = bytes.length;
+        } else {
+        	holder.buffer = varcharVector.getAllocator().buffer(0);
         }
         varcharVector.setSafe(rowCount, holder);
         varcharVector.setValueCount(rowCount + 1);

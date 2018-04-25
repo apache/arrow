@@ -19,12 +19,14 @@
 package org.apache.arrow.adapter.jdbc;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 
+import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -34,209 +36,128 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
-
-import static org.junit.Assert.*;
-
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
 /**
- * This is a Helper class which has functionalities to read and assert the values from teh given FieldVector object
+ * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object
  *
  */
 public class JdbcToArrowTestHelper {
 
-    public static boolean assertIntVectorValues(FieldVector fx, int rowCount, int[] values) {
-        IntVector intVector = ((IntVector) fx);
-
+    public static void assertIntVectorValues(IntVector intVector, int rowCount, int [] values) {
         assertEquals(rowCount, intVector.getValueCount());
 
         for(int j = 0; j < intVector.getValueCount(); j++) {
-            if(!intVector.isNull(j)) {
-                assertEquals(values[j], intVector.get(j));
-            }
-        }
-        return true;
+        	assertEquals(values[j], intVector.get(j));
+        } 
     }
 
-    public static boolean assertBitBooleanVectorValues(FieldVector fx, int rowCount, int[] values){
-        BitVector bitVector = ((BitVector)fx);
+    public static void assertBitBooleanVectorValues(BitVector bitVector, int rowCount, int[] values){
         assertEquals(rowCount, bitVector.getValueCount());
+        
         for(int j = 0; j < bitVector.getValueCount(); j++){
-            if(!bitVector.isNull(j)) {
-                assertEquals(values[j], bitVector.get(j));
-            }
+            assertEquals(values[j], bitVector.get(j));
         }
-        return true;
     }
 
-    public static boolean assertTinyIntVectorValues(FieldVector fx, int rowCount, int[] values){
-        TinyIntVector tinyIntVector = ((TinyIntVector)fx);
-
+    public static void assertTinyIntVectorValues(TinyIntVector tinyIntVector, int rowCount, int[] values){
         assertEquals(rowCount, tinyIntVector.getValueCount());
 
         for(int j = 0; j < tinyIntVector.getValueCount(); j++){
-            if(!tinyIntVector.isNull(j)) {
-                assertEquals(values[j], tinyIntVector.get(j));
-            }
+            assertEquals(values[j], tinyIntVector.get(j));
         }
-        return true;
     }
 
-    public static boolean assertSmallIntVectorValues(FieldVector fx, int rowCount, int[] values){
-        SmallIntVector smallIntVector = ((SmallIntVector)fx);
-
+    public static void assertSmallIntVectorValues(SmallIntVector smallIntVector, int rowCount, int[] values){
         assertEquals(rowCount, smallIntVector.getValueCount());
 
         for(int j = 0; j < smallIntVector.getValueCount(); j++){
-            if(!smallIntVector.isNull(j)){
-                assertEquals(values[j], smallIntVector.get(j));
-            }
+            assertEquals(values[j], smallIntVector.get(j));
         }
-
-        return true;
     }
 
-    public static boolean assertBigIntVectorValues(FieldVector fx, int rowCount, int[] values){
-        BigIntVector bigIntVector = ((BigIntVector)fx);
-
+    public static void assertBigIntVectorValues(BigIntVector bigIntVector, int rowCount, int[] values){
         assertEquals(rowCount, bigIntVector.getValueCount());
 
         for(int j = 0; j < bigIntVector.getValueCount(); j++){
-            if(!bigIntVector.isNull(j)) {
-                assertEquals(values[j], bigIntVector.get(j));
-            }
+            assertEquals(values[j], bigIntVector.get(j));
         }
-
-        return true;
     }
 
-    public static boolean assertDecimalVectorValues(FieldVector fx, int rowCount, BigDecimal[] values){
-        DecimalVector decimalVector = ((DecimalVector)fx);
-
+    public static void assertDecimalVectorValues(DecimalVector decimalVector, int rowCount, BigDecimal[] values){
         assertEquals(rowCount, decimalVector.getValueCount());
 
         for(int j = 0; j < decimalVector.getValueCount(); j++){
-            if(!decimalVector.isNull(j)){
-                assertEquals(values[j].doubleValue(), decimalVector.getObject(j).doubleValue(), 0);
-            }
+        	assertNotNull(decimalVector.getObject(j));
+            assertEquals(values[j].doubleValue(), decimalVector.getObject(j).doubleValue(), 0);
         }
-
-        return true;
     }
 
-    public static boolean assertFloat8VectorValues(FieldVector fx, int rowCount, double[] values){
-        Float8Vector float8Vector = ((Float8Vector)fx);
-
+    public static void assertFloat8VectorValues(Float8Vector float8Vector, int rowCount, double[] values){
         assertEquals(rowCount, float8Vector.getValueCount());
 
         for(int j = 0; j < float8Vector.getValueCount(); j++){
-            if(!float8Vector.isNull(j)) {
-                assertEquals(values[j], float8Vector.get(j), 0.01);
-            }
+            assertEquals(values[j], float8Vector.get(j), 0.01);
         }
-
-        return true;
     }
 
-    public static boolean assertFloat4VectorValues(FieldVector fx, int rowCount, float[] values){
-        Float4Vector float4Vector = ((Float4Vector)fx);
-
+    public static void assertFloat4VectorValues(Float4Vector float4Vector, int rowCount, float[] values){
         assertEquals(rowCount, float4Vector.getValueCount());
 
         for(int j = 0; j < float4Vector.getValueCount(); j++){
-            if(!float4Vector.isNull(j)){
-                assertEquals(values[j], float4Vector.get(j), 0.01);
-            }
+            assertEquals(values[j], float4Vector.get(j), 0.01);
         }
-
-        return true;
     }
 
-    public static boolean assertTimeVectorValues(FieldVector fx, int rowCount, long[] values){
-        TimeMilliVector timeMilliVector = ((TimeMilliVector)fx);
-
+    public static void assertTimeVectorValues(TimeMilliVector timeMilliVector, int rowCount, long[] values){
         assertEquals(rowCount, timeMilliVector.getValueCount());
 
         for(int j = 0; j < timeMilliVector.getValueCount(); j++){
-            if(!timeMilliVector.isNull(j)){
                 assertEquals(values[j], timeMilliVector.get(j));
-            }
         }
-
-        return true;
     }
 
-    public static boolean assertDateVectorValues(FieldVector fx, int rowCount, long[] values){
-        DateMilliVector dateMilliVector = ((DateMilliVector)fx);
-
+    public static void assertDateVectorValues(DateMilliVector dateMilliVector, int rowCount, long[] values){
         assertEquals(rowCount, dateMilliVector.getValueCount());
 
         for(int j = 0; j < dateMilliVector.getValueCount(); j++){
-            if(!dateMilliVector.isNull(j)){
-                assertEquals(values[j], dateMilliVector.get(j));
-            }
+            assertEquals(values[j], dateMilliVector.get(j));
         }
-
-        return true;
     }
 
-    public static boolean assertTimeStampVectorValues(FieldVector fx, int rowCount, long[] values){
-        TimeStampVector timeStampVector = ((TimeStampVector)fx);
-
+    public static void assertTimeStampVectorValues(TimeStampVector timeStampVector, int rowCount, long[] values){
         assertEquals(rowCount, timeStampVector.getValueCount());
 
         for(int j = 0; j < timeStampVector.getValueCount(); j++){
-            if(!timeStampVector.isNull(j)){
-                assertEquals(values[j], timeStampVector.get(j));
-            }
+            assertEquals(values[j], timeStampVector.get(j));
         }
-
-        return true;
     }
 
-    public static boolean assertVarBinaryVectorValues(FieldVector fx, int rowCount, byte[][] values){
-        VarBinaryVector varBinaryVector =((VarBinaryVector) fx);
-
+    public static void assertVarBinaryVectorValues (VarBinaryVector varBinaryVector, int rowCount, byte[][] values) {
         assertEquals(rowCount, varBinaryVector.getValueCount());
 
         for(int j = 0; j < varBinaryVector.getValueCount(); j++){
-            if(!varBinaryVector.isNull(j)){
-                assertEquals(hashArray(values[j]), hashArray(varBinaryVector.get(j)));
-            }
+            assertEquals(Arrays.hashCode(values[j]), Arrays.hashCode(varBinaryVector.get(j)));
         }
-
-        return true;
     }
 
-    public static boolean assertVarcharVectorValues(FieldVector fx, int rowCount, byte[][] values) {
-        VarCharVector varCharVector = ((VarCharVector)fx);
-
+    public static void assertVarcharVectorValues(VarCharVector varCharVector, int rowCount, byte[][] values) {
         assertEquals(rowCount, varCharVector.getValueCount());
 
         for(int j = 0; j < varCharVector.getValueCount(); j++){
-            if(!varCharVector.isNull(j)){
-                assertEquals(hashArray(values[j]), hashArray(varCharVector.get(j)));
-            }
+            assertEquals(Arrays.hashCode(values[j]), Arrays.hashCode(varCharVector.get(j)));
         }
-
-        return true;
     }
+    
+    public static void assertNullValues(BaseValueVector vector, int rowCount) {
+        assertEquals(rowCount, vector.getValueCount());
 
-    public static long hashArray(byte[] data){
-        long ret = 0;
-        for(int i = 0; i < data.length;i++)
-            ret+=data[i];
-        return ret;
+        for(int j = 0; j < vector.getValueCount(); j++) {
+        	assertTrue(vector.isNull(j));
+        } 
     }
-
-    public static String firstX(byte[] data, int items){
-        int toProcess = Math.min(items, data.length);
-        StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < toProcess; i++) {
-            sb.append(String.format("0x%02x", data[i])+ " ");
-        }
-        return sb.toString();
-    }
-
+    
     public static byte[] hexStringToByteArray(String s) {
         int len = s.length();
         byte[] data = new byte[len / 2];
