@@ -64,7 +64,7 @@ cdef class ArrayValue(Scalar):
         else:
             return super(Scalar, self).__repr__()
 
-    def __richcmp__(self, other, a):
+    def __eq__(self, other):
         if hasattr(self, 'as_py'):
             if isinstance(other, ArrayValue):
                 other = other.as_py()

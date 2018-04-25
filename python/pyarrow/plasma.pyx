@@ -23,7 +23,6 @@ from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
-from libcpp.cast cimport dynamic_cast
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cpython.pycapsule cimport *
 

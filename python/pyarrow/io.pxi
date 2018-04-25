@@ -678,7 +678,7 @@ cdef class Buffer:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
         return result
 
-    def __richcmp__(self, other, a):
+    def __eq__(self, other):
         if isinstance(other, Buffer):
             return self.equals(other)
         else:

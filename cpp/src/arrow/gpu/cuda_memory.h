@@ -111,7 +111,6 @@ class ARROW_EXPORT CudaIpcMemHandle {
   /// \param[out] out the serialized buffer
   /// \return Status
   Status Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const;
-  const void* handle() const;
 
  private:
   explicit CudaIpcMemHandle(const void* handle);
@@ -119,7 +118,7 @@ class ARROW_EXPORT CudaIpcMemHandle {
   struct CudaIpcMemHandleImpl;
   std::unique_ptr<CudaIpcMemHandleImpl> impl_;
 
-
+  const void* handle() const;
 
   friend CudaBuffer;
   friend CudaContext;
