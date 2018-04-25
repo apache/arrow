@@ -59,7 +59,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DecimalUtility;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
