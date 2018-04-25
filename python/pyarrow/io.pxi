@@ -605,8 +605,27 @@ cdef class FixedSizeBufferWriter(NativeFile):
 
 cdef class CudaBufferWriter(NativeFile):
 
-    def __cinit__(self, Buffer buffer):
+    def __cinit__(self, GPUBuffer buffer):
+        self.wr_file.reset(new CCudaBufferWriter(buffer.buffer))
         self.is_writable = True
+        self.closed = False
+
+cdef class CudaBufferReader(NativeFile):
+    """
+    Zero-copy reader from objects convertible to Arrow buffer
+
+    Parameters
+    ----------
+    obj : Python bytes or pyarrow.Buffer
+    """
+    cdef:
+        GPUBuffer buffer
+
+    def __cinit__(self, GPUBuffer buffer):
+
+        self.buffer = buffer
+        self.rd_file.reset(new CCudaBufferReader(self.buffer.buffer))
+        self.is_readable = True
         self.closed = False
 
 # ----------------------------------------------------------------------
@@ -732,6 +751,124 @@ cdef class Buffer:
             p[0] = <void*> self.buffer.get().data()
         return self.size
 
+cdef class GPUBuffer:
+
+    def __cinit__(self):
+        pass
+
+    cdef void init(self, const shared_ptr[CCudaBuffer]& buffer):
+        self.buffer = buffer
+        self.shape[0] = self.size
+        self.strides[0] = <Py_ssize_t>(1)
+
+    cdef int _check_nullptr(self) except -1:
+        if self.buffer.get() == NULL:
+            raise ReferenceError("operation on uninitialized Buffer object")
+        return 0
+
+    def __len__(self):
+        return self.size
+
+    property size:
+
+        def __get__(self):
+            self._check_nullptr()
+            return self.buffer.get().size()
+
+    property is_mutable:
+
+        def __get__(self):
+            self._check_nullptr()
+            return self.buffer.get().is_mutable()
+
+    property parent:
+
+        def __get__(self):
+            self._check_nullptr()
+            cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()
+
+            if parent_buf.get() == NULL:
+                return None
+            else:
+                return pyarrow_wrap_buffer(parent_buf)
+
+    def __getitem__(self, key):
+        # TODO(wesm): buffer slicing
+        self._check_nullptr()
+        raise NotImplementedError
+
+    def equals(self, Buffer other):
+        """
+        Determine if two buffers contain exactly the same data
+
+        Parameters
+        ----------
+        other : Buffer
+
+        Returns
+        -------
+        are_equal : True if buffer contents and size are equal
+        """
+        self._check_nullptr()
+        other._check_nullptr()
+        cdef c_bool result = False
+        with nogil:
+            result = self.buffer.get().Equals(deref(other.buffer.get()))
+        return result
+
+    def __eq__(self, other):
+        if isinstance(other, Buffer):
+            return self.equals(other)
+        else:
+            return NotImplemented
+
+    def to_pybytes(self):
+        self._check_nullptr()
+        return cp.PyBytes_FromStringAndSize(
+            <const char*>self.buffer.get().data(),
+            self.buffer.get().size())
+
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._check_nullptr()
+
+        buffer.buf = <char *>self.buffer.get().data()
+        buffer.format = 'b'
+        buffer.internal = NULL
+        buffer.itemsize = 1
+        buffer.len = self.size
+        buffer.ndim = 1
+        buffer.obj = self
+        if self.buffer.get().is_mutable():
+            buffer.readonly = 0
+        else:
+            buffer.readonly = 1
+        buffer.shape = self.shape
+        buffer.strides = self.strides
+        buffer.suboffsets = NULL
+
+    def __getsegcount__(self, Py_ssize_t *len_out):
+        self._check_nullptr()
+        if len_out != NULL:
+            len_out[0] = <Py_ssize_t>self.size
+        return 1
+
+    def __getreadbuffer__(self, Py_ssize_t idx, void **p):
+        self._check_nullptr()
+        if idx != 0:
+            raise SystemError("accessing non-existent buffer segment")
+        if p != NULL:
+            p[0] = <void*> self.buffer.get().data()
+        return self.size
+
+    def __getwritebuffer__(self, Py_ssize_t idx, void **p):
+        self._check_nullptr()
+        if not self.buffer.get().is_mutable():
+            raise SystemError("trying to write an immutable buffer")
+        if idx != 0:
+            raise SystemError("accessing non-existent buffer segment")
+        if p != NULL:
+            p[0] = <void*> self.buffer.get().data()
+        return self.size
 
 cdef class ResizableBuffer(Buffer):
 

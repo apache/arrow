@@ -331,6 +331,14 @@ cdef class Buffer:
     cdef void init(self, const shared_ptr[CBuffer]& buffer)
     cdef int _check_nullptr(self) except -1
 
+cdef class GPUBuffer:
+    cdef:
+        shared_ptr[CCudaBuffer] buffer
+        Py_ssize_t shape[1]
+        Py_ssize_t strides[1]
+
+    cdef void init(self, const shared_ptr[CCudaBuffer]& buffer)
+    cdef int _check_nullptr(self) except -1
 
 cdef class ResizableBuffer(Buffer):
 

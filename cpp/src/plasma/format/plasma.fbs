@@ -215,8 +215,9 @@ table PlasmaStatusRequest {
 }
 
 enum ObjectStatus:int {
+  Null = 0,
   // Object is stored in the local Plasma Store.
-  Local = 1,
+  Local,
   // Object is stored on a remote Plasma store, and it is not stored on the
   // local Plasma Store.
   Remote,

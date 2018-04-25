@@ -33,8 +33,8 @@ import torch
 import torch.utils.cpp_extension
 import pytorch_example as exa
 
-from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
-from pyarrow.includes.libarrow cimport (CBuffer, CCudaBuffer, to_cuda_buffer, CCudaBufferWriter, CMutableBuffer,
+from pyarrow.lib cimport Buffer, GPUBuffer, NativeFile, check_status, pyarrow_wrap_buffer
+from pyarrow.includes.libarrow cimport (CBuffer, CCudaBuffer, CCudaBufferWriter, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
 
@@ -215,6 +215,41 @@ cdef class PlasmaBuffer(Buffer):
         """
         self.client.release(self.object_id)
 
+cdef class PlasmaGPUBuffer(GPUBuffer):
+    """
+    This is the type returned by calls to get with a PlasmaClient.
+
+    We define our own class instead of directly returning a buffer object so
+    that we can add a custom destructor which notifies Plasma that the object
+    is no longer being used, so the memory in the Plasma store backing the
+    object can potentially be freed.
+
+    Attributes
+    ----------
+    object_id : ObjectID
+        The ID of the object in the buffer.
+    client : PlasmaClient
+        The PlasmaClient that we use to communicate with the store and manager.
+    """
+
+    cdef:
+        ObjectID object_id
+        PlasmaClient client
+
+    def __cinit__(self, ObjectID object_id, PlasmaClient client):
+        """
+        Initialize a PlasmaBuffer.
+        """
+        self.object_id = object_id
+        self.client = client
+
+    def __dealloc__(self):
+        """
+        Notify Plasma that the object is no longer needed.
+
+        If the plasma client has been shut down, then don't do anything.
+        """
+        self.client.release(self.object_id)
 
 cdef class PlasmaClient:
     """
@@ -257,6 +292,14 @@ cdef class PlasmaClient:
         result.init(buffer)
         return result
 
+    cdef _make_gpu_plasma_buffer(self, ObjectID object_id, shared_ptr[CBuffer] buffer,
+                                     int64_t size):
+        result = PlasmaGPUBuffer(object_id, self)
+        cdef shared_ptr[CCudaBuffer] cudabuffer
+        CCudaBuffer.FromBuffer(buffer, &cudabuffer)
+        result.init(cudabuffer)
+        return result
+
     @property
     def store_socket_name(self):
         return self.store_socket_name.decode()
@@ -266,7 +309,7 @@ cdef class PlasmaClient:
         return self.manager_socket_name.decode()
 
     def create(self, ObjectID object_id, int64_t data_size,
-               c_string metadata=b""):
+               c_string metadata=b"", int device=0):
         """
         Create a new buffer in the PlasmaStore for a particular object ID.
 
@@ -289,17 +332,22 @@ cdef class PlasmaClient:
             there already is an object with the same ID in the plasma store.
 
         PlasmaStoreFull: This exception is raised if the object could
-                not be created because the plasma store is unable to evict
-                enough objects to create room for it.
+        not be created because the plasma store is unable to evict
+        enough objects to create room for it.
         """
         cdef shared_ptr[CBuffer] data
         with nogil:
             check_status(self.client.get().Create(object_id.data, data_size,
                                                   <uint8_t*>(metadata.data()),
-                                                  metadata.size(), &data, 0))
-        return self._make_mutable_plasma_buffer(object_id,
-                                                data.get().mutable_data(),
-                                                data_size)
+                                                  metadata.size(), &data, device))
+        if (device == 0):
+          return self._make_mutable_plasma_buffer(object_id,
+                                                  data.get().mutable_data(),
+                                                  data_size)
+        else:
+          return self._make_gpu_plasma_buffer(object_id,
+                                              data,
+                                              data_size)
 
     def get_buffers(self, object_ids, timeout_ms=-1):
         """
@@ -559,11 +607,11 @@ cdef class PlasmaClient:
             check_status(self.client.get().Create(target_id.data, size,
                                                   <uint8_t*>(metadata.data()),
                                                   metadata.size(), &data, 1))
+            check_status(CCudaBuffer.FromBuffer(data, &cuda_data))
 
         cdef const uint8_t* buf = f
         cdef shared_ptr[CCudaBufferWriter] writer
         cdef uintptr_t ptr
-        cuda_data = to_cuda_buffer(data)
         writer.reset(new CCudaBufferWriter(cuda_data))
         writer.get().Write(buf, size)
         with nogil:
