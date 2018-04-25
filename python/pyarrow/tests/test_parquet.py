@@ -1016,15 +1016,20 @@ class TestParquetFilter:
 
         df = pd.DataFrame({
             'integer': np.array(integer_keys, dtype='i4').repeat(15),
-            'string': np.tile(np.tile(np.array(string_keys, dtype=object), 5), 2),
-            'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5), 3),
+            'string': np.tile(np.tile(np.array(string_keys,
+                                               dtype=object
+                                               ), 5), 2),
+            'boolean': np.tile(np.tile(np.array(boolean_keys,
+                                                dtype='bool'
+                                                ), 5), 3),
         }, columns=['integer', 'string', 'boolean'])
 
         _generate_partition_directories(fs, base_path, partition_spec, df)
 
         dataset = pq.ParquetDataset(
             base_path, filesystem=fs,
-            filters=[('integer', '=', 1), ('string', '!=', 'b'), ('boolean', '==', True)]
+            filters=[('integer', '=', 1), ('string', '!=', 'b'),
+                     ('boolean', '==', True)]
         )
         table = dataset.read()
         result_df = (table.to_pandas()
@@ -1069,7 +1074,8 @@ class TestParquetFilter:
         assert result_list == [2, 3]
 
     @pytest.mark.xfail(
-        raises=TypeError, reason='We suspect loss of type information in creation of categoricals.'
+        raises=TypeError,
+        reason='Loss of type information in creation of categoricals.'
     )
     def test_cutoff_exclusive_datetime(tmpdir):
         fs = LocalFileSystem.get_instance()

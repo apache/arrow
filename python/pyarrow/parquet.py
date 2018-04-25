@@ -867,10 +867,9 @@ class ParquetDataset(object):
 
             f_type = type(f_value)
             p_value = f_type((self.partitions
-                       .levels[level]
-                       .dictionary[p_value_index]
-                       .as_py()))
-            
+                                  .levels[level]
+                                  .dictionary[p_value_index]
+                                  .as_py()))
 
             if op == "=" or op == "==":
                 return p_value == f_value
