@@ -29,7 +29,7 @@ cargo fmt --all -- --write-mode=diff
 # raises on any warnings
 cargo rustc -- -D warnings 
 
-cargo build
-cargo test
+travis-cargo build
+travis-cargo test
 
 popd

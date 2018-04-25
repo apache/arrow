@@ -193,6 +193,7 @@ matrix:
           - kalakris-cmake
     before_script:
     - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
+ -  - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
     after_success:
