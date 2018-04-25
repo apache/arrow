@@ -166,84 +166,84 @@ public class JdbcToArrowTestH2Datatypes {
 	    	}
 	    }
 
-	    public void sqlToArrowTestInt() throws SQLException {
+	    public void sqlToArrowTestInt() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery("INT_FIELD1 = 101", true, "INT_FIELD1"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	            assertIntVectorValues((IntVector)root.getVector("INT_FIELD1"), intValues.length, intValues);
 	        }	
 	    }
 
-	    public void sqlToArrowTestBool() throws SQLException {
+	    public void sqlToArrowTestBool() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery("BOOL_FIELD2 = 1", true, "BOOL_FIELD2"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	            assertBitBooleanVectorValues((BitVector)root.getVector("BOOL_FIELD2"), boolValues.length, boolValues);
 	        }	
 	    }
 
-	    public void sqlToArrowTestTinyInts() throws SQLException {
+	    public void sqlToArrowTestTinyInts() throws SQLException, IOException {
 	    	try(VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery("TINYINT_FIELD3 = 45", true, "TINYINT_FIELD3"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	            assertTinyIntVectorValues((TinyIntVector)root.getVector("TINYINT_FIELD3"), tinyIntValues.length, tinyIntValues);
 	        } 	
 	    }
 
-	    public void sqlToArrowTestSmallInts() throws SQLException {
+	    public void sqlToArrowTestSmallInts() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery("SMALLINT_FIELD4 = 12000", true, "SMALLINT_FIELD4"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	            assertSmallIntVectorValues((SmallIntVector)root.getVector("SMALLINT_FIELD4"), smallIntValues.length, smallIntValues);
 	    	}	
 	    }
 
-	    public void sqlToArrowTestBigInts() throws SQLException {
+	    public void sqlToArrowTestBigInts() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "BIGINT_FIELD5"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	            assertBigIntVectorValues((BigIntVector)root.getVector("BIGINT_FIELD5"), bigIntValues.length, bigIntValues);
 	        }	
 	    }
 
-	    public void sqlToArrowTestBigDecimals() throws SQLException {
+	    public void sqlToArrowTestBigDecimals() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "DECIMAL_FIELD6"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	            assertDecimalVectorValues((DecimalVector)root.getVector("DECIMAL_FIELD6"), decimalValues.length, decimalValues);
 	        } 	
 	    }
 
-	    public void sqlToArrowTestDoubles() throws SQLException {
+	    public void sqlToArrowTestDoubles() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "DOUBLE_FIELD7"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	            assertFloat8VectorValues((Float8Vector)root.getVector("DOUBLE_FIELD7"), doubleValues.length, doubleValues);
 	        }	
 	    }
 
-	    public void sqlToArrowTestRealValues() throws SQLException {
+	    public void sqlToArrowTestRealValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "REAL_FIELD8"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertFloat4VectorValues((Float4Vector)root.getVector("REAL_FIELD8"), realValues.length, realValues);
 	    	}	
 	    }
 
-	    public void sqlToArrowTestTimeValues() throws SQLException {
+	    public void sqlToArrowTestTimeValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "TIME_FIELD9"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertTimeVectorValues((TimeMilliVector)root.getVector("TIME_FIELD9"), timeValues.length, timeValues);
 	    	}	
 	    }
   
-	    public void sqlToArrowTestDateValues() throws SQLException {
+	    public void sqlToArrowTestDateValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "DATE_FIELD10"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertDateVectorValues((DateMilliVector)root.getVector("DATE_FIELD10"), dateValues.length, dateValues);
 	    	}	
 	    }   
    
-	    public void sqlToArrowTestTimestampValues() throws SQLException {
+	    public void sqlToArrowTestTimestampValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "TIMESTAMP_FIELD11"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertTimeStampVectorValues((TimeStampVector)root.getVector("TIMESTAMP_FIELD11"), timestampValues.length, timestampValues);
 	    	}	
 	    }
 	    
-	    public void sqlToArrowTestByteValues() throws SQLException {
+	    public void sqlToArrowTestByteValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "BINARY_FIELD12"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BINARY_FIELD12"), byteValues.length, byteValues);
@@ -251,42 +251,42 @@ public class JdbcToArrowTestH2Datatypes {
 	    	}	
 	    }
 
-	    public void sqlToArrowTestVarCharValues() throws SQLException {
+	    public void sqlToArrowTestVarCharValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "VARCHAR_FIELD13"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertVarcharVectorValues((VarCharVector)root.getVector("VARCHAR_FIELD13"), varCharValues.length, varCharValues);
 	    	}	
 	    }
 
-	    public void sqlToArrowTestBlobValues() throws SQLException {
+	    public void sqlToArrowTestBlobValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "BLOB_FIELD14"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BLOB_FIELD14"), byteValues.length, byteValues);
 	    	}	
 	    }
  
-	    public void sqlToArrowTestClobValues() throws SQLException {
+	    public void sqlToArrowTestClobValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "CLOB_FIELD15"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertVarcharVectorValues((VarCharVector)root.getVector("CLOB_FIELD15"), clobValues.length, clobValues);
 	    	}	
 	    }
 
-	    public void sqlToArrowTestCharValues() throws SQLException {
+	    public void sqlToArrowTestCharValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "CHAR_FIELD16"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertVarcharVectorValues((VarCharVector)root.getVector("CHAR_FIELD16"), charValues.length, charValues);
 	    	}	
 	    }
 
-	    public void sqlToArrowTestBits() throws SQLException {
+	    public void sqlToArrowTestBits() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery(true, "BIT_FIELD17"), 
 	    			new RootAllocator(Integer.MAX_VALUE))){
 	            assertBitBooleanVectorValues((BitVector)root.getVector("BIT_FIELD17"), boolValues.length, boolValues);
 	        }	
 	    }
 
-	    public void sqlToArrowTestNullValues() throws SQLException {
+	    public void sqlToArrowTestNullValues() throws SQLException, IOException {
 	    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, 
 	    			getQuery (false, table.getAllColumns()), new RootAllocator(Integer.MAX_VALUE))){
 	    		assertNullValues((IntVector)root.getVector("INT_FIELD1"), 5);
@@ -309,7 +309,7 @@ public class JdbcToArrowTestH2Datatypes {
 	    	} 	
 	    }
 	    
-	    public void sqlToArrowTestValuesWithPSTTimeZone() throws SQLException {
+	    public void sqlToArrowTestValuesWithPSTTimeZone() throws SQLException, IOException {
 		    try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, 
 		    		getQuery(" rownum < 6 ", true, "TIME_FIELD9", "DATE_FIELD10", "TIMESTAMP_FIELD11"), 
 		    		new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone("PST")))){
@@ -320,7 +320,7 @@ public class JdbcToArrowTestH2Datatypes {
 	    	}
 	    }
 	    
-	    public void sqlToArrowTestValuesWithESTTimeZone() throws SQLException {
+	    public void sqlToArrowTestValuesWithESTTimeZone() throws SQLException, IOException {
 		    try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, 
 		    		getQuery(" rownum < 6 ", true, "TIME_FIELD9", "DATE_FIELD10", "TIMESTAMP_FIELD11"), 
 		    		new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone("EST")))){
@@ -331,7 +331,7 @@ public class JdbcToArrowTestH2Datatypes {
 	    	} 
 	    }	    
 	    
-	    public void sqlToArrowTestValuesWithGMTTimeZone() throws SQLException {
+	    public void sqlToArrowTestValuesWithGMTTimeZone() throws SQLException, IOException {
 		    try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, 
 		    		getQuery(" rownum < 6 ", true, "TIME_FIELD9", "DATE_FIELD10", "TIMESTAMP_FIELD11"), 
 		    		new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone("GMT")))){
@@ -342,7 +342,7 @@ public class JdbcToArrowTestH2Datatypes {
 	    	} 
 	    }
 	    
-	    public void sqlToArrowTestSelectedColumnsNullValues() throws SQLException {
+	    public void sqlToArrowTestSelectedColumnsNullValues() throws SQLException, IOException {
 	    	  	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, getQuery ("INT_FIELD1 = 102", true, table.getAllColumns()), 
 	    	  			new RootAllocator(Integer.MAX_VALUE))){
 	    		assertNullValues((BigIntVector)root.getVector("BIGINT_FIELD5"), 5);
@@ -405,12 +405,29 @@ public class JdbcToArrowTestH2Datatypes {
 	    
 	    private String getQuery(String whereClause, boolean isNotNull,  int index, String... columns) {
 	        StringBuilder query = new  StringBuilder(String.format("select %s from %s ", 
-	        		columns.length > 1 ? String.join(",", columns) : columns[index], table.getName()));
+//	        		columns.length > 1 ? String.join(",", columns) : columns[index], table.getName()));
+	        		columns.length > 1 ? join(",", columns) : columns[index], table.getName()));
 	        query.append(whereClause != null && !whereClause.isEmpty() ? " where " + whereClause + " and " : " where ");
 	        columns = columns.length == 1 && columns[0].contains(",") ? columns[0].split(",") : columns;
 	        query.append(isNotNull ? columns[index] + " is not null;" : columns[index] + " is null;");
 	        
 	        return query.toString();
-	    } 
+	    }
+
+		private static String join(String delimeter, String... columns) {
+			if (columns.length == 1) {
+				return columns[0];
+			}
+			StringBuilder builder = new StringBuilder();
+			int i = 0;
+			for (String column: columns) {
+				if (i > 0) {
+					builder.append(delimeter).append(" ");
+				}
+				builder.append(column);
+				i++;
+			}
+			return builder.toString();
+		}
 }
 

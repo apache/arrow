@@ -24,6 +24,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.google.common.base.Preconditions;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -79,7 +80,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statement objects.
      */
-    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator) throws SQLException, IOException {
         Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
         Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
         Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
@@ -98,7 +99,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as ResultSet and Statement objects.
      */
-    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator, Calendar calendar) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(Connection connection, String query, BaseAllocator allocator, Calendar calendar) throws SQLException, IOException {
         Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
         Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
         Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
@@ -117,7 +118,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws SQLException
      */
-    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException, IOException {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
 
         return sqlToArrow(resultSet, Calendar.getInstance());
@@ -131,7 +132,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws SQLException
      */
-    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator) throws SQLException, IOException {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
         Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
@@ -146,7 +147,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws SQLException
      */
-    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
         Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
@@ -165,7 +166,7 @@ public class JdbcToArrow {
      * @return Arrow Data Objects {@link VectorSchemaRoot}
      * @throws SQLException
      */
-    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator, Calendar calendar) throws SQLException {
+    public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BaseAllocator allocator, Calendar calendar) throws SQLException, IOException {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
         Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
         Preconditions.checkNotNull(calendar, "Calendar object can not be null");
