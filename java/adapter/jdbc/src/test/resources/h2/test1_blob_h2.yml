@@ -62,6 +62,6 @@ data:
   ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
   ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
 
-query: 'select int_field1 from table1;'
+query: 'select blob_field14 from table1;'
 
 drop: 'DROP table table1;'

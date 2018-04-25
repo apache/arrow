@@ -348,13 +348,6 @@ public class JdbcToArrowUtils {
         if (isNonNull) {
             holder.value = (short) value;
         }
-        smallIntVector.setSafe(rowCount, value);
-    private static  void updateVector(SmallIntVector smallIntVector, int value, boolean isNonNull, int rowCount) {
-        NullableSmallIntHolder holder = new NullableSmallIntHolder();
-        holder.isSet = isNonNull? 1: 0;
-        if (isNonNull) {
-            holder.value = (short) value;
-        }
         smallIntVector.setSafe(rowCount, holder);
         smallIntVector.setValueCount(rowCount + 1);
     }

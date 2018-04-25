@@ -293,7 +293,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             int[] ints = {
                     101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101
             };
-            assertIntVectorValues((IntVector)root.getVector("INT_FIELD1"), 15, ints);
+            assertIntVectorValues((IntVector)root.getVector("INT_FIELD1"), 15, table.getInts());
 
             int[] bools = {
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
@@ -346,8 +346,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             assertTimeVectorValues((TimeMilliVector)root.getVector("TIME_FIELD9"), 15, times);
 
             long[] dates = {
-            		1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l,
-            		1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l, 1518325200000l
+            		1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l,
+            		1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l
             };
             assertDateVectorValues((DateMilliVector)root.getVector("DATE_FIELD10"), 15, dates);
 
