@@ -55,6 +55,7 @@
 
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
+
 using arrow::gpu::CudaBuffer;
 using arrow::gpu::CudaBufferWriter;
 using arrow::gpu::CudaContext;
