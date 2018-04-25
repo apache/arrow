@@ -51,6 +51,14 @@ class StrangeIterable:
         return self.lst.__iter__()
 
 
+def check_struct_type(ty, expected):
+    """
+    Check a struct type is as expected, but not taking order into account.
+    """
+    assert pa.types.is_struct(ty)
+    assert set(ty) == set(expected)
+
+
 def test_iterable_types():
     arr1 = pa.array(StrangeIterable([0, 1, 2, 3]))
     arr2 = pa.array((0, 1, 2, 3))
@@ -479,11 +487,28 @@ def test_sequence_timestamp_from_int_with_unit():
         pa.array([1, CustomClass()], type=pa.date64())
 
 
-def test_sequence_mixed_nesting_levels():
-    pa.array([1, 2, None])
-    pa.array([[1], [2], None])
-    pa.array([[1], [2], [None]])
+def test_sequence_nesting_levels():
+    data = [1, 2, None]
+    arr = pa.array(data)
+    assert arr.type == pa.int64()
+    assert arr.to_pylist() == data
 
+    data = [[1], [2], None]
+    arr = pa.array(data)
+    assert arr.type == pa.list_(pa.int64())
+    assert arr.to_pylist() == data
+
+    data = [[1], [2, 3, 4], [None]]
+    arr = pa.array(data)
+    assert arr.type == pa.list_(pa.int64())
+    assert arr.to_pylist() == data
+
+    data = [None, [[None, 1]], [[2, 3, 4], None], [None]]
+    arr = pa.array(data)
+    assert arr.type == pa.list_(pa.list_(pa.int64()))
+    assert arr.to_pylist() == data
+
+    # Mixed nesting levels are rejected
     with pytest.raises(pa.ArrowInvalid):
         pa.array([1, 2, [1]])
 
@@ -647,6 +672,50 @@ def test_struct_from_mixed_sequence():
             {'a': 6, 'b': 'bar', 'c': False}]
     with pytest.raises(TypeError):
         pa.array(data, type=ty)
+
+
+def test_struct_from_dicts_inference():
+    expected_type = pa.struct([pa.field('a', pa.int64()),
+                               pa.field('b', pa.string()),
+                               pa.field('c', pa.bool_())])
+    data = [{'a': 5, 'b': u'foo', 'c': True},
+            {'a': 6, 'b': u'bar', 'c': False}]
+    arr = pa.array(data)
+    check_struct_type(arr.type, expected_type)
+    assert arr.to_pylist() == data
+
+    # With omitted values
+    data = [{'a': 5, 'c': True},
+            None,
+            {},
+            {'a': None, 'b': u'bar'}]
+    expected = [{'a': 5, 'b': None, 'c': True},
+                None,
+                {'a': None, 'b': None, 'c': None},
+                {'a': None, 'b': u'bar', 'c': None}]
+    arr = pa.array(data)
+    check_struct_type(arr.type, expected_type)
+    assert arr.to_pylist() == expected
+
+    # Nested
+    expected_type = pa.struct([
+        pa.field('a', pa.struct([pa.field('aa', pa.list_(pa.int64())),
+                                 pa.field('ab', pa.bool_())])),
+        pa.field('b', pa.string())])
+    data = [{'a': {'aa': [5, 6], 'ab': True}, 'b': 'foo'},
+            {'a': {'aa': None, 'ab': False}, 'b': None},
+            {'a': None, 'b': 'bar'}]
+    arr = pa.array(data)
+    assert arr.to_pylist() == data
+
+    # Edge cases
+    arr = pa.array([{}])
+    assert arr.type == pa.struct([])
+    assert arr.to_pylist() == [{}]
+
+    # Mixing structs and scalars is rejected
+    with pytest.raises(pa.ArrowInvalid):
+        pa.array([1, {'a': 2}])
 
 
 def test_structarray_from_arrays_coerce():
