@@ -34,6 +34,7 @@ cache:
 environment:
   global:
     BUILD_SCRIPT: "CPP_MSVC"
+    USE_CLCACHE: true
 
   matrix:
     # NOTE: clcache seems to work best with Ninja and worst with msbuild
@@ -79,12 +80,12 @@ environment:
       RUST_VERSION: stable
       TARGET: x86_64-pc-windows-msvc
       BUILD_SCRIPT: "Rust_Stable"
+      USE_CLCACHE: false
 
   MSVC_DEFAULT_OPTIONS: ON
   BOOST_ROOT: C:\Libraries\boost_1_63_0
   BOOST_LIBRARYDIR: C:\Libraries\boost_1_63_0\lib64-msvc-14.0
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
-  USE_CLCACHE: true
 
 install:
   - if NOT "%JOB%"=="Rust_Stable" set MINICONDA=C:\Miniconda36-x64
