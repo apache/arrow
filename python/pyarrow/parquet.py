@@ -883,7 +883,8 @@ class ParquetDataset(object):
             elif op == '>=':
                 return p_value >= f_value
             else:
-                raise ValueError("'%s' is not a valid operator in predicates.")
+                raise ValueError("'%s' is not a valid operator in predicates.",
+                                 filter[1])
 
         def one_filter_accepts(piece, filter):
             return all(filter_accepts_partition(part_key, filter, level)

@@ -1179,6 +1179,34 @@ def test_inclusive_integer(tmpdir):
     assert result_list == [2, 3]
 
 
+@parquet
+def test_invalid_pred_op(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    import pyarrow.parquet as pq
+
+    integer_keys = [0, 1, 2, 3, 4]
+    partition_spec = [
+        ['integers', integer_keys],
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'integers': np.array(integer_keys, dtype='i4'),
+    }, columns=['index', 'integers'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[
+                            ('integers', '=<', 3),
+                          ])
+
+
 @pytest.yield_fixture
 def s3_example():
     access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
