@@ -213,6 +213,7 @@ def test_types_picklable():
 def test_dictionary_type():
     ty = pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
     assert ty.index_type == pa.int32()
+    assert ty.dictionary.to_pylist() == ['a', 'b', 'c']
 
 
 def test_fields_hashable():

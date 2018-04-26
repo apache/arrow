@@ -189,6 +189,11 @@ cdef class DictionaryType(DataType):
         def __get__(self):
             return pyarrow_wrap_data_type(self.dict_type.index_type())
 
+    property dictionary:
+
+        def __get__(self):
+            return pyarrow_wrap_array(self.dict_type.dictionary())
+
 
 cdef class ListType(DataType):
 
