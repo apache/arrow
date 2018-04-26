@@ -99,16 +99,6 @@ matrix:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest; fi
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
-  # Java w/ OpenJDK 7
-  - language: java
-    os: linux
-    jdk: openjdk7
-    before_script:
-    - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_javadoc.sh
   # Java w/ Oracle JDK 9
   - language: java
     os: linux
