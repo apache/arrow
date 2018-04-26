@@ -480,9 +480,10 @@ class ARROW_EXPORT StructType : public NestedType {
   std::shared_ptr<Field> GetChildByName(const std::string& name) const;
 
   /// Returns -1 if name not found
-  int64_t GetChildIndex(const std::string& name) const;
+  int GetChildIndex(const std::string& name) const;
 
  private:
+  /// Lazily initialized mapping
   mutable std::unordered_map<std::string, int> name_to_index_;
 };
 
@@ -786,6 +787,8 @@ class ARROW_EXPORT Schema {
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;
+
+  /// Lazily initialized mapping
   mutable std::unordered_map<std::string, int> name_to_index_;
 
   std::shared_ptr<const KeyValueMetadata> metadata_;

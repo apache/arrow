@@ -210,11 +210,11 @@ std::string StructType::ToString() const {
 }
 
 std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
-  int64_t i = GetChildIndex(name);
+  int i = GetChildIndex(name);
   return i == -1 ? nullptr : children_[i];
 }
 
-int64_t StructType::GetChildIndex(const std::string& name) const {
+int StructType::GetChildIndex(const std::string& name) const {
   if (children_.size() > 0 && name_to_index_.size() == 0) {
     for (size_t i = 0; i < children_.size(); ++i) {
       name_to_index_[children_[i]->name()] = static_cast<int>(i);

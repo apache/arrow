@@ -409,13 +409,13 @@ TEST(TestStructType, GetChildByName) {
   std::shared_ptr<Field> result;
 
   result = struct_type.GetChildByName("f1");
-  ASSERT_TRUE(f1->Equals(result));
+  ASSERT_EQ(f1, result);
 
   result = struct_type.GetChildByName("f3");
-  ASSERT_TRUE(f3->Equals(result));
+  ASSERT_EQ(f3, result);
 
   result = struct_type.GetChildByName("not-found");
-  ASSERT_TRUE(result == nullptr);
+  ASSERT_EQ(result, nullptr);
 }
 
 TEST(TestStructType, GetChildIndex) {

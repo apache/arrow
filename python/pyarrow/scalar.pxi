@@ -378,7 +378,7 @@ cdef class StructValue(ArrayValue):
     def __getitem__(self, key):
         cdef:
             CStructType* type
-            int64_t index
+            int index
 
         type = <CStructType*> self.type.type
         index = type.GetChildIndex(tobytes(key))

@@ -216,7 +216,7 @@ class TestScalars(unittest.TestCase):
         assert isinstance(set_from_array, set)
         assert set_from_array == {1, 2}
 
-    def test_struct_array_subscripting(self):
+    def test_struct_value_subscripting(self):
         ty = pa.struct([pa.field('x', pa.int16()),
                         pa.field('y', pa.float32())])
         arr = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
