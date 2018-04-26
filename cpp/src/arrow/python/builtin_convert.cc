@@ -114,8 +114,8 @@ class TypeInferrer {
         return Status::Invalid(ss.str());
       }
     } else if (PyList_Check(obj) || PyArray_Check(obj)) {
-      // XXX This code path is used for non-object arrays, which leads
-      // to wasteful creation and inspection of temporary Python objects.
+      // TODO(ARROW-2514): This code path is used for non-object arrays, which
+      // leads to wasteful creation and inspection of temporary Python objects.
       return VisitList(obj);
     } else if (PyDict_Check(obj)) {
       return VisitDict(obj);
