@@ -371,14 +371,29 @@ cdef class FixedSizeBinaryValue(ArrayValue):
 
 cdef class StructValue(ArrayValue):
 
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
+        self.sp_array = sp_array
+        self.ap = <CStructArray*> sp_array.get()
+
+    def __getitem__(self, key):
+        cdef:
+            CStructType* type
+            int index
+
+        type = <CStructType*> self.type.type
+        index = type.GetChildIndex(tobytes(key))
+
+        if index < 0:
+            raise KeyError(key)
+
+        return pyarrow_wrap_array(self.ap.field(index))[self.index]
+
     def as_py(self):
         cdef:
-            CStructArray* ap
             vector[shared_ptr[CField]] child_fields = self.type.type.children()
 
-        ap = <CStructArray*> self.sp_array.get()
-        wrapped_arrays = [pyarrow_wrap_array(ap.field(i))
-                          for i in range(ap.num_fields())]
+        wrapped_arrays = [pyarrow_wrap_array(self.ap.field(i))
+                          for i in range(self.ap.num_fields())]
         child_names = [child.get().name() for child in child_fields]
         # Return the struct as a dict
         return {
@@ -414,6 +429,7 @@ cdef dict _scalar_classes = {
     _Type_DECIMAL: DecimalValue,
     _Type_STRUCT: StructValue,
 }
+
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
                        int64_t index):
