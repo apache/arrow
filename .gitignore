@@ -30,6 +30,7 @@ MANIFEST
 *.vcxproj
 *.vcxproj.*
 *.sln
+*.iml
 
 cpp/.idea/
 python/.eggs/

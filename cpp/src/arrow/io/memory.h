@@ -113,13 +113,11 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   Status Close() override;
   Status Tell(int64_t* position) const override;
   Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
-
   // Zero copy read
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                 void* out) override;
-
-  /// Default implementation is thread-safe
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status GetSize(int64_t* size) override;

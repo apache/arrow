@@ -43,7 +43,9 @@ class TestChunkedArray : public TestBase {
  protected:
   virtual void Construct() {
     one_ = std::make_shared<ChunkedArray>(arrays_one_);
-    another_ = std::make_shared<ChunkedArray>(arrays_another_);
+    if (!arrays_another_.empty()) {
+      another_ = std::make_shared<ChunkedArray>(arrays_another_);
+    }
   }
 
   ArrayVector arrays_one_;
@@ -121,6 +123,23 @@ TEST_F(TestChunkedArray, SliceEquals) {
   std::shared_ptr<ChunkedArray> slice2 = one_->Slice(75)->Slice(25)->Slice(25, 50);
   ASSERT_EQ(slice2->length(), 50);
   test::AssertChunkedEqual(*slice, *slice2);
+
+  // Making empty slices of a ChunkedArray
+  std::shared_ptr<ChunkedArray> slice3 = one_->Slice(one_->length(), 99);
+  ASSERT_EQ(slice3->length(), 0);
+  ASSERT_EQ(slice3->num_chunks(), 0);
+  ASSERT_TRUE(slice3->type()->Equals(one_->type()));
+
+  std::shared_ptr<ChunkedArray> slice4 = one_->Slice(10, 0);
+  ASSERT_EQ(slice4->length(), 0);
+  ASSERT_EQ(slice4->num_chunks(), 0);
+  ASSERT_TRUE(slice4->type()->Equals(one_->type()));
+
+  // Slicing an empty ChunkedArray
+  std::shared_ptr<ChunkedArray> slice5 = slice4->Slice(0, 10);
+  ASSERT_EQ(slice5->length(), 0);
+  ASSERT_EQ(slice5->num_chunks(), 0);
+  ASSERT_TRUE(slice5->type()->Equals(one_->type()));
 }
 
 class TestColumn : public TestChunkedArray {

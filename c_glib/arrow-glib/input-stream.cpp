@@ -535,7 +535,7 @@ namespace garrow {
                        std::shared_ptr<arrow::Buffer> *out) override {
       arrow::MemoryPool *pool = arrow::default_memory_pool();
       std::shared_ptr<arrow::ResizableBuffer> buffer;
-      ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool, n_bytes, &buffer));
+      RETURN_NOT_OK(AllocateResizableBuffer(pool, n_bytes, &buffer));
 
       GError *error = NULL;
       auto n_read_bytes = g_input_stream_read(input_stream_,
@@ -549,7 +549,7 @@ namespace garrow {
                                       "[gio-input-stream][read][buffer]");
       } else {
         if (n_read_bytes < n_bytes) {
-          ARROW_RETURN_NOT_OK(buffer->Resize(n_read_bytes));
+          RETURN_NOT_OK(buffer->Resize(n_read_bytes));
         }
         *out = buffer;
         return arrow::Status::OK();

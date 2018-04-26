@@ -435,7 +435,7 @@ class ORCFileReader::Impl {
     if (batch->hasNulls) {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
-    RETURN_NOT_OK(builder->Append(length, valid_bytes));
+    RETURN_NOT_OK(builder->AppendValues(length, valid_bytes));
 
     for (int i = 0; i < builder->num_fields(); i++) {
       RETURN_NOT_OK(AppendBatch(type->getSubtype(i), batch->fields[i], offset, length,
@@ -482,7 +482,7 @@ class ORCFileReader::Impl {
       int64_t start = batch->offsets[i];
       int64_t list_length = batch->offsets[i + 1] - start;
       if (list_length && (!has_nulls || batch->notNull[i])) {
-        RETURN_NOT_OK(struct_builder->Append(list_length, nullptr));
+        RETURN_NOT_OK(struct_builder->AppendValues(list_length, nullptr));
         RETURN_NOT_OK(AppendBatch(keytype, keys, start, list_length,
                                   struct_builder->field_builder(0)));
         RETURN_NOT_OK(AppendBatch(valtype, vals, start, list_length,
@@ -506,7 +506,7 @@ class ORCFileReader::Impl {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
     const elem_type* source = batch->data.data() + offset;
-    RETURN_NOT_OK(builder->Append(source, length, valid_bytes));
+    RETURN_NOT_OK(builder->AppendValues(source, length, valid_bytes));
     return Status::OK();
   }
 

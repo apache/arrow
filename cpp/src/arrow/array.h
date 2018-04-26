@@ -610,6 +610,12 @@ class ARROW_EXPORT StructArray : public Array {
   // count adjusted.
   std::shared_ptr<Array> field(int pos) const;
 
+  /// \brief Flatten this array as a vector of arrays, one for each field
+  ///
+  /// \param[in] pool The pool to allocate null bitmaps from, if necessary
+  /// \param[out] out The resulting vector of arrays
+  Status Flatten(MemoryPool* pool, ArrayVector* out) const;
+
  private:
   // For caching boxed child data
   mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
@@ -674,6 +680,10 @@ class ARROW_EXPORT UnionArray : public Array {
 
   UnionMode::type mode() const { return static_cast<const UnionType&>(*type()).mode(); }
 
+  // Return the given field as an individual array.
+  // For sparse unions, the returned array has its offset, length and null
+  // count adjusted.
+  // For dense unions, the returned array is unchanged.
   std::shared_ptr<Array> child(int pos) const;
 
   /// Only use this while the UnionArray is in scope

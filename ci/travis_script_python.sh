@@ -36,13 +36,12 @@ source activate $CONDA_ENV_DIR
 python --version
 which python
 
-# Note: avoid Cython 0.28.0 due to https://github.com/cython/cython/issues/2148
 conda install -y -q pip \
       nomkl \
       cloudpickle \
       numpy=1.13.1 \
       pandas \
-      cython=0.27.3
+      cython
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
 # significantly, and so we have disabled these tests in Travis CI for now
@@ -85,7 +84,7 @@ fi
 export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 
 pip install -q -r requirements.txt
-python setup.py build_ext --with-parquet --with-plasma --with-orc\
+python setup.py build_ext -q --with-parquet --with-plasma --with-orc\
        install -q --single-version-externally-managed --record=record.text
 popd
 
@@ -106,9 +105,9 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
 fi
 
 PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
-python -m pytest -vv -r sxX --durations=15 -s $PYARROW_PATH --parquet
+python -m pytest -r sxX --durations=15 $PYARROW_PATH --parquet
 
-if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
+if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Build documentation once
   conda install -y -q \
         ipython \
@@ -119,5 +118,24 @@ if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
 
   pushd $ARROW_PYTHON_DIR/doc
   sphinx-build -q -b html -d _build/doctrees -W source _build/html
+  popd
+fi
+
+if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+  # Check the ASV benchmarking setup.
+  # Unfortunately this won't ensure that all benchmarks succeed
+  # (see https://github.com/airspeed-velocity/asv/issues/449)
+  source deactivate
+  conda create -y -q -n pyarrow_asv python=$PYTHON_VERSION
+  source activate pyarrow_asv
+  pip install -q git+https://github.com/pitrou/asv.git@customize_commands
+
+  pushd $TRAVIS_BUILD_DIR/python
+  # Workaround for https://github.com/airspeed-velocity/asv/issues/631
+  git fetch --depth=100 origin master:master
+  # Generate machine information (mandatory)
+  asv machine --yes
+  # Run benchmarks on the changeset being tested
+  asv run --no-pull --show-stderr --quick HEAD^!
   popd
 fi

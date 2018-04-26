@@ -25,7 +25,9 @@ use super::memory::*;
 /// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
 /// memory region is aligned at a 64-byte boundary
 pub struct Buffer<T> {
+    /// Contiguous memory region holding instances of primitive T
     data: *const T,
+    /// Number of elements in the buffer
     len: i32,
 }
 
@@ -34,6 +36,7 @@ impl<T> Buffer<T> {
         Buffer { data, len }
     }
 
+    /// Get the number of elements in the buffer
     pub fn len(&self) -> i32 {
         self.len
     }
@@ -44,7 +47,7 @@ impl<T> Buffer<T> {
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
         assert!(start <= end);
-        assert!(start < self.len as usize);
+        assert!(start <= self.len as usize);
         assert!(end <= self.len as usize);
         unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
@@ -74,10 +77,14 @@ impl<T> Buffer<T> {
 
 impl<T> Drop for Buffer<T> {
     fn drop(&mut self) {
-        mem::drop(self.data)
+        unsafe {
+            let p = mem::transmute::<*const T, *const u8>(self.data);
+            free_aligned(p);
+        }
     }
 }
 
+/// Iterator over the elements of a buffer
 pub struct BufferIterator<T> {
     data: *const T,
     len: i32,

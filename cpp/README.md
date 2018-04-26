@@ -35,7 +35,6 @@ On Ubuntu/Debian you can install the requirements with:
 ```shell
 sudo apt-get install cmake \
      libboost-dev \
-     libboost-regex-dev \
      libboost-filesystem-dev \
      libboost-system-dev
 ```

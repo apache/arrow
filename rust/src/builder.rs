@@ -16,8 +16,10 @@
 // under the License.
 
 use libc;
+use std::cmp;
 use std::mem;
 use std::ptr;
+use std::slice;
 
 use super::buffer::*;
 use super::memory::*;
@@ -46,30 +48,83 @@ impl<T> Builder<T> {
         }
     }
 
+    /// Get the number of elements in the builder
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Get the capacity of the builder (number of elements)
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Get the internal byte-aligned memory buffer as a mutable slice
+    pub fn slice_mut(&mut self, start: usize, end: usize) -> &mut [T] {
+        assert!(start <= end);
+        assert!(start < self.capacity as usize);
+        assert!(end <= self.capacity as usize);
+        unsafe {
+            slice::from_raw_parts_mut(self.data.offset(start as isize), (end - start) as usize)
+        }
+    }
+
+    /// Override the length
+    pub fn set_len(&mut self, len: usize) {
+        self.len = len;
+    }
+
     /// Push a value into the builder, growing the internal buffer as needed
     pub fn push(&mut self, v: T) {
         assert!(!self.data.is_null());
         if self.len == self.capacity {
-            let sz = mem::size_of::<T>();
-            let new_capacity = self.capacity * 2;
-            unsafe {
-                let old_buffer = self.data;
-                let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
-                libc::memcpy(
-                    mem::transmute::<*const u8, *mut libc::c_void>(new_buffer),
-                    mem::transmute::<*const T, *const libc::c_void>(old_buffer),
-                    self.len * sz,
-                );
-                self.capacity = new_capacity;
-                self.data = mem::transmute::<*const u8, *mut T>(new_buffer);
-                mem::drop(old_buffer);
-            }
+            // grow capacity by 64 bytes or double the current capacity, whichever is greater
+            let new_capacity = cmp::max(64, self.capacity * 2);
+            self.grow(new_capacity);
         }
         assert!(self.len < self.capacity);
         unsafe {
             *self.data.offset(self.len as isize) = v;
         }
         self.len += 1;
+    }
+
+    /// push a slice of type T, growing the internal buffer as needed
+    pub fn push_slice(&mut self, slice: &[T]) {
+        self.reserve(slice.len());
+        let sz = mem::size_of::<T>();
+        unsafe {
+            libc::memcpy(
+                mem::transmute::<*mut T, *mut libc::c_void>(self.data.offset(self.len() as isize)),
+                mem::transmute::<*const T, *const libc::c_void>(slice.as_ptr()),
+                slice.len() * sz,
+            );
+        }
+        self.len += slice.len();
+    }
+
+    /// Reserve memory for n elements of type T
+    pub fn reserve(&mut self, n: usize) {
+        if self.len + n > self.capacity {
+            let new_capacity = cmp::max(self.capacity * 2, n);
+            self.grow(new_capacity);
+        }
+    }
+
+    /// Grow the buffer to the new size n (number of elements of type T)
+    fn grow(&mut self, new_capacity: usize) {
+        let sz = mem::size_of::<T>();
+        unsafe {
+            let old_buffer = self.data;
+            let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
+            libc::memcpy(
+                mem::transmute::<*const u8, *mut libc::c_void>(new_buffer),
+                mem::transmute::<*const T, *const libc::c_void>(old_buffer),
+                self.len * sz,
+            );
+            self.capacity = new_capacity;
+            self.data = mem::transmute::<*const u8, *mut T>(new_buffer);
+            free_aligned(mem::transmute::<*mut T, *const u8>(old_buffer));
+        }
     }
 
     /// Build a Buffer from the existing memory
@@ -84,7 +139,10 @@ impl<T> Builder<T> {
 impl<T> Drop for Builder<T> {
     fn drop(&mut self) {
         if !self.data.is_null() {
-            mem::drop(self.data)
+            unsafe {
+                let p = mem::transmute::<*const T, *const u8>(self.data);
+                free_aligned(p);
+            }
         }
     }
 }
@@ -98,6 +156,14 @@ mod tests {
         let mut b: Builder<i32> = Builder::with_capacity(5);
         let a = b.finish();
         assert_eq!(0, a.len());
+    }
+
+    #[test]
+    fn test_builder_i32_alloc_zero_bytes() {
+        let mut b: Builder<i32> = Builder::with_capacity(0);
+        b.push(123);
+        let a = b.finish();
+        assert_eq!(1, a.len());
     }
 
     #[test]
@@ -124,6 +190,28 @@ mod tests {
         for i in 0..5 {
             assert_eq!(&i, a.get(i as usize));
         }
+    }
+
+    #[test]
+    fn test_reserve() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        assert_eq!(2, b.capacity());
+        b.reserve(2);
+        assert_eq!(2, b.capacity());
+        b.reserve(3);
+        assert_eq!(4, b.capacity());
+    }
+
+    #[test]
+    fn test_push_slice() {
+        let mut b: Builder<u8> = Builder::new();
+        b.push_slice("Hello, ".as_bytes());
+        b.push_slice("World!".as_bytes());
+        let buffer = b.finish();
+        assert_eq!(13, buffer.len());
+
+        let s = String::from_utf8(buffer.iter().collect::<Vec<u8>>()).unwrap();
+        assert_eq!("Hello, World!", s);
     }
 
 }

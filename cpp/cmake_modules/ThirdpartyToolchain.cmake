@@ -23,7 +23,7 @@ set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 set(GFLAGS_VERSION "2.2.0")
 set(GTEST_VERSION "1.8.0")
 set(GBENCHMARK_VERSION "1.1.0")
-set(FLATBUFFERS_VERSION "1.7.1")
+set(FLATBUFFERS_VERSION "1.9.0")
 set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
 set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
@@ -157,11 +157,8 @@ if (ARROW_BOOST_VENDORED)
     "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(BOOST_STATIC_FILESYSTEM_LIBRARY
     "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(BOOST_STATIC_REGEX_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(BOOST_SYSTEM_LIBRARY "${BOOST_STATIC_SYSTEM_LIBRARY}")
   set(BOOST_FILESYSTEM_LIBRARY "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
-  set(BOOST_REGEX_LIBRARY "${BOOST_STATIC_REGEX_LIBRARY}")
   if (ARROW_BOOST_HEADER_ONLY)
     set(BOOST_BUILD_PRODUCTS)
     set(BOOST_CONFIGURE_COMMAND "")
@@ -169,12 +166,11 @@ if (ARROW_BOOST_VENDORED)
   else()
     set(BOOST_BUILD_PRODUCTS
       ${BOOST_SYSTEM_LIBRARY}
-      ${BOOST_FILESYSTEM_LIBRARY}
-      ${BOOST_REGEX_LIBRARY})
+      ${BOOST_FILESYSTEM_LIBRARY})
     set(BOOST_CONFIGURE_COMMAND
       "./bootstrap.sh"
       "--prefix=${BOOST_PREFIX}"
-      "--with-libraries=filesystem,system,regex")
+      "--with-libraries=filesystem,system")
     if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
       set(BOOST_BUILD_VARIANT "debug")
     else()
@@ -214,19 +210,16 @@ else()
     if (ARROW_BOOST_HEADER_ONLY)
       find_package(Boost REQUIRED)
     else()
-      find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+      find_package(Boost COMPONENTS system filesystem REQUIRED)
       if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
         set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
         set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-        set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
       else()
         set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
         set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
-        set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
       endif()
       set(BOOST_SYSTEM_LIBRARY boost_system_shared)
       set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
-      set(BOOST_REGEX_LIBRARY boost_regex_shared)
     endif()
   else()
     # Find static boost headers and libs
@@ -235,19 +228,16 @@ else()
     if (ARROW_BOOST_HEADER_ONLY)
       find_package(Boost REQUIRED)
     else()
-      find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+      find_package(Boost COMPONENTS system filesystem REQUIRED)
       if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
         set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
         set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-        set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
       else()
         set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
         set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
-        set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
       endif()
       set(BOOST_SYSTEM_LIBRARY boost_system_static)
       set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-      set(BOOST_REGEX_LIBRARY boost_regex_static)
     endif()
   endif()
 endif()
@@ -264,11 +254,7 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
       STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
       SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
 
-  ADD_THIRDPARTY_LIB(boost_regex
-      STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}"
-      SHARED_LIB "${BOOST_SHARED_REGEX_LIBRARY}")
-
-  SET(ARROW_BOOST_LIBS boost_system boost_filesystem boost_regex)
+  SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
 endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
@@ -454,12 +440,14 @@ if (ARROW_IPC)
     else()
       set(FLATBUFFERS_CMAKE_CXX_FLAGS -fPIC)
     endif()
+    # We always need to do release builds, otherwise flatc will not be installed.
     ExternalProject_Add(flatbuffers_ep
       URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
       CMAKE_ARGS
       "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
       "-DFLATBUFFERS_BUILD_TESTS=OFF"
+      "-DCMAKE_BUILD_TYPE=RELEASE"
       "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
       "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
       ${EP_LOG_OPTIONS})

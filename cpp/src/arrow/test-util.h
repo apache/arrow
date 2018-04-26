@@ -20,6 +20,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <random>
@@ -70,7 +72,8 @@
   do {                                   \
     ::arrow::Status _s = (s);            \
     if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-      exit(EXIT_FAILURE);                \
+      std::cerr << s.ToString() << "\n"; \
+      std::abort();                      \
     }                                    \
   } while (false);
 

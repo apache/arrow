@@ -406,6 +406,57 @@ TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
   }
 }
 
+class TestTableWriterSlice : public TestTableWriter,
+                             public ::testing::WithParamInterface<std::tuple<int, int>> {
+ public:
+  void CheckSlice(std::shared_ptr<RecordBatch> batch) {
+    auto p = GetParam();
+    auto start = std::get<0>(p);
+    auto size = std::get<1>(p);
+
+    batch = batch->Slice(start, size);
+
+    ASSERT_OK(writer_->Append("f0", *batch->column(0)));
+    ASSERT_OK(writer_->Append("f1", *batch->column(1)));
+    Finish();
+
+    std::shared_ptr<Column> col;
+    ASSERT_OK(reader_->GetColumn(0, &col));
+    ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(0)));
+    ASSERT_EQ("f0", col->name());
+
+    ASSERT_OK(reader_->GetColumn(1, &col));
+    ASSERT_TRUE(col->data()->chunk(0)->Equals(batch->column(1)));
+    ASSERT_EQ("f1", col->name());
+  }
+};
+
+TEST_P(TestTableWriterSlice, SliceRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntBatchSized(600, &batch));
+  CheckSlice(batch);
+}
+
+TEST_P(TestTableWriterSlice, SliceStringsRoundTrip) {
+  auto p = GetParam();
+  auto start = std::get<0>(p);
+  auto with_nulls = start % 2 == 0;
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeStringTypesRecordBatch(&batch, with_nulls));
+  CheckSlice(batch);
+}
+
+TEST_P(TestTableWriterSlice, SliceBooleanRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeBooleanBatchSized(600, &batch));
+  CheckSlice(batch);
+}
+
+INSTANTIATE_TEST_CASE_P(TestTableWriterSliceOffsets, TestTableWriterSlice,
+                        ::testing::Combine(::testing::Values(0, 1, 300, 301, 302, 303,
+                                                             304, 305, 306, 307),
+                                           ::testing::Values(0, 1, 7, 8, 30, 32, 100)));
+
 }  // namespace feather
 }  // namespace ipc
 }  // namespace arrow

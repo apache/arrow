@@ -283,12 +283,24 @@ cdef _append_array_buffers(const CArrayData* ad, list res):
 
 cdef class Array:
 
+    def __init__(self, *args, **kwargs):
+        """
+        Do not call this constructor directly, use factories
+        like ``pyarrow.array``.
+        """
+        # Check if the constructor was called with arguments.
+        # This was probably by accident from a user. Instead of segfaulting
+        # we should provide them with a meaningful error.
+        if len(args) > 0 or len(kwargs) > 0:
+            raise RuntimeError("Don't call pyarrow.Array directly, use "
+                               "pyarrow.array instead")
+
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
 
-    def __richcmp__(Array self, object other, int op):
+    def __eq__(self, other):
         raise NotImplementedError('Comparisons with pyarrow.Array are not '
                                   'implemented')
 
@@ -1012,6 +1024,30 @@ cdef class DictionaryArray(Array):
 
 
 cdef class StructArray(Array):
+
+    def flatten(self, MemoryPool memory_pool=None):
+        """
+        Flatten this StructArray, returning one individual array for each
+        field in the struct.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : List[Array]
+        """
+        cdef:
+            vector[shared_ptr[CArray]] arrays
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            CStructArray* sarr = <CStructArray*> self.ap
+
+        with nogil:
+            check_status(sarr.Flatten(pool, &arrays))
+
+        return [pyarrow_wrap_array(arr) for arr in arrays]
 
     @staticmethod
     def from_arrays(arrays, names=None):

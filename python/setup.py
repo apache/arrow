@@ -42,8 +42,8 @@ from distutils import sysconfig
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.19.1':
-    raise Exception('Please upgrade to Cython 0.19.1 or newer')
+if Cython.__version__ < '0.27':
+    raise Exception('Please upgrade to Cython 0.27 or newer')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -447,10 +447,11 @@ class BinaryDistribution(Distribution):
         return True
 
 
-install_requires = ['numpy >= 1.10', 'six >= 1.0.0']
-
-if sys.version_info.major == 2:
-    install_requires.append('futures')
+install_requires = (
+    'numpy >= 1.10',
+    'six >= 1.0.0',
+    'futures;python_version<"3.2"'
+)
 
 
 def parse_version(root):
@@ -491,7 +492,7 @@ setup(
         ]
     },
     use_scm_version={"root": "..", "relative_to": __file__, "parse": parse_version},
-    setup_requires=['setuptools_scm', 'cython >= 0.23'] + setup_requires,
+    setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas'],
     description="Python library for Apache Arrow",
@@ -500,7 +501,6 @@ setup(
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
         ],

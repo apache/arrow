@@ -39,22 +39,9 @@
 #include <functional>
 #include <limits>
 
+#include <arrow/util/macros.h>
 #include <arrow/util/variant/recursive_wrapper.h>
 #include <arrow/util/variant/variant_visitor.h>
-
-// clang-format off
-// [[deprecated]] is only available in C++14, use this for the time being
-#if __cplusplus <= 201103L
-# ifdef __GNUC__
-#  define ARROW_VARIANT_DEPRECATED __attribute__((deprecated))
-# elif defined(_MSC_VER)
-#  define ARROW_VARIANT_DEPRECATED __declspec(deprecated)
-# else
-#  define ARROW_VARIANT_DEPRECATED
-# endif
-#else
-#  define ARROW_VARIANT_DEPRECATED [[deprecated]]
-#endif
 
 
 #ifdef _MSC_VER
@@ -867,7 +854,8 @@ public:
 
     // This function is deprecated because it returns an internal index field.
     // Use which() instead.
-    ARROW_VARIANT_DEPRECATED VARIANT_INLINE type_index_t get_type_index() const
+    ARROW_DEPRECATED("Use which() instead")
+    VARIANT_INLINE type_index_t get_type_index() const
     {
         return type_index;
     }
