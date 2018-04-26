@@ -180,6 +180,7 @@ class TestScalars(unittest.TestCase):
 
     def test_dictionary(self):
         colors = ['red', 'green', 'blue']
+        colors_dict = {'red': 0, 'green': 1, 'blue': 2}
         values = pd.Series(colors * 4)
 
         categorical = pd.Categorical(values, categories=colors)
@@ -188,6 +189,8 @@ class TestScalars(unittest.TestCase):
                                            categorical.categories)
         for i, c in enumerate(values):
             assert v[i].as_py() == c
+            assert v[i].dictionary_value == c
+            assert v[i].index_value == colors_dict[c]
 
     def test_int_hash(self):
         # ARROW-640

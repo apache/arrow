@@ -402,6 +402,29 @@ cdef class StructValue(ArrayValue):
             zip(child_names, wrapped_arrays)
         }
 
+cdef class DictionaryValue(ArrayValue):
+
+    def as_py(self):
+        return self.dictionary_value.as_py()
+
+    property index_value:
+
+        def __get__(self):
+            cdef CDictionaryArray* darr
+
+            darr = <CDictionaryArray*>(self.sp_array.get())
+            indices = pyarrow_wrap_array(darr.indices())
+            return indices[self.index]
+
+    property dictionary_value:
+
+        def __get__(self):
+            cdef CDictionaryArray* darr
+
+            darr = <CDictionaryArray*>(self.sp_array.get())
+            dictionary = pyarrow_wrap_array(darr.dictionary())
+            return dictionary[self.index_value.as_py()]
+
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanValue,
@@ -428,6 +451,7 @@ cdef dict _scalar_classes = {
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
     _Type_DECIMAL: DecimalValue,
     _Type_STRUCT: StructValue,
+    _Type_DICTIONARY: DictionaryValue,
 }
 
 
