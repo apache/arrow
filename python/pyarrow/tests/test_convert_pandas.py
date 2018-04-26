@@ -859,7 +859,7 @@ class TestConvertDateTimeLikeTypes(object):
         ])
 
         expected_msg = 'Timestamp value had non-zero intraday milliseconds'
-        with pytest.raises(pa.ArrowInvalid, msg=expected_msg):
+        with pytest.raises(pa.ArrowInvalid, match=expected_msg):
             pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
     def test_date_infer(self):

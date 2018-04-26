@@ -199,14 +199,27 @@ def test_types_hashable():
     for i, type_ in enumerate(MANY_TYPES):
         assert hash(type_) == hash(type_)
         in_dict[type_] = i
-        assert in_dict[type_] == i
     assert len(in_dict) == len(MANY_TYPES)
+    for i, type_ in enumerate(MANY_TYPES):
+        assert in_dict[type_] == i
 
 
 def test_types_picklable():
     for ty in MANY_TYPES:
         data = pickle.dumps(ty)
         assert pickle.loads(data) == ty
+
+
+def test_fields_hashable():
+    in_dict = {}
+    fields = [pa.field('a', pa.int64()),
+              pa.field('a', pa.int32()),
+              pa.field('b', pa.int32())]
+    for i, field in enumerate(fields):
+        in_dict[field] = i
+    assert len(in_dict) == len(fields)
+    for i, field in enumerate(fields):
+        assert in_dict[field] == i
 
 
 @pytest.mark.parametrize('t,check_func', [
