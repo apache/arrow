@@ -64,7 +64,7 @@ This argument configuration also applies to `clean` and `test` scripts.
 
 * `npm run deploy`
 
-Uses [learna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
+Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
 
 # Updating the Arrow format flatbuffers generated code
 
