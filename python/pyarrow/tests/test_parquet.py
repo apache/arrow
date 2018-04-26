@@ -1022,48 +1022,47 @@ def test_read_partitioned_directory(tmpdir):
 
 
 @parquet
-class TestParquetFilter:
+def test_equivalency(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
 
-    def test_equivalency(tmpdir):
-        fs = LocalFileSystem.get_instance()
-        base_path = str(tmpdir)
+    import pyarrow.parquet as pq
 
-        import pyarrow.parquet as pq
+    integer_keys = [0, 1]
+    string_keys = ['a', 'b', 'c']
+    boolean_keys = [True, False]
+    partition_spec = [
+        ['integer', integer_keys],
+        ['string', string_keys],
+        ['boolean', boolean_keys]
+    ]
 
-        integer_keys = [0, 1]
-        string_keys = ['a', 'b', 'c']
-        boolean_keys = [True, False]
-        partition_spec = [
-            ['integer', integer_keys],
-            ['string', string_keys],
-            ['boolean', boolean_keys]
-        ]
+    df = pd.DataFrame({
+        'integer': np.array(integer_keys, dtype='i4').repeat(15),
+        'string': np.tile(np.tile(np.array(string_keys,
+                                            dtype=object
+                                            ), 5), 2),
+        'boolean': np.tile(np.tile(np.array(boolean_keys,
+                                            dtype='bool'
+                                            ), 5), 3),
+    }, columns=['integer', 'string', 'boolean'])
 
-        df = pd.DataFrame({
-            'integer': np.array(integer_keys, dtype='i4').repeat(15),
-            'string': np.tile(np.tile(np.array(string_keys,
-                                               dtype=object
-                                               ), 5), 2),
-            'boolean': np.tile(np.tile(np.array(boolean_keys,
-                                                dtype='bool'
-                                                ), 5), 3),
-        }, columns=['integer', 'string', 'boolean'])
+    _generate_partition_directories(fs, base_path, partition_spec, df)
 
-        _generate_partition_directories(fs, base_path, partition_spec, df)
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[('integer', '=', 1), ('string', '!=', 'b'),
+                    ('boolean', '==', True)]
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas()
+                    .reset_index(drop=True))
 
-        dataset = pq.ParquetDataset(
-            base_path, filesystem=fs,
-            filters=[('integer', '=', 1), ('string', '!=', 'b'),
-                     ('boolean', '==', True)]
-        )
-        table = dataset.read()
-        result_df = (table.to_pandas()
-                     .reset_index(drop=True))
+    assert 0 not in result_df['integer'].values
+    assert 'b' not in result_df['string'].values
+    assert False not in result_df['boolean'].values
 
-        assert 0 not in result_df['integer'].values
-        assert 'b' not in result_df['string'].values
-        assert False not in result_df['boolean'].values
-
+    @parquet 
     def test_cutoff_exclusive_integer(tmpdir):
         fs = LocalFileSystem.get_instance()
         base_path = str(tmpdir)
@@ -1092,92 +1091,94 @@ class TestParquetFilter:
         )
         table = dataset.read()
         result_df = (table.to_pandas()
-                     .sort_values(by='index')
-                     .reset_index(drop=True))
+                        .sort_values(by='index')
+                        .reset_index(drop=True))
 
         result_list = [x for x in map(int, result_df['integers'].values)]
         assert result_list == [2, 3]
 
-    @pytest.mark.xfail(
-        raises=TypeError,
-        reason='Loss of type information in creation of categoricals.'
+@parquet
+@pytest.mark.xfail(
+    raises=TypeError,
+    reason='Loss of type information in creation of categoricals.'
+)
+def test_cutoff_exclusive_datetime(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    import pyarrow.parquet as pq
+
+    date_keys = [
+        datetime.date(2018, 4, 9),
+        datetime.date(2018, 4, 10),
+        datetime.date(2018, 4, 11),
+        datetime.date(2018, 4, 12),
+        datetime.date(2018, 4, 13)
+    ]
+    partition_spec = [
+        ['dates', date_keys]
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'dates': np.array(date_keys, dtype='datetime64'),
+    }, columns=['index', 'dates'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[
+            ('dates', '<', "2018-04-12"),
+            ('dates', '>', "2018-04-10")
+        ]
     )
-    def test_cutoff_exclusive_datetime(tmpdir):
-        fs = LocalFileSystem.get_instance()
-        base_path = str(tmpdir)
+    table = dataset.read()
+    result_df = (table.to_pandas()
+                    .sort_values(by='index')
+                    .reset_index(drop=True))
 
-        import pyarrow.parquet as pq
+    expected = pd.Categorical(
+        np.array([datetime.date(2018, 4, 11)], dtype='datetime64'),
+        categories=np.array(date_keys, dtype='datetime64'))
 
-        date_keys = [
-            datetime.date(2018, 4, 9),
-            datetime.date(2018, 4, 10),
-            datetime.date(2018, 4, 11),
-            datetime.date(2018, 4, 12),
-            datetime.date(2018, 4, 13)
+    assert result_df['dates'].values == expected
+
+@parquet
+def test_inclusive_integer(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    import pyarrow.parquet as pq
+
+    integer_keys = [0, 1, 2, 3, 4]
+    partition_spec = [
+        ['integers', integer_keys],
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'integers': np.array(integer_keys, dtype='i4'),
+    }, columns=['index', 'integers'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[
+            ('integers', '<=', 3),
+            ('integers', '>=', 2),
         ]
-        partition_spec = [
-            ['dates', date_keys]
-        ]
-        N = 5
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas()
+                    .sort_values(by='index')
+                    .reset_index(drop=True))
 
-        df = pd.DataFrame({
-            'index': np.arange(N),
-            'dates': np.array(date_keys, dtype='datetime64'),
-        }, columns=['index', 'dates'])
-
-        _generate_partition_directories(fs, base_path, partition_spec, df)
-
-        dataset = pq.ParquetDataset(
-            base_path, filesystem=fs,
-            filters=[
-                ('dates', '<', "2018-04-12"),
-                ('dates', '>', "2018-04-10")
-            ]
-        )
-        table = dataset.read()
-        result_df = (table.to_pandas()
-                     .sort_values(by='index')
-                     .reset_index(drop=True))
-
-        expected = pd.Categorical(
-            np.array([datetime.date(2018, 4, 11)], dtype='datetime64'),
-            categories=np.array(date_keys, dtype='datetime64'))
-
-        assert result_df['dates'].values == expected
-
-    def test_inclusive_integer(tmpdir):
-        fs = LocalFileSystem.get_instance()
-        base_path = str(tmpdir)
-
-        import pyarrow.parquet as pq
-
-        integer_keys = [0, 1, 2, 3, 4]
-        partition_spec = [
-            ['integers', integer_keys],
-        ]
-        N = 5
-
-        df = pd.DataFrame({
-            'index': np.arange(N),
-            'integers': np.array(integer_keys, dtype='i4'),
-        }, columns=['index', 'integers'])
-
-        _generate_partition_directories(fs, base_path, partition_spec, df)
-
-        dataset = pq.ParquetDataset(
-            base_path, filesystem=fs,
-            filters=[
-                ('integers', '<=', 3),
-                ('integers', '>=', 2),
-            ]
-        )
-        table = dataset.read()
-        result_df = (table.to_pandas()
-                     .sort_values(by='index')
-                     .reset_index(drop=True))
-
-        result_list = [int(x) for x in map(int, result_df['integers'].values)]
-        assert result_list == [2, 3]
+    result_list = [int(x) for x in map(int, result_df['integers'].values)]
+    assert result_list == [2, 3]
 
 
 @pytest.yield_fixture
