@@ -1039,12 +1039,9 @@ def test_equivalency(tmpdir):
 
     df = pd.DataFrame({
         'integer': np.array(integer_keys, dtype='i4').repeat(15),
-        'string': np.tile(np.tile(np.array(string_keys,
-                                            dtype=object
-                                            ), 5), 2),
-        'boolean': np.tile(np.tile(np.array(boolean_keys,
-                                            dtype='bool'
-                                            ), 5), 3),
+        'string': np.tile(np.tile(np.array(string_keys, dtype=object), 5), 2),
+        'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5),
+                           3),
     }, columns=['integer', 'string', 'boolean'])
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
@@ -1052,17 +1049,16 @@ def test_equivalency(tmpdir):
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
-                    ('boolean', '==', True)]
+                 ('boolean', '==', True)]
     )
     table = dataset.read()
-    result_df = (table.to_pandas()
-                    .reset_index(drop=True))
+    result_df = (table.to_pandas().reset_index(drop=True))
 
     assert 0 not in result_df['integer'].values
     assert 'b' not in result_df['string'].values
     assert False not in result_df['boolean'].values
 
-    @parquet 
+    @parquet
     def test_cutoff_exclusive_integer(tmpdir):
         fs = LocalFileSystem.get_instance()
         base_path = str(tmpdir)
@@ -1091,11 +1087,12 @@ def test_equivalency(tmpdir):
         )
         table = dataset.read()
         result_df = (table.to_pandas()
-                        .sort_values(by='index')
-                        .reset_index(drop=True))
+                          .sort_values(by='index')
+                          .reset_index(drop=True))
 
         result_list = [x for x in map(int, result_df['integers'].values)]
         assert result_list == [2, 3]
+
 
 @parquet
 @pytest.mark.xfail(
@@ -1136,14 +1133,15 @@ def test_cutoff_exclusive_datetime(tmpdir):
     )
     table = dataset.read()
     result_df = (table.to_pandas()
-                    .sort_values(by='index')
-                    .reset_index(drop=True))
+                      .sort_values(by='index')
+                      .reset_index(drop=True))
 
     expected = pd.Categorical(
         np.array([datetime.date(2018, 4, 11)], dtype='datetime64'),
         categories=np.array(date_keys, dtype='datetime64'))
 
     assert result_df['dates'].values == expected
+
 
 @parquet
 def test_inclusive_integer(tmpdir):
@@ -1174,8 +1172,8 @@ def test_inclusive_integer(tmpdir):
     )
     table = dataset.read()
     result_df = (table.to_pandas()
-                    .sort_values(by='index')
-                    .reset_index(drop=True))
+                      .sort_values(by='index')
+                      .reset_index(drop=True))
 
     result_list = [int(x) for x in map(int, result_df['integers'].values)]
     assert result_list == [2, 3]
