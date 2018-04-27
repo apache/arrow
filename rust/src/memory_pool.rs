@@ -22,8 +22,6 @@ use std::mem;
 use super::error::ArrowError;
 use super::memory::{allocate_aligned, free_aligned};
 
-const ALIGNMENT: usize = 64;
-
 /// Memory pool for allocating memory. It's also responsible for tracking memory usage.
 pub trait MemoryPool {
     /// Allocate memory.
@@ -77,6 +75,7 @@ impl MemoryPool for LibcMemoryPool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    const ALIGNMENT: usize = 64;
 
     #[test]
     fn test_allocate() {
