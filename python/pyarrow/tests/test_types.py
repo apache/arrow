@@ -210,6 +210,11 @@ def test_types_picklable():
         assert pickle.loads(data) == ty
 
 
+def test_dictionary_type():
+    ty = pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+    assert ty.index_type == pa.int32()
+
+
 def test_fields_hashable():
     in_dict = {}
     fields = [pa.field('a', pa.int64()),
