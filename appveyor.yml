@@ -33,7 +33,6 @@ cache:
 
 environment:
   global:
-    BUILD_SCRIPT: "CPP_MSVC"
     USE_CLCACHE: true
 
   matrix:
@@ -42,7 +41,6 @@ environment:
     - JOB: "Rust_Stable"
       RUST_VERSION: stable
       TARGET: x86_64-pc-windows-msvc
-      BUILD_SCRIPT: "Rust_Stable"
       USE_CLCACHE: false
     - JOB: "Build"
       GENERATOR: Ninja
