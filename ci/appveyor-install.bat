@@ -15,8 +15,17 @@
 @rem specific language governing permissions and limitations
 @rem under the License.
 
-cd rust
-cargo build --target %TARGET% || exit /B
-cargo build --target %TARGET% --release || exit /B
-cargo test --target %TARGET% || exit /B
-cargo test --target %TARGET% --release || exit /B
+
+if NOT "%JOB%"=="Rust_Stable" (
+  set MINICONDA=C:\Miniconda36-x64
+  set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
+  call appveyor-setup.bat
+)
+
+if "%JOB%"=="Rust_Stable" (
+  curl -sSf -o rustup-init.exe https://win.rustup.rs/
+  rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
+  set PATH=%PATH%;C:\Users\Appveyor\.cargo\bin
+  rustc -Vv
+  cargo -V
+)
