@@ -33,7 +33,12 @@ pub trait MemoryPool {
     /// Reallocate memory.
     /// If the implementation doesn't support reallocating aligned memory, it allocates new memory
     /// and copied old memory to it.
-    fn reallocate(&self, old_size: usize, new_size: usize, pointer: *const u8) -> Result<*const u8, ArrowError>;
+    fn reallocate(
+        &self,
+        old_size: usize,
+        new_size: usize,
+        pointer: *const u8,
+    ) -> Result<*const u8, ArrowError>;
 
     /// Free memory.
     fn free(&self, ptr: *const u8);
@@ -48,7 +53,12 @@ impl MemoryPool for LibcMemoryPool {
         allocate_aligned(size as i64)
     }
 
-    fn reallocate(&self, old_size: usize, new_size: usize, pointer: *const u8) -> Result<*const u8, ArrowError> {
+    fn reallocate(
+        &self,
+        old_size: usize,
+        new_size: usize,
+        pointer: *const u8,
+    ) -> Result<*const u8, ArrowError> {
         unsafe {
             let old_src = mem::transmute::<*const u8, *mut libc::c_void>(pointer);
             let result = self.allocate(new_size)?;
