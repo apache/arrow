@@ -15,17 +15,16 @@
 @rem specific language governing permissions and limitations
 @rem under the License.
 
+@echo on
 
-if NOT "%JOB%"=="Rust_Stable" (
-  set MINICONDA=C:\Miniconda36-x64
-  set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
-  call appveyor-setup.bat
-)
-
-if "%JOB%"=="Rust_Stable" (
-  curl -sSf -o rustup-init.exe https://win.rustup.rs/
-  rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
-  set PATH=%PATH%;C:\Users\Appveyor\.cargo\bin
-  rustc -Vv
-  cargo -V
+if "%JOB%" == "Rust_Stable" (
+    curl -sSf -o rustup-init.exe https://win.rustup.rs/
+    rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
+    set PATH=%PATH%;C:\Users\Appveyor\.cargo\bin
+    rustc -Vv
+    cargo -V
+) else (
+    set MINICONDA=C:\Miniconda36-x64
+    set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
+    call appveyor-setup.bat
 )

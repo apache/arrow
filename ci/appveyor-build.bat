@@ -15,25 +15,20 @@
 @rem specific language governing permissions and limitations
 @rem under the License.
 
-if "%JOB%"=="Rust_Stable" (
-  cd rust
-  cargo build --target %TARGET% || exit /B
-  cargo build --target %TARGET% --release || exit /B
-  cargo test --target %TARGET% || exit /B
-  cargo test --target %TARGET% --release || exit /B
-)
+@echo on
 
-if NOT "%JOB%"=="Rust_Stable" (
-
-  git config core.symlinks true
-  git reset --hard
-
-  if "%JOB%"=="Cmake_Script_Tests" (
-    call test-cmake-build-script.bat
-  )
-
-  if NOT "%JOB%"=="Cmake_Script_Tests"
-    call cpp-python-msvc-build.bat
-  )
-
+if "%JOB%" == "Rust_Stable" (
+    cd rust
+    cargo build --target %TARGET% || exit /B
+    cargo build --target %TARGET% --release || exit /B
+    cargo test --target %TARGET% || exit /B
+    cargo test --target %TARGET% --release || exit /B
+) else (
+    git config core.symlinks true
+    git reset --hard
+    if "%JOB%"=="Cmake_Script_Tests" (
+        call test-cmake-build-script.bat
+    ) else (
+        call cpp-python-msvc-build.bat
+    )
 )
