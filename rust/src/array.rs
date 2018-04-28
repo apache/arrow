@@ -37,6 +37,17 @@ pub enum ArrayData {
     UInt16(Buffer<u16>),
     UInt32(Buffer<u32>),
     UInt64(Buffer<u64>),
+    ListBoolean(List<bool>),
+    ListFloat32(List<f32>),
+    ListFloat64(List<f64>),
+    ListUInt8(List<u8>),
+    ListUInt16(List<u16>),
+    ListUInt32(List<u32>),
+    ListUInt64(List<u64>),
+    ListInt8(List<i8>),
+    ListInt16(List<i16>),
+    ListInt32(List<i32>),
+    ListInt64(List<i64>),
     Utf8(List<u8>),
     Struct(Vec<Rc<Array>>),
 }
@@ -67,6 +78,28 @@ arraydata_from_primitive!(u8, UInt8);
 arraydata_from_primitive!(u16, UInt16);
 arraydata_from_primitive!(u32, UInt32);
 arraydata_from_primitive!(u64, UInt64);
+
+macro_rules! arraydata_from_list {
+    ($DT:ty, $AT:ident) => {
+        impl From<List<$DT>> for ArrayData {
+            fn from(v: List<$DT>) -> Self {
+                ArrayData::$AT(v)
+            }
+        }
+    };
+}
+
+arraydata_from_list!(bool, ListBoolean);
+arraydata_from_list!(f32, ListFloat32);
+arraydata_from_list!(f64, ListFloat64);
+arraydata_from_list!(i8, ListInt8);
+arraydata_from_list!(i16, ListInt16);
+arraydata_from_list!(i32, ListInt32);
+arraydata_from_list!(i64, ListInt64);
+arraydata_from_list!(u8, ListUInt8);
+arraydata_from_list!(u16, ListUInt16);
+arraydata_from_list!(u32, ListUInt32);
+arraydata_from_list!(u64, ListUInt64);
 
 pub struct Array {
     /// number of elements in the array
@@ -125,6 +158,16 @@ macro_rules! array_from_primitive {
         }
         impl From<Buffer<$DT>> for Array {
             fn from(v: Buffer<$DT>) -> Self {
+                Array {
+                    len: v.len() as i32,
+                    null_count: 0,
+                    validity_bitmap: None,
+                    data: ArrayData::from(v),
+                }
+            }
+        }
+        impl From<List<$DT>> for Array {
+            fn from(v: List<$DT>) -> Self {
                 Array {
                     len: v.len() as i32,
                     null_count: 0,
@@ -218,6 +261,7 @@ impl From<Vec<Rc<Array>>> for Array {
 #[cfg(test)]
 mod tests {
     use super::super::datatypes::*;
+    use super::super::list_builder::*;
     use super::*;
 
     #[test]
@@ -306,6 +350,15 @@ mod tests {
         let a = Rc::new(Array::from(vec![1, 2, 3, 4, 5]));
         let b = Rc::new(Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]));
         let _ = Rc::new(Array::from(vec![a, b]));
+    }
+
+    #[test]
+    fn test_list_i32() {
+        let mut b: ListBuilder<i32> = ListBuilder::new();
+        b.push(vec![1,2,3,4,5].as_slice());
+        b.push(vec![5,4,3,2,1].as_slice());
+        let array = Array::from(b.finish());
+        assert_eq!(2, array.len());
     }
 
 }
