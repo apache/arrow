@@ -16,15 +16,16 @@
 // under the License.
 
 use super::builder::*;
+use super::datatypes::*;
 use super::list::List;
 
 /// Builder for List<T>
-pub struct ListBuilder<T> {
+pub struct ListBuilder<T> where T: ArrowPrimitiveType {
     data: Builder<T>,
     offsets: Builder<i32>,
 }
 
-impl<T> ListBuilder<T> {
+impl<T> ListBuilder<T> where T: ArrowPrimitiveType {
     /// Create a ListBuilder with a default capacity
     pub fn new() -> Self {
         ListBuilder::with_capacity(64)
