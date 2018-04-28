@@ -32,6 +32,8 @@ pub struct Buffer<T> {
 }
 
 impl<T> Buffer<T> {
+
+    /// create a buffer from an existing region of memory (must already be byte-aligned)
     pub fn from_raw_parts(data: *const T, len: i32) -> Self {
         Buffer { data, len }
     }
@@ -41,24 +43,27 @@ impl<T> Buffer<T> {
         self.len
     }
 
+    /// Get a pointer to the data contained by the buffer
     pub fn data(&self) -> *const T {
         self.data
     }
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
         assert!(start <= end);
-        assert!(start <= self.len as usize);
+        assert!(start < self.len as usize);
         assert!(end <= self.len as usize);
         unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
 
     /// Get a reference to the value at the specified offset
     pub fn get(&self, i: usize) -> &T {
+        assert!(i<self.len as usize);
         unsafe { &(*self.data.offset(i as isize)) }
     }
 
-    /// Deprecated method (used by Bitmap)
+    /// Write to a slot in the buffer
     pub fn set(&mut self, i: usize, v: T) {
+        assert!(i<self.len as usize);
         unsafe {
             let p = mem::transmute::<*const T, *mut T>(self.data);
             *p.offset(i as isize) = v;
@@ -75,6 +80,7 @@ impl<T> Buffer<T> {
     }
 }
 
+/// Release the underlying memory when the Buffer goes out of scope
 impl<T> Drop for Buffer<T> {
     fn drop(&mut self) {
         unsafe {
@@ -99,14 +105,16 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.len as isize {
+            let value = unsafe { *self.data.offset(self.index) };
             self.index += 1;
-            Some(unsafe { *self.data.offset(self.index - 1) })
+            Some(value)
         } else {
             None
         }
     }
 }
 
+/// Copy the memory from a Vec<T> into a newly allocated Buffer<T>
 macro_rules! array_from_primitive {
     ($DT:ty) => {
         impl From<Vec<$DT>> for Buffer<$DT> {
@@ -159,7 +167,7 @@ impl From<Bytes> for Buffer<u8> {
                     mem::transmute::<*const u8, *const libc::c_void>(bytes.as_ptr()),
                     len * sz,
                 );
-                mem::transmute::<*mut libc::c_void, *const u8>(dst)
+                mem::transmute::<*mut libc::c_void, *mut u8>(dst)
             },
         }
     }
@@ -236,5 +244,33 @@ mod tests {
             .map(|(a, b)| a * b)
             .collect::<Vec<i32>>();
         assert_eq!(c, vec![5, 8, 9, 8, 5]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_get_out_of_bounds() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        a.get(123); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn slice_start_out_of_bounds() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        a.slice(5, 5); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn slice_end_out_of_bounds() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        a.slice(0, 6); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn slice_end_before_start() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        a.slice(3, 2); // should panic
     }
 }
