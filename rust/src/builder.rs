@@ -214,4 +214,24 @@ mod tests {
         assert_eq!("Hello, World!", s);
     }
 
+    #[test]
+    #[should_panic]
+    fn test_slice_start_out_of_bounds() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        b.slice_mut(2, 2); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_slice_end_out_of_bounds() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        b.slice_mut(0, 3); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_slice_end_before_start() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        b.slice_mut(1, 0); // should panic
+    }
 }
