@@ -35,6 +35,4 @@ if [ ! -d parquet-cpp ]; then
     exit 1
 fi
 
-GID=$(id -g ${USERNAME})
-docker-compose -f arrow/dev/docker-compose.yml run \
-               --rm -u "${UID}:${GID}" "${1}"
+docker-compose -f arrow/dev/docker-compose.yml run --rm "${@}"
