@@ -108,42 +108,26 @@ where
     }
 }
 
-macro_rules! array_from_primitive {
-    ($DT:ty) => {
-        impl From<Vec<$DT>> for Buffer<$DT> {
-            fn from(v: Vec<$DT>) -> Self {
-                // allocate aligned memory buffer
-                let len = v.len();
-                let sz = mem::size_of::<$DT>();
-                let buffer = allocate_aligned((len * sz) as i64).unwrap();
-                Buffer {
-                    len: len as i32,
-                    data: unsafe {
-                        let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
-                        libc::memcpy(
-                            dst,
-                            mem::transmute::<*const $DT, *const libc::c_void>(v.as_ptr()),
-                            len * sz,
-                        );
-                        mem::transmute::<*mut libc::c_void, *const $DT>(dst)
-                    },
-                }
-            }
+impl<T> From<Vec<T>> for Buffer<T> where T: ArrowPrimitiveType {
+    fn from(v: Vec<T>) -> Self {
+        // allocate aligned memory buffer
+        let len = v.len();
+        let sz = mem::size_of::<T>();
+        let buffer = allocate_aligned((len * sz) as i64).unwrap();
+        Buffer {
+            len: len as i32,
+            data: unsafe {
+                let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
+                libc::memcpy(
+                    dst,
+                    mem::transmute::<*const T, *const libc::c_void>(v.as_ptr()),
+                    len * sz,
+                );
+                mem::transmute::<*mut libc::c_void, *const T>(dst)
+            },
         }
-    };
+    }
 }
-
-array_from_primitive!(bool);
-array_from_primitive!(f32);
-array_from_primitive!(f64);
-array_from_primitive!(u8);
-array_from_primitive!(u16);
-array_from_primitive!(u32);
-array_from_primitive!(u64);
-array_from_primitive!(i8);
-array_from_primitive!(i16);
-array_from_primitive!(i32);
-array_from_primitive!(i64);
 
 impl From<Bytes> for Buffer<u8> {
     fn from(bytes: Bytes) -> Self {
