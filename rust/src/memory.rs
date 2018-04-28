@@ -26,6 +26,7 @@ const ALIGNMENT: usize = 64;
 #[link(name = "msvcrt")]
 extern "C" {
     fn _aligned_malloc(size: libc::size_t, alignment: libc::size_t) -> libc::size_t;
+    fn _aligned_free(prt: *const u8);
 }
 
 #[cfg(windows)]
@@ -50,6 +51,20 @@ pub fn allocate_aligned(size: i64) -> Result<*const u8, ArrowError> {
                 "Failed to allocate memory".to_string(),
             )),
         }
+    }
+}
+
+#[cfg(windows)]
+pub fn free_aligned(p: *const u8) {
+    unsafe {
+        _aligned_free(p);
+    }
+}
+
+#[cfg(not(windows))]
+pub fn free_aligned(p: *const u8) {
+    unsafe {
+        libc::free(mem::transmute::<*const u8, *mut libc::c_void>(p));
     }
 }
 

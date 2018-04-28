@@ -87,7 +87,7 @@ matrix:
     before_script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     # If either C++ or Python changed, we must install the C++ libraries
-    - travis_wait 50 $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
@@ -99,10 +99,10 @@ matrix:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest; fi
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
-  # Java w/ OpenJDK 7
+  # Java w/ OpenJDK 8
   - language: java
     os: linux
-    jdk: openjdk7
+    jdk: openjdk8
     before_script:
     - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh

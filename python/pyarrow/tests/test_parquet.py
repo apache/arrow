@@ -56,6 +56,39 @@ def _read_table(*args, **kwargs):
     return pq.read_table(*args, **kwargs)
 
 
+def _roundtrip_table(table, **params):
+    buf = io.BytesIO()
+    _write_table(table, buf, **params)
+    buf.seek(0)
+
+    return _read_table(buf)
+
+
+def _check_roundtrip(table, expected=None, **params):
+    if expected is None:
+        expected = table
+
+    result = _roundtrip_table(table, **params)
+    if not result.equals(expected):
+        print(expected)
+        print(result)
+        assert result.equals(expected)
+
+    result = _roundtrip_table(result, **params)
+    assert result.equals(expected)
+
+
+def _roundtrip_pandas_dataframe(df, write_kwargs):
+    table = pa.Table.from_pandas(df)
+
+    buf = io.BytesIO()
+    _write_table(table, buf, **write_kwargs)
+
+    buf.seek(0)
+    table1 = _read_table(buf)
+    return table1.to_pandas()
+
+
 @parquet
 def test_single_pylist_column_roundtrip(tmpdir):
     for dtype in [int, float]:
@@ -76,7 +109,7 @@ def test_single_pylist_column_roundtrip(tmpdir):
 
 def alltypes_sample(size=10000, seed=0):
     np.random.seed(seed)
-    df = pd.DataFrame({
+    arrays = {
         'uint8': np.arange(size, dtype=np.uint8),
         'uint16': np.arange(size, dtype=np.uint16),
         'uint32': np.arange(size, dtype=np.uint32),
@@ -93,10 +126,12 @@ def alltypes_sample(size=10000, seed=0):
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
                               dtype='datetime64[ms]'),
         'str': [str(x) for x in range(size)],
+        'empty_str': [''] * size,
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
-        'empty_str': [''] * size
-    })
-    return df
+        'null': [None] * size,
+        'null_list': [None] * 2 + [[None] * (x % 4) for x in range(size - 2)],
+    }
+    return pd.DataFrame(arrays)
 
 
 @parquet
@@ -134,6 +169,23 @@ def test_chunked_table_write(tmpdir):
     df, _ = dataframe_with_lists()
     batch = pa.RecordBatch.from_pandas(df)
     table = pa.Table.from_batches([batch] * 3)
+    _check_roundtrip(table, version='2.0')
+
+
+@parquet
+def test_empty_table_roundtrip(tmpdir):
+    df = alltypes_sample(size=10)
+    # The nanosecond->us conversion is a nuisance, so we just avoid it here
+    del df['datetime']
+
+    # Create a non-empty table to infer the types correctly, then slice to 0
+    table = pa.Table.from_pandas(df)
+    table = pa.Table.from_arrays(
+        [col.data.chunk(0)[:0] for col in table.itercolumns()],
+        names=table.schema.names)
+
+    assert table.schema.field_by_name('null').type == pa.null()
+    assert table.schema.field_by_name('null_list').type == pa.list_(pa.null())
     _check_roundtrip(table, version='2.0')
 
 
@@ -765,17 +817,6 @@ def test_sanitized_spark_field_names():
     assert result.schema[0].name == expected_name
 
 
-def _roundtrip_pandas_dataframe(df, write_kwargs):
-    table = pa.Table.from_pandas(df)
-
-    buf = io.BytesIO()
-    _write_table(table, buf, **write_kwargs)
-
-    buf.seek(0)
-    table1 = _read_table(buf)
-    return table1.to_pandas()
-
-
 @parquet
 def test_spark_flavor_preserves_pandas_metadata():
     df = _test_dataframe(size=100)
@@ -796,25 +837,6 @@ def test_fixed_size_binary():
     table = pa.Table.from_arrays([a0],
                                  ['binary[10]'])
     _check_roundtrip(table)
-
-
-def _roundtrip_table(table, **params):
-    buf = io.BytesIO()
-    _write_table(table, buf, **params)
-    buf.seek(0)
-
-    return _read_table(buf)
-
-
-def _check_roundtrip(table, expected=None, **params):
-    if expected is None:
-        expected = table
-
-    result = _roundtrip_table(table, **params)
-    assert result.equals(expected)
-
-    result = _roundtrip_table(result, **params)
-    assert result.equals(expected)
 
 
 @parquet

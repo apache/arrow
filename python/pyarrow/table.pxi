@@ -726,7 +726,7 @@ cdef class RecordBatch:
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
-                    nthreads=None):
+                    nthreads=None, columns=None):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
 
@@ -742,13 +742,15 @@ cdef class RecordBatch:
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
+        columns : list, optional
+           List of column to be converted. If None, use all columns.
 
         Returns
         -------
         pyarrow.RecordBatch
         """
         names, arrays, metadata = pdcompat.dataframe_to_arrays(
-            df, schema, preserve_index, nthreads=nthreads
+            df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
         return cls.from_arrays(arrays, names, metadata)
 
@@ -892,7 +894,7 @@ cdef class Table:
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
-                    nthreads=None):
+                    nthreads=None, columns=None):
         """
         Convert pandas.DataFrame to an Arrow Table
 
@@ -908,6 +910,9 @@ cdef class Table:
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
+        columns : list, optional
+           List of column to be converted. If None, use all columns.
+
 
         Returns
         -------
@@ -929,7 +934,8 @@ cdef class Table:
             df,
             schema=schema,
             preserve_index=preserve_index,
-            nthreads=nthreads
+            nthreads=nthreads,
+            columns=columns
         )
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
@@ -1152,7 +1158,30 @@ cdef class Table:
         self._check_nullptr()
         return pyarrow_wrap_schema(self.table.schema())
 
-    def column(self, int i):
+    def column(self, i):
+        """
+        Select a column by its column name, or numeric index.
+
+        Parameters
+        ----------
+        i : int or string
+
+        Returns
+        -------
+        pyarrow.Column
+        """
+        if isinstance(i, six.string_types):
+            field_index = self.schema.get_field_index(i)
+            if field_index < 0:
+                raise KeyError("Column {} does not exist in table".format(i))
+            else:
+                return self._column(field_index)
+        elif isinstance(i, six.integer_types):
+            return self._column(i)
+        else:
+            raise TypeError("Index must either be string or integer")
+
+    def _column(self, int i):
         """
         Select a column by its numeric index.
 
@@ -1262,6 +1291,30 @@ cdef class Table:
             check_status(self.table.RemoveColumn(i, &c_table))
 
         return pyarrow_wrap_table(c_table)
+
+    def drop(self, columns):
+        """
+        Drop one or more columns and return a new table.
+
+        columns: list of str
+
+        Returns pa.Table
+        """
+        indices = []
+        for col in columns:
+            idx = self.schema.get_field_index(col)
+            if idx == -1:
+                raise KeyError("Column {!r} not found".format(col))
+            indices.append(idx)
+
+        indices.sort()
+        indices.reverse()
+
+        table = self
+        for idx in indices:
+            table = table.remove_column(idx)
+
+        return table
 
 
 def concat_tables(tables):

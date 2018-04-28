@@ -109,20 +109,6 @@ std::string FixedSizeBinaryType::ToString() const {
   return ss.str();
 }
 
-std::string StructType::ToString() const {
-  std::stringstream s;
-  s << "struct<";
-  for (int i = 0; i < this->num_children(); ++i) {
-    if (i > 0) {
-      s << ", ";
-    }
-    std::shared_ptr<Field> field = this->child(i);
-    s << field->name() << ": " << field->type()->ToString();
-  }
-  s << ">";
-  return s.str();
-}
-
 // ----------------------------------------------------------------------
 // Date types
 
@@ -204,6 +190,43 @@ std::string UnionType::ToString() const {
   }
   s << ">";
   return s.str();
+}
+
+// ----------------------------------------------------------------------
+// Struct type
+
+std::string StructType::ToString() const {
+  std::stringstream s;
+  s << "struct<";
+  for (int i = 0; i < this->num_children(); ++i) {
+    if (i > 0) {
+      s << ", ";
+    }
+    std::shared_ptr<Field> field = this->child(i);
+    s << field->name() << ": " << field->type()->ToString();
+  }
+  s << ">";
+  return s.str();
+}
+
+std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
+  int i = GetChildIndex(name);
+  return i == -1 ? nullptr : children_[i];
+}
+
+int StructType::GetChildIndex(const std::string& name) const {
+  if (children_.size() > 0 && name_to_index_.size() == 0) {
+    for (size_t i = 0; i < children_.size(); ++i) {
+      name_to_index_[children_[i]->name()] = static_cast<int>(i);
+    }
+  }
+
+  auto it = name_to_index_.find(name);
+  if (it == name_to_index_.end()) {
+    return -1;
+  } else {
+    return it->second;
+  }
 }
 
 // ----------------------------------------------------------------------

@@ -414,6 +414,9 @@ cdef class Field:
     def __repr__(self):
         return self.__str__()
 
+    def __hash__(self):
+        return hash((self.field.name(), self.type.id))
+
     property nullable:
 
         def __get__(self):

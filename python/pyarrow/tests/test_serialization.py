@@ -592,7 +592,7 @@ def test_serialize_to_components_invalid_cases():
         'data': [buf]
     }
 
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowInvalid):
         pa.deserialize_components(components)
 
     components = {
@@ -601,7 +601,7 @@ def test_serialize_to_components_invalid_cases():
         'data': [buf, buf]
     }
 
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowInvalid):
         pa.deserialize_components(components)
 
 

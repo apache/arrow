@@ -40,11 +40,12 @@ set(ARROW_SRCS
   util/cpu-info.cc
   util/decimal.cc
   util/hash.cc
+  util/io-util.cc
   util/key_value_metadata.cc
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
-  set_property(SOURCE io/file.cc
+  set_property(SOURCE util/io-util.cc
     APPEND_STRING
     PROPERTY COMPILE_FLAGS
     " -Wno-unused-macros ")

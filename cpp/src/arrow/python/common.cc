@@ -98,6 +98,23 @@ Status CheckPyError(StatusCode code) {
 
     std::string message;
     RETURN_NOT_OK(internal::PyObject_StdStringStr(exc_value, &message));
+
+    if (code == StatusCode::UnknownError) {
+      // Try to match the Python exception type with an appropriate Status code
+      if (PyErr_GivenExceptionMatches(exc_type, PyExc_MemoryError)) {
+        code = StatusCode::OutOfMemory;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_KeyError)) {
+        code = StatusCode::KeyError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_TypeError)) {
+        code = StatusCode::TypeError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_ValueError)) {
+        code = StatusCode::Invalid;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_EnvironmentError)) {
+        code = StatusCode::IOError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_NotImplementedError)) {
+        code = StatusCode::NotImplemented;
+      }
+    }
     return Status(code, message);
   }
   return Status::OK();

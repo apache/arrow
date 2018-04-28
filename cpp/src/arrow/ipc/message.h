@@ -97,6 +97,18 @@ class ARROW_EXPORT Message {
   static Status ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
                          std::unique_ptr<Message>* out);
 
+  /// \brief Read message body from position in file, and create Message given
+  /// the Flatbuffer metadata
+  /// \param[in] offset the position in the file where the message body starts.
+  /// \param[in] metadata containing a serialized Message flatbuffer
+  /// \param[in] file the seekable file interface to read from
+  /// \param[out] out the created Message
+  /// \return Status
+  ///
+  /// \note If file supports zero-copy, this is zero-copy
+  static Status ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& metadata,
+                         io::RandomAccessFile* file, std::unique_ptr<Message>* out);
+
   /// \brief Return true if message type and contents are equal
   ///
   /// \param other another message

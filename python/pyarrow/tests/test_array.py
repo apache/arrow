@@ -43,6 +43,12 @@ def test_getitem_NA():
     assert arr[1] is pa.NA
 
 
+def test_constructor_raises():
+    # This could happen by wrong capitalization.
+    with pytest.raises(RuntimeError):
+        pa.Array([1, 2])
+
+
 def test_list_format():
     arr = pa.array([[1], None, [2, 3, None]])
     result = fmt.array_format(arr)
@@ -331,6 +337,25 @@ def test_union_from_sparse():
     result = pa.UnionArray.from_sparse(types, [binary, int64])
 
     assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+
+
+def test_union_array_slice():
+    # ARROW-2314
+    arr = pa.UnionArray.from_sparse(pa.array([0, 0, 1, 1], type=pa.int8()),
+                                    [pa.array(["a", "b", "c", "d"]),
+                                     pa.array([1, 2, 3, 4])])
+    assert arr[1:].to_pylist() == ["b", 3, 4]
+
+    binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
+    int64 = pa.array([1, 2, 3], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+    value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
+
+    arr = pa.UnionArray.from_dense(types, value_offsets, [binary, int64])
+    lst = arr.to_pylist()
+    for i in range(len(arr)):
+        for j in range(i, len(arr)):
+            assert arr[i:j].to_pylist() == lst[i:j]
 
 
 def test_string_from_buffers():
