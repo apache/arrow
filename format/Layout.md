@@ -366,7 +366,7 @@ type metadata, not the physical memory layout.
 A struct array does not have any additional allocated physical storage for its values.
 A struct array must still have an allocated null bitmap, if it has one or more null values.
 
-Physically, a struct type has one child array for each field.
+Physically, a struct type has one child array for each field. Although each child array must be a byte-aligned contiguous memory buffer, there is no requirement that arrays be aligned with each other.
 
 For example, the struct (field names shown here as strings for illustration
 purposes)
