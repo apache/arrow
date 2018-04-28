@@ -90,4 +90,17 @@ mod tests {
         assert_eq!("".as_bytes(), buffer.slice(1));
         assert_eq!("World!".as_bytes(), buffer.slice(2));
     }
+
+    #[test]
+    fn test_list_i32() {
+        let mut b: ListBuilder<i32> = ListBuilder::new();
+        b.push(vec![1,2,3,4,5].as_slice());
+        b.push(vec![5,4,3,2,1].as_slice());
+        let buffer = b.finish();
+
+        assert_eq!(2, buffer.len());
+        assert_eq!(vec![1,2,3,4,5].as_slice(), buffer.slice(0));
+        assert_eq!(vec![5,4,3,2,1].as_slice(), buffer.slice(1));
+    }
+
 }
