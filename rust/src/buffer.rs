@@ -32,7 +32,6 @@ pub struct Buffer<T> {
 }
 
 impl<T> Buffer<T> {
-
     /// create a buffer from an existing region of memory (must already be byte-aligned)
     pub fn from_raw_parts(data: *const T, len: i32) -> Self {
         Buffer { data, len }
@@ -57,13 +56,13 @@ impl<T> Buffer<T> {
 
     /// Get a reference to the value at the specified offset
     pub fn get(&self, i: usize) -> &T {
-        assert!(i<self.len as usize);
+        assert!(i < self.len as usize);
         unsafe { &(*self.data.offset(i as isize)) }
     }
 
     /// Write to a slot in the buffer
     pub fn set(&mut self, i: usize, v: T) {
-        assert!(i<self.len as usize);
+        assert!(i < self.len as usize);
         unsafe {
             let p = mem::transmute::<*const T, *mut T>(self.data);
             *p.offset(i as isize) = v;
