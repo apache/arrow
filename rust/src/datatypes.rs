@@ -17,6 +17,7 @@
 
 use super::error::ArrowError;
 use serde_json::Value;
+use std::any::Any;
 use std::fmt;
 
 /// Arrow data type
@@ -55,10 +56,12 @@ pub trait ArrowType {
 /// Array data type
 pub trait ArrayData : ArrowType {
     fn len(&self) -> usize;
+    fn as_any(& self) -> &Any;
 }
 
+
 /// Primitive type (ints, floats, strings)
-pub trait ArrowPrimitiveType : ArrowType + Copy {
+pub trait ArrowPrimitiveType : ArrowType + Copy + 'static {
 }
 
 macro_rules! primitive_type {
@@ -69,7 +72,6 @@ macro_rules! primitive_type {
             }
         }
         impl ArrowPrimitiveType for $TY {
-
         }
     }
 }
@@ -181,29 +183,29 @@ primitive_type!(f64, Float64);
 //        }
 //    }
 //}
-//
-//
-//impl Field {
-//    pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
-//        Field {
-//            name: name.to_string(),
-//            data_type: data_type,
-//            nullable: nullable,
-//        }
-//    }
-//
-//    pub fn name(&self) -> &String {
-//        &self.name
-//    }
-//
-//    pub fn data_type(&self) -> &DataType {
-//        &self.data_type
-//    }
-//
-//    pub fn is_nullable(&self) -> bool {
-//        self.nullable
-//    }
-//
+
+
+impl Field {
+    pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
+        Field {
+            name: name.to_string(),
+            data_type: data_type,
+            nullable: nullable,
+        }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn data_type(&self) -> &DataType {
+        &self.data_type
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        self.nullable
+    }
+
 //    /// Parse a field definition from a JSON representation
 //    pub fn from(json: &Value) -> Result<Self, ArrowError> {
 //        //println!("Field::from({:?}", json);
@@ -253,57 +255,57 @@ primitive_type!(f64, Float64);
 //            "type": self.data_type.to_json(),
 //        })
 //    }
-//
-//    pub fn to_string(&self) -> String {
-//        format!("{}: {:?}", self.name, self.data_type)
-//    }
-//}
-//
-//impl fmt::Display for Field {
-//    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//        write!(f, "{}: {:?}", self.name, self.data_type)
-//    }
-//}
-//
-///// Arrow Schema
-//#[derive(Debug, Clone)]
-//pub struct Schema {
-//    columns: Vec<Field>,
-//}
-//
-//impl Schema {
-//    /// create an empty schema
-//    pub fn empty() -> Self {
-//        Schema { columns: vec![] }
-//    }
-//
-//    pub fn new(columns: Vec<Field>) -> Self {
-//        Schema { columns: columns }
-//    }
-//
-//    pub fn columns(&self) -> &Vec<Field> {
-//        &self.columns
-//    }
-//
-//    /// look up a column by name and return a reference to the column along with it's index
-//    pub fn column(&self, name: &str) -> Option<(usize, &Field)> {
-//        self.columns
-//            .iter()
-//            .enumerate()
-//            .find(|&(_, c)| c.name == name)
-//    }
-//}
-//
-//impl fmt::Display for Schema {
-//    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//        f.write_str(&self.columns
-//            .iter()
-//            .map(|c| c.to_string())
-//            .collect::<Vec<String>>()
-//            .join(", "))
-//    }
-//}
-//
+
+    pub fn to_string(&self) -> String {
+        format!("{}: {:?}", self.name, self.data_type)
+    }
+}
+
+impl fmt::Display for Field {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {:?}", self.name, self.data_type)
+    }
+}
+
+/// Arrow Schema
+#[derive(Debug, Clone)]
+pub struct Schema {
+    columns: Vec<Field>,
+}
+
+impl Schema {
+    /// create an empty schema
+    pub fn empty() -> Self {
+        Schema { columns: vec![] }
+    }
+
+    pub fn new(columns: Vec<Field>) -> Self {
+        Schema { columns: columns }
+    }
+
+    pub fn columns(&self) -> &Vec<Field> {
+        &self.columns
+    }
+
+    /// look up a column by name and return a reference to the column along with it's index
+    pub fn column(&self, name: &str) -> Option<(usize, &Field)> {
+        self.columns
+            .iter()
+            .enumerate()
+            .find(|&(_, c)| c.name == name)
+    }
+}
+
+impl fmt::Display for Schema {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.columns
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>()
+            .join(", "))
+    }
+}
+
 //#[cfg(test)]
 //mod tests {
 //    use super::*;

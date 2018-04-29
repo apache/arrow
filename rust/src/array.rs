@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::any::Any;
 use std::convert::From;
 use std::fmt;
 use std::fmt::{Error, Formatter};
@@ -28,6 +29,7 @@ use super::buffer::Buffer;
 use super::datatypes::*;
 use super::list::List;
 
+/// Array of List<T>
 struct ListArrayData<T: ArrowPrimitiveType> {
     len: i32,
     //bitmap: Bitmap,
@@ -44,6 +46,9 @@ impl<T> ArrayData for ListArrayData<T> where T: ArrowPrimitiveType {
     fn len(&self) -> usize {
         self.len as usize
     }
+    fn as_any(&self) -> &Any {
+        self
+    }
 }
 
 impl<T> From<List<T>> for ListArrayData<T> where T: ArrowPrimitiveType {
@@ -55,10 +60,15 @@ impl<T> From<List<T>> for ListArrayData<T> where T: ArrowPrimitiveType {
     }
 }
 
+/// Array of T
 struct BufferArrayData<T: ArrowPrimitiveType> {
     len: i32,
     //bitmap: Bitmap,
     data: Buffer<T>
+}
+
+impl<T> BufferArrayData<T> where T: ArrowPrimitiveType {
+    fn iter(&self) -> 
 }
 
 impl<T> ArrowType for BufferArrayData<T> where T: ArrowPrimitiveType {
@@ -66,9 +76,13 @@ impl<T> ArrowType for BufferArrayData<T> where T: ArrowPrimitiveType {
         unimplemented!()
     }
 }
+
 impl<T> ArrayData for BufferArrayData<T> where T: ArrowPrimitiveType {
     fn len(&self) -> usize {
         self.len as usize
+    }
+    fn as_any(&self) -> &Any {
+        self
     }
 }
 
@@ -96,11 +110,15 @@ impl ArrayData for StructArrayData {
     fn len(&self) -> usize {
         self.len as usize
     }
+    fn as_any(&self) -> &Any {
+        self
+    }
 }
 
 /// Top level array type, just a holder for a boxed trait for the data it contains
 pub struct Array {
-    data: Box<ArrayData>
+    data: Box<ArrayData>,
+    validity_bitmap: Option<Bitmap>
 }
 
 impl Array {
@@ -109,32 +127,76 @@ impl Array {
     }
 }
 
+impl <T> From<Buffer<T>> for Array where T: ArrowPrimitiveType + 'static {
+    fn from(buffer: Buffer<T>) -> Self {
+        Array {
+            validity_bitmap: None,
+            data: Box::new(BufferArrayData::from(buffer))
+        }
+    }
+}
+
 /// Create an Array from a Vec<T> of primitive values
 impl<T> From<Vec<T>> for Array where T: ArrowPrimitiveType + 'static {
     fn from(vec: Vec<T>) -> Self {
         let data: Box<ArrayData> = Box::new(BufferArrayData::from(Buffer::from(vec)));
-        Array { data }
+        Array {
+            validity_bitmap: None,
+            data
+        }
     }
 }
+
+macro_rules! array_from_optional_primitive {
+    ($DT:ty, $DEFAULT:expr) => {
+        impl From<Vec<Option<$DT>>> for Array {
+            fn from(v: Vec<Option<$DT>>) -> Self {
+                let mut null_count = 0;
+                let mut validity_bitmap = Bitmap::new(v.len());
+                for i in 0..v.len() {
+                    if v[i].is_none() {
+                        null_count += 1;
+                        validity_bitmap.clear(i);
+                    }
+                }
+                let values = v.iter()
+                    .map(|x| x.unwrap_or($DEFAULT))
+                    .collect::<Vec<$DT>>();
+                Array {
+                    validity_bitmap: Some(validity_bitmap),
+                    data: Box::new(BufferArrayData::from(Buffer::from(values))),
+                }
+            }
+        }
+    };
+}
+
+array_from_optional_primitive!(bool, false);
+array_from_optional_primitive!(f32, 0_f32);
+array_from_optional_primitive!(f64, 0_f64);
+array_from_optional_primitive!(u8, 0_u8);
+array_from_optional_primitive!(u16, 0_u16);
+array_from_optional_primitive!(u32, 0_u32);
+array_from_optional_primitive!(u64, 0_u64);
+array_from_optional_primitive!(i8, 0_i8);
+array_from_optional_primitive!(i16, 0_i16);
+array_from_optional_primitive!(i32, 0_i32);
+array_from_optional_primitive!(i64, 0_i64);
 
 ///// This method mostly just used for unit tests
 //impl From<Vec<&'static str>> for Array {
 //    fn from(v: Vec<&'static str>) -> Self {
-//        Array::from(v.iter().map(|s| s.to_string()).collect::<Vec<String>>())
+//        unimplemented!()
+////        Array::from(v.iter().map(|s| s.to_string()).collect::<Vec<String>>())
 //    }
 //}
 //
 //impl From<Vec<String>> for Array {
 //    fn from(v: Vec<String>) -> Self {
-//        Array {
-//            len: v.len() as i32,
-//            null_count: 0,
-//            validity_bitmap: None,
-//            data: ArrayData::Utf8(List::from(v)),
-//        }
+//        unimplemented!()
 //    }
 //}
-//
+
 //impl From<Vec<Rc<Array>>> for Array {
 //    fn from(v: Vec<Rc<Array>>) -> Self {
 //        Array {
@@ -195,17 +257,18 @@ mod tests {
         assert_eq!(4, a.len());
     }
 
-//    #[test]
-//    fn test_from_i32() {
-//        let a = Array::from(vec![15, 14, 13, 12, 11]);
-//        assert_eq!(5, a.len());
-//        match *a.data() {
-//            ArrayData::Int32(ref b) => {
-//                assert_eq!(vec![15, 14, 13, 12, 11], b.iter().collect::<Vec<i32>>());
-//            }
-//            _ => panic!(),
-//        }
-//    }
+    #[test]
+    fn test_from_i32() {
+        let a = Array::from(vec![15, 14, 13, 12, 11]);
+        assert_eq!(5, a.len());
+
+        match a.data.as_any().downcast_ref::<BufferArrayData<i32>>() {
+            Some(ref buf) => {
+                assert_eq!(vec![15, 14, 13, 12, 11], buf.iter().collect::<Vec<i32>>());
+            }
+            _ => panic!()
+        }
+    }
 
     #[test]
     fn test_from_empty_vec() {
@@ -214,19 +277,19 @@ mod tests {
         assert_eq!(0, a.len());
     }
 
-//    #[test]
-//    fn test_from_optional_i32() {
-//        let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
-//        assert_eq!(5, a.len());
-//        // 1 == not null
-//        let validity_bitmap = a.validity_bitmap.unwrap();
-//        assert_eq!(true, validity_bitmap.is_set(0));
-//        assert_eq!(false, validity_bitmap.is_set(1));
-//        assert_eq!(true, validity_bitmap.is_set(2));
-//        assert_eq!(true, validity_bitmap.is_set(3));
-//        assert_eq!(false, validity_bitmap.is_set(4));
-//    }
-//
+    #[test]
+    fn test_from_optional_i32() {
+        let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
+        assert_eq!(5, a.len());
+        // 1 == not null
+        let validity_bitmap = a.validity_bitmap.unwrap();
+        assert_eq!(true, validity_bitmap.is_set(0));
+        assert_eq!(false, validity_bitmap.is_set(1));
+        assert_eq!(true, validity_bitmap.is_set(2));
+        assert_eq!(true, validity_bitmap.is_set(3));
+        assert_eq!(false, validity_bitmap.is_set(4));
+    }
+
 //    #[test]
 //    fn test_struct() {
 //        let _schema = DataType::Struct(vec![
