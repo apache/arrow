@@ -39,9 +39,9 @@ fn main() {
     // create a memory-aligned Arrow from the builder (zero-copy)
     let array = Array::from(buffer);
 
-    match a.data.as_any().downcast_ref::<BufferArrayData<i32>>() {
+    match array.data().as_any().downcast_ref::<BufferArrayData<i32>>() {
         Some(ref buf) => {
-            println!("array contents: {:?}", buf.iter().collect::<Vec<i32>>());
+            //println!("array contents: {:?}", buf.iter().collect::<Vec<i32>>());
         }
         _ => panic!()
     }
