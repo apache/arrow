@@ -144,7 +144,8 @@ class TestFeatherReader(unittest.TestCase):
 
         writer.close()
 
-        data = pd.DataFrame(values, columns=['col_' + str(i) for i in range(100)])
+        data = pd.DataFrame(values,
+                            columns=['col_' + str(i) for i in range(100)])
         table = pa.Table.from_pandas(data)
 
         table_reader = FeatherReader(path)

@@ -65,6 +65,7 @@ class FeatherReader(ext.FeatherReader):
     def read_pandas(self, **kwargs):
         return self.read(as_pandas=True, **kwargs)
 
+
 class FeatherWriter(object):
 
     def __init__(self, dest):
