@@ -42,7 +42,7 @@ class FeatherReader(ext.FeatherReader):
         self.source = source
         self.open(source)
 
-    def read(self, columns=None, nthreads=1):
+    def read(self, columns=None, nthreads=1, as_pandas=True):
         if columns is not None:
             column_set = set(columns)
         else:
@@ -58,8 +58,12 @@ class FeatherReader(ext.FeatherReader):
                 names.append(name)
 
         table = Table.from_arrays(columns, names=names)
-        return table.to_pandas(nthreads=nthreads)
+        if as_pandas:
+            return table.to_pandas(nthreads=nthreads)
+        return table
 
+    def read_pandas(self, **kwargs):
+        return self.read(as_pandas=True, **kwargs)
 
 class FeatherWriter(object):
 
@@ -111,7 +115,7 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None, nthreads=1):
+def read_feather(source, columns=None, nthreads=1, as_pandas=True):
     """
     Read a pandas.DataFrame from Feather format
 
@@ -123,10 +127,15 @@ def read_feather(source, columns=None, nthreads=1):
         read
     nthreads : int, default 1
         Number of CPU threads to use when reading to pandas.DataFrame
+    as_pandas: bool, default True
+        Whether to return a Pandas DataFrame or a pyarrow.Table
 
     Returns
     -------
-    df : pandas.DataFrame
+    if as_pandas:
+        df : pandas.DataFrame
+    else:
+        table: pyarrow.Table
     """
     reader = FeatherReader(source)
-    return reader.read(columns=columns, nthreads=nthreads)
+    return reader.read(columns=columns, nthreads=nthreads, as_pandas=as_pandas)
