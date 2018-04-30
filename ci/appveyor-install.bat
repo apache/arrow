@@ -24,7 +24,8 @@ if "%JOB%" == "Rust_Stable" (
     rustc -Vv
     cargo -V
 ) else (
-    set "MINICONDA=C:\Miniconda36-x64"
-    set "PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%"
+    set "PATH=C:\Miniconda36-x64;%PATH%"
+    set "PATH=C:\Miniconda36-x64\Scripts;%PATH%"
+    set "PATH=C:\Miniconda36-x64\Library\bin;%PATH%"
     call ci\appveyor-setup.bat
 )
