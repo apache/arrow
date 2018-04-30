@@ -29,16 +29,28 @@ use super::buffer::Buffer;
 use super::datatypes::*;
 use super::list::List;
 
+/// Array data type
+pub trait ArrayData {
+    fn len(&self) -> usize;
+    fn as_any(& self) -> &Any;
+}
+
 /// Array of List<T>
 pub struct ListArrayData<T: ArrowPrimitiveType> {
     len: i32,
-    //bitmap: Bitmap,
-    data: List<T>
+    list: List<T>
 }
 
-impl<T> ArrowType for ListArrayData<T> where T: ArrowPrimitiveType {
-    fn get_type(&self) -> DataType {
-        unimplemented!()
+impl<T> ListArrayData<T> where T: ArrowPrimitiveType {
+    pub fn get(&self, i: usize) -> &[T] {
+        self.list.get(i)
+    }
+}
+
+impl<T> From<List<T>> for ListArrayData<T> where T: ArrowPrimitiveType {
+    fn from(list: List<T>) -> Self {
+        let len = list.len();
+        ListArrayData { len, list }
     }
 }
 
@@ -51,32 +63,15 @@ impl<T> ArrayData for ListArrayData<T> where T: ArrowPrimitiveType {
     }
 }
 
-impl<T> From<List<T>> for ListArrayData<T> where T: ArrowPrimitiveType {
-    fn from(data: List<T>) -> Self {
-        ListArrayData {
-            len: data.len() as i32,
-            data
-        }
-    }
-}
-
 /// Array of T
 pub struct BufferArrayData<T: ArrowPrimitiveType> {
     len: i32,
-    //bitmap: Bitmap,
     data: Buffer<T>
 }
 
 impl<T> BufferArrayData<T> where T: ArrowPrimitiveType {
     pub fn len(&self) -> usize {
         self.len as usize
-    }
-    //fn iter(&self) ->
-}
-
-impl<T> ArrowType for BufferArrayData<T> where T: ArrowPrimitiveType {
-    fn get_type(&self) -> DataType {
-        unimplemented!()
     }
 }
 
@@ -100,15 +95,9 @@ impl<T> From<Buffer<T>> for BufferArrayData<T> where T: ArrowPrimitiveType {
 
 pub struct StructArrayData {
     len: i32,
-    //bitmap: Bitmap,
-    data: Vec<Rc<ArrowType>>
+    data: Vec<Rc<ArrayData>>
 }
 
-impl ArrowType for StructArrayData {
-    fn get_type(&self) -> DataType {
-        unimplemented!()
-    }
-}
 impl ArrayData for StructArrayData {
     fn len(&self) -> usize {
         self.len as usize
@@ -120,15 +109,25 @@ impl ArrayData for StructArrayData {
 
 /// Top level array type, just a holder for a boxed trait for the data it contains
 pub struct Array {
-    data: Box<ArrayData>,
+    len: i32,
+    data: Rc<ArrayData>,
     validity_bitmap: Option<Bitmap>
 }
 
 impl Array {
+
+    pub fn new(data: Rc<ArrayData>) -> Self {
+        let len = data.len();
+        Array {
+            len: len as i32,
+            data: data.clone(),
+            validity_bitmap: None }
+    }
+
     pub fn len(&self) -> usize {
         self.data.len()
     }
-    pub fn data(&self) -> &Box<ArrayData> {
+    pub fn data(&self) -> &Rc<ArrayData> {
         &self.data
     }
 }
@@ -136,8 +135,19 @@ impl Array {
 impl <T> From<Buffer<T>> for Array where T: ArrowPrimitiveType + 'static {
     fn from(buffer: Buffer<T>) -> Self {
         Array {
+            len: buffer.len(),
             validity_bitmap: None,
-            data: Box::new(BufferArrayData::from(buffer))
+            data: Rc::new(BufferArrayData::from(buffer))
+        }
+    }
+}
+
+impl <T> From<List<T>> for Array where T: ArrowPrimitiveType + 'static {
+    fn from(list: List<T>) -> Self {
+        Array {
+            len: list.len() as i32,
+            validity_bitmap: None,
+            data: Rc::new(ListArrayData::from(list))
         }
     }
 }
@@ -145,8 +155,10 @@ impl <T> From<Buffer<T>> for Array where T: ArrowPrimitiveType + 'static {
 /// Create an Array from a Vec<T> of primitive values
 impl<T> From<Vec<T>> for Array where T: ArrowPrimitiveType + 'static {
     fn from(vec: Vec<T>) -> Self {
-        let data: Box<ArrayData> = Box::new(BufferArrayData::from(Buffer::from(vec)));
+        let len = vec.len() as i32;
+        let data: Rc<ArrayData> = Rc::new(BufferArrayData::from(Buffer::from(vec)));
         Array {
+            len,
             validity_bitmap: None,
             data
         }
@@ -169,8 +181,9 @@ macro_rules! array_from_optional_primitive {
                     .map(|x| x.unwrap_or($DEFAULT))
                     .collect::<Vec<$DT>>();
                 Array {
+                    len: v.len() as i32,
                     validity_bitmap: Some(validity_bitmap),
-                    data: Box::new(BufferArrayData::from(Buffer::from(values))),
+                    data: Rc::new(BufferArrayData::from(Buffer::from(values))),
                 }
             }
         }
@@ -216,10 +229,34 @@ array_from_optional_primitive!(i64, 0_i64);
 //
 #[cfg(test)]
 mod tests {
+    use super::super::array::*;
     use super::super::datatypes::*;
+    use super::super::list_builder::*;
     use super::*;
 
-//    #[test]
+    #[test]
+    fn array_data_from_list_u8() {
+        let mut b: ListBuilder<u8> = ListBuilder::new();
+        b.push(&[1,2,3,4,5]);
+        b.push(&[5,4,3,2,1]);
+        let array_data = ListArrayData::from(b.finish());
+        assert_eq!(2, array_data.len());
+    }
+
+    #[test]
+    fn array_from_list_u8() {
+        let mut b: ListBuilder<u8> = ListBuilder::new();
+        b.push("Hello, ".as_bytes());
+        b.push("World!".as_bytes());
+        let array = Array::from(b.finish());
+        // downcast back to the data
+        let array_list_u8 = array.data().as_any().downcast_ref::<ListArrayData<u8>>().unwrap();
+        assert_eq!(2, array_list_u8.len());
+        assert_eq!("Hello, ", str::from_utf8(array_list_u8.get(0)).unwrap());
+        assert_eq!("World!", str::from_utf8(array_list_u8.get(1)).unwrap());
+    }
+
+    //    #[test]
 //    fn test_utf8_offsets() {
 //        let a = Array::from(vec!["this", "is", "a", "test"]);
 //        assert_eq!(4, a.len());

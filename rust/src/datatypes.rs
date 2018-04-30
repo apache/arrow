@@ -48,45 +48,21 @@ pub struct Field {
     nullable: bool,
 }
 
-/// Any Arrow type
-pub trait ArrowType {
-    fn get_type(&self) -> DataType;
-}
-
-/// Array data type
-pub trait ArrayData : ArrowType {
-    fn len(&self) -> usize;
-    fn as_any(& self) -> &Any;
-}
-
-
 /// Primitive type (ints, floats, strings)
-pub trait ArrowPrimitiveType : ArrowType + Copy + 'static {
+pub trait ArrowPrimitiveType : Copy + 'static {
 }
 
-macro_rules! primitive_type {
-    ($TY:ty, $VARIANT:ident) => {
-        impl ArrowType for $TY {
-            fn get_type(&self) -> DataType {
-                DataType::$VARIANT
-            }
-        }
-        impl ArrowPrimitiveType for $TY {
-        }
-    }
-}
-
-primitive_type!(bool, Boolean);
-primitive_type!(u8, UInt8);
-primitive_type!(u16, UInt16);
-primitive_type!(u32, UInt32);
-primitive_type!(u64, UInt64);
-primitive_type!(i8, Int8);
-primitive_type!(i16, Int16);
-primitive_type!(i32, Int32);
-primitive_type!(i64, Int64);
-primitive_type!(f32, Float32);
-primitive_type!(f64, Float64);
+impl ArrowPrimitiveType for bool {}
+impl ArrowPrimitiveType for u8 {}
+impl ArrowPrimitiveType for u16 {}
+impl ArrowPrimitiveType for u32 {}
+impl ArrowPrimitiveType for u64 {}
+impl ArrowPrimitiveType for i8 {}
+impl ArrowPrimitiveType for i16 {}
+impl ArrowPrimitiveType for i32 {}
+impl ArrowPrimitiveType for i64 {}
+impl ArrowPrimitiveType for f32 {}
+impl ArrowPrimitiveType for f64 {}
 
 
 //impl DataType {
