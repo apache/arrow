@@ -48,8 +48,7 @@ pub struct Field {
 }
 
 /// Primitive type (ints, floats, strings)
-pub trait ArrowPrimitiveType : Copy + 'static {
-}
+pub trait ArrowPrimitiveType: Copy + 'static {}
 
 impl ArrowPrimitiveType for bool {}
 impl ArrowPrimitiveType for u8 {}
@@ -62,7 +61,6 @@ impl ArrowPrimitiveType for i32 {}
 impl ArrowPrimitiveType for i64 {}
 impl ArrowPrimitiveType for f32 {}
 impl ArrowPrimitiveType for f64 {}
-
 
 impl DataType {
     /// Parse a data type from a JSON representation
@@ -162,7 +160,6 @@ impl DataType {
         }
     }
 }
-
 
 impl Field {
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {

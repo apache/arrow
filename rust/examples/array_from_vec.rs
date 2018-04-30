@@ -23,10 +23,10 @@ fn main() {
     // create a memory-aligned Arrow array from an existing Vec
     let array = Array::from(vec![1, 2, 3, 4, 5]);
 
-//    match array.data() {
-//        &ArrayData::Int32(ref buffer) => {
-//            println!("array contents: {:?}", buffer.iter().collect::<Vec<i32>>());
-//        }
-//        _ => {}
-//    }
+    //    match array.data() {
+    //        &ArrayData::Int32(ref buffer) => {
+    //            println!("array contents: {:?}", buffer.iter().collect::<Vec<i32>>());
+    //        }
+    //        _ => {}
+    //    }
 }

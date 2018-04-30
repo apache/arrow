@@ -25,14 +25,20 @@ use super::memory::*;
 
 /// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
 /// memory region is aligned at a 64-byte boundary
-pub struct Buffer<T> where T: ArrowPrimitiveType {
+pub struct Buffer<T>
+where
+    T: ArrowPrimitiveType,
+{
     /// Contiguous memory region holding instances of primitive T
     data: *const T,
     /// Number of elements in the buffer
     len: i32,
 }
 
-impl<T> Buffer<T> where T: ArrowPrimitiveType {
+impl<T> Buffer<T>
+where
+    T: ArrowPrimitiveType,
+{
     pub fn from_raw_parts(data: *const T, len: i32) -> Self {
         Buffer { data, len }
     }
@@ -76,7 +82,10 @@ impl<T> Buffer<T> where T: ArrowPrimitiveType {
     }
 }
 
-impl<T> Drop for Buffer<T> where T: ArrowPrimitiveType {
+impl<T> Drop for Buffer<T>
+where
+    T: ArrowPrimitiveType,
+{
     fn drop(&mut self) {
         unsafe {
             let p = mem::transmute::<*const T, *const u8>(self.data);
@@ -86,7 +95,10 @@ impl<T> Drop for Buffer<T> where T: ArrowPrimitiveType {
 }
 
 /// Iterator over the elements of a buffer
-pub struct BufferIterator<T> where T: ArrowPrimitiveType {
+pub struct BufferIterator<T>
+where
+    T: ArrowPrimitiveType,
+{
     data: *const T,
     len: i32,
     index: isize,
@@ -108,7 +120,10 @@ where
     }
 }
 
-impl<T> From<Vec<T>> for Buffer<T> where T: ArrowPrimitiveType {
+impl<T> From<Vec<T>> for Buffer<T>
+where
+    T: ArrowPrimitiveType,
+{
     fn from(v: Vec<T>) -> Self {
         // allocate aligned memory buffer
         let len = v.len();
