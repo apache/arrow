@@ -17,13 +17,18 @@
 
 @echo on
 
+echo JOB = %JOB%
+echo "JOB" = "%JOB%"
+
 if "%JOB%" == "Rust_Stable" (
+    echo RUST_STABLE
     curl -sSf -o rustup-init.exe https://win.rustup.rs/
     rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
     set PATH=%PATH%;C:\Users\Appveyor\.cargo\bin
     rustc -Vv
     cargo -V
 ) else (
+    echo NOT RUST_STABLE
     set MINICONDA=C:\Miniconda36-x64
     set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
     call ci\appveyor-setup.bat
