@@ -22,28 +22,32 @@ use std::rc::Rc;
 /// A batch of column-oriented data
 pub struct RecordBatch {
     schema: Rc<Schema>,
-    columns: Vec<Rc<Array>>,
-    num_rows: i32,
+    columns: Vec<Rc<Array>>
 }
 
 impl RecordBatch {
-    fn schema(&self) -> &Rc<Schema> {
+    pub fn new(schema: Rc<Schema>, columns: Vec<Rc<Array>>) -> Self {
+        assert!(columns.len() > 0);
+        RecordBatch { schema, columns }
+    }
+
+    pub fn schema(&self) -> &Rc<Schema> {
         &self.schema
     }
 
-    fn num_columns(&self) -> usize {
+    pub fn num_columns(&self) -> usize {
         self.columns.len()
     }
 
-    fn num_rows(&self) -> usize {
-        self.num_rows as usize
+    pub fn num_rows(&self) -> usize {
+        self.columns[0].len()
     }
 
-    fn column(&self, i: usize) -> &Rc<Array> {
+    pub fn column(&self, i: usize) -> &Rc<Array> {
         &self.columns[i]
     }
 
-    fn column_data(&self, i: usize) -> &Rc<ArrayData> {
+    pub fn column_data(&self, i: usize) -> &Rc<ArrayData> {
         &self.columns[i].data()
     }
 }
