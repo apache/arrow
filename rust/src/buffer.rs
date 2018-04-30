@@ -33,7 +33,7 @@ pub struct Buffer<T> {
 
 impl<T> Buffer<T> {
     /// create a buffer from an existing region of memory (must already be byte-aligned)
-    pub fn from_raw_parts(data: *const T, len: i32) -> Self {
+    pub unsafe fn from_raw_parts(data: *const T, len: i32) -> Self {
         Buffer { data, len }
     }
 
@@ -48,9 +48,8 @@ impl<T> Buffer<T> {
     }
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
-        assert!(start <= end);
-        assert!(start < self.len as usize);
         assert!(end <= self.len as usize);
+        assert!(start <= end);
         unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
 
@@ -63,8 +62,8 @@ impl<T> Buffer<T> {
     /// Write to a slot in the buffer
     pub fn set(&mut self, i: usize, v: T) {
         assert!(i < self.len as usize);
+        let p = self.data as *mut T;
         unsafe {
-            let p = mem::transmute::<*const T, *mut T>(self.data);
             *p.offset(i as isize) = v;
         }
     }
@@ -82,10 +81,7 @@ impl<T> Buffer<T> {
 /// Release the underlying memory when the Buffer goes out of scope
 impl<T> Drop for Buffer<T> {
     fn drop(&mut self) {
-        unsafe {
-            let p = mem::transmute::<*const T, *const u8>(self.data);
-            free_aligned(p);
-        }
+        free_aligned(self.data as *const u8);
     }
 }
 
@@ -125,13 +121,9 @@ macro_rules! array_from_primitive {
                 Buffer {
                     len: len as i32,
                     data: unsafe {
-                        let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
-                        libc::memcpy(
-                            dst,
-                            mem::transmute::<*const $DT, *const libc::c_void>(v.as_ptr()),
-                            len * sz,
-                        );
-                        mem::transmute::<*mut libc::c_void, *const $DT>(dst)
+                        let dst = buffer as *mut libc::c_void;
+                        libc::memcpy(dst, v.as_ptr() as *const libc::c_void, len * sz);
+                        dst as *const $DT
                     },
                 }
             }
@@ -157,16 +149,12 @@ impl From<Bytes> for Buffer<u8> {
         let len = bytes.len();
         let sz = mem::size_of::<u8>();
         let buf_mem = allocate_aligned((len * sz) as i64).unwrap();
+        let dst = buf_mem as *mut libc::c_void;
         Buffer {
             len: len as i32,
             data: unsafe {
-                let dst = mem::transmute::<*const u8, *mut libc::c_void>(buf_mem);
-                libc::memcpy(
-                    dst,
-                    mem::transmute::<*const u8, *const libc::c_void>(bytes.as_ptr()),
-                    len * sz,
-                );
-                mem::transmute::<*mut libc::c_void, *mut u8>(dst)
+                libc::memcpy(dst, bytes.as_ptr() as *const libc::c_void, len * sz);
+                dst as *mut u8
             },
         }
     }
@@ -253,10 +241,17 @@ mod tests {
     }
 
     #[test]
+    fn slice_empty_at_end() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        let s = a.slice(5, 5);
+        assert_eq!(0, s.len());
+    }
+
+    #[test]
     #[should_panic]
     fn slice_start_out_of_bounds() {
         let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        a.slice(5, 5); // should panic
+        a.slice(6, 6); // should panic
     }
 
     #[test]
