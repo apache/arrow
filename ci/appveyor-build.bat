@@ -27,8 +27,8 @@ if "%JOB%" == "Rust_Stable" (
     git config core.symlinks true
     git reset --hard
     if "%JOB%"=="Cmake_Script_Tests" (
-        call test-cmake-build-script.bat
+        call ci\test-cmake-build-script.bat
     ) else (
-        call cpp-python-msvc-build.bat
+        call ci\cpp-python-msvc-build.bat
     )
 )

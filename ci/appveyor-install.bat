@@ -26,5 +26,5 @@ if "%JOB%" == "Rust_Stable" (
 ) else (
     set MINICONDA=C:\Miniconda36-x64
     set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
-    call appveyor-setup.bat
+    call ci\appveyor-setup.bat
 )
