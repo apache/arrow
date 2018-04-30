@@ -101,7 +101,7 @@ impl<T> From<Buffer<T>> for BufferArrayData<T> where T: ArrowPrimitiveType {
 pub struct StructArrayData {
     len: i32,
     //bitmap: Bitmap,
-    data: Vec<Box<ArrowType>>
+    data: Vec<Rc<ArrowType>>
 }
 
 impl ArrowType for StructArrayData {
@@ -297,16 +297,20 @@ mod tests {
         assert_eq!(false, validity_bitmap.is_set(4));
     }
 
-//    #[test]
-//    fn test_struct() {
-//        let _schema = DataType::Struct(vec![
-//            Field::new("a", DataType::Int32, false),
-//            Field::new("b", DataType::Float32, false),
-//        ]);
-//
-//        let a = Rc::new(Array::from(vec![1, 2, 3, 4, 5]));
-//        let b = Rc::new(Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]));
-//        let _ = Rc::new(Array::from(vec![a, b]));
-//    }
-//
+    #[test]
+    fn test_struct() {
+        let _schema = DataType::Struct(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Float32, false),
+        ]);
+
+        let a = Rc::new(BufferArrayData::from(Buffer::from(vec![1, 2, 3, 4, 5])));
+        let b = Rc::new(BufferArrayData::from(Buffer::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])));
+
+        let _ = StructArrayData {
+            len: 2,
+            data: vec![a, b]
+        };
+    }
+
 }
