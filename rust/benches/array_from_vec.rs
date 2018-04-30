@@ -15,19 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#[macro_use]
+extern crate criterion;
+
+use criterion::Criterion;
+
 extern crate arrow;
 
 use arrow::array::*;
 
-fn main() {
-    // create a memory-aligned Arrow array from an existing Vec
-    let array = Array::from(vec![1, 2, 3, 4, 5]);
-
-    // demonstrates how to downcast an array to specific type
-    match array.data().as_any().downcast_ref::<BufferArrayData<i32>>() {
-        Some(ref buf) => {
-            println!("array contents: {:?}", buf.iter().collect::<Vec<i32>>());
-        }
-        _ => panic!(),
+fn array_from_vec(n: usize) {
+    let mut v: Vec<i32> = Vec::with_capacity(n);
+    for i in 0..n {
+        v.push(i as i32);
     }
+    Array::from(v);
 }
+
+fn criterion_benchmark(c: &mut Criterion) {
+    c.bench_function("array_from_vec 128", |b| b.iter(|| array_from_vec(128)));
+    c.bench_function("array_from_vec 256", |b| b.iter(|| array_from_vec(256)));
+    c.bench_function("array_from_vec 512", |b| b.iter(|| array_from_vec(512)));
+}
+
+criterion_group!(benches, criterion_benchmark);
+criterion_main!(benches);
