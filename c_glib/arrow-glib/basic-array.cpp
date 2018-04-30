@@ -602,7 +602,7 @@ garrow_array_unique(GArrowArray *array,
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
- *   A newly created #GArrowDictionarArray for the @array on success,
+ *   A newly created #GArrowDictionaryArray for the @array on success,
  *   %NULL on error.
  *
  * Since: 0.8.0
