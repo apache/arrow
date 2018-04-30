@@ -18,18 +18,25 @@
 use std::str;
 
 use super::buffer::Buffer;
+use super::datatypes::*;
 use super::list_builder::ListBuilder;
 
 /// List<T> is a nested type in which each array slot contains a variable-size sequence of values of
 /// the same type T
-pub struct List<T> {
+pub struct List<T>
+where
+    T: ArrowPrimitiveType,
+{
     /// Contiguous region of memory holding contents of the lists
     data: Buffer<T>,
     /// offsets to start of each array slot
     offsets: Buffer<i32>,
 }
 
-impl<T> List<T> {
+impl<T> List<T>
+where
+    T: ArrowPrimitiveType,
+{
     /// Create a List from raw parts
     pub fn from_raw_parts(data: Buffer<T>, offsets: Buffer<i32>) -> Self {
         List { data, offsets }
