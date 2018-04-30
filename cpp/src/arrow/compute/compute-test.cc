@@ -796,10 +796,12 @@ TEST_F(TestCast, DictToNonDictNoNulls) {
   auto dict_type = dictionary(int32(), ex_dict);
 
   // Explicitly construct with nullptr for the null_bitmap_data
+  std::vector<int32_t> i1 = {1, 0, 1};
+  std::vector<int32_t> i2 = {2, 1, 0, 1};
   auto c1 = std::make_shared<NumericArray<Int32Type>>(
-      3, arrow::test::GetBufferFromVector<int32_t>({1, 0, 1}));
+      3, arrow::test::GetBufferFromVector<int32_t>(i1));
   auto c2 = std::make_shared<NumericArray<Int32Type>>(
-      4, arrow::test::GetBufferFromVector<int32_t>({2, 1, 0, 1}));
+      4, arrow::test::GetBufferFromVector<int32_t>(i2));
 
   ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, c1),
                              std::make_shared<DictionaryArray>(dict_type, c2)};
@@ -812,6 +814,14 @@ TEST_F(TestCast, DictToNonDictNoNulls) {
                  static_cast<DictionaryType&>(*dict_type).dictionary()->type(),
                  CastOptions(), &cast_output));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, cast_output.kind());
+
+  auto e1 = _MakeArray<StringType, std::string>(utf8(), {"bar", "foo", "bar"}, {});
+  auto e2 = _MakeArray<StringType, std::string>(utf8(), {"baz", "bar", "foo", "bar"}, {});
+
+  auto chunks = cast_output.chunked_array()->chunks();
+  ASSERT_EQ(chunks.size(), 2);
+  ASSERT_ARRAYS_EQUAL(*e1, *chunks[0]);
+  ASSERT_ARRAYS_EQUAL(*e2, *chunks[1]);
 }
 
 /*TYPED_TEST(TestDictionaryCast, Reverse) {
