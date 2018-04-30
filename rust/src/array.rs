@@ -23,7 +23,7 @@ use std::str;
 use std::string::String;
 
 use super::bitmap::Bitmap;
-use super::buffer::Buffer;
+use super::buffer::*;
 use super::datatypes::*;
 use super::list::*;
 use super::list_builder::*;
@@ -84,6 +84,10 @@ where
     pub fn len(&self) -> usize {
         self.len as usize
     }
+
+    pub fn iter(&self) -> BufferIterator<T> {
+        self.data.iter()
+    }
 }
 
 impl<T> ArrayData for BufferArrayData<T>
@@ -126,17 +130,16 @@ impl ArrayData for StructArrayData {
 
 /// Top level array type, just a holder for a boxed trait for the data it contains
 pub struct Array {
-    len: i32,
     data: Rc<ArrayData>,
+    null_count: i32,
     validity_bitmap: Option<Bitmap>,
 }
 
 impl Array {
     pub fn new(data: Rc<ArrayData>) -> Self {
-        let len = data.len();
         Array {
-            len: len as i32,
             data: data.clone(),
+            null_count: 0,
             validity_bitmap: None,
         }
     }
@@ -154,11 +157,7 @@ where
     T: ArrowPrimitiveType + 'static,
 {
     fn from(buffer: Buffer<T>) -> Self {
-        Array {
-            len: buffer.len(),
-            validity_bitmap: None,
-            data: Rc::new(BufferArrayData::from(buffer)),
-        }
+        Array::new(Rc::new(BufferArrayData::from(buffer)))
     }
 }
 
@@ -167,11 +166,7 @@ where
     T: ArrowPrimitiveType + 'static,
 {
     fn from(list: List<T>) -> Self {
-        Array {
-            len: list.len() as i32,
-            validity_bitmap: None,
-            data: Rc::new(ListArrayData::from(list)),
-        }
+        Array::new(Rc::new(ListArrayData::from(list)))
     }
 }
 
@@ -181,13 +176,7 @@ where
     T: ArrowPrimitiveType + 'static,
 {
     fn from(vec: Vec<T>) -> Self {
-        let len = vec.len() as i32;
-        let data: Rc<ArrayData> = Rc::new(BufferArrayData::from(Buffer::from(vec)));
-        Array {
-            len,
-            validity_bitmap: None,
-            data,
-        }
+        Array::new(Rc::new(BufferArrayData::from(Buffer::from(vec))))
     }
 }
 
@@ -207,7 +196,7 @@ macro_rules! array_from_optional_primitive {
                     .map(|x| x.unwrap_or($DEFAULT))
                     .collect::<Vec<$DT>>();
                 Array {
-                    len: v.len() as i32,
+                    null_count,
                     validity_bitmap: Some(validity_bitmap),
                     data: Rc::new(BufferArrayData::from(Buffer::from(values))),
                 }
@@ -252,8 +241,6 @@ impl From<Vec<String>> for Array {
 #[cfg(test)]
 mod tests {
     use super::super::array::*;
-    use super::super::datatypes::*;
-    use super::super::list_builder::*;
     use super::*;
 
     #[test]
