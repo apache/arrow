@@ -22,7 +22,7 @@ use std::rc::Rc;
 /// A batch of column-oriented data
 pub struct RecordBatch {
     schema: Rc<Schema>,
-    columns: Vec<Rc<Array>>
+    columns: Vec<Rc<Array>>,
 }
 
 impl RecordBatch {
@@ -66,10 +66,7 @@ mod tests {
         let a = Array::from(vec![1, 2, 3, 4, 5]);
         let b = Array::from(vec!["a", "b", "c", "d", "e"]);
 
-        let record_batch = RecordBatch::new(
-            Rc::new(schema),
-            vec![Rc::new(a), Rc::new(b)]
-        );
+        let record_batch = RecordBatch::new(Rc::new(schema), vec![Rc::new(a), Rc::new(b)]);
 
         assert_eq!(5, record_batch.num_rows());
         assert_eq!(2, record_batch.num_columns());
