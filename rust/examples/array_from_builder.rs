@@ -43,6 +43,6 @@ fn main() {
         Some(ref buf) => {
             //println!("array contents: {:?}", buf.iter().collect::<Vec<i32>>());
         }
-        _ => panic!()
+        _ => panic!(),
     }
 }

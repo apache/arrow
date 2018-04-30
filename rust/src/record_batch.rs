@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::rc::Rc;
 use super::array::*;
 use super::datatypes::*;
+use std::rc::Rc;
 
 /// A batch of column-oriented data
 pub struct RecordBatch {
     schema: Rc<Schema>,
     columns: Vec<Rc<Array>>,
-    num_rows: i32
+    num_rows: i32,
 }
 
 impl RecordBatch {
@@ -54,29 +54,30 @@ mod tests {
 
     #[test]
     fn create_record_batch() {
-
         let schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Utf8, false),
         ]);
 
-        let a = Array::from(vec![1,2,3,4,5]);
-        let b = Array::from(vec!["a","b","c","d","e"]);
+        let a = Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Array::from(vec!["a", "b", "c", "d", "e"]);
 
         let record_batch = RecordBatch {
             schema: Rc::new(schema),
             columns: vec![Rc::new(a), Rc::new(b)],
-            num_rows: 5
+            num_rows: 5,
         };
 
         assert_eq!(5, record_batch.num_rows());
         assert_eq!(2, record_batch.num_columns());
-        assert_eq!(&DataType::Int32, record_batch.schema().column(0).data_type());
+        assert_eq!(
+            &DataType::Int32,
+            record_batch.schema().column(0).data_type()
+        );
         assert_eq!(&DataType::Utf8, record_batch.schema().column(1).data_type());
         assert_eq!(5, record_batch.column(0).len());
         assert_eq!(5, record_batch.column(1).len());
         assert_eq!(5, record_batch.column_data(0).len());
         assert_eq!(5, record_batch.column_data(1).len());
-
     }
 }
