@@ -52,7 +52,7 @@ impl<T> List<T> where T: ArrowPrimitiveType {
     }
 
     /// Get the contents of a single array slot
-    pub fn slice(&self, index: usize) -> &[T] {
+    pub fn get(&self, index: usize) -> &[T] {
         let start = *self.offsets.get(index) as usize;
         let end = *self.offsets.get(index + 1) as usize;
         &self.data.slice(start, end)
@@ -85,20 +85,20 @@ mod tests {
     fn test_utf8_slices() {
         let list = List::from(vec!["this", "is", "a", "test"]);
         assert_eq!(4, list.len());
-        assert_eq!("this", str::from_utf8(list.slice(0)).unwrap());
-        assert_eq!("is", str::from_utf8(list.slice(1)).unwrap());
-        assert_eq!("a", str::from_utf8(list.slice(2)).unwrap());
-        assert_eq!("test", str::from_utf8(list.slice(3)).unwrap());
+        assert_eq!("this", str::from_utf8(list.get(0)).unwrap());
+        assert_eq!("is", str::from_utf8(list.get(1)).unwrap());
+        assert_eq!("a", str::from_utf8(list.get(2)).unwrap());
+        assert_eq!("test", str::from_utf8(list.get(3)).unwrap());
     }
 
     #[test]
     fn test_utf8_empty_strings() {
         let list = List::from(vec!["", "", "", ""]);
         assert_eq!(4, list.len());
-        assert_eq!("", str::from_utf8(list.slice(0)).unwrap());
-        assert_eq!("", str::from_utf8(list.slice(1)).unwrap());
-        assert_eq!("", str::from_utf8(list.slice(2)).unwrap());
-        assert_eq!("", str::from_utf8(list.slice(3)).unwrap());
+        assert_eq!("", str::from_utf8(list.get(0)).unwrap());
+        assert_eq!("", str::from_utf8(list.get(1)).unwrap());
+        assert_eq!("", str::from_utf8(list.get(2)).unwrap());
+        assert_eq!("", str::from_utf8(list.get(3)).unwrap());
     }
 
 }

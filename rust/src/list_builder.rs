@@ -63,8 +63,8 @@ mod tests {
         let buffer = b.finish();
 
         assert_eq!(2, buffer.len());
-        assert_eq!("Hello, ".as_bytes(), buffer.slice(0));
-        assert_eq!("World!".as_bytes(), buffer.slice(1));
+        assert_eq!("Hello, ".as_bytes(), buffer.get(0));
+        assert_eq!("World!".as_bytes(), buffer.get(1));
     }
 
     #[test]
@@ -74,8 +74,8 @@ mod tests {
         b.push("World!".as_bytes());
         let buffer = b.finish();
         assert_eq!(2, buffer.len());
-        assert_eq!("Hello, ".as_bytes(), buffer.slice(0));
-        assert_eq!("World!".as_bytes(), buffer.slice(1));
+        assert_eq!("Hello, ".as_bytes(), buffer.get(0));
+        assert_eq!("World!".as_bytes(), buffer.get(1));
     }
 
     #[test]
@@ -87,8 +87,8 @@ mod tests {
         let buffer = b.finish();
 
         assert_eq!(3, buffer.len());
-        assert_eq!("Hello, ".as_bytes(), buffer.slice(0));
-        assert_eq!("".as_bytes(), buffer.slice(1));
-        assert_eq!("World!".as_bytes(), buffer.slice(2));
+        assert_eq!("Hello, ".as_bytes(), buffer.get(0));
+        assert_eq!("".as_bytes(), buffer.get(1));
+        assert_eq!("World!".as_bytes(), buffer.get(2));
     }
 }
