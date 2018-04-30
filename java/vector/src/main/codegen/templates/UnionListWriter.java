@@ -16,7 +16,12 @@
  * limitations under the License.
  */
 
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.complex.writer.DecimalWriter;
+import org.apache.arrow.vector.holders.DecimalHolder;
+
 import java.lang.UnsupportedOperationException;
+import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionListWriter.java" />
@@ -151,6 +156,22 @@ public class UnionListWriter extends AbstractFieldWriter {
   public void end() {
     writer.end();
     inStruct = false;
+  }
+
+  @Override
+  public void write(DecimalHolder holder) {
+    writer.write(holder);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  public void writeDecimal(int start, ArrowBuf buffer) {
+    writer.writeDecimal(start, buffer);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  public void writeDecimal(BigDecimal value) {
+    writer.writeDecimal(value);
+    writer.setPosition(writer.idx()+1);
   }
 
   <#list vv.types as type>

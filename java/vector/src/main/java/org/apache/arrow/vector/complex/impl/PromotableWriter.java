@@ -18,6 +18,7 @@
 
 package org.apache.arrow.vector.complex.impl;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
@@ -26,10 +27,14 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+
+import java.math.BigDecimal;
 
 /**
  * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This inner field writer
@@ -43,12 +48,14 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private final ListVector listVector;
   private final NullableStructWriterFactory nullableStructWriterFactory;
   private int position;
+  private final static int MAX_DECIMAL_PRECISION = 38;
 
   private enum State {
     UNTYPED, SINGLE, UNION
   }
 
   private MinorType type;
+  private ArrowType arrowType;
   private ValueVector vector;
   private UnionVector unionVector;
   private State state;
@@ -89,9 +96,14 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   private void setWriter(ValueVector v) {
+    setWriter(v, null);
+  }
+
+  private void setWriter(ValueVector v, ArrowType arrowType) {
     state = State.SINGLE;
     vector = v;
     type = v.getMinorType();
+    this.arrowType = arrowType;
     switch (type) {
       case STRUCT:
         writer = nullableStructWriterFactory.build((StructVector) vector);
@@ -120,6 +132,10 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   protected FieldWriter getWriter(MinorType type) {
+    return getWriter(type, null);
+  }
+
+  protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
     if (state == State.UNION) {
       ((UnionWriter) writer).getWriter(type);
     } else if (state == State.UNTYPED) {
@@ -127,9 +143,12 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         // ???
         return null;
       }
-      ValueVector v = listVector.addOrGetVector(FieldType.nullable(type.getType())).getVector();
+      if (arrowType == null) {
+        arrowType = type.getType();
+      }
+      ValueVector v = listVector.addOrGetVector(FieldType.nullable(arrowType)).getVector();
       v.allocateNew();
-      setWriter(v);
+      setWriter(v, arrowType);
       writer.setPosition(position);
     } else if (type != this.type) {
       promoteToUnion();
@@ -167,6 +186,36 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     vector = null;
     state = State.UNION;
     return writer;
+  }
+
+  @Override
+  public void write(DecimalHolder holder) {
+    // Infer decimal scale and precision
+    if (arrowType == null) {
+      arrowType = new ArrowType.Decimal(MAX_DECIMAL_PRECISION, holder.scale);
+    }
+
+    getWriter(MinorType.DECIMAL, arrowType).write(holder);
+  }
+
+  @Override
+  public void writeDecimal(int start, ArrowBuf buffer) {
+    // Cannot infer decimal scale and precision
+    if (arrowType == null) {
+      throw new IllegalStateException("Cannot infer decimal scale and precision");
+    }
+
+    getWriter(MinorType.DECIMAL, arrowType).writeDecimal(start, buffer);
+  }
+
+  @Override
+  public void writeDecimal(BigDecimal value) {
+    // Infer decimal scale and precision
+    if (arrowType == null) {
+      arrowType = new ArrowType.Decimal(MAX_DECIMAL_PRECISION, value.scale());
+    }
+
+    getWriter(MinorType.DECIMAL, arrowType).writeDecimal(value);
   }
 
   @Override
