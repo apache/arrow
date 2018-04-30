@@ -20,11 +20,11 @@
 if "%JOB%" == "Rust_Stable" (
     curl -sSf -o rustup-init.exe https://win.rustup.rs/
     rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
-    set PATH=%PATH%;C:\Users\Appveyor\.cargo\bin
+    set "PATH=%PATH%;C:\Users\Appveyor\.cargo\bin"
     rustc -Vv
     cargo -V
 ) else (
     set MINICONDA=C:\Miniconda36-x64
-    set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
+    set "PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%"
     call ci\appveyor-setup.bat
 )
