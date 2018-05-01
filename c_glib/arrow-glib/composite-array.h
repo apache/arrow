@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <arrow-glib/version.h>
+
 #include <arrow-glib/basic-array.h>
 #include <arrow-glib/data-type.h>
 
@@ -127,7 +129,12 @@ GArrowStructArray *garrow_struct_array_new(GArrowDataType *data_type,
 
 GArrowArray *garrow_struct_array_get_field(GArrowStructArray *array,
                                            gint i);
+
+GARROW_DEPRECATED_IN_0_10_FOR(garrow_struct_array_flatten)
 GList *garrow_struct_array_get_fields(GArrowStructArray *array);
+
+GARROW_AVAILABLE_IN_0_10
+GList *garrow_struct_array_flatten(GArrowStructArray *array, GError **error);
 
 
 #define GARROW_TYPE_DICTIONARY_ARRAY (garrow_dictionary_array_get_type())

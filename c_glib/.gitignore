@@ -55,6 +55,7 @@ Makefile.in
 /arrow-glib/enums.c
 /arrow-glib/enums.h
 /arrow-glib/stamp-*
+/arrow-glib/version.h
 /arrow-glib/*.pc
 /arrow-gpu-glib/*.pc
 /example/build

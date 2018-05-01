@@ -134,6 +134,14 @@
     </chapter>
   </part>
 
+  <part id="misc">
+    <title>Misc</title>
+    <chapter id="version">
+      <title>Version</title>
+      <xi:include href="xml/version.xml"></xi:include>
+    </chapter>
+  </part>
+
   <chapter id="object-tree">
     <title>Object Hierarchy</title>
     <xi:include href="xml/tree_index.sgml"/>
@@ -145,6 +153,14 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-10-0" role="0.10.0">
+    <title>Index of new symbols in 0.10.0</title>
+    <xi:include href="xml/api-index-0.10.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-9-0" role="0.9.0">
+    <title>Index of new symbols in 0.9.0</title>
+    <xi:include href="xml/api-index-0.9.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-8-0" role="0.8.0">
     <title>Index of new symbols in 0.8.0</title>
