@@ -54,7 +54,7 @@ impl<T> List<T> {
     pub fn slice(&self, index: usize) -> &[T] {
         let start = *self.offsets.get(index) as usize;
         let end = *self.offsets.get(index + 1) as usize;
-        &self.data.slice(start, end)
+        self.data.slice(start, end)
     }
 }
 
