@@ -221,22 +221,46 @@ garrow_struct_array_get_field(GArrowStructArray *array,
  *
  * Returns: (element-type GArrowArray) (transfer full):
  *   The fields in the struct.
+ *
+ * Deprecated: 0.10.0. Use garrow_struct_array_flatten() instead.
  */
 GList *
 garrow_struct_array_get_fields(GArrowStructArray *array)
 {
-  const auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  const auto arrow_struct_array =
-    static_cast<const arrow::StructArray *>(arrow_array.get());
+  return garrow_struct_array_flatten(array, NULL);
+}
 
-  GList *fields = NULL;
-  for (int i = 0; i < arrow_struct_array->num_fields(); ++i) {
-    auto arrow_field = arrow_struct_array->field(i);
-    GArrowArray *field = garrow_array_new_raw(&arrow_field);
-    fields = g_list_prepend(fields, field);
+/**
+ * garrow_struct_array_flatten
+ * @array: A #GArrowStructArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (element-type GArrowArray) (transfer full):
+ *   The fields in the struct.
+ *
+ * Since: 0.10.0
+ */
+GList *
+garrow_struct_array_flatten(GArrowStructArray *array, GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_struct_array =
+    std::static_pointer_cast<arrow::StructArray>(arrow_array);
+
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::ArrayVector arrow_arrays;
+  auto status = arrow_struct_array->Flatten(memory_pool, &arrow_arrays);
+  if (!garrow_error_check(error, status, "[struct-array][flatten]")) {
+    return NULL;
   }
 
-  return g_list_reverse(fields);
+  GList *arrays = NULL;
+  for (auto arrow_array : arrow_arrays) {
+    auto array = garrow_array_new_raw(&arrow_array);
+    arrays = g_list_prepend(arrays, array);
+  }
+
+  return g_list_reverse(arrays);
 }
 
 

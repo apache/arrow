@@ -30,7 +30,8 @@ MKDB_OPTIONS =					\
 	--source-suffixes="c,cpp,h"
 
 HFILE_GLOB =					\
-	$(top_srcdir)/arrow-glib/*.h
+	$(top_srcdir)/arrow-glib/*.h		\
+	$(top_builddir)/arrow-glib/*.h
 
 IGNORE_HFILES =
 
