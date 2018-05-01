@@ -488,7 +488,7 @@ endif (UNIX)
 add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
   ${CLANG_FORMAT_BIN}
   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix)
 
 # runs clang format and exits with a non-zero exit code if any files need to be reformatted
 
@@ -496,7 +496,7 @@ add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
 add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
    ${CLANG_FORMAT_BIN}
    ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-   ${CMAKE_CURRENT_SOURCE_DIR}/src 1)
+   ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 ############################################################
 # "make clang-tidy" and "make check-clang-tidy" targets

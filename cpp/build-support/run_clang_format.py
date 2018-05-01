@@ -16,63 +16,94 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import argparse
+import codecs
+import difflib
 import fnmatch
 import os
 import subprocess
 import sys
 
-if len(sys.argv) < 4:
-    sys.stderr.write("Usage: %s $CLANG_FORMAT_VERSION exclude_globs.txt "
-                     "$source_dir\n" %
-                     sys.argv[0])
-    sys.exit(1)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Runs clang format on all of the source "
+        "files. If --fix is specified,  and compares the output "
+        "with the existing file, outputting a unifiied diff if "
+        "there are any necessary changes")
+    parser.add_argument("clang_format_binary",
+                        help="Path to the clang-format binary")
+    parser.add_argument("exclude_globs",
+                        help="Filename containing globs for files "
+                        "that should be excluded from the checks")
+    parser.add_argument("source_dir", 
+                        help="Root directory of the source code")
+    parser.add_argument("--fix", default=False,
+                        action="store_true",
+                        help="If specified, will re-format the source "
+                        "code instead of comparing the re-formatted "
+                        "output, defaults to %(default)s")
 
-CLANG_FORMAT = sys.argv[1]
-EXCLUDE_GLOBS_FILENAME = sys.argv[2]
-SOURCE_DIR = sys.argv[3]
+    arguments = parser.parse_args()
 
-if len(sys.argv) > 4:
-    CHECK_FORMAT = int(sys.argv[4]) == 1
-else:
-    CHECK_FORMAT = False
+    formatted_filenames = []
+    exclude_globs = [line.strip() for line in open(arguments.exclude_globs)]
+    for directory, subdirs, filenames in os.walk(arguments.source_dir):
+        fullpaths = (os.path.join(directory, filename) for filename in filenames)
+        source_files = filter(lambda x: x.endswith(".h") or x.endswith(".cc"), fullpaths)
+        formatted_filenames.extend(
+            # Filter out files that match the globs in the globs file
+            [filename for filename in source_files
+             if not any((fnmatch.fnmatch(filename, exclude_glob)
+                         for exclude_glob in exclude_globs))])
+        
+    error = False
+    if arguments.fix:
+        # Print out each file on its own line, but run
+        # clang format once for all of the files
+        print("\n".join(map(lambda x: "Formatting {}".format(x),
+                            formatted_filenames)))
+        subprocess.check_call([arguments.clang_format_binary,
+                               "-i"] + formatted_filenames)
+    else:
+        for filename in formatted_filenames:
+            print("Checking {}".format(filename))
+            #
+            # Due to some incompatibilities between Python 2 and
+            # Python 3, there are some specific actions we take here
+            # to make sure the difflib.unified_diff call works.
+            #
+            # In Python 2, the call to subprocess.check_output return
+            # a 'str' type. In Python 3, however, the call returns a
+            # 'bytes' type unless the 'encoding' argument is
+            # specified. Unfortunately, the 'encoding' argument is not
+            # in the Python 2 API. We could do an if/else here based
+            # on the version of Python we are running, but it's more
+            # straightforward to read the file in binary and do utf-8
+            # conversion. In Python 2, it's just converting string
+            # types to unicode types, whereas in Python 3 it's
+            # converting bytes types to utf-8 encoded str types. This
+            # approach ensures that the arguments to
+            # difflib.unified_diff are acceptable string types in both
+            # Python 2 and Python 3.
+            with open(filename, "rb") as reader:
+                # Run clang-format and capture its output
+                formatted = subprocess.check_output(
+                    [arguments.clang_format_binary,
+                     filename])
+                formatted = codecs.decode(formatted, "utf-8")
+                # Read the original file
+                original = codecs.decode(reader.read(), "utf-8")
+                # Run the equivalent of diff -u
+                diff = list(difflib.unified_diff(
+                    original.splitlines(True),
+                    formatted.splitlines(True),
+                    fromfile=filename,
+                    tofile="{} (after clang format)".format(
+                        filename)))
+                if diff:
+                    # Print out the diff to stderr
+                    error = True
+                    print(",".join(map(str, map(type, diff))))
+                    sys.stderr.writelines(diff)
 
-
-exclude_globs = [line.strip() for line in open(EXCLUDE_GLOBS_FILENAME, "r")]
-
-files_to_format = []
-matches = []
-for directory, subdirs, files in os.walk(SOURCE_DIR):
-    for name in files:
-        name = os.path.join(directory, name)
-        if not (name.endswith('.h') or name.endswith('.cc')):
-            continue
-
-        excluded = False
-        for g in exclude_globs:
-            if fnmatch.fnmatch(name, g):
-                excluded = True
-                break
-        if not excluded:
-            files_to_format.append(name)
-
-if CHECK_FORMAT:
-    output = subprocess.check_output([CLANG_FORMAT, '-output-replacements-xml']
-                                     + files_to_format,
-                                     stderr=subprocess.STDOUT).decode('utf8')
-
-    to_fix = []
-    for line in output.split('\n'):
-        if 'offset' in line:
-            to_fix.append(line)
-
-    if len(to_fix) > 0:
-        print("clang-format checks failed, run 'make format' to fix")
-        sys.exit(-1)
-else:
-    try:
-        cmd = [CLANG_FORMAT, '-i'] + files_to_format
-        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-    except Exception as e:
-        print(e)
-        print(' '.join(cmd))
-        raise
+    sys.exit(1 if error else 0)
