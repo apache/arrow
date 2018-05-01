@@ -231,11 +231,11 @@ cmake -G "Visual Studio 14 2015 Win64" ^
 cmake --build . --config Debug
 ```
 
-To get the latest build instructions, you can reference [msvc-build.bat][5], which is used by automated Appveyor builds.
+To get the latest build instructions, you can reference [cpp-python-msvc-build.bat][5], which is used by automated Appveyor builds.
 
 
 [1]: https://conda.io/miniconda.html
 [2]: https://conda-forge.github.io/
 [3]: http://cmder.net/
 [4]: https://cmake.org/
-[5]: https://github.com/apache/arrow/blob/master/ci/msvc-build.bat
+[5]: https://github.com/apache/arrow/blob/master/ci/cpp-python-msvc-build.bat
