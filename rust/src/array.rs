@@ -319,7 +319,7 @@ mod tests {
     fn test_struct() {
         let a = Rc::new(BufferArrayData::from(Buffer::from(vec![1, 2, 3, 4, 5])));
         let b = Rc::new(BufferArrayData::from(Buffer::from(vec![
-            1.1, 2.2, 3.3, 4.4, 5.5,
+            1.1, 2.2, 3.3, 4.4, 5.5
         ])));
 
         let _ = StructArrayData {
