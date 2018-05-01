@@ -120,9 +120,9 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None, nthreads=1, as_table=False):
+def read_feather(source, columns=None, nthreads=1):
     """
-    Read a pandas.DataFrame or pyarrow.Table from Feather format
+    Read a pandas.DataFrame from Feather format
 
     Parameters
     ----------
@@ -132,17 +132,29 @@ def read_feather(source, columns=None, nthreads=1, as_table=False):
         read
     nthreads : int, default 1
         Number of CPU threads to use when reading to pandas.DataFrame
-    as_table: bool, default False
-        Whether to return a Pandas DataFrame or a pyarrow.Table
 
     Returns
     -------
-    if as_table:
-        table: pyarrow.Table
-    else:
-        df : pandas.DataFrame
+    df : pandas.DataFrame
     """
     reader = FeatherReader(source)
-    if as_table:
-        return reader.read_table(columns=columns)
     return reader.read_pandas(columns=columns, nthreads=nthreads)
+
+
+def read_table(source, columns=None):
+    """
+    Read a pyarrow.Table from Feather format
+
+    Parameters
+    ----------
+    source : string file path, or file-like object
+    columns : sequence, optional
+        Only read a specific set of columns. If not provided, all columns are
+        read
+
+    Returns
+    -------
+    table : pyarrow.Table
+    """
+    reader = FeatherReader(source)
+    return reader.read_table(columns=columns)

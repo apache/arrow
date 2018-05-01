@@ -29,7 +29,7 @@ import pandas as pd
 
 import pyarrow as pa
 from pyarrow.feather import (read_feather, write_feather,
-                             FeatherReader)
+                             read_table, FeatherReader)
 from pyarrow.lib import FeatherWriter
 
 
@@ -129,7 +129,7 @@ class TestFeatherReader(unittest.TestCase):
         df = pd.DataFrame(data)
         self._check_pandas_roundtrip(df)
 
-    def test_table_read(self):
+    def test_read_table(self):
         num_values = (100, 100)
         path = random_path()
 
@@ -148,7 +148,7 @@ class TestFeatherReader(unittest.TestCase):
                             columns=['col_' + str(i) for i in range(100)])
         table = pa.Table.from_pandas(data)
 
-        result = read_feather(path, as_table=True)
+        result = read_table(path)
 
         assert_frame_equal(table.to_pandas(), result.to_pandas())
 
