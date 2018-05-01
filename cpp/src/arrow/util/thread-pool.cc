@@ -73,6 +73,7 @@ Status ThreadPool::Shutdown(bool wait) {
 
 void ThreadPool::CollectFinishedWorkersUnlocked() {
   for (auto& thread : finished_workers_) {
+    // Make sure OS thread has exited
     thread.join();
   }
   finished_workers_.clear();
@@ -94,9 +95,9 @@ void ThreadPool::WorkerLoop(std::list<std::thread>::iterator it) {
   DCHECK_EQ(std::this_thread::get_id(), it->get_id());
 
   while (true) {
-    // Logic detail: by the time this thread is started, some tasks
-    // may have been pushed or shutdown could even have been requested.
-    // So we only wait on the condition variable at the end of the loop.
+    // By the time this thread is started, some tasks may have been pushed
+    // or shutdown could even have been requested.  So we only wait on the
+    // condition variable at the end of the loop.
 
     // Execute pending tasks if any
     while (!pending_tasks_.empty() && !quick_shutdown_) {
@@ -129,9 +130,6 @@ void ThreadPool::WorkerLoop(std::list<std::thread>::iterator it) {
   // 2) we can explicitly join() the trashcan threads to make sure all OS threads
   //    are exited before the ThreadPool is destroyed.  Otherwise subtle
   //    timing conditions can lead to false positives with Valgrind.
-  //
-  // It's important that we keep the lock until the end of the function,
-  // so that ~ThreadPool() cannot finish and destroy `this` before.
   DCHECK_EQ(std::this_thread::get_id(), it->get_id());
   finished_workers_.push_back(std::move(*it));
   workers_.erase(it);
@@ -159,6 +157,35 @@ Status ThreadPool::Make(size_t threads, std::shared_ptr<ThreadPool>* out) {
   RETURN_NOT_OK(pool->SetCapacity(threads));
   *out = std::move(pool);
   return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Global thread pool
+
+static size_t DefaultCapacity() {
+  size_t capacity = std::thread::hardware_concurrency();
+  if (capacity == 0) {
+    ARROW_LOG(WARNING) << "Failed to determine the number of available threads, "
+                          "using a hardcoded arbitrary value";
+    capacity = 4;
+  }
+  return capacity;
+}
+
+// Helper for the singleton pattern
+static std::shared_ptr<ThreadPool> MakePoolWithDefaultCapacity() {
+  std::shared_ptr<ThreadPool> pool;
+  DCHECK_OK(ThreadPool::Make(DefaultCapacity(), &pool));
+  return pool;
+}
+
+ThreadPool* CPUThreadPool() {
+  static std::shared_ptr<ThreadPool> singleton = MakePoolWithDefaultCapacity();
+  return singleton.get();
+}
+
+Status SetCPUThreadPoolCapacity(size_t threads) {
+  return CPUThreadPool()->SetCapacity(threads);
 }
 
 }  // namespace internal

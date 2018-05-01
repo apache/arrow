@@ -35,6 +35,11 @@
 #include "arrow/util/macros.h"
 
 namespace arrow {
+
+// Set the number of worker threads used by the process-global thread pool
+// for CPU-bound tasks.
+ARROW_EXPORT Status SetCPUThreadPoolCapacity(size_t threads);
+
 namespace internal {
 
 namespace detail {
@@ -132,6 +137,9 @@ class ThreadPool {
   bool please_shutdown_;
   bool quick_shutdown_;
 };
+
+// Return the process-global thread pool for CPU-bound tasks.
+ThreadPool* CPUThreadPool();
 
 }  // namespace internal
 }  // namespace arrow
