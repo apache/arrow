@@ -22,16 +22,23 @@ use std::ptr;
 use std::slice;
 
 use super::buffer::*;
+use super::datatypes::*;
 use super::memory::*;
 
 /// Buffer builder with zero-copy build method
-pub struct Builder<T> {
+pub struct Builder<T>
+where
+    T: ArrowPrimitiveType,
+{
     data: *mut T,
     len: usize,
     capacity: usize,
 }
 
-impl<T> Builder<T> {
+impl<T> Builder<T>
+where
+    T: ArrowPrimitiveType,
+{
     /// Creates a builder with a default capacity
     pub fn new() -> Self {
         Builder::with_capacity(64)
@@ -136,7 +143,10 @@ impl<T> Builder<T> {
     }
 }
 
-impl<T> Drop for Builder<T> {
+impl<T> Drop for Builder<T>
+where
+    T: ArrowPrimitiveType,
+{
     fn drop(&mut self) {
         if !self.data.is_null() {
             unsafe {
