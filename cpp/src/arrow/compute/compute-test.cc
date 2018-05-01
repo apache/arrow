@@ -924,8 +924,8 @@ TYPED_TEST(TestHashKernelPrimitive, CountValues) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckCountValues<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3, 4},
-                                 {true, false, true, true, true, true, false},
-                                 {2, 1, 3}, {}, {3, 1, 1});
+                                 {true, false, true, true, true, true, false}, {2, 1, 3},
+                                 {}, {3, 1, 1});
 }
 
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
@@ -1057,15 +1057,13 @@ TEST_F(TestHashKernel, DictEncodeBinary) {
 }
 
 TEST_F(TestHashKernel, CountValuesBinary) {
-  CheckCountValues<BinaryType, std::string>(&this->ctx_, binary(),
-                                            {"test", "", "test2", "test"},
-                                            {true, false, true, true}, {"test", "test2"},
-                                            {}, {2, 1});
+  CheckCountValues<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "test2"}, {}, {2, 1});
 
-  CheckCountValues<StringType, std::string>(&this->ctx_, utf8(),
-                                            {"test", "", "test2", "test"},
-                                            {true, false, true, true}, {"test", "test2"},
-                                            {}, {2, 1});
+  CheckCountValues<StringType, std::string>(
+      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "test2"}, {}, {2, 1});
 }
 
 TEST_F(TestHashKernel, BinaryResizeTable) {

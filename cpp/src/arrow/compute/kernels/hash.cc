@@ -766,7 +766,7 @@ class CountValuesImpl : public HashTableKernel<Type, CountValuesImpl<Type>> {
     return Status::OK();
   }
 
-  void ObserveNull() { }
+  void ObserveNull() {}
 
   void ObserveFound(const hash_slot_t slot) { counts_[slot]++; }
 
@@ -915,8 +915,7 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
   return Status::OK();
 }
 
-Status GetCountValuesKernel(FunctionContext* ctx,
-                            const std::shared_ptr<DataType>& type,
+Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
                             std::unique_ptr<HashKernel>* out) {
   std::unique_ptr<HashTable> hasher;
 
