@@ -20,7 +20,8 @@ DOC_MODULE = arrow-glib
 DOC_MAIN_SGML_FILE = $(DOC_MODULE)-docs.xml
 
 DOC_SOURCE_DIR =				\
-	$(top_srcdir)/arrow-glib
+	$(top_srcdir)/arrow-glib		\
+	$(top_builddir)/arrow-glib
 
 SCAN_OPTIONS =						\
 	--deprecated-guards="GARROW_DISABLE_DEPRECATED"
