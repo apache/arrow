@@ -20,23 +20,26 @@ use std::cmp;
 use std::mem;
 
 use super::error::ArrowError;
-use super::error::Result;
-
-const ALIGNMENT: usize = 64;
+use super::memory::{allocate_aligned, free_aligned};
 
 /// Memory pool for allocating memory. It's also responsible for tracking memory usage.
 pub trait MemoryPool {
     /// Allocate memory.
     /// The implementation should ensures that allocated memory is aligned.
-    fn allocate(&self, size: usize) -> Result<*mut u8>;
+    fn allocate(&self, size: usize) -> Result<*const u8, ArrowError>;
 
     /// Reallocate memory.
     /// If the implementation doesn't support reallocating aligned memory, it allocates new memory
     /// and copied old memory to it.
-    fn reallocate(&self, old_size: usize, new_size: usize, pointer: *mut u8) -> Result<*mut u8>;
+    fn reallocate(
+        &self,
+        old_size: usize,
+        new_size: usize,
+        pointer: *const u8,
+    ) -> Result<*const u8, ArrowError>;
 
     /// Free memory.
-    fn free(&self, ptr: *mut u8);
+    fn free(&self, ptr: *const u8);
 }
 
 /// Implementation of memory pool using libc api.
@@ -44,38 +47,35 @@ pub trait MemoryPool {
 struct LibcMemoryPool;
 
 impl MemoryPool for LibcMemoryPool {
-    fn allocate(&self, size: usize) -> Result<*mut u8> {
-        unsafe {
-            let mut page: *mut libc::c_void = mem::uninitialized();
-            let result = libc::posix_memalign(&mut page, ALIGNMENT, size);
-            match result {
-                0 => Ok(mem::transmute::<*mut libc::c_void, *mut u8>(page)),
-                _ => Err(ArrowError::MemoryError(
-                    "Failed to allocate memory".to_string(),
-                )),
-            }
-        }
+    fn allocate(&self, size: usize) -> Result<*const u8, ArrowError> {
+        allocate_aligned(size as i64)
     }
 
-    fn reallocate(&self, old_size: usize, new_size: usize, pointer: *mut u8) -> Result<*mut u8> {
+    fn reallocate(
+        &self,
+        old_size: usize,
+        new_size: usize,
+        pointer: *const u8,
+    ) -> Result<*const u8, ArrowError> {
         unsafe {
-            let old_src = mem::transmute::<*mut u8, *mut libc::c_void>(pointer);
+            let old_src = mem::transmute::<*const u8, *mut libc::c_void>(pointer);
             let result = self.allocate(new_size)?;
-            let dst = mem::transmute::<*mut u8, *mut libc::c_void>(result);
+            let dst = mem::transmute::<*const u8, *mut libc::c_void>(result);
             libc::memcpy(dst, old_src, cmp::min(old_size, new_size));
-            libc::free(old_src);
+            free_aligned(pointer);
             Ok(result)
         }
     }
 
-    fn free(&self, ptr: *mut u8) {
-        unsafe { libc::free(mem::transmute::<*mut u8, *mut libc::c_void>(ptr)) }
+    fn free(&self, ptr: *const u8) {
+        free_aligned(ptr)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    const ALIGNMENT: usize = 64;
 
     #[test]
     fn test_allocate() {
