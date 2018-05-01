@@ -148,12 +148,12 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
-  # C++ & glib w/ gcc 4.9 & autotools
+  # C++ & glib w/ gcc 4.9
   - compiler: gcc
     language: cpp
     os: linux
     env:
-    - BUILD_SYSTEM=autotools BUILD_TORCH_EXAMPLE=no
+    - BUILD_TORCH_EXAMPLE=no
     - CC="gcc-4.9"
     - CXX="g++-4.9"
     before_script:
@@ -163,30 +163,13 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # C++ & glib w/ gcc 4.9 & meson
-  - compiler: gcc
-    language: cpp
-    os: linux
-    env:
-    - BUILD_SYSTEM=meson BUILD_TORCH_EXAMPLE=no
-    - CC="gcc-4.9"
-    - CXX="g++-4.9"
-    before_script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # [OS X] C++ & glib w/ XCode 8.3 & autotools & homebrew
+  # [OS X] C++ & glib w/ XCode 8.3 & homebrew
   - compiler: clang
     osx_image: xcode8.3
     os: osx
     cache:
     addons:
     rvm: 2.2
-    env:
-    - BUILD_SYSTEM=autotools
     before_script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh

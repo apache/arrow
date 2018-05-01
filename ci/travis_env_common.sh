@@ -33,7 +33,8 @@ export CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
 
 export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
 export ARROW_CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
-export ARROW_C_GLIB_INSTALL=$TRAVIS_BUILD_DIR/c-glib-install
+export ARROW_C_GLIB_INSTALL_AUTOTOOLS=$TRAVIS_BUILD_DIR/c-glib-install-autotools
+export ARROW_C_GLIB_INSTALL_MESON=$TRAVIS_BUILD_DIR/c-glib-install-meson
 
 export ARROW_PYTHON_PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 
