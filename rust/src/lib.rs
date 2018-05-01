@@ -32,3 +32,4 @@ pub mod list_builder;
 pub mod memory;
 #[cfg(not(windows))]
 pub mod memory_pool;
+pub mod record_batch;
