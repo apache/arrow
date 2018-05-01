@@ -96,6 +96,50 @@ class UniqueAction : public ActionBase {
 };
 
 // ----------------------------------------------------------------------
+// Count values implementation
+
+template <typename Type>
+class CountValuesImpl : public HashTableKernel<Type, CountValuesImpl<Type>> {
+ public:
+  static constexpr bool allow_expand = true;
+  using Base = HashTableKernel<Type, CountValuesImpl>;
+
+  CountValuesImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : Base(type, pool) {}
+
+  Status Reserve(const int64_t length) {
+    counts_.reserve(length);
+    return Status::OK();
+  }
+
+  void ObserveNull() {}
+
+  void ObserveFound(const hash_slot_t slot) { counts_[slot]++; }
+
+  void ObserveNotFound(const hash_slot_t slot) { counts_.emplace_back(1); }
+
+  Status DoubleSize() { return Base::DoubleTableSize(); }
+
+  Status Flush(Datum* out) override {
+    Int64Builder builder(Base::pool_);
+    std::shared_ptr<ArrayData> result;
+
+    for (const int64_t value : counts_) {
+      RETURN_NOT_OK(builder.Append(value));
+    }
+
+    RETURN_NOT_OK(builder.FinishInternal(&result));
+    out->value = std::move(result);
+    return Status::OK();
+  }
+
+  using Base::Append;
+
+ private:
+  std::vector<int64_t> counts_;
+};
+
+// ----------------------------------------------------------------------
 // Dictionary encode implementation
 
 class DictEncodeAction : public ActionBase {
@@ -368,6 +412,48 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
   return Status::OK();
 }
 
+Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
+                            std::unique_ptr<HashKernel>* out) {
+  std::unique_ptr<HashTable> hasher;
+
+#define COUNT_VALUES_CASE(InType)                                        \
+  case InType::type_id:                                                  \
+    hasher.reset(new CountValuesImpl<InType>(type, ctx->memory_pool())); \
+    break
+
+  switch (type->id()) {
+    COUNT_VALUES_CASE(NullType);
+    COUNT_VALUES_CASE(BooleanType);
+    COUNT_VALUES_CASE(UInt8Type);
+    COUNT_VALUES_CASE(Int8Type);
+    COUNT_VALUES_CASE(UInt16Type);
+    COUNT_VALUES_CASE(Int16Type);
+    COUNT_VALUES_CASE(UInt32Type);
+    COUNT_VALUES_CASE(Int32Type);
+    COUNT_VALUES_CASE(UInt64Type);
+    COUNT_VALUES_CASE(Int64Type);
+    COUNT_VALUES_CASE(FloatType);
+    COUNT_VALUES_CASE(DoubleType);
+    COUNT_VALUES_CASE(Date32Type);
+    COUNT_VALUES_CASE(Date64Type);
+    COUNT_VALUES_CASE(Time32Type);
+    COUNT_VALUES_CASE(Time64Type);
+    COUNT_VALUES_CASE(TimestampType);
+    COUNT_VALUES_CASE(BinaryType);
+    COUNT_VALUES_CASE(StringType);
+    COUNT_VALUES_CASE(FixedSizeBinaryType);
+    COUNT_VALUES_CASE(Decimal128Type);
+    default:
+      break;
+  }
+
+#undef COUNT_VALUES_CASE
+
+  CHECK_IMPLEMENTED(hasher, "count-values", type);
+  out->reset(new HashKernelImpl(std::move(hasher)));
+  return Status::OK();
+}
+
 namespace {
 
 Status InvokeHash(FunctionContext* ctx, HashKernel* func, const Datum& value,
@@ -412,6 +498,19 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
   }
 
   *out = detail::WrapArraysLike(value, dict_chunks);
+  return Status::OK();
+}
+
+Status CountValues(FunctionContext* ctx, const Datum& value,
+                   std::shared_ptr<Array>* out_uniques,
+                   std::shared_ptr<Array>* out_counts) {
+  std::unique_ptr<HashKernel> func;
+  RETURN_NOT_OK(GetCountValuesKernel(ctx, value.type(), &func));
+
+  std::vector<Datum> counts_datum;
+  RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &counts_datum, out_uniques));
+
+  *out_counts = MakeArray(counts_datum.back().array());
   return Status::OK();
 }
 

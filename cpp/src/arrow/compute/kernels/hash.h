@@ -56,6 +56,10 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
                                  const std::shared_ptr<DataType>& type,
                                  std::unique_ptr<HashKernel>* kernel);
 
+ARROW_EXPORT
+Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
+                            std::unique_ptr<HashKernel>* kernel);
+
 /// \brief Compute unique elements from an array-like object
 /// \param[in] context the FunctionContext
 /// \param[in] datum array-like input
@@ -75,6 +79,19 @@ Status Unique(FunctionContext* context, const Datum& datum, std::shared_ptr<Arra
 /// \note API not yet finalized
 ARROW_EXPORT
 Status DictionaryEncode(FunctionContext* context, const Datum& data, Datum* out);
+
+/// \brief Return counts of unique elements from an array-like object
+/// \param[in] context the FunctionContext
+/// \param[in] value array-like input
+/// \param[out] out_uniques unique elements as Array
+/// \param[out] out_counts counts per element as Array, same shape as out_uniques
+///
+/// \since 0.10.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Status CountValues(FunctionContext* context, const Datum& value,
+                   std::shared_ptr<Array>* out_uniques,
+                   std::shared_ptr<Array>* out_counts);
 
 // TODO(wesm): Define API for incremental dictionary encoding
 
