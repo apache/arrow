@@ -918,15 +918,6 @@ cdef class BinaryArray(Array):
 
 cdef class DictionaryArray(Array):
 
-    cdef getitem(self, int64_t i):
-        cdef Array dictionary = self.dictionary
-        index = self.indices[i]
-        if index is NA:
-            return index
-        else:
-            return box_scalar(dictionary.type, dictionary.sp_array,
-                              index.as_py())
-
     def dictionary_encode(self):
         return self
 
