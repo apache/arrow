@@ -36,6 +36,7 @@
 
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/util/datetime.h"
 
@@ -76,33 +77,7 @@ class TypeInferrer {
 
   // Infer value type from a sequence of values
   Status VisitSequence(PyObject* obj) {
-    // Loop through a sequence
-    if (PyArray_Check(obj)) {
-      Py_ssize_t size = PySequence_Size(obj);
-      OwnedRef value_ref;
-
-      for (Py_ssize_t i = 0; i < size; ++i) {
-        auto array = reinterpret_cast<PyArrayObject*>(obj);
-        auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
-
-        value_ref.reset(PyArray_GETITEM(array, ptr));
-        RETURN_IF_PYERROR();
-        RETURN_NOT_OK(Visit(value_ref.obj()));
-      }
-    } else if (PySequence_Check(obj)) {
-      OwnedRef seq_ref(PySequence_Fast(obj, "Object is not a sequence or iterable"));
-      RETURN_IF_PYERROR();
-      PyObject* seq = seq_ref.obj();
-
-      Py_ssize_t size = PySequence_Fast_GET_SIZE(seq);
-      for (Py_ssize_t i = 0; i < size; ++i) {
-        PyObject* value = PySequence_Fast_GET_ITEM(seq, i);
-        RETURN_NOT_OK(Visit(value));
-      }
-    } else {
-      return Status::TypeError("Object is not a sequence or iterable");
-    }
-    return Status::OK();
+    return internal::VisitSequence(obj, [this](PyObject* value) { return Visit(value); });
   }
 
   Status Visit(PyObject* obj) {
@@ -139,6 +114,8 @@ class TypeInferrer {
         return Status::Invalid(ss.str());
       }
     } else if (PyList_Check(obj) || PyArray_Check(obj)) {
+      // TODO(ARROW-2514): This code path is used for non-object arrays, which
+      // leads to wasteful creation and inspection of temporary Python objects.
       return VisitList(obj);
     } else if (PyDict_Check(obj)) {
       return VisitDict(obj);
@@ -397,16 +374,9 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
     // Iterate over the items adding each one
-    if (PySequence_Check(obj)) {
-      auto self = static_cast<Derived*>(this);
-      for (int64_t i = 0; i < size; ++i) {
-        OwnedRef ref(PySequence_GetItem(obj, i));
-        RETURN_NOT_OK(self->AppendSingle(ref.obj()));
-      }
-    } else {
-      return Status::TypeError("Object is not a sequence");
-    }
-    return Status::OK();
+    auto self = static_cast<Derived*>(this);
+    auto visit = [self](PyObject* item) { return self->AppendSingle(item); };
+    return internal::VisitSequence(obj, visit);
   }
 
   // Append a missing item (default implementation)
@@ -591,6 +561,9 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
   Status AppendItem(PyObject* obj) {
     RETURN_NOT_OK(typed_builder_->Append());
     const auto list_size = static_cast<int64_t>(PySequence_Size(obj));
+    if (ARROW_PREDICT_FALSE(list_size == -1)) {
+      RETURN_IF_PYERROR();
+    }
     return value_converter_->AppendMultiple(obj, list_size);
   }
 
