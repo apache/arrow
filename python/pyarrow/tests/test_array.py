@@ -218,6 +218,9 @@ def test_array_from_buffers():
     with pytest.raises(TypeError):
         pa.Array.from_buffers(pa.int16(), 3, [u'', u''], offset=1)
 
+    with pytest.raises(NotImplementedError):
+        pa.Array.from_buffers(pa.list_(pa.int16()), 4, [None, values_buf])
+
 
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
