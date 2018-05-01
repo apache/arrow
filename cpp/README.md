@@ -325,6 +325,30 @@ You may find the required packages at http://releases.llvm.org/download.html
 or use the Debian/Ubuntu APT repositories on https://apt.llvm.org/. On macOS
 with [Homebrew][1] you can get it via `brew install llvm@5`.
 
+## Checking for ABI and API stability
+
+To build ABI compliance reports, you need to install the two tools
+`abi-dumper` and `abi-compliance-checker`.
+
+Build Arrow C++ in Debug mode, alternatively you could use `-Og` which also
+builds with the necessary symbols but includes a bit of code optimization.
+Once the build has finished, you can generate ABI reports using:
+
+```
+abi-dumper -lver 9 debug/libarrow.so -o ABI-9.dump
+```
+
+The above version number is freely selectable. As we want to compare versions,
+you should now `git checkout` the version you want to compare it to and re-run
+the above command using a different version number. Once both reports are
+generated, you can build a comparision report using
+
+```
+abi-compliance-checker -l libarrow -d1 ABI-PY-9.dump -d2 ABI-PY-10.dump
+```
+
+The report is then generated in `compat_reports/libarrow` as a HTML.
+
 ## Continuous Integration
 
 Pull requests are run through travis-ci for continuous integration.  You can avoid
