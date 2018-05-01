@@ -46,8 +46,8 @@ bool is_contiguous(PyObject* array) {
 }
 
 int cast_npy_type_compat(int type_num) {
-// Both LONGLONG and INT64 can be observed in the wild, which is buggy. We set
-// U/LONGLONG to U/INT64 so things work properly.
+  // Both LONGLONG and INT64 can be observed in the wild, which is buggy. We set
+  // U/LONGLONG to U/INT64 so things work properly.
 
 #if (NPY_INT64 == NPY_LONGLONG) && (NPY_SIZEOF_LONGLONG == 8)
   if (type_num == NPY_LONGLONG) {

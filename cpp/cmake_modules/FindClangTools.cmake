@@ -77,6 +77,18 @@ if (CLANG_FORMAT_VERSION)
                     NO_DEFAULT_PATH
             )
         endif()
+
+        if ("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
+          # binary was still not found, look into Cellar
+          # TODO: This currently only works for '.0' patch releases as
+          #       find_program does not support regular expressions
+          #       in the paths.
+          find_program(CLANG_FORMAT_BIN
+            NAMES clang-format
+            PATHS /usr/local/Cellar/llvm/${CLANG_FORMAT_VERSION}.0/bin
+                  NO_DEFAULT_PATH
+          )
+        endif()
     endif()
 else()
     find_program(CLANG_FORMAT_BIN
