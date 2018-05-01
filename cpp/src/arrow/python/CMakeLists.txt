@@ -109,6 +109,7 @@ install(FILES
   helpers.h
   init.h
   io.h
+  iterators.h
   numpy_convert.h
   numpy_interop.h
   numpy_to_arrow.h
