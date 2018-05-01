@@ -151,7 +151,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
-  # C++ & glib w/ gcc 4.9
+  # C++ & GLib & Ruby w/ gcc 4.9
   - compiler: gcc
     language: cpp
     os: linux
@@ -160,13 +160,15 @@ matrix:
     - CC="gcc-4.9"
     - CXX="g++-4.9"
     before_script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # [OS X] C++ & glib w/ XCode 8.3 & homebrew
+    - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
+  # [OS X] C++ & GLib & Ruby w/ XCode 8.3 & homebrew
   - compiler: clang
     osx_image: xcode8.3
     os: osx
@@ -174,12 +176,14 @@ matrix:
     addons:
     rvm: 2.2
     before_script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library --homebrew
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
+    - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
   # Rust
   - language: rust
     cache: cargo
