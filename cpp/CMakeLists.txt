@@ -43,8 +43,11 @@ if(POLICY CMP0054)
   cmake_policy(SET CMP0054 NEW)
 endif()
 
-set(ARROW_SO_VERSION "0")
-set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
+# The SO version is also the ABI version
+set(ARROW_SO_VERSION "10")
+# Append the bugfix release level, so the full SO version is e.g. "10.0.0"
+# for Arrow 0.10.0.
+set(ARROW_FULL_SO_VERSION "10.0.0")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
