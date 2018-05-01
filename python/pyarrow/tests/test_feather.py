@@ -148,8 +148,7 @@ class TestFeatherReader(unittest.TestCase):
                             columns=['col_' + str(i) for i in range(100)])
         table = pa.Table.from_pandas(data)
 
-        table_reader = FeatherReader(path)
-        result = table_reader.read(as_pandas=False)
+        result = read_feather(path, as_table=True)
 
         assert_frame_equal(table.to_pandas(), result.to_pandas())
 

@@ -20,6 +20,7 @@ import os
 
 import six
 import pandas as pd
+import warnings
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
@@ -42,7 +43,12 @@ class FeatherReader(ext.FeatherReader):
         self.source = source
         self.open(source)
 
-    def read(self, columns=None, nthreads=1, as_pandas=True):
+    def read(self, *args, **kwargs):
+        warnings.warn("read has been deprecated. Use read_pandas instead.",
+                      DeprecationWarning)
+        return self.read_pandas(*args, **kwargs)
+
+    def read_table(self, columns=None):
         if columns is not None:
             column_set = set(columns)
         else:
@@ -58,12 +64,10 @@ class FeatherReader(ext.FeatherReader):
                 names.append(name)
 
         table = Table.from_arrays(columns, names=names)
-        if as_pandas:
-            return table.to_pandas(nthreads=nthreads)
         return table
 
-    def read_pandas(self, **kwargs):
-        return self.read(as_pandas=True, **kwargs)
+    def read_pandas(self, columns=None, nthreads=1):
+        return self.read_table(columns=columns).to_pandas(nthreads=nthreads)
 
 
 class FeatherWriter(object):
@@ -116,9 +120,9 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None, nthreads=1, as_pandas=True):
+def read_feather(source, columns=None, nthreads=1, as_table=False):
     """
-    Read a pandas.DataFrame from Feather format
+    Read a pandas.DataFrame or pyarrow.Table from Feather format
 
     Parameters
     ----------
@@ -128,15 +132,17 @@ def read_feather(source, columns=None, nthreads=1, as_pandas=True):
         read
     nthreads : int, default 1
         Number of CPU threads to use when reading to pandas.DataFrame
-    as_pandas: bool, default True
+    as_table: bool, default False
         Whether to return a Pandas DataFrame or a pyarrow.Table
 
     Returns
     -------
-    if as_pandas:
-        df : pandas.DataFrame
-    else:
+    if as_table:
         table: pyarrow.Table
+    else:
+        df : pandas.DataFrame
     """
     reader = FeatherReader(source)
-    return reader.read(columns=columns, nthreads=nthreads, as_pandas=as_pandas)
+    if as_table:
+        return reader.read_table(columns=columns)
+    return reader.read_pandas(columns=columns, nthreads=nthreads)
