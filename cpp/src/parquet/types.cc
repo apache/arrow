@@ -43,17 +43,16 @@ std::string FormatStatValue(Type::type parquet_type, const char* val) {
       result << reinterpret_cast<const float*>(val)[0];
       break;
     case Type::INT96: {
-      for (int i = 0; i < 3; i++) {
-        result << reinterpret_cast<const int32_t*>(val)[i] << " ";
-      }
+      auto const i32_val = reinterpret_cast<const int32_t*>(val);
+      result << i32_val[0] << " " << i32_val[1] << " " << i32_val[2];
       break;
     }
     case Type::BYTE_ARRAY: {
-      result << val << " ";
+      result << val;
       break;
     }
     case Type::FIXED_LEN_BYTE_ARRAY: {
-      result << val << " ";
+      result << val;
       break;
     }
     default:

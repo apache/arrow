@@ -96,19 +96,19 @@ TEST(TypePrinter, StatisticsTypes) {
   Int96 Int96_max = {{2048, 4096, 8192}};
   smin = std::string(reinterpret_cast<char*>(&Int96_min), sizeof(Int96));
   smax = std::string(reinterpret_cast<char*>(&Int96_max), sizeof(Int96));
-  ASSERT_STREQ("1024 2048 4096 ", FormatStatValue(Type::INT96, smin.c_str()).c_str());
-  ASSERT_STREQ("2048 4096 8192 ", FormatStatValue(Type::INT96, smax.c_str()).c_str());
+  ASSERT_STREQ("1024 2048 4096", FormatStatValue(Type::INT96, smin.c_str()).c_str());
+  ASSERT_STREQ("2048 4096 8192", FormatStatValue(Type::INT96, smax.c_str()).c_str());
 
   smin = std::string("abcdef");
   smax = std::string("ijklmnop");
-  ASSERT_STREQ("abcdef ", FormatStatValue(Type::BYTE_ARRAY, smin.c_str()).c_str());
-  ASSERT_STREQ("ijklmnop ", FormatStatValue(Type::BYTE_ARRAY, smax.c_str()).c_str());
+  ASSERT_STREQ("abcdef", FormatStatValue(Type::BYTE_ARRAY, smin.c_str()).c_str());
+  ASSERT_STREQ("ijklmnop", FormatStatValue(Type::BYTE_ARRAY, smax.c_str()).c_str());
 
   smin = std::string("abcdefgh");
   smax = std::string("ijklmnop");
-  ASSERT_STREQ("abcdefgh ",
+  ASSERT_STREQ("abcdefgh",
                FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin.c_str()).c_str());
-  ASSERT_STREQ("ijklmnop ",
+  ASSERT_STREQ("ijklmnop",
                FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax.c_str()).c_str());
 }
 
