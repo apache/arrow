@@ -112,11 +112,6 @@ Status CountValues(FunctionContext* context, const Datum& value,
 // Status IsIn(FunctionContext* context, const Datum& values, const Datum& member_set,
 //             Datum* out);
 
-// ARROW_EXPORT
-// Status CountValues(FunctionContext* context, const Datum& values,
-//                    std::shared_ptr<Array>* out_uniques,
-//                    std::shared_ptr<Array>* out_counts);
-
 }  // namespace compute
 }  // namespace arrow
 
