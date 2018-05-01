@@ -31,6 +31,8 @@ use super::list_builder::*;
 /// Array data type
 pub trait ArrayData {
     fn len(&self) -> usize;
+    fn null_count(&self) -> usize;
+    fn validity_bitmap(&self) -> &Option<Bitmap>;
     fn as_any(&self) -> &Any;
 }
 
@@ -38,6 +40,8 @@ pub trait ArrayData {
 pub struct ListArrayData<T: ArrowPrimitiveType> {
     len: i32,
     list: List<T>,
+    null_count: i32,
+    validity_bitmap: Option<Bitmap>,
 }
 
 impl<T> ListArrayData<T>
@@ -55,7 +59,12 @@ where
 {
     fn from(list: List<T>) -> Self {
         let len = list.len();
-        ListArrayData { len, list }
+        ListArrayData {
+            len,
+            list,
+            validity_bitmap: None,
+            null_count: 0,
+        }
     }
 }
 
@@ -66,6 +75,12 @@ where
     fn len(&self) -> usize {
         self.len as usize
     }
+    fn null_count(&self) -> usize {
+        self.null_count as usize
+    }
+    fn validity_bitmap(&self) -> &Option<Bitmap> {
+        &self.validity_bitmap
+    }
     fn as_any(&self) -> &Any {
         self
     }
@@ -75,12 +90,23 @@ where
 pub struct BufferArrayData<T: ArrowPrimitiveType> {
     len: i32,
     data: Buffer<T>,
+    null_count: i32,
+    validity_bitmap: Option<Bitmap>,
 }
 
 impl<T> BufferArrayData<T>
 where
     T: ArrowPrimitiveType,
 {
+    pub fn new(data: Buffer<T>, null_count: i32, validity_bitmap: Option<Bitmap>) -> Self {
+        BufferArrayData {
+            len: data.len() as i32,
+            data,
+            null_count,
+            validity_bitmap,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.len as usize
     }
@@ -97,6 +123,12 @@ where
     fn len(&self) -> usize {
         self.len as usize
     }
+    fn null_count(&self) -> usize {
+        self.null_count as usize
+    }
+    fn validity_bitmap(&self) -> &Option<Bitmap> {
+        &self.validity_bitmap
+    }
     fn as_any(&self) -> &Any {
         self
     }
@@ -110,6 +142,8 @@ where
         BufferArrayData {
             len: data.len() as i32,
             data,
+            validity_bitmap: None,
+            null_count: 0,
         }
     }
 }
@@ -117,38 +151,65 @@ where
 pub struct StructArrayData {
     len: i32,
     data: Vec<Rc<ArrayData>>,
+    null_count: i32,
+    validity_bitmap: Option<Bitmap>,
+}
+
+impl StructArrayData {
+    pub fn num_columns(&self) -> usize {
+        self.data.len()
+    }
+    pub fn column(&self, i: usize) -> &Rc<ArrayData> {
+        &self.data[i]
+    }
 }
 
 impl ArrayData for StructArrayData {
     fn len(&self) -> usize {
         self.len as usize
     }
+    fn null_count(&self) -> usize {
+        self.null_count as usize
+    }
+    fn validity_bitmap(&self) -> &Option<Bitmap> {
+        &self.validity_bitmap
+    }
     fn as_any(&self) -> &Any {
         self
+    }
+}
+
+impl From<Vec<Rc<ArrayData>>> for StructArrayData {
+    fn from(data: Vec<Rc<ArrayData>>) -> Self {
+        StructArrayData {
+            len: data[0].len() as i32,
+            data,
+            null_count: 0,
+            validity_bitmap: None,
+        }
     }
 }
 
 /// Top level array type, just a holder for a boxed trait for the data it contains
 pub struct Array {
     data: Rc<ArrayData>,
-    null_count: i32,
-    validity_bitmap: Option<Bitmap>,
 }
 
 impl Array {
     pub fn new(data: Rc<ArrayData>) -> Self {
-        Array {
-            data: data.clone(),
-            null_count: 0,
-            validity_bitmap: None,
-        }
+        Array { data: data }
     }
-
     pub fn len(&self) -> usize {
         self.data.len()
     }
+    pub fn null_count(&self) -> usize {
+        self.data.null_count()
+    }
     pub fn data(&self) -> &Rc<ArrayData> {
         &self.data
+    }
+    pub fn validity_bitmap(&self) -> &Option<Bitmap> {
+        self.data.validity_bitmap()
     }
 }
 
@@ -196,9 +257,8 @@ macro_rules! array_from_optional_primitive {
                     .map(|x| x.unwrap_or($DEFAULT))
                     .collect::<Vec<$DT>>();
                 Array {
-                    null_count,
-                    validity_bitmap: Some(validity_bitmap),
-                    data: Rc::new(BufferArrayData::from(Buffer::from(values))),
+                    data: Rc::new(BufferArrayData::new(
+                        Buffer::from(values), null_count, Some(validity_bitmap))),
                 }
             }
         }
@@ -240,7 +300,6 @@ impl From<Vec<String>> for Array {
 
 #[cfg(test)]
 mod tests {
-    use super::super::array::*;
     use super::*;
 
     #[test]
@@ -273,6 +332,7 @@ mod tests {
     fn test_from_bool() {
         let a = Array::from(vec![false, false, true, false]);
         assert_eq!(4, a.len());
+        assert_eq!(0, a.null_count());
     }
 
     #[test]
@@ -306,26 +366,30 @@ mod tests {
     fn test_from_optional_i32() {
         let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
         assert_eq!(5, a.len());
+        assert_eq!(2, a.null_count());
         // 1 == not null
-        let validity_bitmap = a.validity_bitmap.unwrap();
-        assert_eq!(true, validity_bitmap.is_set(0));
-        assert_eq!(false, validity_bitmap.is_set(1));
-        assert_eq!(true, validity_bitmap.is_set(2));
-        assert_eq!(true, validity_bitmap.is_set(3));
-        assert_eq!(false, validity_bitmap.is_set(4));
+        match a.validity_bitmap() {
+            &Some(ref validity_bitmap) => {
+                assert_eq!(true, validity_bitmap.is_set(0));
+                assert_eq!(false, validity_bitmap.is_set(1));
+                assert_eq!(true, validity_bitmap.is_set(2));
+                assert_eq!(true, validity_bitmap.is_set(3));
+                assert_eq!(false, validity_bitmap.is_set(4));
+            }
+            _ => panic!(),
+        }
     }
 
     #[test]
     fn test_struct() {
-        let a = Rc::new(BufferArrayData::from(Buffer::from(vec![1, 2, 3, 4, 5])));
-        let b = Rc::new(BufferArrayData::from(Buffer::from(vec![
+        let a: Rc<ArrayData> = Rc::new(BufferArrayData::from(Buffer::from(vec![1, 2, 3, 4, 5])));
+        let b: Rc<ArrayData> = Rc::new(BufferArrayData::from(Buffer::from(vec![
             1.1, 2.2, 3.3, 4.4, 5.5
         ])));
 
-        let _ = StructArrayData {
-            len: 2,
-            data: vec![a, b],
-        };
+        let s = StructArrayData::from(vec![a, b]);
+        assert_eq!(2, s.num_columns());
+        assert_eq!(0, s.null_count());
     }
 
 }
