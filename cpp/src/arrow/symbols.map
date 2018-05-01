@@ -27,12 +27,8 @@
     # Brotli compression library
     Brotli*;
     # zlib
-    adler32;
-    adler32_combine;
-    adler32_combine64;
-    crc32;
-    crc32_combine;
-    crc32_combine64;
+    adler32*;
+    crc32*;
     deflate*;
     inflate*;
     get_crc_table;
