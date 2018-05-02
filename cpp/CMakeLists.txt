@@ -18,11 +18,38 @@
 cmake_minimum_required(VERSION 3.2)
 project(arrow)
 
+# Extract Arrow version number
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
 string(REGEX MATCHALL
   "\n  <version>[^<]+</version>" ARROW_VERSION_TAG "${POM_XML}")
 string(REGEX REPLACE
   "(\n  <version>|</version>)" "" ARROW_VERSION "${ARROW_VERSION_TAG}")
+# Major.minor.patch version
+string(REGEX MATCH
+  "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" ARROW_BASE_VERSION "${ARROW_VERSION}")
+set(ARROW_MAJOR_VERSION "${CMAKE_MATCH_1}")
+set(ARROW_MINOR_VERSION "${CMAKE_MATCH_2}")
+set(ARROW_PATCH_VERSION "${CMAKE_MATCH_3}")
+
+if (ARROW_MAJOR_VERSION STREQUAL "" OR
+    ARROW_MINOR_VERSION STREQUAL "" OR
+    ARROW_PATCH_VERSION STREQUAL "")
+  MESSAGE(FATAL_ERROR "Failed to determine Arrow version from '${ARROW_VERSION}'")
+endif()
+
+# The SO version is also the ABI version
+if(ARROW_MAJOR_VERSION STREQUAL "0")
+  # Arrow 0.x.y => SO version is "x", full SO version is "x.y.0"
+  set(ARROW_SO_VERSION "${ARROW_MINOR_VERSION}")
+  set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_PATCH_VERSION}.0")
+else()
+  message(FATAL_ERROR "Need implemeting SO version generation for Arrow 1.0+")
+endif()
+
+message(STATUS "Arrow version: "
+  "${ARROW_MAJOR_VERSION}.${ARROW_MINOR_VERSION}.${ARROW_PATCH_VERSION} "
+  "(full: '${ARROW_VERSION}')")
+
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
@@ -42,12 +69,6 @@ if(POLICY CMP0054)
   # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
   cmake_policy(SET CMP0054 NEW)
 endif()
-
-# The SO version is also the ABI version
-set(ARROW_SO_VERSION "10")
-# Append the bugfix release level, so the full SO version is e.g. "10.0.0"
-# for Arrow 0.10.0.
-set(ARROW_FULL_SO_VERSION "10.0.0")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
