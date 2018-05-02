@@ -21,7 +21,7 @@
   local:
     # devtoolset / static-libstdc++ symbols
     __cxa_*;
-
+    __once_proxy;
 
     # Static libraries that are linked in e.g. the manylinux1 build
     # Brotli compression library
