@@ -43,7 +43,7 @@ where
     }
 
     /// Get the length of the List (number of array slots)
-    pub fn len(&self) -> i32 {
+    pub fn len(&self) -> usize {
         self.offsets.len() - 1
     }
 

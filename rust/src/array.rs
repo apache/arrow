@@ -38,9 +38,9 @@ pub trait ArrayData {
 
 /// Array of List<T>
 pub struct ListArrayData<T: ArrowPrimitiveType> {
-    len: i32,
+    len: usize,
     list: List<T>,
-    null_count: i32,
+    null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
 
@@ -73,10 +73,10 @@ where
     T: ArrowPrimitiveType,
 {
     fn len(&self) -> usize {
-        self.len as usize
+        self.len
     }
     fn null_count(&self) -> usize {
-        self.null_count as usize
+        self.null_count
     }
     fn validity_bitmap(&self) -> &Option<Bitmap> {
         &self.validity_bitmap
@@ -88,9 +88,9 @@ where
 
 /// Array of T
 pub struct BufferArrayData<T: ArrowPrimitiveType> {
-    len: i32,
+    len: usize,
     data: Buffer<T>,
-    null_count: i32,
+    null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
 
@@ -98,9 +98,9 @@ impl<T> BufferArrayData<T>
 where
     T: ArrowPrimitiveType,
 {
-    pub fn new(data: Buffer<T>, null_count: i32, validity_bitmap: Option<Bitmap>) -> Self {
+    pub fn new(data: Buffer<T>, null_count: usize, validity_bitmap: Option<Bitmap>) -> Self {
         BufferArrayData {
-            len: data.len() as i32,
+            len: data.len(),
             data,
             null_count,
             validity_bitmap,
@@ -108,7 +108,7 @@ where
     }
 
     pub fn len(&self) -> usize {
-        self.len as usize
+        self.len
     }
 
     pub fn iter(&self) -> BufferIterator<T> {
@@ -121,10 +121,10 @@ where
     T: ArrowPrimitiveType,
 {
     fn len(&self) -> usize {
-        self.len as usize
+        self.len
     }
     fn null_count(&self) -> usize {
-        self.null_count as usize
+        self.null_count
     }
     fn validity_bitmap(&self) -> &Option<Bitmap> {
         &self.validity_bitmap
@@ -140,7 +140,7 @@ where
 {
     fn from(data: Buffer<T>) -> Self {
         BufferArrayData {
-            len: data.len() as i32,
+            len: data.len(),
             data,
             validity_bitmap: None,
             null_count: 0,
@@ -149,9 +149,9 @@ where
 }
 
 pub struct StructArrayData {
-    len: i32,
+    len: usize,
     data: Vec<Rc<ArrayData>>,
-    null_count: i32,
+    null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
 
@@ -166,10 +166,10 @@ impl StructArrayData {
 
 impl ArrayData for StructArrayData {
     fn len(&self) -> usize {
-        self.len as usize
+        self.len
     }
     fn null_count(&self) -> usize {
-        self.null_count as usize
+        self.null_count
     }
     fn validity_bitmap(&self) -> &Option<Bitmap> {
         &self.validity_bitmap
@@ -182,7 +182,7 @@ impl ArrayData for StructArrayData {
 impl From<Vec<Rc<ArrayData>>> for StructArrayData {
     fn from(data: Vec<Rc<ArrayData>>) -> Self {
         StructArrayData {
-            len: data[0].len() as i32,
+            len: data[0].len(),
             data,
             null_count: 0,
             validity_bitmap: None,
@@ -258,7 +258,10 @@ macro_rules! array_from_optional_primitive {
                     .collect::<Vec<$DT>>();
                 Array {
                     data: Rc::new(BufferArrayData::new(
-                        Buffer::from(values), null_count, Some(validity_bitmap))),
+                        Buffer::from(values),
+                        null_count,
+                        Some(validity_bitmap),
+                    )),
                 }
             }
         }
@@ -384,7 +387,7 @@ mod tests {
     fn test_struct() {
         let a: Rc<ArrayData> = Rc::new(BufferArrayData::from(Buffer::from(vec![1, 2, 3, 4, 5])));
         let b: Rc<ArrayData> = Rc::new(BufferArrayData::from(Buffer::from(vec![
-            1.1, 2.2, 3.3, 4.4, 5.5
+            1.1, 2.2, 3.3, 4.4, 5.5,
         ])));
 
         let s = StructArrayData::from(vec![a, b]);

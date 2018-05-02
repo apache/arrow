@@ -32,7 +32,7 @@ where
     /// Contiguous memory region holding instances of primitive T
     data: *const T,
     /// Number of elements in the buffer
-    len: i32,
+    len: usize,
 }
 
 impl<T> Buffer<T>
@@ -40,12 +40,12 @@ where
     T: ArrowPrimitiveType,
 {
     /// create a buffer from an existing region of memory (must already be byte-aligned)
-    pub unsafe fn from_raw_parts(data: *const T, len: i32) -> Self {
+    pub unsafe fn from_raw_parts(data: *const T, len: usize) -> Self {
         Buffer { data, len }
     }
 
     /// Get the number of elements in the buffer
-    pub fn len(&self) -> i32 {
+    pub fn len(&self) -> usize {
         self.len
     }
 
@@ -55,20 +55,20 @@ where
     }
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
-        assert!(end <= self.len as usize);
+        assert!(end <= self.len);
         assert!(start <= end);
-        unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
+        unsafe { slice::from_raw_parts(self.data.offset(start as isize), end - start) }
     }
 
     /// Get a reference to the value at the specified offset
     pub fn get(&self, i: usize) -> &T {
-        assert!(i < self.len as usize);
+        assert!(i < self.len);
         unsafe { &(*self.data.offset(i as isize)) }
     }
 
     /// Write to a slot in the buffer
     pub fn set(&mut self, i: usize, v: T) {
-        assert!(i < self.len as usize);
+        assert!(i < self.len);
         let p = self.data as *mut T;
         unsafe {
             *p.offset(i as isize) = v;
@@ -101,7 +101,7 @@ where
     T: ArrowPrimitiveType,
 {
     data: *const T,
-    len: i32,
+    len: usize,
     index: isize,
 }
 
@@ -133,7 +133,7 @@ where
         let sz = mem::size_of::<T>();
         let buffer = allocate_aligned((len * sz) as i64).unwrap();
         Buffer {
-            len: len as i32,
+            len,
             data: unsafe {
                 let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
                 libc::memcpy(
@@ -155,7 +155,7 @@ impl From<Bytes> for Buffer<u8> {
         let buf_mem = allocate_aligned((len * sz) as i64).unwrap();
         let dst = buf_mem as *mut libc::c_void;
         Buffer {
-            len: len as i32,
+            len,
             data: unsafe {
                 libc::memcpy(dst, bytes.as_ptr() as *const libc::c_void, len * sz);
                 dst as *mut u8

@@ -138,7 +138,7 @@ where
         assert!(!self.data.is_null());
         let p = self.data as *const T;
         self.data = ptr::null_mut(); // ensure builder cannot be re-used
-        unsafe { Buffer::from_raw_parts(p, self.len as i32) }
+        unsafe { Buffer::from_raw_parts(p, self.len) }
     }
 }
 
