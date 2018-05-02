@@ -44,7 +44,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   /// \param[out] out a base interface OutputStream instance
   ///
   /// When opening a new file, any existing file with the indicated path is
-  /// truncated to 0 bytes, deleting any existing memory
+  /// truncated to 0 bytes, deleting any existing data
   static Status Open(const std::string& path, std::shared_ptr<OutputStream>* out);
 
   /// \brief Open a local file for writing
@@ -68,7 +68,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   /// \param[out] file a FileOutputStream instance
   ///
   /// When opening a new file, any existing file with the indicated path is
-  /// truncated to 0 bytes, deleting any existing memory
+  /// truncated to 0 bytes, deleting any existing data
   static Status Open(const std::string& path, std::shared_ptr<FileOutputStream>* file);
 
   /// \brief Open a local file for writing
