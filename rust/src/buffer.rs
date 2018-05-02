@@ -83,7 +83,6 @@ where
             index: 0,
         }
     }
-
 }
 
 /// Release the underlying memory when the Buffer goes out of scope

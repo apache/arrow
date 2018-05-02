@@ -94,6 +94,15 @@ where
         self.len += 1;
     }
 
+    /// Set a value at a slot in the allocated memory without adjusting the length
+    pub fn set(&mut self, i: usize, v: T) {
+        assert!(!self.data.is_null());
+        assert!(i < self.capacity);
+        unsafe {
+            *self.data.offset(i as isize) = v;
+        }
+    }
+
     /// push a slice of type T, growing the internal buffer as needed
     pub fn push_slice(&mut self, slice: &[T]) {
         self.reserve(slice.len());

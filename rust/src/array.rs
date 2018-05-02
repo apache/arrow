@@ -17,12 +17,12 @@
 
 use std::any::Any;
 use std::convert::From;
-use std::iter::Iterator;
 use std::rc::Rc;
 use std::str;
 use std::string::String;
 
 use super::bitmap::Bitmap;
+use super::builder::*;
 use super::buffer::*;
 use super::datatypes::*;
 use super::list::*;
@@ -35,7 +35,6 @@ pub trait ArrayData {
     fn validity_bitmap(&self) -> &Option<Bitmap>;
     fn as_any(&self) -> &Any;
 }
-
 
 /// Array of List<T>
 pub struct ListArrayData<T: ArrowPrimitiveType> {
@@ -56,7 +55,6 @@ where
     pub fn list(&self) -> &List<T> {
         &self.list
     }
-
 }
 
 impl<T> From<List<T>> for ListArrayData<T>
@@ -129,30 +127,26 @@ where
     pub fn min(&self) -> Option<T> {
         let mut n: Option<T> = None;
         match &self.validity_bitmap {
-            &Some(ref bitmap) => {
-                for i in 0..self.len {
-                    if bitmap.is_set(i) {
-                        let mut m = self.buffer.get(i);
-                        match n {
-                            None => n = Some(*m),
-                            Some(nn) => if *m < nn {
-                                n = Some(*m)
-                            }
-                        }
-                    }
-                }
-            }
-            &None => {
-                for i in 0..self.len {
+            &Some(ref bitmap) => for i in 0..self.len {
+                if bitmap.is_set(i) {
                     let mut m = self.buffer.get(i);
                     match n {
                         None => n = Some(*m),
                         Some(nn) => if *m < nn {
                             n = Some(*m)
-                        }
+                        },
                     }
                 }
-            }
+            },
+            &None => for i in 0..self.len {
+                let mut m = self.buffer.get(i);
+                match n {
+                    None => n = Some(*m),
+                    Some(nn) => if *m < nn {
+                        n = Some(*m)
+                    },
+                }
+            },
         }
         n
     }
@@ -161,34 +155,29 @@ where
     pub fn max(&self) -> Option<T> {
         let mut n: Option<T> = None;
         match &self.validity_bitmap {
-            &Some(ref bitmap) => {
-                for i in 0..self.len {
-                    if bitmap.is_set(i) {
-                        let mut m = self.buffer.get(i);
-                        match n {
-                            None => n = Some(*m),
-                            Some(nn) => if *m > nn {
-                                n = Some(*m)
-                            }
-                        }
-                    }
-                }
-            }
-            &None => {
-                for i in 0..self.len {
+            &Some(ref bitmap) => for i in 0..self.len {
+                if bitmap.is_set(i) {
                     let mut m = self.buffer.get(i);
                     match n {
                         None => n = Some(*m),
                         Some(nn) => if *m > nn {
                             n = Some(*m)
-                        }
+                        },
                     }
                 }
-            }
+            },
+            &None => for i in 0..self.len {
+                let mut m = self.buffer.get(i);
+                match n {
+                    None => n = Some(*m),
+                    Some(nn) => if *m > nn {
+                        n = Some(*m)
+                    },
+                }
+            },
         }
         n
     }
-
 }
 
 impl<T> ArrayData for BufferArrayData<T>
@@ -306,6 +295,16 @@ where
     }
 }
 
+/// Create an Array from a BufferArrayData<T> of primitive values
+impl<T> From<BufferArrayData<T>> for Array
+where
+    T: ArrowPrimitiveType + 'static,
+{
+    fn from(data: BufferArrayData<T>) -> Self {
+        Array::new(Rc::new(data))
+    }
+}
+
 /// Create an Array from a Vec<T> of primitive values
 impl<T> From<Vec<T>> for Array
 where
@@ -316,64 +315,38 @@ where
     }
 }
 
-macro_rules! array_from_optional_primitive {
-    ($DT:ty, $DEFAULT:expr) => {
-        impl From<Vec<Option<$DT>>> for Array {
-            fn from(v: Vec<Option<$DT>>) -> Self {
-                let mut null_count = 0;
-                let mut validity_bitmap = Bitmap::new(v.len());
-                for i in 0..v.len() {
-                    if v[i].is_none() {
-                        null_count += 1;
-                        validity_bitmap.clear(i);
-                    }
-                }
-                let values = v.iter()
-                    .map(|x| x.unwrap_or($DEFAULT))
-                    .collect::<Vec<$DT>>();
-                Array {
-                    data: Rc::new(BufferArrayData::new(
-                        Buffer::from(values),
-                        null_count,
-                        Some(validity_bitmap),
-                    )),
-                }
-            }
-        }
-        impl From<Vec<Option<$DT>>> for BufferArrayData<$DT> {
-            fn from(v: Vec<Option<$DT>>) -> Self {
-                let mut null_count = 0;
-                let mut validity_bitmap = Bitmap::new(v.len());
-                for i in 0..v.len() {
-                    if v[i].is_none() {
-                        null_count += 1;
-                        validity_bitmap.clear(i);
-                    }
-                }
-                let values = v.iter()
-                    .map(|x| x.unwrap_or($DEFAULT))
-                    .collect::<Vec<$DT>>();
-                BufferArrayData::new(
-                    Buffer::from(values),
-                    null_count,
-                    Some(validity_bitmap),
-                )
-            }
-        }
-    };
+/// Create an Array from a Vec<T> of primitive values
+impl<T> From<Vec<Option<T>>> for Array
+where
+    T: ArrowPrimitiveType + 'static,
+{
+    fn from(vec: Vec<Option<T>>) -> Self {
+        Array::from(BufferArrayData::from(vec))
+    }
 }
 
-array_from_optional_primitive!(bool, false);
-array_from_optional_primitive!(f32, 0_f32);
-array_from_optional_primitive!(f64, 0_f64);
-array_from_optional_primitive!(u8, 0_u8);
-array_from_optional_primitive!(u16, 0_u16);
-array_from_optional_primitive!(u32, 0_u32);
-array_from_optional_primitive!(u64, 0_u64);
-array_from_optional_primitive!(i8, 0_i8);
-array_from_optional_primitive!(i16, 0_i16);
-array_from_optional_primitive!(i32, 0_i32);
-array_from_optional_primitive!(i64, 0_i64);
+/// Create a BufferArrayData<T> from a Vec<Option<T>> of primitive values
+impl<T> From<Vec<Option<T>>> for BufferArrayData<T>
+where
+    T: ArrowPrimitiveType + 'static,
+{
+    fn from(v: Vec<Option<T>>) -> Self {
+        let mut builder: Builder<T> = Builder::with_capacity(v.len());
+        builder.set_len(v.len());
+        let mut null_count = 0;
+        let mut validity_bitmap = Bitmap::new(v.len());
+        for i in 0..v.len() {
+            match v[i] {
+                Some(value) => builder.set(i, value),
+                None => {
+                    null_count += 1;
+                    validity_bitmap.clear(i);
+                }
+            }
+        }
+        BufferArrayData::new(builder.finish(), null_count, Some(validity_bitmap))
+    }
+}
 
 ///// This method mostly just used for unit tests
 impl From<Vec<&'static str>> for Array {
