@@ -281,6 +281,70 @@ cdef _append_array_buffers(const CArrayData* ad, list res):
         _append_array_buffers(ad.child_data[i].get(), res)
 
 
+cdef _reduce_array_data(const CArrayData* ad):
+    """
+    Recursively dissect ArrayData to (pickable) tuples.
+    """
+    cdef size_t i, n
+    assert ad != NULL
+
+    n = ad.buffers.size()
+    buffers = []
+    for i in range(n):
+        buf = ad.buffers[i]
+        buffers.append(pyarrow_wrap_buffer(buf)
+                       if buf.get() != NULL else None)
+
+    children = []
+    n = ad.child_data.size()
+    for i in range(n):
+        children.append(_reduce_array_data(ad.child_data[i].get()))
+
+    return pyarrow_wrap_data_type(ad.type), ad.length, ad.null_count, \
+        ad.offset, buffers, children
+
+
+cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
+    """
+    Reconstruct CArrayData objects from the tuple structure generated
+    by _reduce_array_data.
+    """
+    cdef:
+        int64_t length, null_count, offset, i
+        DataType dtype
+        Buffer buf
+        vector[shared_ptr[CBuffer]] c_buffers
+        vector[shared_ptr[CArrayData]] c_children
+
+    dtype, length, null_count, offset, buffers, children = data
+
+    for i in range(len(buffers)):
+        buf = buffers[i]
+        if buf is None:
+            c_buffers.push_back(shared_ptr[CBuffer]())
+        else:
+            c_buffers.push_back(buf.buffer)
+
+    for i in range(len(children)):
+        c_children.push_back(_reconstruct_array_data(children[i]))
+
+    return CArrayData.MakeWithChildren(
+        dtype.sp_type,
+        length,
+        c_buffers,
+        c_children,
+        null_count,
+        offset)
+
+
+def _restore_array(data):
+    """
+    Reconstruct an Array from pickled ArrayData.
+    """
+    cdef shared_ptr[CArrayData] ad = _reconstruct_array_data(data)
+    return pyarrow_wrap_array(MakeArray(ad))
+
+
 cdef class Array:
 
     def __init__(self, *args, **kwargs):
@@ -394,6 +458,10 @@ cdef class Array:
         """
         return array(obj, mask=mask, type=type, memory_pool=memory_pool,
                      from_pandas=True)
+
+    def __reduce__(self):
+        return _restore_array, \
+            (_reduce_array_data(self.sp_array.get().data().get()),)
 
     @staticmethod
     def from_buffers(DataType type, length, buffers, null_count=-1, offset=0):
