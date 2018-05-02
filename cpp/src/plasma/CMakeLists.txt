@@ -24,8 +24,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_
 find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
-set(PLASMA_SO_VERSION "0")
-set(PLASMA_ABI_VERSION "${PLASMA_SO_VERSION}.0.0")
+# For the moment, Plasma is versioned like Arrow
+set(PLASMA_SO_VERSION "${ARROW_SO_VERSION}")
+set(PLASMA_FULL_SO_VERSION "${ARROW_FULL_SO_VERSION}")
 
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
 include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
