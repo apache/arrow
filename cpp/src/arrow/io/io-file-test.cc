@@ -74,10 +74,12 @@ class TestFileOutputStream : public FileTestFixture {
     ASSERT_OK(internal::FileNameFromString(path_, &file_name));
     int fd_file, fd_stream;
     ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                          false /* truncate */, &fd_file));
+                                          false /* truncate */, false /* append */,
+                                          &fd_file));
     ASSERT_OK(FileOutputStream::Open(fd_file, &file_));
     ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                          false /* truncate */, &fd_stream));
+                                          false /* truncate */, false /* append */,
+                                          &fd_stream));
     ASSERT_OK(FileOutputStream::Open(fd_stream, &stream_));
   }
 
@@ -168,7 +170,7 @@ TEST_F(TestFileOutputStream, FromFileDescriptor) {
   internal::PlatformFilename file_name;
   ASSERT_OK(internal::FileNameFromString(path_, &file_name));
   ASSERT_OK(internal::FileOpenWriteable(file_name, true /* write_only */,
-                                        false /* truncate */, &fd));
+                                        false /* truncate */, false /* append */, &fd));
   ASSERT_OK(internal::FileSeek(fd, 0, SEEK_END));
   ASSERT_OK(FileOutputStream::Open(fd, &stream_));
 
@@ -220,6 +222,7 @@ TEST_F(TestFileOutputStream, TruncatesNewFile) {
 
   AssertFileContents(path_, "");
 
+  // Same with stream-returning API
   ASSERT_OK(FileOutputStream::Open(path_, &stream_));
 
   ASSERT_OK(stream_->Write(data, strlen(data)));
@@ -229,6 +232,38 @@ TEST_F(TestFileOutputStream, TruncatesNewFile) {
   ASSERT_OK(stream_->Close());
 
   AssertFileContents(path_, "");
+}
+
+TEST_F(TestFileOutputStream, Append) {
+  ASSERT_OK(FileOutputStream::Open(path_, &file_));
+  {
+    const char* data = "test";
+    ASSERT_OK(file_->Write(data, strlen(data)));
+  }
+  ASSERT_OK(file_->Close());
+  ASSERT_OK(FileOutputStream::Open(path_, true /* append */, &file_));
+  {
+    const char* data = "data";
+    ASSERT_OK(file_->Write(data, strlen(data)));
+  }
+  ASSERT_OK(file_->Close());
+  AssertFileContents(path_, "testdata");
+
+  // Same with stream-returning API
+  ASSERT_OK(FileOutputStream::Open(path_, &stream_));
+  {
+    const char* data = "test";
+    ASSERT_OK(stream_->Write(data, strlen(data)));
+  }
+  ASSERT_OK(stream_->Close());
+
+  ASSERT_OK(FileOutputStream::Open(path_, true /* append */, &stream_));
+  {
+    const char* data = "data";
+    ASSERT_OK(stream_->Write(data, strlen(data)));
+  }
+  ASSERT_OK(stream_->Close());
+  AssertFileContents(path_, "testdata");
 }
 
 // ----------------------------------------------------------------------

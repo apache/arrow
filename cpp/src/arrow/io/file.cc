@@ -61,14 +61,16 @@ class OSFile {
 
   // Note: only one of the Open* methods below may be called on a given instance
 
-  Status OpenWriteable(const std::string& path, bool append, bool write_only) {
+  Status OpenWriteable(const std::string& path, bool truncate, bool append,
+                       bool write_only) {
     RETURN_NOT_OK(SetFileName(path));
 
-    RETURN_NOT_OK(internal::FileOpenWriteable(file_name_, write_only, !append, &fd_));
+    RETURN_NOT_OK(
+        internal::FileOpenWriteable(file_name_, write_only, truncate, append, &fd_));
     is_open_ = true;
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
-    if (append) {
+    if (!truncate) {
       RETURN_NOT_OK(internal::FileGetSize(fd_, &size_));
     } else {
       size_ = 0;
@@ -284,7 +286,8 @@ int ReadableFile::file_descriptor() const { return impl_->fd(); }
 class FileOutputStream::FileOutputStreamImpl : public OSFile {
  public:
   Status Open(const std::string& path, bool append) {
-    return OpenWriteable(path, append, true /* write_only */);
+    const bool truncate = !append;
+    return OpenWriteable(path, truncate, append, true /* write_only */);
   }
   Status Open(int fd) { return OpenWriteable(fd); }
 };
@@ -363,9 +366,10 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
       // Memory mapping has permission failures if PROT_READ not set
       prot_flags = PROT_READ | PROT_WRITE;
       map_mode = MAP_SHARED;
-      constexpr bool append = true;
+      constexpr bool append = false;
+      constexpr bool truncate = false;
       constexpr bool write_only = false;
-      RETURN_NOT_OK(file_->OpenWriteable(path, append, write_only));
+      RETURN_NOT_OK(file_->OpenWriteable(path, truncate, append, write_only));
 
       is_mutable_ = true;
     } else {
