@@ -48,7 +48,7 @@ pub struct Field {
 }
 
 /// Primitive type (ints, floats, strings)
-pub trait ArrowPrimitiveType: Copy + 'static {}
+pub trait ArrowPrimitiveType: Copy + PartialOrd + 'static {}
 
 impl ArrowPrimitiveType for bool {}
 impl ArrowPrimitiveType for u8 {}

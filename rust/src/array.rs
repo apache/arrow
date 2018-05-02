@@ -36,6 +36,7 @@ pub trait ArrayData {
     fn as_any(&self) -> &Any;
 }
 
+
 /// Array of List<T>
 pub struct ListArrayData<T: ArrowPrimitiveType> {
     len: usize,
@@ -51,6 +52,11 @@ where
     pub fn get(&self, i: usize) -> &[T] {
         self.list.get(i)
     }
+
+    pub fn list(&self) -> &List<T> {
+        &self.list
+    }
+
 }
 
 impl<T> From<List<T>> for ListArrayData<T>
@@ -89,7 +95,7 @@ where
 /// Array of T
 pub struct BufferArrayData<T: ArrowPrimitiveType> {
     len: usize,
-    data: Buffer<T>,
+    buffer: Buffer<T>,
     null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
@@ -101,7 +107,7 @@ where
     pub fn new(data: Buffer<T>, null_count: usize, validity_bitmap: Option<Bitmap>) -> Self {
         BufferArrayData {
             len: data.len(),
-            data,
+            buffer: data,
             null_count,
             validity_bitmap,
         }
@@ -112,8 +118,77 @@ where
     }
 
     pub fn iter(&self) -> BufferIterator<T> {
-        self.data.iter()
+        self.buffer.iter()
     }
+
+    pub fn buffer(&self) -> &Buffer<T> {
+        &self.buffer
+    }
+
+    /// Determine the minimum value in the buffer
+    pub fn min(&self) -> Option<T> {
+        let mut n: Option<T> = None;
+        match &self.validity_bitmap {
+            &Some(ref bitmap) => {
+                for i in 0..self.len {
+                    if bitmap.is_set(i) {
+                        let mut m = self.buffer.get(i);
+                        match n {
+                            None => n = Some(*m),
+                            Some(nn) => if *m < nn {
+                                n = Some(*m)
+                            }
+                        }
+                    }
+                }
+            }
+            &None => {
+                for i in 0..self.len {
+                    let mut m = self.buffer.get(i);
+                    match n {
+                        None => n = Some(*m),
+                        Some(nn) => if *m < nn {
+                            n = Some(*m)
+                        }
+                    }
+                }
+            }
+        }
+        n
+    }
+
+    /// Determine the maximum value in the buffer
+    pub fn max(&self) -> Option<T> {
+        let mut n: Option<T> = None;
+        match &self.validity_bitmap {
+            &Some(ref bitmap) => {
+                for i in 0..self.len {
+                    if bitmap.is_set(i) {
+                        let mut m = self.buffer.get(i);
+                        match n {
+                            None => n = Some(*m),
+                            Some(nn) => if *m > nn {
+                                n = Some(*m)
+                            }
+                        }
+                    }
+                }
+            }
+            &None => {
+                for i in 0..self.len {
+                    let mut m = self.buffer.get(i);
+                    match n {
+                        None => n = Some(*m),
+                        Some(nn) => if *m > nn {
+                            n = Some(*m)
+                        }
+                    }
+                }
+            }
+        }
+        n
+    }
+
 }
 
 impl<T> ArrayData for BufferArrayData<T>
@@ -141,7 +216,7 @@ where
     fn from(data: Buffer<T>) -> Self {
         BufferArrayData {
             len: data.len(),
-            data,
+            buffer: data,
             validity_bitmap: None,
             null_count: 0,
         }
@@ -150,17 +225,17 @@ where
 
 pub struct StructArrayData {
     len: usize,
-    data: Vec<Rc<ArrayData>>,
+    columns: Vec<Rc<ArrayData>>,
     null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
 
 impl StructArrayData {
     pub fn num_columns(&self) -> usize {
-        self.data.len()
+        self.columns.len()
     }
     pub fn column(&self, i: usize) -> &Rc<ArrayData> {
-        &self.data[i]
+        &self.columns[i]
     }
 }
 
@@ -183,7 +258,7 @@ impl From<Vec<Rc<ArrayData>>> for StructArrayData {
     fn from(data: Vec<Rc<ArrayData>>) -> Self {
         StructArrayData {
             len: data[0].len(),
-            data,
+            columns: data,
             null_count: 0,
             validity_bitmap: None,
         }
@@ -263,6 +338,26 @@ macro_rules! array_from_optional_primitive {
                         Some(validity_bitmap),
                     )),
                 }
+            }
+        }
+        impl From<Vec<Option<$DT>>> for BufferArrayData<$DT> {
+            fn from(v: Vec<Option<$DT>>) -> Self {
+                let mut null_count = 0;
+                let mut validity_bitmap = Bitmap::new(v.len());
+                for i in 0..v.len() {
+                    if v[i].is_none() {
+                        null_count += 1;
+                        validity_bitmap.clear(i);
+                    }
+                }
+                let values = v.iter()
+                    .map(|x| x.unwrap_or($DEFAULT))
+                    .collect::<Vec<$DT>>();
+                BufferArrayData::new(
+                    Buffer::from(values),
+                    null_count,
+                    Some(validity_bitmap),
+                )
             }
         }
     };
@@ -393,6 +488,20 @@ mod tests {
         let s = StructArrayData::from(vec![a, b]);
         assert_eq!(2, s.num_columns());
         assert_eq!(0, s.null_count());
+    }
+
+    #[test]
+    fn test_buffer_array_min_max() {
+        let a = BufferArrayData::from(Buffer::from(vec![5, 6, 7, 8, 9]));
+        assert_eq!(5, a.min().unwrap());
+        assert_eq!(9, a.max().unwrap());
+    }
+
+    #[test]
+    fn test_buffer_array_min_max_with_nulls() {
+        let a = BufferArrayData::from(vec![Some(5), None, None, Some(8), Some(9)]);
+        assert_eq!(5, a.min().unwrap());
+        assert_eq!(9, a.max().unwrap());
     }
 
 }
