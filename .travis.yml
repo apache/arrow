@@ -41,7 +41,7 @@ matrix:
   allow_failures:
   - jdk: oraclejdk9
   include:
-  # C++ & Python w/ clang 5.0
+  # C++ & Python w/ clang 6.0
   - compiler: gcc
     language: cpp
     os: linux
@@ -55,8 +55,8 @@ matrix:
     - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - CC="clang-5.0"
-    - CXX="clang++-5.0"
+    - CC="clang-6.0"
+    - CXX="clang++-6.0"
     before_script:
     # Always run RAT checks, in case another build in matrix breaks RAT
     - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
@@ -127,13 +127,13 @@ matrix:
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk8
     env:
-    - CC="clang-5.0"
-    - CXX="clang++-5.0"
+    - CC="clang-6.0"
+    - CXX="clang++-6.0"
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - nvm install node
+    - nvm install 9.8
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
@@ -141,19 +141,20 @@ matrix:
   # NodeJS
   - language: node_js
     os: linux
-    node_js: node
+    node_js:
+    - '9.8'
     before_script:
     - if [ $ARROW_CI_JS_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
-  # C++ & glib w/ gcc 4.9 & autotools
+  # C++ & glib w/ gcc 4.9
   - compiler: gcc
     language: cpp
     os: linux
     env:
-    - BUILD_SYSTEM=autotools BUILD_TORCH_EXAMPLE=no
+    - BUILD_TORCH_EXAMPLE=no
     - CC="gcc-4.9"
     - CXX="g++-4.9"
     before_script:
@@ -163,30 +164,13 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # C++ & glib w/ gcc 4.9 & meson
-  - compiler: gcc
-    language: cpp
-    os: linux
-    env:
-    - BUILD_SYSTEM=meson BUILD_TORCH_EXAMPLE=no
-    - CC="gcc-4.9"
-    - CXX="g++-4.9"
-    before_script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # [OS X] C++ & glib w/ XCode 8.3 & autotools & homebrew
+  # [OS X] C++ & glib w/ XCode 8.3 & homebrew
   - compiler: clang
     osx_image: xcode8.3
     os: osx
     cache:
     addons:
     rvm: 2.2
-    env:
-    - BUILD_SYSTEM=autotools
     before_script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh

@@ -40,6 +40,7 @@
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/util/datetime.h"
@@ -577,17 +578,11 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
   SequenceBuilder builder(nullptr);
   std::vector<PyObject*> sublists, subtuples, subdicts, subsets;
   for (const auto& sequence : sequences) {
-    OwnedRef iterator(PyObject_GetIter(sequence));
-    RETURN_IF_PYERROR();
-    OwnedRef item;
-    while (true) {
-      item.reset(PyIter_Next(iterator.obj()));
-      if (!item.obj()) {
-        break;
-      }
-      RETURN_NOT_OK(Append(context, item.obj(), &builder, &sublists, &subtuples,
-                           &subdicts, &subsets, blobs_out));
-    }
+    auto visit = [&](PyObject* obj) {
+      return Append(context, obj, &builder, &sublists, &subtuples, &subdicts, &subsets,
+                    blobs_out);
+    };
+    RETURN_NOT_OK(internal::VisitIterable(sequence, visit));
   }
   std::shared_ptr<Array> list;
   if (sublists.size() > 0) {

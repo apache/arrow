@@ -51,6 +51,7 @@
 #include "arrow/python/config.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/iterators.h"
 #include "arrow/python/numpy-internal.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
@@ -1171,70 +1172,20 @@ Status NumPyConverter::ConvertObjects() {
   }
 }
 
-template <typename T>
-Status LoopPySequence(PyObject* sequence, T func) {
-  if (PySequence_Check(sequence)) {
-    OwnedRef ref;
-    Py_ssize_t size = PySequence_Size(sequence);
-    if (PyArray_Check(sequence)) {
-      auto array = reinterpret_cast<PyArrayObject*>(sequence);
-      Ndarray1DIndexer<PyObject*> objects(array);
-      for (int64_t i = 0; i < size; ++i) {
-        RETURN_NOT_OK(func(objects[i]));
-      }
-    } else {
-      for (int64_t i = 0; i < size; ++i) {
-        ref.reset(PySequence_GetItem(sequence, i));
-        RETURN_NOT_OK(func(ref.obj()));
-      }
-    }
-  } else if (PyObject_HasAttrString(sequence, "__iter__")) {
-    OwnedRef iter(PyObject_GetIter(sequence));
-    PyObject* item;
-    while ((item = PyIter_Next(iter.obj()))) {
-      OwnedRef ref(item);
-      RETURN_NOT_OK(func(ref.obj()));
-    }
-  } else {
-    return Status::TypeError("Object is not a sequence or iterable");
-  }
-
-  return Status::OK();
-}
-
-template <typename T>
+// Like VisitIterable, but the function takes a second boolean argument
+// deducted from `have_mask` and `mask_values`
+template <class BinaryFunction>
 Status LoopPySequenceWithMasks(PyObject* sequence,
                                const Ndarray1DIndexer<uint8_t>& mask_values,
-                               bool have_mask, T func) {
-  if (PySequence_Check(sequence)) {
-    OwnedRef ref;
-    Py_ssize_t size = PySequence_Size(sequence);
-    if (PyArray_Check(sequence)) {
-      auto array = reinterpret_cast<PyArrayObject*>(sequence);
-      Ndarray1DIndexer<PyObject*> objects(array);
-      for (int64_t i = 0; i < size; ++i) {
-        RETURN_NOT_OK(func(objects[i], have_mask && mask_values[i]));
-      }
-    } else {
-      for (int64_t i = 0; i < size; ++i) {
-        ref.reset(PySequence_GetItem(sequence, i));
-        RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
-      }
-    }
-  } else if (PyObject_HasAttrString(sequence, "__iter__")) {
-    OwnedRef iter(PyObject_GetIter(sequence));
-    PyObject* item;
+                               bool have_mask, BinaryFunction&& func) {
+  if (have_mask) {
     int64_t i = 0;
-    while ((item = PyIter_Next(iter.obj()))) {
-      OwnedRef ref(item);
-      RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
-      i++;
-    }
+    auto visit = [&](PyObject* obj) { return func(obj, mask_values[i++] != 0); };
+    return internal::VisitIterable(sequence, visit);
   } else {
-    return Status::TypeError("Object is not a sequence or iterable");
+    auto visit = [&](PyObject* obj) { return func(obj, false); };
+    return internal::VisitIterable(sequence, visit);
   }
-
-  return Status::OK();
 }
 
 template <int ITEM_TYPE, typename ArrowType>
@@ -1473,7 +1424,7 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
         }
       };
 
-      return LoopPySequence(list, foreach_item);
+      return internal::VisitIterable(list, foreach_item);
     }
     default: {
       std::stringstream ss;

@@ -149,7 +149,7 @@ Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
 }
 
 Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
-                         bool truncate, int* fd) {
+                         bool truncate, bool append, int* fd) {
   int ret, errno_actual;
 
 #if defined(_MSC_VER)
@@ -161,6 +161,9 @@ Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
 
   if (truncate) {
     oflag |= _O_TRUNC;
+  }
+  if (append) {
+    oflag |= _O_APPEND;
   }
 
   if (write_only) {
@@ -177,6 +180,9 @@ Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
 
   if (truncate) {
     oflag |= O_TRUNC;
+  }
+  if (append) {
+    oflag |= O_APPEND;
   }
 
   if (write_only) {

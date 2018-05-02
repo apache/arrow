@@ -39,7 +39,8 @@ impl<T> Buffer<T>
 where
     T: ArrowPrimitiveType,
 {
-    pub fn from_raw_parts(data: *const T, len: i32) -> Self {
+    /// create a buffer from an existing region of memory (must already be byte-aligned)
+    pub unsafe fn from_raw_parts(data: *const T, len: i32) -> Self {
         Buffer { data, len }
     }
 
@@ -48,26 +49,28 @@ where
         self.len
     }
 
+    /// Get a pointer to the data contained by the buffer
     pub fn data(&self) -> *const T {
         self.data
     }
 
     pub fn slice(&self, start: usize, end: usize) -> &[T] {
-        assert!(start <= end);
-        assert!(start <= self.len as usize);
         assert!(end <= self.len as usize);
+        assert!(start <= end);
         unsafe { slice::from_raw_parts(self.data.offset(start as isize), (end - start) as usize) }
     }
 
     /// Get a reference to the value at the specified offset
     pub fn get(&self, i: usize) -> &T {
+        assert!(i < self.len as usize);
         unsafe { &(*self.data.offset(i as isize)) }
     }
 
-    /// Deprecated method (used by Bitmap)
+    /// Write to a slot in the buffer
     pub fn set(&mut self, i: usize, v: T) {
+        assert!(i < self.len as usize);
+        let p = self.data as *mut T;
         unsafe {
-            let p = mem::transmute::<*const T, *mut T>(self.data);
             *p.offset(i as isize) = v;
         }
     }
@@ -82,15 +85,13 @@ where
     }
 }
 
+/// Release the underlying memory when the Buffer goes out of scope
 impl<T> Drop for Buffer<T>
 where
     T: ArrowPrimitiveType,
 {
     fn drop(&mut self) {
-        unsafe {
-            let p = mem::transmute::<*const T, *const u8>(self.data);
-            free_aligned(p);
-        }
+        free_aligned(self.data as *const u8);
     }
 }
 
@@ -112,14 +113,16 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.len as isize {
+            let value = unsafe { *self.data.offset(self.index) };
             self.index += 1;
-            Some(unsafe { *self.data.offset(self.index - 1) })
+            Some(value)
         } else {
             None
         }
     }
 }
 
+/// Copy the memory from a Vec<T> into a newly allocated Buffer<T>
 impl<T> From<Vec<T>> for Buffer<T>
 where
     T: ArrowPrimitiveType,
@@ -150,16 +153,12 @@ impl From<Bytes> for Buffer<u8> {
         let len = bytes.len();
         let sz = mem::size_of::<u8>();
         let buf_mem = allocate_aligned((len * sz) as i64).unwrap();
+        let dst = buf_mem as *mut libc::c_void;
         Buffer {
             len: len as i32,
             data: unsafe {
-                let dst = mem::transmute::<*const u8, *mut libc::c_void>(buf_mem);
-                libc::memcpy(
-                    dst,
-                    mem::transmute::<*const u8, *const libc::c_void>(bytes.as_ptr()),
-                    len * sz,
-                );
-                mem::transmute::<*mut libc::c_void, *const u8>(dst)
+                libc::memcpy(dst, bytes.as_ptr() as *const libc::c_void, len * sz);
+                dst as *mut u8
             },
         }
     }
@@ -236,5 +235,40 @@ mod tests {
             .map(|(a, b)| a * b)
             .collect::<Vec<i32>>();
         assert_eq!(c, vec![5, 8, 9, 8, 5]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_get_out_of_bounds() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        a.get(123); // should panic
+    }
+
+    #[test]
+    fn slice_empty_at_end() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        let s = a.slice(5, 5);
+        assert_eq!(0, s.len());
+    }
+
+    #[test]
+    #[should_panic]
+    fn slice_start_out_of_bounds() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        a.slice(6, 6); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn slice_end_out_of_bounds() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        a.slice(0, 6); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn slice_end_before_start() {
+        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
+        a.slice(3, 2); // should panic
     }
 }

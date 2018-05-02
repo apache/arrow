@@ -19,7 +19,9 @@ AC_PREREQ(2.65)
 
 m4_define([arrow_glib_version],
            m4_esyscmd(grep "^  <version>" "$(dirname $0)/../java/pom.xml" | \
-                        sed -e 's/\(^  <version>\|<\/version>$\)//g' | \
+                        sed -E \
+                            -e 's/(^  <version>)//g' \
+                            -e 's/(<\/version>$)//g' | \
                         tr -d '\n'))
 AC_INIT([arrow-glib],
         arrow_glib_version,
@@ -33,6 +35,27 @@ AC_CONFIG_HEADERS([config.h])
 
 AM_INIT_AUTOMAKE([1.13 foreign])
 AM_SILENT_RULES([yes])
+
+GARROW_VERSION_MAJOR=$(echo "arrow_glib_version" | \
+                         sed -E -e 's/^([[0-9]]+)\..+$/\1/' | \
+                         tr -d '\n')
+GARROW_VERSION_MINOR=$(echo "arrow_glib_version" | \
+                         sed -E -e 's/^[[0-9]]+\.([[0-9]]+)\..+$/\1/' | \
+                         tr -d '\n')
+GARROW_VERSION_MICRO=$(echo "arrow_glib_version" | \
+                         sed -E -e 's/^[[0-9]]+\.[[0-9]]+\.([[0-9]]+).*$/\1/' | \
+                         tr -d '\n')
+if echo "arrow_glib_version" | grep -- "-" > /dev/null; then
+  GARROW_VERSION_TAG=$(echo "arrow_glib_version" | \
+                         sed -E -e 's/^[[0-9]]+\.[[0-9]]+\.[[0-9]]+-(.+)$/\1/' | \
+                         tr -d '\n')
+else
+  GARROW_VERSION_TAG=
+fi
+AC_SUBST(GARROW_VERSION_MAJOR)
+AC_SUBST(GARROW_VERSION_MINOR)
+AC_SUBST(GARROW_VERSION_MICRO)
+AC_SUBST(GARROW_VERSION_TAG)
 
 AC_CANONICAL_HOST
 AC_MSG_CHECKING([for macOS])
@@ -139,6 +162,7 @@ AC_CONFIG_FILES([
   Makefile
   arrow-glib/Makefile
   arrow-glib/arrow-glib.pc
+  arrow-glib/version.h
   arrow-gpu-glib/Makefile
   arrow-gpu-glib/arrow-gpu-glib.pc
   doc/Makefile

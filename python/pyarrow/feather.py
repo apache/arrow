@@ -20,6 +20,7 @@ import os
 
 import six
 import pandas as pd
+import warnings
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
@@ -42,7 +43,12 @@ class FeatherReader(ext.FeatherReader):
         self.source = source
         self.open(source)
 
-    def read(self, columns=None, nthreads=1):
+    def read(self, *args, **kwargs):
+        warnings.warn("read has been deprecated. Use read_pandas instead.",
+                      DeprecationWarning)
+        return self.read_pandas(*args, **kwargs)
+
+    def read_table(self, columns=None):
         if columns is not None:
             column_set = set(columns)
         else:
@@ -58,7 +64,10 @@ class FeatherReader(ext.FeatherReader):
                 names.append(name)
 
         table = Table.from_arrays(columns, names=names)
-        return table.to_pandas(nthreads=nthreads)
+        return table
+
+    def read_pandas(self, columns=None, nthreads=1):
+        return self.read_table(columns=columns).to_pandas(nthreads=nthreads)
 
 
 class FeatherWriter(object):
@@ -129,4 +138,23 @@ def read_feather(source, columns=None, nthreads=1):
     df : pandas.DataFrame
     """
     reader = FeatherReader(source)
-    return reader.read(columns=columns, nthreads=nthreads)
+    return reader.read_pandas(columns=columns, nthreads=nthreads)
+
+
+def read_table(source, columns=None):
+    """
+    Read a pyarrow.Table from Feather format
+
+    Parameters
+    ----------
+    source : string file path, or file-like object
+    columns : sequence, optional
+        Only read a specific set of columns. If not provided, all columns are
+        read
+
+    Returns
+    -------
+    table : pyarrow.Table
+    """
+    reader = FeatherReader(source)
+    return reader.read_table(columns=columns)
