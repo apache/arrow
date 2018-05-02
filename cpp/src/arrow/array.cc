@@ -54,6 +54,15 @@ std::shared_ptr<ArrayData> ArrayData::Make(
   return std::make_shared<ArrayData>(type, length, buffers, null_count, offset);
 }
 
+std::shared_ptr<ArrayData> ArrayData::Make(
+    const std::shared_ptr<DataType>& type, int64_t length,
+    const std::vector<std::shared_ptr<Buffer>>& buffers,
+    const std::vector<std::shared_ptr<ArrayData>>& child_data, int64_t null_count,
+    int64_t offset) {
+  return std::make_shared<ArrayData>(type, length, buffers, child_data, null_count,
+                                     offset);
+}
+
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length, int64_t null_count,
                                            int64_t offset) {
@@ -250,6 +259,8 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
+
+  DCHECK_EQ(data_->child_data.size(), 1);
   values_ = MakeArray(data_->child_data[0]);
 }
 

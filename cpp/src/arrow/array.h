@@ -99,6 +99,15 @@ struct ARROW_EXPORT ArrayData {
   }
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
+            const std::vector<std::shared_ptr<Buffer>>& buffers,
+            const std::vector<std::shared_ptr<ArrayData>>& child_data,
+            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : ArrayData(type, length, null_count, offset) {
+    this->buffers = buffers;
+    this->child_data = child_data;
+  }
+
+  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
             std::vector<std::shared_ptr<Buffer>>&& buffers,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : ArrayData(type, length, null_count, offset) {
@@ -114,6 +123,12 @@ struct ARROW_EXPORT ArrayData {
   static std::shared_ptr<ArrayData> Make(
       const std::shared_ptr<DataType>& type, int64_t length,
       const std::vector<std::shared_ptr<Buffer>>& buffers,
+      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  static std::shared_ptr<ArrayData> Make(
+      const std::shared_ptr<DataType>& type, int64_t length,
+      const std::vector<std::shared_ptr<Buffer>>& buffers,
+      const std::vector<std::shared_ptr<ArrayData>>& child_data,
       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   static std::shared_ptr<ArrayData> Make(const std::shared_ptr<DataType>& type,
