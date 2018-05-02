@@ -1626,8 +1626,8 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-  // ----------------------------------------------------------------------
-  // Helper functions
+// ----------------------------------------------------------------------
+// Helper functions
 
 #define BUILDER_CASE(ENUM, BuilderType)      \
   case Type::ENUM:                           \

@@ -320,10 +320,10 @@ You can also fix any formatting errors automatically:
 
     make format
 
-These commands require `clang-format-5.0` (and not any other version).
+These commands require `clang-format-6.0` (and not any other version).
 You may find the required packages at http://releases.llvm.org/download.html
 or use the Debian/Ubuntu APT repositories on https://apt.llvm.org/. On macOS
-with [Homebrew][1] you can get it via `brew install llvm@5`.
+with [Homebrew][1] you can get it via `brew install llvm@6`.
 
 ## Checking for ABI and API stability
 
