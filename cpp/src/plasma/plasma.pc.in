@@ -20,7 +20,8 @@ libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
 includedir=${prefix}/include
 
 so_version=@PLASMA_SO_VERSION@
-abi_version=@PLASMA_ABI_VERSION@
+abi_version=@PLASMA_SO_VERSION@
+full_so_version=@PLASMA_FULL_SO_VERSION@
 executable=${prefix}/@CMAKE_INSTALL_BINDIR@/plasma_store
 
 Name: Plasma

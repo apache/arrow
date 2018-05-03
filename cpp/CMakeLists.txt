@@ -16,13 +16,40 @@
 # under the License.
 
 cmake_minimum_required(VERSION 3.2)
-project(arrow)
 
+# Extract Arrow version number
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
 string(REGEX MATCHALL
   "\n  <version>[^<]+</version>" ARROW_VERSION_TAG "${POM_XML}")
 string(REGEX REPLACE
   "(\n  <version>|</version>)" "" ARROW_VERSION "${ARROW_VERSION_TAG}")
+string(REGEX MATCH
+  "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
+
+project(arrow VERSION "${ARROW_BASE_VERSION}")
+
+set(ARROW_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
+set(ARROW_VERSION_MINOR "${arrow_VERSION_MINOR}")
+set(ARROW_VERSION_PATCH "${arrow_VERSION_PATCH}")
+if (ARROW_VERSION_MAJOR STREQUAL "" OR
+    ARROW_VERSION_MINOR STREQUAL "" OR
+    ARROW_VERSION_PATCH STREQUAL "")
+  MESSAGE(FATAL_ERROR "Failed to determine Arrow version from '${ARROW_VERSION}'")
+endif()
+
+# The SO version is also the ABI version
+if(arrow_VERSION_MAJOR STREQUAL "0")
+  # Arrow 0.x.y => SO version is "x", full SO version is "x.y.0"
+  set(ARROW_SO_VERSION "${ARROW_VERSION_MINOR}")
+  set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
+else()
+  message(FATAL_ERROR "Need to implement SO version generation for Arrow 1.0+")
+endif()
+
+message(STATUS "Arrow version: "
+  "${ARROW_VERSION_MAJOR}.${ARROW_VERSION_MINOR}.${ARROW_VERSION_PATCH} "
+  "(full: '${ARROW_VERSION}')")
+
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
@@ -42,9 +69,6 @@ if(POLICY CMP0054)
   # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
   cmake_policy(SET CMP0054 NEW)
 endif()
-
-set(ARROW_SO_VERSION "0")
-set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
