@@ -15,15 +15,18 @@
 @rem specific language governing permissions and limitations
 @rem under the License.
 
-@echo on
-
 if "%JOB%" == "Rust_Stable" (
-    curl -sSf -o rustup-init.exe https://win.rustup.rs/
-    rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
-    set "PATH=%PATH%;C:\Users\Appveyor\.cargo\bin"
-    rustc -Vv
-    cargo -V
+    if "%ARROW_CI_RUST_AFFECTED%" == "0" (
+        echo ===
+        echo === No Rust changes, exiting job
+        echo ===
+        appveyor exit
+    )
 ) else (
-    set "PATH=C:\Miniconda36-x64;C:\Miniconda36-x64\Scripts;C:\Miniconda36-x64\Library\bin;%PATH%"
-    call ci\appveyor-cpp-setup.bat
+    if "%ARROW_CI_PYTHON_AFFECTED%" == "0" (
+        echo ===
+        echo === No C++ or Python changes, exiting job
+        echo ===
+        appveyor exit
+    )
 )
