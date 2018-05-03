@@ -33,6 +33,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/table.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
@@ -63,7 +64,7 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
 Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                        PyObject** out) {
-  const auto& data = static_cast<const StructArray&>(array);
+  const auto& data = checked_cast<const StructArray&>(array);
   OwnedRef keys, vals;
   OwnedRef result(PyDict_New());
   RETURN_IF_PYERROR();
@@ -93,7 +94,7 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
 
 Status DeserializeArray(const Array& array, int64_t offset, PyObject* base,
                         const SerializedPyObject& blobs, PyObject** out) {
-  int32_t index = static_cast<const Int32Array&>(array).Value(offset);
+  int32_t index = checked_cast<const Int32Array&>(array).Value(offset);
   RETURN_NOT_OK(py::TensorToNdarray(blobs.tensors[index], base, out));
   // Mark the array as immutable
   OwnedRef flags(PyObject_GetAttrString(*out, "flags"));
@@ -109,43 +110,43 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
                 const SerializedPyObject& blobs, PyObject** result) {
   switch (arr.type()->id()) {
     case Type::BOOL:
-      *result = PyBool_FromLong(static_cast<const BooleanArray&>(arr).Value(index));
+      *result = PyBool_FromLong(checked_cast<const BooleanArray&>(arr).Value(index));
       return Status::OK();
     case Type::INT64:
-      *result = PyLong_FromSsize_t(static_cast<const Int64Array&>(arr).Value(index));
+      *result = PyLong_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
       return Status::OK();
     case Type::BINARY: {
       int32_t nchars;
-      const uint8_t* str = static_cast<const BinaryArray&>(arr).GetValue(index, &nchars);
+      const uint8_t* str = checked_cast<const BinaryArray&>(arr).GetValue(index, &nchars);
       *result = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
       return CheckPyError();
     }
     case Type::STRING: {
       int32_t nchars;
-      const uint8_t* str = static_cast<const StringArray&>(arr).GetValue(index, &nchars);
+      const uint8_t* str = checked_cast<const StringArray&>(arr).GetValue(index, &nchars);
       *result = PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
       return CheckPyError();
     }
     case Type::HALF_FLOAT: {
-      *result = PyHalf_FromHalf(static_cast<const HalfFloatArray&>(arr).Value(index));
+      *result = PyHalf_FromHalf(checked_cast<const HalfFloatArray&>(arr).Value(index));
       RETURN_IF_PYERROR();
       return Status::OK();
     }
     case Type::FLOAT:
-      *result = PyFloat_FromDouble(static_cast<const FloatArray&>(arr).Value(index));
+      *result = PyFloat_FromDouble(checked_cast<const FloatArray&>(arr).Value(index));
       return Status::OK();
     case Type::DOUBLE:
-      *result = PyFloat_FromDouble(static_cast<const DoubleArray&>(arr).Value(index));
+      *result = PyFloat_FromDouble(checked_cast<const DoubleArray&>(arr).Value(index));
       return Status::OK();
     case Type::DATE64: {
-      RETURN_NOT_OK(PyDateTime_from_int(static_cast<const Date64Array&>(arr).Value(index),
-                                        TimeUnit::MICRO, result));
+      RETURN_NOT_OK(PyDateTime_from_int(
+          checked_cast<const Date64Array&>(arr).Value(index), TimeUnit::MICRO, result));
       RETURN_IF_PYERROR();
       return Status::OK();
     }
     case Type::STRUCT: {
-      const auto& s = static_cast<const StructArray&>(arr);
-      const auto& l = static_cast<const ListArray&>(*s.field(0));
+      const auto& s = checked_cast<const StructArray&>(arr);
+      const auto& l = checked_cast<const ListArray&>(*s.field(0));
       if (s.type()->child(0)->name() == "list") {
         return DeserializeList(context, *l.values(), l.value_offset(index),
                                l.value_offset(index + 1), base, blobs, result);
@@ -167,7 +168,7 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
       if (child_name == "tensor") {
         return DeserializeArray(arr, index, base, blobs, result);
       } else if (child_name == "buffer") {
-        int32_t ref = static_cast<const Int32Array&>(arr).Value(index);
+        int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
         *result = wrap_buffer(blobs.buffers[ref]);
         return Status::OK();
       } else {
@@ -180,7 +181,7 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
 }
 
 #define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                                     \
-  const auto& data = static_cast<const UnionArray&>(array);                              \
+  const auto& data = checked_cast<const UnionArray&>(array);                             \
   OwnedRef result(CREATE_FN(stop_idx - start_idx));                                      \
   const uint8_t* type_ids = data.raw_type_ids();                                         \
   const int32_t* value_offsets = data.raw_value_offsets();                               \
@@ -215,7 +216,7 @@ Status DeserializeTuple(PyObject* context, const Array& array, int64_t start_idx
 Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
                       int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                       PyObject** out) {
-  const auto& data = static_cast<const UnionArray&>(array);
+  const auto& data = checked_cast<const UnionArray&>(array);
   OwnedRef result(PySet_New(nullptr));
   const uint8_t* type_ids = data.raw_type_ids();
   const int32_t* value_offsets = data.raw_value_offsets();

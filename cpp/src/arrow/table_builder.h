@@ -25,6 +25,7 @@
 
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -65,7 +66,7 @@ class RecordBatchBuilder {
   /// \return pointer to template type
   template <typename T>
   T* GetFieldAs(int i) {
-    return static_cast<T*>(raw_field_builders_[i]);
+    return checked_cast<T*>(raw_field_builders_[i]);
   }
 
   /// \brief Finish current batch and optionally reset

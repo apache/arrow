@@ -26,6 +26,7 @@
 
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 
 using std::shared_ptr;
@@ -309,8 +310,8 @@ TEST(TestDateTypes, Attrs) {
   ASSERT_EQ("date32[day]", t1->ToString());
   ASSERT_EQ("date64[ms]", t2->ToString());
 
-  ASSERT_EQ(32, static_cast<const FixedWidthType&>(*t1).bit_width());
-  ASSERT_EQ(64, static_cast<const FixedWidthType&>(*t2).bit_width());
+  ASSERT_EQ(32, checked_cast<const FixedWidthType&>(*t1).bit_width());
+  ASSERT_EQ(64, checked_cast<const FixedWidthType&>(*t2).bit_width());
 }
 
 TEST(TestTimeType, Equals) {

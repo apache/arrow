@@ -35,6 +35,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -348,8 +349,8 @@ struct CastFunctor<TimestampType, TimestampType> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     // If units are the same, zero copy, otherwise convert
-    const auto& in_type = static_cast<const TimestampType&>(*input.type);
-    const auto& out_type = static_cast<const TimestampType&>(*output->type);
+    const auto& in_type = checked_cast<const TimestampType&>(*input.type);
+    const auto& out_type = checked_cast<const TimestampType&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
       CopyData(input, output);
@@ -369,7 +370,7 @@ template <>
 struct CastFunctor<Date32Type, TimestampType> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    const auto& in_type = static_cast<const TimestampType&>(*input.type);
+    const auto& in_type = checked_cast<const TimestampType&>(*input.type);
 
     static const int64_t kTimestampToDateFactors[4] = {
         86400LL,                             // SECOND
@@ -387,7 +388,7 @@ template <>
 struct CastFunctor<Date64Type, TimestampType> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    const auto& in_type = static_cast<const TimestampType&>(*input.type);
+    const auto& in_type = checked_cast<const TimestampType&>(*input.type);
 
     std::pair<bool, int64_t> conversion =
         kTimeConversionTable[static_cast<int>(in_type.unit())]
@@ -441,8 +442,8 @@ struct CastFunctor<O, I,
     using out_t = typename O::c_type;
 
     // If units are the same, zero copy, otherwise convert
-    const auto& in_type = static_cast<const I&>(*input.type);
-    const auto& out_type = static_cast<const O&>(*output->type);
+    const auto& in_type = checked_cast<const I&>(*input.type);
+    const auto& out_type = checked_cast<const O&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
       CopyData(input, output);
@@ -531,7 +532,7 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
 
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
   int32_t byte_width =
-      static_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
+      checked_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
 
   uint8_t* out = output->buffers[1]->mutable_data() + byte_width * output->offset;
 
@@ -562,10 +563,10 @@ struct CastFunctor<
                   const ArrayData& input, ArrayData* output) {
     DictionaryArray dict_array(input.Copy());
 
-    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
+    const DictionaryType& type = checked_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
     const FixedSizeBinaryArray& dictionary =
-        static_cast<const FixedSizeBinaryArray&>(*type.dictionary());
+        checked_cast<const FixedSizeBinaryArray&>(*type.dictionary());
 
     // Check if values and output type match
     DCHECK(values_type.Equals(*output->type))
@@ -600,7 +601,7 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
   using index_c_type = typename IndexType::c_type;
   std::unique_ptr<ArrayBuilder> builder;
   RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output->type, &builder));
-  BinaryBuilder* binary_builder = static_cast<BinaryBuilder*>(builder.get());
+  BinaryBuilder* binary_builder = checked_cast<BinaryBuilder*>(builder.get());
 
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
   if (indices.null_count() != 0) {
@@ -642,9 +643,9 @@ struct CastFunctor<T, DictionaryType,
                   const ArrayData& input, ArrayData* output) {
     DictionaryArray dict_array(input.Copy());
 
-    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
+    const DictionaryType& type = checked_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
-    const BinaryArray& dictionary = static_cast<const BinaryArray&>(*type.dictionary());
+    const BinaryArray& dictionary = checked_cast<const BinaryArray&>(*type.dictionary());
 
     // Check if values and output type match
     DCHECK(values_type.Equals(*output->type))
@@ -702,7 +703,7 @@ struct CastFunctor<T, DictionaryType,
 
     DictionaryArray dict_array(input.Copy());
 
-    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
+    const DictionaryType& type = checked_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
 
     // Check if values and output type match
@@ -780,7 +781,7 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const ArrayData& i
     }
 
     if (type_id != Type::NA) {
-      const auto& fw_type = static_cast<const FixedWidthType&>(*out->type);
+      const auto& fw_type = checked_cast<const FixedWidthType&>(*out->type);
 
       int bit_width = fw_type.bit_width();
       int64_t buffer_size = 0;
@@ -985,9 +986,9 @@ Status GetListCastFunc(const DataType& in_type, const std::shared_ptr<DataType>&
     // Kernel will be null
     return Status::OK();
   }
-  const DataType& in_value_type = *static_cast<const ListType&>(in_type).value_type();
+  const DataType& in_value_type = *checked_cast<const ListType&>(in_type).value_type();
   std::shared_ptr<DataType> out_value_type =
-      static_cast<const ListType&>(*out_type).value_type();
+      checked_cast<const ListType&>(*out_type).value_type();
   std::unique_ptr<UnaryKernel> child_caster;
   RETURN_NOT_OK(GetCastFunction(in_value_type, out_value_type, options, &child_caster));
   *kernel =

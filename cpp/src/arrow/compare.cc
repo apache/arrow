@@ -29,6 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -51,7 +52,7 @@ class RangeEqualsVisitor {
 
   template <typename ArrayType>
   inline Status CompareValues(const ArrayType& left) {
-    const auto& right = static_cast<const ArrayType&>(right_);
+    const auto& right = checked_cast<const ArrayType&>(right_);
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -67,7 +68,7 @@ class RangeEqualsVisitor {
   }
 
   bool CompareBinaryRange(const BinaryArray& left) const {
-    const auto& right = static_cast<const BinaryArray&>(right_);
+    const auto& right = checked_cast<const BinaryArray&>(right_);
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -96,7 +97,7 @@ class RangeEqualsVisitor {
   }
 
   bool CompareLists(const ListArray& left) {
-    const auto& right = static_cast<const ListArray&>(right_);
+    const auto& right = checked_cast<const ListArray&>(right_);
 
     const std::shared_ptr<Array>& left_values = left.values();
     const std::shared_ptr<Array>& right_values = right.values();
@@ -125,7 +126,7 @@ class RangeEqualsVisitor {
   }
 
   bool CompareStructs(const StructArray& left) {
-    const auto& right = static_cast<const StructArray&>(right_);
+    const auto& right = checked_cast<const StructArray&>(right_);
     bool equal_fields = true;
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -146,14 +147,14 @@ class RangeEqualsVisitor {
   }
 
   bool CompareUnions(const UnionArray& left) const {
-    const auto& right = static_cast<const UnionArray&>(right_);
+    const auto& right = checked_cast<const UnionArray&>(right_);
 
     const UnionMode::type union_mode = left.mode();
     if (union_mode != right.mode()) {
       return false;
     }
 
-    const auto& left_type = static_cast<const UnionType&>(*left.type());
+    const auto& left_type = checked_cast<const UnionType&>(*left.type());
 
     // Define a mapping from the type id to child number
     uint8_t max_code = 0;
@@ -213,7 +214,7 @@ class RangeEqualsVisitor {
   }
 
   Status Visit(const FixedSizeBinaryArray& left) {
-    const auto& right = static_cast<const FixedSizeBinaryArray&>(right_);
+    const auto& right = checked_cast<const FixedSizeBinaryArray&>(right_);
 
     int32_t width = left.byte_width();
 
@@ -247,7 +248,7 @@ class RangeEqualsVisitor {
   }
 
   Status Visit(const Decimal128Array& left) {
-    return Visit(static_cast<const FixedSizeBinaryArray&>(left));
+    return Visit(checked_cast<const FixedSizeBinaryArray&>(left));
   }
 
   Status Visit(const NullArray& left) {
@@ -278,7 +279,7 @@ class RangeEqualsVisitor {
   }
 
   Status Visit(const DictionaryArray& left) {
-    const auto& right = static_cast<const DictionaryArray&>(right_);
+    const auto& right = checked_cast<const DictionaryArray&>(right_);
     if (!left.dictionary()->Equals(right.dictionary())) {
       result_ = false;
       return Status::OK();
@@ -343,7 +344,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   }
 
   Status Visit(const BooleanArray& left) {
-    const auto& right = static_cast<const BooleanArray&>(right_);
+    const auto& right = checked_cast<const BooleanArray&>(right_);
 
     if (left.null_count() > 0) {
       const uint8_t* left_data = left.values()->data();
@@ -369,13 +370,13 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
                               !std::is_base_of<BooleanArray, T>::value,
                           Status>::type
   Visit(const T& left) {
-    result_ = IsEqualPrimitive(left, static_cast<const PrimitiveArray&>(right_));
+    result_ = IsEqualPrimitive(left, checked_cast<const PrimitiveArray&>(right_));
     return Status::OK();
   }
 
   template <typename ArrayType>
   bool ValueOffsetsEqual(const ArrayType& left) {
-    const auto& right = static_cast<const ArrayType&>(right_);
+    const auto& right = checked_cast<const ArrayType&>(right_);
 
     if (left.offset() == 0 && right.offset() == 0) {
       return left.value_offsets()->Equals(*right.value_offsets(),
@@ -399,7 +400,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   }
 
   bool CompareBinary(const BinaryArray& left) {
-    const auto& right = static_cast<const BinaryArray&>(right_);
+    const auto& right = checked_cast<const BinaryArray&>(right_);
 
     bool equal_offsets = ValueOffsetsEqual<BinaryArray>(left);
     if (!equal_offsets) {
@@ -451,7 +452,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   }
 
   Status Visit(const ListArray& left) {
-    const auto& right = static_cast<const ListArray&>(right_);
+    const auto& right = checked_cast<const ListArray&>(right_);
     bool equal_offsets = ValueOffsetsEqual<ListArray>(left);
     if (!equal_offsets) {
       result_ = false;
@@ -465,7 +466,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   }
 
   Status Visit(const DictionaryArray& left) {
-    const auto& right = static_cast<const DictionaryArray&>(right_);
+    const auto& right = checked_cast<const DictionaryArray&>(right_);
     if (!left.dictionary()->Equals(right.dictionary())) {
       result_ = false;
     } else {
@@ -516,13 +517,13 @@ class ApproxEqualsVisitor : public ArrayEqualsVisitor {
 
   Status Visit(const FloatArray& left) {
     result_ =
-        FloatingApproxEquals<FloatType>(left, static_cast<const FloatArray&>(right_));
+        FloatingApproxEquals<FloatType>(left, checked_cast<const FloatArray&>(right_));
     return Status::OK();
   }
 
   Status Visit(const DoubleArray& left) {
     result_ =
-        FloatingApproxEquals<DoubleType>(left, static_cast<const DoubleArray&>(right_));
+        FloatingApproxEquals<DoubleType>(left, checked_cast<const DoubleArray&>(right_));
     return Status::OK();
   }
 };
@@ -596,25 +597,25 @@ class TypeEqualsVisitor {
                               std::is_base_of<DateType, T>::value,
                           Status>::type
   Visit(const T& left) {
-    const auto& right = static_cast<const T&>(right_);
+    const auto& right = checked_cast<const T&>(right_);
     result_ = left.unit() == right.unit();
     return Status::OK();
   }
 
   Status Visit(const TimestampType& left) {
-    const auto& right = static_cast<const TimestampType&>(right_);
+    const auto& right = checked_cast<const TimestampType&>(right_);
     result_ = left.unit() == right.unit() && left.timezone() == right.timezone();
     return Status::OK();
   }
 
   Status Visit(const FixedSizeBinaryType& left) {
-    const auto& right = static_cast<const FixedSizeBinaryType&>(right_);
+    const auto& right = checked_cast<const FixedSizeBinaryType&>(right_);
     result_ = left.byte_width() == right.byte_width();
     return Status::OK();
   }
 
   Status Visit(const Decimal128Type& left) {
-    const auto& right = static_cast<const Decimal128Type&>(right_);
+    const auto& right = checked_cast<const Decimal128Type&>(right_);
     result_ = left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }
@@ -624,7 +625,7 @@ class TypeEqualsVisitor {
   Status Visit(const StructType& left) { return VisitChildren(left); }
 
   Status Visit(const UnionType& left) {
-    const auto& right = static_cast<const UnionType&>(right_);
+    const auto& right = checked_cast<const UnionType&>(right_);
 
     if (left.mode() != right.mode() ||
         left.type_codes().size() != right.type_codes().size()) {
@@ -654,7 +655,7 @@ class TypeEqualsVisitor {
   }
 
   Status Visit(const DictionaryType& left) {
-    const auto& right = static_cast<const DictionaryType&>(right_);
+    const auto& right = checked_cast<const DictionaryType&>(right_);
     result_ = left.index_type()->Equals(right.index_type()) &&
               left.dictionary()->Equals(right.dictionary()) &&
               (left.ordered() == right.ordered());
@@ -737,7 +738,7 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
       if (shape != right.shape()) {
         are_equal = false;
       } else {
-        const auto& type = static_cast<const FixedWidthType&>(*left.type());
+        const auto& type = checked_cast<const FixedWidthType&>(*left.type());
         are_equal =
             StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
       }

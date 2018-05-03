@@ -26,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/compare.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
@@ -255,7 +256,7 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
       ordered_(ordered) {}
 
 int DictionaryType::bit_width() const {
-  return static_cast<const FixedWidthType*>(index_type_.get())->bit_width();
+  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
 }
 
 std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; }

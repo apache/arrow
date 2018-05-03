@@ -53,6 +53,7 @@ if (ARROW_BUILD_BENCHMARKS)
 endif()
 
 ADD_ARROW_TEST(bit-util-test)
+ADD_ARROW_TEST(checked-cast-test)
 ADD_ARROW_TEST(compression-test)
 ADD_ARROW_TEST(decimal-test)
 ADD_ARROW_TEST(key-value-metadata-test)

@@ -15,24 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/hash.h"
+#ifndef ARROW_CAST_H
+#define ARROW_CAST_H
 
-#include "arrow/buffer.h"
-#include "arrow/status.h"
+#include <type_traits>
 
 namespace arrow {
-namespace internal {
 
-Status NewHashTable(int64_t size, MemoryPool* pool, std::shared_ptr<Buffer>* out) {
-  auto hash_table = std::make_shared<PoolBuffer>(pool);
-
-  RETURN_NOT_OK(hash_table->Resize(sizeof(hash_slot_t) * size));
-  auto slots = reinterpret_cast<hash_slot_t*>(hash_table->mutable_data());
-  std::fill(slots, slots + size, kHashSlotEmpty);
-
-  *out = hash_table;
-  return Status::OK();
+template <typename OutputType, typename InputType>
+inline OutputType checked_cast(InputType&& value) {
+  static_assert(std::is_class<typename std::remove_pointer<
+                    typename std::remove_reference<InputType>::type>::type>::value,
+                "checked_cast input type must be a class");
+  static_assert(std::is_class<typename std::remove_pointer<
+                    typename std::remove_reference<OutputType>::type>::type>::value,
+                "checked_cast output type must be a class");
+#ifdef NDEBUG
+  return static_cast<OutputType>(value);
+#else
+  return dynamic_cast<OutputType>(value);
+#endif
 }
 
-}  // namespace internal
 }  // namespace arrow
+
+#endif  // ARROW_CAST_H
