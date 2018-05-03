@@ -487,6 +487,20 @@ cdef class Field:
             new_field = self.field.RemoveMetadata()
         return pyarrow_wrap_field(new_field)
 
+    def flatten(self):
+        """
+        Flatten this field.  If a struct field, individual child fields
+        will be returned with their names prefixed by the parent's name.
+
+        Returns
+        -------
+        fields : List[pyarrow.Field]
+        """
+        cdef vector[shared_ptr[CField]] flattened
+        with nogil:
+            flattened = self.field.Flatten()
+        return [pyarrow_wrap_field(f) for f in flattened]
+
 
 cdef class Schema:
 

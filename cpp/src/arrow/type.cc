@@ -42,6 +42,21 @@ std::shared_ptr<Field> Field::RemoveMetadata() const {
   return std::make_shared<Field>(name_, type_, nullable_);
 }
 
+std::vector<std::shared_ptr<Field>> Field::Flatten() const {
+  std::vector<std::shared_ptr<Field>> flattened;
+  if (type_->id() == Type::STRUCT) {
+    for (const auto& child : type_->children()) {
+      auto flattened_child = std::make_shared<Field>(*child);
+      flattened.push_back(flattened_child);
+      flattened_child->name_.insert(0, name() + ".");
+      flattened_child->nullable_ |= nullable_;
+    }
+  } else {
+    flattened.push_back(std::make_shared<Field>(*this));
+  }
+  return flattened;
+}
+
 bool Field::Equals(const Field& other) const {
   if (this == &other) {
     return true;

@@ -236,6 +236,8 @@ class ARROW_EXPORT Field {
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
   std::shared_ptr<Field> RemoveMetadata() const;
 
+  std::vector<std::shared_ptr<Field>> Flatten() const;
+
   bool Equals(const Field& other) const;
   bool Equals(const std::shared_ptr<Field>& other) const;
 

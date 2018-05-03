@@ -86,6 +86,33 @@ TEST(TestField, TestRemoveMetadata) {
   ASSERT_TRUE(f2->metadata() == nullptr);
 }
 
+TEST(TestField, TestFlatten) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto f0 = field("f0", int32(), true /* nullable */, metadata);
+  auto vec = f0->Flatten();
+  ASSERT_EQ(vec.size(), 1);
+  ASSERT_TRUE(vec[0]->Equals(*f0));
+
+  auto f1 = field("f1", float64(), false /* nullable */);
+  auto ff = field("nest", struct_({f0, f1}));
+  vec = ff->Flatten();
+  ASSERT_EQ(vec.size(), 2);
+  auto expected0 = field("nest.f0", int32(), true /* nullable */, metadata);
+  // nullable parent implies nullable flattened child
+  auto expected1 = field("nest.f1", float64(), true /* nullable */);
+  ASSERT_TRUE(vec[0]->Equals(*expected0));
+  ASSERT_TRUE(vec[1]->Equals(*expected1));
+
+  ff = field("nest", struct_({f0, f1}), false /* nullable */);
+  vec = ff->Flatten();
+  ASSERT_EQ(vec.size(), 2);
+  expected0 = field("nest.f0", int32(), true /* nullable */, metadata);
+  expected1 = field("nest.f1", float64(), false /* nullable */);
+  ASSERT_TRUE(vec[0]->Equals(*expected0));
+  ASSERT_TRUE(vec[1]->Equals(*expected1));
+}
+
 class TestSchema : public ::testing::Test {
  public:
   void SetUp() {}
