@@ -179,7 +179,7 @@ ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
 /// @return The errno set.
 int warn_if_sigpipe(int status, int client_sock);
 
-uint8_t* create_object_info_buffer(ObjectInfoT* object_info);
+std::unique_ptr<uint8_t[]> create_object_info_buffer(ObjectInfoT* object_info);
 
 }  // namespace plasma
 
