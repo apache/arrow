@@ -106,6 +106,12 @@ def test_column_flatten():
     assert x == pa.column('foo.x', pa.array([1, 3, 5], type=pa.int16()))
     assert y == pa.column('foo.y', pa.array([2.5, 4.5, 6.5],
                                             type=pa.float32()))
+    # Empty column
+    a = pa.array([], type=ty)
+    col = pa.Column.from_array('foo', a)
+    x, y = col.flatten()
+    assert x == pa.column('foo.x', pa.array([], type=pa.int16()))
+    assert y == pa.column('foo.y', pa.array([], type=pa.float32()))
 
 
 def test_recordbatch_basics():

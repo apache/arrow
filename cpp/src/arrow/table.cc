@@ -144,7 +144,7 @@ Status ChunkedArray::Flatten(MemoryPool* pool,
   std::vector<std::shared_ptr<ChunkedArray>> flattened;
   if (type()->id() != Type::STRUCT) {
     // Emulate non-existent copy constructor
-    flattened.emplace_back(std::make_shared<ChunkedArray>(chunks_));
+    flattened.emplace_back(std::make_shared<ChunkedArray>(chunks_, type_));
     *out = flattened;
     return Status::OK();
   }
