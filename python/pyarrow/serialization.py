@@ -18,6 +18,7 @@
 from collections import OrderedDict, defaultdict
 import six
 import sys
+import pickle
 
 import numpy as np
 
@@ -42,7 +43,8 @@ def _serialize_numpy_array_list(obj):
         # the view.
         if not obj.flags.c_contiguous:
             obj = np.ascontiguousarray(obj)
-        return obj.view('uint8'), obj.dtype.str
+
+        return obj.view('uint8'), pickle.dumps(obj.dtype)
     else:
         return obj.tolist(), obj.dtype.str
 
@@ -50,7 +52,15 @@ def _serialize_numpy_array_list(obj):
 def _deserialize_numpy_array_list(data):
     if data[1] != '|O':
         assert data[0].dtype == np.uint8
-        return data[0].view(data[1])
+
+        try:
+            dtype = pickle.loads(data[1])
+        except (TypeError, pickle.UnpicklingError):
+            # data[1] is plain str.
+            # Leave this for backward compatibiliy.
+            dtype = data[1]
+
+        return data[0].view(dtype)
     else:
         return np.array(data[0], dtype=np.dtype(data[1]))
 
