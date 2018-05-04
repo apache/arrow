@@ -34,7 +34,13 @@ using arrow::Status;
 
 namespace plasma {
 
-#define PLASMA_DEFAULT_RELEASE_DELAY 64
+ARROW_DEPRECATED("PLASMA_DEFAULT_RELEASE_DELAY is deprecated")
+constexpr int64_t kDeprecatedPlasmaDefaultReleaseDelay = 64;
+#define PLASMA_DEFAULT_RELEASE_DELAY kDeprecatedPlasmaDefaultReleaseDelay;
+
+/// Number of objects that will be kept unreleased in the plasma client
+/// until we send a message to the store to release the object.
+constexpr int64_t kPlasmaDefaultReleaseDelay = 64;
 
 /// Object buffer data structure.
 struct ObjectBuffer {
@@ -64,7 +70,8 @@ class ARROW_EXPORT PlasmaClient {
   /// \param num_retries number of attempts to connect to IPC socket, default 50
   /// \return The return status.
   Status Connect(const std::string& store_socket_name,
-                 const std::string& manager_socket_name, int release_delay,
+                 const std::string& manager_socket_name,
+                 int release_delay = kPlasmaDefaultReleaseDelay,
                  int num_retries = -1);
 
   /// Create an object in the Plasma Store. Any metadata for this object must be

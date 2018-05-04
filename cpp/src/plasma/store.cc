@@ -170,7 +170,7 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
     // 64-byte aligned, but in practice it often will be.
     if (device_num == 0) {
       pointer =
-          reinterpret_cast<uint8_t*>(dlmemalign(BLOCK_SIZE, data_size + metadata_size));
+          reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
       if (pointer == NULL) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
@@ -741,7 +741,7 @@ Status PlasmaStore::process_message(Client* client) {
       HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),
                      client->fd);
     } break;
-    case DISCONNECT_CLIENT:
+    case MessageType_PlasmaDisconnectClient:
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->fd;
       disconnect_client(client->fd);
       break;
@@ -768,7 +768,7 @@ class PlasmaStoreRunner {
     // achieve that by mallocing and freeing a single large amount of space.
     // that maximum allowed size up front.
     if (use_one_memory_mapped_file) {
-      void* pointer = plasma::dlmemalign(BLOCK_SIZE, system_memory);
+      void* pointer = plasma::dlmemalign(kBlockSize, system_memory);
       ARROW_CHECK(pointer != NULL);
       plasma::dlfree(pointer);
     }

@@ -24,6 +24,7 @@
 #include "arrow/status.h"
 
 #include "plasma/common.h"
+#include "plasma/plasma_generated.h"
 
 using arrow::Status;
 
@@ -58,7 +59,7 @@ Status WriteBytes(int fd, uint8_t* cursor, size_t length) {
 }
 
 Status WriteMessage(int fd, int64_t type, int64_t length, uint8_t* bytes) {
-  int64_t version = PLASMA_PROTOCOL_VERSION;
+  int64_t version = kPlasmaProtocolVersion;
   RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)));
   RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&type), sizeof(type)));
   RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&length), sizeof(length)));
@@ -91,20 +92,20 @@ Status ReadBytes(int fd, uint8_t* cursor, size_t length) {
 Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer) {
   int64_t version;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)),
-                     *type = DISCONNECT_CLIENT);
-  ARROW_CHECK(version == PLASMA_PROTOCOL_VERSION) << "version = " << version;
+                     *type = MessageType_PlasmaDisconnectClient);
+  ARROW_CHECK(version == kPlasmaProtocolVersion) << "version = " << version;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(type), sizeof(*type)),
-                     *type = DISCONNECT_CLIENT);
+                     *type = MessageType_PlasmaDisconnectClient);
   int64_t length_temp;
   RETURN_NOT_OK_ELSE(
       ReadBytes(fd, reinterpret_cast<uint8_t*>(&length_temp), sizeof(length_temp)),
-      *type = DISCONNECT_CLIENT);
+      *type = MessageType_PlasmaDisconnectClient);
   // The length must be read as an int64_t, but it should be used as a size_t.
   size_t length = static_cast<size_t>(length_temp);
   if (length > buffer->size()) {
     buffer->resize(length);
   }
-  RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer->data(), length), *type = DISCONNECT_CLIENT);
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer->data(), length), *type = MessageType_PlasmaDisconnectClient);
   return Status::OK();
 }
 

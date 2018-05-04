@@ -18,8 +18,9 @@
 // Plasma protocol specification
 
 enum MessageType:int {
+  PlasmaDisconnectClient = 0,
   // Create a new object.
-  PlasmaCreateRequest = 1,
+  PlasmaCreateRequest,
   PlasmaCreateReply,
   PlasmaAbortRequest,
   PlasmaAbortReply,

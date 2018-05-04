@@ -36,6 +36,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 
@@ -65,7 +66,7 @@ namespace plasma {
   } while (0);
 
 /// Allocation granularity used in plasma for object allocation.
-#define BLOCK_SIZE 64
+constexpr int64_t kBlockSize = 64;
 
 struct Client;
 

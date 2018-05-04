@@ -703,8 +703,8 @@ bool PlasmaClient::Impl::compute_object_hash_parallel(XXH64_state_t* hash_state,
   const int num_threads = kThreadPoolSize;
   uint64_t threadhash[num_threads + 1];
   const uint64_t data_address = reinterpret_cast<uint64_t>(data);
-  const uint64_t num_blocks = nbytes / BLOCK_SIZE;
-  const uint64_t chunk_size = (num_blocks / num_threads) * BLOCK_SIZE;
+  const uint64_t num_blocks = nbytes / kBlockSize;
+  const uint64_t chunk_size = (num_blocks / num_threads) * kBlockSize;
   const uint64_t right_address = data_address + chunk_size * num_threads;
   const uint64_t suffix = (data_address + nbytes) - right_address;
   // Now the data layout is | k * num_threads * block_size | suffix | ==
