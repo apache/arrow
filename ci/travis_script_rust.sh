@@ -27,9 +27,9 @@ pushd $RUST_DIR
 rustup component add rustfmt-preview
 cargo fmt --all -- --write-mode=diff
 # raises on any warnings
-cargo rustc -- -D warnings 
+cargo rustc -- -D warnings
 
-travis-cargo build
-travis-cargo test
+cargo build
+cargo test
 
 popd
