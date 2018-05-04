@@ -265,13 +265,18 @@ BUILDS = [
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
+@click.option('--arrow-repo', default=None,
+              help='Arrow\'s repository path. Defaults to the repository of '
+                   'this script', envvar='CROSSBOW_ARROW_REPO')
 @click.option('--queue-repo', default=None,
-              help='The repository path or url used for scheduling the builds.'
-                   'Defaults to ../crossbow')
+              help='The repository path used for scheduling the tasks. '
+                   'Defaults to crossbow directory placed next to arrow',
+              envvar='CROSSBOW_QUEUE_REPO')
 @click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
               help='Oauth token for Github authentication')
-def build(pattern, dry_run, queue_repo, github_token):
-    arrow_repo = Path(__file__).absolute().parents[1]
+def build(pattern, dry_run, arrow_repo, queue_repo, github_token):
+    if arrow_repo is None:
+        arrow_repo = Path(__file__).absolute().parents[1]
     if queue_repo is None:
         queue_repo = arrow_repo.parent / 'crossbow'
 
