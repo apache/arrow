@@ -61,7 +61,7 @@ commit creation and pushing the changes.
 6. Install the python dependencies for the script:
 
    ```bash
-   conda install -y jinja2 pygit2 click
+   conda install -y jinja2 pygit2 click pyyaml
    ```
 7. Try running it:
    ```bash

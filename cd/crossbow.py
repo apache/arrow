@@ -19,6 +19,7 @@
 
 import re
 import sys
+import yaml
 import click
 import pygit2
 import logging
@@ -142,17 +143,18 @@ class Target(object):
 
 class Build(object):
 
-    def __init__(self, target, artifact, platform, **params):
+    def __init__(self, target, name, platform, template, **params):
         assert isinstance(target, Target)
         assert isinstance(platform, Platform)
 
+        self.name = name
         self.target = target
-        self.artifact = artifact
         self.platform = platform
+        self.template = template
         self.params = params
 
     def render(self):
-        path = (self.target.templates / self.name).with_suffix('.yml')
+        path = Path(self.template)
         template = Template(path.read_text())
         return template.render(**self.params)
 
@@ -162,12 +164,6 @@ class Build(object):
     @property
     def branch(self):
         return self.name
-
-    @property
-    def name(self):
-        return '-'.join([self.platform.ci,
-                         self.platform.name.lower(),
-                         self.artifact])
 
     @property
     def description(self):
@@ -241,49 +237,47 @@ class Queue(object):
         remote.push(refs, callbacks=callbacks)
         self.updated_branches = []
 
-        logging.info('\nUpdated branches:{}'.format('\n - '.join(shorthands)))
+        logging.info('\n - '.join(['\nUpdated branches:'] + shorthands))
 
 
 # this should be the mailing list
 EMAIL = 'szucs.krisztian@gmail.com'
 
 
-# currently possible builds, let's be explicit for now
-BUILDS = [
-    ('conda', Platform.LINUX),
-    ('conda', Platform.OSX),
-    ('conda', Platform.WIN),
-    ('wheel', Platform.LINUX),
-    ('wheel', Platform.OSX),
-    ('wheel', Platform.WIN),
-    ('packages', Platform.LINUX)
-]
-
-
 @click.command()
 @click.argument('pattern', required=False)
+@click.option('--config', help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
 @click.option('--arrow-repo', default=None,
               help='Arrow\'s repository path. Defaults to the repository of '
-                   'this script', envvar='CROSSBOW_ARROW_REPO')
+                   'this script')
 @click.option('--queue-repo', default=None,
               help='The repository path used for scheduling the tasks. '
-                   'Defaults to crossbow directory placed next to arrow',
-              envvar='CROSSBOW_QUEUE_REPO')
-@click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
+                   'Defaults to crossbow directory placed next to arrow')
+@click.option('--github-token', default=False,
               help='Oauth token for Github authentication')
-def build(pattern, dry_run, arrow_repo, queue_repo, github_token):
+def build(pattern, config, dry_run, arrow_repo, queue_repo, github_token):
+    if config is None:
+        config = Path(__file__).absolute().parent / 'tasks.yml'
+    else:
+        config = Path(config)
+
     if arrow_repo is None:
         arrow_repo = Path(__file__).absolute().parents[1]
+    else:
+        arrow_repo = Path(arrow_repo)
+
     if queue_repo is None:
         queue_repo = arrow_repo.parent / 'crossbow'
+    else:
+        queue_repo = Path(queue_repo)
 
     arrow = Target(arrow_repo, template_directory='cd')
     queue = Queue(queue_repo)
 
-    params = {
+    variables = {
         # these should be renamed
         'PLAT': 'x86_64',
         'EMAIL': EMAIL,
@@ -295,8 +289,18 @@ def build(pattern, dry_run, arrow_repo, queue_repo, github_token):
         'PYARROW_VERSION': arrow.version,
     }
 
-    for artifact, platform in BUILDS:
-        build = Build(arrow, artifact, platform, **params)
+    with config.open() as fp:
+        tasks = yaml.load(fp)['tasks']
+
+    for task in tasks:
+        name = task['name']
+        template = config.parent / task['template']
+        platform = Platform[task['platform'].upper()]
+        params = task.get('params') or {}
+        params.update(variables)
+
+        build = Build(arrow, name=name, platform=platform, template=template,
+                      **params)
 
         if pattern is None or re.search(pattern, build.name):
             if dry_run:
@@ -310,4 +314,4 @@ def build(pattern, dry_run, arrow_repo, queue_repo, github_token):
 
 
 if __name__ == '__main__':
-    build()
+    build(auto_envvar_prefix='CROSSBOW')

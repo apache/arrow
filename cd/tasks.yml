@@ -1,0 +1,34 @@
+tasks:
+  # conda packages
+  - name: conda-linux
+    platform: linux
+    template: travis-linux-conda.yml
+    params:
+  - name: conda-osx
+    platform: osx
+    template: travis-osx-conda.yml
+    params:
+  - name: conda-win
+    platform: win
+    template: appveyor-win-conda.yml
+    params:
+
+  # python wheels
+  - name: wheel-linux
+    platform: linux
+    template: travis-linux-wheel.yml
+    params:
+  - name: wheel-osx
+    platform: osx
+    template: travis-osx-wheel.yml
+    params:
+  - name: wheel-win
+    platform: win
+    template: appveyor-win-wheel.yml
+    params:
+
+  # linux packages
+  - name: packages-linux
+    platform: linux
+    template: travis-linux-packages.yml
+    params:
