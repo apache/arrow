@@ -38,6 +38,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -758,7 +759,7 @@ Status NumPyConverter::ConvertDecimals() {
   Decimal128Builder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
-  const auto& decimal_type = static_cast<const DecimalType&>(*type_);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type_);
 
   for (PyObject* object : objects) {
     const int is_decimal = PyObject_IsInstance(object, decimal_type_.obj());
@@ -983,7 +984,7 @@ Status NumPyConverter::ConvertObjectFixedWidthBytes(
     const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
 
-  const int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
+  const int32_t byte_width = checked_cast<const FixedSizeBinaryType&>(*type).byte_width();
 
   // The output type at this point is inconclusive because there may be bytes
   // and unicode mixed in the object array
@@ -1158,7 +1159,7 @@ Status NumPyConverter::ConvertObjects() {
       case Type::DATE64:
         return ConvertDates<Date64Type>();
       case Type::LIST: {
-        const auto& list_field = static_cast<const ListType&>(*type_);
+        const auto& list_field = checked_cast<const ListType&>(*type_);
         return ConvertLists(list_field.value_field()->type());
       }
       case Type::DECIMAL:
@@ -1204,7 +1205,7 @@ inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>&
     have_mask = true;
   }
 
-  BuilderT* value_builder = static_cast<BuilderT*>(builder->value_builder());
+  auto value_builder = checked_cast<BuilderT*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
     if (mask || internal::PandasObjectIsNull(object)) {
@@ -1249,7 +1250,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
     have_mask = true;
   }
 
-  auto value_builder = static_cast<NullBuilder*>(builder->value_builder());
+  auto value_builder = checked_cast<NullBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
     if (mask || internal::PandasObjectIsNull(object)) {
@@ -1293,7 +1294,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
     have_mask = true;
   }
 
-  auto value_builder = static_cast<BinaryBuilder*>(builder->value_builder());
+  auto value_builder = checked_cast<BinaryBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
     if (mask || internal::PandasObjectIsNull(object)) {
@@ -1322,7 +1323,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
         ss << inferred_type->ToString() << " cannot be converted to BINARY.";
         return Status::TypeError(ss.str());
       }
-      return AppendPySequence(object, size, inferred_type, value_builder);
+      return AppendPySequence(object, size, type, value_builder);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -1346,7 +1347,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     have_mask = true;
   }
 
-  auto value_builder = static_cast<StringBuilder*>(builder->value_builder());
+  auto value_builder = checked_cast<StringBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
     if (mask || internal::PandasObjectIsNull(object)) {
@@ -1379,7 +1380,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
         return Status::TypeError(ss.str());
       }
-      return AppendPySequence(object, size, inferred_type, value_builder);
+      return AppendPySequence(object, size, type, value_builder);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -1412,8 +1413,8 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
     LIST_CASE(BINARY, NPY_OBJECT, BinaryType)
     LIST_CASE(STRING, NPY_OBJECT, StringType)
     case Type::LIST: {
-      const auto& list_type = static_cast<const ListType&>(*type);
-      auto value_builder = static_cast<ListBuilder*>(builder->value_builder());
+      const auto& list_type = checked_cast<const ListType&>(*type);
+      auto value_builder = checked_cast<ListBuilder*>(builder->value_builder());
 
       auto foreach_item = [this, &builder, &value_builder, &list_type](PyObject* object) {
         if (internal::PandasObjectIsNull(object)) {
@@ -1438,7 +1439,7 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
 Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
   std::unique_ptr<ArrayBuilder> array_builder;
   RETURN_NOT_OK(MakeBuilder(pool_, arrow::list(type), &array_builder));
-  ListBuilder* list_builder = static_cast<ListBuilder*>(array_builder.get());
+  auto list_builder = checked_cast<ListBuilder*>(array_builder.get());
   RETURN_NOT_OK(ConvertLists(type, list_builder, reinterpret_cast<PyObject*>(arr_)));
   return PushBuilderResult(list_builder);
 }

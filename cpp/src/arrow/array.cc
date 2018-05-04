@@ -31,6 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -208,7 +209,7 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
 
   BufferVector buffers = {};
 
-  const auto& typed_offsets = static_cast<const Int32Array&>(offsets);
+  const auto& typed_offsets = checked_cast<const Int32Array&>(offsets);
 
   const int64_t num_offsets = offsets.length();
 
@@ -265,7 +266,7 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
 }
 
 std::shared_ptr<DataType> ListArray::value_type() const {
-  return static_cast<const ListType&>(*type()).value_type();
+  return checked_cast<const ListType&>(*type()).value_type();
 }
 
 std::shared_ptr<Array> ListArray::values() const { return values_; }
@@ -329,7 +330,7 @@ FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<DataType>& type
                                            const std::shared_ptr<Buffer>& null_bitmap,
                                            int64_t null_count, int64_t offset)
     : PrimitiveArray(type, length, data, null_bitmap, null_count, offset),
-      byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
+      byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
 
 const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
   return raw_values_ + (i + data_->offset) * byte_width_;
@@ -344,7 +345,7 @@ Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data)
 }
 
 std::string Decimal128Array::FormatValue(int64_t i) const {
-  const auto& type_ = static_cast<const Decimal128Type&>(*type());
+  const auto& type_ = checked_cast<const Decimal128Type&>(*type());
   const Decimal128 value(GetValue(i));
   return value.ToString(type_.scale());
 }
@@ -487,8 +488,8 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
   }
 
   BufferVector buffers = {type_ids.null_bitmap(),
-                          static_cast<const UInt8Array&>(type_ids).values(),
-                          static_cast<const Int32Array&>(value_offsets).values()};
+                          checked_cast<const Int8Array&>(type_ids).values(),
+                          checked_cast<const Int32Array&>(value_offsets).values()};
   auto union_type = union_(children, UnionMode::DENSE);
   auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
                                        type_ids.null_count(), type_ids.offset());
@@ -506,7 +507,7 @@ Status UnionArray::MakeSparse(const Array& type_ids,
     return Status::Invalid("UnionArray type_ids must be signed int8");
   }
   BufferVector buffers = {type_ids.null_bitmap(),
-                          static_cast<const UInt8Array&>(type_ids).values(), nullptr};
+                          checked_cast<const Int8Array&>(type_ids).values(), nullptr};
   auto union_type = union_(children, UnionMode::SPARSE);
   auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
                                        type_ids.null_count(), type_ids.offset());
@@ -559,7 +560,7 @@ template <typename ArrowType>
 Status ValidateDictionaryIndices(const std::shared_ptr<Array>& indices,
                                  const int64_t upper_bound) {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  const auto& array = static_cast<const ArrayType&>(*indices);
+  const auto& array = checked_cast<const ArrayType&>(*indices);
   const typename ArrowType::c_type* data = array.raw_values();
   const int64_t size = array.length();
 
@@ -583,14 +584,14 @@ Status ValidateDictionaryIndices(const std::shared_ptr<Array>& indices,
 }
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
-    : dict_type_(static_cast<const DictionaryType*>(data->type.get())) {
+    : dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {
   DCHECK_EQ(data->type->id(), Type::DICTIONARY);
   SetData(data);
 }
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
                                  const std::shared_ptr<Array>& indices)
-    : dict_type_(static_cast<const DictionaryType*>(type.get())) {
+    : dict_type_(checked_cast<const DictionaryType*>(type.get())) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
   DCHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
   auto data = indices->data()->Copy();
@@ -602,7 +603,7 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
                                    const std::shared_ptr<Array>& indices,
                                    std::shared_ptr<Array>* out) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
-  const auto& dict = static_cast<const DictionaryType&>(*type);
+  const auto& dict = checked_cast<const DictionaryType&>(*type);
   DCHECK_EQ(indices->type_id(), dict.index_type()->id());
 
   int64_t upper_bound = dict.dictionary()->length();

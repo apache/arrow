@@ -29,6 +29,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace io {
@@ -73,7 +74,7 @@ TEST_F(TestBufferOutputStream, WriteAfterFinish) {
   std::string data = "data123456";
   ASSERT_OK(stream_->Write(data));
 
-  auto buffer_stream = static_cast<BufferOutputStream*>(stream_.get());
+  auto buffer_stream = checked_cast<BufferOutputStream*>(stream_.get());
 
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK(buffer_stream->Finish(&buffer));

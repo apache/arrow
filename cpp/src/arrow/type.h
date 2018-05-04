@@ -28,6 +28,7 @@
 
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -274,7 +275,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
   Status Accept(TypeVisitor* visitor) const override {
-    return visitor->Visit(*static_cast<const DERIVED*>(this));
+    return visitor->Visit(checked_cast<const DERIVED&>(*this));
   }
 
   std::string ToString() const override { return this->name(); }

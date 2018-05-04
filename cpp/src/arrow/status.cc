@@ -33,7 +33,7 @@ void Status::CopyFrom(const State* state) {
 }
 
 std::string Status::CodeAsString() const {
-  if (state_ == NULL) {
+  if (state_ == nullptr) {
     return "OK";
   }
 

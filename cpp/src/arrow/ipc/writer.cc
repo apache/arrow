@@ -38,6 +38,7 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -236,7 +237,7 @@ class RecordBatchSerializer : public ArrayVisitor {
   Status VisitFixedWidth(const ArrayType& array) {
     std::shared_ptr<Buffer> data = array.values();
 
-    const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
+    const auto& fw_type = checked_cast<const FixedWidthType&>(*array.type());
     const int64_t type_width = fw_type.bit_width() / 8;
     int64_t min_length = PaddedLength(array.length() * type_width);
 
@@ -393,7 +394,7 @@ class RecordBatchSerializer : public ArrayVisitor {
 
     --max_recursion_depth_;
     if (array.mode() == UnionMode::DENSE) {
-      const auto& type = static_cast<const UnionType&>(*array.type());
+      const auto& type = checked_cast<const UnionType&>(*array.type());
 
       std::shared_ptr<Buffer> value_offsets;
       RETURN_NOT_OK(GetTruncatedBuffer<int32_t>(offset, length, array.value_offsets(),
@@ -595,7 +596,7 @@ Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
 
 Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
                            std::unique_ptr<Tensor>* out) {
-  const auto& type = static_cast<const FixedWidthType&>(*tensor.type());
+  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
 
   // TODO(wesm): Do we care enough about this temporary allocation to pass in
@@ -639,7 +640,7 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     }
   } else {
     Tensor dummy(tensor.type(), tensor.data(), tensor.shape());
-    const auto& type = static_cast<const FixedWidthType&>(*tensor.type());
+    const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
     RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length, body_length));
     // It's important to align the stream position again so that the tensor data
     // is aligned.
