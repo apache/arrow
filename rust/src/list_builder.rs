@@ -33,7 +33,8 @@ impl<T> ListBuilder<T> {
     /// Create a ListBuilder with the specified capacity
     pub fn with_capacity(n: usize) -> Self {
         let data = Builder::with_capacity(n);
-        let mut offsets = Builder::with_capacity(n);
+        // take into account additional element (0), that we are pushing immediately
+        let mut offsets = Builder::with_capacity(n + 1);
         offsets.push(0_i32);
         ListBuilder { data, offsets }
     }

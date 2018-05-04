@@ -33,7 +33,7 @@ before_install:
         sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
         sudo apt-get update -qq
       fi
-  - eval `python $TRAVIS_BUILD_DIR/ci/travis_detect_changes.py`
+  - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
 
 
 matrix:

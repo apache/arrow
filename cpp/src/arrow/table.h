@@ -69,6 +69,13 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Slice from offset until end of the chunked array
   std::shared_ptr<ChunkedArray> Slice(int64_t offset) const;
 
+  /// \brief Flatten this chunked array as a vector of chunked arrays, one
+  /// for each struct field
+  ///
+  /// \param[in] pool The pool for buffer allocations, if any
+  /// \param[out] out The resulting vector of arrays
+  Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;
+
   std::shared_ptr<DataType> type() const { return type_; }
 
   bool Equals(const ChunkedArray& other) const;
@@ -132,6 +139,12 @@ class ARROW_EXPORT Column {
   std::shared_ptr<Column> Slice(int64_t offset) const {
     return std::make_shared<Column>(field_, data_->Slice(offset));
   }
+
+  /// \brief Flatten this column as a vector of columns
+  ///
+  /// \param[in] pool The pool for buffer allocations, if any
+  /// \param[out] out The resulting vector of arrays
+  Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<Column>>* out) const;
 
   bool Equals(const Column& other) const;
   bool Equals(const std::shared_ptr<Column>& other) const;
@@ -214,6 +227,13 @@ class ARROW_EXPORT Table {
   /// \return new Table
   virtual std::shared_ptr<Table> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const = 0;
+
+  /// \brief Flatten the table, producing a new Table.  Any column with a
+  /// struct type will be flattened into multiple columns
+  ///
+  /// \param[in] pool The pool for buffer allocations, if any
+  /// \param[out] out The returned table
+  virtual Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Perform any checks to validate the input arguments
   virtual Status Validate() const = 0;
