@@ -71,8 +71,7 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Connect(const std::string& store_socket_name,
                  const std::string& manager_socket_name,
-                 int release_delay = kPlasmaDefaultReleaseDelay,
-                 int num_retries = -1);
+                 int release_delay = kPlasmaDefaultReleaseDelay, int num_retries = -1);
 
   /// Create an object in the Plasma Store. Any metadata for this object must be
   /// be passed in when the object is created.
