@@ -75,6 +75,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
 
   </#list></#list>
 
+  @Override
   public void writeNull() {
     fail("${name}");
   }

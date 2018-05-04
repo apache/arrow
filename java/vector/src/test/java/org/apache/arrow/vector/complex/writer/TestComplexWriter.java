@@ -220,6 +220,38 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void testListWithNull() {
+    NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    StructWriter rootWriter = writer.rootAsStruct();
+
+    rootWriter.start();
+    rootWriter.bigInt("int").writeBigInt(0);
+    rootWriter.list("list").startList();
+    rootWriter.list("list").bigInt().writeBigInt(0);
+    rootWriter.list("list").bigInt().writeNull();
+    rootWriter.list("list").endList();
+    rootWriter.end();
+
+    rootWriter.start();
+    rootWriter.bigInt("int").writeBigInt(1);
+    rootWriter.end();
+
+    writer.setValueCount(2);
+
+    StructReader rootReader = new SingleStructReaderImpl(parent).reader("root");
+
+    rootReader.setPosition(0);
+    assertTrue("row 0 list is not set", rootReader.reader("list").isSet());
+    assertEquals(Long.valueOf(0), rootReader.reader("list").reader().readLong());
+    rootReader.reader("list").reader().setPosition(1);
+    assertFalse(rootReader.reader("list").reader().isSet());
+
+    rootReader.setPosition(1);
+    assertFalse("row 1 list is set", rootReader.reader("list").isSet());
+  }
+
+  @Test
   public void listScalarType() {
     ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();

@@ -92,6 +92,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   </#list></#list>
   public void writeNull() {
+    getWriter().writeNull();
   }
 
   @Override

@@ -153,6 +153,12 @@ public class UnionListWriter extends AbstractFieldWriter {
     inStruct = false;
   }
 
+  @Override
+  public void writeNull() {
+    writer.writeNull();
+    writer.setPosition(writer.idx()+1);
+  }
+
   <#list vv.types as type>
     <#list type.minor as minor>
       <#assign name = minor.class?cap_first />
