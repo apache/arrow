@@ -25,6 +25,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "arrow/status.h"
 #include "plasma/compat.h"
