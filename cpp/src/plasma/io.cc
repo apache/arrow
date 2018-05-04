@@ -18,6 +18,7 @@
 #include "plasma/io.h"
 
 #include <cstdint>
+#include <memory>
 #include <sstream>
 
 #include "arrow/status.h"
@@ -210,7 +211,7 @@ int AcceptClient(int socket_fd) {
   return client_fd;
 }
 
-uint8_t* read_message_async(int sock) {
+std::unique_ptr<uint8_t[]> read_message_async(int sock) {
   int64_t size;
   Status s = ReadBytes(sock, reinterpret_cast<uint8_t*>(&size), sizeof(int64_t));
   if (!s.ok()) {
@@ -219,10 +220,9 @@ uint8_t* read_message_async(int sock) {
     close(sock);
     return NULL;
   }
-  uint8_t* message = reinterpret_cast<uint8_t*>(malloc(size));
-  s = ReadBytes(sock, message, size);
+  auto message = std::unique_ptr<uint8_t[]>(new uint8_t[size]);
+  s = ReadBytes(sock, message.get(), size);
   if (!s.ok()) {
-    free(message);
     /* The other side has closed the socket. */
     ARROW_LOG(DEBUG) << "Socket has been closed, or some other error has occurred.";
     close(sock);
