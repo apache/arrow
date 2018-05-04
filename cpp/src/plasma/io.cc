@@ -18,8 +18,8 @@
 #include "plasma/io.h"
 
 #include <cstdint>
-#include <sstream>
 #include <memory>
+#include <sstream>
 
 #include "arrow/status.h"
 
@@ -220,7 +220,7 @@ std::unique_ptr<uint8_t[]> read_message_async(int sock) {
     close(sock);
     return NULL;
   }
-  auto message = std::unique_ptr<uint8_t[]> (new uint8_t[size]);
+  auto message = std::unique_ptr<uint8_t[]>(new uint8_t[size]);
   s = ReadBytes(sock, message.get(), size);
   if (!s.ok()) {
     /* The other side has closed the socket. */

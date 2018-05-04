@@ -23,9 +23,9 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include "arrow/status.h"
 #include "plasma/compat.h"

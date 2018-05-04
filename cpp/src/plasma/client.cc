@@ -872,7 +872,6 @@ Status PlasmaClient::Impl::Subscribe(int* fd) {
   return Status::OK();
 }
 
-
 Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
                                            int64_t* data_size, int64_t* metadata_size) {
   auto notification = read_message_async(fd);

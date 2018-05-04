@@ -118,8 +118,7 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
 }
 
 // TODO(pcm): Get rid of this destructor by using RAII to clean up data.
-PlasmaStore::~PlasmaStore() {
-}
+PlasmaStore::~PlasmaStore() {}
 
 const PlasmaStoreInfo* PlasmaStore::get_plasma_store_info() { return &store_info_; }
 
