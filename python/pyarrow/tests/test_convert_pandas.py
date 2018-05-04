@@ -1254,6 +1254,23 @@ class TestConvertStringLikeTypes(object):
                 "in position 0: invalid start byte"):
             pa.array(np.array([b'\x80\x81'], dtype=object), pa.string())
 
+    def test_numpy_string_array_to_fixed_size_binary(self):
+        arr = np.array([b'foo', b'bar', b'baz'], dtype='|S3')
+
+        converted = pa.array(arr, type=pa.binary(3))
+        expected = pa.array(list(arr), type=pa.binary(3))
+        assert converted.equals(expected)
+
+        mask = np.array([True, False, True])
+        converted = pa.array(arr, type=pa.binary(3), mask=mask)
+        expected = pa.array([b'foo', None, b'baz'], type=pa.binary(3))
+        assert converted.equals(expected)
+
+        with pytest.raises(pa.lib.ArrowInvalid,
+                           message="Got bytestring of length 3 (expected 4)"):
+            arr = np.array([b'foo', b'bar', b'baz'], dtype='|S3')
+            pa.array(arr, type=pa.binary(4))
+
 
 class TestConvertDecimalTypes(object):
     """
