@@ -105,7 +105,8 @@ Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer) {
   if (length > buffer->size()) {
     buffer->resize(length);
   }
-  RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer->data(), length), *type = MessageType_PlasmaDisconnectClient);
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer->data(), length),
+                     *type = MessageType_PlasmaDisconnectClient);
   return Status::OK();
 }
 
