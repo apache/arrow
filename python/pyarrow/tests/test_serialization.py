@@ -696,6 +696,13 @@ def test_path_objects(tmpdir):
     assert res == obj
 
 
+def test_numpy_struct_array():
+    dt = np.dtype([('x', np.int8), ('y', np.float32)])
+    x = np.arange(5*10, dtype=np.int8).view(dt)
+    y = pa.deserialize(pa.serialize(x).to_buffer())
+    np.testing.assert_array_equal(x, y)
+
+
 def test_tensor_alignment():
     # Deserialized numpy arrays should be 64-byte aligned.
     x = np.random.normal(size=(10, 20, 30))
