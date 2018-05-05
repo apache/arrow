@@ -59,10 +59,8 @@ class TestPlasmaStore : public ::testing::Test {
                                  "/plasma_store -m 1000000000 -s /tmp/store" +
                                  store_index + " 1> /dev/null 2> /dev/null &";
     system(plasma_command.c_str());
-    ARROW_CHECK_OK(
-        client_.Connect("/tmp/store" + store_index, "", PLASMA_DEFAULT_RELEASE_DELAY));
-    ARROW_CHECK_OK(
-        client2_.Connect("/tmp/store" + store_index, "", PLASMA_DEFAULT_RELEASE_DELAY));
+    ARROW_CHECK_OK(client_.Connect("/tmp/store" + store_index, ""));
+    ARROW_CHECK_OK(client2_.Connect("/tmp/store" + store_index, ""));
   }
   virtual void TearDown() {
     ARROW_CHECK_OK(client_.Disconnect());

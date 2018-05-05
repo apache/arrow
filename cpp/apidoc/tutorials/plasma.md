@@ -80,7 +80,7 @@ using namespace plasma;
 int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma", "", PLASMA_DEFAULT_RELEASE_DELAY));
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma", ""));
   // Disconnect the Plasma client.
   ARROW_CHECK_OK(client.Disconnect());
 }
@@ -218,7 +218,7 @@ using namespace plasma;
 int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma", "", PLASMA_DEFAULT_RELEASE_DELAY));
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma", ""));
   // Create an object with a fixed ObjectID.
   ObjectID object_id = ObjectID::from_binary("00000000000000000000");
   int64_t data_size = 1000;
@@ -323,7 +323,7 @@ using namespace plasma;
 int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma", "", PLASMA_DEFAULT_RELEASE_DELAY));
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma", ""));
   ObjectID object_id = ObjectID::from_binary("00000000000000000000");
   ObjectBuffer object_buffer;
   ARROW_CHECK_OK(client.Get(&object_id, 1, -1, &object_buffer));
@@ -411,7 +411,7 @@ using namespace plasma;
 int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma", "", PLASMA_DEFAULT_RELEASE_DELAY));
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma", ""));
 
   int fd;
   ARROW_CHECK_OK(client.Subscribe(&fd));

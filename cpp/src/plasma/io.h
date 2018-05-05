@@ -30,13 +30,12 @@
 #include "arrow/status.h"
 #include "plasma/compat.h"
 
+namespace plasma {
+
 // TODO(pcm): Replace our own custom message header (message type,
 // message length, plasma protocol verion) with one that is serialized
 // using flatbuffers.
-#define PLASMA_PROTOCOL_VERSION 0x0000000000000000
-#define DISCONNECT_CLIENT 0
-
-namespace plasma {
+constexpr int64_t kPlasmaProtocolVersion = 0x0000000000000000;
 
 using arrow::Status;
 
