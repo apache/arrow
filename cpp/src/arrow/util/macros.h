@@ -73,6 +73,23 @@
 
 // ----------------------------------------------------------------------
 
+// clang-format off
+// [[deprecated]] is only available in C++14, use this for the time being
+// This macro takes an optional deprecation message
+#if __cplusplus <= 201103L
+# ifdef __GNUC__
+#  define ARROW_DEPRECATED(...) __attribute__((deprecated(__VA_ARGS__)))
+# elif defined(_MSC_VER)
+#  define ARROW_DEPRECATED(...) __declspec(deprecated(__VA_ARGS__))
+# else
+#  define ARROW_DEPRECATED(...)
+# endif
+#else
+#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
+#endif
+
+// ----------------------------------------------------------------------
+
 // macros to disable padding
 // these macros are portable across different compilers and platforms
 //[https://github.com/google/flatbuffers/blob/master/include/flatbuffers/flatbuffers.h#L1355]
@@ -93,5 +110,30 @@
 #error Unknown compiler, please define structure alignment macros
 #endif
 #endif  // !defined(MANUALLY_ALIGNED_STRUCT)
+
+// ----------------------------------------------------------------------
+// From googletest
+// (also in parquet-cpp)
+
+// When you need to test the private or protected members of a class,
+// use the FRIEND_TEST macro to declare your tests as friends of the
+// class.  For example:
+//
+// class MyClass {
+//  private:
+//   void MyMethod();
+//   FRIEND_TEST(MyClassTest, MyMethod);
+// };
+//
+// class MyClassTest : public testing::Test {
+//   // ...
+// };
+//
+// TEST_F(MyClassTest, MyMethod) {
+//   // Can call MyClass::MyMethod() here.
+// }
+
+#define FRIEND_TEST(test_case_name, test_name) \
+  friend class test_case_name##_##test_name##_Test
 
 #endif  // ARROW_UTIL_MACROS_H

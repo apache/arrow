@@ -17,7 +17,7 @@
 # under the License.
 
 export SNAPPY_VERSION="1.1.3"
-wget "https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz" -O snappy-${SNAPPY_VERSION}.tar.gz
+curl -sL "https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz" -o snappy-${SNAPPY_VERSION}.tar.gz
 tar xf snappy-${SNAPPY_VERSION}.tar.gz
 pushd snappy-${SNAPPY_VERSION}
 ./configure --with-pic "--prefix=/usr" CXXFLAGS='-DNDEBUG -O2'

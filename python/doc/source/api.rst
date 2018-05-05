@@ -186,6 +186,7 @@ Tables and Record Batches
 
    column
    chunked_array
+   concat_tables
    ChunkedArray
    Column
    RecordBatch
@@ -212,7 +213,8 @@ Input / Output and Shared Memory
    allocate_buffer
    compress
    decompress
-   frombuffer
+   py_buffer
+   foreign_buffer
    Buffer
    ResizableBuffer
    BufferReader
@@ -342,3 +344,15 @@ Apache Parquet
    read_schema
    write_metadata
    write_table
+
+.. currentmodule:: pyarrow
+
+Using with C extensions
+-----------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   get_include
+   get_libraries
+   get_library_dirs

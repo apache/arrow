@@ -24,7 +24,7 @@ import org.apache.arrow.vector.complex.impl.DecimalReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.holders.NullableDecimalHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.TransferPair;
@@ -85,8 +85,8 @@ public class DecimalVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.DECIMAL;
+  public MinorType getMinorType() {
+    return MinorType.DECIMAL;
   }
 
 
@@ -196,6 +196,61 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Set the decimal element at given index to the provided array of bytes.
+   * Decimal is now implemented as Little Endian. This API allows the user
+   * to pass a decimal value in the form of byte array in BE byte order.
+   *
+   * Consumers of Arrow code can use this API instead of first swapping
+   * the source bytes (doing a write and read) and then finally writing to
+   * ArrowBuf of decimal vector.
+   *
+   * This method takes care of adding the necessary padding if the length
+   * of byte array is less then 16 (length of decimal type).
+   *
+   * @param index position of element
+   * @param value array of bytes containing decimal in big endian byte order.
+   */
+  public void setBigEndian(int index, byte[] value) {
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    final int length = value.length;
+    int startIndex = index * TYPE_WIDTH;
+    if (length == TYPE_WIDTH) {
+      for (int i = TYPE_WIDTH - 1; i >= 3; i-=4) {
+        valueBuffer.setByte(startIndex, value[i]);
+        valueBuffer.setByte(startIndex + 1, value[i-1]);
+        valueBuffer.setByte(startIndex + 2, value[i-2]);
+        valueBuffer.setByte(startIndex + 3, value[i-3]);
+        startIndex += 4;
+      }
+
+      return;
+    }
+
+    if (length == 0) {
+      valueBuffer.setZero(startIndex, TYPE_WIDTH);
+      return;
+    }
+
+    if (length < 16) {
+      for (int i = length - 1; i >= 0; i--) {
+        valueBuffer.setByte(startIndex, value[i]);
+        startIndex++;
+      }
+
+      final byte pad = (byte) (value[0] < 0 ? 0xFF : 0x00);
+      final int maxStartIndex = (index + 1) * TYPE_WIDTH;
+      while (startIndex < maxStartIndex) {
+        valueBuffer.setByte(startIndex, pad);
+        startIndex++;
+      }
+
+      return;
+    }
+
+    throw new IllegalArgumentException("Invalid decimal value length. Valid length in [1 - 16], got " + length);
+  }
+
+  /**
    * Set the element at the given index to the given value.
    *
    * @param index    position of element
@@ -260,6 +315,16 @@ public class DecimalVector extends BaseFixedWidthVector {
   public void setSafe(int index, ArrowBuf buffer) {
     handleSafe(index);
     set(index, buffer);
+  }
+
+  /**
+   * Same as {@link #setBigEndian(int, byte[])} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
+   */
+  public void setBigEndianSafe(int index, byte[] value) {
+    handleSafe(index);
+    setBigEndian(index, value);
   }
 
   /**

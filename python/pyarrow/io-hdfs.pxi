@@ -59,29 +59,41 @@ cdef class HadoopFileSystem:
 
     cdef readonly:
         bint is_open
-
-    def __cinit__(self):
-        pass
+        str host
+        str user
+        str kerb_ticket
+        str driver
+        int port
 
     def _connect(self, host, port, user, kerb_ticket, driver):
         cdef HdfsConnectionConfig conf
 
         if host is not None:
             conf.host = tobytes(host)
+        self.host = host
+
         conf.port = port
+        self.port = port
+
         if user is not None:
             conf.user = tobytes(user)
+        self.user = user
+
         if kerb_ticket is not None:
             conf.kerb_ticket = tobytes(kerb_ticket)
+        self.kerb_ticket = kerb_ticket
 
         if driver == 'libhdfs':
             with nogil:
                 check_status(HaveLibHdfs())
             conf.driver = HdfsDriver_LIBHDFS
-        else:
+        elif driver == 'libhdfs3':
             with nogil:
                 check_status(HaveLibHdfs3())
             conf.driver = HdfsDriver_LIBHDFS3
+        else:
+            raise ValueError("unknown driver: %r" % driver)
+        self.driver = driver
 
         with nogil:
             check_status(CHadoopFileSystem.Connect(&conf, &self.client))
@@ -125,12 +137,18 @@ cdef class HadoopFileSystem:
 
     def isdir(self, path):
         cdef HdfsPathInfo info
-        self._path_info(path, &info)
+        try:
+            self._path_info(path, &info)
+        except ArrowIOError:
+            return False
         return info.kind == ObjectType_DIRECTORY
 
     def isfile(self, path):
         cdef HdfsPathInfo info
-        self._path_info(path, &info)
+        try:
+            self._path_info(path, &info)
+        except ArrowIOError:
+            return False
         return info.kind == ObjectType_FILE
 
     def get_capacity(self):
@@ -401,9 +419,7 @@ cdef class HadoopFileSystem:
                                    &wr_handle))
 
             out.wr_file = <shared_ptr[OutputStream]> wr_handle
-
-            out.is_readable = False
-            out.is_writeable = 1
+            out.is_writable = True
         else:
             with nogil:
                 check_status(self.client.get()
@@ -411,7 +427,6 @@ cdef class HadoopFileSystem:
 
             out.rd_file = <shared_ptr[RandomAccessFile]> rd_handle
             out.is_readable = True
-            out.is_writeable = 0
 
         if c_buffer_size == 0:
             c_buffer_size = 2 ** 16
@@ -419,7 +434,7 @@ cdef class HadoopFileSystem:
         out.mode = mode
         out.buffer_size = c_buffer_size
         out.parent = _HdfsFileNanny(self, out)
-        out.is_open = True
+        out.closed = False
         out.own_file = True
 
         return out
@@ -464,8 +479,6 @@ cdef class HdfsFile(NativeFile):
         int32_t buffer_size
         object mode
         object parent
-
-    cdef object __weakref__
 
     def __dealloc__(self):
         self.parent = None

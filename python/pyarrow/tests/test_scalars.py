@@ -18,6 +18,7 @@
 
 import pytest
 
+import numpy as np
 import pandas as pd
 
 from pyarrow.compat import unittest, u, unicode_type
@@ -58,6 +59,7 @@ class TestScalars(unittest.TestCase):
         assert isinstance(v, pa.Int64Value)
         assert repr(v) == "1"
         assert v.as_py() == 1
+        assert v == 1
 
         assert arr[2] is pa.NA
 
@@ -68,11 +70,22 @@ class TestScalars(unittest.TestCase):
         assert isinstance(v, pa.DoubleValue)
         assert repr(v) == "1.5"
         assert v.as_py() == 1.5
+        assert v == 1.5
 
         assert arr[1] is pa.NA
 
         v = arr[2]
         assert v.as_py() == 3.0
+
+    def test_half_float(self):
+        arr = pa.array([np.float16(1.5), None], type=pa.float16())
+        v = arr[0]
+        assert isinstance(v, pa.HalfFloatValue)
+        assert repr(v) == "1.5"
+        assert v.as_py() == 1.5
+        assert v == 1.5
+
+        assert arr[1] is pa.NA
 
     def test_string_unicode(self):
         arr = pa.array([u'foo', None, u'mañana'])
@@ -80,6 +93,10 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert isinstance(v, pa.StringValue)
         assert v.as_py() == 'foo'
+        assert v == 'foo'
+        # Assert that newly created values are equal to the previously created
+        # one.
+        assert v == arr[0]
 
         assert arr[1] is pa.NA
 
@@ -93,6 +110,7 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert isinstance(v, pa.BinaryValue)
         assert v.as_py() == b'foo'
+        assert v == b'foo'
 
         assert arr[1] is pa.NA
 
@@ -124,6 +142,12 @@ class TestScalars(unittest.TestCase):
         assert v.as_py() == ['foo', None]
         assert v[0].as_py() == 'foo'
         assert v[1] is pa.NA
+        assert v[-1] == v[1]
+        assert v[-2] == v[0]
+        with pytest.raises(IndexError):
+            v[-3]
+        with pytest.raises(IndexError):
+            v[2]
 
         assert arr[1] is pa.NA
 
@@ -156,6 +180,7 @@ class TestScalars(unittest.TestCase):
 
     def test_dictionary(self):
         colors = ['red', 'green', 'blue']
+        colors_dict = {'red': 0, 'green': 1, 'blue': 2}
         values = pd.Series(colors * 4)
 
         categorical = pd.Categorical(values, categories=colors)
@@ -164,3 +189,50 @@ class TestScalars(unittest.TestCase):
                                            categorical.categories)
         for i, c in enumerate(values):
             assert v[i].as_py() == c
+            assert v[i].dictionary_value == c
+            assert v[i].index_value == colors_dict[c]
+
+    def test_int_hash(self):
+        # ARROW-640
+        int_arr = pa.array([1, 1, 2, 1])
+        assert hash(int_arr[0]) == hash(1)
+
+    def test_float_hash(self):
+        # ARROW-640
+        float_arr = pa.array([1.4, 1.2, 2.5, 1.8])
+        assert hash(float_arr[0]) == hash(1.4)
+
+    def test_string_hash(self):
+        # ARROW-640
+        str_arr = pa.array(["foo", "bar"])
+        assert hash(str_arr[1]) == hash("bar")
+
+    def test_bytes_hash(self):
+        # ARROW-640
+        byte_arr = pa.array([b'foo', None, b'bar'])
+        assert hash(byte_arr[2]) == hash(b"bar")
+
+    def test_array_to_set(self):
+        # ARROW-640
+        arr = pa.array([1, 1, 2, 1])
+        set_from_array = set(arr)
+        assert isinstance(set_from_array, set)
+        assert set_from_array == {1, 2}
+
+    def test_struct_value_subscripting(self):
+        ty = pa.struct([pa.field('x', pa.int16()),
+                        pa.field('y', pa.float32())])
+        arr = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
+
+        assert arr[0]['x'] == 1
+        assert arr[0]['y'] == 2.5
+        assert arr[1]['x'] == 3
+        assert arr[1]['y'] == 4.5
+        assert arr[2]['x'] == 5
+        assert arr[2]['y'] == 6.5
+
+        with pytest.raises(IndexError):
+            arr[4]['non-existent']
+
+        with pytest.raises(KeyError):
+            arr[0]['non-existent']

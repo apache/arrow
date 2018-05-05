@@ -28,15 +28,21 @@ import sys
 import pyarrow as pa
 import numpy as np
 
+import pyarrow.tests.util as test_util
+
+try:
+    import torch
+except ImportError:
+    torch = None
+    # Blacklist the module in case `import torch` is costly before
+    # failing (ARROW-2071)
+    sys.modules['torch'] = None
+
 
 def assert_equal(obj1, obj2):
-    try:
-        import torch
-        if torch.is_tensor(obj1) and torch.is_tensor(obj2):
-            assert torch.equal(obj1, obj2)
-            return
-    except ImportError:
-        pass
+    if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
+        assert torch.equal(obj1, obj2)
+        return
     module_numpy = (type(obj1).__module__ == np.__name__ or
                     type(obj2).__module__ == np.__name__)
     if module_numpy:
@@ -99,7 +105,7 @@ def assert_equal(obj1, obj2):
 
 
 PRIMITIVE_OBJECTS = [
-    0, 0.0, 0.9, 1 << 62, 1 << 100, 1 << 999,
+    0, 0.0, 0.9, 1 << 62, 1 << 999,
     [1 << 100, [1 << 100]], "a", string.printable, "\u262F",
     "hello world", u"hello world", u"\xff\xfe\x9c\x001\x000\x00",
     None, True, False, [], (), {}, {(1, 2): 1}, {(): 2},
@@ -110,10 +116,11 @@ PRIMITIVE_OBJECTS = [
     {"hello": set([2, 3]), "world": set([42.0]), "this": None},
     np.int8(3), np.int32(4), np.int64(5),
     np.uint8(3), np.uint32(4), np.uint64(5), np.float16(1.9), np.float32(1.9),
-    np.float64(1.9), np.zeros([100, 100]),
-    np.random.normal(size=[100, 100]), np.array(["hi", 3]),
+    np.float64(1.9), np.zeros([8, 20]),
+    np.random.normal(size=[17, 10]), np.array(["hi", 3]),
     np.array(["hi", 3], dtype=object),
-    np.random.normal(size=[45, 22]).T]
+    np.random.normal(size=[15, 13]).T,
+]
 
 
 if sys.version_info >= (3, 0):
@@ -126,11 +133,12 @@ else:
 
 COMPLEX_OBJECTS = [
     [[[[[[[[[[[[]]]]]]]]]]]],
-    {"obj{}".format(i): np.random.normal(size=[100, 100]) for i in range(10)},
+    {"obj{}".format(i): np.random.normal(size=[4, 4]) for i in range(5)},
     # {(): {(): {(): {(): {(): {(): {(): {(): {(): {(): {
     #       (): {(): {}}}}}}}}}}}}},
     ((((((((((),),),),),),),),),),
-    {"a": {"b": {"c": {"d": {}}}}}]
+    {"a": {"b": {"c": {"d": {}}}}},
+]
 
 
 class Foo(object):
@@ -146,7 +154,7 @@ class Foo(object):
 
 class Bar(object):
     def __init__(self):
-        for i, val in enumerate(PRIMITIVE_OBJECTS + COMPLEX_OBJECTS):
+        for i, val in enumerate(COMPLEX_OBJECTS):
             setattr(self, "field{}".format(i), val)
 
 
@@ -161,7 +169,7 @@ class Baz(object):
 
 class Qux(object):
     def __init__(self):
-        self.objs = [Foo(), Bar(), Baz()]
+        self.objs = [Foo(1), Foo(42)]
 
 
 class SubQux(Qux):
@@ -190,8 +198,7 @@ CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
 
 
 def make_serialization_context():
-
-    context = pa._default_serialization_context
+    context = pa.default_serialization_context()
 
     context.register_type(Foo, "Foo")
     context.register_type(Bar, "Bar")
@@ -207,29 +214,35 @@ def make_serialization_context():
     return context
 
 
-serialization_context = make_serialization_context()
+global_serialization_context = make_serialization_context()
 
 
-def serialization_roundtrip(value, f, ctx=serialization_context):
-    f.seek(0)
-    pa.serialize_to(value, f, ctx)
-    f.seek(0)
-    result = pa.deserialize_from(f, None, ctx)
+def serialization_roundtrip(value, scratch_buffer,
+                            context=global_serialization_context):
+    writer = pa.FixedSizeBufferWriter(scratch_buffer)
+    pa.serialize_to(value, writer, context=context)
+
+    reader = pa.BufferReader(scratch_buffer)
+    result = pa.deserialize_from(reader, None, context=context)
     assert_equal(value, result)
 
-    _check_component_roundtrip(value)
+    _check_component_roundtrip(value, context=context)
 
 
-def _check_component_roundtrip(value):
+def _check_component_roundtrip(value, context=global_serialization_context):
     # Test to/from components
-    serialized = pa.serialize(value)
+    serialized = pa.serialize(value, context=context)
     components = serialized.to_components()
     from_comp = pa.SerializedPyObject.from_components(components)
-    recons = from_comp.deserialize()
+    recons = from_comp.deserialize(context=context)
     assert_equal(value, recons)
 
 
 @pytest.yield_fixture(scope='session')
+def large_buffer(size=32*1024*1024):
+    return pa.allocate_buffer(size)
+
+
 def large_memory_map(tmpdir_factory, size=100*1024*1024):
     path = (tmpdir_factory.mktemp('data')
             .join('pyarrow-serialization-tmp-file').strpath)
@@ -243,11 +256,36 @@ def large_memory_map(tmpdir_factory, size=100*1024*1024):
     return path
 
 
-def test_primitive_serialization(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for obj in PRIMITIVE_OBJECTS:
-            serialization_roundtrip(obj, mmap)
-            serialization_roundtrip(obj, mmap, pa.pandas_serialization_context)
+def test_clone():
+    context = pa.SerializationContext()
+
+    class Foo(object):
+        pass
+
+    def custom_serializer(obj):
+        return 0
+
+    def custom_deserializer(serialized_obj):
+        return (serialized_obj, 'a')
+
+    context.register_type(Foo, 'Foo', custom_serializer=custom_serializer,
+                          custom_deserializer=custom_deserializer)
+
+    new_context = context.clone()
+
+    f = Foo()
+    serialized = pa.serialize(f, context=context)
+    deserialized = serialized.deserialize(context=context)
+    assert deserialized == (0, 'a')
+
+    serialized = pa.serialize(f, context=new_context)
+    deserialized = serialized.deserialize(context=new_context)
+    assert deserialized == (0, 'a')
+
+
+def test_primitive_serialization(large_buffer):
+    for obj in PRIMITIVE_OBJECTS:
+        serialization_roundtrip(obj, large_buffer)
 
 
 def test_serialize_to_buffer():
@@ -258,34 +296,34 @@ def test_serialize_to_buffer():
             assert_equal(value, result)
 
 
-def test_complex_serialization(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for obj in COMPLEX_OBJECTS:
-            serialization_roundtrip(obj, mmap)
+def test_complex_serialization(large_buffer):
+    for obj in COMPLEX_OBJECTS:
+        serialization_roundtrip(obj, large_buffer)
 
 
-def test_custom_serialization(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for obj in CUSTOM_OBJECTS:
-            serialization_roundtrip(obj, mmap)
+def test_custom_serialization(large_buffer):
+    for obj in CUSTOM_OBJECTS:
+        serialization_roundtrip(obj, large_buffer)
 
 
-def test_default_dict_serialization(large_memory_map):
+def test_default_dict_serialization(large_buffer):
     pytest.importorskip("cloudpickle")
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        obj = defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
-        serialization_roundtrip(obj, mmap)
+
+    obj = defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
+    serialization_roundtrip(obj, large_buffer)
 
 
-def test_numpy_serialization(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for t in ["bool", "int8", "uint8", "int16", "uint16", "int32",
-                  "uint32", "float16", "float32", "float64"]:
-            obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
-            serialization_roundtrip(obj, mmap)
+def test_numpy_serialization(large_buffer):
+    for t in ["bool", "int8", "uint8", "int16", "uint16", "int32",
+              "uint32", "float16", "float32", "float64", "<U1", "<U2", "<U3",
+              "<U4", "|S1", "|S2", "|S3", "|S4", "|O"]:
+        obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
+        serialization_roundtrip(obj, large_buffer)
+        obj = obj[1:99, 10:90]
+        serialization_roundtrip(obj, large_buffer)
 
 
-def test_datetime_serialization(large_memory_map):
+def test_datetime_serialization(large_buffer):
     data = [
         #  Principia Mathematica published
         datetime.datetime(year=1687, month=7, day=5),
@@ -309,32 +347,51 @@ def test_datetime_serialization(large_memory_map):
         datetime.datetime(year=1970, month=1, day=3, hour=4,
                           minute=0, second=0)
     ]
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for d in data:
-            serialization_roundtrip(d, mmap)
+    for d in data:
+        serialization_roundtrip(d, large_buffer)
 
 
-def test_torch_serialization(large_memory_map):
+def test_torch_serialization(large_buffer):
     pytest.importorskip("torch")
-    import torch
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        # These are the only types that are supported for the
-        # PyTorch to NumPy conversion
-        for t in ["float32", "float64",
-                  "uint8", "int16", "int32", "int64"]:
-            obj = torch.from_numpy(np.random.randn(1000).astype(t))
-            serialization_roundtrip(obj, mmap)
+
+    serialization_context = pa.default_serialization_context()
+    pa.register_torch_serialization_handlers(serialization_context)
+    # These are the only types that are supported for the
+    # PyTorch to NumPy conversion
+    for t in ["float32", "float64",
+              "uint8", "int16", "int32", "int64"]:
+        obj = torch.from_numpy(np.random.randn(1000).astype(t))
+        serialization_roundtrip(obj, large_buffer,
+                                context=serialization_context)
 
 
-def test_numpy_immutable(large_memory_map):
-    with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        obj = np.zeros([10])
-        mmap.seek(0)
-        pa.serialize_to(obj, mmap, serialization_context)
-        mmap.seek(0)
-        result = pa.deserialize_from(mmap, None, serialization_context)
-        with pytest.raises(ValueError):
-            result[0] = 1.0
+def test_numpy_immutable(large_buffer):
+    obj = np.zeros([10])
+
+    writer = pa.FixedSizeBufferWriter(large_buffer)
+    pa.serialize_to(obj, writer, global_serialization_context)
+
+    reader = pa.BufferReader(large_buffer)
+    result = pa.deserialize_from(reader, None, global_serialization_context)
+    with pytest.raises(ValueError):
+        result[0] = 1.0
+
+
+def test_numpy_base_object(tmpdir):
+    # ARROW-2040: deserialized Numpy array should keep a reference to the
+    # owner of its memory
+    path = os.path.join(str(tmpdir), 'zzz.bin')
+    data = np.arange(12, dtype=np.int32)
+
+    with open(path, 'wb') as f:
+        f.write(pa.serialize(data).to_buffer())
+
+    serialized = pa.read_serialized(pa.OSFile(path))
+    result = serialized.deserialize()
+    assert_equal(result, data)
+    serialized = None
+    assert_equal(result, data)
+    assert result.base is not None
 
 
 # see https://issues.apache.org/jira/browse/ARROW-1695
@@ -350,12 +407,39 @@ def test_serialization_callback_numpy():
     def deserialize_dummy_class(serialized_obj):
         return serialized_obj
 
-    pa._default_serialization_context.register_type(
-        DummyClass, "DummyClass",
-        custom_serializer=serialize_dummy_class,
-        custom_deserializer=deserialize_dummy_class)
+    context = pa.default_serialization_context()
+    context.register_type(DummyClass, "DummyClass",
+                          custom_serializer=serialize_dummy_class,
+                          custom_deserializer=deserialize_dummy_class)
 
-    pa.serialize(DummyClass())
+    pa.serialize(DummyClass(), context=context)
+
+
+def test_numpy_subclass_serialization():
+    # Check that we can properly serialize subclasses of np.ndarray.
+    class CustomNDArray(np.ndarray):
+        def __new__(cls, input_array):
+            array = np.asarray(input_array).view(cls)
+            return array
+
+    def serializer(obj):
+        return {'numpy': obj.view(np.ndarray)}
+
+    def deserializer(data):
+        array = data['numpy'].view(CustomNDArray)
+        return array
+
+    context = pa.default_serialization_context()
+
+    context.register_type(CustomNDArray, 'CustomNDArray',
+                          custom_serializer=serializer,
+                          custom_deserializer=deserializer)
+
+    x = CustomNDArray(np.zeros(3))
+    serialized = pa.serialize(x, context=context).to_buffer()
+    new_x = pa.deserialize(serialized, context=context)
+    assert type(new_x) == CustomNDArray
+    assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
 
 
 def test_buffer_serialization():
@@ -364,18 +448,19 @@ def test_buffer_serialization():
         pass
 
     def serialize_buffer_class(obj):
-        return pa.frombuffer(b"hello")
+        return pa.py_buffer(b"hello")
 
     def deserialize_buffer_class(serialized_obj):
         return serialized_obj
 
-    pa._default_serialization_context.register_type(
+    context = pa.default_serialization_context()
+    context.register_type(
         BufferClass, "BufferClass",
         custom_serializer=serialize_buffer_class,
         custom_deserializer=deserialize_buffer_class)
 
-    b = pa.serialize(BufferClass()).to_buffer()
-    assert pa.deserialize(b).to_pybytes() == b"hello"
+    b = pa.serialize(BufferClass(), context=context).to_buffer()
+    assert pa.deserialize(b, context=context).to_pybytes() == b"hello"
 
 
 @pytest.mark.skip(reason="extensive memory requirements")
@@ -484,21 +569,22 @@ def test_serialize_subclasses():
     # with register_type will result in faster and more memory
     # efficient serialization.
 
-    serialization_context.register_type(
+    context = pa.default_serialization_context()
+    context.register_type(
         Serializable, "Serializable",
         custom_serializer=serialize_serializable,
         custom_deserializer=deserialize_serializable)
 
     a = SerializableClass()
-    serialized = pa.serialize(a)
+    serialized = pa.serialize(a, context=context)
 
-    deserialized = serialized.deserialize()
+    deserialized = serialized.deserialize(context=context)
     assert type(deserialized).__name__ == SerializableClass.__name__
     assert deserialized.value == 3
 
 
 def test_serialize_to_components_invalid_cases():
-    buf = pa.frombuffer(b'hello')
+    buf = pa.py_buffer(b'hello')
 
     components = {
         'num_tensors': 0,
@@ -506,7 +592,7 @@ def test_serialize_to_components_invalid_cases():
         'data': [buf]
     }
 
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowInvalid):
         pa.deserialize_components(components)
 
     components = {
@@ -515,7 +601,7 @@ def test_serialize_to_components_invalid_cases():
         'data': [buf, buf]
     }
 
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(pa.ArrowInvalid):
         pa.deserialize_components(components)
 
 
@@ -541,3 +627,93 @@ def test_deserialize_in_different_process():
     p.start()
     assert q.get().pattern == regex.pattern
     p.join()
+
+
+def test_deserialize_buffer_in_different_process():
+    import tempfile
+    import subprocess
+
+    f = tempfile.NamedTemporaryFile(delete=False)
+    b = pa.serialize(pa.py_buffer(b'hello')).to_buffer()
+    f.write(b.to_pybytes())
+    f.close()
+
+    subprocess_env = test_util.get_modified_env_with_pythonpath()
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    python_file = os.path.join(dir_path, 'deserialize_buffer.py')
+    subprocess.check_call([sys.executable, python_file, f.name],
+                          env=subprocess_env)
+
+
+def test_set_pickle():
+    # Use a custom type to trigger pickling.
+    class Foo(object):
+        pass
+
+    context = pa.SerializationContext()
+    context.register_type(Foo, 'Foo', pickle=True)
+
+    test_object = Foo()
+
+    # Define a custom serializer and deserializer to use in place of pickle.
+
+    def dumps1(obj):
+        return b'custom'
+
+    def loads1(serialized_obj):
+        return serialized_obj + b' serialization 1'
+
+    # Test that setting a custom pickler changes the behavior.
+    context.set_pickle(dumps1, loads1)
+    serialized = pa.serialize(test_object, context=context).to_buffer()
+    deserialized = pa.deserialize(serialized.to_pybytes(), context=context)
+    assert deserialized == b'custom serialization 1'
+
+    # Define another custom serializer and deserializer.
+
+    def dumps2(obj):
+        return b'custom'
+
+    def loads2(serialized_obj):
+        return serialized_obj + b' serialization 2'
+
+    # Test that setting another custom pickler changes the behavior again.
+    context.set_pickle(dumps2, loads2)
+    serialized = pa.serialize(test_object, context=context).to_buffer()
+    deserialized = pa.deserialize(serialized.to_pybytes(), context=context)
+    assert deserialized == b'custom serialization 2'
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="need Python 3.6")
+def test_path_objects(tmpdir):
+    # Test compatibility with PEP 519 path-like objects
+    import pathlib
+    p = pathlib.Path(tmpdir) / 'zzz.bin'
+    obj = 1234
+    pa.serialize_to(obj, p)
+    res = pa.deserialize_from(p, None)
+    assert res == obj
+
+
+def test_tensor_alignment():
+    # Deserialized numpy arrays should be 64-byte aligned.
+    x = np.random.normal(size=(10, 20, 30))
+    y = pa.deserialize(pa.serialize(x).to_buffer())
+    assert y.ctypes.data % 64 == 0
+
+    xs = [np.random.normal(size=i) for i in range(100)]
+    ys = pa.deserialize(pa.serialize(xs).to_buffer())
+    for y in ys:
+        assert y.ctypes.data % 64 == 0
+
+    xs = [np.random.normal(size=i * (1,)) for i in range(20)]
+    ys = pa.deserialize(pa.serialize(xs).to_buffer())
+    for y in ys:
+        assert y.ctypes.data % 64 == 0
+
+    xs = [np.random.normal(size=i * (5,)) for i in range(1, 8)]
+    xs = [xs[i][(i + 1) * (slice(1, 3),)] for i in range(len(xs))]
+    ys = pa.deserialize(pa.serialize(xs).to_buffer())
+    for y in ys:
+        assert y.ctypes.data % 64 == 0

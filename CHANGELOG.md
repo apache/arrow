@@ -17,6 +17,274 @@
   under the License.
 -->
 
+# Apache Arrow 0.9.0 (16 March 2018)
+
+## Bug
+
+* ARROW-1345 - [Python] Conversion from nested NumPy arrays fails on integers other than int64, float32
+* ARROW-1646 - [Python] pyarrow.array cannot handle NumPy scalar types
+* ARROW-1856 - [Python] Auto-detect Parquet ABI version when using PARQUET\_HOME
+* ARROW-1909 - [C++] Bug: Build fails on windows with "-DARROW\_BUILD\_BENCHMARKS=ON"
+* ARROW-1912 - [Website] Add org affiliations to committers.html
+* ARROW-1919 - Plasma hanging if object id is not 20 bytes
+* ARROW-1924 - [Python] Bring back pickle=True option for serialization
+* ARROW-1933 - [GLib] Build failure with --with-arrow-cpp-build-dir and GPU enabled Arrow C++
+* ARROW-1940 - [Python] Extra metadata gets added after multiple conversions between pd.DataFrame and pa.Table
+* ARROW-1941 - Table <–> DataFrame roundtrip failing
+* ARROW-1943 - Handle setInitialCapacity() for deeply nested lists of lists
+* ARROW-1944 - FindArrow has wrong ARROW\_STATIC\_LIB
+* ARROW-1945 - [C++] Fix doxygen documentation of array.h
+* ARROW-1946 - Add APIs to decimal vector for writing big endian data
+* ARROW-1948 - [Java] ListVector does not handle ipc with all non-null values with none set
+* ARROW-1950 - [Python] pandas\_type in pandas metadata incorrect for List types
+* ARROW-1953 - [JS] JavaScript builds broken on master
+* ARROW-1958 - [Python] Error in pandas conversion for datetimetz row index
+* ARROW-1961 - [Python] Writing Parquet file with flavor='spark' loses pandas schema metadata
+* ARROW-1966 - [C++] Support JAVA\_HOME paths in HDFS libjvm loading that include the jre directory
+* ARROW-1971 - [Python] Add pandas serialization to the default
+* ARROW-1972 - Deserialization of buffer objects (and pandas dataframes) segfaults on different processes.
+* ARROW-1973 - [Python] Memory leak when converting Arrow tables with array columns to Pandas dataframes.
+* ARROW-1976 - [Python] Handling unicode pandas columns on parquet.read\_table
+* ARROW-1979 - [JS] JS builds handing in es2015:umd tests
+* ARROW-1980 - [Python] Race condition in `write\_to\_dataset`
+* ARROW-1982 - [Python] Return parquet statistics min/max as values instead of strings
+* ARROW-1991 - [GLib] Docker-based documentation build is broken
+* ARROW-1992 - [Python] to\_pandas crashes when using strings\_to\_categoricals on empty string cols on 0.8.0
+* ARROW-1997 - [Python] to\_pandas with strings\_to\_categorical fails
+* ARROW-1998 - [Python] Table.from\_pandas crashes when data frame is empty
+* ARROW-1999 - [Python] from\_numpy\_dtype returns wrong types
+* ARROW-2000 - Deduplicate file descriptors when plasma store replies to get request.
+* ARROW-2002 - use pyarrow download file will raise queue.Full exceptions sometimes
+* ARROW-2003 - [Python] Do not use deprecated kwarg in pandas.core.internals.make\_block
+* ARROW-2005 - [Python] pyflakes warnings on Cython files not failing build
+* ARROW-2008 - [Python] Type inference for int32 NumPy arrays (expecting list<int32>) returns int64 and then conversion fails
+* ARROW-2010 - [C++] Compiler warnings with CHECKIN warning level in ORC adapter
+* ARROW-2017 - Array initialization with  large (>2**31-1) uint64 values fails
+* ARROW-2023 - [C++] Test opening IPC stream reader or file reader on an empty InputStream
+* ARROW-2025 - [Python/C++] HDFS Client disconnect closes all open clients
+* ARROW-2029 - [Python] Program crash on `HdfsFile.tell` if file is closed
+* ARROW-2032 - [C++] ORC ep installs on each call to ninja build (even if no work to do)
+* ARROW-2033 - pa.array() doesn't work with iterators
+* ARROW-2039 - [Python] pyarrow.Buffer().to\_pybytes() segfaults
+* ARROW-2040 - [Python] Deserialized Numpy array must keep ref to underlying tensor
+* ARROW-2047 - [Python] test\_serialization.py uses a python executable in PATH rather than that used for a test run
+* ARROW-2049 - ARROW-2049: [Python] Use python -m cython to run Cython, instead of CYTHON\_EXECUTABLE
+* ARROW-2062 - [C++] Stalled builds in test\_serialization.py in Travis CI
+* ARROW-2070 - [Python] chdir logic in setup.py buggy
+* ARROW-2072 - [Python] decimal128.byte\_width crashes
+* ARROW-2080 - [Python] Update documentation after ARROW-2024
+* ARROW-2085 - HadoopFileSystem.isdir and .isfile should return False if the path doesn't exist 
+* ARROW-2106 - [Python] pyarrow.array can't take a pandas Series of python datetime objects.
+* ARROW-2109 - [C++] Boost 1.66 compilation fails on Windows on linkage stage
+* ARROW-2124 - [Python] ArrowInvalid raised if the first item of a nested list of numpy arrays is empty
+* ARROW-2128 - [Python] Cannot serialize array of empty lists
+* ARROW-2129 - [Python] Segmentation fault on conversion of empty array to Pandas
+* ARROW-2131 - [Python] Serialization test fails on Windows when library has been built in place / not installed
+* ARROW-2133 - [Python] Segmentation fault on conversion of empty nested arrays to Pandas
+* ARROW-2135 - [Python] NaN values silently casted to int64 when passing explicit schema for conversion in Table.from\_pandas
+* ARROW-2145 - [Python] Decimal conversion not working for NaN values
+* ARROW-2150 - [Python] array equality defaults to identity
+* ARROW-2151 - [Python] Error when converting from list of uint64 arrays
+* ARROW-2153 - [C++/Python] Decimal conversion not working for exponential notation
+* ARROW-2157 - [Python] Decimal arrays cannot be constructed from Python lists
+* ARROW-2160 - [C++/Python] Fix decimal precision inference
+* ARROW-2161 - [Python] Skip test\_cython\_api if ARROW\_HOME isn't defined
+* ARROW-2162 - [Python/C++] Decimal Values with too-high precision are multiplied by 100
+* ARROW-2167 - [C++] Building Orc extensions fails with the default BUILD\_WARNING\_LEVEL=Production
+* ARROW-2170 - [Python] construct\_metadata fails on reading files where no index was preserved
+* ARROW-2171 - [Python] OwnedRef is fragile
+* ARROW-2172 - [Python] Incorrect conversion from Numpy array when stride % itemsize != 0
+* ARROW-2173 - [Python] NumPyBuffer destructor should hold the GIL
+* ARROW-2175 - [Python] arrow\_ep build is triggering during parquet-cpp build in Travis CI
+* ARROW-2178 -  [JS] Fix JS html FileReader example
+* ARROW-2179 - [C++] arrow/util/io-util.h missing from libarrow-dev
+* ARROW-2192 - Commits to master should run all builds in CI matrix
+* ARROW-2209 - [Python] Partition columns are not correctly loaded in schema of ParquetDataset
+* ARROW-2210 - [C++] TestBuffer\_ResizeOOM has a memory leak with jemalloc
+* ARROW-2212 - [C++/Python] Build Protobuf in base manylinux 1 docker image
+* ARROW-2223 - [JS] installing umd release throws an error
+* ARROW-2227 - [Python] Table.from\_pandas does not create chunked\_arrays.
+* ARROW-2230 - [Python] JS version number is sometimes picked up
+* ARROW-2232 - [Python] pyarrow.Tensor constructor segfaults
+* ARROW-2234 - [JS] Read timestamp low bits as Uint32s
+* ARROW-2240 - [Python] Array initialization with leading numpy nan fails with exception
+* ARROW-2244 - [C++] Slicing NullArray should not cause the null count on the internal data to be unknown
+* ARROW-2245 - [Python] Revert static linkage of parquet-cpp in manylinux1 wheel
+* ARROW-2246 - [Python] Use namespaced boost in manylinux1 package
+* ARROW-2251 - [GLib] Destroying GArrowBuffer while GArrowTensor that uses the buffer causes a crash
+* ARROW-2254 - [Python] Local in-place dev versions picking up JS tags
+* ARROW-2258 - [C++] Appveyor builds failing on master
+* ARROW-2263 - [Python] test\_cython.py fails if pyarrow is not in import path (e.g. with inplace builds)
+* ARROW-2265 - [Python] Serializing subclasses of np.ndarray returns a np.ndarray.
+* ARROW-2268 - Remove MD5 checksums from release process
+* ARROW-2269 - [Python] Cannot build bdist\_wheel for Python
+* ARROW-2270 - [Python] ForeignBuffer doesn't tie Python object lifetime to C++ buffer lifetime
+* ARROW-2272 - [Python] test\_plasma spams /tmp
+* ARROW-2275 - [C++] Buffer::mutable\_data\_ member uninitialized
+* ARROW-2280 - [Python] pyarrow.Array.buffers should also include the offsets
+* ARROW-2284 - [Python] test\_plasma error on plasma\_store error
+* ARROW-2288 - [Python] slicing logic defective
+* ARROW-2297 - [JS] babel-jest is not listed as a dev dependency
+* ARROW-2304 - [C++] MultipleClients test in io-hdfs-test fails on trunk
+* ARROW-2306 - [Python] HDFS test failures
+* ARROW-2307 - [Python] Unable to read arrow stream containing 0 record batches
+* ARROW-2311 - [Python] Struct array slicing defective
+* ARROW-2312 - [JS] verify-release-candidate-sh must be updated to include JS in integration tests
+* ARROW-2313 - [GLib] Release builds must define NDEBUG
+* ARROW-2316 - [C++] Revert Buffer::mutable\_data member to always inline
+* ARROW-2318 - [C++] TestPlasmaStore.MultipleClientTest is flaky (hangs) in release builds
+* ARROW-2320 - [C++] Vendored Boost build does not build regex library
+
+## Improvement
+
+* ARROW-1021 - [Python] Add documentation about using pyarrow from other Cython and C++ projects
+* ARROW-1035 - [Python] Add ASV benchmarks for streaming columnar deserialization
+* ARROW-1463 - [JAVA] Restructure ValueVector hierarchy to minimize compile-time generated code
+* ARROW-1579 - [Java] Add dockerized test setup to validate Spark integration
+* ARROW-1580 - [Python] Instructions for setting up nightly builds on Linux
+* ARROW-1623 - [C++] Add convenience method to construct Buffer from a string that owns its memory
+* ARROW-1632 - [Python] Permit categorical conversions in Table.to\_pandas on a per-column basis
+* ARROW-1643 - [Python] Accept hdfs:// prefixes in parquet.read\_table and attempt to connect to HDFS
+* ARROW-1706 - [Python] StructArray.from\_arrays should handle sequences that are coercible to arrays
+* ARROW-1712 - [C++] Add method to BinaryBuilder to reserve space for value data
+* ARROW-1835 - [C++] Create Arrow schema from std::tuple types
+* ARROW-1861 - [Python] Fix up ASV setup, add developer instructions for writing new benchmarks and running benchmark suite locally
+* ARROW-1872 - [Website] Populate hard-coded fields for current release from a YAML file
+* ARROW-1927 - [Plasma] Implement delete function
+* ARROW-1929 - [C++] Move various Arrow testing utility code from Parquet to Arrow codebase
+* ARROW-1937 - [Python] Add documentation for different forms of constructing nested arrays from Python data structures 
+* ARROW-1942 - [C++] Hash table specializations for small integers
+* ARROW-1947 - [Plasma] Change Client Create and Get to use Buffers
+* ARROW-1951 - Add memcopy\_threads to serialization context
+* ARROW-1962 - [Java] Add reset() to ValueVector interface
+* ARROW-1969 - [C++] Do not build ORC adapter by default
+* ARROW-1977 - [C++] Update windows dev docs
+* ARROW-1978 - [Website] Add more visible link to "Powered By" page to front page, simplify Powered By
+* ARROW-2004 - [C++] Add shrink\_to\_fit option in BufferBuilder::Resize
+* ARROW-2007 - [Python] Sequence converter for float32 not implemented
+* ARROW-2011 - Allow setting the pickler to use in pyarrow serialization.
+* ARROW-2012 - [GLib] Support "make distclean"
+* ARROW-2018 - [C++] Build instruction on macOS and Homebrew is incomplete
+* ARROW-2019 - Control the memory allocated for inner vector in LIST
+* ARROW-2024 - [Python] Remove global SerializationContext variables
+* ARROW-2028 - [Python] extra\_cmake\_args needs to be passed through shlex.split
+* ARROW-2031 - HadoopFileSystem isn't pickleable
+* ARROW-2035 - [C++] Update vendored cpplint.py to a Py3-compatible one
+* ARROW-2036 - NativeFile should support standard IOBase methods
+* ARROW-2042 - [Plasma] Revert API change of plasma::Create to output a MutableBuffer
+* ARROW-2043 - [C++] Change description from OS X to macOS
+* ARROW-2046 - [Python] Add support for PEP519 - pathlib and similar objects
+* ARROW-2048 - [Python/C++] Upate Thrift pin to 0.11
+* ARROW-2050 - Support `setup.py pytest` to automatically fetch the test dependencies
+* ARROW-2064 - [GLib] Add common build problems link to the install section
+* ARROW-2065 - Fix bug in SerializationContext.clone().
+* ARROW-2068 - [Python] Expose Array's buffers to Python users
+* ARROW-2069 - [Python] Document that Plasma is not (yet) supported on Windows
+* ARROW-2071 - [Python] Reduce runtime of builds in Travis CI
+* ARROW-2073 - [Python] Create StructArray from sequence of tuples given a known data type
+* ARROW-2076 - [Python] Display slowest test durations
+* ARROW-2083 - Support skipping builds
+* ARROW-2084 - [C++] Support newer Brotli static library names
+* ARROW-2086 - [Python] Shrink size of arrow\_manylinux1\_x86\_64\_base docker image
+* ARROW-2087 - [Python] Binaries of 3rdparty are not stripped in manylinux1 base image
+* ARROW-2088 - [GLib] Add GArrowNumericArray
+* ARROW-2089 - [GLib] Rename to GARROW\_TYPE\_BOOLEAN for consistency
+* ARROW-2090 - [Python] Add context manager methods to ParquetWriter
+* ARROW-2093 - [Python] Possibly do not test pytorch serialization in Travis CI
+* ARROW-2094 - [Python] Use toolchain libraries and PROTOBUF\_HOME for protocol buffers
+* ARROW-2095 - [C++] Suppress ORC EP build logging by default
+* ARROW-2096 - [C++] Turn off Boost\_DEBUG to trim build output
+* ARROW-2099 - [Python] Support DictionaryArray::FromArrays in Python bindings
+* ARROW-2107 - [GLib] Follow arrow::gpu::CudaIpcMemHandle API change
+* ARROW-2110 - [Python] Only require pytest-runner on test commands
+* ARROW-2111 - [C++] Linting could be faster
+* ARROW-2117 - [C++] Pin clang to version 5.0
+* ARROW-2118 - [Python] Improve error message when calling parquet.read\_table on an empty file
+* ARROW-2120 - Add possibility to use empty \_MSVC\_STATIC\_LIB\_SUFFIX for Thirdparties
+* ARROW-2121 - [Python] Consider special casing object arrays in pandas serializers.
+* ARROW-2132 - [Doc] Add links / mentions of Plasma store to main README
+* ARROW-2137 - [Python] Don't print paths that are ignored when reading Parquet files
+* ARROW-2138 - [C++] Have FatalLog abort instead of exiting
+* ARROW-2142 - [Python] Conversion from Numpy struct array unimplemented
+* ARROW-2143 - [Python] Provide a manylinux1 wheel for cp27m
+* ARROW-2146 - [GLib] Implement Slice for ChunkedArray
+* ARROW-2154 - [Python] \_\_eq\_\_ unimplemented on Buffer
+* ARROW-2155 - [Python] pa.frombuffer(bytearray) returns immutable Buffer
+* ARROW-2163 - Install apt dependencies separate from built-in Travis commands, retry on flakiness
+* ARROW-2168 - [C++] Build toolchain builds with jemalloc
+* ARROW-2169 - [C++] MSVC is complaining about uncaptured variables
+* ARROW-2174 - [JS] Export format and schema enums
+* ARROW-2177 - [C++] Remove support for specifying negative scale values in DecimalType
+* ARROW-2180 - [C++] Remove APIs deprecated in 0.8.0 release
+* ARROW-2181 - [Python] Add concat\_tables to API reference, add documentation on use
+* ARROW-2184 - [C++] Add static constructor for FileOutputStream returning shared\_ptr to base OutputStream
+* ARROW-2185 - Remove CI directives from squashed commit messages
+* ARROW-2191 - [C++] Only use specific version of jemalloc
+* ARROW-2198 - [Python] Docstring for parquet.read\_table is misleading or incorrect
+* ARROW-2199 - [JAVA] Follow up fixes for ARROW-2019. Ensure density driven capacity is never less than 1 and propagate density throughout the vector tree
+* ARROW-2203 - [C++] StderrStream class
+* ARROW-2204 - [C++] Build fails with TLS error on parquet-cpp clone
+* ARROW-2206 - [JS] Add Perspective as a community project
+* ARROW-2218 - [Python] PythonFile should infer mode when not given
+* ARROW-2231 - [CI] Use clcache on AppVeyor
+* ARROW-2238 - [C++] Detect clcache in cmake configuration
+* ARROW-2250 - plasma\_store process should cleanup on INT and TERM signals
+* ARROW-2261 - [GLib] Can't share the same memory in GArrowBuffer safely
+* ARROW-2279 - [Python] Better error message if lib cannot be found
+* ARROW-2282 - [Python] Create StringArray from buffers
+* ARROW-2283 - [C++] Support Arrow C++ installed in /usr detection by pkg-config
+* ARROW-2289 - [GLib] Add  Numeric, Integer and FloatingPoint data types
+* ARROW-2291 - [C++] README missing instructions for libboost-regex-dev
+* ARROW-2292 - [Python] More consistent / intuitive name for pyarrow.frombuffer
+* ARROW-2321 - [C++] Release verification script fails with if CMAKE\_INSTALL\_LIBDIR is not $ARROW\_HOME/lib
+* ARROW-764 - [C++] Improve performance of CopyBitmap, add benchmarks
+
+## New Feature
+
+* ARROW-1394 - [Plasma] Add optional extension for allocating memory on GPUs
+* ARROW-1705 - [Python] Create StructArray from sequence of dicts given a known data type
+* ARROW-1757 - [C++] Add DictionaryArray::FromArrays alternate ctor that can check or sanitized "untrusted" indices
+* ARROW-1832 - [JS] Implement JSON reader for integration tests
+* ARROW-1920 - Add support for reading ORC files
+* ARROW-1926 - [GLib] Add garrow\_timestamp\_data\_type\_get\_unit()
+* ARROW-1930 - [C++] Implement Slice for ChunkedArray and Column
+* ARROW-1931 - [C++] w4996 warning due to std::tr1 failing builds on Visual Studio 2017
+* ARROW-1965 - [GLib] Add garrow\_array\_builder\_get\_value\_data\_type() and garrow\_array\_builder\_get\_value\_type()
+* ARROW-1970 - [GLib] Add garrow\_chunked\_array\_get\_value\_data\_type() and garrow\_chunked\_array\_get\_value\_type()
+* ARROW-2166 - [GLib] Implement Slice for Column
+* ARROW-2176 - [C++] Extend DictionaryBuilder to support delta dictionaries
+* ARROW-2190 - [GLib] Add add/remove field functions for RecordBatch.
+* ARROW-2205 - [Python] Option for integer object nulls
+* ARROW-2252 - [Python] Create buffer from address, size and base
+* ARROW-2253 - [Python] Support \_\_eq\_\_ on scalar values
+* ARROW-2262 - [Python] Support slicing on pyarrow.ChunkedArray
+* ARROW-232 - C++/Parquet: Support writing chunked arrays as part of a table 
+* ARROW-633 - [Java] Add support for FixedSizeBinary type
+* ARROW-634 - Add integration tests for FixedSizeBinary
+* ARROW-969 - [C++/Python] Add add/remove field functions for RecordBatch
+
+## Sub-task
+
+* ARROW-1815 - [Java] Rename MapVector to StructVector
+
+## Task
+
+* ARROW-2052 - Unify OwnedRef and ScopedRef
+* ARROW-2054 - Compilation warnings
+* ARROW-2108 - [Python] Update instructions for ASV
+* ARROW-2114 - [Python] Pull latest docker manylinux1 image
+* ARROW-2123 - [JS] Upgrade to TS 2.7.1
+* ARROW-2134 - [CI] Make Travis commit inspection more robust
+* ARROW-2149 - [Python] reorganize test\_convert\_pandas.py
+* ARROW-2156 - [CI] Isolate Sphinx dependencies
+* ARROW-2197 - Document "undefined symbol" issue and workaround
+* ARROW-2239 - [C++] Update build docs for Windows
+* ARROW-2309 - [C++] Use std::make\_unsigned
+
+## Test
+
+* ARROW-1589 - [C++] Fuzzing for certain input formats
+
 # Apache Arrow 0.8.0 (12 December 2017)
 
 ## Bug
@@ -1573,6 +1841,7 @@
 
 * ARROW-260 - TestValueVector.testFixedVectorReallocation and testVariableVectorReallocation are flaky
 * ARROW-83 - Add basic test infrastructure for DecimalType
+
 
 
 

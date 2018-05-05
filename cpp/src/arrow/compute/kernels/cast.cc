@@ -86,8 +86,9 @@ struct is_zero_copy_cast {
 
 template <typename O, typename I>
 struct is_zero_copy_cast<
-    O, I, typename std::enable_if<std::is_same<I, O>::value &&
-                                  !std::is_base_of<ParametricType, O>::value>::type> {
+    O, I,
+    typename std::enable_if<std::is_same<I, O>::value &&
+                            !std::is_base_of<ParametricType, O>::value>::type> {
   static constexpr bool value = true;
 };
 
@@ -124,8 +125,9 @@ struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>
 // Null to other things
 
 template <typename T>
-struct CastFunctor<T, NullType, typename std::enable_if<
-                                    std::is_base_of<FixedWidthType, T>::value>::type> {
+struct CastFunctor<
+    T, NullType,
+    typename std::enable_if<std::is_base_of<FixedWidthType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {}
 };
@@ -175,8 +177,9 @@ struct is_integer_downcast {
 
 template <typename O, typename I>
 struct is_integer_downcast<
-    O, I, typename std::enable_if<std::is_base_of<Integer, O>::value &&
-                                  std::is_base_of<Integer, I>::value>::type> {
+    O, I,
+    typename std::enable_if<std::is_base_of<Integer, O>::value &&
+                            std::is_base_of<Integer, I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -192,9 +195,10 @@ struct is_integer_downcast<
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::value &&
-                                                 std::is_base_of<Number, I>::value &&
-                                                 !std::is_same<O, I>::value>::type> {
+struct CastFunctor<O, I,
+                   typename std::enable_if<std::is_same<BooleanType, O>::value &&
+                                           std::is_base_of<Number, I>::value &&
+                                           !std::is_same<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = GetValues<typename I::c_type>(input, 1);
@@ -395,21 +399,34 @@ struct CastFunctor<Date64Type, TimestampType> {
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
 
-    internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
-                                      input.length);
-
     // Ensure that intraday milliseconds have been zeroed out
     auto out_data = GetMutableValues<int64_t>(output, 1);
-    for (int64_t i = 0; i < input.length; ++i) {
-      const int64_t remainder = out_data[i] % kMillisecondsInDay;
-      if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && bit_reader.IsSet() &&
-                              remainder > 0)) {
-        ctx->SetStatus(
-            Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
-        break;
+
+    if (input.null_count != 0) {
+      internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
+                                        input.length);
+
+      for (int64_t i = 0; i < input.length; ++i) {
+        const int64_t remainder = out_data[i] % kMillisecondsInDay;
+        if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && bit_reader.IsSet() &&
+                                remainder > 0)) {
+          ctx->SetStatus(
+              Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
+          break;
+        }
+        out_data[i] -= remainder;
+        bit_reader.Next();
       }
-      out_data[i] -= remainder;
-      bit_reader.Next();
+    } else {
+      for (int64_t i = 0; i < input.length; ++i) {
+        const int64_t remainder = out_data[i] % kMillisecondsInDay;
+        if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && remainder > 0)) {
+          ctx->SetStatus(
+              Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
+          break;
+        }
+        out_data[i] -= remainder;
+      }
     }
   }
 };
@@ -515,21 +532,28 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
                                      ArrayData* output) {
   using index_c_type = typename IndexType::c_type;
 
-  internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
-                                           indices.length());
-
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
-
   int32_t byte_width =
       static_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
 
   uint8_t* out = output->buffers[1]->mutable_data() + byte_width * output->offset;
-  for (int64_t i = 0; i < indices.length(); ++i) {
-    if (valid_bits_reader.IsSet()) {
+
+  if (indices.null_count() != 0) {
+    internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
+                                             indices.length());
+
+    for (int64_t i = 0; i < indices.length(); ++i) {
+      if (valid_bits_reader.IsSet()) {
+        const uint8_t* value = dictionary.Value(in[i]);
+        memcpy(out + i * byte_width, value, byte_width);
+      }
+      valid_bits_reader.Next();
+    }
+  } else {
+    for (int64_t i = 0; i < indices.length(); ++i) {
       const uint8_t* value = dictionary.Value(in[i]);
       memcpy(out + i * byte_width, value, byte_width);
     }
-    valid_bits_reader.Next();
   }
 }
 
@@ -581,19 +605,27 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
   RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output->type, &builder));
   BinaryBuilder* binary_builder = static_cast<BinaryBuilder*>(builder.get());
 
-  internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
-                                           indices.length());
-
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
-  for (int64_t i = 0; i < indices.length(); ++i) {
-    if (valid_bits_reader.IsSet()) {
+  if (indices.null_count() != 0) {
+    internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
+                                             indices.length());
+
+    for (int64_t i = 0; i < indices.length(); ++i) {
+      if (valid_bits_reader.IsSet()) {
+        int32_t length;
+        const uint8_t* value = dictionary.GetValue(in[i], &length);
+        RETURN_NOT_OK(binary_builder->Append(value, length));
+      } else {
+        RETURN_NOT_OK(binary_builder->AppendNull());
+      }
+      valid_bits_reader.Next();
+    }
+  } else {
+    for (int64_t i = 0; i < indices.length(); ++i) {
       int32_t length;
       const uint8_t* value = dictionary.GetValue(in[i], &length);
       RETURN_NOT_OK(binary_builder->Append(value, length));
-    } else {
-      RETURN_NOT_OK(binary_builder->AppendNull());
     }
-    valid_bits_reader.Next();
   }
 
   std::shared_ptr<Array> plain_array;

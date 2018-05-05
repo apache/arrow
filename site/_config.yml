@@ -18,6 +18,7 @@ permalink: /blog/:year/:month/:day/:title/
 repository: https://github.com/apache/arrow
 destination: build
 excerpt_separator: ""
+timezone: America/New_York
 
 kramdown:
   input: GFM

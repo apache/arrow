@@ -119,7 +119,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
                     &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
-                    &MakeStringTypesRecordBatch, &MakeStruct, &MakeUnion,               \
+                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
                     &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,           \
                     &MakeFWBinary, &MakeNull, &MakeDecimal, &MakeBooleanBatch);
 
@@ -461,6 +461,8 @@ TEST_F(RecursionLimits, ReadLimit) {
   ASSERT_RAISES(Invalid, ReadRecordBatch(*message->metadata(), schema, &reader, &result));
 }
 
+// Test fails with a structured exception on Windows + Debug
+#if !defined(_WIN32) || defined(NDEBUG)
 TEST_F(RecursionLimits, StressLimit) {
   auto CheckDepth = [this](int recursion_depth, bool* it_works) {
     int32_t metadata_length = -1;
@@ -487,6 +489,7 @@ TEST_F(RecursionLimits, StressLimit) {
   CheckDepth(500, &it_works);
   ASSERT_TRUE(it_works);
 }
+#endif  // !defined(_WIN32) || defined(NDEBUG)
 
 class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
@@ -753,6 +756,22 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   Tensor tensor(int64(), data, {4, 3}, {48, 16});
 
   CheckTensorRoundTrip(tensor);
+}
+
+TEST(TestRecordBatchStreamReader, MalformedInput) {
+  const std::string empty_str = "";
+  const std::string garbage_str = "12345678";
+
+  auto empty = std::make_shared<Buffer>(empty_str);
+  auto garbage = std::make_shared<Buffer>(garbage_str);
+
+  std::shared_ptr<RecordBatchReader> batch_reader;
+
+  io::BufferReader empty_reader(empty);
+  ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&empty_reader, &batch_reader));
+
+  io::BufferReader garbage_reader(garbage);
+  ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader, &batch_reader));
 }
 
 }  // namespace ipc

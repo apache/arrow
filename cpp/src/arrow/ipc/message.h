@@ -97,6 +97,18 @@ class ARROW_EXPORT Message {
   static Status ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
                          std::unique_ptr<Message>* out);
 
+  /// \brief Read message body from position in file, and create Message given
+  /// the Flatbuffer metadata
+  /// \param[in] offset the position in the file where the message body starts.
+  /// \param[in] metadata containing a serialized Message flatbuffer
+  /// \param[in] file the seekable file interface to read from
+  /// \param[out] out the created Message
+  /// \return Status
+  ///
+  /// \note If file supports zero-copy, this is zero-copy
+  static Status ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& metadata,
+                         io::RandomAccessFile* file, std::unique_ptr<Message>* out);
+
   /// \brief Return true if message type and contents are equal
   ///
   /// \param other another message
@@ -158,7 +170,7 @@ class ARROW_EXPORT MessageReader {
   virtual Status ReadNextMessage(std::unique_ptr<Message>* message) = 0;
 };
 
-/// \brief Read encapulated RPC message from position in file
+/// \brief Read encapsulated RPC message from position in file
 ///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
 /// offset. If the message has a body with non-zero length, it will also be
@@ -176,11 +188,19 @@ ARROW_EXPORT
 Status ReadMessage(const int64_t offset, const int32_t metadata_length,
                    io::RandomAccessFile* file, std::unique_ptr<Message>* message);
 
-/// \brief Read encapulated RPC message (metadata and body) from InputStream
+/// \brief Read encapsulated RPC message (metadata and body) from InputStream
 ///
 /// Read length-prefixed message with as-yet unknown length. Returns null if
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
+ARROW_EXPORT
+Status ReadMessage(io::InputStream* stream, bool aligned,
+                   std::unique_ptr<Message>* message);
+
+/// \brief Read encapsulated RPC message (metadata and body) from InputStream.
+///
+/// This is a version of ReadMessage that does not have the aligned argument
+/// for backwards compatibility.
 ARROW_EXPORT
 Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
 

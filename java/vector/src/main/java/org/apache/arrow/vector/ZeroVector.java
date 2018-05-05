@@ -73,6 +73,10 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
+  public void reset() {
+  }
+
+  @Override
   public Field getField() {
     return new Field(DATA_VECTOR_NAME, FieldType.nullable(new Null()), null);
   }

@@ -109,9 +109,37 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(GetEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
-  for (int64_t i = 0; i < length; ++i) {
-    BitUtil::SetBitTo(dest, i, BitUtil::GetBit(data, i + offset));
+
+  int64_t byte_offset = offset / 8;
+  int64_t bit_offset = offset % 8;
+  int64_t num_bytes = BitUtil::BytesForBits(length);
+  int64_t bits_to_zero = num_bytes * 8 - length;
+
+  if (bit_offset > 0) {
+    uint32_t carry_mask = BitUtil::kBitmask[bit_offset] - 1U;
+    uint32_t carry_shift = 8U - static_cast<uint32_t>(bit_offset);
+
+    uint32_t carry = 0U;
+    if (BitUtil::BytesForBits(length + bit_offset) > num_bytes) {
+      carry = (data[byte_offset + num_bytes] & carry_mask) << carry_shift;
+    }
+
+    int64_t i = num_bytes - 1;
+    while (i + 1 > 0) {
+      uint8_t cur_byte = data[byte_offset + i];
+      dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
+      carry = (cur_byte & carry_mask) << carry_shift;
+      --i;
+    }
+  } else {
+    std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
   }
+
+  for (int64_t i = length; i < length + bits_to_zero; ++i) {
+    // Both branches may copy extra bits - unsetting to match specification.
+    BitUtil::SetBitTo(dest, i, false);
+  }
+
   *out = buffer;
   return Status::OK();
 }
@@ -142,6 +170,60 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
     }
   }
   return true;
+}
+
+namespace {
+
+void AlignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                      int64_t right_offset, uint8_t* out, int64_t out_offset,
+                      int64_t length) {
+  DCHECK_EQ(left_offset % 8, right_offset % 8);
+  DCHECK_EQ(left_offset % 8, out_offset % 8);
+
+  const int64_t nbytes = BitUtil::BytesForBits(length + left_offset);
+  left += left_offset / 8;
+  right += right_offset / 8;
+  out += out_offset / 8;
+  for (int64_t i = 0; i < nbytes; ++i) {
+    out[i] = left[i] & right[i];
+  }
+}
+
+void UnalignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                        int64_t right_offset, uint8_t* out, int64_t out_offset,
+                        int64_t length) {
+  auto left_reader = internal::BitmapReader(left, left_offset, length);
+  auto right_reader = internal::BitmapReader(right, right_offset, length);
+  auto writer = internal::BitmapWriter(out, out_offset, length);
+  for (int64_t i = 0; i < length; ++i) {
+    if (left_reader.IsSet() && right_reader.IsSet()) {
+      writer.Set();
+    }
+    left_reader.Next();
+    right_reader.Next();
+    writer.Next();
+  }
+  writer.Finish();
+}
+
+}  // namespace
+
+Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
+    // Fast case: can use bytewise AND
+    const int64_t phys_bits = length + out_offset;
+    RETURN_NOT_OK(GetEmptyBitmap(pool, phys_bits, out_buffer));
+    AlignedBitmapAnd(left, left_offset, right, right_offset,
+                     (*out_buffer)->mutable_data(), out_offset, length);
+  } else {
+    // Unaligned
+    RETURN_NOT_OK(GetEmptyBitmap(pool, length + out_offset, out_buffer));
+    UnalignedBitmapAnd(left, left_offset, right, right_offset,
+                       (*out_buffer)->mutable_data(), out_offset, length);
+  }
+  return Status::OK();
 }
 
 }  // namespace arrow

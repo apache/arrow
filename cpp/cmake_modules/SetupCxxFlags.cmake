@@ -91,7 +91,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
--Wno-comma -Wno-unused-parameter -Wno-undef \
+-Wno-comma -Wno-unused-parameter -Wno-unused-template -Wno-undef \
 -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
 -Wno-implicit-fallthrough -Wno-unreachable-code-return \
@@ -100,7 +100,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
 -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
--Wno-disabled-macro-expansion -Wno-shorten-64-to-32")
+-Wno-disabled-macro-expansion")
 
     # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")
@@ -115,6 +115,10 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     endif()
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.8")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-undefined-func-template")
+    endif()
+
+    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-zero-as-null-pointer-constant")
     endif()
 
     # Treat all compiler warnings as errors
@@ -161,6 +165,11 @@ else()
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
+endif()
+
+# Disable annoying "performance warning" about int-to-bool conversion
+if ("${COMPILER_FAMILY}" STREQUAL "msvc")
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4800")
 endif()
 
 # if build warning flags is set, add to CXX_COMMON_FLAGS
@@ -231,5 +240,11 @@ elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
 else()
   message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
 endif ()
+
+if ("${CMAKE_CXX_FLAGS}" MATCHES "-DNDEBUG")
+  set(ARROW_DEFINITION_FLAGS "-DNDEBUG")
+else()
+  set(ARROW_DEFINITION_FLAGS "")
+endif()
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")

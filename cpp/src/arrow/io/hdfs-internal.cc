@@ -147,7 +147,7 @@ static std::vector<fs::path> get_potential_libjvm_paths() {
   file_name = "jvm.dll";
 #elif __APPLE__
   search_prefixes = {""};
-  search_suffixes = {"", "/jre/lib/server"};
+  search_suffixes = {"", "/jre/lib/server", "/lib/server"};
   file_name = "libjvm.dylib";
 
 // SFrame uses /usr/libexec/java_home to find JAVA_HOME; for now we are
@@ -175,7 +175,7 @@ static std::vector<fs::path> get_potential_libjvm_paths() {
       "/usr/lib/jvm/default",                     // alt centos
       "/usr/java/latest",                         // alt centos
   };
-  search_suffixes = {"/jre/lib/amd64/server"};
+  search_suffixes = {"", "/jre/lib/amd64/server", "/lib/amd64/server"};
   file_name = "libjvm.so";
 #endif
   // From direct environment variable
@@ -308,6 +308,10 @@ void LibHdfsShim::BuilderSetUserName(hdfsBuilder* bld, const char* userName) {
 void LibHdfsShim::BuilderSetKerbTicketCachePath(hdfsBuilder* bld,
                                                 const char* kerbTicketCachePath) {
   this->hdfsBuilderSetKerbTicketCachePath(bld, kerbTicketCachePath);
+}
+
+void LibHdfsShim::BuilderSetForceNewInstance(hdfsBuilder* bld) {
+  this->hdfsBuilderSetForceNewInstance(bld);
 }
 
 hdfsFS LibHdfsShim::BuilderConnect(hdfsBuilder* bld) {
@@ -490,6 +494,7 @@ Status LibHdfsShim::GetRequiredSymbols() {
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetNameNodePort);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetUserName);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetKerbTicketCachePath);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetForceNewInstance);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderConnect);
   GET_SYMBOL_REQUIRED(this, hdfsCreateDirectory);
   GET_SYMBOL_REQUIRED(this, hdfsDelete);

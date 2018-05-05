@@ -1,9 +1,9 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "name": "apache-arrow",
   "description": "Apache Arrow columnar in-memory format",
   "bin": {
-    "arrow2csv": "bin/arrow2csv"
+    "arrow2csv": "bin/arrow2csv.js"
   },
   "scripts": {
     "lerna": "lerna",
@@ -12,12 +12,14 @@
     "clean": "gulp clean",
     "debug": "gulp debug",
     "perf": "node ./perf/index.js",
+    "test:integration": "node ./bin/integration.js --mode validate",
+    "create:perfdata": "python ./test/data/tables/generate.py ./test/data/tables/tracks.arrow",
     "release": "./npm-release.sh",
     "clean:all": "run-p clean clean:testdata",
     "clean:testdata": "gulp clean:testdata",
     "create:testdata": "gulp create:testdata",
     "test:coverage": "gulp test -t ts --coverage",
-    "doc": "shx rm -rf ./doc && esdoc",
+    "doc": "shx rm -rf ./doc && typedoc --mode file --out doc src/Arrow.ts",
     "lint": "run-p lint:*",
     "lint:src": "tslint --fix --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
     "lint:test": "tslint --fix --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\"",
@@ -49,59 +51,59 @@
     "gulpfile.js",
     "npm-release.sh"
   ],
-  "peerDependencies": {
-    "command-line-usage": "4.0.1"
-  },
   "dependencies": {
-    "command-line-args": "4.0.7",
-    "command-line-usage": "4.0.2",
+    "@types/flatbuffers": "1.6.5",
+    "@types/node": "9.3.0",
+    "@types/text-encoding-utf-8": "1.0.1",
+    "command-line-args": "5.0.1",
+    "command-line-usage": "4.1.0",
     "flatbuffers": "trxcllnt/flatbuffers-esm",
     "json-bignum": "0.0.3",
     "text-encoding-utf-8": "^1.0.2",
-    "tslib": "1.8.1"
+    "tslib": "1.9.0"
   },
   "devDependencies": {
-    "@std/esm": "0.18.0",
-    "@types/flatbuffers": "1.6.5",
-    "@types/glob": "5.0.34",
-    "@types/jest": "21.1.8",
-    "@types/node": "8.5.0",
-    "@types/text-encoding": "0.0.32",
+    "@std/esm": "0.19.7",
+    "@types/glob": "5.0.35",
+    "@types/jest": "22.1.0",
     "ast-types": "0.10.1",
+    "babel-jest": "22.4.1",
     "benchmark": "2.1.4",
     "coveralls": "3.0.0",
     "del": "3.0.0",
-    "esdoc": "1.0.3",
-    "esdoc-standard-plugin": "1.0.0",
     "glob": "7.1.2",
-    "google-closure-compiler": "20171203.0.0",
-    "gulp": "github:gulpjs/gulp#4.0",
+    "google-closure-compiler": "20180101.0.0",
+    "gulp": "github:gulpjs/gulp#6d71a658c61edb3090221579d8f97dbe086ba2ed",
     "gulp-json-transform": "0.4.5",
     "gulp-rename": "1.2.2",
-    "gulp-sourcemaps": "2.6.1",
+    "gulp-sourcemaps": "2.6.3",
     "gulp-transform-js-ast": "1.0.2",
-    "gulp-typescript": "3.2.3",
+    "gulp-typescript": "3.2.4",
     "ix": "2.3.4",
-    "jest": "21.2.1",
+    "jest": "22.1.4",
     "jest-environment-node-debug": "2.0.0",
     "json": "9.0.6",
-    "lerna": "2.5.1",
-    "lint-staged": "6.0.0",
-    "merge2": "1.2.0",
+    "lerna": "2.7.1",
+    "lint-staged": "6.0.1",
+    "merge2": "1.2.1",
     "mkdirp": "0.5.1",
     "npm-run-all": "4.1.2",
     "pump": "1.0.2",
     "rimraf": "2.6.2",
-    "rxjs": "5.5.5",
+    "rxjs": "5.5.6",
     "shx": "0.2.2",
     "source-map-loader": "0.2.3",
     "trash": "4.2.1",
-    "ts-jest": "21.2.4",
-    "tslint": "5.8.0",
-    "typescript": "2.6.2",
-    "uglifyjs-webpack-plugin": "1.1.2",
+    "ts-jest": "22.0.1",
+    "tslint": "5.9.1",
+    "typedoc": "0.10.0",
+    "typescript": "2.7.1",
+    "uglifyjs-webpack-plugin": "1.1.6",
     "webpack": "3.10.0",
     "xml2js": "0.4.19"
+  },
+  "@std/esm": {
+    "warnings": false
   },
   "lint-staged": {
     "*.@(ts)": [
@@ -124,19 +126,22 @@
       "ts",
       "tsx"
     ],
-    "mapCoverage": true,
     "coverageReporters": [
       "lcov"
     ],
     "coveragePathIgnorePatterns": [
-      "format\\/(File|Message|Schema|Tensor)_generated\\.(js|ts)$",
+      "fb\\/(File|Message|Schema|Tensor)_generated\\.(js|ts)$",
       "test\\/.*\\.(ts|tsx|js)$",
       "/node_modules/"
     ],
     "transform": {
-      ".(ts|tsx)": "<rootDir>/node_modules/ts-jest/preprocessor.js",
-      ".(js|jsx)": "<rootDir>/node_modules/babel-jest/build/index.js"
+      ".(ts|tsx)": "./node_modules/ts-jest/preprocessor.js",
+      ".(js|jsx)": "./node_modules/babel-jest/build/index.js"
     },
+    "transformIgnorePatterns": [
+      "/node_modules/",
+      "/(es2015|esnext)/umd/"
+    ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$"
   }
 }

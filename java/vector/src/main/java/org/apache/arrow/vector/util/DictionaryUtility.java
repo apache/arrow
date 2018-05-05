@@ -73,7 +73,7 @@ public class DictionaryUtility {
   }
 
   /**
-   * Convert field and child fields that have a dictionary encoding to message format, so fields
+   * Convert field and child fields that have a dictionary encoding to memory format, so fields
    * have the index type
    */
   public static Field toMemoryFormat(Field field, BufferAllocator allocator, Map<Long, Dictionary> dictionaries) {

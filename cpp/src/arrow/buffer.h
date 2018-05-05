@@ -25,6 +25,7 @@
 #include <string>
 #include <type_traits>
 
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
@@ -32,13 +33,12 @@
 
 namespace arrow {
 
-class MemoryPool;
-
 // ----------------------------------------------------------------------
 // Buffer classes
 
-/// Immutable API for a chunk of bytes which may or may not be owned by the
-/// class instance.
+/// \class Buffer
+/// \brief Object containing a pointer to a piece of contiguous memory with a
+/// particular size. Base class does not own its memory
 ///
 /// Buffers have two related notions of length: size and capacity. Size is
 /// the number of bytes that might have valid data. Capacity is the number
@@ -54,7 +54,11 @@ class ARROW_EXPORT Buffer {
   ///
   /// \note The passed memory must be kept alive through some other means
   Buffer(const uint8_t* data, int64_t size)
-      : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
+      : is_mutable_(false),
+        data_(data),
+        mutable_data_(NULLPTR),
+        size_(size),
+        capacity_(size) {}
 
   /// \brief Construct from std::string without copying memory
   ///
@@ -97,9 +101,29 @@ class ARROW_EXPORT Buffer {
   Status Copy(const int64_t start, const int64_t nbytes,
               std::shared_ptr<Buffer>* out) const;
 
+  /// \brief Construct a new buffer that owns its memory from a std::string
+  ///
+  /// \param[in] data a std::string object
+  /// \param[in] pool a memory pool
+  /// \param[out] out the created buffer
+  ///
+  /// \return Status message
+  static Status FromString(const std::string& data, MemoryPool* pool,
+                           std::shared_ptr<Buffer>* out);
+
+  /// \brief Construct a new buffer that owns its memory from a std::string
+  /// using the default memory pool
+  static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
+
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
-  uint8_t* mutable_data() { return mutable_data_; }
+
+  uint8_t* mutable_data() {
+#ifndef NDEBUG
+    CheckMutable();
+#endif
+    return mutable_data_;
+  }
 
   int64_t size() const { return size_; }
 
@@ -114,6 +138,8 @@ class ARROW_EXPORT Buffer {
 
   // null by default, but may be set
   std::shared_ptr<Buffer> parent_;
+
+  void CheckMutable() const;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
@@ -133,7 +159,8 @@ ARROW_EXPORT
 std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
                                            const int64_t offset, const int64_t length);
 
-/// A Buffer whose contents can be mutated. May or may not own its data.
+/// \class MutableBuffer
+/// \brief A Buffer whose contents can be mutated. May or may not own its data.
 class ARROW_EXPORT MutableBuffer : public Buffer {
  public:
   MutableBuffer(uint8_t* data, const int64_t size) : Buffer(data, size) {
@@ -148,6 +175,8 @@ class ARROW_EXPORT MutableBuffer : public Buffer {
   MutableBuffer() : Buffer(NULLPTR, 0) {}
 };
 
+/// \class ResizableBuffer
+/// \brief A mutable buffer that can be resized
 class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
  public:
   /// Change buffer reported size to indicated size, allocating memory if
@@ -181,7 +210,7 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
  public:
   explicit PoolBuffer(MemoryPool* pool = NULLPTR);
-  virtual ~PoolBuffer();
+  ~PoolBuffer() override;
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override;
   Status Reserve(const int64_t new_capacity) override;
@@ -190,13 +219,22 @@ class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
   MemoryPool* pool_;
 };
 
+/// \class BufferBuilder
+/// \brief A class for incrementally building a contiguous chunk of in-memory data
 class ARROW_EXPORT BufferBuilder {
  public:
-  explicit BufferBuilder(MemoryPool* pool)
+  explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool), data_(NULLPTR), capacity_(0), size_(0) {}
 
-  /// Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
-  Status Resize(const int64_t elements) {
+  /// \brief Resizes the buffer to the nearest multiple of 64 bytes
+  ///
+  /// \param elements the new capacity of the of the builder. Will be rounded
+  /// up to a multiple of 64 bytes for padding
+  /// \param shrink_to_fit if new capacity smaller than existing size,
+  /// reallocate internal buffer. Set to false to avoid reallocations when
+  /// shrinking the builder
+  /// \return Status
+  Status Resize(const int64_t elements, bool shrink_to_fit = true) {
     // Resize(0) is a no-op
     if (elements == 0) {
       return Status::OK();
@@ -205,7 +243,7 @@ class ARROW_EXPORT BufferBuilder {
       buffer_ = std::make_shared<PoolBuffer>(pool_);
     }
     int64_t old_capacity = capacity_;
-    RETURN_NOT_OK(buffer_->Resize(elements));
+    RETURN_NOT_OK(buffer_->Resize(elements, shrink_to_fit));
     capacity_ = buffer_->capacity();
     data_ = buffer_->mutable_data();
     if (capacity_ > old_capacity) {
@@ -214,7 +252,14 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
-  Status Append(const uint8_t* data, int64_t length) {
+  /// \brief Ensure that builder can accommodate the additional number of bytes
+  /// without the need to perform allocations
+  ///
+  /// \param size number of additional bytes to make space for
+  /// \return Status
+  Status Reserve(const int64_t size) { return Resize(size_ + size, false); }
+
+  Status Append(const void* data, int64_t length) {
     if (capacity_ < length + size_) {
       int64_t new_capacity = BitUtil::NextPower2(length + size_);
       RETURN_NOT_OK(Resize(new_capacity));
@@ -248,7 +293,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   // Unsafe methods don't check existing size
-  void UnsafeAppend(const uint8_t* data, int64_t length) {
+  void UnsafeAppend(const void* data, int64_t length) {
     memcpy(data_ + size_, data, static_cast<size_t>(length));
     size_ += length;
   }
@@ -314,6 +359,7 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
 
   const T* data() const { return reinterpret_cast<const T*>(data_); }
   int64_t length() const { return size_ / sizeof(T); }
+  int64_t capacity() const { return capacity_ / sizeof(T); }
 };
 
 /// \brief Allocate a fixed size mutable buffer from a memory pool
@@ -336,22 +382,6 @@ Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buff
 ARROW_EXPORT
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out);
-
-#ifndef ARROW_NO_DEPRECATED_API
-
-/// \brief Create Buffer referencing std::string memory
-///
-/// Warning: string instance must stay alive
-///
-/// \param str std::string instance
-/// \return std::shared_ptr<Buffer>
-///
-/// \note Deprecated Since 0.8.0
-static inline std::shared_ptr<Buffer> GetBufferFromString(const std::string& str) {
-  return std::make_shared<Buffer>(str);
-}
-
-#endif  // ARROW_NO_DEPRECATED_API
 
 }  // namespace arrow
 

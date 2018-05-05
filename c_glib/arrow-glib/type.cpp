@@ -39,7 +39,7 @@ garrow_type_from_raw(arrow::Type::type type)
   case arrow::Type::type::NA:
     return GARROW_TYPE_NA;
   case arrow::Type::type::BOOL:
-    return GARROW_TYPE_BOOL;
+    return GARROW_TYPE_BOOLEAN;
   case arrow::Type::type::UINT8:
     return GARROW_TYPE_UINT8;
   case arrow::Type::type::INT8:

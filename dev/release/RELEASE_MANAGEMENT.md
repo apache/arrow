@@ -112,6 +112,15 @@ software must be built in order to create the documentation, so this
 step may take some time to run, especially the first time around as the
 Docker container will also have to be built.
 
+To upload the updated documentation to the website, navigate to `site/asf-site`
+and commit all changes:
+
+```
+pushd site/asf-site
+git add .
+git commit -m "Updated API documentation for version X.Y.Z"
+```
+
 After successfully creating the API documentation the website can be
 run locally to browse the API documentation from the top level
 `Documentation` menu. To run the website issue the command:
@@ -145,11 +154,18 @@ The pip binary packages (called "wheels") are generated from the
 * Push arrow-dist updates to **both** apache/arrow-dist and your fork of
   arrow-dist.
 * Wait for builds to complete
-* Download all wheel files from the new BinTray package version ([example][4])
+* Download all wheel and tar.gz files from the new BinTray package version
+  ([example][4])
 
-Now, you can finally upload the wheels to PyPI using the `twine` CLI tool. You
-must be permissioned on PyPI to upload here; ask Wes McKinney or Uwe Korn if
-you need help with this.
+
+Now, you can finally upload the wheels to PyPI using the `twine` CLI tool. 
+Please make sure you use `twine>=1.11.0`. This supports the markdown 
+long description in setup.py which also requires `setuptools>=38.6.0`. 
+`setuptools` is handled in previous steps by the `.travis.yml` and 
+`appveyor.yml` build configurations. 
+
+You must be permissioned on PyPI to upload here; ask Wes McKinney or Uwe Korn 
+if you need help with this.
 
 #### Updating conda packages
 
@@ -171,7 +187,10 @@ same time because they are interdependent.
 
 ### Updating Java Maven artifacts in Maven central
 
-See instructions at end of https://github.com/apache/arrow/blob/master/dev/release/README
+See instructions at end of
+https://github.com/apache/arrow/blob/master/dev/release/README. You must set up
+Maven to be able to publish to Apache's repositories. Read more at
+http://www.apache.org/dev/publishing-maven-artifacts.html.
 
 [1]: https://github.com/apache/arrow/blob/master/dev/release/README
 [2]: https://github.com/apache/arrow-dist

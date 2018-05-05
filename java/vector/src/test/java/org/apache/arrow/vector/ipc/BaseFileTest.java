@@ -36,13 +36,13 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.DateMilliWriter;
 import org.apache.arrow.vector.complex.writer.Float4Writer;
@@ -94,9 +94,9 @@ public class BaseFileTest {
     DateTimeZone.setDefault(defaultTimezone);
   }
 
-  protected void writeData(int count, NullableMapVector parent) {
+  protected void writeData(int count, StructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     Float4Writer float4Writer = rootWriter.float4("float");
@@ -119,7 +119,7 @@ public class BaseFileTest {
     }
   }
 
-  protected void writeComplexData(int count, NullableMapVector parent) {
+  protected void writeComplexData(int count, StructVector parent) {
     ArrowBuf varchar = allocator.buffer(3);
     varchar.readerIndex(0);
     varchar.setByte(0, 'a');
@@ -127,11 +127,11 @@ public class BaseFileTest {
     varchar.setByte(2, 'c');
     varchar.writerIndex(3);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     ListWriter listWriter = rootWriter.list("list");
-    MapWriter mapWriter = rootWriter.map("map");
+    StructWriter structWriter = rootWriter.struct("struct");
     for (int i = 0; i < count; i++) {
       if (i % 5 != 3) {
         intWriter.setPosition(i);
@@ -145,10 +145,10 @@ public class BaseFileTest {
         listWriter.varChar().writeVarChar(0, 3, varchar);
       }
       listWriter.endList();
-      mapWriter.setPosition(i);
-      mapWriter.start();
-      mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
-      mapWriter.end();
+      structWriter.setPosition(i);
+      structWriter.start();
+      structWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
+      structWriter.end();
     }
     writer.setValueCount(count);
     varchar.release();
@@ -178,9 +178,9 @@ public class BaseFileTest {
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
       Assert.assertEquals(i % 3, ((List<?>) root.getVector("list").getObject(i)).size());
       NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
-      FieldReader mapReader = root.getVector("map").getReader();
-      mapReader.setPosition(i);
-      mapReader.reader("timestamp").read(h);
+      FieldReader structReader = root.getVector("struct").getReader();
+      structReader.setPosition(i);
+      structReader.reader("timestamp").read(h);
       Assert.assertEquals(i, h.value);
     }
   }
@@ -189,10 +189,10 @@ public class BaseFileTest {
     return new LocalDateTime(2000 + i, 1 + i, 1 + i, i, i, i, i);
   }
 
-  protected void writeDateTimeData(int count, NullableMapVector parent) {
+  protected void writeDateTimeData(int count, StructVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     DateMilliWriter dateWriter = rootWriter.dateMilli("date");
     TimeMilliWriter timeWriter = rootWriter.timeMilli("time");
     TimeStampMilliWriter timeStampMilliWriter = rootWriter.timeStampMilli("timestamp-milli");
@@ -494,7 +494,7 @@ public class BaseFileTest {
     }
   }
 
-  public void writeUnionData(int count, NullableMapVector parent) {
+  public void writeUnionData(int count, StructVector parent) {
     ArrowBuf varchar = allocator.buffer(3);
     varchar.readerIndex(0);
     varchar.setByte(0, 'a');
@@ -502,11 +502,11 @@ public class BaseFileTest {
     varchar.setByte(2, 'c');
     varchar.writerIndex(3);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("union");
     BigIntWriter bigIntWriter = rootWriter.bigInt("union");
     ListWriter listWriter = rootWriter.list("union");
-    MapWriter mapWriter = rootWriter.map("union");
+    StructWriter structWriter = rootWriter.struct("union");
     for (int i = 0; i < count; i++) {
       switch (i % 4) {
         case 0:
@@ -526,10 +526,10 @@ public class BaseFileTest {
           listWriter.endList();
           break;
         case 3:
-          mapWriter.setPosition(i);
-          mapWriter.start();
-          mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
-          mapWriter.end();
+          structWriter.setPosition(i);
+          structWriter.start();
+          structWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
+          structWriter.end();
           break;
       }
     }
@@ -537,10 +537,10 @@ public class BaseFileTest {
     varchar.release();
   }
 
-  protected void writeVarBinaryData(int count, NullableMapVector parent) {
+  protected void writeVarBinaryData(int count, StructVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
+    StructWriter rootWriter = writer.rootAsStruct();
     ListWriter listWriter = rootWriter.list("list");
     ArrowBuf varbin = allocator.buffer(count);
     for (int i = 0; i < count; i++) {

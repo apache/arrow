@@ -53,7 +53,7 @@ using RecordBatchReader = ::arrow::RecordBatchReader;
 /// reads see the ReadRecordBatch functions
 class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
  public:
-  virtual ~RecordBatchStreamReader();
+  ~RecordBatchStreamReader() override;
 
   /// Create batch reader from generic MessageReader
   ///
@@ -196,7 +196,7 @@ ARROW_EXPORT
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
-/// \brief Read record batch from encapulated Message
+/// \brief Read record batch from encapsulated Message
 ///
 /// \param[in] message a message instance containing metadata and body
 /// \param[in] schema the record batch schema

@@ -65,7 +65,7 @@ class RecordBatchStreamWriter(lib._RecordBatchWriter):
     Parameters
     ----------
     sink : str, pyarrow.NativeFile, or file-like Python object
-        Either a file path, or a writeable file object
+        Either a file path, or a writable file object
     schema : pyarrow.Schema
         The Arrow schema for data to be written to the file
     """
@@ -96,7 +96,7 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
     Parameters
     ----------
     sink : str, pyarrow.NativeFile, or file-like Python object
-        Either a file path, or a writeable file object
+        Either a file path, or a writable file object
     schema : pyarrow.Schema
         The Arrow schema for data to be written to the file
     """

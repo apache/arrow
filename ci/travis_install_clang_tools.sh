@@ -19,6 +19,6 @@
 
 wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
 sudo apt-add-repository -y \
-     "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-4.0 main"
-sudo apt-get update
-sudo apt-get install clang-4.0 clang-format-4.0 clang-tidy-4.0
+     "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-6.0 main"
+sudo apt-get update -qq
+sudo apt-get install -q clang-6.0 clang-format-6.0 clang-tidy-6.0

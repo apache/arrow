@@ -22,6 +22,7 @@
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "flatbuffers/flatbuffers.h"
@@ -65,6 +66,43 @@ static int64_t GetOutputLength(int64_t nbytes) {
 static Status WritePadded(io::OutputStream* stream, const uint8_t* data, int64_t length,
                           int64_t* bytes_written) {
   RETURN_NOT_OK(stream->Write(data, length));
+
+  int64_t remainder = PaddedLength(length) - length;
+  if (remainder != 0) {
+    RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder));
+  }
+  *bytes_written = length + remainder;
+  return Status::OK();
+}
+
+static Status WritePaddedWithOffset(io::OutputStream* stream, const uint8_t* data,
+                                    int64_t bit_offset, const int64_t length,
+                                    int64_t* bytes_written) {
+  data = data + bit_offset / 8;
+  uint8_t bit_shift = static_cast<uint8_t>(bit_offset % 8);
+  if (bit_offset == 0) {
+    RETURN_NOT_OK(stream->Write(data, length));
+  } else {
+    constexpr int64_t buffersize = 256;
+    uint8_t buffer[buffersize];
+    const uint8_t lshift = static_cast<uint8_t>(8 - bit_shift);
+    const uint8_t* buffer_end = buffer + buffersize;
+    uint8_t* buffer_it = buffer;
+
+    for (const uint8_t* end = data + length; data != end;) {
+      uint8_t r = static_cast<uint8_t>(*data++ >> bit_shift);
+      uint8_t l = static_cast<uint8_t>(*data << lshift);
+      uint8_t value = l | r;
+      *buffer_it++ = value;
+      if (buffer_it == buffer_end) {
+        RETURN_NOT_OK(stream->Write(buffer, buffersize));
+        buffer_it = buffer;
+      }
+    }
+    if (buffer_it != buffer) {
+      RETURN_NOT_OK(stream->Write(buffer, buffer_it - buffer));
+    }
+  }
 
   int64_t remainder = PaddedLength(length) - length;
   if (remainder != 0) {
@@ -245,7 +283,7 @@ class TableReader::TableReaderImpl {
     }
 
     std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(source->Read(magic_size, &buffer));
+    RETURN_NOT_OK(source->ReadAt(0, magic_size, &buffer));
 
     if (memcmp(buffer->data(), kFeatherMagicBytes, magic_size)) {
       return Status::Invalid("Not a feather file");
@@ -553,12 +591,14 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
     // Write the null bitmask
     if (values.null_count() > 0) {
-      // We assume there is one bit for each value in values.nulls, aligned on a
-      // byte boundary, and we write this much data into the stream
+      // We assume there is one bit for each value in values.nulls,
+      // starting at the zero offset.
       int64_t null_bitmap_size = GetOutputLength(BitUtil::BytesForBits(values.length()));
       if (values.null_bitmap()) {
-        RETURN_NOT_OK(WritePadded(stream_.get(), values.null_bitmap()->data(),
-                                  null_bitmap_size, &bytes_written));
+        auto null_bitmap = values.null_bitmap();
+        RETURN_NOT_OK(WritePaddedWithOffset(stream_.get(), null_bitmap->data(),
+                                            values.offset(), null_bitmap_size,
+                                            &bytes_written));
       } else {
         RETURN_NOT_OK(WritePaddedBlank(stream_.get(), null_bitmap_size, &bytes_written));
       }
@@ -566,6 +606,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     }
 
     int64_t values_bytes = 0;
+    int64_t bit_offset = 0;
 
     const uint8_t* values_buffer = nullptr;
 
@@ -578,9 +619,10 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
         values_bytes = bin_values.raw_value_offsets()[values.length()];
 
         // Write the variable-length offsets
-        RETURN_NOT_OK(WritePadded(stream_.get(), reinterpret_cast<const uint8_t*>(
-                                                     bin_values.raw_value_offsets()),
-                                  offset_bytes, &bytes_written));
+        RETURN_NOT_OK(
+            WritePadded(stream_.get(),
+                        reinterpret_cast<const uint8_t*>(bin_values.raw_value_offsets()),
+                        offset_bytes, &bytes_written));
       } else {
         RETURN_NOT_OK(WritePaddedBlank(stream_.get(), offset_bytes, &bytes_written));
       }
@@ -593,20 +635,17 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       const auto& prim_values = static_cast<const PrimitiveArray&>(values);
       const auto& fw_type = static_cast<const FixedWidthType&>(*values.type());
 
-      if (values.type_id() == Type::BOOL) {
-        // Booleans are bit-packed
-        values_bytes = BitUtil::BytesForBits(values.length());
-      } else {
-        values_bytes = values.length() * fw_type.bit_width() / 8;
-      }
+      values_bytes = BitUtil::BytesForBits(values.length() * fw_type.bit_width());
 
       if (prim_values.values()) {
-        values_buffer = prim_values.values()->data();
+        values_buffer = prim_values.values()->data() +
+                        (prim_values.offset() * fw_type.bit_width() / 8);
+        bit_offset = (prim_values.offset() * fw_type.bit_width()) % 8;
       }
     }
     if (values_buffer) {
-      RETURN_NOT_OK(
-          WritePadded(stream_.get(), values_buffer, values_bytes, &bytes_written));
+      RETURN_NOT_OK(WritePaddedWithOffset(stream_.get(), values_buffer, bit_offset,
+                                          values_bytes, &bytes_written));
     } else {
       RETURN_NOT_OK(WritePaddedBlank(stream_.get(), values_bytes, &bytes_written));
     }

@@ -27,7 +27,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -112,6 +111,9 @@ public class TestListVector {
       result = outVector.getObject(2);
       resultSet = (ArrayList<Long>) result;
       assertEquals(0, resultSet.size());
+
+      /* 3+0+0/3 */
+      assertEquals(1.0D, inVector.getDensity(), 0);
     }
   }
 
@@ -208,6 +210,9 @@ public class TestListVector {
        */
       listVector.setLastSet(3);
       listVector.setValueCount(10);
+
+      /* (3+2+3)/10 */
+      assertEquals(0.8D, listVector.getDensity(), 0);
 
       index = 0;
       offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
@@ -709,6 +714,8 @@ public class TestListVector {
       listWriter.bigInt().writeBigInt(300);
       listWriter.endList();
 
+      listVector.setValueCount(2);
+
       /* check listVector contents */
       Object result = listVector.getObject(0);
       ArrayList<Long> resultSet = (ArrayList<Long>) result;
@@ -739,6 +746,9 @@ public class TestListVector {
       assertEquals(2, buffers.size());
       assertEquals(bitAddress, buffers.get(0).memoryAddress());
       assertEquals(offsetAddress, buffers.get(1).memoryAddress());
+
+      /* (3+2)/2 */
+      assertEquals(2.5, listVector.getDensity(), 0);
     }
   }
 
@@ -748,9 +758,73 @@ public class TestListVector {
       String emptyListStr = listVector.getField().toString();
       assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
 
-      listVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
+      listVector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
       String emptyVectorStr = listVector.getField().toString();
       assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
+    }
+  }
+
+  @Test
+  public void testSetInitialCapacity() {
+    try (final ListVector vector = ListVector.empty("", allocator)) {
+      vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
+
+      /**
+       * use the default multiplier of 5,
+       * 512 * 5 => 2560 * 4 => 10240 bytes => 16KB => 4096 value capacity.
+       */
+      vector.setInitialCapacity(512);
+      vector.allocateNew();
+      assertEquals(512, vector.getValueCapacity());
+      assertEquals(4096, vector.getDataVector().getValueCapacity());
+
+      /* use density as 4 */
+      vector.setInitialCapacity(512, 4);
+      vector.allocateNew();
+      assertEquals(512, vector.getValueCapacity());
+      assertEquals(512*4, vector.getDataVector().getValueCapacity());
+
+      /**
+       * inner value capacity we pass to data vector is 512 * 0.1 => 51
+       * For an int vector this is 204 bytes of memory for data buffer
+       * and 7 bytes for validity buffer.
+       * and with power of 2 allocation, we allocate 256 bytes and 8 bytes
+       * for the data buffer and validity buffer of the inner vector. Thus
+       * value capacity of inner vector is 64
+       */
+      vector.setInitialCapacity(512, 0.1);
+      vector.allocateNew();
+      assertEquals(512, vector.getValueCapacity());
+      assertEquals(64, vector.getDataVector().getValueCapacity());
+
+      /**
+       * inner value capacity we pass to data vector is 512 * 0.01 => 5
+       * For an int vector this is 20 bytes of memory for data buffer
+       * and 1 byte for validity buffer.
+       * and with power of 2 allocation, we allocate 32 bytes and 1 bytes
+       * for the data buffer and validity buffer of the inner vector. Thus
+       * value capacity of inner vector is 8
+       */
+      vector.setInitialCapacity(512, 0.01);
+      vector.allocateNew();
+      assertEquals(512, vector.getValueCapacity());
+      assertEquals(8, vector.getDataVector().getValueCapacity());
+
+      /**
+       * inner value capacity we pass to data vector is 5 * 0.1 => 0
+       * which is then rounded off to 1. So we pass value count as 1
+       * to the inner int vector.
+       * the offset buffer of the list vector is allocated for 6 values
+       * which is 24 bytes and then rounded off to 32 bytes (8 values)
+       * the validity buffer of the list vector is allocated for 5
+       * values which is 1 byte. This is why value capacity of the list
+       * vector is 7 as we take the min of validity buffer value capacity
+       * and offset buffer value capacity.
+       */
+      vector.setInitialCapacity(5, 0.1);
+      vector.allocateNew();
+      assertEquals(7, vector.getValueCapacity());
+      assertEquals(1, vector.getDataVector().getValueCapacity());
     }
   }
 }

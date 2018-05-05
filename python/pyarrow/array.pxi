@@ -21,14 +21,21 @@ cdef _sequence_to_array(object sequence, object size, DataType type,
     cdef shared_ptr[CArray] out
     cdef int64_t c_size
     if type is None:
-        with nogil:
-            check_status(ConvertPySequence(sequence, pool, &out))
+        if size is None:
+            with nogil:
+                check_status(ConvertPySequence(sequence, pool, &out))
+        else:
+            c_size = size
+            with nogil:
+                check_status(
+                    ConvertPySequence(sequence, c_size, pool, &out)
+                )
     else:
         if size is None:
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, pool, &out, type.sp_type
+                        sequence, type.sp_type, pool, &out,
                     )
                 )
         else:
@@ -36,7 +43,7 @@ cdef _sequence_to_array(object sequence, object size, DataType type,
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, pool, &out, type.sp_type, c_size
+                        sequence, c_size, type.sp_type, pool, &out,
                     )
                 )
 
@@ -198,21 +205,42 @@ def asarray(values, type=None):
 
 
 def _normalize_slice(object arrow_obj, slice key):
-    cdef Py_ssize_t n = len(arrow_obj)
+    cdef:
+        Py_ssize_t start, stop, step
+        Py_ssize_t n = len(arrow_obj)
 
     start = key.start or 0
-    while start < 0:
+    if start < 0:
         start += n
+        if start < 0:
+            start = 0
+    elif start >= n:
+        start = n
 
     stop = key.stop if key.stop is not None else n
-    while stop < 0:
+    if stop < 0:
         stop += n
+        if stop < 0:
+            stop = 0
+    elif stop >= n:
+        stop = n
 
     step = key.step or 1
     if step != 1:
         raise IndexError('only slices with step 1 supported')
     else:
         return arrow_obj.slice(start, stop - start)
+
+
+cdef Py_ssize_t _normalize_index(Py_ssize_t index,
+                                 Py_ssize_t length) except -1:
+    if index < 0:
+        index += length
+        if index < 0:
+            raise IndexError("index out of bounds")
+    elif index >= length:
+        raise IndexError("index out of bounds")
+    return index
 
 
 cdef class _FunctionContext:
@@ -237,12 +265,108 @@ cdef wrap_datum(const CDatum& datum):
         raise ValueError("Unable to wrap Datum in a Python object")
 
 
+cdef _append_array_buffers(const CArrayData* ad, list res):
+    """
+    Recursively append Buffer wrappers from *ad* and its children.
+    """
+    cdef size_t i, n
+    assert ad != NULL
+    n = ad.buffers.size()
+    for i in range(n):
+        buf = ad.buffers[i]
+        res.append(pyarrow_wrap_buffer(buf)
+                   if buf.get() != NULL else None)
+    n = ad.child_data.size()
+    for i in range(n):
+        _append_array_buffers(ad.child_data[i].get(), res)
+
+
+cdef _reduce_array_data(const CArrayData* ad):
+    """
+    Recursively dissect ArrayData to (pickable) tuples.
+    """
+    cdef size_t i, n
+    assert ad != NULL
+
+    n = ad.buffers.size()
+    buffers = []
+    for i in range(n):
+        buf = ad.buffers[i]
+        buffers.append(pyarrow_wrap_buffer(buf)
+                       if buf.get() != NULL else None)
+
+    children = []
+    n = ad.child_data.size()
+    for i in range(n):
+        children.append(_reduce_array_data(ad.child_data[i].get()))
+
+    return pyarrow_wrap_data_type(ad.type), ad.length, ad.null_count, \
+        ad.offset, buffers, children
+
+
+cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
+    """
+    Reconstruct CArrayData objects from the tuple structure generated
+    by _reduce_array_data.
+    """
+    cdef:
+        int64_t length, null_count, offset, i
+        DataType dtype
+        Buffer buf
+        vector[shared_ptr[CBuffer]] c_buffers
+        vector[shared_ptr[CArrayData]] c_children
+
+    dtype, length, null_count, offset, buffers, children = data
+
+    for i in range(len(buffers)):
+        buf = buffers[i]
+        if buf is None:
+            c_buffers.push_back(shared_ptr[CBuffer]())
+        else:
+            c_buffers.push_back(buf.buffer)
+
+    for i in range(len(children)):
+        c_children.push_back(_reconstruct_array_data(children[i]))
+
+    return CArrayData.MakeWithChildren(
+        dtype.sp_type,
+        length,
+        c_buffers,
+        c_children,
+        null_count,
+        offset)
+
+
+def _restore_array(data):
+    """
+    Reconstruct an Array from pickled ArrayData.
+    """
+    cdef shared_ptr[CArrayData] ad = _reconstruct_array_data(data)
+    return pyarrow_wrap_array(MakeArray(ad))
+
+
 cdef class Array:
+
+    def __init__(self, *args, **kwargs):
+        """
+        Do not call this constructor directly, use factories
+        like ``pyarrow.array``.
+        """
+        # Check if the constructor was called with arguments.
+        # This was probably by accident from a user. Instead of segfaulting
+        # we should provide them with a meaningful error.
+        if len(args) > 0 or len(kwargs) > 0:
+            raise RuntimeError("Don't call pyarrow.Array directly, use "
+                               "pyarrow.array instead")
 
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
+
+    def __eq__(self, other):
+        raise NotImplementedError('Comparisons with pyarrow.Array are not '
+                                  'implemented')
 
     def _debug_print(self):
         with nogil:
@@ -307,7 +431,7 @@ cdef class Array:
         """
         Convert pandas.Series to an Arrow Array, using pandas's semantics about
         what values indicate nulls. See pyarrow.array for more general
-        conversion from arrays or sequences to Arrow arrays
+        conversion from arrays or sequences to Arrow arrays.
 
         Parameters
         ----------
@@ -335,6 +459,45 @@ cdef class Array:
         return array(obj, mask=mask, type=type, memory_pool=memory_pool,
                      from_pandas=True)
 
+    def __reduce__(self):
+        return _restore_array, \
+            (_reduce_array_data(self.sp_array.get().data().get()),)
+
+    @staticmethod
+    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0):
+        """
+        Construct an Array from a sequence of buffers.  The concrete type
+        returned depends on the datatype.
+
+        Parameters
+        ----------
+        type : DataType
+            The value type of the array
+        length : int
+            The number of values in the array
+        buffers: List[Buffer]
+            The buffers backing this array
+        null_count : int, default -1
+        offset : int, default 0
+            The array's logical offset (in values, not in bytes) from the
+            start of each buffer
+
+        Returns
+        -------
+        array : Array
+        """
+        cdef:
+            Buffer buf
+            vector[shared_ptr[CBuffer]] c_buffers
+            shared_ptr[CArrayData] ad
+
+        for buf in buffers:
+            # None will produce a null buffer pointer
+            c_buffers.push_back(pyarrow_unwrap_buffer(buf))
+        ad = CArrayData.Make(type.sp_type, length, c_buffers,
+                             null_count, offset)
+        return pyarrow_wrap_array(MakeArray(ad))
+
     property null_count:
 
         def __get__(self):
@@ -355,6 +518,9 @@ cdef class Array:
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
+        return self.length()
+
+    cdef int64_t length(self):
         if self.sp_array.get():
             return self.sp_array.get().length()
         else:
@@ -369,10 +535,7 @@ cdef class Array:
         if PySlice_Check(key):
             return _normalize_slice(self, key)
 
-        while key < 0:
-            key += len(self)
-
-        return self.getitem(key)
+        return self.getitem(_normalize_index(key, self.length()))
 
     cdef getitem(self, int64_t i):
         return box_scalar(self.type, self.sp_array, i)
@@ -407,7 +570,8 @@ cdef class Array:
         return pyarrow_wrap_array(result)
 
     def to_pandas(self, c_bool strings_to_categorical=False,
-                  zero_copy_only=False):
+                  c_bool zero_copy_only=False,
+                  c_bool integer_object_nulls=False):
         """
         Convert to an array object suitable for use in pandas
 
@@ -418,6 +582,8 @@ cdef class Array:
         zero_copy_only : boolean, default False
             Raise an ArrowException if this function call would require copying
             the underlying data
+        integer_object_nulls : boolean, default False
+            Cast integers with nulls to objects
 
         See also
         --------
@@ -431,7 +597,8 @@ cdef class Array:
 
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only)
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
                                               self, &out))
@@ -456,6 +623,28 @@ cdef class Array:
         with nogil:
             check_status(ValidateArray(deref(self.ap)))
 
+    property offset:
+
+        def __get__(self):
+            """
+            A relative position into another array's data, to enable zero-copy
+            slicing. This value defaults to zero but must be applied on all
+            operations with the physical storage buffers.
+            """
+            return self.sp_array.get().offset()
+
+    def buffers(self):
+        """
+        Return a list of Buffer objects pointing to this array's physical
+        storage.
+
+        To correctly interpret these buffers, you need to also apply the offset
+        multiplied with the size of the stored data type.
+        """
+        res = []
+        _append_array_buffers(self.sp_array.get().data().get(), res)
+        return res
+
 
 cdef class Tensor:
 
@@ -464,11 +653,19 @@ cdef class Tensor:
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())
 
+    def _validate(self):
+        if self.tp is NULL:
+            raise TypeError(
+                'pyarrow.Tensor has not been initialized correctly Please use '
+                'pyarrow.Tensor.from_numpy to construct a pyarrow.Tensor')
+
     def __repr__(self):
+        if self.tp is NULL:
+            return '<invalid pyarrow.Tensor>'
         return """<pyarrow.Tensor>
-type: {0}
-shape: {1}
-strides: {2}""".format(self.type, self.shape, self.strides)
+type: {0.type}
+shape: {0.shape}
+strides: {0.strides}""".format(self)
 
     @staticmethod
     def from_numpy(obj):
@@ -482,56 +679,81 @@ strides: {2}""".format(self.type, self.shape, self.strides)
         """
         Convert arrow::Tensor to numpy.ndarray with zero copy
         """
-        cdef:
-            PyObject* out
+        self._validate()
+
+        cdef PyObject* out
 
         with nogil:
-            check_status(TensorToNdarray(deref(self.tp), self, &out))
+            check_status(TensorToNdarray(self.sp_tensor, self, &out))
         return PyObject_to_object(out)
 
     def equals(self, Tensor other):
         """
         Return true if the tensors contains exactly equal data
         """
+        self._validate()
         return self.tp.Equals(deref(other.tp))
 
-    property is_mutable:
+    def __eq__(self, other):
+        if isinstance(other, Tensor):
+            return self.equals(other)
+        else:
+            return NotImplemented
 
-        def __get__(self):
-            return self.tp.is_mutable()
+    @property
+    def is_mutable(self):
+        self._validate()
+        return self.tp.is_mutable()
 
-    property is_contiguous:
+    @property
+    def is_contiguous(self):
+        self._validate()
+        return self.tp.is_contiguous()
 
-        def __get__(self):
-            return self.tp.is_contiguous()
+    @property
+    def ndim(self):
+        self._validate()
+        return self.tp.ndim()
 
-    property ndim:
+    @property
+    def size(self):
+        self._validate()
+        return self.tp.size()
 
-        def __get__(self):
-            return self.tp.ndim()
+    @property
+    def shape(self):
+        # Cython knows how to convert a vector[T] to a Python list
+        self._validate()
+        return tuple(self.tp.shape())
 
-    property size:
+    @property
+    def strides(self):
+        self._validate()
+        return tuple(self.tp.strides())
 
-        def __get__(self):
-            return self.tp.size()
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._validate()
 
-    property shape:
-
-        def __get__(self):
-            cdef size_t i
-            py_shape = []
-            for i in range(self.tp.shape().size()):
-                py_shape.append(self.tp.shape()[i])
-            return py_shape
-
-    property strides:
-
-        def __get__(self):
-            cdef size_t i
-            py_strides = []
-            for i in range(self.tp.strides().size()):
-                py_strides.append(self.tp.strides()[i])
-            return py_strides
+        buffer.buf = <char *> self.tp.data().get().data()
+        pep3118_format = self.type.pep3118_format
+        if pep3118_format is None:
+            raise NotImplementedError("type %s not supported for buffer "
+                                      "protocol" % (self.type,))
+        buffer.format = pep3118_format
+        buffer.itemsize = self.type.bit_width // 8
+        buffer.internal = NULL
+        buffer.len = self.tp.size() * buffer.itemsize
+        buffer.ndim = self.tp.ndim()
+        buffer.obj = self
+        if self.tp.is_mutable():
+            buffer.readonly = 0
+        else:
+            buffer.readonly = 1
+        # NOTE: This assumes Py_ssize_t == int64_t, and that the shape
+        # and strides arrays lifetime is tied to the tensor's
+        buffer.shape = <Py_ssize_t *> &self.tp.shape()[0]
+        buffer.strides = <Py_ssize_t *> &self.tp.strides()[0]
+        buffer.suboffsets = NULL
 
 
 cdef wrap_array_output(PyObject* output):
@@ -614,6 +836,10 @@ cdef class Time32Array(NumericArray):
 
 
 cdef class Time64Array(NumericArray):
+    pass
+
+
+cdef class HalfFloatArray(FloatingPointArray):
     pass
 
 
@@ -715,8 +941,43 @@ cdef class UnionArray(Array):
             check_status(CUnionArray.MakeSparse(deref(types.ap), c, &out))
         return pyarrow_wrap_array(out)
 
+
 cdef class StringArray(Array):
-    pass
+
+    @staticmethod
+    def from_buffers(int length, Buffer value_offsets, Buffer data,
+                     Buffer null_bitmap=None, int null_count=-1,
+                     int offset=0):
+        """
+        Construct a StringArray from value_offsets and data buffers.
+        If there are nulls in the data, also a null_bitmap and the matching
+        null_count must be passed.
+
+        Parameters
+        ----------
+        length : int
+        value_offsets : Buffer
+        data : Buffer
+        null_bitmap : Buffer, optional
+        null_count : int, default 0
+        offset : int, default 0
+
+        Returns
+        -------
+        string_array : StringArray
+        """
+        cdef shared_ptr[CBuffer] c_null_bitmap
+        cdef shared_ptr[CArray] out
+
+        if null_bitmap is not None:
+            c_null_bitmap = null_bitmap.buffer
+        else:
+            null_count = 0
+
+        out.reset(new CStringArray(
+            length, value_offsets.buffer, data.buffer, c_null_bitmap,
+            null_count, offset))
+        return pyarrow_wrap_array(out)
 
 
 cdef class BinaryArray(Array):
@@ -724,15 +985,6 @@ cdef class BinaryArray(Array):
 
 
 cdef class DictionaryArray(Array):
-
-    cdef getitem(self, int64_t i):
-        cdef Array dictionary = self.dictionary
-        index = self.indices[i]
-        if index is NA:
-            return index
-        else:
-            return box_scalar(dictionary.type, dictionary.sp_array,
-                              index.as_py())
 
     def dictionary_encode(self):
         return self
@@ -759,7 +1011,8 @@ cdef class DictionaryArray(Array):
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, ordered=False,
-                    from_pandas=False, MemoryPool memory_pool=None):
+                    from_pandas=False, safe=True,
+                    MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
         non-negative integers) and corresponding array of dictionary values
@@ -775,6 +1028,8 @@ cdef class DictionaryArray(Array):
             a pandas.Categorical (null encoded as -1)
         ordered : boolean, default False
             Set to True if the category values are ordered
+        safe : boolean, default True
+            If True, check that the dictionary indices are in range
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise uses default pool
 
@@ -813,7 +1068,14 @@ cdef class DictionaryArray(Array):
 
         c_type.reset(new CDictionaryType(_indices.type.sp_type,
                                          _dictionary.sp_array, c_ordered))
-        c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
+
+        if safe:
+            with nogil:
+                check_status(
+                    CDictionaryArray.FromArrays(c_type, _indices.sp_array,
+                                                &c_result))
+        else:
+            c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
 
         result = DictionaryArray()
         result.init(c_result)
@@ -821,8 +1083,47 @@ cdef class DictionaryArray(Array):
 
 
 cdef class StructArray(Array):
+
+    def flatten(self, MemoryPool memory_pool=None):
+        """
+        Flatten this StructArray, returning one individual array for each
+        field in the struct.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : List[Array]
+        """
+        cdef:
+            vector[shared_ptr[CArray]] arrays
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            CStructArray* sarr = <CStructArray*> self.ap
+
+        with nogil:
+            check_status(sarr.Flatten(pool, &arrays))
+
+        return [pyarrow_wrap_array(arr) for arr in arrays]
+
     @staticmethod
-    def from_arrays(field_names, arrays):
+    def from_arrays(arrays, names=None):
+        """
+        Construct StructArray from collection of arrays representing each field
+        in the struct
+
+        Parameters
+        ----------
+        arrays : sequence of Array
+        names : List[str]
+            Field names
+
+        Returns
+        -------
+        result : StructArray
+        """
         cdef:
             Array array
             shared_ptr[CArray] c_array
@@ -831,6 +1132,11 @@ cdef class StructArray(Array):
             ssize_t num_arrays
             ssize_t length
             ssize_t i
+
+        if names is None:
+            raise ValueError('Names are currently required')
+
+        arrays = [asarray(x) for x in arrays]
 
         num_arrays = len(arrays)
         if num_arrays == 0:
@@ -848,7 +1154,7 @@ cdef class StructArray(Array):
         cdef DataType struct_type = struct([
             field(name, array.type)
             for name, array in
-            zip(field_names, arrays)
+            zip(names, arrays)
         ])
 
         c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))
@@ -873,6 +1179,7 @@ cdef dict _array_classes = {
     _Type_TIMESTAMP: TimestampArray,
     _Type_TIME32: Time32Array,
     _Type_TIME64: Time64Array,
+    _Type_HALF_FLOAT: HalfFloatArray,
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,

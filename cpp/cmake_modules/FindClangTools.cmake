@@ -30,6 +30,12 @@
 #  CLANG_FORMAT_BIN, The path to the clang format binary
 #  CLANG_TIDY_FOUND, Whether clang format was found
 
+if (DEFINED ENV{HOMEBREW_PREFIX})
+  set(HOMEBREW_PREFIX "${ENV{HOMEBREW_PREFIX}")
+else()
+  set(HOMEBREW_PREFIX "/usr/local")
+endif()
+
 find_program(CLANG_TIDY_BIN
   NAMES clang-tidy-4.0
   clang-tidy-3.9
@@ -37,7 +43,7 @@ find_program(CLANG_TIDY_BIN
   clang-tidy-3.7
   clang-tidy-3.6
   clang-tidy
-  PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin
+  PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin "${HOMEBREW_PREFIX}/bin"
         NO_DEFAULT_PATH
 )
 
@@ -55,7 +61,7 @@ if (CLANG_FORMAT_VERSION)
       PATHS
             ${ClangTools_PATH}
             $ENV{CLANG_TOOLS_PATH}
-            /usr/local/bin /usr/bin
+            /usr/local/bin /usr/bin "${HOMEBREW_PREFIX}/bin"
             NO_DEFAULT_PATH
     )
 
@@ -67,15 +73,27 @@ if (CLANG_FORMAT_VERSION)
         if ("${CLANG_FORMAT_MINOR_VERSION}" STREQUAL "0")
             find_program(CLANG_FORMAT_BIN
               NAMES clang-format
-              PATHS /usr/local/opt/llvm@${CLANG_FORMAT_MAJOR_VERSION}/bin
+              PATHS "${HOMEBREW_PREFIX}/opt/llvm@${CLANG_FORMAT_MAJOR_VERSION}/bin"
                     NO_DEFAULT_PATH
             )
         else()
             find_program(CLANG_FORMAT_BIN
               NAMES clang-format
-              PATHS /usr/local/opt/llvm@${CLANG_FORMAT_VERSION}/bin
+              PATHS "${HOMEBREW_PREFIX}/opt/llvm@${CLANG_FORMAT_VERSION}/bin"
                     NO_DEFAULT_PATH
             )
+        endif()
+
+        if ("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
+          # binary was still not found, look into Cellar
+          # TODO: This currently only works for '.0' patch releases as
+          #       find_program does not support regular expressions
+          #       in the paths.
+          find_program(CLANG_FORMAT_BIN
+            NAMES clang-format
+            PATHS "${HOMEBREW_PREFIX}/Cellar/llvm/${CLANG_FORMAT_VERSION}.0/bin"
+                  NO_DEFAULT_PATH
+          )
         endif()
     endif()
 else()
@@ -86,7 +104,7 @@ else()
       clang-format-3.7
       clang-format-3.6
       clang-format
-      PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin
+      PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin "${HOMEBREW_PREFIX}/bin"
             NO_DEFAULT_PATH
     )
 endif()

@@ -35,4 +35,7 @@
 - name: Siddharth Teotia
   apacheId: siddharthteotia
   githubId: siddharthteotia
+- name: The Apache Arrow PMC
+  apacheId: pmc
+  githubId: pmc
 # End contributors.yml

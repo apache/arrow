@@ -26,6 +26,7 @@ import six
 import sys
 import threading
 import time
+import warnings
 
 
 # 64K
@@ -38,14 +39,27 @@ cdef extern from "Python.h":
         char *v, Py_ssize_t len) except NULL
 
 
-cdef class NativeFile:
+def _stringify_path(path):
+    """
+    Convert *path* to a string or unicode path if possible.
+    """
+    if isinstance(path, six.string_types):
+        return path
+    try:
+        return path.__fspath__()
+    except AttributeError:
+        raise TypeError("not a path-like object")
 
+
+cdef class NativeFile:
     def __cinit__(self):
-        self.is_open = False
+        self.closed = True
         self.own_file = False
+        self.is_readable = False
+        self.is_writable = False
 
     def __dealloc__(self):
-        if self.is_open and self.own_file:
+        if self.own_file and not self.closed:
             self.close()
 
     def __enter__(self):
@@ -65,45 +79,63 @@ cdef class NativeFile:
 
         def __get__(self):
             # Emulate built-in file modes
-            if self.is_readable and self.is_writeable:
+            if self.is_readable and self.is_writable:
                 return 'rb+'
             elif self.is_readable:
                 return 'rb'
-            elif self.is_writeable:
+            elif self.is_writable:
                 return 'wb'
             else:
                 raise ValueError('File object is malformed, has no mode')
 
+    def readable(self):
+        self._assert_open()
+        return self.is_readable
+
+    def writable(self):
+        self._assert_open()
+        return self.is_writable
+
+    def seekable(self):
+        self._assert_open()
+        return self.is_readable
+
     def close(self):
-        if self.is_open:
+        if not self.closed:
             with nogil:
                 if self.is_readable:
                     check_status(self.rd_file.get().Close())
                 else:
                     check_status(self.wr_file.get().Close())
-        self.is_open = False
+        self.closed = True
+
+    def flush(self):
+        """Flush the buffer stream, if applicable.
+
+        No-op to match the IOBase interface."""
+        self._assert_open()
 
     cdef read_handle(self, shared_ptr[RandomAccessFile]* file):
         self._assert_readable()
         file[0] = <shared_ptr[RandomAccessFile]> self.rd_file
 
     cdef write_handle(self, shared_ptr[OutputStream]* file):
-        self._assert_writeable()
+        self._assert_writable()
         file[0] = <shared_ptr[OutputStream]> self.wr_file
 
+    def _assert_open(self):
+        if self.closed:
+            raise ValueError("I/O operation on closed file")
+
     def _assert_readable(self):
+        self._assert_open()
         if not self.is_readable:
             raise IOError("only valid on readonly files")
 
-        if not self.is_open:
-            raise IOError("file not open")
-
-    def _assert_writeable(self):
-        if not self.is_writeable:
-            raise IOError("only valid on writeable files")
-
-        if not self.is_open:
-            raise IOError("file not open")
+    def _assert_writable(self):
+        self._assert_open()
+        if not self.is_writable:
+            raise IOError("only valid on writable files")
 
     def size(self):
         """
@@ -120,6 +152,7 @@ cdef class NativeFile:
         Return current stream position
         """
         cdef int64_t position
+        self._assert_open()
         with nogil:
             if self.is_readable:
                 check_status(self.rd_file.get().Tell(&position))
@@ -174,12 +207,12 @@ cdef class NativeFile:
         Write byte from any object implementing buffer protocol (bytes,
         bytearray, ndarray, pyarrow.Buffer)
         """
-        self._assert_writeable()
+        self._assert_writable()
 
         if isinstance(data, six.string_types):
             data = tobytes(data)
 
-        cdef Buffer arrow_buffer = frombuffer(data)
+        cdef Buffer arrow_buffer = py_buffer(data)
 
         cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
         cdef int64_t bufsize = len(arrow_buffer)
@@ -222,6 +255,12 @@ cdef class NativeFile:
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
+
+    def read1(self, nbytes=None):
+        """Read and return up to n bytes.
+
+        Alias for read, needed to match the IOBase interface."""
+        return self.read(nbytes=None)
 
     def read_buffer(self, nbytes=None):
         cdef:
@@ -312,6 +351,12 @@ cdef class NativeFile:
                 pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
                                                      bytes_read)
 
+                if writer_thread.is_alive():
+                    while write_queue.full():
+                        time.sleep(0.01)
+                else:
+                    break
+
                 write_queue.put_nowait(pybuf)
         finally:
             free(buf)
@@ -326,7 +371,7 @@ cdef class NativeFile:
         Pipe file-like object to file
         """
         write_queue = Queue(50)
-        self._assert_writeable()
+        self._assert_writable()
 
         buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
 
@@ -378,21 +423,31 @@ cdef class PythonFile(NativeFile):
     cdef:
         object handle
 
-    def __cinit__(self, handle, mode='w'):
+    def __cinit__(self, handle, mode=None):
         self.handle = handle
 
+        if mode is None:
+            try:
+                mode = handle.mode
+            except AttributeError:
+                # Not all file-like objects have a mode attribute
+                # (e.g. BytesIO)
+                try:
+                    mode = 'w' if handle.writable() else 'r'
+                except AttributeError:
+                    raise ValueError("could not infer open mode for file-like "
+                                     "object %r, please pass it explicitly"
+                                     % (handle,))
         if mode.startswith('w'):
             self.wr_file.reset(new PyOutputStream(handle))
-            self.is_readable = 0
-            self.is_writeable = 1
+            self.is_writable = True
         elif mode.startswith('r'):
             self.rd_file.reset(new PyReadableFile(handle))
-            self.is_readable = 1
-            self.is_writeable = 0
+            self.is_readable = True
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
-        self.is_open = True
+        self.closed = False
 
 
 cdef class MemoryMappedFile(NativeFile):
@@ -401,11 +456,6 @@ cdef class MemoryMappedFile(NativeFile):
     """
     cdef:
         object path
-
-    def __cinit__(self):
-        self.is_open = False
-        self.is_readable = 0
-        self.is_writeable = 0
 
     @staticmethod
     def create(path, size):
@@ -419,11 +469,11 @@ cdef class MemoryMappedFile(NativeFile):
 
         cdef MemoryMappedFile result = MemoryMappedFile()
         result.path = path
-        result.is_readable = 1
-        result.is_writeable = 1
+        result.is_readable = True
+        result.is_writable = True
         result.wr_file = <shared_ptr[OutputStream]> handle
         result.rd_file = <shared_ptr[RandomAccessFile]> handle
-        result.is_open = True
+        result.closed = False
 
         return result
 
@@ -437,14 +487,14 @@ cdef class MemoryMappedFile(NativeFile):
 
         if mode in ('r', 'rb'):
             c_mode = FileMode_READ
-            self.is_readable = 1
+            self.is_readable = True
         elif mode in ('w', 'wb'):
             c_mode = FileMode_WRITE
-            self.is_writeable = 1
+            self.is_writable = True
         elif mode in ('r+', 'r+b', 'rb+'):
             c_mode = FileMode_READWRITE
-            self.is_readable = 1
-            self.is_writeable = 1
+            self.is_readable = True
+            self.is_writable = True
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
@@ -453,7 +503,7 @@ cdef class MemoryMappedFile(NativeFile):
 
         self.wr_file = <shared_ptr[OutputStream]> handle
         self.rd_file = <shared_ptr[RandomAccessFile]> handle
-        self.is_open = True
+        self.closed = False
 
 
 def memory_map(path, mode='r'):
@@ -477,7 +527,7 @@ def memory_map(path, mode='r'):
 def create_memory_map(path, size):
     """
     Create memory map at indicated path of the given size, return open
-    writeable file object
+    writable file object
 
     Parameters
     ----------
@@ -506,16 +556,14 @@ cdef class OSFile(NativeFile):
             shared_ptr[Readable] handle
             c_string c_path = encode_file_path(path)
 
-        self.is_readable = self.is_writeable = 0
-
         if mode in ('r', 'rb'):
             self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
         elif mode in ('w', 'wb'):
-            self._open_writeable(c_path)
+            self._open_writable(c_path)
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
-        self.is_open = True
+        self.closed = False
 
     cdef _open_readable(self, c_string path, CMemoryPool* pool):
         cdef shared_ptr[ReadableFile] handle
@@ -523,25 +571,21 @@ cdef class OSFile(NativeFile):
         with nogil:
             check_status(ReadableFile.Open(path, pool, &handle))
 
-        self.is_readable = 1
+        self.is_readable = True
         self.rd_file = <shared_ptr[RandomAccessFile]> handle
 
-    cdef _open_writeable(self, c_string path):
-        cdef shared_ptr[FileOutputStream] handle
-
+    cdef _open_writable(self, c_string path):
         with nogil:
-            check_status(FileOutputStream.Open(path, &handle))
-        self.is_writeable = 1
-        self.wr_file = <shared_ptr[OutputStream]> handle
+            check_status(FileOutputStream.Open(path, &self.wr_file))
+        self.is_writable = True
 
 
 cdef class FixedSizeBufferWriter(NativeFile):
 
     def __cinit__(self, Buffer buffer):
         self.wr_file.reset(new CFixedSizeBufferWriter(buffer.buffer))
-        self.is_readable = 0
-        self.is_writeable = 1
-        self.is_open = True
+        self.is_writable = True
+        self.closed = False
 
     def set_memcopy_threads(self, int num_threads):
         cdef CFixedSizeBufferWriter* writer = \
@@ -573,22 +617,30 @@ cdef class Buffer:
         self.shape[0] = self.size
         self.strides[0] = <Py_ssize_t>(1)
 
+    cdef int _check_nullptr(self) except -1:
+        if self.buffer.get() == NULL:
+            raise ReferenceError("operation on uninitialized Buffer object")
+        return 0
+
     def __len__(self):
         return self.size
 
     property size:
 
         def __get__(self):
+            self._check_nullptr()
             return self.buffer.get().size()
 
     property is_mutable:
 
         def __get__(self):
+            self._check_nullptr()
             return self.buffer.get().is_mutable()
 
     property parent:
 
         def __get__(self):
+            self._check_nullptr()
             cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()
 
             if parent_buf.get() == NULL:
@@ -598,6 +650,7 @@ cdef class Buffer:
 
     def __getitem__(self, key):
         # TODO(wesm): buffer slicing
+        self._check_nullptr()
         raise NotImplementedError
 
     def equals(self, Buffer other):
@@ -612,17 +665,30 @@ cdef class Buffer:
         -------
         are_equal : True if buffer contents and size are equal
         """
+        self._check_nullptr()
+        other._check_nullptr()
         cdef c_bool result = False
         with nogil:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
         return result
 
+    def __eq__(self, other):
+        if isinstance(other, Buffer):
+            return self.equals(other)
+        else:
+            return NotImplemented
+
+    def __reduce__(self):
+        return py_buffer, (self.to_pybytes(),)
+
     def to_pybytes(self):
+        self._check_nullptr()
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._check_nullptr()
 
         buffer.buf = <char *>self.buffer.get().data()
         buffer.format = 'b'
@@ -640,11 +706,13 @@ cdef class Buffer:
         buffer.suboffsets = NULL
 
     def __getsegcount__(self, Py_ssize_t *len_out):
+        self._check_nullptr()
         if len_out != NULL:
             len_out[0] = <Py_ssize_t>self.size
         return 1
 
     def __getreadbuffer__(self, Py_ssize_t idx, void **p):
+        self._check_nullptr()
         if idx != 0:
             raise SystemError("accessing non-existent buffer segment")
         if p != NULL:
@@ -652,6 +720,7 @@ cdef class Buffer:
         return self.size
 
     def __getwritebuffer__(self, Py_ssize_t idx, void **p):
+        self._check_nullptr()
         if not self.buffer.get().is_mutable():
             raise SystemError("trying to write an immutable buffer")
         if idx != 0:
@@ -731,14 +800,13 @@ cdef class BufferOutputStream(NativeFile):
         self.buffer = _allocate_buffer(maybe_unbox_memory_pool(memory_pool))
         self.wr_file.reset(new CBufferOutputStream(
             <shared_ptr[CResizableBuffer]> self.buffer))
-        self.is_readable = 0
-        self.is_writeable = 1
-        self.is_open = True
+        self.is_writable = True
+        self.closed = False
 
     def get_result(self):
         with nogil:
             check_status(self.wr_file.get().Close())
-        self.is_open = False
+        self.closed = True
         return pyarrow_wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
 
 
@@ -746,9 +814,8 @@ cdef class MockOutputStream(NativeFile):
 
     def __cinit__(self):
         self.wr_file.reset(new CMockOutputStream())
-        self.is_readable = 0
-        self.is_writeable = 1
-        self.is_open = True
+        self.is_writable = True
+        self.closed = False
 
     def size(self):
         return (<CMockOutputStream*>self.wr_file.get()).GetExtentBytesWritten()
@@ -770,37 +837,50 @@ cdef class BufferReader(NativeFile):
         if isinstance(obj, Buffer):
             self.buffer = obj
         else:
-            self.buffer = frombuffer(obj)
+            self.buffer = py_buffer(obj)
 
         self.rd_file.reset(new CBufferReader(self.buffer.buffer))
-        self.is_readable = 1
-        self.is_writeable = 0
-        self.is_open = True
+        self.is_readable = True
+        self.closed = False
 
 
-def frombuffer(object obj):
+def py_buffer(object obj):
     """
     Construct an Arrow buffer from a Python bytes object
     """
     cdef shared_ptr[CBuffer] buf
-    try:
-        memoryview(obj)
-        buf.reset(new PyBuffer(obj))
-        return pyarrow_wrap_buffer(buf)
-    except TypeError:
-        raise ValueError('Must pass object that implements buffer protocol')
+    check_status(PyBuffer.FromPyObject(obj, &buf))
+    return pyarrow_wrap_buffer(buf)
+
+
+def foreign_buffer(address, size, base):
+    """
+    Construct an Arrow buffer with the given *address* and *size*,
+    backed by the Python *base* object.
+    """
+    cdef:
+        intptr_t c_addr = address
+        int64_t c_size = size
+        shared_ptr[CBuffer] buf
+
+    check_status(PyForeignBuffer.Make(<uint8_t*> c_addr, c_size,
+                                      base, &buf))
+    return pyarrow_wrap_buffer(buf)
 
 
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
     cdef NativeFile nf
 
-    if isinstance(source, six.string_types):
-        source = memory_map(source, mode='r')
-    elif isinstance(source, Buffer):
-        source = BufferReader(source)
-    elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
-        # Optimistically hope this is file-like
-        source = PythonFile(source, mode='r')
+    try:
+        source_path = _stringify_path(source)
+    except TypeError:
+        if isinstance(source, Buffer):
+            source = BufferReader(source)
+        elif not isinstance(source, NativeFile) and hasattr(source, 'read'):
+            # Optimistically hope this is file-like
+            source = PythonFile(source, mode='r')
+    else:
+        source = memory_map(source_path, mode='r')
 
     if isinstance(source, NativeFile):
         nf = source
@@ -818,17 +898,20 @@ cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
 cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     cdef NativeFile nf
 
-    if isinstance(source, six.string_types):
-        source = OSFile(source, mode='w')
-    elif not isinstance(source, NativeFile) and hasattr(source, 'write'):
-        # Optimistically hope this is file-like
-        source = PythonFile(source, mode='w')
+    try:
+        source_path = _stringify_path(source)
+    except TypeError:
+        if not isinstance(source, NativeFile) and hasattr(source, 'write'):
+            # Optimistically hope this is file-like
+            source = PythonFile(source, mode='w')
+    else:
+        source = OSFile(source_path, mode='w')
 
     if isinstance(source, NativeFile):
         nf = source
 
-        if not nf.is_writeable:
-            raise IOError('Native file is not writeable')
+        if not nf.is_writable:
+            raise IOError('Native file is not writable')
 
         nf.write_handle(writer)
     else:
@@ -887,7 +970,7 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
         check_status(CCodec.Create(c_codec, &compressor))
 
     if not isinstance(buf, Buffer):
-        buf = frombuffer(buf)
+        buf = py_buffer(buf)
 
     c_buf = (<Buffer> buf).buffer.get()
 
@@ -952,7 +1035,7 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
         check_status(CCodec.Create(c_codec, &compressor))
 
     if not isinstance(buf, Buffer):
-        buf = frombuffer(buf)
+        buf = py_buffer(buf)
 
     c_buf = (<Buffer> buf).buffer.get()
 

@@ -140,8 +140,8 @@ class ARROW_EXPORT DataType {
 
   // Return whether the types are equal
   //
-  // Types that are logically convertable from one to another e.g. List<UInt8>
-  // and Binary are NOT equal).
+  // Types that are logically convertible from one to another (e.g. List<UInt8>
+  // and Binary) are NOT equal.
   virtual bool Equals(const DataType& other) const;
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
@@ -231,12 +231,6 @@ class ARROW_EXPORT Field {
       : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
-
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \note Deprecated since 0.8.0
-  Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
-                     std::shared_ptr<Field>* out) const;
-#endif
 
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
@@ -407,6 +401,19 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string name() const override { return "list"; }
 };
 
+namespace meta {
+
+/// Additional ListType class that can be instantiated with only compile-time arguments.
+template <typename T>
+class ARROW_EXPORT ListType : public ::arrow::ListType {
+ public:
+  using ValueType = T;
+
+  ListType() : ::arrow::ListType(std::make_shared<T>()) {}
+};
+
+}  // namespace meta
+
 // BinaryType type is represents lists of 1-byte values.
 class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
  public:
@@ -430,8 +437,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 
   explicit FixedSizeBinaryType(int32_t byte_width)
       : FixedWidthType(Type::FIXED_SIZE_BINARY), byte_width_(byte_width) {}
-  explicit FixedSizeBinaryType(int32_t byte_width, Type::type type_id)
-      : FixedWidthType(type_id), byte_width_(byte_width) {}
+  explicit FixedSizeBinaryType(int32_t byte_width, Type::type override_type_id)
+      : FixedWidthType(override_type_id), byte_width_(byte_width) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -468,6 +475,16 @@ class ARROW_EXPORT StructType : public NestedType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
+
+  /// Returns null if name not found
+  std::shared_ptr<Field> GetChildByName(const std::string& name) const;
+
+  /// Returns -1 if name not found
+  int GetChildIndex(const std::string& name) const;
+
+ private:
+  /// Lazily initialized mapping
+  mutable std::unordered_map<std::string, int> name_to_index_;
 };
 
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
@@ -755,12 +772,6 @@ class ARROW_EXPORT Schema {
                   std::shared_ptr<Schema>* out) const;
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
 
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \note Deprecated since 0.8.0
-  Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
-                     std::shared_ptr<Schema>* out) const;
-#endif
-
   /// \brief Replace key-value metadata with new metadata
   ///
   /// \param[in] metadata new KeyValueMetadata
@@ -776,6 +787,8 @@ class ARROW_EXPORT Schema {
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;
+
+  /// Lazily initialized mapping
   mutable std::unordered_map<std::string, int> name_to_index_;
 
   std::shared_ptr<const KeyValueMetadata> metadata_;

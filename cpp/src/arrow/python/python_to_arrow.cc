@@ -40,6 +40,7 @@
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/util/datetime.h"
@@ -84,7 +85,9 @@ class SequenceBuilder {
     if (*tag == -1) {
       *tag = num_tags_++;
     }
-    RETURN_NOT_OK(offsets_.Append(static_cast<int32_t>(offset)));
+    int32_t offset32;
+    RETURN_NOT_OK(internal::CastSize(offset, &offset32));
+    RETURN_NOT_OK(offsets_.Append(offset32));
     RETURN_NOT_OK(types_.Append(*tag));
     return nones_.AppendToBitmap(true);
   }
@@ -173,26 +176,34 @@ class SequenceBuilder {
   /// \param size
   /// The size of the sublist
   Status AppendList(Py_ssize_t size) {
+    int32_t offset;
+    RETURN_NOT_OK(internal::CastSize(list_offsets_.back() + size, &offset));
     RETURN_NOT_OK(Update(list_offsets_.size() - 1, &list_tag_));
-    list_offsets_.push_back(list_offsets_.back() + static_cast<int32_t>(size));
+    list_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendTuple(Py_ssize_t size) {
+    int32_t offset;
+    RETURN_NOT_OK(internal::CastSize(tuple_offsets_.back() + size, &offset));
     RETURN_NOT_OK(Update(tuple_offsets_.size() - 1, &tuple_tag_));
-    tuple_offsets_.push_back(tuple_offsets_.back() + static_cast<int32_t>(size));
+    tuple_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendDict(Py_ssize_t size) {
+    int32_t offset;
+    RETURN_NOT_OK(internal::CastSize(dict_offsets_.back() + size, &offset));
     RETURN_NOT_OK(Update(dict_offsets_.size() - 1, &dict_tag_));
-    dict_offsets_.push_back(dict_offsets_.back() + static_cast<int32_t>(size));
+    dict_offsets_.push_back(offset);
     return Status::OK();
   }
 
   Status AppendSet(Py_ssize_t size) {
+    int32_t offset;
+    RETURN_NOT_OK(internal::CastSize(set_offsets_.back() + size, &offset));
     RETURN_NOT_OK(Update(set_offsets_.size() - 1, &set_tag_));
-    set_offsets_.push_back(set_offsets_.back() + static_cast<int32_t>(size));
+    set_offsets_.push_back(offset);
     return Status::OK();
   }
 
@@ -213,7 +224,7 @@ class SequenceBuilder {
       DCHECK(data->length() == offsets.back());
       std::shared_ptr<Array> offset_array;
       Int32Builder builder(::arrow::int32(), pool_);
-      RETURN_NOT_OK(builder.Append(offsets.data(), offsets.size()));
+      RETURN_NOT_OK(builder.AppendValues(offsets.data(), offsets.size()));
       RETURN_NOT_OK(builder.Finish(&offset_array));
       std::shared_ptr<Array> list_array;
       RETURN_NOT_OK(ListArray::FromArrays(*offset_array, *data, pool_, &list_array));
@@ -365,17 +376,8 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
   *result = NULL;
   if (context == Py_None) {
     std::stringstream ss;
-    ScopedRef repr(PyObject_Repr(elem));
-    RETURN_IF_PYERROR();
-#if PY_MAJOR_VERSION >= 3
-    ScopedRef ascii(PyUnicode_AsASCIIString(repr.get()));
-    RETURN_IF_PYERROR();
-    ss << "error while calling callback on " << PyBytes_AsString(ascii.get())
+    ss << "error while calling callback on " << internal::PyObject_StdStringRepr(elem)
        << ": handler not registered";
-#else
-    ss << "error while calling callback on " << PyString_AsString(repr.get())
-       << ": handler not registered";
-#endif
     return Status::SerializationError(ss.str());
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
@@ -386,8 +388,8 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
 
 Status CallSerializeCallback(PyObject* context, PyObject* value,
                              PyObject** serialized_object) {
-  ScopedRef method_name(PyUnicode_FromString("_serialize_callback"));
-  RETURN_NOT_OK(CallCustomCallback(context, method_name.get(), value, serialized_object));
+  OwnedRef method_name(PyUnicode_FromString("_serialize_callback"));
+  RETURN_NOT_OK(CallCustomCallback(context, method_name.obj(), value, serialized_object));
   if (!PyDict_Check(*serialized_object)) {
     return Status::TypeError("serialization callback must return a valid dictionary");
   }
@@ -396,8 +398,8 @@ Status CallSerializeCallback(PyObject* context, PyObject* value,
 
 Status CallDeserializeCallback(PyObject* context, PyObject* value,
                                PyObject** deserialized_object) {
-  ScopedRef method_name(PyUnicode_FromString("_deserialize_callback"));
-  return CallCustomCallback(context, method_name.get(), value, deserialized_object);
+  OwnedRef method_name(PyUnicode_FromString("_deserialize_callback"));
+  return CallCustomCallback(context, method_name.obj(), value, deserialized_object);
 }
 
 Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
@@ -483,25 +485,16 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 #endif
   } else if (PyBytes_Check(elem)) {
     auto data = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(elem));
-    const int64_t size = static_cast<int64_t>(PyBytes_GET_SIZE(elem));
-    if (size > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot writes bytes over 2GB");
-    }
-    RETURN_NOT_OK(builder->AppendBytes(data, static_cast<int32_t>(size)));
+    int32_t size;
+    RETURN_NOT_OK(internal::CastSize(PyBytes_GET_SIZE(elem), &size));
+    RETURN_NOT_OK(builder->AppendBytes(data, size));
   } else if (PyUnicode_Check(elem)) {
-    Py_ssize_t size;
-#if PY_MAJOR_VERSION >= 3
-    char* data = PyUnicode_AsUTF8AndSize(elem, &size);
-#else
-    ScopedRef str(PyUnicode_AsUTF8String(elem));
-    char* data = PyString_AS_STRING(str.get());
-    size = PyString_GET_SIZE(str.get());
-#endif
-    if (size > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot writes bytes over 2GB");
-    }
-    RETURN_NOT_OK(builder->AppendString(data, static_cast<int32_t>(size)));
-  } else if (PyList_Check(elem)) {
+    PyBytesView view;
+    RETURN_NOT_OK(view.FromString(elem));
+    int32_t size;
+    RETURN_NOT_OK(internal::CastSize(view.size, &size));
+    RETURN_NOT_OK(builder->AppendString(view.bytes, size));
+  } else if (PyList_CheckExact(elem)) {
     RETURN_NOT_OK(builder->AppendList(PyList_Size(elem)));
     sublists->push_back(elem);
   } else if (PyDict_CheckExact(elem)) {
@@ -515,7 +508,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     subsets->push_back(elem);
   } else if (PyArray_IsScalar(elem, Generic)) {
     RETURN_NOT_OK(AppendScalar(elem, builder));
-  } else if (PyArray_Check(elem)) {
+  } else if (PyArray_CheckExact(elem)) {
     RETURN_NOT_OK(SerializeArray(context, reinterpret_cast<PyArrayObject*>(elem), builder,
                                  subdicts, blobs_out));
   } else if (elem == Py_None) {
@@ -585,17 +578,11 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
   SequenceBuilder builder(nullptr);
   std::vector<PyObject*> sublists, subtuples, subdicts, subsets;
   for (const auto& sequence : sequences) {
-    ScopedRef iterator(PyObject_GetIter(sequence));
-    RETURN_IF_PYERROR();
-    ScopedRef item;
-    while (true) {
-      item.reset(PyIter_Next(iterator.get()));
-      if (!item.get()) {
-        break;
-      }
-      RETURN_NOT_OK(Append(context, item.get(), &builder, &sublists, &subtuples,
-                           &subdicts, &subsets, blobs_out));
-    }
+    auto visit = [&](PyObject* obj) {
+      return Append(context, obj, &builder, &sublists, &subtuples, &subdicts, &subsets,
+                    blobs_out);
+    };
+    RETURN_NOT_OK(internal::VisitIterable(sequence, visit));
   }
   std::shared_ptr<Array> list;
   if (sublists.size() > 0) {
@@ -739,18 +726,18 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
 Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out) {
   PyAcquireGIL py_gil;
 
-  ScopedRef result(PyDict_New());
+  OwnedRef result(PyDict_New());
   PyObject* buffers = PyList_New(0);
 
   // TODO(wesm): Not sure how pedantic we need to be about checking the return
   // values of these functions. There are other places where we do not check
   // PyDict_SetItem/SetItemString return value, but these failures would be
   // quite esoteric
-  PyDict_SetItemString(result.get(), "num_tensors",
+  PyDict_SetItemString(result.obj(), "num_tensors",
                        PyLong_FromSize_t(this->tensors.size()));
-  PyDict_SetItemString(result.get(), "num_buffers",
+  PyDict_SetItemString(result.obj(), "num_buffers",
                        PyLong_FromSize_t(this->buffers.size()));
-  PyDict_SetItemString(result.get(), "data", buffers);
+  PyDict_SetItemString(result.obj(), "data", buffers);
   RETURN_IF_PYERROR();
 
   Py_DECREF(buffers);
@@ -792,7 +779,7 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
     RETURN_NOT_OK(PushBuffer(buf));
   }
 
-  *out = result.release();
+  *out = result.detach();
   return Status::OK();
 }
 

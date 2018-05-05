@@ -37,14 +37,38 @@ namespace io {
 
 class ARROW_EXPORT FileOutputStream : public OutputStream {
  public:
-  ~FileOutputStream();
+  ~FileOutputStream() override;
+
+  /// \brief Open a local file for writing, truncating any existing file
+  /// \param[in] path with UTF8 encoding
+  /// \param[out] out a base interface OutputStream instance
+  ///
+  /// When opening a new file, any existing file with the indicated path is
+  /// truncated to 0 bytes, deleting any existing data
+  static Status Open(const std::string& path, std::shared_ptr<OutputStream>* out);
+
+  /// \brief Open a local file for writing
+  /// \param[in] path with UTF8 encoding
+  /// \param[in] append append to existing file, otherwise truncate to 0 bytes
+  /// \param[out] out a base interface OutputStream instance
+  static Status Open(const std::string& path, bool append,
+                     std::shared_ptr<OutputStream>* out);
+
+  /// \brief Open a file descriptor for writing.  The underlying file isn't
+  /// truncated.
+  /// \param[in] fd file descriptor
+  /// \param[out] out a base interface OutputStream instance
+  ///
+  /// The file descriptor becomes owned by the OutputStream, and will be closed
+  /// on Close() or destruction.
+  static Status Open(int fd, std::shared_ptr<OutputStream>* out);
 
   /// \brief Open a local file for writing, truncating any existing file
   /// \param[in] path with UTF8 encoding
   /// \param[out] file a FileOutputStream instance
   ///
   /// When opening a new file, any existing file with the indicated path is
-  /// truncated to 0 bytes, deleting any existing memory
+  /// truncated to 0 bytes, deleting any existing data
   static Status Open(const std::string& path, std::shared_ptr<FileOutputStream>* file);
 
   /// \brief Open a local file for writing
@@ -53,6 +77,15 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   /// \param[out] file a FileOutputStream instance
   static Status Open(const std::string& path, bool append,
                      std::shared_ptr<FileOutputStream>* file);
+
+  /// \brief Open a file descriptor for writing.  The underlying file isn't
+  /// truncated.
+  /// \param[in] fd file descriptor
+  /// \param[out] out a FileOutputStream instance
+  ///
+  /// The file descriptor becomes owned by the OutputStream, and will be closed
+  /// on Close() or destruction.
+  static Status Open(int fd, std::shared_ptr<FileOutputStream>* out);
 
   // OutputStream interface
   Status Close() override;
@@ -73,7 +106,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 // Operating system file
 class ARROW_EXPORT ReadableFile : public RandomAccessFile {
  public:
-  ~ReadableFile();
+  ~ReadableFile() override;
 
   /// \brief Open a local file for reading
   /// \param[in] path with UTF8 encoding
@@ -88,6 +121,25 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   /// Open file with one's own memory pool for memory allocations
   static Status Open(const std::string& path, MemoryPool* pool,
                      std::shared_ptr<ReadableFile>* file);
+
+  /// \brief Open a local file for reading
+  /// \param[in] fd file descriptor
+  /// \param[out] file ReadableFile instance
+  /// Open file with one's own memory pool for memory allocations
+  ///
+  /// The file descriptor becomes owned by the ReadableFile, and will be closed
+  /// on Close() or destruction.
+  static Status Open(int fd, std::shared_ptr<ReadableFile>* file);
+
+  /// \brief Open a local file for reading
+  /// \param[in] fd file descriptor
+  /// \param[in] pool a MemoryPool for memory allocations
+  /// \param[out] file ReadableFile instance
+  /// Open file with one's own memory pool for memory allocations
+  ///
+  /// The file descriptor becomes owned by the ReadableFile, and will be closed
+  /// on Close() or destruction.
+  static Status Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file);
 
   Status Close() override;
   Status Tell(int64_t* position) const override;
@@ -125,7 +177,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
 // FileOutputStream
 class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  public:
-  ~MemoryMappedFile();
+  ~MemoryMappedFile() override;
 
   /// Create new file with indicated size, return in read/write mode
   static Status Create(const std::string& path, int64_t size,

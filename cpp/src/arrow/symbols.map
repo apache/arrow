@@ -27,12 +27,8 @@
     # Brotli compression library
     Brotli*;
     # zlib
-    adler32;
-    adler32_combine;
-    adler32_combine64;
-    crc32;
-    crc32_combine;
-    crc32_combine64;
+    adler32*;
+    crc32*;
     deflate*;
     inflate*;
     get_crc_table;
@@ -55,6 +51,8 @@
     ERR_getErrorString;
     # jemalloc
     je_arrow_*;
+    # ORC destructors
+    _ZThn8_N3orc*;
 
     extern "C++" {
       # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
@@ -65,6 +63,8 @@
 
       # Statically linked C++ dependencies
       boost::*;
+      google::*;
+      orc::*;
       snappy::*;
     };
 };

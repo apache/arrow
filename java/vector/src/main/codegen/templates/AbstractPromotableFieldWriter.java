@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.types.Types;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 <@pp.dropOutputFile />
@@ -51,12 +53,12 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
-    getWriter(MinorType.MAP).start();
+    getWriter(MinorType.STRUCT).start();
   }
 
   @Override
   public void end() {
-    getWriter(MinorType.MAP).end();
+    getWriter(MinorType.STRUCT).end();
     setPosition(idx() + 1);
   }
 
@@ -82,13 +84,19 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
 
+  <#if minor.class == "Decimal">
+  public void writeBigEndianBytesToDecimal(byte[] value) {
+    getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
+  }
+  </#if>
+
   </#list></#list>
   public void writeNull() {
   }
 
   @Override
-  public MapWriter map() {
-    return getWriter(MinorType.LIST).map();
+  public StructWriter struct() {
+    return getWriter(MinorType.LIST).struct();
   }
 
   @Override
@@ -97,13 +105,13 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public MapWriter map(String name) {
-    return getWriter(MinorType.MAP).map(name);
+  public StructWriter struct(String name) {
+    return getWriter(MinorType.STRUCT).struct(name);
   }
 
   @Override
   public ListWriter list(String name) {
-    return getWriter(MinorType.MAP).list(name);
+    return getWriter(MinorType.STRUCT).list(name);
   }
 
   <#list vv.types as type><#list type.minor as minor>
@@ -115,13 +123,13 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   <#if minor.typeParams?? >
   @Override
   public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
-    return getWriter(MinorType.MAP).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
+    return getWriter(MinorType.STRUCT).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
 
   </#if>
   @Override
   public ${capName}Writer ${lowerName}(String name) {
-    return getWriter(MinorType.MAP).${lowerName}(name);
+    return getWriter(MinorType.STRUCT).${lowerName}(name);
   }
 
   @Override

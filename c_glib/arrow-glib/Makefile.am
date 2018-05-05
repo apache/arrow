@@ -16,6 +16,7 @@
 # under the License.
 
 CLEANFILES =
+DISTCLEANFILES =
 
 EXTRA_DIST =					\
 	meson.build
@@ -81,7 +82,8 @@ libarrow_glib_la_headers +=			\
 	compute.h
 
 libarrow_glib_la_generated_headers =		\
-	enums.h
+	enums.h					\
+	version.h
 
 libarrow_glib_la_generated_sources =		\
 	enums.c					\
@@ -165,7 +167,12 @@ libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_cpp_headers)
 
 BUILT_SOURCES =					\
+	$(libarrow_glib_la_genearted_headers)	\
 	$(libarrow_glib_la_genearted_sources)	\
+	stamp-enums.c				\
+	stamp-enums.h
+
+DISTCLEANFILES +=				\
 	stamp-enums.c				\
 	stamp-enums.h
 
@@ -214,7 +221,7 @@ INTROSPECTION_SCANNER_ARGS =
 INTROSPECTION_SCANNER_ENV =
 if USE_ARROW_BUILD_DIR
 INTROSPECTION_SCANNER_ENV +=			\
-	LD_LIBRARY_PATH=$(ARROW_LIB_DIR):$${PKG_CONFIG_PATH}
+	LD_LIBRARY_PATH=$(ARROW_LIB_DIR):$${LD_LIBRARY_PATH}
 endif
 if OS_MACOS
 INTROSPECTION_SCANNER_ENV +=			\

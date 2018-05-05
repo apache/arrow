@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector;
 
-public interface VariableWidthVector extends ValueVector {
+public interface VariableWidthVector extends ValueVector, DensityAwareVector {
 
   /**
    * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.

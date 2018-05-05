@@ -24,10 +24,9 @@ import org.apache.arrow.vector.complex.impl.DateDayReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.DateDayHolder;
 import org.apache.arrow.vector.holders.NullableDateDayHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.slf4j.Logger;
 
 /**
  * DateDayVector implements a fixed width (4 bytes) vector of
@@ -45,8 +44,7 @@ public class DateDayVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public DateDayVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.DATEDAY.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.DATEDAY.getType()), allocator);
   }
 
   /**
@@ -76,8 +74,8 @@ public class DateDayVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.DATEDAY;
+  public MinorType getMinorType() {
+    return MinorType.DATEDAY;
   }
 
 

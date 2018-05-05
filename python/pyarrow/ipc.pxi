@@ -304,7 +304,8 @@ cdef class _RecordBatchReader:
                     break
                 batches.push_back(batch)
 
-            check_status(CTable.FromRecordBatches(batches, &table))
+            check_status(CTable.FromRecordBatches(self.schema.sp_schema,
+                                                  batches, &table))
 
         return pyarrow_wrap_table(table)
 
@@ -386,7 +387,8 @@ cdef class _RecordBatchFileReader:
         with nogil:
             for i in range(nbatches):
                 check_status(self.reader.get().ReadRecordBatch(i, &batches[i]))
-            check_status(CTable.FromRecordBatches(batches, &table))
+            check_status(CTable.FromRecordBatches(self.schema.sp_schema,
+                                                  batches, &table))
 
         return pyarrow_wrap_table(table)
 
@@ -429,7 +431,7 @@ def write_tensor(Tensor tensor, NativeFile dest):
         int32_t metadata_length
         int64_t body_length
 
-    dest._assert_writeable()
+    dest._assert_writable()
 
     with nogil:
         check_status(

@@ -18,7 +18,10 @@
 #ifndef ARROW_PYTHON_COMMON_H
 #define ARROW_PYTHON_COMMON_H
 
+#include <memory>
+#include <sstream>
 #include <string>
+#include <utility>
 
 #include "arrow/python/config.h"
 
@@ -31,6 +34,16 @@ namespace arrow {
 class MemoryPool;
 
 namespace py {
+
+// TODO: inline the successful case
+ARROW_EXPORT Status CheckPyError(StatusCode code = StatusCode::UnknownError);
+
+ARROW_EXPORT Status PassPyError();
+
+// TODO(wesm): We can just let errors pass through. To be explored later
+#define RETURN_IF_PYERROR() RETURN_NOT_OK(CheckPyError());
+
+#define PY_RETURN_IF_ERROR(CODE) RETURN_NOT_OK(CheckPyError(CODE));
 
 class ARROW_EXPORT PyAcquireGIL {
  public:
@@ -61,96 +74,127 @@ class ARROW_EXPORT PyAcquireGIL {
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
 
+// A RAII primitive that DECREFs the underlying PyObject* when it
+// goes out of scope.
 class ARROW_EXPORT OwnedRef {
  public:
   OwnedRef() : obj_(NULLPTR) {}
-
+  OwnedRef(OwnedRef&& other) : OwnedRef(other.detach()) {}
   explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
-  ~OwnedRef() {
-    PyAcquireGIL lock;
-    release();
+  OwnedRef& operator=(OwnedRef&& other) {
+    obj_ = other.detach();
+    return *this;
   }
 
-  void reset(PyObject* obj) {
-    /// TODO(phillipc): Should we acquire the GIL here? It definitely needs to be
-    /// acquired,
-    /// but callers have probably already acquired it
-    Py_XDECREF(obj_);
-    obj_ = obj;
-  }
-
-  void release() {
-    Py_XDECREF(obj_);
-    obj_ = NULLPTR;
-  }
-
-  PyObject* obj() const { return obj_; }
-
- private:
-  PyObject* obj_;
-};
-
-// This is different from OwnedRef in that it assumes that
-// the GIL is held by the caller and doesn't decrement the
-// reference count when release is called.
-class ARROW_EXPORT ScopedRef {
- public:
-  ScopedRef() : obj_(NULLPTR) {}
-
-  explicit ScopedRef(PyObject* obj) : obj_(obj) {}
-
-  ~ScopedRef() { Py_XDECREF(obj_); }
+  ~OwnedRef() { reset(); }
 
   void reset(PyObject* obj) {
     Py_XDECREF(obj_);
     obj_ = obj;
   }
 
-  PyObject* release() {
+  void reset() { reset(NULLPTR); }
+
+  PyObject* detach() {
     PyObject* result = obj_;
     obj_ = NULLPTR;
     return result;
   }
 
-  PyObject* get() const { return obj_; }
+  PyObject* obj() const { return obj_; }
 
   PyObject** ref() { return &obj_; }
 
+  operator bool() const { return obj_ != NULLPTR; }
+
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(OwnedRef);
+
   PyObject* obj_;
 };
 
-struct ARROW_EXPORT PyObjectStringify {
-  OwnedRef tmp_obj;
-  const char* bytes;
-  Py_ssize_t size;
+// Same as OwnedRef, but ensures the GIL is taken when it goes out of scope.
+// This is for situations where the GIL is not always known to be held
+// (e.g. if it is released in the middle of a function for performance reasons)
+class ARROW_EXPORT OwnedRefNoGIL : public OwnedRef {
+ public:
+  OwnedRefNoGIL() : OwnedRef() {}
+  OwnedRefNoGIL(OwnedRefNoGIL&& other) : OwnedRef(other.detach()) {}
+  explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
 
-  explicit PyObjectStringify(PyObject* obj) {
-    PyObject* bytes_obj;
-    if (PyUnicode_Check(obj)) {
-      bytes_obj = PyUnicode_AsUTF8String(obj);
-      tmp_obj.reset(bytes_obj);
-      bytes = PyBytes_AsString(bytes_obj);
-      size = PyBytes_GET_SIZE(bytes_obj);
-    } else if (PyBytes_Check(obj)) {
-      bytes = PyBytes_AsString(obj);
-      size = PyBytes_GET_SIZE(obj);
-    } else {
-      bytes = NULLPTR;
-      size = -1;
-    }
+  ~OwnedRefNoGIL() {
+    PyAcquireGIL lock;
+    reset();
   }
 };
 
-Status CheckPyError(StatusCode code = StatusCode::UnknownError);
+// A temporary conversion of a Python object to a bytes area.
+struct ARROW_EXPORT PyBytesView {
+  const char* bytes;
+  Py_ssize_t size;
 
-Status PassPyError();
+  PyBytesView() : bytes(nullptr), size(0), ref(nullptr) {}
 
-// TODO(wesm): We can just let errors pass through. To be explored later
-#define RETURN_IF_PYERROR() RETURN_NOT_OK(CheckPyError());
+  // View the given Python object as binary-like, i.e. bytes
+  Status FromBinary(PyObject* obj) { return FromBinary(obj, "a bytes object"); }
 
-#define PY_RETURN_IF_ERROR(CODE) RETURN_NOT_OK(CheckPyError(CODE));
+  // View the given Python object as string-like, i.e. str or (utf8) bytes
+  Status FromString(PyObject* obj, bool check_valid = false) {
+    if (PyUnicode_Check(obj)) {
+#if PY_MAJOR_VERSION >= 3
+      Py_ssize_t size;
+      // The utf-8 representation is cached on the unicode object
+      const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
+      RETURN_IF_PYERROR();
+      this->bytes = data;
+      this->size = size;
+      this->ref.reset();
+      return Status::OK();
+#else
+      PyObject* converted = PyUnicode_AsUTF8String(obj);
+      RETURN_IF_PYERROR();
+      this->bytes = PyBytes_AS_STRING(converted);
+      this->size = PyBytes_GET_SIZE(converted);
+      this->ref.reset(converted);
+      return Status::OK();
+#endif
+    } else {
+      RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
+      if (check_valid) {
+        // Check the bytes are valid utf-8
+        OwnedRef decoded(PyUnicode_FromStringAndSize(bytes, size));
+        RETURN_IF_PYERROR();
+      }
+      return Status::OK();
+    }
+  }
+
+ protected:
+  PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = nullptr)
+      : bytes(b), size(s), ref(obj) {}
+
+  Status FromBinary(PyObject* obj, const char* expected_msg) {
+    if (PyBytes_Check(obj)) {
+      this->bytes = PyBytes_AS_STRING(obj);
+      this->size = PyBytes_GET_SIZE(obj);
+      this->ref.reset();
+      return Status::OK();
+    } else if (PyByteArray_Check(obj)) {
+      this->bytes = PyByteArray_AS_STRING(obj);
+      this->size = PyByteArray_GET_SIZE(obj);
+      this->ref.reset();
+      return Status::OK();
+    } else {
+      std::stringstream ss;
+      ss << "Expected " << expected_msg << ", got a '" << Py_TYPE(obj)->tp_name
+         << "' object";
+      return Status::TypeError(ss.str());
+    }
+  }
+
+  OwnedRef ref;
+};
 
 // Return the common PyArrow memory pool
 ARROW_EXPORT void set_default_memory_pool(MemoryPool* pool);
@@ -158,15 +202,17 @@ ARROW_EXPORT MemoryPool* get_memory_pool();
 
 class ARROW_EXPORT PyBuffer : public Buffer {
  public:
-  /// Note that the GIL must be held when calling the PyBuffer constructor.
-  ///
-  /// While memoryview objects support multi-demensional buffers, PyBuffer only supports
+  /// While memoryview objects support multi-dimensional buffers, PyBuffer only supports
   /// one-dimensional byte buffers.
-  explicit PyBuffer(PyObject* obj);
   ~PyBuffer();
 
+  static Status FromPyObject(PyObject* obj, std::shared_ptr<Buffer>* out);
+
  private:
-  PyObject* obj_;
+  PyBuffer();
+  Status Init(PyObject*);
+
+  Py_buffer py_buf_;
 };
 
 }  // namespace py

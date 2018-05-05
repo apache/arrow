@@ -296,12 +296,13 @@ which are zero-copy convertible to Python ``memoryview`` objects:
 
    memoryview(components['data'][0])
 
-A memoryview can be converted back to a ``Buffer`` with ``pyarrow.frombuffer``:
+A memoryview can be converted back to a Arrow ``Buffer`` with
+``pyarrow.py_buffer``:
 
 .. ipython:: python
 
    mv = memoryview(components['data'][0])
-   buf = pa.frombuffer(mv)
+   buf = pa.py_buffer(mv)
 
 An object can be reconstructed from its component-based representation using
 ``deserialize_components``:
@@ -317,9 +318,8 @@ An object can be reconstructed from its component-based representation using
 Serializing pandas Objects
 --------------------------
 
-We provide a serialization context that has optimized handling of pandas
-objects like ``DataFrame`` and ``Series``. This is the
-``pyarrow.pandas_serialization_context`` member. Combined with component-based
+The default serialization context has optimized handling of pandas
+objects like ``DataFrame`` and ``Series``. Combined with component-based
 serialization above, this enables zero-copy transport of pandas DataFrame
 objects not containing any Python objects:
 
@@ -327,7 +327,7 @@ objects not containing any Python objects:
 
    import pandas as pd
    df = pd.DataFrame({'a': [1, 2, 3, 4, 5]})
-   context = pa.pandas_serialization_context
+   context = pa.default_serialization_context()
    serialized_df = context.serialize(df)
    df_components = serialized_df.to_components()
    original_df = context.deserialize_components(df_components)

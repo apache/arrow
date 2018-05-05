@@ -17,6 +17,7 @@
 
 import os
 import sys
+import tempfile
 import unittest
 import pytest
 
@@ -27,14 +28,13 @@ from pandas.util.testing import assert_frame_equal
 import pandas as pd
 
 import pyarrow as pa
-from pyarrow.compat import guid
 from pyarrow.feather import (read_feather, write_feather,
-                             FeatherReader)
+                             read_table, FeatherReader)
 from pyarrow.lib import FeatherWriter
 
 
-def random_path():
-    return 'feather_{}'.format(guid())
+def random_path(prefix='feather_'):
+    return tempfile.mktemp(prefix=prefix)
 
 
 class TestFeatherReader(unittest.TestCase):
@@ -128,6 +128,29 @@ class TestFeatherReader(unittest.TestCase):
 
         df = pd.DataFrame(data)
         self._check_pandas_roundtrip(df)
+
+    def test_read_table(self):
+        num_values = (100, 100)
+        path = random_path()
+
+        self.test_files.append(path)
+        writer = FeatherWriter()
+        writer.open(path)
+
+        values = np.random.randint(0, 100, size=num_values)
+
+        for i in range(100):
+            writer.write_array('col_' + str(i), values[:, i])
+
+        writer.close()
+
+        data = pd.DataFrame(values,
+                            columns=['col_' + str(i) for i in range(100)])
+        table = pa.Table.from_pandas(data)
+
+        result = read_table(path)
+
+        assert_frame_equal(table.to_pandas(), result.to_pandas())
 
     def test_float_nulls(self):
         num_values = 100
@@ -400,7 +423,7 @@ class TestFeatherReader(unittest.TestCase):
         # GH #209
         name = (b'Besa_Kavaj\xc3\xab.feather').decode('utf-8')
         df = pd.DataFrame({'foo': [1, 2, 3, 4]})
-        self._check_pandas_roundtrip(df, path=name)
+        self._check_pandas_roundtrip(df, path=random_path(prefix=name))
 
     def test_read_columns(self):
         data = {'foo': [1, 2, 3, 4],
@@ -465,7 +488,7 @@ class TestFeatherReader(unittest.TestCase):
 
         # non-strings
         df = pd.DataFrame({'a': ['a', 1, 2.0]})
-        self._assert_error_on_write(df, ValueError)
+        self._assert_error_on_write(df, TypeError)
 
     @pytest.mark.slow
     def test_large_dataframe(self):

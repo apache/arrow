@@ -20,7 +20,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <set>
 #include <sstream>
+#include <utility>
 
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
@@ -41,6 +44,22 @@ std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type
                                            std::vector<std::shared_ptr<Buffer>>&& buffers,
                                            int64_t null_count, int64_t offset) {
   return std::make_shared<ArrayData>(type, length, std::move(buffers), null_count,
+                                     offset);
+}
+
+std::shared_ptr<ArrayData> ArrayData::Make(
+    const std::shared_ptr<DataType>& type, int64_t length,
+    const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t null_count,
+    int64_t offset) {
+  return std::make_shared<ArrayData>(type, length, buffers, null_count, offset);
+}
+
+std::shared_ptr<ArrayData> ArrayData::Make(
+    const std::shared_ptr<DataType>& type, int64_t length,
+    const std::vector<std::shared_ptr<Buffer>>& buffers,
+    const std::vector<std::shared_ptr<ArrayData>>& child_data, int64_t null_count,
+    int64_t offset) {
+  return std::make_shared<ArrayData>(type, length, buffers, child_data, null_count,
                                      offset);
 }
 
@@ -138,15 +157,6 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
                                int64_t null_count, int64_t offset) {
   SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
 }
-
-#ifndef ARROW_NO_DEPRECATED_API
-
-const uint8_t* PrimitiveArray::raw_values() const {
-  return raw_values_ +
-         offset() * static_cast<const FixedWidthType&>(*type()).bit_width() / CHAR_BIT;
-}
-
-#endif
 
 template <typename T>
 NumericArray<T>::NumericArray(const std::shared_ptr<ArrayData>& data)
@@ -249,6 +259,8 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
+
+  DCHECK_EQ(data_->child_data.size(), 1);
   values_ = MakeArray(data_->child_data[0]);
 }
 
@@ -359,10 +371,63 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 std::shared_ptr<Array> StructArray::field(int i) const {
   if (!boxed_fields_[i]) {
-    boxed_fields_[i] = MakeArray(data_->child_data[i]);
+    std::shared_ptr<ArrayData> field_data;
+    if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
+      field_data = SliceData(*data_->child_data[i].get(), data_->offset, data_->length);
+    } else {
+      field_data = data_->child_data[i];
+    }
+    boxed_fields_[i] = MakeArray(field_data);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
+}
+
+Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
+  ArrayVector flattened;
+  std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
+
+  for (auto& child_data : data_->child_data) {
+    std::shared_ptr<Buffer> flattened_null_bitmap;
+    int64_t flattened_null_count = kUnknownNullCount;
+
+    // Need to adjust for parent offset
+    if (data_->offset != 0 || data_->length != child_data->length) {
+      child_data = SliceData(*child_data, data_->offset, data_->length);
+    }
+    std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
+    const int64_t child_offset = child_data->offset;
+
+    // The validity of a flattened datum is the logical AND of the struct
+    // element's validity and the individual field element's validity.
+    if (null_bitmap && child_null_bitmap) {
+      RETURN_NOT_OK(BitmapAnd(pool, child_null_bitmap->data(), child_offset,
+                              null_bitmap_data_, data_->offset, data_->length,
+                              child_offset, &flattened_null_bitmap));
+    } else if (child_null_bitmap) {
+      flattened_null_bitmap = child_null_bitmap;
+      flattened_null_count = child_data->null_count;
+    } else if (null_bitmap) {
+      if (child_offset == data_->offset) {
+        flattened_null_bitmap = null_bitmap;
+      } else {
+        RETURN_NOT_OK(CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length,
+                                 &flattened_null_bitmap));
+      }
+      flattened_null_count = data_->null_count;
+    } else {
+      flattened_null_count = 0;
+    }
+
+    auto flattened_data = child_data->Copy();
+    flattened_data->buffers[0] = flattened_null_bitmap;
+    flattened_data->null_count = flattened_null_count;
+
+    flattened.push_back(MakeArray(flattened_data));
+  }
+
+  *out = flattened;
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -458,7 +523,16 @@ Status UnionArray::MakeSparse(const Array& type_ids,
 
 std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
-    boxed_fields_[i] = MakeArray(data_->child_data[i]);
+    std::shared_ptr<ArrayData> child_data = data_->child_data[i];
+    if (mode() == UnionMode::SPARSE) {
+      // Sparse union: need to adjust child if union is sliced
+      // (for dense unions, the need to lookup through the offsets
+      //  makes this unnecessary)
+      if (data_->offset != 0 || child_data->length > data_->length) {
+        child_data = SliceData(*child_data.get(), data_->offset, data_->length);
+      }
+    }
+    boxed_fields_[i] = MakeArray(child_data);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
@@ -474,6 +548,39 @@ const Array* UnionArray::UnsafeChild(int i) const {
 
 // ----------------------------------------------------------------------
 // DictionaryArray
+
+/// \brief Perform validation check to determine if all dictionary indices
+/// are within valid range (0 <= index < upper_bound)
+///
+/// \param[in] indices array of dictionary indices
+/// \param[in] upper_bound upper bound of valid range for indices
+/// \return Status
+template <typename ArrowType>
+Status ValidateDictionaryIndices(const std::shared_ptr<Array>& indices,
+                                 const int64_t upper_bound) {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  const auto& array = static_cast<const ArrayType&>(*indices);
+  const typename ArrowType::c_type* data = array.raw_values();
+  const int64_t size = array.length();
+
+  if (array.null_count() == 0) {
+    for (int64_t idx = 0; idx < size; ++idx) {
+      if (data[idx] < 0 || data[idx] >= upper_bound) {
+        return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
+      }
+    }
+  } else {
+    for (int64_t idx = 0; idx < size; ++idx) {
+      if (!array.IsNull(idx)) {
+        if (data[idx] < 0 || data[idx] >= upper_bound) {
+          return Status::Invalid("Dictionary has out-of-bound index [0, dict.length)");
+        }
+      }
+    }
+  }
+
+  return Status::OK();
+}
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(static_cast<const DictionaryType*>(data->type.get())) {
@@ -491,11 +598,47 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
   SetData(data);
 }
 
+Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
+                                   const std::shared_ptr<Array>& indices,
+                                   std::shared_ptr<Array>* out) {
+  DCHECK_EQ(type->id(), Type::DICTIONARY);
+  const auto& dict = static_cast<const DictionaryType&>(*type);
+  DCHECK_EQ(indices->type_id(), dict.index_type()->id());
+
+  int64_t upper_bound = dict.dictionary()->length();
+  Status is_valid;
+
+  switch (indices->type_id()) {
+    case Type::INT8:
+      is_valid = ValidateDictionaryIndices<Int8Type>(indices, upper_bound);
+      break;
+    case Type::INT16:
+      is_valid = ValidateDictionaryIndices<Int16Type>(indices, upper_bound);
+      break;
+    case Type::INT32:
+      is_valid = ValidateDictionaryIndices<Int32Type>(indices, upper_bound);
+      break;
+    case Type::INT64:
+      is_valid = ValidateDictionaryIndices<Int64Type>(indices, upper_bound);
+      break;
+    default:
+      std::stringstream ss;
+      ss << "Categorical index type not supported: " << indices->type()->ToString();
+      return Status::NotImplemented(ss.str());
+  }
+
+  if (!is_valid.ok()) {
+    return is_valid;
+  }
+
+  *out = std::make_shared<DictionaryArray>(type, indices);
+  return is_valid;
+}
+
 void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
   auto indices_data = data_->Copy();
   indices_data->type = dict_type_->index_type();
-  std::shared_ptr<Array> result;
   indices_ = MakeArray(indices_data);
 }
 
@@ -678,17 +821,6 @@ class ArrayDataWrapper {
 
 }  // namespace internal
 
-#ifndef ARROW_NO_DEPRECATED_API
-
-Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out) {
-  internal::ArrayDataWrapper wrapper_visitor(data, out);
-  RETURN_NOT_OK(VisitTypeInline(*data->type, &wrapper_visitor));
-  DCHECK(out);
-  return Status::OK();
-}
-
-#endif
-
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
   std::shared_ptr<Array> out;
   internal::ArrayDataWrapper wrapper_visitor(data, &out);
@@ -697,6 +829,85 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
   DCHECK(out);
   return out;
 }
+
+// ----------------------------------------------------------------------
+// Misc APIs
+
+namespace internal {
+
+std::vector<ArrayVector> RechunkArraysConsistently(
+    const std::vector<ArrayVector>& groups) {
+  if (groups.size() <= 1) {
+    return groups;
+  }
+  int64_t total_length = 0;
+  for (const auto& array : groups.front()) {
+    total_length += array->length();
+  }
+#ifndef NDEBUG
+  for (const auto& group : groups) {
+    int64_t group_length = 0;
+    for (const auto& array : group) {
+      group_length += array->length();
+    }
+    DCHECK_EQ(group_length, total_length)
+        << "Array groups should have the same total number of elements";
+  }
+#endif
+  if (total_length == 0) {
+    return groups;
+  }
+
+  // Set up result vectors
+  std::vector<ArrayVector> rechunked_groups(groups.size());
+
+  // Set up progress counters
+  std::vector<ArrayVector::const_iterator> current_arrays;
+  std::vector<int64_t> array_offsets;
+  for (const auto& group : groups) {
+    current_arrays.emplace_back(group.cbegin());
+    array_offsets.emplace_back(0);
+  }
+
+  // Scan all array vectors at once, rechunking along the way
+  int64_t start = 0;
+  while (start < total_length) {
+    // First compute max possible length for next chunk
+    int64_t chunk_length = std::numeric_limits<int64_t>::max();
+    for (size_t i = 0; i < groups.size(); i++) {
+      auto& arr_it = current_arrays[i];
+      auto& offset = array_offsets[i];
+      // Skip any done arrays (including 0-length arrays)
+      while (offset == (*arr_it)->length()) {
+        ++arr_it;
+        offset = 0;
+      }
+      const auto& array = *arr_it;
+      DCHECK_GT(array->length(), offset);
+      chunk_length = std::min(chunk_length, array->length() - offset);
+    }
+    DCHECK_GT(chunk_length, 0);
+
+    // Then slice all arrays along this chunk size
+    for (size_t i = 0; i < groups.size(); i++) {
+      const auto& array = *current_arrays[i];
+      auto& offset = array_offsets[i];
+      if (offset == 0 && array->length() == chunk_length) {
+        // Slice spans entire array
+        rechunked_groups[i].emplace_back(array);
+      } else {
+        DCHECK_LT(chunk_length - offset, array->length());
+        rechunked_groups[i].emplace_back(array->Slice(offset, chunk_length));
+      }
+      offset += chunk_length;
+    }
+    start += chunk_length;
+  }
+
+  return rechunked_groups;
+}
+
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // Instantiate templates

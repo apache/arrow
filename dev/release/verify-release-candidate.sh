@@ -62,13 +62,14 @@ fetch_archive() {
   local dist_name=$1
   download_rc_file ${dist_name}.tar.gz
   download_rc_file ${dist_name}.tar.gz.asc
-  download_rc_file ${dist_name}.tar.gz.md5
+  download_rc_file ${dist_name}.tar.gz.sha1
   download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  gpg --print-md MD5 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.md5
   if [ "$(uname)" == "Darwin" ]; then
+    shasum -a 1 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha1
     shasum -a 512 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
   else
+    sha1sum ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha1
     sha512sum ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
   fi
 }
@@ -99,7 +100,11 @@ setup_miniconda() {
   export PATH=$MINICONDA/bin:$PATH
 
   conda create -n arrow-test -y -q python=3.6 \
-        nomkl numpy pandas six cython
+        nomkl \
+        numpy \
+        pandas \
+        six \
+        cython -c conda-forge
   source activate arrow-test
 }
 
@@ -110,6 +115,7 @@ test_and_install_cpp() {
   pushd cpp/build
 
   cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+        -DCMAKE_INSTALL_LIBDIR=$ARROW_HOME/lib \
         -DARROW_PLASMA=on \
         -DARROW_PYTHON=on \
         -DARROW_BOOST_USE_SHARED=on \
@@ -120,7 +126,7 @@ test_and_install_cpp() {
   make -j$NPROC
   make install
 
-  ctest -L unittest
+  ctest -VV -L unittest
   popd
 }
 
@@ -133,6 +139,7 @@ install_parquet_cpp() {
   pushd parquet-cpp/build
 
   cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
+        -DCMAKE_INSTALL_LIBDIR=$PARQUET_HOME/lib \
         -DCMAKE_BUILD_TYPE=release \
         -DPARQUET_BOOST_USE_SHARED=on \
         -DPARQUET_BUILD_TESTS=off \
@@ -245,12 +252,11 @@ cd ${DIST_NAME}
 test_package_java
 setup_miniconda
 test_and_install_cpp
+test_js
 test_integration
 test_glib
 install_parquet_cpp
 test_python
-
-test_js
 
 echo 'Release candidate looks good!'
 exit 0

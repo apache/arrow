@@ -27,6 +27,7 @@
 #include <string.h>
 #include <unistd.h>  // pid_t
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -38,6 +39,12 @@
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 
+#ifdef PLASMA_GPU
+#include "arrow/gpu/cuda_api.h"
+
+using arrow::gpu::CudaIpcMemHandle;
+#endif
+
 namespace plasma {
 
 #define HANDLE_SIGPIPE(s, fd_)                                              \
@@ -48,8 +55,9 @@ namespace plasma {
         ARROW_LOG(WARNING)                                                  \
             << "Received SIGPIPE, BAD FILE DESCRIPTOR, or ECONNRESET when " \
                "sending a message to client on fd "                         \
-            << fd_ << ". "                                                  \
-                      "The client on the other end may have hung up.";      \
+            << fd_                                                          \
+            << ". "                                                         \
+               "The client on the other end may have hung up.";             \
       } else {                                                              \
         return _s;                                                          \
       }                                                                     \
@@ -64,20 +72,16 @@ struct Client;
 /// Mapping from object IDs to type and status of the request.
 typedef std::unordered_map<ObjectID, ObjectRequest, UniqueIDHasher> ObjectRequestMap;
 
-/// Handle to access memory mapped file and map it into client address space.
-struct object_handle {
+// TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
+struct PlasmaObject {
+#ifdef PLASMA_GPU
+  // IPC handle for Cuda.
+  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
+#endif
   /// The file descriptor of the memory mapped file in the store. It is used as
   /// a unique identifier of the file in the client to look up the corresponding
   /// file descriptor on the client's side.
   int store_fd;
-  /// The size in bytes of the memory mapped file.
-  int64_t mmap_size;
-};
-
-// TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
-struct PlasmaObject {
-  /// Handle for memory mapped file the object is stored in.
-  object_handle handle;
   /// The offset in bytes in the memory mapped file of the data.
   ptrdiff_t data_offset;
   /// The offset in bytes in the memory mapped file of the metadata.
@@ -86,6 +90,8 @@ struct PlasmaObject {
   int64_t data_size;
   /// The size in bytes of the metadata.
   int64_t metadata_size;
+  /// Device number object is on.
+  int device_num;
 };
 
 enum object_state {
@@ -111,12 +117,18 @@ struct ObjectTableEntry {
   ObjectInfoT info;
   /// Memory mapped file containing the object.
   int fd;
+  /// Device number.
+  int device_num;
   /// Size of the underlying map.
   int64_t map_size;
   /// Offset from the base of the mmap.
   ptrdiff_t offset;
   /// Pointer to the object data. Needed to free the object.
   uint8_t* pointer;
+#ifdef PLASMA_GPU
+  /// IPC GPU handle to share with clients.
+  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
+#endif
   /// Set of clients currently using this object.
   std::unordered_set<Client*> clients;
   /// The state of the object, e.g., whether it is open or sealed.

@@ -178,7 +178,7 @@ The base `apache-arrow` package includes all the compilation targets for conveni
 The targets are also published under the `@apache-arrow` namespace:
 
 ```sh
-npm install apache-arrow # <-- combined es5/CommonJS + UMD, es2015/ESModules + UMD, and TypeScript package
+npm install apache-arrow # <-- combined es5/UMD, es2015/CommonJS/ESModules/UMD, and TypeScript package
 npm install @apache-arrow/ts # standalone TypeScript package
 npm install @apache-arrow/es5-cjs # standalone es5/CommonJS package
 npm install @apache-arrow/es5-esm # standalone es5/ESModules package
@@ -186,7 +186,7 @@ npm install @apache-arrow/es5-umd # standalone es5/UMD package
 npm install @apache-arrow/es2015-cjs # standalone es2015/CommonJS package
 npm install @apache-arrow/es2015-esm # standalone es2015/ESModules package
 npm install @apache-arrow/es2015-umd # standalone es2015/UMD package
-npm install @apache-arrow/esnext-esm # standalone esNext/CommonJS package
+npm install @apache-arrow/esnext-cjs # standalone esNext/CommonJS package
 npm install @apache-arrow/esnext-esm # standalone esNext/ESModules package
 npm install @apache-arrow/esnext-umd # standalone esNext/UMD package
 ```
@@ -212,6 +212,7 @@ Full list of broader Apache Arrow [projects & organizations](https://github.com/
 
 * [Apache Arrow](https://arrow.apache.org) -- Parent project for Powering Columnar In-Memory Analytics, including affiliated open source projects
 * [rxjs-mapd](https://github.com/graphistry/rxjs-mapd) -- A MapD Core node-driver that returns query results as Arrow columns
+* [Perspective](https://github.com/jpmorganchase/perspective) -- Perspective is a streaming data visualization engine by J.P. Morgan for JavaScript for building real-time & user-configurable analytics entirely in the browser. 
 
 ## Companies & Organizations
 

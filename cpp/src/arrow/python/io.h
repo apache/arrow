@@ -18,6 +18,8 @@
 #ifndef PYARROW_IO_H
 #define PYARROW_IO_H
 
+#include <memory>
+
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/visibility.h"
@@ -37,7 +39,7 @@ class ARROW_NO_EXPORT PythonFile;
 class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
  public:
   explicit PyReadableFile(PyObject* file);
-  virtual ~PyReadableFile();
+  ~PyReadableFile() override;
 
   Status Close() override;
 
@@ -66,7 +68,7 @@ class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
 class ARROW_EXPORT PyOutputStream : public io::OutputStream {
  public:
   explicit PyOutputStream(PyObject* file);
-  virtual ~PyOutputStream();
+  ~PyOutputStream() override;
 
   Status Close() override;
   Status Tell(int64_t* position) const override;
@@ -77,14 +79,28 @@ class ARROW_EXPORT PyOutputStream : public io::OutputStream {
   int64_t position_;
 };
 
-// A zero-copy reader backed by a PyBuffer object
-class ARROW_EXPORT PyBytesReader : public io::BufferReader {
- public:
-  explicit PyBytesReader(PyObject* obj);
-  virtual ~PyBytesReader();
-};
-
 // TODO(wesm): seekable output files
+
+// A Buffer subclass that keeps a PyObject reference throughout its
+// lifetime, such that the Python object is kept alive as long as the
+// C++ buffer is still needed.
+// Keeping the reference in a Python wrapper would be incorrect as
+// the Python wrapper can get destroyed even though the wrapped C++
+// buffer is still alive (ARROW-2270).
+class ARROW_EXPORT PyForeignBuffer : public Buffer {
+ public:
+  static Status Make(const uint8_t* data, int64_t size, PyObject* base,
+                     std::shared_ptr<Buffer>* out);
+
+ private:
+  PyForeignBuffer(const uint8_t* data, int64_t size, PyObject* base)
+      : Buffer(data, size) {
+    Py_INCREF(base);
+    base_.reset(base);
+  }
+
+  OwnedRefNoGIL base_;
+};
 
 }  // namespace py
 }  // namespace arrow

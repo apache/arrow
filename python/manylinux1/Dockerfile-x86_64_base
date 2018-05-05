@@ -17,7 +17,7 @@
 FROM quay.io/pypa/manylinux1_x86_64:latest
 
 # Install dependencies
-RUN yum install -y flex zlib-devel
+RUN yum install -y flex zlib-devel && yum clean all
 
 ADD scripts/build_openssl.sh /
 RUN /build_openssl.sh
@@ -25,14 +25,9 @@ RUN /build_openssl.sh
 ADD scripts/build_boost.sh /
 RUN /build_boost.sh
 
-ADD scripts/build_jemalloc.sh /
-RUN /build_jemalloc.sh
-
-WORKDIR /
 # Install cmake manylinux1 package
-RUN /opt/python/cp35-cp35m/bin/pip install cmake ninja
-RUN ln -s /opt/python/cp35-cp35m/bin/cmake /usr/bin/cmake
-RUN ln -s /opt/python/cp35-cp35m/bin/ninja /usr/bin/ninja
+ADD scripts/install_cmake.sh /
+RUN /install_cmake.sh
 
 ADD scripts/build_gtest.sh /
 RUN /build_gtest.sh
@@ -41,6 +36,9 @@ ENV GTEST_HOME /googletest-release-1.7.0
 ADD scripts/build_flatbuffers.sh /
 RUN /build_flatbuffers.sh
 ENV FLATBUFFERS_HOME /usr
+
+ADD scripts/build_bison.sh /
+RUN /build_bison.sh
 
 ADD scripts/build_thrift.sh /
 RUN /build_thrift.sh
@@ -65,11 +63,12 @@ ENV ZSTD_HOME /usr
 ADD scripts/build_ccache.sh /
 RUN /build_ccache.sh
 
+ADD scripts/build_protobuf.sh /
+RUN /build_protobuf.sh
+ENV PROTOBUF_HOME /usr
+
 WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git
-WORKDIR /multibuild
-RUN git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
-WORKDIR /
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
 
 ADD scripts/build_virtualenvs.sh /
 RUN /build_virtualenvs.sh

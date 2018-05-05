@@ -29,6 +29,47 @@
 
 namespace arrow {
 
+static const Decimal128 ScaleMultipliers[] = {
+    Decimal128(0LL),
+    Decimal128(10LL),
+    Decimal128(100LL),
+    Decimal128(1000LL),
+    Decimal128(10000LL),
+    Decimal128(100000LL),
+    Decimal128(1000000LL),
+    Decimal128(10000000LL),
+    Decimal128(100000000LL),
+    Decimal128(1000000000LL),
+    Decimal128(10000000000LL),
+    Decimal128(100000000000LL),
+    Decimal128(1000000000000LL),
+    Decimal128(10000000000000LL),
+    Decimal128(100000000000000LL),
+    Decimal128(1000000000000000LL),
+    Decimal128(10000000000000000LL),
+    Decimal128(100000000000000000LL),
+    Decimal128(1000000000000000000LL),
+    Decimal128(0LL, 10000000000000000000ULL),
+    Decimal128(5LL, 7766279631452241920ULL),
+    Decimal128(54LL, 3875820019684212736ULL),
+    Decimal128(542LL, 1864712049423024128ULL),
+    Decimal128(5421LL, 200376420520689664ULL),
+    Decimal128(54210LL, 2003764205206896640ULL),
+    Decimal128(542101LL, 1590897978359414784ULL),
+    Decimal128(5421010LL, 15908979783594147840ULL),
+    Decimal128(54210108LL, 11515845246265065472ULL),
+    Decimal128(542101086LL, 4477988020393345024ULL),
+    Decimal128(5421010862LL, 7886392056514347008ULL),
+    Decimal128(54210108624LL, 5076944270305263616ULL),
+    Decimal128(542101086242LL, 13875954555633532928ULL),
+    Decimal128(5421010862427LL, 9632337040368467968ULL),
+    Decimal128(54210108624275LL, 4089650035136921600ULL),
+    Decimal128(542101086242752LL, 4003012203950112768ULL),
+    Decimal128(5421010862427522LL, 3136633892082024448ULL),
+    Decimal128(54210108624275221LL, 12919594847110692864ULL),
+    Decimal128(542101086242752217LL, 68739955140067328ULL),
+    Decimal128(5421010862427522170LL, 687399551400673280ULL)};
+
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
@@ -49,7 +90,7 @@ std::array<uint8_t, 16> Decimal128::ToBytes() const {
 }
 
 void Decimal128::ToBytes(uint8_t* out) const {
-  DCHECK_NE(out, NULLPTR);
+  DCHECK_NE(out, nullptr);
   reinterpret_cast<uint64_t*>(out)[0] = BitUtil::ToLittleEndian(low_bits_);
   reinterpret_cast<int64_t*>(out)[1] = BitUtil::ToLittleEndian(high_bits_);
 }
@@ -187,12 +228,10 @@ static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
                                                                   100000000000000000LL,
                                                                   1000000000000000000LL};
 
-static inline bool isdigit(char value) { return std::isdigit(value) != 0; }
-
 static void StringToInteger(const std::string& str, Decimal128* out) {
   using std::size_t;
 
-  DCHECK_NE(out, NULLPTR) << "Decimal128 output variable cannot be NULLPTR";
+  DCHECK_NE(out, nullptr) << "Decimal128 output variable cannot be nullptr";
   DCHECK_EQ(*out, 0)
       << "When converting a string to Decimal128 the initial output must be 0";
 
@@ -212,159 +251,137 @@ static void StringToInteger(const std::string& str, Decimal128* out) {
   }
 }
 
-Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precision,
-                              int* scale) {
-  // Implements this regex: "(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?((E|e)(\\+|-)?\\d+)?";
+namespace {
+
+struct DecimalComponents {
+  std::string sign;
+  std::string whole_digits;
+  std::string fractional_digits;
+  std::string exponent_sign;
+  std::string exponent_digits;
+};
+
+inline bool IsSign(char c) { return c == '-' || c == '+'; }
+
+inline bool IsDot(char c) { return c == '.'; }
+
+inline bool IsDigit(char c) { return c >= '0' && c <= '9'; }
+
+inline bool StartsExponent(char c) { return c == 'e' || c == 'E'; }
+
+inline size_t ParseDigitsRun(const char* s, size_t start, size_t size, std::string* out) {
+  size_t pos;
+  for (pos = start; pos < size; ++pos) {
+    if (!IsDigit(s[pos])) {
+      break;
+    }
+  }
+  *out = std::string(s + start, pos - start);
+  return pos;
+}
+
+bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) {
+  size_t pos = 0;
+
+  if (size == 0) {
+    return false;
+  }
+  // Sign of the number
+  if (IsSign(s[pos])) {
+    out->sign = std::string(s + pos, 1);
+    ++pos;
+  }
+  // First run of digits
+  pos = ParseDigitsRun(s, pos, size, &out->whole_digits);
+  if (pos == size) {
+    return !out->whole_digits.empty();
+  }
+  // Optional dot (if given in fractional form)
+  bool has_dot = IsDot(s[pos]);
+  if (has_dot) {
+    // Second run of digits
+    ++pos;
+    pos = ParseDigitsRun(s, pos, size, &out->fractional_digits);
+  }
+  if (out->whole_digits.empty() && out->fractional_digits.empty()) {
+    // Need at least some digits (whole or fractional)
+    return false;
+  }
+  if (pos == size) {
+    return true;
+  }
+  // Optional exponent
+  if (StartsExponent(s[pos])) {
+    ++pos;
+    if (pos == size) {
+      return false;
+    }
+    // Optional exponent sign
+    if (IsSign(s[pos])) {
+      out->exponent_sign = std::string(s + pos, 1);
+      ++pos;
+    }
+    pos = ParseDigitsRun(s, pos, size, &out->exponent_digits);
+    if (out->exponent_digits.empty()) {
+      // Need some exponent digits
+      return false;
+    }
+  }
+  return pos == size;
+}
+
+}  // namespace
+
+Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
+                              int32_t* scale) {
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
 
-  std::string::const_iterator charp = s.cbegin();
-  std::string::const_iterator end = s.cend();
-
-  char first_char = *charp;
-  bool is_negative = false;
-  if (first_char == '+' || first_char == '-') {
-    is_negative = first_char == '-';
-    ++charp;
-  }
-
-  if (charp == end) {
+  DecimalComponents dec;
+  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
     std::stringstream ss;
-    ss << "Single character: '" << first_char << "' is not a valid decimal value";
+    ss << "The string '" << s << "' is not a valid decimal number";
     return Status::Invalid(ss.str());
   }
+  std::string exponent_value = dec.exponent_sign + dec.exponent_digits;
 
-  std::string::const_iterator numeric_string_start = charp;
-
-  DCHECK_LT(charp, end);
-
-  // skip leading zeros
-  charp = std::find_if_not(charp, end, [](char value) { return value == '0'; });
-
-  // all zeros and no decimal point
-  if (charp == end) {
-    if (out != NULLPTR) {
-      *out = 0;
-    }
-
-    // Not sure what other libraries assign precision to for this case (this case of
-    // a string consisting only of one or more zeros)
-    if (precision != NULLPTR) {
-      *precision = static_cast<int>(charp - numeric_string_start);
-    }
-
-    if (scale != NULLPTR) {
-      *scale = 0;
-    }
-
-    return Status::OK();
+  // Count number of significant digits (without leading zeros)
+  size_t first_non_zero = dec.whole_digits.find_first_not_of('0');
+  size_t significant_digits = dec.fractional_digits.size();
+  if (first_non_zero != std::string::npos) {
+    significant_digits += dec.whole_digits.size() - first_non_zero;
   }
 
-  std::string::const_iterator whole_part_start = charp;
-
-  charp = std::find_if_not(charp, end, isdigit);
-
-  std::string::const_iterator whole_part_end = charp;
-  std::string whole_part(whole_part_start, whole_part_end);
-
-  if (charp != end && *charp == '.') {
-    ++charp;
-
-    if (charp == end) {
-      return Status::Invalid(
-          "Decimal point must be followed by at least one base ten digit. Reached the "
-          "end of the string.");
-    }
-
-    if (std::isdigit(*charp) == 0) {
-      std::stringstream ss;
-      ss << "Decimal point must be followed by a base ten digit. Found '" << *charp
-         << "'";
-      return Status::Invalid(ss.str());
-    }
-  } else {
-    if (charp != end) {
-      std::stringstream ss;
-      ss << "Expected base ten digit or decimal point but found '" << *charp
-         << "' instead.";
-      return Status::Invalid(ss.str());
-    }
+  if (precision != nullptr) {
+    *precision = static_cast<int32_t>(significant_digits);
   }
 
-  std::string::const_iterator fractional_part_start = charp;
-
-  // The rest must be digits or an exponent
-  if (charp != end) {
-    charp = std::find_if_not(charp, end, isdigit);
-
-    // The while loop has ended before the end of the string which means we've hit a
-    // character that isn't a base ten digit or "E" for exponent
-    if (charp != end && *charp != 'E' && *charp != 'e') {
-      std::stringstream ss;
-      ss << "Found non base ten digit character '" << *charp
-         << "' before the end of the string";
-      return Status::Invalid(ss.str());
-    }
-  }
-
-  std::string::const_iterator fractional_part_end = charp;
-  std::string fractional_part(fractional_part_start, fractional_part_end);
-
-  if (precision != NULLPTR) {
-    *precision = static_cast<int>(whole_part.size() + fractional_part.size());
-  }
-
-  if (charp != end) {
-    // we must have an exponent, if this aborts then we have somehow not caught this and
-    // raised a proper error
-    DCHECK(*charp == 'E' || *charp == 'e');
-
-    ++charp;
-
-    const char value = *charp;
-    const bool starts_with_plus_or_minus = value == '+' || value == '-';
-
-    // we use this to construct the adjusted exponent integer later
-    std::string::const_iterator digit_start = charp;
-
-    // skip plus or minus
-    charp += starts_with_plus_or_minus;
-
-    // confirm that the rest of the characters are digits
-    charp = std::find_if_not(charp, end, isdigit);
-
-    if (charp != end) {
-      // we have something other than digits here
-      std::stringstream ss;
-      ss << "Found non decimal digit exponent value '" << *charp << "'";
-      return Status::Invalid(ss.str());
-    }
-
-    if (scale != NULLPTR) {
-      // compute the scale from the adjusted exponent
-      std::string adjusted_exponent_string(digit_start, end);
-      DCHECK(std::all_of(adjusted_exponent_string.cbegin() + starts_with_plus_or_minus,
-                         adjusted_exponent_string.cend(), isdigit))
-          << "Non decimal digit character found in " << adjusted_exponent_string;
-      const auto adjusted_exponent =
-          static_cast<int32_t>(std::stol(adjusted_exponent_string));
-      const auto len = static_cast<int32_t>(whole_part.size() + fractional_part.size());
-
+  if (scale != nullptr) {
+    if (!exponent_value.empty()) {
+      auto adjusted_exponent = static_cast<int32_t>(std::stol(exponent_value));
+      auto len = static_cast<int32_t>(significant_digits);
       *scale = -adjusted_exponent + len - 1;
-    }
-  } else {
-    if (scale != NULLPTR) {
-      *scale = static_cast<int>(fractional_part.size());
+    } else {
+      *scale = static_cast<int32_t>(dec.fractional_digits.size());
     }
   }
 
-  if (out != NULLPTR) {
-    // zero out in case we've passed in a previously used value
+  if (out != nullptr) {
     *out = 0;
-    StringToInteger(whole_part + fractional_part, out);
-    if (is_negative) {
+    StringToInteger(dec.whole_digits + dec.fractional_digits, out);
+    if (dec.sign == "-") {
       out->Negate();
+    }
+
+    if (scale != nullptr && *scale < 0) {
+      const int32_t abs_scale = std::abs(*scale);
+      *out *= ScaleMultipliers[abs_scale];
+
+      if (precision != nullptr) {
+        *precision += abs_scale;
+      }
+      *scale = 0;
     }
   }
 
@@ -813,67 +830,46 @@ Decimal128 operator%(const Decimal128& left, const Decimal128& right) {
   return remainder;
 }
 
-static const Decimal128 ScaleMultipliers[] = {
-    Decimal128(1),
-    Decimal128(10),
-    Decimal128(100),
-    Decimal128(1000),
-    Decimal128(10000),
-    Decimal128(100000),
-    Decimal128(1000000),
-    Decimal128(10000000),
-    Decimal128(100000000),
-    Decimal128(1000000000),
-    Decimal128(10000000000),
-    Decimal128(100000000000),
-    Decimal128(1000000000000),
-    Decimal128(10000000000000),
-    Decimal128(100000000000000),
-    Decimal128(1000000000000000),
-    Decimal128(10000000000000000),
-    Decimal128(100000000000000000),
-    Decimal128(1000000000000000000),
-    Decimal128("10000000000000000000"),
-    Decimal128("100000000000000000000"),
-    Decimal128("1000000000000000000000"),
-    Decimal128("10000000000000000000000"),
-    Decimal128("100000000000000000000000"),
-    Decimal128("1000000000000000000000000"),
-    Decimal128("10000000000000000000000000"),
-    Decimal128("100000000000000000000000000"),
-    Decimal128("1000000000000000000000000000"),
-    Decimal128("10000000000000000000000000000"),
-    Decimal128("100000000000000000000000000000"),
-    Decimal128("1000000000000000000000000000000"),
-    Decimal128("10000000000000000000000000000000"),
-    Decimal128("100000000000000000000000000000000"),
-    Decimal128("1000000000000000000000000000000000"),
-    Decimal128("10000000000000000000000000000000000"),
-    Decimal128("100000000000000000000000000000000000"),
-    Decimal128("1000000000000000000000000000000000000"),
-    Decimal128("10000000000000000000000000000000000000"),
-    Decimal128("100000000000000000000000000000000000000")};
+static bool RescaleWouldCauseDataLoss(const Decimal128& value, int32_t delta_scale,
+                                      int32_t abs_delta_scale, Decimal128* result) {
+  Decimal128 multiplier(ScaleMultipliers[abs_delta_scale]);
+
+  if (delta_scale < 0) {
+    DCHECK_NE(multiplier, 0);
+    Decimal128 remainder;
+    Status status = value.Divide(multiplier, result, &remainder);
+    DCHECK(status.ok()) << status.message();
+    return remainder != 0;
+  }
+
+  *result = value * multiplier;
+  return (value < 0) ? *result > value : *result < value;
+}
 
 Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
                            Decimal128* out) const {
-  DCHECK_NE(out, NULLPTR);
-  DCHECK_NE(original_scale, new_scale);
-  const int32_t delta_scale = original_scale - new_scale;
+  DCHECK_NE(out, nullptr) << "out is nullptr";
+  DCHECK_NE(original_scale, new_scale) << "original_scale != new_scale";
+
+  const int32_t delta_scale = new_scale - original_scale;
   const int32_t abs_delta_scale = std::abs(delta_scale);
+
   DCHECK_GE(abs_delta_scale, 1);
   DCHECK_LE(abs_delta_scale, 38);
 
-  const Decimal128 scale_multiplier = ScaleMultipliers[abs_delta_scale];
-  const Decimal128 result = *this * scale_multiplier;
+  Decimal128 result(*this);
+  const bool rescale_would_cause_data_loss =
+      RescaleWouldCauseDataLoss(result, delta_scale, abs_delta_scale, out);
 
-  if (ARROW_PREDICT_FALSE(result < *this)) {
+  // Fail if we overflow or truncate
+  if (ARROW_PREDICT_FALSE(rescale_would_cause_data_loss)) {
     std::stringstream buf;
-    buf << "Rescaling decimal value from original scale " << original_scale
-        << " to new scale " << new_scale << " would cause overflow";
+    buf << "Rescaling decimal value " << ToString(original_scale)
+        << " from original scale of " << original_scale << " to new scale of "
+        << new_scale << " would cause data loss";
     return Status::Invalid(buf.str());
   }
 
-  *out = result;
   return Status::OK();
 }
 

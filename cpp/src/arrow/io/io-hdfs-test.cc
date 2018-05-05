@@ -178,6 +178,23 @@ TYPED_TEST(TestHadoopFileSystem, ConnectsAgain) {
   ASSERT_OK(client->Disconnect());
 }
 
+TYPED_TEST(TestHadoopFileSystem, MultipleClients) {
+  SKIP_IF_NO_DRIVER();
+
+  ASSERT_OK(this->MakeScratchDir());
+
+  std::shared_ptr<HadoopFileSystem> client1;
+  std::shared_ptr<HadoopFileSystem> client2;
+  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client1));
+  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client2));
+  ASSERT_OK(client1->Disconnect());
+
+  // client2 continues to function after equivalent client1 has shutdown
+  std::vector<HdfsPathInfo> listing;
+  ASSERT_OK(client2->ListDirectory(this->scratch_dir_, &listing));
+  ASSERT_OK(client2->Disconnect());
+}
+
 TYPED_TEST(TestHadoopFileSystem, MakeDirectory) {
   SKIP_IF_NO_DRIVER();
 
@@ -437,9 +454,9 @@ TYPED_TEST(TestHadoopFileSystem, ThreadSafety) {
   ASSERT_OK(this->client_->OpenReadable(src_path, &file));
 
   std::atomic<int> correct_count(0);
-  constexpr int niter = 1000;
+  int niter = 1000;
 
-  auto ReadData = [&file, &correct_count, &data, niter]() {
+  auto ReadData = [&file, &correct_count, &data, &niter]() {
     for (int i = 0; i < niter; ++i) {
       std::shared_ptr<Buffer> buffer;
       if (i % 2 == 0) {

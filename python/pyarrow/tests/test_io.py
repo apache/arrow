@@ -15,11 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from io import BytesIO
+from functools import partial
+from io import BytesIO, TextIOWrapper
 import gc
 import os
+import pickle
 import pytest
 import sys
+import tempfile
+import weakref
 
 import numpy as np
 
@@ -27,6 +31,25 @@ import pandas as pd
 
 from pyarrow.compat import u, guid
 import pyarrow as pa
+
+
+def check_large_seeks(file_factory):
+    if sys.platform in ('win32', 'darwin'):
+        pytest.skip("need sparse file support")
+    try:
+        filename = tempfile.mktemp(prefix='test_io')
+        with open(filename, 'wb') as f:
+            f.truncate(2 ** 32 + 10)
+            f.seek(2 ** 32 + 5)
+            f.write(b'mark\n')
+        with file_factory(filename) as f:
+            assert f.seek(2 ** 32 + 5) == 2 ** 32 + 5
+            assert f.tell() == 2 ** 32 + 5
+            assert f.read(5) == b'mark\n'
+            assert f.tell() == 2 ** 32 + 10
+    finally:
+        os.unlink(filename)
+
 
 # ----------------------------------------------------------------------
 # Python file-like objects
@@ -78,7 +101,16 @@ def test_python_file_read():
     assert v == b'sample data'
     assert len(v) == 11
 
+    assert f.size() == len(data)
+
     f.close()
+
+
+def test_python_file_large_seeks():
+    def factory(filename):
+        return pa.PythonFile(open(filename, 'rb'))
+
+    check_large_seeks(factory)
 
 
 def test_bytes_reader():
@@ -104,7 +136,7 @@ def test_bytes_reader():
 
 
 def test_bytes_reader_non_bytes():
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         pa.BufferReader(u('some sample data'))
 
 
@@ -123,6 +155,44 @@ def test_bytes_reader_retains_parent_reference():
     assert buf.to_pybytes() == b'sample'
     assert buf.parent is not None
 
+
+def test_python_file_implicit_mode(tmpdir):
+    path = os.path.join(str(tmpdir), 'foo.txt')
+    with open(path, 'wb') as f:
+        pf = pa.PythonFile(f)
+        assert pf.writable()
+        assert not pf.readable()
+        assert not pf.seekable()  # PyOutputStream isn't seekable
+        f.write(b'foobar\n')
+
+    with open(path, 'rb') as f:
+        pf = pa.PythonFile(f)
+        assert pf.readable()
+        assert not pf.writable()
+        assert pf.seekable()
+        assert pf.read() == b'foobar\n'
+
+    bio = BytesIO()
+    pf = pa.PythonFile(bio)
+    assert pf.writable()
+    assert not pf.readable()
+    assert not pf.seekable()
+    pf.write(b'foobar\n')
+    assert bio.getvalue() == b'foobar\n'
+
+
+def test_python_file_closing():
+    bio = BytesIO()
+    pf = pa.PythonFile(bio)
+    wr = weakref.ref(pf)
+    del pf
+    assert wr() is None  # object was destroyed
+    assert not bio.closed
+    pf = pa.PythonFile(bio)
+    pf.close()
+    assert bio.closed
+
+
 # ----------------------------------------------------------------------
 # Buffers
 
@@ -130,19 +200,26 @@ def test_bytes_reader_retains_parent_reference():
 def test_buffer_bytes():
     val = b'some data'
 
-    buf = pa.frombuffer(val)
+    buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
+    assert not buf.is_mutable
 
     result = buf.to_pybytes()
 
+    assert result == val
+
+    # Check that buffers survive a pickle roundtrip
+    result_buf = pickle.loads(pickle.dumps(buf))
+    result = result_buf.to_pybytes()
     assert result == val
 
 
 def test_buffer_memoryview():
     val = b'some data'
 
-    buf = pa.frombuffer(val)
+    buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
+    assert not buf.is_mutable
 
     result = memoryview(buf)
 
@@ -152,22 +229,92 @@ def test_buffer_memoryview():
 def test_buffer_bytearray():
     val = bytearray(b'some data')
 
-    buf = pa.frombuffer(val)
+    buf = pa.py_buffer(val)
     assert isinstance(buf, pa.Buffer)
+    assert buf.is_mutable
 
     result = bytearray(buf)
 
     assert result == val
 
 
-def test_buffer_numpy():
+def test_buffer_invalid():
+    with pytest.raises(TypeError,
+                       match="(bytes-like object|buffer interface)"):
+        pa.py_buffer(None)
+
+
+def test_buffer_to_numpy():
     # Make sure creating a numpy array from an arrow buffer works
     byte_array = bytearray(20)
     byte_array[0] = 42
-    buf = pa.frombuffer(byte_array)
+    buf = pa.py_buffer(byte_array)
     array = np.frombuffer(buf, dtype="uint8")
     assert array[0] == byte_array[0]
+    byte_array[0] += 1
+    assert array[0] == byte_array[0]
     assert array.base == buf
+
+
+def test_buffer_from_numpy():
+    # C-contiguous
+    arr = np.arange(12, dtype=np.int8).reshape((3, 4))
+    buf = pa.py_buffer(arr)
+    assert buf.to_pybytes() == arr.tobytes()
+    # F-contiguous; note strides informations is lost
+    buf = pa.py_buffer(arr.T)
+    assert buf.to_pybytes() == arr.tobytes()
+    # Non-contiguous
+    with pytest.raises(ValueError, match="not contiguous"):
+        buf = pa.py_buffer(arr.T[::2])
+
+
+def test_buffer_equals():
+    # Buffer.equals() returns true iff the buffers have the same contents
+    def eq(a, b):
+        assert a.equals(b)
+        assert a == b
+        assert not (a != b)
+
+    def ne(a, b):
+        assert not a.equals(b)
+        assert not (a == b)
+        assert a != b
+
+    b1 = b'some data!'
+    b2 = bytearray(b1)
+    b3 = bytearray(b1)
+    b3[0] = 42
+    buf1 = pa.py_buffer(b1)
+    buf2 = pa.py_buffer(b2)
+    buf3 = pa.py_buffer(b2)
+    buf4 = pa.py_buffer(b3)
+    buf5 = pa.py_buffer(np.frombuffer(b2, dtype=np.int16))
+    eq(buf1, buf1)
+    eq(buf1, buf2)
+    eq(buf2, buf3)
+    ne(buf2, buf4)
+    # Data type is indifferent
+    eq(buf2, buf5)
+
+
+def test_buffer_hashing():
+    # Buffers are unhashable
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(pa.py_buffer(b'123'))
+
+
+def test_foreign_buffer():
+    obj = np.array([1, 2], dtype=np.int32)
+    addr = obj.__array_interface__["data"][0]
+    size = obj.nbytes
+    buf = pa.foreign_buffer(addr, size, obj)
+    wr = weakref.ref(obj)
+    del obj
+    assert np.frombuffer(buf, dtype=np.int32).tolist() == [1, 2]
+    assert wr() is not None
+    del buf
+    assert wr() is None
 
 
 def test_allocate_buffer():
@@ -195,7 +342,7 @@ def test_compress_decompress():
     test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
                  .astype(np.uint8)
                  .tostring())
-    test_buf = pa.frombuffer(test_data)
+    test_buf = pa.py_buffer(test_data)
 
     codecs = ['lz4', 'snappy', 'gzip', 'zstd', 'brotli']
     for codec in codecs:
@@ -221,10 +368,12 @@ def test_compress_decompress():
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
-    buf = pa.frombuffer(val)
+    buf = pa.py_buffer(val)
+    assert not buf.is_mutable
     assert isinstance(buf, pa.Buffer)
 
     result = memoryview(buf)
+    assert result.readonly
 
     with pytest.raises(TypeError) as exc:
         result[0] = b'h'
@@ -234,6 +383,29 @@ def test_buffer_memoryview_is_immutable():
     with pytest.raises(TypeError) as exc:
         b[0] = b'h'
         assert 'cannot modify read-only' in str(exc.value)
+
+
+def test_uninitialized_buffer():
+    # ARROW-2039: calling Buffer() directly creates an uninitialized object
+    check_uninitialized = partial(pytest.raises,
+                                  ReferenceError, match="uninitialized")
+    buf = pa.Buffer()
+    with check_uninitialized():
+        buf.size
+    with check_uninitialized():
+        len(buf)
+    with check_uninitialized():
+        buf.is_mutable
+    with check_uninitialized():
+        buf.parent
+    with check_uninitialized():
+        buf.to_pybytes()
+    with check_uninitialized():
+        memoryview(buf)
+    with check_uninitialized():
+        buf.equals(pa.py_buffer(b''))
+    with check_uninitialized():
+        pa.py_buffer(b'').equals(buf)
 
 
 def test_memory_output_stream():
@@ -257,13 +429,13 @@ def test_inmemory_write_after_closed():
     f.write(b'ok')
     f.get_result()
 
-    with pytest.raises(IOError):
+    with pytest.raises(ValueError):
         f.write(b'not ok')
 
 
 def test_buffer_protocol_ref_counting():
     def make_buffer(bytes_obj):
-        return bytearray(pa.frombuffer(bytes_obj))
+        return bytearray(pa.py_buffer(bytes_obj))
 
     buf = make_buffer(b'foo')
     gc.collect()
@@ -407,6 +579,10 @@ def test_os_file_reader(sample_disk_data):
     _check_native_file_reader(pa.OSFile, sample_disk_data)
 
 
+def test_os_file_large_seeks():
+    check_large_seeks(pa.OSFile)
+
+
 def _try_delete(path):
     try:
         os.remove(path)
@@ -455,6 +631,18 @@ def test_memory_map_writer(tmpdir):
     assert f.read(3) == b'foo'
 
 
+def test_memory_zero_length(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    f = open(path, 'wb')
+    f.close()
+    with pa.memory_map(path, mode='r+b') as memory_map:
+        assert memory_map.size() == 0
+
+
+def test_memory_map_large_seeks():
+    check_large_seeks(pa.memory_map)
+
+
 def test_os_file_writer(tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
@@ -482,24 +670,106 @@ def test_native_file_modes(tmpdir):
 
     with pa.OSFile(path, mode='r') as f:
         assert f.mode == 'rb'
+        assert f.readable()
+        assert not f.writable()
+        assert f.seekable()
 
     with pa.OSFile(path, mode='rb') as f:
         assert f.mode == 'rb'
+        assert f.readable()
+        assert not f.writable()
+        assert f.seekable()
 
     with pa.OSFile(path, mode='w') as f:
         assert f.mode == 'wb'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
 
     with pa.OSFile(path, mode='wb') as f:
         assert f.mode == 'wb'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
 
     with open(path, 'wb') as f:
         f.write(b'foooo')
 
     with pa.memory_map(path, 'r') as f:
         assert f.mode == 'rb'
+        assert f.readable()
+        assert not f.writable()
+        assert f.seekable()
 
     with pa.memory_map(path, 'r+') as f:
         assert f.mode == 'rb+'
+        assert f.readable()
+        assert f.writable()
+        assert f.seekable()
 
     with pa.memory_map(path, 'r+b') as f:
         assert f.mode == 'rb+'
+        assert f.readable()
+        assert f.writable()
+        assert f.seekable()
+
+
+def test_native_file_raises_ValueError_after_close(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    with open(path, 'wb') as f:
+        f.write(b'foooo')
+
+    with pa.OSFile(path, mode='rb') as os_file:
+        assert not os_file.closed
+    assert os_file.closed
+
+    with pa.memory_map(path, mode='rb') as mmap_file:
+        assert not mmap_file.closed
+    assert mmap_file.closed
+
+    files = [os_file,
+             mmap_file]
+
+    methods = [('tell', ()),
+               ('seek', (0,)),
+               ('size', ()),
+               ('flush', ()),
+               ('readable', ()),
+               ('writable', ()),
+               ('seekable', ())]
+
+    for f in files:
+        for method, args in methods:
+            with pytest.raises(ValueError):
+                getattr(f, method)(*args)
+
+
+def test_native_file_TextIOWrapper(tmpdir):
+    data = (u'foooo\n'
+            u'barrr\n'
+            u'bazzz\n')
+
+    path = os.path.join(str(tmpdir), guid())
+    with open(path, 'wb') as f:
+        f.write(data.encode('utf-8'))
+
+    with TextIOWrapper(pa.OSFile(path, mode='rb')) as fil:
+        assert fil.readable()
+        res = fil.read()
+        assert res == data
+    assert fil.closed
+
+    with TextIOWrapper(pa.OSFile(path, mode='rb')) as fil:
+        # Iteration works
+        lines = list(fil)
+        assert ''.join(lines) == data
+
+    # Writing
+    path2 = os.path.join(str(tmpdir), guid())
+    with TextIOWrapper(pa.OSFile(path2, mode='wb')) as fil:
+        assert fil.writable()
+        fil.write(data)
+
+    with TextIOWrapper(pa.OSFile(path2, mode='rb')) as fil:
+        res = fil.read()
+        assert res == data

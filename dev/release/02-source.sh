@@ -97,7 +97,6 @@ ${SOURCE_DIR}/run-rat.sh ${tarball}
 
 # sign the archive
 gpg --armor --output ${tarball}.asc --detach-sig ${tarball}
-gpg --print-md MD5 ${tarball} > ${tarball}.md5
 sha1sum $tarball > ${tarball}.sha1
 sha256sum $tarball > ${tarball}.sha256
 sha512sum $tarball > ${tarball}.sha512

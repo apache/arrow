@@ -22,42 +22,24 @@ set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-if [ "$1" == "--only-library" ]; then
-  only_library_mode=yes
-else
-  only_library_mode=no
+only_library_mode=no
+using_homebrew=no
+
+while true; do
+    case "$1" in
+	--only-library)
+	    only_library_mode=yes
+	    shift ;;
+	--homebrew)
+	    using_homebrew=yes
+	    shift ;;
+	*) break ;;
+    esac
+done
+
+if [ "$only_library_mode" == "no" ]; then
   source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 fi
-
-if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
-  # Set up C++ toolchain from conda-forge packages for faster builds
-  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
-        jemalloc=4.4.0 \
-        nomkl \
-        boost-cpp \
-        rapidjson \
-        flatbuffers \
-        gflags \
-        gtest \
-        lz4-c \
-        snappy \
-        ccache \
-        zstd \
-        brotli \
-        zlib \
-        cmake \
-        curl \
-        thrift-cpp \
-        ninja
-
-  # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
-  # updated sometime on October 2 or October 3
-  conda update -y -p $CPP_TOOLCHAIN ca-certificates -c defaults
-fi
-
-
-mkdir $ARROW_CPP_BUILD_DIR
-pushd $ARROW_CPP_BUILD_DIR
 
 CMAKE_COMMON_FLAGS="\
 -DARROW_BUILD_BENCHMARKS=ON \
@@ -66,6 +48,15 @@ CMAKE_COMMON_FLAGS="\
 -DARROW_EXTRA_ERROR_CONTEXT=ON"
 CMAKE_LINUX_FLAGS=""
 CMAKE_OSX_FLAGS=""
+
+if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
+  # Set up C++ toolchain from conda-forge packages for faster builds
+  source $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
+  CMAKE_COMMON_FLAGS="${CMAKE_COMMON_FLAGS} -DARROW_JEMALLOC=ON"
+fi
+
+mkdir -p $ARROW_CPP_BUILD_DIR
+pushd $ARROW_CPP_BUILD_DIR
 
 if [ $only_library_mode == "yes" ]; then
   CMAKE_COMMON_FLAGS="\
@@ -84,6 +75,10 @@ if [ $ARROW_TRAVIS_PLASMA == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PLASMA=ON"
 fi
 
+if [ $ARROW_TRAVIS_ORC == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_ORC=ON"
+fi
+
 if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_TEST_MEMCHECK=ON"
 fi
@@ -95,6 +90,10 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
           -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
           $ARROW_CPP_DIR
 else
+    if [ "$using_homebrew" = "yes" ]; then
+	# build against homebrew's boost if we're using it
+	export BOOST_ROOT=/usr/local/opt/boost
+    fi
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \
           -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \

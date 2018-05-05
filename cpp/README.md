@@ -39,9 +39,11 @@ sudo apt-get install cmake \
      libboost-system-dev
 ```
 
-On OS X, you can use [Homebrew][1]:
+On macOS, you can use [Homebrew][1]:
 
 ```shell
+git clone https://github.com/apache/arrow.git
+cd arrow
 brew update && brew bundle --file=c_glib/Brewfile
 ```
 
@@ -97,6 +99,63 @@ and benchmarks or `make runbenchmark` to run only the benchmark tests.
 
 Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
 
+### Testing with LLVM AddressSanitizer
+
+To use AddressSanitizer (ASAN) to find bad memory accesses or leaks with LLVM,
+pass `-DARROW_USE_ASAN=ON` when building. You must use clang to compile with
+ASAN, and `ARROW_USE_ASAN` is mutually-exclusive with the valgrind option
+`ARROW_TEST_MEMCHECK`.
+
+### Building/Running fuzzers
+
+Fuzzers can help finding unhandled exceptions and problems with untrusted input that
+may lead to crashes, security issues and undefined behavior. They do this by
+generating random input data and observing the behavior of the executed code. To build
+the fuzzer code, LLVM is required (GCC-based compilers won't work). You can build them
+using the following code:
+
+    cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON ..
+
+`ARROW_FUZZING` will enable building of fuzzer executables as well as enable the
+addition of coverage helpers via `ARROW_USE_COVERAGE`, so that the fuzzer can observe
+the program execution.
+
+It is also wise to enable some sanitizers like `ARROW_USE_ASAN` (see above), which
+activates the address sanitizer. This way, we ensure that bad memory operations
+provoked by the fuzzer will be found early. You may also enable other sanitizers as
+well. Just keep in mind that some of them do not work together and some may result
+in very long execution times, which will slow down the fuzzing procedure.
+
+Now you can start one of the fuzzer, e.g.:
+
+    ./debug/debug/ipc-fuzzing-test
+
+This will try to find a malformed input that crashes the payload and will show the
+stack trace as well as the input data. After a problem was found this way, it should
+be reported and fixed. Usually, the fuzzing process cannot be continued until the
+fix is applied, since the fuzzer usually converts to the problem again.
+
+If you build fuzzers with ASAN, you need to set the `ASAN_SYMBOLIZER_PATH`
+environment variable to the absolute path of `llvm-symbolizer`, which is a tool
+that ships with LLVM.
+
+```shell
+export ASAN_SYMBOLIZER_PATH=$(type -p llvm-symbolizer)
+```
+
+Note that some fuzzer builds currently reject paths with a version qualifier
+(like `llvm-sanitizer-5.0`). To overcome this, set an appropriate symlink
+(here, when using LLVM 5.0):
+
+```shell
+ln -sf /usr/bin/llvm-sanitizer-5.0 /usr/bin/llvm-sanitizer
+```
+
+There are some problems that may occur during the compilation process:
+
+- libfuzzer was not distributed with your LLVM: `ld: file not found: .../libLLVMFuzzer.a`
+- your LLVM is too old: `clang: error: unsupported argument 'fuzzer' to option 'fsanitize='`
+
 ### Third-party environment variables
 
 To set up your own specific build toolchain, here are the relevant environment
@@ -144,6 +203,13 @@ The CUDA toolchain used to build the library can be customized by using the
 
 This library is still in Alpha stages, and subject to API changes without
 deprecation warnings.
+
+### Building Apache ORC integration (optional)
+
+The optional arrow reader for the Apache ORC format (found in the
+`arrow::adapters::orc` namespace) can be built by passing `-DARROW_ORC=on`.
+This is currently not supported on windows. Note that this functionality is
+still in Alpha stages, and subject to API changes without deprecation warnings.
 
 ### API documentation
 
@@ -242,6 +308,46 @@ output:
 Logging IWYU to /tmp/arrow-cpp-iwyu.gT7XXV
 ...
 ```
+
+### Linting
+
+We require that you follow a certain coding style in the C++ code base.
+You can check your code abides by that coding style by running:
+
+    make lint
+
+You can also fix any formatting errors automatically:
+
+    make format
+
+These commands require `clang-format-6.0` (and not any other version).
+You may find the required packages at http://releases.llvm.org/download.html
+or use the Debian/Ubuntu APT repositories on https://apt.llvm.org/. On macOS
+with [Homebrew][1] you can get it via `brew install llvm@6`.
+
+## Checking for ABI and API stability
+
+To build ABI compliance reports, you need to install the two tools
+`abi-dumper` and `abi-compliance-checker`.
+
+Build Arrow C++ in Debug mode, alternatively you could use `-Og` which also
+builds with the necessary symbols but includes a bit of code optimization.
+Once the build has finished, you can generate ABI reports using:
+
+```
+abi-dumper -lver 9 debug/libarrow.so -o ABI-9.dump
+```
+
+The above version number is freely selectable. As we want to compare versions,
+you should now `git checkout` the version you want to compare it to and re-run
+the above command using a different version number. Once both reports are
+generated, you can build a comparision report using
+
+```
+abi-compliance-checker -l libarrow -d1 ABI-PY-9.dump -d2 ABI-PY-10.dump
+```
+
+The report is then generated in `compat_reports/libarrow` as a HTML.
 
 ## Continuous Integration
 

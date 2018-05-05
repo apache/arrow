@@ -53,6 +53,8 @@ recommended that you use packages.
 Note that the packages are "unofficial". "Official" packages will be
 released in the future.
 
+If you find problems when installing please see [common build problems](https://github.com/apache/arrow/blob/master/c_glib/README.md#common-build-problems).
+
 ### Package
 
 See [install document](../site/install.md) for details.
@@ -156,7 +158,7 @@ based bindings. Here are languages that support GObject Introspection:
   * Lua: [LGI](https://github.com/pavouk/lgi) should be used.
     * Examples: `example/lua/` directory.
 
-  * Go: [Go-gir-generator](https://github.com/linuxdeepin/go-gir-generator) should be used.
+  * Go: [Go-gir-generator](https://github.com/linuxdeepin/go-gir-generator) should be used. (Note that you should use Apache Arrow for Go than Arrow GLib.)
 
 See also
 [Projects/GObjectIntrospection/Users - GNOME Wiki!](https://wiki.gnome.org/Projects/GObjectIntrospection/Users)

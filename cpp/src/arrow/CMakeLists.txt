@@ -30,6 +30,7 @@ set(ARROW_SRCS
   type.cc
   visitor.cc
 
+  io/buffered.cc
   io/file.cc
   io/interfaces.cc
   io/memory.cc
@@ -39,11 +40,12 @@ set(ARROW_SRCS
   util/cpu-info.cc
   util/decimal.cc
   util/hash.cc
+  util/io-util.cc
   util/key_value_metadata.cc
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
-  set_property(SOURCE io/file.cc
+  set_property(SOURCE util/io-util.cc
     APPEND_STRING
     PROPERTY COMPILE_FLAGS
     " -Wno-unused-macros ")
@@ -63,6 +65,10 @@ if (ARROW_GPU)
   # IPC extensions required to build the GPU library
   set(ARROW_IPC ON)
   add_subdirectory(gpu)
+endif()
+
+if (ARROW_JEMALLOC AND JEMALLOC_VENDORED)
+  add_dependencies(arrow_dependencies jemalloc_static)
 endif()
 
 if (ARROW_WITH_BROTLI)
@@ -88,6 +94,11 @@ endif()
 if (ARROW_WITH_ZSTD)
   add_definitions(-DARROW_WITH_ZSTD)
   SET(ARROW_SRCS util/compression_zstd.cc ${ARROW_SRCS})
+endif()
+
+if (ARROW_ORC)
+  add_subdirectory(adapters/orc)
+  SET(ARROW_SRCS adapters/orc/adapter.cc ${ARROW_SRCS})
 endif()
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
@@ -148,6 +159,7 @@ install(FILES
   pretty_print.h
   record_batch.h
   status.h
+  stl.h
   table.h
   table_builder.h
   tensor.h
@@ -178,6 +190,7 @@ ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(public-api-test)
 ADD_ARROW_TEST(status-test)
+ADD_ARROW_TEST(stl-test)
 ADD_ARROW_TEST(type-test)
 ADD_ARROW_TEST(table-test)
 ADD_ARROW_TEST(table_builder-test)

@@ -23,13 +23,15 @@ set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 set(GFLAGS_VERSION "2.2.0")
 set(GTEST_VERSION "1.8.0")
 set(GBENCHMARK_VERSION "1.1.0")
-set(FLATBUFFERS_VERSION "1.7.1")
+set(FLATBUFFERS_VERSION "1.9.0")
 set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
 set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
 set(LZ4_VERSION "1.7.5")
 set(ZSTD_VERSION "1.2.0")
+set(PROTOBUF_VERSION "2.6.0")
 set(GRPC_VERSION "94582910ad7f82ad447ecc72e6548cb669e4f7a9") # v1.6.5
+set(ORC_VERSION "cf00b67795717ab3eb04e950780ed6d104109017")
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
@@ -42,8 +44,10 @@ if (NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
     LOG_BUILD 1
     LOG_INSTALL 1
     LOG_DOWNLOAD 1)
+  set(Boost_DEBUG FALSE)
 else()
   set(EP_LOG_OPTIONS)
+  set(Boost_DEBUG TRUE)
 endif()
 
 if (NOT MSVC)
@@ -78,10 +82,6 @@ if (DEFINED ENV{RAPIDJSON_HOME})
   set(RAPIDJSON_HOME "$ENV{RAPIDJSON_HOME}")
 endif()
 
-if (DEFINED ENV{JEMALLOC_HOME})
-  set(JEMALLOC_HOME "$ENV{JEMALLOC_HOME}")
-endif()
-
 if (DEFINED ENV{GFLAGS_HOME})
   set(GFLAGS_HOME "$ENV{GFLAGS_HOME}")
 endif()
@@ -110,6 +110,10 @@ if (DEFINED ENV{GRPC_HOME})
   set(GRPC_HOME "$ENV{GRPC_HOME}")
 endif()
 
+if (DEFINED ENV{PROTOBUF_HOME})
+  set(PROTOBUF_HOME "$ENV{PROTOBUF_HOME}")
+endif()
+
 # Ensure that a default make is set
 if ("${MAKE}" STREQUAL "")
     if (NOT MSVC)
@@ -128,12 +132,12 @@ endif()
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
 
-set(Boost_DEBUG TRUE)
 set(Boost_USE_MULTITHREADED ON)
 if (MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+  "1.66.0" "1.66"
   "1.65.0" "1.65"
   "1.64.0" "1.64"
   "1.63.0" "1.63"
@@ -190,14 +194,15 @@ if (ARROW_BOOST_VENDORED)
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
   add_dependencies(arrow_dependencies boost_ep)
 else()
+  if (MSVC)
+    # disable autolinking in boost
+    add_definitions(-DBOOST_ALL_NO_LIB)
+  endif()
   if (ARROW_BOOST_USE_SHARED)
     # Find shared Boost libraries.
     set(Boost_USE_STATIC_LIBS OFF)
 
-    if(MSVC)
-      # disable autolinking in boost
-      add_definitions(-DBOOST_ALL_NO_LIB)
-
+    if (MSVC)
       # force all boost libraries to dynamic link
       add_definitions(-DBOOST_ALL_DYN_LINK)
     endif()
@@ -435,12 +440,14 @@ if (ARROW_IPC)
     else()
       set(FLATBUFFERS_CMAKE_CXX_FLAGS -fPIC)
     endif()
+    # We always need to do release builds, otherwise flatc will not be installed.
     ExternalProject_Add(flatbuffers_ep
       URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
       CMAKE_ARGS
       "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
       "-DFLATBUFFERS_BUILD_TESTS=OFF"
+      "-DCMAKE_BUILD_TYPE=RELEASE"
       "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
       "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
       ${EP_LOG_OPTIONS})
@@ -469,33 +476,38 @@ if (MSVC)
 endif()
 
 if (ARROW_JEMALLOC)
-  find_package(jemalloc)
+  # We only use a vendored jemalloc as we want to control its version.
+  # Also our build of jemalloc is specially prefixed so that it will not 
+  # conflict with the default allocator as well as other jemalloc
+  # installations.
+  # find_package(jemalloc)
 
-  if(NOT JEMALLOC_FOUND)
-    set(ARROW_JEMALLOC_USE_SHARED OFF)
-    set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
-    set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
-    set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
-    set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(JEMALLOC_VENDORED 1)
-    ExternalProject_Add(jemalloc_ep
-      URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
-      CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" && touch doc/jemalloc.html && touch doc/jemalloc.3
-      ${EP_LOG_OPTIONS}
-      BUILD_IN_SOURCE 1
-      BUILD_COMMAND ${MAKE}
-      BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
-      INSTALL_COMMAND ${MAKE} -j1 install)
-  else()
-    set(JEMALLOC_VENDORED 0)
-  endif()
+  set(ARROW_JEMALLOC_USE_SHARED OFF)
+  set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
+  set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
+  set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
+  set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(JEMALLOC_VENDORED 1)
+  # We need to disable TLS or otherwise C++ exceptions won't work anymore.
+  ExternalProject_Add(jemalloc_ep
+    URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
+    PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
+    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls"
+    ${EP_LOG_OPTIONS}
+    BUILD_IN_SOURCE 1
+    BUILD_COMMAND ${MAKE}
+    BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
+    INSTALL_COMMAND ${MAKE} -j1 install)
 
-  include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIR})
+  # Don't use the include directory directly so that we can point to a path
+  # that is unique to our codebase.
+  include_directories(SYSTEM "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   ADD_THIRDPARTY_LIB(jemalloc
     STATIC_LIB ${JEMALLOC_STATIC_LIB}
     SHARED_LIB ${JEMALLOC_SHARED_LIB}
     DEPS ${PTHREAD_LIBRARY})
+  add_dependencies(jemalloc_static jemalloc_ep)
 endif()
 
 ## Google PerfTools
@@ -721,6 +733,7 @@ if (ARROW_WITH_LZ4)
 
   if("${LZ4_HOME}" STREQUAL "")
     set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
+    set(LZ4_HOME "${LZ4_BUILD_DIR}")
     set(LZ4_INCLUDE_DIR "${LZ4_BUILD_DIR}/lib")
 
     if (MSVC)
@@ -844,7 +857,8 @@ if (ARROW_WITH_GRPC)
       BUILD_BYPRODUCTS "${GRPC_STATIC_LIBRARY_GPR}" "${GRPC_STATIC_LIBRARY_GRPC}" "${GRPC_STATIC_LIBRARY_GRPCPP}"
       ${GRPC_BUILD_BYPRODUCTS}
       ${EP_LOG_OPTIONS}
-      CMAKE_ARGS ${GRPC_CMAKE_ARGS})
+      CMAKE_ARGS ${GRPC_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
   else()
     find_package(gRPC CONFIG REQUIRED)
     set(GRPC_VENDORED 0)
@@ -864,4 +878,85 @@ if (ARROW_WITH_GRPC)
     add_dependencies(grpc_grpcpp grpc_ep)
   endif()
 
+endif()
+
+if (ARROW_ORC)
+  # protobuf
+  if ("${PROTOBUF_HOME}" STREQUAL "")
+    set (PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")
+    set (PROTOBUF_HOME "${PROTOBUF_PREFIX}")
+    set (PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
+    set (PROTOBUF_STATIC_LIB "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set (PROTOBUF_SRC_URL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
+
+    ExternalProject_Add(protobuf_ep
+      CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
+      BUILD_IN_SOURCE 1
+      URL ${PROTOBUF_SRC_URL}
+      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}"
+      ${EP_LOG_OPTIONS})
+
+    set (PROTOBUF_VENDORED 1)
+  else ()
+    find_package (Protobuf REQUIRED)
+    set (PROTOBUF_VENDORED 0)
+  endif ()
+
+  include_directories (SYSTEM ${PROTOBUF_INCLUDE_DIR})
+  if (ARROW_PROTOBUF_USE_SHARED)
+    ADD_THIRDPARTY_LIB(protobuf
+      SHARED_LIB ${PROTOBUF_LIBRARY})
+  else ()
+    ADD_THIRDPARTY_LIB(protobuf
+      STATIC_LIB ${PROTOBUF_STATIC_LIB})
+  endif ()
+
+  if (PROTOBUF_VENDORED)
+    add_dependencies (protobuf protobuf_ep)
+  endif ()
+
+  # orc
+  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+  set(ORC_HOME "${ORC_PREFIX}")
+  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+  set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  if ("${COMPILER_FAMILY}" STREQUAL "clang")
+    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
+-Wno-inconsistent-missing-destructor-override ")
+    endif()
+  endif()
+
+  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
+
+  # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
+  # ${LZ4_HOME}/include, which forces us to specify the include directory
+  # manually as well.
+  set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                      -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
+                      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
+                      -DBUILD_LIBHDFSPP=OFF
+                      -DBUILD_JAVA=OFF
+                      -DBUILD_TOOLS=OFF
+                      -DBUILD_CPP_TESTS=OFF
+                      -DINSTALL_VENDORED_LIBS=OFF
+                      -DPROTOBUF_HOME=${PROTOBUF_HOME}
+                      -DLZ4_HOME=${LZ4_HOME}
+                      -DLZ4_INCLUDE_DIR=${LZ4_INCLUDE_DIR}
+                      -DSNAPPY_HOME=${SNAPPY_HOME}
+                      -DZLIB_HOME=${ZLIB_HOME})
+
+  ExternalProject_Add(orc_ep
+    URL "https://github.com/apache/orc/archive/${ORC_VERSION}.tar.gz"
+    BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+    CMAKE_ARGS ${ORC_CMAKE_ARGS}
+    ${EP_LOG_OPTIONS})
+
+  include_directories(SYSTEM ${ORC_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(orc
+    STATIC_LIB ${ORC_STATIC_LIB})
+
+  add_dependencies(orc_ep protobuf lz4_static snappy zlib)
+  add_dependencies(orc orc_ep)
 endif()

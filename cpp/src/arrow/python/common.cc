@@ -23,6 +23,9 @@
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
+
+#include "arrow/python/helpers.h"
 
 namespace arrow {
 namespace py {
@@ -47,35 +50,71 @@ MemoryPool* get_memory_pool() {
 // ----------------------------------------------------------------------
 // PyBuffer
 
-PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0), obj_(nullptr) {
-  if (PyObject_CheckBuffer(obj)) {
-    obj_ = PyMemoryView_FromObject(obj);
-    Py_buffer* buffer = PyMemoryView_GET_BUFFER(obj_);
-    data_ = reinterpret_cast<const uint8_t*>(buffer->buf);
-    size_ = buffer->len;
-    capacity_ = buffer->len;
-    is_mutable_ = false;
+PyBuffer::PyBuffer() : Buffer(nullptr, 0) {}
+
+Status PyBuffer::Init(PyObject* obj) {
+  if (!PyObject_GetBuffer(obj, &py_buf_, PyBUF_ANY_CONTIGUOUS)) {
+    data_ = reinterpret_cast<const uint8_t*>(py_buf_.buf);
+    DCHECK(data_ != nullptr);
+    size_ = py_buf_.len;
+    capacity_ = py_buf_.len;
+    is_mutable_ = !py_buf_.readonly;
+    return Status::OK();
+  } else {
+    return Status(StatusCode::PythonError, "");
   }
 }
 
-PyBuffer::~PyBuffer() {
-  PyAcquireGIL lock;
-  Py_XDECREF(obj_);
+Status PyBuffer::FromPyObject(PyObject* obj, std::shared_ptr<Buffer>* out) {
+  PyBuffer* buf = new PyBuffer();
+  std::shared_ptr<Buffer> res(buf);
+  RETURN_NOT_OK(buf->Init(obj));
+  *out = res;
+  return Status::OK();
 }
+
+PyBuffer::~PyBuffer() {
+  if (data_ != nullptr) {
+    PyAcquireGIL lock;
+    PyBuffer_Release(&py_buf_);
+  }
+}
+
+// ----------------------------------------------------------------------
+// Python exception -> Status
 
 Status CheckPyError(StatusCode code) {
   if (PyErr_Occurred()) {
-    PyObject *exc_type, *exc_value, *traceback;
+    PyObject* exc_type = nullptr;
+    PyObject* exc_value = nullptr;
+    PyObject* traceback = nullptr;
+
     PyErr_Fetch(&exc_type, &exc_value, &traceback);
     PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
-    PyObject* exc_value_str = PyObject_Str(exc_value);
-    PyObjectStringify stringified(exc_value_str);
-    std::string message(stringified.bytes);
-    Py_XDECREF(exc_type);
-    Py_XDECREF(exc_value);
-    Py_XDECREF(exc_value_str);
-    Py_XDECREF(traceback);
-    PyErr_Clear();
+
+    OwnedRef exc_type_ref(exc_type);
+    OwnedRef exc_value_ref(exc_value);
+    OwnedRef traceback_ref(traceback);
+
+    std::string message;
+    RETURN_NOT_OK(internal::PyObject_StdStringStr(exc_value, &message));
+
+    if (code == StatusCode::UnknownError) {
+      // Try to match the Python exception type with an appropriate Status code
+      if (PyErr_GivenExceptionMatches(exc_type, PyExc_MemoryError)) {
+        code = StatusCode::OutOfMemory;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_KeyError)) {
+        code = StatusCode::KeyError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_TypeError)) {
+        code = StatusCode::TypeError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_ValueError)) {
+        code = StatusCode::Invalid;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_EnvironmentError)) {
+        code = StatusCode::IOError;
+      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_NotImplementedError)) {
+        code = StatusCode::NotImplemented;
+      }
+    }
     return Status(code, message);
   }
   return Status::OK();

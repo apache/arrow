@@ -40,10 +40,12 @@ class Status;
 class ARROW_EXPORT ChunkedArray {
  public:
   explicit ChunkedArray(const ArrayVector& chunks);
+  ChunkedArray(const ArrayVector& chunks, const std::shared_ptr<DataType>& type);
 
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
 
+  /// \return the total number of nulls among all chunks
   int64_t null_count() const { return null_count_; }
 
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
@@ -53,7 +55,21 @@ class ARROW_EXPORT ChunkedArray {
 
   const ArrayVector& chunks() const { return chunks_; }
 
-  std::shared_ptr<DataType> type() const;
+  /// \brief Construct a zero-copy slice of the chunked array with the
+  /// indicated offset and length
+  ///
+  /// \param[in] offset the position of the first element in the constructed
+  /// slice
+  /// \param[in] length the length of the slice. If there are not enough
+  /// elements in the chunked array, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<ChunkedArray>
+  std::shared_ptr<ChunkedArray> Slice(int64_t offset, int64_t length) const;
+
+  /// \brief Slice from offset until end of the chunked array
+  std::shared_ptr<ChunkedArray> Slice(int64_t offset) const;
+
+  std::shared_ptr<DataType> type() const { return type_; }
 
   bool Equals(const ChunkedArray& other) const;
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
@@ -62,13 +78,15 @@ class ARROW_EXPORT ChunkedArray {
   ArrayVector chunks_;
   int64_t length_;
   int64_t null_count_;
+  std::shared_ptr<DataType> type_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 
+/// \class Column
 /// \brief An immutable column data structure consisting of a field (type
-/// metadata) and a logical chunked data array
+/// metadata) and a chunked data array
 class ARROW_EXPORT Column {
  public:
   Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks);
@@ -96,6 +114,24 @@ class ARROW_EXPORT Column {
   /// \brief The column data as a chunked array
   /// \return the column's data as a chunked logical array
   std::shared_ptr<ChunkedArray> data() const { return data_; }
+
+  /// \brief Construct a zero-copy slice of the column with the indicated
+  /// offset and length
+  ///
+  /// \param[in] offset the position of the first element in the constructed
+  /// slice
+  /// \param[in] length the length of the slice. If there are not enough
+  /// elements in the column, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<Column>
+  std::shared_ptr<Column> Slice(int64_t offset, int64_t length) const {
+    return std::make_shared<Column>(field_, data_->Slice(offset, length));
+  }
+
+  /// \brief Slice from offset until end of the column
+  std::shared_ptr<Column> Slice(int64_t offset) const {
+    return std::make_shared<Column>(field_, data_->Slice(offset));
+  }
 
   bool Equals(const Column& other) const;
   bool Equals(const std::shared_ptr<Column>& other) const;
@@ -135,9 +171,25 @@ class ARROW_EXPORT Table {
                                      const std::vector<std::shared_ptr<Array>>& arrays,
                                      int64_t num_rows = -1);
 
-  // Construct table from RecordBatch, but only if all of the batch schemas are
-  // equal. Returns Status::Invalid if there is some problem
+  /// \brief Construct table from RecordBatches, using schema supplied by the first
+  /// RecordBatch.
+  ///
+  /// \param[in] batches a std::vector of record batches
+  /// \param[out] table the returned table
+  /// \return Status Returns Status::Invalid if there is some problem
   static Status FromRecordBatches(
+      const std::vector<std::shared_ptr<RecordBatch>>& batches,
+      std::shared_ptr<Table>* table);
+
+  /// Construct table from RecordBatches, using supplied schema. There may be
+  /// zero record batches
+  ///
+  /// \param[in] schema the arrow::Schema for each batch
+  /// \param[in] batches a std::vector of record batches
+  /// \param[out] table the returned table
+  /// \return Status
+  static Status FromRecordBatches(
+      const std::shared_ptr<Schema>& schema,
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
 
@@ -188,7 +240,7 @@ class ARROW_EXPORT Table {
 /// \brief Compute a sequence of record batches from a (possibly chunked) Table
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
-  ~TableBatchReader();
+  ~TableBatchReader() override;
 
   /// \brief Read batches with the maximum possible size
   explicit TableBatchReader(const Table& table);
@@ -209,18 +261,6 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
 ARROW_EXPORT
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
                          std::shared_ptr<Table>* table);
-
-#ifndef ARROW_NO_DEPRECATED_API
-
-/// \brief Construct table from multiple input tables.
-/// \return Status, fails if any schemas are different
-/// \note Deprecated since 0.8.0
-ARROW_EXPORT
-Status MakeTable(const std::shared_ptr<Schema>& schema,
-                 const std::vector<std::shared_ptr<Array>>& arrays,
-                 std::shared_ptr<Table>* table);
-
-#endif
 
 }  // namespace arrow
 

@@ -210,6 +210,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");
@@ -269,6 +270,13 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     vector.clear();
     valueCount = 0;
     super.clear();
+  }
+
+  @Override
+  public void reset() {
+    validityBuffer.setZero(0, validityBuffer.capacity());
+    vector.reset();
+    valueCount = 0;
   }
 
   @Override

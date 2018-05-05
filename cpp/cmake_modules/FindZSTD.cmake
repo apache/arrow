@@ -29,7 +29,7 @@ elseif ( ZStd_HOME )
     list( APPEND _zstd_roots ${ZStd_HOME} )
 endif()
 
-if (MSVC AND NOT ZSTD_MSVC_STATIC_LIB_SUFFIX)
+if (MSVC AND NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
   set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
 endif()
 

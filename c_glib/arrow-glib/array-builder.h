@@ -37,6 +37,10 @@ struct _GArrowArrayBuilderClass
 
 void garrow_array_builder_release_ownership(GArrowArrayBuilder *builder);
 
+GArrowDataType *
+garrow_array_builder_get_value_data_type(GArrowArrayBuilder *builder);
+GArrowType garrow_array_builder_get_value_type(GArrowArrayBuilder *builder);
+
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
 
@@ -889,6 +893,12 @@ GArrowStringArrayBuilder *garrow_string_array_builder_new(void);
 gboolean garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
                                             const gchar *value,
                                             GError **error);
+gboolean garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
+                                                   const gchar **values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
 
 
 #define GARROW_TYPE_DATE32_ARRAY_BUILDER        \

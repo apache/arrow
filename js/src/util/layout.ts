@@ -15,16 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { align } from './bit';
 import { TextEncoder } from 'text-encoding-utf-8';
-import { TypedArrayConstructor, TypedArray } from '../vector/types';
-
-export function align(value: number, alignment: number) {
-    return value + padding(value, alignment);
-}
-
-export function padding(value: number, alignment: number) {
-    return (value % alignment === 0 ? 0 : alignment - value % alignment);
-}
+import { TypedArrayConstructor, TypedArray } from '../type';
 
 export type NullableLayout = { nullCount: number, validity: Uint8Array };
 export type BufferLayout<TArray = ArrayLike<number>> = { data: TArray };

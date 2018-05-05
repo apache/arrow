@@ -34,7 +34,7 @@ argv.update && jestArgv.push(`-u`);
 argv.verbose && jestArgv.push(`--verbose`);
 argv.coverage && jestArgv.push(`--coverage`);
 
-const debugArgv = [`--runInBand`, `--env`, `jest-environment-node-debug`];
+const debugArgv = [`--runInBand`, `--env`, `node-debug`];
 const jest = require.resolve(path.join(`..`, `node_modules`, `.bin`, `jest`));
 const testOptions = {
     env: { ...process.env },
@@ -44,15 +44,15 @@ const testOptions = {
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format, debug = false) {
     const opts = { ...testOptions };
     const args = !debug ? [...execArgv] : [...debugArgv, ...execArgv];
-    args.push(`test/${argv.integration ? `integration/*` : `unit/*`}`);
+    if (!argv.coverage) {
+        args.push(`test/${argv.integration ? `integration/*` : `unit/*`}`);
+    }
     opts.env = { ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
-        JSON_PATH: argv.json_file,
-        ARROW_PATH: argv.arrow_file,
         TEST_TS_SOURCE: !!argv.coverage,
-        TEST_SOURCES: JSON.stringify(Array.isArray(argv.sources) ? argv.sources : [argv.sources]),
-        TEST_FORMATS: JSON.stringify(Array.isArray(argv.formats) ? argv.formats : [argv.formats]),
+        JSON_PATHS: JSON.stringify(Array.isArray(argv.json_files) ? argv.json_files : [argv.json_files]),
+        ARROW_PATHS: JSON.stringify(Array.isArray(argv.arrow_files) ? argv.arrow_files : [argv.arrow_files]),
     };
     return !debug ?
         child_process.spawn(jest, args, opts) :

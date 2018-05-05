@@ -64,6 +64,17 @@ cdef class ArrayValue(Scalar):
         else:
             return super(Scalar, self).__repr__()
 
+    def __eq__(self, other):
+        if hasattr(self, 'as_py'):
+            if isinstance(other, ArrayValue):
+                other = other.as_py()
+            return self.as_py() == other
+        else:
+            raise NotImplementedError(
+                "Cannot compare Arrow values that don't support as_py()")
+
+    def __hash__(self):
+            return hash(self.as_py())
 
 cdef class BooleanValue(ArrayValue):
 
@@ -226,8 +237,7 @@ cdef class TimestampValue(ArrayValue):
         value = self.value
 
         if not dtype.timezone().empty():
-            import pytz
-            tzinfo = pytz.timezone(frombytes(dtype.timezone()))
+            tzinfo = string_to_tzinfo(frombytes(dtype.timezone()))
         else:
             tzinfo = None
 
@@ -238,6 +248,13 @@ cdef class TimestampValue(ArrayValue):
                 'Cannot convert nanosecond timestamps without pandas'
             )
         return converter(value, tzinfo=tzinfo)
+
+
+cdef class HalfFloatValue(ArrayValue):
+
+    def as_py(self):
+        cdef CHalfFloatArray* ap = <CHalfFloatArray*> self.sp_array.get()
+        return PyHalf_FromHalf(ap.Value(self.index))
 
 
 cdef class FloatValue(ArrayValue):
@@ -285,10 +302,10 @@ cdef class BinaryValue(ArrayValue):
 cdef class ListValue(ArrayValue):
 
     def __len__(self):
-        return self.ap.value_length(self.index)
+        return self.length()
 
     def __getitem__(self, i):
-        return self.getitem(i)
+        return self.getitem(_normalize_index(i, self.length()))
 
     def __iter__(self):
         for i in range(len(self)):
@@ -303,6 +320,9 @@ cdef class ListValue(ArrayValue):
     cdef getitem(self, int64_t i):
         cdef int64_t j = self.ap.value_offset(self.index) + i
         return box_scalar(self.value_type, self.ap.values(), j)
+
+    cdef int64_t length(self):
+        return self.ap.value_length(self.index)
 
     def as_py(self):
         cdef:
@@ -325,13 +345,14 @@ cdef class UnionValue(ArrayValue):
         cdef int8_t type_id = self.ap.raw_type_ids()[i]
         cdef shared_ptr[CArray] child = self.ap.child(type_id)
         if self.ap.mode() == _UnionMode_SPARSE:
-            return box_scalar(self.type[type_id], child, i)
+            return box_scalar(self.type[type_id].type, child, i)
         else:
-            return box_scalar(self.type[type_id], child,
+            return box_scalar(self.type[type_id].type, child,
                               self.ap.value_offset(i))
 
     def as_py(self):
         return self.getitem(self.index).as_py()
+
 
 cdef class FixedSizeBinaryValue(ArrayValue):
 
@@ -349,20 +370,61 @@ cdef class FixedSizeBinaryValue(ArrayValue):
 
 
 cdef class StructValue(ArrayValue):
+
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
+        self.sp_array = sp_array
+        self.ap = <CStructArray*> sp_array.get()
+
+    def __getitem__(self, key):
+        cdef:
+            CStructType* type
+            int index
+
+        type = <CStructType*> self.type.type
+        index = type.GetChildIndex(tobytes(key))
+
+        if index < 0:
+            raise KeyError(key)
+
+        return pyarrow_wrap_array(self.ap.field(index))[self.index]
+
     def as_py(self):
         cdef:
-            CStructArray* ap
             vector[shared_ptr[CField]] child_fields = self.type.type.children()
-        ap = <CStructArray*> self.sp_array.get()
-        wrapped_arrays = (pyarrow_wrap_array(ap.field(i))
-                          for i in range(ap.num_fields()))
-        child_names = (child.get().name() for child in child_fields)
+
+        wrapped_arrays = [pyarrow_wrap_array(self.ap.field(i))
+                          for i in range(self.ap.num_fields())]
+        child_names = [child.get().name() for child in child_fields]
         # Return the struct as a dict
         return {
             frombytes(name): child_array[self.index].as_py()
             for name, child_array in
             zip(child_names, wrapped_arrays)
         }
+
+cdef class DictionaryValue(ArrayValue):
+
+    def as_py(self):
+        return self.dictionary_value.as_py()
+
+    property index_value:
+
+        def __get__(self):
+            cdef CDictionaryArray* darr
+
+            darr = <CDictionaryArray*>(self.sp_array.get())
+            indices = pyarrow_wrap_array(darr.indices())
+            return indices[self.index]
+
+    property dictionary_value:
+
+        def __get__(self):
+            cdef CDictionaryArray* darr
+
+            darr = <CDictionaryArray*>(self.sp_array.get())
+            dictionary = pyarrow_wrap_array(darr.dictionary())
+            return dictionary[self.index_value.as_py()]
+
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanValue,
@@ -379,6 +441,7 @@ cdef dict _scalar_classes = {
     _Type_TIME32: Time32Value,
     _Type_TIME64: Time64Value,
     _Type_TIMESTAMP: TimestampValue,
+    _Type_HALF_FLOAT: HalfFloatValue,
     _Type_FLOAT: FloatValue,
     _Type_DOUBLE: DoubleValue,
     _Type_LIST: ListValue,
@@ -388,7 +451,9 @@ cdef dict _scalar_classes = {
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
     _Type_DECIMAL: DecimalValue,
     _Type_STRUCT: StructValue,
+    _Type_DICTIONARY: DictionaryValue,
 }
+
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
                        int64_t index):

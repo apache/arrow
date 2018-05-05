@@ -27,6 +27,7 @@ const gulp = require('gulp');
 const path = require('path');
 const sourcemaps = require('gulp-sourcemaps');
 const { memoizeTask } = require('./memoize-task');
+const { compileBinFiles } = require('./typescript-task');
 const ASTBuilders = require('ast-types').builders;
 const transformAST = require('gulp-transform-js-ast');
 const { Observable, ReplaySubject } = require('rxjs');
@@ -36,7 +37,7 @@ const closureTask = ((cache) => memoizeTask(cache, function closure(target, form
     const src = targetDir(target, `cls`);
     const out = targetDir(target, format);
     const entry = path.join(src, mainExport);
-    const externs = path.join(src, `${mainExport}.externs`);
+    const externs = path.join(`src/Arrow.externs.js`);
     return observableFromStreams(
         gulp.src([
 /*   external libs first --> */ `node_modules/tslib/package.json`,
@@ -46,7 +47,6 @@ const closureTask = ((cache) => memoizeTask(cache, function closure(target, form
                                 `node_modules/text-encoding-utf-8/package.json`,
                                 `node_modules/text-encoding-utf-8/src/encoding.js`,
 /*    then sources globs --> */ `${src}/**/*.js`,
-/* and exclusions last -->  */ `!${src}/Arrow.externs.js`,
         ], { base: `./` }),
         sourcemaps.init(),
         closureCompiler(createClosureArgs(entry, externs)),
@@ -56,18 +56,22 @@ const closureTask = ((cache) => memoizeTask(cache, function closure(target, form
         // rename the sourcemaps from *.js.map files to *.min.js.map
         sourcemaps.write(`.`, { mapFile: (mapPath) => mapPath.replace(`.js.map`, `.${target}.min.js.map`) }),
         gulp.dest(out)
-    ).publish(new ReplaySubject()).refCount();
+    )
+    .merge(compileBinFiles(target, format))
+    .takeLast(1)
+    .publish(new ReplaySubject()).refCount();
 }))({});
 
 const createClosureArgs = (entry, externs) => ({
+    externs,
     third_party: true,
     warning_level: `QUIET`,
     dependency_mode: `STRICT`,
     rewrite_polyfills: false,
-    externs: `${externs}.js`,
     entry_point: `${entry}.js`,
     module_resolution: `NODE`,
-    // formatting: `PRETTY_PRINT`, debug: true,
+    // formatting: `PRETTY_PRINT`,
+    // debug: true,
     compilation_level: `ADVANCED`,
     allow_method_call_decomposing: true,
     package_json_entry_names: `module,jsnext:main,main`,

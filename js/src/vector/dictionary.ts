@@ -15,34 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { VirtualVector } from './virtual';
+import { Data } from '../data';
+import { View, Vector } from '../vector';
+import { IterableArrayLike, DataType, Dictionary, Int } from '../type';
 
-export class DictionaryVector<T> extends Vector<T> {
-    readonly length: number;
-    readonly data: Vector<T>;
-    readonly keys: Vector<number>;
-    constructor(argv: { data: Vector<T>, keys: Vector<number> }) {
-        super();
-        this.data = argv.data;
-        this.keys = argv.keys;
-        this.length = this.keys.length;
+export class DictionaryView<T extends DataType> implements View<T> {
+    public indices: Vector<Int>;
+    public dictionary: Vector<T>;
+    constructor(dictionary: Vector<T>, indices: Vector<Int>) {
+        this.indices = indices;
+        this.dictionary = dictionary;
     }
-    get(index: number) {
-        return this.getValue(this.getKey(index)!);
+    public clone(data: Data<Dictionary<T>>): this {
+        return new DictionaryView(data.dictionary, this.indices.clone(data.indices)) as this;
     }
-    getKey(index: number) {
-        return this.keys.get(index);
+    public isValid(index: number): boolean {
+        return this.indices.isValid(index);
     }
-    getValue(key: number) {
-        return this.data.get(key);
+    public get(index: number): T['TValue'] {
+        return this.dictionary.get(this.indices.get(index));
     }
-    concat(...vectors: Vector<T>[]): Vector<T> {
-        return new VirtualVector(Array, this, ...vectors);
+    public set(index: number, value: T['TValue']): void {
+        this.dictionary.set(this.indices.get(index), value);
     }
-    *[Symbol.iterator]() {
-        for (let i = -1, n = this.length; ++i < n;) {
-            yield this.get(i);
+    public toArray(): IterableArrayLike<T['TValue']> {
+        return [...this];
+    }
+    public *[Symbol.iterator](): IterableIterator<T['TValue']> {
+        const values = this.dictionary, indices = this.indices;
+        for (let index = -1, n = indices.length; ++index < n;) {
+            yield values.get(indices.get(index));
         }
+    }
+    public indexOf(search: T['TValue']) {
+        // First find the dictionary key for the desired value...
+        const key = this.dictionary.indexOf(search);
+        if (key === -1) { return key; }
+
+        // ... then find the first occurence of that key in indices
+        return this.indices.indexOf(key!);
     }
 }

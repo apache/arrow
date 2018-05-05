@@ -25,6 +25,7 @@
 #  ARROW_FOUND, whether arrow has been found
 
 include(FindPkgConfig)
+include(GNUInstallDirs)
 
 if ("$ENV{ARROW_HOME}" STREQUAL "")
   pkg_check_modules(ARROW arrow)
@@ -33,6 +34,16 @@ if ("$ENV{ARROW_HOME}" STREQUAL "")
     message(STATUS "Arrow ABI version: ${ARROW_ABI_VERSION}")
     pkg_get_variable(ARROW_SO_VERSION arrow so_version)
     message(STATUS "Arrow SO version: ${ARROW_SO_VERSION}")
+    if ("${ARROW_INCLUDE_DIRS}" STREQUAL "")
+      set(ARROW_INCLUDE_DIRS "/usr/${CMAKE_INSTALL_INCLUDEDIR}")
+    endif()
+    if ("${ARROW_LIBRARY_DIRS}" STREQUAL "")
+      set(ARROW_LIBRARY_DIRS "/usr/${CMAKE_INSTALL_LIBDIR}")
+      if (EXISTS "/etc/debian_version" AND CMAKE_LIBRARY_ARCHITECTURE)
+        set(ARROW_LIBRARY_DIRS
+          "${ARROW_LIBRARY_DIRS}/${CMAKE_LIBRARY_ARCHITECTURE}")
+      endif()
+    endif()
     set(ARROW_INCLUDE_DIR ${ARROW_INCLUDE_DIRS})
     set(ARROW_LIBS ${ARROW_LIBRARY_DIRS})
     set(ARROW_SEARCH_LIB_PATH ${ARROW_LIBRARY_DIRS})
@@ -70,7 +81,7 @@ get_filename_component(ARROW_PYTHON_LIBS ${ARROW_PYTHON_LIB_PATH} DIRECTORY)
 if (MSVC)
   SET(CMAKE_FIND_LIBRARY_SUFFIXES ".lib" ".dll")
 
-  if (MSVC AND NOT ARROW_MSVC_STATIC_LIB_SUFFIX)
+  if (MSVC AND NOT DEFINED ARROW_MSVC_STATIC_LIB_SUFFIX)
     set(ARROW_MSVC_STATIC_LIB_SUFFIX "_static")
   endif()
 

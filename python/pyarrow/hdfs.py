@@ -36,6 +36,17 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
         self._connect(host, port, user, kerb_ticket, driver)
 
+    def __reduce__(self):
+        return (HadoopFileSystem, (self.host, self.port, self.user,
+                                   self.kerb_ticket, self.driver))
+
+    def _isfilestore(self):
+        """
+        Returns True if this FileSystem is a unix-style file store with
+        directories.
+        """
+        return True
+
     @implements(FileSystem.isdir)
     def isdir(self, path):
         return super(HadoopFileSystem, self).isdir(path)

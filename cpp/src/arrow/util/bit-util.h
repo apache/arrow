@@ -55,6 +55,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/util/macros.h"
@@ -68,34 +69,12 @@
 
 namespace arrow {
 
-// TODO(wesm): The source from Impala was depending on boost::make_unsigned
-//
-// We add a partial stub implementation here
-
 namespace detail {
 
-template <typename T>
-struct make_unsigned {};
-
-template <>
-struct make_unsigned<int8_t> {
-  typedef uint8_t type;
-};
-
-template <>
-struct make_unsigned<int16_t> {
-  typedef uint16_t type;
-};
-
-template <>
-struct make_unsigned<int32_t> {
-  typedef uint32_t type;
-};
-
-template <>
-struct make_unsigned<int64_t> {
-  typedef uint64_t type;
-};
+template <typename Integer>
+typename std::make_unsigned<Integer>::type as_unsigned(Integer x) {
+  return static_cast<typename std::make_unsigned<Integer>::type>(x);
+}
 
 }  // namespace detail
 
@@ -139,13 +118,10 @@ static inline void SetArrayBit(uint8_t* bits, int i, bool is_set) {
 }
 
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
-  // TODO: speed up. See https://graphics.stanford.edu/~seander/bithacks.html
+  // https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
-  if (bit_is_set) {
-    SetBit(bits, i);
-  } else {
-    ClearBit(bits, i);
-  }
+  bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
+                 kBitmask[i % 8];
 }
 
 // Returns the minimum number of bits needed to represent the value of 'x'
@@ -271,7 +247,7 @@ static inline int Popcount(uint64_t x) {
 template <typename T>
 static inline int PopcountSigned(T v) {
   // Converting to same-width unsigned then extending preserves the bit pattern.
-  return BitUtil::Popcount(static_cast<typename detail::make_unsigned<T>::type>(v));
+  return BitUtil::Popcount(detail::as_unsigned(v));
 }
 
 /// Returns the 'num_bits' least-significant bits of 'v'.
@@ -363,23 +339,20 @@ static inline void ByteSwap(void* dst, const void* src, int len) {
 /// Converts to big endian format (if not already in big endian) from the
 /// machine's native endian format.
 #if ARROW_LITTLE_ENDIAN
-template <typename T,
-          typename =
-              EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t>>
+template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                                 int16_t, uint16_t>>
 static inline T ToBigEndian(T value) {
   return ByteSwap(value);
 }
 
-template <typename T,
-          typename =
-              EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t>>
+template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                                 int16_t, uint16_t>>
 static inline T ToLittleEndian(T value) {
   return value;
 }
 #else
-template <typename T,
-          typename =
-              EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t>>
+template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                                 int16_t, uint16_t>>
 static inline T ToBigEndian(T value) {
   return value;
 }
@@ -387,30 +360,26 @@ static inline T ToBigEndian(T value) {
 
 /// Converts from big endian format to the machine's native endian format.
 #if ARROW_LITTLE_ENDIAN
-template <typename T,
-          typename =
-              EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t>>
+template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                                 int16_t, uint16_t>>
 static inline T FromBigEndian(T value) {
   return ByteSwap(value);
 }
 
-template <typename T,
-          typename =
-              EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t>>
+template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                                 int16_t, uint16_t>>
 static inline T FromLittleEndian(T value) {
   return value;
 }
 #else
-template <typename T,
-          typename =
-              EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t>>
+template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                                 int16_t, uint16_t>>
 static inline T FromBigEndian(T value) {
   return value;
 }
 
-template <typename T,
-          typename =
-              EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t>>
+template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                                 int16_t, uint16_t>>
 static inline T FromLittleEndian(T value) {
   return ByteSwap(value);
 }
@@ -422,7 +391,7 @@ static inline T FromLittleEndian(T value) {
 template <typename T>
 static T ShiftRightLogical(T v, int shift) {
   // Conversion to unsigned ensures most significant bits always filled with 0's
-  return static_cast<typename detail::make_unsigned<T>::type>(v) >> shift;
+  return detail::as_unsigned(v) >> shift;
 }
 
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits);
@@ -459,7 +428,7 @@ class BitmapReader {
   void Next() {
     ++bit_offset_;
     ++position_;
-    if (bit_offset_ == 8) {
+    if (ARROW_PREDICT_FALSE(bit_offset_ == 8)) {
       bit_offset_ = 0;
       ++byte_offset_;
       if (ARROW_PREDICT_TRUE(position_ < length_)) {
@@ -484,23 +453,23 @@ class BitmapWriter {
       : bitmap_(bitmap), position_(0), length_(length) {
     current_byte_ = 0;
     byte_offset_ = start_offset / 8;
-    bit_offset_ = start_offset % 8;
+    bit_mask_ = static_cast<uint8_t>(1 << (start_offset % 8));
     if (length > 0) {
       current_byte_ = bitmap[byte_offset_];
     }
   }
 
-  void Set() { current_byte_ |= BitUtil::kBitmask[bit_offset_]; }
+  void Set() { current_byte_ |= bit_mask_; }
 
-  void Clear() { current_byte_ &= BitUtil::kFlippedBitmask[bit_offset_]; }
+  void Clear() { current_byte_ &= bit_mask_ ^ 0xFF; }
 
   void Next() {
-    ++bit_offset_;
+    bit_mask_ = static_cast<uint8_t>(bit_mask_ << 1);
     ++position_;
-    bitmap_[byte_offset_] = current_byte_;
-    if (bit_offset_ == 8) {
-      bit_offset_ = 0;
-      ++byte_offset_;
+    if (bit_mask_ == 0) {
+      // Finished this byte, need advancing
+      bit_mask_ = 0x01;
+      bitmap_[byte_offset_++] = current_byte_;
       if (ARROW_PREDICT_TRUE(position_ < length_)) {
         current_byte_ = bitmap_[byte_offset_];
       }
@@ -508,10 +477,9 @@ class BitmapWriter {
   }
 
   void Finish() {
-    if (ARROW_PREDICT_TRUE(position_ < length_)) {
-      if (bit_offset_ != 0) {
-        bitmap_[byte_offset_] = current_byte_;
-      }
+    // Store current byte if we didn't went past bitmap storage
+    if (bit_mask_ != 0x01 || position_ < length_) {
+      bitmap_[byte_offset_] = current_byte_;
     }
   }
 
@@ -523,8 +491,8 @@ class BitmapWriter {
   int64_t length_;
 
   uint8_t current_byte_;
+  uint8_t bit_mask_;
   int64_t byte_offset_;
-  int64_t bit_offset_;
 };
 
 }  // namespace internal
@@ -561,6 +529,11 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
 ARROW_EXPORT
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                   int64_t right_offset, int64_t bit_length);
+
+ARROW_EXPORT
+Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
 
 }  // namespace arrow
 

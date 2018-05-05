@@ -31,6 +31,24 @@ class TestChunkedArray < Test::Unit::TestCase
                  Arrow::ChunkedArray.new(chunks2))
   end
 
+  def test_value_data_type
+    chunks = [
+      build_boolean_array([true, false]),
+      build_boolean_array([true]),
+    ]
+    assert_equal(Arrow::BooleanDataType.new,
+                 Arrow::ChunkedArray.new(chunks).value_data_type)
+  end
+
+  def test_value_type
+    chunks = [
+      build_boolean_array([true, false]),
+      build_boolean_array([true]),
+    ]
+    assert_equal(Arrow::Type::BOOLEAN,
+                 Arrow::ChunkedArray.new(chunks).value_type)
+  end
+
   def test_length
     chunks = [
       build_boolean_array([true, false]),
@@ -76,5 +94,19 @@ class TestChunkedArray < Test::Unit::TestCase
     chunked_array = Arrow::ChunkedArray.new(chunks)
     assert_equal([2, 1],
                  chunked_array.chunks.collect(&:length))
+  end
+
+  def test_slice
+    chunks1 = [
+      build_boolean_array([true, false, true]),
+      build_boolean_array([false, true]),
+    ]
+    chunks2 = [
+      build_boolean_array([false, true]),
+      build_boolean_array([false]),
+    ]
+    chunked_array = Arrow::ChunkedArray.new(chunks1)
+    sub_chunked_array = chunked_array.slice(1, 3)
+    assert_equal(chunks2, sub_chunked_array.chunks)
   end
 end

@@ -88,12 +88,6 @@ function setup_sanitizers() {
   # Set up suppressions for LeakSanitizer
   LSAN_OPTIONS="$LSAN_OPTIONS suppressions=$ROOT/build-support/lsan-suppressions.txt"
   export LSAN_OPTIONS
-
-  # Suppressions require symbolization. We'll default to using the symbolizer in
-  # thirdparty.
-  if [ -z "$ASAN_SYMBOLIZER_PATH" ]; then
-    export ASAN_SYMBOLIZER_PATH=$(find $NATIVE_TOOLCHAIN/llvm-3.7.0/bin -name llvm-symbolizer)
-  fi
 }
 
 function run_test() {

@@ -24,7 +24,6 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -170,6 +169,42 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
+   * Sets the desired value capacity for the vector. This function doesn't
+   * allocate any memory for the vector.
+   * @param valueCount desired number of elements in the vector
+   * @param density average number of bytes per variable width element
+   */
+  @Override
+  public void setInitialCapacity(int valueCount, double density) {
+    long size = Math.max((long)(valueCount * density), 1L);
+
+    if (size > MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
+    }
+
+    valueAllocationSizeInBytes = (int) size;
+    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(valueCount);
+    /* to track the end offset of last data element in vector, we need
+     * an additional slot in offset buffer.
+     */
+    offsetAllocationSizeInBytes = (valueCount + 1) * OFFSET_WIDTH;
+  }
+
+  /**
+   * Get the density of this ListVector
+   * @return density
+   */
+  public double getDensity() {
+    if (valueCount == 0) {
+      return 0.0D;
+    }
+    final int startOffset = offsetBuffer.getInt(0);
+    final int endOffset = offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+    final double totalListSize = endOffset - startOffset;
+    return totalListSize/valueCount;
+  }
+
+  /**
    * Get the current value capacity for the vector
    * @return number of elements that vector can hold.
    */
@@ -193,6 +228,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public void zeroVector() {
     initValidityBuffer();
     initOffsetBuffer();
+    valueBuffer.setZero(0, valueBuffer.capacity());
   }
 
   /* zero out the validity buffer */
@@ -212,6 +248,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public void reset() {
     zeroVector();
     lastSet = -1;
+    valueCount = 0;
   }
 
   /**
@@ -357,7 +394,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     try {
       allocateBytes(curAllocationSizeValue, curAllocationSizeValidity, curAllocationSizeOffset);
     } catch (Exception e) {
-      e.printStackTrace();
       clear();
       return false;
     }
@@ -390,8 +426,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     try {
       allocateBytes(totalBytes, validityBufferSize, offsetBufferSize);
     } catch (Exception e) {
-      e.printStackTrace();
       clear();
+      throw e;
     }
   }
 
@@ -452,6 +488,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");
@@ -504,6 +541,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");

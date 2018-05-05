@@ -66,12 +66,18 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     ON)
   option(PYARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries on linking static parquet"
-    OFF)
+    ON)
   option(PYARROW_BUILD_PLASMA
     "Build the PyArrow Plasma integration"
     OFF)
+  option(PYARROW_BUILD_ORC
+    "Build the PyArrow ORC integration"
+    OFF)
   option(PYARROW_BUNDLE_ARROW_CPP
     "Bundle the Arrow C++ libraries"
+    OFF)
+  option(PYARROW_BUNDLE_BOOST
+    "Bundle the Boost libraries when we bundle Arrow C++"
     OFF)
   set(PYARROW_CXXFLAGS "" CACHE STRING
     "Compiler flags to append when compiling Arrow")
@@ -135,13 +141,18 @@ endif()
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# set compile output directory
-string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
+if (MSVC)
+  # MSVC makes its own output directories based on the build configuration
+  set(BUILD_SUBDIR_NAME "")
+else()
+  # Set compile output directory
+  string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
+endif()
 
 # If build in-source, create the latest symlink. If build out-of-source, which is
 # preferred, simply output the binaries in the build folder
 if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
-  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}/")
+  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}")
   # Link build/latest to the current build directory, to avoid developers
   # accidentally running the latest debug build when in fact they're building
   # release builds.
@@ -149,15 +160,10 @@ if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
   if (NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-EXECUTE_PROCESS(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-  ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+  EXECUTE_PROCESS(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
+    ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
-  if (MSVC)
-    # MSVC makes its own output directories based on the build configuration
-    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/")
-  else()
-    set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
-  endif()
+  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
 endif()
 
 message(STATUS "Build output directory: ${BUILD_OUTPUT_ROOT_DIRECTORY}")
@@ -232,6 +238,24 @@ function(bundle_arrow_implib library_path)
       COPYONLY)
 endfunction(bundle_arrow_implib)
 
+function(bundle_boost_lib library_path)
+  get_filename_component(LIBRARY_NAME ${${library_path}} NAME)
+  get_filename_component(LIBRARY_NAME_WE ${${library_path}} NAME_WE)
+  configure_file(${${library_path}}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}
+      COPYONLY)
+  set(Boost_SO_VERSION "${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
+  if (APPLE)
+    configure_file(${${library_path}}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}.${Boost_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        COPYONLY)
+  else()
+    configure_file(${${library_path}}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}.${Boost_SO_VERSION}
+        COPYONLY)
+  endif()
+endfunction()
+
 # Always bundle includes
 file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
@@ -243,6 +267,33 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB
     ABI_VERSION ${ARROW_ABI_VERSION}
     SO_VERSION ${ARROW_SO_VERSION})
+
+  # boost
+  if (PYARROW_BOOST_USE_SHARED AND PYARROW_BUNDLE_BOOST)
+    set(Boost_USE_STATIC_LIBS OFF)
+    set(Boost_USE_MULTITHREADED ON)
+    if (MSVC AND ARROW_USE_STATIC_CRT)
+      set(Boost_USE_STATIC_RUNTIME ON)
+    endif()
+    set(Boost_ADDITIONAL_VERSIONS
+      "1.66.0" "1.66"
+      "1.65.0" "1.65"
+      "1.64.0" "1.64"
+      "1.63.0" "1.63"
+      "1.62.0" "1.61"
+      "1.61.0" "1.62"
+      "1.60.0" "1.60")
+    list(GET Boost_ADDITIONAL_VERSIONS 0 BOOST_LATEST_VERSION)
+    string(REPLACE "." "_" BOOST_LATEST_VERSION_IN_PATH ${BOOST_LATEST_VERSION})
+    if (MSVC)
+      # disable autolinking in boost
+      add_definitions(-DBOOST_ALL_NO_LIB)
+    endif()
+    find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+    bundle_boost_lib(Boost_REGEX_LIBRARY)
+    bundle_boost_lib(Boost_FILESYSTEM_LIBRARY)
+    bundle_boost_lib(Boost_SYSTEM_LIBRARY)
+  endif()
 
   if (MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
@@ -355,6 +406,14 @@ if (PYARROW_BUILD_PLASMA)
 
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} plasma)
   file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+endif()
+
+
+if (PYARROW_BUILD_ORC)
+  ## ORC
+  set(CYTHON_EXTENSIONS
+      ${CYTHON_EXTENSIONS}
+      _orc)
 endif()
 
 ############################################################

@@ -30,6 +30,7 @@
 #include "arrow/type.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/type_traits.h"
 
 namespace arrow {
@@ -45,8 +46,8 @@ bool is_contiguous(PyObject* array) {
 }
 
 int cast_npy_type_compat(int type_num) {
-// Both LONGLONG and INT64 can be observed in the wild, which is buggy. We set
-// U/LONGLONG to U/INT64 so things work properly.
+  // Both LONGLONG and INT64 can be observed in the wild, which is buggy. We set
+  // U/LONGLONG to U/INT64 so things work properly.
 
 #if (NPY_INT64 == NPY_LONGLONG) && (NPY_SIZEOF_LONGLONG == 8)
   if (type_num == NPY_LONGLONG) {
@@ -76,7 +77,10 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
   }
 }
 
-NumPyBuffer::~NumPyBuffer() { Py_XDECREF(arr_); }
+NumPyBuffer::~NumPyBuffer() {
+  PyAcquireGIL lock;
+  Py_XDECREF(arr_);
+}
 
 #define TO_ARROW_TYPE_CASE(NPY_NAME, FACTORY) \
   case NPY_##NPY_NAME:                        \
@@ -84,6 +88,9 @@ NumPyBuffer::~NumPyBuffer() { Py_XDECREF(arr_); }
     break;
 
 Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
+  if (!PyArray_DescrCheck(dtype)) {
+    return Status::TypeError("Did not pass numpy.dtype object");
+  }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
   int type_num = cast_npy_type_compat(descr->type_num);
 
@@ -145,8 +152,14 @@ Status GetNumPyType(const DataType& type, int* type_num) {
 }
 
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
+  if (!PyArray_DescrCheck(dtype)) {
+    return Status::TypeError("Did not pass numpy.dtype object");
+  }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
+  return NumPyDtypeToArrow(descr, out);
+}
 
+Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
   int type_num = cast_npy_type_compat(descr->type_num);
 
   switch (type_num) {
@@ -239,50 +252,54 @@ Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* 
   return Status::OK();
 }
 
-Status TensorToNdarray(const Tensor& tensor, PyObject* base, PyObject** out) {
+Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
+                       PyObject** out) {
   PyAcquireGIL lock;
 
   int type_num;
-  RETURN_NOT_OK(GetNumPyType(*tensor.type(), &type_num));
+  RETURN_NOT_OK(GetNumPyType(*tensor->type(), &type_num));
   PyArray_Descr* dtype = PyArray_DescrNewFromType(type_num);
   RETURN_IF_PYERROR();
 
-  std::vector<npy_intp> npy_shape(tensor.ndim());
-  std::vector<npy_intp> npy_strides(tensor.ndim());
+  const int ndim = tensor->ndim();
+  std::vector<npy_intp> npy_shape(ndim);
+  std::vector<npy_intp> npy_strides(ndim);
 
-  for (int i = 0; i < tensor.ndim(); ++i) {
-    npy_shape[i] = tensor.shape()[i];
-    npy_strides[i] = tensor.strides()[i];
+  for (int i = 0; i < ndim; ++i) {
+    npy_shape[i] = tensor->shape()[i];
+    npy_strides[i] = tensor->strides()[i];
   }
 
   const void* immutable_data = nullptr;
-  if (tensor.data()) {
-    immutable_data = tensor.data()->data();
+  if (tensor->data()) {
+    immutable_data = tensor->data()->data();
   }
 
   // Remove const =(
   void* mutable_data = const_cast<void*>(immutable_data);
 
   int array_flags = 0;
-  if (tensor.is_row_major()) {
+  if (tensor->is_row_major()) {
     array_flags |= NPY_ARRAY_C_CONTIGUOUS;
   }
-  if (tensor.is_column_major()) {
+  if (tensor->is_column_major()) {
     array_flags |= NPY_ARRAY_F_CONTIGUOUS;
   }
-  if (tensor.is_mutable()) {
+  if (tensor->is_mutable()) {
     array_flags |= NPY_ARRAY_WRITEABLE;
   }
 
   PyObject* result =
-      PyArray_NewFromDescr(&PyArray_Type, dtype, tensor.ndim(), npy_shape.data(),
+      PyArray_NewFromDescr(&PyArray_Type, dtype, ndim, npy_shape.data(),
                            npy_strides.data(), mutable_data, array_flags, nullptr);
   RETURN_IF_PYERROR()
 
-  if (base != Py_None) {
-    PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result), base);
+  if (base == Py_None || base == nullptr) {
+    base = py::wrap_tensor(tensor);
+  } else {
     Py_XINCREF(base);
   }
+  PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result), base);
   *out = result;
   return Status::OK();
 }

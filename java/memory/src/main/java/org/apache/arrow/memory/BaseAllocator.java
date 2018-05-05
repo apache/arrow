@@ -134,6 +134,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @return The closest power of two of that value.
    */
   public static int nextPowerOfTwo(int val) {
+    if (val == 0 || val == 1) {
+      return val + 1;
+    }
     int highestBit = Integer.highestOneBit(val);
     if (highestBit == val) {
       return val;
@@ -149,6 +152,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @return The closest power of two of that value.
    */
   public static long nextPowerOfTwo(long val) {
+    if (val == 0 || val == 1) {
+      return val + 1;
+    }
     long highestBit = Long.highestOneBit(val);
     if (highestBit == val) {
       return val;
@@ -796,7 +802,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
 
     /**
-     * Allocate the a buffer of the requested size.
+     * Allocate a buffer of the requested size.
      * <p>
      * <p>
      * The implementation of the allocator's inner class provides this.

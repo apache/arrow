@@ -18,6 +18,7 @@
 #ifndef ARROW_TYPE_TRAITS_H
 #define ARROW_TYPE_TRAITS_H
 
+#include <memory>
 #include <type_traits>
 
 #include "arrow/type_fwd.h"

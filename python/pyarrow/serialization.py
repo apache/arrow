@@ -21,9 +21,9 @@ import sys
 
 import numpy as np
 
-from pyarrow import serialize_pandas, deserialize_pandas
 from pyarrow.compat import builtin_pickle
-from pyarrow.lib import _default_serialization_context, frombuffer
+from pyarrow.lib import (SerializationContext, _default_serialization_context,
+                         py_buffer)
 
 try:
     import cloudpickle
@@ -37,16 +37,27 @@ except ImportError:
 # python_to_arrow.cc)
 
 def _serialize_numpy_array_list(obj):
-    return obj.tolist(), obj.dtype.str
+    if obj.dtype.str != '|O':
+        # Make the array c_contiguous if necessary so that we can call change
+        # the view.
+        if not obj.flags.c_contiguous:
+            obj = np.ascontiguousarray(obj)
+        return obj.view('uint8'), obj.dtype.str
+    else:
+        return obj.tolist(), obj.dtype.str
 
 
 def _deserialize_numpy_array_list(data):
-    return np.array(data[0], dtype=np.dtype(data[1]))
+    if data[1] != '|O':
+        assert data[0].dtype == np.uint8
+        return data[0].view(data[1])
+    else:
+        return np.array(data[0], dtype=np.dtype(data[1]))
 
 
 def _pickle_to_buffer(x):
     pickled = builtin_pickle.dumps(x, protocol=builtin_pickle.HIGHEST_PROTOCOL)
-    return frombuffer(pickled)
+    return py_buffer(pickled)
 
 
 def _load_pickle_from_buffer(data):
@@ -57,8 +68,71 @@ def _load_pickle_from_buffer(data):
         return builtin_pickle.loads(as_memoryview)
 
 
-_serialize_numpy_array_pickle = _pickle_to_buffer
-_deserialize_numpy_array_pickle = _load_pickle_from_buffer
+# ----------------------------------------------------------------------
+# pandas-specific serialization matters
+
+def _register_custom_pandas_handlers(context):
+    # ARROW-1784, faster path for pandas-only visibility
+
+    try:
+        import pandas as pd
+    except ImportError:
+        return
+
+    import pyarrow.pandas_compat as pdcompat
+
+    def _serialize_pandas_dataframe(obj):
+        return pdcompat.dataframe_to_serialized_dict(obj)
+
+    def _deserialize_pandas_dataframe(data):
+        return pdcompat.serialized_dict_to_dataframe(data)
+
+    def _serialize_pandas_series(obj):
+        return _serialize_pandas_dataframe(pd.DataFrame({obj.name: obj}))
+
+    def _deserialize_pandas_series(data):
+        deserialized = _deserialize_pandas_dataframe(data)
+        return deserialized[deserialized.columns[0]]
+
+    context.register_type(
+        pd.Series, 'pd.Series',
+        custom_serializer=_serialize_pandas_series,
+        custom_deserializer=_deserialize_pandas_series)
+
+    context.register_type(
+        pd.Index, 'pd.Index',
+        custom_serializer=_pickle_to_buffer,
+        custom_deserializer=_load_pickle_from_buffer)
+
+    context.register_type(
+        pd.DataFrame, 'pd.DataFrame',
+        custom_serializer=_serialize_pandas_dataframe,
+        custom_deserializer=_deserialize_pandas_dataframe)
+
+
+def register_torch_serialization_handlers(serialization_context):
+    # ----------------------------------------------------------------------
+    # Set up serialization for pytorch tensors
+
+    try:
+        import torch
+
+        def _serialize_torch_tensor(obj):
+            return obj.numpy()
+
+        def _deserialize_torch_tensor(data):
+            return torch.from_numpy(data)
+
+        for t in [torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
+                  torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                  torch.IntTensor, torch.LongTensor]:
+            serialization_context.register_type(
+                t, "torch." + t.__name__,
+                custom_serializer=_serialize_torch_tensor,
+                custom_deserializer=_deserialize_torch_tensor)
+    except ImportError:
+        # no torch
+        pass
 
 
 def register_default_serialization_handlers(serialization_context):
@@ -113,114 +187,13 @@ def register_default_serialization_handlers(serialization_context):
         custom_serializer=_serialize_numpy_array_list,
         custom_deserializer=_deserialize_numpy_array_list)
 
-    # ----------------------------------------------------------------------
-    # Set up serialization for pytorch tensors
+    _register_custom_pandas_handlers(serialization_context)
 
-    try:
-        import torch
 
-        def _serialize_torch_tensor(obj):
-            return obj.numpy()
-
-        def _deserialize_torch_tensor(data):
-            return torch.from_numpy(data)
-
-        for t in [torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
-                  torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor]:
-            serialization_context.register_type(
-                t, "torch." + t.__name__,
-                custom_serializer=_serialize_torch_tensor,
-                custom_deserializer=_deserialize_torch_tensor)
-    except ImportError:
-        # no torch
-        pass
+def default_serialization_context():
+    context = SerializationContext()
+    register_default_serialization_handlers(context)
+    return context
 
 
 register_default_serialization_handlers(_default_serialization_context)
-
-
-# ----------------------------------------------------------------------
-# pandas-specific serialization matters
-
-
-pandas_serialization_context = _default_serialization_context.clone()
-
-
-def _register_pandas_arrow_handlers(context):
-    try:
-        import pandas as pd
-    except ImportError:
-        return
-
-    def _serialize_pandas_series(obj):
-        return serialize_pandas(pd.DataFrame({obj.name: obj}))
-
-    def _deserialize_pandas_series(data):
-        deserialized = deserialize_pandas(data)
-        return deserialized[deserialized.columns[0]]
-
-    def _serialize_pandas_dataframe(obj):
-        return serialize_pandas(obj)
-
-    def _deserialize_pandas_dataframe(data):
-        return deserialize_pandas(data)
-
-    context.register_type(
-        pd.Series, 'pd.Series',
-        custom_serializer=_serialize_pandas_series,
-        custom_deserializer=_deserialize_pandas_series)
-
-    context.register_type(
-        pd.DataFrame, 'pd.DataFrame',
-        custom_serializer=_serialize_pandas_dataframe,
-        custom_deserializer=_deserialize_pandas_dataframe)
-
-
-def _register_custom_pandas_handlers(context):
-    # ARROW-1784, faster path for pandas-only visibility
-
-    try:
-        import pandas as pd
-    except ImportError:
-        return
-
-    import pyarrow.pandas_compat as pdcompat
-
-    def _serialize_pandas_dataframe(obj):
-        return pdcompat.dataframe_to_serialized_dict(obj)
-
-    def _deserialize_pandas_dataframe(data):
-        return pdcompat.serialized_dict_to_dataframe(data)
-
-    def _serialize_pandas_series(obj):
-        return _serialize_pandas_dataframe(pd.DataFrame({obj.name: obj}))
-
-    def _deserialize_pandas_series(data):
-        deserialized = _deserialize_pandas_dataframe(data)
-        return deserialized[deserialized.columns[0]]
-
-    context.register_type(
-        pd.Series, 'pd.Series',
-        custom_serializer=_serialize_pandas_series,
-        custom_deserializer=_deserialize_pandas_series)
-
-    context.register_type(
-        pd.Index, 'pd.Index',
-        custom_serializer=_pickle_to_buffer,
-        custom_deserializer=_load_pickle_from_buffer)
-
-    context.register_type(
-        pd.DataFrame, 'pd.DataFrame',
-        custom_serializer=_serialize_pandas_dataframe,
-        custom_deserializer=_deserialize_pandas_dataframe)
-
-
-_register_pandas_arrow_handlers(_default_serialization_context)
-_register_custom_pandas_handlers(pandas_serialization_context)
-
-
-pandas_serialization_context.register_type(
-    np.ndarray, 'np.array',
-    custom_serializer=_serialize_numpy_array_pickle,
-    custom_deserializer=_deserialize_numpy_array_pickle)

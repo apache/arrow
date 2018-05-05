@@ -1908,4 +1908,36 @@ public class TestValueVector {
     vector.offsetBuffer.setInt((index + 1) * vector.OFFSET_WIDTH, currentOffset + bytes.length);
     vector.valueBuffer.setBytes(currentOffset, bytes, 0, bytes.length);
   }
+
+  @Test /* VarCharVector */
+  public void testSetInitialCapacity() {
+    try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+
+      /* use the default 8 data bytes on average per element */
+      vector.setInitialCapacity(4096);
+      vector.allocateNew();
+      assertEquals(4096, vector.getValueCapacity());
+      assertEquals(4096 * 8, vector.getDataBuffer().capacity());
+
+      vector.setInitialCapacity(4096, 1);
+      vector.allocateNew();
+      assertEquals(4096, vector.getValueCapacity());
+      assertEquals(4096, vector.getDataBuffer().capacity());
+
+      vector.setInitialCapacity(4096, 0.1);
+      vector.allocateNew();
+      assertEquals(4096, vector.getValueCapacity());
+      assertEquals(512, vector.getDataBuffer().capacity());
+
+      vector.setInitialCapacity(4096, 0.01);
+      vector.allocateNew();
+      assertEquals(4096, vector.getValueCapacity());
+      assertEquals(64, vector.getDataBuffer().capacity());
+
+      vector.setInitialCapacity(5, 0.01);
+      vector.allocateNew();
+      assertEquals(7, vector.getValueCapacity());
+      assertEquals(2, vector.getDataBuffer().capacity());
+    }
+  }
 }

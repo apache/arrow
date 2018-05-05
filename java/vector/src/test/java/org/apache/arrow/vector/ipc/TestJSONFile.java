@@ -24,7 +24,7 @@ import java.io.IOException;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -44,7 +44,7 @@ public class TestJSONFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator)) {
+         StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(count, parent);
       writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);
     }
@@ -72,7 +72,7 @@ public class TestJSONFile extends BaseFileTest {
     // write
     try (
         BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator)) {
+        StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(count, parent);
       writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);
     }
@@ -99,7 +99,7 @@ public class TestJSONFile extends BaseFileTest {
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
+        StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeComplexData(count, parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateComplexContent(root.getRowCount(), root);
@@ -121,7 +121,7 @@ public class TestJSONFile extends BaseFileTest {
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
+        StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeUnionData(count, parent);
       printVectors(parent.getChildrenFromFields());
 
@@ -153,7 +153,7 @@ public class TestJSONFile extends BaseFileTest {
     // write
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
+        StructVector parent = StructVector.empty("parent", vectorAllocator)) {
 
       writeDateTimeData(count, parent);
 
@@ -318,7 +318,7 @@ public class TestJSONFile extends BaseFileTest {
     // write
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
+        StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeVarBinaryData(count, parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateVarBinary(count, root);

@@ -29,7 +29,7 @@ elseif ( Lz4_HOME )
     list( APPEND _lz4_roots ${Lz4_HOME} )
 endif()
 
-if (MSVC AND NOT LZ4_MSVC_STATIC_LIB_SUFFIX)
+if (MSVC AND NOT DEFINED LZ4_MSVC_STATIC_LIB_SUFFIX)
   set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static")
 endif()
 

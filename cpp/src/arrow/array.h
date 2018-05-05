@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -65,9 +66,9 @@ struct Decimal;
 /// could cast from int64 to float64 like so:
 ///
 /// Int64Array arr = GetMyData();
-/// auto new_data = arr->data()->ShallowCopy();
+/// auto new_data = arr.data()->ShallowCopy();
 /// new_data->type = arrow::float64();
-/// Float64Array double_arr(new_data);
+/// DoubleArray double_arr(new_data);
 ///
 /// This object is also useful in an analytics setting where memory may be
 /// reused. For example, if we had a group of operations all returning doubles,
@@ -98,6 +99,15 @@ struct ARROW_EXPORT ArrayData {
   }
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
+            const std::vector<std::shared_ptr<Buffer>>& buffers,
+            const std::vector<std::shared_ptr<ArrayData>>& child_data,
+            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : ArrayData(type, length, null_count, offset) {
+    this->buffers = buffers;
+    this->child_data = child_data;
+  }
+
+  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
             std::vector<std::shared_ptr<Buffer>>&& buffers,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : ArrayData(type, length, null_count, offset) {
@@ -109,6 +119,17 @@ struct ARROW_EXPORT ArrayData {
                                          std::vector<std::shared_ptr<Buffer>>&& buffers,
                                          int64_t null_count = kUnknownNullCount,
                                          int64_t offset = 0);
+
+  static std::shared_ptr<ArrayData> Make(
+      const std::shared_ptr<DataType>& type, int64_t length,
+      const std::vector<std::shared_ptr<Buffer>>& buffers,
+      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  static std::shared_ptr<ArrayData> Make(
+      const std::shared_ptr<DataType>& type, int64_t length,
+      const std::vector<std::shared_ptr<Buffer>>& buffers,
+      const std::vector<std::shared_ptr<ArrayData>>& child_data,
+      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   static std::shared_ptr<ArrayData> Make(const std::shared_ptr<DataType>& type,
                                          int64_t length,
@@ -145,33 +166,15 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
-#ifndef ARROW_NO_DEPRECATED_API
-
-  // Deprecated since 0.8.0
-  std::shared_ptr<ArrayData> ShallowCopy() const { return Copy(); }
-
-#endif
-
   std::shared_ptr<DataType> type;
   int64_t length;
   int64_t null_count;
+  // The logical start point into the physical buffers (in values, not bytes).
+  // Note that, for child data, this must be *added* to the child data's own offset.
   int64_t offset;
   std::vector<std::shared_ptr<Buffer>> buffers;
   std::vector<std::shared_ptr<ArrayData>> child_data;
 };
-
-#ifndef ARROW_NO_DEPRECATED_API
-
-/// \brief Create a strongly-typed Array instance from generic ArrayData
-/// \param[in] data the array contents
-/// \param[out] out the resulting Array instance
-/// \return Status
-///
-/// \note Deprecated since 0.8.0
-ARROW_EXPORT
-Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out);
-
-#endif
 
 /// \brief Create a strongly-typed Array instance from generic ArrayData
 /// \param[in] data the array contents
@@ -297,6 +300,17 @@ class ARROW_EXPORT Array {
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
+namespace internal {
+
+/// Given a number of ArrayVectors, treat each ArrayVector as the
+/// chunks of a chunked array.  Then rechunk each ArrayVector such that
+/// all ArrayVectors are chunked identically.  It is mandatory that
+/// all ArrayVectors contain the same total number of elements.
+ARROW_EXPORT
+std::vector<ArrayVector> RechunkArraysConsistently(const std::vector<ArrayVector>&);
+
+}  // namespace internal
+
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
   os << x.ToString();
   return os;
@@ -333,15 +347,6 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
 
   /// Does not account for any slice offset
   std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
-
-#ifndef ARROW_NO_DEPRECATED_API
-
-  /// \brief Return pointer to start of raw data
-  ///
-  /// \note Deprecated since 0.8.0
-  const uint8_t* raw_values() const;
-
-#endif
 
  protected:
   PrimitiveArray() {}
@@ -616,8 +621,15 @@ class ARROW_EXPORT StructArray : public Array {
               int64_t offset = 0);
 
   // Return a shared pointer in case the requestor desires to share ownership
-  // with this array.
+  // with this array.  The returned array has its offset, length and null
+  // count adjusted.
   std::shared_ptr<Array> field(int pos) const;
+
+  /// \brief Flatten this array as a vector of arrays, one for each field
+  ///
+  /// \param[in] pool The pool to allocate null bitmaps from, if necessary
+  /// \param[out] out The resulting vector of arrays
+  Status Flatten(MemoryPool* pool, ArrayVector* out) const;
 
  private:
   // For caching boxed child data
@@ -683,6 +695,10 @@ class ARROW_EXPORT UnionArray : public Array {
 
   UnionMode::type mode() const { return static_cast<const UnionType&>(*type()).mode(); }
 
+  // Return the given field as an individual array.
+  // For sparse unions, the returned array has its offset, length and null
+  // count adjusted.
+  // For dense unions, the returned array is unchanged.
   std::shared_ptr<Array> child(int pos) const;
 
   /// Only use this while the UnionArray is in scope
@@ -724,6 +740,19 @@ class ARROW_EXPORT DictionaryArray : public Array {
 
   DictionaryArray(const std::shared_ptr<DataType>& type,
                   const std::shared_ptr<Array>& indices);
+
+  /// \brief Construct DictionaryArray from dictionary data type and indices array
+  ///
+  /// This function does the validation of the indices and input type. It checks if
+  /// all indices are non-negative and smaller than the size of the dictionary
+  ///
+  /// \param[in] type a data type containing a dictionary
+  /// \param[in] indices an array of non-negative signed
+  /// integers smaller than the size of the dictionary
+  /// \param[out] out the resulting DictionaryArray instance
+  static Status FromArrays(const std::shared_ptr<DataType>& type,
+                           const std::shared_ptr<Array>& indices,
+                           std::shared_ptr<Array>* out);
 
   std::shared_ptr<Array> indices() const;
   std::shared_ptr<Array> dictionary() const;

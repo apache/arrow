@@ -18,17 +18,14 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.VarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.VarBinaryHolder;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import java.nio.ByteBuffer;
 
 /**
  * VarBinaryVector implements a variable width vector of binary
@@ -45,7 +42,7 @@ public class VarBinaryVector extends BaseVariableWidthVector {
    * @param allocator allocator for memory management.
    */
   public VarBinaryVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.VARBINARY.getType()), allocator);
+    this(name, FieldType.nullable(MinorType.VARBINARY.getType()), allocator);
   }
 
   /**
@@ -75,8 +72,8 @@ public class VarBinaryVector extends BaseVariableWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.VARBINARY;
+  public MinorType getMinorType() {
+    return MinorType.VARBINARY;
   }
 
 

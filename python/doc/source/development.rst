@@ -117,7 +117,10 @@ dependencies will be automatically built by Arrow's third-party toolchain.
 
    $ sudo apt-get install libjemalloc-dev libboost-dev \
                           libboost-filesystem-dev \
-                          libboost-system-dev
+                          libboost-system-dev \
+                          libboost-regex-dev \
+                          flex \
+                          bison
 
 On Arch Linux, you can get these dependencies via pacman.
 
@@ -175,6 +178,9 @@ Now build and install the Arrow C++ libraries:
 If you don't want to build and install the Plasma in-memory object store,
 you can omit the ``-DARROW_PLASMA=on`` flag.
 
+To add support for the experimental Apache ORC integration, include
+``-DARROW_ORC=on`` in these flags.
+
 Now, optionally build and install the Apache Parquet libraries in your
 toolchain:
 
@@ -204,6 +210,9 @@ Now, build pyarrow:
 
 If you did not build parquet-cpp, you can omit ``--with-parquet`` and if
 you did not build with plasma, you can omit ``--with-plasma``.
+
+If you built with the experimental Apache ORC integration, include
+``--with-orc`` in these flags.
 
 You should be able to run the unit tests with:
 
@@ -239,6 +248,22 @@ To build a self-contained wheel (include Arrow C++ and Parquet C++), one can set
 
 Again, if you did not build parquet-cpp, you should omit ``--with-parquet`` and
 if you did not build with plasma, you should omit ``--with-plasma``.
+
+Known issues
+------------
+
+If using packages provided by conda-forge (see "Using Conda" above)
+together with a reasonably recent compiler, you may get "undefined symbol"
+errors when importing pyarrow.  In that case you'll need to force the C++
+ABI version to the older version used by conda-forge binaries:
+
+.. code-block:: shell
+
+   export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
+   export PYARROW_CXXFLAGS=$CXXFLAGS
+
+Be sure to add ``-DCMAKE_CXX_FLAGS=$CXXFLAGS`` to the cmake invocations
+when rebuilding.
 
 Developing on Windows
 =====================
@@ -325,3 +350,76 @@ Getting ``python-test.exe`` to run is a bit tricky because your
    set PYTHONPATH=%CONDA_ENV%\Lib;%CONDA_ENV%\Lib\site-packages;%CONDA_ENV%\python35.zip;%CONDA_ENV%\DLLs;%CONDA_ENV%
 
 Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
+
+Nightly Builds of `arrow-cpp`, `parquet-cpp`, and `pyarrow` for Linux
+---------------------------------------------------------------------
+
+Nightly builds of Linux conda packages for ``arrow-cpp``, ``parquet-cpp``, and
+``pyarrow`` can be automated using an open source tool called `scourge
+<https://github.com/cpcloud/scourge>`_.
+
+``scourge`` is new, so please report any feature requests or bugs to the
+`scourge issue tracker <https://github.com/cpcloud/scourge/issues>`_.
+
+To get scourge you need to clone the source and install it in development mode.
+
+To setup your own nightly builds:
+
+#. Clone and install scourge
+#. Create a script that calls scourge
+#. Run that script as a cronjob once per day
+
+First, clone and install scourge (you also need to `install docker
+<https://docs.docker.com/engine/installation>`):
+
+
+.. code:: sh
+
+   git clone https://github.com/cpcloud/scourge
+   cd scourge
+   python setup.py develop
+   which scourge
+
+Second, create a shell script that calls scourge:
+
+.. code:: sh
+
+   function build() {
+     # make sure we got a working directory
+     workingdir="${1}"
+     [ -z "${workingdir}" ] && echo "Must provide a working directory" && exit 1
+     scourge="/path/to/scourge"
+
+     # get the hash of master for building parquet
+     PARQUET_ARROW_VERSION="$("${scourge}" sha apache/arrow master)"
+
+     # setup the build for each package
+     "${scourge}" init arrow-cpp@master parquet-cpp@master pyarrow@master
+
+     # build the packages with some constraints (the -c arguments)
+     # -e sets environment variables on a per package basis
+     "${scourge}" build \
+       -e parquet-cpp:PARQUET_ARROW_VERSION="${PARQUET_ARROW_VERSION}" \
+       -c "python >=2.7,<3|>=3.5" \
+       -c "numpy >= 1.11" \
+       -c "r-base >=3.3.2"
+   }
+
+   workingdir="$(date +'%Y%m%d_%H_%M_%S')"
+   mkdir -p "${workingdir}"
+   build "${workingdir}" > "${workingdir}"/scourge.log 2>&1
+
+Third, run that script as a cronjob once per day:
+
+.. code:: sh
+
+   crontab -e
+
+then in the scratch file that's opened:
+
+.. code:: sh
+
+   @daily /path/to/the/above/script.sh
+
+The build artifacts (conda packages) will be located in
+``${workingdir}/artifacts/linux-64``.

@@ -329,6 +329,26 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
     };
 
+    BufferReader FIXEDSIZEBINARY = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        ArrayList<byte[]> values = Lists.newArrayList();
+        for (int i = 0; i < count; i++) {
+          parser.nextToken();
+          final byte[] value = decodeHexSafe(parser.readValueAs(String.class));
+          values.add(value);
+        }
+
+        int byteWidth = count > 0 ? values.get(0).length : 0;
+        ArrowBuf buf = allocator.buffer(byteWidth * count);
+        for (byte[] value : values) {
+          buf.writeBytes(value);
+        }
+
+        return buf;
+      }
+    };
+
     BufferReader VARCHAR = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
@@ -427,6 +447,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           break;
         case DECIMAL:
           reader = helper.DECIMAL;
+          break;
+        case FIXEDSIZEBINARY:
+          reader = helper.FIXEDSIZEBINARY;
           break;
         case VARCHAR:
           reader = helper.VARCHAR;

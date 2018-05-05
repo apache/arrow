@@ -21,6 +21,16 @@ class TestMutableBuffer < Test::Unit::TestCase
     @buffer = Arrow::MutableBuffer.new(@data)
   end
 
+  def test_new_bytes
+    bytes_data = GLib::Bytes.new(@data)
+    buffer = Arrow::MutableBuffer.new(bytes_data)
+    if GLib.check_binding_version?(3, 2, 2)
+      assert_equal(bytes_data.pointer, buffer.mutable_data.pointer)
+    else
+      assert_equal(@data, buffer.mutable_data.to_s)
+    end
+  end
+
   def test_mutable?
     assert do
       @buffer.mutable?

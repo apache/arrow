@@ -31,7 +31,8 @@
 #ifdef ARROW_JEMALLOC
 // Needed to support jemalloc 3 and 4
 #define JEMALLOC_MANGLE
-#include <jemalloc/jemalloc.h>
+// Explicitly link to our version of jemalloc
+#include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
 #endif
 
 namespace arrow {
@@ -89,7 +90,7 @@ class DefaultMemoryPool : public MemoryPool {
  public:
   DefaultMemoryPool() : bytes_allocated_(0) { max_memory_ = 0; }
 
-  ~DefaultMemoryPool() {}
+  ~DefaultMemoryPool() override {}
 
   Status Allocate(int64_t size, uint8_t** out) override {
     RETURN_NOT_OK(AllocateAligned(size, out));
@@ -106,10 +107,12 @@ class DefaultMemoryPool : public MemoryPool {
 
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
 #ifdef ARROW_JEMALLOC
+    uint8_t* previous_ptr = *ptr;
     *ptr = reinterpret_cast<uint8_t*>(rallocx(*ptr, new_size, MALLOCX_ALIGN(kAlignment)));
     if (*ptr == NULL) {
       std::stringstream ss;
       ss << "realloc of size " << new_size << " failed";
+      *ptr = previous_ptr;
       return Status::OutOfMemory(ss.str());
     }
 #else

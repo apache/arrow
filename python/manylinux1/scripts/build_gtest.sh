@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-wget https://github.com/google/googletest/archive/release-1.7.0.tar.gz -O googletest-release-1.7.0.tar.gz
+curl -sL https://github.com/google/googletest/archive/release-1.7.0.tar.gz -o googletest-release-1.7.0.tar.gz
 tar xf googletest-release-1.7.0.tar.gz
 ls -l
 pushd googletest-release-1.7.0

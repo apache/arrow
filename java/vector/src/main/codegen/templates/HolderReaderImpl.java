@@ -128,6 +128,10 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     holder.buffer.getBytes(holder.start, bytes, 0, ${type.width});
     ${friendlyType} value = new BigDecimal(new BigInteger(bytes), holder.scale);
     return value;
+  <#elseif minor.class == "FixedSizeBinary">
+    byte[] value = new byte [holder.byteWidth];
+    holder.buffer.getBytes(0, value, 0, holder.byteWidth);
+    return value;
   <#else>
     ${friendlyType} value = new ${friendlyType}(this.holder.value);
     return value;

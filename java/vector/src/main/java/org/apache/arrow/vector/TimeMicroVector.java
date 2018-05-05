@@ -24,10 +24,9 @@ import org.apache.arrow.vector.complex.impl.TimeMicroReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.TimeMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeMicroHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.slf4j.Logger;
 
 /**
  * TimeMicroVector implements a fixed width vector (8 bytes) of
@@ -46,8 +45,7 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public TimeMicroVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.TIMEMICRO.getType()),
-            allocator);
+    this(name, FieldType.nullable(MinorType.TIMEMICRO.getType()), allocator);
   }
 
   /**
@@ -77,8 +75,8 @@ public class TimeMicroVector extends BaseFixedWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.TIMEMICRO;
+  public MinorType getMinorType() {
+    return MinorType.TIMEMICRO;
   }
 
 

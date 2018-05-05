@@ -136,11 +136,7 @@ class RangeEqualsVisitor {
       for (int j = 0; j < left.num_fields(); ++j) {
         // TODO: really we should be comparing stretches of non-null data rather
         // than looking at one value at a time.
-        const int64_t left_abs_index = i + left.offset();
-        const int64_t right_abs_index = o_i + right.offset();
-
-        equal_fields = left.field(j)->RangeEquals(left_abs_index, left_abs_index + 1,
-                                                  right_abs_index, right.field(j));
+        equal_fields = left.field(j)->RangeEquals(i, i + 1, o_i, right.field(j));
         if (!equal_fields) {
           return false;
         }
@@ -193,15 +189,10 @@ class RangeEqualsVisitor {
       id = left_ids[i];
       child_num = type_id_to_child_num[id];
 
-      const int64_t left_abs_index = i + left.offset();
-      const int64_t right_abs_index = o_i + right.offset();
-
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.
       if (union_mode == UnionMode::SPARSE) {
-        if (!left.child(child_num)->RangeEquals(left_abs_index, left_abs_index + 1,
-                                                right_abs_index,
-                                                right.child(child_num))) {
+        if (!left.child(child_num)->RangeEquals(i, i + 1, o_i, right.child(child_num))) {
           return false;
         }
       } else {
@@ -359,9 +350,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       const uint8_t* right_data = right.values()->data();
 
       for (int64_t i = 0; i < left.length(); ++i) {
-        if (left.IsValid(i) &&
-            BitUtil::GetBit(left_data, i + left.offset()) !=
-                BitUtil::GetBit(right_data, i + right.offset())) {
+        if (left.IsValid(i) && BitUtil::GetBit(left_data, i + left.offset()) !=
+                                   BitUtil::GetBit(right_data, i + right.offset())) {
           result_ = false;
           return Status::OK();
         }
@@ -468,9 +458,9 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       return Status::OK();
     }
 
-    result_ =
-        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
-                                   right.value_offset(0), right.values());
+    result_ = left.values()->RangeEquals(
+        left.value_offset(0), left.value_offset(left.length()) - left.value_offset(0),
+        right.value_offset(0), right.values());
     return Status::OK();
   }
 
@@ -782,32 +772,6 @@ bool TypeEquals(const DataType& left, const DataType& right) {
     are_equal = visitor.result();
   }
   return are_equal;
-}
-
-Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
-  *are_equal = ArrayEquals(left, right);
-  return Status::OK();
-}
-
-Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
-  *are_equal = TensorEquals(left, right);
-  return Status::OK();
-}
-
-Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
-  *are_equal = ArrayApproxEquals(left, right);
-  return Status::OK();
-}
-
-Status ArrayRangeEquals(const Array& left, const Array& right, int64_t start_idx,
-                        int64_t end_idx, int64_t other_start_idx, bool* are_equal) {
-  *are_equal = ArrayRangeEquals(left, right, start_idx, end_idx, other_start_idx);
-  return Status::OK();
-}
-
-Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) {
-  *are_equal = TypeEquals(left, right);
-  return Status::OK();
 }
 
 }  // namespace arrow
