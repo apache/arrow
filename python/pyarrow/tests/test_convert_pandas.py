@@ -1250,7 +1250,7 @@ class TestConvertStringLikeTypes(object):
     def test_array_of_bytes_to_strings_bad_data(self):
         with pytest.raises(
                 pa.lib.ArrowInvalid,
-                match=("Unknown error: 'utf-8' codec can't decode byte 0x80 "
+                match=("'utf-8' codec can't decode byte 0x80 "
                        "in position 0: invalid start byte")):
             pa.array(np.array([b'\x80\x81'], dtype=object), pa.string())
 
