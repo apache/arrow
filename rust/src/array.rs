@@ -22,8 +22,8 @@ use std::str;
 use std::string::String;
 
 use super::bitmap::Bitmap;
-use super::builder::*;
 use super::buffer::*;
+use super::builder::*;
 use super::datatypes::*;
 use super::list::*;
 use super::list_builder::*;
