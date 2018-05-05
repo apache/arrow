@@ -38,8 +38,9 @@ ARROW_DEPRECATED("PLASMA_DEFAULT_RELEASE_DELAY is deprecated")
 constexpr int64_t kDeprecatedPlasmaDefaultReleaseDelay = 64;
 #define PLASMA_DEFAULT_RELEASE_DELAY kDeprecatedPlasmaDefaultReleaseDelay;
 
-/// Number of objects that will be kept unreleased in the plasma client
-/// until we send a message to the store to release the object.
+/// We keep a queue of unreleased objects cached in the client until we start
+/// sending release requests to the store. This is to avoid frequently mapping
+/// and unmapping objects and evicting data from processor caches.
 constexpr int64_t kPlasmaDefaultReleaseDelay = 64;
 
 /// Object buffer data structure.
