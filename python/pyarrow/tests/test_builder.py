@@ -15,99 +15,43 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pytest
+import numpy as np
+
 import pyarrow as pa
 from pyarrow.lib import StringBuilder
-import numpy as np
-import pandas as pd
 
 
-@pytest.fixture
-def sbuilder():
-    return StringBuilder()
-
-
-def test_string_builder_append_string(sbuilder):
-    sbuilder.append(b'jsaafakjh')
-    assert (sbuilder.length() == 1)
-    sbuilder.append('jsaafakjh')
-    assert (sbuilder.length() == 2)
-    arr = sbuilder.finish()
-    assert (sbuilder.length() == 0)
-    assert (isinstance(arr, pa.Array))
-    assert (arr.null_count == 0)
-    assert (arr.type == 'str')
-    assert(len(arr.to_pylist()) == 2)
-
-
-def test_string_builder_append_none(sbuilder):
-    sbuilder.append(None)
-    assert (sbuilder.null_count() == 1)
-    for i in range(10):
-        sbuilder.append(None)
-    assert (sbuilder.null_count() == 11)
-    arr = sbuilder.finish()
-    assert (arr.null_count == 11)
-
-
-def test_string_builder_append_nan(sbuilder):
-    sbuilder.append(np.nan)
-    sbuilder.append(np.nan)
-    assert (sbuilder.null_count() == 2)
-    arr = sbuilder.finish()
-    assert (arr.null_count == 2)
-
-
-def test_string_builder_append_both(sbuilder):
+def test_string_builder_append():
+    sbuilder = StringBuilder()
+    sbuilder.append(b"a byte string")
+    sbuilder.append("a string")
     sbuilder.append(np.nan)
     sbuilder.append(None)
-    sbuilder.append("Some text")
-    sbuilder.append("Some text")
-    sbuilder.append(np.nan)
-    sbuilder.append(None)
-    assert (sbuilder.null_count() == 4)
+    assert len(sbuilder) == 4
+    assert sbuilder.null_count == 2
     arr = sbuilder.finish()
-    assert (arr.null_count == 4)
-    expected = [None, None, "Some text", "Some text", None, None]
-    assert (arr.to_pylist() == expected)
+    assert len(sbuilder) == 0
+    assert isinstance(arr, pa.Array)
+    assert arr.null_count == 2
+    assert arr.type == 'str'
+    expected = ["a byte string", "a string", None, None]
+    assert arr.to_pylist() == expected
 
 
-def test_string_builder_append_pylist(sbuilder):
+def test_string_builder_append_values():
+    sbuilder = StringBuilder()
     sbuilder.append_values([np.nan, None, "text", None, "other text"])
-    assert (sbuilder.null_count() == 3)
+    assert sbuilder.null_count == 3
     arr = sbuilder.finish()
-    assert (arr.null_count == 3)
+    assert arr.null_count == 3
     expected = [None, None, "text", None, "other text"]
-    assert (arr.to_pylist() == expected)
+    assert arr.to_pylist() == expected
 
 
-def test_string_builder_append_series(sbuilder):
-    sbuilder.append_values(
-        pd.Series([np.nan, None, "text", None, "other text"])
-    )
-    assert (sbuilder.null_count() == 3)
-    arr = sbuilder.finish()
-    assert (arr.null_count == 3)
-    expected = [None, None, "text", None, "other text"]
-    assert (arr.to_pylist() == expected)
-
-
-def test_string_builder_append_numpy(sbuilder):
-    sbuilder.append_values(
-        np.asarray([np.nan, None, "text", None, "other text"])
-    )
-    assert (sbuilder.null_count() == 3)
-    arr = sbuilder.finish()
-    assert (arr.null_count == 3)
-    expected = [None, None, "text", None, "other text"]
-    assert (arr.to_pylist() == expected)
-
-
-def test_string_builder_append_after_finish(sbuilder):
+def test_string_builder_append_after_finish():
+    sbuilder = StringBuilder()
     sbuilder.append_values([np.nan, None, "text", None, "other text"])
-    assert (sbuilder.null_count() == 3)
     arr = sbuilder.finish()
     sbuilder.append("No effect")
-    assert (arr.null_count == 3)
     expected = [None, None, "text", None, "other text"]
-    assert (arr.to_pylist() == expected)
+    assert arr.to_pylist() == expected

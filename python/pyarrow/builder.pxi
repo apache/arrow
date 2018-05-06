@@ -19,6 +19,11 @@ import six
 from pyarrow.compat import tobytes
 
 cdef class StringBuilder:
+    """
+    Builder class for UTF8 strings. This class exposes facilities for
+    incrementally adding string values and building the null bitmap
+    for a pyarrow.Array (type='string').
+    """
     cdef:
         unique_ptr[CStringBuilder] builder
 
@@ -27,6 +32,15 @@ cdef class StringBuilder:
         self.builder.reset(new CStringBuilder(pool))
 
     def append(self, value):
+        """
+        Append a single value to the builder. The value can either be a
+        string/bytes object or a null value (np.nan or None).
+
+        Parameters
+        ----------
+        value : string/bytes or np.nan/None
+            The value to append to the string array builder
+        """
         if value is None or value is np.nan:
             self.builder.get().AppendNull()
         elif isinstance(value, (six.string_types, six.binary_type)):
@@ -35,19 +49,35 @@ cdef class StringBuilder:
             raise TypeError('StringBuilder only accepts string objects')
 
     def append_values(self, values):
+        """
+        Append all the values in an iterable to the string array builder
+        object.
+
+        Parameters
+        ----------
+        values : iterable of string/bytes or np.nan/None values
+            The values to append to the string array builder
+        """
         for value in values:
             self.append(value)
 
-    def length(self):
-        return self.builder.get().length()
-
-    def null_count(self):
-        return self.builder.get().null_count()
-
     def finish(self):
-        return pyarrow_wrap_array(self._finish())
+        """
+        Return result of builder as an Array object; also resets the builder.
 
-    cdef shared_ptr[CArray] _finish(self) nogil:
+        Returns
+        -------
+        array : pyarrow.Array
+        """
         cdef shared_ptr[CArray] out
-        self.builder.get().Finish(&out)
-        return out
+        with nogil:
+            self.builder.get().Finish(&out)
+        return pyarrow_wrap_array(out)
+
+    property null_count:
+
+        def __get__(self):
+            return self.builder.get().null_count()
+
+    def __len__(self):
+        return self.builder.get().length()
