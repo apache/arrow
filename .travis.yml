@@ -179,6 +179,7 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
   - language: rust
+    cache: cargo
     rust: stable
     before_script:
     - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
