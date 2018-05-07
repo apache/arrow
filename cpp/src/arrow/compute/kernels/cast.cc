@@ -745,14 +745,14 @@ template <typename T>
 typename std::enable_if<std::is_arithmetic<T>::value && !std::is_same<T, int8_t>::value &&
                             !std::is_same<T, uint8_t>::value,
                         T>::type
-castStringToNumeric(const std::string& s) {
+CastStringToNumeric(const std::string& s) {
   return boost::lexical_cast<T>(s);
 }
 
 template <typename T>
 typename std::enable_if<std::is_same<T, int8_t>::value || std::is_same<T, uint8_t>::value,
                         T>::type
-castStringToNumeric(const std::string& s) {
+CastStringToNumeric(const std::string& s) {
   // Convert to int before casting to T
   // because boost::lexical_cast does not support 8bit int/uint.
   return boost::numeric_cast<T>(boost::lexical_cast<int>(s));
@@ -779,7 +779,7 @@ struct CastFunctor<O, StringType,
       std::string s = input_array.GetString(i);
 
       try {
-        *out_data++ = castStringToNumeric<out_type>(s);
+        *out_data++ = CastStringToNumeric<out_type>(s);
       } catch (...) {
         std::stringstream ss;
         ss << "Failed to cast String '" << s << "' into " << output->type->ToString();
