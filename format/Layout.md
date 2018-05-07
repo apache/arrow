@@ -342,7 +342,7 @@ will be be represented as follows:
 
   * Offsets buffer (int32)
 
-    | Bytes 0-28           | Bytes 29-63 |
+    | Bytes 0-27           | Bytes 28-63 |
     |----------------------|-------------|
     | 0, 2, 4, 7, 7, 8, 10 | unspecified |
 
