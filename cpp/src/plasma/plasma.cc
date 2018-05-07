@@ -26,6 +26,17 @@
 
 namespace plasma {
 
+extern "C" {
+void dlfree(void* mem);
+}
+
+ObjectTableEntry::ObjectTableEntry() : pointer(nullptr) {}
+
+ObjectTableEntry::~ObjectTableEntry() {
+  dlfree(pointer);
+  pointer = nullptr;
+}
+
 int warn_if_sigpipe(int status, int client_sock) {
   if (status >= 0) {
     return 0;
