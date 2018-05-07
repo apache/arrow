@@ -1307,7 +1307,7 @@ Status ListBuilder::AppendNextOffset() {
     std::stringstream ss;
     ss << "ListArray cannot contain more then INT32_MAX - 1 child elements,"
        << " have " << num_values;
-    return Status::Invalid(ss.str());
+    return Status::CapacityError(ss.str());
   }
   return offsets_builder_.Append(static_cast<int32_t>(num_values));
 }
@@ -1386,7 +1386,8 @@ Status BinaryBuilder::Resize(int64_t capacity) {
 Status BinaryBuilder::ReserveData(int64_t elements) {
   if (value_data_length() + elements > value_data_capacity()) {
     if (value_data_length() + elements > kBinaryMemoryLimit) {
-      return Status::Invalid("Cannot reserve capacity larger than 2^31 - 1 for binary");
+      return Status::CapacityError(
+          "Cannot reserve capacity larger than 2^31 - 1 for binary");
     }
     RETURN_NOT_OK(value_data_builder_.Reserve(elements));
   }
@@ -1399,7 +1400,7 @@ Status BinaryBuilder::AppendNextOffset() {
     std::stringstream ss;
     ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
        << num_bytes;
-    return Status::Invalid(ss.str());
+    return Status::CapacityError(ss.str());
   }
   return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
 }

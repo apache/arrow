@@ -115,7 +115,7 @@ class RecordBatchSerializer : public ArrayVisitor {
     }
 
     if (!allow_64bit_ && arr.length() > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("Cannot write arrays larger than 2^31 - 1 in length");
+      return Status::CapacityError("Cannot write arrays larger than 2^31 - 1 in length");
     }
 
     // push back all common elements

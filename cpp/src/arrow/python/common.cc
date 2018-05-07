@@ -83,41 +83,40 @@ PyBuffer::~PyBuffer() {
 // ----------------------------------------------------------------------
 // Python exception -> Status
 
-Status CheckPyError(StatusCode code) {
-  if (PyErr_Occurred()) {
-    PyObject* exc_type = nullptr;
-    PyObject* exc_value = nullptr;
-    PyObject* traceback = nullptr;
+Status ConvertPyError(StatusCode code) {
+  PyObject* exc_type = nullptr;
+  PyObject* exc_value = nullptr;
+  PyObject* traceback = nullptr;
 
-    PyErr_Fetch(&exc_type, &exc_value, &traceback);
-    PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
+  PyErr_Fetch(&exc_type, &exc_value, &traceback);
+  PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
 
-    OwnedRef exc_type_ref(exc_type);
-    OwnedRef exc_value_ref(exc_value);
-    OwnedRef traceback_ref(traceback);
+  DCHECK_NE(exc_type, nullptr);
 
-    std::string message;
-    RETURN_NOT_OK(internal::PyObject_StdStringStr(exc_value, &message));
+  OwnedRef exc_type_ref(exc_type);
+  OwnedRef exc_value_ref(exc_value);
+  OwnedRef traceback_ref(traceback);
 
-    if (code == StatusCode::UnknownError) {
-      // Try to match the Python exception type with an appropriate Status code
-      if (PyErr_GivenExceptionMatches(exc_type, PyExc_MemoryError)) {
-        code = StatusCode::OutOfMemory;
-      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_KeyError)) {
-        code = StatusCode::KeyError;
-      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_TypeError)) {
-        code = StatusCode::TypeError;
-      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_ValueError)) {
-        code = StatusCode::Invalid;
-      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_EnvironmentError)) {
-        code = StatusCode::IOError;
-      } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_NotImplementedError)) {
-        code = StatusCode::NotImplemented;
-      }
+  std::string message;
+  RETURN_NOT_OK(internal::PyObject_StdStringStr(exc_value, &message));
+
+  if (code == StatusCode::UnknownError) {
+    // Try to match the Python exception type with an appropriate Status code
+    if (PyErr_GivenExceptionMatches(exc_type, PyExc_MemoryError)) {
+      code = StatusCode::OutOfMemory;
+    } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_KeyError)) {
+      code = StatusCode::KeyError;
+    } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_TypeError)) {
+      code = StatusCode::TypeError;
+    } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_ValueError)) {
+      code = StatusCode::Invalid;
+    } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_EnvironmentError)) {
+      code = StatusCode::IOError;
+    } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_NotImplementedError)) {
+      code = StatusCode::NotImplemented;
     }
-    return Status(code, message);
   }
-  return Status::OK();
+  return Status(code, message);
 }
 
 Status PassPyError() {
