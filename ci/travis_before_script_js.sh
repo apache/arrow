@@ -22,6 +22,9 @@ set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+# Install npm 5.8 if we don't already have it
+dpkg --compare-versions `npm -v` ge 5.8 || npm i -g npm@^5.8
+
 pushd $ARROW_JS_DIR
 
 npm install
