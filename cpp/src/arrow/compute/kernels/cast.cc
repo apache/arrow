@@ -768,8 +768,6 @@ struct CastFunctor<O, StringType,
 
     auto out_data = GetMutableValues<out_type>(output, 1);
 
-    std::function<out_type(const std::string&)> cast_func;
-
     for (int64_t i = 0; i < input.length; ++i) {
       if (input_array.IsNull(i)) {
         out_data++;
