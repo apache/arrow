@@ -140,22 +140,18 @@ public class BitVectorHelper {
     }
     int count = 0;
     final int sizeInBytes = getValidityBufferSize(valueCount);
-
-    for (int i = 0; i < sizeInBytes; ++i) {
-      final byte byteValue = validityBuffer.getByte(i);
-      /* Java uses two's complement binary representation, hence 11111111_b which is -1
-       * when converted to Int will have 32bits set to 1. Masking the MSB and then
-       * adding it back solves the issue.
-       */
-      count += Integer.bitCount(byteValue & 0x7F) - (byteValue >> 7);
-    }
-    int nullCount = (sizeInBytes * 8) - count;
-    /* if the valueCount is not a multiple of 8,
-     * the bits on the right were counted as null bits.
-     */
     int remainder = valueCount % 8;
-    nullCount -= remainder == 0 ? 0 : 8 - remainder;
-    return nullCount;
+
+    for (int i = 0; i < sizeInBytes; i++) {
+      byte byteValue = validityBuffer.getByte(i);
+      if (i == sizeInBytes - 1 && remainder != 0) {
+        // making the remaining bits all 1s
+        byte mask = (byte)(0xFF << remainder);
+        byteValue = (byte) (byteValue | mask);
+      }
+      count += Integer.bitCount(byteValue & 0xFF);
+    }
+    return 8 * sizeInBytes - count;
   }
 
   public static byte getBitsFromCurrentByte(final ArrowBuf data, final int index, final int offset) {
