@@ -446,7 +446,6 @@ int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
     return 0;
   } else {
     // The client requesting the abort is the creator. Free the object.
-    dlfree(entry->pointer);
     store_info_.objects.erase(object_id);
     return 1;
   }
@@ -474,7 +473,6 @@ int PlasmaStore::delete_object(ObjectID& object_id) {
 
   eviction_policy_.remove_object(object_id);
 
-  dlfree(entry->pointer);
   store_info_.objects.erase(object_id);
   // Inform all subscribers that the object has been deleted.
   ObjectInfoT notification;
@@ -497,7 +495,6 @@ void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
         << "To delete an object it must have been sealed.";
     ARROW_CHECK(entry->clients.size() == 0)
         << "To delete an object, there must be no clients currently using it.";
-    dlfree(entry->pointer);
     store_info_.objects.erase(object_id);
     // Inform all subscribers that the object has been deleted.
     ObjectInfoT notification;

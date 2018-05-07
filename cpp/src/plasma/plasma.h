@@ -112,6 +112,10 @@ enum object_status {
 /// This type is used by the Plasma store. It is here because it is exposed to
 /// the eviction policy.
 struct ObjectTableEntry {
+  ObjectTableEntry();
+
+  ~ObjectTableEntry();
+
   /// Object id of this object.
   ObjectID object_id;
   /// Object info like size, creation time and owner.
