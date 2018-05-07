@@ -17,6 +17,9 @@
 
 #include "arrow/compute/kernels/cast.h"
 
+#include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -737,6 +740,104 @@ struct CastFunctor<T, DictionaryType,
 };
 
 // ----------------------------------------------------------------------
+// String to Number
+
+template <typename T>
+typename std::enable_if<std::is_arithmetic<T>::value && !std::is_same<T, int8_t>::value &&
+                            !std::is_same<T, uint8_t>::value,
+                        T>::type
+CastStringToNumeric(const std::string& s) {
+  return boost::lexical_cast<T>(s);
+}
+
+template <typename T>
+typename std::enable_if<std::is_same<T, int8_t>::value || std::is_same<T, uint8_t>::value,
+                        T>::type
+CastStringToNumeric(const std::string& s) {
+  // Convert to int before casting to T
+  // because boost::lexical_cast does not support 8bit int/uint.
+  return boost::numeric_cast<T>(boost::lexical_cast<int>(s));
+}
+
+template <typename O>
+struct CastFunctor<O, StringType,
+                   typename std::enable_if<std::is_base_of<Number, O>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    using out_type = typename O::c_type;
+    StringArray input_array(input.Copy());
+
+    auto out_data = GetMutableValues<out_type>(output, 1);
+
+    for (int64_t i = 0; i < input.length; ++i) {
+      if (input_array.IsNull(i)) {
+        out_data++;
+        continue;
+      }
+
+      std::string s = input_array.GetString(i);
+
+      try {
+        *out_data++ = CastStringToNumeric<out_type>(s);
+      } catch (...) {
+        std::stringstream ss;
+        ss << "Failed to cast String '" << s << "' into " << output->type->ToString();
+        ctx->SetStatus(Status(StatusCode::SerializationError, ss.str()));
+        return;
+      }
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
+// String to Boolean
+
+template <typename O>
+struct CastFunctor<O, StringType,
+                   typename std::enable_if<std::is_same<BooleanType, O>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    StringArray input_array(input.Copy());
+    internal::BitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
+                                  input.length);
+
+    for (int64_t i = 0; i < input.length; ++i) {
+      if (input_array.IsNull(i)) {
+        writer.Next();
+        continue;
+      }
+
+      auto s = input_array.GetString(i);
+      auto s_lower = boost::algorithm::to_lower_copy(s);
+      bool flag;
+
+      if (s_lower == "true") {
+        flag = true;
+      } else if (s_lower == "false") {
+        flag = false;
+      } else {
+        try {
+          flag = boost::lexical_cast<bool>(s);
+        } catch (...) {
+          std::stringstream ss;
+          ss << "Failed to cast String '" << s << "' into " << output->type->ToString();
+          ctx->SetStatus(Status(StatusCode::SerializationError, ss.str()));
+          return;
+        }
+      }
+
+      if (flag) {
+        writer.Set();
+      } else {
+        writer.Clear();
+      }
+      writer.Next();
+    }
+    writer.Finish();
+  }
+};
+
+// ----------------------------------------------------------------------
 
 typedef std::function<void(FunctionContext*, const CastOptions& options, const ArrayData&,
                            ArrayData*)>
@@ -914,6 +1015,20 @@ class CastKernel : public UnaryKernel {
   FN(TimestampType, Date64Type);     \
   FN(TimestampType, Int64Type);
 
+#define STRING_CASES(FN, IN_TYPE) \
+  FN(StringType, StringType);     \
+  FN(StringType, BooleanType);    \
+  FN(StringType, UInt8Type);      \
+  FN(StringType, Int8Type);       \
+  FN(StringType, UInt16Type);     \
+  FN(StringType, Int16Type);      \
+  FN(StringType, UInt32Type);     \
+  FN(StringType, Int32Type);      \
+  FN(StringType, UInt64Type);     \
+  FN(StringType, Int64Type);      \
+  FN(StringType, FloatType);      \
+  FN(StringType, DoubleType);
+
 #define DICTIONARY_CASES(FN, IN_TYPE) \
   FN(IN_TYPE, NullType);              \
   FN(IN_TYPE, Time32Type);            \
@@ -971,6 +1086,7 @@ GET_CAST_FUNCTION(DATE64_CASES, Date64Type);
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type);
 GET_CAST_FUNCTION(TIME64_CASES, Time64Type);
 GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
+GET_CAST_FUNCTION(STRING_CASES, StringType);
 GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
 
 #define CAST_FUNCTION_CASE(InType)                      \
@@ -1018,6 +1134,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(Time32Type);
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
+    CAST_FUNCTION_CASE(StringType);
     CAST_FUNCTION_CASE(DictionaryType);
     case Type::LIST:
       RETURN_NOT_OK(GetListCastFunc(in_type, out_type, options, kernel));
