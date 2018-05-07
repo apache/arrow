@@ -366,9 +366,7 @@ class NumPyConverter {
 
   Status Visit(const StructType& type);
 
-  Status Visit(const FixedSizeBinaryType& type) {
-    return TypeNotImplemented(type.ToString());
-  }
+  Status Visit(const FixedSizeBinaryType& type);
 
   Status Visit(const Decimal128Type& type) { return TypeNotImplemented(type.ToString()); }
 
@@ -1478,6 +1476,30 @@ Status NumPyConverter::Visit(const BinaryType& type) {
       RETURN_NOT_OK(builder.Append(data, item_length));
       data += stride_;
     }
+  }
+
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(builder.Finish(&result));
+  return PushArray(result->data());
+}
+
+Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
+  auto byte_width = type.byte_width();
+
+  if (itemsize_ != byte_width) {
+    std::stringstream ss;
+    ss << "Got bytestring of length " << itemsize_ << " (expected " << byte_width << ")";
+    return Status::Invalid(ss.str());
+  }
+
+  FixedSizeBinaryBuilder builder(::arrow::fixed_size_binary(byte_width), pool_);
+  auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
+
+  if (mask_ != nullptr) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask_);
+    RETURN_NOT_OK(builder.AppendValues(data, length_, mask_values.data()));
+  } else {
+    RETURN_NOT_OK(builder.AppendValues(data, length_));
   }
 
   std::shared_ptr<Array> result;
