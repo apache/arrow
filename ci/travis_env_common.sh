@@ -29,6 +29,10 @@ export ARROW_JS_DIR=${TRAVIS_BUILD_DIR}/js
 export ARROW_INTEGRATION_DIR=$TRAVIS_BUILD_DIR/integration
 export ARROW_RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
+if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
+    export ARROW_CPP_COVERAGE_FILE=${TRAVIS_BUILD_DIR}/coverage.info
+fi
+
 export CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
 
 export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install

@@ -17,7 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
@@ -81,6 +80,10 @@ fi
 
 if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_TEST_MEMCHECK=ON"
+fi
+
+if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
 fi
 
 if [ $TRAVIS_OS_NAME == "linux" ]; then

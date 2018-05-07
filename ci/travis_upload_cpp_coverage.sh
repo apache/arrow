@@ -21,15 +21,11 @@ set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-pushd $CPP_BUILD_DIR
+pushd $TRAVIS_BUILD_DIR
 
-ctest -j2 --output-on-failure -L unittest
+# Display summary
+lcov --list $ARROW_CPP_COVERAGE_FILE
+# Upload report to CodeCov
+bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
 
 popd
-
-# Capture C++ coverage info (we wipe the build dir in travis_script_python.sh)
-if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
-    pushd $TRAVIS_BUILD_DIR
-    lcov --quiet --directory . --capture --no-external --output-file $ARROW_CPP_COVERAGE_FILE
-    popd
-fi

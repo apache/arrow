@@ -23,7 +23,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
 if [ ! -e $CPP_TOOLCHAIN ]; then
     # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
+    conda create -y -q -p $CPP_TOOLCHAIN python=3.6 \
         nomkl \
         boost-cpp \
         libprotobuf \

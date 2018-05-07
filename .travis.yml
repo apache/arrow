@@ -52,6 +52,7 @@ matrix:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_CLANG_FORMAT=1
+    - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
@@ -68,10 +69,12 @@ matrix:
     # If either C++ or Python changed, we must install the C++ libraries
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
-    - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
+    # All test steps are required for accurate C++ coverage info
+    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
+    - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
   # [OS X] C++ & Python w/ XCode 6.4
   - compiler: clang
     language: cpp
@@ -178,6 +181,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
+  # Rust
   - language: rust
     cache: cargo
     rust: stable
@@ -197,7 +201,11 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/rust
-    - cargo coveralls --verbose
+    # Run coverage for codecov.io
+    - RUST_BACKTRACE=1 cargo coverage --verbose
+    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+    # Run coverage for coveralls.io
+    #- cargo coveralls --verbose
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
