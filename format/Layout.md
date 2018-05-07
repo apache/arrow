@@ -312,7 +312,7 @@ will have the following representation:
   * Length: 7,  Null count: 0
   * Null bitmap buffer: Not required
 
-    | Bytes 0-7  | Bytes 8-63  |
+    | Bytes 0-6  | Bytes 7-63  |
     |------------|-------------|
     | joemark    | unspecified |
 ```
