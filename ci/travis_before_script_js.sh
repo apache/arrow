@@ -24,6 +24,8 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 pushd $ARROW_JS_DIR
 
+# ARROW(ARROW-2546): Update to npm>=5.7.1 to fight EINTEGRITY problems
+npm install -g npm@latest
 npm install
 
 popd
