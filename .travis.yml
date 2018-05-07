@@ -181,10 +181,23 @@ matrix:
   - language: rust
     cache: cargo
     rust: stable
+    addons:
+      apt:
+        packages:
+          - libcurl4-openssl-dev
+          - libelf-dev
+          - libdw-dev
+          - binutils-dev
+          - cmake
     before_script:
     - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
+    - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
+    - cargo install --force cargo-travis && export PATH=$HOME/.cargo/bin:$PATH
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+    after_success:
+    - pushd ${TRAVIS_BUILD_DIR}/rust
+    - cargo coveralls --verbose
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
