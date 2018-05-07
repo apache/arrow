@@ -196,6 +196,7 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
     after_success:
+    - pushd ${TRAVIS_BUILD_DIR}/rust
     - cargo coveralls --verbose
 
 after_failure:
