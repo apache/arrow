@@ -1310,7 +1310,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
       RETURN_NOT_OK(
           AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset));
       if (offset < PyArray_SIZE(numpy_array)) {
-        return Status::Invalid("Array cell value exceeded 2GB");
+        return Status::CapacityError("Array cell value exceeded 2GB");
       }
       return Status::OK();
     } else if (PyList_Check(object)) {
@@ -1367,7 +1367,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, check_valid,
                                         value_builder, &offset, &have_bytes));
       if (offset < PyArray_SIZE(numpy_array)) {
-        return Status::Invalid("Array cell value exceeded 2GB");
+        return Status::CapacityError("Array cell value exceeded 2GB");
       }
       return Status::OK();
     } else if (PyList_Check(object)) {
@@ -1514,7 +1514,7 @@ Status AppendUTF32(const char* data, int itemsize, int byteorder,
 
   const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.obj()));
   if (builder->value_data_length() + length > kBinaryMemoryLimit) {
-    return Status::Invalid("Encoded string length exceeds maximum size (2GB)");
+    return Status::CapacityError("Encoded string length exceeds maximum size (2GB)");
   }
   return builder->Append(PyBytes_AS_STRING(utf8_obj.obj()), length);
 }

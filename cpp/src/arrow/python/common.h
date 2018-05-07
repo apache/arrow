@@ -35,8 +35,17 @@ class MemoryPool;
 
 namespace py {
 
-// TODO: inline the successful case
-ARROW_EXPORT Status CheckPyError(StatusCode code = StatusCode::UnknownError);
+ARROW_EXPORT Status ConvertPyError(StatusCode code = StatusCode::UnknownError);
+
+// Catch a pending Python exception and return the corresponding Status.
+// If no exception is pending, Status::OK() is returned.
+inline Status CheckPyError(StatusCode code = StatusCode::UnknownError) {
+  if (ARROW_PREDICT_TRUE(!PyErr_Occurred())) {
+    return Status::OK();
+  } else {
+    return ConvertPyError(code);
+  }
+}
 
 ARROW_EXPORT Status PassPyError();
 

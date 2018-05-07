@@ -165,7 +165,7 @@ Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
       *is_full = true;
       return Status::OK();
     } else {
-      return Status::Invalid("Maximum array size reached (2GB)");
+      return Status::CapacityError("Maximum array size reached (2GB)");
     }
   }
   RETURN_NOT_OK(builder->Append(view.bytes, length));
@@ -194,7 +194,7 @@ Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_fu
       *is_full = true;
       return Status::OK();
     } else {
-      return Status::Invalid("Maximum array size reached (2GB)");
+      return Status::CapacityError("Maximum array size reached (2GB)");
     }
   }
   RETURN_NOT_OK(builder->Append(view.bytes));
@@ -216,7 +216,7 @@ Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid,
       *is_full = true;
       return Status::OK();
     } else {
-      return Status::Invalid("Maximum array size reached (2GB)");
+      return Status::CapacityError("Maximum array size reached (2GB)");
     }
   }
   RETURN_NOT_OK(builder->Append(view.bytes, length));

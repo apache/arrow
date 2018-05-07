@@ -48,6 +48,10 @@ class ArrowNotImplementedError(NotImplementedError, ArrowException):
     pass
 
 
+class ArrowCapacityError(ArrowException):
+    pass
+
+
 class PlasmaObjectExists(ArrowException):
     pass
 
@@ -85,6 +89,8 @@ cdef int check_status(const CStatus& status) nogil except -1:
             raise ArrowNotImplementedError(message)
         elif status.IsTypeError():
             raise ArrowTypeError(message)
+        elif status.IsCapacityError():
+            raise ArrowCapacityError(message)
         elif status.IsPlasmaObjectExists():
             raise PlasmaObjectExists(message)
         elif status.IsPlasmaObjectNonexistent():
