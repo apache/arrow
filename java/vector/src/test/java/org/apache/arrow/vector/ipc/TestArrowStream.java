@@ -20,7 +20,6 @@ package org.apache.arrow.vector.ipc;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -137,18 +136,18 @@ public class TestArrowStream extends BaseFileTest {
       reader.loadNextBatch();
 
       assertEquals(read.getValueCount(), 5);
-      assertNull(read.getObject(0));
-      assertEquals(read.getObject(1), Integer.valueOf(1));
-      assertEquals(read.getObject(2), Integer.valueOf(2));
-      assertNull(read.getObject(3));
-      assertEquals(read.getObject(4), Integer.valueOf(1));
+      assertEquals(read.isNull(0), true);
+      assertEquals(read.get(1), 1);
+      assertEquals(read.get(2), 2);
+      assertEquals(read.isNull(3), true);
+      assertEquals(read.get(4), 1);
 
       reader.loadNextBatch();
 
       assertEquals(read.getValueCount(), 3);
-      assertNull(read.getObject(0));
-      assertEquals(read.getObject(1), Integer.valueOf(1));
-      assertEquals(read.getObject(2), Integer.valueOf(2));
+      assertEquals(read.isNull(0), true);
+      assertEquals(read.get(1), 1);
+      assertEquals(read.get(2), 2);
     }
   }
 }

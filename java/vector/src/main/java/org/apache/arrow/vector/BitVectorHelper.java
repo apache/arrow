@@ -140,12 +140,13 @@ public class BitVectorHelper {
     }
     int count = 0;
     final int sizeInBytes = getValidityBufferSize(valueCount);
-    int remainder = valueCount % 8;
+    final int remainder = valueCount % 8;
 
     for (int i = 0; i < sizeInBytes; i++) {
       byte byteValue = validityBuffer.getByte(i);
+      // handling with the last byte
       if (i == sizeInBytes - 1 && remainder != 0) {
-        // making the remaining bits all 1s
+        // making the remaining bits all 1s if it is not fully filled
         byte mask = (byte)(0xFF << remainder);
         byteValue = (byte) (byteValue | mask);
       }
