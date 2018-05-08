@@ -491,6 +491,10 @@ cdef class Array:
             vector[shared_ptr[CBuffer]] c_buffers
             shared_ptr[CArrayData] ad
 
+        if not is_primitive(type.id):
+            raise NotImplementedError("from_buffers is only supported for "
+                                      "primitive arrays yet.")
+
         for buf in buffers:
             # None will produce a null buffer pointer
             c_buffers.push_back(pyarrow_unwrap_buffer(buf))

@@ -75,6 +75,11 @@ cdef bytes _datatype_to_pep3118(CDataType* type):
             return char
 
 
+def _is_primitive(Type type):
+    # This is simply a redirect, the official API is in pyarrow.types.
+    return is_primitive(type)
+
+
 # Workaround for Cython parsing bug
 # https://github.com/cython/cython/issues/2143
 ctypedef CFixedWidthType* _CFixedWidthTypePtr
