@@ -630,16 +630,24 @@ void PlasmaStore::push_notification(ObjectInfoT* object_info) {
   }
 }
 
+void PlasmaStore::push_notification(ObjectInfoT* object_info, int client_fd) {
+  auto it = pending_notifications_.find(client_fd);
+  if (it != pending_notifications_.end()) {
+    auto notification = create_object_info_buffer(object_info);
+    it->second.object_notifications.emplace_back(std::move(notification));
+    send_notifications(it->first);
+    // The notification gets freed in send_notifications when the notification
+    // is sent over the socket.
+  }
+}
+
 // Subscribe to notifications about sealed objects.
-void PlasmaStore::subscribe_to_updates(Client* client) {
+void PlasmaStore::subscribe_to_updates(Client* client, int notification_fd) {
   ARROW_LOG(DEBUG) << "subscribing to updates on fd " << client->fd;
-  // TODO(rkn): The store could block here if the client doesn't send a file
-  // descriptor.
-  int fd = recv_fd(client->fd);
+  int fd = notification_fd;
   if (fd < 0) {
-    // This may mean that the client died before sending the file descriptor.
-    ARROW_LOG(WARNING) << "Failed to receive file descriptor from client on fd "
-                       << client->fd << ".";
+    // Incorrect fd for client notification.
+    ARROW_LOG(WARNING) << "Incorrect file descriptor from client " << client->fd << ".";
     return;
   }
 
@@ -651,7 +659,7 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 
   // Push notifications to the new subscriber about existing objects.
   for (const auto& entry : store_info_.objects) {
-    push_notification(&entry.second->info);
+    push_notification(&entry.second->info, fd);
   }
   send_notifications(fd);
 }
@@ -735,7 +743,9 @@ Status PlasmaStore::process_message(Client* client) {
       HANDLE_SIGPIPE(SendEvictReply(client->fd, num_bytes_evicted), client->fd);
     } break;
     case MessageType_PlasmaSubscribeRequest:
-      subscribe_to_updates(client);
+      int notification_fd;
+      RETURN_NOT_OK(ReadSubscribeRequest(input, input_size, &notification_fd));
+      subscribe_to_updates(client, notification_fd);
       break;
     case MessageType_PlasmaConnectRequest: {
       HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),

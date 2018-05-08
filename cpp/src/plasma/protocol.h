@@ -179,7 +179,9 @@ Status ReadWaitReply(uint8_t* data, size_t size, ObjectRequest object_requests[]
 
 /* Plasma Subscribe message functions. */
 
-Status SendSubscribeRequest(int sock);
+Status SendSubscribeRequest(int sock, int notification_fd);
+
+Status ReadSubscribeRequest(uint8_t* data, size_t size, int* notification_fd);
 
 /* Data messages. */
 
