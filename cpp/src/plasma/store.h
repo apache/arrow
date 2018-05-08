@@ -145,7 +145,8 @@ class PlasmaStore {
   /// Subscribe a file descriptor to updates about new sealed objects.
   ///
   /// @param client The client making this request.
-  void subscribe_to_updates(Client* client);
+  /// @param notification_fd The file descriptor used by client to receive notifications.
+  void subscribe_to_updates(Client* client, int notification_fd);
 
   /// Connect a new client to the PlasmaStore.
   ///
@@ -162,7 +163,16 @@ class PlasmaStore {
   Status process_message(Client* client);
 
  private:
+  /// Push an object notification to all subscribers.
+  ///
+  /// @param object_notification The object notification to be pushed.
   void push_notification(ObjectInfoT* object_notification);
+
+  /// Push an object notification to one subscribers.
+  ///
+  /// @param object_notification The object notification to be pushed.
+  /// @param client_fd The client file descriptor to which the notification is sent.
+  void push_notification(ObjectInfoT* object_notification, int client_fd);
 
   void add_client_to_object_clients(ObjectTableEntry* entry, Client* client);
 

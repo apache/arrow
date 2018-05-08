@@ -861,10 +861,7 @@ Status PlasmaClient::Impl::Subscribe(int* fd) {
   int flags = fcntl(sock[1], F_GETFL, 0);
   ARROW_CHECK(fcntl(sock[1], F_SETFL, flags | O_NONBLOCK) == 0);
   // Tell the Plasma store about the subscription.
-  RETURN_NOT_OK(SendSubscribeRequest(store_conn_));
-  // Send the file descriptor that the Plasma store should use to push
-  // notifications about sealed objects to this client.
-  ARROW_CHECK(send_fd(store_conn_, sock[1]) >= 0);
+  RETURN_NOT_OK(SendSubscribeRequest(store_conn_, sock[1]));
   close(sock[1]);
   // Return the file descriptor that the client should use to read notifications
   // about sealed objects.

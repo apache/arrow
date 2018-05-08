@@ -312,6 +312,8 @@ table PlasmaWaitReply {
 }
 
 table PlasmaSubscribeRequest {
+  // The file descriptor used by client to receive object notifications.
+  notification_fd: int;
 }
 
 table PlasmaDataRequest {

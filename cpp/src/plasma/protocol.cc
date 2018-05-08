@@ -574,10 +574,18 @@ Status ReadWaitReply(uint8_t* data, size_t size, ObjectRequest object_requests[]
 
 // Subscribe messages.
 
-Status SendSubscribeRequest(int sock) {
+Status SendSubscribeRequest(int sock, int notification_fd) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = CreatePlasmaSubscribeRequest(fbb);
+  auto message = CreatePlasmaSubscribeRequest(fbb, notification_fd);
   return PlasmaSend(sock, MessageType_PlasmaSubscribeRequest, &fbb, message);
+}
+
+Status ReadSubscribeRequest(uint8_t* data, size_t size, int* notification_fd) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<PlasmaSubscribeRequest>(data);
+  DCHECK(verify_flatbuffer(message, data, size));
+  *notification_fd = message->notification_fd();
+  return Status::OK();
 }
 
 // Data messages.
