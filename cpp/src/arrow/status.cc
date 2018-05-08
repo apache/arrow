@@ -57,11 +57,32 @@ std::string Status::CodeAsString() const {
     case StatusCode::IOError:
       type = "IOError";
       break;
+    case StatusCode::CapacityError:
+      type = "Capacity error";
+      break;
     case StatusCode::UnknownError:
       type = "Unknown error";
       break;
     case StatusCode::NotImplemented:
       type = "NotImplemented";
+      break;
+    case StatusCode::SerializationError:
+      type = "Serialization error";
+      break;
+    case StatusCode::PythonError:
+      type = "Python error";
+      break;
+    case StatusCode::PlasmaObjectExists:
+      type = "Plasma object exists";
+      break;
+    case StatusCode::PlasmaObjectNonexistent:
+      type = "Plasma object is nonexistent";
+      break;
+    case StatusCode::PlasmaStoreFull:
+      type = "Plasma store is full";
+      break;
+    case StatusCode::PlasmaObjectAlreadySealed:
+      type = "Plasma object is already sealed";
       break;
     default:
       type = "Unknown";
