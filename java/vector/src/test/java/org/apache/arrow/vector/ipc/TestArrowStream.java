@@ -101,53 +101,21 @@ public class TestArrowStream extends BaseFileTest {
 
   @Test
   public void testReadWriteMultipleBatches() throws IOException {
-
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
     try (IntVector vector = new IntVector("foo", allocator);) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
       try (VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, new DictionaryProvider.MapDictionaryProvider(), Channels.newChannel(os));) {
-        writer.start();
-
-        vector.setNull(0);
-        vector.setSafe(1, 1);
-        vector.setSafe(2, 2);
-        vector.setNull(3);
-        vector.setSafe(4, 1);
-        vector.setValueCount(5);
-        root.setRowCount(5);
-        writer.writeBatch();
-
-        vector.setNull(0);
-        vector.setSafe(1, 1);
-        vector.setSafe(2, 2);
-        vector.setValueCount(3);
-        root.setRowCount(3);
-        writer.writeBatch();
+        writeBatchData(writer, vector, root);
       }
     }
 
     ByteArrayInputStream in = new ByteArrayInputStream(os.toByteArray());
 
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator);) {
-      IntVector read = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
-
-      reader.loadNextBatch();
-
-      assertEquals(read.getValueCount(), 5);
-      assertEquals(read.isNull(0), true);
-      assertEquals(read.get(1), 1);
-      assertEquals(read.get(2), 2);
-      assertEquals(read.isNull(3), true);
-      assertEquals(read.get(4), 1);
-
-      reader.loadNextBatch();
-
-      assertEquals(read.getValueCount(), 3);
-      assertEquals(read.isNull(0), true);
-      assertEquals(read.get(1), 1);
-      assertEquals(read.get(2), 2);
+      IntVector vector = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
+      validateBatchData(reader, vector);
     }
   }
 }
