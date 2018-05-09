@@ -17,10 +17,9 @@
  */
 
 package org.apache.arrow.adapter.jdbc.h2;
-
+/*
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
@@ -38,27 +37,25 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
-
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
+*/
 
+import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 /**
  *
  */
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
-    private Connection conn = null;
+/*  private Connection conn = null;
     private ObjectMapper mapper = null;
 
-
-    @Before
+ @Before
     public void setUp() throws Exception {
         String url = "jdbc:h2:mem:JdbcToArrowTest";
         String driver = "org.h2.Driver";
@@ -122,7 +119,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             int[] bools = {
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             };
-            assertBitBooleanVectorValues((BitVector)root.getVector("BOOL_FIELD2"), 15, bools);
+             assertBitBooleanVectorValues((BitVector)root.getVector("BOOL_FIELD2"), 15, bools);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -148,7 +145,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             int[] tinyints = {
                     45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
             };
-            assertTinyIntVectorValues((TinyIntVector)root.getVector("TINYINT_FIELD3"), 15, tinyints);
+             assertTinyIntVectorValues((TinyIntVector)root.getVector("TINYINT_FIELD3"), 15, tinyints);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -201,7 +198,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                     92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720,
                     92233720, 92233720, 92233720, 92233720, 92233720, 92233720
             };
-            assertBigIntVectorValues((BigIntVector)root.getVector("BIGINT_FIELD5"), 15, bigints);
+             assertBigIntVectorValues((BigIntVector)root.getVector("BIGINT_FIELD5"), 15, bigints);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -241,7 +238,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                     hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
                     hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279")
             };
-            assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BLOB_FIELD14"), 15, bytes);
+             assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BLOB_FIELD14"), 15, bytes);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -268,7 +265,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             byte[][] varchars = {
                     strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
             };
-            assertVarcharVectorValues((VarCharVector)root.getVector("CLOB_FIELD15"), 15, varchars);
+             assertVarcharVectorValues((VarCharVector)root.getVector("CLOB_FIELD15"), 15, varchars);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -293,22 +290,22 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
             int[] ints = {
                     101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101
             };
-            assertIntVectorValues((IntVector)root.getVector("INT_FIELD1"), 15, table.getInts());
+             assertIntVectorValues((IntVector)root.getVector("INT_FIELD1"), 15, table.getInts());
 
             int[] bools = {
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             };
-            assertBitBooleanVectorValues((BitVector)root.getVector("BOOL_FIELD2"), 15, bools);
+             assertBitBooleanVectorValues((BitVector)root.getVector("BOOL_FIELD2"), 15, bools);
 
             int[] tinyints = {
                     45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
             };
-            assertTinyIntVectorValues((TinyIntVector)root.getVector("TINYINT_FIELD3"), 15, tinyints);
+             assertTinyIntVectorValues((TinyIntVector)root.getVector("TINYINT_FIELD3"), 15, tinyints);
 
             int[] smallints = {
                     12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000
             };
-            assertSmallIntVectorValues((SmallIntVector)root.getVector("SMALLINT_FIELD4"), 15, smallints);
+             assertSmallIntVectorValues((SmallIntVector)root.getVector("SMALLINT_FIELD4"), 15, smallints);
 
             int[] bigints = {
                     92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720,
@@ -330,20 +327,20 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                     56478356785.345, 56478356785.345, 56478356785.345,
                     56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345
             };
-            assertFloat8VectorValues((Float8Vector)root.getVector("DOUBLE_FIELD7"), 15, doubles);
+             assertFloat8VectorValues((Float8Vector)root.getVector("DOUBLE_FIELD7"), 15, doubles);
 
             float[] reals = {
                     56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f,
                     56478356785.345f, 56478356785.345f, 56478356785.345f,
                     56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f
             };
-            assertFloat4VectorValues((Float4Vector)root.getVector("REAL_FIELD8"), 15, reals);
+           assertFloat4VectorValues((Float4Vector)root.getVector("REAL_FIELD8"), 15, reals);
 
             long[] times = {
                     45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000,
                     45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000
             };
-            assertTimeVectorValues((TimeMilliVector)root.getVector("TIME_FIELD9"), 15, times);
+           assertTimeVectorValues((TimeMilliVector)root.getVector("TIME_FIELD9"), 15, times);
 
             long[] dates = {
             		1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l,
@@ -374,15 +371,15 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
                     hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
                     hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279")
             };
-            assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BINARY_FIELD12"), 15, bytes);
+           assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BINARY_FIELD12"), 15, bytes);
 
             byte[] strb = "some text that needs to be converted to varchar".getBytes();
             byte[][] varchars = {
                 strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
             };
-            assertVarcharVectorValues((VarCharVector)root.getVector("VARCHAR_FIELD13"), 15, varchars);
+           assertVarcharVectorValues((VarCharVector)root.getVector("VARCHAR_FIELD13"), 15, varchars);
 
-            assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BLOB_FIELD14"), 15, bytes);
+           assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BLOB_FIELD14"), 15, bytes);
 
             strb = "some text that needs to be converted to clob".getBytes();
             varchars = new byte[][] {
@@ -404,5 +401,5 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         }
 
     }
-
+*/
 }
