@@ -513,7 +513,7 @@ public class JdbcToArrowUtils {
     }
 
     private static void updateVector(VarBinaryVector varBinaryVector, Blob blob, boolean isNonNull, int rowCount) throws SQLException, IOException {
-        updateVector(varBinaryVector, blob.getBinaryStream(), isNonNull, rowCount);
+        updateVector(varBinaryVector, blob != null ? blob.getBinaryStream() : null, isNonNull, rowCount);
     }
 
 }
