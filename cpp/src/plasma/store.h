@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "plasma/common.h"
@@ -46,6 +47,9 @@ struct Client {
 
   /// The file descriptor used to communicate with the client.
   int fd;
+
+  /// Object ids that are used by this client.
+  std::unordered_set<ObjectID, UniqueIDHasher> object_ids;
 };
 
 class PlasmaStore {
@@ -164,13 +168,13 @@ class PlasmaStore {
  private:
   void push_notification(ObjectInfoT* object_notification);
 
-  void add_client_to_object_clients(ObjectTableEntry* entry, Client* client);
+  void add_to_client_object_ids(ObjectTableEntry* entry, Client* client);
 
   void return_from_get(GetRequest* get_req);
 
   void update_object_get_requests(const ObjectID& object_id);
 
-  int remove_client_from_object_clients(ObjectTableEntry* entry, Client* client);
+  int remove_from_client_object_ids(ObjectTableEntry* entry, Client* client);
 
   /// Event loop of the plasma store.
   EventLoop* loop_;

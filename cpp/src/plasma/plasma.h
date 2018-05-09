@@ -134,8 +134,9 @@ struct ObjectTableEntry {
   /// IPC GPU handle to share with clients.
   std::shared_ptr<CudaIpcMemHandle> ipc_handle;
 #endif
-  /// Set of clients currently using this object.
-  std::unordered_set<Client*> clients;
+  /// Reference count.
+  int refcnt;
+
   /// The state of the object, e.g., whether it is open or sealed.
   object_state state;
   /// The digest of the object. Used to see if two objects are the same.
