@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <arrow/util/decimal.h>
 
 #include <arrow-glib/decimal.h>
