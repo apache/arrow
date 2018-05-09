@@ -660,9 +660,11 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
   // TODO(pcm): Is the following neccessary?
   pending_notifications_[fd];
 
-  // Push notifications to the new subscriber about existing objects.
+  // Push notifications to the new subscriber about existing sealed objects.
   for (const auto& entry : store_info_.objects) {
-    push_notification(&entry.second->info, fd);
+    if (entry.second->state == PLASMA_SEALED) {
+      push_notification(&entry.second->info, fd);
+    }
   }
   send_notifications(fd);
 }
