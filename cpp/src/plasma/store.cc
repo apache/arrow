@@ -104,7 +104,7 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
   num_objects_to_wait_for = unique_ids.size();
 }
 
-Client::Client(int fd) : fd(fd) {}
+Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
 PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
                          bool hugepages_enabled)
@@ -548,10 +548,13 @@ void PlasmaStore::disconnect_client(int client_fd) {
     abort_object(entry, client);
   }
 
-  // Note, the store may still attempt to send a message to the disconnected
-  // client (for example, when an object ID that the client was waiting for
-  // is ready). In these cases, the attempt to send the message will fail, but
-  // the store should just ignore the failure.
+  auto notification_fd = client->notification_fd;
+  if (notification_fd >= 0) {
+    // fd >= 0 indicates the client has subscribed to notification.
+    close(notification_fd);
+    pending_notifications_.erase(notification_fd);
+  }
+
   connected_clients_.erase(it);
 }
 
@@ -641,10 +644,9 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
   }
 
   // Create a new array to buffer notifications that can't be sent to the
-  // subscriber yet because the socket send buffer is full. TODO(rkn): the queue
-  // never gets freed.
-  // TODO(pcm): Is the following neccessary?
+  // subscriber yet because the socket send buffer is full.
   pending_notifications_[fd];
+  client->notification_fd = fd;
 
   // Push notifications to the new subscriber about existing objects.
   for (const auto& entry : store_info_.objects) {
