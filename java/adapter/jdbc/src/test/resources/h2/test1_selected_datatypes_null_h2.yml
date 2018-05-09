@@ -11,13 +11,9 @@
 
 name: 'table1'
 
-type: 'null'
+type: 'selected_null_column'
 
 vectors:
- - 'INT_FIELD1'
- - 'BOOL_FIELD2'
- - 'TINYINT_FIELD3'
- - 'SMALLINT_FIELD4'
  - 'BIGINT_FIELD5'
  - 'DECIMAL_FIELD6' 
  - 'DOUBLE_FIELD7'
@@ -39,13 +35,12 @@ create: 'CREATE TABLE table1 (int_field1 INT, bool_field2 BOOLEAN, tinyint_field
     binary_field12 BINARY(100), varchar_field13 VARCHAR(256), blob_field14 BLOB, clob_field15 CLOB, char_field16 CHAR(16), bit_field17 BIT);'
 
 data:
-  - 'INSERT INTO table1 VALUES (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);'
-  - 'INSERT INTO table1 VALUES (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);'
-  - 'INSERT INTO table1 VALUES (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);'
-  - 'INSERT INTO table1 VALUES (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);'
-  - 'INSERT INTO table1 VALUES (null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
+  - 'INSERT INTO table1 (int_field1, bool_field2, tinyint_field3, smallint_field4) VALUES (102, 0, 46, 12001);'
 
-query: 'select int_field1, bool_field2, tinyint_field3, smallint_field4, bigint_field5, decimal_field6, double_field7, real_field8,
-        time_field9, date_field10, timestamp_field11, binary_field12, varchar_field13, blob_field14, clob_field15, char_field16, bit_field17 from table1'
+query: 'select bigint_field5, decimal_field6, double_field7, real_field8, time_field9, date_field10, timestamp_field11, binary_field12, varchar_field13, blob_field14, clob_field15, char_field16, bit_field17 from table1'
 
 drop: 'DROP table table1;'

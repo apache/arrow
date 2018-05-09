@@ -11,36 +11,38 @@
 
 name: 'table1'
 
-type: 'big_int'
+type: 'pst_time'
 
-vector: 'BIGINT_FIELD5'
+timezone: 'PST'
 
-create: 'CREATE TABLE table1 (bigint_field5 BIGINT);'
+vector: 'TIME_FIELD9'
+
+create: 'CREATE TABLE table1 (time_field9 TIME);'
 
 data:
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
-  - 'INSERT INTO table1 VALUES (92233720);'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
+  - 'INSERT INTO table1 VALUES (''12:45:35'');'
 
-query: 'select bigint_field5 from table1;'
+query: 'select time_field9 from table1;'
 
 drop: 'DROP table table1;'
 
 values:
- - '92233720'
- - '92233720'
- - '92233720'
- - '92233720'
- - '92233720'
- - '92233720'
- - '92233720'
- - '92233720'
- - '92233720'
- - '92233720'
+ - '74735000'
+ - '74735000'
+ - '74735000'
+ - '74735000'
+ - '74735000'
+ - '74735000'
+ - '74735000'
+ - '74735000'
+ - '74735000'
+ - '74735000'
