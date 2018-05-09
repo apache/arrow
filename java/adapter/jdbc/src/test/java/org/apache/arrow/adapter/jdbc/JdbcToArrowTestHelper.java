@@ -21,7 +21,6 @@ package org.apache.arrow.adapter.jdbc;
 import java.math.BigDecimal;
 import java.util.Arrays;
 
-import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -45,43 +44,51 @@ import static org.junit.Assert.assertNotNull;
  */
 public class JdbcToArrowTestHelper {
 
-    public static void assertIntVectorValues(IntVector intVector, int rowCount, int [] values) {
+    public static void assertIntVectorValues(IntVector intVector, int rowCount, Integer[] values) {
         assertEquals(rowCount, intVector.getValueCount());
 
         for(int j = 0; j < intVector.getValueCount(); j++) {
-        	assertEquals(values[j], intVector.get(j));
+        	assertEquals(values[j].intValue(), intVector.get(j));
         } 
     }
 
-    public static void assertBitBooleanVectorValues(BitVector bitVector, int rowCount, int[] values){
+    public static void assertBooleanVectorValues(BitVector bitVector, int rowCount, Boolean[] values){
         assertEquals(rowCount, bitVector.getValueCount());
         
         for(int j = 0; j < bitVector.getValueCount(); j++){
-            assertEquals(values[j], bitVector.get(j));
+            assertEquals(values[j].booleanValue(), bitVector.get(j) == 1);
         }
     }
 
-    public static void assertTinyIntVectorValues(TinyIntVector tinyIntVector, int rowCount, int[] values){
+    public static void assertBitVectorValues(BitVector bitVector, int rowCount, Integer[] values){
+        assertEquals(rowCount, bitVector.getValueCount());
+
+        for(int j = 0; j < bitVector.getValueCount(); j++){
+            assertEquals(values[j].intValue(), bitVector.get(j));
+        }
+    }
+
+    public static void assertTinyIntVectorValues(TinyIntVector tinyIntVector, int rowCount, Integer[] values){
         assertEquals(rowCount, tinyIntVector.getValueCount());
 
         for(int j = 0; j < tinyIntVector.getValueCount(); j++){
-            assertEquals(values[j], tinyIntVector.get(j));
+            assertEquals(values[j].intValue(), tinyIntVector.get(j));
         }
     }
 
-    public static void assertSmallIntVectorValues(SmallIntVector smallIntVector, int rowCount, int[] values){
+    public static void assertSmallIntVectorValues(SmallIntVector smallIntVector, int rowCount, Integer[] values){
         assertEquals(rowCount, smallIntVector.getValueCount());
 
         for(int j = 0; j < smallIntVector.getValueCount(); j++){
-            assertEquals(values[j], smallIntVector.get(j));
+            assertEquals(values[j].intValue(), smallIntVector.get(j));
         }
     }
 
-    public static void assertBigIntVectorValues(BigIntVector bigIntVector, int rowCount, int[] values){
+    public static void assertBigIntVectorValues(BigIntVector bigIntVector, int rowCount, Long[] values){
         assertEquals(rowCount, bigIntVector.getValueCount());
 
         for(int j = 0; j < bigIntVector.getValueCount(); j++){
-            assertEquals(values[j], bigIntVector.get(j));
+            assertEquals(values[j].longValue(), bigIntVector.get(j));
         }
     }
 
@@ -94,7 +101,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertFloat8VectorValues(Float8Vector float8Vector, int rowCount, double[] values){
+    public static void assertFloat8VectorValues(Float8Vector float8Vector, int rowCount, Double[] values){
         assertEquals(rowCount, float8Vector.getValueCount());
 
         for(int j = 0; j < float8Vector.getValueCount(); j++){
@@ -102,7 +109,7 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertFloat4VectorValues(Float4Vector float4Vector, int rowCount, float[] values){
+    public static void assertFloat4VectorValues(Float4Vector float4Vector, int rowCount, Float[] values){
         assertEquals(rowCount, float4Vector.getValueCount());
 
         for(int j = 0; j < float4Vector.getValueCount(); j++){
@@ -110,27 +117,27 @@ public class JdbcToArrowTestHelper {
         }
     }
 
-    public static void assertTimeVectorValues(TimeMilliVector timeMilliVector, int rowCount, long[] values){
+    public static void assertTimeVectorValues(TimeMilliVector timeMilliVector, int rowCount, Long[] values){
         assertEquals(rowCount, timeMilliVector.getValueCount());
 
         for(int j = 0; j < timeMilliVector.getValueCount(); j++){
-                assertEquals(values[j], timeMilliVector.get(j));
+                assertEquals(values[j].longValue(), timeMilliVector.get(j));
         }
     }
 
-    public static void assertDateVectorValues(DateMilliVector dateMilliVector, int rowCount, long[] values){
+    public static void assertDateVectorValues(DateMilliVector dateMilliVector, int rowCount, Long[] values){
         assertEquals(rowCount, dateMilliVector.getValueCount());
 
         for(int j = 0; j < dateMilliVector.getValueCount(); j++){
-            assertEquals(values[j], dateMilliVector.get(j));
+            assertEquals(values[j].longValue(), dateMilliVector.get(j));
         }
     }
 
-    public static void assertTimeStampVectorValues(TimeStampVector timeStampVector, int rowCount, long[] values){
+    public static void assertTimeStampVectorValues(TimeStampVector timeStampVector, int rowCount, Long[] values){
         assertEquals(rowCount, timeStampVector.getValueCount());
 
         for(int j = 0; j < timeStampVector.getValueCount(); j++){
-            assertEquals(values[j], timeStampVector.get(j));
+            assertEquals(values[j].longValue(), timeStampVector.get(j));
         }
     }
 
