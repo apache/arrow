@@ -46,6 +46,10 @@ struct Client {
 
   /// The file descriptor used to communicate with the client.
   int fd;
+
+  /// The file descriptor used to push notifications to client. This is only valid
+  /// if clients subscribes to notifiations, otherwise it's set to -1.
+  int notification_fd;
 };
 
 class PlasmaStore {
