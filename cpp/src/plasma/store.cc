@@ -605,15 +605,15 @@ void PlasmaStore::send_notifications(int client_fd) {
       it->second.object_notifications.begin(),
       it->second.object_notifications.begin() + num_processed);
 
+  // If we have sent all notifications, remove the fd from the event loop.
+  if (it->second.object_notifications.empty()) {
+    loop_->RemoveFileEvent(client_fd);
+  }
+
   // Stop sending notifications if the pipe was broken.
   if (closed) {
     close(client_fd);
     pending_notifications_.erase(client_fd);
-  }
-
-  // If we have sent all notifications, remove the fd from the event loop.
-  if (it->second.object_notifications.empty()) {
-    loop_->RemoveFileEvent(client_fd);
   }
 }
 
