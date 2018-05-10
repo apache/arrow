@@ -11,7 +11,9 @@
 
 name: 'table1'
 
-type: 'timestamp'
+type: 'gmt_timestamp'
+
+timezone: 'GMT'
 
 vector: 'TIMESTAMP_FIELD11'
 

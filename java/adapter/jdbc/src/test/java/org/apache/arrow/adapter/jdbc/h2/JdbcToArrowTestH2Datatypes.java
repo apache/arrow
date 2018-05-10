@@ -18,18 +18,19 @@
 package org.apache.arrow.adapter.jdbc.h2;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+/*
 import org.junit.runners.Parameterized.Parameters;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.TimeZone;
-
-import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.Table;
+import java.util.Arrays;
+import java.util.Collection;
+
+import java.util.Calendar;
+import java.util.TimeZone;
+import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -45,18 +46,21 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import java.math.BigDecimal;
 import org.junit.After;
 import org.junit.Before;
+import java.sql.Statement;
+
 import org.junit.Test;
 import java.io.IOException;
-import java.math.BigDecimal;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
+
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBigIntVectorValues;
-import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBitBooleanVectorValues;
+//import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBitBooleanVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertDateVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertDecimalVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertFloat4VectorValues;
@@ -69,9 +73,10 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTinyIntV
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarBinaryVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertNullValues;
-
+*/
 @RunWith(Parameterized.class)
 public class JdbcToArrowTestH2Datatypes {
+	/*
 	   private static Connection conn = null; 
 	   private static Table table;
 	   private int [] intValues;
@@ -429,5 +434,7 @@ public class JdbcToArrowTestH2Datatypes {
 			}
 			return builder.toString();
 		}
+		
+		*/
 }
 

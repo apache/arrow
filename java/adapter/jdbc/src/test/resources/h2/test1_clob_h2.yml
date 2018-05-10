@@ -11,57 +11,36 @@
 
 name: 'table1'
 
-create: 'CREATE TABLE table1 (int_field1 INT, bool_field2 BOOLEAN, tinyint_field3 TINYINT, smallint_field4 SMALLINT, bigint_field5 BIGINT,
-    decimal_field6 DECIMAL(20,2), double_field7 DOUBLE, real_field8 REAL, time_field9 TIME, date_field10 DATE, timestamp_field11 TIMESTAMP,
-    binary_field12 BINARY(100), varchar_field13 VARCHAR(256), blob_field14 BLOB, clob_field15 CLOB, char_field16 CHAR(16), bit_field17 BIT);'
+type: 'clob'
+
+vector: 'CLOB_FIELD15'
+
+create: 'CREATE TABLE table1 (clob_field15 CLOB);'
 
 data:
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
-  - 'INSERT INTO table1 VALUES (101, 1, 45, 12000, 92233720, 17345667789.23, 56478356785.345, 56478356785.345, ''12:45:35'', ''2018-02-12'',
-  ''2018-02-12 12:45:35'', ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to varchar'',
-  ''736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279'', ''some text that needs to be converted to clob'', ''some char text'', 1);'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
+  - 'INSERT INTO table1 VALUES (''some text that needs to be converted to clob'');'
 
 query: 'select CLOB_FIELD15 from table1;'
 
 drop: 'DROP table table1;'
+
+values:
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
+ - 'some text that needs to be converted to clob'
