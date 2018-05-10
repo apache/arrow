@@ -99,7 +99,7 @@ libarrow_glib_la_sources =			\
 	column.cpp				\
 	composite-array.cpp			\
 	composite-data-type.cpp			\
-	decimal.cpp			\
+	decimal.cpp				\
 	error.cpp				\
 	field.cpp				\
 	record-batch.cpp			\

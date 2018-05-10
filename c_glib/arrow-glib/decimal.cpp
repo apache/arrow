@@ -32,7 +32,7 @@ G_BEGIN_DECLS
  *
  * #GArrowDecimal128 is a decimal128 class.
  *
- * Since: 0.9.0
+ * Since: 0.10.0
  */
 
 typedef struct GArrowDecimal128Private_ {
@@ -49,7 +49,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal128,
                            G_TYPE_OBJECT)
 
 #define GARROW_DECIMAL128_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                   \
+  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                      \
                                GARROW_TYPE_DECIMAL128,     \
                                GArrowDecimal128Private))
 
@@ -65,9 +65,9 @@ garrow_decimal128_finalize(GObject *object)
 
 static void
 garrow_decimal128_set_property(GObject *object,
-                        guint prop_id,
-                        const GValue *value,
-                        GParamSpec *pspec)
+                               guint prop_id,
+                               const GValue *value,
+                               GParamSpec *pspec)
 {
   auto priv = GARROW_DECIMAL128_GET_PRIVATE(object);
 
@@ -111,7 +111,7 @@ garrow_decimal128_class_init(GArrowDecimal128Class *klass)
  *
  * Returns: A newly created #GArrowDecimal128.
  *
- * Since: 1.0.0
+ * Since: 0.10.0
  */
 GArrowDecimal128 *
 garrow_decimal128_new_string(const gchar *data)
@@ -126,7 +126,7 @@ garrow_decimal128_new_string(const gchar *data)
  *
  * Returns: A newly created #GArrowDecimal128.
  *
- * Since: 1.0.0
+ * Since: 0.10.0
  */
 GArrowDecimal128 *
 garrow_decimal128_new_integer(const gint64 data)
@@ -142,7 +142,7 @@ garrow_decimal128_new_integer(const gint64 data)
  *
  * Returns: The string representation of the decimal.
  *
- * Since: 1.0.0
+ * Since: 0.10.0
  */
 const gchar *
 garrow_decimal128_to_string(GArrowDecimal128 *decimal, gint32 scale)
@@ -157,7 +157,7 @@ garrow_decimal128_to_string(GArrowDecimal128 *decimal, gint32 scale)
  *
  * Returns: The string representation of the decimal.
  *
- * Since: 1.0.0
+ * Since: 0.10.0
  */
 const gchar *
 garrow_decimal128_to_integer_string(GArrowDecimal128 *decimal)
@@ -172,8 +172,8 @@ GArrowDecimal128 *
 garrow_decimal128_new_raw(std::shared_ptr<arrow::Decimal128> *arrow_decimal128)
 {
   auto decimal = g_object_new(GARROW_TYPE_DECIMAL128,
-                             "decimal128", arrow_decimal128,
-                             NULL);
+                              "decimal128", arrow_decimal128,
+                              NULL);
   return GARROW_DECIMAL128(decimal);
 }
 
