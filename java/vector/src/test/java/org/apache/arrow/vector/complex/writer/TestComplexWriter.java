@@ -21,7 +21,6 @@ package org.apache.arrow.vector.complex.writer;
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -68,6 +67,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.DateUtility;
+import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
@@ -257,15 +257,14 @@ public class TestComplexWriter {
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     DecimalHolder holder = new DecimalHolder();
-    holder.buffer = listVector.getAllocator().buffer(16);
+    holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
     for (int i = 0; i < COUNT; i++) {
       listWriter.startList();
       for (int j = 0; j < i % 7; j++) {
         if (j % 2 == 0) {
           listWriter.writeDecimal(new BigDecimal(j));
         } else {
-          byte[] bytes = BigInteger.valueOf(j).toByteArray();
-          holder.buffer.setBytes(0, bytes, 0, bytes.length);
+          DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0);
           holder.start = 0;
           holder.scale = 0;
           holder.precision = 10;
