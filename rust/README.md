@@ -19,6 +19,9 @@
 
 # Native Rust implementation of Apache Arrow
 
+[![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
+[![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
+
 ## Status
 
 This is a starting point for a native Rust implementation of Arrow.
