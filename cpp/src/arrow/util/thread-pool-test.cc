@@ -21,6 +21,12 @@
 #include <thread>
 #include <vector>
 
+#include <stdlib.h>
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #include "arrow/test-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread-pool.h"
@@ -269,6 +275,60 @@ TEST_F(TestThreadPool, Submit) {
     auto fut = pool->Submit(sleep_for, 0.001);
     fut.get();
   }
+}
+
+#ifdef _WIN32
+static int setenv(const char* envname, const char* envval, int overwrite) {
+  DCHECK_NE(overwrite, 0);
+  return SetEnvironmentVariableA(envname, envval) ? 0 : -1;
+}
+
+static int unsetenv(const char* envname) {
+  return SetEnvironmentVariableA(envname, nullptr) ? 0 : -1;
+}
+#endif
+
+TEST(TestGlobalThreadPool, Capacity) {
+  // Sanity check
+  auto pool = CPUThreadPool();
+  size_t capacity = pool->GetCapacity();
+  DCHECK_GT(capacity, 0);
+
+  // Exercise default capacity heuristic
+  unsetenv("OMP_NUM_THREADS");
+  unsetenv("OMP_THREAD_LIMIT");
+  size_t hw_capacity = std::thread::hardware_concurrency();
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  setenv("OMP_NUM_THREADS", "13", 1);
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 13);
+  setenv("OMP_NUM_THREADS", "7,5,13", 1);
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 7);
+  unsetenv("OMP_NUM_THREADS");
+
+  setenv("OMP_THREAD_LIMIT", "1", 1);
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 1);
+  setenv("OMP_THREAD_LIMIT", "999", 1);
+  if (hw_capacity <= 999) {
+    ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  }
+  setenv("OMP_NUM_THREADS", "6,5,13", 1);
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 6);
+  setenv("OMP_THREAD_LIMIT", "2", 1);
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 2);
+
+  // Invalid env values
+  setenv("OMP_NUM_THREADS", "0", 1);
+  setenv("OMP_THREAD_LIMIT", "0", 1);
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  setenv("OMP_NUM_THREADS", "zzz", 1);
+  setenv("OMP_THREAD_LIMIT", "x", 1);
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  setenv("OMP_THREAD_LIMIT", "-1", 1);
+  setenv("OMP_NUM_THREADS", "155555555555555558878888888888888888999878787", 1);
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+
+  unsetenv("OMP_NUM_THREADS");
+  unsetenv("OMP_THREAD_LIMIT");
 }
 
 }  // namespace internal

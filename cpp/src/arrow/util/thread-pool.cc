@@ -18,6 +18,15 @@
 #include "arrow/util/thread-pool.h"
 #include "arrow/util/logging.h"
 
+#include <algorithm>
+#include <string>
+
+#include <stdlib.h>
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 namespace arrow {
 namespace internal {
 
@@ -162,8 +171,44 @@ Status ThreadPool::Make(size_t threads, std::shared_ptr<ThreadPool>* out) {
 // ----------------------------------------------------------------------
 // Global thread pool
 
-static size_t DefaultCapacity() {
-  size_t capacity = std::thread::hardware_concurrency();
+static size_t ParseOMPEnvVar(const char* name) {
+#ifdef _WIN32
+  char c_str[200];
+  auto res = GetEnvironmentVariableA(name, c_str, 200);
+  if (res >= 200 || res == 0) {
+    // Variable undefined or too long
+    return 0;
+  }
+#else
+  char* c_str = getenv(name);
+  if (c_str == nullptr) {
+    return 0;
+  }
+#endif
+  // OMP_NUM_THREADS is a comma-separated list of positive integers.
+  // We are only interested in the first (top-level) number.
+  auto str = std::string(c_str);
+  auto first_comma = str.find_first_of(',');
+  if (first_comma != std::string::npos) {
+    str = str.substr(0, first_comma);
+  }
+  try {
+    return static_cast<size_t>(std::max(0LL, std::stoll(str)));
+  } catch (...) {
+    return 0;
+  }
+}
+
+size_t ThreadPool::DefaultCapacity() {
+  size_t capacity, limit;
+  capacity = ParseOMPEnvVar("OMP_NUM_THREADS");
+  if (capacity == 0) {
+    capacity = std::thread::hardware_concurrency();
+  }
+  limit = ParseOMPEnvVar("OMP_THREAD_LIMIT");
+  if (limit > 0) {
+    capacity = std::min(limit, capacity);
+  }
   if (capacity == 0) {
     ARROW_LOG(WARNING) << "Failed to determine the number of available threads, "
                           "using a hardcoded arbitrary value";
@@ -175,7 +220,7 @@ static size_t DefaultCapacity() {
 // Helper for the singleton pattern
 static std::shared_ptr<ThreadPool> MakePoolWithDefaultCapacity() {
   std::shared_ptr<ThreadPool> pool;
-  DCHECK_OK(ThreadPool::Make(DefaultCapacity(), &pool));
+  DCHECK_OK(ThreadPool::Make(ThreadPool::DefaultCapacity(), &pool));
   return pool;
 }
 
@@ -184,9 +229,10 @@ ThreadPool* CPUThreadPool() {
   return singleton.get();
 }
 
+}  // namespace internal
+
 Status SetCPUThreadPoolCapacity(size_t threads) {
-  return CPUThreadPool()->SetCapacity(threads);
+  return internal::CPUThreadPool()->SetCapacity(threads);
 }
 
-}  // namespace internal
 }  // namespace arrow
