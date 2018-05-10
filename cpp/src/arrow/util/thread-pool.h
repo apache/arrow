@@ -44,7 +44,7 @@ namespace internal {
 
 namespace detail {
 
-// Needed before std::packaged_task is not copyable and hence not convertible
+// Needed because std::packaged_task is not copyable and hence not convertible
 // to std::function.
 template <typename R, typename... Args>
 struct packaged_task_wrapper {
