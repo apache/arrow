@@ -16,16 +16,11 @@
 // under the License.
 
 #include "arrow/util/thread-pool.h"
+#include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
 
 #include <algorithm>
 #include <string>
-
-#include <stdlib.h>
-#ifdef _WIN32
-#define NOMINMAX
-#include <windows.h>
-#endif
 
 namespace arrow {
 namespace internal {
@@ -172,22 +167,12 @@ Status ThreadPool::Make(size_t threads, std::shared_ptr<ThreadPool>* out) {
 // Global thread pool
 
 static size_t ParseOMPEnvVar(const char* name) {
-#ifdef _WIN32
-  char c_str[200];
-  auto res = GetEnvironmentVariableA(name, c_str, 200);
-  if (res >= 200 || res == 0) {
-    // Variable undefined or too long
-    return 0;
-  }
-#else
-  char* c_str = getenv(name);
-  if (c_str == nullptr) {
-    return 0;
-  }
-#endif
   // OMP_NUM_THREADS is a comma-separated list of positive integers.
   // We are only interested in the first (top-level) number.
-  auto str = std::string(c_str);
+  std::string str;
+  if (!GetEnvVar(name, &str).ok()) {
+    return 0;
+  }
   auto first_comma = str.find_first_of(',');
   if (first_comma != std::string::npos) {
     str = str.substr(0, first_comma);
