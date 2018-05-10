@@ -25,6 +25,7 @@ import pytest
 import random
 import shutil
 import signal
+import sys
 import subprocess
 import tempfile
 import time
@@ -196,11 +197,13 @@ class TestPlasmaClient(object):
         try:
             # Check that the Plasma store is still alive.
             assert self.p.poll() is None
-            # Ensure Valgrind detected no issues
-            if USE_VALGRIND:
-                self.p.send_signal(signal.SIGTERM)
+            # Ensure Valgrind and/or coverage have a clean exit
+            self.p.send_signal(signal.SIGTERM)
+            if sys.version_info >= (3, 3):
+                self.p.wait(timeout=5)
+            else:
                 self.p.wait()
-                assert self.p.returncode == 0
+            assert self.p.returncode == 0
         finally:
             self.plasma_store_ctx.__exit__(None, None, None)
 

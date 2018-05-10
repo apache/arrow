@@ -22,7 +22,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <random>
+#include <thread>
 
 #include "arrow/test-util.h"
 
@@ -67,7 +69,13 @@ class TestPlasmaStore : public ::testing::Test {
     ARROW_CHECK_OK(client2_.Disconnect());
     // Kill all plasma_store processes
     // TODO should only kill the processes we launched
-    system("killall -9 plasma_store");
+#ifdef COVERAGE_BUILD
+    // Ask plasma_store to exit gracefully and give it time to write out
+    // coverage files
+    system("killall -TERM plasma_store");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+#endif
+    system("killall -KILL plasma_store");
   }
 
   void CreateObject(PlasmaClient& client, const ObjectID& object_id,
