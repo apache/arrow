@@ -18,6 +18,7 @@
 #ifndef PLASMA_STORE_H
 #define PLASMA_STORE_H
 
+#include <boost/optional.hpp>
 #include <deque>
 #include <memory>
 #include <string>
@@ -46,6 +47,10 @@ struct Client {
 
   /// The file descriptor used to communicate with the client.
   int fd;
+
+  /// The file descriptor used to push notifications to client. This is only valid
+  /// if client subscribes to plasma store.
+  boost::optional<int> notification_fd;
 };
 
 class PlasmaStore {
