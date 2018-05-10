@@ -170,6 +170,8 @@ class PlasmaStore {
  private:
   void push_notification(ObjectInfoT* object_notification);
 
+  void push_notification(ObjectInfoT* object_notification, int client_fd);
+
   void add_to_client_object_ids(ObjectTableEntry* entry, Client* client);
 
   void return_from_get(GetRequest* get_req);
