@@ -636,6 +636,9 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
     return;
   }
 
+  // Add this fd to global map, which is needed for this client to receive notifications.
+  pending_notifications_[fd];
+
   // Push notifications to the new subscriber about existing objects.
   for (const auto& entry : store_info_.objects) {
     push_notification(&entry.second->info);
