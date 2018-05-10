@@ -21,6 +21,8 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/util/thread-pool.h"
+
 namespace arrow {
 namespace internal {
 
@@ -33,7 +35,9 @@ uint8_t* pointer_logical_and(const uint8_t* address, uintptr_t bits) {
 // to saturate the memory bandwidth of modern cpus.
 void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
                       uintptr_t block_size, int num_threads) {
-  std::vector<std::thread> threadpool(num_threads);
+  // XXX This function is really using `num_threads + 1` threads.
+  auto pool = CPUThreadPool();
+
   uint8_t* left = pointer_logical_and(src + block_size - 1, ~(block_size - 1));
   uint8_t* right = pointer_logical_and(src + nbytes, ~(block_size - 1));
   int64_t num_blocks = (right - left) / block_size;
@@ -42,7 +46,7 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   right = right - (num_blocks % num_threads) * block_size;
 
   // Now we divide these blocks between available threads. The remainder is
-  // handled on the main thread.
+  // handled separately.
   int64_t chunk_size = (right - left) / num_threads;
   int64_t prefix = left - src;
   int64_t suffix = src + nbytes - right;
@@ -51,19 +55,18 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   // | prefix | num_threads * chunk_size | suffix |.
   // Each thread gets a "chunk" of k blocks.
 
-  // Start all threads first and handle leftovers while threads run.
-  for (int i = 0; i < num_threads; i++) {
-    threadpool[i] = std::thread(memcpy, dst + prefix + i * chunk_size,
-                                left + i * chunk_size, chunk_size);
-  }
+  // Start all parallel memcpy tasks and handle leftovers while threads run.
+  std::vector<std::future<void*>> futures;
 
+  for (int i = 0; i < num_threads; i++) {
+    futures.push_back(pool->Submit(memcpy, dst + prefix + i * chunk_size,
+                                   left + i * chunk_size, chunk_size));
+  }
   memcpy(dst, src, prefix);
   memcpy(dst + prefix + num_threads * chunk_size, right, suffix);
 
-  for (auto& t : threadpool) {
-    if (t.joinable()) {
-      t.join();
-    }
+  for (auto& fut : futures) {
+    fut.get();
   }
 }
 
