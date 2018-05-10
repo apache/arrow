@@ -652,6 +652,8 @@ Status PlasmaStore::process_message(Client* client) {
   size_t input_size = input_buffer_.size();
   ObjectID object_id;
   PlasmaObject object;
+  // TODO(pcm): Get rid of the following.
+  memset(&object, 0, sizeof(object));
 
   // Process the different types of requests.
   switch (type) {
