@@ -54,15 +54,15 @@ class TestPlasmaStore : public ::testing::Test {
     std::mt19937 rng;
     rng.seed(std::random_device()());
     std::string store_index = std::to_string(rng());
+    store_socket_name_ = "/tmp/store" + store_index;
 
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
-    std::string plasma_command = plasma_directory +
-                                 "/plasma_store -m 1000000000 -s /tmp/store" +
-                                 store_index + " 1> /dev/null 2> /dev/null &";
+    std::string plasma_command = plasma_directory + "/plasma_store -m 1000000000 -s " +
+                                 store_socket_name_ + " 1> /dev/null 2> /dev/null &";
     system(plasma_command.c_str());
-    ARROW_CHECK_OK(client_.Connect("/tmp/store" + store_index, ""));
-    ARROW_CHECK_OK(client2_.Connect("/tmp/store" + store_index, ""));
+    ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
+    ARROW_CHECK_OK(client2_.Connect(store_socket_name_, ""));
   }
   virtual void TearDown() {
     ARROW_CHECK_OK(client_.Disconnect());
@@ -91,10 +91,59 @@ class TestPlasmaStore : public ::testing::Test {
     ARROW_CHECK_OK(client.Release(object_id));
   }
 
+  const std::string& GetStoreSocketName() const { return store_socket_name_; }
+
  protected:
   PlasmaClient client_;
   PlasmaClient client2_;
+  std::string store_socket_name_;
 };
+
+TEST_F(TestPlasmaStore, NewSubscriberTest) {
+  PlasmaClient local_client, local_client2;
+
+  ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
+  ARROW_CHECK_OK(local_client2.Connect(store_socket_name_, ""));
+
+  ObjectID object_id = ObjectID::from_random();
+
+  // Test for the object being in local Plasma store.
+  // First create object.
+  int64_t data_size = 100;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  std::shared_ptr<Buffer> data;
+  ARROW_CHECK_OK(
+      local_client.Create(object_id, data_size, metadata, metadata_size, &data));
+  ARROW_CHECK_OK(local_client.Seal(object_id));
+
+  // Test that new subscriber client2 can receive notifications about existing objects.
+  int fd = -1;
+  ARROW_CHECK_OK(local_client2.Subscribe(&fd));
+  ASSERT_GT(fd, 0);
+
+  ObjectID object_id2 = ObjectID::from_random();
+  int64_t data_size2 = 0;
+  int64_t metadata_size2 = 0;
+  ARROW_CHECK_OK(
+      local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
+  ASSERT_EQ(object_id, object_id2);
+  ASSERT_EQ(data_size, data_size2);
+  ASSERT_EQ(metadata_size, metadata_size2);
+
+  // Delete the object.
+  ARROW_CHECK_OK(local_client.Release(object_id));
+  ARROW_CHECK_OK(local_client.Delete(object_id));
+
+  ARROW_CHECK_OK(
+      local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
+  ASSERT_EQ(object_id, object_id2);
+  ASSERT_EQ(-1, data_size2);
+  ASSERT_EQ(-1, metadata_size2);
+
+  ARROW_CHECK_OK(local_client2.Disconnect());
+  ARROW_CHECK_OK(local_client.Disconnect());
+}
 
 TEST_F(TestPlasmaStore, SealErrorsTest) {
   ObjectID object_id = ObjectID::from_random();
