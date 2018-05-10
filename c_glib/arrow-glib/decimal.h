@@ -37,7 +37,7 @@ struct _GArrowDecimal128Class
 
 GArrowDecimal128 *garrow_decimal128_new_string(const gchar *data);
 GArrowDecimal128 *garrow_decimal128_new_integer(const gint64 data);
-const gchar *garrow_decimal128_to_string(GArrowDecimal128 *decimal,
+gchar *garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal,
                                          gint32 scale);
 const gchar *garrow_decimal128_to_integer_string(GArrowDecimal128 *decimal);
 

@@ -136,19 +136,22 @@ garrow_decimal128_new_integer(const gint64 data)
 }
 
 /**
- * garrow_decimal128_to_string:
+ * garrow_decimal128_to_string_scale:
  * @decimal: A #GArrowDecimal128.
  * @scale: The scale of the decimal.
  *
  * Returns: The string representation of the decimal.
  *
+ * It should be freed with g_free() when no longer needed.
+ *
  * Since: 0.10.0
  */
-const gchar *
-garrow_decimal128_to_string(GArrowDecimal128 *decimal, gint32 scale)
+gchar *
+garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal, gint32 scale)
 {
   auto arrow_decimal = garrow_decimal128_get_raw(decimal);
-  return arrow_decimal->ToString(scale).c_str();
+  auto string =  arrow_decimal->ToString(scale);
+  return g_strndup(string.data(), string.size());
 }
 
 /**
