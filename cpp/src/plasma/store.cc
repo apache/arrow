@@ -623,6 +623,17 @@ void PlasmaStore::push_notification(ObjectInfoT* object_info) {
   }
 }
 
+void PlasmaStore::push_notification(ObjectInfoT* object_info, int client_fd) {
+  auto it = pending_notifications_.find(client_fd);
+  if (it != pending_notifications_.end()) {
+    auto notification = create_object_info_buffer(object_info);
+    it->second.object_notifications.emplace_back(std::move(notification));
+    send_notifications(it->first);
+    // The notification gets freed in send_notifications when the notification
+    // is sent over the socket.
+  }
+}
+
 // Subscribe to notifications about sealed objects.
 void PlasmaStore::subscribe_to_updates(Client* client) {
   ARROW_LOG(DEBUG) << "subscribing to updates on fd " << client->fd;
@@ -638,7 +649,7 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 
   // Push notifications to the new subscriber about existing objects.
   for (const auto& entry : store_info_.objects) {
-    push_notification(&entry.second->info);
+    push_notification(&entry.second->info, fd);
   }
   send_notifications(fd);
 }
