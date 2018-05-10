@@ -533,6 +533,11 @@ static bool BaseDataEquals(const Array& left, const Array& right) {
       left.type_id() != right.type_id()) {
     return false;
   }
+  // ARROW-2567: Ensure that not only the type id but also the type equality
+  // itself is checked.
+  if (!TypeEquals(*left.type(), *right.type())) {
+    return false;
+  }
   if (left.null_count() > 0 && left.null_count() < left.length()) {
     return BitmapEquals(left.null_bitmap()->data(), left.offset(),
                         right.null_bitmap()->data(), right.offset(), left.length());
