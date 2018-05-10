@@ -562,14 +562,14 @@ void PlasmaStore::disconnect_client(int client_fd) {
 ///
 /// @param client_fd The client to send the notification to.
 void PlasmaStore::send_notifications(int client_fd) {
-  auto it = pending_notifications_.find(client_fd);
+  auto& notifications = pending_notifications_[client_fd].object_notifications;
 
   int num_processed = 0;
   bool closed = false;
   // Loop over the array of pending notifications and send as many of them as
   // possible.
-  for (size_t i = 0; i < it->second.object_notifications.size(); ++i) {
-    auto& notification = it->second.object_notifications.at(i);
+  for (size_t i = 0; i < notifications.size(); ++i) {
+    auto& notification = notifications.at(i);
     // Decode the length, which is the first bytes of the message.
     int64_t size = *(reinterpret_cast<int64_t*>(notification.get()));
 
@@ -601,12 +601,10 @@ void PlasmaStore::send_notifications(int client_fd) {
     num_processed += 1;
   }
   // Remove the sent notifications from the array.
-  it->second.object_notifications.erase(
-      it->second.object_notifications.begin(),
-      it->second.object_notifications.begin() + num_processed);
+  notifications.erase(notifications.begin(), notifications.begin() + num_processed);
 
   // If we have sent all notifications, remove the fd from the event loop.
-  if (it->second.object_notifications.empty()) {
+  if (notifications.empty()) {
     loop_->RemoveFileEvent(client_fd);
   }
 
@@ -622,8 +620,6 @@ void PlasmaStore::push_notification(ObjectInfoT* object_info) {
     auto notification = create_object_info_buffer(object_info);
     element.second.object_notifications.emplace_back(std::move(notification));
     send_notifications(element.first);
-    // The notification gets freed in send_notifications when the notification
-    // is sent over the socket.
   }
 }
 
@@ -640,12 +636,6 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
     return;
   }
 
-  // Create a new array to buffer notifications that can't be sent to the
-  // subscriber yet because the socket send buffer is full. TODO(rkn): the queue
-  // never gets freed.
-  // TODO(pcm): Is the following neccessary?
-  pending_notifications_[fd];
-
   // Push notifications to the new subscriber about existing objects.
   for (const auto& entry : store_info_.objects) {
     push_notification(&entry.second->info);
@@ -661,9 +651,7 @@ Status PlasmaStore::process_message(Client* client) {
   uint8_t* input = input_buffer_.data();
   size_t input_size = input_buffer_.size();
   ObjectID object_id;
-  PlasmaObject object;
-  // TODO(pcm): Get rid of the following.
-  memset(&object, 0, sizeof(object));
+  PlasmaObject object = {0};
 
   // Process the different types of requests.
   switch (type) {
