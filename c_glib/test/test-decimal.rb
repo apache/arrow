@@ -16,16 +16,16 @@
 # under the License.
 
 class TestDecimal128 < Test::Unit::TestCase
-  def test_to_string
+  def test_to_string_scale
     integer_data = 23423445
     string_data = "234.23445"
     decimal = Arrow::Decimal128.new(integer_data)
-    assert_equal(string_data, decimal.to_s(5))
+    assert_equal(string_data, decimal.to_string_scale(5))
   end
 
-  def test_to_integer_string
+  def test_to_string
     string_data = "99999999999999999999999999999999999999"
     decimal = Arrow::Decimal128.new(string_data)
-    assert_equal(string_data, decimal.to_integer_string)
+    assert_equal(string_data, decimal.to_s)
   end
 end
