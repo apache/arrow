@@ -82,17 +82,17 @@ struct PlasmaObject {
   /// The file descriptor of the memory mapped file in the store. It is used as
   /// a unique identifier of the file in the client to look up the corresponding
   /// file descriptor on the client's side.
-  int store_fd;
+  int store_fd = -1;
   /// The offset in bytes in the memory mapped file of the data.
-  ptrdiff_t data_offset;
+  ptrdiff_t data_offset = 0;
   /// The offset in bytes in the memory mapped file of the metadata.
-  ptrdiff_t metadata_offset;
+  ptrdiff_t metadata_offset = 0;
   /// The size in bytes of the data.
-  int64_t data_size;
+  int64_t data_size = 0;
   /// The size in bytes of the metadata.
-  int64_t metadata_size;
+  int64_t metadata_size = 0;
   /// Device number object is on.
-  int device_num;
+  int device_num = 0;
 };
 
 enum object_state {
