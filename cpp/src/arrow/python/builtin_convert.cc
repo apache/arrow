@@ -31,11 +31,13 @@
 
 #include "arrow/api.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/util/datetime.h"
 
@@ -76,33 +78,7 @@ class TypeInferrer {
 
   // Infer value type from a sequence of values
   Status VisitSequence(PyObject* obj) {
-    // Loop through a sequence
-    if (PyArray_Check(obj)) {
-      Py_ssize_t size = PySequence_Size(obj);
-      OwnedRef value_ref;
-
-      for (Py_ssize_t i = 0; i < size; ++i) {
-        auto array = reinterpret_cast<PyArrayObject*>(obj);
-        auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
-
-        value_ref.reset(PyArray_GETITEM(array, ptr));
-        RETURN_IF_PYERROR();
-        RETURN_NOT_OK(Visit(value_ref.obj()));
-      }
-    } else if (PySequence_Check(obj)) {
-      OwnedRef seq_ref(PySequence_Fast(obj, "Object is not a sequence or iterable"));
-      RETURN_IF_PYERROR();
-      PyObject* seq = seq_ref.obj();
-
-      Py_ssize_t size = PySequence_Fast_GET_SIZE(seq);
-      for (Py_ssize_t i = 0; i < size; ++i) {
-        PyObject* value = PySequence_Fast_GET_ITEM(seq, i);
-        RETURN_NOT_OK(Visit(value));
-      }
-    } else {
-      return Status::TypeError("Object is not a sequence or iterable");
-    }
-    return Status::OK();
+    return internal::VisitSequence(obj, [this](PyObject* value) { return Visit(value); });
   }
 
   Status Visit(PyObject* obj) {
@@ -139,6 +115,8 @@ class TypeInferrer {
         return Status::Invalid(ss.str());
       }
     } else if (PyList_Check(obj) || PyArray_Check(obj)) {
+      // TODO(ARROW-2514): This code path is used for non-object arrays, which
+      // leads to wasteful creation and inspection of temporary Python objects.
       return VisitList(obj);
     } else if (PyDict_Check(obj)) {
       return VisitDict(obj);
@@ -374,8 +352,10 @@ template <typename BuilderType>
 class TypedConverter : public SeqConverter {
  public:
   Status Init(ArrayBuilder* builder) override {
-    builder_ = builder;
-    typed_builder_ = static_cast<BuilderType*>(builder);
+    RETURN_NOT_OK(SeqConverter::Init(builder));
+    DCHECK_NE(builder_, nullptr);
+    typed_builder_ = checked_cast<BuilderType*>(builder);
+    DCHECK_NE(typed_builder_, nullptr);
     return Status::OK();
   }
 
@@ -389,7 +369,7 @@ template <typename BuilderType, class Derived>
 class TypedConverterVisitor : public TypedConverter<BuilderType> {
  public:
   Status AppendSingle(PyObject* obj) override {
-    auto self = static_cast<Derived*>(this);
+    auto self = checked_cast<Derived*>(this);
     return self->IsNull(obj) ? self->AppendNull() : self->AppendItem(obj);
   }
 
@@ -397,16 +377,9 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
     // Iterate over the items adding each one
-    if (PySequence_Check(obj)) {
-      auto self = static_cast<Derived*>(this);
-      for (int64_t i = 0; i < size; ++i) {
-        OwnedRef ref(PySequence_GetItem(obj, i));
-        RETURN_NOT_OK(self->AppendSingle(ref.obj()));
-      }
-    } else {
-      return Status::TypeError("Object is not a sequence");
-    }
-    return Status::OK();
+    auto self = checked_cast<Derived*>(this);
+    auto visit = [self](PyObject* item) { return self->AppendSingle(item); };
+    return internal::VisitSequence(obj, visit);
   }
 
   // Append a missing item (default implementation)
@@ -510,7 +483,7 @@ class TimestampConverter
         ss << type->ToString();
         return Status::Invalid(ss.str());
       }
-      const TimestampType& ttype = static_cast<const TimestampType&>(*type);
+      const TimestampType& ttype = checked_cast<const TimestampType&>(*type);
       if (unit_ != ttype.unit()) {
         return Status::NotImplemented(
             "Cannot convert NumPy datetime64 objects with differing unit");
@@ -591,6 +564,9 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
   Status AppendItem(PyObject* obj) {
     RETURN_NOT_OK(typed_builder_->Append());
     const auto list_size = static_cast<int64_t>(PySequence_Size(obj));
+    if (ARROW_PREDICT_FALSE(list_size == -1)) {
+      RETURN_IF_PYERROR();
+    }
     return value_converter_->AppendMultiple(obj, list_size);
   }
 
@@ -669,7 +645,7 @@ class DecimalConverter
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     Decimal128 value;
-    const auto& type = static_cast<const DecimalType&>(*typed_builder_->type());
+    const auto& type = checked_cast<const DecimalType&>(*typed_builder_->type());
     RETURN_NOT_OK(internal::DecimalFromPythonDecimal(obj, type, &value));
     return typed_builder_->Append(value);
   }
@@ -704,7 +680,7 @@ std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::unique_ptr<SeqConverter>(new Date64Converter);
     case Type::TIMESTAMP:
       return std::unique_ptr<SeqConverter>(
-          new TimestampConverter(static_cast<const TimestampType&>(*type).unit()));
+          new TimestampConverter(checked_cast<const TimestampType&>(*type).unit()));
     case Type::HALF_FLOAT:
       return std::unique_ptr<SeqConverter>(new Float16Converter);
     case Type::FLOAT:
@@ -730,10 +706,10 @@ std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
 
 Status ListConverter::Init(ArrayBuilder* builder) {
   builder_ = builder;
-  typed_builder_ = static_cast<ListBuilder*>(builder);
+  typed_builder_ = checked_cast<ListBuilder*>(builder);
 
   value_converter_ =
-      GetConverter(static_cast<ListType*>(builder->type().get())->value_type());
+      GetConverter(checked_cast<const ListType&>(*builder->type()).value_type());
   if (value_converter_ == nullptr) {
     return Status::NotImplemented("value type not implemented");
   }
@@ -743,19 +719,19 @@ Status ListConverter::Init(ArrayBuilder* builder) {
 
 Status StructConverter::Init(ArrayBuilder* builder) {
   builder_ = builder;
-  typed_builder_ = static_cast<StructBuilder*>(builder);
-  StructType* struct_type = static_cast<StructType*>(builder->type().get());
+  typed_builder_ = checked_cast<StructBuilder*>(builder);
+  const auto& struct_type = checked_cast<const StructType&>(*builder->type());
 
   num_fields_ = typed_builder_->num_fields();
-  DCHECK_EQ(num_fields_, struct_type->num_children());
+  DCHECK_EQ(num_fields_, struct_type.num_children());
 
   field_name_list_.reset(PyList_New(num_fields_));
   RETURN_IF_PYERROR();
 
   // Initialize the child converters and field names
   for (int i = 0; i < num_fields_; i++) {
-    const std::string& field_name(struct_type->child(i)->name());
-    std::shared_ptr<DataType> field_type(struct_type->child(i)->type());
+    const std::string& field_name(struct_type.child(i)->name());
+    std::shared_ptr<DataType> field_type(struct_type.child(i)->type());
 
     auto value_converter = GetConverter(field_type);
     if (value_converter == nullptr) {

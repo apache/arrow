@@ -23,6 +23,7 @@
 #include "arrow/python/common.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 #include <arrow/api.h>
@@ -164,7 +165,7 @@ Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
       *is_full = true;
       return Status::OK();
     } else {
-      return Status::Invalid("Maximum array size reached (2GB)");
+      return Status::CapacityError("Maximum array size reached (2GB)");
     }
   }
   RETURN_NOT_OK(builder->Append(view.bytes, length));
@@ -179,7 +180,7 @@ Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_fu
   // XXX For some reason, we must accept unicode objects here
   RETURN_NOT_OK(view.FromString(obj));
   const auto expected_length =
-      static_cast<const FixedSizeBinaryType&>(*builder->type()).byte_width();
+      checked_cast<const FixedSizeBinaryType&>(*builder->type()).byte_width();
   if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
     std::stringstream ss;
     ss << "Got bytestring of length " << view.size << " (expected " << expected_length
@@ -193,7 +194,7 @@ Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_fu
       *is_full = true;
       return Status::OK();
     } else {
-      return Status::Invalid("Maximum array size reached (2GB)");
+      return Status::CapacityError("Maximum array size reached (2GB)");
     }
   }
   RETURN_NOT_OK(builder->Append(view.bytes));
@@ -215,7 +216,7 @@ Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid,
       *is_full = true;
       return Status::OK();
     } else {
-      return Status::Invalid("Maximum array size reached (2GB)");
+      return Status::CapacityError("Maximum array size reached (2GB)");
     }
   }
   RETURN_NOT_OK(builder->Append(view.bytes, length));

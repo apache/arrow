@@ -38,6 +38,7 @@
 #include "arrow/tensor.h"
 #include "arrow/test-util.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace ipc {
@@ -653,14 +654,14 @@ void CheckBatchDictionaries(const RecordBatch& batch) {
   // Check that dictionaries that should be the same are the same
   auto schema = batch.schema();
 
-  const auto& t0 = static_cast<const DictionaryType&>(*schema->field(0)->type());
-  const auto& t1 = static_cast<const DictionaryType&>(*schema->field(1)->type());
+  const auto& t0 = checked_cast<const DictionaryType&>(*schema->field(0)->type());
+  const auto& t1 = checked_cast<const DictionaryType&>(*schema->field(1)->type());
 
   ASSERT_EQ(t0.dictionary().get(), t1.dictionary().get());
 
   // Same dictionary used for list values
-  const auto& t3 = static_cast<const ListType&>(*schema->field(3)->type());
-  const auto& t3_value = static_cast<const DictionaryType&>(*t3.value_type());
+  const auto& t3 = checked_cast<const ListType&>(*schema->field(3)->type());
+  const auto& t3_value = checked_cast<const DictionaryType&>(*t3.value_type());
   ASSERT_EQ(t0.dictionary().get(), t3_value.dictionary().get());
 }
 

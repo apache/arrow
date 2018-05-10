@@ -33,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -157,7 +158,7 @@ class SchemaWriter {
     writer_->EndObject();
 
     if (type.id() == Type::DICTIONARY) {
-      const auto& dict_type = static_cast<const DictionaryType&>(type);
+      const auto& dict_type = checked_cast<const DictionaryType&>(type);
       RETURN_NOT_OK(WriteDictionaryMetadata(dict_type));
 
       const DataType& dictionary_type = *dict_type.dictionary()->type();
@@ -516,13 +517,13 @@ class ArrayWriter {
   Status Visit(const ListArray& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
-    const auto& type = static_cast<const ListType&>(*array.type());
+    const auto& type = checked_cast<const ListType&>(*array.type());
     return WriteChildren(type.children(), {array.values()});
   }
 
   Status Visit(const StructArray& array) {
     WriteValidityField(array);
-    const auto& type = static_cast<const StructType&>(*array.type());
+    const auto& type = checked_cast<const StructType&>(*array.type());
     std::vector<std::shared_ptr<Array>> children;
     children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
@@ -533,7 +534,7 @@ class ArrayWriter {
 
   Status Visit(const UnionArray& array) {
     WriteValidityField(array);
-    const auto& type = static_cast<const UnionType&>(*array.type());
+    const auto& type = checked_cast<const UnionType&>(*array.type());
 
     WriteIntegerField("TYPE_ID", array.raw_type_ids(), array.length());
     if (type.mode() == UnionMode::DENSE) {
@@ -690,7 +691,7 @@ static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type
     return Status::Invalid(ss.str());
   }
 
-  const auto& fw_type = static_cast<const FixedWidthType&>(**type);
+  const auto& fw_type = checked_cast<const FixedWidthType&>(**type);
 
   int bit_width = it_bit_width->value.GetInt();
   if (bit_width != fw_type.bit_width()) {

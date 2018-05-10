@@ -23,6 +23,7 @@ import sys
 import numpy as np
 import pandas as pd
 import pandas.util.testing as tm
+import pickle
 
 import pyarrow as pa
 from pyarrow.pandas_compat import get_logical_type
@@ -216,6 +217,9 @@ def test_array_from_buffers():
 
     with pytest.raises(TypeError):
         pa.Array.from_buffers(pa.int16(), 3, [u'', u''], offset=1)
+
+    with pytest.raises(NotImplementedError):
+        pa.Array.from_buffers(pa.list_(pa.int16()), 4, [None, values_buf])
 
 
 def test_dictionary_from_numpy():
@@ -584,6 +588,28 @@ def test_simple_type_construction():
 
 
 @pytest.mark.parametrize(
+    ('data', 'typ'),
+    [
+        ([True, False, True, True], pa.bool_()),
+        ([1, 2, 4, 6], pa.int64()),
+        ([1.0, 2.5, None], pa.float64()),
+        (['a', None, 'b'], pa.string()),
+        ([], None),
+        ([[1, 2], [3]], pa.list_(pa.int64())),
+        ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
+        ([(1, 'a'), (2, 'c'), None],
+            pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
+    ]
+)
+def test_array_pickle(data, typ):
+    # Allocate here so that we don't have any Arrow data allocated.
+    # This is needed to ensure that allocator tests can be reliable.
+    array = pa.array(data, type=typ)
+    result = pickle.loads(pickle.dumps(array))
+    assert array.equals(result)
+
+
+@pytest.mark.parametrize(
     ('type', 'expected'),
     [
         (pa.null(), 'empty'),
@@ -841,3 +867,13 @@ def test_struct_array_flatten():
     xs, ys = a[1:].flatten()
     assert xs.to_pylist() == [None, None]
     assert ys.to_pylist() == [None, 2.5]
+
+
+def test_nested_dictionary_array():
+    dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
+    list_arr = pa.ListArray.from_arrays([0, 2, 3], dict_arr)
+    assert list_arr.to_pylist() == [['a', 'b'], ['a']]
+
+    dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
+    dict_arr2 = pa.DictionaryArray.from_arrays([0, 1, 2, 1, 0], dict_arr)
+    assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']

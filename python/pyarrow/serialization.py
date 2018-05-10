@@ -81,13 +81,31 @@ def _register_custom_pandas_handlers(context):
 
     import pyarrow.pandas_compat as pdcompat
 
+    sparse_type_error_msg = (
+        '{0} serialization is not supported.\n'
+        'Note that {0} is planned to be deprecated '
+        'in pandas future releases.\n'
+        'See https://github.com/pandas-dev/pandas/issues/19239 '
+        'for more information.'
+    )
+
     def _serialize_pandas_dataframe(obj):
+        if isinstance(obj, pd.SparseDataFrame):
+            raise NotImplementedError(
+                sparse_type_error_msg.format('SparseDataFrame')
+            )
+
         return pdcompat.dataframe_to_serialized_dict(obj)
 
     def _deserialize_pandas_dataframe(data):
         return pdcompat.serialized_dict_to_dataframe(data)
 
     def _serialize_pandas_series(obj):
+        if isinstance(obj, pd.SparseSeries):
+            raise NotImplementedError(
+                sparse_type_error_msg.format('SparseSeries')
+            )
+
         return _serialize_pandas_dataframe(pd.DataFrame({obj.name: obj}))
 
     def _deserialize_pandas_series(data):

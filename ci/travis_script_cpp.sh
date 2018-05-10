@@ -23,6 +23,6 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 pushd $CPP_BUILD_DIR
 
-ctest -VV -L unittest
+ctest -j2 --output-on-failure -L unittest
 
 popd

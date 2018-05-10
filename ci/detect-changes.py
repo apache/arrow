@@ -95,6 +95,21 @@ def list_travis_affected_files():
         return list_affected_files(commit_range)
 
 
+def list_appveyor_affected_files():
+    """
+    Return a list of files affected in the current AppVeyor build.
+    This only works for PR builds.
+    """
+    # Re-fetch PR base branch (e.g. origin/master), pointing FETCH_HEAD to it
+    run_cmd(["git", "fetch", "-q", "origin",
+             "+refs/heads/{0}".format(os.environ['APPVEYOR_REPO_BRANCH'])])
+    # Compute base changeset between FETCH_HEAD (PR base) and HEAD (PR head)
+    merge_base = run_cmd(["git", "merge-base",
+                          "HEAD", "FETCH_HEAD"]).decode().strip()
+    # Compute changes files between base changeset and HEAD
+    return list_affected_files("{0}..HEAD".format(merge_base))
+
+
 def get_affected_topics(affected_files):
     """
     Return a dict of topics affected by the given files.
@@ -120,10 +135,9 @@ def get_affected_topics(affected_files):
                 affected[k] = True
             break
         elif p in ('cpp', 'format'):
-            # All languages are potentially affected
-            for k in LANGUAGE_TOPICS:
+            # Test C++ and bindings to the C++ library
+            for k in ('cpp', 'python', 'c_glib', 'integration'):
                 affected[k] = True
-            affected['integration'] = True
         elif p in ('java', 'js'):
             affected[p] = True
             affected['integration'] = True
@@ -143,6 +157,14 @@ def get_unix_shell_eval(env):
     Return a shell-evalable string to setup some environment variables.
     """
     return "; ".join(("export {0}='{1}'".format(k, v)
+                      for k, v in env.items()))
+
+
+def get_windows_shell_eval(env):
+    """
+    Return a shell-evalable string to setup some environment variables.
+    """
+    return "\n".join(('set "{0}={1}"'.format(k, v)
                       for k, v in env.items()))
 
 
@@ -172,12 +194,36 @@ def run_from_travis():
     return get_unix_shell_eval(make_env_for_topics(affected))
 
 
+def run_from_appveyor():
+    if not os.environ.get('APPVEYOR_PULL_REQUEST_HEAD_COMMIT'):
+        # Not a PR build, test everything
+        affected = dict.fromkeys(ALL_TOPICS, True)
+    else:
+        affected_files = list_appveyor_affected_files()
+        perr("Affected files:", affected_files)
+        affected = get_affected_topics(affected_files)
+        assert set(affected) <= set(ALL_TOPICS), affected
+
+    perr("Affected topics:")
+    perr(pprint.pformat(affected))
+    return get_windows_shell_eval(make_env_for_topics(affected))
+
+
 if __name__ == "__main__":
     # This script should have its output evaluated by a shell,
-    # e.g. "eval `python ci/travis_detect_changes.py`"
-    try:
-        print(run_from_travis())
-    except:
-        # Make sure the enclosing eval will return an error
-        print("exit 1")
-        raise
+    # e.g. "eval `python ci/detect-changes.py`"
+    if os.environ.get('TRAVIS'):
+        try:
+            print(run_from_travis())
+        except:
+            # Make sure the enclosing eval will return an error
+            print("exit 1")
+            raise
+    elif os.environ.get('APPVEYOR'):
+        try:
+            print(run_from_appveyor())
+        except:
+            print("exit 1")
+            raise
+    else:
+        sys.exit("Script must be run under Travis-CI or AppVeyor")

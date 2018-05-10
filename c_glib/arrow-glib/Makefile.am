@@ -82,7 +82,8 @@ libarrow_glib_la_headers +=			\
 	compute.h
 
 libarrow_glib_la_generated_headers =		\
-	enums.h
+	enums.h					\
+	version.h
 
 libarrow_glib_la_generated_sources =		\
 	enums.c					\
@@ -166,6 +167,7 @@ libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_cpp_headers)
 
 BUILT_SOURCES =					\
+	$(libarrow_glib_la_genearted_headers)	\
 	$(libarrow_glib_la_genearted_sources)	\
 	stamp-enums.c				\
 	stamp-enums.h

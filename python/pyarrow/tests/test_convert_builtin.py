@@ -21,6 +21,7 @@ import pytest
 from pyarrow.compat import unittest, u  # noqa
 import pyarrow as pa
 
+import collections
 import datetime
 import decimal
 import itertools
@@ -118,12 +119,22 @@ def _as_tuple(xs):
     return tuple(xs)
 
 
+def _as_deque(xs):
+    # deque is a sequence while neither tuple nor list
+    return collections.deque(xs)
+
+
 def _as_dict_values(xs):
+    # a dict values object is not a sequence, just a regular iterable
     dct = {k: v for k, v in enumerate(xs)}
     return six.viewvalues(dct)
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+parametrize_with_iterable_types = pytest.mark.parametrize(
+    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values])
+
+
+@parametrize_with_iterable_types
 def test_sequence_types(seq):
     arr1 = pa.array(seq([1, 2, 3]))
     arr2 = pa.array([1, 2, 3])
@@ -131,7 +142,7 @@ def test_sequence_types(seq):
     assert arr1.equals(arr2)
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 def test_sequence_boolean(seq):
     expected = [True, None, False, None]
     arr = pa.array(seq(expected))
@@ -141,7 +152,7 @@ def test_sequence_boolean(seq):
     assert arr.to_pylist() == expected
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 def test_sequence_numpy_boolean(seq):
     expected = [np.bool(True), None, np.bool(False), None]
     arr = pa.array(seq(expected))
@@ -151,7 +162,7 @@ def test_sequence_numpy_boolean(seq):
     assert arr.to_pylist() == expected
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 def test_empty_list(seq):
     arr = pa.array(seq([]))
     assert len(arr) == 0
@@ -160,16 +171,30 @@ def test_empty_list(seq):
     assert arr.to_pylist() == []
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 def test_nested_lists(seq):
-    arr = pa.array(seq([[], [1, 2], None]))
+    data = [[], [1, 2], None]
+    arr = pa.array(seq(data))
     assert len(arr) == 3
     assert arr.null_count == 1
     assert arr.type == pa.list_(pa.int64())
-    assert arr.to_pylist() == [[], [1, 2], None]
+    assert arr.to_pylist() == data
+    # With explicit type
+    arr = pa.array(seq(data), type=pa.list_(pa.int32()))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int32())
+    assert arr.to_pylist() == data
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
+def test_list_with_non_list(seq):
+    # List types don't accept non-sequences
+    with pytest.raises(pa.ArrowTypeError):
+        pa.array(seq([[], [1, 2], 3]), type=pa.list_(pa.int64()))
+
+
+@parametrize_with_iterable_types
 def test_nested_arrays(seq):
     arr = pa.array(seq([np.array([], dtype=int), np.array([1, 2]), None]))
     assert len(arr) == 3
@@ -178,15 +203,16 @@ def test_nested_arrays(seq):
     assert arr.to_pylist() == [[], [1, 2], None]
 
 
-def test_sequence_all_none():
-    arr = pa.array([None, None])
+@parametrize_with_iterable_types
+def test_sequence_all_none(seq):
+    arr = pa.array(seq([None, None]))
     assert len(arr) == 2
     assert arr.null_count == 2
     assert arr.type == pa.null()
     assert arr.to_pylist() == [None, None]
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_integer(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
@@ -199,7 +225,7 @@ def test_sequence_integer(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 def test_sequence_integer_inferred(seq):
     expected = [1, None, 3, None]
     arr = pa.array(seq(expected))
@@ -209,7 +235,7 @@ def test_sequence_integer_inferred(seq):
     assert arr.to_pylist() == expected
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_numpy_integer(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
@@ -223,7 +249,7 @@ def test_sequence_numpy_integer(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
@@ -282,7 +308,7 @@ def test_sequence_double():
     assert arr.to_pylist() == data
 
 
-@pytest.mark.parametrize("seq", [_as_list, _as_tuple, _as_dict_values])
+@parametrize_with_iterable_types
 @pytest.mark.parametrize("np_scalar", [np.float16, np.float32, np.float64])
 def test_sequence_numpy_double(seq, np_scalar):
     data = [np_scalar(1.5), np_scalar(1), None, np_scalar(2.5), None, None]

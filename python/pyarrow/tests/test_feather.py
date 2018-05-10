@@ -29,7 +29,7 @@ import pandas as pd
 
 import pyarrow as pa
 from pyarrow.feather import (read_feather, write_feather,
-                             FeatherReader)
+                             read_table, FeatherReader)
 from pyarrow.lib import FeatherWriter
 
 
@@ -128,6 +128,29 @@ class TestFeatherReader(unittest.TestCase):
 
         df = pd.DataFrame(data)
         self._check_pandas_roundtrip(df)
+
+    def test_read_table(self):
+        num_values = (100, 100)
+        path = random_path()
+
+        self.test_files.append(path)
+        writer = FeatherWriter()
+        writer.open(path)
+
+        values = np.random.randint(0, 100, size=num_values)
+
+        for i in range(100):
+            writer.write_array('col_' + str(i), values[:, i])
+
+        writer.close()
+
+        data = pd.DataFrame(values,
+                            columns=['col_' + str(i) for i in range(100)])
+        table = pa.Table.from_pandas(data)
+
+        result = read_table(path)
+
+        assert_frame_equal(table.to_pandas(), result.to_pandas())
 
     def test_float_nulls(self):
         num_values = 100

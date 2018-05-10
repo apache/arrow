@@ -26,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/compare.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
@@ -40,6 +41,21 @@ std::shared_ptr<Field> Field::AddMetadata(
 
 std::shared_ptr<Field> Field::RemoveMetadata() const {
   return std::make_shared<Field>(name_, type_, nullable_);
+}
+
+std::vector<std::shared_ptr<Field>> Field::Flatten() const {
+  std::vector<std::shared_ptr<Field>> flattened;
+  if (type_->id() == Type::STRUCT) {
+    for (const auto& child : type_->children()) {
+      auto flattened_child = std::make_shared<Field>(*child);
+      flattened.push_back(flattened_child);
+      flattened_child->name_.insert(0, name() + ".");
+      flattened_child->nullable_ |= nullable_;
+    }
+  } else {
+    flattened.push_back(std::make_shared<Field>(*this));
+  }
+  return flattened;
 }
 
 bool Field::Equals(const Field& other) const {
@@ -240,7 +256,7 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
       ordered_(ordered) {}
 
 int DictionaryType::bit_width() const {
-  return static_cast<const FixedWidthType*>(index_type_.get())->bit_width();
+  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
 }
 
 std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; }
@@ -367,8 +383,8 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
   return std::make_shared<Schema>(std::move(fields), metadata);
 }
 
-  // ----------------------------------------------------------------------
-  // Visitors and factory functions
+// ----------------------------------------------------------------------
+// Visitors and factory functions
 
 #define ACCEPT_VISITOR(TYPE) \
   Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }

@@ -72,7 +72,7 @@ class TestBufferedOutputStream : public FileTestFixture {
     ASSERT_OK(FileOutputStream::Open(path_, append, &file));
     fd_ = file->file_descriptor();
     if (append) {
-    // Workaround for ARROW-2466 ("append" flag doesn't set file pos)
+      // Workaround for ARROW-2466 ("append" flag doesn't set file pos)
 #if defined(_MSC_VER)
       _lseeki64(fd_, 0, SEEK_END);
 #else

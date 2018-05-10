@@ -39,6 +39,7 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 
@@ -189,7 +190,7 @@ static Status UnionToFlatBuffer(FBB& fbb, const DataType& type,
                                 DictionaryMemo* dictionary_memo, Offset* offset) {
   RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
 
-  const auto& union_type = static_cast<const UnionType&>(type);
+  const auto& union_type = checked_cast<const UnionType&>(type);
 
   flatbuf::UnionMode mode = union_type.mode() == UnionMode::SPARSE
                                 ? flatbuf::UnionMode_Sparse
@@ -348,7 +349,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
     // In this library, the dictionary "type" is a logical construct. Here we
     // pass through to the value type, as we've already captured the index
     // type in the DictionaryEncoding metadata in the parent field
-    value_type = static_cast<const DictionaryType&>(type).dictionary()->type().get();
+    value_type = checked_cast<const DictionaryType&>(type).dictionary()->type().get();
   }
 
   switch (value_type->id()) {
@@ -389,7 +390,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
       *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_DOUBLE);
       break;
     case Type::FIXED_SIZE_BINARY: {
-      const auto& fw_type = static_cast<const FixedSizeBinaryType&>(*value_type);
+      const auto& fw_type = checked_cast<const FixedSizeBinaryType&>(*value_type);
       *out_type = flatbuf::Type_FixedSizeBinary;
       *offset = flatbuf::CreateFixedSizeBinary(fbb, fw_type.byte_width()).Union();
     } break;
@@ -410,17 +411,17 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
       *offset = flatbuf::CreateDate(fbb, flatbuf::DateUnit_MILLISECOND).Union();
       break;
     case Type::TIME32: {
-      const auto& time_type = static_cast<const Time32Type&>(*value_type);
+      const auto& time_type = checked_cast<const Time32Type&>(*value_type);
       *out_type = flatbuf::Type_Time;
       *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit()), 32).Union();
     } break;
     case Type::TIME64: {
-      const auto& time_type = static_cast<const Time64Type&>(*value_type);
+      const auto& time_type = checked_cast<const Time64Type&>(*value_type);
       *out_type = flatbuf::Type_Time;
       *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit()), 64).Union();
     } break;
     case Type::TIMESTAMP: {
-      const auto& ts_type = static_cast<const TimestampType&>(*value_type);
+      const auto& ts_type = checked_cast<const TimestampType&>(*value_type);
       *out_type = flatbuf::Type_Timestamp;
 
       flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(ts_type.unit());
@@ -431,7 +432,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
       *offset = flatbuf::CreateTimestamp(fbb, fb_unit, fb_timezone).Union();
     } break;
     case Type::DECIMAL: {
-      const auto& dec_type = static_cast<const Decimal128Type&>(*value_type);
+      const auto& dec_type = checked_cast<const Decimal128Type&>(*value_type);
       *out_type = flatbuf::Type_Decimal;
       *offset =
           flatbuf::CreateDecimal(fbb, dec_type.precision(), dec_type.scale()).Union();
@@ -501,7 +502,7 @@ static DictionaryOffset GetDictionaryEncoding(FBB& fbb, const DictionaryType& ty
   // We assume that the dictionary index type (as an integer) has already been
   // validated elsewhere, and can safely assume we are dealing with signed
   // integers
-  const auto& fw_index_type = static_cast<const FixedWidthType&>(*type.index_type());
+  const auto& fw_index_type = checked_cast<const FixedWidthType&>(*type.index_type());
 
   auto index_type_offset = flatbuf::CreateInt(fbb, fw_index_type.bit_width(), true);
 
@@ -525,7 +526,7 @@ static Status FieldToFlatbuffer(FBB& fbb, const Field& field,
   DictionaryOffset dictionary = 0;
   if (field.type()->id() == Type::DICTIONARY) {
     dictionary = GetDictionaryEncoding(
-        fbb, static_cast<const DictionaryType&>(*field.type()), dictionary_memo);
+        fbb, checked_cast<const DictionaryType&>(*field.type()), dictionary_memo);
   }
 
   // TODO: produce the list of VectorTypes

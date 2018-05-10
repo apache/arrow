@@ -703,8 +703,8 @@ bool PlasmaClient::Impl::compute_object_hash_parallel(XXH64_state_t* hash_state,
   const int num_threads = kThreadPoolSize;
   uint64_t threadhash[num_threads + 1];
   const uint64_t data_address = reinterpret_cast<uint64_t>(data);
-  const uint64_t num_blocks = nbytes / BLOCK_SIZE;
-  const uint64_t chunk_size = (num_blocks / num_threads) * BLOCK_SIZE;
+  const uint64_t num_blocks = nbytes / kBlockSize;
+  const uint64_t chunk_size = (num_blocks / num_threads) * kBlockSize;
   const uint64_t right_address = data_address + chunk_size * num_threads;
   const uint64_t suffix = (data_address + nbytes) - right_address;
   // Now the data layout is | k * num_threads * block_size | suffix | ==
@@ -874,11 +874,11 @@ Status PlasmaClient::Impl::Subscribe(int* fd) {
 
 Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
                                            int64_t* data_size, int64_t* metadata_size) {
-  uint8_t* notification = read_message_async(fd);
+  auto notification = read_message_async(fd);
   if (notification == NULL) {
     return Status::IOError("Failed to read object notification from Plasma socket");
   }
-  auto object_info = flatbuffers::GetRoot<ObjectInfo>(notification);
+  auto object_info = flatbuffers::GetRoot<ObjectInfo>(notification.get());
   ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
   memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
   if (object_info->is_deletion()) {
@@ -888,7 +888,6 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
     *data_size = object_info->data_size();
     *metadata_size = object_info->metadata_size();
   }
-  delete[] notification;
   return Status::OK();
 }
 

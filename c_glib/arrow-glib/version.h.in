@@ -1,0 +1,181 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+#pragma once
+
+#include <glib.h>
+
+/**
+ * SECTION: version
+ * @section_id: version-macros
+ * @title: Version related macros
+ * @include: arrow-glib/arrow-glib.h
+ *
+ * Apache Arrow GLib provides macros that can be used by C pre-processor.
+ * They are useful to check version related things at compile time.
+ */
+
+/**
+ * GARROW_VERSION_MAJOR:
+ *
+ * The major version.
+ *
+ * Since: 0.10.0
+ */
+#define GARROW_VERSION_MAJOR (@GARROW_VERSION_MAJOR@)
+
+/**
+ * GARROW_VERSION_MINOR:
+ *
+ * The minor version.
+ *
+ * Since: 0.10.0
+ */
+#define GARROW_VERSION_MINOR (@GARROW_VERSION_MINOR@)
+
+/**
+ * GARROW_VERSION_MICRO:
+ *
+ * The micro version.
+ *
+ * Since: 0.10.0
+ */
+#define GARROW_VERSION_MICRO (@GARROW_VERSION_MICRO@)
+
+/**
+ * GARROW_VERSION_TAG:
+ *
+ * The version tag. Normally, it's an empty string. It's "SNAPSHOT"
+ * for snapshot version.
+ *
+ * Since: 0.10.0
+ */
+#define GARROW_VERSION_TAG   "@GARROW_VERSION_TAG@"
+
+/**
+ * GARROW_VERSION_CHECK:
+ * @major: A major version to check for.
+ * @minor: A minor version to check for.
+ * @micro: A micro version to check for.
+ *
+ * You can use this macro in C pre-processor.
+ *
+ * Returns: %TRUE if the compile time Apache Arrow GLib version is the
+ *   same as or newer than the passed version, %FALSE otherwise.
+ *
+ * Since: 0.10.0
+ */
+#define GARROW_VERSION_CHECK(major, minor, micro)       \
+  (GARROW_MAJOR_VERSION > (major) ||                    \
+   (GARROW_MAJOR_VERSION == (major) &&                  \
+    GARROW_MINOR_VERSION > (minor)) ||                  \
+   (GARROW_MAJOR_VERSION == (major) &&                  \
+    GARROW_MINOR_VERSION == (minor) &&                  \
+    GARROW_MICRO_VERSION >= (micro)))
+
+/**
+ * GARROW_DISABLE_DEPRECATION_WARNINGS:
+ *
+ * If this macro is defined, no deprecated warnings are produced.
+ *
+ * You must define this macro before including the
+ * arrow-glib/arrow-glib.h header.
+ *
+ * Since: 0.10.0
+ */
+
+#ifdef GARROW_DISABLE_DEPRECATION_WARNINGS
+#  define GARROW_DEPRECATED
+#  define GARROW_DEPRECATED_FOR(function)
+#  define GARROW_UNAVAILABLE(major, minor)
+#else
+#  define GARROW_DEPRECATED G_DEPRECATED
+#  define GARROW_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
+#  define GARROW_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
+#endif
+
+/**
+ * GARROW_VERSION_0_10:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 0.10.0
+ */
+#define GARROW_VERSION_0_10 G_ENCODE_VERSION(0, 10)
+
+/**
+ * GARROW_VERSION_MIN_REQUIRED:
+ *
+ * You can use this macro for compile time API version check.
+ *
+ * This macro value must be one of the predefined version macros such
+ * as %GARROW_VERSION_0_10.
+ *
+ * If you use any functions that is defined by newer version than
+ * %GARROW_VERSION_MIN_REQUIRED, deprecated warnings are produced at
+ * compile time.
+ *
+ * You must define this macro before including the
+ * arrow-glib/arrow-glib.h header.
+ *
+ * Since: 0.10.0
+ */
+#ifndef GARROW_VERSION_MIN_REQUIRED
+#  define GARROW_VERSION_MIN_REQUIRED                           \
+  G_ENCODE_VERSION(GARROW_VERSION_MAJOR, GARROW_VERSION_MINOR)
+#endif
+
+/**
+ * GARROW_VERSION_MAX_ALLOWED:
+ *
+ * You can use this macro for compile time API version check.
+ *
+ * This macro value must be one of the predefined version macros such
+ * as %GARROW_VERSION_0_10.
+ *
+ * If you use any functions that is defined by newer version than
+ * %GARROW_VERSION_MAX_ALLOWED, deprecated warnings are produced at
+ * compile time.
+ *
+ * You must define this macro before including the
+ * arrow-glib/arrow-glib.h header.
+ *
+ * Since: 0.10.0
+ */
+#ifndef GARROW_VERSION_MAX_ALLOWED
+#  define GARROW_VERSION_MAX_ALLOWED            \
+  G_ENCODE_VERSION(GARROW_VERSION_MAJOR, GARROW_VERSION_MINOR)
+#endif
+
+
+#define GARROW_AVAILABLE_IN_ALL
+
+#if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_0_10
+#  define GARROW_DEPRECATED_IN_0_10               GARROW_DEPRECATED
+#  define GARROW_DEPRECATED_IN_0_10_FOR(function) GARROW_DEPRECATED_FOR(function)
+#else
+#  define GARROW_DEPRECATED_IN_0_10
+#  define GARROW_DEPRECATED_IN_0_10_FOR(function)
+#endif
+
+#if GARROW_VERSION_MAX_ALLOWED < GARROW_VERSION_0_10
+#  define GARROW_AVAILABLE_IN_0_10 GARROW_UNAVAILABLE(0, 10)
+#else
+#  define GARROW_AVAILABLE_IN_0_10
+#endif

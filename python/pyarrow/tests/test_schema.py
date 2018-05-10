@@ -254,6 +254,26 @@ def test_field_add_remove_metadata():
     assert f5.equals(f6)
 
 
+def test_field_flatten():
+    f0 = pa.field('foo', pa.int32()).add_metadata({b'foo': b'bar'})
+    assert f0.flatten() == [f0]
+
+    f1 = pa.field('bar', pa.float64(), nullable=False)
+    ff = pa.field('ff', pa.struct([f0, f1]), nullable=False)
+    assert ff.flatten() == [
+        pa.field('ff.foo', pa.int32()).add_metadata({b'foo': b'bar'}),
+        pa.field('ff.bar', pa.float64(), nullable=False)]  # XXX
+
+    # Nullable parent makes flattened child nullable
+    ff = pa.field('ff', pa.struct([f0, f1]))
+    assert ff.flatten() == [
+        pa.field('ff.foo', pa.int32()).add_metadata({b'foo': b'bar'}),
+        pa.field('ff.bar', pa.float64())]
+
+    fff = pa.field('fff', pa.struct([ff]))
+    assert fff.flatten() == [pa.field('fff.ff', pa.struct([f0, f1]))]
+
+
 def test_schema_add_remove_metadata():
     fields = [
         pa.field('foo', pa.int32()),

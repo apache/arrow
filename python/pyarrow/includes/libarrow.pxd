@@ -90,6 +90,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_string ToString()
 
+    c_bool is_primitive(Type type)
+
     cdef cppclass CArrayData" arrow::ArrayData":
         shared_ptr[CDataType] type
         int64_t length
@@ -104,6 +106,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                                     vector[shared_ptr[CBuffer]]& buffers,
                                     int64_t null_count,
                                     int64_t offset)
+
+        @staticmethod
+        shared_ptr[CArrayData] MakeWithChildren" Make"(
+            const shared_ptr[CDataType]& type,
+            int64_t length,
+            vector[shared_ptr[CBuffer]]& buffers,
+            vector[shared_ptr[CArrayData]]& child_data,
+            int64_t null_count,
+            int64_t offset)
 
     cdef cppclass CArray" arrow::Array":
         shared_ptr[CDataType] type()
@@ -249,6 +260,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CField] AddMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CField] RemoveMetadata()
+        vector[shared_ptr[CField]] Flatten()
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
@@ -428,6 +440,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool Equals(const CColumn& other)
 
+        CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CColumn]]* out)
+
         shared_ptr[CField] field()
 
         int64_t length()
@@ -485,6 +499,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus AddColumn(int i, const shared_ptr[CColumn]& column,
                           shared_ptr[CTable]* out)
         CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
+
+        CStatus Flatten(CMemoryPool* pool, shared_ptr[CTable]* out)
+
+        CStatus Validate()
 
         shared_ptr[CTable] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
