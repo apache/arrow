@@ -131,14 +131,14 @@ void PlasmaStore::add_to_client_object_ids(ObjectTableEntry* entry, Client* clie
   }
   // If there are no other clients using this object, notify the eviction policy
   // that the object is being used.
-  if (entry->refcnt == 0) {
+  if (entry->ref_count == 0) {
     // Tell the eviction policy that this object is being used.
     std::vector<ObjectID> objects_to_evict;
     eviction_policy_.begin_object_access(entry->object_id, &objects_to_evict);
     delete_objects(objects_to_evict);
   }
-  // Increase refcnt.
-  entry->refcnt++;
+  // Increase reference count.
+  entry->ref_count++;
 
   // Add object id to the list of object ids that this client is using.
   client->object_ids.insert(entry->object_id);
@@ -390,12 +390,12 @@ int PlasmaStore::remove_from_client_object_ids(ObjectTableEntry* entry, Client* 
   auto it = client->object_ids.find(entry->object_id);
   if (it != client->object_ids.end()) {
     client->object_ids.erase(it);
-    // Decrease refcnt.
-    entry->refcnt--;
+    // Decrease reference count.
+    entry->ref_count--;
 
     // If no more clients are using this object, notify the eviction policy
     // that the object is no longer being used.
-    if (entry->refcnt == 0) {
+    if (entry->ref_count == 0) {
       // Tell the eviction policy that this object is no longer being used.
       std::vector<ObjectID> objects_to_evict;
       eviction_policy_.end_object_access(entry->object_id, &objects_to_evict);
@@ -471,7 +471,7 @@ int PlasmaStore::delete_object(ObjectID& object_id) {
     return PlasmaError_ObjectNotSealed;
   }
 
-  if (entry->refcnt != 0) {
+  if (entry->ref_count != 0) {
     // To delete an object, there must be no clients currently using it.
     return PlasmaError_ObjectInUse;
   }
@@ -498,7 +498,7 @@ void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
     ARROW_CHECK(entry != NULL) << "To delete an object it must be in the object table.";
     ARROW_CHECK(entry->state == PLASMA_SEALED)
         << "To delete an object it must have been sealed.";
-    ARROW_CHECK(entry->refcnt == 0)
+    ARROW_CHECK(entry->ref_count == 0)
         << "To delete an object, there must be no clients currently using it.";
     store_info_.objects.erase(object_id);
     // Inform all subscribers that the object has been deleted.
@@ -534,9 +534,7 @@ void PlasmaStore::disconnect_client(int client_fd) {
   // Close the socket.
   close(client_fd);
   ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
-  // If this client was using any objects, remove it from the appropriate
-  // lists.
-  // TODO(swang): Avoid iteration through the object table.
+  // Release all the objects that the client was using.
   auto client = it->second.get();
   std::vector<ObjectTableEntry*> sealed_objects;
   for (const auto& object_id : client->object_ids) {
