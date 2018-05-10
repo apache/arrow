@@ -17,7 +17,7 @@
  */
 
 package org.apache.arrow.adapter.jdbc.h2;
-/*
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
@@ -40,366 +40,268 @@ import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
-*/
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collection;
 
-import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
+
+
 /**
  *
  */
-public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
+@RunWith(Parameterized.class)
+public class JdbcToArrowTest {
 
-/*  private Connection conn = null;
-    private ObjectMapper mapper = null;
+	private Connection conn = null;
+	private Table table;
+	
+    private static final String BIGINT = "BIGINT_FIELD5";
+    private static final String BINARY = "BINARY_FIELD12";
+    private static final String BIT = "BIT_FIELD17";
+    private static final String BLOB = "BLOB_FIELD14";
+    private static final String BOOL = "BOOL_FIELD2";
+    private static final String CHAR = "CHAR_FIELD16";
+    private static final String CLOB = "CLOB_FIELD15";
+    private static final String DATE = "DATE_FIELD10";
+    private static final String DECIMAL = "DECIMAL_FIELD6";
+    private static final String DOUBLE = "DOUBLE_FIELD7";
+    private static final String INT = "INT_FIELD1";
+    private static final String REAL = "REAL_FIELD8";
+    private static final String SMALLINT = "SMALLINT_FIELD4";
+    private static final String TIME = "TIME_FIELD9";
+    private static final String TIMESTAMP = "TIMESTAMP_FIELD11";
+    private static final String TINYINT = "TINYINT_FIELD3";
+    private static final String VARCHAR = "VARCHAR_FIELD13";
 
- @Before
-    public void setUp() throws Exception {
+    private static final String[] testFiles = {"h2/test1_all_datatypes_h2.yml"};
+    
+    /**
+     * Constructor which populate table object for each test iteration
+     * @param table
+     */
+    public JdbcToArrowTest(Table table) {
+        this.table = table;
+    }
+     
+    /**
+     * This method creates Table object after reading YAML file
+     * @param ymlFilePath
+     * @return
+     * @throws IOException
+     */
+    private static Table getTable(String ymlFilePath) throws IOException {
+        return new ObjectMapper(new YAMLFactory()).readValue(
+                JdbcToArrowDataTypesTest.class.getClassLoader().getResourceAsStream(ymlFilePath), Table.class);
+    }
+    
+    /**
+     * This method creates Connection object and DB table and also populate data into table for test
+     * @throws SQLException
+     * @throws ClassNotFoundException
+     */
+    @Before
+    public void setUp() throws SQLException, ClassNotFoundException {
         String url = "jdbc:h2:mem:JdbcToArrowTest";
         String driver = "org.h2.Driver";
-
-        mapper = new ObjectMapper(new YAMLFactory());
-
         Class.forName(driver);
-
         conn = DriverManager.getConnection(url);
+        try (Statement stmt = conn.createStatement();) {
+            stmt.executeUpdate(table.getCreate());
+            for (String insert : table.getData()) {
+                stmt.executeUpdate(insert);
+            }
+        }
     }
-
+    
+    /**
+     * Clean up method to close connection after test completes
+     * @throws SQLException
+     */
     @After
-    public void destroy() throws Exception {
+    public void destroy() throws SQLException {
         if (conn != null) {
             conn.close();
             conn = null;
         }
     }
-
-    @Test
-    public void sqlToArrowTestInt() throws Exception {
-
-        Table table =
-                mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_int_h2.yml"),
-                        Table.class);
-
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        try {
-            createTestData(conn, table);
-
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
-
-            int[] values = {
-                    101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101,
-            };
-            assertIntVectorValues((IntVector)root.getVector("INT_FIELD1"), 15, values);
-
-        } catch (Exception e) {
-            throw e;
-        } finally {
-            deleteTestData(conn, table);
+    
+  /**
+   * This method returns collection of Table object for each test iteration
+   * @return
+   * @throws SQLException
+   * @throws ClassNotFoundException
+   * @throws IOException
+   */
+    @Parameters
+    public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
+      	Object[][] tableArr = new Object[testFiles.length][];
+        int i = 0;
+        for (String testFile: testFiles) {
+        	tableArr[i++] = new Object[]{getTable(testFile)};
         }
-
-    }
-
-    @Test
-    public void sqlToArrowTestBool() throws Exception {
-
-        Table table =
-                mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_bool_h2.yml"),
-                        Table.class);
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-
-        try {
-            createTestData(conn, table);
-
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
-
-            int[] bools = {
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-            };
-             assertBitBooleanVectorValues((BitVector)root.getVector("BOOL_FIELD2"), 15, bools);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            deleteTestData(conn, table);
-        }
-
-    }
-
-    @Test
-    public void sqlToArrowTestTinyInt() throws Exception {
-
-        Table table =
-                mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_tinyint_h2.yml"),
-                        Table.class);
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        try {
-            createTestData(conn, table);
-
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
-
-            int[] tinyints = {
-                    45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
-            };
-             assertTinyIntVectorValues((TinyIntVector)root.getVector("TINYINT_FIELD3"), 15, tinyints);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            deleteTestData(conn, table);
-        }
-
-    }
-
-    @Test
-    public void sqlToArrowTestSmallInt() throws Exception {
-
-        Table table =
-                mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_smallint_h2.yml"),
-                        Table.class);
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        try {
-            createTestData(conn, table);
-
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
-
-            int[] smallints = {
-                    12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000
-            };
-            assertSmallIntVectorValues((SmallIntVector)root.getVector("SMALLINT_FIELD4"), 15, smallints);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            deleteTestData(conn, table);
-        }
-
-    }
-
-    @Test
-    public void sqlToArrowTestBigInt() throws Exception {
-
-        Table table =
-                mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_bigint_h2.yml"),
-                        Table.class);
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        try {
-            createTestData(conn, table);
-
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
-
-            int[] bigints = {
-                    92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720,
-                    92233720, 92233720, 92233720, 92233720, 92233720, 92233720
-            };
-             assertBigIntVectorValues((BigIntVector)root.getVector("BIGINT_FIELD5"), 15, bigints);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            deleteTestData(conn, table);
-        }
-
+        return Arrays.asList(tableArr);
     }
     
+    /**
+     * This method tests various datatypes converted into Arrow vector for H2 database
+     * @throws SQLException
+     * @throws IOException
+     */
     @Test
-    public void sqlToArrowTestBlob() throws Exception {
+    public void testDBValues() throws SQLException, IOException {
+        try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(),
+                new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
+        	
+        	assertBigIntVectorValues((BigIntVector) root.getVector(BIGINT), table.getRowCount(),
+        			getLongValues(table.getValues(), BIGINT));
+        	  
+        	assertTinyIntVectorValues((TinyIntVector) root.getVector(TINYINT), table.getRowCount(),
+        			getIntValues(table.getValues(), TINYINT));
+        	
+        	assertSmallIntVectorValues((SmallIntVector) root.getVector(SMALLINT), table.getRowCount(),
+        			getIntValues(table.getValues(), SMALLINT));
+        	
+        	assertVarBinaryVectorValues((VarBinaryVector) root.getVector(BINARY), table.getRowCount(),
+        			getBinaryValues(table.getValues(), BINARY));
+        	
+        	assertVarBinaryVectorValues((VarBinaryVector) root.getVector(BLOB), table.getRowCount(),
+        			getBinaryValues(table.getValues(), BLOB));
+        	    
+        	assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),
+        			getCharArrays(table.getValues(), CLOB));
 
-        Table table =
-                mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_blob_h2.yml"),
-                        Table.class);
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        try {
-            createTestData(conn, table);
+        	assertVarcharVectorValues((VarCharVector) root.getVector(VARCHAR), table.getRowCount(),
+        			getCharArrays(table.getValues(), VARCHAR));
+        	
+        	assertVarcharVectorValues((VarCharVector) root.getVector(CHAR), table.getRowCount(),
+        			getCharArrays(table.getValues(), CHAR));
+        	
+        	assertIntVectorValues((IntVector) root.getVector(INT), table.getRowCount(),
+        			getIntValues(table.getValues(), INT));
+        	
+        	assertBitVectorValues((BitVector) root.getVector( BIT), table.getRowCount(),
+        			getIntValues(table.getValues(), BIT));
+        	
+            assertBooleanVectorValues((BitVector) root.getVector(BOOL), table.getRowCount(),
+            		getBooleanValues(table.getValues(), BOOL));
+              
+            assertDateVectorValues((DateMilliVector) root.getVector(DATE), table.getRowCount(),
+            		getLongValues(table.getValues(), DATE));
+            
+            assertTimeVectorValues((TimeMilliVector) root.getVector(TIME), table.getRowCount(),
+            		getLongValues(table.getValues(), TIME));
+            
+            assertTimeStampVectorValues((TimeStampVector) root.getVector(TIMESTAMP), table.getRowCount(),
+            		getLongValues(table.getValues(), TIMESTAMP));
 
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
+            assertDecimalVectorValues((DecimalVector) root.getVector(DECIMAL), table.getRowCount(),
+            		getDecimalValues(table.getValues(), DECIMAL));
 
-            byte[][] bytes = {
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279")
-            };
-             assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BLOB_FIELD14"), 15, bytes);
+            assertFloat8VectorValues((Float8Vector) root.getVector(DOUBLE), table.getRowCount(),
+            		getDoubleValues(table.getValues(), DOUBLE));
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            deleteTestData(conn, table);
-        }
-
-    }
-
-    @Test
-    public void sqlToArrowTestClobs() throws Exception {
-        Table table =
-                mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_clob_h2.yml"),
-                        Table.class);
-
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        try {
-            createTestData(conn, table);
-
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
-                       
-            byte[] strb = "some text that needs to be converted to clob".getBytes();
-            byte[][] varchars = {
-                    strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
-            };
-             assertVarcharVectorValues((VarCharVector)root.getVector("CLOB_FIELD15"), 15, varchars);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            deleteTestData(conn, table);
+            assertFloat4VectorValues((Float4Vector) root.getVector(REAL), table.getRowCount(),
+            		getFloatValues(table.getValues(), REAL));
         }
     }
     
-    @Test
-    public void sqlToArrowTestAllDataTypes() throws Exception {
-
-        Table table =
-                mapper.readValue(
-                        this.getClass().getClassLoader().getResourceAsStream("h2/test1_all_datatypes_h2.yml"),
-                        Table.class);
-
-        RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        try {
-            createTestData(conn, table);
-
-            VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(), rootAllocator);
-
-            int[] ints = {
-                    101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101, 101
-            };
-             assertIntVectorValues((IntVector)root.getVector("INT_FIELD1"), 15, table.getInts());
-
-            int[] bools = {
-                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-            };
-             assertBitBooleanVectorValues((BitVector)root.getVector("BOOL_FIELD2"), 15, bools);
-
-            int[] tinyints = {
-                    45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45
-            };
-             assertTinyIntVectorValues((TinyIntVector)root.getVector("TINYINT_FIELD3"), 15, tinyints);
-
-            int[] smallints = {
-                    12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000, 12000
-            };
-             assertSmallIntVectorValues((SmallIntVector)root.getVector("SMALLINT_FIELD4"), 15, smallints);
-
-            int[] bigints = {
-                    92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720, 92233720,
-                    92233720, 92233720, 92233720, 92233720, 92233720, 92233720
-            };
-            assertBigIntVectorValues((BigIntVector)root.getVector("BIGINT_FIELD5"), 15, bigints);
-
-            BigDecimal[] bigdecimals = {
-                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
-                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
-                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
-                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23),
-                    new BigDecimal(17345667789.23), new BigDecimal(17345667789.23), new BigDecimal(17345667789.23)
-            };
-            assertDecimalVectorValues((DecimalVector)root.getVector("DECIMAL_FIELD6"), 15, bigdecimals);
-
-            double[] doubles = {
-                    56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345,
-                    56478356785.345, 56478356785.345, 56478356785.345,
-                    56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345, 56478356785.345
-            };
-             assertFloat8VectorValues((Float8Vector)root.getVector("DOUBLE_FIELD7"), 15, doubles);
-
-            float[] reals = {
-                    56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f,
-                    56478356785.345f, 56478356785.345f, 56478356785.345f,
-                    56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f, 56478356785.345f
-            };
-           assertFloat4VectorValues((Float4Vector)root.getVector("REAL_FIELD8"), 15, reals);
-
-            long[] times = {
-                    45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000,
-                    45935000, 45935000, 45935000, 45935000, 45935000, 45935000, 45935000
-            };
-           assertTimeVectorValues((TimeMilliVector)root.getVector("TIME_FIELD9"), 15, times);
-
-            long[] dates = {
-            		1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l,
-            		1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l, 1518393600000l
-            };
-            assertDateVectorValues((DateMilliVector)root.getVector("DATE_FIELD10"), 15, dates);
-
-            long[] timestamps = {
-                    1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l,
-                    1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l, 1518439535000l
-            };
-            assertTimeStampVectorValues((TimeStampVector)root.getVector("TIMESTAMP_FIELD11"), 15, timestamps);
-
-            byte[][] bytes = {
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279"),
-                    hexStringToByteArray("736f6d6520746578742074686174206e6565647320746f20626520636f6e76657274656420746f2062696e617279")
-            };
-           assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BINARY_FIELD12"), 15, bytes);
-
-            byte[] strb = "some text that needs to be converted to varchar".getBytes();
-            byte[][] varchars = {
-                strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
-            };
-           assertVarcharVectorValues((VarCharVector)root.getVector("VARCHAR_FIELD13"), 15, varchars);
-
-           assertVarBinaryVectorValues((VarBinaryVector)root.getVector("BLOB_FIELD14"), 15, bytes);
-
-            strb = "some text that needs to be converted to clob".getBytes();
-            varchars = new byte[][] {
-                    strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
-            };
-            assertVarcharVectorValues((VarCharVector)root.getVector("CLOB_FIELD15"), 15, varchars);
-
-            strb = "some char text".getBytes();
-            varchars = new byte[][] {
-                    strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb, strb
-            };
-            assertVarcharVectorValues((VarCharVector)root.getVector("CHAR_FIELD16"), 15, varchars);
-
-            assertBitBooleanVectorValues((BitVector)root.getVector("BIT_FIELD17"), 15, bools);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            deleteTestData(conn, table);
-        }
-
+    private Integer [] getIntValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	Integer [] valueArr = new Integer [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {
+    		valueArr [i++] = Integer.parseInt(data);
+    	}
+    	return valueArr;
     }
-*/
+    
+    private Boolean [] getBooleanValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	Boolean [] valueArr = new Boolean [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) { 
+    		valueArr [i++] = data.trim().equals("1");
+    	}
+    	return valueArr;
+    }
+    
+    private BigDecimal [] getDecimalValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	BigDecimal [] valueArr = new BigDecimal [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {
+    		valueArr[i++] = new BigDecimal(data);
+    	}
+    	return valueArr;
+    }
+
+    private Double [] getDoubleValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	Double [] valueArr = new Double [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {
+    		valueArr [i++] = Double.parseDouble(data);
+    	}
+    	return valueArr;
+    }  
+    private Float [] getFloatValues(String[] values, String dataType) { 
+    	String[] dataArr= getValues(values, dataType);
+    	Float [] valueArr = new Float [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {
+    		valueArr [i++] = Float.parseFloat(data);
+    	}
+    	return valueArr;
+    } 
+    private Long [] getLongValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	Long [] valueArr = new Long [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {    
+    		valueArr [i++] = Long.parseLong(data);
+    	}
+    	return valueArr;
+    }
+    
+    private byte [][] getCharArrays(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	byte [][] valueArr = new byte [dataArr.length][];
+    	int i =0;
+    	for(String data : dataArr) {     
+    		valueArr [i++] = data.trim().getBytes();
+    	}
+    	return valueArr;
+    }   
+    
+    private byte [][] getBinaryValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	byte [][] valueArr = new byte [dataArr.length][];
+    	int i =0;
+    	for(String data : dataArr) {     
+    		valueArr [i++] = hexStringToByteArray(data.trim());
+    	}
+    	return valueArr;
+    }  
+    
+    private String [] getValues(String[] values, String dataType) {
+    	String value = "";
+    	for(String val : values) {
+    		if(val.startsWith(dataType)) {
+    			value = val.split("=")[1];
+    			break;
+    		}
+    	}
+    	return value.split(",");
+    }
 }
