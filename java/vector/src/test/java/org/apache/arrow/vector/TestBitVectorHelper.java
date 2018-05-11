@@ -36,7 +36,7 @@ public class TestBitVectorHelper {
         validityBuffer.setByte(0, 0b10110);
 
         // we will only consider 0b110 here, since we only 3 items and only one is null
-        int count =  BitVectorHelper.getNullCount(validityBuffer, 3);
+        int count = BitVectorHelper.getNullCount(validityBuffer, 3);
         assertEquals(count, 1);
 
         // test case 2, no null value for 0xFF
@@ -45,7 +45,7 @@ public class TestBitVectorHelper {
                 null, null, 0, 8, true);
         validityBuffer.setByte(0, 0xFF);
 
-        count =  BitVectorHelper.getNullCount(validityBuffer, 8);
+        count = BitVectorHelper.getNullCount(validityBuffer, 8);
         assertEquals(count, 0);
 
         // test case 3, 1 null value for 0x7F
@@ -54,7 +54,7 @@ public class TestBitVectorHelper {
                 null, null, 0, 8, true);
         validityBuffer.setByte(0, 0x7F);
 
-        count =  BitVectorHelper.getNullCount(validityBuffer, 8);
+        count = BitVectorHelper.getNullCount(validityBuffer, 8);
         assertEquals(count, 1);
 
         // test case 4, validity buffer has multiple bytes, 11 items
@@ -64,7 +64,7 @@ public class TestBitVectorHelper {
         validityBuffer.setByte(0, 0b10101010);
         validityBuffer.setByte(1, 0b01010101);
 
-        count =  BitVectorHelper.getNullCount(validityBuffer, 11);
+        count = BitVectorHelper.getNullCount(validityBuffer, 11);
         assertEquals(count, 5);
     }
 }
