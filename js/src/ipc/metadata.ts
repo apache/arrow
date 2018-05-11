@@ -25,7 +25,12 @@ export class Footer {
 }
 
 export class FileBlock {
-    constructor(public metaDataLength: number, public bodyLength: Long, public offset: Long) {}
+    public offset: number;
+    public bodyLength: number;
+    constructor(public metaDataLength: number, bodyLength: Long | number, offset: Long | number) {
+        this.offset = typeof offset === 'number' ? offset : offset.low;
+        this.bodyLength = typeof bodyLength === 'number' ? bodyLength : bodyLength.low;
+    }
 }
 
 export class Message {

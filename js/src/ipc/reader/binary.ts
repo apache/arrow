@@ -172,11 +172,11 @@ function readFileSchema(bb: ByteBuffer) {
 function readFileMessages(footer: Footer) {
     return function* (bb: ByteBuffer) {
         for (let i = -1, batches = footer.dictionaryBatches, n = batches.length; ++i < n;) {
-            bb.setPosition(batches[i].offset.low);
+            bb.setPosition(batches[i].offset);
             yield readMessage(bb, bb.readInt32(bb.position())) as DictionaryBatch;
         }
         for (let i = -1, batches = footer.recordBatches, n = batches.length; ++i < n;) {
-            bb.setPosition(batches[i].offset.low);
+            bb.setPosition(batches[i].offset);
             yield readMessage(bb, bb.readInt32(bb.position())) as RecordBatchMetadata;
         }
     };
