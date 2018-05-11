@@ -69,7 +69,7 @@ void CheckCodecRoundtrip(const vector<uint8_t>& data) {
 
 template <Compression::type CODEC>
 void CheckCodec() {
-  int sizes[] = {10000, 100000};
+  int sizes[] = {0, 10000, 100000};
   for (int data_size : sizes) {
     vector<uint8_t> data(data_size);
     test::random_bytes(data_size, 1234, data.data());
