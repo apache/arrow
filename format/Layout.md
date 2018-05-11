@@ -312,7 +312,7 @@ will have the following representation:
   * Length: 7,  Null count: 0
   * Null bitmap buffer: Not required
 
-    | Bytes 0-7  | Bytes 8-63  |
+    | Bytes 0-6  | Bytes 7-63  |
     |------------|-------------|
     | joemark    | unspecified |
 ```
@@ -342,7 +342,7 @@ will be be represented as follows:
 
   * Offsets buffer (int32)
 
-    | Bytes 0-28           | Bytes 29-63 |
+    | Bytes 0-27           | Bytes 28-63 |
     |----------------------|-------------|
     | 0, 2, 4, 7, 7, 8, 10 | unspecified |
 
@@ -366,7 +366,7 @@ type metadata, not the physical memory layout.
 A struct array does not have any additional allocated physical storage for its values.
 A struct array must still have an allocated null bitmap, if it has one or more null values.
 
-Physically, a struct type has one child array for each field.
+Physically, a struct type has one child array for each field. The child arrays are independent and need not be adjacent to each other in memory.
 
 For example, the struct (field names shown here as strings for illustration
 purposes)

@@ -19,6 +19,7 @@ from functools import partial
 from io import BytesIO, TextIOWrapper
 import gc
 import os
+import pickle
 import pytest
 import sys
 import tempfile
@@ -205,6 +206,11 @@ def test_buffer_bytes():
 
     result = buf.to_pybytes()
 
+    assert result == val
+
+    # Check that buffers survive a pickle roundtrip
+    result_buf = pickle.loads(pickle.dumps(buf))
+    result = result_buf.to_pybytes()
     assert result == val
 
 

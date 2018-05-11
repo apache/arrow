@@ -25,6 +25,7 @@ import pytest
 import random
 import shutil
 import signal
+import sys
 import subprocess
 import tempfile
 import time
@@ -196,11 +197,13 @@ class TestPlasmaClient(object):
         try:
             # Check that the Plasma store is still alive.
             assert self.p.poll() is None
-            # Ensure Valgrind detected no issues
-            if USE_VALGRIND:
-                self.p.send_signal(signal.SIGTERM)
+            # Ensure Valgrind and/or coverage have a clean exit
+            self.p.send_signal(signal.SIGTERM)
+            if sys.version_info >= (3, 3):
+                self.p.wait(timeout=5)
+            else:
                 self.p.wait()
-                assert self.p.returncode == 0
+            assert self.p.returncode == 0
         finally:
             self.plasma_store_ctx.__exit__(None, None, None)
 
@@ -840,3 +843,19 @@ def test_use_huge_pages():
                             use_hugepages=True) as (plasma_store_name, p):
         plasma_client = plasma.connect(plasma_store_name, "", 64)
         create_object(plasma_client, 100000000)
+
+
+# This is checking to make sure plasma_clients cannot be destroyed
+# before all the PlasmaBuffers that have handles to them are
+# destroyed, see ARROW-2448.
+@pytest.mark.plasma
+def test_plasma_client_sharing():
+    import pyarrow.plasma as plasma
+
+    with start_plasma_store() as (plasma_store_name, p):
+        plasma_client = plasma.connect(plasma_store_name, "", 64)
+        object_id = plasma_client.put(np.zeros(3))
+        buf = plasma_client.get(object_id)
+        del plasma_client
+        assert (buf == np.zeros(3)).all()
+        del buf  # This segfaulted pre ARROW-2448.

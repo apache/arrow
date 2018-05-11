@@ -44,7 +44,7 @@ impl<T> Builder<T> {
         Builder {
             len: 0,
             capacity,
-            data: unsafe { mem::transmute::<*const u8, *mut T>(buffer) },
+            data: buffer as *mut T,
         }
     }
 
@@ -60,9 +60,8 @@ impl<T> Builder<T> {
 
     /// Get the internal byte-aligned memory buffer as a mutable slice
     pub fn slice_mut(&mut self, start: usize, end: usize) -> &mut [T] {
-        assert!(start <= end);
-        assert!(start < self.capacity as usize);
         assert!(end <= self.capacity as usize);
+        assert!(start <= end);
         unsafe {
             slice::from_raw_parts_mut(self.data.offset(start as isize), (end - start) as usize)
         }
@@ -94,8 +93,8 @@ impl<T> Builder<T> {
         let sz = mem::size_of::<T>();
         unsafe {
             libc::memcpy(
-                mem::transmute::<*mut T, *mut libc::c_void>(self.data.offset(self.len() as isize)),
-                mem::transmute::<*const T, *const libc::c_void>(slice.as_ptr()),
+                self.data.offset(self.len() as isize) as *mut libc::c_void,
+                slice.as_ptr() as *const libc::c_void,
                 slice.len() * sz,
             );
         }
@@ -113,36 +112,33 @@ impl<T> Builder<T> {
     /// Grow the buffer to the new size n (number of elements of type T)
     fn grow(&mut self, new_capacity: usize) {
         let sz = mem::size_of::<T>();
+        let old_buffer = self.data;
+        let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
         unsafe {
-            let old_buffer = self.data;
-            let new_buffer = allocate_aligned((new_capacity * sz) as i64).unwrap();
             libc::memcpy(
-                mem::transmute::<*const u8, *mut libc::c_void>(new_buffer),
-                mem::transmute::<*const T, *const libc::c_void>(old_buffer),
+                new_buffer as *mut libc::c_void,
+                old_buffer as *const libc::c_void,
                 self.len * sz,
             );
-            self.capacity = new_capacity;
-            self.data = mem::transmute::<*const u8, *mut T>(new_buffer);
-            free_aligned(mem::transmute::<*mut T, *const u8>(old_buffer));
         }
+        self.capacity = new_capacity;
+        self.data = new_buffer as *mut T;
+        free_aligned(old_buffer as *const u8);
     }
 
     /// Build a Buffer from the existing memory
     pub fn finish(&mut self) -> Buffer<T> {
         assert!(!self.data.is_null());
-        let p = unsafe { mem::transmute::<*mut T, *const T>(self.data) };
+        let p = self.data as *const T;
         self.data = ptr::null_mut(); // ensure builder cannot be re-used
-        Buffer::from_raw_parts(p, self.len as i32)
+        unsafe { Buffer::from_raw_parts(p, self.len as i32) }
     }
 }
 
 impl<T> Drop for Builder<T> {
     fn drop(&mut self) {
         if !self.data.is_null() {
-            unsafe {
-                let p = mem::transmute::<*const T, *const u8>(self.data);
-                free_aligned(p);
-            }
+            free_aligned(self.data as *const u8);
         }
     }
 }
@@ -214,4 +210,31 @@ mod tests {
         assert_eq!("Hello, World!", s);
     }
 
+    #[test]
+    fn test_slice_empty_at_end() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        let s = b.slice_mut(2, 2);
+        assert_eq!(0, s.len());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_slice_start_out_of_bounds() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        b.slice_mut(3, 3); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_slice_end_out_of_bounds() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        b.slice_mut(0, 3); // should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_slice_end_before_start() {
+        let mut b: Builder<u8> = Builder::with_capacity(2);
+        b.slice_mut(1, 0); // should panic
+    }
 }

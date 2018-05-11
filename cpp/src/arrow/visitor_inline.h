@@ -24,12 +24,13 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 
 #define TYPE_VISIT_INLINE(TYPE_CLASS) \
   case TYPE_CLASS::type_id:           \
-    return visitor->Visit(static_cast<const TYPE_CLASS&>(type));
+    return visitor->Visit(checked_cast<const TYPE_CLASS&>(type));
 
 template <typename VISITOR>
 inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
@@ -71,7 +72,7 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 #define ARRAY_VISIT_INLINE(TYPE_CLASS) \
   case TYPE_CLASS::type_id:            \
     return visitor->Visit(             \
-        static_cast<const typename TypeTraits<TYPE_CLASS>::ArrayType&>(array));
+        checked_cast<const typename TypeTraits<TYPE_CLASS>::ArrayType&>(array));
 
 template <typename VISITOR>
 inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {

@@ -60,16 +60,8 @@ static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const r
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
-BENCHMARK(BM_SerialMemcopy)
-    ->RangeMultiplier(4)
-    ->Range(1, 1 << 13)
-    ->MinTime(1.0)
-    ->UseRealTime();
+BENCHMARK(BM_SerialMemcopy)->MinTime(1.0)->Repetitions(2)->UseRealTime();
 
-BENCHMARK(BM_ParallelMemcopy)
-    ->RangeMultiplier(4)
-    ->Range(1, 1 << 13)
-    ->MinTime(1.0)
-    ->UseRealTime();
+BENCHMARK(BM_ParallelMemcopy)->MinTime(1.0)->Repetitions(2)->UseRealTime();
 
 }  // namespace arrow

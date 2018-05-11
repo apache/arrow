@@ -16,13 +16,40 @@
 # under the License.
 
 cmake_minimum_required(VERSION 3.2)
-project(arrow)
 
+# Extract Arrow version number
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
 string(REGEX MATCHALL
   "\n  <version>[^<]+</version>" ARROW_VERSION_TAG "${POM_XML}")
 string(REGEX REPLACE
   "(\n  <version>|</version>)" "" ARROW_VERSION "${ARROW_VERSION_TAG}")
+string(REGEX MATCH
+  "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
+
+project(arrow VERSION "${ARROW_BASE_VERSION}")
+
+set(ARROW_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
+set(ARROW_VERSION_MINOR "${arrow_VERSION_MINOR}")
+set(ARROW_VERSION_PATCH "${arrow_VERSION_PATCH}")
+if (ARROW_VERSION_MAJOR STREQUAL "" OR
+    ARROW_VERSION_MINOR STREQUAL "" OR
+    ARROW_VERSION_PATCH STREQUAL "")
+  MESSAGE(FATAL_ERROR "Failed to determine Arrow version from '${ARROW_VERSION}'")
+endif()
+
+# The SO version is also the ABI version
+if(arrow_VERSION_MAJOR STREQUAL "0")
+  # Arrow 0.x.y => SO version is "x", full SO version is "x.y.0"
+  set(ARROW_SO_VERSION "${ARROW_VERSION_MINOR}")
+  set(ARROW_FULL_SO_VERSION "${ARROW_SO_VERSION}.${ARROW_VERSION_PATCH}.0")
+else()
+  message(FATAL_ERROR "Need to implement SO version generation for Arrow 1.0+")
+endif()
+
+message(STATUS "Arrow version: "
+  "${ARROW_VERSION_MAJOR}.${ARROW_VERSION_MINOR}.${ARROW_VERSION_PATCH} "
+  "(full: '${ARROW_VERSION}')")
+
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
@@ -43,12 +70,9 @@ if(POLICY CMP0054)
   cmake_policy(SET CMP0054 NEW)
 endif()
 
-set(ARROW_SO_VERSION "0")
-set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
-
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
-set(CLANG_FORMAT_VERSION "5.0")
+set(CLANG_FORMAT_VERSION "6.0")
 find_package(ClangTools)
 if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
@@ -488,7 +512,7 @@ endif (UNIX)
 add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
   ${CLANG_FORMAT_BIN}
   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix)
 
 # runs clang format and exits with a non-zero exit code if any files need to be reformatted
 
@@ -496,7 +520,7 @@ add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
 add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
    ${CLANG_FORMAT_BIN}
    ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-   ${CMAKE_CURRENT_SOURCE_DIR}/src 1)
+   ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 ############################################################
 # "make clang-tidy" and "make check-clang-tidy" targets

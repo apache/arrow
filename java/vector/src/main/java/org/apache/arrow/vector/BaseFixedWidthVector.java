@@ -281,7 +281,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     try {
       allocateBytes(curAllocationSizeValue, curAllocationSizeValidity);
     } catch (Exception e) {
-      e.printStackTrace();
       clear();
       return false;
     }
@@ -314,7 +313,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     try {
       allocateBytes(valueBufferSize, validityBufferSize);
     } catch (Exception e) {
-      e.printStackTrace();
       clear();
       throw e;
     }

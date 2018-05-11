@@ -38,6 +38,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -51,6 +52,7 @@
 #include "arrow/python/config.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/iterators.h"
 #include "arrow/python/numpy-internal.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
@@ -364,9 +366,7 @@ class NumPyConverter {
 
   Status Visit(const StructType& type);
 
-  Status Visit(const FixedSizeBinaryType& type) {
-    return TypeNotImplemented(type.ToString());
-  }
+  Status Visit(const FixedSizeBinaryType& type);
 
   Status Visit(const Decimal128Type& type) { return TypeNotImplemented(type.ToString()); }
 
@@ -757,7 +757,7 @@ Status NumPyConverter::ConvertDecimals() {
   Decimal128Builder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
-  const auto& decimal_type = static_cast<const DecimalType&>(*type_);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type_);
 
   for (PyObject* object : objects) {
     const int is_decimal = PyObject_IsInstance(object, decimal_type_.obj());
@@ -982,7 +982,7 @@ Status NumPyConverter::ConvertObjectFixedWidthBytes(
     const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
 
-  const int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
+  const int32_t byte_width = checked_cast<const FixedSizeBinaryType&>(*type).byte_width();
 
   // The output type at this point is inconclusive because there may be bytes
   // and unicode mixed in the object array
@@ -1157,7 +1157,7 @@ Status NumPyConverter::ConvertObjects() {
       case Type::DATE64:
         return ConvertDates<Date64Type>();
       case Type::LIST: {
-        const auto& list_field = static_cast<const ListType&>(*type_);
+        const auto& list_field = checked_cast<const ListType&>(*type_);
         return ConvertLists(list_field.value_field()->type());
       }
       case Type::DECIMAL:
@@ -1171,70 +1171,20 @@ Status NumPyConverter::ConvertObjects() {
   }
 }
 
-template <typename T>
-Status LoopPySequence(PyObject* sequence, T func) {
-  if (PySequence_Check(sequence)) {
-    OwnedRef ref;
-    Py_ssize_t size = PySequence_Size(sequence);
-    if (PyArray_Check(sequence)) {
-      auto array = reinterpret_cast<PyArrayObject*>(sequence);
-      Ndarray1DIndexer<PyObject*> objects(array);
-      for (int64_t i = 0; i < size; ++i) {
-        RETURN_NOT_OK(func(objects[i]));
-      }
-    } else {
-      for (int64_t i = 0; i < size; ++i) {
-        ref.reset(PySequence_GetItem(sequence, i));
-        RETURN_NOT_OK(func(ref.obj()));
-      }
-    }
-  } else if (PyObject_HasAttrString(sequence, "__iter__")) {
-    OwnedRef iter(PyObject_GetIter(sequence));
-    PyObject* item;
-    while ((item = PyIter_Next(iter.obj()))) {
-      OwnedRef ref(item);
-      RETURN_NOT_OK(func(ref.obj()));
-    }
-  } else {
-    return Status::TypeError("Object is not a sequence or iterable");
-  }
-
-  return Status::OK();
-}
-
-template <typename T>
+// Like VisitIterable, but the function takes a second boolean argument
+// deducted from `have_mask` and `mask_values`
+template <class BinaryFunction>
 Status LoopPySequenceWithMasks(PyObject* sequence,
                                const Ndarray1DIndexer<uint8_t>& mask_values,
-                               bool have_mask, T func) {
-  if (PySequence_Check(sequence)) {
-    OwnedRef ref;
-    Py_ssize_t size = PySequence_Size(sequence);
-    if (PyArray_Check(sequence)) {
-      auto array = reinterpret_cast<PyArrayObject*>(sequence);
-      Ndarray1DIndexer<PyObject*> objects(array);
-      for (int64_t i = 0; i < size; ++i) {
-        RETURN_NOT_OK(func(objects[i], have_mask && mask_values[i]));
-      }
-    } else {
-      for (int64_t i = 0; i < size; ++i) {
-        ref.reset(PySequence_GetItem(sequence, i));
-        RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
-      }
-    }
-  } else if (PyObject_HasAttrString(sequence, "__iter__")) {
-    OwnedRef iter(PyObject_GetIter(sequence));
-    PyObject* item;
+                               bool have_mask, BinaryFunction&& func) {
+  if (have_mask) {
     int64_t i = 0;
-    while ((item = PyIter_Next(iter.obj()))) {
-      OwnedRef ref(item);
-      RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
-      i++;
-    }
+    auto visit = [&](PyObject* obj) { return func(obj, mask_values[i++] != 0); };
+    return internal::VisitIterable(sequence, visit);
   } else {
-    return Status::TypeError("Object is not a sequence or iterable");
+    auto visit = [&](PyObject* obj) { return func(obj, false); };
+    return internal::VisitIterable(sequence, visit);
   }
-
-  return Status::OK();
 }
 
 template <int ITEM_TYPE, typename ArrowType>
@@ -1253,7 +1203,7 @@ inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>&
     have_mask = true;
   }
 
-  BuilderT* value_builder = static_cast<BuilderT*>(builder->value_builder());
+  auto value_builder = checked_cast<BuilderT*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
     if (mask || internal::PandasObjectIsNull(object)) {
@@ -1298,7 +1248,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
     have_mask = true;
   }
 
-  auto value_builder = static_cast<NullBuilder*>(builder->value_builder());
+  auto value_builder = checked_cast<NullBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
     if (mask || internal::PandasObjectIsNull(object)) {
@@ -1342,7 +1292,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
     have_mask = true;
   }
 
-  auto value_builder = static_cast<BinaryBuilder*>(builder->value_builder());
+  auto value_builder = checked_cast<BinaryBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
     if (mask || internal::PandasObjectIsNull(object)) {
@@ -1358,7 +1308,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
       RETURN_NOT_OK(
           AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset));
       if (offset < PyArray_SIZE(numpy_array)) {
-        return Status::Invalid("Array cell value exceeded 2GB");
+        return Status::CapacityError("Array cell value exceeded 2GB");
       }
       return Status::OK();
     } else if (PyList_Check(object)) {
@@ -1371,7 +1321,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
         ss << inferred_type->ToString() << " cannot be converted to BINARY.";
         return Status::TypeError(ss.str());
       }
-      return AppendPySequence(object, size, inferred_type, value_builder);
+      return AppendPySequence(object, size, type, value_builder);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -1395,7 +1345,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     have_mask = true;
   }
 
-  auto value_builder = static_cast<StringBuilder*>(builder->value_builder());
+  auto value_builder = checked_cast<StringBuilder*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object, bool mask) {
     if (mask || internal::PandasObjectIsNull(object)) {
@@ -1415,7 +1365,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, check_valid,
                                         value_builder, &offset, &have_bytes));
       if (offset < PyArray_SIZE(numpy_array)) {
-        return Status::Invalid("Array cell value exceeded 2GB");
+        return Status::CapacityError("Array cell value exceeded 2GB");
       }
       return Status::OK();
     } else if (PyList_Check(object)) {
@@ -1428,7 +1378,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
         return Status::TypeError(ss.str());
       }
-      return AppendPySequence(object, size, inferred_type, value_builder);
+      return AppendPySequence(object, size, type, value_builder);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -1461,8 +1411,8 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
     LIST_CASE(BINARY, NPY_OBJECT, BinaryType)
     LIST_CASE(STRING, NPY_OBJECT, StringType)
     case Type::LIST: {
-      const auto& list_type = static_cast<const ListType&>(*type);
-      auto value_builder = static_cast<ListBuilder*>(builder->value_builder());
+      const auto& list_type = checked_cast<const ListType&>(*type);
+      auto value_builder = checked_cast<ListBuilder*>(builder->value_builder());
 
       auto foreach_item = [this, &builder, &value_builder, &list_type](PyObject* object) {
         if (internal::PandasObjectIsNull(object)) {
@@ -1473,7 +1423,7 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
         }
       };
 
-      return LoopPySequence(list, foreach_item);
+      return internal::VisitIterable(list, foreach_item);
     }
     default: {
       std::stringstream ss;
@@ -1487,7 +1437,7 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
 Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
   std::unique_ptr<ArrayBuilder> array_builder;
   RETURN_NOT_OK(MakeBuilder(pool_, arrow::list(type), &array_builder));
-  ListBuilder* list_builder = static_cast<ListBuilder*>(array_builder.get());
+  auto list_builder = checked_cast<ListBuilder*>(array_builder.get());
   RETURN_NOT_OK(ConvertLists(type, list_builder, reinterpret_cast<PyObject*>(arr_)));
   return PushBuilderResult(list_builder);
 }
@@ -1533,6 +1483,30 @@ Status NumPyConverter::Visit(const BinaryType& type) {
   return PushArray(result->data());
 }
 
+Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
+  auto byte_width = type.byte_width();
+
+  if (itemsize_ != byte_width) {
+    std::stringstream ss;
+    ss << "Got bytestring of length " << itemsize_ << " (expected " << byte_width << ")";
+    return Status::Invalid(ss.str());
+  }
+
+  FixedSizeBinaryBuilder builder(::arrow::fixed_size_binary(byte_width), pool_);
+  auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
+
+  if (mask_ != nullptr) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask_);
+    RETURN_NOT_OK(builder.AppendValues(data, length_, mask_values.data()));
+  } else {
+    RETURN_NOT_OK(builder.AppendValues(data, length_));
+  }
+
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(builder.Finish(&result));
+  return PushArray(result->data());
+}
+
 namespace {
 
 // NumPy unicode is UCS4/UTF32 always
@@ -1562,7 +1536,7 @@ Status AppendUTF32(const char* data, int itemsize, int byteorder,
 
   const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.obj()));
   if (builder->value_data_length() + length > kBinaryMemoryLimit) {
-    return Status::Invalid("Encoded string length exceeds maximum size (2GB)");
+    return Status::CapacityError("Encoded string length exceeds maximum size (2GB)");
   }
   return builder->Append(PyBytes_AS_STRING(utf8_obj.obj()), length);
 }

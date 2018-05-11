@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/visitor_inline.h"
@@ -379,7 +380,7 @@ Status SchemaPrinter::PrintType(const DataType& type) {
 
     indent_ += 2;
     WriteIndented("dictionary: ");
-    const auto& dict_type = static_cast<const DictionaryType&>(type);
+    const auto& dict_type = checked_cast<const DictionaryType&>(type);
     RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_, sink_));
     indent_ -= 2;
   } else {

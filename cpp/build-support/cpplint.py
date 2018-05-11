@@ -6381,13 +6381,13 @@ def ParseArguments(args):
       try:
         _valid_extensions = set(val.split(','))
       except ValueError:
-          PrintUsage('Extensions must be comma seperated list.')
+          PrintUsage('Extensions must be comma separated list.')
     elif opt == '--headers':
       global _header_extensions
       try:
           _header_extensions = set(val.split(','))
       except ValueError:
-        PrintUsage('Extensions must be comma seperated list.')
+        PrintUsage('Extensions must be comma separated list.')
     elif opt == '--recursive':
       recursive = True
     elif opt == '--quiet':

@@ -180,6 +180,7 @@ class TestScalars(unittest.TestCase):
 
     def test_dictionary(self):
         colors = ['red', 'green', 'blue']
+        colors_dict = {'red': 0, 'green': 1, 'blue': 2}
         values = pd.Series(colors * 4)
 
         categorical = pd.Categorical(values, categories=colors)
@@ -188,6 +189,8 @@ class TestScalars(unittest.TestCase):
                                            categorical.categories)
         for i, c in enumerate(values):
             assert v[i].as_py() == c
+            assert v[i].dictionary_value == c
+            assert v[i].index_value == colors_dict[c]
 
     def test_int_hash(self):
         # ARROW-640
@@ -215,3 +218,21 @@ class TestScalars(unittest.TestCase):
         set_from_array = set(arr)
         assert isinstance(set_from_array, set)
         assert set_from_array == {1, 2}
+
+    def test_struct_value_subscripting(self):
+        ty = pa.struct([pa.field('x', pa.int16()),
+                        pa.field('y', pa.float32())])
+        arr = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
+
+        assert arr[0]['x'] == 1
+        assert arr[0]['y'] == 2.5
+        assert arr[1]['x'] == 3
+        assert arr[1]['y'] == 4.5
+        assert arr[2]['x'] == 5
+        assert arr[2]['y'] == 6.5
+
+        with pytest.raises(IndexError):
+            arr[4]['non-existent']
+
+        with pytest.raises(KeyError):
+            arr[0]['non-existent']

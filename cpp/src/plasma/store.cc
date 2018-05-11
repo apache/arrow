@@ -118,17 +118,7 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
 }
 
 // TODO(pcm): Get rid of this destructor by using RAII to clean up data.
-PlasmaStore::~PlasmaStore() {
-  for (const auto& element : pending_notifications_) {
-    auto object_notifications = element.second.object_notifications;
-    for (size_t i = 0; i < object_notifications.size(); ++i) {
-      uint8_t* notification = reinterpret_cast<uint8_t*>(object_notifications.at(i));
-      uint8_t* data = notification;
-      // TODO(pcm): Get rid of this delete.
-      delete[] data;
-    }
-  }
-}
+PlasmaStore::~PlasmaStore() {}
 
 const PlasmaStoreInfo* PlasmaStore::get_plasma_store_info() { return &store_info_; }
 
@@ -180,7 +170,7 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
     // 64-byte aligned, but in practice it often will be.
     if (device_num == 0) {
       pointer =
-          reinterpret_cast<uint8_t*>(dlmemalign(BLOCK_SIZE, data_size + metadata_size));
+          reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
       if (pointer == NULL) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
@@ -322,11 +312,11 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
 }
 
 void PlasmaStore::update_object_get_requests(const ObjectID& object_id) {
-  std::vector<GetRequest*>& get_requests = object_get_requests_[object_id];
+  auto& get_requests = object_get_requests_[object_id];
   size_t index = 0;
   size_t num_requests = get_requests.size();
   for (size_t i = 0; i < num_requests; ++i) {
-    GetRequest* get_req = get_requests[index];
+    auto get_req = get_requests[index];
     auto entry = get_object_table_entry(&store_info_, object_id);
     ARROW_CHECK(entry != NULL);
 
@@ -356,7 +346,7 @@ void PlasmaStore::process_get_request(Client* client,
                                       const std::vector<ObjectID>& object_ids,
                                       int64_t timeout_ms) {
   // Create a get request for this object.
-  GetRequest* get_req = new GetRequest(client, object_ids);
+  auto get_req = new GetRequest(client, object_ids);
 
   for (auto object_id : object_ids) {
     // Check if this object is already present locally. If so, record that the
@@ -456,7 +446,6 @@ int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
     return 0;
   } else {
     // The client requesting the abort is the creator. Free the object.
-    dlfree(entry->pointer);
     store_info_.objects.erase(object_id);
     return 1;
   }
@@ -484,7 +473,6 @@ int PlasmaStore::delete_object(ObjectID& object_id) {
 
   eviction_policy_.remove_object(object_id);
 
-  dlfree(entry->pointer);
   store_info_.objects.erase(object_id);
   // Inform all subscribers that the object has been deleted.
   ObjectInfoT notification;
@@ -507,7 +495,6 @@ void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
         << "To delete an object it must have been sealed.";
     ARROW_CHECK(entry->clients.size() == 0)
         << "To delete an object, there must be no clients currently using it.";
-    dlfree(entry->pointer);
     store_info_.objects.erase(object_id);
     // Inform all subscribers that the object has been deleted.
     ObjectInfoT notification;
@@ -575,20 +562,19 @@ void PlasmaStore::disconnect_client(int client_fd) {
 ///
 /// @param client_fd The client to send the notification to.
 void PlasmaStore::send_notifications(int client_fd) {
-  auto it = pending_notifications_.find(client_fd);
+  auto& notifications = pending_notifications_[client_fd].object_notifications;
 
   int num_processed = 0;
   bool closed = false;
   // Loop over the array of pending notifications and send as many of them as
   // possible.
-  for (size_t i = 0; i < it->second.object_notifications.size(); ++i) {
-    uint8_t* notification =
-        reinterpret_cast<uint8_t*>(it->second.object_notifications.at(i));
+  for (size_t i = 0; i < notifications.size(); ++i) {
+    auto& notification = notifications.at(i);
     // Decode the length, which is the first bytes of the message.
-    int64_t size = *(reinterpret_cast<int64_t*>(notification));
+    int64_t size = *(reinterpret_cast<int64_t*>(notification.get()));
 
     // Attempt to send a notification about this object ID.
-    ssize_t nbytes = send(client_fd, notification, sizeof(int64_t) + size, 0);
+    ssize_t nbytes = send(client_fd, notification.get(), sizeof(int64_t) + size, 0);
     if (nbytes >= 0) {
       ARROW_CHECK(nbytes == static_cast<ssize_t>(sizeof(int64_t)) + size);
     } else if (nbytes == -1 &&
@@ -613,34 +599,27 @@ void PlasmaStore::send_notifications(int client_fd) {
       }
     }
     num_processed += 1;
-    // The corresponding malloc happened in create_object_info_buffer
-    // within push_notification.
-    delete[] notification;
   }
   // Remove the sent notifications from the array.
-  it->second.object_notifications.erase(
-      it->second.object_notifications.begin(),
-      it->second.object_notifications.begin() + num_processed);
+  notifications.erase(notifications.begin(), notifications.begin() + num_processed);
+
+  // If we have sent all notifications, remove the fd from the event loop.
+  if (notifications.empty()) {
+    loop_->RemoveFileEvent(client_fd);
+  }
 
   // Stop sending notifications if the pipe was broken.
   if (closed) {
     close(client_fd);
     pending_notifications_.erase(client_fd);
   }
-
-  // If we have sent all notifications, remove the fd from the event loop.
-  if (it->second.object_notifications.empty()) {
-    loop_->RemoveFileEvent(client_fd);
-  }
 }
 
 void PlasmaStore::push_notification(ObjectInfoT* object_info) {
   for (auto& element : pending_notifications_) {
-    uint8_t* notification = create_object_info_buffer(object_info);
-    element.second.object_notifications.push_back(notification);
+    auto notification = create_object_info_buffer(object_info);
+    element.second.object_notifications.emplace_back(std::move(notification));
     send_notifications(element.first);
-    // The notification gets freed in send_notifications when the notification
-    // is sent over the socket.
   }
 }
 
@@ -657,10 +636,7 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
     return;
   }
 
-  // Create a new array to buffer notifications that can't be sent to the
-  // subscriber yet because the socket send buffer is full. TODO(rkn): the queue
-  // never gets freed.
-  // TODO(pcm): Is the following neccessary?
+  // Add this fd to global map, which is needed for this client to receive notifications.
   pending_notifications_[fd];
 
   // Push notifications to the new subscriber about existing objects.
@@ -755,7 +731,7 @@ Status PlasmaStore::process_message(Client* client) {
       HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),
                      client->fd);
     } break;
-    case DISCONNECT_CLIENT:
+    case MessageType_PlasmaDisconnectClient:
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->fd;
       disconnect_client(client->fd);
       break;
@@ -782,7 +758,7 @@ class PlasmaStoreRunner {
     // achieve that by mallocing and freeing a single large amount of space.
     // that maximum allowed size up front.
     if (use_one_memory_mapped_file) {
-      void* pointer = plasma::dlmemalign(BLOCK_SIZE, system_memory);
+      void* pointer = plasma::dlmemalign(kBlockSize, system_memory);
       ARROW_CHECK(pointer != NULL);
       plasma::dlfree(pointer);
     }

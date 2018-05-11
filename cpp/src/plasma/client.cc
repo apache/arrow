@@ -23,10 +23,8 @@
 #include <Win32_Interop/win32_types.h>
 #endif
 
-#include <assert.h>
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -41,11 +39,12 @@
 #include <algorithm>
 #include <deque>
 #include <mutex>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/util/thread-pool.h"
+
 #include "plasma/common.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
@@ -73,8 +72,8 @@ using arrow::MutableBuffer;
 
 typedef struct XXH64_state_s XXH64_state_t;
 
-// Number of threads used for memcopy and hash computations.
-constexpr int64_t kThreadPoolSize = 8;
+// Number of threads used for hash computations.
+constexpr int64_t kHashingConcurrency = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
 
 // Use 100MB as an overestimate of the L3 cache size.
@@ -107,7 +106,7 @@ class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
  public:
   ~PlasmaBuffer();
 
-  PlasmaBuffer(PlasmaClient::Impl* client, const ObjectID& object_id,
+  PlasmaBuffer(std::shared_ptr<PlasmaClient::Impl> client, const ObjectID& object_id,
                const std::shared_ptr<Buffer>& buffer)
       : Buffer(buffer, 0, buffer->size()), client_(client), object_id_(object_id) {
     if (buffer->is_mutable()) {
@@ -116,7 +115,7 @@ class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
   }
 
  private:
-  PlasmaClient::Impl* client_;
+  std::shared_ptr<PlasmaClient::Impl> client_;
   ObjectID object_id_;
 };
 
@@ -155,7 +154,7 @@ struct ClientMmapTableEntry {
   int count;
 };
 
-class PlasmaClient::Impl {
+class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Impl> {
  public:
   Impl();
   ~Impl();
@@ -266,8 +265,6 @@ class PlasmaClient::Impl {
   /// information to make sure that it does not delay in releasing so much
   /// memory that the store is unable to evict enough objects to free up space.
   int64_t store_capacity_;
-  /// Threadpool for parallel memcopy and hash computation.
-  std::vector<std::thread> threadpool_;
 
 #ifdef PLASMA_GPU
   /// Cuda Device Manager.
@@ -277,7 +274,7 @@ class PlasmaClient::Impl {
 
 PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
-PlasmaClient::Impl::Impl() : threadpool_(kThreadPoolSize) {
+PlasmaClient::Impl::Impl() {
 #ifdef PLASMA_GPU
   CudaDeviceManager::GetInstance(&manager_);
 #endif
@@ -558,7 +555,7 @@ Status PlasmaClient::Impl::Get(const std::vector<ObjectID>& object_ids,
                                int64_t timeout_ms, std::vector<ObjectBuffer>* out) {
   const auto wrap_buffer = [=](const ObjectID& object_id,
                                const std::shared_ptr<Buffer>& buffer) {
-    return std::make_shared<PlasmaBuffer>(this, object_id, buffer);
+    return std::make_shared<PlasmaBuffer>(shared_from_this(), object_id, buffer);
   };
   const size_t num_objects = object_ids.size();
   *out = std::vector<ObjectBuffer>(num_objects);
@@ -702,30 +699,30 @@ bool PlasmaClient::Impl::compute_object_hash_parallel(XXH64_state_t* hash_state,
                                                       int64_t nbytes) {
   // Note that this function will likely be faster if the address of data is
   // aligned on a 64-byte boundary.
-  const int num_threads = kThreadPoolSize;
+  auto pool = arrow::internal::CPUThreadPool();
+
+  const int num_threads = kHashingConcurrency;
   uint64_t threadhash[num_threads + 1];
   const uint64_t data_address = reinterpret_cast<uint64_t>(data);
-  const uint64_t num_blocks = nbytes / BLOCK_SIZE;
-  const uint64_t chunk_size = (num_blocks / num_threads) * BLOCK_SIZE;
+  const uint64_t num_blocks = nbytes / kBlockSize;
+  const uint64_t chunk_size = (num_blocks / num_threads) * kBlockSize;
   const uint64_t right_address = data_address + chunk_size * num_threads;
   const uint64_t suffix = (data_address + nbytes) - right_address;
   // Now the data layout is | k * num_threads * block_size | suffix | ==
   // | num_threads * chunk_size | suffix |, where chunk_size = k * block_size.
   // Each thread gets a "chunk" of k blocks, except the suffix thread.
 
+  std::vector<std::future<void>> futures;
   for (int i = 0; i < num_threads; i++) {
-    threadpool_[i] = std::thread(
+    futures.push_back(pool->Submit(
         ComputeBlockHash, reinterpret_cast<uint8_t*>(data_address) + i * chunk_size,
-        chunk_size, &threadhash[i]);
+        chunk_size, &threadhash[i]));
   }
   ComputeBlockHash(reinterpret_cast<uint8_t*>(right_address), suffix,
                    &threadhash[num_threads]);
 
-  // Join the threads.
-  for (auto& t : threadpool_) {
-    if (t.joinable()) {
-      t.join();
-    }
+  for (auto& fut : futures) {
+    fut.get();
   }
 
   XXH64_update(hash_state, reinterpret_cast<unsigned char*>(threadhash),
@@ -876,11 +873,11 @@ Status PlasmaClient::Impl::Subscribe(int* fd) {
 
 Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
                                            int64_t* data_size, int64_t* metadata_size) {
-  uint8_t* notification = read_message_async(fd);
+  auto notification = read_message_async(fd);
   if (notification == NULL) {
     return Status::IOError("Failed to read object notification from Plasma socket");
   }
-  auto object_info = flatbuffers::GetRoot<ObjectInfo>(notification);
+  auto object_info = flatbuffers::GetRoot<ObjectInfo>(notification.get());
   ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
   memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
   if (object_info->is_deletion()) {
@@ -890,7 +887,6 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
     *data_size = object_info->data_size();
     *metadata_size = object_info->metadata_size();
   }
-  delete[] notification;
   return Status::OK();
 }
 

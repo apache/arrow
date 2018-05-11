@@ -143,12 +143,18 @@ cdef class ListValue(ArrayValue):
     cdef int64_t length(self)
 
 
+cdef class StructValue(ArrayValue):
+    cdef:
+        CStructArray* ap
+
+
 cdef class UnionValue(ArrayValue):
     cdef:
         CUnionArray* ap
         list value_types
 
     cdef getitem(self, int64_t i)
+
 
 cdef class StringValue(ArrayValue):
     pass

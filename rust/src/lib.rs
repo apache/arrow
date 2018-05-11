@@ -30,5 +30,4 @@ pub mod error;
 pub mod list;
 pub mod list_builder;
 pub mod memory;
-#[cfg(not(windows))]
 pub mod memory_pool;

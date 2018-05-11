@@ -21,33 +21,18 @@ set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-pushd $ARROW_C_GLIB_DIR
+arrow_c_glib_run_test()
+{
+  local arrow_c_glib_lib_dir=$1
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
-if [ $BUILD_SYSTEM = "autotools" ]; then
-  arrow_c_glib_lib_dir=$ARROW_C_GLIB_INSTALL/lib
-else
-  arrow_c_glib_lib_dir=$ARROW_C_GLIB_INSTALL/lib/$(arch)-linux-gnu
-fi
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$arrow_c_glib_lib_dir
-export GI_TYPELIB_PATH=$arrow_c_glib_lib_dir/girepository-1.0
-test/run-test.rb
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$arrow_c_glib_lib_dir
+  export GI_TYPELIB_PATH=$arrow_c_glib_lib_dir/girepository-1.0
+  test/run-test.rb
 
-if [ $BUILD_SYSTEM = "meson" ]; then
-  exit
-fi
+  export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$arrow_c_glib_lib_dir/pkgconfig
 
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$arrow_c_glib_lib_dir/pkgconfig
-
-pushd example/lua
-if [ $TRAVIS_OS_NAME = "osx" ]; then
-  lua write-batch.lua
-  lua read-batch.lua
-  lua write-stream.lua
-  lua read-stream.lua
-else
-  if [ $BUILD_TORCH_EXAMPLE = "yes" ]; then
+  pushd example/lua
+  if [ "$BUILD_TORCH_EXAMPLE" = "yes" ]; then
     . ~/torch/install/bin/torch-activate
     luajit write-batch.lua
     luajit read-batch.lua
@@ -60,7 +45,19 @@ else
     lua write-stream.lua
     lua read-stream.lua
   fi
+  popd
+}
+
+pushd $ARROW_C_GLIB_DIR
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
+
+(arrow_c_glib_run_test $ARROW_C_GLIB_INSTALL_AUTOTOOLS/lib)
+if [ -d $ARROW_C_GLIB_INSTALL_MESON/lib/$(arch)-linux-gnu ]; then
+  (arrow_c_glib_run_test $ARROW_C_GLIB_INSTALL_MESON/lib/$(arch)-linux-gnu)
+# else # TODO: Enable this
+#   (arrow_c_glib_run_test $ARROW_C_GLIB_INSTALL_MESON/lib)
 fi
-popd
 
 popd

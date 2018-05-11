@@ -371,14 +371,29 @@ cdef class FixedSizeBinaryValue(ArrayValue):
 
 cdef class StructValue(ArrayValue):
 
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
+        self.sp_array = sp_array
+        self.ap = <CStructArray*> sp_array.get()
+
+    def __getitem__(self, key):
+        cdef:
+            CStructType* type
+            int index
+
+        type = <CStructType*> self.type.type
+        index = type.GetChildIndex(tobytes(key))
+
+        if index < 0:
+            raise KeyError(key)
+
+        return pyarrow_wrap_array(self.ap.field(index))[self.index]
+
     def as_py(self):
         cdef:
-            CStructArray* ap
             vector[shared_ptr[CField]] child_fields = self.type.type.children()
 
-        ap = <CStructArray*> self.sp_array.get()
-        wrapped_arrays = [pyarrow_wrap_array(ap.field(i))
-                          for i in range(ap.num_fields())]
+        wrapped_arrays = [pyarrow_wrap_array(self.ap.field(i))
+                          for i in range(self.ap.num_fields())]
         child_names = [child.get().name() for child in child_fields]
         # Return the struct as a dict
         return {
@@ -386,6 +401,29 @@ cdef class StructValue(ArrayValue):
             for name, child_array in
             zip(child_names, wrapped_arrays)
         }
+
+cdef class DictionaryValue(ArrayValue):
+
+    def as_py(self):
+        return self.dictionary_value.as_py()
+
+    property index_value:
+
+        def __get__(self):
+            cdef CDictionaryArray* darr
+
+            darr = <CDictionaryArray*>(self.sp_array.get())
+            indices = pyarrow_wrap_array(darr.indices())
+            return indices[self.index]
+
+    property dictionary_value:
+
+        def __get__(self):
+            cdef CDictionaryArray* darr
+
+            darr = <CDictionaryArray*>(self.sp_array.get())
+            dictionary = pyarrow_wrap_array(darr.dictionary())
+            return dictionary[self.index_value.as_py()]
 
 
 cdef dict _scalar_classes = {
@@ -413,7 +451,9 @@ cdef dict _scalar_classes = {
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
     _Type_DECIMAL: DecimalValue,
     _Type_STRUCT: StructValue,
+    _Type_DICTIONARY: DictionaryValue,
 }
+
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
                        int64_t index):

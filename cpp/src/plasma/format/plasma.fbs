@@ -18,8 +18,10 @@
 // Plasma protocol specification
 
 enum MessageType:int {
+  // Message that gets send when a client hangs up.
+  PlasmaDisconnectClient = 0,
   // Create a new object.
-  PlasmaCreateRequest = 1,
+  PlasmaCreateRequest,
   PlasmaCreateReply,
   PlasmaAbortRequest,
   PlasmaAbortReply,
@@ -216,7 +218,7 @@ table PlasmaStatusRequest {
 
 enum ObjectStatus:int {
   // Object is stored in the local Plasma Store.
-  Local = 1,
+  Local,
   // Object is stored on a remote Plasma store, and it is not stored on the
   // local Plasma Store.
   Remote,

@@ -28,6 +28,7 @@
 
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -236,6 +237,8 @@ class ARROW_EXPORT Field {
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
   std::shared_ptr<Field> RemoveMetadata() const;
 
+  std::vector<std::shared_ptr<Field>> Flatten() const;
+
   bool Equals(const Field& other) const;
   bool Equals(const std::shared_ptr<Field>& other) const;
 
@@ -272,7 +275,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
   Status Accept(TypeVisitor* visitor) const override {
-    return visitor->Visit(*static_cast<const DERIVED*>(this));
+    return visitor->Visit(checked_cast<const DERIVED&>(*this));
   }
 
   std::string ToString() const override { return this->name(); }
@@ -475,6 +478,16 @@ class ARROW_EXPORT StructType : public NestedType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
+
+  /// Returns null if name not found
+  std::shared_ptr<Field> GetChildByName(const std::string& name) const;
+
+  /// Returns -1 if name not found
+  int GetChildIndex(const std::string& name) const;
+
+ private:
+  /// Lazily initialized mapping
+  mutable std::unordered_map<std::string, int> name_to_index_;
 };
 
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
@@ -777,6 +790,8 @@ class ARROW_EXPORT Schema {
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;
+
+  /// Lazily initialized mapping
   mutable std::unordered_map<std::string, int> name_to_index_;
 
   std::shared_ptr<const KeyValueMetadata> metadata_;

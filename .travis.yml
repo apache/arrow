@@ -33,7 +33,7 @@ before_install:
         sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
         sudo apt-get update -qq
       fi
-  - eval `python $TRAVIS_BUILD_DIR/ci/travis_detect_changes.py`
+  - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
 
 
 matrix:
@@ -41,7 +41,7 @@ matrix:
   allow_failures:
   - jdk: oraclejdk9
   include:
-  # C++ & Python w/ clang 5.0
+  # C++ & Python w/ clang 6.0
   - compiler: gcc
     language: cpp
     os: linux
@@ -52,11 +52,12 @@ matrix:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_CLANG_FORMAT=1
+    - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - CC="clang-5.0"
-    - CXX="clang++-5.0"
+    - CC="clang-6.0"
+    - CXX="clang++-6.0"
     before_script:
     # Always run RAT checks, in case another build in matrix breaks RAT
     - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
@@ -68,10 +69,12 @@ matrix:
     # If either C++ or Python changed, we must install the C++ libraries
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
-    - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
+    # All test steps are required for accurate C++ coverage info
+    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
+    - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
   # [OS X] C++ & Python w/ XCode 6.4
   - compiler: clang
     language: cpp
@@ -99,10 +102,10 @@ matrix:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest; fi
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
-  # Java w/ OpenJDK 7
+  # Java w/ OpenJDK 8
   - language: java
     os: linux
-    jdk: openjdk7
+    jdk: openjdk8
     before_script:
     - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
@@ -127,13 +130,13 @@ matrix:
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk8
     env:
-    - CC="clang-5.0"
-    - CXX="clang++-5.0"
+    - CC="clang-6.0"
+    - CXX="clang++-6.0"
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - nvm install node
+    - nvm install 9.8
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
@@ -141,19 +144,20 @@ matrix:
   # NodeJS
   - language: node_js
     os: linux
-    node_js: node
+    node_js:
+    - '9.8'
     before_script:
     - if [ $ARROW_CI_JS_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
-  # C++ & glib w/ gcc 4.9 & autotools
+  # C++ & glib w/ gcc 4.9
   - compiler: gcc
     language: cpp
     os: linux
     env:
-    - BUILD_SYSTEM=autotools BUILD_TORCH_EXAMPLE=no
+    - BUILD_TORCH_EXAMPLE=no
     - CC="gcc-4.9"
     - CXX="g++-4.9"
     before_script:
@@ -163,30 +167,13 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # C++ & glib w/ gcc 4.9 & meson
-  - compiler: gcc
-    language: cpp
-    os: linux
-    env:
-    - BUILD_SYSTEM=meson BUILD_TORCH_EXAMPLE=no
-    - CC="gcc-4.9"
-    - CXX="g++-4.9"
-    before_script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # [OS X] C++ & glib w/ XCode 8.3 & autotools & homebrew
+  # [OS X] C++ & glib w/ XCode 8.3 & homebrew
   - compiler: clang
     osx_image: xcode8.3
     os: osx
     cache:
     addons:
     rvm: 2.2
-    env:
-    - BUILD_SYSTEM=autotools
     before_script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
@@ -194,12 +181,31 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
+  # Rust
   - language: rust
+    cache: cargo
     rust: stable
+    addons:
+      apt:
+        packages:
+          - libcurl4-openssl-dev
+          - libelf-dev
+          - libdw-dev
+          - binutils-dev
+          - cmake
     before_script:
     - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
+    - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
+    - cargo install --force cargo-travis && export PATH=$HOME/.cargo/bin:$PATH
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+    after_success:
+    - pushd ${TRAVIS_BUILD_DIR}/rust
+    # Run coverage for codecov.io
+    - RUST_BACKTRACE=1 cargo coverage --verbose
+    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+    # Run coverage for coveralls.io
+    #- cargo coveralls --verbose
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
