@@ -162,7 +162,7 @@ function readFileSchema(bb: ByteBuffer) {
         (!checkForMagicArrowString(bb.bytes(), fileLength - magicLength) /* Missing magic end      */) ||
         (/*                                                    Invalid footer length  */
         (footerLength = bb.readInt32(footerOffset = fileLength - magicAndPadding)) < 1 &&
-        (footerLength + magicX2AndPadding > fileLength))) {
+        (footerLength + footerOffset > fileLength))) {
         return null;
     }
     bb.setPosition(footerOffset - footerLength);
