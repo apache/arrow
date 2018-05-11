@@ -46,7 +46,6 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
    * @return the corresponding field writer
    */
   abstract protected FieldWriter getWriter(MinorType type);
-  abstract protected FieldWriter getWriter(MinorType type, ArrowType arrowType);
 
   /**
    * @return the current FieldWriter
