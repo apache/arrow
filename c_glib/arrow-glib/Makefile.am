@@ -54,6 +54,7 @@ libarrow_glib_la_headers =			\
 	composite-array.h			\
 	composite-data-type.h			\
 	data-type.h				\
+	decimal.h				\
 	error.h					\
 	field.h					\
 	gobject-type.h				\
@@ -98,6 +99,7 @@ libarrow_glib_la_sources =			\
 	column.cpp				\
 	composite-array.cpp			\
 	composite-data-type.cpp			\
+	decimal.cpp				\
 	error.cpp				\
 	field.cpp				\
 	record-batch.cpp			\
@@ -136,6 +138,7 @@ libarrow_glib_la_cpp_headers =			\
 	chunked-array.hpp			\
 	column.hpp				\
 	data-type.hpp				\
+	decimal.hpp				\
 	error.hpp				\
 	field.hpp				\
 	record-batch.hpp			\
