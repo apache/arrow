@@ -19,6 +19,7 @@ import { RecordBatch } from './recordbatch';
 import { Col, Predicate } from './predicate';
 import { Schema, Field, Struct } from './type';
 import { read, readAsync } from './ipc/reader/arrow';
+import { writeTableBinary } from './ipc/writer/arrow';
 import { isPromise, isAsyncIterable } from './util/compat';
 import { Vector, DictionaryVector, IntVector, StructVector } from './vector';
 import { ChunkedView } from './vector/chunked';
@@ -178,6 +179,10 @@ export class Table implements DataFrame {
             str += row + '\n';
         }
         return str;
+    }
+    // @ts-ignore
+    public serialize(encoding = 'binary', stream = true) {
+        return writeTableBinary(this, stream);
     }
     public rowsToString(separator = ' | '): TableToStringIterator {
         return new TableToStringIterator(tableRowsToString(this, separator));

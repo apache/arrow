@@ -65,6 +65,8 @@ Table.prototype.batches;
 Table.prototype.countBy;
 /** @type {?} */
 Table.prototype.scan;
+/** @type {?} */
+Table.prototype.serialize;
 
 var CountByResult = function() {};
 /** @type {?} */
