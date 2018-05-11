@@ -19,6 +19,7 @@
 
 from pyarrow.includes.common cimport *
 
+
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
@@ -532,6 +533,24 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
+
+    cdef extern from "arrow/builder.h" namespace "arrow" nogil:
+
+        cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
+            CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+
+        cdef cppclass CBinaryBuilder" arrow::BinaryBuilder"(CArrayBuilder):
+            CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+
+        cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
+            CStringBuilder(CMemoryPool* pool)
+
+            int64_t length()
+            int64_t null_count()
+
+            CStatus Append(const c_string& value)
+            CStatus AppendNull()
+            CStatus Finish(shared_ptr[CArray]* out)
 
 
 cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:

@@ -39,11 +39,12 @@
 #include <algorithm>
 #include <deque>
 #include <mutex>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/util/thread-pool.h"
+
 #include "plasma/common.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
@@ -71,8 +72,8 @@ using arrow::MutableBuffer;
 
 typedef struct XXH64_state_s XXH64_state_t;
 
-// Number of threads used for memcopy and hash computations.
-constexpr int64_t kThreadPoolSize = 8;
+// Number of threads used for hash computations.
+constexpr int64_t kHashingConcurrency = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
 
 // Use 100MB as an overestimate of the L3 cache size.
@@ -264,8 +265,6 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// information to make sure that it does not delay in releasing so much
   /// memory that the store is unable to evict enough objects to free up space.
   int64_t store_capacity_;
-  /// Threadpool for parallel memcopy and hash computation.
-  std::vector<std::thread> threadpool_;
 
 #ifdef PLASMA_GPU
   /// Cuda Device Manager.
@@ -275,7 +274,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
 PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
-PlasmaClient::Impl::Impl() : threadpool_(kThreadPoolSize) {
+PlasmaClient::Impl::Impl() {
 #ifdef PLASMA_GPU
   CudaDeviceManager::GetInstance(&manager_);
 #endif
@@ -700,7 +699,9 @@ bool PlasmaClient::Impl::compute_object_hash_parallel(XXH64_state_t* hash_state,
                                                       int64_t nbytes) {
   // Note that this function will likely be faster if the address of data is
   // aligned on a 64-byte boundary.
-  const int num_threads = kThreadPoolSize;
+  auto pool = arrow::internal::CPUThreadPool();
+
+  const int num_threads = kHashingConcurrency;
   uint64_t threadhash[num_threads + 1];
   const uint64_t data_address = reinterpret_cast<uint64_t>(data);
   const uint64_t num_blocks = nbytes / kBlockSize;
@@ -711,19 +712,17 @@ bool PlasmaClient::Impl::compute_object_hash_parallel(XXH64_state_t* hash_state,
   // | num_threads * chunk_size | suffix |, where chunk_size = k * block_size.
   // Each thread gets a "chunk" of k blocks, except the suffix thread.
 
+  std::vector<std::future<void>> futures;
   for (int i = 0; i < num_threads; i++) {
-    threadpool_[i] = std::thread(
+    futures.push_back(pool->Submit(
         ComputeBlockHash, reinterpret_cast<uint8_t*>(data_address) + i * chunk_size,
-        chunk_size, &threadhash[i]);
+        chunk_size, &threadhash[i]));
   }
   ComputeBlockHash(reinterpret_cast<uint8_t*>(right_address), suffix,
                    &threadhash[num_threads]);
 
-  // Join the threads.
-  for (auto& t : threadpool_) {
-    if (t.joinable()) {
-      t.join();
-    }
+  for (auto& fut : futures) {
+    fut.get();
   }
 
   XXH64_update(hash_state, reinterpret_cast<unsigned char*>(threadhash),

@@ -16,12 +16,21 @@
 # under the License.
 
 {
+  global:
+    extern "C++" {
+      # Export pthread_once-related symbols so that two SO files
+      # (e.g. libarrow.so and libplasma.so) don't use separate copies of
+      # those symbols.
+      # See https://github.com/apache/arrow/pull/1953#issuecomment-386057063
+      std::__once*;
+    };
+
   # Symbols marked as 'local' are not exported by the DSO and thus may not
   # be used by client applications.
   local:
     # devtoolset / static-libstdc++ symbols
     __cxa_*;
-
+    __once_proxy;
 
     # Static libraries that are linked in e.g. the manylinux1 build
     # Brotli compression library
