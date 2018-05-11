@@ -180,10 +180,11 @@ import { Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64, Float16, Floa
 import { Struct, Union, SparseUnion, DenseUnion, FixedSizeBinary, FixedSizeList, Map_, Dictionary } from './type';
 
 import { ChunkedView } from './vector/chunked';
+import { ValidityView } from './vector/validity';
 import { DictionaryView } from './vector/dictionary';
 import { ListView, FixedSizeListView, BinaryView, Utf8View } from './vector/list';
 import { UnionView, DenseUnionView, NestedView, StructView, MapView } from './vector/nested';
-import { FlatView, NullView, BoolView, ValidityView, PrimitiveView, FixedSizeView, Float16View } from './vector/flat';
+import { FlatView, NullView, BoolView, PrimitiveView, FixedSizeView, Float16View } from './vector/flat';
 import { DateDayView, DateMillisecondView, IntervalYearMonthView } from './vector/flat';
 import { TimestampDayView, TimestampSecondView, TimestampMillisecondView, TimestampMicrosecondView, TimestampNanosecondView } from './vector/flat';
 import { packBools } from './util/bit';
