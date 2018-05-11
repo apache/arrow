@@ -63,7 +63,7 @@
     "tslib": "1.9.0"
   },
   "devDependencies": {
-    "@std/esm": "0.19.7",
+    "@std/esm": "0.26.0",
     "@types/glob": "5.0.35",
     "@types/jest": "22.1.0",
     "ast-types": "0.10.1",
