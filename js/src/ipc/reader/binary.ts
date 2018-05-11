@@ -18,6 +18,7 @@
 import { Vector } from '../../vector';
 import { flatbuffers } from 'flatbuffers';
 import { TypeDataLoader } from './vector';
+import { checkForMagicArrowString, PADDING, magicLength, magicAndPadding, magicX2AndPadding } from '../magic';
 import { Message, Footer, FileBlock, RecordBatchMetadata, DictionaryBatch, BufferMetadata, FieldMetadata, } from '../metadata';
 import {
     Schema, Field,
@@ -128,26 +129,6 @@ function readSchema(bb: ByteBuffer) {
     }
     return { schema, readMessages };
 }
-
-const PADDING = 4;
-const MAGIC_STR = 'ARROW1';
-const MAGIC = new Uint8Array(MAGIC_STR.length);
-for (let i = 0; i < MAGIC_STR.length; i += 1 | 0) {
-    MAGIC[i] = MAGIC_STR.charCodeAt(i);
-}
-
-function checkForMagicArrowString(buffer: Uint8Array, index = 0) {
-    for (let i = -1, n = MAGIC.length; ++i < n;) {
-        if (MAGIC[i] !== buffer[index + i]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-const magicLength = MAGIC.length;
-const magicAndPadding = magicLength + PADDING;
-const magicX2AndPadding = magicLength * 2 + PADDING;
 
 function readStreamSchema(bb: ByteBuffer) {
     if (!checkForMagicArrowString(bb.bytes(), 0)) {
