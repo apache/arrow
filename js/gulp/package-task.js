@@ -27,6 +27,7 @@ const { Observable, ReplaySubject } = require('rxjs');
 const gulpJsonTransform = require('gulp-json-transform');
 
 const packageTask = ((cache) => memoizeTask(cache, function bundle(target, format) {
+    if (target === `src`) return Observable.empty();
     const out = targetDir(target, format);
     const jsonTransform = gulpJsonTransform(target === npmPkgName ? createMainPackageJson(target, format) :
                                             target === `ts`       ? createTypeScriptPackageJson(target, format)
@@ -48,7 +49,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
     types: `${mainExport}.d.ts`,
     module: `${mainExport}.mjs`,
     unpkg: `${mainExport}.es5.min.js`,
-    [`@std/esm`]: { esm: `mjs`, warnings: false, sourceMap: true }
+    [`@std/esm`]: { mode: `all`, warnings: false, sourceMap: true }
 });
   
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
@@ -77,6 +78,6 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
 const conditionallyAddStandardESMEntry = (target, format) => (packageJSON) => (
     format !== `esm` && format !== `cls`
         ?      packageJSON
-        : { ...packageJSON, [`@std/esm`]: { esm: `js`, warnings: false, sourceMap: true } }
+        : { ...packageJSON, [`@std/esm`]: { mode: `js`, warnings: false, sourceMap: true } }
 );
   
