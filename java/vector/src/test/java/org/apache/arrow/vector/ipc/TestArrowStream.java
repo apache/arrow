@@ -105,8 +105,8 @@ public class TestArrowStream extends BaseFileTest {
 
     try (IntVector vector = new IntVector("foo", allocator);) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
-      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
-           ArrowStreamWriter writer = new ArrowStreamWriter(root, new DictionaryProvider.MapDictionaryProvider(), Channels.newChannel(os));) {
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
+           ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
         writeBatchData(writer, vector, root);
       }
     }

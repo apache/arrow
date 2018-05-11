@@ -18,8 +18,6 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static org.junit.Assert.assertEquals;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -36,6 +34,7 @@ import java.util.Map;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
@@ -718,7 +717,7 @@ public class TestArrowFile extends BaseFileTest {
       Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
       try (FileOutputStream fileOutputStream = new FileOutputStream(file);
            VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
-           ArrowFileWriter writer = new ArrowFileWriter(root, new MapDictionaryProvider(), fileOutputStream.getChannel());) {
+           ArrowFileWriter writer = new ArrowFileWriter(root, null, fileOutputStream.getChannel());) {
         writeBatchData(writer, vector, root);
       }
     }
