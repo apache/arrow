@@ -268,7 +268,7 @@ class RecordBatchSerializer extends VectorVisitor {
         const { data, length } = vector;
         const { offset, values, valueOffsets } = data;
         const firstOffset = valueOffsets[0];
-        const lastOffset = valueOffsets[valueOffsets.length - 1];
+        const lastOffset = valueOffsets[length];
         const byteLength = Math.min(lastOffset - firstOffset, values.byteLength - firstOffset);
         // Push in the order FlatList types read their buffers
         // valueOffsets buffer first
@@ -536,9 +536,9 @@ export class TypeSerializer extends TypeVisitor {
 function concatBuffersWithMetadata(byteLength: number, buffers: Uint8Array[], buffersMeta: BufferMetadata[]) {
     const data = new Uint8Array(byteLength);
     for (let bufferIndex = -1, buffersLen = buffers.length; ++bufferIndex < buffersLen;) {
-        const { buffer, byteLength } = buffers[bufferIndex];
-        const { offset: byteOffset } = buffersMeta[bufferIndex];
-        data.set(new Uint8Array(buffer, 0, byteLength), byteOffset);
+        const { offset } = buffersMeta[bufferIndex];
+        const { buffer, byteOffset, byteLength } = buffers[bufferIndex];
+        data.set(new Uint8Array(buffer, byteOffset, byteLength), offset);
     }
     return data;
 }
