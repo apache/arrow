@@ -52,15 +52,23 @@ conda install -y -q pip \
 #   conda install -y -q pytorch torchvision -c soumith
 # fi
 
-# Build C++ libraries
+# Re-build C++ libraries with the right Python setup
 mkdir -p $ARROW_CPP_BUILD_DIR
 pushd $ARROW_CPP_BUILD_DIR
 
 # Clear out prior build files
 rm -rf *
 
+# XXX Can we simply reuse CMAKE_COMMON_FLAGS from travis_before_script_cpp.sh?
+CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
+
+if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
+fi
+
 cmake -GNinja \
-      -DARROW_BUILD_TESTS=off \
+      $CMAKE_COMMON_FLAGS \
+      -DARROW_BUILD_TESTS=on \
       -DARROW_BUILD_UTILITIES=off \
       -DARROW_PLASMA=on \
       -DARROW_PYTHON=on \
@@ -73,6 +81,9 @@ ninja
 ninja install
 
 popd
+
+# python-test isn't run by travis_script_cpp.sh, exercise it here
+$ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/python-test
 
 # Other stuff pip install
 pushd $ARROW_PYTHON_DIR
@@ -106,6 +117,17 @@ fi
 
 PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
 python -m pytest -r sxX --durations=15 $PYARROW_PATH --parquet
+
+# Capture C++ coverage info and combine with previous coverage file
+if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
+    pushd $TRAVIS_BUILD_DIR
+    lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info
+    lcov --add-tracefile coverage-python-tests.info \
+        --add-tracefile $ARROW_CPP_COVERAGE_FILE \
+        --output-file $ARROW_CPP_COVERAGE_FILE
+    rm coverage-python-tests.info
+    popd
+fi
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Build documentation once

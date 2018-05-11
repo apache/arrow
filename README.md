@@ -27,6 +27,12 @@
     <img src="https://travis-ci.org/apache/arrow.svg?branch=master" alt="travis build status" />
     </a>
     </td>
+    <td>Code Coverage</td>
+    <td>
+    <a href="https://codecov.io/gh/apache/arrow">
+    <img src="https://codecov.io/gh/apache/arrow/branch/master/graph/badge.svg" alt="codecov.io code coverage" />
+    </a>
+    </td>
   </tr>
 </table>
 
