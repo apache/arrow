@@ -19,7 +19,7 @@ import { Table } from '../../table';
 import { DenseUnionData } from '../../data';
 import { RecordBatch } from '../../recordbatch';
 import { VectorVisitor, TypeVisitor } from '../../visitor';
-import { MAGIC, PADDING, magicLength, magicAndPadding } from '../magic';
+import { MAGIC, magicLength, magicAndPadding } from '../magic';
 import { align, getBool, packBools, iterateBits } from '../../util/bit';
 import { Vector, UnionVector, DictionaryVector, NestedVector, ListVector } from '../../vector';
 import { BufferMetadata, FieldMetadata, Footer, FileBlock, Message, RecordBatchMetadata, DictionaryBatch } from '../metadata';
@@ -84,9 +84,9 @@ export function* serializeFile(table: Table) {
     yield buffer;
     
     // Last, yield the footer length + terminating magic arrow string (aligned)
-    buffer = new Uint8Array(align(magicAndPadding, 8));
-    new Uint32Array(buffer.buffer)[0] = metadataLength;
-    buffer.set(MAGIC, buffer.byteLength - PADDING);
+    buffer = new Uint8Array(magicAndPadding);
+    new DataView(buffer.buffer).setInt32(0, metadataLength, platformIsLittleEndian);
+    buffer.set(MAGIC, buffer.byteLength - magicLength);
     yield buffer;
 }
 
