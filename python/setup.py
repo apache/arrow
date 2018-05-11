@@ -102,6 +102,7 @@ class build_ext(_build_ext):
                      ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
                      ('with-orc', None, 'build the ORC extension'),
+                     ('generate-coverage', None, 'enable Cython code coverage'),
                      ('bundle-boost', None,
                       'bundle the (shared) Boost libraries'),
                      ('bundle-arrow-cpp', None,
@@ -135,6 +136,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
         self.with_orc = strtobool(
             os.environ.get('PYARROW_WITH_ORC', '0'))
+        self.generate_coverage = strtobool(
+            os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
         self.bundle_boost = strtobool(
@@ -196,6 +199,9 @@ class build_ext(_build_ext):
             if len(self.cmake_cxxflags) > 0:
                 cmake_options.append('-DPYARROW_CXXFLAGS={0}'
                                      .format(self.cmake_cxxflags))
+
+            if self.generate_coverage:
+                cmake_options.append('-DPYARROW_GENERATE_COVERAGE=on')
 
             if self.bundle_arrow_cpp:
                 cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
@@ -303,13 +309,30 @@ class build_ext(_build_ext):
                     raise RuntimeError('pyarrow C-extension failed to build:',
                                        os.path.abspath(built_path))
 
+                cpp_generated_path = self.get_ext_generated_cpp_source(name)
+                if not os.path.exists(cpp_generated_path):
+                    raise RuntimeError('expected to find generated C++ file '
+                                       'in {0!r}'.format(cpp_generated_path))
+
+                # The destination path to move the generated C++ source to
+                # (for Cython source coverage)
+                cpp_path = pjoin(build_lib, self._get_build_dir(),
+                                 os.path.basename(cpp_generated_path))
+                if os.path.exists(cpp_path):
+                    os.remove(cpp_path)
+
+                # The destination path to move the built C extension to
                 ext_path = pjoin(build_lib, self._get_cmake_ext_path(name))
                 if os.path.exists(ext_path):
                     os.remove(ext_path)
                 self.mkpath(os.path.dirname(ext_path))
+
+                print('Moving generated C++ source', cpp_generated_path,
+                      'to build path', cpp_path)
+                shutil.move(cpp_generated_path, cpp_path)
                 print('Moving built C-extension', built_path,
                       'to build path', ext_path)
-                shutil.move(self.get_ext_built(name), ext_path)
+                shutil.move(built_path, ext_path)
                 self._found_names.append(name)
 
                 if os.path.exists(self.get_ext_built_api_header(name)):
@@ -321,7 +344,7 @@ class build_ext(_build_ext):
                 build_py = self.get_finalized_command('build_py')
                 source = os.path.join(self.build_type, "plasma_store")
                 target = os.path.join(build_lib,
-                                      build_py.get_package_dir('pyarrow'),
+                                      self._get_build_dir(),
                                       "plasma_store")
                 shutil.move(source, target)
 
@@ -334,19 +357,25 @@ class build_ext(_build_ext):
             return True
         return False
 
-    def _get_inplace_dir(self):
-        pass
-
-    def _get_cmake_ext_path(self, name):
+    def _get_build_dir(self):
         # Get the package directory from build_py
         build_py = self.get_finalized_command('build_py')
-        package_dir = build_py.get_package_dir('pyarrow')
+        return build_py.get_package_dir('pyarrow')
+
+    def _get_cmake_ext_path(self, name):
         # This is the name of the arrow C-extension
         suffix = sysconfig.get_config_var('EXT_SUFFIX')
         if suffix is None:
             suffix = sysconfig.get_config_var('SO')
         filename = name + suffix
-        return pjoin(package_dir, filename)
+        return pjoin(self._get_build_dir(), filename)
+
+    def get_ext_generated_cpp_source(self, name):
+        if sys.platform == 'win32':
+            head, tail = os.path.split(name)
+            return pjoin(head, tail + ".cpp")
+        else:
+            return pjoin(name + ".cpp")
 
     def get_ext_built_api_header(self, name):
         if sys.platform == 'win32':

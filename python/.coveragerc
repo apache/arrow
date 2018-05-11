@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,15 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
-pushd $TRAVIS_BUILD_DIR
-
-# Display C++ coverage summary
-lcov --list $ARROW_CPP_COVERAGE_FILE
-# Upload report to CodeCov
-bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-
-popd
+[run]
+plugins = Cython.Coverage

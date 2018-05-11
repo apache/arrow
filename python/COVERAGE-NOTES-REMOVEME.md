@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,15 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+To build Cython modules with coverage:
+```
+export PYARROW_CMAKE_OPTIONS="$PYARROW_CMAKE_OPTIONS -DCYTHON_FLAGS='-X linetrace=True'"
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+python setup.py build_ext --inplace
+```
 
-pushd $TRAVIS_BUILD_DIR
+To collect coverage data:
+```
+coverage run -m pytest pyarrow/tests/
+```
 
-# Display C++ coverage summary
-lcov --list $ARROW_CPP_COVERAGE_FILE
-# Upload report to CodeCov
-bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-
-popd
+To display a coverage report:
+```
+coverage report
+```

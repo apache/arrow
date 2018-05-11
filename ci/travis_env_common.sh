@@ -31,6 +31,7 @@ export ARROW_RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
 if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
     export ARROW_CPP_COVERAGE_FILE=${TRAVIS_BUILD_DIR}/coverage.info
+    export ARROW_PYTHON_COVERAGE_FILE=${TRAVIS_BUILD_DIR}/.coverage
 fi
 
 export CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
