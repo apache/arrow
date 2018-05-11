@@ -358,14 +358,24 @@ export class Utf8Vector extends ListVectorBase<Utf8> {
 }
 
 export class ListVector<T extends DataType = DataType> extends ListVectorBase<List<T>> {
-    constructor(data: Data<List<T>>, view: View<List<T>> = new ListView(data)) {
+    // @ts-ignore
+    public readonly view: ListView<T>;
+    constructor(data: Data<T>, view: View<List<T>> = new ListView(data)) {
         super(data, view);
+    }
+    public getChildAt(index: number): Vector<T> | null {
+        return this.view.getChildAt<T>(index);
     }
 }
 
-export class FixedSizeListVector extends Vector<FixedSizeList> {
-    constructor(data: Data<FixedSizeList>, view: View<FixedSizeList> = new FixedSizeListView(data)) {
+export class FixedSizeListVector<T extends DataType = DataType> extends Vector<FixedSizeList<T>> {
+    // @ts-ignore
+    public readonly view: FixedSizeListView<T>;
+    constructor(data: Data<FixedSizeList<T>>, view: View<FixedSizeList<T>> = new FixedSizeListView(data)) {
         super(data, view);
+    }
+    public getChildAt(index: number): Vector<T> | null {
+        return this.view.getChildAt<T>(index);
     }
 }
 

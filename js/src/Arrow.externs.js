@@ -539,7 +539,11 @@ var Utf8Vector = function() {};
 /** @type {?} */
 Utf8Vector.prototype.asBinary;
 var ListVector = function() {};
+/** @type {?} */
+ListVector.prototype.getChildAt;
 var FixedSizeListVector = function() {};
+/** @type {?} */
+FixedSizeListVector.prototype.getChildAt;
 var MapVector = function() {};
 /** @type {?} */
 MapVector.prototype.asStruct;
@@ -613,6 +617,10 @@ ValidityView.prototype.isValid;
 ValidityView.prototype.toArray;
 /** @type {?} */
 ValidityView.prototype.set;
+/** @type {?} */
+ValidityView.prototype.size;
+/** @type {?} */
+ValidityView.prototype.getChildAt;
 
 var DictionaryView = function() {};
 /** @type {?} */
