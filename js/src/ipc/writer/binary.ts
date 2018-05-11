@@ -15,31 +15,139 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Table } from '../../table';
 import { DenseUnionData } from '../../data';
 import { RecordBatch } from '../../recordbatch';
 import { VectorVisitor, TypeVisitor } from '../../visitor';
+import { MAGIC, PADDING, magicLength, magicAndPadding } from '../magic';
 import { align, getBool, packBools, iterateBits } from '../../util/bit';
-import { Vector, UnionVector, DictionaryVector, NestedVector } from '../../vector';
+import { Vector, UnionVector, DictionaryVector, NestedVector, ListVector } from '../../vector';
 import { BufferMetadata, FieldMetadata, Footer, FileBlock, Message, RecordBatchMetadata, DictionaryBatch } from '../metadata';
 import {
     Schema, Field, TypedArray, MetadataVersion,
+    DataType,
     Dictionary,
     Null, Int, Float,
     Binary, Bool, Utf8, Decimal,
     Date_, Time, Timestamp, Interval,
     List, Struct, Union, FixedSizeBinary, FixedSizeList, Map_,
-    UnionMode, SparseUnion, DenseUnion, FlatListType, DataType, FlatType, NestedType,
+    FlatType, FlatListType, NestedType, UnionMode, SparseUnion, DenseUnion, SingleNestedType,
 } from '../../type';
 
-export class RecordBatchSerializer extends VectorVisitor {
-    protected byteLength = 0;
-    // @ts-ignore
-    protected buffers: TypedArray[];
-    // @ts-ignore
-    protected fieldNodes: FieldMetadata[];
-    // @ts-ignore
-    protected buffersMeta: BufferMetadata[];
-    public writeRecordBatch(recordBatch: RecordBatch) {
+export function* serializeStream(table: Table) {
+    yield serializeMessage(table.schema).buffer;
+    for (const [id, field] of table.schema.dictionaries) {
+        const vec = table.getColumn(field.name) as DictionaryVector;
+        if (vec && vec.dictionary) {
+            yield serializeDictionaryBatch(vec.dictionary, id).buffer;
+        }
+    }
+    for (const recordBatch of table.batches) {
+        yield serializeRecordBatch(recordBatch).buffer;
+    }
+}
+
+export function* serializeFile(table: Table) {
+
+    const recordBatches = [];
+    const dictionaryBatches = [];
+
+    // First yield the magic string (aligned)
+    let buffer = new Uint8Array(align(magicLength, 8));
+    let metadataLength, byteLength = buffer.byteLength;
+    buffer.set(MAGIC, 0);
+    yield buffer;
+
+    // Then yield the schema
+    ({ metadataLength, buffer } = serializeMessage(table.schema));
+    byteLength += buffer.byteLength;
+    yield buffer;
+
+    for (const [id, field] of table.schema.dictionaries) {
+        const vec = table.getColumn(field.name) as DictionaryVector;
+        if (vec && vec.dictionary) {
+            ({ metadataLength, buffer } = serializeDictionaryBatch(vec.dictionary, id));
+            dictionaryBatches.push(new FileBlock(metadataLength, buffer.byteLength, byteLength));
+            byteLength += buffer.byteLength;
+            yield buffer;
+        }
+    }
+    for (const recordBatch of table.batches) {
+        ({ metadataLength, buffer } = serializeRecordBatch(recordBatch));
+        recordBatches.push(new FileBlock(metadataLength, buffer.byteLength, byteLength));
+        byteLength += buffer.byteLength;
+        yield buffer;
+    }
+
+    // Then yield the footer metadata (not aligned)
+    ({ metadataLength, buffer } = serializeFooter(new Footer(dictionaryBatches, recordBatches, table.schema)));
+    yield buffer;
+    
+    // Last, yield the footer length + terminating magic arrow string (aligned)
+    buffer = new Uint8Array(align(magicAndPadding, 8));
+    new Uint32Array(buffer.buffer)[0] = metadataLength;
+    buffer.set(MAGIC, buffer.byteLength - PADDING);
+    yield buffer;
+}
+
+export function serializeRecordBatch(recordBatch: RecordBatch) {
+    const { byteLength, fieldNodes, length, buffers, buffersMeta } = new RecordBatchSerializer().visitRecordBatch(recordBatch);
+    const rbMeta = new RecordBatchMetadata(MetadataVersion.V4, length, fieldNodes, buffersMeta);
+    const rbData = concatBuffersWithMetadata(byteLength, buffers, buffersMeta);
+    return serializeMessage(rbMeta, rbData);
+}
+
+export function serializeDictionaryBatch(dictionary: Vector, id: Long | number, isDelta: boolean = false) {
+    const { byteLength, fieldNodes, length, buffers, buffersMeta } = new RecordBatchSerializer().visitRecordBatch(RecordBatch.from([dictionary]));
+    const rbMeta = new RecordBatchMetadata(MetadataVersion.V4, length, fieldNodes, buffersMeta);
+    const dbMeta = new DictionaryBatch(MetadataVersion.V4, rbMeta, id, isDelta);
+    const rbData = concatBuffersWithMetadata(byteLength, buffers, buffersMeta);
+    return serializeMessage(dbMeta, rbData);
+}
+
+export function serializeMessage(message: Message, data?: Uint8Array) {
+    const b = new Builder();
+    _Message.finishMessageBuffer(b, writeMessage(b, message));
+    // Slice out the buffer that contains the message metadata
+    const metadataBytes = b.asUint8Array();
+    // Reserve 4 bytes for writing the message size at the front.
+    // Metadata length includes the metadata byteLength + the 4
+    // bytes for the length, and rounded up to the nearest 8 bytes.
+    const metadataLength = align(4 + metadataBytes.byteLength, 8);
+    // + the length of the optional data buffer at the end, padded
+    const dataByteLength = align(data ? data.byteLength : 0, 8);
+    // since both metadataLength and dataByteLength are aligned to 8-byte
+    // boundaries, the entire message is also aligned.
+    const messageBytes = new Uint8Array(metadataLength + dataByteLength);
+    // Write the metadata length into the first 4 bytes, but subtract the
+    // bytes we use to hold the length itself.
+    new DataView(messageBytes.buffer).setInt32(0, metadataLength - 4, platformIsLittleEndian);
+    // Copy the metadata bytes into the message buffer
+    messageBytes.set(metadataBytes, 4);
+    // Copy the optional data buffer after the metadata bytes
+    (data && dataByteLength > 0) && messageBytes.set(data, metadataLength);
+    // if (messageBytes.byteLength % 8 !== 0) { debugger; }
+    // Return the metadata length because we need to write it into each FileBlock also
+    return { metadataLength, buffer: messageBytes };
+}
+
+export function serializeFooter(footer: Footer) {
+    const b = new Builder();
+    _Footer.finishFooterBuffer(b, writeFooter(b, footer));
+    // Slice out the buffer that contains the footer metadata
+    const footerBytes = b.asUint8Array();
+    const metadataLength = footerBytes.byteLength;
+    return { metadataLength, buffer: footerBytes };
+}
+
+class RecordBatchSerializer extends VectorVisitor {
+    public length = 0;
+    public byteLength = 0;
+    public buffers: TypedArray[] = [];
+    public fieldNodes: FieldMetadata[] = [];
+    public buffersMeta: BufferMetadata[] = [];
+    public visitRecordBatch(recordBatch: RecordBatch) {
+        this.length = 0;
         this.byteLength = 0;
         this.buffers = [];
         this.fieldNodes = [];
@@ -49,58 +157,38 @@ export class RecordBatchSerializer extends VectorVisitor {
                 this.visit(vector);
             }
         }
-        const b = new Builder();
-        _Message.finishMessageBuffer(
-            b, writeMessage(b, new RecordBatchMetadata(
-                MetadataVersion.V4, this.byteLength, this.fieldNodes, this.buffersMeta
-            ))
-        );
-        const metadataBytes = b.asUint8Array();
-        // 4 bytes for the metadata length + 4 bytes of padding + the length of the metadata buffer
-        const metadataBytesOffset = 8 + metadataBytes.byteLength;
-        // + the length of all the vector buffers
-        const recordBatchBytes = new Uint8Array(metadataBytesOffset + this.byteLength);
-        // Write the metadata length as the first 4 bytes
-        new DataView(recordBatchBytes.buffer).setInt32(0, metadataBytes.byteLength);
-        // Now write the buffers
-        const { buffers, buffersMeta } = this;
-        for (let bufferIndex = -1, buffersLen = buffers.length; ++bufferIndex < buffersLen;) {
-            const { buffer, byteLength } = buffers[bufferIndex];
-            const { offset: byteOffset } = buffersMeta[bufferIndex];
-            recordBatchBytes.set(
-                new Uint8Array(buffer, 0, byteLength),
-                metadataBytesOffset + byteOffset
-            );
-        }
-        return recordBatchBytes;
+        return this;
     }
     public visit<T extends DataType>(vector: Vector<T>) {
-        const { data, length, nullCount } = vector;
-        if (length > 2147483647) {
-            throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
+        if (!DataType.isDictionary(vector.type)) {
+            const { data, length, nullCount } = vector;
+            this.length = Math.max(this.length, length);
+            if (length > 2147483647) {
+                throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
+            }
+            this.fieldNodes.push(new FieldMetadata(length, nullCount));
+            this.addBuffer(nullCount <= 0
+                ? new Uint8Array(0) // placeholder validity buffer
+                : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!));
         }
-        this.fieldNodes.push(new FieldMetadata(length, nullCount));
-        this.addBuffer(nullCount <= 0
-            ? new Uint8Array(0) // placeholder validity buffer
-            : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!));
         return super.visit(vector);
     }
-    public visitNull           (_vector: Vector<Null>)           { return this;                              }
-    public visitBool           (vector: Vector<Bool>)            { return this.visitFlatVector(vector);      }
+    public visitNull           (_nullz: Vector<Null>)            { return this;                              }
+    public visitBool           (vector: Vector<Bool>)            { return this.visitBoolVector(vector);      }
     public visitInt            (vector: Vector<Int>)             { return this.visitFlatVector(vector);      }
     public visitFloat          (vector: Vector<Float>)           { return this.visitFlatVector(vector);      }
     public visitUtf8           (vector: Vector<Utf8>)            { return this.visitFlatListVector(vector);  }
     public visitBinary         (vector: Vector<Binary>)          { return this.visitFlatListVector(vector);  }
-    public visitFixedSizeBinary(vector: Vector<FixedSizeBinary>) { return this.visitFlatVector(vector);      }
     public visitDate           (vector: Vector<Date_>)           { return this.visitFlatVector(vector);      }
     public visitTimestamp      (vector: Vector<Timestamp>)       { return this.visitFlatVector(vector);      }
     public visitTime           (vector: Vector<Time>)            { return this.visitFlatVector(vector);      }
     public visitDecimal        (vector: Vector<Decimal>)         { return this.visitFlatVector(vector);      }
     public visitInterval       (vector: Vector<Interval>)        { return this.visitFlatVector(vector);      }
+    public visitList           (vector: Vector<List>)            { return this.visitListVector(vector);      }
     public visitStruct         (vector: Vector<Struct>)          { return this.visitNestedVector(vector);    }
+    public visitFixedSizeBinary(vector: Vector<FixedSizeBinary>) { return this.visitFlatVector(vector);      }
+    public visitFixedSizeList  (vector: Vector<FixedSizeList>)   { return this.visitListVector(vector);      }
     public visitMap            (vector: Vector<Map_>)            { return this.visitNestedVector(vector);    }
-    public visitFixedSizeList  (vector: Vector<FixedSizeList>)   { return this.visitNestedVector(vector, 1); }
-    public visitList           (vector: Vector<List>)            { return this.visitNestedVector(vector, 1); }
     public visitDictionary     (vector: DictionaryVector)        {
         // Dictionary written out separately. Slice offset contained in the indices
         return this.visit(vector.indices);
@@ -153,35 +241,65 @@ export class RecordBatchSerializer extends VectorVisitor {
         }
         return this;
     }
-    protected visitFlatVector<T extends FlatType>(vector: Vector<T>) {
-        // Use the TypedArray constructor defined by the Vector's DataType
-        const { ArrayType } = vector.type;
-        // Use `vector.toArray()` here, since the View currently applied to the Vector might iterate different values
-        // than are in the original Data's values buffer.
-        // An example is a TimestampVector[ns] that's been converted to an Int32Vector via `asEpochMilliseconds()`.
-        // If the Vector's View is a ValidityView, the null slots will be automatically coerced by the TypedArray
-        // constructor, e.g. `0` for an Int8Array, `NaN` for Float64Array, etc.
-        this.addBuffer(new ArrayType(vector.toArray()));
+    protected visitBoolVector(vector: Vector<Bool>) {
+        // Bool vector is a special case of FlatVector, as its data buffer needs to stay packed
+        let values, { data, length } = vector;
+        if (vector.nullCount >= length) {
+            // If all values are null, just insert a placeholder empty data buffer (fastest path)
+            this.addBuffer(new Uint8Array(0));
+        } else if (!((values = data.values) instanceof Uint8Array)) {
+            // Otherwise if the underlying data *isn't* a Uint8Array, enumerate
+            // the values as bools and re-pack them into a Uint8Array (slow path)
+            // todo (ptaylor): this assumes Uint8Array = already packed, but that may not always be true
+            this.addBuffer(packBools(vector));
+        } else {
+            // otherwise just slice the bitmap (fast path)
+            this.addBuffer(this.getTruncatedBitmap(data.offset, length, values));
+        }
         return this;
+    }
+    protected visitFlatVector<T extends FlatType>(vector: Vector<T>) {
+        const { view, data } = vector;
+        const { offset, length, values } = data;
+        const scaledLength = length * ((view as any).size || 1);
+        return this.addBuffer(values.subarray(offset, scaledLength));
     }
     protected visitFlatListVector<T extends FlatListType>(vector: Vector<T>) {
         const { data, length } = vector;
-        const sliceOffset = data.offset;
-        const { values, valueOffsets } = data;
+        const { offset, values, valueOffsets } = data;
         const firstOffset = valueOffsets[0];
         const lastOffset = valueOffsets[valueOffsets.length - 1];
         const byteLength = Math.min(lastOffset - firstOffset, values.byteLength - firstOffset);
-        // Push in the order of FlatList types
+        // Push in the order FlatList types read their buffers
         // valueOffsets buffer first
-        this.addBuffer(this.getZeroBasedValueOffsets(sliceOffset, length, valueOffsets));
+        this.addBuffer(this.getZeroBasedValueOffsets(offset, length, valueOffsets));
         // sliced values buffer second
-        this.addBuffer(values.subarray(firstOffset + sliceOffset, firstOffset + sliceOffset + byteLength));
+        this.addBuffer(values.subarray(firstOffset + offset, firstOffset + offset + byteLength));
         return this;
     }
-    protected visitNestedVector<T extends NestedType>(vector: Vector<T>, numChildren = vector.type.children.length) {
+    protected visitListVector<T extends SingleNestedType>(vector: Vector<T>) {
+        const { data, length } = vector;
+        const { offset, valueOffsets } = <any> data;
+        // If we have valueOffsets (ListVector), push that buffer first
+        if (valueOffsets) {
+            this.addBuffer(this.getZeroBasedValueOffsets(offset, length, valueOffsets));
+        }
+        // Then insert the List's values child
+        const child = (vector as any as ListVector<T>).getChildAt(0);
+        if (child) {
+            child.length -= 1;
+            this.visit(child);
+            child.length += 1;
+        }
+        return this;
+    }
+    protected visitNestedVector<T extends NestedType>(vector: Vector<T>) {
         // Visit the children accordingly
-        for (let childIndex = -1; ++childIndex < numChildren;) {
-            this.visit((vector as NestedVector<T>).getChildAt(childIndex)!);
+        const numChildren = (vector.type.children || []).length;
+        for (let child: Vector | null, childIndex = -1; ++childIndex < numChildren;) {
+            if (child = (vector as NestedVector<T>).getChildAt(childIndex)) {
+                this.visit(child);
+            }
         }
         return this;
     }
@@ -191,8 +309,9 @@ export class RecordBatchSerializer extends VectorVisitor {
         this.buffers.push(values);
         this.buffersMeta.push(new BufferMetadata(this.byteLength, alignedLength));
         this.byteLength += alignedLength;
+        return this;
     }
-    protected getTruncatedBitmap(sliceOffset: number, length: number, nullBitmap: Uint8Array) {
+    protected getTruncatedBitmap(sliceOffset: number, length: number, bitmap: Uint8Array) {
         const alignedLength = align(length, 64);
         if (sliceOffset > 0 || length < alignedLength) {
             // With a sliced array / non-zero offset, we have to copy the bitmap
@@ -200,13 +319,13 @@ export class RecordBatchSerializer extends VectorVisitor {
             bytes.set(
                 (sliceOffset % 8 === 0)
                 // If the sliceOffset is aligned to 1 byte, it's safe to slice the nullBitmap directly
-                ? nullBitmap.subarray(sliceOffset >> 3)
+                ? bitmap.subarray(sliceOffset >> 3)
                 // iterate each bit starting from the sliceOffset, and repack into an aligned nullBitmap
-                : packBools(iterateBits(nullBitmap, sliceOffset, length, null, getBool))
+                : packBools(iterateBits(bitmap, sliceOffset, length, null, getBool))
             );
             return bytes;
         }
-        return nullBitmap;
+        return bitmap;
     }
     protected getZeroBasedValueOffsets(sliceOffset: number, length: number, valueOffsets: Int32Array) {
         // If we have a non-zero offset, then the value offsets do not start at
@@ -414,7 +533,16 @@ export class TypeSerializer extends TypeVisitor {
     }
 }
 
-// @ts-ignore
+function concatBuffersWithMetadata(byteLength: number, buffers: Uint8Array[], buffersMeta: BufferMetadata[]) {
+    const data = new Uint8Array(byteLength);
+    for (let bufferIndex = -1, buffersLen = buffers.length; ++bufferIndex < buffersLen;) {
+        const { buffer, byteLength } = buffers[bufferIndex];
+        const { offset: byteOffset } = buffersMeta[bufferIndex];
+        data.set(new Uint8Array(buffer, 0, byteLength), byteOffset);
+    }
+    return data;
+}
+
 function writeFooter(b: Builder, node: Footer) {
     let schemaOffset = writeSchema(b, node.schema);
     let recordBatchesOffset: number | undefined = undefined;
@@ -422,13 +550,13 @@ function writeFooter(b: Builder, node: Footer) {
     if (node.recordBatches && node.recordBatches.length) {
         recordBatchesOffset =
             _Footer.startRecordBatchesVector(b, node.recordBatches.length) ||
-            node.recordBatches.map((rb) => writeBlock(b, rb)) &&
+            mapReverse(node.recordBatches, (rb) => writeBlock(b, rb)) &&
             b.endVector();
     }
     if (node.dictionaryBatches && node.dictionaryBatches.length) {
         dictionaryBatchesOffset =
             _Footer.startDictionariesVector(b, node.dictionaryBatches.length) ||
-            node.dictionaryBatches.map((db) => writeBlock(b, db)) &&
+            mapReverse(node.dictionaryBatches, (db) => writeBlock(b, db)) &&
             b.endVector();
     }
     return (
@@ -442,7 +570,11 @@ function writeFooter(b: Builder, node: Footer) {
 }
 
 function writeBlock(b: Builder, node: FileBlock) {
-    return _Block.createBlock(b, node.offset, node.metaDataLength, node.bodyLength);
+    return _Block.createBlock(b,
+        new Long(node.offset, 0),
+        node.metaDataLength,
+        new Long(node.bodyLength, 0)
+    );
 }
 
 function writeMessage(b: Builder, node: Message) {
@@ -472,7 +604,7 @@ function writeSchema(b: Builder, node: Schema) {
     return (
         _Schema.startSchema(b) ||
         _Schema.addFields(b, fieldsOffset) ||
-        _Schema.addEndianness(b, _Endianness.Little) ||
+        _Schema.addEndianness(b, platformIsLittleEndian ? _Endianness.Little : _Endianness.Big) ||
         _Schema.endSchema(b)
     );
 }
@@ -483,13 +615,13 @@ function writeRecordBatch(b: Builder, node: RecordBatchMetadata) {
     if (node.nodes && node.nodes.length) {
         nodesOffset =
             _RecordBatch.startNodesVector(b, node.nodes.length) ||
-            node.nodes.map((n) => writeFieldNode(b, n)) &&
+            mapReverse(node.nodes, (n) => writeFieldNode(b, n)) &&
             b.endVector();
     }
     if (node.buffers && node.buffers.length) {
         buffersOffset =
             _RecordBatch.startBuffersVector(b, node.buffers.length) ||
-            node.buffers.map((bm) => writeBuffer(b, bm)) &&
+            mapReverse(node.buffers, (b_) => writeBuffer(b, b_)) &&
             b.endVector();
     }
     return (
@@ -521,19 +653,24 @@ function writeFieldNode(b: Builder, node: FieldMetadata) {
 }
 
 function writeField(b: Builder, node: Field) {
+    let typeOffset = -1;
     let type = node.type;
-    let typeOffset = new TypeSerializer(b).visit(type);
+    let typeId = node.typeId;
     let name: number | undefined = undefined;
     let children: number | undefined = undefined;
     let metadata: number | undefined = undefined;
     let dictionary: number | undefined = undefined;
-    if (DataType.isDictionary(node.type)) {
-        dictionary = new TypeSerializer(b).visit(node.type.dictionary);
+    if (!DataType.isDictionary(type)) {
+        typeOffset = new TypeSerializer(b).visit(type);
+    } else {
+        typeId = type.dictionary.TType;
+        dictionary = new TypeSerializer(b).visit(type);
+        typeOffset = new TypeSerializer(b).visit(type.dictionary);
     }
     if (type.children && type.children.length) {
         children = _Field.createChildrenVector(b, type.children.map((f) => writeField(b, f)));
     }
-    if (node.metadata) {
+    if (node.metadata && node.metadata.size > 0) {
         metadata = _Field.createCustomMetadataVector(
             b,
             [...node.metadata].map(([k, v]) => {
@@ -554,7 +691,7 @@ function writeField(b: Builder, node: Field) {
     return (
         _Field.startField(b) ||
         _Field.addType(b, typeOffset) ||
-        _Field.addTypeType(b, node.typeId) ||
+        _Field.addTypeType(b, typeId) ||
         _Field.addNullable(b, !!node.nullable) ||
         (name !== undefined && _Field.addName(b, name)) ||
         (children !== undefined && _Field.addChildren(b, children)) ||
@@ -563,3 +700,18 @@ function writeField(b: Builder, node: Field) {
         _Field.endField(b)
     );
 }
+
+function mapReverse<T, U>(source: T[], callbackfn: (value: T, index: number, array: T[]) => U): U[] {
+    const result = new Array(source.length);
+    for (let i = -1, j = source.length; --j > -1;) {
+        result[i] = callbackfn(source[j], i, source);
+    }
+    return result;
+}
+
+const platformIsLittleEndian = (function() {
+    const buffer = new ArrayBuffer(2);
+    new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
+    // Int16Array uses the platform's endianness.
+    return new Int16Array(buffer)[0] === 256;
+})();
