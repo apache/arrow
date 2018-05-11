@@ -39,7 +39,7 @@ function resolvePathArgs(paths: string) {
             if (fs.existsSync(p)) {
                 return p;
             }
-            console.warn(`Could not find file "${p}"`);
+            console.error(`Could not find file "${p}"`);
             return undefined;
         });
 }
@@ -119,6 +119,7 @@ describe(`Integration`, () => {
         describe(path.join(dir, name), () => {
             testReaderIntegration(json, arrowBuffer);
             testTableFromBuffersIntegration(json, arrowBuffer);
+            testTableToBuffersIntegration(json, arrowBuffer);
         });
     }
 });
@@ -143,6 +144,22 @@ function testTableFromBuffersIntegration(jsonData: any, arrowBuffer: Uint8Array)
     test(`json and arrow tables report the same values`, () => {
         expect.hasAssertions();
         const jsonTable = Table.from(jsonData);
+        const binaryTable = Table.from(arrowBuffer);
+        expect(jsonTable.length).toEqual(binaryTable.length);
+        expect(jsonTable.numCols).toEqual(binaryTable.numCols);
+        for (let i = -1, n = jsonTable.numCols; ++i < n;) {
+            (jsonTable.getColumnAt(i) as any).name = jsonTable.schema.fields[i].name;
+            (expect(jsonTable.getColumnAt(i)) as any).toEqualVector(binaryTable.getColumnAt(i));
+        }
+    });
+}
+
+function testTableToBuffersIntegration(jsonData: any, arrowBuffer: Uint8Array) {
+    test(`serializing json to binary reports the same values as the original binary arrow table`, () => {
+        expect.hasAssertions();
+        const fromJSON = Table.from(jsonData);
+        const serialized = fromJSON.serialize();
+        const jsonTable = Table.from(serialized);
         const binaryTable = Table.from(arrowBuffer);
         expect(jsonTable.length).toEqual(binaryTable.length);
         expect(jsonTable.numCols).toEqual(binaryTable.numCols);
