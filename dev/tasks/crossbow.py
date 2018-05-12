@@ -265,7 +265,7 @@ def build(pattern, config, dry_run, arrow_repo, queue_repo, github_token):
         config = Path(config)
 
     if arrow_repo is None:
-        arrow_repo = Path(__file__).absolute().parents[1]
+        arrow_repo = Path(__file__).absolute().parents[2]
     else:
         arrow_repo = Path(arrow_repo)
 
