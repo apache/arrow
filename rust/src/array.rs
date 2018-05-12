@@ -15,18 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 ///! Array types
-
 use std::any::Any;
 use std::convert::From;
+use std::ops::Add;
 use std::rc::Rc;
 use std::str;
 use std::string::String;
 
 use super::bitmap::Bitmap;
-use super::builder::*;
 use super::buffer::*;
+use super::builder::*;
 use super::datatypes::*;
 use super::list::*;
 use super::list_builder::*;
@@ -122,6 +121,7 @@ where
 }
 
 /// Array of T
+#[derive(Clone)]
 pub struct BufferArray<T: ArrowPrimitiveType> {
     len: usize,
     data: Buffer<T>,
@@ -211,6 +211,21 @@ where
     }
 }
 
+/// Implement the Add operation for types that support Add
+impl<T> BufferArray<T>
+where
+    T: ArrowPrimitiveType + Add<Output = T>,
+{
+    pub fn add(&self, other: &BufferArray<T>) -> BufferArray<T> {
+        let mut builder: Builder<T> = Builder::new();
+        for i in 0..self.len {
+            let x = *self.data.get(i) + *other.data.get(i);
+            builder.push(x);
+        }
+        BufferArray::from(builder.finish())
+    }
+}
+
 impl<T> Array for BufferArray<T>
 where
     T: ArrowPrimitiveType,
@@ -246,8 +261,8 @@ where
 
 /// Create a BufferArray<T> from a Vec<T> of primitive values
 impl<T> From<Vec<T>> for BufferArray<T>
-    where
-        T: ArrowPrimitiveType + 'static,
+where
+    T: ArrowPrimitiveType + 'static,
 {
     fn from(vec: Vec<T>) -> Self {
         BufferArray::from(Buffer::from(vec))
@@ -256,8 +271,8 @@ impl<T> From<Vec<T>> for BufferArray<T>
 
 /// Create a BufferArray<T> from a Vec<Optional<T>> with null handling
 impl<T> From<Vec<Option<T>>> for BufferArray<T>
-    where
-        T: ArrowPrimitiveType + 'static,
+where
+    T: ArrowPrimitiveType + 'static,
 {
     fn from(v: Vec<Option<T>>) -> Self {
         let mut builder: Builder<T> = Builder::with_capacity(v.len());
@@ -322,58 +337,6 @@ impl From<Vec<Rc<Array>>> for StructArray {
     }
 }
 
-///// Top level array type, just a holder for a boxed trait for the data it contains
-//pub struct UntypedArray {
-//    data: Rc<Array>,
-//}
-//
-//impl UntypedArray {
-//    pub fn new(data: Rc<Array>) -> Self {
-//        UntypedArray { data: data }
-//    }
-//    pub fn len(&self) -> usize {
-//        self.data.len()
-//    }
-//    pub fn null_count(&self) -> usize {
-//        self.data.null_count()
-//    }
-//    pub fn data(&self) -> &Rc<Array> {
-//        &self.data
-//    }
-//    pub fn validity_bitmap(&self) -> &Option<Bitmap> {
-//        self.data.validity_bitmap()
-//    }
-//}
-//
-//impl<T> From<Buffer<T>> for UntypedArray
-//where
-//    T: ArrowPrimitiveType + 'static,
-//{
-//    fn from(buffer: Buffer<T>) -> Self {
-//        UntypedArray::new(Rc::new(BufferArrayData::from(buffer)))
-//    }
-//}
-//
-//impl<T> From<List<T>> for UntypedArray
-//where
-//    T: ArrowPrimitiveType + 'static,
-//{
-//    fn from(list: List<T>) -> Self {
-//        UntypedArray::new(Rc::new(ListArrayData::from(list)))
-//    }
-//}
-//
-///// Create an Array from a BufferArrayData<T> of primitive values
-//impl<T> From<BufferArrayData<T>> for UntypedArray
-//where
-//    T: ArrowPrimitiveType + 'static,
-//{
-//    fn from(data: BufferArrayData<T>) -> Self {
-//        UntypedArray::new(Rc::new(data))
-//    }
-//}
-//
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -394,10 +357,7 @@ mod tests {
         b.push("World!".as_bytes());
         let array = ListArray::from(b.finish());
         // downcast back to the data
-        let array_list_u8 = array
-            .as_any()
-            .downcast_ref::<ListArray<u8>>()
-            .unwrap();
+        let array_list_u8 = array.as_any().downcast_ref::<ListArray<u8>>().unwrap();
         assert_eq!(2, array_list_u8.len());
         assert_eq!("Hello, ", str::from_utf8(array_list_u8.get(0)).unwrap());
         assert_eq!("World!", str::from_utf8(array_list_u8.get(1)).unwrap());

@@ -46,10 +46,6 @@ impl RecordBatch {
     pub fn column(&self, i: usize) -> &Rc<Array> {
         &self.columns[i]
     }
-
-    pub fn column_data(&self, i: usize) -> &Rc<Array> {
-        &self.columns[i]
-    }
 }
 
 #[cfg(test)]
@@ -77,7 +73,5 @@ mod tests {
         assert_eq!(&DataType::Utf8, record_batch.schema().column(1).data_type());
         assert_eq!(5, record_batch.column(0).len());
         assert_eq!(5, record_batch.column(1).len());
-        assert_eq!(5, record_batch.column_data(0).len());
-        assert_eq!(5, record_batch.column_data(1).len());
     }
 }

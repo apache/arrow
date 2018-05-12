@@ -17,6 +17,7 @@
 
 use super::buffer::Buffer;
 
+#[derive(Clone)]
 pub struct Bitmap {
     bits: Buffer<u8>,
 }
