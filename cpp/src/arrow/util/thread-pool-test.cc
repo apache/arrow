@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/test-util.h"
+#include "arrow/util/io-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread-pool.h"
 
@@ -269,6 +270,49 @@ TEST_F(TestThreadPool, Submit) {
     auto fut = pool->Submit(sleep_for, 0.001);
     fut.get();
   }
+}
+
+TEST(TestGlobalThreadPool, Capacity) {
+  // Sanity check
+  auto pool = CPUThreadPool();
+  size_t capacity = pool->GetCapacity();
+  ASSERT_GT(capacity, 0);
+
+  // Exercise default capacity heuristic
+  ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
+  ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));
+  size_t hw_capacity = std::thread::hardware_concurrency();
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "13"));
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 13);
+  ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "7,5,13"));
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 7);
+  ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
+
+  ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "1"));
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 1);
+  ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "999"));
+  if (hw_capacity <= 999) {
+    ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  }
+  ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "6,5,13"));
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 6);
+  ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "2"));
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), 2);
+
+  // Invalid env values
+  ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "0"));
+  ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "0"));
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "zzz"));
+  ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "x"));
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "-1"));
+  ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "99999999999999999999999999"));
+  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+
+  ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
+  ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));
 }
 
 }  // namespace internal
