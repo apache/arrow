@@ -25,7 +25,6 @@ use super::memory::*;
 
 /// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
 /// memory region is aligned at a 64-byte boundary
-#[derive(Clone)]
 pub struct Buffer<T>
 where
     T: ArrowPrimitiveType,

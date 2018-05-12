@@ -57,10 +57,7 @@ fn main() {
 /// Create a new batch by performing a projection of id, (nested.b + nested.c) AS sum
 fn process(batch: &RecordBatch) {
     let id = batch
-        .column(0)
-        .as_any()
-        .downcast_ref::<BufferArray<i32>>()
-        .unwrap();
+        .column(0);
     let nested = batch
         .column(1)
         .as_any()
@@ -86,7 +83,7 @@ fn process(batch: &RecordBatch) {
     let _ = RecordBatch::new(
         Rc::new(projected_schema),
         vec![
-            Rc::new(id.clone()), //NOTE: I'm not happy that we have to clone the array here
+            id.clone(), //NOTE: this is cloning the Rc not the array data
             Rc::new(nested_b.add(nested_c)),
         ],
     );

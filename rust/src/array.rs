@@ -121,7 +121,6 @@ where
 }
 
 /// Array of T
-#[derive(Clone)]
 pub struct BufferArray<T: ArrowPrimitiveType> {
     len: usize,
     data: Buffer<T>,
