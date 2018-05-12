@@ -91,15 +91,15 @@ export function* serializeFile(table: Table) {
 }
 
 export function serializeRecordBatch(recordBatch: RecordBatch) {
-    const { byteLength, fieldNodes, length, buffers, buffersMeta } = new RecordBatchSerializer().visitRecordBatch(recordBatch);
-    const rbMeta = new RecordBatchMetadata(MetadataVersion.V4, length, fieldNodes, buffersMeta);
+    const { byteLength, fieldNodes, buffers, buffersMeta } = new RecordBatchSerializer().visitRecordBatch(recordBatch);
+    const rbMeta = new RecordBatchMetadata(MetadataVersion.V4, recordBatch.length, fieldNodes, buffersMeta);
     const rbData = concatBuffersWithMetadata(byteLength, buffers, buffersMeta);
     return serializeMessage(rbMeta, rbData);
 }
 
 export function serializeDictionaryBatch(dictionary: Vector, id: Long | number, isDelta: boolean = false) {
-    const { byteLength, fieldNodes, length, buffers, buffersMeta } = new RecordBatchSerializer().visitRecordBatch(RecordBatch.from([dictionary]));
-    const rbMeta = new RecordBatchMetadata(MetadataVersion.V4, length, fieldNodes, buffersMeta);
+    const { byteLength, fieldNodes, buffers, buffersMeta } = new RecordBatchSerializer().visitRecordBatch(RecordBatch.from([dictionary]));
+    const rbMeta = new RecordBatchMetadata(MetadataVersion.V4, dictionary.length, fieldNodes, buffersMeta);
     const dbMeta = new DictionaryBatch(MetadataVersion.V4, rbMeta, id, isDelta);
     const rbData = concatBuffersWithMetadata(byteLength, buffers, buffersMeta);
     return serializeMessage(dbMeta, rbData);
@@ -141,15 +141,13 @@ export function serializeFooter(footer: Footer) {
 }
 
 class RecordBatchSerializer extends VectorVisitor {
-    public length = 0;
     public byteLength = 0;
     public buffers: TypedArray[] = [];
     public fieldNodes: FieldMetadata[] = [];
     public buffersMeta: BufferMetadata[] = [];
     public visitRecordBatch(recordBatch: RecordBatch) {
-        this.length = 0;
-        this.byteLength = 0;
         this.buffers = [];
+        this.byteLength = 0;
         this.fieldNodes = [];
         this.buffersMeta = [];
         for (let vector: Vector, index = -1, numCols = recordBatch.numCols; ++index < numCols;) {
@@ -162,7 +160,6 @@ class RecordBatchSerializer extends VectorVisitor {
     public visit<T extends DataType>(vector: Vector<T>) {
         if (!DataType.isDictionary(vector.type)) {
             const { data, length, nullCount } = vector;
-            this.length = Math.max(this.length, length);
             if (length > 2147483647) {
                 throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
             }
@@ -285,13 +282,7 @@ class RecordBatchSerializer extends VectorVisitor {
             this.addBuffer(this.getZeroBasedValueOffsets(offset, length, valueOffsets));
         }
         // Then insert the List's values child
-        const child = (vector as any as ListVector<T>).getChildAt(0);
-        if (child) {
-            child.length -= 1;
-            this.visit(child);
-            child.length += 1;
-        }
-        return this;
+        return this.visit((vector as any as ListVector<T>).getChildAt(0)!);
     }
     protected visitNestedVector<T extends NestedType>(vector: Vector<T>) {
         // Visit the children accordingly
@@ -667,9 +658,7 @@ function writeField(b: Builder, node: Field) {
         dictionary = new TypeSerializer(b).visit(type);
         typeOffset = new TypeSerializer(b).visit(type.dictionary);
     }
-    if (type.children && type.children.length) {
-        children = _Field.createChildrenVector(b, type.children.map((f) => writeField(b, f)));
-    }
+    children = _Field.createChildrenVector(b, (type.children || []).map((f) => writeField(b, f)));
     if (node.metadata && node.metadata.size > 0) {
         metadata = _Field.createCustomMetadataVector(
             b,
