@@ -21,15 +21,16 @@ Individual jobs are executed on public CI services, currently:
 
 ### Queue
 
-Because of the nature of how the CI services work, the scheduling of jobs
+Because of the nature of how the CI services work, the scheduling of jobs happens
 through an additional git repository, which acts like a job queue for the tasks.
 A job is a git commit on a particular git branch, containing only the required
-configuration file to run the CI build (currently `.travis.yml` or `appveyor.yml`).
+configuration file to run the requested build (currently `.travis.yml` or
+`appveyor.yml`).
 
 ### Scheduler
 
-[Crossbow.py](crossbow.py) handles the versioning, configuration rendering, git
-commit creation and pushing the changes.
+[Crossbow.py](crossbow.py) handles version generation, task rendering and
+submission. The tasks are defined in `tasks.yml`
 
 
 ## Install

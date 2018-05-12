@@ -20,6 +20,7 @@
 import re
 import sys
 import yaml
+import time
 import click
 import pygit2
 import logging
@@ -27,7 +28,6 @@ import logging
 from enum import Enum
 from pathlib import Path
 from textwrap import dedent
-from datetime import datetime
 from jinja2 import Template
 from setuptools_scm import get_version
 
@@ -36,7 +36,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] %(levelname)s Crossbow %(message)s",
     datefmt="%H:%M:%S",
-    stream=sys.stdout
+    stream=click.get_text_stream('stdout')
 )
 
 
@@ -210,7 +210,8 @@ class Queue(object):
         tree_id = self._create_tree(build.config_files())
 
         # creating the new commit
-        timestamp = (datetime.now() - datetime(1970, 1, 1)).total_seconds()
+        timestamp = int(time.time())
+
         name = next(self.repo.config.get_multivar('user.name'))
         email = next(self.repo.config.get_multivar('user.email'))
 
@@ -241,11 +242,11 @@ class Queue(object):
 
 
 # this should be the mailing list
-EMAIL = 'szucs.krisztian@gmail.com'
+MESSAGE_EMAIL = 'szucs.krisztian@gmail.com'
 
 
 @click.command()
-@click.argument('pattern', required=False)
+@click.argument('task-regex', required=False)
 @click.option('--config', help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
@@ -258,7 +259,7 @@ EMAIL = 'szucs.krisztian@gmail.com'
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--github-token', default=False,
               help='Oauth token for Github authentication')
-def build(pattern, config, dry_run, arrow_repo, queue_repo, github_token):
+def build(task_regex, config, dry_run, arrow_repo, queue_repo, github_token):
     if config is None:
         config = Path(__file__).absolute().parent / 'tasks.yml'
     else:
@@ -280,7 +281,7 @@ def build(pattern, config, dry_run, arrow_repo, queue_repo, github_token):
     variables = {
         # these should be renamed
         'PLAT': 'x86_64',
-        'EMAIL': EMAIL,
+        'EMAIL': MESSAGE_EMAIL,
         'BUILD_REF': arrow.sha,
         'ARROW_SHA': arrow.sha,
         'ARROW_REPO': arrow.origin.url,
@@ -302,7 +303,8 @@ def build(pattern, config, dry_run, arrow_repo, queue_repo, github_token):
         build = Build(arrow, name=name, platform=platform, template=template,
                       **params)
 
-        if pattern is None or re.search(pattern, build.name):
+        # Regex pattern the task name is matched against
+        if task_regex is None or re.search(task_regex, build.name):
             if dry_run:
                 logging.info('{}\n\n{}'.format(build.name, build.render()))
             else:
