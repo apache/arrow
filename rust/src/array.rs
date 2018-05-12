@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+
+///! Array types
+
 use std::any::Any;
 use std::convert::From;
 use std::rc::Rc;
@@ -28,51 +31,79 @@ use super::datatypes::*;
 use super::list::*;
 use super::list_builder::*;
 
-/// Array data type
-pub trait ArrayData {
+/// Trait for dealing with different types of Array at runtime when the type of the
+/// array is not known in advance
+pub trait Array {
+    /// Returns the length of the array (number of items in the array)
     fn len(&self) -> usize;
+    /// Returns the number of null values in the array
     fn null_count(&self) -> usize;
+    /// Optional validity bitmap (can be None if there are no null values)
     fn validity_bitmap(&self) -> &Option<Bitmap>;
+    /// Return the array as Any so that it can be downcast to a specific implementation
     fn as_any(&self) -> &Any;
 }
 
 /// Array of List<T>
-pub struct ListArrayData<T: ArrowPrimitiveType> {
+pub struct ListArray<T: ArrowPrimitiveType> {
     len: usize,
-    list: List<T>,
+    data: List<T>,
     null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
 
-impl<T> ListArrayData<T>
+impl<T> ListArray<T>
 where
     T: ArrowPrimitiveType,
 {
     pub fn get(&self, i: usize) -> &[T] {
-        self.list.get(i)
+        self.data.get(i)
     }
 
     pub fn list(&self) -> &List<T> {
-        &self.list
+        &self.data
     }
 }
 
-impl<T> From<List<T>> for ListArrayData<T>
+/// Create a ListArray<T> from a List<T> without null values
+impl<T> From<List<T>> for ListArray<T>
 where
     T: ArrowPrimitiveType,
 {
     fn from(list: List<T>) -> Self {
         let len = list.len();
-        ListArrayData {
+        ListArray {
             len,
-            list,
+            data: list,
             validity_bitmap: None,
             null_count: 0,
         }
     }
 }
 
-impl<T> ArrayData for ListArrayData<T>
+/// Create ListArray<u8> from Vec<&'static str>
+impl From<Vec<&'static str>> for ListArray<u8> {
+    fn from(v: Vec<&'static str>) -> Self {
+        let mut builder: ListBuilder<u8> = ListBuilder::with_capacity(v.len());
+        for s in v {
+            builder.push(s.as_bytes())
+        }
+        ListArray::from(builder.finish())
+    }
+}
+
+/// Create ListArray<u8> from Vec<String>
+impl From<Vec<String>> for ListArray<u8> {
+    fn from(v: Vec<String>) -> Self {
+        let mut builder: ListBuilder<u8> = ListBuilder::with_capacity(v.len());
+        for s in v {
+            builder.push(s.as_bytes())
+        }
+        ListArray::from(builder.finish())
+    }
+}
+
+impl<T> Array for ListArray<T>
 where
     T: ArrowPrimitiveType,
 {
@@ -91,21 +122,21 @@ where
 }
 
 /// Array of T
-pub struct BufferArrayData<T: ArrowPrimitiveType> {
+pub struct BufferArray<T: ArrowPrimitiveType> {
     len: usize,
-    buffer: Buffer<T>,
+    data: Buffer<T>,
     null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
 
-impl<T> BufferArrayData<T>
+impl<T> BufferArray<T>
 where
     T: ArrowPrimitiveType,
 {
     pub fn new(data: Buffer<T>, null_count: usize, validity_bitmap: Option<Bitmap>) -> Self {
-        BufferArrayData {
+        BufferArray {
             len: data.len(),
-            buffer: data,
+            data: data,
             null_count,
             validity_bitmap,
         }
@@ -116,20 +147,20 @@ where
     }
 
     pub fn iter(&self) -> BufferIterator<T> {
-        self.buffer.iter()
+        self.data.iter()
     }
 
     pub fn buffer(&self) -> &Buffer<T> {
-        &self.buffer
+        &self.data
     }
 
-    /// Determine the minimum value in the buffer
+    /// Determine the minimum value in the array
     pub fn min(&self) -> Option<T> {
         let mut n: Option<T> = None;
         match &self.validity_bitmap {
             &Some(ref bitmap) => for i in 0..self.len {
                 if bitmap.is_set(i) {
-                    let mut m = self.buffer.get(i);
+                    let mut m = self.data.get(i);
                     match n {
                         None => n = Some(*m),
                         Some(nn) => if *m < nn {
@@ -139,7 +170,7 @@ where
                 }
             },
             &None => for i in 0..self.len {
-                let mut m = self.buffer.get(i);
+                let mut m = self.data.get(i);
                 match n {
                     None => n = Some(*m),
                     Some(nn) => if *m < nn {
@@ -151,13 +182,13 @@ where
         n
     }
 
-    /// Determine the maximum value in the buffer
+    /// Determine the maximum value in the array
     pub fn max(&self) -> Option<T> {
         let mut n: Option<T> = None;
         match &self.validity_bitmap {
             &Some(ref bitmap) => for i in 0..self.len {
                 if bitmap.is_set(i) {
-                    let mut m = self.buffer.get(i);
+                    let mut m = self.data.get(i);
                     match n {
                         None => n = Some(*m),
                         Some(nn) => if *m > nn {
@@ -167,7 +198,7 @@ where
                 }
             },
             &None => for i in 0..self.len {
-                let mut m = self.buffer.get(i);
+                let mut m = self.data.get(i);
                 match n {
                     None => n = Some(*m),
                     Some(nn) => if *m > nn {
@@ -180,7 +211,7 @@ where
     }
 }
 
-impl<T> ArrayData for BufferArrayData<T>
+impl<T> Array for BufferArray<T>
 where
     T: ArrowPrimitiveType,
 {
@@ -198,137 +229,35 @@ where
     }
 }
 
-impl<T> From<Buffer<T>> for BufferArrayData<T>
+/// Create a BufferArray<T> from a Buffer<T> without null values
+impl<T> From<Buffer<T>> for BufferArray<T>
 where
     T: ArrowPrimitiveType,
 {
     fn from(data: Buffer<T>) -> Self {
-        BufferArrayData {
+        BufferArray {
             len: data.len(),
-            buffer: data,
+            data: data,
             validity_bitmap: None,
             null_count: 0,
         }
     }
 }
 
-pub struct StructArrayData {
-    len: usize,
-    columns: Vec<Rc<ArrayData>>,
-    null_count: usize,
-    validity_bitmap: Option<Bitmap>,
-}
-
-impl StructArrayData {
-    pub fn num_columns(&self) -> usize {
-        self.columns.len()
-    }
-    pub fn column(&self, i: usize) -> &Rc<ArrayData> {
-        &self.columns[i]
-    }
-}
-
-impl ArrayData for StructArrayData {
-    fn len(&self) -> usize {
-        self.len
-    }
-    fn null_count(&self) -> usize {
-        self.null_count
-    }
-    fn validity_bitmap(&self) -> &Option<Bitmap> {
-        &self.validity_bitmap
-    }
-    fn as_any(&self) -> &Any {
-        self
-    }
-}
-
-impl From<Vec<Rc<ArrayData>>> for StructArrayData {
-    fn from(data: Vec<Rc<ArrayData>>) -> Self {
-        StructArrayData {
-            len: data[0].len(),
-            columns: data,
-            null_count: 0,
-            validity_bitmap: None,
-        }
-    }
-}
-
-/// Top level array type, just a holder for a boxed trait for the data it contains
-pub struct Array {
-    data: Rc<ArrayData>,
-}
-
-impl Array {
-    pub fn new(data: Rc<ArrayData>) -> Self {
-        Array { data: data }
-    }
-    pub fn len(&self) -> usize {
-        self.data.len()
-    }
-    pub fn null_count(&self) -> usize {
-        self.data.null_count()
-    }
-    pub fn data(&self) -> &Rc<ArrayData> {
-        &self.data
-    }
-    pub fn validity_bitmap(&self) -> &Option<Bitmap> {
-        self.data.validity_bitmap()
-    }
-}
-
-impl<T> From<Buffer<T>> for Array
-where
-    T: ArrowPrimitiveType + 'static,
-{
-    fn from(buffer: Buffer<T>) -> Self {
-        Array::new(Rc::new(BufferArrayData::from(buffer)))
-    }
-}
-
-impl<T> From<List<T>> for Array
-where
-    T: ArrowPrimitiveType + 'static,
-{
-    fn from(list: List<T>) -> Self {
-        Array::new(Rc::new(ListArrayData::from(list)))
-    }
-}
-
-/// Create an Array from a BufferArrayData<T> of primitive values
-impl<T> From<BufferArrayData<T>> for Array
-where
-    T: ArrowPrimitiveType + 'static,
-{
-    fn from(data: BufferArrayData<T>) -> Self {
-        Array::new(Rc::new(data))
-    }
-}
-
-/// Create an Array from a Vec<T> of primitive values
-impl<T> From<Vec<T>> for Array
-where
-    T: ArrowPrimitiveType + 'static,
+/// Create a BufferArray<T> from a Vec<T> of primitive values
+impl<T> From<Vec<T>> for BufferArray<T>
+    where
+        T: ArrowPrimitiveType + 'static,
 {
     fn from(vec: Vec<T>) -> Self {
-        Array::new(Rc::new(BufferArrayData::from(Buffer::from(vec))))
+        BufferArray::from(Buffer::from(vec))
     }
 }
 
-/// Create an Array from a Vec<T> of primitive values
-impl<T> From<Vec<Option<T>>> for Array
-where
-    T: ArrowPrimitiveType + 'static,
-{
-    fn from(vec: Vec<Option<T>>) -> Self {
-        Array::from(BufferArrayData::from(vec))
-    }
-}
-
-/// Create a BufferArrayData<T> from a Vec<Option<T>> of primitive values
-impl<T> From<Vec<Option<T>>> for BufferArrayData<T>
-where
-    T: ArrowPrimitiveType + 'static,
+/// Create a BufferArray<T> from a Vec<Optional<T>> with null handling
+impl<T> From<Vec<Option<T>>> for BufferArray<T>
+    where
+        T: ArrowPrimitiveType + 'static,
 {
     fn from(v: Vec<Option<T>>) -> Self {
         let mut builder: Builder<T> = Builder::with_capacity(v.len());
@@ -344,30 +273,106 @@ where
                 }
             }
         }
-        BufferArrayData::new(builder.finish(), null_count, Some(validity_bitmap))
+        BufferArray::new(builder.finish(), null_count, Some(validity_bitmap))
     }
 }
 
-///// This method mostly just used for unit tests
-impl From<Vec<&'static str>> for Array {
-    fn from(v: Vec<&'static str>) -> Self {
-        let mut builder: ListBuilder<u8> = ListBuilder::with_capacity(v.len());
-        for s in v {
-            builder.push(s.as_bytes())
-        }
-        Array::from(builder.finish())
+/// An Array of structs
+pub struct StructArray {
+    len: usize,
+    columns: Vec<Rc<Array>>,
+    null_count: usize,
+    validity_bitmap: Option<Bitmap>,
+}
+
+impl StructArray {
+    pub fn num_columns(&self) -> usize {
+        self.columns.len()
+    }
+    pub fn column(&self, i: usize) -> &Rc<Array> {
+        &self.columns[i]
     }
 }
 
-impl From<Vec<String>> for Array {
-    fn from(v: Vec<String>) -> Self {
-        let mut builder: ListBuilder<u8> = ListBuilder::with_capacity(v.len());
-        for s in v {
-            builder.push(s.as_bytes())
-        }
-        Array::from(builder.finish())
+impl Array for StructArray {
+    fn len(&self) -> usize {
+        self.len
+    }
+    fn null_count(&self) -> usize {
+        self.null_count
+    }
+    fn validity_bitmap(&self) -> &Option<Bitmap> {
+        &self.validity_bitmap
+    }
+    fn as_any(&self) -> &Any {
+        self
     }
 }
+
+/// Create a StructArray from a list of arrays representing the fields of the struct. The fields
+/// must be in the same order as the schema defining the struct.
+impl From<Vec<Rc<Array>>> for StructArray {
+    fn from(data: Vec<Rc<Array>>) -> Self {
+        StructArray {
+            len: data[0].len(),
+            columns: data,
+            null_count: 0,
+            validity_bitmap: None,
+        }
+    }
+}
+
+///// Top level array type, just a holder for a boxed trait for the data it contains
+//pub struct UntypedArray {
+//    data: Rc<Array>,
+//}
+//
+//impl UntypedArray {
+//    pub fn new(data: Rc<Array>) -> Self {
+//        UntypedArray { data: data }
+//    }
+//    pub fn len(&self) -> usize {
+//        self.data.len()
+//    }
+//    pub fn null_count(&self) -> usize {
+//        self.data.null_count()
+//    }
+//    pub fn data(&self) -> &Rc<Array> {
+//        &self.data
+//    }
+//    pub fn validity_bitmap(&self) -> &Option<Bitmap> {
+//        self.data.validity_bitmap()
+//    }
+//}
+//
+//impl<T> From<Buffer<T>> for UntypedArray
+//where
+//    T: ArrowPrimitiveType + 'static,
+//{
+//    fn from(buffer: Buffer<T>) -> Self {
+//        UntypedArray::new(Rc::new(BufferArrayData::from(buffer)))
+//    }
+//}
+//
+//impl<T> From<List<T>> for UntypedArray
+//where
+//    T: ArrowPrimitiveType + 'static,
+//{
+//    fn from(list: List<T>) -> Self {
+//        UntypedArray::new(Rc::new(ListArrayData::from(list)))
+//    }
+//}
+//
+///// Create an Array from a BufferArrayData<T> of primitive values
+//impl<T> From<BufferArrayData<T>> for UntypedArray
+//where
+//    T: ArrowPrimitiveType + 'static,
+//{
+//    fn from(data: BufferArrayData<T>) -> Self {
+//        UntypedArray::new(Rc::new(data))
+//    }
+//}
+//
 
 #[cfg(test)]
 mod tests {
@@ -378,7 +383,7 @@ mod tests {
         let mut b: ListBuilder<u8> = ListBuilder::new();
         b.push(&[1, 2, 3, 4, 5]);
         b.push(&[5, 4, 3, 2, 1]);
-        let array_data = ListArrayData::from(b.finish());
+        let array_data = ListArray::from(b.finish());
         assert_eq!(2, array_data.len());
     }
 
@@ -387,12 +392,11 @@ mod tests {
         let mut b: ListBuilder<u8> = ListBuilder::new();
         b.push("Hello, ".as_bytes());
         b.push("World!".as_bytes());
-        let array = Array::from(b.finish());
+        let array = ListArray::from(b.finish());
         // downcast back to the data
         let array_list_u8 = array
-            .data()
             .as_any()
-            .downcast_ref::<ListArrayData<u8>>()
+            .downcast_ref::<ListArray<u8>>()
             .unwrap();
         assert_eq!(2, array_list_u8.len());
         assert_eq!("Hello, ", str::from_utf8(array_list_u8.get(0)).unwrap());
@@ -401,41 +405,33 @@ mod tests {
 
     #[test]
     fn test_from_bool() {
-        let a = Array::from(vec![false, false, true, false]);
+        let a = BufferArray::from(vec![false, false, true, false]);
         assert_eq!(4, a.len());
         assert_eq!(0, a.null_count());
     }
 
     #[test]
     fn test_from_f32() {
-        let a = Array::from(vec![1.23, 2.34, 3.45, 4.56]);
+        let a = BufferArray::from(vec![1.23, 2.34, 3.45, 4.56]);
         assert_eq!(4, a.len());
     }
 
     #[test]
     fn test_from_i32() {
-        let a = Array::from(vec![15, 14, 13, 12, 11]);
+        let a = BufferArray::from(vec![15, 14, 13, 12, 11]);
         assert_eq!(5, a.len());
-
-        match a.data.as_any().downcast_ref::<BufferArrayData<i32>>() {
-            Some(ref buf) => {
-                assert_eq!(5, buf.len())
-                //TODO: assert_eq!(vec![15, 14, 13, 12, 11], buf.iter().collect::<Vec<i32>>());
-            }
-            _ => panic!(),
-        }
     }
 
     #[test]
     fn test_from_empty_vec() {
         let v: Vec<i32> = vec![];
-        let a = Array::from(v);
+        let a = BufferArray::from(v);
         assert_eq!(0, a.len());
     }
 
     #[test]
     fn test_from_optional_i32() {
-        let a = Array::from(vec![Some(1), None, Some(2), Some(3), None]);
+        let a = BufferArray::from(vec![Some(1), None, Some(2), Some(3), None]);
         assert_eq!(5, a.len());
         assert_eq!(2, a.null_count());
         // 1 == not null
@@ -453,26 +449,26 @@ mod tests {
 
     #[test]
     fn test_struct() {
-        let a: Rc<ArrayData> = Rc::new(BufferArrayData::from(Buffer::from(vec![1, 2, 3, 4, 5])));
-        let b: Rc<ArrayData> = Rc::new(BufferArrayData::from(Buffer::from(vec![
+        let a: Rc<Array> = Rc::new(BufferArray::from(Buffer::from(vec![1, 2, 3, 4, 5])));
+        let b: Rc<Array> = Rc::new(BufferArray::from(Buffer::from(vec![
             1.1, 2.2, 3.3, 4.4, 5.5
         ])));
 
-        let s = StructArrayData::from(vec![a, b]);
+        let s = StructArray::from(vec![a, b]);
         assert_eq!(2, s.num_columns());
         assert_eq!(0, s.null_count());
     }
 
     #[test]
     fn test_buffer_array_min_max() {
-        let a = BufferArrayData::from(Buffer::from(vec![5, 6, 7, 8, 9]));
+        let a = BufferArray::from(Buffer::from(vec![5, 6, 7, 8, 9]));
         assert_eq!(5, a.min().unwrap());
         assert_eq!(9, a.max().unwrap());
     }
 
     #[test]
     fn test_buffer_array_min_max_with_nulls() {
-        let a = BufferArrayData::from(vec![Some(5), None, None, Some(8), Some(9)]);
+        let a = BufferArray::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, a.min().unwrap());
         assert_eq!(9, a.max().unwrap());
     }

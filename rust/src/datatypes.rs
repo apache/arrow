@@ -61,6 +61,7 @@ impl ArrowPrimitiveType for i32 {}
 impl ArrowPrimitiveType for i64 {}
 impl ArrowPrimitiveType for f32 {}
 impl ArrowPrimitiveType for f64 {}
+impl ArrowPrimitiveType for &'static str {}
 
 impl DataType {
     /// Parse a data type from a JSON representation

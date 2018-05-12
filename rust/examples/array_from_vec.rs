@@ -21,13 +21,6 @@ use arrow::array::*;
 
 fn main() {
     // create a memory-aligned Arrow array from an existing Vec
-    let array = Array::from(vec![1, 2, 3, 4, 5]);
-
-    // demonstrates how to downcast an array to specific type
-    match array.data().as_any().downcast_ref::<BufferArrayData<i32>>() {
-        Some(ref buf) => {
-            println!("array contents: {:?}", buf.iter().collect::<Vec<i32>>());
-        }
-        _ => panic!(),
-    }
+    let array = BufferArray::from(vec![1, 2, 3, 4, 5]);
+    println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
 }

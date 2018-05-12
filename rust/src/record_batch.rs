@@ -47,8 +47,8 @@ impl RecordBatch {
         &self.columns[i]
     }
 
-    pub fn column_data(&self, i: usize) -> &Rc<ArrayData> {
-        &self.columns[i].data()
+    pub fn column_data(&self, i: usize) -> &Rc<Array> {
+        &self.columns[i]
     }
 }
 
@@ -63,8 +63,8 @@ mod tests {
             Field::new("b", DataType::Utf8, false),
         ]);
 
-        let a = Array::from(vec![1, 2, 3, 4, 5]);
-        let b = Array::from(vec!["a", "b", "c", "d", "e"]);
+        let a = BufferArray::from(vec![1, 2, 3, 4, 5]);
+        let b = BufferArray::from(vec!["a", "b", "c", "d", "e"]);
 
         let record_batch = RecordBatch::new(Rc::new(schema), vec![Rc::new(a), Rc::new(b)]);
 
