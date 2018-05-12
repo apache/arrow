@@ -124,9 +124,13 @@ Predicate.prototype.not;
 Predicate.prototype.ands;
 var Literal = function() {};
 
-var TableToStringIterator = function() {};
+var PipeIterator = function() {};
 /** @type {?} */
-TableToStringIterator.prototype.pipe;
+PipeIterator.prototype.pipe;
+
+var AsyncPipeIterator = function() {};
+/** @type {?} */
+AsyncPipeIterator.prototype.pipe;
 
 var RecordBatch = function() {};
 /** @type {?} */

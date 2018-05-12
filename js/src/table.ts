@@ -20,6 +20,7 @@ import { Col, Predicate } from './predicate';
 import { Schema, Field, Struct } from './type';
 import { read, readAsync } from './ipc/reader/arrow';
 import { writeTableBinary } from './ipc/writer/arrow';
+import { PipeIterator } from './util/node';
 import { isPromise, isAsyncIterable } from './util/compat';
 import { Vector, DictionaryVector, IntVector, StructVector } from './vector';
 import { ChunkedView } from './vector/chunked';
@@ -184,8 +185,8 @@ export class Table implements DataFrame {
     public serialize(encoding = 'binary', stream = true) {
         return writeTableBinary(this, stream);
     }
-    public rowsToString(separator = ' | '): TableToStringIterator {
-        return new TableToStringIterator(tableRowsToString(this, separator));
+    public rowsToString(separator = ' | ') {
+        return new PipeIterator(tableRowsToString(this, separator), 'utf8');
     }
 }
 
@@ -292,30 +293,6 @@ export class CountByResult extends Table implements DataFrame {
             result[values.get(i)] = counts.get(i);
         }
         return result;
-    }
-}
-
-export class TableToStringIterator implements IterableIterator<string> {
-    constructor(private iterator: IterableIterator<string>) {}
-    [Symbol.iterator]() { return this.iterator; }
-    next(value?: any) { return this.iterator.next(value); }
-    throw(error?: any) { return this.iterator.throw && this.iterator.throw(error) || { done: true, value: '' }; }
-    return(value?: any) { return this.iterator.return && this.iterator.return(value) || { done: true, value: '' }; }
-    pipe(stream: NodeJS.WritableStream) {
-        let res: IteratorResult<string>;
-        let write = () => {
-            if (stream['writable']) {
-                do {
-                    if ((res = this.next()).done) { break; }
-                } while (stream['write'](res.value + '\n', 'utf8'));
-            }
-            if (!res || !res.done) {
-                stream['once']('drain', write);
-            } else if (!(stream as any)['isTTY']) {
-                stream['end']('\n');
-            }
-        };
-        write();
     }
 }
 

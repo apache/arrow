@@ -93,6 +93,7 @@
     "rxjs": "5.5.6",
     "shx": "0.2.2",
     "source-map-loader": "0.2.3",
+    "stream-to-iterator": "3.0.1",
     "trash": "4.2.1",
     "ts-jest": "22.0.1",
     "tslint": "5.9.1",
