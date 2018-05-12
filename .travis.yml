@@ -204,7 +204,8 @@ matrix:
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/rust
     # Run coverage for codecov.io
-    - RUST_BACKTRACE=1 cargo coverage --verbose --kcov-build-location $CARGO_TARGET_DIR
+    - mkdir -p target/kcov
+    - RUST_BACKTRACE=1 cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
 
 after_failure:
