@@ -19,7 +19,7 @@ import { Table } from '../../table';
 import { DenseUnionData } from '../../data';
 import { RecordBatch } from '../../recordbatch';
 import { VectorVisitor, TypeVisitor } from '../../visitor';
-import { MAGIC, magicLength, magicAndPadding } from '../magic';
+import { MAGIC, magicLength, magicAndPadding, PADDING } from '../magic';
 import { align, getBool, packBools, iterateBits } from '../../util/bit';
 import { Vector, UnionVector, DictionaryVector, NestedVector, ListVector } from '../../vector';
 import { BufferMetadata, FieldMetadata, Footer, FileBlock, Message, RecordBatchMetadata, DictionaryBatch } from '../metadata';
@@ -113,17 +113,16 @@ export function serializeMessage(message: Message, data?: Uint8Array) {
     // Reserve 4 bytes for writing the message size at the front.
     // Metadata length includes the metadata byteLength + the 4
     // bytes for the length, and rounded up to the nearest 8 bytes.
-    const metadataLength = align(4 + metadataBytes.byteLength, 8);
+    const metadataLength = align(PADDING + metadataBytes.byteLength, 8);
     // + the length of the optional data buffer at the end, padded
-    const dataByteLength = align(data ? data.byteLength : 0, 8);
-    // since both metadataLength and dataByteLength are aligned to 8-byte
-    // boundaries, the entire message is also aligned.
-    const messageBytes = new Uint8Array(metadataLength + dataByteLength);
+    const dataByteLength = data ? data.byteLength : 0;
+    // ensure the entire message is aligned to an 8-byte boundary
+    const messageBytes = new Uint8Array(align(metadataLength + dataByteLength, 8));
     // Write the metadata length into the first 4 bytes, but subtract the
     // bytes we use to hold the length itself.
-    new DataView(messageBytes.buffer).setInt32(0, metadataLength - 4, platformIsLittleEndian);
+    new DataView(messageBytes.buffer).setInt32(0, metadataLength - PADDING, platformIsLittleEndian);
     // Copy the metadata bytes into the message buffer
-    messageBytes.set(metadataBytes, 4);
+    messageBytes.set(metadataBytes, PADDING);
     // Copy the optional data buffer after the metadata bytes
     (data && dataByteLength > 0) && messageBytes.set(data, metadataLength);
     // if (messageBytes.byteLength % 8 !== 0) { debugger; }
@@ -164,9 +163,12 @@ class RecordBatchSerializer extends VectorVisitor {
                 throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
             }
             this.fieldNodes.push(new FieldMetadata(length, nullCount));
-            this.addBuffer(nullCount <= 0
+
+            const nullBitmapAlignment = length <= 64 ? 8 : 64;
+            const nullBitmap = nullCount <= 0
                 ? new Uint8Array(0) // placeholder validity buffer
-                : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!));
+                : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!);
+            this.addBuffer(nullBitmap, nullBitmapAlignment);
         }
         return super.visit(vector);
     }
@@ -240,19 +242,21 @@ class RecordBatchSerializer extends VectorVisitor {
     }
     protected visitBoolVector(vector: Vector<Bool>) {
         // Bool vector is a special case of FlatVector, as its data buffer needs to stay packed
+        let bitmap: Uint8Array;
         let values, { data, length } = vector;
+        let alignment = length <= 64 ? 8 : 64;
         if (vector.nullCount >= length) {
             // If all values are null, just insert a placeholder empty data buffer (fastest path)
-            this.addBuffer(new Uint8Array(0));
+            bitmap = new Uint8Array(0);
         } else if (!((values = data.values) instanceof Uint8Array)) {
             // Otherwise if the underlying data *isn't* a Uint8Array, enumerate
             // the values as bools and re-pack them into a Uint8Array (slow path)
-            // todo (ptaylor): this assumes Uint8Array = already packed, but that may not always be true
-            this.addBuffer(packBools(vector));
+            bitmap = packBools(vector);
         } else {
             // otherwise just slice the bitmap (fast path)
-            this.addBuffer(this.getTruncatedBitmap(data.offset, length, values));
+            bitmap = this.getTruncatedBitmap(data.offset, length, values);
         }
+        this.addBuffer(bitmap, alignment);
         return this;
     }
     protected visitFlatVector<T extends FlatType>(vector: Vector<T>) {
@@ -294,35 +298,34 @@ class RecordBatchSerializer extends VectorVisitor {
         }
         return this;
     }
-    protected addBuffer(array: TypedArray, alignment: number = 64) {
-        const values = array || new Uint8Array(0);
-        const alignedLength = align(values.byteLength, alignment);
+    protected addBuffer(values: TypedArray, alignment: number = 64) {
+        const length = align(values.byteLength, alignment);
         this.buffers.push(values);
-        this.buffersMeta.push(new BufferMetadata(this.byteLength, alignedLength));
-        this.byteLength += alignedLength;
+        this.buffersMeta.push(new BufferMetadata(this.byteLength, length));
+        this.byteLength += length;
         return this;
     }
-    protected getTruncatedBitmap(sliceOffset: number, length: number, bitmap: Uint8Array) {
-        const alignedLength = align(length, 64);
-        if (sliceOffset > 0 || length < alignedLength) {
+    protected getTruncatedBitmap(offset: number, length: number, bitmap: Uint8Array) {
+        const alignedLength = align(length, length <= 64 ? 8 : 64);
+        if (offset > 0 || bitmap.length < alignedLength) {
             // With a sliced array / non-zero offset, we have to copy the bitmap
-            const bytes = new Uint8Array(alignedLength).fill(255);
+            const bytes = new Uint8Array(alignedLength);
             bytes.set(
-                (sliceOffset % 8 === 0)
-                // If the sliceOffset is aligned to 1 byte, it's safe to slice the nullBitmap directly
-                ? bitmap.subarray(sliceOffset >> 3)
-                // iterate each bit starting from the sliceOffset, and repack into an aligned nullBitmap
-                : packBools(iterateBits(bitmap, sliceOffset, length, null, getBool))
+                (offset % 8 === 0)
+                // If the slice offset is aligned to 1 byte, it's safe to slice the nullBitmap directly
+                ? bitmap.subarray(offset >> 3)
+                // iterate each bit starting from the slice offset, and repack into an aligned nullBitmap
+                : packBools(iterateBits(bitmap, offset, length, null, getBool))
             );
             return bytes;
         }
         return bitmap;
     }
-    protected getZeroBasedValueOffsets(sliceOffset: number, length: number, valueOffsets: Int32Array) {
+    protected getZeroBasedValueOffsets(offset: number, length: number, valueOffsets: Int32Array) {
         // If we have a non-zero offset, then the value offsets do not start at
         // zero. We must a) create a new offsets array with shifted offsets and
         // b) slice the values array accordingly
-        if (sliceOffset > 0 || valueOffsets[0] !== 0) {
+        if (offset > 0 || valueOffsets[0] !== 0) {
             const startOffset = valueOffsets[0];
             const destOffsets = new Int32Array(length + 1);
             for (let index = -1; ++index < length;) {
@@ -524,12 +527,15 @@ export class TypeSerializer extends TypeVisitor {
     }
 }
 
-function concatBuffersWithMetadata(byteLength: number, buffers: Uint8Array[], buffersMeta: BufferMetadata[]) {
-    const data = new Uint8Array(byteLength);
-    for (let bufferIndex = -1, buffersLen = buffers.length; ++bufferIndex < buffersLen;) {
-        const { offset } = buffersMeta[bufferIndex];
-        const { buffer, byteOffset, byteLength } = buffers[bufferIndex];
-        data.set(new Uint8Array(buffer, byteOffset, byteLength), offset);
+function concatBuffersWithMetadata(totalByteLength: number, buffers: Uint8Array[], buffersMeta: BufferMetadata[]) {
+    const data = new Uint8Array(totalByteLength);
+    for (let i = -1, n = buffers.length; ++i < n;) {
+        const { offset, length } = buffersMeta[i];
+        const { buffer, byteOffset, byteLength } = buffers[i];
+        const realBufferLength = Math.min(length, byteLength);
+        if (realBufferLength > 0) {
+            data.set(new Uint8Array(buffer, byteOffset, realBufferLength), offset);
+        }
     }
     return data;
 }
