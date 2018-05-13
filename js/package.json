@@ -60,15 +60,15 @@
     "command-line-usage": "4.1.0",
     "flatbuffers": "trxcllnt/flatbuffers-esm",
     "json-bignum": "0.0.3",
-    "text-encoding-utf-8": "^1.0.2",
+    "text-encoding-utf-8": "trxcllnt/text-encoding-utf-8#6a959afc86b798a435bd7b97682a7eb1f735ee2e",
     "tslib": "1.9.0"
   },
   "devDependencies": {
     "@std/esm": "0.26.0",
     "@types/glob": "5.0.35",
-    "@types/jest": "22.1.0",
+    "@types/jest": "22.2.3",
     "ast-types": "0.10.1",
-    "babel-jest": "22.4.1",
+    "babel-jest": "22.4.3",
     "benchmark": "2.1.4",
     "coveralls": "3.0.0",
     "del": "3.0.0",
@@ -81,7 +81,7 @@
     "gulp-transform-js-ast": "1.0.2",
     "gulp-typescript": "3.2.4",
     "ix": "2.3.4",
-    "jest": "22.1.4",
+    "jest": "22.4.3",
     "jest-environment-node-debug": "2.0.0",
     "json": "9.0.6",
     "lerna": "2.7.1",
@@ -94,9 +94,8 @@
     "rxjs": "5.5.6",
     "shx": "0.2.2",
     "source-map-loader": "0.2.3",
-    "stream-to-iterator": "3.0.1",
     "trash": "4.2.1",
-    "ts-jest": "22.0.1",
+    "ts-jest": "22.4.6",
     "ts-node": "6.0.3",
     "tslint": "5.9.1",
     "typedoc": "0.10.0",
@@ -118,6 +117,7 @@
     "verbose": false,
     "globals": {
       "ts-jest": {
+        "skipBabel": true,
         "tsConfigFile": "test/tsconfig.json"
       }
     },

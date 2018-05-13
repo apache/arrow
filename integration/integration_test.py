@@ -1124,21 +1124,21 @@ class JSTester(Tester):
         return self._run(self.VALIDATE, arrow_path, json_path, 'VALIDATE')
 
     def json_to_file(self, json_path, arrow_path):
-        cmd = ['node --harmony-async-iteration', self.JSON_TO_ARROW, '-a', arrow_path, '-j', json_path]
+        cmd = ['node', self.JSON_TO_ARROW, '-a', arrow_path, '-j', json_path]
         cmd = ' '.join(cmd)
         if self.debug:
             print(cmd)
         os.system(cmd)
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['cat', stream_path, '|', 'node --harmony-async-iteration', self.STREAM_TO_FILE, '>', file_path]
+        cmd = ['cat', stream_path, '|', 'node', self.STREAM_TO_FILE, '>', file_path]
         cmd = ' '.join(cmd)
         if self.debug:
             print(cmd)
         os.system(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['cat', file_path, '|', 'node --harmony-async-iteration', self.FILE_TO_STREAM, '>', stream_path]
+        cmd = ['cat', file_path, '|', 'node', self.FILE_TO_STREAM, '>', stream_path]
         cmd = ' '.join(cmd)
         if self.debug:
             print(cmd)
@@ -1151,7 +1151,7 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [JSTester(debug=debug), CPPTester(debug=debug), JavaTester(debug=debug)]
+    testers = [CPPTester(debug=debug), JavaTester(debug=debug), JSTester(debug=debug)]
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
     json_files = static_json_files + generated_json_files

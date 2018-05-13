@@ -19,28 +19,31 @@
 
 const fs = require('fs');
 const path = require('path');
-const streamToIterator = require('stream-to-iterator');
 
 const encoding = 'binary';
-const { util: { PipeIterator } } = require('../');
-const { Table, serializeStream } = require('../');
+const ext = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
+const { util: { PipeIterator } } = require(`../index${ext}`);
+const { Table, serializeStream } = require(`../index${ext}`);
 
 (async () => {
     // Todo (ptaylor): implement `serializeStreamAsync` that accepts an
     // AsyncIterable<Buffer>, rather than aggregating into a Table first
-    const in_ = streamToIterator(process.argv.length < 3 ? process.stdin :
-        fs.createReadStream(path.resolve(process.argv[2]), { encoding }));
-    const out = process.argv.length < 4 ? process.stdout :
-        fs.createWriteStream(path.resolve(process.argv[3]), { encoding });
+    const in_ = process.argv.length < 3
+        ? process.stdin : fs.createReadStream(path.resolve(process.argv[2]));
+    const out = process.argv.length < 4
+        ? process.stdout : fs.createWriteStream(path.resolve(process.argv[3]));
     new PipeIterator(serializeStream(await Table.fromAsync(readArrowFile(in_))), encoding).pipe(out);
 
 })().catch((e) => { console.error(e); process.exit(1); });
 
 async function readArrowFile(stream) {
-    let buffer = Buffer.from([]);
+    let buffers = [], totalLength = 0;
     for await (let chunk of stream) {
-        chunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding);
-        buffer = Buffer.concat([buffer, chunk], buffer.length + chunk.length);
+        if (!Buffer.isBuffer(chunk)) {
+            chunk = Buffer.from(chunk, encoding);
+        }
+        buffers.push(chunk);
+        totalLength += chunk.byteLength;
     }
-    return buffer;
+    return Buffer.concat(buffers, totalLength);
 }

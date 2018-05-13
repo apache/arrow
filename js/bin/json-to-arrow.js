@@ -20,10 +20,12 @@
 const fs = require('fs');
 const glob = require('glob');
 const path = require('path');
-const { Table } = require('../index');
 const { promisify } = require('util');
 const { parse } = require('json-bignum');
 const argv = require(`command-line-args`)(cliOpts(), { partial: true });
+
+const ext = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
+const { Table } = require(`../index${ext}`);
 
 const encoding = 'binary';
 const stream = argv.format === 'stream';

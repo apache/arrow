@@ -145,7 +145,7 @@ matrix:
   - language: node_js
     os: linux
     node_js:
-    - '9.8'
+    - '10.1'
     before_script:
     - if [ $ARROW_CI_JS_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
