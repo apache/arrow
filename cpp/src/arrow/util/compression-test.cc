@@ -38,38 +38,39 @@ void CheckCodecRoundtrip(const vector<uint8_t>& data) {
   ASSERT_OK(Codec::Create(CODEC, &c1));
   ASSERT_OK(Codec::Create(CODEC, &c2));
 
-  int max_compressed_len = static_cast<int>(c1->MaxCompressedLen(data.size(), &data[0]));
+  int max_compressed_len =
+      static_cast<int>(c1->MaxCompressedLen(data.size(), data.data()));
   std::vector<uint8_t> compressed(max_compressed_len);
   std::vector<uint8_t> decompressed(data.size());
 
   // compress with c1
   int64_t actual_size;
-  ASSERT_OK(c1->Compress(data.size(), &data[0], max_compressed_len, &compressed[0],
+  ASSERT_OK(c1->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
                          &actual_size));
   compressed.resize(actual_size);
 
   // decompress with c2
-  ASSERT_OK(c2->Decompress(compressed.size(), &compressed[0], decompressed.size(),
-                           &decompressed[0]));
+  ASSERT_OK(c2->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                           decompressed.data()));
 
   ASSERT_EQ(data, decompressed);
 
   // compress with c2
   int64_t actual_size2;
-  ASSERT_OK(c2->Compress(data.size(), &data[0], max_compressed_len, &compressed[0],
+  ASSERT_OK(c2->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
                          &actual_size2));
   ASSERT_EQ(actual_size2, actual_size);
 
   // decompress with c1
-  ASSERT_OK(c1->Decompress(compressed.size(), &compressed[0], decompressed.size(),
-                           &decompressed[0]));
+  ASSERT_OK(c1->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                           decompressed.data()));
 
   ASSERT_EQ(data, decompressed);
 }
 
 template <Compression::type CODEC>
 void CheckCodec() {
-  int sizes[] = {10000, 100000};
+  int sizes[] = {0, 10000, 100000};
   for (int data_size : sizes) {
     vector<uint8_t> data(data_size);
     test::random_bytes(data_size, 1234, data.data());
