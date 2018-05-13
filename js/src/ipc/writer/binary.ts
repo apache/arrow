@@ -542,26 +542,24 @@ function concatBuffersWithMetadata(totalByteLength: number, buffers: Uint8Array[
 
 function writeFooter(b: Builder, node: Footer) {
     let schemaOffset = writeSchema(b, node.schema);
-    let recordBatchesOffset: number | undefined = undefined;
-    let dictionaryBatchesOffset: number | undefined = undefined;
-    if (node.recordBatches && node.recordBatches.length) {
-        recordBatchesOffset =
-            _Footer.startRecordBatchesVector(b, node.recordBatches.length) ||
-            mapReverse(node.recordBatches, (rb) => writeBlock(b, rb)) &&
-            b.endVector();
-    }
-    if (node.dictionaryBatches && node.dictionaryBatches.length) {
-        dictionaryBatchesOffset =
-            _Footer.startDictionariesVector(b, node.dictionaryBatches.length) ||
-            mapReverse(node.dictionaryBatches, (db) => writeBlock(b, db)) &&
-            b.endVector();
-    }
+    let recordBatches = (node.recordBatches || []);
+    let dictionaryBatches = (node.dictionaryBatches || []);
+    let recordBatchesOffset =
+        _Footer.startRecordBatchesVector(b, recordBatches.length) ||
+            mapReverse(recordBatches, (rb) => writeBlock(b, rb)) &&
+        b.endVector();
+
+    let dictionaryBatchesOffset =
+        _Footer.startDictionariesVector(b, dictionaryBatches.length) ||
+            mapReverse(dictionaryBatches, (db) => writeBlock(b, db)) &&
+        b.endVector();
+
     return (
         _Footer.startFooter(b) ||
         _Footer.addSchema(b, schemaOffset) ||
         _Footer.addVersion(b, node.schema.version) ||
-        (recordBatchesOffset !== undefined && _Footer.addRecordBatches(b, recordBatchesOffset)) ||
-        (dictionaryBatchesOffset !== undefined && _Footer.addDictionaries(b, dictionaryBatchesOffset)) ||
+        _Footer.addRecordBatches(b, recordBatchesOffset) ||
+        _Footer.addDictionaries(b, dictionaryBatchesOffset) ||
         _Footer.endFooter(b)
     );
 }
@@ -607,25 +605,23 @@ function writeSchema(b: Builder, node: Schema) {
 }
 
 function writeRecordBatch(b: Builder, node: RecordBatchMetadata) {
-    let nodesOffset: number | undefined = undefined;
-    let buffersOffset: number | undefined = undefined;
-    if (node.nodes && node.nodes.length) {
-        nodesOffset =
-            _RecordBatch.startNodesVector(b, node.nodes.length) ||
-            mapReverse(node.nodes, (n) => writeFieldNode(b, n)) &&
-            b.endVector();
-    }
-    if (node.buffers && node.buffers.length) {
-        buffersOffset =
-            _RecordBatch.startBuffersVector(b, node.buffers.length) ||
-            mapReverse(node.buffers, (b_) => writeBuffer(b, b_)) &&
-            b.endVector();
-    }
+    let nodes = (node.nodes || []);
+    let buffers = (node.buffers || []);
+    let nodesOffset =
+        _RecordBatch.startNodesVector(b, nodes.length) ||
+        mapReverse(nodes, (n) => writeFieldNode(b, n)) &&
+        b.endVector();
+
+    let buffersOffset =
+        _RecordBatch.startBuffersVector(b, buffers.length) ||
+        mapReverse(buffers, (b_) => writeBuffer(b, b_)) &&
+        b.endVector();
+
     return (
         _RecordBatch.startRecordBatch(b) ||
         _RecordBatch.addLength(b, new Long(node.length, 0)) ||
-        (nodesOffset !== undefined && _RecordBatch.addNodes(b, nodesOffset)) ||
-        (buffersOffset !== undefined && _RecordBatch.addBuffers(b, buffersOffset)) ||
+        _RecordBatch.addNodes(b, nodesOffset) ||
+        _RecordBatch.addBuffers(b, buffersOffset) ||
         _RecordBatch.endRecordBatch(b)
     );
 }
@@ -654,9 +650,9 @@ function writeField(b: Builder, node: Field) {
     let type = node.type;
     let typeId = node.typeId;
     let name: number | undefined = undefined;
-    let children: number | undefined = undefined;
     let metadata: number | undefined = undefined;
     let dictionary: number | undefined = undefined;
+
     if (!DataType.isDictionary(type)) {
         typeOffset = new TypeSerializer(b).visit(type);
     } else {
@@ -664,7 +660,8 @@ function writeField(b: Builder, node: Field) {
         dictionary = new TypeSerializer(b).visit(type);
         typeOffset = new TypeSerializer(b).visit(type.dictionary);
     }
-    children = _Field.createChildrenVector(b, (type.children || []).map((f) => writeField(b, f)));
+
+    let children = _Field.createChildrenVector(b, (type.children || []).map((f) => writeField(b, f)));
     if (node.metadata && node.metadata.size > 0) {
         metadata = _Field.createCustomMetadataVector(
             b,
@@ -687,9 +684,9 @@ function writeField(b: Builder, node: Field) {
         _Field.startField(b) ||
         _Field.addType(b, typeOffset) ||
         _Field.addTypeType(b, typeId) ||
+        _Field.addChildren(b, children) ||
         _Field.addNullable(b, !!node.nullable) ||
         (name !== undefined && _Field.addName(b, name)) ||
-        (children !== undefined && _Field.addChildren(b, children)) ||
         (dictionary !== undefined && _Field.addDictionary(b, dictionary)) ||
         (metadata !== undefined && _Field.addCustomMetadata(b, metadata)) ||
         _Field.endField(b)
