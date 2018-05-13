@@ -136,7 +136,7 @@ matrix:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - nvm install 9.8
+    - nvm install v10.1.0
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
