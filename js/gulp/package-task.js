@@ -44,6 +44,7 @@ module.exports.packageTask = packageTask;
 
 const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
+    bin: orig.bin,
     name: npmPkgName,
     main: mainExport,
     types: `${mainExport}.d.ts`,
@@ -55,6 +56,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
     main: `${mainExport}.ts`, types: `${mainExport}.ts`,
+    bin: undefined,
     dependencies: {
         '@types/flatbuffers': '*',
         '@types/node': '*',
