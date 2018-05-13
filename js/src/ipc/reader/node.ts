@@ -29,12 +29,12 @@ export async function* fromNodeStream(stream: NodeJS.ReadableStream) {
 
     for await (let chunk of (stream as any as AsyncIterable<Uint8Array | Buffer | string>)) {
 
-        const grown = new Uint8Array(bytes.length + chunk.length);
+        const grown = new Uint8Array(bytes.byteLength + chunk.length);
 
         if (typeof chunk !== 'string') {
-            grown.set(bytes, 0) || grown.set(chunk, bytes.length);
+            grown.set(bytes, 0) || grown.set(chunk, bytes.byteLength);
         } else {
-            for (let i = -1, j = bytes.length, n = chunk.length; ++i < n;) {
+            for (let i = -1, j = bytes.byteLength, n = chunk.length; ++i < n;) {
                 grown[i + j] = chunk.charCodeAt(i);
             }
         }
@@ -45,7 +45,7 @@ export async function* fromNodeStream(stream: NodeJS.ReadableStream) {
             messageLength = new DataView(bytes.buffer).getInt32(0, true);
         }
 
-        while (messageLength < bytes.length) {
+        while (messageLength < bytes.byteLength) {
             if (!message) {
                 (bb = new ByteBuffer(bytes)).setPosition(4);
                 if (message = _Message.getRootAsMessage(bb)) {
@@ -55,9 +55,9 @@ export async function* fromNodeStream(stream: NodeJS.ReadableStream) {
                 throw new Error(`Invalid message at position ${bytesRead}`);
             }
             bytesRead += messageLength + PADDING;
-            yield bytes.subarray(0, messageLength);
+            yield bytes.subarray(0, messageLength + PADDING);
             bytes = bytes.subarray(messageLength + PADDING);
-            messageLength = bytes.length <= 0 ? 0 :
+            messageLength = bytes.byteLength <= 0 ? 0 :
                 new DataView(bytes.buffer).getInt32(bytes.byteOffset, true);
             message = null;
         }

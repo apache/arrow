@@ -120,8 +120,8 @@ describe(`Integration`, () => {
             testReaderIntegration(json, arrowBuffer);
             testTableFromBuffersIntegration(json, arrowBuffer);
             testTableToBuffersIntegration('json', 'file')(json, arrowBuffer);
-            testTableToBuffersIntegration('json', 'stream')(json, arrowBuffer);
             testTableToBuffersIntegration('binary', 'file')(json, arrowBuffer);
+            testTableToBuffersIntegration('json', 'stream')(json, arrowBuffer);
             testTableToBuffersIntegration('binary', 'stream')(json, arrowBuffer);
         });
     }
@@ -164,10 +164,10 @@ function testTableFromBuffersIntegration(jsonData: any, arrowBuffer: Uint8Array)
 }
 
 function testTableToBuffersIntegration(srcFormat: 'json' | 'binary', arrowFormat: 'stream' | 'file') {
+    const refFormat = srcFormat === `json` ? `binary` : `json`;
     return function testTableToBuffersIntegration(jsonData: any, arrowBuffer: Uint8Array) {
-        test(`serializing ${srcFormat} to a ${arrowFormat} reports the same values as the alternate format`, () => {
+        test(`serialized ${srcFormat} ${arrowFormat} reports the same values as the ${refFormat} ${arrowFormat}`, () => {
             expect.hasAssertions();
-            const refFormat = srcFormat === 'json' ? `binary` : `json`;
             const refTable = Table.from(refFormat === `json` ? jsonData : arrowBuffer);
             const srcTable = Table.from(srcFormat === `json` ? jsonData : arrowBuffer);
             const dstTable = Table.from(srcTable.serialize(`binary`, arrowFormat === `stream`));
