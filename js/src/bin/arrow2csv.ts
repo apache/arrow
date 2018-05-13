@@ -30,15 +30,18 @@ const files = [...(argv.file || []), ...(argv._unknown || [])].filter(Boolean);
 
 (async () => {
     if (!files.length) {
-        let buffer = Buffer.from([]);
-        for await (let chunk of require('stream-to-iterator')(process.stdin as any)) {
-            chunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'binary');
-            buffer = Buffer.concat([buffer, chunk], buffer.length + chunk.length);
+        let buffers = [], totalLength = 0;
+        for await (let chunk of (process.stdin as any)) {
+            if (!Buffer.isBuffer(chunk)) {
+                chunk = Buffer.from(chunk, 'binary');
+            }
+            buffers.push(chunk);
+            totalLength += chunk.byteLength;
         }
-        if (buffer.length === 0) {
+        if (buffers.length === 0) {
             return print_usage();
         }
-        files.push(buffer);
+        files.push(Buffer.concat(buffers, totalLength));
     }
     for (let input of files) {
         printTable(typeof input === 'string' ? await readFile(input) : input);
