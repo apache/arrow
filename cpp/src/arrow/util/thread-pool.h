@@ -72,6 +72,10 @@ class ThreadPool {
   // thread count is fully adjusted.
   Status SetCapacity(size_t threads);
 
+  // Heuristic for the default capacity of a thread pool for CPU-bound tasks.
+  // This is exposed as a static method to help with testing.
+  static size_t DefaultCapacity();
+
   // Shutdown the pool.  Once the pool starts shutting down, new tasks
   // cannot be submitted anymore.
   // If "wait" is true, shutdown waits for all pending tasks to be finished.
@@ -109,6 +113,7 @@ class ThreadPool {
 
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
+  FRIEND_TEST(TestGlobalThreadPool, Capacity);
 
   ThreadPool();
 
