@@ -144,7 +144,7 @@ class build_ext(_build_ext):
         'lib',
         '_parquet',
         '_orc',
-        'plasma']
+        '_plasma']
 
     def _run_cmake(self):
         # The directory containing this setup.py
@@ -328,7 +328,7 @@ class build_ext(_build_ext):
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
             return True
-        if name == 'plasma' and not self.with_plasma:
+        if name == '_plasma' and not self.with_plasma:
             return True
         if name == '_orc' and not self.with_orc:
             return True
