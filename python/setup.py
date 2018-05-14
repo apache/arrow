@@ -144,7 +144,7 @@ class build_ext(_build_ext):
         'lib',
         '_parquet',
         '_orc',
-        'plasma']
+        '_plasma']
 
     def _run_cmake(self):
         # The directory containing this setup.py
