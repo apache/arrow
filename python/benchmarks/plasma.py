@@ -23,19 +23,32 @@ import pyarrow.plasma as plasma
 from . import common
 
 
-class PlasmaBenchmarks(object):
+class SimplePlasmaThroughput(object):
+    """Benchmark plasma store throughput with a single client."""
+
+    params = [1000, 100000, 10000000]
+
+    def setup(self, size):
+        self.plasma_store_ctx = plasma.start_plasma_store(plasma_store_memory=10**9)
+        plasma_store_name, p = self.plasma_store_ctx.__enter__()
+        self.plasma_client = plasma.connect(plasma_store_name, "", 64)
+
+        self.data = np.random.randn(size // 8)
+
+    def teardown(self, size):
+        self.plasma_store_ctx.__exit__(None, None, None)
+
+    def time_plasma_put_data(self, size):
+        self.plasma_client.put(self.data)
+
+
+class SimplePlasmaLatency(object):
+    """Benchmark plasma store latency with a single client."""
 
     def setup(self):
         self.plasma_store_ctx = plasma.start_plasma_store(plasma_store_memory=10**9)
         plasma_store_name, p = self.plasma_store_ctx.__enter__()
         self.plasma_client = plasma.connect(plasma_store_name, "", 64)
-
-        self.data_1kb = np.random.randn(1000 // 8)
-        self.data_10kb = np.random.randn(10000 // 8)
-        self.data_100kb = np.random.randn(100000 // 8)
-        self.data_1mb = np.random.randn(1000000 // 8)
-        self.data_10mb = np.random.randn(10000000 // 8)
-        self.data_100mb = np.random.randn(100000000 // 8)
 
     def teardown(self):
         self.plasma_store_ctx.__exit__(None, None, None)
@@ -48,21 +61,3 @@ class PlasmaBenchmarks(object):
         for i in range(1000):
             x = self.plasma_client.put(1)
             self.plasma_client.get(x)
-
-    def time_plasma_put_1kb(self):
-        self.plasma_client.put(self.data_1kb)
-
-    def time_plasma_put_10kb(self):
-        self.plasma_client.put(self.data_10kb)
-
-    def time_plasma_put_100kb(self):
-        self.plasma_client.put(self.data_100kb)
-
-    def time_plasma_put_1mb(self):
-        self.plasma_client.put(self.data_1mb)
-
-    def time_plasma_put_10mb(self):
-        self.plasma_client.put(self.data_10mb)
-
-    def time_plasma_put_100mb(self):
-        self.plasma_client.put(self.data_100mb)
