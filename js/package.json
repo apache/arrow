@@ -67,18 +67,16 @@
     "@std/esm": "0.26.0",
     "@types/glob": "5.0.35",
     "@types/jest": "22.2.3",
-    "ast-types": "0.10.1",
     "babel-jest": "22.4.3",
     "benchmark": "2.1.4",
     "coveralls": "3.0.0",
     "del": "3.0.0",
     "glob": "7.1.2",
-    "google-closure-compiler": "20180101.0.0",
+    "google-closure-compiler": "20180506.0.0",
     "gulp": "github:gulpjs/gulp#6d71a658c61edb3090221579d8f97dbe086ba2ed",
     "gulp-json-transform": "0.4.5",
     "gulp-rename": "1.2.2",
     "gulp-sourcemaps": "2.6.3",
-    "gulp-transform-js-ast": "1.0.2",
     "gulp-typescript": "3.2.4",
     "ix": "2.3.4",
     "jest": "22.4.3",
@@ -115,6 +113,7 @@
   },
   "jest": {
     "verbose": false,
+    "testEnvironment": "node",
     "globals": {
       "ts-jest": {
         "skipBabel": true,

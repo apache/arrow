@@ -238,6 +238,8 @@ Type.Int = function() {};
 /** @type {?} */
 Type.Float = function() {};
 /** @type {?} */
+Type.FloatingPoint = function() {};
+/** @type {?} */
 Type.Binary = function() {};
 /** @type {?} */
 Type.Utf8 = function() {};
@@ -257,6 +259,8 @@ Type.Interval = function() {};
 Type.List = function() {};
 /** @type {?} */
 Type.Struct = function() {};
+/** @type {?} */
+Type.Struct_ = function() {};
 /** @type {?} */
 Type.Union = function() {};
 /** @type {?} */
