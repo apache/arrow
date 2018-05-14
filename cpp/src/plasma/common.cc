@@ -18,7 +18,9 @@
 #include "plasma/common.h"
 
 #include <limits>
+#include <mutex>
 #include <random>
+#include <thread>
 
 #include "plasma/plasma_generated.h"
 
