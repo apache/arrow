@@ -23,7 +23,8 @@ import shutil
 import tempfile
 import time
 
-from pyarrow._plasma import *
+from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
+                             PlasmaBuffer, connect)
 
 
 @contextlib.contextmanager

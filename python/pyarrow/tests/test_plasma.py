@@ -19,16 +19,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import contextlib
 import os
 import pytest
 import random
-import shutil
 import signal
 import sys
-import subprocess
-import tempfile
-import time
 
 import numpy as np
 import pyarrow as pa
@@ -787,7 +782,7 @@ def test_plasma_client_sharing():
 
     with plasma.start_plasma_store(
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
-                as (plasma_store_name, p):
+            as (plasma_store_name, p):
         plasma_client = plasma.connect(plasma_store_name, "", 64)
         object_id = plasma_client.put(np.zeros(3))
         buf = plasma_client.get(object_id)
