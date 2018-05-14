@@ -24,7 +24,7 @@ import warnings
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import RecordBatch, Table
+from pyarrow.lib import RecordBatch, Table, concat_tables
 import pyarrow.lib as ext
 
 try:
@@ -92,6 +92,72 @@ class FeatherWriter(object):
                 self.writer.write_array(name, col)
 
         self.writer.close()
+
+
+class FeatherDataset(object):
+    """
+    Encapsulates details of reading a list of Feather files.
+
+    Parameters
+    ----------
+    path_or_paths : List[str]
+        A list of file names
+    validate_schema : boolean, default True
+        Check that individual file schemas are all the same / compatible
+    """
+    def __init__(self, path_or_paths, validate_schema=True):
+        self.paths = path_or_paths
+        self.validate_schema = validate_schema
+
+    def read_table(self, columns=None):
+        """
+        Read multiple feather files as a single pyarrow.Table
+
+        Parameters
+        ----------
+        columns : List[str]
+            Names of columns to read from the file
+
+        Returns
+        -------
+        pyarrow.Table
+            Content of the file as a table (of columns)
+        """
+        _fil = FeatherReader(self.paths[0]).read_table(columns=columns)
+        self._tables = [_fil]
+        self.schema = _fil.schema
+
+        for fil in self.paths[1:]:
+            fil_table = FeatherReader(fil).read_table(columns=columns)
+            if self.validate_schema:
+                self.validate_schemas(fil, fil_table)
+            self._tables.append(fil_table)
+        return concat_tables(self._tables)
+
+    def validate_schemas(self, piece, table):
+        if not self.schema.equals(table.schema):
+            raise ValueError('Schema in {0!s} was different. \n'
+                             '{1!s}\n\nvs\n\n{2!s}'
+                             .format(piece, self.schema,
+                                     table.schema))
+
+    def read_pandas(self, columns=None, nthreads=1):
+        """
+        Read multiple Parquet files as a single pandas DataFrame
+
+        Parameters
+        ----------
+        columns : List[str]
+            Names of columns to read from the file
+        nthreads : int, default 1
+            Number of columns to read in parallel.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Content of the file as a pandas DataFrame (of columns)
+        """
+        return self.read_table(columns=columns).to_pandas(nthreads=nthreads)
 
 
 def write_feather(df, dest):
