@@ -176,17 +176,15 @@ garrow_decimal128_to_string(GArrowDecimal128 *decimal)
  * garrow_decimal128_abs:
  * @decimal: A #GArrowDecimal128.
  *
- * Returns: (transfer full): The absolute value of the decimal.
+ * Computes the absolute value of the @decimal destructively.
  *
  * Since: 0.10.0
  */
-GArrowDecimal128 *
+void
 garrow_decimal128_abs(GArrowDecimal128 *decimal)
 {
   auto arrow_decimal = garrow_decimal128_get_raw(decimal);
-  auto arrow_sub_decimal =
-    std::make_shared<arrow::Decimal128>(arrow_decimal->Abs());
-  return garrow_decimal128_new_raw(&arrow_sub_decimal);
+  arrow_decimal->Abs();
 }
 
 G_END_DECLS
