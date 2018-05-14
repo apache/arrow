@@ -51,8 +51,8 @@ class TestPlasmaStore : public ::testing::Test {
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() {
-    std::mt19937 rng;
-    rng.seed(std::random_device()());
+    uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    std::mt19937 rng(static_cast<uint32_t>(seed));
     std::string store_index = std::to_string(rng());
     store_socket_name_ = "/tmp/store" + store_index;
 
