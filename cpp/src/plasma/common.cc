@@ -28,9 +28,10 @@ using arrow::Status;
 UniqueID UniqueID::from_random() {
   UniqueID id;
   uint8_t* data = id.mutable_data();
-  std::random_device engine;
+  static thread_local std::mt19937 generator;
+  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
   for (int i = 0; i < kUniqueIDSize; i++) {
-    data[i] = static_cast<uint8_t>(engine());
+    data[i] = static_cast<uint8_t>(d(generator));
   }
   return id;
 }
