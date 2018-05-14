@@ -17,7 +17,6 @@
 
 from multiprocessing import Pool
 import numpy as np
-import os
 import pandas as pd
 import pyarrow as pa
 import pyarrow.plasma as plasma

@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pyarrow as pa
 import pyarrow.benchmark as pb
 
 from . import common
@@ -44,4 +43,3 @@ class PandasObjectIsNull(object):
 
     def time_PandasObjectIsNull(self, *args):
         pb.benchmark_PandasObjectIsNull(self.lst)
-

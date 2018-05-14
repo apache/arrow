@@ -16,10 +16,8 @@
 # under the License.
 
 import os
-import pytest
 
 import fastparquet
-import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pandas.util.testing as tm
