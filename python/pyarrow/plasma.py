@@ -24,7 +24,7 @@ import tempfile
 import time
 
 from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
-                             PlasmaBuffer, connect)
+                             PlasmaBuffer, PlasmaClient, connect)
 
 
 @contextlib.contextmanager
