@@ -16,6 +16,7 @@
 # under the License.
 
 import numpy as np
+import timeit
 
 import pyarrow as pa
 import pyarrow.plasma as plasma
@@ -27,6 +28,8 @@ class SimplePlasmaThroughput(object):
     """Benchmark plasma store throughput with a single client."""
 
     params = [1000, 100000, 10000000]
+
+    timer = timeit.default_timer
 
     def setup(self, size):
         self.plasma_store_ctx = plasma.start_plasma_store(plasma_store_memory=10**9)
@@ -44,6 +47,8 @@ class SimplePlasmaThroughput(object):
 
 class SimplePlasmaLatency(object):
     """Benchmark plasma store latency with a single client."""
+
+    timer = timeit.default_timer
 
     def setup(self):
         self.plasma_store_ctx = plasma.start_plasma_store(plasma_store_memory=10**9)
