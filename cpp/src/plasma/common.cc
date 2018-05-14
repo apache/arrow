@@ -20,7 +20,6 @@
 #include <limits>
 #include <mutex>
 #include <random>
-#include <thread>
 
 #include "plasma/plasma_generated.h"
 
@@ -37,9 +36,9 @@ UniqueID UniqueID::from_random() {
   static std::mutex mutex;
   std::lock_guard<std::mutex> lock(mutex);
   static std::mt19937 generator;
-  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
+  std::uniform_int_distribution<uint32_t> dist(0, std::numeric_limits<uint8_t>::max());
   for (int i = 0; i < kUniqueIDSize; i++) {
-    data[i] = static_cast<uint8_t>(d(generator));
+    data[i] = static_cast<uint8_t>(dist(generator));
   }
   return id;
 }
