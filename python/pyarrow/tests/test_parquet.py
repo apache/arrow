@@ -498,7 +498,7 @@ def test_pandas_parquet_configuration_options(tmpdir):
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
-    for compression in ['NONE', 'SNAPPY', 'GZIP']:
+    for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4']:
         _write_table(arrow_table, filename.strpath,
                      version="2.0",
                      compression=compression)
