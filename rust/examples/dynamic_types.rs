@@ -56,8 +56,7 @@ fn main() {
 
 /// Create a new batch by performing a projection of id, (nested.b + nested.c) AS sum
 fn process(batch: &RecordBatch) {
-    let id = batch
-        .column(0);
+    let id = batch.column(0);
     let nested = batch
         .column(1)
         .as_any()
