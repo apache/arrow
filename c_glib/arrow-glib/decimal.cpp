@@ -187,6 +187,21 @@ garrow_decimal128_abs(GArrowDecimal128 *decimal)
   arrow_decimal->Abs();
 }
 
+/**
+ * garrow_decimal128_negate:
+ * @decimal: A #GArrowDecimal128.
+ *
+ * Negate the current value of the @decimal destructively.
+ *
+ * Since: 0.10.0
+ */
+void
+garrow_decimal128_negate(GArrowDecimal128 *decimal)
+{
+  auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  arrow_decimal->Negate();
+}
+
 G_END_DECLS
 
 GArrowDecimal128 *

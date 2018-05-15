@@ -36,4 +36,14 @@ class TestDecimal128 < Test::Unit::TestCase
     decimal.abs
     assert_equal(absolute_value, decimal.to_s)
   end
+
+  def test_negate
+    positive_value = "23049223942343532412"
+    negative_value = "-23049223942343532412"
+    decimal = Arrow::Decimal128.new(positive_value)
+    decimal.negate
+    assert_equal(negative_value, decimal.to_s)
+    decimal.negate
+    assert_equal(positive_value, decimal.to_s)
+  end
 end
