@@ -1115,7 +1115,6 @@ class JSTester(Tester):
         cmd.extend(['--mode', command])
 
         if self.debug:
-            cmd.extend(['-t', 'src'])
             print(' '.join(cmd))
 
         run_cmd(cmd)
