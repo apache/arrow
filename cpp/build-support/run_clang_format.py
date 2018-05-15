@@ -103,7 +103,6 @@ if __name__ == "__main__":
                 if diff:
                     # Print out the diff to stderr
                     error = True
-                    print(",".join(map(str, map(type, diff))))
                     sys.stderr.writelines(diff)
 
     sys.exit(1 if error else 0)
