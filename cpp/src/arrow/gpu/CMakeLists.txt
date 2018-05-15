@@ -43,7 +43,7 @@ ADD_ARROW_LIB(arrow_gpu
   DEPENDENCIES metadata_fbs
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_GPU_SHARED_LINK_LIBS}
-  STATIC_LINK_LIBS ""
+  STATIC_LINK_LIBS ${ARROW_GPU_SHARED_LINK_LIBS}
 )
 
 # CUDA build version
@@ -72,7 +72,7 @@ install(
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 set(ARROW_GPU_TEST_LINK_LIBS
-  arrow_gpu_shared
+  arrow_gpu_static
   ${ARROW_TEST_LINK_LIBS})
 
 if (ARROW_BUILD_TESTS)
