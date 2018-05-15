@@ -298,16 +298,23 @@ export class CountByResult extends Table implements DataFrame {
 
 function* tableRowsToString(table: Table, separator = ' | ') {
     let rowOffset = 0;
+    let firstValues = [];
     let maxColumnWidths: number[] = [];
     let iterators: IterableIterator<string>[] = [];
     // Gather all the `rowsToString` iterators into a list before iterating,
     // so that `maxColumnWidths` is filled with the maxWidth for each column
     // across all RecordBatches.
     for (const batch of table.batches) {
-        iterators.push(batch.rowsToString(separator, rowOffset, maxColumnWidths));
-        rowOffset += batch.length;
+        const iterator = batch.rowsToString(separator, rowOffset, maxColumnWidths);
+        const { done, value } = iterator.next();
+        if (!done) {
+            firstValues.push(value);
+            iterators.push(iterator);
+            rowOffset += batch.length;
+        }
     }
     for (const iterator of iterators) {
+        yield firstValues.shift();
         yield* iterator;
     }
 }
