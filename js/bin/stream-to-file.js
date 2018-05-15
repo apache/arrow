@@ -23,7 +23,7 @@ const path = require('path');
 const encoding = 'binary';
 const ext = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
 const { util: { PipeIterator } } = require(`../index${ext}`);
-const { Table, serializeFile, fromNodeStream } = require(`../index${ext}`);
+const { Table, serializeFile, fromReadableStream } = require(`../index${ext}`);
 
 (async () => {
     // Todo (ptaylor): implement `serializeFileAsync` that accepts an
@@ -32,6 +32,6 @@ const { Table, serializeFile, fromNodeStream } = require(`../index${ext}`);
         ? process.stdin : fs.createReadStream(path.resolve(process.argv[2]));
     const out = process.argv.length < 4
         ? process.stdout : fs.createWriteStream(path.resolve(process.argv[3]));
-    new PipeIterator(serializeFile(await Table.fromAsync(fromNodeStream(in_))), encoding).pipe(out);
+    new PipeIterator(serializeFile(await Table.fromAsync(fromReadableStream(in_))), encoding).pipe(out);
 
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -18,7 +18,7 @@
 import { Vector } from '../../vector';
 import { flatbuffers } from 'flatbuffers';
 import { TypeDataLoader } from './vector';
-import { checkForMagicArrowString, PADDING, magicLength, magicAndPadding, magicX2AndPadding } from '../magic';
+import { checkForMagicArrowString, PADDING, magicAndPadding, isValidArrowFile } from '../magic';
 import { Message, Footer, FileBlock, RecordBatchMetadata, DictionaryBatch, BufferMetadata, FieldMetadata, } from '../metadata';
 import {
     Schema, Field,
@@ -156,16 +156,13 @@ function* readStreamMessages(bb: ByteBuffer) {
 }
 
 function readFileSchema(bb: ByteBuffer) {
-    let fileLength = bb.capacity(), footerLength: number, footerOffset: number;
-    if ((fileLength < magicX2AndPadding /*                     Arrow buffer too small */) ||
-        (!checkForMagicArrowString(bb.bytes(), 0) /*                        Missing magic start    */) ||
-        (!checkForMagicArrowString(bb.bytes(), fileLength - magicLength) /* Missing magic end      */) ||
-        (/*                                                    Invalid footer length  */
-        (footerLength = bb.readInt32(footerOffset = fileLength - magicAndPadding)) < 1 &&
-        (footerLength + footerOffset > fileLength))) {
+    if (!isValidArrowFile(bb)) {
         return null;
     }
-    bb.setPosition(footerOffset - footerLength);
+    let fileLength = bb.capacity();
+    let lengthOffset = fileLength - magicAndPadding;
+    let footerLength = bb.readInt32(lengthOffset);
+    bb.setPosition(lengthOffset - footerLength);
     return footerFromByteBuffer(bb);
 }
 

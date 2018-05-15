@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { PADDING } from '../magic';
 import { flatbuffers } from 'flatbuffers';
 import * as Message_ from '../../fb/Message';
 import ByteBuffer = flatbuffers.ByteBuffer;
 import _Message = Message_.org.apache.arrow.flatbuf.Message;
+import { PADDING, isValidArrowFile, checkForMagicArrowString } from '../magic';
 
-export async function* fromNodeStream(stream: NodeJS.ReadableStream) {
+export async function* fromReadableStream(stream: NodeJS.ReadableStream) {
 
     let bb: ByteBuffer;
     let bytesRead = 0, bytes = new Uint8Array(0);
@@ -40,6 +40,15 @@ export async function* fromNodeStream(stream: NodeJS.ReadableStream) {
         }
 
         bytes = grown;
+
+        // If we're reading in an Arrow File, just concatenate the bytes until
+        // the file is fully read in
+        if (checkForMagicArrowString(bytes)) {
+            if (!isValidArrowFile(new ByteBuffer(bytes))) {
+                continue;
+            }
+            return yield bytes;
+        }
 
         if (messageLength <= 0) {
             messageLength = new DataView(bytes.buffer).getInt32(0, true);

@@ -28,8 +28,8 @@ import { Vector } from './vector';
 import { RecordBatch } from './recordbatch';
 import { Schema, Field, Type } from './type';
 import { Table, DataFrame, NextFunc, BindFunc, CountByResult } from './table';
-import { fromNodeStream } from './ipc/reader/node';
-import { read, readAsync, readNodeStream } from './ipc/reader/arrow';
+import { fromReadableStream } from './ipc/reader/node';
+import { read, readAsync, readStream } from './ipc/reader/arrow';
 import { serializeFile, serializeStream } from './ipc/writer/binary';
 
 export import View = vector_.View;
@@ -39,8 +39,8 @@ export import IntBitWidth = type_.IntBitWidth;
 export import TimeBitWidth = type_.TimeBitWidth;
 export import TypedArrayConstructor = type_.TypedArrayConstructor;
 
-export { fromNodeStream };
-export { read, readAsync, readNodeStream };
+export { fromReadableStream };
+export { read, readAsync, readStream };
 export { serializeFile, serializeStream };
 export { Table, DataFrame, NextFunc, BindFunc, CountByResult };
 export { Field, Schema, RecordBatch, Vector, Type };
@@ -209,8 +209,8 @@ try {
 
         Arrow['read'] = read;
         Arrow['readAsync'] = readAsync;
-        Arrow['readNodeStream'] = readNodeStream;
-        Arrow['fromNodeStream'] = fromNodeStream;
+        Arrow['readStream'] = readStream;
+        Arrow['fromReadableStream'] = fromReadableStream;
 
         Arrow['serializeFile'] = serializeFile;
         Arrow['serializeStream'] = serializeStream;

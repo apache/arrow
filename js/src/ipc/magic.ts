@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { flatbuffers } from 'flatbuffers';
+import ByteBuffer = flatbuffers.ByteBuffer;
+
 export const PADDING = 4;
 export const MAGIC_STR = 'ARROW1';
 export const MAGIC = new Uint8Array(MAGIC_STR.length);
@@ -28,6 +31,19 @@ export function checkForMagicArrowString(buffer: Uint8Array, index = 0) {
         if (MAGIC[i] !== buffer[index + i]) {
             return false;
         }
+    }
+    return true;
+}
+
+export function isValidArrowFile(bb: ByteBuffer) {
+    let fileLength = bb.capacity(), footerLength: number, lengthOffset: number;
+    if ((fileLength < magicX2AndPadding /*                     Arrow buffer too small */) ||
+        (!checkForMagicArrowString(bb.bytes(), 0) /*                        Missing magic start    */) ||
+        (!checkForMagicArrowString(bb.bytes(), fileLength - magicLength) /* Missing magic end      */) ||
+        (/*                                                    Invalid footer length  */
+        (footerLength = bb.readInt32(lengthOffset = fileLength - magicAndPadding)) < 1 &&
+        (footerLength + lengthOffset > fileLength))) {
+        return false;
     }
     return true;
 }

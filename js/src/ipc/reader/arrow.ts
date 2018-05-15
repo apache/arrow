@@ -16,7 +16,7 @@
 // under the License.
 
 import { readJSON } from './json';
-import { fromNodeStream } from './node';
+import { fromReadableStream } from './node';
 import { RecordBatch } from '../../recordbatch';
 import { readBuffers, readBuffersAsync } from './binary';
 import { readRecordBatches, readRecordBatchesAsync, TypeDataLoader } from './vector';
@@ -48,8 +48,8 @@ export async function* readAsync(sources: AsyncIterable<Uint8Array | Buffer | st
     }
 }
 
-export async function* readNodeStream(stream: NodeJS.ReadableStream) {
-    for await (const recordBatch of readAsync(fromNodeStream(stream))) {
+export async function* readStream(stream: NodeJS.ReadableStream) {
+    for await (const recordBatch of readAsync(fromReadableStream(stream))) {
         yield recordBatch as RecordBatch;
     }
 }
