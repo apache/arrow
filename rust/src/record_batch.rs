@@ -27,7 +27,13 @@ pub struct RecordBatch {
 
 impl RecordBatch {
     pub fn new(schema: Rc<Schema>, columns: Vec<Rc<Array>>) -> Self {
+        // assert that there are some columns
         assert!(columns.len() > 0);
+        // assert that all columns have the same row count
+        let len = columns[0].len();
+        for i in 1..columns.len() {
+            assert_eq!(len, columns[i].len());
+        }
         RecordBatch { schema, columns }
     }
 
