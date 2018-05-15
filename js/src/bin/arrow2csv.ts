@@ -21,7 +21,7 @@
 
 import * as fs from 'fs';
 import { promisify } from 'util';
-import * as Arrow from '../Arrow';
+import { Table, readStream } from '../Arrow';
 
 const readFile = promisify(fs.readFile);
 const { parse } = require('json-bignum');
@@ -29,31 +29,30 @@ const argv = require(`command-line-args`)(cliOpts(), { partial: true });
 const files = [...(argv.file || []), ...(argv._unknown || [])].filter(Boolean);
 
 (async () => {
-    if (!files.length) {
-        let buffers = [], totalLength = 0;
-        for await (let chunk of (process.stdin as any)) {
-            if (!Buffer.isBuffer(chunk)) {
-                chunk = Buffer.from(chunk, 'binary');
-            }
-            buffers.push(chunk);
-            totalLength += chunk.byteLength;
+    let hasRecords = false;
+    if (files.length > 0) {
+        hasRecords = true;
+        for (let input of files) {
+            printTable(await readFile(input));
         }
-        if (buffers.length === 0) {
-            return print_usage();
+    } else {
+        let rowOffset = 0;
+        let maxColumnWidths: number[] = [];
+        for await (const recordBatch of readStream(process.stdin)) {
+            hasRecords = true;
+            recordBatch.rowsToString(' | ', rowOffset, maxColumnWidths).pipe(process.stdout);
+            rowOffset += recordBatch.length;
         }
-        files.push(Buffer.concat(buffers, totalLength));
     }
-    for (let input of files) {
-        printTable(typeof input === 'string' ? await readFile(input) : input);
-    }
+    return hasRecords ? null : print_usage();
 })().catch((e) => { console.error(e); process.exit(1); });
 
 function printTable(input: any) {
-    let table: Arrow.Table;
+    let table: Table;
     try {
-        table = Arrow.Table.from(input);
+        table = Table.from(input);
     } catch (e) {
-        table = Arrow.Table.from(parse(input + ''));
+        table = Table.from(parse(input + ''));
     }
     if (argv.schema && argv.schema.length) {
         table = table.select(...argv.schema);

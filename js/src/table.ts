@@ -297,30 +297,17 @@ export class CountByResult extends Table implements DataFrame {
 }
 
 function* tableRowsToString(table: Table, separator = ' | ') {
-    const fields = table.schema.fields;
-    const header = ['row_id', ...fields.map((f) => `${f}`)].map(stringify);
-    const maxColumnWidths = header.map(x => x.length);
-    // Pass one to convert to strings and count max column widths
-    for (let i = -1, n = table.length - 1; ++i < n;) {
-        let val, row = [i, ...table.get(i)];
-        for (let j = -1, k = row.length; ++j < k; ) {
-            val = stringify(row[j]);
-            maxColumnWidths[j] = Math.max(maxColumnWidths[j], val.length);
-        }
+    let rowOffset = 0;
+    let maxColumnWidths: number[] = [];
+    let iterators: IterableIterator<string>[] = [];
+    // Gather all the `rowsToString` iterators into a list before iterating,
+    // so that `maxColumnWidths` is filled with the maxWidth for each column
+    // across all RecordBatches.
+    for (const batch of table.batches) {
+        iterators.push(batch.rowsToString(separator, rowOffset, maxColumnWidths));
+        rowOffset += batch.length;
     }
-    yield header.map((x, j) => leftPad(x, ' ', maxColumnWidths[j])).join(separator);
-    for (let i = -1; ++i < table.length;) {
-        yield [i, ...table.get(i)]
-            .map((x) => stringify(x))
-            .map((x, j) => leftPad(x, ' ', maxColumnWidths[j]))
-            .join(separator);
+    for (const iterator of iterators) {
+        yield* iterator;
     }
-}
-
-function leftPad(str: string, fill: string, n: number) {
-    return (new Array(n + 1).join(fill) + str).slice(-1 * n);
-}
-
-function stringify(x: any) {
-    return typeof x === 'string' ? `"${x}"` : ArrayBuffer.isView(x) ? `[${x}]` : JSON.stringify(x);
 }
