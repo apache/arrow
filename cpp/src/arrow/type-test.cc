@@ -197,10 +197,21 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
-  auto metadata = std::shared_ptr<KeyValueMetadata>(
-      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
-  auto schema = ::arrow::schema({f0, f1, f2}, metadata);
-  ASSERT_TRUE(metadata->Equals(*schema->metadata()));
+  auto metadata0 = metadata({{"foo", "bar"}, {"bizz", "buzz"}});
+  auto metadata1 = metadata({{"foo", "baz"}});
+
+  auto schema0 = ::arrow::schema({f0, f1, f2}, metadata0);
+  ASSERT_TRUE(metadata0->Equals(*schema0->metadata()));
+
+  auto schema1 = ::arrow::schema({f0, f1, f2}, metadata1);
+  ASSERT_TRUE(metadata1->Equals(*schema1->metadata()));
+
+  auto schema2 = ::arrow::schema({f0, f1, f2}, metadata0->Copy());
+  ASSERT_TRUE(metadata0->Equals(*schema2->metadata()));
+
+  ASSERT_TRUE(schema0->Equals(*schema2));
+  ASSERT_FALSE(schema0->Equals(*schema1));
+  ASSERT_FALSE(schema2->Equals(*schema1));
 }
 
 TEST_F(TestSchema, TestAddMetadata) {

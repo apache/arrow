@@ -289,6 +289,7 @@ bool Schema::Equals(const Schema& other) const {
     return true;
   }
 
+  // checks field equality
   if (num_fields() != other.num_fields()) {
     return false;
   }
@@ -297,7 +298,15 @@ bool Schema::Equals(const Schema& other) const {
       return false;
     }
   }
-  return true;
+
+  // check metadata equality
+  if (metadata_ == nullptr && other.metadata_ == nullptr) {
+    return true;
+  } else if ((metadata_ == nullptr) ^ (other.metadata_ == nullptr)) {
+    return false;
+  } else {
+    return metadata_->Equals(*other.metadata_);
+  }
 }
 
 std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
@@ -364,10 +373,7 @@ std::string Schema::ToString() const {
   }
 
   if (metadata_) {
-    buffer << "\n-- metadata --";
-    for (int64_t i = 0; i < metadata_->size(); ++i) {
-      buffer << "\n" << metadata_->key(i) << ": " << metadata_->value(i);
-    }
+    buffer << metadata_->ToString();
   }
 
   return buffer.str();

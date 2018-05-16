@@ -507,6 +507,21 @@ def test_schema_batch_serialize_methods():
     assert recons_batch.equals(batch)
 
 
+def test_schema_serialization_with_metadata():
+    field_metadata = {b'foo': b'bar', b'kind': b'field'}
+    schema_metadata = {b'foo': b'bar', b'kind': b'schema'}
+
+    f0 = pa.field('a', pa.int8())
+    f1 = pa.field('b', pa.string()).add_metadata(field_metadata)
+
+    schema = pa.schema([f0, f1]).add_metadata(schema_metadata)
+
+    s_schema = schema.serialize()
+    recons_schema = pa.read_schema(s_schema)
+
+    assert recons_schema.equals(schema)
+
+
 def write_file(batch, sink):
     writer = pa.RecordBatchFileWriter(sink, batch.schema)
     writer.write_batch(batch)
