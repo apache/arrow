@@ -469,7 +469,7 @@ foreach(module ${CYTHON_EXTENSIONS})
 
     if (PYARROW_GENERATE_COVERAGE)
       set_target_properties(${module_name} PROPERTIES
-        COMPILE_DEFINITIONS "CYTHON_TRACE=1")
+        COMPILE_DEFINITIONS "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
     endif()
 
     target_link_libraries(${module_name} ${LINK_LIBS})
