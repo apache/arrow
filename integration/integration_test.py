@@ -1112,7 +1112,7 @@ class JSTester(Tester):
         if json_path is not None:
             cmd.extend(['-j', json_path])
 
-        cmd.extend(['--mode', command])
+        cmd.extend(['--mode', command, '-t', 'src'])
 
         if self.debug:
             print(' '.join(cmd))

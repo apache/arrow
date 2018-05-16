@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# hide nodejs experimental-feature warnings
+export NODE_NO_WARNINGS=1
 export MINICONDA=$HOME/miniconda
 export PATH="$MINICONDA/bin:$PATH"
 export CONDA_PKGS_DIRS=$HOME/.conda_packages
