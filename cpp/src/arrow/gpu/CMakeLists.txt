@@ -33,7 +33,6 @@ set(ARROW_GPU_SRCS
 )
 
 set(ARROW_GPU_SHARED_LINK_LIBS
-  arrow_shared
   ${CUDA_LIBRARIES}
   ${CUDA_CUDA_LIBRARY}
 )
@@ -42,7 +41,8 @@ ADD_ARROW_LIB(arrow_gpu
   SOURCES ${ARROW_GPU_SRCS}
   DEPENDENCIES metadata_fbs
   SHARED_LINK_FLAGS ""
-  SHARED_LINK_LIBS ${ARROW_GPU_SHARED_LINK_LIBS}
+  SHARED_LINK_LIBS arrow_shared ${ARROW_GPU_SHARED_LINK_LIBS}
+  # Static arrow_gpu must also link against CUDA shared libs
   STATIC_LINK_LIBS ${ARROW_GPU_SHARED_LINK_LIBS}
 )
 
@@ -72,6 +72,7 @@ install(
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 set(ARROW_GPU_TEST_LINK_LIBS
+  # ARROW-2561: Must link statically against arrow and arrow_gpu to avoid double free
   arrow_gpu_static
   ${ARROW_TEST_LINK_LIBS})
 
