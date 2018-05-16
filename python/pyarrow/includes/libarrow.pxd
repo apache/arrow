@@ -959,7 +959,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         PandasOptions options,
         const unordered_set[c_string]& categorical_columns,
         const shared_ptr[CTable]& table,
-        int nthreads, CMemoryPool* pool,
+        c_bool use_threads, CMemoryPool* pool,
         PyObject** out)
 
     void c_set_default_memory_pool \

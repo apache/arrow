@@ -40,7 +40,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/parallel.h"
+#include "arrow/util/thread-pool.h"
 #include "arrow/visitor_inline.h"
 
 #include "arrow/compute/api.h"
@@ -1370,14 +1370,14 @@ class DataFrameBlockCreator {
                                  const std::shared_ptr<Table>& table, MemoryPool* pool)
       : table_(table), options_(options), pool_(pool) {}
 
-  Status Convert(int nthreads, PyObject** output) {
+  Status Convert(bool use_threads, PyObject** output) {
     column_types_.resize(table_->num_columns());
     column_block_placement_.resize(table_->num_columns());
     type_counts_.clear();
     blocks_.clear();
 
     RETURN_NOT_OK(CreateBlocks());
-    RETURN_NOT_OK(WriteTableToBlocks(nthreads));
+    RETURN_NOT_OK(WriteTableToBlocks(use_threads));
 
     return GetResultList(output);
   }
@@ -1450,23 +1450,26 @@ class DataFrameBlockCreator {
     return Status::OK();
   }
 
-  Status WriteTableToBlocks(int nthreads) {
+  Status WriteTableToBlocks(bool use_threads) {
     auto WriteColumn = [this](int i) {
       std::shared_ptr<PandasBlock> block;
       RETURN_NOT_OK(this->GetBlock(i, &block));
       return block->Write(this->table_->column(i), i, this->column_block_placement_[i]);
     };
 
-    int num_tasks = table_->num_columns();
-    nthreads = std::min<int>(nthreads, num_tasks);
-    if (nthreads == 1) {
-      for (int i = 0; i < num_tasks; ++i) {
-        RETURN_NOT_OK(WriteColumn(i));
-      }
-    } else {
-      RETURN_NOT_OK(ParallelFor(nthreads, num_tasks, WriteColumn));
+    arrow::internal::ThreadPool* pool = arrow::internal::CPUThreadPool();
+    std::vector<std::future<Status>> futures;
+    for (int i = 0; i < table_->num_columns(); ++i) {
+      futures.push_back(pool->Submit(WriteColumn, i));
     }
-    return Status::OK();
+    auto final_status = Status::OK();
+    for (auto& fut : futures) {
+      Status st = fut.get();
+      if (!st.ok()) {
+        final_status = st;
+      }
+    }
+    return final_status;
   }
 
   Status AppendBlocks(const BlockMap& blocks, PyObject* list) {
@@ -1866,14 +1869,14 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 }
 
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
-                            int nthreads, MemoryPool* pool, PyObject** out) {
-  return ConvertTableToPandas(options, std::unordered_set<std::string>(), table, nthreads,
-                              pool, out);
+                            bool use_threads, MemoryPool* pool, PyObject** out) {
+  return ConvertTableToPandas(options, std::unordered_set<std::string>(), table,
+                              use_threads, pool, out);
 }
 
 Status ConvertTableToPandas(PandasOptions options,
                             const std::unordered_set<std::string>& categorical_columns,
-                            const std::shared_ptr<Table>& table, int nthreads,
+                            const std::shared_ptr<Table>& table, bool use_threads,
                             MemoryPool* pool, PyObject** out) {
   std::shared_ptr<Table> current_table = table;
   if (!categorical_columns.empty()) {
@@ -1894,7 +1897,7 @@ Status ConvertTableToPandas(PandasOptions options,
   }
 
   DataFrameBlockCreator helper(options, current_table, pool);
-  return helper.Convert(nthreads, out);
+  return helper.Convert(use_threads, out);
 }
 
 }  // namespace py

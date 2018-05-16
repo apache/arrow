@@ -68,7 +68,7 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 // tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
 ARROW_EXPORT
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
-                            int nthreads, MemoryPool* pool, PyObject** out);
+                            bool use_threads, MemoryPool* pool, PyObject** out);
 
 /// Convert a whole table as efficiently as possible to a pandas.DataFrame.
 ///
@@ -77,7 +77,7 @@ Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>&
 ARROW_EXPORT
 Status ConvertTableToPandas(PandasOptions options,
                             const std::unordered_set<std::string>& categorical_columns,
-                            const std::shared_ptr<Table>& table, int nthreads,
+                            const std::shared_ptr<Table>& table, bool use_threads,
                             MemoryPool* pool, PyObject** out);
 
 }  // namespace py

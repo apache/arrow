@@ -17,6 +17,8 @@
 
 # Arrow file and stream reader/writer classes, and other messaging tools
 
+import warnings
+
 import pyarrow as pa
 
 from pyarrow.lib import (Message, MessageReader,  # noqa
@@ -168,22 +170,26 @@ def serialize_pandas(df, nthreads=None, preserve_index=True):
     return sink.get_result()
 
 
-def deserialize_pandas(buf, nthreads=None):
+def deserialize_pandas(buf, nthreads=None, use_threads=False):
     """Deserialize a buffer protocol compatible object into a pandas DataFrame.
 
     Parameters
     ----------
     buf : buffer
         An object compatible with the buffer protocol
-    nthreads : int, defualt None
-        The number of threads to use to convert the buffer to a DataFrame,
-        default all CPUs
+    use_threads: boolean, default False
+        Whether to parallelize the conversion using multiple threads
 
     Returns
     -------
     df : pandas.DataFrame
     """
+    if nthreads is not None:
+        warnings.warn("`nthreads` argument is ignored, "
+                      "pass `use_threads` instead", DeprecationWarning,
+                      stacklevel=2)
+
     buffer_reader = pa.BufferReader(buf)
     reader = pa.RecordBatchStreamReader(buffer_reader)
     table = reader.read_all()
-    return table.to_pandas(nthreads=nthreads)
+    return table.to_pandas(use_threads=use_threads)

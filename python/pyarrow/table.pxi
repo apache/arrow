@@ -16,6 +16,7 @@
 # under the License.
 
 import json
+import warnings
 
 from collections import OrderedDict
 
@@ -746,7 +747,7 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-    def to_pandas(self, nthreads=None):
+    def to_pandas(self, nthreads=None, use_threads=False):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
 
@@ -754,7 +755,11 @@ cdef class RecordBatch:
         -------
         pandas.DataFrame
         """
-        return Table.from_batches([self]).to_pandas(nthreads=nthreads)
+        if nthreads is not None:
+            warnings.warn("`nthreads` argument is ignored, "
+                          "pass `use_threads` instead", DeprecationWarning,
+                          stacklevel=2)
+        return Table.from_batches([self]).to_pandas(use_threads=use_threads)
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
@@ -825,7 +830,7 @@ cdef class RecordBatch:
             CRecordBatch.Make(schema, num_rows, c_arrays))
 
 
-def table_to_blocks(PandasOptions options, Table table, int nthreads,
+def table_to_blocks(PandasOptions options, Table table, c_bool use_threads,
                     MemoryPool memory_pool, categories):
     cdef:
         PyObject* result_obj
@@ -840,7 +845,7 @@ def table_to_blocks(PandasOptions options, Table table, int nthreads,
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                options, categorical_columns, c_table, nthreads, pool,
+                options, categorical_columns, c_table, use_threads, pool,
                 &result_obj
             )
         )
@@ -1148,16 +1153,12 @@ cdef class Table:
 
     def to_pandas(self, nthreads=None, strings_to_categorical=False,
                   memory_pool=None, zero_copy_only=False, categories=None,
-                  integer_object_nulls=False):
+                  integer_object_nulls=False, use_threads=False):
         """
         Convert the arrow::Table to a pandas DataFrame
 
         Parameters
         ----------
-        nthreads : int, default max(1, multiprocessing.cpu_count() / 2)
-            For the default, we divide the CPU count by 2 because most modern
-            computers have hyperthreading turned on, so doubling the CPU count
-            beyond the number of physical cores does not help
         strings_to_categorical : boolean, default False
             Encode string (UTF8) and binary types to pandas.Categorical
         memory_pool: MemoryPool, optional
@@ -1169,6 +1170,8 @@ cdef class Table:
             List of columns that should be returned as pandas.Categorical
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
+        use_threads: boolean, default False
+            Whether to parallelize the conversion using multiple threads
 
         Returns
         -------
@@ -1177,15 +1180,18 @@ cdef class Table:
         cdef:
             PandasOptions options
 
+        if nthreads is not None:
+            warnings.warn("`nthreads` argument is ignored, "
+                          "pass `use_threads` instead", DeprecationWarning,
+                          stacklevel=2)
+
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls)
         self._check_nullptr()
-        if nthreads is None:
-            nthreads = cpu_count()
         mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
-                                             nthreads, categories)
+                                             use_threads, categories)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):

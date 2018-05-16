@@ -27,6 +27,12 @@
 
 namespace arrow {
 
+// A parallelizer that takes a `Status(int)` function and calls it with
+// arguments between 0 and `num_tasks - 1`, using the given number of
+// concurrent threads.
+// In most cases it's more appropriate to use the global CPU thread pool
+// (see arrow/util/thread-pool.h)
+
 template <class FUNCTION>
 Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {
   std::vector<std::thread> thread_pool;

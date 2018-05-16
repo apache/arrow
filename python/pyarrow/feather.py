@@ -66,8 +66,13 @@ class FeatherReader(ext.FeatherReader):
         table = Table.from_arrays(columns, names=names)
         return table
 
-    def read_pandas(self, columns=None, nthreads=1):
-        return self.read_table(columns=columns).to_pandas(nthreads=nthreads)
+    def read_pandas(self, columns=None, nthreads=None, use_threads=False):
+        if nthreads is not None:
+            warnings.warn("`nthreads` argument is ignored, "
+                          "pass `use_threads` instead", DeprecationWarning,
+                          stacklevel=2)
+        return self.read_table(columns=columns).to_pandas(
+            use_threads=use_threads)
 
 
 class FeatherWriter(object):
@@ -141,7 +146,7 @@ class FeatherDataset(object):
                              .format(piece, self.schema,
                                      table.schema))
 
-    def read_pandas(self, columns=None, nthreads=1):
+    def read_pandas(self, columns=None, nthreads=None, use_threads=False):
         """
         Read multiple Parquet files as a single pandas DataFrame
 
@@ -157,7 +162,12 @@ class FeatherDataset(object):
         pandas.DataFrame
             Content of the file as a pandas DataFrame (of columns)
         """
-        return self.read_table(columns=columns).to_pandas(nthreads=nthreads)
+        if nthreads is not None:
+            warnings.warn("`nthreads` argument is ignored, "
+                          "pass `use_threads` instead", DeprecationWarning,
+                          stacklevel=2)
+        return self.read_table(columns=columns).to_pandas(
+            use_threads=use_threads)
 
 
 def write_feather(df, dest):
@@ -186,7 +196,7 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None, nthreads=1):
+def read_feather(source, columns=None, nthreads=None, use_threads=False):
     """
     Read a pandas.DataFrame from Feather format
 
@@ -196,15 +206,19 @@ def read_feather(source, columns=None, nthreads=1):
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read
-    nthreads : int, default 1
-        Number of CPU threads to use when reading to pandas.DataFrame
+    use_threads: bool, default False
+        Whether to parallelize reading using multiple threads
 
     Returns
     -------
     df : pandas.DataFrame
     """
+    if nthreads is not None:
+        warnings.warn("`nthreads` argument is ignored, "
+                      "pass `use_threads` instead", DeprecationWarning,
+                      stacklevel=2)
     reader = FeatherReader(source)
-    return reader.read_pandas(columns=columns, nthreads=nthreads)
+    return reader.read_pandas(columns=columns, use_threads=use_threads)
 
 
 def read_table(source, columns=None):
