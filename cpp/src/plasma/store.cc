@@ -103,7 +103,7 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
   num_objects_to_wait_for = unique_ids.size();
 }
 
-Client::Client(int fd) : fd(fd), notification_fd(boost::none) {}
+Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
 PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
                          bool hugepages_enabled)
@@ -559,16 +559,16 @@ void PlasmaStore::disconnect_client(int client_fd) {
     remove_from_client_object_ids(entry, client);
   }
 
-  if (client->notification_fd) {
+  if (client->notification_fd > 0) {
     // This client has subscribed for notifications.
-    auto notify_fd = client->notification_fd.get();
+    auto notify_fd = client->notification_fd;
     loop_->RemoveFileEvent(notify_fd);
     // Close socket.
     close(notify_fd);
     // Remove notification queue for this fd from global map.
     pending_notifications_.erase(notify_fd);
     // Reset fd.
-    client->notification_fd = boost::none;
+    client->notification_fd = -1;
   }
 
   connected_clients_.erase(it);
@@ -662,7 +662,7 @@ void PlasmaStore::push_notification(ObjectInfoT* object_info, int client_fd) {
 // Subscribe to notifications about sealed objects.
 void PlasmaStore::subscribe_to_updates(Client* client) {
   ARROW_LOG(DEBUG) << "subscribing to updates on fd " << client->fd;
-  if (client->notification_fd) {
+  if (client->notification_fd > 0) {
     // This client has already subscribed. Return.
     return;
   }

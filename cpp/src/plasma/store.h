@@ -18,7 +18,6 @@
 #ifndef PLASMA_STORE_H
 #define PLASMA_STORE_H
 
-#include <boost/optional.hpp>
 #include <deque>
 #include <memory>
 #include <string>
@@ -53,8 +52,8 @@ struct Client {
   std::unordered_set<ObjectID> object_ids;
 
   /// The file descriptor used to push notifications to client. This is only valid
-  /// if client subscribes to plasma store.
-  boost::optional<int> notification_fd;
+  /// if client subscribes to plasma store. -1 indicates invalid.
+  int notification_fd;
 };
 
 class PlasmaStore {
