@@ -121,19 +121,19 @@ where
 }
 
 /// Array of T
-pub struct BufferArray<T: ArrowPrimitiveType> {
+pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     len: usize,
     data: Buffer<T>,
     null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
 
-impl<T> BufferArray<T>
+impl<T> PrimitiveArray<T>
 where
     T: ArrowPrimitiveType,
 {
     pub fn new(data: Buffer<T>, null_count: usize, validity_bitmap: Option<Bitmap>) -> Self {
-        BufferArray {
+        PrimitiveArray {
             len: data.len(),
             data: data,
             null_count,
@@ -211,21 +211,21 @@ where
 }
 
 /// Implement the Add operation for types that support Add
-impl<T> BufferArray<T>
+impl<T> PrimitiveArray<T>
 where
     T: ArrowPrimitiveType + Add<Output = T>,
 {
-    pub fn add(&self, other: &BufferArray<T>) -> BufferArray<T> {
+    pub fn add(&self, other: &PrimitiveArray<T>) -> PrimitiveArray<T> {
         let mut builder: Builder<T> = Builder::new();
         for i in 0..self.len {
             let x = *self.data.get(i) + *other.data.get(i);
             builder.push(x);
         }
-        BufferArray::from(builder.finish())
+        PrimitiveArray::from(builder.finish())
     }
 }
 
-impl<T> Array for BufferArray<T>
+impl<T> Array for PrimitiveArray<T>
 where
     T: ArrowPrimitiveType,
 {
@@ -244,12 +244,12 @@ where
 }
 
 /// Create a BufferArray<T> from a Buffer<T> without null values
-impl<T> From<Buffer<T>> for BufferArray<T>
+impl<T> From<Buffer<T>> for PrimitiveArray<T>
 where
     T: ArrowPrimitiveType,
 {
     fn from(data: Buffer<T>) -> Self {
-        BufferArray {
+        PrimitiveArray {
             len: data.len(),
             data: data,
             validity_bitmap: None,
@@ -259,17 +259,17 @@ where
 }
 
 /// Create a BufferArray<T> from a Vec<T> of primitive values
-impl<T> From<Vec<T>> for BufferArray<T>
+impl<T> From<Vec<T>> for PrimitiveArray<T>
 where
     T: ArrowPrimitiveType + 'static,
 {
     fn from(vec: Vec<T>) -> Self {
-        BufferArray::from(Buffer::from(vec))
+        PrimitiveArray::from(Buffer::from(vec))
     }
 }
 
 /// Create a BufferArray<T> from a Vec<Optional<T>> with null handling
-impl<T> From<Vec<Option<T>>> for BufferArray<T>
+impl<T> From<Vec<Option<T>>> for PrimitiveArray<T>
 where
     T: ArrowPrimitiveType + 'static,
 {
@@ -287,7 +287,7 @@ where
                 }
             }
         }
-        BufferArray::new(builder.finish(), null_count, Some(validity_bitmap))
+        PrimitiveArray::new(builder.finish(), null_count, Some(validity_bitmap))
     }
 }
 
@@ -364,33 +364,33 @@ mod tests {
 
     #[test]
     fn test_from_bool() {
-        let a = BufferArray::from(vec![false, false, true, false]);
+        let a = PrimitiveArray::from(vec![false, false, true, false]);
         assert_eq!(4, a.len());
         assert_eq!(0, a.null_count());
     }
 
     #[test]
     fn test_from_f32() {
-        let a = BufferArray::from(vec![1.23, 2.34, 3.45, 4.56]);
+        let a = PrimitiveArray::from(vec![1.23, 2.34, 3.45, 4.56]);
         assert_eq!(4, a.len());
     }
 
     #[test]
     fn test_from_i32() {
-        let a = BufferArray::from(vec![15, 14, 13, 12, 11]);
+        let a = PrimitiveArray::from(vec![15, 14, 13, 12, 11]);
         assert_eq!(5, a.len());
     }
 
     #[test]
     fn test_from_empty_vec() {
         let v: Vec<i32> = vec![];
-        let a = BufferArray::from(v);
+        let a = PrimitiveArray::from(v);
         assert_eq!(0, a.len());
     }
 
     #[test]
     fn test_from_optional_i32() {
-        let a = BufferArray::from(vec![Some(1), None, Some(2), Some(3), None]);
+        let a = PrimitiveArray::from(vec![Some(1), None, Some(2), Some(3), None]);
         assert_eq!(5, a.len());
         assert_eq!(2, a.null_count());
         // 1 == not null
@@ -408,9 +408,9 @@ mod tests {
 
     #[test]
     fn test_struct() {
-        let a: Rc<Array> = Rc::new(BufferArray::from(Buffer::from(vec![1, 2, 3, 4, 5])));
-        let b: Rc<Array> = Rc::new(BufferArray::from(Buffer::from(vec![
-            1.1, 2.2, 3.3, 4.4, 5.5
+        let a: Rc<Array> = Rc::new(PrimitiveArray::from(Buffer::from(vec![1, 2, 3, 4, 5])));
+        let b: Rc<Array> = Rc::new(PrimitiveArray::from(Buffer::from(vec![
+            1.1, 2.2, 3.3, 4.4, 5.5,
         ])));
 
         let s = StructArray::from(vec![a, b]);
@@ -420,14 +420,14 @@ mod tests {
 
     #[test]
     fn test_buffer_array_min_max() {
-        let a = BufferArray::from(Buffer::from(vec![5, 6, 7, 8, 9]));
+        let a = PrimitiveArray::from(Buffer::from(vec![5, 6, 7, 8, 9]));
         assert_eq!(5, a.min().unwrap());
         assert_eq!(9, a.max().unwrap());
     }
 
     #[test]
     fn test_buffer_array_min_max_with_nulls() {
-        let a = BufferArray::from(vec![Some(5), None, None, Some(8), Some(9)]);
+        let a = PrimitiveArray::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, a.min().unwrap());
         assert_eq!(9, a.max().unwrap());
     }

@@ -21,6 +21,6 @@ use arrow::array::*;
 
 fn main() {
     // create a memory-aligned Arrow array from an existing Vec
-    let array = BufferArray::from(vec![1, 2, 3, 4, 5]);
+    let array = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
     println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
 }

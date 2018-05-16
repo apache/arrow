@@ -29,7 +29,7 @@ fn array_from_vec(n: usize) {
     for i in 0..n {
         v.push(i as i32);
     }
-    BufferArray::from(v);
+    PrimitiveArray::from(v);
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

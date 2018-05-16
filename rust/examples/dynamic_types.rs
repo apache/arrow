@@ -40,12 +40,12 @@ fn main() {
     ]);
 
     // create some data
-    let id = BufferArray::from(vec![1, 2, 3, 4, 5]);
+    let id = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
 
     let nested = StructArray::from(vec![
-        Rc::new(BufferArray::from(vec!["a", "b", "c", "d", "e"])) as Rc<Array>,
-        Rc::new(BufferArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
-        Rc::new(BufferArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
+        Rc::new(PrimitiveArray::from(vec!["a", "b", "c", "d", "e"])) as Rc<Array>,
+        Rc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
+        Rc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
     ]);
 
     // build a record batch
@@ -66,12 +66,12 @@ fn process(batch: &RecordBatch) {
     let nested_b = nested
         .column(1)
         .as_any()
-        .downcast_ref::<BufferArray<f64>>()
+        .downcast_ref::<PrimitiveArray<f64>>()
         .unwrap();
     let nested_c = nested
         .column(2)
         .as_any()
-        .downcast_ref::<BufferArray<f64>>()
+        .downcast_ref::<PrimitiveArray<f64>>()
         .unwrap();
 
     let projected_schema = Schema::new(vec![
