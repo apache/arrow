@@ -159,9 +159,12 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; the
         sphinx \
         sphinx_bootstrap_theme
 
-  pushd $ARROW_PYTHON_DIR/doc
+  pushd $ARROW_PYTHON_DIR
+  # For autodoc, make sure PyArrow is installed
+  python setup.py install -q --single-version-externally-managed --record=record.text
+  cd doc
   sphinx-build -q -b html -d _build/doctrees -W source _build/html
-  popd
+  popd  # $ARROW_PYTHON_DIR
 fi
 
 if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
@@ -180,5 +183,5 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   asv machine --yes
   # Run benchmarks on the changeset being tested
   asv run --no-pull --show-stderr --quick HEAD^!
-  popd
+  popd  # $ARROW_PYTHON_DIR
 fi
