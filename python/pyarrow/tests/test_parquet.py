@@ -587,7 +587,7 @@ def test_parquet_metadata_api():
         ([-1.1, 2.2, 2.3, None, 4.4], np.float64, -1.1, 4.4, 1, 4),
         (
             [u'', u'b', unichar(1000), None, u'aaa'],
-            str, b'', unichar(1000).encode('utf-8'), 1, 4
+            object, b'', unichar(1000).encode('utf-8'), 1, 4
         ),
         ([True, False, False, True, True], np.bool, False, True, 0, 5),
     ]
