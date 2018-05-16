@@ -135,7 +135,6 @@ class ARROW_EXPORT Decimal128 {
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;
 
  private:
-
   int64_t high_bits_;
   uint64_t low_bits_;
 };

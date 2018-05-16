@@ -874,7 +874,7 @@ Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
   return Status::OK();
 }
 
-// Helper function used by Decimal128::FromBigEndian 
+// Helper function used by Decimal128::FromBigEndian
 static inline uint64_t FromBigEndian(const uint8_t* bytes, int32_t length) {
   // We don't bounds check the length here because this is called by
   // FromBigEndian that has a Decimal128 as its out parameters and
@@ -887,7 +887,7 @@ static inline uint64_t FromBigEndian(const uint8_t* bytes, int32_t length) {
   memcpy(reinterpret_cast<uint8_t*>(&result) + 8 - length, bytes, length);
   return ::arrow::BitUtil::FromBigEndian(result);
 }
-  
+
 Status Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length, Decimal128* out) {
   static constexpr int32_t kMinDecimalBytes = 1;
   static constexpr int32_t kMaxDecimalBytes = 16;
