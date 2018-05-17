@@ -43,7 +43,6 @@ Makefile.in
 /doc/reference/*.prerequisites
 /doc/reference/*.signals
 /doc/reference/*.types
-/doc/reference/gtk-doc.make
 /doc/reference/entities.xml
 /doc/reference/*.stamp
 /doc/reference/html/
@@ -61,3 +60,4 @@ Makefile.in
 /example/build
 /example/read-batch
 /example/read-stream
+/gtk-doc.make
