@@ -814,6 +814,38 @@ class TestConvertDateTimeLikeTypes(object):
         })
         tm.assert_frame_equal(expected_df, result)
 
+    def test_python_datetime_subclass(self):
+
+        class MyDatetime(datetime):
+            pass
+
+        date_array = [MyDatetime(2000, 1, 1)]
+        df = pd.DataFrame({"datetime": pd.Series(date_array, dtype=object)})
+
+        table = pa.Table.from_pandas(df)
+        assert isinstance(table[0].data.chunk(0), pa.TimestampArray)
+
+        result = table.to_pandas()
+        expected_df = pd.DataFrame({"datetime": date_array})
+        tm.assert_frame_equal(expected_df, result)
+
+    def test_python_date_subclass(self):
+
+        class MyDate(date):
+            pass
+
+        date_array = [MyDate(2000, 1, 1)]
+        df = pd.DataFrame({"date": pd.Series(date_array, dtype=object)})
+
+        table = pa.Table.from_pandas(df)
+        assert isinstance(table[0].data.chunk(0), pa.Date32Array)
+
+        result = table.to_pandas()
+        expected_df = pd.DataFrame(
+            {"date": np.array(["2000-01-01"], dtype="datetime64[ns]")}
+        )
+        tm.assert_frame_equal(expected_df, result)
+
     def test_datetime64_to_date32(self):
         # ARROW-1718
         arr = pa.array([date(2017, 10, 23), None])
