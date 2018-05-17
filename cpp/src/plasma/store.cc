@@ -300,11 +300,14 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   // tables if it is present there. It should only be present there if the get
   // request timed out.
   for (ObjectID& object_id : get_req->object_ids) {
-    auto& get_requests = object_get_requests_[object_id];
-    // Erase get_req from the vector.
-    auto it = std::find(get_requests.begin(), get_requests.end(), get_req);
-    if (it != get_requests.end()) {
-      get_requests.erase(it);
+    auto object_request_iter = object_get_requests_.find(object_id);
+    if (object_request_iter != object_get_requests_.end()) {
+      auto& get_requests = object_request_iter->second;
+      // Erase get_req from the vector.
+      auto it = std::find(get_requests.begin(), get_requests.end(), get_req);
+      if (it != get_requests.end()) {
+        get_requests.erase(it);
+      }
     }
   }
   // Remove the get request.
