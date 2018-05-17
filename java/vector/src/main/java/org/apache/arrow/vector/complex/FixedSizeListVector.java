@@ -217,8 +217,8 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     }
 
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
-    newBuf.setZero(0, newBuf.capacity());
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     validityBuffer.release(1);
     validityBuffer = newBuf;
     validityAllocationSizeInBytes = (int) newAllocationSize;

@@ -827,4 +827,49 @@ public class TestListVector {
       assertEquals(1, vector.getDataVector().getValueCapacity());
     }
   }
+
+  @Test
+  public void testClearAndReuse() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      BigIntVector bigIntVector = (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
+      vector.setInitialCapacity(10);
+      vector.allocateNew();
+
+      vector.startNewValue(0);
+      bigIntVector.setSafe(0, 7);
+      vector.endValue(0, 1);
+      vector.startNewValue(1);
+      bigIntVector.setSafe(1, 8);
+      vector.endValue(1, 1);
+      vector.setValueCount(2);
+
+      Object result = vector.getObject(0);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(new Long(7), resultSet.get(0));
+
+      result = vector.getObject(1);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(new Long(8), resultSet.get(0));
+
+      // Clear and release the buffers to trigger a realloc when adding next value
+      vector.clear();
+
+      // The list vector should reuse a buffer when reallocating the offset buffer
+      vector.startNewValue(0);
+      bigIntVector.setSafe(0, 7);
+      vector.endValue(0, 1);
+      vector.startNewValue(1);
+      bigIntVector.setSafe(1, 8);
+      vector.endValue(1, 1);
+      vector.setValueCount(2);
+
+      result = vector.getObject(0);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(new Long(7), resultSet.get(0));
+
+      result = vector.getObject(1);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(new Long(8), resultSet.get(0));
+    }
+  }
 }
