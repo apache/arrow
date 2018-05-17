@@ -1517,14 +1517,9 @@ def test_dataset_read_pandas_common_metadata(tmpdir, preserve_index):
         df.index = pd.Index(np.arange(i * size, (i + 1) * size), name='index')
 
         path = pjoin(dirpath, '{:d}.parquet'.format(i))
-
         table = pa.Table.from_pandas(df, preserve_index=preserve_index)
-
-        # Obliterate metadata
-        table = table.replace_schema_metadata(None)
-        assert table.schema.metadata is None
-
         _write_table(table, path)
+        
         test_data.append(table)
         frames.append(df)
         paths.append(path)

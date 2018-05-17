@@ -72,7 +72,7 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     result = table.to_pandas(use_threads=use_threads)
 
     if expected_schema:
-        # all occurencies of _check_pandas_roundtrip passes expected_schema
+        # all occurences of _check_pandas_roundtrip passes expected_schema
         # without the pandas generated key-value metadata, so we need to
         # add it before checking schema equality
         expected_schema = expected_schema.add_metadata(table.schema.metadata)
