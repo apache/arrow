@@ -869,9 +869,6 @@ public class TestListVector {
       result = vector.getObject(1);
       resultSet = (ArrayList<Long>) result;
       assertEquals(new Long(8), resultSet.get(0));
-
-
-
     }
   }
 }
