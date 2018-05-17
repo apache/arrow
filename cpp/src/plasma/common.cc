@@ -68,6 +68,12 @@ std::string UniqueID::hex() const {
   return result;
 }
 
+size_t UniqueID::hash() const {
+  size_t result;
+  std::memcpy(&result, id_, sizeof(size_t));
+  return result;
+}
+
 bool UniqueID::operator==(const UniqueID& rhs) const {
   return std::memcmp(data(), rhs.data(), kUniqueIDSize) == 0;
 }
