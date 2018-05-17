@@ -31,3 +31,4 @@ pub mod list;
 pub mod list_builder;
 pub mod memory;
 pub mod memory_pool;
+pub mod record_batch;

@@ -37,12 +37,6 @@ fn main() {
     //    builder.build();
 
     // create a memory-aligned Arrow from the builder (zero-copy)
-    let array = Array::from(buffer);
-
-    match array.data() {
-        &ArrayData::Int32(ref buffer) => {
-            println!("array contents: {:?}", buffer.iter().collect::<Vec<i32>>());
-        }
-        _ => {}
-    }
+    let array = PrimitiveArray::from(buffer);
+    println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
 }
