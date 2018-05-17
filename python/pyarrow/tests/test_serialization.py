@@ -100,8 +100,8 @@ def assert_equal(obj1, obj2):
         for i in range(len(obj1)):
             assert_equal(obj1[i], obj2[i])
     else:
-        assert obj1 == obj2, ("Objects {} and {} are different."
-                              .format(obj1, obj2))
+        assert type(obj1) == type(obj2) and obj1 == obj2, \
+                "Objects {} and {} are different.".format(obj1, obj2)
 
 
 PRIMITIVE_OBJECTS = [
