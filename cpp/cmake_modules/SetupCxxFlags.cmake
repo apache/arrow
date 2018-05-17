@@ -172,6 +172,11 @@ if ("${COMPILER_FAMILY}" STREQUAL "msvc")
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4800")
 endif()
 
+# Avoid clang error when an unknown warning flag is passed
+if ("${COMPILER_FAMILY}" STREQUAL "clang")
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
+endif()
+
 # if build warning flags is set, add to CXX_COMMON_FLAGS
 if (BUILD_WARNING_FLAGS)
   # Use BUILD_WARNING_FLAGS with BUILD_WARNING_LEVEL=everything to disable
