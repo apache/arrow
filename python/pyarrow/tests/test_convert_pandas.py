@@ -813,7 +813,6 @@ class TestConvertDateTimeLikeTypes(object):
     def test_python_datetime_subclass(self):
 
         class MyDatetime(datetime):
-            pass
             # see https://github.com/pandas-dev/pandas/issues/21142
             nanosecond = 0.0
 
@@ -825,8 +824,10 @@ class TestConvertDateTimeLikeTypes(object):
 
         result = table.to_pandas()
         expected_df = pd.DataFrame({"datetime": date_array})
+
         # https://github.com/pandas-dev/pandas/issues/21142
         expected_df["datetime"] = pd.to_datetime(expected_df["datetime"])
+
         tm.assert_frame_equal(expected_df, result)
 
     def test_python_date_subclass(self):
