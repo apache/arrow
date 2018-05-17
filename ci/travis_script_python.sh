@@ -176,6 +176,10 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   source activate pyarrow_asv
   pip install -q git+https://github.com/pitrou/asv.git@customize_commands
 
+  export PYARROW_WITH_PARQUET=0
+  export PYARROW_WITH_PLASMA=1
+  export PYARROW_WITH_ORC=0
+
   pushd $ARROW_PYTHON_DIR
   # Workaround for https://github.com/airspeed-velocity/asv/issues/631
   git fetch --depth=100 origin master:master
