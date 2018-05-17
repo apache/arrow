@@ -68,10 +68,11 @@ mark_as_advanced( CYTHON_ANNOTATE CYTHON_NO_DOCSTRINGS CYTHON_FLAGS)
 
 find_package( PythonLibsNew REQUIRED )
 
-set( CYTHON_CXX_EXTENSION "cxx" )
+# (using another C++ extension breaks coverage)
+set( CYTHON_CXX_EXTENSION "cpp" )
 set( CYTHON_C_EXTENSION "c" )
 
-# Create a *.c or *.cxx file from a *.pyx file.
+# Create a *.c or *.cpp file from a *.pyx file.
 # Input the generated file basename.  The generate files will put into the variable
 # placed in the "generated_files" argument. Finally all the *.py and *.pyx files.
 function( compile_pyx _name pyx_target_name generated_files pyx_file)
@@ -93,6 +94,8 @@ function( compile_pyx _name pyx_target_name generated_files pyx_file)
   endif()
   get_source_file_property( pyx_location ${pyx_file} LOCATION )
 
+  set ( output_file "${_name}.${extension}" )
+
   # Set additional flags.
   if( CYTHON_ANNOTATE )
     set( annotate_arg "--annotate" )
@@ -113,11 +116,11 @@ function( compile_pyx _name pyx_target_name generated_files pyx_file)
   get_source_file_property( property_is_public ${pyx_file} CYTHON_PUBLIC )
   get_source_file_property( property_is_api ${pyx_file} CYTHON_API )
   if( ${property_is_api} )
-      set( _generated_files "${_name}.${extension}" "${_name}.h" "${name}_api.h")
+      set( _generated_files "${output_file}" "${_name}.h" "${name}_api.h")
   elseif( ${property_is_public} )
-      set( _generated_files "${_name}.${extension}" "${_name}.h")
+      set( _generated_files "${output_file}" "${_name}.h")
   else()
-      set( _generated_files "${_name}.${extension}")
+      set( _generated_files "${output_file}")
   endif()
   set_source_files_properties( ${_generated_files} PROPERTIES GENERATED TRUE )
 
@@ -131,12 +134,15 @@ function( compile_pyx _name pyx_target_name generated_files pyx_file)
 
   # Add the command to run the compiler.
   add_custom_target(${pyx_target_name}
-    COMMAND ${PYTHON_EXECUTABLE} -m cython ${cxx_arg} ${include_directory_arg}
+    COMMAND ${PYTHON_EXECUTABLE} -m cython ${cxx_arg}
     ${annotate_arg} ${no_docstrings_arg} ${cython_debug_arg}
     ${CYTHON_FLAGS}
-    --output-file "${_name}.${extension}" ${pyx_location}
+    # Necessary for Cython code coverage
+    --working ${CMAKE_CURRENT_SOURCE_DIR}
+    --output-file "${CMAKE_CURRENT_BINARY_DIR}/${output_file}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/${pyx_file}"
     DEPENDS ${pyx_location}
-    # do not specify byproducts for now since they don't work with the older
+    # Do not specify byproducts for now since they don't work with the older
     # version of cmake available in the apt repositories.
     #BYPRODUCTS ${_generated_files}
     COMMENT ${comment}
