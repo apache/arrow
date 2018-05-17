@@ -139,7 +139,7 @@ export function serializeFooter(footer: Footer) {
     return { metadataLength, buffer: footerBytes };
 }
 
-class RecordBatchSerializer extends VectorVisitor {
+export class RecordBatchSerializer extends VectorVisitor {
     public byteLength = 0;
     public buffers: TypedArray[] = [];
     public fieldNodes: FieldMetadata[] = [];
