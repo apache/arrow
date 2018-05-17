@@ -16,15 +16,22 @@
 // under the License.
 
 use super::builder::*;
+use super::datatypes::*;
 use super::list::List;
 
 /// Builder for List<T>
-pub struct ListBuilder<T> {
+pub struct ListBuilder<T>
+where
+    T: ArrowPrimitiveType,
+{
     data: Builder<T>,
     offsets: Builder<i32>,
 }
 
-impl<T> ListBuilder<T> {
+impl<T> ListBuilder<T>
+where
+    T: ArrowPrimitiveType,
+{
     /// Create a ListBuilder with a default capacity
     pub fn new() -> Self {
         ListBuilder::with_capacity(64)
@@ -63,8 +70,8 @@ mod tests {
         let buffer = b.finish();
 
         assert_eq!(2, buffer.len());
-        assert_eq!("Hello, ".as_bytes(), buffer.slice(0));
-        assert_eq!("World!".as_bytes(), buffer.slice(1));
+        assert_eq!("Hello, ".as_bytes(), buffer.get(0));
+        assert_eq!("World!".as_bytes(), buffer.get(1));
     }
 
     #[test]
@@ -74,8 +81,8 @@ mod tests {
         b.push("World!".as_bytes());
         let buffer = b.finish();
         assert_eq!(2, buffer.len());
-        assert_eq!("Hello, ".as_bytes(), buffer.slice(0));
-        assert_eq!("World!".as_bytes(), buffer.slice(1));
+        assert_eq!("Hello, ".as_bytes(), buffer.get(0));
+        assert_eq!("World!".as_bytes(), buffer.get(1));
     }
 
     #[test]
@@ -87,8 +94,8 @@ mod tests {
         let buffer = b.finish();
 
         assert_eq!(3, buffer.len());
-        assert_eq!("Hello, ".as_bytes(), buffer.slice(0));
-        assert_eq!("".as_bytes(), buffer.slice(1));
-        assert_eq!("World!".as_bytes(), buffer.slice(2));
+        assert_eq!("Hello, ".as_bytes(), buffer.get(0));
+        assert_eq!("".as_bytes(), buffer.get(1));
+        assert_eq!("World!".as_bytes(), buffer.get(2));
     }
 }
