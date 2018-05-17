@@ -851,6 +851,7 @@ public class TestListVector {
       resultSet = (ArrayList<Long>) result;
       assertEquals(new Long(8), resultSet.get(0));
 
+      // Clear and release the buffers to trigger a realloc when adding next value
       vector.clear();
 
       // The list vector should reuse a buffer when reallocating the offset buffer
