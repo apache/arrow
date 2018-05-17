@@ -512,9 +512,9 @@ def test_schema_serialization_with_metadata():
     schema_metadata = {b'foo': b'bar', b'kind': b'schema'}
 
     f0 = pa.field('a', pa.int8())
-    f1 = pa.field('b', pa.string()).add_metadata(field_metadata)
+    f1 = pa.field('b', pa.string(), metadata=field_metadata)
 
-    schema = pa.schema([f0, f1]).add_metadata(schema_metadata)
+    schema = pa.schema([f0, f1], metadata=schema_metadata)
 
     s_schema = schema.serialize()
     recons_schema = pa.read_schema(s_schema)
