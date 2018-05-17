@@ -192,6 +192,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CLoggingMemoryPool" arrow::LoggingMemoryPool"(CMemoryPool):
         CLoggingMemoryPool(CMemoryPool*)
 
+    cdef cppclass CProxyMemoryPool" arrow::ProxyMemoryPool"(CMemoryPool):
+        CProxyMemoryPool(CMemoryPool*)
+        int64_t proxy_bytes_allocated()
+
     cdef cppclass CBuffer" arrow::Buffer":
         CBuffer(const uint8_t* data, int64_t size)
         const uint8_t* data()

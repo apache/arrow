@@ -86,6 +86,27 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   MemoryPool* pool_;
 };
 
+class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
+ public:
+  explicit ProxyMemoryPool (MemoryPool* pool);
+  ~ProxyMemoryPool () override = default;
+
+  Status Allocate(int64_t size, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+
+  void Free(uint8_t* buffer, int64_t size) override;
+
+  int64_t bytes_allocated() const override;
+
+  int64_t max_memory() const override;
+
+  int64_t proxy_bytes_allocated_;
+  int64_t proxy_bytes_allocated() const;
+
+ private:
+  MemoryPool* pool_;
+};
+
 ARROW_EXPORT MemoryPool* default_memory_pool();
 
 #ifdef ARROW_NO_DEFAULT_MEMORY_POOL

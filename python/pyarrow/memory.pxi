@@ -44,6 +44,18 @@ cdef class LoggingMemoryPool(MemoryPool):
         self.init(self.logging_pool.get())
 
 
+cdef class ProxyMemoryPool(MemoryPool):
+    cdef:
+        unique_ptr[CProxyMemoryPool] proxy_pool
+
+    def __cinit__(self, MemoryPool pool):
+        self.proxy_pool.reset(new CProxyMemoryPool(pool.pool))
+        self.init(self.proxy_pool.get())
+
+    def proxy_bytes_allocated(self):
+        return self.proxy_pool.get().proxy_bytes_allocated()
+
+
 def default_memory_pool():
     cdef:
         MemoryPool pool = MemoryPool()
@@ -58,6 +70,8 @@ def set_memory_pool(MemoryPool pool):
 cdef MemoryPool _default_memory_pool = default_memory_pool()
 cdef LoggingMemoryPool _logging_memory_pool = (
     LoggingMemoryPool(_default_memory_pool))
+cdef ProxyMemoryPool _proxy_memory_pool = (
+    ProxyMemoryPool(_default_memory_pool))
 
 
 def log_memory_allocations(enable=True):

@@ -90,7 +90,7 @@ from pyarrow.lib import TimestampType
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
                          compress, decompress, allocate_buffer)
 
-from pyarrow.lib import (MemoryPool, total_allocated_bytes,
+from pyarrow.lib import (MemoryPool, ProxyMemoryPool, total_allocated_bytes,
                          set_memory_pool, default_memory_pool,
                          log_memory_allocations)
 

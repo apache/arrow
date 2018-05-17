@@ -201,4 +201,45 @@ int64_t LoggingMemoryPool::max_memory() const {
   std::cout << "max_memory: " << mem << std::endl;
   return mem;
 }
+
+ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) : pool_(pool), proxy_bytes_allocated_(0) {}
+
+Status ProxyMemoryPool::Allocate(int64_t size, uint8_t** out) {
+  proxy_bytes_allocated_ += size;
+  Status s = pool_->Allocate(size, out);
+  std::cout << "Allocate: size = " << size << std::endl;
+  return s;
+}
+
+Status ProxyMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  Status s = pool_->Reallocate(old_size, new_size, ptr);
+  proxy_bytes_allocated_ += new_size - old_size;
+  std::cout << "Reallocate: old_size = " << old_size << " - new_size = " << new_size
+            << " - proxy_allocated - " << proxy_bytes_allocated_ << std::endl;
+  return s;
+}
+
+void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size) {
+  pool_->Free(buffer, size);
+  proxy_bytes_allocated_ -= size;
+  std::cout << "Free: size = " << size << std::endl;
+}
+
+int64_t ProxyMemoryPool::bytes_allocated() const {
+  int64_t nb_bytes = pool_->bytes_allocated();
+  std::cout << "bytes_allocated: " << nb_bytes << std::endl;
+  return nb_bytes;
+}
+
+int64_t ProxyMemoryPool::proxy_bytes_allocated() const {
+  int64_t nb_bytes = proxy_bytes_allocated_;
+  std::cout << "bytes_allocated: " << nb_bytes << std::endl;
+  return nb_bytes;
+}
+
+int64_t ProxyMemoryPool::max_memory() const {
+  int64_t mem = pool_->max_memory();
+  std::cout << "max_memory: " << mem << std::endl;
+  return mem;
+}
 }  // namespace arrow
