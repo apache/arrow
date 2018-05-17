@@ -163,12 +163,10 @@ export class RecordBatchSerializer extends VectorVisitor {
                 throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
             }
             this.fieldNodes.push(new FieldMetadata(length, nullCount));
-
-            const nullBitmapAlignment = length <= 64 ? 8 : 64;
-            const nullBitmap = nullCount <= 0
+            this.addBuffer(nullCount <= 0
                 ? new Uint8Array(0) // placeholder validity buffer
-                : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!);
-            this.addBuffer(nullBitmap, nullBitmapAlignment);
+                : this.getTruncatedBitmap(data.offset, length, data.nullBitmap!)
+            );
         }
         return super.visit(vector);
     }
@@ -244,7 +242,6 @@ export class RecordBatchSerializer extends VectorVisitor {
         // Bool vector is a special case of FlatVector, as its data buffer needs to stay packed
         let bitmap: Uint8Array;
         let values, { data, length } = vector;
-        let alignment = length <= 64 ? 8 : 64;
         if (vector.nullCount >= length) {
             // If all values are null, just insert a placeholder empty data buffer (fastest path)
             bitmap = new Uint8Array(0);
@@ -256,8 +253,7 @@ export class RecordBatchSerializer extends VectorVisitor {
             // otherwise just slice the bitmap (fast path)
             bitmap = this.getTruncatedBitmap(data.offset, length, values);
         }
-        this.addBuffer(bitmap, alignment);
-        return this;
+        return this.addBuffer(bitmap);
     }
     protected visitFlatVector<T extends FlatType>(vector: Vector<T>) {
         const { view, data } = vector;
@@ -298,16 +294,16 @@ export class RecordBatchSerializer extends VectorVisitor {
         }
         return this;
     }
-    protected addBuffer(values: TypedArray, alignment: number = 64) {
-        const length = align(values.byteLength, alignment);
+    protected addBuffer(values: TypedArray) {
+        const byteLength = align(values.byteLength, 8);
         this.buffers.push(values);
-        this.buffersMeta.push(new BufferMetadata(this.byteLength, length));
-        this.byteLength += length;
+        this.buffersMeta.push(new BufferMetadata(this.byteLength, byteLength));
+        this.byteLength += byteLength;
         return this;
     }
     protected getTruncatedBitmap(offset: number, length: number, bitmap: Uint8Array) {
-        const alignedLength = align(length, length <= 64 ? 8 : 64);
-        if (offset > 0 || bitmap.length < alignedLength) {
+        const alignedLength = align(bitmap.byteLength, 8);
+        if (offset > 0 || bitmap.byteLength < alignedLength) {
             // With a sliced array / non-zero offset, we have to copy the bitmap
             const bytes = new Uint8Array(alignedLength);
             bytes.set(
