@@ -250,8 +250,8 @@ function messageFromByteBuffer(bb: ByteBuffer) {
     const m = _Message.getRootAsMessage(bb)!, type = m.headerType(), version = m.version();
     switch (type) {
         case MessageHeader.Schema: return schemaFromMessage(version, m.header(new _Schema())!, new Map());
-        case MessageHeader.RecordBatch: return recordBatchFromMessage(version, m.header(new _RecordBatch())!);
-        case MessageHeader.DictionaryBatch: return dictionaryBatchFromMessage(version, m.header(new _DictionaryBatch())!);
+        case MessageHeader.RecordBatch: return recordBatchFromMessage(version, m, m.header(new _RecordBatch())!);
+        case MessageHeader.DictionaryBatch: return dictionaryBatchFromMessage(version, m, m.header(new _DictionaryBatch())!);
     }
     return null;
     // throw new Error(`Unrecognized Message type '${type}'`);
@@ -261,12 +261,12 @@ function schemaFromMessage(version: MetadataVersion, s: _Schema, dictionaryField
     return new Schema(fieldsFromSchema(s, dictionaryFields), customMetadata(s), version, dictionaryFields);
 }
 
-function recordBatchFromMessage(version: MetadataVersion, b: _RecordBatch) {
-    return new RecordBatchMetadata(version, b.length(), fieldNodesFromRecordBatch(b), buffersFromRecordBatch(b, version));
+function recordBatchFromMessage(version: MetadataVersion, m: _Message, b: _RecordBatch) {
+    return new RecordBatchMetadata(version, b.length(), fieldNodesFromRecordBatch(b), buffersFromRecordBatch(b, version), m.bodyLength());
 }
 
-function dictionaryBatchFromMessage(version: MetadataVersion, d: _DictionaryBatch) {
-    return new DictionaryBatch(version, recordBatchFromMessage(version, d.data()!), d.id(), d.isDelta());
+function dictionaryBatchFromMessage(version: MetadataVersion, m: _Message, d: _DictionaryBatch) {
+    return new DictionaryBatch(version, recordBatchFromMessage(version, m, d.data()!), d.id(), d.isDelta());
 }
 
 function dictionaryBatchesFromFooter(f: _Footer) {

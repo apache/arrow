@@ -51,8 +51,11 @@ export class RecordBatchMetadata extends Message {
     public length: number;
     public nodes: FieldMetadata[];
     public buffers: BufferMetadata[];
-    constructor(version: MetadataVersion, length: Long | number, nodes: FieldMetadata[], buffers: BufferMetadata[]) {
-        super(version, buffers.reduce((s, b) => align(s + b.length + (b.offset - s), 8), 0), MessageHeader.RecordBatch);
+    constructor(version: MetadataVersion, length: Long | number, nodes: FieldMetadata[], buffers: BufferMetadata[], bodyLength?: Long | number) {
+        if (bodyLength === void(0)) {
+            bodyLength = buffers.reduce((s, b) => align(s + b.length + (b.offset - s), 8), 0);
+        }
+        super(version, bodyLength, MessageHeader.RecordBatch);
         this.nodes = nodes;
         this.buffers = buffers;
         this.length = typeof length === 'number' ? length : length.low;
