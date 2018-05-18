@@ -623,6 +623,7 @@
     <module>memory</module>
     <module>vector</module>
     <module>tools</module>
+    <module>plasma</module>
   </modules>
 
   <profiles>
