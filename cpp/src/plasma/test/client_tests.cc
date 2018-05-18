@@ -430,10 +430,12 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
   }
 }
 
+#ifndef ARROW_NO_DEPRECATED_API
 TEST_F(TestPlasmaStore, DeprecatedApiTest) {
   int64_t default_delay = PLASMA_DEFAULT_RELEASE_DELAY;
   ARROW_CHECK(default_delay == plasma::kPlasmaDefaultReleaseDelay);
 }
+#endif  // ARROW_NO_DEPRECATED_API
 
 #ifdef PLASMA_GPU
 using arrow::gpu::CudaBuffer;
