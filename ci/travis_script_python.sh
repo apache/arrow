@@ -18,8 +18,6 @@
 
 set -e
 
-set -x
-
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
@@ -86,7 +84,7 @@ cmake -GNinja \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       $ARROW_CPP_DIR
 
-ninja -v
+ninja
 ninja install
 
 popd
