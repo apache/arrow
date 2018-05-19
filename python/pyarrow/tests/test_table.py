@@ -97,6 +97,23 @@ def test_column_to_pandas():
     assert series.iloc[0] == -10
 
 
+def test_column_flatten():
+    ty = pa.struct([pa.field('x', pa.int16()),
+                    pa.field('y', pa.float32())])
+    a = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
+    col = pa.Column.from_array('foo', a)
+    x, y = col.flatten()
+    assert x == pa.column('foo.x', pa.array([1, 3, 5], type=pa.int16()))
+    assert y == pa.column('foo.y', pa.array([2.5, 4.5, 6.5],
+                                            type=pa.float32()))
+    # Empty column
+    a = pa.array([], type=ty)
+    col = pa.Column.from_array('foo', a)
+    x, y = col.flatten()
+    assert x == pa.column('foo.x', pa.array([], type=pa.int16()))
+    assert y == pa.column('foo.y', pa.array([], type=pa.float32()))
+
+
 def test_recordbatch_basics():
     data = [
         pa.array(range(5)),
@@ -269,6 +286,7 @@ def test_table_basics():
         pa.array([-10, -5, 0, 5, 10])
     ]
     table = pa.Table.from_arrays(data, names=('a', 'b'))
+    table._validate()
     assert len(table) == 5
     assert table.num_rows == 5
     assert table.num_columns == 2
@@ -367,6 +385,7 @@ def test_table_remove_column():
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
     t2 = table.remove_column(0)
+    t2._validate()
     expected = pa.Table.from_arrays(data[1:], names=('b', 'c'))
     assert t2.equals(expected)
 
@@ -379,10 +398,32 @@ def test_table_remove_column_empty():
     table = pa.Table.from_arrays(data, names=['a'])
 
     t2 = table.remove_column(0)
+    t2._validate()
     assert len(t2) == len(table)
 
     t3 = t2.add_column(0, table[0])
+    t3._validate()
     assert t3.equals(table)
+
+
+def test_table_flatten():
+    ty1 = pa.struct([pa.field('x', pa.int16()),
+                     pa.field('y', pa.float32())])
+    ty2 = pa.struct([pa.field('nest', ty1)])
+    a = pa.array([(1, 2.5), (3, 4.5)], type=ty1)
+    b = pa.array([((11, 12.5),), ((13, 14.5),)], type=ty2)
+    c = pa.array([False, True], type=pa.bool_())
+
+    table = pa.Table.from_arrays([a, b, c], names=['a', 'b', 'c'])
+    t2 = table.flatten()
+    t2._validate()
+    expected = pa.Table.from_arrays([
+        pa.array([1, 3], type=pa.int16()),
+        pa.array([2.5, 4.5], type=pa.float32()),
+        pa.array([(11, 12.5), (13, 14.5)], type=ty1),
+        c],
+        names=['a.x', 'a.y', 'b.nest', 'c'])
+    assert t2.equals(expected)
 
 
 def test_concat_tables():
@@ -401,6 +442,7 @@ def test_concat_tables():
                               names=('a', 'b'))
 
     result = pa.concat_tables([t1, t2])
+    result._validate()
     assert len(result) == 10
 
     expected = pa.Table.from_arrays([pa.array(x + y)

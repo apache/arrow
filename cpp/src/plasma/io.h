@@ -23,19 +23,19 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "arrow/status.h"
 #include "plasma/compat.h"
 
+namespace plasma {
+
 // TODO(pcm): Replace our own custom message header (message type,
 // message length, plasma protocol verion) with one that is serialized
 // using flatbuffers.
-#define PLASMA_PROTOCOL_VERSION 0x0000000000000000
-#define DISCONNECT_CLIENT 0
-
-namespace plasma {
+constexpr int64_t kPlasmaProtocolVersion = 0x0000000000000000;
 
 using arrow::Status;
 
@@ -56,7 +56,7 @@ Status ConnectIpcSocketRetry(const std::string& pathname, int num_retries,
 
 int AcceptClient(int socket_fd);
 
-uint8_t* read_message_async(int sock);
+std::unique_ptr<uint8_t[]> read_message_async(int sock);
 
 }  // namespace plasma
 

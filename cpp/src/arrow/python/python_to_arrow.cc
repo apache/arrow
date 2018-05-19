@@ -61,6 +61,7 @@ class SequenceBuilder {
         nones_(pool),
         bools_(::arrow::boolean(), pool),
         ints_(::arrow::int64(), pool),
+        py2_ints_(::arrow::int64(), pool),
         bytes_(::arrow::binary(), pool),
         strings_(pool),
         half_floats_(::arrow::float16(), pool),
@@ -101,6 +102,11 @@ class SequenceBuilder {
   /// Appending a boolean to the sequence
   Status AppendBool(const bool data) {
     return AppendPrimitive(data, &bool_tag_, &bools_);
+  }
+
+  /// Appending a python 2 int64_t to the sequence
+  Status AppendPy2Int64(const int64_t data) {
+    return AppendPrimitive(data, &py2_int_tag_, &py2_ints_);
   }
 
   /// Appending an int64_t to the sequence
@@ -250,6 +256,7 @@ class SequenceBuilder {
 
     RETURN_NOT_OK(AddElement(bool_tag_, &bools_));
     RETURN_NOT_OK(AddElement(int_tag_, &ints_));
+    RETURN_NOT_OK(AddElement(py2_int_tag_, &py2_ints_, "py2_int"));
     RETURN_NOT_OK(AddElement(string_tag_, &strings_));
     RETURN_NOT_OK(AddElement(bytes_tag_, &bytes_));
     RETURN_NOT_OK(AddElement(half_float_tag_, &half_floats_));
@@ -280,6 +287,7 @@ class SequenceBuilder {
   NullBuilder nones_;
   BooleanBuilder bools_;
   Int64Builder ints_;
+  Int64Builder py2_ints_;
   BinaryBuilder bytes_;
   StringBuilder strings_;
   HalfFloatBuilder half_floats_;
@@ -302,6 +310,7 @@ class SequenceBuilder {
   // happens in the UPDATE macro in sequence.cc.
   int8_t bool_tag_ = -1;
   int8_t int_tag_ = -1;
+  int8_t py2_int_tag_ = -1;
   int8_t string_tag_ = -1;
   int8_t bytes_tag_ = -1;
   int8_t half_float_tag_ = -1;
@@ -481,7 +490,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     }
 #if PY_MAJOR_VERSION < 3
   } else if (PyInt_Check(elem)) {
-    RETURN_NOT_OK(builder->AppendInt64(static_cast<int64_t>(PyInt_AS_LONG(elem))));
+    RETURN_NOT_OK(builder->AppendPy2Int64(static_cast<int64_t>(PyInt_AS_LONG(elem))));
 #endif
   } else if (PyBytes_Check(elem)) {
     auto data = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(elem));

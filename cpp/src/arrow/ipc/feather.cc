@@ -38,6 +38,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor.h"
 
@@ -611,7 +612,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     const uint8_t* values_buffer = nullptr;
 
     if (is_binary_like(values.type_id())) {
-      const auto& bin_values = static_cast<const BinaryArray&>(values);
+      const auto& bin_values = checked_cast<const BinaryArray&>(values);
 
       int64_t offset_bytes = sizeof(int32_t) * (values.length() + 1);
 
@@ -632,8 +633,8 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
         values_buffer = bin_values.value_data()->data();
       }
     } else {
-      const auto& prim_values = static_cast<const PrimitiveArray&>(values);
-      const auto& fw_type = static_cast<const FixedWidthType&>(*values.type());
+      const auto& prim_values = checked_cast<const PrimitiveArray&>(values);
+      const auto& fw_type = checked_cast<const FixedWidthType&>(*values.type());
 
       values_bytes = BitUtil::BytesForBits(values.length() * fw_type.bit_width());
 
@@ -688,7 +689,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 #undef VISIT_PRIMITIVE
 
   Status Visit(const DictionaryArray& values) override {
-    const auto& dict_type = static_cast<const DictionaryType&>(*values.type());
+    const auto& dict_type = checked_cast<const DictionaryType&>(*values.type());
 
     if (!is_integer(values.indices()->type_id())) {
       return Status::Invalid("Category values must be integers");
@@ -707,7 +708,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
   Status Visit(const TimestampArray& values) override {
     RETURN_NOT_OK(WritePrimitiveValues(values));
-    const auto& ts_type = static_cast<const TimestampType&>(*values.type());
+    const auto& ts_type = checked_cast<const TimestampType&>(*values.type());
     current_column_->SetTimestamp(ts_type.unit(), ts_type.timezone());
     return Status::OK();
   }
@@ -720,7 +721,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
   Status Visit(const Time32Array& values) override {
     RETURN_NOT_OK(WritePrimitiveValues(values));
-    auto unit = static_cast<const Time32Type&>(*values.type()).unit();
+    auto unit = checked_cast<const Time32Type&>(*values.type()).unit();
     current_column_->SetTime(unit);
     return Status::OK();
   }

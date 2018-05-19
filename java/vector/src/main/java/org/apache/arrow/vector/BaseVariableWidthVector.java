@@ -394,7 +394,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     try {
       allocateBytes(curAllocationSizeValue, curAllocationSizeValidity, curAllocationSizeOffset);
     } catch (Exception e) {
-      e.printStackTrace();
       clear();
       return false;
     }
@@ -427,8 +426,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     try {
       allocateBytes(totalBytes, validityBufferSize, offsetBufferSize);
     } catch (Exception e) {
-      e.printStackTrace();
       clear();
+      throw e;
     }
   }
 
@@ -550,8 +549,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, buffer, 0, currentBufferCapacity);
-    final int halfNewCapacity = newBuf.capacity() / 2;
-    newBuf.setZero(halfNewCapacity, halfNewCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     buffer.release(1);
     buffer = newBuf;
     if (offsetBuffer) {

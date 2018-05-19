@@ -27,6 +27,7 @@
 #include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -73,7 +74,7 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
   DCHECK(is_tensor_supported(type->id()));
   if (shape.size() > 0 && strides.size() == 0) {
-    ComputeRowMajorStrides(static_cast<const FixedWidthType&>(*type_), shape, &strides_);
+    ComputeRowMajorStrides(checked_cast<const FixedWidthType&>(*type_), shape, &strides_);
   }
 }
 
@@ -103,14 +104,14 @@ bool Tensor::is_contiguous() const { return is_row_major() || is_column_major();
 
 bool Tensor::is_row_major() const {
   std::vector<int64_t> c_strides;
-  const auto& fw_type = static_cast<const FixedWidthType&>(*type_);
+  const auto& fw_type = checked_cast<const FixedWidthType&>(*type_);
   ComputeRowMajorStrides(fw_type, shape_, &c_strides);
   return strides_ == c_strides;
 }
 
 bool Tensor::is_column_major() const {
   std::vector<int64_t> f_strides;
-  const auto& fw_type = static_cast<const FixedWidthType&>(*type_);
+  const auto& fw_type = checked_cast<const FixedWidthType&>(*type_);
   ComputeColumnMajorStrides(fw_type, shape_, &f_strides);
   return strides_ == f_strides;
 }

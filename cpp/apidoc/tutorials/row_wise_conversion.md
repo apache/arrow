@@ -107,9 +107,8 @@ std::vector<std::shared_ptr<arrow::Field>> schema_vector = {
 };
 auto schema = std::make_shared<arrow::Schema>(schema_vector);
 
-std::shared_ptr<arrow::Table> table;
-ARROW_RETURN_NOT_OK(MakeTable(schema,
-    {id_array, cost_array, cost_components_array}, &table));
+std::shared_ptr<arrow::Table> table = arrow::Table::Make(schema,
+    {id_array, cost_array, cost_components_array});
 ```
 
 The final `table` variable is the one we then can pass on to other functions

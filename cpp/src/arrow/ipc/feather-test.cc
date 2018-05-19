@@ -31,6 +31,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/table.h"
 #include "arrow/test-util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace ipc {
@@ -365,7 +366,7 @@ TEST_F(TestTableWriter, TimeTypes) {
   std::shared_ptr<Array> date_array;
   ArrayFromVector<Date32Type, int32_t>(is_valid, date_values_vec, &date_array);
 
-  const auto& prim_values = static_cast<const PrimitiveArray&>(*values);
+  const auto& prim_values = checked_cast<const PrimitiveArray&>(*values);
   BufferVector buffers = {prim_values.null_bitmap(), prim_values.values()};
 
   std::vector<std::shared_ptr<ArrayData>> arrays;

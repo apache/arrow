@@ -30,6 +30,7 @@
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace py {
@@ -276,7 +277,7 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
   Decimal128 value;
   OwnedRef python_decimal(this->CreatePythonDecimal("1.001"));
   auto type = ::arrow::decimal(10, 2);
-  const auto& decimal_type = static_cast<const DecimalType&>(*type);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid, internal::DecimalFromPythonDecimal(python_decimal.obj(),
                                                             decimal_type, &value));
 }
@@ -287,7 +288,7 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
   Decimal128 value;
   OwnedRef python_decimal(this->CreatePythonDecimal("1.000"));
   auto type = ::arrow::decimal(10, 2);
-  const auto& decimal_type = static_cast<const DecimalType&>(*type);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_OK(
       internal::DecimalFromPythonDecimal(python_decimal.obj(), decimal_type, &value));
   ASSERT_EQ(100, value.low_bits());
@@ -297,7 +298,7 @@ TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
   Decimal128 value;
   OwnedRef python_decimal(this->CreatePythonDecimal("-1.000"));
   auto type = ::arrow::decimal(10, 9);
-  const auto& decimal_type = static_cast<const DecimalType&>(*type);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_OK(
       internal::DecimalFromPythonDecimal(python_decimal.obj(), decimal_type, &value));
   ASSERT_EQ(-1000000000, value);
@@ -313,7 +314,7 @@ TEST_F(DecimalTest, TestOverflowFails) {
   ASSERT_EQ(1, metadata.scale());
 
   auto type = ::arrow::decimal(38, 38);
-  const auto& decimal_type = static_cast<const DecimalType&>(*type);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid, internal::DecimalFromPythonDecimal(python_decimal.obj(),
                                                             decimal_type, &value));
 }
@@ -373,7 +374,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
   MemoryPool* pool = default_memory_pool();
   std::shared_ptr<Array> arr;
   ASSERT_OK(ConvertPySequence(list, pool, &arr));
-  const auto& type = static_cast<const DecimalType&>(*arr->type());
+  const auto& type = checked_cast<const DecimalType&>(*arr->type());
 
   int32_t expected_precision = 9;
   int32_t expected_scale = 3;
@@ -402,7 +403,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
 
   ASSERT_OK(ConvertPySequence(list, pool, &arr));
 
-  const auto& type = static_cast<const Decimal128Type&>(*arr->type());
+  const auto& type = checked_cast<const Decimal128Type&>(*arr->type());
   ASSERT_EQ(3, type.precision());
   ASSERT_EQ(3, type.scale());
 }

@@ -74,6 +74,7 @@ enum class StatusCode : char {
   TypeError = 3,
   Invalid = 4,
   IOError = 5,
+  CapacityError = 6,
   UnknownError = 9,
   NotImplemented = 10,
   SerializationError = 11,
@@ -129,6 +130,10 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::Invalid, msg);
   }
 
+  static Status CapacityError(const std::string& msg) {
+    return Status(StatusCode::CapacityError, msg);
+  }
+
   static Status IOError(const std::string& msg) {
     return Status(StatusCode::IOError, msg);
   }
@@ -160,6 +165,7 @@ class ARROW_EXPORT Status {
   bool IsKeyError() const { return code() == StatusCode::KeyError; }
   bool IsInvalid() const { return code() == StatusCode::Invalid; }
   bool IsIOError() const { return code() == StatusCode::IOError; }
+  bool IsCapacityError() const { return code() == StatusCode::CapacityError; }
   bool IsTypeError() const { return code() == StatusCode::TypeError; }
   bool IsUnknownError() const { return code() == StatusCode::UnknownError; }
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }

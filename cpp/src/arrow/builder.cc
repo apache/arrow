@@ -32,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu-info.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/hash-util.h"
@@ -905,7 +906,7 @@ DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
       dict_builder_(type, pool),
       overflow_dict_builder_(type, pool),
       values_builder_(pool),
-      byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()) {
+      byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {
   if (!::arrow::CpuInfo::initialized()) {
     ::arrow::CpuInfo::Init();
   }
@@ -993,7 +994,7 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendArray(const Array& array) {
-  const auto& numeric_array = static_cast<const NumericArray<T>&>(array);
+  const auto& numeric_array = checked_cast<const NumericArray<T>&>(array);
   for (int64_t i = 0; i < array.length(); i++) {
     if (array.IsNull(i)) {
       RETURN_NOT_OK(AppendNull());
@@ -1017,7 +1018,7 @@ Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
     return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
   }
 
-  const auto& numeric_array = static_cast<const FixedSizeBinaryArray&>(array);
+  const auto& numeric_array = checked_cast<const FixedSizeBinaryArray&>(array);
   for (int64_t i = 0; i < array.length(); i++) {
     if (array.IsNull(i)) {
       RETURN_NOT_OK(AppendNull());
@@ -1133,7 +1134,7 @@ bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value)
 template <>
 bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
                                                            const Scalar& value) {
-  int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
+  int32_t width = checked_cast<const FixedSizeBinaryType&>(*type_).byte_width();
   bool value_found = false;
   if (index >= entry_id_offset_) {
     const Scalar other =
@@ -1172,7 +1173,7 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
                                                                                        \
   template <>                                                                          \
   Status DictionaryBuilder<Type>::AppendArray(const Array& array) {                    \
-    const BinaryArray& binary_array = static_cast<const BinaryArray&>(array);          \
+    const BinaryArray& binary_array = checked_cast<const BinaryArray&>(array);         \
     WrappedBinary value(nullptr, 0);                                                   \
     for (int64_t i = 0; i < array.length(); i++) {                                     \
       if (array.IsNull(i)) {                                                           \
@@ -1306,7 +1307,7 @@ Status ListBuilder::AppendNextOffset() {
     std::stringstream ss;
     ss << "ListArray cannot contain more then INT32_MAX - 1 child elements,"
        << " have " << num_values;
-    return Status::Invalid(ss.str());
+    return Status::CapacityError(ss.str());
   }
   return offsets_builder_.Append(static_cast<int32_t>(num_values));
 }
@@ -1385,7 +1386,8 @@ Status BinaryBuilder::Resize(int64_t capacity) {
 Status BinaryBuilder::ReserveData(int64_t elements) {
   if (value_data_length() + elements > value_data_capacity()) {
     if (value_data_length() + elements > kBinaryMemoryLimit) {
-      return Status::Invalid("Cannot reserve capacity larger than 2^31 - 1 for binary");
+      return Status::CapacityError(
+          "Cannot reserve capacity larger than 2^31 - 1 for binary");
     }
     RETURN_NOT_OK(value_data_builder_.Reserve(elements));
   }
@@ -1398,7 +1400,7 @@ Status BinaryBuilder::AppendNextOffset() {
     std::stringstream ss;
     ss << "BinaryArray cannot contain more than " << kBinaryMemoryLimit << " bytes, have "
        << num_bytes;
-    return Status::Invalid(ss.str());
+    return Status::CapacityError(ss.str());
   }
   return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
 }
@@ -1553,7 +1555,7 @@ Status StringBuilder::Append(const char** values, int64_t length,
 FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                                                MemoryPool* pool)
     : ArrayBuilder(type, pool),
-      byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()),
+      byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
 
 Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
@@ -1669,7 +1671,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     case Type::LIST: {
       std::unique_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =
-          static_cast<ListType*>(type.get())->value_type();
+          checked_cast<const ListType&>(*type).value_type();
       RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
       out->reset(new ListBuilder(pool, std::move(value_builder)));
       return Status::OK();

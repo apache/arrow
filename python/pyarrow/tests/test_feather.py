@@ -29,7 +29,7 @@ import pandas as pd
 
 import pyarrow as pa
 from pyarrow.feather import (read_feather, write_feather,
-                             read_table, FeatherReader)
+                             read_table, FeatherReader, FeatherDataset)
 from pyarrow.lib import FeatherWriter
 
 
@@ -99,6 +99,30 @@ class TestFeatherReader(unittest.TestCase):
             write_feather(df, path)
 
         pytest.raises(exc, f)
+
+    def test_dataset(self):
+        num_values = (100, 100)
+        num_files = 5
+        paths = [random_path() for i in range(num_files)]
+        df = pd.DataFrame(np.random.randn(*num_values),
+                          columns=['col_' + str(i)
+                                   for i in range(num_values[1])])
+
+        self.test_files.extend(paths)
+        for index, path in enumerate(paths):
+            rows = (index * (num_values[0] // num_files),
+                    (index + 1) * (num_values[0] // num_files))
+            writer = FeatherWriter()
+            writer.open(path)
+
+            for col in range(num_values[1]):
+                writer.write_array(df.columns[col],
+                                   df.iloc[rows[0]:rows[1], col])
+
+            writer.close()
+
+        data = FeatherDataset(paths).read_pandas()
+        assert_frame_equal(data, df)
 
     def test_num_rows_attr(self):
         df = pd.DataFrame({'foo': [1, 2, 3, 4, 5]})

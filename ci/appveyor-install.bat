@@ -25,5 +25,5 @@ if "%JOB%" == "Rust_Stable" (
     cargo -V
 ) else (
     set "PATH=C:\Miniconda36-x64;C:\Miniconda36-x64\Scripts;C:\Miniconda36-x64\Library\bin;%PATH%"
-    call ci\appveyor-setup.bat
+    call ci\appveyor-cpp-setup.bat
 )

@@ -110,8 +110,8 @@ short description of your use case. See the following for some examples.
   database management system that helps researchers integrate and
   analyze diverse, multi-dimensional, high resolution data - like
   genomic, clinical, images, sensor, environmental, and IoT data -
-  all in one analytical platform. [SciDB streaming][22] is
-  powered by Apache Arrow.
+  all in one analytical platform. [SciDB streaming][22] and
+  [accelerated_io_tools][24] are powered by Apache Arrow.
 * **[Turbodbc][4]:** Python module to access relational databases via the Open
   Database Connectivity (ODBC) interface. It provides the ability to return
   Arrow Tables and RecordBatches in addition to the Python Database API
@@ -140,3 +140,4 @@ short description of your use case. See the following for some examples.
 [21]: https://www.paradigm4.com
 [22]: https://github.com/Paradigm4/stream
 [23]: https://github.com/jpmorganchase/perspective
+[24]: https://github.com/Paradigm4/accelerated_io_tools

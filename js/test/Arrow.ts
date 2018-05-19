@@ -18,6 +18,15 @@
 /* tslint:disable */
 // Dynamically load an Arrow target build based on command line arguments
 
+// Fix for Jest in node v10.x
+Object.defineProperty(ArrayBuffer, Symbol.hasInstance, {
+    writable: true,
+    configurable: true,
+    value(inst: any) {
+        return inst && inst.constructor && inst.constructor.name === 'ArrayBuffer';
+    }
+});
+
 const path = require('path');
 const target = process.env.TEST_TARGET!;
 const format = process.env.TEST_MODULE!;

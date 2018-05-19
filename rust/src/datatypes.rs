@@ -35,8 +35,33 @@ pub enum DataType {
     Float32,
     Float64,
     Utf8,
+    List(Box<DataType>),
     Struct(Vec<Field>),
 }
+
+/// Arrow struct/schema field
+#[derive(Debug, Clone, PartialEq)]
+pub struct Field {
+    name: String,
+    data_type: DataType,
+    nullable: bool,
+}
+
+/// Primitive type (ints, floats, strings)
+pub trait ArrowPrimitiveType: Copy + PartialOrd + 'static {}
+
+impl ArrowPrimitiveType for bool {}
+impl ArrowPrimitiveType for u8 {}
+impl ArrowPrimitiveType for u16 {}
+impl ArrowPrimitiveType for u32 {}
+impl ArrowPrimitiveType for u64 {}
+impl ArrowPrimitiveType for i8 {}
+impl ArrowPrimitiveType for i16 {}
+impl ArrowPrimitiveType for i32 {}
+impl ArrowPrimitiveType for i64 {}
+impl ArrowPrimitiveType for f32 {}
+impl ArrowPrimitiveType for f64 {}
+impl ArrowPrimitiveType for &'static str {}
 
 impl DataType {
     /// Parse a data type from a JSON representation
@@ -129,16 +154,12 @@ impl DataType {
                     Value::Array(fields.iter().map(|f| f.to_json()).collect::<Vec<Value>>());
                 json!({ "fields": field_json_array })
             }
+            DataType::List(ref t) => {
+                let child_json = t.to_json();
+                json!({ "name": "list", "children": child_json })
+            }
         }
     }
-}
-
-/// Arrow Field
-#[derive(Debug, Clone, PartialEq)]
-pub struct Field {
-    name: String,
-    data_type: DataType,
-    nullable: bool,
 }
 
 impl Field {
@@ -243,8 +264,12 @@ impl Schema {
         &self.columns
     }
 
+    pub fn column(&self, i: usize) -> &Field {
+        &self.columns[i]
+    }
+
     /// look up a column by name and return a reference to the column along with it's index
-    pub fn column(&self, name: &str) -> Option<(usize, &Field)> {
+    pub fn column_with_name(&self, name: &str) -> Option<(usize, &Field)> {
         self.columns
             .iter()
             .enumerate()

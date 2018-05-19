@@ -20,6 +20,7 @@ package org.apache.arrow.vector.complex.writer;
 
 import static org.junit.Assert.*;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -52,6 +53,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
+import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.holders.IntHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -65,6 +67,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.DateUtility;
+import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
@@ -244,6 +247,41 @@ public class TestComplexWriter {
       for (int j = 0; j < i % 7; j++) {
         listReader.next();
         assertEquals(j, listReader.reader().readInteger().intValue());
+      }
+    }
+  }
+
+  @Test
+  public void listDecimalType() {
+    ListVector listVector = ListVector.empty("list", allocator);
+    listVector.allocateNew();
+    UnionListWriter listWriter = new UnionListWriter(listVector);
+    DecimalHolder holder = new DecimalHolder();
+    holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
+    for (int i = 0; i < COUNT; i++) {
+      listWriter.startList();
+      for (int j = 0; j < i % 7; j++) {
+        if (j % 2 == 0) {
+          listWriter.writeDecimal(new BigDecimal(j));
+        } else {
+          DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0);
+          holder.start = 0;
+          holder.scale = 0;
+          holder.precision = 10;
+          listWriter.write(holder);
+        }
+      }
+      listWriter.endList();
+    }
+    listWriter.setValueCount(COUNT);
+    UnionListReader listReader = new UnionListReader(listVector);
+    for (int i = 0; i < COUNT; i++) {
+      listReader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        listReader.next();
+        Object expected = new BigDecimal(j);
+        Object actual = listReader.reader().readBigDecimal();
+        assertEquals(expected, actual);
       }
     }
   }

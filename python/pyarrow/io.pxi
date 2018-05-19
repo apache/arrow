@@ -678,6 +678,9 @@ cdef class Buffer:
         else:
             return NotImplemented
 
+    def __reduce__(self):
+        return py_buffer, (self.to_pybytes(),)
+
     def to_pybytes(self):
         self._check_nullptr()
         return cp.PyBytes_FromStringAndSize(

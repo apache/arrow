@@ -312,7 +312,7 @@ will have the following representation:
   * Length: 7,  Null count: 0
   * Null bitmap buffer: Not required
 
-    | Bytes 0-7  | Bytes 8-63  |
+    | Bytes 0-6  | Bytes 7-63  |
     |------------|-------------|
     | joemark    | unspecified |
 ```
@@ -342,7 +342,7 @@ will be be represented as follows:
 
   * Offsets buffer (int32)
 
-    | Bytes 0-28           | Bytes 29-63 |
+    | Bytes 0-27           | Bytes 28-63 |
     |----------------------|-------------|
     | 0, 2, 4, 7, 7, 8, 10 | unspecified |
 

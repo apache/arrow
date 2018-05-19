@@ -75,6 +75,11 @@ cdef bytes _datatype_to_pep3118(CDataType* type):
             return char
 
 
+def _is_primitive(Type type):
+    # This is simply a redirect, the official API is in pyarrow.types.
+    return is_primitive(type)
+
+
 # Workaround for Cython parsing bug
 # https://github.com/cython/cython/issues/2143
 ctypedef CFixedWidthType* _CFixedWidthTypePtr
@@ -486,6 +491,20 @@ cdef class Field:
         with nogil:
             new_field = self.field.RemoveMetadata()
         return pyarrow_wrap_field(new_field)
+
+    def flatten(self):
+        """
+        Flatten this field.  If a struct field, individual child fields
+        will be returned with their names prefixed by the parent's name.
+
+        Returns
+        -------
+        fields : List[pyarrow.Field]
+        """
+        cdef vector[shared_ptr[CField]] flattened
+        with nogil:
+            flattened = self.field.Flatten()
+        return [pyarrow_wrap_field(f) for f in flattened]
 
 
 cdef class Schema:

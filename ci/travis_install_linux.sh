@@ -24,3 +24,7 @@ sudo apt-get install -y -q \
 if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
     sudo apt-get install -y -q valgrind
 fi
+
+if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
+    sudo apt-get install -y -q lcov
+fi

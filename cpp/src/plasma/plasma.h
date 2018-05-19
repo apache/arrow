@@ -36,6 +36,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 
@@ -65,7 +66,7 @@ namespace plasma {
   } while (0);
 
 /// Allocation granularity used in plasma for object allocation.
-#define BLOCK_SIZE 64
+constexpr int64_t kBlockSize = 64;
 
 struct Client;
 
@@ -111,6 +112,10 @@ enum object_status {
 /// This type is used by the Plasma store. It is here because it is exposed to
 /// the eviction policy.
 struct ObjectTableEntry {
+  ObjectTableEntry();
+
+  ~ObjectTableEntry();
+
   /// Object id of this object.
   ObjectID object_id;
   /// Object info like size, creation time and owner.
@@ -129,8 +134,9 @@ struct ObjectTableEntry {
   /// IPC GPU handle to share with clients.
   std::shared_ptr<CudaIpcMemHandle> ipc_handle;
 #endif
-  /// Set of clients currently using this object.
-  std::unordered_set<Client*> clients;
+  /// Number of clients currently using this object.
+  int ref_count;
+
   /// The state of the object, e.g., whether it is open or sealed.
   object_state state;
   /// The digest of the object. Used to see if two objects are the same.
@@ -179,7 +185,7 @@ ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
 /// @return The errno set.
 int warn_if_sigpipe(int status, int client_sock);
 
-uint8_t* create_object_info_buffer(ObjectInfoT* object_info);
+std::unique_ptr<uint8_t[]> create_object_info_buffer(ObjectInfoT* object_info);
 
 }  // namespace plasma
 

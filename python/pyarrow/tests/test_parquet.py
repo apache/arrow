@@ -498,7 +498,7 @@ def test_pandas_parquet_configuration_options(tmpdir):
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
-    for compression in ['NONE', 'SNAPPY', 'GZIP']:
+    for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4']:
         _write_table(arrow_table, filename.strpath,
                      version="2.0",
                      compression=compression)
@@ -587,7 +587,7 @@ def test_parquet_metadata_api():
         ([-1.1, 2.2, 2.3, None, 4.4], np.float64, -1.1, 4.4, 1, 4),
         (
             [u'', u'b', unichar(1000), None, u'aaa'],
-            str, b'', unichar(1000).encode('utf-8'), 1, 4
+            object, b'', unichar(1000).encode('utf-8'), 1, 4
         ),
         ([True, False, False, True, True], np.bool, False, True, 0, 5),
     ]
