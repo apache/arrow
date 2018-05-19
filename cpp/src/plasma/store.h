@@ -49,7 +49,7 @@ struct Client {
   int fd;
 
   /// Object ids that are used by this client.
-  std::unordered_set<ObjectID, UniqueIDHasher> object_ids;
+  std::unordered_set<ObjectID> object_ids;
 };
 
 class PlasmaStore {
@@ -188,8 +188,7 @@ class PlasmaStore {
   std::vector<uint8_t> input_buffer_;
   /// A hash table mapping object IDs to a vector of the get requests that are
   /// waiting for the object to arrive.
-  std::unordered_map<ObjectID, std::vector<GetRequest*>, UniqueIDHasher>
-      object_get_requests_;
+  std::unordered_map<ObjectID, std::vector<GetRequest*>> object_get_requests_;
   /// The pending notifications that have not been sent to subscribers because
   /// the socket send buffers were full. This is a hash table from client file
   /// descriptor to an array of object_ids to send to that client.

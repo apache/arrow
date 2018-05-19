@@ -52,7 +52,7 @@ class LRUCache {
   ItemList item_list_;
   /// A hash table mapping the object ID of an object in the cache to its
   /// location in the doubly linked list item_list_.
-  std::unordered_map<ObjectID, ItemList::iterator, UniqueIDHasher> item_map_;
+  std::unordered_map<ObjectID, ItemList::iterator> item_map_;
 };
 
 /// The eviction policy.
