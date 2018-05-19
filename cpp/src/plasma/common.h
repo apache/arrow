@@ -101,11 +101,6 @@ template <>
 struct hash<::plasma::UniqueID> {
   size_t operator()(const ::plasma::UniqueID& id) const { return id.hash(); }
 };
-
-template <>
-struct hash<const ::plasma::UniqueID> {
-  size_t operator()(const ::plasma::UniqueID& id) const { return id.hash(); }
-};
 }  // namespace std
 
 #endif  // PLASMA_COMMON_H
