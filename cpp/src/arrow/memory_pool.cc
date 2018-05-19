@@ -202,11 +202,11 @@ int64_t LoggingMemoryPool::max_memory() const {
   return mem;
 }
 
-ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) : pool_(pool), proxy_bytes_allocated_(0) {}
+ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) : pool_(pool) {}
 
 Status ProxyMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  proxy_bytes_allocated_ += size;
   Status s = pool_->Allocate(size, out);
+  proxy_bytes_allocated_ += size;
   return s;
 }
 
@@ -226,8 +226,9 @@ int64_t ProxyMemoryPool::bytes_allocated() const {
   return nb_bytes;
 }
 
-int64_t ProxyMemoryPool::proxy_bytes_allocated() const {
-  return proxy_bytes_allocated_;
+int64_t ProxyMemoryPool::proxy_bytes_allocated() {
+  int64_t nb_bytes = proxy_bytes_allocated_;
+  return nb_bytes;
 }
 
 int64_t ProxyMemoryPool::max_memory() const {

@@ -92,24 +92,24 @@ TEST(LoggingMemoryPool, Logging) {
   ASSERT_EQ(200, pool->max_memory());
 }
 
-TEST(ProxyMemoryPool, ProxyMemoryPool) {
+TEST(ProxyMemoryPool, Logging) {
   MemoryPool* pool = default_memory_pool();
 
-  ProxyMemoryPool pp(pool);
+  ProxyMemoryPool pp = ProxyMemoryPool(pool);
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(100, &data));
 
   uint8_t* data2;
-  ASSERT_OK(pp->Allocate(300, &data2));
+  ASSERT_OK(pp.Allocate(300, &data2));
 
-  ASSERT_EQ(100, pool->bytes_allocated());
-  ASSERT_EQ(300, pp->proxy_bytes_allocated());
+  ASSERT_EQ(400, pool->bytes_allocated());
+  ASSERT_EQ(300, pp.proxy_bytes_allocated());
 
   pool->Free(data, 100);
-  pp->Free(data2, 300);
+  pp.Free(data2, 300);
 
   ASSERT_EQ(0, pool->bytes_allocated());
-  ASSERT_EQ(0, pp->proxy_bytes_allocated());
+  ASSERT_EQ(0, pp.proxy_bytes_allocated());
 }
 }  // namespace arrow
