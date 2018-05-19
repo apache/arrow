@@ -20,7 +20,7 @@ use serde_json::Value;
 use std::fmt;
 
 /// Arrow data type
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataType {
     Boolean,
     Int8,
@@ -40,7 +40,7 @@ pub enum DataType {
 }
 
 /// Arrow struct/schema field
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     name: String,
     data_type: DataType,
@@ -61,7 +61,6 @@ impl ArrowPrimitiveType for i32 {}
 impl ArrowPrimitiveType for i64 {}
 impl ArrowPrimitiveType for f32 {}
 impl ArrowPrimitiveType for f64 {}
-impl ArrowPrimitiveType for &'static str {}
 
 impl DataType {
     /// Parse a data type from a JSON representation

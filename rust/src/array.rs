@@ -55,6 +55,18 @@ impl<T> ListArray<T>
 where
     T: ArrowPrimitiveType,
 {
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn null_count(&self) -> usize {
+        self.null_count
+    }
+
+    pub fn validity_bitmap(&self) -> &Option<Bitmap> {
+        &self.validity_bitmap
+    }
+
     pub fn get(&self, i: usize) -> &[T] {
         self.data.get(i)
     }
@@ -143,6 +155,10 @@ where
 
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    pub fn get(&self, i: usize) -> &T {
+        self.data.get(i)
     }
 
     pub fn iter(&self) -> BufferIterator<T> {
