@@ -48,10 +48,10 @@ public class PlasmaClient implements ObjectStoreLink {
   // interface methods --------------------
 
   @Override
-  public void put(ObjectId objectId, byte[] value, byte[] metadata) {
+  public void put(byte[] objectId, byte[] value, byte[] metadata) {
     ByteBuffer buf = null;
     try {
-      buf = PlasmaClientJNI.create(conn, objectId.getBytes(), value.length, metadata);
+      buf = PlasmaClientJNI.create(conn, objectId, value.length, metadata);
     } catch (Exception e) {
       System.err.println("ObjectId " + objectId + " error at PlasmaClient put");
       e.printStackTrace();
@@ -61,49 +61,37 @@ public class PlasmaClient implements ObjectStoreLink {
     }
 
     buf.put(value);
-    PlasmaClientJNI.seal(conn, objectId.getBytes());
-    PlasmaClientJNI.release(conn, objectId.getBytes());
+    PlasmaClientJNI.seal(conn, objectId);
+    PlasmaClientJNI.release(conn, objectId);
   }
 
   @Override
-  public List<ObjectBuffer> get(List<? extends ObjectId> objectIds, int timeoutMs, boolean isMetadata) {
-    byte[][] ids = getIdBytes(objectIds);
-    ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, ids, timeoutMs);
-    assert bufs.length == objectIds.size();
+  public List<byte[]> get(byte[][] objectIds, int timeoutMs, boolean isMetadata) {
+    ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
+    assert bufs.length == objectIds.length;
 
-    List<ObjectBuffer> ret = new ArrayList<>();
+    List<byte[]> ret = new ArrayList<>();
     for (int i = 0; i < bufs.length; i++) {
-      ObjectId oid = objectIds.get(i);
       ByteBuffer buf = bufs[i][isMetadata ? 1 : 0];
       if (buf == null) {
-        ret.add(new ObjectBuffer(null, null));
+        ret.add(null);
       } else {
         byte[] bb = new byte[buf.remaining()];
         buf.get(bb);
-        ret.add(new ObjectBuffer(bb, (byte[] b) -> this.release(oid)));
+        ret.add(bb);
       }
     }
     return ret;
   }
 
-  private static byte[][] getIdBytes(List<? extends ObjectId> objectIds) {
-    int size = objectIds.size();
-    byte[][] ids = new byte[size][];
-    for (int i = 0; i < size; i++) {
-      ids[i] = objectIds.get(i).getBytes();
-    }
-    return ids;
-  }
-
   @Override
-  public List<ObjectId> wait(List<? extends ObjectId> objectIds, int timeoutMs, int numReturns) {
-    byte[][] ids = getIdBytes(objectIds);
-    byte[][] readys = PlasmaClientJNI.wait(conn, ids, timeoutMs, numReturns);
+  public List<byte[]> wait(byte[][] objectIds, int timeoutMs, int numReturns) {
+    byte[][] readys = PlasmaClientJNI.wait(conn, objectIds, timeoutMs, numReturns);
 
-    List<ObjectId> ret = new ArrayList<>();
+    List<byte[]> ret = new ArrayList<>();
     for (byte[] ready : readys) {
-      for (ObjectId id : objectIds) {
-        if (Arrays.equals(ready, id.getBytes())) {
+      for (byte[] id : objectIds) {
+        if (Arrays.equals(ready, id)) {
           ret.add(id);
           break;
         }
@@ -115,14 +103,13 @@ public class PlasmaClient implements ObjectStoreLink {
   }
 
   @Override
-  public byte[] hash(ObjectId objectId) {
-    return PlasmaClientJNI.hash(conn, objectId.getBytes());
+  public byte[] hash(byte[] objectId) {
+    return PlasmaClientJNI.hash(conn, objectId);
   }
 
   @Override
-  public void fetch(List<? extends ObjectId> objectIds) {
-    byte[][] ids = getIdBytes(objectIds);
-    PlasmaClientJNI.fetch(conn, ids);
+  public void fetch(byte[][] objectIds) {
+    PlasmaClientJNI.fetch(conn, objectIds);
   }
 
   @Override
@@ -138,8 +125,8 @@ public class PlasmaClient implements ObjectStoreLink {
    *
    * @param objectId used to identify an object.
    */
-  public void seal(ObjectId objectId) {
-    PlasmaClientJNI.seal(conn, objectId.getBytes());
+  public void seal(byte[] objectId) {
+    PlasmaClientJNI.seal(conn, objectId);
   }
 
   /**
@@ -147,8 +134,8 @@ public class PlasmaClient implements ObjectStoreLink {
    *
    * @param objectId used to identify an object.
    */
-  public void release(ObjectId objectId) {
-    PlasmaClientJNI.release(conn, objectId.getBytes());
+  public void release(byte[] objectId) {
+    PlasmaClientJNI.release(conn, objectId);
   }
 
   /**
@@ -156,7 +143,7 @@ public class PlasmaClient implements ObjectStoreLink {
    *
    * @param objectId used to identify an object.
    */
-  public boolean contains(ObjectId objectId) {
-    return PlasmaClientJNI.contains(conn, objectId.getBytes());
+  public boolean contains(byte[] objectId) {
+    return PlasmaClientJNI.contains(conn, objectId);
   }
 }

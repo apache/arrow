@@ -17,7 +17,6 @@
  */
 package org.apache.arrow.plasma;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -32,7 +31,7 @@ public interface ObjectStoreLink {
    * @param value The value to put in the object store.
    * @param metadata encodes whatever metadata the user wishes to encode.
    */
-  void put(ObjectId objectId, byte[] value, byte[] metadata);
+  void put(byte[] objectId, byte[] value, byte[] metadata);
 
   /**
    * Create a buffer from the PlasmaStore based on the <tt>objectId</tt>.
@@ -43,8 +42,9 @@ public interface ObjectStoreLink {
    * @param isMetadata false if get data, otherwise get metadata.
    * @return A PlasmaBuffer wrapping the object.
    */
-  default ObjectBuffer get(ObjectId objectId, int timeoutMs, boolean isMetadata) {
-    return get(Collections.singletonList(objectId), timeoutMs, isMetadata).get(0);
+  default byte[] get(byte[] objectId, int timeoutMs, boolean isMetadata) {
+    byte[][] objectIds = {objectId};
+    return get(objectIds, timeoutMs, isMetadata).get(0);
   }
 
   /**
@@ -56,7 +56,7 @@ public interface ObjectStoreLink {
    * @param isMetadata false if get data, otherwise get metadata.
    * @return List of PlasmaBuffers wrapping objects.
    */
-  List<ObjectBuffer> get(List<? extends ObjectId> objectIds, int timeoutMs, boolean isMetadata);
+  List<byte[]> get(byte[][] objectIds, int timeoutMs, boolean isMetadata);
 
   /**
    * Wait until <tt>numReturns</tt> objects in <tt>objectIds</tt> are ready.
@@ -66,7 +66,7 @@ public interface ObjectStoreLink {
    * @param numReturns We are waiting for this number of objects to be ready.
    * @return List of object IDs that are ready
    */
-  List<ObjectId> wait(List<? extends ObjectId> objectIds, int timeoutMs, int numReturns);
+  List<byte[]> wait(byte[][] objectIds, int timeoutMs, int numReturns);
 
   /**
    * Compute the hash of an object in the object store.
@@ -75,15 +75,16 @@ public interface ObjectStoreLink {
    * @return A digest byte array contains object's SHA256 hash. <tt>null</tt> means that the object
    * isn't in the object store.
    */
-  byte[] hash(ObjectId objectId);
+  byte[] hash(byte[] objectId);
 
   /**
    * Fetch the object with the given ID from other plasma manager instances.
    *
    * @param objectId The object ID used to identify the object.
    */
-  default void fetch(ObjectId objectId) {
-    fetch(Collections.singletonList(objectId));
+  default void fetch(byte[] objectId) {
+    byte[][] objectIds = {objectId};
+    fetch(objectIds);
   }
 
   /**
@@ -91,7 +92,7 @@ public interface ObjectStoreLink {
    *
    * @param objectIds List of object IDs used to identify the objects.
    */
-  void fetch(List<? extends ObjectId> objectIds);
+  void fetch(byte[][] objectIds);
 
   /**
    * Evict some objects to recover given count of bytes.
@@ -100,4 +101,11 @@ public interface ObjectStoreLink {
    * @return The number of bytes that have been evicted.
    */
   long evict(long numBytes);
+
+  /**
+   * Release the reference of the object.
+   *
+   * @param objectId The object ID used to release the reference of the object.
+   */
+  void release(byte[] objectId);
 }
