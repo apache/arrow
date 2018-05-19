@@ -27,6 +27,18 @@ from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
                              PlasmaBuffer, PlasmaClient, connect)
 
 
+TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], 'tf_plasma_op.so')
+has_tf_plasma_op = False
+if os.path.exists(TF_PLASMA_OP_PATH):
+    try:
+        import tensorflow as tf
+    except ImportError:
+        pass
+    else:
+        tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
+        has_tf_plasma_op = True
+
+
 @contextlib.contextmanager
 def start_plasma_store(plasma_store_memory,
                        use_valgrind=False, use_profiler=False,

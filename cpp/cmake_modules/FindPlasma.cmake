@@ -30,6 +30,7 @@ if ("$ENV{ARROW_HOME}" STREQUAL "")
   pkg_check_modules(PLASMA plasma)
   if (PLASMA_FOUND)
     pkg_get_variable(PLASMA_EXECUTABLE plasma executable)
+    pkg_get_variable(PLASMA_TF_OP plasma tf_op)
     pkg_get_variable(PLASMA_SO_VERSION plasma so_version)
     set(PLASMA_ABI_VERSION ${PLASMA_SO_VERSION})
     message(STATUS "Plasma SO and ABI version: ${PLASMA_SO_VERSION}")
@@ -43,6 +44,7 @@ else()
   set(PLASMA_HOME "$ENV{ARROW_HOME}")
 
   set(PLASMA_EXECUTABLE ${PLASMA_HOME}/bin/plasma_store)
+  set(PLASMA_TF_OP ${PLASMA_HOME}/bin/tf_plasma_op.so)
 
   set(PLASMA_SEARCH_HEADER_PATHS
     ${PLASMA_HOME}/include
