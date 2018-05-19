@@ -93,7 +93,7 @@ struct GpuProcessHandle {
 // This is necessary as IPC handles can only be mapped once per process.
 // Thus if multiple clients in the same process get the same gpu object,
 // they need to access the same mapped CudaBuffer.
-static std::unordered_map<ObjectID, GpuProcessHandle*, UniqueIDHasher> gpu_object_map;
+static std::unordered_map<ObjectID, GpuProcessHandle*> gpu_object_map;
 static std::mutex gpu_mutex;
 #endif
 
@@ -247,8 +247,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   std::unordered_map<int, ClientMmapTableEntry> mmap_table_;
   /// A hash table of the object IDs that are currently being used by this
   /// client.
-  std::unordered_map<ObjectID, std::unique_ptr<ObjectInUseEntry>, UniqueIDHasher>
-      objects_in_use_;
+  std::unordered_map<ObjectID, std::unique_ptr<ObjectInUseEntry>> objects_in_use_;
   /// Object IDs of the last few release calls. This is a deque and
   /// is used to delay releasing objects to see if they can be reused by
   /// subsequent tasks so we do not unneccessarily invalidate cpu caches.
