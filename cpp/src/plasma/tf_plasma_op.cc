@@ -25,7 +25,9 @@
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/mutex.h"
+#ifdef GOOGLE_CUDA
 #include "tensorflow/core/platform/stream_executor.h"
+#endif
 #include "tensorflow/stream_executor/device_memory.h"
 #include "tensorflow/stream_executor/event.h"
 #include "tensorflow/stream_executor/stream.h"

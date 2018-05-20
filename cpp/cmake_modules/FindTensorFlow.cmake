@@ -17,18 +17,15 @@
 
 find_package(PythonInterp REQUIRED)
 
-message("XXX Finding TensorFlow ${PYTHON_EXECUTABLE}")
-
 if (PYTHON_EXECUTABLE)
     if(DEFINED ENV{TENSORFLOW_INCLUDE_DIR})
-        message("XXX1 $ENV{TENSORFLOW_INCLUDE_DIR}")
         set(TensorFlow_INCLUDE_DIRS $ENV{TENSORFLOW_INCLUDE_DIR})
         set(TensorFlow_LIBRARY_DIRS "")
     else()
         execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
             "import tensorflow; print(tensorflow.sysconfig.get_include())"
-            OUTPUT_VARIABLE TensorFlow_INCLUDE_DIRS)
-        message("XXX2 ${TensorFlow_INCLUDE_DIRS}")
+            OUTPUT_VARIABLE TensorFlow_INCLUDE_DIRS
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
         execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
             "import tensorflow; print(' '.join(tensorflow.sysconfig.get_link_flags()).strip())"
             OUTPUT_VARIABLE TensorFlow_LIBRARY_DIRS
