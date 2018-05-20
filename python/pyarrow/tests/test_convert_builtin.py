@@ -489,7 +489,7 @@ def test_datetime_subclassing():
     assert arr_date.type == date_type
     assert arr_date[0].as_py() == datetime.date(2007, 7, 13)
 
-    class MyDatetime(datetime):
+    class MyDatetime(datetime.datetime):
         pass
 
     data = [

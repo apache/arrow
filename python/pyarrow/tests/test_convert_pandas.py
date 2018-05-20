@@ -15,24 +15,21 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-from collections import OrderedDict
-
-from datetime import date, datetime, time, timedelta
 import decimal
 import json
-
-import pytest
+from collections import OrderedDict
+from datetime import date, datetime, time, timedelta
+from distutils.version import LooseVersion
 
 import numpy as np
 import numpy.testing as npt
-
 import pandas as pd
 import pandas.util.testing as tm
+import pytest
 
-from pyarrow.compat import PY2
 import pyarrow as pa
 import pyarrow.types as patypes
+from pyarrow.compat import PY2
 
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
@@ -814,12 +811,16 @@ class TestConvertDateTimeLikeTypes(object):
         })
         tm.assert_frame_equal(expected_df, result)
 
+    @pytest.mark.xfail(
+        LooseVersion(pd.__version__) >= "0.23.0",
+        reason="https://github.com/pandas-dev/pandas/issues/21142",
+    )
     def test_python_datetime_subclass(self):
 
         class MyDatetime(datetime):
             pass
 
-        date_array = [MyDatetime(2000, 1, 1)]
+        date_array = [MyDatetime(2000, 1, 1, 1, 1, 1)]
         df = pd.DataFrame({"datetime": pd.Series(date_array, dtype=object)})
 
         table = pa.Table.from_pandas(df)
@@ -827,6 +828,7 @@ class TestConvertDateTimeLikeTypes(object):
 
         result = table.to_pandas()
         expected_df = pd.DataFrame({"datetime": date_array})
+
         tm.assert_frame_equal(expected_df, result)
 
     def test_python_date_subclass(self):
