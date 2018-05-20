@@ -290,8 +290,7 @@ public class UnionVector implements FieldVector {
 
     final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
     newBuf.setBytes(0, typeBuffer, 0, currentBufferCapacity);
-    final int halfNewCapacity = newBuf.capacity() / 2;
-    newBuf.setZero(halfNewCapacity, halfNewCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     typeBuffer.release(1);
     typeBuffer = newBuf;
     typeBufferAllocationSizeInBytes = (int)newAllocationSize;

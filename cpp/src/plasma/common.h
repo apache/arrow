@@ -44,21 +44,13 @@ class ARROW_EXPORT UniqueID {
   uint8_t* mutable_data();
   std::string binary() const;
   std::string hex() const;
+  size_t hash() const;
 
  private:
   uint8_t id_[kUniqueIDSize];
 };
 
 static_assert(std::is_pod<UniqueID>::value, "UniqueID must be plain old data");
-
-struct UniqueIDHasher {
-  // ObjectID hashing function.
-  size_t operator()(const UniqueID& id) const {
-    size_t result;
-    std::memcpy(&result, id.data(), sizeof(size_t));
-    return result;
-  }
-};
 
 typedef UniqueID ObjectID;
 
@@ -103,5 +95,12 @@ extern int ObjectStatusRemote;
 struct PlasmaStoreInfo;
 extern const PlasmaStoreInfo* plasma_config;
 }  // namespace plasma
+
+namespace std {
+template <>
+struct hash<::plasma::UniqueID> {
+  size_t operator()(const ::plasma::UniqueID& id) const { return id.hash(); }
+};
+}  // namespace std
 
 #endif  // PLASMA_COMMON_H

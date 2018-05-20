@@ -85,7 +85,7 @@ struct GetRequest {
   std::vector<ObjectID> object_ids;
   /// The object information for the objects in this request. This is used in
   /// the reply.
-  std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher> objects;
+  std::unordered_map<ObjectID, PlasmaObject> objects;
   /// The minimum number of objects to wait for in this request.
   int64_t num_objects_to_wait_for;
   /// The number of object requests in this wait request that are already
@@ -99,8 +99,7 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
       object_ids(object_ids.begin(), object_ids.end()),
       objects(object_ids.size()),
       num_satisfied(0) {
-  std::unordered_set<ObjectID, UniqueIDHasher> unique_ids(object_ids.begin(),
-                                                          object_ids.end());
+  std::unordered_set<ObjectID> unique_ids(object_ids.begin(), object_ids.end());
   num_objects_to_wait_for = unique_ids.size();
 }
 
@@ -300,11 +299,14 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   // tables if it is present there. It should only be present there if the get
   // request timed out.
   for (ObjectID& object_id : get_req->object_ids) {
-    auto& get_requests = object_get_requests_[object_id];
-    // Erase get_req from the vector.
-    auto it = std::find(get_requests.begin(), get_requests.end(), get_req);
-    if (it != get_requests.end()) {
-      get_requests.erase(it);
+    auto object_request_iter = object_get_requests_.find(object_id);
+    if (object_request_iter != object_get_requests_.end()) {
+      auto& get_requests = object_request_iter->second;
+      // Erase get_req from the vector.
+      auto it = std::find(get_requests.begin(), get_requests.end(), get_req);
+      if (it != get_requests.end()) {
+        get_requests.erase(it);
+      }
     }
   }
   // Remove the get request.

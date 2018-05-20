@@ -79,6 +79,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUNDLE_BOOST
     "Bundle the Boost libraries when we bundle Arrow C++"
     OFF)
+  option(PYARROW_GENERATE_COVERAGE
+    "Build with Cython code coverage enabled"
+    OFF)
   set(PYARROW_CXXFLAGS "" CACHE STRING
     "Compiler flags to append when compiling Arrow")
 endif()
@@ -106,7 +109,7 @@ if (NOT MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 
   # Suppress Cython warnings
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized")
 else()
   # MSVC version of -Wno-return-type-c-linkage
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
@@ -420,6 +423,10 @@ endif()
 # Setup and build Cython modules
 ############################################################
 
+if (PYARROW_GENERATE_COVERAGE)
+  set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
+endif()
+
 foreach(module ${CYTHON_EXTENSIONS})
     string(REPLACE "." ";" directories ${module})
     list(GET directories -1 module_name)
@@ -460,5 +467,12 @@ foreach(module ${CYTHON_EXTENSIONS})
         INSTALL_RPATH ${module_install_rpath})
     endif()
 
+    if (PYARROW_GENERATE_COVERAGE)
+      set_target_properties(${module_name} PROPERTIES
+        COMPILE_DEFINITIONS "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
+    endif()
+
     target_link_libraries(${module_name} ${LINK_LIBS})
+
+    # Generated files will be moved to the right directory by setup.py.
 endforeach(module)

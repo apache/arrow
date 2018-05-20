@@ -61,7 +61,7 @@ GTKDOC_LIBS +=							\
 	$(top_builddir)/arrow-gpu-glib/libarrow-gpu-glib.la
 endif
 
-include $(srcdir)/gtk-doc.make
+include $(top_srcdir)/gtk-doc.make
 
 CLEANFILES +=					\
 	$(DOC_MODULE)-decl-list.txt		\
