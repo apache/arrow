@@ -88,8 +88,8 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
 
 class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
  public:
-  explicit ProxyMemoryPool (MemoryPool* pool);
-  ~ProxyMemoryPool () override = default;
+  explicit ProxyMemoryPool(MemoryPool* pool);
+  ~ProxyMemoryPool() override = default;
 
   Status Allocate(int64_t size, uint8_t** out) override;
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
