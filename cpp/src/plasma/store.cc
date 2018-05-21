@@ -85,7 +85,7 @@ struct GetRequest {
   std::vector<ObjectID> object_ids;
   /// The object information for the objects in this request. This is used in
   /// the reply.
-  std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher> objects;
+  std::unordered_map<ObjectID, PlasmaObject> objects;
   /// The minimum number of objects to wait for in this request.
   int64_t num_objects_to_wait_for;
   /// The number of object requests in this wait request that are already
@@ -99,8 +99,7 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
       object_ids(object_ids.begin(), object_ids.end()),
       objects(object_ids.size()),
       num_satisfied(0) {
-  std::unordered_set<ObjectID, UniqueIDHasher> unique_ids(object_ids.begin(),
-                                                          object_ids.end());
+  std::unordered_set<ObjectID> unique_ids(object_ids.begin(), object_ids.end());
   num_objects_to_wait_for = unique_ids.size();
 }
 

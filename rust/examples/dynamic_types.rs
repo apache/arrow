@@ -43,7 +43,7 @@ fn main() {
     let id = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
 
     let nested = StructArray::from(vec![
-        Rc::new(PrimitiveArray::from(vec!["a", "b", "c", "d", "e"])) as Rc<Array>,
+        Rc::new(ListArray::from(vec!["a", "b", "c", "d", "e"])) as Rc<Array>,
         Rc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
         Rc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
     ]);
