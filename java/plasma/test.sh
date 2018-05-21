@@ -16,6 +16,15 @@
 # specific language governing permissions and limitations
 # under the License.
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE:-$0}")"; pwd)
+unamestr="$(uname)"
+if [[ "$unamestr" == "Linux" ]]; then
+  PARALLEL=$(nproc)
+elif [[ "$unamestr" == "Darwin" ]]; then
+  PARALLEL=$(sysctl -n hw.ncpu)
+else
+  echo "Unrecognized platform."
+  exit 1
+fi
 pushd ../../cpp
     if [ ! -d "release" ]; then
       mkdir release
@@ -35,9 +44,9 @@ pushd ../../cpp
             -DARROW_WITH_LZ4=off \
             -DARROW_WITH_ZLIB=off \
             -DARROW_WITH_ZSTD=off \
+            -DARROW_PLASMA_JAVA_CLIENT=on \
             ..
         make VERBOSE=1 -j$PARALLEL
-        make install
     popd
 popd
 
