@@ -50,6 +50,14 @@ void inline InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
   random_byte_array(num_values, 0, buffer.data(), values.data(), max_byte_array_len);
 }
 
+void inline InitWideByteArrayValues(int num_values, vector<ByteArray>& values,
+                                    vector<uint8_t>& buffer, int min_len, int max_len) {
+  int num_bytes = static_cast<int>(max_len + sizeof(uint32_t));
+  size_t nbytes = num_values * num_bytes;
+  buffer.resize(nbytes);
+  random_byte_array(num_values, 0, buffer.data(), values.data(), min_len, max_len);
+}
+
 template <>
 void inline InitValues<FLBA>(int num_values, vector<FLBA>& values,
                              vector<uint8_t>& buffer) {

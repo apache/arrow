@@ -1445,8 +1445,8 @@ TEST(TestArrowReadWrite, CoerceTimestampsAndSupportDeprecatedInt96) {
   using ::arrow::Schema;
   using ::arrow::Table;
   using ::arrow::TimeUnit;
-  using ::arrow::TimestampType;
   using ::arrow::TimestampBuilder;
+  using ::arrow::TimestampType;
   using ::arrow::default_memory_pool;
 
   auto timestamp_type = std::make_shared<TimestampType>(TimeUnit::NANO);
