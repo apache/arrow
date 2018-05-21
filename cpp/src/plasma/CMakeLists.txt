@@ -161,6 +161,17 @@ install(
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
 # Plasma java client support
+find_package(JNI REQUIRED)
+# add jni support
+include_directories(${JAVA_INCLUDE_PATH})
+include_directories(${JAVA_INCLUDE_PATH2})
+if (JNI_FOUND)
+  message (STATUS "JNI_INCLUDE_DIRS=${JNI_INCLUDE_DIRS}")
+  message (STATUS "JNI_LIBRARIES=${JNI_LIBRARIES}")
+else()
+  message (WARNING "NOT FIND JNI")   
+endif()
+
 add_compile_options("-I$ENV{JAVA_HOME}/include/")
 if(WIN32)
   add_compile_options("-I$ENV{JAVA_HOME}/include/win32")

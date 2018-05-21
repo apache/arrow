@@ -39,10 +39,8 @@ public class PlasmaClient implements ObjectStoreLink {
   }
 
   // use plasma client to initialize the underlying jni system as well via config and config-overwrites
-  public PlasmaClient(String configFile, String configOverwrites, String storeSocketName,
-      String managerSocketName, int releaseDelay) {
-    this.conn = PlasmaClientJNI.connect(
-        configFile, configOverwrites, storeSocketName, managerSocketName, releaseDelay);
+  public PlasmaClient(String storeSocketName, String managerSocketName, int releaseDelay) {
+    this.conn = PlasmaClientJNI.connect(storeSocketName, managerSocketName, releaseDelay);
   }
 
   // interface methods --------------------

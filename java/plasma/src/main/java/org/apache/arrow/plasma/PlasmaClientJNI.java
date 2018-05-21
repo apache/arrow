@@ -24,8 +24,7 @@ import java.nio.ByteBuffer;
  */
 public class PlasmaClientJNI {
 
-  native public static long connect(String configFile, String overwrites, String store_socket_name,
-      String manager_socket_name, int release_delay);
+  native public static long connect(String store_socket_name, String manager_socket_name, int release_delay);
 
   native public static void disconnect(long conn);
 
