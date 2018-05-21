@@ -135,6 +135,7 @@ if (PLASMA_BUILD_TENSORFLOW_OP)
   endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
   include_directories(${TensorFlow_INCLUDE_DIRS})
+  # see https://github.com/sadeepj/crfasrnn_keras/issues/19
   include_directories(${TensorFlow_INCLUDE_DIRS}/external/nsync/public)
   add_library(tf_plasma_op SHARED tf_plasma_op.cc)
   set_target_properties(tf_plasma_op PROPERTIES PREFIX "")

@@ -16,21 +16,21 @@
 // under the License.
 
 #include "plasma/client.h"
-#ifdef GOOGLE_CUDA
-#include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
-#endif
+
 #include "tensorflow/core/framework/device_base.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/mutex.h"
-#ifdef GOOGLE_CUDA
-#include "tensorflow/core/platform/stream_executor.h"
-#endif
 #include "tensorflow/stream_executor/device_memory.h"
 #include "tensorflow/stream_executor/event.h"
 #include "tensorflow/stream_executor/stream.h"
+
+#ifdef GOOGLE_CUDA
+#include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
+#include "tensorflow/core/platform/stream_executor.h"
+#endif
 
 using namespace tensorflow;  // NOLINT
 
@@ -180,7 +180,6 @@ class TensorToPlasmaOp : public AsyncOpKernel {
         OP_REQUIRES_ASYNC(context, success,
                           errors::Internal("D2H memcpy failed to be enqueued."), done);
       }
-      // TODO(zongheng): does std::move() give better performance?
       context->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(
           d2h_stream, std::move(wrapped_callback));
 #endif
@@ -253,13 +252,8 @@ class PlasmaToTensorOp : public AsyncOpKernel {
 
     const int64_t size_in_bytes = object_buffer.data->size();
     TensorShape shape({size_in_bytes / sizeof(float)});
-    // LOG(INFO) << "Output TensorShape: " << shape.DebugString();
-    // LOG(INFO) << "size_in_bytes of the plasma object: " << size_in_bytes;
 
     const float* plasma_data = reinterpret_cast<const float*>(object_buffer.data->data());
-    // for (int i = 0; i < size_in_bytes / sizeof(float); ++i) {
-    //   LOG(INFO) << plasma_data[i];
-    // }
 
     Tensor* output_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(context, context->allocate_output(0, shape, &output_tensor),
@@ -284,47 +278,6 @@ class PlasmaToTensorOp : public AsyncOpKernel {
           CHECK(h2d_stream->Init().ok());
         }
       }
-
-      // #define PLASMA_CLIENT_DOES_NOT_EXIST 3
-      // #define PLASMA_CLIENT_LOCAL 0
-
-      //       // Launch async fetch.
-      //       {
-      //         mutex_lock lock(mu_);
-      //         LOG(INFO) << "Launching Fetch()";
-      //         ARROW_CHECK_OK(client_.Fetch(/*num_object_ids=*/1,
-      //         &object_id)); LOG(INFO) << "Done launching Fetch()";
-      //       }
-
-      //       std::function<void()> WaitForTransfer = [context, this,
-      //       object_id,
-      //                                                WaitForTransfer]() ->
-      //                                                void {
-      //         int object_status;
-      //         {
-      //           mutex_lock lock(mu_);
-      //           LOG(INFO) << "Launching Info()";
-      //           ARROW_CHECK_OK(client_.Info(object_id, &object_status));
-      //           LOG(INFO) << "Done launching Info()";
-      //         }
-      //         CHECK(object_status != PLASMA_CLIENT_DOES_NOT_EXIST);
-
-      //         if (object_status == PLASMA_CLIENT_LOCAL) {
-      //           LOG(INFO) << "Object is local!";
-      //           CHECK(0);
-      //           // TODO(zongheng):  do real work;
-      //         } else {
-
-      //           LOG(INFO) << "Object still not local, status: " <<
-      //           object_status; std::function<void()> new_func =
-      //           WaitForTransfer; context->device()
-      //               ->tensorflow_gpu_device_info()
-      //               ->event_mgr->ThenExecute(h2d_stream, new_func);
-      //         }
-      //       };
-
-      //       context->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(
-      //           h2d_stream, WaitForTransfer);
 
       // Important.  See note in T2P op.
       // We don't check the return status since the host memory might've been
@@ -368,8 +321,10 @@ REGISTER_OP("TensorToPlasma")
 
 REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(DEVICE_CPU),
                         TensorToPlasmaOp<CPUDevice>);
+#ifdef GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(DEVICE_GPU),
                         TensorToPlasmaOp<GPUDevice>);
+#endif
 
 REGISTER_OP("PlasmaToTensor")
     .Input("plasma_object_id: string")
@@ -379,5 +334,7 @@ REGISTER_OP("PlasmaToTensor")
 
 REGISTER_KERNEL_BUILDER(Name("PlasmaToTensor").Device(DEVICE_CPU),
                         PlasmaToTensorOp<CPUDevice>);
+#ifdef GOOGLE_CUDA
 REGISTER_KERNEL_BUILDER(Name("PlasmaToTensor").Device(DEVICE_GPU),
                         PlasmaToTensorOp<GPUDevice>);
+#endif
