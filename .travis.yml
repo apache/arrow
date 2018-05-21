@@ -45,7 +45,6 @@ matrix:
   - compiler: gcc
     language: cpp
     os: linux
-    group: deprecated
     env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_VALGRIND=1
