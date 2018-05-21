@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+option java_package = "org.apache.arrow.flight.impl";
+
+service FlightService {
+
+  // get a list of available streams.
+  rpc ListFlights(Criteria) returns (stream FlightGetInfo) {}
+  
+    // get a list of available streams.
+  rpc GetFlightInfo(FlightDescriptor) returns (FlightGetInfo) {}
+  
+  // get stream data.
+  rpc DoGet(Ticket) returns (stream FlightData) {}
+
+  // create or append a stream. 
+  rpc DoPut(stream FlightData) returns (PutResult) {}
+  
+  rpc DoAction(Action) returns (Result) {}
+  
+  rpc ListActions(Empty) returns (stream ActionType) {}
+  
+}
+
+message Empty {}
+
+message ActionType {
+  string type = 1;
+  string description = 2;
+}
+
+message Criteria {
+  // TODO: criteria pattern to be added.
+  int64 slice_target = 1;  
+}
+
+message Action {
+  string type = 1;
+  bytes body = 2;
+}
+
+message Result {
+  string type = 1;
+  bytes body = 2;
+}
+
+message FlightDescriptor {
+  enum DescriptorType {
+    UNKNOWN = 0;
+    PATH = 1;
+    CMD = 2;
+  }
+  
+  DescriptorType type = 1;
+  string cmd = 2;
+  repeated string path = 3;
+}
+
+message FlightGetInfo {
+  // schema of the dataset as described in Schema.fbs::Schema
+  bytes schema = 1;
+  
+  FlightDescriptor flight_descriptor = 2;
+  
+  repeated FlightEndpoint endpoint = 3;
+  
+  uint64 total_records = 4;
+  uint64 total_bytes = 5;
+}
+
+message FlightPutRequest {
+  FlightDescriptor flight_descriptor = 1;
+  
+  // schema of the dataset as described in Schema.fbs::Schema
+  bytes schema = 2;
+  
+  int32 ticket_count = 3;
+}
+
+message FlightPutInstruction {
+  repeated Ticket ticket = 1;
+}
+
+message FlightEndpoint {
+  Ticket ticket = 1;
+  Location location = 2;
+}
+
+message Location {
+  string host = 1;
+  int32 port = 2;
+}
+
+// An opaque, split identifier.
+message Ticket {
+  bytes ticket = 1;
+}
+
+message FlightData {
+  // included only when putting data.
+  FlightDescriptor flight_descriptor = 1;
+  
+  // header for message data as described in Message.fbs::Message
+  bytes data_header = 2;
+  
+  // the actual data. preferrably handled with minimal-copies
+  // comes last in the definition to help with sidecar patterns.
+  bytes data_body = 1000;
+}
+
+message PutResult {}
