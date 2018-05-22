@@ -371,7 +371,6 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None):
             e.args += ("Conversion failed for column %s" % col.name,)
             raise e
 
-
     if nthreads == 1:
         arrays = [convert_column(c, t)
                   for c, t in zip(columns_to_convert,
