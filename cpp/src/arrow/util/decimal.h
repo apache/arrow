@@ -126,6 +126,11 @@ class ARROW_EXPORT Decimal128 {
   static Status FromString(const std::string& s, Decimal128* out,
                            int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
 
+  /// \brief Convert from a big endian byte representation. The length must be
+  ///        between 1 and 16
+  /// \return error status if the length is an invalid value
+  static Status FromBigEndian(const uint8_t* data, int32_t length, Decimal128* out);
+
   /// \brief Convert Decimal128 from one scale to another
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;
 

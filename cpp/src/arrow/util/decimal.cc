@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <climits>
 #include <cmath>
 #include <cstring>
 #include <iomanip>
@@ -870,6 +871,67 @@ Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
     return Status::Invalid(buf.str());
   }
 
+  return Status::OK();
+}
+
+// Helper function used by Decimal128::FromBigEndian
+static inline uint64_t FromBigEndian(const uint8_t* bytes, int32_t length) {
+  // We don't bounds check the length here because this is called by
+  // FromBigEndian that has a Decimal128 as its out parameters and
+  // that function is already checking the length of the bytes and only
+  // passes lengths between zero and eight.
+  uint64_t result = 0;
+  // Using memcpy instead of special casing for length
+  // and doing the conversion in 16, 32 parts, which could
+  // possibly create unaligned memory access on certain platforms
+  memcpy(reinterpret_cast<uint8_t*>(&result) + 8 - length, bytes, length);
+  return ::arrow::BitUtil::FromBigEndian(result);
+}
+
+Status Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length, Decimal128* out) {
+  static constexpr int32_t kMinDecimalBytes = 1;
+  static constexpr int32_t kMaxDecimalBytes = 16;
+
+  int64_t high;
+  uint64_t low;
+
+  if (length < kMinDecimalBytes || length > kMaxDecimalBytes) {
+    std::ostringstream stream;
+    stream << "Length of byte array passed to Decimal128::FromBigEndian ";
+    stream << "was " << length << ", but must be between ";
+    stream << kMinDecimalBytes << " and " << kMaxDecimalBytes;
+    return Status::Invalid(stream.str());
+  }
+
+  /// Bytes are coming in big-endian, so the first byte is the MSB and therefore holds the
+  /// sign bit.
+  const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
+
+  /// Sign extend the low bits if necessary
+  low = UINT64_MAX * (is_negative && length < 8);
+  high = -1 * (is_negative && length < kMaxDecimalBytes);
+
+  /// Stop byte of the high bytes
+  const int32_t high_bits_offset = std::max(0, length - 8);
+
+  /// Shift left enough bits to make room for the incoming int64_t
+  high <<= high_bits_offset * CHAR_BIT;
+
+  /// Preserve the upper bits by inplace OR-ing the int64_t
+  uint64_t value = arrow::FromBigEndian(bytes, high_bits_offset);
+  high |= value;
+
+  /// Stop byte of the low bytes
+  const int32_t low_bits_offset = std::min(length, 8);
+
+  /// Shift left enough bits to make room for the incoming uint64_t
+  low <<= low_bits_offset * CHAR_BIT;
+
+  /// Preserve the upper bits by inplace OR-ing the uint64_t
+  value = arrow::FromBigEndian(bytes + high_bits_offset, length - high_bits_offset);
+  low |= value;
+
+  *out = Decimal128(high, low);
   return Status::OK();
 }
 
