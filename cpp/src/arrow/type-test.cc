@@ -46,12 +46,17 @@ TEST(TestField, Basics) {
 }
 
 TEST(TestField, Equals) {
+  auto meta = metadata({{"a", "1"}, {"b", "2"}});
+
   Field f0("f0", int32());
   Field f0_nn("f0", int32(), false);
   Field f0_other("f0", int32());
+  Field f0_with_meta("f0", int32(), true, meta);
 
   ASSERT_TRUE(f0.Equals(f0_other));
   ASSERT_FALSE(f0.Equals(f0_nn));
+  ASSERT_TRUE(f0.Equals(f0_with_meta, false));
+  ASSERT_FALSE(f0.Equals(f0_with_meta));
 }
 
 TEST(TestField, TestMetadataConstruction) {
@@ -212,6 +217,10 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   ASSERT_TRUE(schema0->Equals(*schema2));
   ASSERT_FALSE(schema0->Equals(*schema1));
   ASSERT_FALSE(schema2->Equals(*schema1));
+
+  // don't check metadata
+  ASSERT_TRUE(schema0->Equals(*schema1, false));
+  ASSERT_TRUE(schema2->Equals(*schema1, false));
 }
 
 TEST_F(TestSchema, TestAddMetadata) {

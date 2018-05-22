@@ -239,8 +239,8 @@ class ARROW_EXPORT Field {
 
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
-  bool Equals(const Field& other) const;
-  bool Equals(const std::shared_ptr<Field>& other) const;
+  bool Equals(const Field& other, bool check_metadata = true) const;
+  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = true) const;
 
   std::string ToString() const;
 
@@ -750,7 +750,7 @@ class ARROW_EXPORT Schema {
   virtual ~Schema() = default;
 
   /// Returns true if all of the schema fields are equal
-  bool Equals(const Schema& other) const;
+  bool Equals(const Schema& other, bool check_metadata = true) const;
 
   /// Return the ith schema element. Does not boundscheck
   std::shared_ptr<Field> field(int i) const { return fields_[i]; }

@@ -58,13 +58,15 @@ std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   return flattened;
 }
 
-bool Field::Equals(const Field& other) const {
+bool Field::Equals(const Field& other, bool check_metadata) const {
   if (this == &other) {
     return true;
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
-    if (metadata_ == nullptr && other.metadata_ == nullptr) {
+    if (!check_metadata) {
+      return true;
+    } else if (metadata_ == nullptr && other.metadata_ == nullptr) {
       return true;
     } else if ((metadata_ == nullptr) ^ (other.metadata_ == nullptr)) {
       return false;
@@ -75,8 +77,8 @@ bool Field::Equals(const Field& other) const {
   return false;
 }
 
-bool Field::Equals(const std::shared_ptr<Field>& other) const {
-  return Equals(*other.get());
+bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) const {
+  return Equals(*other.get(), check_metadata);
 }
 
 std::string Field::ToString() const {
@@ -284,7 +286,7 @@ Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
     : fields_(std::move(fields)), metadata_(metadata) {}
 
-bool Schema::Equals(const Schema& other) const {
+bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
     return true;
   }
@@ -300,7 +302,9 @@ bool Schema::Equals(const Schema& other) const {
   }
 
   // check metadata equality
-  if (metadata_ == nullptr && other.metadata_ == nullptr) {
+  if (!check_metadata) {
+    return true;
+  } else if (metadata_ == nullptr && other.metadata_ == nullptr) {
     return true;
   } else if ((metadata_ == nullptr) ^ (other.metadata_ == nullptr)) {
     return false;
