@@ -104,12 +104,12 @@ TEST(ProxyMemoryPool, Logging) {
   ASSERT_OK(pp.Allocate(300, &data2));
 
   ASSERT_EQ(400, pool->bytes_allocated());
-  ASSERT_EQ(300, pp.proxy_bytes_allocated());
+  ASSERT_EQ(300, pp.bytes_allocated());
 
   pool->Free(data, 100);
   pp.Free(data2, 300);
 
   ASSERT_EQ(0, pool->bytes_allocated());
-  ASSERT_EQ(0, pp.proxy_bytes_allocated());
+  ASSERT_EQ(0, pp.bytes_allocated());
 }
 }  // namespace arrow

@@ -206,28 +206,23 @@ ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) : pool_(pool) {}
 
 Status ProxyMemoryPool::Allocate(int64_t size, uint8_t** out) {
   Status s = pool_->Allocate(size, out);
-  proxy_bytes_allocated_ += size;
+  bytes_allocated_ += size;
   return s;
 }
 
 Status ProxyMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
   Status s = pool_->Reallocate(old_size, new_size, ptr);
-  proxy_bytes_allocated_ += new_size - old_size;
+  bytes_allocated_ += new_size - old_size;
   return s;
 }
 
 void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size) {
   pool_->Free(buffer, size);
-  proxy_bytes_allocated_ -= size;
+  bytes_allocated_ -= size;
 }
 
 int64_t ProxyMemoryPool::bytes_allocated() const {
-  int64_t nb_bytes = pool_->bytes_allocated();
-  return nb_bytes;
-}
-
-int64_t ProxyMemoryPool::proxy_bytes_allocated() {
-  int64_t nb_bytes = proxy_bytes_allocated_;
+  int64_t nb_bytes = bytes_allocated_;
   return nb_bytes;
 }
 

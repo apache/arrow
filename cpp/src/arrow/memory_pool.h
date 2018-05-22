@@ -100,11 +100,9 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
 
   int64_t max_memory() const override;
 
-  int64_t proxy_bytes_allocated();
-
  private:
   MemoryPool* pool_;
-  int64_t proxy_bytes_allocated_ = 0;
+  int64_t bytes_allocated_ = 0;
 };
 
 ARROW_EXPORT MemoryPool* default_memory_pool();

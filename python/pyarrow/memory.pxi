@@ -52,9 +52,6 @@ cdef class ProxyMemoryPool(MemoryPool):
         self.proxy_pool.reset(new CProxyMemoryPool(pool.pool))
         self.init(self.proxy_pool.get())
 
-    def proxy_bytes_allocated(self):
-        return self.proxy_pool.get().proxy_bytes_allocated()
-
 
 def default_memory_pool():
     cdef:
