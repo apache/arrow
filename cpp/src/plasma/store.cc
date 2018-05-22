@@ -572,8 +572,10 @@ void PlasmaStore::disconnect_client(int client_fd) {
 /// buffered, and this will be called again when the send buffer has room.
 ///
 /// @param client_fd The client to send the notification to.
-void PlasmaStore::send_notifications(int client_fd) {
-  auto& notifications = pending_notifications_[client_fd].object_notifications;
+PlasmaStore::NotificationMap::iterator PlasmaStore::send_notifications(
+      PlasmaStore::NotificationMap::iterator it) {
+  int client_fd = it->first;
+  auto& notifications = it->second.object_notifications;
 
   int num_processed = 0;
   bool closed = false;
@@ -599,7 +601,7 @@ void PlasmaStore::send_notifications(int client_fd) {
       // TODO(pcm): Introduce status codes and check in case the file descriptor
       // is added twice.
       loop_->AddFileEvent(client_fd, kEventLoopWrite, [this, client_fd](int events) {
-        send_notifications(client_fd);
+        send_notifications(pending_notifications_.find(client_fd));
       });
       break;
     } else {
@@ -622,15 +624,18 @@ void PlasmaStore::send_notifications(int client_fd) {
   // Stop sending notifications if the pipe was broken.
   if (closed) {
     close(client_fd);
-    pending_notifications_.erase(client_fd);
+    return pending_notifications_.erase(it);
+  } else {
+    return ++it;
   }
 }
 
 void PlasmaStore::push_notification(ObjectInfoT* object_info) {
-  for (auto& element : pending_notifications_) {
+  auto it = pending_notifications_.begin();
+  while (it != pending_notifications_.end()) {
     auto notification = create_object_info_buffer(object_info);
-    element.second.object_notifications.emplace_back(std::move(notification));
-    send_notifications(element.first);
+    it->second.object_notifications.emplace_back(std::move(notification));
+    it = send_notifications(it);
   }
 }
 
@@ -654,7 +659,7 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
   for (const auto& entry : store_info_.objects) {
     push_notification(&entry.second->info);
   }
-  send_notifications(fd);
+  send_notifications(pending_notifications_.find(fd));
 }
 
 Status PlasmaStore::process_message(Client* client) {
