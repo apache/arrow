@@ -571,7 +571,8 @@ void PlasmaStore::disconnect_client(int client_fd) {
 /// be
 /// buffered, and this will be called again when the send buffer has room.
 ///
-/// @param client_fd The client to send the notification to.
+/// @param it Iterator that points to the client to send the notification to.
+/// @return Iterator pointing to the next client.
 PlasmaStore::NotificationMap::iterator PlasmaStore::send_notifications(
       PlasmaStore::NotificationMap::iterator it) {
   int client_fd = it->first;
