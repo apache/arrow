@@ -18,7 +18,9 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 import org.apache.arrow.vector.BaseValueVector;
@@ -35,6 +37,8 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.hexStringToByteArray;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
@@ -174,5 +178,105 @@ public class JdbcToArrowTestHelper {
         }
         return data;
     }
+    
+    public static Integer [] getIntValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	Integer [] valueArr = new Integer [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {
+    		valueArr [i++] = Integer.parseInt(data);
+    	}
+    	return valueArr;
+    }
+    
+    public static Boolean [] getBooleanValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	Boolean [] valueArr = new Boolean [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) { 
+    		valueArr [i++] = data.trim().equals("1");
+    	}
+    	return valueArr;
+    }
+    
+    public static BigDecimal [] getDecimalValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	BigDecimal [] valueArr = new BigDecimal [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {
+    		valueArr[i++] = new BigDecimal(data);
+    	}
+    	return valueArr;
+    }
 
+    public static Double [] getDoubleValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	Double [] valueArr = new Double [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {
+    		valueArr [i++] = Double.parseDouble(data);
+    	}
+    	return valueArr;
+    }
+    
+    public static Float [] getFloatValues(String[] values, String dataType) { 
+    	String[] dataArr= getValues(values, dataType);
+    	Float [] valueArr = new Float [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {
+    		valueArr [i++] = Float.parseFloat(data);
+    	}
+    	return valueArr;
+    }
+    
+    public static Long [] getLongValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	Long [] valueArr = new Long [dataArr.length];
+    	int i =0;
+    	for(String data : dataArr) {    
+    		valueArr [i++] = Long.parseLong(data);
+    	}
+    	return valueArr;
+    }
+    
+    public static byte [][] getCharArray(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	byte [][] valueArr = new byte [dataArr.length][];
+    	int i =0;
+    	for(String data : dataArr) {     
+    		valueArr [i++] = data.trim().getBytes();
+    	}
+    	return valueArr;
+    }
+    
+    public static byte [][] getCharArrayWithCharSet(String[] values, String dataType, Charset charSet) throws UnsupportedEncodingException {
+    	String[] dataArr= getValues(values, dataType);
+    	byte [][] valueArr = new byte [dataArr.length][];
+    	int i =0;
+    	for(String data : dataArr) {     
+    		valueArr [i++] = data.trim().getBytes(charSet);
+    	}
+    	return valueArr;
+    }
+    
+    public static byte [][] getBinaryValues(String[] values, String dataType) {
+    	String[] dataArr= getValues(values, dataType);
+    	byte [][] valueArr = new byte [dataArr.length][];
+    	int i =0;
+    	for(String data : dataArr) {     
+    		valueArr [i++] = hexStringToByteArray(data.trim());
+    	}
+    	return valueArr;
+    }  
+    
+    public static String [] getValues(String[] values, String dataType) {
+    	String value = "";
+    	for(String val : values) {
+    		if(val.startsWith(dataType)) {
+    			value = val.split("=")[1];
+    			break;
+    		}
+    	}
+    	return value.split(",");
+    }
 }
