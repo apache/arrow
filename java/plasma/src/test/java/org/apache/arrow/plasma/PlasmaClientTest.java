@@ -35,14 +35,21 @@ public class PlasmaClientTest {
 
 
     public PlasmaClientTest() throws Exception{
-        String plasmaStorePath = System.getenv("PLASMA_STORE");
-        if(plasmaStorePath == null) {
-            throw new Exception("Please set plasma store path in env PLASMA_STORE");
+        try {
+            String plasmaStorePath = System.getenv("PLASMA_STORE");
+            if(plasmaStorePath == null) {
+                throw new Exception("Please set plasma store path in env PLASMA_STORE");
+            }
+
+            this.startObjectStore(plasmaStorePath);
+            System.loadLibrary("plasma_java");
+            pLink = new PlasmaClient(this.getStoreAddress(), "", 0);
+        }
+        catch (Throwable t) {
+            cleanup();
+            throw t;
         }
 
-        this.startObjectStore(plasmaStorePath);
-        System.loadLibrary("plasma_java");
-        pLink = new PlasmaClient(this.getStoreAddress(), "", 0);
     }
 
     private Process startProcess(String[] cmd) {
