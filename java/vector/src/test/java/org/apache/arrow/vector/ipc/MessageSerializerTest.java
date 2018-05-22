@@ -94,7 +94,7 @@ public class MessageSerializerTest {
   public ExpectedException expectedEx = ExpectedException.none();
 
   @Test
-  public void testdeSerializeRecordBatchLongMetaData() throws IOException {
+  public void testDeserializeRecordBatchLongMetaData() throws IOException {
     expectedEx.expect(IOException.class);
     expectedEx.expectMessage("Cannot currently deserialize record batches over 2GB");
     int offset = 0;
