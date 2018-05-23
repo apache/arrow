@@ -51,7 +51,7 @@ class JByteArrayGetter {
     _env = env;
     _a = a;
 
-    bp = _env->GetByteArrayElements(_a, NULL);
+    bp = _env->GetByteArrayElements(_a, nullptr);
     *out = bp;
   }
 
@@ -61,8 +61,8 @@ class JByteArrayGetter {
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_connect(
     JNIEnv* env, jclass cls, jstring store_socket_name, jstring manager_socket_name,
     jint release_delay) {
-  const char* s_name = env->GetStringUTFChars(store_socket_name, NULL);
-  const char* m_name = env->GetStringUTFChars(manager_socket_name, NULL);
+  const char* s_name = env->GetStringUTFChars(store_socket_name, nullptr);
+  const char* m_name = env->GetStringUTFChars(manager_socket_name, nullptr);
 
   plasma::PlasmaClient* client = new plasma::PlasmaClient();
   ARROW_CHECK_OK(client->Connect(s_name, m_name, release_delay));
@@ -89,10 +89,10 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_create(
   jbyteArray_to_object_id(env, object_id, &oid);
 
   // prepare metadata buffer
-  uint8_t* md = NULL;
+  uint8_t* md = nullptr;
   jsize md_size = 0;
   std::unique_ptr<JByteArrayGetter> md_getter;
-  if (metadata != NULL) {
+  if (metadata != nullptr) {
     md_size = env->GetArrayLength(metadata);
   }
   if (md_size > 0) {
@@ -105,13 +105,13 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_create(
     jclass Exception = env->FindClass("java/lang/Exception");
     env->ThrowNew(Exception,
                   "An object with this ID already exists in the plasma store.");
-    return NULL;
+    return nullptr;
   }
   if (s.IsPlasmaStoreFull()) {
     jclass Exception = env->FindClass("java/lang/Exception");
     env->ThrowNew(Exception,
                   "The plasma store ran out of memory and could not create this object.");
-    return NULL;
+    return nullptr;
   }
   ARROW_CHECK(s.ok());
 
@@ -133,7 +133,7 @@ JNIEXPORT jbyteArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_hash(
                             reinterpret_cast<jbyte*>(digest));
     return ret;
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -172,11 +172,11 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
   jclass clsByteBuffer = env->FindClass("java/nio/ByteBuffer");
   jclass clsByteBufferArray = env->FindClass("[Ljava/nio/ByteBuffer;");
 
-  jobjectArray ret = env->NewObjectArray(num_oids, clsByteBufferArray, NULL);
-  jobjectArray o = NULL;
+  jobjectArray ret = env->NewObjectArray(num_oids, clsByteBufferArray, nullptr);
+  jobjectArray o = nullptr;
   jobject dataBuf, metadataBuf;
   for (int i = 0; i < num_oids; ++i) {
-    o = env->NewObjectArray(2, clsByteBuffer, NULL);
+    o = env->NewObjectArray(2, clsByteBuffer, nullptr);
     if (obufs[i].data && obufs[i].data->size() != -1) {
       dataBuf = env->NewDirectByteBuffer(const_cast<uint8_t*>(obufs[i].data->data()),
                                          obufs[i].data->size());
@@ -184,11 +184,11 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
         metadataBuf = env->NewDirectByteBuffer(
             const_cast<uint8_t*>(obufs[i].metadata->data()), obufs[i].metadata->size());
       } else {
-        metadataBuf = NULL;
+        metadataBuf = nullptr;
       }
     } else {
-      dataBuf = NULL;
-      metadataBuf = NULL;
+      dataBuf = nullptr;
+      metadataBuf = nullptr;
     }
 
     env->SetObjectArrayElement(o, 0, dataBuf);
@@ -207,11 +207,7 @@ JNIEXPORT jboolean JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_contains
   bool has_object;
   ARROW_CHECK_OK(client->Contains(oid, &has_object));
 
-  if (has_object) {
-    return true;
-  } else {
-    return false;
-  }
+  return has_object;
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_fetch(
@@ -239,13 +235,13 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
   if (num_returns < 0) {
     jclass Exception = env->FindClass("java/lang/RuntimeException");
     env->ThrowNew(Exception, "The argument num_returns cannot be less than zero.");
-    return NULL;
+    return nullptr;
   }
   if (num_returns > num_oids) {
     jclass Exception = env->FindClass("java/lang/RuntimeException");
     env->ThrowNew(Exception,
                   "The argument num_returns cannot be greater than len(object_ids).");
-    return NULL;
+    return nullptr;
   }
 
   std::vector<plasma::ObjectRequest> oreqs(num_oids);
@@ -263,10 +259,10 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
 
   int num_to_return = std::min(num_return_objects, num_returns);
   jclass clsByteArray = env->FindClass("[B");
-  jobjectArray ret = env->NewObjectArray(num_to_return, clsByteArray, NULL);
+  jobjectArray ret = env->NewObjectArray(num_to_return, clsByteArray, nullptr);
 
   int num_returned = 0;
-  jbyteArray oid = NULL;
+  jbyteArray oid = nullptr;
   for (int i = 0; i < num_oids; ++i) {
     if (num_returned >= num_to_return) {
       break;
@@ -278,9 +274,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
       object_id_to_jbyteArray(env, oid, &oreqs[i].object_id);
       env->SetObjectArrayElement(ret, num_returned, oid);
       num_returned++;
-    } else {
-      // ARROW_CHECK(oreqs[i].status == ObjectStatus_Nonexistent);
-    }
+    } 
   }
   ARROW_CHECK(num_returned == num_to_return);
 
@@ -292,7 +286,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_evict(
   plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
 
   int64_t evicted_bytes;
-  ARROW_CHECK_OK(client->Evict((int64_t)num_bytes, evicted_bytes));
+  ARROW_CHECK_OK(client->Evict(static_cast<int64_t>(num_bytes), evicted_bytes));
 
-  return (jlong)evicted_bytes;
+  return static_cast<jlong>(evicted_bytes);
 }
