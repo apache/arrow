@@ -29,7 +29,7 @@ const {
     taskName, combinations,
     knownTargets, knownModules,
     npmPkgName, UMDSourceTargets,
-    moduleFormatsToSkipCombosOf
+    tasksToSkipPerTargetOrFormat
 } = require('./gulp/util');
 
 for (const [target, format] of combinations([`all`], [`all`])) {
@@ -99,9 +99,8 @@ function getTasks(name) {
     if (targets.indexOf(`ts`) !== -1) tasks.push(`${name}:ts`);
     if (targets.indexOf(npmPkgName) !== -1) tasks.push(`${name}:${npmPkgName}`);
     for (const [target, format] of combinations(targets, modules)) {
-        if (moduleFormatsToSkipCombosOf[format] && moduleFormatsToSkipCombosOf[format][name]) {
-            continue;
-        }
+        if (tasksToSkipPerTargetOrFormat[target] && tasksToSkipPerTargetOrFormat[target][name]) continue;
+        if (tasksToSkipPerTargetOrFormat[format] && tasksToSkipPerTargetOrFormat[format][name]) continue;
         tasks.push(`${name}:${taskName(target, format)}`);
     }
     return tasks.length && tasks || [(done) => done()];

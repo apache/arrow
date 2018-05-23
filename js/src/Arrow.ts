@@ -20,6 +20,7 @@ import * as data_ from './data';
 import * as vector_ from './vector';
 import * as util_int_ from './util/int';
 import * as util_bit_ from './util/bit';
+import * as util_node from './util/node';
 import * as visitor_ from './visitor';
 import * as view_ from './vector/view';
 import * as predicate_ from './predicate';
@@ -27,7 +28,9 @@ import { Vector } from './vector';
 import { RecordBatch } from './recordbatch';
 import { Schema, Field, Type } from './type';
 import { Table, DataFrame, NextFunc, BindFunc, CountByResult } from './table';
-import { read, readAsync } from './ipc/reader/arrow';
+import { fromReadableStream } from './ipc/reader/node';
+import { read, readAsync, readStream } from './ipc/reader/arrow';
+import { serializeFile, serializeStream } from './ipc/writer/binary';
 
 export import View = vector_.View;
 export import VectorLike = vector_.VectorLike;
@@ -36,7 +39,9 @@ export import IntBitWidth = type_.IntBitWidth;
 export import TimeBitWidth = type_.TimeBitWidth;
 export import TypedArrayConstructor = type_.TypedArrayConstructor;
 
-export { read, readAsync };
+export { fromReadableStream };
+export { read, readAsync, readStream };
+export { serializeFile, serializeStream };
 export { Table, DataFrame, NextFunc, BindFunc, CountByResult };
 export { Field, Schema, RecordBatch, Vector, Type };
 
@@ -45,6 +50,8 @@ export namespace util {
     export import Int64 = util_int_.Int64;
     export import Int128 = util_int_.Int128;
     export import packBools = util_bit_.packBools;
+    export import PipeIterator = util_node.PipeIterator;
+    export import AsyncPipeIterator = util_node.AsyncPipeIterator;
 }
 
 export namespace data {
@@ -202,6 +209,11 @@ try {
 
         Arrow['read'] = read;
         Arrow['readAsync'] = readAsync;
+        Arrow['readStream'] = readStream;
+        Arrow['fromReadableStream'] = fromReadableStream;
+
+        Arrow['serializeFile'] = serializeFile;
+        Arrow['serializeStream'] = serializeStream;
 
         Arrow['Type'] = Type;
         Arrow['Field'] = Field;

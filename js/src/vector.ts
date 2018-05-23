@@ -180,10 +180,11 @@ import { Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64, Float16, Floa
 import { Struct, Union, SparseUnion, DenseUnion, FixedSizeBinary, FixedSizeList, Map_, Dictionary } from './type';
 
 import { ChunkedView } from './vector/chunked';
+import { ValidityView } from './vector/validity';
 import { DictionaryView } from './vector/dictionary';
 import { ListView, FixedSizeListView, BinaryView, Utf8View } from './vector/list';
 import { UnionView, DenseUnionView, NestedView, StructView, MapView } from './vector/nested';
-import { FlatView, NullView, BoolView, ValidityView, PrimitiveView, FixedSizeView, Float16View } from './vector/flat';
+import { FlatView, NullView, BoolView, PrimitiveView, FixedSizeView, Float16View } from './vector/flat';
 import { DateDayView, DateMillisecondView, IntervalYearMonthView } from './vector/flat';
 import { TimestampDayView, TimestampSecondView, TimestampMillisecondView, TimestampMicrosecondView, TimestampNanosecondView } from './vector/flat';
 import { packBools } from './util/bit';
@@ -357,14 +358,24 @@ export class Utf8Vector extends ListVectorBase<Utf8> {
 }
 
 export class ListVector<T extends DataType = DataType> extends ListVectorBase<List<T>> {
-    constructor(data: Data<List<T>>, view: View<List<T>> = new ListView(data)) {
+    // @ts-ignore
+    public readonly view: ListView<T>;
+    constructor(data: Data<T>, view: View<List<T>> = new ListView(data)) {
         super(data, view);
+    }
+    public getChildAt(index: number): Vector<T> | null {
+        return this.view.getChildAt<T>(index);
     }
 }
 
-export class FixedSizeListVector extends Vector<FixedSizeList> {
-    constructor(data: Data<FixedSizeList>, view: View<FixedSizeList> = new FixedSizeListView(data)) {
+export class FixedSizeListVector<T extends DataType = DataType> extends Vector<FixedSizeList<T>> {
+    // @ts-ignore
+    public readonly view: FixedSizeListView<T>;
+    constructor(data: Data<FixedSizeList<T>>, view: View<FixedSizeList<T>> = new FixedSizeListView(data)) {
         super(data, view);
+    }
+    public getChildAt(index: number): Vector<T> | null {
+        return this.view.getChildAt<T>(index);
     }
 }
 

@@ -138,7 +138,7 @@ function createGetByIndexTest(vector, name) {
 function createDataFrameDirectCountTest(table, column, test, value) {
     let sum, colidx = table.schema.fields.findIndex((c)=>c.name === column);
 
-    if (test == 'gteq') {
+    if (test == 'gt') {
         op = function () {
             sum = 0;
             let batches = table.batches;
@@ -195,8 +195,8 @@ function createDataFrameFilterCountTest(table, column, test, value) {
     let colidx = table.schema.fields.findIndex((c)=> c.name === column);
     let df;
 
-    if (test == 'gteq') {
-        df = table.filter(col(column).gteq(value));
+    if (test == 'gt') {
+        df = table.filter(col(column).gt(value));
     } else if (test == 'eq') {
         df = table.filter(col(column).eq(value));
     } else {

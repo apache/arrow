@@ -1,3 +1,5 @@
+#! /usr/bin/env node
+
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -17,32 +19,19 @@
 
 const fs = require('fs');
 const path = require('path');
-const glob = require('glob');
 
-const config = [];
-const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.arrow`));
+const encoding = 'binary';
+const ext = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
+const { util: { PipeIterator } } = require(`../index${ext}`);
+const { Table, serializeFile, fromReadableStream } = require(`../index${ext}`);
 
-countBys = {
-    "tracks": ['origin', 'destination']
-}
-counts = {
-    "tracks": [
-        {col: 'lat',    test: 'gt', value: 0        },
-        {col: 'lng',    test: 'gt', value: 0        },
-        {col: 'origin', test: 'eq', value: 'Seattle'},
-    ]
-}
+(async () => {
+    // Todo (ptaylor): implement `serializeFileAsync` that accepts an
+    // AsyncIterable<Buffer>, rather than aggregating into a Table first
+    const in_ = process.argv.length < 3
+        ? process.stdin : fs.createReadStream(path.resolve(process.argv[2]));
+    const out = process.argv.length < 4
+        ? process.stdout : fs.createWriteStream(path.resolve(process.argv[3]));
+    new PipeIterator(serializeFile(await Table.fromAsync(fromReadableStream(in_))), encoding).pipe(out);
 
-for (const filename of filenames) {
-    const { name } = path.parse(filename);
-    if (name in counts) {
-        config.push({
-            name,
-            buffers: [fs.readFileSync(filename)],
-            countBys: countBys[name],
-            counts: counts[name],
-        });
-    }
-}
-
-module.exports = config;
+})().catch((e) => { console.error(e); process.exit(1); });

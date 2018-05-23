@@ -18,6 +18,7 @@
 import { Vector } from '../../vector';
 import { flatbuffers } from 'flatbuffers';
 import { TypeDataLoader } from './vector';
+import { checkForMagicArrowString, PADDING, magicAndPadding, isValidArrowFile } from '../magic';
 import { Message, Footer, FileBlock, RecordBatchMetadata, DictionaryBatch, BufferMetadata, FieldMetadata, } from '../metadata';
 import {
     Schema, Field,
@@ -129,26 +130,6 @@ function readSchema(bb: ByteBuffer) {
     return { schema, readMessages };
 }
 
-const PADDING = 4;
-const MAGIC_STR = 'ARROW1';
-const MAGIC = new Uint8Array(MAGIC_STR.length);
-for (let i = 0; i < MAGIC_STR.length; i += 1 | 0) {
-    MAGIC[i] = MAGIC_STR.charCodeAt(i);
-}
-
-function checkForMagicArrowString(buffer: Uint8Array, index = 0) {
-    for (let i = -1, n = MAGIC.length; ++i < n;) {
-        if (MAGIC[i] !== buffer[index + i]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-const magicLength = MAGIC.length;
-const magicAndPadding = magicLength + PADDING;
-const magicX2AndPadding = magicLength * 2 + PADDING;
-
 function readStreamSchema(bb: ByteBuffer) {
     if (!checkForMagicArrowString(bb.bytes(), 0)) {
         for (const message of readMessages(bb)) {
@@ -175,28 +156,30 @@ function* readStreamMessages(bb: ByteBuffer) {
 }
 
 function readFileSchema(bb: ByteBuffer) {
-    let fileLength = bb.capacity(), footerLength: number, footerOffset: number;
-    if ((fileLength < magicX2AndPadding /*                     Arrow buffer too small */) ||
-        (!checkForMagicArrowString(bb.bytes(), 0) /*                        Missing magic start    */) ||
-        (!checkForMagicArrowString(bb.bytes(), fileLength - magicLength) /* Missing magic end      */) ||
-        (/*                                                    Invalid footer length  */
-        (footerLength = bb.readInt32(footerOffset = fileLength - magicAndPadding)) < 1 &&
-        (footerLength + magicX2AndPadding > fileLength))) {
+    if (!isValidArrowFile(bb)) {
         return null;
     }
-    bb.setPosition(footerOffset - footerLength);
+    let fileLength = bb.capacity();
+    let lengthOffset = fileLength - magicAndPadding;
+    let footerLength = bb.readInt32(lengthOffset);
+    bb.setPosition(lengthOffset - footerLength);
     return footerFromByteBuffer(bb);
 }
 
 function readFileMessages(footer: Footer) {
     return function* (bb: ByteBuffer) {
+        let message: RecordBatchMetadata | DictionaryBatch;
         for (let i = -1, batches = footer.dictionaryBatches, n = batches.length; ++i < n;) {
-            bb.setPosition(batches[i].offset.low);
-            yield readMessage(bb, bb.readInt32(bb.position())) as DictionaryBatch;
+            bb.setPosition(batches[i].offset);
+            if (message = readMessage(bb, bb.readInt32(bb.position())) as DictionaryBatch) {
+                yield message;
+            }
         }
         for (let i = -1, batches = footer.recordBatches, n = batches.length; ++i < n;) {
-            bb.setPosition(batches[i].offset.low);
-            yield readMessage(bb, bb.readInt32(bb.position())) as RecordBatchMetadata;
+            bb.setPosition(batches[i].offset);
+            if (message = readMessage(bb, bb.readInt32(bb.position())) as RecordBatchMetadata) {
+                yield message;
+            }
         }
     };
 }
@@ -267,8 +250,8 @@ function messageFromByteBuffer(bb: ByteBuffer) {
     const m = _Message.getRootAsMessage(bb)!, type = m.headerType(), version = m.version();
     switch (type) {
         case MessageHeader.Schema: return schemaFromMessage(version, m.header(new _Schema())!, new Map());
-        case MessageHeader.RecordBatch: return recordBatchFromMessage(version, m.header(new _RecordBatch())!);
-        case MessageHeader.DictionaryBatch: return dictionaryBatchFromMessage(version, m.header(new _DictionaryBatch())!);
+        case MessageHeader.RecordBatch: return recordBatchFromMessage(version, m, m.header(new _RecordBatch())!);
+        case MessageHeader.DictionaryBatch: return dictionaryBatchFromMessage(version, m, m.header(new _DictionaryBatch())!);
     }
     return null;
     // throw new Error(`Unrecognized Message type '${type}'`);
@@ -278,12 +261,12 @@ function schemaFromMessage(version: MetadataVersion, s: _Schema, dictionaryField
     return new Schema(fieldsFromSchema(s, dictionaryFields), customMetadata(s), version, dictionaryFields);
 }
 
-function recordBatchFromMessage(version: MetadataVersion, b: _RecordBatch) {
-    return new RecordBatchMetadata(version, b.length(), fieldNodesFromRecordBatch(b), buffersFromRecordBatch(b, version));
+function recordBatchFromMessage(version: MetadataVersion, m: _Message, b: _RecordBatch) {
+    return new RecordBatchMetadata(version, b.length(), fieldNodesFromRecordBatch(b), buffersFromRecordBatch(b, version), m.bodyLength());
 }
 
-function dictionaryBatchFromMessage(version: MetadataVersion, d: _DictionaryBatch) {
-    return new DictionaryBatch(version, recordBatchFromMessage(version, d.data()!), d.id(), d.isDelta());
+function dictionaryBatchFromMessage(version: MetadataVersion, m: _Message, d: _DictionaryBatch) {
+    return new DictionaryBatch(version, recordBatchFromMessage(version, m, d.data()!), d.id(), d.isDelta());
 }
 
 function dictionaryBatchesFromFooter(f: _Footer) {

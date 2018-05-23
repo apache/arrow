@@ -33,7 +33,6 @@ const typescriptTask = ((cache) => memoizeTask(cache, function typescript(target
     const tsconfigPath = path.join(`tsconfig`, `tsconfig.${tsconfigName(target, format)}.json`);
     return compileTypescript(out, tsconfigPath)
         .merge(compileBinFiles(target, format)).takeLast(1)
-        .concat(maybeCopyRawJSArrowFormatFiles(target, format))
         .publish(new ReplaySubject()).refCount();
 }))({});
 
@@ -57,18 +56,3 @@ function compileTypescript(out, tsconfigPath) {
 module.exports = typescriptTask;
 module.exports.typescriptTask = typescriptTask;
 module.exports.compileBinFiles = compileBinFiles;
-
-function maybeCopyRawJSArrowFormatFiles(target, format) {
-    if (target !== `es5` || format !== `cls`) {
-        return Observable.empty();
-    }
-    return Observable.defer(async () => {
-        const outFormatDir = path.join(targetDir(target, format), `fb`);
-        await del(path.join(outFormatDir, '*.js'));
-        await observableFromStreams(
-            gulp.src(path.join(`src`, `fb`, `*_generated.js`)),
-            gulpRename((p) => { p.basename = p.basename.replace(`_generated`, ``); }),
-            gulp.dest(outFormatDir)
-        ).toPromise();
-    });
-}

@@ -15,34 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const fs = require('fs');
-const path = require('path');
-const glob = require('glob');
+import { Table } from '../../table';
+import { serializeStream, serializeFile } from './binary';
 
-const config = [];
-const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.arrow`));
-
-countBys = {
-    "tracks": ['origin', 'destination']
-}
-counts = {
-    "tracks": [
-        {col: 'lat',    test: 'gt', value: 0        },
-        {col: 'lng',    test: 'gt', value: 0        },
-        {col: 'origin', test: 'eq', value: 'Seattle'},
-    ]
+export function writeTableBinary(table: Table, stream = true) {
+    return concatBuffers(stream ? serializeStream(table) : serializeFile(table));
 }
 
-for (const filename of filenames) {
-    const { name } = path.parse(filename);
-    if (name in counts) {
-        config.push({
-            name,
-            buffers: [fs.readFileSync(filename)],
-            countBys: countBys[name],
-            counts: counts[name],
-        });
+function concatBuffers(messages: Iterable<Uint8Array | Buffer>) {
+
+    let buffers = [], byteLength = 0;
+
+    for (const message of messages) {
+        buffers.push(message);
+        byteLength += message.byteLength;
     }
-}
 
-module.exports = config;
+    const { buffer } = buffers.reduce(({ buffer, byteOffset }, bytes) => {
+        buffer.set(bytes, byteOffset);
+        return { buffer, byteOffset: byteOffset + bytes.byteLength };
+    }, { buffer: new Uint8Array(byteLength), byteOffset: 0 });
+
+    return buffer;
+}

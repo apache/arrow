@@ -126,6 +126,6 @@ export abstract class TypeDataLoader extends TypeVisitor {
     protected visitUnionType(type: DenseUnion | SparseUnion, { length, nullCount }: FieldMetadata = this.getFieldMetadata()) {
         return type.mode === UnionMode.Sparse ?
             new SparseUnionData(type as SparseUnion, length, this.readNullBitmap(type, nullCount), this.readTypeIds(type), this.visitFields(type.children), 0, nullCount) :
-            new DenseUnionData(type as DenseUnion, length, this.readNullBitmap(type, nullCount), this.readOffsets(type), this.readTypeIds(type), this.visitFields(type.children), 0, nullCount);
+            new DenseUnionData(type as DenseUnion, length, this.readNullBitmap(type, nullCount), this.readTypeIds(type), this.readOffsets(type), this.visitFields(type.children), 0, nullCount);
     }
 }

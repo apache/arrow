@@ -28,8 +28,6 @@ const path = require('path');
 const sourcemaps = require('gulp-sourcemaps');
 const { memoizeTask } = require('./memoize-task');
 const { compileBinFiles } = require('./typescript-task');
-const ASTBuilders = require('ast-types').builders;
-const transformAST = require('gulp-transform-js-ast');
 const { Observable, ReplaySubject } = require('rxjs');
 const closureCompiler = require('google-closure-compiler').gulp();
 
@@ -50,9 +48,6 @@ const closureTask = ((cache) => memoizeTask(cache, function closure(target, form
         ], { base: `./` }),
         sourcemaps.init(),
         closureCompiler(createClosureArgs(entry, externs)),
-        // Strip out closure compiler's error-throwing iterator-return methods
-        // see this issue: https://github.com/google/closure-compiler/issues/2728
-        transformAST(iteratorReturnVisitor),
         // rename the sourcemaps from *.js.map files to *.min.js.map
         sourcemaps.write(`.`, { mapFile: (mapPath) => mapPath.replace(`.js.map`, `.${target}.min.js.map`) }),
         gulp.dest(out)
@@ -105,24 +100,3 @@ const createClosureArgs = (entry, externs) => ({
 
 module.exports = closureTask;
 module.exports.closureTask = closureTask;
-
-const iteratorReturnVisitor = {
-    visitObjectExpression(p) {
-        const node = p.node, value = p.value;
-        if (!node.properties || !(node.properties.length === 3)) { return value; }
-        if (!propertyIsThrowingIteratorReturn(node.properties[2])) { return value; }
-        value.properties = value.properties.slice(0, 2);
-        return value;
-    }
-};
-
-function propertyIsThrowingIteratorReturn(p) {
-    if (!p || !(p.kind === 'init')) { return false; }
-    if (!p.key || !(p.key.type === 'Identifier') || !(p.key.name === 'return')) { return false; }
-    if (!p.value || !(p.value.type === 'FunctionExpression') || !p.value.params || !(p.value.params.length === 0)) { return false; }
-    if (!p.value.body || !p.value.body.body || !(p.value.body.body.length === 1) || !(p.value.body.body[0].type === 'ThrowStatement')) { return false; }
-    if (!p.value.body.body[0].argument || !(p.value.body.body[0].argument.type === 'CallExpression')) { return false; }
-    if (!p.value.body.body[0].argument.arguments || !(p.value.body.body[0].argument.arguments.length === 1)) { return false; }
-    if (!p.value.body.body[0].argument.arguments[0] || !(p.value.body.body[0].argument.arguments[0].type === 'Literal')) { return false; }
-    return p.value.body.body[0].argument.arguments[0].value === 'Not yet implemented';
-}

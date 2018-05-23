@@ -6,6 +6,6 @@
   },
   "compilerOptions": {
     "target": "ESNEXT",
-    "module": "es2015"
+    "module": "commonjs"
   }
 }
