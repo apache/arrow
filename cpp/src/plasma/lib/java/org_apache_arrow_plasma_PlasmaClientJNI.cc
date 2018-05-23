@@ -16,15 +16,18 @@
 // under the License.
 
 #include "plasma/lib/java/org_apache_arrow_plasma_PlasmaClientJNI.h"
+
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
 #include "plasma/client.h"
 
 const jsize LEN_OF_OBJECTID = sizeof(plasma::ObjectID) / sizeof(jbyte);
