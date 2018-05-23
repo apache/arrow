@@ -53,6 +53,11 @@ Status ThreadPool::SetCapacity(size_t threads) {
 
 size_t ThreadPool::GetCapacity() {
   std::unique_lock<std::mutex> lock(mutex_);
+  return desired_capacity_;
+}
+
+size_t ThreadPool::GetActualCapacity() {
+  std::unique_lock<std::mutex> lock(mutex_);
   return workers_.size();
 }
 
@@ -215,6 +220,10 @@ ThreadPool* CPUThreadPool() {
 }
 
 }  // namespace internal
+
+size_t GetCPUThreadPoolCapacity() {
+  return internal::CPUThreadPool()->GetCapacity();
+}
 
 Status SetCPUThreadPoolCapacity(size_t threads) {
   return internal::CPUThreadPool()->SetCapacity(threads);

@@ -223,21 +223,31 @@ TEST_F(TestThreadPool, QuickShutdown) {
 TEST_F(TestThreadPool, SetCapacity) {
   auto pool = this->MakeThreadPool(3);
   ASSERT_EQ(pool->GetCapacity(), 3);
+  ASSERT_EQ(pool->GetActualCapacity(), 3);
+
   ASSERT_OK(pool->SetCapacity(5));
   ASSERT_EQ(pool->GetCapacity(), 5);
+  ASSERT_EQ(pool->GetActualCapacity(), 5);
+
   ASSERT_OK(pool->SetCapacity(2));
-  // Wait for workers to wake up and secede
-  busy_wait(0.5, [&] { return pool->GetCapacity() == 2; });
   ASSERT_EQ(pool->GetCapacity(), 2);
+  // Wait for workers to wake up and secede
+  busy_wait(0.5, [&] { return pool->GetActualCapacity() == 2; });
+  ASSERT_EQ(pool->GetActualCapacity(), 2);
+
   ASSERT_OK(pool->SetCapacity(5));
   ASSERT_EQ(pool->GetCapacity(), 5);
+  ASSERT_EQ(pool->GetActualCapacity(), 5);
+
   // Downsize while tasks are pending
   for (int i = 0; i < 10; ++i) {
     ASSERT_OK(pool->Spawn(std::bind(sleep_for, 0.01 /* seconds */)));
   }
   ASSERT_OK(pool->SetCapacity(2));
-  busy_wait(0.5, [&] { return pool->GetCapacity() == 2; });
   ASSERT_EQ(pool->GetCapacity(), 2);
+  busy_wait(0.5, [&] { return pool->GetActualCapacity() == 2; });
+  ASSERT_EQ(pool->GetActualCapacity(), 2);
+
   // Ensure nothing got stuck
   ASSERT_OK(pool->Shutdown());
 }
@@ -277,6 +287,8 @@ TEST(TestGlobalThreadPool, Capacity) {
   auto pool = CPUThreadPool();
   size_t capacity = pool->GetCapacity();
   ASSERT_GT(capacity, 0);
+  ASSERT_EQ(pool->GetActualCapacity(), capacity);
+  ASSERT_EQ(GetCPUThreadPoolCapacity(), capacity);
 
   // Exercise default capacity heuristic
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));

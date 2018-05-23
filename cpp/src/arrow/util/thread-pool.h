@@ -36,6 +36,11 @@
 
 namespace arrow {
 
+// Get the number of worker threads used by the process-global thread pool
+// for CPU-bound tasks.  This is an idealized number, the actual number
+// may lag a bit.
+ARROW_EXPORT size_t GetCPUThreadPoolCapacity();
+
 // Set the number of worker threads used by the process-global thread pool
 // for CPU-bound tasks.
 ARROW_EXPORT Status SetCPUThreadPoolCapacity(size_t threads);
@@ -66,6 +71,11 @@ class ThreadPool {
 
   // Destroy thread pool; the pool will first be shut down
   ~ThreadPool();
+
+  // Return the desired number of worker threads.
+  // The actual number of workers may lag a bit before being adjusted to
+  // match this value.
+  size_t GetCapacity();
 
   // Dynamically change the number of worker threads.
   // This function returns quickly, but it may take more time before the
@@ -125,7 +135,7 @@ class ThreadPool {
   // Launch a given number of additional workers
   void LaunchWorkersUnlocked(size_t threads);
   void WorkerLoop(std::list<std::thread>::iterator it);
-  size_t GetCapacity();
+  size_t GetActualCapacity();
 
   std::mutex mutex_;
   std::condition_variable cv_;
