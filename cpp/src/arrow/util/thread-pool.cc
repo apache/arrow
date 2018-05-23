@@ -30,7 +30,7 @@ ThreadPool::ThreadPool()
 
 ThreadPool::~ThreadPool() { ARROW_UNUSED(Shutdown(false /* wait */)); }
 
-Status ThreadPool::SetCapacity(size_t threads) {
+Status ThreadPool::SetCapacity(int threads) {
   std::unique_lock<std::mutex> lock(mutex_);
   if (please_shutdown_) {
     return Status::Invalid("operation forbidden during or after shutdown");
@@ -41,9 +41,9 @@ Status ThreadPool::SetCapacity(size_t threads) {
   CollectFinishedWorkersUnlocked();
 
   desired_capacity_ = threads;
-  int64_t diff = desired_capacity_ - workers_.size();
+  int diff = static_cast<int>(desired_capacity_ - workers_.size());
   if (diff > 0) {
-    LaunchWorkersUnlocked(static_cast<size_t>(diff));
+    LaunchWorkersUnlocked(diff);
   } else if (diff < 0) {
     // Wake threads to ask them to stop
     cv_.notify_all();
@@ -51,12 +51,12 @@ Status ThreadPool::SetCapacity(size_t threads) {
   return Status::OK();
 }
 
-size_t ThreadPool::GetCapacity() {
+int ThreadPool::GetCapacity() {
   std::unique_lock<std::mutex> lock(mutex_);
   return desired_capacity_;
 }
 
-size_t ThreadPool::GetActualCapacity() {
+int ThreadPool::GetActualCapacity() {
   std::unique_lock<std::mutex> lock(mutex_);
   return workers_.size();
 }
@@ -88,8 +88,8 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
   finished_workers_.clear();
 }
 
-void ThreadPool::LaunchWorkersUnlocked(size_t threads) {
-  for (size_t i = 0; i < threads; i++) {
+void ThreadPool::LaunchWorkersUnlocked(int threads) {
+  for (int i = 0; i < threads; i++) {
     workers_.emplace_back();
     auto it = --workers_.end();
     *it = std::thread([this, it] { WorkerLoop(it); });
@@ -113,7 +113,7 @@ void ThreadPool::WorkerLoop(std::list<std::thread>::iterator it) {
       // If too many threads, secede from the pool.
       // We check this opportunistically at each loop iteration since
       // it releases the lock below.
-      if (workers_.size() > desired_capacity_) {
+      if (workers_.size() > static_cast<size_t>(desired_capacity_)) {
         break;
       }
       {
@@ -125,7 +125,7 @@ void ThreadPool::WorkerLoop(std::list<std::thread>::iterator it) {
       lock.lock();
     }
     // Now either the queue is empty *or* a quick shutdown was requested
-    if (please_shutdown_ || workers_.size() > desired_capacity_) {
+    if (please_shutdown_ || workers_.size() > static_cast<size_t>(desired_capacity_)) {
       break;
     }
     // Wait for next wakeup
@@ -161,7 +161,7 @@ Status ThreadPool::SpawnReal(std::function<void()> task) {
   return Status::OK();
 }
 
-Status ThreadPool::Make(size_t threads, std::shared_ptr<ThreadPool>* out) {
+Status ThreadPool::Make(int threads, std::shared_ptr<ThreadPool>* out) {
   auto pool = std::shared_ptr<ThreadPool>(new ThreadPool());
   RETURN_NOT_OK(pool->SetCapacity(threads));
   *out = std::move(pool);
@@ -171,7 +171,7 @@ Status ThreadPool::Make(size_t threads, std::shared_ptr<ThreadPool>* out) {
 // ----------------------------------------------------------------------
 // Global thread pool
 
-static size_t ParseOMPEnvVar(const char* name) {
+static int ParseOMPEnvVar(const char* name) {
   // OMP_NUM_THREADS is a comma-separated list of positive integers.
   // We are only interested in the first (top-level) number.
   std::string str;
@@ -183,14 +183,14 @@ static size_t ParseOMPEnvVar(const char* name) {
     str = str.substr(0, first_comma);
   }
   try {
-    return static_cast<size_t>(std::max(0LL, std::stoll(str)));
+    return std::max(0, std::stoi(str));
   } catch (...) {
     return 0;
   }
 }
 
-size_t ThreadPool::DefaultCapacity() {
-  size_t capacity, limit;
+int ThreadPool::DefaultCapacity() {
+  int capacity, limit;
   capacity = ParseOMPEnvVar("OMP_NUM_THREADS");
   if (capacity == 0) {
     capacity = std::thread::hardware_concurrency();
@@ -221,9 +221,9 @@ ThreadPool* GetCpuThreadPool() {
 
 }  // namespace internal
 
-size_t GetCpuThreadPoolCapacity() { return internal::GetCpuThreadPool()->GetCapacity(); }
+int GetCpuThreadPoolCapacity() { return internal::GetCpuThreadPool()->GetCapacity(); }
 
-Status SetCpuThreadPoolCapacity(size_t threads) {
+Status SetCpuThreadPoolCapacity(int threads) {
   return internal::GetCpuThreadPool()->SetCapacity(threads);
 }
 

@@ -1048,5 +1048,5 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
 
 
 cdef extern from 'arrow/util/thread-pool.h' namespace 'arrow' nogil:
-    size_t GetCpuThreadPoolCapacity()
-    CStatus SetCpuThreadPoolCapacity(size_t threads)
+    int GetCpuThreadPoolCapacity()
+    CStatus SetCpuThreadPoolCapacity(int threads)

@@ -39,11 +39,11 @@ namespace arrow {
 // Get the number of worker threads used by the process-global thread pool
 // for CPU-bound tasks.  This is an idealized number, the actual number
 // may lag a bit.
-ARROW_EXPORT size_t GetCpuThreadPoolCapacity();
+ARROW_EXPORT int GetCpuThreadPoolCapacity();
 
 // Set the number of worker threads used by the process-global thread pool
 // for CPU-bound tasks.
-ARROW_EXPORT Status SetCpuThreadPoolCapacity(size_t threads);
+ARROW_EXPORT Status SetCpuThreadPoolCapacity(int threads);
 
 namespace internal {
 
@@ -67,7 +67,7 @@ struct packaged_task_wrapper {
 class ARROW_EXPORT ThreadPool {
  public:
   // Construct a thread pool with the given number of worker threads
-  static Status Make(size_t threads, std::shared_ptr<ThreadPool>* out);
+  static Status Make(int threads, std::shared_ptr<ThreadPool>* out);
 
   // Destroy thread pool; the pool will first be shut down
   ~ThreadPool();
@@ -75,16 +75,16 @@ class ARROW_EXPORT ThreadPool {
   // Return the desired number of worker threads.
   // The actual number of workers may lag a bit before being adjusted to
   // match this value.
-  size_t GetCapacity();
+  int GetCapacity();
 
   // Dynamically change the number of worker threads.
   // This function returns quickly, but it may take more time before the
   // thread count is fully adjusted.
-  Status SetCapacity(size_t threads);
+  Status SetCapacity(int threads);
 
   // Heuristic for the default capacity of a thread pool for CPU-bound tasks.
   // This is exposed as a static method to help with testing.
-  static size_t DefaultCapacity();
+  static int DefaultCapacity();
 
   // Shutdown the pool.  Once the pool starts shutting down, new tasks
   // cannot be submitted anymore.
@@ -116,6 +116,7 @@ class ARROW_EXPORT ThreadPool {
 
     Status st = SpawnReal(detail::packaged_task_wrapper<Result>(std::move(task)));
     if (!st.ok()) {
+      // This happens when Submit() is called after Shutdown()
       throw std::runtime_error(st.ToString());
     }
     return fut;
@@ -133,9 +134,9 @@ class ARROW_EXPORT ThreadPool {
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();
   // Launch a given number of additional workers
-  void LaunchWorkersUnlocked(size_t threads);
+  void LaunchWorkersUnlocked(int threads);
   void WorkerLoop(std::list<std::thread>::iterator it);
-  size_t GetActualCapacity();
+  int GetActualCapacity();
 
   std::mutex mutex_;
   std::condition_variable cv_;
@@ -147,7 +148,7 @@ class ARROW_EXPORT ThreadPool {
   std::deque<std::function<void()>> pending_tasks_;
 
   // Desired number of threads
-  size_t desired_capacity_;
+  int desired_capacity_;
   // Are we shutting down?
   bool please_shutdown_;
   bool quick_shutdown_;

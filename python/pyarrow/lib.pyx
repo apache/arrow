@@ -49,7 +49,7 @@ def cpu_count():
     return GetCpuThreadPoolCapacity()
 
 
-def set_cpu_count(size_t count):
+def set_cpu_count(int count):
     """
     Set the number of threads to use in parallel operations.
     """
