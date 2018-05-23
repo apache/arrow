@@ -576,7 +576,7 @@ void PlasmaStore::disconnect_client(int client_fd) {
 /// @param it Iterator that points to the client to send the notification to.
 /// @return Iterator pointing to the next client.
 PlasmaStore::NotificationMap::iterator PlasmaStore::send_notifications(
-      PlasmaStore::NotificationMap::iterator it) {
+    PlasmaStore::NotificationMap::iterator it) {
   int client_fd = it->first;
   auto& notifications = it->second.object_notifications;
 
