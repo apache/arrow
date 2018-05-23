@@ -389,7 +389,7 @@ Status Table::FromRecordBatches(const std::shared_ptr<Schema>& schema,
   const int ncolumns = static_cast<int>(schema->num_fields());
 
   for (int i = 1; i < nbatches; ++i) {
-    if (!batches[i]->schema()->Equals(*schema)) {
+    if (!batches[i]->schema()->Equals(*schema, false)) {
       std::stringstream ss;
       ss << "Schema at index " << static_cast<int>(i) << " was different: \n"
          << schema->ToString() << "\nvs\n"
