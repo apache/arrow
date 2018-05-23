@@ -221,9 +221,7 @@ ThreadPool* CPUThreadPool() {
 
 }  // namespace internal
 
-size_t GetCPUThreadPoolCapacity() {
-  return internal::CPUThreadPool()->GetCapacity();
-}
+size_t GetCPUThreadPoolCapacity() { return internal::CPUThreadPool()->GetCapacity(); }
 
 Status SetCPUThreadPoolCapacity(size_t threads) {
   return internal::CPUThreadPool()->SetCapacity(threads);
