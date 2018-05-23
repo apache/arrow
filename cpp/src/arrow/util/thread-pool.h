@@ -64,7 +64,7 @@ struct packaged_task_wrapper {
 
 }  // namespace detail
 
-class ThreadPool {
+class ARROW_EXPORT ThreadPool {
  public:
   // Construct a thread pool with the given number of worker threads
   static Status Make(size_t threads, std::shared_ptr<ThreadPool>* out);
@@ -154,7 +154,7 @@ class ThreadPool {
 };
 
 // Return the process-global thread pool for CPU-bound tasks.
-ThreadPool* CPUThreadPool();
+ARROW_EXPORT ThreadPool* CPUThreadPool();
 
 }  // namespace internal
 }  // namespace arrow
