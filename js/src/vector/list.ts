@@ -19,7 +19,7 @@ import { Data } from '../data';
 import { View, Vector, createVector } from '../vector';
 import { TextEncoder, TextDecoder } from 'text-encoding-utf-8';
 import { List, Binary, Utf8, FixedSizeList, FlatListType } from '../type';
-import { ListType, DataType, IterableArrayLike } from '../type';
+import { ListType, SingleNestedType, DataType, IterableArrayLike } from '../type';
 
 export const encodeUtf8 = ((encoder) =>
     encoder.encode.bind(encoder) as (input?: string) => Uint8Array
@@ -29,7 +29,7 @@ export const decodeUtf8 = ((decoder) =>
     decoder.decode.bind(decoder) as (input?: ArrayBufferLike | ArrayBufferView) => string
 )(new TextDecoder('utf-8'));
 
-export abstract class ListViewBase<T extends (ListType | FlatListType | FixedSizeList)> implements View<T> {
+export abstract class ListViewBase<T extends (FlatListType | SingleNestedType)> implements View<T> {
     public length: number;
     public values: T['TArray'];
     public valueOffsets?: Int32Array;
@@ -81,9 +81,13 @@ export abstract class VariableListViewBase<T extends (ListType | FlatListType)> 
 }
 
 export class ListView<T extends DataType> extends VariableListViewBase<List<T>> {
-    constructor(data: Data<List<T>>) {
+    public values: Vector<T>;
+    constructor(data: Data<T>) {
         super(data);
         this.values = createVector(data.values);
+    }
+    public getChildAt<R extends T = T>(index: number): Vector<R> | null {
+        return index === 0 ? (this.values as Vector<R>) : null;
     }
     protected getList(values: Vector<T>, index: number, valueOffsets: Int32Array) {
         return values.slice(valueOffsets[index], valueOffsets[index + 1]) as Vector<T>;
@@ -100,10 +104,14 @@ export class ListView<T extends DataType> extends VariableListViewBase<List<T>> 
 
 export class FixedSizeListView<T extends DataType> extends ListViewBase<FixedSizeList<T>> {
     public size: number;
+    public values: Vector<T>;
     constructor(data: Data<FixedSizeList<T>>) {
         super(data);
         this.size = data.type.listSize;
         this.values = createVector(data.values);
+    }
+    public getChildAt<R extends T = T>(index: number): Vector<R> | null {
+        return index === 0 ? (this.values as Vector<R>) : null;
     }
     protected getList(values: Vector<T>, index: number) {
         const size = this.size;

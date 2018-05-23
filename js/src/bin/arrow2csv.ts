@@ -20,29 +20,65 @@
 /* tslint:disable */
 
 import * as fs from 'fs';
-import * as Arrow from '../Arrow';
+import { promisify } from 'util';
+import { Table, readStream } from '../Arrow';
 
+const readFile = promisify(fs.readFile);
 const { parse } = require('json-bignum');
-const optionList = [
-    {
-        type: String,
-        name: 'schema', alias: 's',
-        optional: true, multiple: true,
-        typeLabel: '[underline]{columns}',
-        description: 'A space-delimited list of column names'
-    },
-    {
-        type: String,
-        name: 'file', alias: 'f',
-        optional: false, multiple: true,
-        description: 'The Arrow file to read'
+const argv = require(`command-line-args`)(cliOpts(), { partial: true });
+const files = [...(argv.file || []), ...(argv._unknown || [])].filter(Boolean);
+
+(async () => {
+    let hasRecords = false;
+    if (files.length > 0) {
+        hasRecords = true;
+        for (let input of files) {
+            printTable(await readFile(input));
+        }
+    } else {
+        let rowOffset = 0;
+        let maxColumnWidths: number[] = [];
+        for await (const recordBatch of readStream(process.stdin)) {
+            hasRecords = true;
+            recordBatch.rowsToString(' | ', rowOffset, maxColumnWidths).pipe(process.stdout);
+            rowOffset += recordBatch.length;
+        }
     }
-];
+    return hasRecords ? null : print_usage();
+})().catch((e) => { console.error(e); process.exit(1); });
 
-const argv = require(`command-line-args`)(optionList, { partial: true });
-const files = [...argv.file, ...(argv._unknown || [])].filter(Boolean);
+function printTable(input: any) {
+    let table: Table;
+    try {
+        table = Table.from(input);
+    } catch (e) {
+        table = Table.from(parse(input + ''));
+    }
+    if (argv.schema && argv.schema.length) {
+        table = table.select(...argv.schema);
+    }
+    table.rowsToString().pipe(process.stdout);
+}
 
-if (!files.length) {
+function cliOpts() {
+    return [
+        {
+            type: String,
+            name: 'schema', alias: 's',
+            optional: true, multiple: true,
+            typeLabel: '[underline]{columns}',
+            description: 'A space-delimited list of column names'
+        },
+        {
+            type: String,
+            name: 'file', alias: 'f',
+            optional: false, multiple: true,
+            description: 'The Arrow file to read'
+        }
+    ];    
+}
+
+function print_usage() {
     console.log(require('command-line-usage')([
         {
             header: 'arrow2csv',
@@ -60,7 +96,7 @@ if (!files.length) {
         {
             header: 'Options',
             optionList: [
-                ...optionList,
+                ...cliOpts(),
                 {
                     name: 'help',
                     description: 'Print this usage guide.'
@@ -82,16 +118,3 @@ if (!files.length) {
     ]));
     process.exit(1);
 }
-
-files.forEach((source) => {
-    let table: Arrow.Table, input = fs.readFileSync(source);
-    try {
-        table = Arrow.Table.from(input);
-    } catch (e) {
-        table = Arrow.Table.from(parse(input + ''));
-    }
-    if (argv.schema && argv.schema.length) {
-        table = table.select(...argv.schema);
-    }
-    table.rowsToString().pipe(process.stdout);
-});

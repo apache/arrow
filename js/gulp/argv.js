@@ -35,10 +35,14 @@ const argv = require(`command-line-args`)([
 
 const { targets, modules } = argv;
 
-argv.target && !targets.length && targets.push(argv.target);
-argv.module && !modules.length && modules.push(argv.module);
-(argv.all || !targets.length) && targets.push(`all`);
-(argv.all || !modules.length) && modules.push(`all`);
+if (argv.target === `src`) {
+    argv.target && !targets.length && targets.push(argv.target);
+} else {
+    argv.target && !targets.length && targets.push(argv.target);
+    argv.module && !modules.length && modules.push(argv.module);
+    (argv.all || !targets.length) && targets.push(`all`);
+    (argv.all || !modules.length) && modules.push(`all`);
+}
 
 if (argv.coverage && (!argv.json_files || !argv.json_files.length)) {
 

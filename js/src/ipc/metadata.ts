@@ -25,7 +25,12 @@ export class Footer {
 }
 
 export class FileBlock {
-    constructor(public metaDataLength: number, public bodyLength: Long, public offset: Long) {}
+    public offset: number;
+    public bodyLength: number;
+    constructor(public metaDataLength: number, bodyLength: Long | number, offset: Long | number) {
+        this.offset = typeof offset === 'number' ? offset : offset.low;
+        this.bodyLength = typeof bodyLength === 'number' ? bodyLength : bodyLength.low;
+    }
 }
 
 export class Message {
@@ -46,8 +51,11 @@ export class RecordBatchMetadata extends Message {
     public length: number;
     public nodes: FieldMetadata[];
     public buffers: BufferMetadata[];
-    constructor(version: MetadataVersion, length: Long | number, nodes: FieldMetadata[], buffers: BufferMetadata[]) {
-        super(version, buffers.reduce((s, b) => align(s + b.length + (b.offset - s), 8), 0), MessageHeader.RecordBatch);
+    constructor(version: MetadataVersion, length: Long | number, nodes: FieldMetadata[], buffers: BufferMetadata[], bodyLength?: Long | number) {
+        if (bodyLength === void(0)) {
+            bodyLength = buffers.reduce((s, b) => align(s + b.length + (b.offset - s), 8), 0);
+        }
+        super(version, bodyLength, MessageHeader.RecordBatch);
         this.nodes = nodes;
         this.buffers = buffers;
         this.length = typeof length === 'number' ? length : length.low;

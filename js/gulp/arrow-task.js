@@ -20,10 +20,13 @@ const {
     targetDir, observableFromStreams
 } = require('./util');
 
+const del = require('del');
 const gulp = require('gulp');
 const path = require('path');
+const { promisify } = require('util');
 const gulpRename = require(`gulp-rename`);
 const { memoizeTask } = require('./memoize-task');
+const exec = promisify(require('child_process').exec);
 const { Observable, ReplaySubject } = require('rxjs');
 
 const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target, format) {
@@ -48,8 +51,11 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target, forma
     ).publish(new ReplaySubject()).refCount();
 }))({});
 
-const arrowTSTask = ((cache) => memoizeTask(cache, function copyTS(target, format) {
-    return observableFromStreams(gulp.src(`src/**/*.ts`), gulp.dest(targetDir(target, format)));
+const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {
+    const out = targetDir(target, format);
+    await exec(`mkdirp ${out}`);
+    await exec(`shx cp -r src/* ${out}`);
+    await del(`${out}/**/*.js`);
 }))({});
   
   

@@ -27,7 +27,10 @@ const npmOrgName = `@${npmPkgName}`;
 const releasesRootDir = `targets`;
 const knownTargets = [`es5`, `es2015`, `esnext`];
 const knownModules = [`cjs`, `esm`, `cls`, `umd`];
-const moduleFormatsToSkipCombosOf = { cls: { test: true, integration: true } };
+const tasksToSkipPerTargetOrFormat = {
+    src: { clean: true, build: true },
+    cls: { test: true, integration: true }
+};
 const packageJSONFields = [
   `version`, `license`, `description`,
   `author`, `homepage`, `repository`,
@@ -131,8 +134,14 @@ function* combinations(_targets, _modules) {
     const targets = known(knownTargets, _targets || [`all`]);
     const modules = known(knownModules, _modules || [`all`]);
 
-    if (_targets[0] === `all` && _modules[0] === `all`) {
+    if (_targets.indexOf(`src`) > -1) {
+        yield [`src`, ``];
+        return;
+    }
+
+    if (_targets.indexOf(`all`) > -1 && _modules.indexOf(`all`) > -1) {
         yield [`ts`, ``];
+        yield [`src`, ``];
         yield [npmPkgName, ``];
     }        
     
@@ -143,8 +152,8 @@ function* combinations(_targets, _modules) {
     }
 
     function known(known, values) {
-        return ~values.indexOf(`all`)
-            ? known
+        return ~values.indexOf(`all`) ? known
+            :  ~values.indexOf(`src`) ? [`src`]
             : Object.keys(
                 values.reduce((map, arg) => ((
                     (known.indexOf(arg) !== -1) &&
@@ -159,7 +168,7 @@ module.exports = {
 
     mainExport, npmPkgName, npmOrgName, metadataFiles, packageJSONFields,
 
-    knownTargets, knownModules, moduleFormatsToSkipCombosOf,
+    knownTargets, knownModules, tasksToSkipPerTargetOrFormat,
     ESKeywords, gCCLanguageNames, UMDSourceTargets, uglifyLanguageNames,
 
     taskName, packageName, tsconfigName, targetDir, combinations, observableFromStreams,

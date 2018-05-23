@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+const { Observable } = require('rxjs');
 const { npmPkgName } = require('./util');
 const { memoizeTask } = require('./memoize-task');
 
@@ -24,7 +25,8 @@ const typescriptTask = require('./typescript-task');
 const { arrowTask, arrowTSTask } = require('./arrow-task');
 
 const buildTask = ((cache) => memoizeTask(cache, function build(target, format, ...args) {
-    return target === npmPkgName               ? arrowTask(target, format, ...args)()
+    return target === `src`                    ? Observable.empty()
+         : target === npmPkgName               ? arrowTask(target, format, ...args)()
          : target === `ts`                     ? arrowTSTask(target, format, ...args)()
          : format === `umd` ? target === `es5` ? closureTask(target, format, ...args)()
                                                : uglifyTask(target, format, ...args)()
