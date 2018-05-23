@@ -30,7 +30,7 @@
 
 #include "plasma/client.h"
 
-const jsize OBJECT_ID_SIZE = sizeof(plasma::ObjectID) / sizeof(jbyte);
+constexpr jsize OBJECT_ID_SIZE = sizeof(plasma::ObjectID) / sizeof(jbyte);
 
 inline void jbyteArray_to_object_id(JNIEnv* env, jbyteArray a, plasma::ObjectID* oid) {
   env->GetByteArrayRegion(a, 0, OBJECT_ID_SIZE, reinterpret_cast<jbyte*>(oid));
@@ -163,8 +163,9 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
   std::vector<plasma::ObjectID> oids(num_oids);
   std::vector<plasma::ObjectBuffer> obufs(num_oids);
   for (int i = 0; i < num_oids; ++i) {
-    jbyteArray_to_object_id(env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
-                            &oids[i]);
+    jbyteArray_to_object_id(
+        env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
+        &oids[i]);
   }
   // TODO: may be blocked. consider to add the thread support
   ARROW_CHECK_OK(client->Get(oids.data(), num_oids, timeout_ms, obufs.data()));
@@ -217,8 +218,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_fetch(
 
   std::vector<plasma::ObjectID> oids(num_oids);
   for (int i = 0; i < num_oids; ++i) {
-    jbyteArray_to_object_id(env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
-                            &oids[i]);
+    jbyteArray_to_object_id(
+        env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
+        &oids[i]);
   }
 
   ARROW_CHECK_OK(client->Fetch(static_cast<int>(num_oids), oids.data()));
@@ -247,8 +249,9 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
   std::vector<plasma::ObjectRequest> oreqs(num_oids);
 
   for (int i = 0; i < num_oids; ++i) {
-    jbyteArray_to_object_id(env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
-                            &oreqs[i].object_id);
+    jbyteArray_to_object_id(
+        env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
+        &oreqs[i].object_id);
     oreqs[i].type = plasma::PLASMA_QUERY_ANYWHERE;
   }
 
@@ -274,7 +277,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
       object_id_to_jbyteArray(env, oid, &oreqs[i].object_id);
       env->SetObjectArrayElement(ret, num_returned, oid);
       num_returned++;
-    } 
+    }
   }
   ARROW_CHECK(num_returned == num_to_return);
 
