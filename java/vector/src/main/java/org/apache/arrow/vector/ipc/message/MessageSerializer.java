@@ -191,7 +191,7 @@ public class MessageSerializer {
    * Deserializes a RecordBatch.
    *
    * @param reader  the reader interface to deserialize from
-   * @param message the object to derialize to
+   * @param message the object to deserialize to
    * @param alloc   to allocate buffers
    * @return the deserialized object
    * @throws IOException if something went wrong
@@ -210,7 +210,7 @@ public class MessageSerializer {
    * minimizes the number of reads to the underlying stream.
    *
    * @param in    the channel to deserialize from
-   * @param block the object to derialize to
+   * @param block the object to deserialize to
    * @param alloc to allocate buffers
    * @return the deserialized object
    * @throws IOException if something went wrong
