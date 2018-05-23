@@ -214,17 +214,17 @@ static std::shared_ptr<ThreadPool> MakePoolWithDefaultCapacity() {
   return pool;
 }
 
-ThreadPool* CPUThreadPool() {
+ThreadPool* GetCpuThreadPool() {
   static std::shared_ptr<ThreadPool> singleton = MakePoolWithDefaultCapacity();
   return singleton.get();
 }
 
 }  // namespace internal
 
-size_t GetCPUThreadPoolCapacity() { return internal::CPUThreadPool()->GetCapacity(); }
+size_t GetCpuThreadPoolCapacity() { return internal::GetCpuThreadPool()->GetCapacity(); }
 
-Status SetCPUThreadPoolCapacity(size_t threads) {
-  return internal::CPUThreadPool()->SetCapacity(threads);
+Status SetCpuThreadPoolCapacity(size_t threads) {
+  return internal::GetCpuThreadPool()->SetCapacity(threads);
 }
 
 }  // namespace arrow

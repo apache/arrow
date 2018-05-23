@@ -284,11 +284,11 @@ TEST_F(TestThreadPool, Submit) {
 
 TEST(TestGlobalThreadPool, Capacity) {
   // Sanity check
-  auto pool = CPUThreadPool();
+  auto pool = GetCpuThreadPool();
   size_t capacity = pool->GetCapacity();
   ASSERT_GT(capacity, 0);
   ASSERT_EQ(pool->GetActualCapacity(), capacity);
-  ASSERT_EQ(GetCPUThreadPoolCapacity(), capacity);
+  ASSERT_EQ(GetCpuThreadPoolCapacity(), capacity);
 
   // Exercise default capacity heuristic
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));

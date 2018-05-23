@@ -46,7 +46,7 @@ def cpu_count():
     is present, it will default to the number of hardware threads on the
     system.  It can be modified at runtime by calling set_cpu_count().
     """
-    return GetCPUThreadPoolCapacity()
+    return GetCpuThreadPoolCapacity()
 
 
 def set_cpu_count(size_t count):
@@ -55,7 +55,7 @@ def set_cpu_count(size_t count):
     """
     if count < 1:
         raise ValueError("CPU count must be strictly positive")
-    check_status(SetCPUThreadPoolCapacity(count))
+    check_status(SetCpuThreadPoolCapacity(count))
 
 
 Type_NA = _Type_NA

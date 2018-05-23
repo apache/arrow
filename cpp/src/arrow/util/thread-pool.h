@@ -39,11 +39,11 @@ namespace arrow {
 // Get the number of worker threads used by the process-global thread pool
 // for CPU-bound tasks.  This is an idealized number, the actual number
 // may lag a bit.
-ARROW_EXPORT size_t GetCPUThreadPoolCapacity();
+ARROW_EXPORT size_t GetCpuThreadPoolCapacity();
 
 // Set the number of worker threads used by the process-global thread pool
 // for CPU-bound tasks.
-ARROW_EXPORT Status SetCPUThreadPoolCapacity(size_t threads);
+ARROW_EXPORT Status SetCpuThreadPoolCapacity(size_t threads);
 
 namespace internal {
 
@@ -154,7 +154,7 @@ class ARROW_EXPORT ThreadPool {
 };
 
 // Return the process-global thread pool for CPU-bound tasks.
-ARROW_EXPORT ThreadPool* CPUThreadPool();
+ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
 }  // namespace internal
 }  // namespace arrow

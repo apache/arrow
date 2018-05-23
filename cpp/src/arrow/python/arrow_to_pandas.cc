@@ -1457,7 +1457,7 @@ class DataFrameBlockCreator {
       return block->Write(this->table_->column(i), i, this->column_block_placement_[i]);
     };
 
-    arrow::internal::ThreadPool* pool = arrow::internal::CPUThreadPool();
+    arrow::internal::ThreadPool* pool = arrow::internal::GetCpuThreadPool();
     std::vector<std::future<Status>> futures;
     for (int i = 0; i < table_->num_columns(); ++i) {
       futures.push_back(pool->Submit(WriteColumn, i));
