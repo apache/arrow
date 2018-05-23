@@ -58,7 +58,7 @@ int ThreadPool::GetCapacity() {
 
 int ThreadPool::GetActualCapacity() {
   std::unique_lock<std::mutex> lock(mutex_);
-  return workers_.size();
+  return static_cast<int>(workers_.size());
 }
 
 Status ThreadPool::Shutdown(bool wait) {
