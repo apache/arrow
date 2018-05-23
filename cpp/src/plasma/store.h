@@ -54,7 +54,7 @@ struct Client {
 
 class PlasmaStore {
  public:
-  typedef std::unordered_map<int, NotificationQueue> NotificationMap;
+  using NotificationMap = std::unordered_map<int, NotificationQueue>;
 
   // TODO: PascalCase PlasmaStore methods.
   PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,

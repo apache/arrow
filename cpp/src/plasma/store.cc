@@ -568,8 +568,10 @@ void PlasmaStore::disconnect_client(int client_fd) {
 
 /// Send notifications about sealed objects to the subscribers. This is called
 /// in seal_object. If the socket's send buffer is full, the notification will
-/// be
-/// buffered, and this will be called again when the send buffer has room.
+/// be buffered, and this will be called again when the send buffer has room.
+/// Since we call erase on pending_notifications_, all iterators get
+/// invalidated, which is why we return a valid iterator to the next client to
+/// be used in push_notification.
 ///
 /// @param it Iterator that points to the client to send the notification to.
 /// @return Iterator pointing to the next client.
