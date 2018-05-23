@@ -403,6 +403,16 @@ cdef class Field:
     def equals(self, Field other, bint check_metadata=True):
         """
         Test if this field is equal to the other
+
+        Parameters
+        ----------
+        other : pyarrow.Field
+        check_metadata : boolean, default True
+            Key/value metadata must be equal too
+
+        Returns
+        -------
+        is_equal : boolean
         """
         return self.field.Equals(deref(other.field), check_metadata)
 
@@ -573,9 +583,18 @@ cdef class Schema:
     def equals(self, other, bint check_metadata=True):
         """
         Test if this schema is equal to the other
+
+        Parameters
+        ----------
+        other :  pyarrow.Schema
+        check_metadata : bool, default False
+            Key/value metadata must be equal too
+
+        Returns
+        -------
+        is_equal : boolean
         """
-        cdef Schema _other
-        _other = other
+        cdef Schema _other = other
 
         return self.sp_schema.get().Equals(deref(_other.schema), check_metadata)
 
