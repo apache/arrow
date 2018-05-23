@@ -596,7 +596,8 @@ cdef class Schema:
         """
         cdef Schema _other = other
 
-        return self.sp_schema.get().Equals(deref(_other.schema), check_metadata)
+        return self.sp_schema.get().Equals(deref(_other.schema),
+                                           check_metadata)
 
     def field_by_name(self, name):
         """
