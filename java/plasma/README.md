@@ -29,7 +29,8 @@ Install:
 ## Build the jar of plasma client
 
 ```
-mvn clean install -Dmaven.test.skip
+cd ..
+mvn clean install -pl plasma -am -Dmaven.test.skip
 ```
 
 ## Building and running tests

@@ -30,14 +30,14 @@
 
 #include "plasma/client.h"
 
-const jsize LEN_OF_OBJECTID = sizeof(plasma::ObjectID) / sizeof(jbyte);
+const jsize OBJECT_ID_SIZE = sizeof(plasma::ObjectID) / sizeof(jbyte);
 
 inline void jbyteArray_to_object_id(JNIEnv* env, jbyteArray a, plasma::ObjectID* oid) {
-  env->GetByteArrayRegion(a, 0, LEN_OF_OBJECTID, reinterpret_cast<jbyte*>(oid));
+  env->GetByteArrayRegion(a, 0, OBJECT_ID_SIZE, reinterpret_cast<jbyte*>(oid));
 }
 
 inline void object_id_to_jbyteArray(JNIEnv* env, jbyteArray a, plasma::ObjectID* oid) {
-  env->SetByteArrayRegion(a, 0, LEN_OF_OBJECTID, reinterpret_cast<jbyte*>(oid));
+  env->SetByteArrayRegion(a, 0, OBJECT_ID_SIZE, reinterpret_cast<jbyte*>(oid));
 }
 
 class JByteArrayGetter {
@@ -74,7 +74,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_connect(
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_disconnect(
     JNIEnv* env, jclass cls, jlong conn) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
 
   ARROW_CHECK_OK(client->Disconnect());
   delete client;
@@ -84,7 +84,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_disconnect(
 JNIEXPORT jobject JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_create(
     JNIEnv* env, jclass cls, jlong conn, jbyteArray object_id, jint size,
     jbyteArray metadata) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
@@ -102,13 +102,13 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_create(
   std::shared_ptr<Buffer> data;
   Status s = client->Create(oid, size, md, md_size, &data);
   if (s.IsPlasmaObjectExists()) {
-    jclass Exception = env->FindClass("org/ray/spi/impl/PlasmaObjectExistsException");
+    jclass Exception = env->FindClass("java/lang/Exception");
     env->ThrowNew(Exception,
                   "An object with this ID already exists in the plasma store.");
     return NULL;
   }
   if (s.IsPlasmaStoreFull()) {
-    jclass Exception = env->FindClass("org/ray/spi/impl/PlasmaOutOfMemoryException");
+    jclass Exception = env->FindClass("java/lang/Exception");
     env->ThrowNew(Exception,
                   "The plasma store ran out of memory and could not create this object.");
     return NULL;
@@ -120,7 +120,7 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_create(
 
 JNIEXPORT jbyteArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_hash(
     JNIEnv* env, jclass cls, jlong conn, jbyteArray object_id) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
@@ -139,7 +139,7 @@ JNIEXPORT jbyteArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_hash(
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_seal(
     JNIEnv* env, jclass cls, jlong conn, jbyteArray object_id) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
@@ -148,7 +148,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_seal(
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_release(
     JNIEnv* env, jclass cls, jlong conn, jbyteArray object_id) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
@@ -157,13 +157,13 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_release(
 
 JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
     JNIEnv* env, jclass cls, jlong conn, jobjectArray object_ids, jint timeout_ms) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
 
   jsize num_oids = env->GetArrayLength(object_ids);
   std::vector<plasma::ObjectID> oids(num_oids);
   std::vector<plasma::ObjectBuffer> obufs(num_oids);
   for (int i = 0; i < num_oids; ++i) {
-    jbyteArray_to_object_id(env, (jbyteArray)env->GetObjectArrayElement(object_ids, i),
+    jbyteArray_to_object_id(env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
                             &oids[i]);
   }
   // TODO: may be blocked. consider to add the thread support
@@ -200,7 +200,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
 
 JNIEXPORT jboolean JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_contains(
     JNIEnv* env, jclass cls, jlong conn, jbyteArray object_id) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
@@ -216,20 +216,12 @@ JNIEXPORT jboolean JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_contains
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_fetch(
     JNIEnv* env, jclass cls, jlong conn, jobjectArray object_ids) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   jsize num_oids = env->GetArrayLength(object_ids);
-
-  /*
-  if (!plasma_manager_is_connected(client)) {
-      jclass Exception = env->FindClass("java/lang/RuntimeException");
-      env->ThrowNew(Exception, "Not connected to the plasma manager.");
-      return;
-  }
-  */
 
   std::vector<plasma::ObjectID> oids(num_oids);
   for (int i = 0; i < num_oids; ++i) {
-    jbyteArray_to_object_id(env, (jbyteArray)env->GetObjectArrayElement(object_ids, i),
+    jbyteArray_to_object_id(env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
                             &oids[i]);
   }
 
@@ -241,16 +233,8 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_fetch(
 JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait(
     JNIEnv* env, jclass cls, jlong conn, jobjectArray object_ids, jint timeout_ms,
     jint num_returns) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   jsize num_oids = env->GetArrayLength(object_ids);
-
-  /*
-  if (!plasma_manager_is_connected(client)) {
-      jclass Exception = env->FindClass("java/lang/RuntimeException");
-      env->ThrowNew(Exception, "Not connected to the plasma manager.");
-      return NULL;
-  }
-  */
 
   if (num_returns < 0) {
     jclass Exception = env->FindClass("java/lang/RuntimeException");
@@ -267,7 +251,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
   std::vector<plasma::ObjectRequest> oreqs(num_oids);
 
   for (int i = 0; i < num_oids; ++i) {
-    jbyteArray_to_object_id(env, (jbyteArray)env->GetObjectArrayElement(object_ids, i),
+    jbyteArray_to_object_id(env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
                             &oreqs[i].object_id);
     oreqs[i].type = plasma::PLASMA_QUERY_ANYWHERE;
   }
@@ -275,7 +259,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
   int num_return_objects;
   // TODO: may be blocked. consider to add the thread support
   ARROW_CHECK_OK(client->Wait(static_cast<int>(num_oids), oreqs.data(), num_returns,
-                              (uint64_t)timeout_ms, &num_return_objects));
+                              static_cast<uint64_t>(timeout_ms), &num_return_objects));
 
   int num_to_return = std::min(num_return_objects, num_returns);
   jclass clsByteArray = env->FindClass("[B");
@@ -290,7 +274,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
 
     if (oreqs[i].status == plasma::ObjectStatusLocal ||
         oreqs[i].status == plasma::ObjectStatusRemote) {
-      oid = env->NewByteArray(LEN_OF_OBJECTID);
+      oid = env->NewByteArray(OBJECT_ID_SIZE);
       object_id_to_jbyteArray(env, oid, &oreqs[i].object_id);
       env->SetObjectArrayElement(ret, num_returned, oid);
       num_returned++;
@@ -305,7 +289,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
 
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_evict(
     JNIEnv* env, jclass cls, jlong conn, jlong num_bytes) {
-  plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
 
   int64_t evicted_bytes;
   ARROW_CHECK_OK(client->Evict((int64_t)num_bytes, evicted_bytes));

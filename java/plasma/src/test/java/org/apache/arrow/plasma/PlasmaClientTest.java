@@ -143,6 +143,9 @@ public class PlasmaClientTest {
         assert Arrays.equals(values.get(0), value1);
         assert Arrays.equals(values.get(1), value2);
         System.out.println("Plasma java client get multi-object test success.");
+        pLink.put(id1, value1, null);
+        System.out.println("Plasma java client put same object twice exception test success.");
+
         cleanup();
         System.out.println("All test success.");
 
