@@ -520,6 +520,9 @@ def test_schema_serialization_with_metadata():
     recons_schema = pa.read_schema(s_schema)
 
     assert recons_schema.equals(schema)
+    assert recons_schema.metadata == schema_metadata
+    assert recons_schema[0].metadata is None
+    assert recons_schema[1].metadata == field_metadata
 
 
 def write_file(batch, sink):
