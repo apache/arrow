@@ -115,12 +115,15 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.setValueCount(idx()+1);
   }
 
-  <#if minor.class == "Decimal">
+  <#if minor.class == "Decimal" ||
+       minor.class == "VarChar">
   public void write${minor.class}(${friendlyType} value) {
     vector.setSafe(idx(), value);
     vector.setValueCount(idx()+1);
   }
+  </#if>
 
+  <#if minor.class == "Decimal">
   public void writeBigEndianBytesToDecimal(byte[] value) {
     vector.setBigEndianSafe(idx(), value);
     vector.setValueCount(idx()+1);
