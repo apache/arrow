@@ -400,11 +400,11 @@ cdef class Field:
         self.field = field.get()
         self.type = pyarrow_wrap_data_type(field.get().type())
 
-    def equals(self, Field other):
+    def equals(self, Field other, bint check_metadata=True):
         """
         Test if this field is equal to the other
         """
-        return self.field.Equals(deref(other.field))
+        return self.field.Equals(deref(other.field), check_metadata)
 
     def __eq__(self, other):
         try:
@@ -564,22 +564,20 @@ cdef class Schema:
                 self.schema.metadata())
             return box_metadata(metadata.get())
 
-    def __richcmp__(self, other, int op):
-        if op == cp.Py_EQ:
+    def __eq__(self, other):
+        try:
             return self.equals(other)
-        elif op == cp.Py_NE:
-            return not self.equals(other)
-        else:
-            raise TypeError('Invalid comparison')
+        except (TypeError, ValueError):
+            return False
 
-    def equals(self, other):
+    def equals(self, other, bint check_metadata=True):
         """
         Test if this schema is equal to the other
         """
         cdef Schema _other
         _other = other
 
-        return self.sp_schema.get().Equals(deref(_other.schema))
+        return self.sp_schema.get().Equals(deref(_other.schema), check_metadata)
 
     def field_by_name(self, name):
         """

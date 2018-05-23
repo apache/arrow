@@ -247,7 +247,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool nullable()
 
         c_string ToString()
-        c_bool Equals(const CField& other)
+        c_bool Equals(const CField& other, c_bool check_metadata)
 
         shared_ptr[const CKeyValueMetadata] metadata()
 
@@ -283,7 +283,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CSchema(const vector[shared_ptr[CField]]& fields,
                 const shared_ptr[CKeyValueMetadata]& metadata)
 
-        c_bool Equals(const CSchema& other)
+        c_bool Equals(const CSchema& other, c_bool check_metadata)
 
         shared_ptr[CField] field(int i)
         shared_ptr[const CKeyValueMetadata] metadata()
