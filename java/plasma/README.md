@@ -17,11 +17,11 @@
   under the License.
 -->
 
-# Plasma client of java
+# Java Plasma Client
 
 ## Setup Build Environment
 
-install:
+Install:
  - java 8 or later
  - maven 3.3 or later
  - the same requirement of build [Arrow C++](https://github.com/apache/arrow/tree/master/cpp)
@@ -36,4 +36,3 @@ mvn clean install -Dmaven.test.skip
 ```
 ./test.sh
 ```
-

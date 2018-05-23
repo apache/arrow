@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #include "plasma/lib/java/org_apache_arrow_plasma_PlasmaClientJNI.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -63,9 +64,6 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_connect(
   plasma::PlasmaClient* client = new plasma::PlasmaClient();
   ARROW_CHECK_OK(client->Connect(s_name, m_name, release_delay));
 
-  // fprintf (stdout, "JNI plasma client init, fd = %d\n", client->get_store_fd());
-  // fflush (stdout);
-
   env->ReleaseStringUTFChars(store_socket_name, s_name);
   env->ReleaseStringUTFChars(manager_socket_name, m_name);
   return reinterpret_cast<int64_t>(client);
@@ -74,9 +72,6 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_connect(
 JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_disconnect(
     JNIEnv* env, jclass cls, jlong conn) {
   plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
-
-  // fprintf (stdout, "JNI plasma client disconnect, fd = %d\n", client->get_store_fd());
-  // fflush (stdout);
 
   ARROW_CHECK_OK(client->Disconnect());
   delete client;
@@ -154,17 +149,12 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_release(
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
-  // fprintf (stdout, "JNI plasma client release, fd = %d\n", client->get_store_fd());
-  // fflush (stdout);
-
   ARROW_CHECK_OK(client->Release(oid));
 }
 
 JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
     JNIEnv* env, jclass cls, jlong conn, jobjectArray object_ids, jint timeout_ms) {
   plasma::PlasmaClient* client = (plasma::PlasmaClient*)conn;
-  // fprintf (stdout, "JNI plasma client get, fd = %d\n", client->get_store_fd());
-  // fflush (stdout);
 
   jsize num_oids = env->GetArrayLength(object_ids);
   std::vector<plasma::ObjectID> oids(num_oids);

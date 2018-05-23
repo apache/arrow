@@ -167,10 +167,10 @@ if(ARROW_PLASMA_JAVA_CLIENT)
   include_directories(${JAVA_INCLUDE_PATH})
   include_directories(${JAVA_INCLUDE_PATH2})
   if (JNI_FOUND)
-    message (STATUS "JNI_INCLUDE_DIRS=${JNI_INCLUDE_DIRS}")
-    message (STATUS "JNI_LIBRARIES=${JNI_LIBRARIES}")
+    message (STATUS "JNI_INCLUDE_DIRS = ${JNI_INCLUDE_DIRS}")
+    message (STATUS "JNI_LIBRARIES = ${JNI_LIBRARIES}")
   else()
-    message (WARNING "NOT FIND JNI")   
+    message (WARNING "Could not find JNI")
   endif()
 
   add_compile_options("-I$ENV{JAVA_HOME}/include/")
@@ -187,8 +187,7 @@ if(ARROW_PLASMA_JAVA_CLIENT)
   file(GLOB PLASMA_LIBRARY_EXT_java_SRC
     lib/java/*.cc lib/*.cc)
   add_library(plasma_java SHARED
-    ${PLASMA_LIBRARY_EXT_java_SRC}
-    )
+    ${PLASMA_LIBRARY_EXT_java_SRC})
 
   if(APPLE)
     target_link_libraries(plasma_java plasma_static ${PLASMA_LINK_LIBS} "-undefined dynamic_lookup" -Wl,-force_load,${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${PTHREAD_LIBRARY})

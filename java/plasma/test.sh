@@ -15,6 +15,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE:-$0}")"; pwd)
 unamestr="$(uname)"
 if [[ "$unamestr" == "Linux" ]]; then
@@ -35,7 +36,7 @@ pushd ../../cpp
             -DCMAKE_CXX_FLAGS="-g -O3" \
             -DARROW_BUILD_TESTS=off \
             -DARROW_HDFS=on \
-            -DARROW_BOOST_USE_SHARED=off \
+            -DARROW_BOOST_USE_SHARED=on \
             -DARROW_PYTHON=on \
             -DARROW_PLASMA=on \
             -DPLASMA_PYTHON=on \
