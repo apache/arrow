@@ -577,7 +577,7 @@ cdef class Schema:
     def __eq__(self, other):
         try:
             return self.equals(other)
-        except (TypeError, ValueError):
+        except TypeError:
             return False
 
     def equals(self, other, bint check_metadata=True):

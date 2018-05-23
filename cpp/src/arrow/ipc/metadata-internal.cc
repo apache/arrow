@@ -614,15 +614,13 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
   }
 
   auto fb_metadata = field->custom_metadata();
+  std::shared_ptr<KeyValueMetadata> metadata;
 
   if (fb_metadata != nullptr) {
-    std::shared_ptr<KeyValueMetadata> metadata;
     RETURN_NOT_OK(KeyValueMetadataFromFlatbuffer(fb_metadata, &metadata));
-    *out =
-        std::make_shared<Field>(field->name()->str(), type, field->nullable(), metadata);
-  } else {
-    *out = std::make_shared<Field>(field->name()->str(), type, field->nullable());
   }
+
+  *out = std::make_shared<Field>(field->name()->str(), type, field->nullable(), metadata);
 
   return Status::OK();
 }
@@ -912,14 +910,13 @@ Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_mem
   }
 
   auto fb_metadata = schema->custom_metadata();
+  std::shared_ptr<KeyValueMetadata> metadata;
 
   if (fb_metadata != nullptr) {
-    std::shared_ptr<KeyValueMetadata> metadata;
     RETURN_NOT_OK(KeyValueMetadataFromFlatbuffer(fb_metadata, &metadata));
-    *out = ::arrow::schema(std::move(fields), metadata);
-  } else {
-    *out = ::arrow::schema(std::move(fields));
   }
+
+  *out = ::arrow::schema(std::move(fields), metadata);
 
   return Status::OK();
 }
