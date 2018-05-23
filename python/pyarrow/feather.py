@@ -45,7 +45,7 @@ class FeatherReader(ext.FeatherReader):
 
     def read(self, *args, **kwargs):
         warnings.warn("read has been deprecated. Use read_pandas instead.",
-                      DeprecationWarning)
+                      FutureWarning, stacklevel=2)
         return self.read_pandas(*args, **kwargs)
 
     def read_table(self, columns=None):
@@ -69,7 +69,7 @@ class FeatherReader(ext.FeatherReader):
     def read_pandas(self, columns=None, nthreads=None, use_threads=False):
         if nthreads is not None:
             warnings.warn("`nthreads` argument is ignored, "
-                          "pass `use_threads` instead", DeprecationWarning,
+                          "pass `use_threads` instead", FutureWarning,
                           stacklevel=2)
         return self.read_table(columns=columns).to_pandas(
             use_threads=use_threads)
@@ -164,7 +164,7 @@ class FeatherDataset(object):
         """
         if nthreads is not None:
             warnings.warn("`nthreads` argument is ignored, "
-                          "pass `use_threads` instead", DeprecationWarning,
+                          "pass `use_threads` instead", FutureWarning,
                           stacklevel=2)
         return self.read_table(columns=columns).to_pandas(
             use_threads=use_threads)
@@ -215,7 +215,7 @@ def read_feather(source, columns=None, nthreads=None, use_threads=False):
     """
     if nthreads is not None:
         warnings.warn("`nthreads` argument is ignored, "
-                      "pass `use_threads` instead", DeprecationWarning,
+                      "pass `use_threads` instead", FutureWarning,
                       stacklevel=2)
     reader = FeatherReader(source)
     return reader.read_pandas(columns=columns, use_threads=use_threads)

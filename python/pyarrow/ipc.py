@@ -186,7 +186,7 @@ def deserialize_pandas(buf, nthreads=None, use_threads=False):
     """
     if nthreads is not None:
         warnings.warn("`nthreads` argument is ignored, "
-                      "pass `use_threads` instead", DeprecationWarning,
+                      "pass `use_threads` instead", FutureWarning,
                       stacklevel=2)
 
     buffer_reader = pa.BufferReader(buf)

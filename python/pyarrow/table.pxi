@@ -757,7 +757,7 @@ cdef class RecordBatch:
         """
         if nthreads is not None:
             warnings.warn("`nthreads` argument is ignored, "
-                          "pass `use_threads` instead", DeprecationWarning,
+                          "pass `use_threads` instead", FutureWarning,
                           stacklevel=2)
         return Table.from_batches([self]).to_pandas(use_threads=use_threads)
 
@@ -1182,7 +1182,7 @@ cdef class Table:
 
         if nthreads is not None:
             warnings.warn("`nthreads` argument is ignored, "
-                          "pass `use_threads` instead", DeprecationWarning,
+                          "pass `use_threads` instead", FutureWarning,
                           stacklevel=2)
 
         options = PandasOptions(
