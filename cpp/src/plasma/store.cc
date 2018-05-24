@@ -587,10 +587,10 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::send_notifications(
   for (size_t i = 0; i < notifications.size(); ++i) {
     auto& notification = notifications.at(i);
     // Decode the length, which is the first bytes of the message.
-    int64_t size = *(reinterpret_cast<int64_t*>(notification.get()));
+    int64_t size = *(reinterpret_cast<int64_t*>(notification->data()));
 
     // Attempt to send a notification about this object ID.
-    ssize_t nbytes = send(client_fd, notification.get(), sizeof(int64_t) + size, 0);
+    ssize_t nbytes = send(client_fd, notification->data(), sizeof(int64_t) + size, 0);
     if (nbytes >= 0) {
       ARROW_CHECK(nbytes == static_cast<ssize_t>(sizeof(int64_t)) + size);
     } else if (nbytes == -1 &&
@@ -634,10 +634,10 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::send_notifications(
 }
 
 void PlasmaStore::push_notification(ObjectInfoT* object_info) {
+  auto notification = create_object_info_buffer(object_info);
   auto it = pending_notifications_.begin();
   while (it != pending_notifications_.end()) {
-    auto notification = create_object_info_buffer(object_info);
-    it->second.object_notifications.emplace_back(std::move(notification));
+    element.second.object_notifications.emplace_back(notification);
     it = send_notifications(it);
   }
 }

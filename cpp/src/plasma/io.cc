@@ -214,22 +214,22 @@ int AcceptClient(int socket_fd) {
   return client_fd;
 }
 
-std::unique_ptr<uint8_t[]> read_message_async(int sock) {
+std::vector<uint8_t> read_message_async(int sock) {
   int64_t size;
   Status s = ReadBytes(sock, reinterpret_cast<uint8_t*>(&size), sizeof(int64_t));
   if (!s.ok()) {
     // The other side has closed the socket.
     ARROW_LOG(DEBUG) << "Socket has been closed, or some other error has occurred.";
     close(sock);
-    return NULL;
+    return std::vector<uint8_t>();
   }
-  auto message = std::unique_ptr<uint8_t[]>(new uint8_t[size]);
-  s = ReadBytes(sock, message.get(), size);
+  auto message = std::vector<uint8_t>(size);
+  s = ReadBytes(sock, message.data(), size);
   if (!s.ok()) {
     // The other side has closed the socket.
     ARROW_LOG(DEBUG) << "Socket has been closed, or some other error has occurred.";
     close(sock);
-    return NULL;
+    return std::vector<uint8_t>();
   }
   return message;
 }

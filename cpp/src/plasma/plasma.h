@@ -31,6 +31,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include "plasma/compat.h"
 
@@ -185,7 +186,14 @@ ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
 /// @return The errno set.
 int warn_if_sigpipe(int status, int client_sock);
 
-std::unique_ptr<uint8_t[]> create_object_info_buffer(ObjectInfoT* object_info);
+/// This will create a new ObjectInfo buffer. The first sizeof(int64_t) bytes
+/// of this buffer are the length of the remaining message and the
+/// remaining message is a serialized version of the object info.
+///
+/// @param object_info The object info to be serialized
+/// @return The object info buffer. It is the caller's responsibility to free
+///         this buffer with "delete" after it has been used.
+std::shared_ptr<std::vector<uint8_t>> create_object_info_buffer(ObjectInfoT* object_info);
 
 }  // namespace plasma
 

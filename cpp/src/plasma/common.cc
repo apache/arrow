@@ -45,6 +45,7 @@ UniqueID UniqueID::from_random() {
 
 UniqueID UniqueID::from_binary(const std::string& binary) {
   UniqueID id;
+  DCHECK(binary.size() == sizeof(id));
   std::memcpy(&id, binary.data(), sizeof(id));
   return id;
 }

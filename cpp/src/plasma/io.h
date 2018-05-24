@@ -56,7 +56,7 @@ Status ConnectIpcSocketRetry(const std::string& pathname, int num_retries,
 
 int AcceptClient(int socket_fd);
 
-std::unique_ptr<uint8_t[]> read_message_async(int sock);
+std::vector<uint8_t> read_message_async(int sock);
 
 }  // namespace plasma
 
