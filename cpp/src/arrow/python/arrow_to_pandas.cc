@@ -1464,10 +1464,7 @@ class DataFrameBlockCreator {
     }
     auto final_status = Status::OK();
     for (auto& fut : futures) {
-      Status st = fut.get();
-      if (!st.ok()) {
-        final_status = st;
-      }
+      final_status &= fut.get();
     }
     return final_status;
   }
