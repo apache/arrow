@@ -105,12 +105,12 @@ class Target(object):
         self.repo = pygit2.Repository(str(self.path))
 
         msg = dedent('''
-            Repository: {origin}@{branch}
+            Repository: {remote}@{branch}
             Commit SHA: {sha}
             Version: {version}
         ''')
         logging.info(msg.format(
-            origin=self.origin.url,
+            remote=self.current_remote.url,
             branch=self.current_branch.branch_name,
             sha=self.sha,
             version=self.version
@@ -127,8 +127,9 @@ class Target(object):
         return get_version(self.path)
 
     @property
-    def origin(self):
-        return self.repo.remotes['origin']
+    def current_remote(self):
+        remote_name = self.current_branch.upstream.remote_name
+        return self.repo.remotes[remote_name]
 
     @property
     def current_branch(self):
@@ -137,8 +138,9 @@ class Target(object):
 
     @property
     def description(self):
-        return '[BUILD] {} of {}@{}'.format(
-            self.version, self.origin.url, self.current_branch.branch_name)
+        return '[BUILD] {} of {}@{}'.format(self.version,
+                                            self.current_remote.url,
+                                            self.current_branch.branch_name)
 
 
 class Build(object):
@@ -284,7 +286,7 @@ def build(task_regex, config, dry_run, arrow_repo, queue_repo, github_token):
         'EMAIL': MESSAGE_EMAIL,
         'BUILD_REF': arrow.sha,
         'ARROW_SHA': arrow.sha,
-        'ARROW_REPO': arrow.origin.url,
+        'ARROW_REPO': arrow.current_remote.url,
         'ARROW_BRANCH': arrow.current_branch.branch_name,
         'ARROW_VERSION': arrow.version,
         'PYARROW_VERSION': arrow.version,

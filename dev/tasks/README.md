@@ -105,7 +105,7 @@ The script does the following:
    $ git clone https://github.com/kszucs/arrow
    $ git clone https://github.com/kszucs/crossbow
 
-   $ cd arrow/cd
+   $ cd arrow/dev/tasks
    $ python crossbow.py
    ```
 
@@ -115,7 +115,7 @@ The script does the following:
 
    ```bash
    git checkout ARROW-<ticket number>
-   python cd/crossbow.py --dry-run
+   python dev/tasks/crossbow.py --dry-run
    ```
 
    > Note that the arrow branch must be pushed beforehand, because the script
@@ -139,7 +139,7 @@ Run all builds:
 
 ```bash
 $ python crossbow.py
-Repository: https://github.com/kszucs/arrow@cd
+Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
@@ -162,7 +162,7 @@ Run only `conda` package builds but on all platforms:
 
 ```bash
 $ python crossbow.py conda
-Repository: https://github.com/kszucs/arrow@cd
+Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
@@ -175,7 +175,7 @@ Run `wheel` builds:
 
 ```bash
 $ python crossbow.py wheel
-Repository: https://github.com/kszucs/arrow@cd
+Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
@@ -188,7 +188,7 @@ Run `osx` builds:
 
 ```bash
 $ python crossbow.py osx
-Repository: https://github.com/kszucs/arrow@cd
+Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: cad1df2c7f650ad3434319bbbefed0d4abe45e4a
 Version: 0.9.1.dev130+gcad1df2c.d20180414
 Pushed branches:
@@ -200,7 +200,7 @@ Run only `linux-conda` package build:
 
 ```bash
 $ python crossbow.py linux-conda
-Repository: https://github.com/kszucs/arrow@cd
+Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
