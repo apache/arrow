@@ -141,6 +141,7 @@ public class PlasmaClient implements ObjectStoreLink {
    *
    * @param objectId used to identify an object.
    */
+  @Override
   public boolean contains(byte[] objectId) {
     return PlasmaClientJNI.contains(conn, objectId);
   }

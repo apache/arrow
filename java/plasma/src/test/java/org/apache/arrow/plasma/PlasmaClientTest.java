@@ -145,7 +145,16 @@ public class PlasmaClientTest {
         System.out.println("Plasma java client get multi-object test success.");
         pLink.put(id1, value1, null);
         System.out.println("Plasma java client put same object twice exception test success.");
-
+        byte[] id1Hash = pLink.hash(id1);
+        assert id1Hash != null;
+        System.out.println("Plasma java client hash test success.");
+        boolean exsit = pLink.contains(id2);
+        assert exsit;
+        byte[] id3 =  new byte[20];
+        Arrays.fill(id3, (byte)3);
+        boolean notExsit = pLink.contains(id3);
+        assert !notExsit;
+        System.out.println("Plasma java client contains test success.");
         cleanup();
         System.out.println("All test success.");
 

@@ -109,4 +109,11 @@ public interface ObjectStoreLink {
    * @param objectId The object ID used to release the reference of the object.
    */
   void release(byte[] objectId);
+
+  /**
+   * Check if the object is present and has been sealed in the PlasmaStore.
+   *
+   * @param objectId used to identify an object.
+   */
+  boolean contains(byte[] objectId);
 }
