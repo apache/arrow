@@ -367,7 +367,8 @@ cdef class Column:
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls)
+            integer_object_nulls=integer_object_nulls,
+            use_threads=False)
 
         with nogil:
             check_status(libarrow.ConvertColumnToPandas(options,
@@ -828,7 +829,7 @@ cdef class RecordBatch:
             CRecordBatch.Make(schema, num_rows, c_arrays))
 
 
-def table_to_blocks(PandasOptions options, Table table, c_bool use_threads,
+def table_to_blocks(PandasOptions options, Table table,
                     MemoryPool memory_pool, categories):
     cdef:
         PyObject* result_obj
@@ -843,9 +844,7 @@ def table_to_blocks(PandasOptions options, Table table, c_bool use_threads,
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                options, categorical_columns, c_table, use_threads, pool,
-                &result_obj
-            )
+                options, categorical_columns, c_table, pool, &result_obj)
         )
 
     return PyObject_to_object(result_obj)
@@ -1183,10 +1182,11 @@ cdef class Table:
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls)
+            integer_object_nulls=integer_object_nulls,
+            use_threads=use_threads)
         self._check_nullptr()
         mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
-                                             use_threads, categories)
+                                             categories)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):
