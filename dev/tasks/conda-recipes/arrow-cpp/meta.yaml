@@ -20,7 +20,7 @@ package:
   version: {{ ARROW_VERSION }}
 
 source:
-  path: ../../../
+  path: ../../../../
 
 build:
   number: 0
