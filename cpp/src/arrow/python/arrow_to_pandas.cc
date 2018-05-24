@@ -40,7 +40,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/parallel.h"
 #include "arrow/visitor_inline.h"
 
 #include "arrow/compute/api.h"
@@ -1458,16 +1458,7 @@ class DataFrameBlockCreator {
     };
 
     if (use_threads) {
-      arrow::internal::ThreadPool* pool = arrow::internal::GetCpuThreadPool();
-      std::vector<std::future<Status>> futures;
-      for (int i = 0; i < table_->num_columns(); ++i) {
-        futures.push_back(pool->Submit(WriteColumn, i));
-      }
-      auto final_status = Status::OK();
-      for (auto& fut : futures) {
-        final_status &= fut.get();
-      }
-      return final_status;
+      return ParallelFor(table_->num_columns(), WriteColumn);
     } else {
       for (int i = 0; i < table_->num_columns(); ++i) {
         RETURN_NOT_OK(WriteColumn(i));
