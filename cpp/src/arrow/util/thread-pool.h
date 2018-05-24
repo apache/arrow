@@ -148,8 +148,8 @@ class ARROW_EXPORT ThreadPool {
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
-  std::shared_ptr<State> sp_state_;
-  State* state_;
+  const std::shared_ptr<State> sp_state_;
+  State* const state_;
   bool shutdown_on_destroy_;
 };
 
