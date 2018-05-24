@@ -125,6 +125,9 @@ class ARROW_EXPORT ThreadPool {
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
+  friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
+
+  struct State;
 
   ThreadPool();
 
@@ -135,23 +138,19 @@ class ARROW_EXPORT ThreadPool {
   void CollectFinishedWorkersUnlocked();
   // Launch a given number of additional workers
   void LaunchWorkersUnlocked(int threads);
-  void WorkerLoop(std::list<std::thread>::iterator it);
+  // Get the current actual capacity
   int GetActualCapacity();
 
-  std::mutex mutex_;
-  std::condition_variable cv_;
-  std::condition_variable cv_shutdown_;
+  // The worker loop is a static method so that it can keep running
+  // after the ThreadPool is destroyed
+  static void WorkerLoop(std::shared_ptr<State> state,
+                         std::list<std::thread>::iterator it);
 
-  std::list<std::thread> workers_;
-  // Trashcan for finished threads
-  std::vector<std::thread> finished_workers_;
-  std::deque<std::function<void()>> pending_tasks_;
+  static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
-  // Desired number of threads
-  int desired_capacity_;
-  // Are we shutting down?
-  bool please_shutdown_;
-  bool quick_shutdown_;
+  std::shared_ptr<State> sp_state_;
+  State* state_;
+  bool shutdown_on_destroy_;
 };
 
 // Return the process-global thread pool for CPU-bound tasks.

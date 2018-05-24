@@ -103,7 +103,7 @@ class ARROW_EXPORT Status {
   Status(const Status& s);
   Status& operator=(const Status& s);
 
-  // Mope the specified status.
+  // Move the specified status.
   Status(Status&& s);
   Status& operator=(Status&& s);
 
