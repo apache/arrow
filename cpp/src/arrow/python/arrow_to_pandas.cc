@@ -1457,16 +1457,23 @@ class DataFrameBlockCreator {
       return block->Write(this->table_->column(i), i, this->column_block_placement_[i]);
     };
 
-    arrow::internal::ThreadPool* pool = arrow::internal::GetCpuThreadPool();
-    std::vector<std::future<Status>> futures;
-    for (int i = 0; i < table_->num_columns(); ++i) {
-      futures.push_back(pool->Submit(WriteColumn, i));
+    if (use_threads) {
+      arrow::internal::ThreadPool* pool = arrow::internal::GetCpuThreadPool();
+      std::vector<std::future<Status>> futures;
+      for (int i = 0; i < table_->num_columns(); ++i) {
+        futures.push_back(pool->Submit(WriteColumn, i));
+      }
+      auto final_status = Status::OK();
+      for (auto& fut : futures) {
+        final_status &= fut.get();
+      }
+      return final_status;
+    } else {
+      for (int i = 0; i < table_->num_columns(); ++i) {
+        RETURN_NOT_OK(WriteColumn(i));
+      }
+      return Status::OK();
     }
-    auto final_status = Status::OK();
-    for (auto& fut : futures) {
-      final_status &= fut.get();
-    }
-    return final_status;
   }
 
   Status AppendBlocks(const BlockMap& blocks, PyObject* list) {
