@@ -16,7 +16,6 @@
 # under the License.
 
 import json
-import warnings
 
 from collections import OrderedDict
 
@@ -27,6 +26,8 @@ except ImportError:
     pass
 else:
     import pyarrow.pandas_compat as pdcompat
+
+from .util import _deprecate_nthreads
 
 
 cdef class ChunkedArray:
@@ -755,10 +756,7 @@ cdef class RecordBatch:
         -------
         pandas.DataFrame
         """
-        if nthreads is not None:
-            warnings.warn("`nthreads` argument is ignored, "
-                          "pass `use_threads` instead", FutureWarning,
-                          stacklevel=2)
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
         return Table.from_batches([self]).to_pandas(use_threads=use_threads)
 
     @classmethod
@@ -1180,10 +1178,7 @@ cdef class Table:
         cdef:
             PandasOptions options
 
-        if nthreads is not None:
-            warnings.warn("`nthreads` argument is ignored, "
-                          "pass `use_threads` instead", FutureWarning,
-                          stacklevel=2)
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
 
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,

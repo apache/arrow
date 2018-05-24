@@ -17,8 +17,6 @@
 
 # Arrow file and stream reader/writer classes, and other messaging tools
 
-import warnings
-
 import pyarrow as pa
 
 from pyarrow.lib import (Message, MessageReader,  # noqa
@@ -26,6 +24,7 @@ from pyarrow.lib import (Message, MessageReader,  # noqa
                          read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size)
 import pyarrow.lib as lib
+from .util import _deprecate_nthreads
 
 
 class _ReadPandasOption(object):
@@ -184,10 +183,7 @@ def deserialize_pandas(buf, nthreads=None, use_threads=False):
     -------
     df : pandas.DataFrame
     """
-    if nthreads is not None:
-        warnings.warn("`nthreads` argument is ignored, "
-                      "pass `use_threads` instead", FutureWarning,
-                      stacklevel=2)
+    use_threads = _deprecate_nthreads(use_threads, nthreads)
 
     buffer_reader = pa.BufferReader(buf)
     reader = pa.RecordBatchStreamReader(buffer_reader)

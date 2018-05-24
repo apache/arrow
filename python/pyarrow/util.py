@@ -35,3 +35,13 @@ def _deprecate_api(old_name, new_name, api, next_version):
         warnings.warn(msg, FutureWarning)
         return api(*args)
     return wrapper
+
+
+def _deprecate_nthreads(use_threads, nthreads):
+    if nthreads is not None:
+        warnings.warn("`nthreads` argument is deprecated, "
+                      "pass `use_threads` instead", FutureWarning,
+                      stacklevel=3)
+        if nthreads > 1:
+            use_threads = True
+    return use_threads

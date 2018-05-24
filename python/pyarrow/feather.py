@@ -26,6 +26,8 @@ from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
 from pyarrow.lib import RecordBatch, Table, concat_tables
 import pyarrow.lib as ext
+from .util import _deprecate_nthreads
+
 
 try:
     infer_dtype = pdapi.infer_dtype
@@ -67,10 +69,7 @@ class FeatherReader(ext.FeatherReader):
         return table
 
     def read_pandas(self, columns=None, nthreads=None, use_threads=False):
-        if nthreads is not None:
-            warnings.warn("`nthreads` argument is ignored, "
-                          "pass `use_threads` instead", FutureWarning,
-                          stacklevel=2)
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
         return self.read_table(columns=columns).to_pandas(
             use_threads=use_threads)
 
@@ -162,10 +161,7 @@ class FeatherDataset(object):
         pandas.DataFrame
             Content of the file as a pandas DataFrame (of columns)
         """
-        if nthreads is not None:
-            warnings.warn("`nthreads` argument is ignored, "
-                          "pass `use_threads` instead", FutureWarning,
-                          stacklevel=2)
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
         return self.read_table(columns=columns).to_pandas(
             use_threads=use_threads)
 
@@ -213,10 +209,7 @@ def read_feather(source, columns=None, nthreads=None, use_threads=False):
     -------
     df : pandas.DataFrame
     """
-    if nthreads is not None:
-        warnings.warn("`nthreads` argument is ignored, "
-                      "pass `use_threads` instead", FutureWarning,
-                      stacklevel=2)
+    use_threads = _deprecate_nthreads(use_threads, nthreads)
     reader = FeatherReader(source)
     return reader.read_pandas(columns=columns, use_threads=use_threads)
 
