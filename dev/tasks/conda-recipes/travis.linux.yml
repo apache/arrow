@@ -22,7 +22,7 @@ dist: trusty
 
 env:
   - ARROW_VERSION={{ ARROW_VERSION }}
-  matrix:
+  - matrix:
     - CONDA_PY=27
     - CONDA_PY=35
     - CONDA_PY=36
@@ -53,7 +53,7 @@ install:
 script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
   - git -C arrow checkout {{ ARROW_SHA }}
-  - pushd arrow/cd/conda-recipes
+  - pushd arrow/dev/tasks/conda-recipes
   - conda build arrow-cpp pyarrow
 
 notifications:
