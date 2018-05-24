@@ -131,6 +131,11 @@ void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
   // (LaunchWorkersUnlocked has exited)
   DCHECK_EQ(std::this_thread::get_id(), it->get_id());
 
+  // If too many threads, we should secede from the pool
+  const auto should_secede = [&]() -> bool {
+    return state->workers_.size() > static_cast<size_t>(state->desired_capacity_);
+  };
+
   while (true) {
     // By the time this thread is started, some tasks may have been pushed
     // or shutdown could even have been requested.  So we only wait on the
@@ -138,10 +143,9 @@ void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
 
     // Execute pending tasks if any
     while (!state->pending_tasks_.empty() && !state->quick_shutdown_) {
-      // If too many threads, secede from the pool.
       // We check this opportunistically at each loop iteration since
       // it releases the lock below.
-      if (state->workers_.size() > static_cast<size_t>(state->desired_capacity_)) {
+      if (should_secede()) {
         break;
       }
       {
@@ -153,8 +157,7 @@ void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
       lock.lock();
     }
     // Now either the queue is empty *or* a quick shutdown was requested
-    if (state->please_shutdown_ ||
-        state->workers_.size() > static_cast<size_t>(state->desired_capacity_)) {
+    if (state->please_shutdown_ || should_secede()) {
       break;
     }
     // Wait for next wakeup
