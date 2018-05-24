@@ -48,7 +48,7 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   // schema with fields in message format, not memory format
   private final Schema schema;
-  private final WriteChannel out;
+  protected final WriteChannel out;
 
   private final VectorUnloader unloader;
   private final List<ArrowDictionaryBatch> dictionaries;
