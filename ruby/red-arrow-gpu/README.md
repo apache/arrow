@@ -35,6 +35,8 @@ gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Arrow
 
 Install Apache Arrow GPU GLib before install Red Arrow GPU. Use [packages.red-data-tools.org](https://github.com/red-data-tools/packages.red-data-tools.org) for installing Apache Arrow GPU GLib.
 
+Note that the Apache Arrow GPU GLib packages are "unofficial". "Official" packages will be released in the future.
+
 Install Red Arrow GPU after you install Apache Arrow GPU GLib:
 
 ```text
