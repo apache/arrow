@@ -193,7 +193,7 @@ int warn_if_sigpipe(int status, int client_sock);
 /// @param object_info The object info to be serialized
 /// @return The object info buffer. It is the caller's responsibility to free
 ///         this buffer with "delete" after it has been used.
-std::shared_ptr<std::vector<uint8_t>> create_object_info_buffer(ObjectInfoT* object_info);
+std::shared_ptr<std::string> create_object_info_buffer(ObjectInfoT* object_info);
 
 }  // namespace plasma
 

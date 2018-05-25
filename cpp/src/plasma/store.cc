@@ -587,7 +587,7 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::send_notifications(
   for (size_t i = 0; i < notifications.size(); ++i) {
     auto& notification = notifications.at(i);
     // Decode the length, which is the first bytes of the message.
-    int64_t size = *(reinterpret_cast<int64_t*>(notification->data()));
+    int64_t size = *(reinterpret_cast<const int64_t*>(notification->data()));
 
     // Attempt to send a notification about this object ID.
     ssize_t nbytes = send(client_fd, notification->data(), sizeof(int64_t) + size, 0);
@@ -637,7 +637,7 @@ void PlasmaStore::push_notification(ObjectInfoT* object_info) {
   auto notification = create_object_info_buffer(object_info);
   auto it = pending_notifications_.begin();
   while (it != pending_notifications_.end()) {
-    element.second.object_notifications.emplace_back(notification);
+    it->second.object_notifications.emplace_back(notification);
     it = send_notifications(it);
   }
 }

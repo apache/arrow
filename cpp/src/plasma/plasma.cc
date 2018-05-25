@@ -53,16 +53,16 @@ int warn_if_sigpipe(int status, int client_sock) {
   return -1;  // This is never reached.
 }
 
-std::shared_ptr<std::vector<uint8_t>> create_object_info_buffer(
+std::shared_ptr<std::string> create_object_info_buffer(
       ObjectInfoT* object_info) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreateObjectInfo(fbb, object_info);
   fbb.Finish(message);
-  auto notification = std::make_shared<std::vector<uint8_t>>(
-      sizeof(int64_t) + fbb.GetSize());
-  *(reinterpret_cast<int64_t*>(notification->data())) = fbb.GetSize();
-  memcpy(notification->data() + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
-  return notification;
+  std::string notification;
+  notification.resize(sizeof(int64_t) + fbb.GetSize());
+  *(reinterpret_cast<int64_t*>(&notification[0])) = fbb.GetSize();
+  memcpy(&notification[0] + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
+  return std::make_shared<std::string>(std::move(notification));
 }
 
 ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
