@@ -21,12 +21,12 @@ os: osx
 osx_image: xcode6.4
 
 env:
-  - global:
-    - ARROW_VERSION={{ ARROW_VERSION }}
-  - matrix:
+  matrix:
     - CONDA_PY=27
     - CONDA_PY=35
     - CONDA_PY=36
+  global:
+    - ARROW_VERSION={{ ARROW_VERSION }}
 
 before_install:
     # Remove homebrew.

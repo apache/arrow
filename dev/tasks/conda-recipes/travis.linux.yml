@@ -21,12 +21,12 @@ os: linux
 dist: trusty
 
 env:
-  - global:
-    - ARROW_VERSION={{ ARROW_VERSION }}
-  - matrix:
+  matrix:
     - CONDA_PY=27
     - CONDA_PY=35
     - CONDA_PY=36
+  global:
+    - ARROW_VERSION={{ ARROW_VERSION }}
 
 install:
     # Install Miniconda.
