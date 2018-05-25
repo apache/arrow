@@ -7,11 +7,11 @@
         "vcs_url": "htttps://github.com/apache/arrow.git"
     },
     "version": {
-        "name": "0.9.0"
+        "name": "dev"
     },
     "files": [
         {
-            "includePattern": "cpp-linux/apt/repositories/([^/]+)/pool/stretch/main/a/apache-arrow/([^/]+\\.deb)\\z",
+            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/stretch/main/a/apache-arrow/([^/]+\\.deb)\\z",
             "uploadPattern": "pool/stretch/main/$2",
             "matrixParams": {
                 "deb_distribution": "stretch",
@@ -21,7 +21,7 @@
             }
         },
         {
-            "includePattern": "cpp-linux/apt/repositories/([^/]+)/pool/trusty/universe/a/apache-arrow/([^/]+\\.deb)\\z",
+            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/trusty/universe/a/apache-arrow/([^/]+\\.deb)\\z",
             "uploadPattern": "pool/trusty/universe/$2",
             "matrixParams": {
                 "deb_distribution": "trusty",
@@ -31,7 +31,7 @@
             }
         },
         {
-            "includePattern": "cpp-linux/apt/repositories/([^/]+)/pool/xenial/universe/a/apache-arrow/([^/]+\\.deb)\\z",
+            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/xenial/universe/a/apache-arrow/([^/]+\\.deb)\\z",
             "uploadPattern": "pool/xenial/universe/$2",
             "matrixParams": {
                 "deb_distribution": "xenial",
@@ -41,7 +41,7 @@
             }
         },
         {
-            "includePattern": "cpp-linux/apt/repositories/([^/]+)/pool/artful/universe/a/apache-arrow/([^/]+\\.deb)\\z",
+            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/artful/universe/a/apache-arrow/([^/]+\\.deb)\\z",
             "uploadPattern": "pool/artful/universe/$2",
             "matrixParams": {
                 "deb_distribution": "artful",
