@@ -23,3 +23,13 @@ import pyarrow as pa
 def test_get_include():
     include_dir = pa.get_include()
     assert os.path.exists(os.path.join(include_dir, 'arrow', 'api.h'))
+
+
+def test_cpu_count():
+    n = pa.cpu_count()
+    assert n > 0
+    try:
+        pa.set_cpu_count(n + 5)
+        assert pa.cpu_count() == n + 5
+    finally:
+        pa.set_cpu_count(n)

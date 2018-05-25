@@ -24,6 +24,7 @@ from pyarrow.lib import (Message, MessageReader,  # noqa
                          read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size)
 import pyarrow.lib as lib
+from .util import _deprecate_nthreads
 
 
 class _ReadPandasOption(object):
@@ -168,22 +169,23 @@ def serialize_pandas(df, nthreads=None, preserve_index=True):
     return sink.get_result()
 
 
-def deserialize_pandas(buf, nthreads=None):
+def deserialize_pandas(buf, nthreads=None, use_threads=False):
     """Deserialize a buffer protocol compatible object into a pandas DataFrame.
 
     Parameters
     ----------
     buf : buffer
         An object compatible with the buffer protocol
-    nthreads : int, defualt None
-        The number of threads to use to convert the buffer to a DataFrame,
-        default all CPUs
+    use_threads: boolean, default False
+        Whether to parallelize the conversion using multiple threads
 
     Returns
     -------
     df : pandas.DataFrame
     """
+    use_threads = _deprecate_nthreads(use_threads, nthreads)
+
     buffer_reader = pa.BufferReader(buf)
     reader = pa.RecordBatchStreamReader(buffer_reader)
     table = reader.read_all()
-    return table.to_pandas(nthreads=nthreads)
+    return table.to_pandas(use_threads=use_threads)
