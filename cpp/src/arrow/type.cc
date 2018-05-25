@@ -34,6 +34,10 @@
 
 namespace arrow {
 
+bool Field::HasMetadata() const {
+  return (metadata_ != nullptr) && (metadata_->size() > 0);
+}
+
 std::shared_ptr<Field> Field::AddMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Field>(name_, type_, nullable_, metadata);
@@ -58,27 +62,25 @@ std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   return flattened;
 }
 
-bool Field::Equals(const Field& other, bool check_metadata) const {
+bool Field::Equals(const Field& other) const {
   if (this == &other) {
     return true;
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
-    if (!check_metadata) {
-      return true;
-    } else if (metadata_ == nullptr && other.metadata_ == nullptr) {
-      return true;
-    } else if ((metadata_ == nullptr) ^ (other.metadata_ == nullptr)) {
-      return false;
-    } else {
+    if (this->HasMetadata() && other.HasMetadata()) {
       return metadata_->Equals(*other.metadata_);
+    } else if (!this->HasMetadata() && !other.HasMetadata()) {
+      return true;
+    } else {
+      return false;
     }
   }
   return false;
 }
 
-bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) const {
-  return Equals(*other.get(), check_metadata);
+bool Field::Equals(const std::shared_ptr<Field>& other) const {
+  return Equals(*other.get());
 }
 
 std::string Field::ToString() const {
@@ -304,12 +306,12 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
   // check metadata equality
   if (!check_metadata) {
     return true;
-  } else if (metadata_ == nullptr && other.metadata_ == nullptr) {
-    return true;
-  } else if ((metadata_ == nullptr) ^ (other.metadata_ == nullptr)) {
-    return false;
-  } else {
+  } else if (this->HasMetadata() && other.HasMetadata()) {
     return metadata_->Equals(*other.metadata_);
+  } else if (!this->HasMetadata() && !other.HasMetadata()) {
+    return true;
+  } else {
+    return false;
   }
 }
 
@@ -342,6 +344,10 @@ Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
   *out =
       std::make_shared<Schema>(internal::AddVectorElement(fields_, i, field), metadata_);
   return Status::OK();
+}
+
+bool Schema::HasMetadata() const {
+  return (metadata_ != nullptr) && (metadata_->size() > 0);
 }
 
 std::shared_ptr<Schema> Schema::AddMetadata(

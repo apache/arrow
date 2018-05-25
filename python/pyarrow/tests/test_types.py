@@ -310,8 +310,6 @@ def test_field_equals():
     assert not f1.equals(f6)
     assert not f4.equals(f5)
     assert not f7.equals(f8)
-    assert f1.equals(f6, check_metadata=False)
-    assert f7.equals(f8, check_metadata=False)
 
 
 def test_field_equality_operators():

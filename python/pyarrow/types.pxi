@@ -400,7 +400,7 @@ cdef class Field:
         self.field = field.get()
         self.type = pyarrow_wrap_data_type(field.get().type())
 
-    def equals(self, Field other, bint check_metadata=True):
+    def equals(self, Field other):
         """
         Test if this field is equal to the other
 
@@ -414,7 +414,7 @@ cdef class Field:
         -------
         is_equal : boolean
         """
-        return self.field.Equals(deref(other.field), check_metadata)
+        return self.field.Equals(deref(other.field))
 
     def __eq__(self, other):
         try:

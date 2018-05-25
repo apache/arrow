@@ -55,7 +55,6 @@ TEST(TestField, Equals) {
 
   ASSERT_TRUE(f0.Equals(f0_other));
   ASSERT_FALSE(f0.Equals(f0_nn));
-  ASSERT_TRUE(f0.Equals(f0_with_meta, false));
   ASSERT_FALSE(f0.Equals(f0_with_meta));
 }
 
