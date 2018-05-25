@@ -24,7 +24,7 @@ environment:
       CONDA_PY: 36
       CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
   ARROW_SRC: C:\apache-arrow
-  ARROW_VERSION: "{{ ARROW_VERSION }}"
+  ARROW_VERSION: {{ ARROW_VERSION }}
 
 install:
     - cmd: rmdir C:\cygwin /s /q

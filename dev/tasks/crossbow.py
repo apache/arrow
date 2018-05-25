@@ -30,6 +30,7 @@ from pathlib import Path
 from textwrap import dedent
 from jinja2 import Template
 from setuptools_scm import get_version
+from setuptools_scm.version import simplified_semver_version, meta
 
 
 logging.basicConfig(
@@ -124,6 +125,7 @@ class Target(object):
     @property
     def version(self):
         """Generate version number based on version control history"""
+        # TODO(kszucs) use self.repo.describe() instead
         return get_version(self.path)
 
     @property

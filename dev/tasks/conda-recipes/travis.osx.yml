@@ -21,7 +21,8 @@ os: osx
 osx_image: xcode6.4
 
 env:
-  - ARROW_VERSION={{ ARROW_VERSION }}
+  - global:
+    - ARROW_VERSION={{ ARROW_VERSION }}
   - matrix:
     - CONDA_PY=27
     - CONDA_PY=35
