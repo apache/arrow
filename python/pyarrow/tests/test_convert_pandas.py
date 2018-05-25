@@ -80,7 +80,7 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
 
     if expected is None:
         expected = df
-        
+
     tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
                           check_index_type=('equiv' if preserve_index
                                             else False))
