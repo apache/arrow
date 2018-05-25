@@ -19,7 +19,6 @@ import decimal
 import json
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
-from distutils.version import LooseVersion
 
 import numpy as np
 import numpy.testing as npt
@@ -811,14 +810,12 @@ class TestConvertDateTimeLikeTypes(object):
         })
         tm.assert_frame_equal(expected_df, result)
 
-    @pytest.mark.xfail(
-        LooseVersion(pd.__version__) >= "0.23.0",
-        reason="https://github.com/pandas-dev/pandas/issues/21142",
-    )
     def test_python_datetime_subclass(self):
 
         class MyDatetime(datetime):
             pass
+            # see https://github.com/pandas-dev/pandas/issues/21142
+            nanosecond = 0.0
 
         date_array = [MyDatetime(2000, 1, 1, 1, 1, 1)]
         df = pd.DataFrame({"datetime": pd.Series(date_array, dtype=object)})
@@ -828,7 +825,8 @@ class TestConvertDateTimeLikeTypes(object):
 
         result = table.to_pandas()
         expected_df = pd.DataFrame({"datetime": date_array})
-
+        # https://github.com/pandas-dev/pandas/issues/21142
+        expected_df["datetime"] = pd.to_datetime(expected_df["datetime"])
         tm.assert_frame_equal(expected_df, result)
 
     def test_python_date_subclass(self):
