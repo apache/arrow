@@ -406,9 +406,9 @@ def test_get_record_batch_size():
     assert pa.get_record_batch_size(batch) > (N * itemsize)
 
 
-def _check_serialize_pandas_round_trip(df, nthreads=1):
-    buf = pa.serialize_pandas(df, nthreads=nthreads)
-    result = pa.deserialize_pandas(buf, nthreads=nthreads)
+def _check_serialize_pandas_round_trip(df, use_threads=False):
+    buf = pa.serialize_pandas(df, nthreads=2 if use_threads else 1)
+    result = pa.deserialize_pandas(buf, use_threads=use_threads)
     assert_frame_equal(result, df)
 
 
@@ -429,7 +429,7 @@ def test_pandas_serialize_round_trip_nthreads():
         {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
         index=index, columns=columns
     )
-    _check_serialize_pandas_round_trip(df, nthreads=2)
+    _check_serialize_pandas_round_trip(df, use_threads=True)
 
 
 def test_pandas_serialize_round_trip_multi_index():

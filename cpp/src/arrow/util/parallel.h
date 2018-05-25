@@ -24,8 +24,31 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/thread-pool.h"
 
 namespace arrow {
+
+// A parallelizer that takes a `Status(int)` function and calls it with
+// arguments between 0 and `num_tasks - 1`, on an arbitrary number of threads.
+
+template <class FUNCTION>
+Status ParallelFor(int num_tasks, FUNCTION&& func) {
+  auto pool = internal::GetCpuThreadPool();
+  std::vector<std::future<Status>> futures(num_tasks);
+
+  for (int i = 0; i < num_tasks; ++i) {
+    futures[i] = pool->Submit(func, i);
+  }
+  auto st = Status::OK();
+  for (auto& fut : futures) {
+    st &= fut.get();
+  }
+  return st;
+}
+
+// A variant of ParallelFor() with an explicit number of dedicated threads.
+// In most cases it's more appropriate to use the 2-argument ParallelFor (above),
+// or directly the global CPU thread pool (arrow/util/thread-pool.h).
 
 template <class FUNCTION>
 Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {

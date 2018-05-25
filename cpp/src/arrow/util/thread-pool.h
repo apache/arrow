@@ -36,9 +36,14 @@
 
 namespace arrow {
 
+// Get the number of worker threads used by the process-global thread pool
+// for CPU-bound tasks.  This is an idealized number, the actual number
+// may lag a bit.
+ARROW_EXPORT int GetCpuThreadPoolCapacity();
+
 // Set the number of worker threads used by the process-global thread pool
 // for CPU-bound tasks.
-ARROW_EXPORT Status SetCPUThreadPoolCapacity(size_t threads);
+ARROW_EXPORT Status SetCpuThreadPoolCapacity(int threads);
 
 namespace internal {
 
@@ -59,22 +64,27 @@ struct packaged_task_wrapper {
 
 }  // namespace detail
 
-class ThreadPool {
+class ARROW_EXPORT ThreadPool {
  public:
   // Construct a thread pool with the given number of worker threads
-  static Status Make(size_t threads, std::shared_ptr<ThreadPool>* out);
+  static Status Make(int threads, std::shared_ptr<ThreadPool>* out);
 
   // Destroy thread pool; the pool will first be shut down
   ~ThreadPool();
 
+  // Return the desired number of worker threads.
+  // The actual number of workers may lag a bit before being adjusted to
+  // match this value.
+  int GetCapacity();
+
   // Dynamically change the number of worker threads.
   // This function returns quickly, but it may take more time before the
   // thread count is fully adjusted.
-  Status SetCapacity(size_t threads);
+  Status SetCapacity(int threads);
 
   // Heuristic for the default capacity of a thread pool for CPU-bound tasks.
   // This is exposed as a static method to help with testing.
-  static size_t DefaultCapacity();
+  static int DefaultCapacity();
 
   // Shutdown the pool.  Once the pool starts shutting down, new tasks
   // cannot be submitted anymore.
@@ -106,6 +116,7 @@ class ThreadPool {
 
     Status st = SpawnReal(detail::packaged_task_wrapper<Result>(std::move(task)));
     if (!st.ok()) {
+      // This happens when Submit() is called after Shutdown()
       throw std::runtime_error(st.ToString());
     }
     return fut;
@@ -114,6 +125,9 @@ class ThreadPool {
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
+  friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
+
+  struct State;
 
   ThreadPool();
 
@@ -123,28 +137,24 @@ class ThreadPool {
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();
   // Launch a given number of additional workers
-  void LaunchWorkersUnlocked(size_t threads);
-  void WorkerLoop(std::list<std::thread>::iterator it);
-  size_t GetCapacity();
+  void LaunchWorkersUnlocked(int threads);
+  // Get the current actual capacity
+  int GetActualCapacity();
 
-  std::mutex mutex_;
-  std::condition_variable cv_;
-  std::condition_variable cv_shutdown_;
+  // The worker loop is a static method so that it can keep running
+  // after the ThreadPool is destroyed
+  static void WorkerLoop(std::shared_ptr<State> state,
+                         std::list<std::thread>::iterator it);
 
-  std::list<std::thread> workers_;
-  // Trashcan for finished threads
-  std::vector<std::thread> finished_workers_;
-  std::deque<std::function<void()>> pending_tasks_;
+  static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
-  // Desired number of threads
-  size_t desired_capacity_;
-  // Are we shutting down?
-  bool please_shutdown_;
-  bool quick_shutdown_;
+  const std::shared_ptr<State> sp_state_;
+  State* const state_;
+  bool shutdown_on_destroy_;
 };
 
 // Return the process-global thread pool for CPU-bound tasks.
-ThreadPool* CPUThreadPool();
+ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
 }  // namespace internal
 }  // namespace arrow

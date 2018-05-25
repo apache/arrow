@@ -1370,14 +1370,14 @@ class DataFrameBlockCreator {
                                  const std::shared_ptr<Table>& table, MemoryPool* pool)
       : table_(table), options_(options), pool_(pool) {}
 
-  Status Convert(int nthreads, PyObject** output) {
+  Status Convert(PyObject** output) {
     column_types_.resize(table_->num_columns());
     column_block_placement_.resize(table_->num_columns());
     type_counts_.clear();
     blocks_.clear();
 
     RETURN_NOT_OK(CreateBlocks());
-    RETURN_NOT_OK(WriteTableToBlocks(nthreads));
+    RETURN_NOT_OK(WriteTableToBlocks());
 
     return GetResultList(output);
   }
@@ -1450,23 +1450,21 @@ class DataFrameBlockCreator {
     return Status::OK();
   }
 
-  Status WriteTableToBlocks(int nthreads) {
+  Status WriteTableToBlocks() {
     auto WriteColumn = [this](int i) {
       std::shared_ptr<PandasBlock> block;
       RETURN_NOT_OK(this->GetBlock(i, &block));
       return block->Write(this->table_->column(i), i, this->column_block_placement_[i]);
     };
 
-    int num_tasks = table_->num_columns();
-    nthreads = std::min<int>(nthreads, num_tasks);
-    if (nthreads == 1) {
-      for (int i = 0; i < num_tasks; ++i) {
+    if (options_.use_threads) {
+      return ParallelFor(table_->num_columns(), WriteColumn);
+    } else {
+      for (int i = 0; i < table_->num_columns(); ++i) {
         RETURN_NOT_OK(WriteColumn(i));
       }
-    } else {
-      RETURN_NOT_OK(ParallelFor(nthreads, num_tasks, WriteColumn));
+      return Status::OK();
     }
-    return Status::OK();
   }
 
   Status AppendBlocks(const BlockMap& blocks, PyObject* list) {
@@ -1866,15 +1864,15 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 }
 
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
-                            int nthreads, MemoryPool* pool, PyObject** out) {
-  return ConvertTableToPandas(options, std::unordered_set<std::string>(), table, nthreads,
-                              pool, out);
+                            MemoryPool* pool, PyObject** out) {
+  return ConvertTableToPandas(options, std::unordered_set<std::string>(), table, pool,
+                              out);
 }
 
 Status ConvertTableToPandas(PandasOptions options,
                             const std::unordered_set<std::string>& categorical_columns,
-                            const std::shared_ptr<Table>& table, int nthreads,
-                            MemoryPool* pool, PyObject** out) {
+                            const std::shared_ptr<Table>& table, MemoryPool* pool,
+                            PyObject** out) {
   std::shared_ptr<Table> current_table = table;
   if (!categorical_columns.empty()) {
     FunctionContext ctx;
@@ -1894,7 +1892,7 @@ Status ConvertTableToPandas(PandasOptions options,
   }
 
   DataFrameBlockCreator helper(options, current_table, pool);
-  return helper.Convert(nthreads, out);
+  return helper.Convert(out);
 }
 
 }  // namespace py
