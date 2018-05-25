@@ -129,6 +129,8 @@ matrix:
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk8
     env:
+    - ARROW_TRAVIS_PLASMA=1
+    - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
     - CC="clang-6.0"
     - CXX="clang++-6.0"
     before_script:
@@ -140,6 +142,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
   # NodeJS
   - language: node_js
     os: linux

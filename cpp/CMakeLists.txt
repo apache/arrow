@@ -199,6 +199,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the plasma object store along with Arrow"
     OFF)
 
+  option(ARROW_PLASMA_JAVA_CLIENT
+    "Build the plasma object store java client"
+    OFF)
+
   option(ARROW_USE_SSE
     "Build with SSE4 optimizations"
     OFF)
