@@ -112,6 +112,7 @@ public class EchoServerTest {
         writer.writeBatch();
       }
       writer.end();
+      assertTrue(writer.getRecordBlocks().isEmpty());
 
       assertEquals(new Schema(asList(field)), reader.getVectorSchemaRoot().getSchema());
 

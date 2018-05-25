@@ -57,6 +57,8 @@ public class ArrowStreamWriter extends ArrowWriter {
 
   @Override
   protected void writeRecordBatch(ArrowRecordBatch batch) throws IOException {
-    MessageSerializer.serialize(out, batch);
+    ArrowBlock block = MessageSerializer.serialize(out, batch);
+    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
+        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
   }
 }
