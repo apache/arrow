@@ -53,6 +53,31 @@ MANY_TYPES = [
 ]
 
 
+@pytest.mark.parametrize('klass', [
+    pa.Field,
+    pa.Schema
+])
+def test_constructor_errors(klass):
+    msg = ("Do not call {cls}'s constructor directly, use `pyarrow.{func}` "
+           "instead.".format(cls=klass.__name__, func=klass.__name__.lower()))
+
+    with pytest.raises(RuntimeError, match=msg):
+        klass()
+
+
+@pytest.mark.parametrize('klass', [
+    pa.DataType,
+    pa.TimestampType,
+    # others are not part of the public API
+])
+def test_type_constructor_errors(klass):
+    expected = ("Do not call {}'s constructor directly, use public "
+                "functions like pyarrow.int64, pyarrow.list_, etc. "
+                "instead.".format(klass.__name__))
+    with pytest.raises(RuntimeError, match=expected):
+        klass()
+
+
 def test_is_boolean():
     assert types.is_boolean(pa.bool_())
     assert not types.is_boolean(pa.int8())
@@ -209,10 +234,10 @@ def test_types_hashable():
         assert in_dict[type_] == i
 
 
-def test_types_picklable():
-    for ty in MANY_TYPES:
-        data = pickle.dumps(ty)
-        assert pickle.loads(data) == ty
+@pytest.mark.parametrize('ty', MANY_TYPES, ids=str)
+def test_types_picklable(ty):
+    data = pickle.dumps(ty)
+    assert pickle.loads(data) == ty
 
 
 def test_dictionary_type():

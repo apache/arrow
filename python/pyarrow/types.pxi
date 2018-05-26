@@ -92,6 +92,11 @@ cdef class DataType:
     def __cinit__(self):
         pass
 
+    def __init__(self):
+        raise RuntimeError("Do not call {}'s constructor directly, use public "
+                           "functions like pyarrow.int64, pyarrow.list_, etc. "
+                           "instead.".format(self.__class__.__name__))
+
     cdef void init(self, const shared_ptr[CDataType]& type):
         self.sp_type = type
         self.type = type.get()
@@ -395,6 +400,10 @@ cdef class Field:
     def __cinit__(self):
         pass
 
+    def __init__(self):
+        raise RuntimeError("Do not call Field's constructor directly, use "
+                           "`pyarrow.field` instead.")
+
     cdef void init(self, const shared_ptr[CField]& field):
         self.sp_field = field
         self.field = field.get()
@@ -521,6 +530,10 @@ cdef class Schema:
 
     def __cinit__(self):
         pass
+
+    def __init__(self):
+        raise RuntimeError("Do not call Schema's constructor directly, use "
+                           "`pyarrow.schema` instead.")
 
     def __len__(self):
         return self.schema.num_fields()
@@ -769,7 +782,7 @@ cdef DataType primitive_type(Type type):
     if type in _type_cache:
         return _type_cache[type]
 
-    cdef DataType out = DataType()
+    cdef DataType out = DataType.__new__(DataType)
     out.init(GetPrimitiveType(type))
 
     _type_cache[type] = out
@@ -811,7 +824,7 @@ def field(name, type, bint nullable=True, dict metadata=None):
     """
     cdef:
         shared_ptr[CKeyValueMetadata] c_meta
-        Field result = Field()
+        Field result = Field.__new__(Field)
         DataType _type
 
     if metadata is not None:
@@ -1028,7 +1041,7 @@ def timestamp(unit, tz=None):
     else:
         raise ValueError('Invalid TimeUnit string')
 
-    cdef TimestampType out = TimestampType()
+    cdef TimestampType out = TimestampType.__new__(TimestampType)
 
     if tz is None:
         out.init(ctimestamp(unit_code))
@@ -1072,14 +1085,15 @@ def time32(unit):
     else:
         raise ValueError('Invalid TimeUnit for time32: {}'.format(unit))
 
-    cdef Time32Type out
     if unit_code in _time_type_cache:
         return _time_type_cache[unit_code]
-    else:
-        out = Time32Type()
-        out.init(ctime32(unit_code))
-        _time_type_cache[unit_code] = out
-        return out
+
+    cdef Time32Type out = Time32Type.__new__(Time32Type)
+
+    out.init(ctime32(unit_code))
+    _time_type_cache[unit_code] = out
+
+    return out
 
 
 def time64(unit):
@@ -1109,14 +1123,15 @@ def time64(unit):
     else:
         raise ValueError('Invalid TimeUnit for time64: {}'.format(unit))
 
-    cdef Time64Type out
     if unit_code in _time_type_cache:
         return _time_type_cache[unit_code]
-    else:
-        out = Time64Type()
-        out.init(ctime64(unit_code))
-        _time_type_cache[unit_code] = out
-        return out
+
+    cdef Time64Type out = Time64Type.__new__(Time64Type)
+
+    out.init(ctime64(unit_code))
+    _time_type_cache[unit_code] = out
+
+    return out
 
 
 def date32():
@@ -1214,7 +1229,7 @@ cpdef ListType list_(value_type):
         DataType data_type
         Field field
         shared_ptr[CDataType] list_type
-        ListType out = ListType()
+        ListType out = ListType.__new__(ListType)
 
     if isinstance(value_type, DataType):
         list_type.reset(new CListType((<DataType> value_type).sp_type))
@@ -1241,7 +1256,7 @@ cpdef DictionaryType dictionary(DataType index_type, Array dict_values,
     -------
     type : DictionaryType
     """
-    cdef DictionaryType out = DictionaryType()
+    cdef DictionaryType out = DictionaryType.__new__(DictionaryType)
     cdef shared_ptr[CDataType] dict_type
     dict_type.reset(new CDictionaryType(index_type.sp_type,
                                         dict_values.sp_array,
@@ -1425,7 +1440,7 @@ def schema(fields, dict metadata=None):
         convert_metadata(metadata, &c_meta)
 
     c_schema.reset(new CSchema(c_fields, c_meta))
-    result = Schema()
+    result = Schema.__new__(Schema)
     result.init_schema(c_schema)
     return result
 

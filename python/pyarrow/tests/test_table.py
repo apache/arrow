@@ -29,9 +29,10 @@ import pyarrow as pa
     pa.Table
 ])
 def test_constructor_errors(klass):
-    expected = ("Do not call {}'s constructor directly, use one of the "
-                "`from_\*` methods instead.".format(klass.__name__))
-    with pytest.raises(RuntimeError, match=expected):
+    msg = ("Do not call {cls}'s constructor directly, use one of the "
+           "`{cls}.from_\*` functions instead.".format(cls=klass.__name__))
+
+    with pytest.raises(RuntimeError, match=msg):
         klass()
 
 

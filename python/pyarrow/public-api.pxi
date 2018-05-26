@@ -72,21 +72,21 @@ cdef public api object pyarrow_wrap_data_type(
         return None
 
     if type.get().id() == _Type_DICTIONARY:
-        out = DictionaryType()
+        out = DictionaryType.__new__(DictionaryType)
     elif type.get().id() == _Type_LIST:
-        out = ListType()
+        out = ListType.__new__(ListType)
     elif type.get().id() == _Type_STRUCT:
-        out = StructType()
+        out = StructType.__new__(StructType)
     elif type.get().id() == _Type_UNION:
-        out = UnionType()
+        out = UnionType.__new__(UnionType)
     elif type.get().id() == _Type_TIMESTAMP:
-        out = TimestampType()
+        out = TimestampType.__new__(TimestampType)
     elif type.get().id() == _Type_FIXED_SIZE_BINARY:
-        out = FixedSizeBinaryType()
+        out = FixedSizeBinaryType.__new__(FixedSizeBinaryType)
     elif type.get().id() == _Type_DECIMAL:
-        out = Decimal128Type()
+        out = Decimal128Type.__new__(Decimal128Type)
     else:
-        out = DataType()
+        out = DataType.__new__(DataType)
 
     out.init(type)
     return out
@@ -108,7 +108,7 @@ cdef public api shared_ptr[CField] pyarrow_unwrap_field(object field):
 cdef public api object pyarrow_wrap_field(const shared_ptr[CField]& field):
     if field.get() == NULL:
         return None
-    cdef Field out = Field()
+    cdef Field out = Field.__new__(Field)
     out.init(field)
     return out
 
@@ -127,7 +127,7 @@ cdef public api shared_ptr[CSchema] pyarrow_unwrap_schema(object schema):
 
 
 cdef public api object pyarrow_wrap_schema(const shared_ptr[CSchema]& type):
-    cdef Schema out = Schema()
+    cdef Schema out = Schema.__new__(Schema)
     out.init_schema(type)
     return out
 

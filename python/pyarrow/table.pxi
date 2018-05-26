@@ -567,7 +567,8 @@ cdef class RecordBatch:
 
     def __init__(self):
         raise RuntimeError("Do not call RecordBatch's constructor directly, "
-                           "use one of the `from_*` methods instead.")
+                           "use one of the `RecordBatch.from_*` methods "
+                           "instead.")
 
     cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
@@ -869,7 +870,7 @@ cdef class Table:
 
     def __init__(self):
         raise RuntimeError("Do not call Table's constructor directly, "
-                           "use one of the `from_*` methods instead.")
+                           "use one of the `Table.from_*` functions instead.")
 
     def __repr__(self):
         return 'pyarrow.{}\n{}'.format(type(self).__name__, str(self.schema))
