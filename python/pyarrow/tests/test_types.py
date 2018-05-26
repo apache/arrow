@@ -61,7 +61,7 @@ def test_constructor_errors(klass):
     msg = ("Do not call {cls}'s constructor directly, use `pyarrow.{func}` "
            "instead.".format(cls=klass.__name__, func=klass.__name__.lower()))
 
-    with pytest.raises(RuntimeError, match=msg):
+    with pytest.raises(TypeError, match=msg):
         klass()
 
 
@@ -74,7 +74,7 @@ def test_type_constructor_errors(klass):
     expected = ("Do not call {}'s constructor directly, use public "
                 "functions like pyarrow.int64, pyarrow.list_, etc. "
                 "instead.".format(klass.__name__))
-    with pytest.raises(RuntimeError, match=expected):
+    with pytest.raises(TypeError, match=expected):
         klass()
 
 

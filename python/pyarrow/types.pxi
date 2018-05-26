@@ -93,9 +93,9 @@ cdef class DataType:
         pass
 
     def __init__(self):
-        raise RuntimeError("Do not call {}'s constructor directly, use public "
-                           "functions like pyarrow.int64, pyarrow.list_, etc. "
-                           "instead.".format(self.__class__.__name__))
+        raise TypeError("Do not call {}'s constructor directly, use public "
+                        "functions like pyarrow.int64, pyarrow.list_, etc. "
+                        "instead.".format(self.__class__.__name__))
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         self.sp_type = type
@@ -401,8 +401,8 @@ cdef class Field:
         pass
 
     def __init__(self):
-        raise RuntimeError("Do not call Field's constructor directly, use "
-                           "`pyarrow.field` instead.")
+        raise TypeError("Do not call Field's constructor directly, use "
+                        "`pyarrow.field` instead.")
 
     cdef void init(self, const shared_ptr[CField]& field):
         self.sp_field = field
@@ -532,8 +532,8 @@ cdef class Schema:
         pass
 
     def __init__(self):
-        raise RuntimeError("Do not call Schema's constructor directly, use "
-                           "`pyarrow.schema` instead.")
+        raise TypeError("Do not call Schema's constructor directly, use "
+                        "`pyarrow.schema` instead.")
 
     def __len__(self):
         return self.schema.num_fields()

@@ -24,10 +24,10 @@ import pyarrow as pa
 
 
 def test_schema_constructor_errors():
-    with pytest.raises(ReferenceError):
-        repr(pa.Schema())
-    with pytest.raises(ReferenceError):
-        str(pa.Schema())
+    msg = ("Do not call Schema's constructor directly, use `pyarrow.schema` "
+           "instead")
+    with pytest.raises(TypeError, match=msg):
+        pa.Schema()
 
 
 def test_type_integers():

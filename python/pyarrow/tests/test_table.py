@@ -32,7 +32,7 @@ def test_constructor_errors(klass):
     msg = ("Do not call {cls}'s constructor directly, use one of the "
            "`{cls}.from_\*` functions instead.".format(cls=klass.__name__))
 
-    with pytest.raises(RuntimeError, match=msg):
+    with pytest.raises(TypeError, match=msg):
         klass()
 
 
