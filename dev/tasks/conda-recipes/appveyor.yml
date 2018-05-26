@@ -48,7 +48,7 @@ test_script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} %ARROW_SRC% || exit /B
   - git checkout {{ ARROW_SHA }} || exit /B
   - pushd %ARROW_SRC%\dev\tasks\conda-recipes
-  - conda.exe build arrow-cpp pyarrow
+  - conda.exe build parquet-cpp arrow-cpp pyarrow
 
 
 notifications:
