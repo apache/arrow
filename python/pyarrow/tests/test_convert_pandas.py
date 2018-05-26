@@ -1986,8 +1986,9 @@ class TestConvertMisc(object):
         assert arr.to_pylist() == [-1, 2]
 
     def test_mixed_integer_columns(self):
-        df = pd.DataFrame({'foo': [], 123: []})
-        expected_df = pd.DataFrame({'foo': [], '123': []})
+        row = [[], []]
+        df = pd.DataFrame(data=[row], columns=['foo', 123])
+        expected_df = pd.DataFrame(data=[row], columns=['foo', '123'])
         _check_pandas_roundtrip(df, expected=expected_df, preserve_index=True)
 
 
