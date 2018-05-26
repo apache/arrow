@@ -1818,7 +1818,7 @@ class TestConvertMisc(object):
         (np.object, pa.binary()),
         (np.object, pa.binary(10)),
         (np.object, pa.list_(pa.int64())),
-        ]
+    ]
 
     def test_all_none_objects(self):
         df = pd.DataFrame({'a': [None, None, None]})
@@ -1984,6 +1984,12 @@ class TestConvertMisc(object):
         assert arr.to_pylist() == [42, -43]
         arr = pa.array(data['y'], type=pa.int16())
         assert arr.to_pylist() == [-1, 2]
+
+    def test_mixed_integer_columns(self):
+        row = [[], []]
+        df = pd.DataFrame(data=[row], columns=['foo', 123])
+        expected_df = pd.DataFrame(data=[row], columns=['foo', '123'])
+        _check_pandas_roundtrip(df, expected=expected_df, preserve_index=True)
 
 
 def _fully_loaded_dataframe_example():

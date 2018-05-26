@@ -648,6 +648,7 @@ _pandas_logical_type_map = {
     'string': np.str_,
     'empty': np.object_,
     'mixed': np.object_,
+    'mixed-integer': np.object_
 }
 
 
