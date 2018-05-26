@@ -66,9 +66,16 @@ def test_constructor_errors(klass):
 
 
 @pytest.mark.parametrize('klass', [
-    pa.DataType,
-    pa.TimestampType,
-    # others are not part of the public API
+    pa.lib.DataType,
+    pa.lib.ListType,
+    pa.lib.UnionType,
+    pa.lib.StructType,
+    pa.lib.Time32Type,
+    pa.lib.Time64Type,
+    pa.lib.TimestampType,
+    pa.lib.Decimal128Type,
+    pa.lib.DictionaryType,
+    pa.lib.FixedSizeBinaryType
 ])
 def test_type_constructor_errors(klass):
     expected = ("Do not call {}'s constructor directly, use public "

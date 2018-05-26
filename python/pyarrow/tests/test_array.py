@@ -581,12 +581,6 @@ def test_cast_date64_to_int():
     assert result.equals(expected)
 
 
-def test_simple_type_construction():
-    result = pa.lib.TimestampType()
-    with pytest.raises(TypeError):
-        str(result)
-
-
 @pytest.mark.parametrize(
     ('data', 'typ'),
     [
