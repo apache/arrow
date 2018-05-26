@@ -1,0 +1,63 @@
+{% set version = "1.4.0" %}
+{% set commit = "b62c22e52d37fa9580d85c5a2a2d73bd8e268364" %}
+{% set sha256sum = "2fa5704fc1164f68508e3050d30a6436dd56434e1a592d8ddf4afd68f62a7c01" %}
+
+# NOTE(wesm): When updating the build, please remember also to update the
+# pinned Arrow version. We are letting parquet-cpp build its own Apache Arrow
+# so that we do not have to update conda-packages for Arrow before we can
+# update this package. So if there is an ABI change in Arrow, we can update
+# this package faster
+
+package:
+  name: parquet-cpp
+  version: {{ version }}
+
+source:
+  fn: apache-parquet-cpp-{{ version }}.tar.gz
+  url: https://github.com/apache/parquet-cpp/archive/{{ commit }}.tar.gz
+  sha256: {{ sha256sum }}
+
+build:
+  number: 0
+  skip: true  # [win and not (py35 and win64)]
+  features:
+    - vc14  # [win and py35]
+
+requirements:
+  build:
+    - toolchain
+    - boost-cpp 1.66.0
+    - cmake
+    - thrift-cpp >=0.11
+    - python            # [win]
+    - arrow-cpp {{ ARROW_VERSION }}
+
+  run:
+    - arrow-cpp {{ ARROW_VERSION }}
+
+test:
+  requires:
+    - python {{ environ['PY_VER'] + '*' }}  # [win]
+
+  commands:
+    - test -f $PREFIX/lib/libparquet.so                                       # [linux]
+    - test -f $PREFIX/lib/libparquet.dylib                                    # [osx]
+    - test -f $PREFIX/include/parquet/api/reader.h                            # [unix]
+    - if not exist %PREFIX%\\Library\\include\\parquet\\api\\reader.h exit 1  # [win]
+    - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1                 # [win]
+    - if not exist %PREFIX%\\Library\\lib\\parquet.lib exit 1                 # [win]
+    - if not exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1          # [win]
+
+about:
+  home: http://github.com/apache/parquet-cpp
+  license: Apache 2.0
+  summary: 'C++ libraries for the Apache Parquet file format'
+
+extra:
+  recipe-maintainers:
+    - wesm
+    - xhochy
+    - leifwalsh
+    - jreback
+    - cpcloud
+    - siddharthteotia
