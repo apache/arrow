@@ -66,8 +66,7 @@ cdef public api shared_ptr[CDataType] pyarrow_unwrap_data_type(
 
 cdef public api object pyarrow_wrap_data_type(
         const shared_ptr[CDataType]& type):
-    cdef:
-        DataType out
+    cdef DataType out
 
     if type.get() == NULL:
         return None
@@ -231,7 +230,7 @@ cdef public api shared_ptr[CTable] pyarrow_unwrap_table(object table):
 
 
 cdef public api object pyarrow_wrap_table(const shared_ptr[CTable]& ctable):
-    cdef Table table = Table()
+    cdef Table table = Table.__new__(Table)
     table.init(ctable)
     return table
 
@@ -251,6 +250,6 @@ cdef public api shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch):
 
 cdef public api object pyarrow_wrap_batch(
         const shared_ptr[CRecordBatch]& cbatch):
-    cdef RecordBatch batch = RecordBatch()
+    cdef RecordBatch batch = RecordBatch.__new__(RecordBatch)
     batch.init(cbatch)
     return batch

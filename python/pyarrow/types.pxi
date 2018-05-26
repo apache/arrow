@@ -622,7 +622,6 @@ cdef class Schema:
 
         Parameters
         ----------
-
         field: Field
 
         Returns

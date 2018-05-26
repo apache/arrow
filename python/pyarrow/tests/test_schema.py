@@ -23,6 +23,13 @@ import numpy as np
 import pyarrow as pa
 
 
+def test_schema_constructor_errors():
+    with pytest.raises(ReferenceError):
+        repr(pa.Schema())
+    with pytest.raises(ReferenceError):
+        str(pa.Schema())
+
+
 def test_type_integers():
     dtypes = ['int8', 'int16', 'int32', 'int64',
               'uint8', 'uint16', 'uint32', 'uint64']

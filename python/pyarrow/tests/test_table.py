@@ -24,6 +24,17 @@ import pytest
 import pyarrow as pa
 
 
+@pytest.mark.parametrize('klass', [
+    pa.RecordBatch,
+    pa.Table
+])
+def test_constructor_errors(klass):
+    expected = ("Do not call {}'s constructor directly, use one of the "
+                "`from_\*` methods instead.".format(klass.__name__))
+    with pytest.raises(RuntimeError, match=expected):
+        klass()
+
+
 def test_chunked_array_getitem():
     data = [
         pa.array([1, 2, 3]),
@@ -471,17 +482,3 @@ def test_table_negative_indexing():
 
     with pytest.raises(IndexError):
         table[4]
-
-
-def test_table_ctor_errors():
-    with pytest.raises(ReferenceError):
-        repr(pa.Table())
-    with pytest.raises(ReferenceError):
-        str(pa.Table())
-
-
-def test_schema_ctor_errors():
-    with pytest.raises(ReferenceError):
-        repr(pa.Schema())
-    with pytest.raises(ReferenceError):
-        str(pa.Schema())
