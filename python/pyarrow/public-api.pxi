@@ -126,9 +126,9 @@ cdef public api shared_ptr[CSchema] pyarrow_unwrap_schema(object schema):
     return shared_ptr[CSchema]()
 
 
-cdef public api object pyarrow_wrap_schema(const shared_ptr[CSchema]& type):
+cdef public api object pyarrow_wrap_schema(const shared_ptr[CSchema]& schema):
     cdef Schema out = Schema.__new__(Schema)
-    out.init_schema(type)
+    out.init_schema(schema)
     return out
 
 

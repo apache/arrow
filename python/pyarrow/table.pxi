@@ -557,8 +557,8 @@ cdef class RecordBatch:
 
     Warning
     -------
-    Do not call this class's constructor directly, use one of the ``from_*``
-    methods instead.
+    Do not call this class's constructor directly, use one of the
+    ``RecordBatch.from_*`` functions instead.
     """
 
     def __cinit__(self):
@@ -567,7 +567,7 @@ cdef class RecordBatch:
 
     def __init__(self):
         raise TypeError("Do not call RecordBatch's constructor directly, use "
-                        "one of the `RecordBatch.from_*` methods instead.")
+                        "one of the `RecordBatch.from_*` functions instead.")
 
     cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
@@ -645,12 +645,10 @@ cdef class RecordBatch:
         -------
         pyarrow.Schema
         """
-        cdef Schema schema
         self._check_nullptr()
+
         if self._schema is None:
-            schema = Schema.__new__(Schema)
-            schema.init_schema(self.batch.schema())
-            self._schema = schema
+            self._schema = pyarrow_wrap_schema(self.batch.schema())
 
         return self._schema
 

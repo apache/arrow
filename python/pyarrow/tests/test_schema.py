@@ -233,12 +233,6 @@ baz: list<item: int8>
   child 0, item: int8"""
 
 
-def test_field_empty():
-    f = pa.Field()
-    with pytest.raises(ReferenceError):
-        repr(f)
-
-
 def test_field_add_remove_metadata():
     f0 = pa.field('foo', pa.int32())
 
