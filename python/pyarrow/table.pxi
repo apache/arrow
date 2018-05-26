@@ -648,7 +648,7 @@ cdef class RecordBatch:
         cdef Schema schema
         self._check_nullptr()
         if self._schema is None:
-            schema = Schema()
+            schema = Schema.__new__(Schema)
             schema.init_schema(self.batch.schema())
             self._schema = schema
 

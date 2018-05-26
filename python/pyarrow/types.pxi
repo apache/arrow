@@ -131,14 +131,7 @@ cdef class DataType:
         return hash(str(self))
 
     def __reduce__(self):
-        return self.__class__, (), self.__getstate__()
-
-    def __getstate__(self):
-        return str(self),
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = type_for_alias(state[0])
-        self.init(reconstituted.sp_type)
+        return type_for_alias, (str(self),)
 
     def __repr__(self):
         return '{0.__class__.__name__}({0})'.format(self)
@@ -211,14 +204,8 @@ cdef class ListType(DataType):
         DataType.init(self, type)
         self.list_type = <const CListType*> type.get()
 
-    def __getstate__(self):
-        cdef CField* field = self.list_type.value_field().get()
-        name = field.name()
-        return name, self.value_type
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = list_(field(state[0], state[1]))
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return list_, (self.value_type,)
 
     property value_type:
 
@@ -231,6 +218,13 @@ cdef class StructType(DataType):
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
 
+    def __len__(self):
+        return self.type.num_children()
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
     def __getitem__(self, i):
         cdef int index = <int> _normalize_index(i, self.num_children)
         return pyarrow_wrap_field(self.type.child(index))
@@ -240,13 +234,8 @@ cdef class StructType(DataType):
         def __get__(self):
             return self.type.num_children()
 
-    def __getstate__(self):
-        cdef CStructType* type = <CStructType*> self.sp_type.get()
-        return [self[i] for i in range(self.num_children)]
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = struct(state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return struct, (list(self),)
 
 
 cdef class UnionType(DataType):
@@ -270,17 +259,19 @@ cdef class UnionType(DataType):
                 return 'sparse'
             assert 0
 
+    def __len__(self):
+        return self.type.num_children()
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
     def __getitem__(self, i):
         cdef int index = <int> _normalize_index(i, self.num_children)
         return pyarrow_wrap_field(self.type.child(index))
 
-    def __getstate__(self):
-        children = [self[i] for i in range(self.num_children)]
-        return children, self.mode
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = union(*state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return union, (list(self), self.mode)
 
 
 cdef class TimestampType(DataType):
@@ -312,12 +303,8 @@ cdef class TimestampType(DataType):
             # Return DatetimeTZ
             return pdcompat.make_datetimetz(self.tz)
 
-    def __getstate__(self):
-        return self.unit, self.tz
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = timestamp(*state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return timestamp, (self.unit, self.tz)
 
 
 cdef class Time32Type(DataType):
@@ -351,12 +338,8 @@ cdef class FixedSizeBinaryType(DataType):
         self.fixed_size_binary_type = (
             <const CFixedSizeBinaryType*> type.get())
 
-    def __getstate__(self):
-        return self.byte_width
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = binary(state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return binary, (self.byte_width,)
 
     property byte_width:
 
@@ -370,12 +353,8 @@ cdef class Decimal128Type(FixedSizeBinaryType):
         FixedSizeBinaryType.init(self, type)
         self.decimal128_type = <const CDecimal128Type*> type.get()
 
-    def __getstate__(self):
-        return (self.precision, self.scale)
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = decimal128(*state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return decimal128, (self.precision, self.scale)
 
     property precision:
 
@@ -432,14 +411,7 @@ cdef class Field:
             return False
 
     def __reduce__(self):
-        return Field, (), self.__getstate__()
-
-    def __getstate__(self):
-        return (self.name, self.type, self.metadata)
-
-    def __setstate__(self, state):
-        cdef Field reconstituted = field(state[0], state[1], metadata=state[2])
-        self.init(reconstituted.sp_field)
+        return field, (self.name, self.type, self.nullable, self.metadata)
 
     def __str__(self):
         self._check_null()
@@ -560,14 +532,7 @@ cdef class Schema:
         self.sp_schema = schema
 
     def __reduce__(self):
-        return Schema, (), self.__getstate__()
-
-    def __getstate__(self):
-        return ([self[i] for i in range(len(self))], self.metadata)
-
-    def __setstate__(self, state):
-        cdef Schema reconstituted = schema(state[0], metadata=state[1])
-        self.init_schema(reconstituted.sp_schema)
+        return schema, (list(self), self.metadata)
 
     property names:
 
