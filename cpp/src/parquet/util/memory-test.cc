@@ -312,7 +312,7 @@ TEST(TestBufferedInputStream, Basics) {
   }
 }
 
-TEST(TestArrowInputFile, Basics) {
+TEST(TestArrowInputFile, ReadAt) {
   std::string data = "this is the data";
   auto data_buffer = reinterpret_cast<const uint8_t*>(data.c_str());
 
@@ -325,15 +325,37 @@ TEST(TestArrowInputFile, Basics) {
 
   ASSERT_NO_THROW(source->ReadAt(0, 4, buffer));
   ASSERT_EQ(0, std::memcmp(buffer, "this", 4));
-  ASSERT_EQ(4, source->Tell());
 
-  std::shared_ptr<Buffer> pq_buffer;
+  // Note: it's undefined (and possibly platform-dependent) whether ArrowInputFile
+  // updates the file position after ReadAt().
+}
+
+TEST(TestArrowInputFile, Read) {
+  std::string data = "this is the data";
+  auto data_buffer = reinterpret_cast<const uint8_t*>(data.c_str());
+
+  auto file = std::make_shared<::arrow::io::BufferReader>(data_buffer, data.size());
+  auto source = std::make_shared<ArrowInputFile>(file);
+
+  ASSERT_EQ(0, source->Tell());
+
+  std::shared_ptr<Buffer> pq_buffer, expected_buffer;
+
+  ASSERT_NO_THROW(pq_buffer = source->Read(4));
+  expected_buffer = std::make_shared<Buffer>(data_buffer, 4);
+  ASSERT_TRUE(expected_buffer->Equals(*pq_buffer.get()));
 
   ASSERT_NO_THROW(pq_buffer = source->Read(7));
-
-  auto expected_buffer = std::make_shared<Buffer>(data_buffer + 4, 7);
-
+  expected_buffer = std::make_shared<Buffer>(data_buffer + 4, 7);
   ASSERT_TRUE(expected_buffer->Equals(*pq_buffer.get()));
+
+  ASSERT_EQ(11, source->Tell());
+
+  ASSERT_NO_THROW(pq_buffer = source->Read(8));
+  expected_buffer = std::make_shared<Buffer>(data_buffer + 11, 5);
+  ASSERT_TRUE(expected_buffer->Equals(*pq_buffer.get()));
+
+  ASSERT_EQ(16, source->Tell());
 }
 
 }  // namespace parquet
