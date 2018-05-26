@@ -211,6 +211,19 @@ def test_timestamp_type():
     assert isinstance(pa.timestamp('ns'), pa.TimestampType)
 
 
+def test_struct_type():
+    fields = [pa.field('a', pa.int64()),
+              pa.field('a', pa.int32()),
+              pa.field('b', pa.int32())]
+    ty = pa.struct(fields)
+
+    assert len(ty) == ty.num_children == 3
+    assert list(ty) == fields
+
+    for a, b in zip(ty, fields):
+        a == b
+
+
 def test_union_type():
     def check_fields(ty, fields):
         assert ty.num_children == len(fields)
