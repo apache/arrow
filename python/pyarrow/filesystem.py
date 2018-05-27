@@ -17,6 +17,7 @@
 
 from os.path import join as pjoin
 import os
+import sys
 import posixpath
 
 from pyarrow.util import implements
@@ -182,6 +183,12 @@ class FileSystem(object):
         """
         raise NotImplementedError
 
+    def head(self, files, line_count=10):
+        """
+        Take a file or list of files and print out the first n lines of the
+        file.
+        """
+
     @property
     def pathsep(self):
         return '/'
@@ -230,6 +237,29 @@ class LocalFileSystem(FileSystem):
         Open file for reading or writing
         """
         return open(path, mode=mode)
+
+    def _head_stdout(self, file_name, line_count):
+        with open(file_name, mode='r') as f:
+            for i, line in enumerate(f):
+                if i > line_count:
+                    break
+                else:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+
+    @implements(FileSystem.head)
+    def head(self, files, line_count=10):
+        """
+        Take a file or list of files and print out the first n lines of the
+        file.
+        """
+        if isinstance(files, str):
+            self._head_stdout(files, line_count - 1)
+        else:
+            for file in files:
+                print("==> %s <==" % file)
+                self._head_stdout(file, line_count - 1)
+                print()
 
     @property
     def pathsep(self):
