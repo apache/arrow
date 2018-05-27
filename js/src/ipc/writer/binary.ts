@@ -588,14 +588,34 @@ function writeMessage(b: Builder, node: Message) {
 }
 
 function writeSchema(b: Builder, node: Schema) {
+
     const fieldOffsets = node.fields.map((f) => writeField(b, f));
     const fieldsOffset =
         _Schema.startFieldsVector(b, fieldOffsets.length) ||
         _Schema.createFieldsVector(b, fieldOffsets);
+
+    let metadata: number | undefined = undefined;
+    if (node.metadata && node.metadata.size > 0) {
+        metadata = _Schema.createCustomMetadataVector(
+            b,
+            [...node.metadata].map(([k, v]) => {
+                const key = b.createString(`${k}`);
+                const val = b.createString(`${v}`);
+                return (
+                    _KeyValue.startKeyValue(b) ||
+                    _KeyValue.addKey(b, key) ||
+                    _KeyValue.addValue(b, val) ||
+                    _KeyValue.endKeyValue(b)
+                );
+            })
+        );
+    }
+
     return (
         _Schema.startSchema(b) ||
         _Schema.addFields(b, fieldsOffset) ||
         _Schema.addEndianness(b, platformIsLittleEndian ? _Endianness.Little : _Endianness.Big) ||
+        (metadata !== undefined && _Schema.addCustomMetadata(b, metadata)) ||
         _Schema.endSchema(b)
     );
 }
@@ -662,8 +682,8 @@ function writeField(b: Builder, node: Field) {
         metadata = _Field.createCustomMetadataVector(
             b,
             [...node.metadata].map(([k, v]) => {
-                const key = b.createString(k);
-                const val = b.createString(v);
+                const key = b.createString(`${k}`);
+                const val = b.createString(`${v}`);
                 return (
                     _KeyValue.startKeyValue(b) ||
                     _KeyValue.addKey(b, key) ||
