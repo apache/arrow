@@ -44,7 +44,8 @@ static void EnsureCpuInfoInitialized() {
   }
 }
 
-void WriteVectorToWriter(internal::BitmapWriter& writer, const std::vector<int> values) {
+template <class BitmapWriter>
+void WriteVectorToWriter(BitmapWriter& writer, const std::vector<int> values) {
   for (const auto& value : values) {
     if (value) {
       writer.Set();
@@ -226,6 +227,59 @@ TEST(BitmapWriter, DoesNotWriteOutOfBounds) {
   num_values = r2.position();
 
   ASSERT_EQ((length - 5), num_values);
+}
+
+TEST(FirstTimeBitmapWriter, NormalOperation) {
+  for (const auto fill_byte_int : {0x00, 0xff}) {
+    const uint8_t fill_byte = static_cast<uint8_t>(fill_byte_int);
+    {
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      auto writer = internal::FirstTimeBitmapWriter(bitmap, 0, 12);
+      WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+      //                      {0b00110110, 0b1010, 0, 0}
+      ASSERT_BYTES_EQ(bitmap, {0x36, 0x0a});
+    }
+    {
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      auto writer = internal::FirstTimeBitmapWriter(bitmap, 4, 12);
+      WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1});
+      //                      {0b00110110, 0b1010, 0, 0}
+      ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>(0x60 | (fill_byte & 0x0f)), 0xa3});
+    }
+    // Consecutive write chunks
+    {
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      {
+        auto writer = internal::FirstTimeBitmapWriter(bitmap, 0, 6);
+        WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1});
+      }
+      {
+        auto writer = internal::FirstTimeBitmapWriter(bitmap, 6, 3);
+        WriteVectorToWriter(writer, {0, 0, 0});
+      }
+      {
+        auto writer = internal::FirstTimeBitmapWriter(bitmap, 9, 3);
+        WriteVectorToWriter(writer, {1, 0, 1});
+      }
+      ASSERT_BYTES_EQ(bitmap, {0x36, 0x0a});
+    }
+    {
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      {
+        auto writer = internal::FirstTimeBitmapWriter(bitmap, 4, 6);
+        WriteVectorToWriter(writer, {0, 1, 1, 0, 1, 1});
+      }
+      {
+        auto writer = internal::FirstTimeBitmapWriter(bitmap, 10, 3);
+        WriteVectorToWriter(writer, {0, 0, 0});
+      }
+      {
+        auto writer = internal::FirstTimeBitmapWriter(bitmap, 13, 3);
+        WriteVectorToWriter(writer, {1, 0, 1});
+      }
+      ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>(0x60 | (fill_byte & 0x0f)), 0xa3});
+    }
+  }
 }
 
 TEST(BitmapAnd, Aligned) {

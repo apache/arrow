@@ -39,6 +39,9 @@ static constexpr double kMaxHashTableLoad = 0.5;
 
 namespace internal {
 
+// TODO this ugliness should be rewritten as an inline function with
+// a callable argument.
+
 #define DOUBLE_TABLE_SIZE(SETUP_CODE, COMPUTE_HASH)                              \
   do {                                                                           \
     int64_t new_size = hash_table_size_ * 2;                                     \

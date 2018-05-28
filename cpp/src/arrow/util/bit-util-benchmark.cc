@@ -166,6 +166,10 @@ static void BM_BitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<internal::BitmapWriter>(state, state.range(0));
 }
 
+static void BM_FirstTimeBitmapWriter(benchmark::State& state) {
+  BenchmarkBitmapWriter<internal::FirstTimeBitmapWriter>(state, state.range(0));
+}
+
 static void BM_CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const int kBufferSize = state.range(0);
   std::shared_ptr<Buffer> buffer = CreateRandomBuffer(kBufferSize);
@@ -201,6 +205,11 @@ BENCHMARK(BM_NaiveBitmapWriter)
     ->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_BitmapWriter)->Args({100000})->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_FirstTimeBitmapWriter)
+    ->Args({100000})
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond);
 
 }  // namespace BitUtil
 }  // namespace arrow

@@ -192,6 +192,18 @@ TEST_F(TestArray, TestIsNullIsValid) {
   }
 }
 
+TEST_F(TestArray, TestIsNullIsValidNoNulls) {
+  const int64_t size = 10;
+
+  std::unique_ptr<Array> arr;
+  arr.reset(new Int32Array(size, nullptr, nullptr, 0));
+
+  for (size_t i = 0; i < size; ++i) {
+    EXPECT_TRUE(arr->IsValid(i));
+    EXPECT_FALSE(arr->IsNull(i));
+  }
+}
+
 TEST_F(TestArray, BuildLargeInMemoryArray) {
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
 
@@ -373,46 +385,50 @@ int64_t TestPrimitiveBuilder<PBoolean>::FlipValue(int64_t value) const {
 template <>
 void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>& builder,
                                            bool nullable) {
-  int64_t size = builder->length();
+  const int64_t size = builder->length();
 
+  // Build expected result array
   std::shared_ptr<Buffer> ex_data;
-  ASSERT_OK(BitUtil::BytesToBits(draws_, default_memory_pool(), &ex_data));
-
   std::shared_ptr<Buffer> ex_null_bitmap;
   int64_t ex_null_count = 0;
 
+  ASSERT_OK(BitUtil::BytesToBits(draws_, default_memory_pool(), &ex_data));
   if (nullable) {
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &ex_null_bitmap));
     ex_null_count = test::null_count(valid_bytes_);
   } else {
     ex_null_bitmap = nullptr;
   }
-
   auto expected =
       std::make_shared<BooleanArray>(size, ex_data, ex_null_bitmap, ex_null_count);
+  ASSERT_EQ(size, expected->length());
 
+  // Finish builder and check result array
   std::shared_ptr<Array> out;
   ASSERT_OK(builder->Finish(&out));
   std::shared_ptr<BooleanArray> result = std::dynamic_pointer_cast<BooleanArray>(out);
+
+  ASSERT_EQ(ex_null_count, result->null_count());
+  ASSERT_EQ(size, result->length());
+
+  for (int64_t i = 0; i < size; ++i) {
+    if (nullable) {
+      ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i;
+    } else {
+      ASSERT_FALSE(result->IsNull(i));
+    }
+    if (!result->IsNull(i)) {
+      bool actual = BitUtil::GetBit(result->values()->data(), i);
+      ASSERT_EQ(draws_[i] != 0, actual) << i;
+    }
+  }
+  ASSERT_TRUE(result->Equals(*expected));
 
   // Builder is now reset
   ASSERT_EQ(0, builder->length());
   ASSERT_EQ(0, builder->capacity());
   ASSERT_EQ(0, builder->null_count());
   ASSERT_EQ(nullptr, builder->data());
-
-  ASSERT_EQ(ex_null_count, result->null_count());
-
-  ASSERT_EQ(expected->length(), result->length());
-
-  for (int64_t i = 0; i < result->length(); ++i) {
-    if (nullable) {
-      ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i;
-    }
-    bool actual = BitUtil::GetBit(result->values()->data(), i);
-    ASSERT_EQ(draws_[i] != 0, actual) << i;
-  }
-  ASSERT_TRUE(result->Equals(*expected));
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
@@ -632,6 +648,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
 
   ASSERT_EQ(size, this->builder_->length());
   ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
+  ASSERT_EQ(size, this->builder_nn_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_nn_->capacity());
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);

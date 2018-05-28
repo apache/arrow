@@ -349,23 +349,24 @@ class HashTableKernel<Type, Action, enable_if_boolean<Type>> : public HashTable 
       internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
       for (int64_t i = 0; i < arr.length; ++i) {
         const bool is_null = valid_reader.IsNotSet();
-        const bool value = value_reader.IsSet();
-        const int j = value ? 1 : 0;
-        hash_slot_t slot = table_[j];
         valid_reader.Next();
-        value_reader.Next();
         if (is_null) {
+          value_reader.Next();
           action->ObserveNull();
           continue;
         }
+        const bool value = value_reader.IsSet();
+        value_reader.Next();
+        const int j = value ? 1 : 0;
+        hash_slot_t slot = table_[j];
         HASH_INNER_LOOP();
       }
     } else {
       for (int64_t i = 0; i < arr.length; ++i) {
         const bool value = value_reader.IsSet();
+        value_reader.Next();
         const int j = value ? 1 : 0;
         hash_slot_t slot = table_[j];
-        value_reader.Next();
         HASH_INNER_LOOP();
       }
     }

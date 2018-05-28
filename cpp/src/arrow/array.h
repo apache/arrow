@@ -210,7 +210,7 @@ class ARROW_EXPORT Array {
   /// \brief Return true if value at index is valid (not null). Does not
   /// boundscheck
   bool IsValid(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR &&
+    return null_bitmap_data_ == NULLPTR ||
            BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
   }
 

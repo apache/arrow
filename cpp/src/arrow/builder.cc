@@ -63,7 +63,7 @@ Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int64_t length) 
 }
 
 Status ArrayBuilder::Init(int64_t capacity) {
-  int64_t to_alloc = BitUtil::CeilByte(capacity) / 8;
+  int64_t to_alloc = BitUtil::BytesForBits(capacity);
   null_bitmap_ = std::make_shared<PoolBuffer>(pool_);
   RETURN_NOT_OK(null_bitmap_->Resize(to_alloc));
   // Buffers might allocate more then necessary to satisfy padding requirements
@@ -78,7 +78,7 @@ Status ArrayBuilder::Resize(int64_t new_bits) {
   if (!null_bitmap_) {
     return Init(new_bits);
   }
-  int64_t new_bytes = BitUtil::CeilByte(new_bits) / 8;
+  int64_t new_bytes = BitUtil::BytesForBits(new_bits);
   int64_t old_bytes = null_bitmap_->size();
   RETURN_NOT_OK(null_bitmap_->Resize(new_bytes));
   null_bitmap_data_ = null_bitmap_->mutable_data();
@@ -236,8 +236,6 @@ Status PrimitiveBuilder<T>::Init(int64_t capacity) {
 
   int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
-  // TODO(emkornfield) valgrind complains without this
-  memset(data_->mutable_data(), 0, static_cast<size_t>(nbytes));
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
   return Status::OK();
@@ -254,13 +252,9 @@ Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
     RETURN_NOT_OK(Init(capacity));
   } else {
     RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
-    const int64_t old_bytes = data_->size();
     const int64_t new_bytes = TypeTraits<T>::bytes_required(capacity);
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
-    // TODO(emkornfield) valgrind complains without this
-    memset(data_->mutable_data() + old_bytes, 0,
-           static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }
@@ -372,8 +366,6 @@ Status AdaptiveIntBuilderBase::Init(int64_t capacity) {
 
   int64_t nbytes = capacity * int_size_;
   RETURN_NOT_OK(data_->Resize(nbytes));
-  // TODO(emkornfield) valgrind complains without this
-  memset(data_->mutable_data(), 0, static_cast<size_t>(nbytes));
 
   raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
   return Status::OK();
@@ -389,13 +381,9 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
     RETURN_NOT_OK(Init(capacity));
   } else {
     RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
-    const int64_t old_bytes = data_->size();
     const int64_t new_bytes = capacity * int_size_;
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = data_->mutable_data();
-    // TODO(emkornfield) valgrind complains without this
-    memset(data_->mutable_data() + old_bytes, 0,
-           static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }
@@ -736,8 +724,6 @@ Status BooleanBuilder::Init(int64_t capacity) {
 
   int64_t nbytes = BitUtil::BytesForBits(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
-  // TODO(emkornfield) valgrind complains without this
-  memset(data_->mutable_data(), 0, static_cast<size_t>(nbytes));
 
   raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
   return Status::OK();
@@ -753,24 +739,31 @@ Status BooleanBuilder::Resize(int64_t capacity) {
     RETURN_NOT_OK(Init(capacity));
   } else {
     RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
+
     const int64_t old_bytes = data_->size();
     const int64_t new_bytes = BitUtil::BytesForBits(capacity);
 
-    RETURN_NOT_OK(data_->Resize(new_bytes));
-    raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-    memset(data_->mutable_data() + old_bytes, 0,
-           static_cast<size_t>(new_bytes - old_bytes));
+    if (new_bytes != old_bytes) {
+      RETURN_NOT_OK(data_->Resize(new_bytes));
+      raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
+    }
   }
   return Status::OK();
 }
 
 Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   const int64_t bytes_required = BitUtil::BytesForBits(length_);
-
   if (bytes_required > 0 && bytes_required < data_->size()) {
     // Trim buffers
     RETURN_NOT_OK(data_->Resize(bytes_required));
   }
+
+  int64_t bit_offset = length_ % 8;
+  if (bit_offset > 0) {
+    // Adjust last byte
+    data_->mutable_data()[length_ / 8] &= BitUtil::kPrecedingBitmask[bit_offset];
+  }
+
   *out = ArrayData::Make(boolean(), length_, {null_bitmap_, data_}, null_count_);
 
   data_ = null_bitmap_ = nullptr;
@@ -782,9 +775,16 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
+  internal::FirstTimeBitmapWriter bit_writer(raw_data_, length_, length);
   for (int64_t i = 0; i < length; ++i) {
-    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
+    if (values[i] != 0) {
+      bit_writer.Set();
+    } else {
+      bit_writer.Clear();
+    }
+    bit_writer.Next();
   }
+  bit_writer.Finish();
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
@@ -801,9 +801,16 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
 
+  internal::FirstTimeBitmapWriter bit_writer(raw_data_, length_, length);
   for (int64_t i = 0; i < length; ++i) {
-    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
+    if (values[i]) {
+      bit_writer.Set();
+    } else {
+      bit_writer.Clear();
+    }
+    bit_writer.Next();
   }
+  bit_writer.Finish();
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
@@ -839,9 +846,16 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
 
+  internal::FirstTimeBitmapWriter bit_writer(raw_data_, length_, length);
   for (int64_t i = 0; i < length; ++i) {
-    BitUtil::SetBitTo(raw_data_, length_ + i, values[i]);
+    if (values[i]) {
+      bit_writer.Set();
+    } else {
+      bit_writer.Clear();
+    }
+    bit_writer.Next();
   }
+  bit_writer.Finish();
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
@@ -857,10 +871,18 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
 
+  internal::FirstTimeBitmapWriter bit_writer(raw_data_, length_, length);
   for (int64_t i = 0; i < length; ++i) {
-    BitUtil::SetBitTo(raw_data_, length_ + i, values[i]);
+    if (values[i]) {
+      bit_writer.Set();
+    } else {
+      bit_writer.Clear();
+    }
+    bit_writer.Next();
   }
+  bit_writer.Finish();
 
+  // this updates length_
   ArrayBuilder::UnsafeSetNotNull(length);
   return Status::OK();
 }
@@ -872,7 +894,41 @@ Status BooleanBuilder::Append(const std::vector<bool>& values) {
 // ----------------------------------------------------------------------
 // DictionaryBuilder
 
+using internal::DictionaryScalar;
 using internal::WrappedBinary;
+
+namespace {
+//
+// Fetch the value of a dictionary entry stored in a builder.
+
+// template <typename T,
+//           typename Builder = typename TypeTraits<T>::BuilderType,
+//           typename Scalar = typename std::enable_if<TypeTraits<T>::is_primitive,
+//           typename T::c_type>::type>
+// Scalar GetDictionaryValue(Builder& builder, int64_t index) {
+//   const Scalar* data = reinterpret_cast<const Scalar*>(builder.data()->data());
+//   return data[index];
+// }
+//
+// template <typename T,
+//           typename Builder = typename TypeTraits<T>::BuilderType,
+//           typename Scalar = typename std::enable_if<TypeTraits<T>::is_binary_like,
+//           WrappedBinary>::type>
+// WrappedBinary GetDictionaryValue(Builder& builder, int64_t index) {
+//   int32_t v_len;
+//   const uint8_t* v = builder.GetValue(static_cast<int64_t>(index), &v_len);
+//   return WrappedBinary(v, v_len);
+// }
+//
+// template <typename T,
+//           typename Builder = typename TypeTraits<T>::BuilderType,
+//           typename Scalar = typename std::enable_if<std::is_same<T,
+//           FixedSizeBinaryType>::value, const uint8_t*>::type>
+// const uint8_t* GetDictionaryValue(Builder& dictionary_builder, int64_t index) {
+//   return dictionary_builder.GetValue(index);
+// }
+
+}  // namespace
 
 template <typename T>
 DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
@@ -1037,10 +1093,18 @@ Status DictionaryBuilder<T>::AppendNull() {
 Status DictionaryBuilder<NullType>::AppendNull() { return values_builder_.AppendNull(); }
 
 template <typename T>
+int64_t DictionaryBuilder<T>::HashValue(const Scalar& value) {
+  return HashUtil::Hash(&value, sizeof(Scalar), 0);
+}
+
+template <typename T>
 Status DictionaryBuilder<T>::DoubleTableSize() {
-#define INNER_LOOP                                                               \
-  Scalar value = GetDictionaryValue(dict_builder_, static_cast<int64_t>(index)); \
-  int64_t j = HashValue(value) & new_mod_bitmask;
+  //   const auto GetDictBuilderValue = [this](hash_slot_t index) -> Scalar {
+  //     return GetDictionaryValue<T>(dict_builder_, static_cast<int64_t>(index));
+  //   };
+
+#define INNER_LOOP \
+  int64_t j = HashValue(GetDictionaryValue(dict_builder_, index)) & new_mod_bitmask
 
   DOUBLE_TABLE_SIZE(, INNER_LOOP);
 
@@ -1055,8 +1119,29 @@ typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
 }
 
 template <typename T>
+bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
+  DCHECK_GE(index, 0);
+  if (index >= entry_id_offset_) {
+    // Lookup delta dictionary
+    DCHECK_LT(index - entry_id_offset_, dict_builder_.length());
+    return GetDictionaryValue(dict_builder_,
+                              static_cast<int64_t>(index - entry_id_offset_)) != value;
+  } else {
+    DCHECK_LT(index, overflow_dict_builder_.length());
+    return GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index)) !=
+           value;
+  }
+}
+
+template <typename T>
+Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
+  return dict_builder_.Append(value);
+}
+
+template <typename T>
 Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   entry_id_offset_ += dict_builder_.length();
+  // Store current dict entries for further uses of this DictionaryBuilder
   RETURN_NOT_OK(overflow_dict_builder_.AppendValues(
       reinterpret_cast<const DictionaryBuilder<T>::Scalar*>(dict_builder_.data()->data()),
       dict_builder_.length(), nullptr));
@@ -1079,6 +1164,10 @@ Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* o
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
   return Status::OK();
 }
+
+//
+// FixedSizeBinaryType specializations
+//
 
 template <>
 const uint8_t* DictionaryBuilder<FixedSizeBinaryType>::GetDictionaryValue(
@@ -1109,52 +1198,33 @@ Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(
   return Status::OK();
 }
 
-template <typename T>
-int64_t DictionaryBuilder<T>::HashValue(const Scalar& value) {
-  return HashUtil::Hash(&value, sizeof(Scalar), 0);
-}
-
 template <>
 int64_t DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
   return HashUtil::Hash(value, byte_width_, 0);
 }
 
-template <typename T>
-bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
-  const bool value_found =
-      index >= entry_id_offset_ &&
-      GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_)) ==
-          value;
-  const bool value_found_overflow =
-      entry_id_offset_ > 0 &&
-      GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index)) == value;
-  return !(value_found || value_found_overflow);
-}
-
 template <>
 bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
                                                            const Scalar& value) {
-  int32_t width = checked_cast<const FixedSizeBinaryType&>(*type_).byte_width();
-  bool value_found = false;
+  const int32_t width = checked_cast<const FixedSizeBinaryType&>(*type_).byte_width();
+
+  DCHECK_GE(index, 0);
+  Scalar other;
   if (index >= entry_id_offset_) {
-    const Scalar other =
+    // Lookup delta dictionary
+    DCHECK_LT(index - entry_id_offset_, dict_builder_.length());
+    other =
         GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
-    value_found = memcmp(other, value, width) == 0;
+  } else {
+    DCHECK_LT(index, overflow_dict_builder_.length());
+    other = GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index));
   }
-
-  bool value_found_overflow = false;
-  if (entry_id_offset_ > 0) {
-    const Scalar other_overflow =
-        GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index));
-    value_found_overflow = memcmp(other_overflow, value, width) == 0;
-  }
-  return !(value_found || value_found_overflow);
+  return memcmp(other, value, width) != 0;
 }
 
-template <typename T>
-Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
-  return dict_builder_.Append(value);
-}
+//
+// StringType and BinaryType specializations
+//
 
 #define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                                        \
   template <>                                                                          \
@@ -1194,24 +1264,20 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   template <>                                                                          \
   bool DictionaryBuilder<Type>::SlotDifferent(hash_slot_t index,                       \
                                               const WrappedBinary& value) {            \
+    DCHECK_GE(index, 0);                                                               \
+    const uint8_t* other_value;                                                        \
     int32_t other_length;                                                              \
-    bool value_found = false;                                                          \
     if (index >= entry_id_offset_) {                                                   \
-      const uint8_t* other_value = dict_builder_.GetValue(                             \
+      DCHECK_LT(index - entry_id_offset_, dict_builder_.length());                     \
+      other_value = dict_builder_.GetValue(                                            \
           static_cast<int64_t>(index - entry_id_offset_), &other_length);              \
-      value_found = other_length == value.length_ &&                                   \
-                    memcmp(other_value, value.ptr_, value.length_) == 0;               \
-    }                                                                                  \
-                                                                                       \
-    bool value_found_overflow = false;                                                 \
-    if (entry_id_offset_ > 0) {                                                        \
-      const uint8_t* other_value_overflow =                                            \
+    } else {                                                                           \
+      DCHECK_LT(index, overflow_dict_builder_.length());                               \
+      other_value =                                                                    \
           overflow_dict_builder_.GetValue(static_cast<int64_t>(index), &other_length); \
-      value_found_overflow =                                                           \
-          other_length == value.length_ &&                                             \
-          memcmp(other_value_overflow, value.ptr_, value.length_) == 0;                \
     }                                                                                  \
-    return !(value_found || value_found_overflow);                                     \
+    return other_length != value.length_ ||                                            \
+           memcmp(other_value, value.ptr_, value.length_) != 0;                        \
   }                                                                                    \
                                                                                        \
   template <>                                                                          \

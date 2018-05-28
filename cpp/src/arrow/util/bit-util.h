@@ -85,10 +85,19 @@ class Status;
 
 namespace BitUtil {
 
+//
+// Utilities for reading and writing individual bits by their index
+// in a memory area.
+//
+
+// Bitmask selecting the k-th bit in a byte
 static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
-// the ~i byte version of kBitmaks
+// the bitwise complement version of kBitmask
 static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191, 127};
+
+// Bitmask selecting the (k - 1) preceding bits in a byte
+static constexpr uint8_t kPrecedingBitmask[] = {0, 1, 3, 7, 15, 31, 63, 127};
 
 static inline int64_t CeilByte(int64_t size) { return (size + 7) & ~7; }
 
@@ -120,6 +129,8 @@ static inline void SetArrayBit(uint8_t* bits, int i, bool is_set) {
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
   // https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
+  // NOTE: this seems to confuse Valgrind as it reads from potentially
+  // uninitialized memory
   bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
                  kBitmask[i % 8];
 }
@@ -448,14 +459,17 @@ class BitmapReader {
 };
 
 class BitmapWriter {
+  // A sequential bitwise writer that preserves surrounding bit values.
+
  public:
   BitmapWriter(uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0), length_(length) {
-    current_byte_ = 0;
     byte_offset_ = start_offset / 8;
     bit_mask_ = static_cast<uint8_t>(1 << (start_offset % 8));
     if (length > 0) {
       current_byte_ = bitmap[byte_offset_];
+    } else {
+      current_byte_ = 0;
     }
   }
 
@@ -494,6 +508,60 @@ class BitmapWriter {
   uint8_t bit_mask_;
   int64_t byte_offset_;
 };
+
+class FirstTimeBitmapWriter {
+  // Like BitmapWriter, but any bit values *following* the bits written
+  // might be clobbered.  It is hence faster than BitmapWriter, and can
+  // also avoid false positives with Valgrind.
+
+ public:
+  FirstTimeBitmapWriter(uint8_t* bitmap, int64_t start_offset, int64_t length)
+      : bitmap_(bitmap), position_(0), length_(length) {
+    current_byte_ = 0;
+    byte_offset_ = start_offset / 8;
+    bit_mask_ = static_cast<uint8_t>(1 << (start_offset % 8));
+    if (length > 0) {
+      current_byte_ = bitmap[byte_offset_] & BitUtil::kPrecedingBitmask[start_offset % 8];
+    } else {
+      current_byte_ = 0;
+    }
+  }
+
+  void Set() { current_byte_ |= bit_mask_; }
+
+  void Clear() {}
+
+  void Next() {
+    bit_mask_ = static_cast<uint8_t>(bit_mask_ << 1);
+    ++position_;
+    if (bit_mask_ == 0) {
+      // Finished this byte, need advancing
+      bit_mask_ = 0x01;
+      bitmap_[byte_offset_++] = current_byte_;
+      current_byte_ = 0;
+    }
+  }
+
+  void Finish() {
+    // Store current byte if we didn't went past bitmap storage
+    if (bit_mask_ != 0x01 || position_ < length_) {
+      bitmap_[byte_offset_] = current_byte_;
+    }
+  }
+
+  int64_t position() const { return position_; }
+
+ private:
+  uint8_t* bitmap_;
+  int64_t position_;
+  int64_t length_;
+
+  uint8_t current_byte_;
+  uint8_t bit_mask_;
+  int64_t byte_offset_;
+};
+
+// TODO: add a std::generate-like function for writing bitmaps?
 
 }  // namespace internal
 

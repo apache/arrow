@@ -34,6 +34,8 @@ struct TypeTraits<NullType> {
   using ArrayType = NullArray;
   using BuilderType = NullBuilder;
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
 };
 
 template <>
@@ -43,6 +45,8 @@ struct TypeTraits<UInt8Type> {
   using TensorType = UInt8Tensor;
   static inline int64_t bytes_required(int64_t elements) { return elements; }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return uint8(); }
 };
 
@@ -53,6 +57,8 @@ struct TypeTraits<Int8Type> {
   using TensorType = Int8Tensor;
   static inline int64_t bytes_required(int64_t elements) { return elements; }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return int8(); }
 };
 
@@ -66,6 +72,8 @@ struct TypeTraits<UInt16Type> {
     return elements * sizeof(uint16_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return uint16(); }
 };
 
@@ -79,6 +87,8 @@ struct TypeTraits<Int16Type> {
     return elements * sizeof(int16_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return int16(); }
 };
 
@@ -92,6 +102,8 @@ struct TypeTraits<UInt32Type> {
     return elements * sizeof(uint32_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return uint32(); }
 };
 
@@ -105,6 +117,8 @@ struct TypeTraits<Int32Type> {
     return elements * sizeof(int32_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return int32(); }
 };
 
@@ -118,6 +132,8 @@ struct TypeTraits<UInt64Type> {
     return elements * sizeof(uint64_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return uint64(); }
 };
 
@@ -131,6 +147,8 @@ struct TypeTraits<Int64Type> {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return int64(); }
 };
 
@@ -143,6 +161,8 @@ struct TypeTraits<Date64Type> {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return date64(); }
 };
 
@@ -155,6 +175,8 @@ struct TypeTraits<Date32Type> {
     return elements * sizeof(int32_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return date32(); }
 };
 
@@ -167,6 +189,8 @@ struct TypeTraits<TimestampType> {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
 };
 
 template <>
@@ -178,6 +202,8 @@ struct TypeTraits<Time32Type> {
     return elements * sizeof(int32_t);
   }
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
 };
 
 template <>
@@ -189,6 +215,8 @@ struct TypeTraits<Time64Type> {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
 };
 
 template <>
@@ -201,6 +229,8 @@ struct TypeTraits<HalfFloatType> {
     return elements * sizeof(uint16_t);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
 };
 
@@ -214,6 +244,8 @@ struct TypeTraits<FloatType> {
     return static_cast<int64_t>(elements * sizeof(float));
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return float32(); }
 };
 
@@ -227,6 +259,8 @@ struct TypeTraits<DoubleType> {
     return static_cast<int64_t>(elements * sizeof(double));
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return float64(); }
 };
 
@@ -235,6 +269,8 @@ struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
   using BuilderType = Decimal128Builder;
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_binary_like = false;
+  constexpr static bool is_primitive = true;
 };
 
 template <>
@@ -246,6 +282,8 @@ struct TypeTraits<BooleanType> {
     return BitUtil::BytesForBits(elements);
   }
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = true;
+  constexpr static bool is_binary_like = false;
   static inline std::shared_ptr<DataType> type_singleton() { return boolean(); }
 };
 
@@ -254,6 +292,8 @@ struct TypeTraits<StringType> {
   using ArrayType = StringArray;
   using BuilderType = StringBuilder;
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = false;
+  constexpr static bool is_binary_like = true;
   static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
 };
 
@@ -262,6 +302,8 @@ struct TypeTraits<BinaryType> {
   using ArrayType = BinaryArray;
   using BuilderType = BinaryBuilder;
   constexpr static bool is_parameter_free = true;
+  constexpr static bool is_primitive = false;
+  constexpr static bool is_binary_like = true;
   static inline std::shared_ptr<DataType> type_singleton() { return binary(); }
 };
 
@@ -270,6 +312,8 @@ struct TypeTraits<FixedSizeBinaryType> {
   using ArrayType = FixedSizeBinaryArray;
   using BuilderType = FixedSizeBinaryBuilder;
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = false;
+  constexpr static bool is_binary_like = false;
 };
 
 template <>
@@ -277,6 +321,8 @@ struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = false;
+  constexpr static bool is_binary_like = false;
 };
 
 template <>
@@ -284,18 +330,24 @@ struct TypeTraits<StructType> {
   using ArrayType = StructArray;
   using BuilderType = StructBuilder;
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = false;
+  constexpr static bool is_binary_like = false;
 };
 
 template <>
 struct TypeTraits<UnionType> {
   using ArrayType = UnionArray;
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = false;
+  constexpr static bool is_binary_like = false;
 };
 
 template <>
 struct TypeTraits<DictionaryType> {
   using ArrayType = DictionaryArray;
   constexpr static bool is_parameter_free = false;
+  constexpr static bool is_primitive = false;
+  constexpr static bool is_binary_like = false;
 };
 
 namespace detail {
