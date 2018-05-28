@@ -19,16 +19,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import contextlib
 import os
 import pytest
 import random
-import shutil
 import signal
 import sys
-import subprocess
-import tempfile
-import time
 
 import numpy as np
 import pyarrow as pa
@@ -106,76 +101,6 @@ def assert_get_object_equal(unit_test, client1, client2, object_id,
         assert plasma.buffers_equal(metadata, client1_metadata)
 
 
-@contextlib.contextmanager
-def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
-                       use_valgrind=False, use_profiler=False,
-                       use_one_memory_mapped_file=False,
-                       plasma_directory=None, use_hugepages=False):
-    """Start a plasma store process.
-    Args:
-        use_valgrind (bool): True if the plasma store should be started inside
-            of valgrind. If this is True, use_profiler must be False.
-        use_profiler (bool): True if the plasma store should be started inside
-            a profiler. If this is True, use_valgrind must be False.
-        stdout_file: A file handle opened for writing to redirect stdout to. If
-            no redirection should happen, then this should be None.
-        stderr_file: A file handle opened for writing to redirect stderr to. If
-            no redirection should happen, then this should be None.
-        use_one_memory_mapped_file: If True, then the store will use only a
-            single memory-mapped file.
-    Return:
-        A tuple of the name of the plasma store socket and the process ID of
-            the plasma store process.
-    """
-    if use_valgrind and use_profiler:
-        raise Exception("Cannot use valgrind and profiler at the same time.")
-
-    tmpdir = tempfile.mkdtemp(prefix='test_plasma-')
-    try:
-        plasma_store_name = os.path.join(tmpdir, 'plasma.sock')
-        plasma_store_executable = os.path.join(pa.__path__[0], "plasma_store")
-        command = [plasma_store_executable,
-                   "-s", plasma_store_name,
-                   "-m", str(plasma_store_memory)]
-        if use_one_memory_mapped_file:
-            command += ["-f"]
-        if plasma_directory:
-            command += ["-d", plasma_directory]
-        if use_hugepages:
-            command += ["-h"]
-        stdout_file = None
-        stderr_file = None
-        if use_valgrind:
-            command = ["valgrind",
-                       "--track-origins=yes",
-                       "--leak-check=full",
-                       "--show-leak-kinds=all",
-                       "--leak-check-heuristics=stdstring",
-                       "--error-exitcode=1"] + command
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
-            time.sleep(1.0)
-        elif use_profiler:
-            command = ["valgrind", "--tool=callgrind"] + command
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
-            time.sleep(1.0)
-        else:
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
-            time.sleep(0.1)
-        rc = proc.poll()
-        if rc is not None:
-            raise RuntimeError("plasma_store exited unexpectedly with "
-                               "code %d" % (rc,))
-
-        yield plasma_store_name, proc
-    finally:
-        if proc.poll() is None:
-            proc.kill()
-        shutil.rmtree(tmpdir)
-
-
 @pytest.mark.plasma
 class TestPlasmaClient(object):
 
@@ -185,7 +110,8 @@ class TestPlasmaClient(object):
 
         import pyarrow.plasma as plasma
         # Start Plasma store.
-        self.plasma_store_ctx = start_plasma_store(
+        self.plasma_store_ctx = plasma.start_plasma_store(
+            plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
             use_valgrind=USE_VALGRIND,
             use_one_memory_mapped_file=use_one_memory_mapped_file)
         plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
@@ -839,8 +765,10 @@ def test_object_id_equality_operators():
                     reason="requires hugepage support")
 def test_use_huge_pages():
     import pyarrow.plasma as plasma
-    with start_plasma_store(plasma_directory="/mnt/hugepages",
-                            use_hugepages=True) as (plasma_store_name, p):
+    with plasma.start_plasma_store(
+            plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
+            plasma_directory="/mnt/hugepages",
+            use_hugepages=True) as (plasma_store_name, p):
         plasma_client = plasma.connect(plasma_store_name, "", 64)
         create_object(plasma_client, 100000000)
 
@@ -852,7 +780,9 @@ def test_use_huge_pages():
 def test_plasma_client_sharing():
     import pyarrow.plasma as plasma
 
-    with start_plasma_store() as (plasma_store_name, p):
+    with plasma.start_plasma_store(
+            plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
+            as (plasma_store_name, p):
         plasma_client = plasma.connect(plasma_store_name, "", 64)
         object_id = plasma_client.put(np.zeros(3))
         buf = plasma_client.get(object_id)

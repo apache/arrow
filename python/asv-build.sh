@@ -37,6 +37,7 @@ cmake -GNinja \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_CXXFLAGS=$CXXFLAGS \
       -DARROW_PYTHON=ON \
+      -DARROW_PLASMA=ON \
       -DARROW_BUILD_TESTS=OFF \
       ..
 cmake --build . --target install
@@ -47,6 +48,7 @@ popd
 # Build pyarrow wrappers
 export SETUPTOOLS_SCM_PRETEND_VERSION=0.0.1
 export PYARROW_BUILD_TYPE=release
+export PYARROW_WITH_PLASMA=1
 
 python setup.py clean
 find pyarrow -name "*.so" -delete

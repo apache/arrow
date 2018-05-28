@@ -39,7 +39,7 @@ impl Bitmap {
         }
     }
 
-    pub fn len(&self) -> i32 {
+    pub fn len(&self) -> usize {
         self.bits.len()
     }
 

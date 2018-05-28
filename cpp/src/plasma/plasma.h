@@ -71,7 +71,7 @@ constexpr int64_t kBlockSize = 64;
 struct Client;
 
 /// Mapping from object IDs to type and status of the request.
-typedef std::unordered_map<ObjectID, ObjectRequest, UniqueIDHasher> ObjectRequestMap;
+typedef std::unordered_map<ObjectID, ObjectRequest> ObjectRequestMap;
 
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 struct PlasmaObject {
@@ -134,8 +134,9 @@ struct ObjectTableEntry {
   /// IPC GPU handle to share with clients.
   std::shared_ptr<CudaIpcMemHandle> ipc_handle;
 #endif
-  /// Set of clients currently using this object.
-  std::unordered_set<Client*> clients;
+  /// Number of clients currently using this object.
+  int ref_count;
+
   /// The state of the object, e.g., whether it is open or sealed.
   object_state state;
   /// The digest of the object. Used to see if two objects are the same.
@@ -145,7 +146,7 @@ struct ObjectTableEntry {
 /// The plasma store information that is exposed to the eviction policy.
 struct PlasmaStoreInfo {
   /// Objects that are in the Plasma store.
-  std::unordered_map<ObjectID, std::unique_ptr<ObjectTableEntry>, UniqueIDHasher> objects;
+  std::unordered_map<ObjectID, std::unique_ptr<ObjectTableEntry>> objects;
   /// The amount of memory (in bytes) that we allow to be allocated in the
   /// store.
   int64_t memory_capacity;

@@ -60,7 +60,7 @@ def _alltypes_example(size=100):
     })
 
 
-def _check_pandas_roundtrip(df, expected=None, nthreads=1,
+def _check_pandas_roundtrip(df, expected=None, use_threads=False,
                             expected_schema=None,
                             check_dtype=True, schema=None,
                             preserve_index=False,
@@ -68,9 +68,9 @@ def _check_pandas_roundtrip(df, expected=None, nthreads=1,
     klass = pa.RecordBatch if as_batch else pa.Table
     table = klass.from_pandas(df, schema=schema,
                               preserve_index=preserve_index,
-                              nthreads=nthreads)
+                              nthreads=2 if use_threads else 1)
 
-    result = table.to_pandas(nthreads=nthreads)
+    result = table.to_pandas(use_threads=use_threads)
     if expected_schema:
         assert table.schema.equals(expected_schema)
     if expected is None:
@@ -1836,8 +1836,8 @@ class TestConvertMisc(object):
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
-        _check_pandas_roundtrip(df, nthreads=2)
-        _check_pandas_roundtrip(df, nthreads=2, as_batch=True)
+        _check_pandas_roundtrip(df, use_threads=True)
+        _check_pandas_roundtrip(df, use_threads=True, as_batch=True)
 
     def test_category(self):
         repeats = 5

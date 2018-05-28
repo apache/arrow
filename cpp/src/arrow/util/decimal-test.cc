@@ -380,4 +380,60 @@ TEST(Decimal128Test, TestNoDecimalPointExponential) {
   ASSERT_EQ(0, scale);
 }
 
+TEST(Decimal128Test, TestFromBigEndian) {
+  // We test out a variety of scenarios:
+  //
+  // * Positive values that are left shifted
+  //   and filled in with the same bit pattern
+  // * Negated of the positive values
+  // * Complement of the positive values
+  //
+  // For the positive values, we can call FromBigEndian
+  // with a length that is less than 16, whereas we must
+  // pass all 16 bytes for the negative and complement.
+  //
+  // We use a number of bit patterns to increase the coverage
+  // of scenarios
+  for (int32_t start : {1, 15, /* 00001111 */
+                        85,    /* 01010101 */
+                        127 /* 01111111 */}) {
+    Decimal128 value(start);
+    for (int ii = 0; ii < 16; ++ii) {
+      auto little_endian = value.ToBytes();
+      std::reverse(little_endian.begin(), little_endian.end());
+      Decimal128 out;
+      // Limit the number of bytes we are passing to make
+      // sure that it works correctly. That's why all of the
+      // 'start' values don't have a 1 in the most significant
+      // bit place
+      ASSERT_OK(Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1, &out));
+      ASSERT_EQ(value, out);
+
+      // Negate it and convert to big endian
+      auto negated = -value;
+      little_endian = negated.ToBytes();
+      std::reverse(little_endian.begin(), little_endian.end());
+      // Convert all of the bytes since we have to include the sign bit
+      ASSERT_OK(Decimal128::FromBigEndian(little_endian.data(), 16, &out));
+      ASSERT_EQ(negated, out);
+
+      // Take the complement and convert to big endian
+      auto complement = ~value;
+      little_endian = complement.ToBytes();
+      std::reverse(little_endian.begin(), little_endian.end());
+      ASSERT_OK(Decimal128::FromBigEndian(little_endian.data(), 16, &out));
+      ASSERT_EQ(complement, out);
+
+      value <<= 8;
+      value += Decimal128(start);
+    }
+  }
+}
+
+TEST(Decimal128Test, TestFromBigEndianBadLength) {
+  Decimal128 out;
+  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, -1, &out));
+  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, 17, &out));
+}
+
 }  // namespace arrow

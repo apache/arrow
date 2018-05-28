@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,13 +37,13 @@ import com.google.common.collect.Lists;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
@@ -51,8 +52,8 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -708,6 +709,25 @@ public class TestArrowFile extends BaseFileTest {
     }
   }
 
+  @Test
+  public void testReadWriteMultipleBatches() throws IOException {
+    File file = new File("target/mytest_nulls_multibatch.arrow");
+
+    try (IntVector vector = new IntVector("foo", allocator);) {
+      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      try (FileOutputStream fileOutputStream = new FileOutputStream(file);
+           VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
+           ArrowFileWriter writer = new ArrowFileWriter(root, null, fileOutputStream.getChannel());) {
+        writeBatchData(writer, vector, root);
+      }
+    }
+
+    try (FileInputStream fileInputStream = new FileInputStream(file);
+         ArrowFileReader reader = new ArrowFileReader(fileInputStream.getChannel(), allocator);) {
+      IntVector vector = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
+      validateBatchData(reader, vector);
+    }
+  }
 
   /**
    * Writes the contents of parents to file. If outStream is non-null, also writes it

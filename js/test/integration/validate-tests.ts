@@ -39,7 +39,7 @@ function resolvePathArgs(paths: string) {
             if (fs.existsSync(p)) {
                 return p;
             }
-            console.warn(`Could not find file "${p}"`);
+            console.error(`Could not find file "${p}"`);
             return undefined;
         });
 }
@@ -55,7 +55,7 @@ const jsonAndArrowPaths = toArray(zip(
 .filter(([p1, p2]) => p1 !== undefined && p2 !== undefined) as [string, string][];
 
 expect.extend({
-    toEqualVector(v1: any, v2: any) {
+    toEqualVector([v1, format1, columnName]: [any, string, string], [v2, format2]: [any, string]) {
 
         const format = (x: any, y: any, msg= ' ') => `${
             this.utils.printExpected(x)}${
@@ -102,7 +102,7 @@ expect.extend({
         return {
             pass: allFailures.every(({ failures }) => failures.length === 0),
             message: () => [
-                `${v1.name}: (${format('json', 'arrow', ' !== ')})\n`,
+                `${columnName}: (${format(format1, format2, ' !== ')})\n`,
                 ...allFailures.map(({ failures, title }) =>
                     !failures.length ? `` : [`${title}:`, ...failures].join(`\n`))
             ].join('\n')
@@ -119,6 +119,10 @@ describe(`Integration`, () => {
         describe(path.join(dir, name), () => {
             testReaderIntegration(json, arrowBuffer);
             testTableFromBuffersIntegration(json, arrowBuffer);
+            testTableToBuffersIntegration('json', 'file')(json, arrowBuffer);
+            testTableToBuffersIntegration('binary', 'file')(json, arrowBuffer);
+            testTableToBuffersIntegration('json', 'stream')(json, arrowBuffer);
+            testTableToBuffersIntegration('binary', 'stream')(json, arrowBuffer);
         });
     }
 });
@@ -132,8 +136,11 @@ function testReaderIntegration(jsonData: any, arrowBuffer: Uint8Array) {
             expect(jsonRecordBatch.length).toEqual(binaryRecordBatch.length);
             expect(jsonRecordBatch.numCols).toEqual(binaryRecordBatch.numCols);
             for (let i = -1, n = jsonRecordBatch.numCols; ++i < n;) {
-                (jsonRecordBatch.getChildAt(i) as any).name = jsonRecordBatch.schema.fields[i].name;
-                (expect(jsonRecordBatch.getChildAt(i)) as any).toEqualVector(binaryRecordBatch.getChildAt(i));
+                const v1 = jsonRecordBatch.getChildAt(i);
+                const v2 = binaryRecordBatch.getChildAt(i);
+                const name = jsonRecordBatch.schema.fields[i].name;
+                (expect([v1, `json`, name]) as any)
+                    .toEqualVector([v2, `binary`]);
             }
         }
     });
@@ -147,8 +154,32 @@ function testTableFromBuffersIntegration(jsonData: any, arrowBuffer: Uint8Array)
         expect(jsonTable.length).toEqual(binaryTable.length);
         expect(jsonTable.numCols).toEqual(binaryTable.numCols);
         for (let i = -1, n = jsonTable.numCols; ++i < n;) {
-            (jsonTable.getColumnAt(i) as any).name = jsonTable.schema.fields[i].name;
-            (expect(jsonTable.getColumnAt(i)) as any).toEqualVector(binaryTable.getColumnAt(i));
+            const v1 = jsonTable.getColumnAt(i);
+            const v2 = binaryTable.getColumnAt(i);
+            const name = jsonTable.schema.fields[i].name;
+            (expect([v1, `json`, name]) as any)
+                .toEqualVector([v2, `binary`]);
         }
     });
+}
+
+function testTableToBuffersIntegration(srcFormat: 'json' | 'binary', arrowFormat: 'stream' | 'file') {
+    const refFormat = srcFormat === `json` ? `binary` : `json`;
+    return function testTableToBuffersIntegration(jsonData: any, arrowBuffer: Uint8Array) {
+        test(`serialized ${srcFormat} ${arrowFormat} reports the same values as the ${refFormat} ${arrowFormat}`, () => {
+            expect.hasAssertions();
+            const refTable = Table.from(refFormat === `json` ? jsonData : arrowBuffer);
+            const srcTable = Table.from(srcFormat === `json` ? jsonData : arrowBuffer);
+            const dstTable = Table.from(srcTable.serialize(`binary`, arrowFormat === `stream`));
+            expect(dstTable.length).toEqual(refTable.length);
+            expect(dstTable.numCols).toEqual(refTable.numCols);
+            for (let i = -1, n = dstTable.numCols; ++i < n;) {
+                const v1 = dstTable.getColumnAt(i);
+                const v2 = refTable.getColumnAt(i);
+                const name = dstTable.schema.fields[i].name;
+                (expect([v1, srcFormat, name]) as any)
+                    .toEqualVector([v2, refFormat]);
+            }
+        });
+    }
 }

@@ -143,7 +143,7 @@ def register_torch_serialization_handlers(serialization_context):
 
         for t in [torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
                   torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor]:
+                  torch.IntTensor, torch.LongTensor, torch.Tensor]:
             serialization_context.register_type(
                 t, "torch." + t.__name__,
                 custom_serializer=_serialize_torch_tensor,

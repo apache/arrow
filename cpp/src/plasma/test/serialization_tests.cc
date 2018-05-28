@@ -165,7 +165,7 @@ TEST(PlasmaSerialization, GetReply) {
   ObjectID object_ids[2];
   object_ids[0] = ObjectID::from_random();
   object_ids[1] = ObjectID::from_random();
-  std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher> plasma_objects;
+  std::unordered_map<ObjectID, PlasmaObject> plasma_objects;
   plasma_objects[object_ids[0]] = random_plasma_object();
   plasma_objects[object_ids[1]] = random_plasma_object();
   std::vector<int> store_fds = {1, 2, 3};

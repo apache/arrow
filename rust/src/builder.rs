@@ -22,16 +22,23 @@ use std::ptr;
 use std::slice;
 
 use super::buffer::*;
+use super::datatypes::*;
 use super::memory::*;
 
 /// Buffer builder with zero-copy build method
-pub struct Builder<T> {
+pub struct Builder<T>
+where
+    T: ArrowPrimitiveType,
+{
     data: *mut T,
     len: usize,
     capacity: usize,
 }
 
-impl<T> Builder<T> {
+impl<T> Builder<T>
+where
+    T: ArrowPrimitiveType,
+{
     /// Creates a builder with a default capacity
     pub fn new() -> Self {
         Builder::with_capacity(64)
@@ -87,6 +94,15 @@ impl<T> Builder<T> {
         self.len += 1;
     }
 
+    /// Set a value at a slot in the allocated memory without adjusting the length
+    pub fn set(&mut self, i: usize, v: T) {
+        assert!(!self.data.is_null());
+        assert!(i < self.capacity);
+        unsafe {
+            *self.data.offset(i as isize) = v;
+        }
+    }
+
     /// push a slice of type T, growing the internal buffer as needed
     pub fn push_slice(&mut self, slice: &[T]) {
         self.reserve(slice.len());
@@ -131,11 +147,14 @@ impl<T> Builder<T> {
         assert!(!self.data.is_null());
         let p = self.data as *const T;
         self.data = ptr::null_mut(); // ensure builder cannot be re-used
-        unsafe { Buffer::from_raw_parts(p, self.len as i32) }
+        unsafe { Buffer::from_raw_parts(p, self.len) }
     }
 }
 
-impl<T> Drop for Builder<T> {
+impl<T> Drop for Builder<T>
+where
+    T: ArrowPrimitiveType,
+{
     fn drop(&mut self) {
         if !self.data.is_null() {
             free_aligned(self.data as *const u8);

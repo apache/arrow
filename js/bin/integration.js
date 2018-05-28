@@ -17,61 +17,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-var fs = require('fs');
-var glob = require('glob');
-var path = require('path');
-var gulp = require.resolve(path.join(`..`, `node_modules/gulp/bin/gulp.js`));
-var child_process = require(`child_process`);
-var optionList = [
-    {
-        type: String,
-        name: 'mode',
-        description: 'The integration test to run'
-    },
-    {
-        type: String,
-        name: 'arrow', alias: 'a',
-        multiple: true, defaultValue: [],
-        description: 'The Arrow file[s] to read/write'
-    },
-    {
-        type: String,
-        name: 'json', alias: 'j',
-        multiple: true, defaultValue: [],
-        description: 'The JSON file[s] to read/write'
-    }
-];
+const fs = require('fs');
+const glob = require('glob');
+const path = require('path');
+const child_process = require(`child_process`);
+const argv = require(`command-line-args`)(cliOpts(), { partial: true });
+const gulpPath = require.resolve(path.join(`..`, `node_modules/gulp/bin/gulp.js`));
 
-var argv = require(`command-line-args`)(optionList, { partial: true });
-
-function print_usage() {
-    console.log(require('command-line-usage')([
-        {
-            header: 'integration',
-            content: 'Script for running Arrow integration tests'
-        },
-        {
-            header: 'Synopsis',
-            content: [
-                '$ integration.js -j file.json -a file.arrow --mode validate'
-            ]
-        },
-        {
-            header: 'Options',
-            optionList: [
-                ...optionList,
-                {
-                    name: 'help',
-                    description: 'Print this usage guide.'
-                }
-            ]
-        },
-    ]));
-    process.exit(1);
-}
-
-let jsonPaths = argv.json;
-let arrowPaths = argv.arrow;
+let jsonPaths = [...(argv.json || [])];
+let arrowPaths = [...(argv.arrow || [])];
 
 if (!argv.mode) {
     return print_usage();
@@ -89,12 +43,13 @@ if (mode === 'VALIDATE' && !jsonPaths.length) {
                     if (fs.existsSync(arrowPath)) {
                         jsonPaths.push(jsonPath);
                         arrowPaths.push(arrowPath);
-                        console.log('-j', jsonPath, '-a', arrowPath, '\\');
                     }
                 }
             }
             return [jsonPaths, arrowPaths];
         }, [[], []]);
+        console.log(`jsonPaths: [\n\t${jsonPaths.join('\n\t')}\n]`);
+        console.log(`arrowPaths: [\n\t${arrowPaths.join('\n\t')}\n]`);
     }
 } else if (!jsonPaths.length) {
     return print_usage();
@@ -107,24 +62,61 @@ switch (mode) {
             args.push('-j', p, '-a', arrowPaths[i]);
         });
         process.exitCode = child_process.spawnSync(
-            gulp, args,
+            gulpPath, args,
             {
                 cwd: path.resolve(__dirname, '..'),
                 stdio: ['ignore', 'inherit', 'inherit']
             }
         ).status || process.exitCode || 0;
-        // for (let i = -1, n = jsonPaths.length; ++i < n;) {
-        //     const jsonPath = jsonPaths[i];
-        //     const arrowPath = arrowPaths[i];
-        //     child_process.spawnSync(
-        //         gulp, args.concat(['-j', jsonPath, '-a', arrowPath]),
-        //         {
-        //             cwd: path.resolve(__dirname, '..'),
-        //             stdio: ['ignore', 'inherit', 'inherit']
-        //         }
-        //     );
-        // }
         break;
     default:
         print_usage();
+}
+
+function cliOpts() {
+    return [
+        {
+            type: String,
+            name: 'mode',
+            description: 'The integration test to run'
+        },
+        {
+            type: String,
+            name: 'arrow', alias: 'a',
+            multiple: true, defaultValue: [],
+            description: 'The Arrow file[s] to read/write'
+        },
+        {
+            type: String,
+            name: 'json', alias: 'j',
+            multiple: true, defaultValue: [],
+            description: 'The JSON file[s] to read/write'
+        }
+    ];
+}
+
+function print_usage() {
+    console.log(require('command-line-usage')([
+        {
+            header: 'integration',
+            content: 'Script for running Arrow integration tests'
+        },
+        {
+            header: 'Synopsis',
+            content: [
+                '$ integration.js -j file.json -a file.arrow --mode validate'
+            ]
+        },
+        {
+            header: 'Options',
+            optionList: [
+                ...cliOpts(),
+                {
+                    name: 'help',
+                    description: 'Print this usage guide.'
+                }
+            ]
+        },
+    ]));
+    process.exit(1);
 }

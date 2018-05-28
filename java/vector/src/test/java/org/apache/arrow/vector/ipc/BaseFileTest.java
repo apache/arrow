@@ -18,6 +18,7 @@
 
 package org.apache.arrow.vector.ipc;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -71,6 +72,8 @@ import org.slf4j.LoggerFactory;
 import io.netty.buffer.ArrowBuf;
 
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Helps testing the file formats
@@ -583,5 +586,45 @@ public class BaseFileTest {
     // VarBinaryVector lastSet should be the index of last value
     VarBinaryVector binaryVector = (VarBinaryVector) listVector.getChildrenFromFields().get(0);
     Assert.assertEquals(binaryVector.getLastSet(), numVarBinaryValues - 1);
+  }
+
+  protected void writeBatchData(ArrowWriter writer, IntVector vector, VectorSchemaRoot root) throws IOException {
+    writer.start();
+
+    vector.setNull(0);
+    vector.setSafe(1, 1);
+    vector.setSafe(2, 2);
+    vector.setNull(3);
+    vector.setSafe(4, 1);
+    vector.setValueCount(5);
+    root.setRowCount(5);
+    writer.writeBatch();
+
+    vector.setNull(0);
+    vector.setSafe(1, 1);
+    vector.setSafe(2, 2);
+    vector.setValueCount(3);
+    root.setRowCount(3);
+    writer.writeBatch();
+
+    writer.end();
+  }
+
+  protected void validateBatchData(ArrowReader reader, IntVector vector) throws IOException {
+    reader.loadNextBatch();
+
+    assertEquals(vector.getValueCount(), 5);
+    assertTrue(vector.isNull(0));
+    assertEquals(vector.get(1), 1);
+    assertEquals(vector.get(2), 2);
+    assertTrue(vector.isNull(3));
+    assertEquals(vector.get(4), 1);
+
+    reader.loadNextBatch();
+
+    assertEquals(vector.getValueCount(), 3);
+    assertTrue(vector.isNull(0));
+    assertEquals(vector.get(1), 1);
+    assertEquals(vector.get(2), 2);
   }
 }

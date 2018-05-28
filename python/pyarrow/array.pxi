@@ -602,7 +602,8 @@ cdef class Array:
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls)
+            integer_object_nulls=integer_object_nulls,
+            use_threads=False)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
                                               self, &out))

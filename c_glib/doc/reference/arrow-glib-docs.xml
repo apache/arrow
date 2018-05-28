@@ -51,6 +51,10 @@
       <title>Compute</title>
       <xi:include href="xml/compute.xml"/>
     </chapter>
+    <chapter id="decimal">
+      <title>Decimal</title>
+      <xi:include href="xml/decimal.xml"/>
+    </chapter>
     <chapter id="tensor">
       <title>Tensor</title>
       <xi:include href="xml/tensor.xml"/>

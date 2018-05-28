@@ -624,6 +624,7 @@
     <module>vector</module>
     <module>tools</module>
     <module>adapter/jdbc</module>
+    <module>plasma</module>
   </modules>
 
   <profiles>

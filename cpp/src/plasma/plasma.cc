@@ -30,7 +30,7 @@ extern "C" {
 void dlfree(void* mem);
 }
 
-ObjectTableEntry::ObjectTableEntry() : pointer(nullptr) {}
+ObjectTableEntry::ObjectTableEntry() : pointer(nullptr), ref_count(0) {}
 
 ObjectTableEntry::~ObjectTableEntry() {
   dlfree(pointer);

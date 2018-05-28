@@ -301,8 +301,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
-    final int halfNewCapacity = newBuf.capacity() / 2;
-    newBuf.setZero(halfNewCapacity, halfNewCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     validityBuffer.release(1);
     validityBuffer = newBuf;
     validityAllocationSizeInBytes = (int) newAllocationSize;

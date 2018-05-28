@@ -34,7 +34,7 @@ Status Lz4Codec::Decompress(int64_t input_len, const uint8_t* input, int64_t out
   int64_t decompressed_size = LZ4_decompress_safe(
       reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
       static_cast<int>(input_len), static_cast<int>(output_len));
-  if (decompressed_size < 1) {
+  if (decompressed_size < 0) {
     return Status::IOError("Corrupt Lz4 compressed data.");
   }
   return Status::OK();
@@ -51,7 +51,7 @@ Status Lz4Codec::Compress(int64_t input_len, const uint8_t* input,
   *output_length = LZ4_compress_default(
       reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
       static_cast<int>(input_len), static_cast<int>(output_buffer_len));
-  if (*output_length < 1) {
+  if (*output_length == 0) {
     return Status::IOError("Lz4 compression failure.");
   }
   return Status::OK();

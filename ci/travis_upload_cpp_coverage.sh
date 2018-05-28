@@ -23,7 +23,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 pushd $TRAVIS_BUILD_DIR
 
-# Display summary
+# Display C++ coverage summary
 lcov --list $ARROW_CPP_COVERAGE_FILE
 # Upload report to CodeCov
 bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"

@@ -100,6 +100,17 @@ TEST_F(TestArray, TestEquality) {
   EXPECT_FALSE(array->RangeEquals(0, 4, 0, unequal_array));
   EXPECT_FALSE(array->RangeEquals(0, 8, 0, unequal_array));
   EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
+
+  auto timestamp_ns_array = std::make_shared<NumericArray<TimestampType>>(
+      timestamp(TimeUnit::NANO), array->length(), array->data()->buffers[1],
+      array->data()->buffers[0], array->null_count());
+  auto timestamp_us_array = std::make_shared<NumericArray<TimestampType>>(
+      timestamp(TimeUnit::MICRO), array->length(), array->data()->buffers[1],
+      array->data()->buffers[0], array->null_count());
+  ASSERT_FALSE(array->Equals(timestamp_ns_array));
+  // ARROW-2567: Ensure that not only the type id but also the type equality
+  // itself is checked.
+  ASSERT_FALSE(timestamp_us_array->Equals(timestamp_ns_array));
 }
 
 TEST_F(TestArray, TestNullArrayEquality) {

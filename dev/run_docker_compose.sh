@@ -35,4 +35,5 @@ if [ ! -d parquet-cpp ]; then
     exit 1
 fi
 
+docker-compose -f arrow/dev/docker-compose.yml build "${@}"
 docker-compose -f arrow/dev/docker-compose.yml run --rm "${@}"

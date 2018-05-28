@@ -153,13 +153,13 @@ public class Text {
   }
 
   /**
-   * Finds any occurence of <code>what</code> in the backing buffer, starting as position <code>start</code>. The
+   * Finds any occurrence of <code>what</code> in the backing buffer, starting as position <code>start</code>. The
    * starting position is measured in bytes and the return value is in terms of byte position in the buffer. The backing
    * buffer is not converted to a string for this operation.
    *
    * @param what  the string to search for
    * @param start where to start from
-   * @return byte position of the first occurence of the search string in the UTF-8 buffer or -1 if not found
+   * @return byte position of the first occurrence of the search string in the UTF-8 buffer or -1 if not found
    */
   public int find(String what, int start) {
     try {

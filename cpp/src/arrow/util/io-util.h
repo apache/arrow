@@ -163,6 +163,13 @@ Status FileClose(int fd);
 
 Status CreatePipe(int fd[2]);
 
+Status GetEnvVar(const char* name, std::string* out);
+Status GetEnvVar(const std::string& name, std::string* out);
+Status SetEnvVar(const char* name, const char* value);
+Status SetEnvVar(const std::string& name, const std::string& value);
+Status DelEnvVar(const char* name);
+Status DelEnvVar(const std::string& name);
+
 }  // namespace internal
 }  // namespace arrow
 

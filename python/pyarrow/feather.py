@@ -24,8 +24,10 @@ import warnings
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import RecordBatch, Table
+from pyarrow.lib import RecordBatch, Table, concat_tables
 import pyarrow.lib as ext
+from .util import _deprecate_nthreads
+
 
 try:
     infer_dtype = pdapi.infer_dtype
@@ -45,7 +47,7 @@ class FeatherReader(ext.FeatherReader):
 
     def read(self, *args, **kwargs):
         warnings.warn("read has been deprecated. Use read_pandas instead.",
-                      DeprecationWarning)
+                      FutureWarning, stacklevel=2)
         return self.read_pandas(*args, **kwargs)
 
     def read_table(self, columns=None):
@@ -66,8 +68,10 @@ class FeatherReader(ext.FeatherReader):
         table = Table.from_arrays(columns, names=names)
         return table
 
-    def read_pandas(self, columns=None, nthreads=1):
-        return self.read_table(columns=columns).to_pandas(nthreads=nthreads)
+    def read_pandas(self, columns=None, nthreads=None, use_threads=False):
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
+        return self.read_table(columns=columns).to_pandas(
+            use_threads=use_threads)
 
 
 class FeatherWriter(object):
@@ -92,6 +96,74 @@ class FeatherWriter(object):
                 self.writer.write_array(name, col)
 
         self.writer.close()
+
+
+class FeatherDataset(object):
+    """
+    Encapsulates details of reading a list of Feather files.
+
+    Parameters
+    ----------
+    path_or_paths : List[str]
+        A list of file names
+    validate_schema : boolean, default True
+        Check that individual file schemas are all the same / compatible
+    """
+    def __init__(self, path_or_paths, validate_schema=True):
+        self.paths = path_or_paths
+        self.validate_schema = validate_schema
+
+    def read_table(self, columns=None):
+        """
+        Read multiple feather files as a single pyarrow.Table
+
+        Parameters
+        ----------
+        columns : List[str]
+            Names of columns to read from the file
+
+        Returns
+        -------
+        pyarrow.Table
+            Content of the file as a table (of columns)
+        """
+        _fil = FeatherReader(self.paths[0]).read_table(columns=columns)
+        self._tables = [_fil]
+        self.schema = _fil.schema
+
+        for fil in self.paths[1:]:
+            fil_table = FeatherReader(fil).read_table(columns=columns)
+            if self.validate_schema:
+                self.validate_schemas(fil, fil_table)
+            self._tables.append(fil_table)
+        return concat_tables(self._tables)
+
+    def validate_schemas(self, piece, table):
+        if not self.schema.equals(table.schema):
+            raise ValueError('Schema in {0!s} was different. \n'
+                             '{1!s}\n\nvs\n\n{2!s}'
+                             .format(piece, self.schema,
+                                     table.schema))
+
+    def read_pandas(self, columns=None, nthreads=None, use_threads=False):
+        """
+        Read multiple Parquet files as a single pandas DataFrame
+
+        Parameters
+        ----------
+        columns : List[str]
+            Names of columns to read from the file
+        nthreads : int, default 1
+            Number of columns to read in parallel.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Content of the file as a pandas DataFrame (of columns)
+        """
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
+        return self.read_table(columns=columns).to_pandas(
+            use_threads=use_threads)
 
 
 def write_feather(df, dest):
@@ -120,7 +192,7 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None, nthreads=1):
+def read_feather(source, columns=None, nthreads=None, use_threads=False):
     """
     Read a pandas.DataFrame from Feather format
 
@@ -130,15 +202,16 @@ def read_feather(source, columns=None, nthreads=1):
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read
-    nthreads : int, default 1
-        Number of CPU threads to use when reading to pandas.DataFrame
+    use_threads: bool, default False
+        Whether to parallelize reading using multiple threads
 
     Returns
     -------
     df : pandas.DataFrame
     """
+    use_threads = _deprecate_nthreads(use_threads, nthreads)
     reader = FeatherReader(source)
-    return reader.read_pandas(columns=columns, nthreads=nthreads)
+    return reader.read_pandas(columns=columns, use_threads=use_threads)
 
 
 def read_table(source, columns=None):

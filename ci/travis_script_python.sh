@@ -85,25 +85,31 @@ popd
 # python-test isn't run by travis_script_cpp.sh, exercise it here
 $ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/python-test
 
-# Other stuff pip install
 pushd $ARROW_PYTHON_DIR
 
+# Other stuff pip install
+pip install -q -r requirements.txt
 if [ "$PYTHON_VERSION" == "2.7" ]; then
   pip install -q futures
 fi
+if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
+    export PYARROW_GENERATE_COVERAGE=1
+    pip install -q coverage
+fi
 
 export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
+export PYARROW_WITH_PARQUET=1
+export PYARROW_WITH_PLASMA=1
+export PYARROW_WITH_ORC=1
 
-pip install -q -r requirements.txt
-python setup.py build_ext -q --with-parquet --with-plasma --with-orc\
-       install -q --single-version-externally-managed --record=record.text
-popd
+python setup.py build_ext -q --inplace
 
+# Basic sanity checks
 python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 python -c "import pyarrow.orc"
 
-if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
+if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
   export PLASMA_VALGRIND=1
 fi
 
@@ -115,19 +121,34 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
     sudo bash -c "echo 20000 > /proc/sys/vm/nr_hugepages"
 fi
 
-PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
-python -m pytest -r sxX --durations=15 $PYARROW_PATH --parquet
+# Need to run tests from the source tree for Cython coverage and conftest.py
+if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
+    # Output Python coverage data in a persistent place
+    export COVERAGE_FILE=$ARROW_PYTHON_COVERAGE_FILE
+    coverage run --append -m pytest -r sxX --durations=15 --parquet pyarrow/tests
+else
+    python -m pytest -r sxX --durations=15 --parquet pyarrow/tests
+fi
 
-# Capture C++ coverage info and combine with previous coverage file
-if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
+if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
+    # Check Cython coverage was correctly captured in $COVERAGE_FILE
+    coverage report -i --include="*/lib.pyx"
+    coverage report -i --include="*/memory.pxi"
+    coverage report -i --include="*/_parquet.pyx"
+    # Generate XML file for CodeCov
+    coverage xml -i -o $TRAVIS_BUILD_DIR/coverage.xml
+    # Capture C++ coverage info and combine with previous coverage file
     pushd $TRAVIS_BUILD_DIR
     lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info
     lcov --add-tracefile coverage-python-tests.info \
         --add-tracefile $ARROW_CPP_COVERAGE_FILE \
         --output-file $ARROW_CPP_COVERAGE_FILE
     rm coverage-python-tests.info
-    popd
+    popd   # $TRAVIS_BUILD_DIR
 fi
+
+popd  # $ARROW_PYTHON_DIR
+
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Build documentation once
@@ -138,9 +159,12 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; the
         sphinx \
         sphinx_bootstrap_theme
 
-  pushd $ARROW_PYTHON_DIR/doc
+  pushd $ARROW_PYTHON_DIR
+  # For autodoc, make sure PyArrow is installed
+  python setup.py install -q --single-version-externally-managed --record=record.text
+  cd doc
   sphinx-build -q -b html -d _build/doctrees -W source _build/html
-  popd
+  popd  # $ARROW_PYTHON_DIR
 fi
 
 if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
@@ -152,12 +176,16 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   source activate pyarrow_asv
   pip install -q git+https://github.com/pitrou/asv.git@customize_commands
 
-  pushd $TRAVIS_BUILD_DIR/python
+  export PYARROW_WITH_PARQUET=0
+  export PYARROW_WITH_PLASMA=1
+  export PYARROW_WITH_ORC=0
+
+  pushd $ARROW_PYTHON_DIR
   # Workaround for https://github.com/airspeed-velocity/asv/issues/631
   git fetch --depth=100 origin master:master
   # Generate machine information (mandatory)
   asv machine --yes
   # Run benchmarks on the changeset being tested
   asv run --no-pull --show-stderr --quick HEAD^!
-  popd
+  popd  # $ARROW_PYTHON_DIR
 fi

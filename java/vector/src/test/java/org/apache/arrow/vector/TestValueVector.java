@@ -42,6 +42,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
@@ -885,6 +886,10 @@ public class TestValueVector {
       vector.setSafe(5, STR3ByteBuffer, 1, STR3.length - 1);
       vector.setSafe(6, STR3ByteBuffer, 2, STR3.length - 2);
 
+      // Set with convenience function
+      Text txt = new Text("foo");
+      vector.setSafe(7, txt);
+
       // Check the sample strings.
       assertArrayEquals(STR1, vector.get(0));
       assertArrayEquals(STR2, vector.get(1));
@@ -894,10 +899,13 @@ public class TestValueVector {
       assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(5));
       assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
 
+      // Check returning a Text object
+      assertEquals(txt, vector.getObject(7));
+
       // Ensure null value throws.
       boolean b = false;
       try {
-        vector.get(7);
+        vector.get(8);
       } catch (IllegalStateException e) {
         b = true;
       } finally {

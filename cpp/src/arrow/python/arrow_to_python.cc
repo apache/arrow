@@ -112,9 +112,17 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
     case Type::BOOL:
       *result = PyBool_FromLong(checked_cast<const BooleanArray&>(arr).Value(index));
       return Status::OK();
-    case Type::INT64:
+    case Type::INT64: {
+#if PY_MAJOR_VERSION < 3
+      const std::string& child_name = parent.type()->child(type)->name();
+      if (child_name == "py2_int") {
+        *result = PyInt_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
+        return Status::OK();
+      }
+#endif
       *result = PyLong_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
       return Status::OK();
+    }
     case Type::BINARY: {
       int32_t nchars;
       const uint8_t* str = checked_cast<const BinaryArray&>(arr).GetValue(index, &nchars);

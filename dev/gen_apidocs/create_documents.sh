@@ -20,66 +20,53 @@ set -ex
 
 # Set up environment and output directory for C++ libraries
 cd /apache-arrow
-rm -rf dist
-mkdir dist
-export ARROW_BUILD_TYPE=release
-export ARROW_HOME=$(pwd)/dist
-export PARQUET_HOME=$(pwd)/dist
-CONDA_BASE=/home/ubuntu/miniconda
-export LD_LIBRARY_PATH=$(pwd)/dist/lib:${CONDA_BASE}/lib:${LD_LIBRARY_PATH}
-export PKG_CONFIG_PATH=$(pwd)/dist/lib/pkgconfig:${PKG_CONFIG_PATH}
-export PATH=${CONDA_BASE}/bin:${PATH}
 
-# Prepare the asf-site before copying api docs
-pushd arrow/site
-rm -rf asf-site
-export GIT_COMMITTER_NAME="Nobody"
-export GIT_COMMITTER_EMAIL="nobody@nowhere.com"
-git clone --branch=asf-site \
-    https://git-wip-us.apache.org/repos/asf/arrow-site.git asf-site
-popd
+mkdir -p apidocs-dist
+export ARROW_BUILD_TYPE=release
+export ARROW_HOME=$(pwd)/apidocs-dist
+export PARQUET_HOME=$(pwd)/apidocs-dist
+CONDA_BASE=/home/ubuntu/miniconda
+export PKG_CONFIG_PATH=$(pwd)/apidocs-dist/lib/pkgconfig:${PKG_CONFIG_PATH}
+export PATH=${CONDA_BASE}/bin:${PATH}
+# For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
+export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
 # Make Java documentation
-export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64
-wget http://mirrors.gigenet.com/apache/maven/maven-3/3.5.2/binaries/apache-maven-3.5.2-bin.tar.gz
-tar xvf apache-maven-3.5.2-bin.tar.gz
-export PATH=$(pwd)/apache-maven-3.5.2/bin:$PATH
-
+# Override user.home to cache dependencies outside the Docker container
 pushd arrow/java
-rm -rf target/site/apidocs/*
-mvn -Drat.skip=true clean
-mvn -Drat.skip=true install
-mvn -Drat.skip=true site
-mkdir -p ../site/asf-site/docs/java/
-rsync -r target/site/apidocs/ ../site/asf-site/docs/java/
+#mvn -Duser.home=`pwd`/.apidocs-m2 -Drat.skip=true -Dcheckstyle.skip=true install site
+#mkdir -p ../site/asf-site/docs/java/
+#rsync -r target/site/apidocs/ ../site/asf-site/docs/java/
+popd
+
+# Make Javascript documentation
+pushd arrow/js
+npm install
+npm run doc
+rsync -r doc/ ../site/asf-site/docs/js
 popd
 
 # Make Python documentation (Depends on C++ )
 # Build Arrow C++
 source activate pyarrow-dev
-
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
-export BOOST_ROOT=$CONDA_PREFIX
 export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
-export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:${LD_LIBRARY_PATH}
-export PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH}
+export LD_LIBRARY_PATH=$(pwd)/apidocs-dist/lib:${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH}
+export PKG_CONFIG_PATH=${CONDA_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}
+export PKG_CONFIG_PATH=$(pwd)/apidocs-dist/lib/pkgconfig:${PKG_CONFIG_PATH}
 
-export CC=gcc-4.9
-export CXX=g++-4.9
+CPP_BUILD_DIR=$(pwd)/arrow/cpp/build_apidocs
 
-CPP_BUILD_DIR=$(pwd)/arrow/cpp/build_docs
-
-rm -rf $CPP_BUILD_DIR
-mkdir $CPP_BUILD_DIR
+mkdir -p $CPP_BUILD_DIR
 pushd $CPP_BUILD_DIR
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_PYTHON=on \
       -DARROW_PLASMA=on \
       -DARROW_BUILD_TESTS=OFF \
+      -GNinja \
       ..
-make -j4
-make install
+ninja install
 popd
 
 # Build c_glib documentation
@@ -90,9 +77,8 @@ if [ -f Makefile ]; then
     make distclean
 fi
 ./autogen.sh
-rm -rf build_docs
-mkdir build_docs
-pushd build_docs
+mkdir -p build_apidocs
+pushd build_apidocs
 ../configure \
     --prefix=${AROW_HOME} \
     --enable-gtk-doc
@@ -103,23 +89,20 @@ popd
 popd
 
 # Build Parquet C++
-rm -rf parquet-cpp/build_docs
-mkdir parquet-cpp/build_docs
-pushd parquet-cpp/build_docs
+mkdir -p parquet-cpp/build_apidocs
+pushd parquet-cpp/build_apidocs
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
       -DPARQUET_BUILD_BENCHMARKS=off \
       -DPARQUET_BUILD_EXECUTABLES=off \
       -DPARQUET_BUILD_TESTS=off \
+      -GNinja \
       ..
-make -j4
-make install
+ninja install
 popd
 
 # Now Python documentation can be built
 pushd arrow/python
-rm -rf build/*
-rm -rf doc/_build
 python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
     --with-plasma --with-parquet --inplace
 python setup.py build_sphinx -s doc/source

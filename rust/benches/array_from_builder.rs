@@ -30,7 +30,7 @@ fn array_from_builder(n: usize) {
     for i in 0..n {
         v.push(i as i32);
     }
-    Array::from(v.finish());
+    PrimitiveArray::from(v.finish());
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

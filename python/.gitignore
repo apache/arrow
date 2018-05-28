@@ -29,10 +29,11 @@ build
 dist
 # Egg metadata
 *.egg-info
-# coverage
+# Coverage
 .coverage
 coverage.xml
-# cache
+htmlcov
+# Cache
 .cache
 
 # benchmark working dir
