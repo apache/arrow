@@ -17,9 +17,6 @@
  */
 package org.apache.arrow.adapter.jdbc.h2;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.Table;
@@ -38,16 +35,11 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
@@ -75,10 +67,8 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharV
  *
  */
 @RunWith(Parameterized.class)
-public class JdbcToArrowDataTypesTest {
-	private Connection conn = null;
-	private Table table;
-	
+public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
+
     private static final String BIGINT = "big_int";
     private static final String BINARY = "binary";
     private static final String BIT = "bit";
@@ -124,49 +114,6 @@ public class JdbcToArrowDataTypesTest {
     public JdbcToArrowDataTypesTest(Table table) {
         this.table = table;
     }
-     
-    /**
-     * This method creates Table object after reading YAML file
-     * @param ymlFilePath
-     * @return
-     * @throws IOException
-     */
-    private static Table getTable(String ymlFilePath) throws IOException {
-        return new ObjectMapper(new YAMLFactory()).readValue(
-                JdbcToArrowDataTypesTest.class.getClassLoader().getResourceAsStream(ymlFilePath), Table.class);
-    }
-
-    
-    /**
-     * This method creates Connection object and DB table and also populate data into table for test
-     * @throws SQLException
-     * @throws ClassNotFoundException
-     */
-    @Before
-    public void setUp() throws SQLException, ClassNotFoundException {
-        String url = "jdbc:h2:mem:JdbcToArrowTest";
-        String driver = "org.h2.Driver";
-        Class.forName(driver);
-        conn = DriverManager.getConnection(url);
-        try (Statement stmt = conn.createStatement();) {
-            stmt.executeUpdate(table.getCreate());
-            for (String insert : table.getData()) {
-                stmt.executeUpdate(insert);
-            }
-        }
-    }
-    
-    /**
-     * Clean up method to close connection after test completes
-     * @throws SQLException
-     */
-    @After
-    public void destroy() throws SQLException {
-        if (conn != null) {
-            conn.close();
-            conn = null;
-        }
-    }
     
   /**
    * This method returns collection of Table object for each test iteration
@@ -177,12 +124,7 @@ public class JdbcToArrowDataTypesTest {
    */
     @Parameters
     public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
-      	Object[][] tableArr = new Object[testFiles.length][];
-        int i = 0;
-        for (String testFile: testFiles) {
-        	tableArr[i++] = new Object[]{getTable(testFile)};
-        }
-        return Arrays.asList(tableArr);
+        return Arrays.asList(prepareTestData(testFiles, JdbcToArrowDataTypesTest.class));
     }
     
     /**
@@ -194,52 +136,90 @@ public class JdbcToArrowDataTypesTest {
     public void testDBValues() throws SQLException, IOException {
         try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(),
                 new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
-            switch (table.getType()) {
-                case BIGINT:
-                    assertBigIntVectorValues((BigIntVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
-                    break;
-                case BINARY:case BLOB:
-                    assertVarBinaryVectorValues((VarBinaryVector) root.getVector(table.getVector()), table.getValues().length, table.getBinaryValues());
-                    break;
-                case BIT:
-                    assertBitVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
-                    break;
-                case BOOL:
-                    assertBooleanVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length, table.getBoolValues());
-                    break;
-                case CHAR:case VARCHAR: case CLOB:
-                    assertVarcharVectorValues((VarCharVector) root.getVector(table.getVector()), table.getValues().length, table.getCharValues());
-                    break;
-                case DATE:
-                    assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
-                    break;
-                case TIME:
-                    assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
-                    break;
-                case TIMESTAMP:
-                    assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
-                    break;
-                case DECIMAL:
-                    assertDecimalVectorValues((DecimalVector) root.getVector(table.getVector()), table.getValues().length, table.getBigDecimalValues());
-                    break;
-                case DOUBLE:
-                    assertFloat8VectorValues((Float8Vector) root.getVector(table.getVector()), table.getValues().length, table.getDoubleValues());
-                    break;
-                case INT:
-                    assertIntVectorValues((IntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
-                    break;
-                case SMALLINT:
-                    assertSmallIntVectorValues((SmallIntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
-                    break;
-                case TINYINT:
-                    assertTinyIntVectorValues((TinyIntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
-                    break;
-                case REAL:
-                    assertFloat4VectorValues((Float4Vector) root.getVector(table.getVector()), table.getValues().length, table.getFloatValues());
-                    break;
-            }
+        	testDataSets(root);
+
         }
     }
-
+    
+    /**
+     * This method tests various datatypes converted into Arrow vector for H2 database using ResultSet
+     * @throws SQLException
+     * @throws IOException
+     */
+    @Test
+    public void testDBValuesUsingResultSet() throws SQLException, IOException {
+        try (Statement stmt = conn.createStatement();
+        		VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()),
+                	Calendar.getInstance())) {
+        	
+        	testDataSets(root);
+        }
+    }
+    
+    /**
+     * This method tests various datatypes converted into Arrow vector for H2 database using ResultSet And Allocator
+     * @throws SQLException
+     * @throws IOException
+     */
+    @Test
+    public void testDBValuesUsingResultSetAndAllocator() throws SQLException, IOException {
+        try (Statement stmt = conn.createStatement();
+        		VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()),
+        				new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
+        	
+        	testDataSets(root);
+        }
+    }
+    
+    /**
+     * This method calls the assert methods for various DataSets
+     * @param root
+     */
+    public void testDataSets(VectorSchemaRoot root) {
+    	switch (table.getType()) {
+	        case BIGINT:
+	            assertBigIntVectorValues((BigIntVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+	            break;
+	        case BINARY:case BLOB:
+	            assertVarBinaryVectorValues((VarBinaryVector) root.getVector(table.getVector()), table.getValues().length, table.getBinaryValues());
+	            break;
+	        case BIT:
+	            assertBitVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
+	            break;
+	        case BOOL:
+	            assertBooleanVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length, table.getBoolValues());
+	            break;
+	        case CHAR:case VARCHAR: case CLOB:
+	            assertVarcharVectorValues((VarCharVector) root.getVector(table.getVector()), table.getValues().length, table.getCharValues());
+	            break;
+	        case DATE:
+	            assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+	            break;
+	        case TIME:
+	            assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+	            break;
+	        case TIMESTAMP:
+	            assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+	            break;
+	        case DECIMAL:
+	            assertDecimalVectorValues((DecimalVector) root.getVector(table.getVector()), table.getValues().length, table.getBigDecimalValues());
+	            break;
+	        case DOUBLE:
+	            assertFloat8VectorValues((Float8Vector) root.getVector(table.getVector()), table.getValues().length, table.getDoubleValues());
+	            break;
+	        case INT:
+	            assertIntVectorValues((IntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
+	            break;
+	        case SMALLINT:
+	            assertSmallIntVectorValues((SmallIntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
+	            break;
+	        case TINYINT:
+	            assertTinyIntVectorValues((TinyIntVector) root.getVector(table.getVector()), table.getValues().length, table.getIntValues());
+	            break;
+	        case REAL:
+	            assertFloat4VectorValues((Float4Vector) root.getVector(table.getVector()), table.getValues().length, table.getFloatValues());
+	            break;
+	    }
+    }
 }
 

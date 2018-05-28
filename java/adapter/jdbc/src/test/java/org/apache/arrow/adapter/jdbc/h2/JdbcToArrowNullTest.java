@@ -20,14 +20,13 @@ package org.apache.arrow.adapter.jdbc.h2;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertNullValues;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 
+import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
@@ -45,15 +44,10 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 /**
  * 
@@ -61,10 +55,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
  *
  */
 @RunWith(Parameterized.class)
-public class JdbcToArrowNullTest {
-
-    private Connection conn = null;
-    private Table table;
+public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
 
     private static final String NULL = "null";
     private static final String SELECTED_NULL_COLUMN = "selected_null_column";
@@ -83,49 +74,6 @@ public class JdbcToArrowNullTest {
     }
 
     /**
-     * This method creates Table object after reading YAML file
-     * @param ymlFilePath
-     * @return
-     * @throws IOException
-     */
-    private static Table getTable(String ymlFilePath) throws IOException {
-        return new ObjectMapper(new YAMLFactory()).readValue(
-                JdbcToArrowDataTypesTest.class.getClassLoader().getResourceAsStream(ymlFilePath),
-                Table.class);
-    }
-
-    /**
-     * This method creates Connection object and DB table and also populate data into table for test
-     * @throws SQLException
-     * @throws ClassNotFoundException
-     */
-    @Before
-    public void setUp() throws SQLException, ClassNotFoundException {
-        String url = "jdbc:h2:mem:JdbcToArrowTest";
-        String driver = "org.h2.Driver";
-        Class.forName(driver);
-        conn = DriverManager.getConnection(url);
-        try (Statement stmt = conn.createStatement();) {
-            stmt.executeUpdate(table.getCreate());
-            for (String insert : table.getData()) {
-                stmt.executeUpdate(insert);
-            }
-        }
-    }
-
-    /**
-     * Clean up method to close connection after test completes
-     * @throws SQLException
-     */
-    @After
-    public void destroy() throws SQLException {
-        if (conn != null) {
-            conn.close();
-            conn = null;
-        }
-    }
-    
-    /**
      * This method returns collection of Table object for each test iteration
      * @return
      * @throws SQLException
@@ -134,12 +82,7 @@ public class JdbcToArrowNullTest {
      */
     @Parameters
     public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    	Object[][] tableArr = new Object[testFiles.length][];
-        int i = 0;
-        for (String testFile: testFiles) {
-        	tableArr[i++] = new Object[]{getTable(testFile)};
-        }
-        return Arrays.asList(tableArr);
+    	return Arrays.asList(prepareTestData(testFiles, JdbcToArrowNullTest.class));
     }
 
     /**
@@ -151,17 +94,54 @@ public class JdbcToArrowNullTest {
     public void testNullValues() throws SQLException, IOException {
     	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(),
              new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
-    		switch (table.getType()) {
-            	case NULL:
-            		sqlToArrowTestNullValues(table.getVectors(), root, table.getRowCount());
-            		break;
-            	case SELECTED_NULL_COLUMN:
-            		sqlToArrowTestSelectedNullColumnsValues(table.getVectors(), root, table.getRowCount());
-            		break;
-    		}
+    		
+    		testDataSets(root);
+    	}
+    }
+        
+    /**
+     * This method tests null values stored into Arrow vector for various datatypes for H2 database using ResultSet
+     * @throws SQLException
+     * @throws IOException
+     */
+    @Test
+    public void testNullValuesUsingResultSet() throws SQLException, IOException {
+    	try (Statement stmt = conn.createStatement();
+    			VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()), 
+    					Calendar.getInstance())) {
+    		testDataSets(root);
+    	}
+    }
+
+    /**
+     * This method tests null values stored into Arrow vector for various datatypes for H2 database using ResultSet And Allocator
+     * @throws SQLException
+     * @throws IOException
+     */
+    @Test
+    public void testNullValuesUsingResultSetAndAllocator() throws SQLException, IOException {
+    	try (Statement stmt = conn.createStatement();
+    			VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()), 
+    					new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
+    		
+    		testDataSets(root);
     	}
     }
     
+    /**
+     * This method calls the assert methods for various DataSets
+     * @param root
+     */
+    public void testDataSets(VectorSchemaRoot root) {
+    	switch (table.getType()) {
+	    	case NULL:
+	    		sqlToArrowTestNullValues(table.getVectors(), root, table.getRowCount());
+	    		break;
+	    	case SELECTED_NULL_COLUMN:
+	    		sqlToArrowTestSelectedNullColumnsValues(table.getVectors(), root, table.getRowCount());
+	    		break;
+    	}
+    }
     /**
      * This method assert tests null values in vectors for all the datatypes 
      * @param vectors
@@ -209,4 +189,5 @@ public class JdbcToArrowNullTest {
 		assertNullValues((VarCharVector)root.getVector(vectors[11]), rowCount);
 		assertNullValues((BitVector)root.getVector(vectors[12]), rowCount);
     }
+
 }

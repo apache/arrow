@@ -153,7 +153,7 @@ public class JdbcToArrow {
 
         RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
         VectorSchemaRoot root = sqlToArrow(resultSet, rootAllocator, calendar);
-        rootAllocator.close();
+
         return root;
     }
 

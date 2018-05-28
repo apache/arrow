@@ -17,21 +17,18 @@
  */
 package org.apache.arrow.adapter.jdbc.h2;
 
-
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertDateVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeStampVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeVectorValues;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.TimeZone;
-
+import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
@@ -39,15 +36,10 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 /**
  * 
@@ -55,10 +47,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
  *
  */
 @RunWith(Parameterized.class)
-public class JdbcToArrowTimeZoneTest {
-
-	private Connection conn = null;
-    private Table table;
+public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
 
     private static final String EST_DATE = "est_date";
     private static final String EST_TIME = "est_time";
@@ -91,49 +80,6 @@ public class JdbcToArrowTimeZoneTest {
     }
 
     /**
-     * This method creates Table object after reading YAML file
-     * @param ymlFilePath
-     * @return
-     * @throws IOException
-     */
-    private static Table getTable(String ymlFilePath) throws IOException {
-        return new ObjectMapper(new YAMLFactory()).readValue(
-                JdbcToArrowDataTypesTest.class.getClassLoader().getResourceAsStream(ymlFilePath),
-                Table.class);
-    }
-    
-    /**
-     * This method creates Connection object and DB table and also populate data into table for test
-     * @throws SQLException
-     * @throws ClassNotFoundException
-     */
-    @Before
-    public void setUp() throws SQLException, ClassNotFoundException {
-        String url = "jdbc:h2:mem:JdbcToArrowTest";
-        String driver = "org.h2.Driver";
-        Class.forName(driver);
-        conn = DriverManager.getConnection(url);
-        try (Statement stmt = conn.createStatement();) {
-            stmt.executeUpdate(table.getCreate());
-            for (String insert : table.getData()) {
-                stmt.executeUpdate(insert);
-            }
-        }
-    }
-    
-    /**
-     * Clean up method to close connection after test completes
-     * @throws SQLException
-     */
-    @After
-    public void destroy() throws SQLException {
-        if (conn != null) {
-            conn.close();
-            conn = null;
-        }
-    }
-    
-    /**
      * This method returns collection of Table object for each test iteration
      * @return
      * @throws SQLException
@@ -142,12 +88,7 @@ public class JdbcToArrowTimeZoneTest {
      */
     @Parameters
     public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
-        Object[][] tableArr = new Object[testFiles.length][];
-        int i = 0;
-        for (String testFile: testFiles) {
-        	tableArr[i++] = new Object[]{getTable(testFile)};
-        }
-        return Arrays.asList(tableArr);
+        return Arrays.asList(prepareTestData(testFiles, JdbcToArrowTimeZoneTest.class));
     }
     
     /**
@@ -159,18 +100,57 @@ public class JdbcToArrowTimeZoneTest {
     public void testTimeZoneBasedValues() throws SQLException, IOException {
     	 try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(),
                  new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))) {
-             switch (table.getType()) {
-                 case EST_DATE: case GMT_DATE: case PST_DATE:
-                     assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
-                     break;
-                 case EST_TIME: case GMT_TIME: case PST_TIME:
-                     assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
-                     break;
-                 case EST_TIMESTAMP: case GMT_TIMESTAMP: case PST_TIMESTAMP:
-                     assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
-                     break;
-             }
+    		 
+    		 testDataSets(root);
+         }
+    } 
+    
+    /**
+     * This method tests TimeZone based Date, Time and Timestamp datatypes for H2 database using ResultSet
+     * @throws SQLException
+     * @throws IOException
+     */
+    @Test
+    public void testTimeZoneBasedValuesUsingResultSet() throws SQLException, IOException {
+    	try (Statement stmt = conn.createStatement();
+    			VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()),
+    			Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))) {
+
+    			testDataSets(root);
+    	}
+    }
+    
+    /**
+     * This method tests TimeZone based Date, Time and Timestamp datatypes for H2 database using ResultSet and Allocator
+     * @throws SQLException
+     * @throws IOException
+     */
+    @Test
+    public void testTimeZoneBasedValuesUsingResultSetAndAllocator() throws SQLException, IOException {
+    	try (Statement stmt = conn.createStatement();
+    			VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
+    			Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))) {
+    			
+    			testDataSets(root);
          }
     }
     
+    /**
+     * This method calls the assert methods for various DataSets
+     * @param root
+     */
+    public void testDataSets(VectorSchemaRoot root) {
+    	switch (table.getType()) {
+	        case EST_DATE: case GMT_DATE: case PST_DATE:
+	            assertDateVectorValues((DateMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+	            break;
+	        case EST_TIME: case GMT_TIME: case PST_TIME:
+	            assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+	            break;
+	        case EST_TIMESTAMP: case GMT_TIMESTAMP: case PST_TIMESTAMP:
+	            assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length, table.getLongValues());
+	            break;
+    	}
+    }
+
 }
