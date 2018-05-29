@@ -55,17 +55,7 @@ cdef class ChunkedArray:
         def __get__(self):
             return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
 
-    cdef int _check_nullptr(self) except -1:
-        if self.chunked_array == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def length(self):
-        self._check_nullptr()
         return self.chunked_array.length()
 
     def __len__(self):
@@ -80,13 +70,13 @@ cdef class ChunkedArray:
         -------
         int
         """
-        self._check_nullptr()
         return self.chunked_array.null_count()
 
     def __getitem__(self, key):
-        cdef int64_t item
-        cdef int i
-        self._check_nullptr()
+        cdef:
+            int64_t item
+            int i
+
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         elif isinstance(key, six.integer_types):
@@ -136,7 +126,6 @@ cdef class ChunkedArray:
         -------
         int
         """
-        self._check_nullptr()
         return self.chunked_array.num_chunks()
 
     def chunk(self, i):
@@ -151,8 +140,6 @@ cdef class ChunkedArray:
         -------
         pyarrow.Array
         """
-        self._check_nullptr()
-
         if i >= self.num_chunks or i < 0:
             raise IndexError('Chunk index out of range.')
 

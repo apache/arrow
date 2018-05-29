@@ -297,7 +297,6 @@ cdef class ChunkedArray:
         CChunkedArray* chunked_array
 
     cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array)
-    cdef int _check_nullptr(self) except -1
 
 
 cdef class Column:
