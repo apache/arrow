@@ -18,7 +18,6 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -38,7 +37,6 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 
-import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.hexStringToByteArray;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
@@ -249,7 +247,7 @@ public class JdbcToArrowTestHelper {
     	return valueArr;
     }
     
-    public static byte [][] getCharArrayWithCharSet(String[] values, String dataType, Charset charSet) throws UnsupportedEncodingException {
+    public static byte [][] getCharArrayWithCharSet(String[] values, String dataType, Charset charSet) {
     	String[] dataArr= getValues(values, dataType);
     	byte [][] valueArr = new byte [dataArr.length][];
     	int i =0;
