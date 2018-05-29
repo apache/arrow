@@ -23,6 +23,8 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.ArrowWriter;
 import org.apache.arrow.vector.ipc.WriteChannel;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import java.io.IOException;
@@ -51,5 +53,12 @@ public class ArrowStreamWriter extends ArrowWriter {
                              List<ArrowBlock> dictionaries,
                              List<ArrowBlock> records) throws IOException {
     out.writeIntLittleEndian(0);
+  }
+
+  @Override
+  protected void writeRecordBatch(ArrowRecordBatch batch) throws IOException {
+    ArrowBlock block = MessageSerializer.serialize(out, batch);
+    LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
+        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
   }
 }
