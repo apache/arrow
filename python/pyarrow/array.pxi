@@ -646,8 +646,8 @@ cdef class Array:
 cdef class Tensor:
 
     def __init__(self):
-        raise TypeError("Do not call Tensor's constructor directly, use "
-                        "`pyarrow.Tensor.from_*` function instead.")
+        raise TypeError("Do not call Tensor's constructor directly, use one "
+                        "of the `pyarrow.Tensor.from_*` functions instead.")
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor):
         self.sp_tensor = sp_tensor
