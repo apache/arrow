@@ -211,7 +211,7 @@ cdef public api shared_ptr[CColumn] pyarrow_unwrap_column(object column):
 
 
 cdef public api object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn):
-    cdef Column column = Column()
+    cdef Column column = Column.__new__(Column)
     column.init(ccolumn)
     return column
 

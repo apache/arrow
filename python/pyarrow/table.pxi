@@ -266,6 +266,10 @@ cdef class Column:
     def __cinit__(self):
         self.column = NULL
 
+    def __init__(self):
+        raise TypeError("Do not call Column's constructor directly, use one "
+                        "of the `Column.from_*` functions instead.")
+
     cdef void init(self, const shared_ptr[CColumn]& column):
         self.sp_column = column
         self.column = column.get()
@@ -1264,7 +1268,6 @@ cdef class Table:
         pyarrow.Column
         """
         cdef:
-            Column column = Column()
             int num_columns = self.num_columns
             int index
 
@@ -1277,8 +1280,7 @@ cdef class Table:
         index = i if i >= 0 else num_columns + i
         assert index >= 0
 
-        column.init(self.table.column(index))
-        return column
+        return pyarrow_wrap_column(self.table.column(index))
 
     def __getitem__(self, key):
         cdef int index = <int> _normalize_index(key, self.num_columns)

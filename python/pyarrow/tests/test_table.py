@@ -26,7 +26,8 @@ import pyarrow as pa
 
 @pytest.mark.parametrize('klass', [
     pa.RecordBatch,
-    pa.Table
+    pa.Table,
+    pa.Column
 ])
 def test_constructor_errors(klass):
     msg = ("Do not call {cls}'s constructor directly, use one of the "
