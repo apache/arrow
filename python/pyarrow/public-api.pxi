@@ -169,7 +169,7 @@ cdef public api object pyarrow_wrap_chunked_array(
     if data_type == NULL:
         raise ValueError('ChunkedArray data type was NULL')
 
-    cdef ChunkedArray arr = ChunkedArray()
+    cdef ChunkedArray arr = ChunkedArray.__new__(ChunkedArray)
     arr.init(sp_array)
     return arr
 

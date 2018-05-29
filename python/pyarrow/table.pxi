@@ -42,6 +42,10 @@ cdef class ChunkedArray:
     def __cinit__(self):
         self.chunked_array = NULL
 
+    def __init__(self):
+        raise TypeError("Do not call ChunkedArray's constructor directly, use "
+                        "`chunked_array` function instead.")
+
     cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array):
         self.sp_chunked_array = chunked_array
         self.chunked_array = chunked_array.get()
@@ -482,10 +486,7 @@ cdef class Column:
         -------
         pyarrow.ChunkedArray
         """
-        # TODO(kszucs): wrap
-        cdef ChunkedArray chunked_array = ChunkedArray()
-        chunked_array.init(self.column.data())
-        return chunked_array
+        return pyarrow_wrap_chunked_array(self.column.data())
 
 
 cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
