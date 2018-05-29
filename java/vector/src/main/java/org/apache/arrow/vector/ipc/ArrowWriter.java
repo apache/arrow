@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -48,14 +47,11 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
 
   // schema with fields in message format, not memory format
-  private final Schema schema;
+  protected final Schema schema;
   protected final WriteChannel out;
 
   private final VectorUnloader unloader;
   private final List<ArrowDictionaryBatch> dictionaries;
-
-  private final List<ArrowBlock> dictionaryBlocks = new ArrayList<>();
-  private final List<ArrowBlock> recordBlocks = new ArrayList<>();
 
   private boolean started = false;
   private boolean ended = false;
@@ -105,11 +101,18 @@ public abstract class ArrowWriter implements AutoCloseable {
     }
   }
 
-  protected void writeRecordBatch(ArrowRecordBatch batch) throws IOException {
+  protected ArrowBlock writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
+    ArrowBlock block = MessageSerializer.serialize(out, batch);
+    LOGGER.debug(String.format("DictionaryRecordBatch at %d, metadata: %d, body: %d",
+      block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+    return block;
+  }
+
+  protected ArrowBlock writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch);
     LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
-        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
-    recordBlocks.add(block);
+      block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+    return block;
   }
 
   public void end() throws IOException {
@@ -131,10 +134,7 @@ public abstract class ArrowWriter implements AutoCloseable {
       // write out any dictionaries
       for (ArrowDictionaryBatch batch : dictionaries) {
         try {
-          ArrowBlock block = MessageSerializer.serialize(out, batch);
-          LOGGER.debug(String.format("DictionaryRecordBatch at %d, metadata: %d, body: %d",
-              block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
-          dictionaryBlocks.add(block);
+          writeDictionaryBatch(batch);
         } finally {
           batch.close();
         }
@@ -145,16 +145,13 @@ public abstract class ArrowWriter implements AutoCloseable {
   private void ensureEnded() throws IOException {
     if (!ended) {
       ended = true;
-      endInternal(out, schema, dictionaryBlocks, recordBlocks);
+      endInternal(out);
     }
   }
 
   protected abstract void startInternal(WriteChannel out) throws IOException;
 
-  protected abstract void endInternal(WriteChannel out,
-                                      Schema schema,
-                                      List<ArrowBlock> dictionaries,
-                                      List<ArrowBlock> records) throws IOException;
+  protected abstract void endInternal(WriteChannel out) throws IOException;
 
   @Override
   public void close() {
@@ -164,10 +161,5 @@ public abstract class ArrowWriter implements AutoCloseable {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  @VisibleForTesting
-  public List<ArrowBlock> getRecordBlocks() {
-    return recordBlocks;
   }
 }
