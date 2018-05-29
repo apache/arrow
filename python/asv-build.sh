@@ -22,6 +22,8 @@ set -e
 # ASV doesn't activate its conda environment for us
 source activate $ASV_ENV_PATH
 
+conda install -c conda-forge zlib=1.2.11=0
+
 # Build Arrow C++ libraries
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX

@@ -36,13 +36,10 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
         ccache \
         zstd \
         brotli \
-        zlib \
+        zlib=1.2.11=0 \
         cmake \
         curl \
         thrift-cpp=0.11.0 \
         ninja
 
-    # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
-    # updated sometime on October 2 or October 3
-    conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
 fi
