@@ -654,15 +654,7 @@ cdef class Tensor:
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())
 
-    def _validate(self):
-        if self.tp is NULL:
-            raise TypeError(
-                'pyarrow.Tensor has not been initialized correctly Please use '
-                'pyarrow.Tensor.from_numpy to construct a pyarrow.Tensor')
-
     def __repr__(self):
-        if self.tp is NULL:
-            return '<invalid pyarrow.Tensor>'
         return """<pyarrow.Tensor>
 type: {0.type}
 shape: {0.shape}
@@ -680,8 +672,6 @@ strides: {0.strides}""".format(self)
         """
         Convert arrow::Tensor to numpy.ndarray with zero copy
         """
-        self._validate()
-
         cdef PyObject* out
 
         with nogil:
@@ -692,7 +682,6 @@ strides: {0.strides}""".format(self)
         """
         Return true if the tensors contains exactly equal data
         """
-        self._validate()
         return self.tp.Equals(deref(other.tp))
 
     def __eq__(self, other):
@@ -703,38 +692,30 @@ strides: {0.strides}""".format(self)
 
     @property
     def is_mutable(self):
-        self._validate()
         return self.tp.is_mutable()
 
     @property
     def is_contiguous(self):
-        self._validate()
         return self.tp.is_contiguous()
 
     @property
     def ndim(self):
-        self._validate()
         return self.tp.ndim()
 
     @property
     def size(self):
-        self._validate()
         return self.tp.size()
 
     @property
     def shape(self):
         # Cython knows how to convert a vector[T] to a Python list
-        self._validate()
         return tuple(self.tp.shape())
 
     @property
     def strides(self):
-        self._validate()
         return tuple(self.tp.strides())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
-        self._validate()
-
         buffer.buf = <char *> self.tp.data().get().data()
         pep3118_format = self.type.pep3118_format
         if pep3118_format is None:
