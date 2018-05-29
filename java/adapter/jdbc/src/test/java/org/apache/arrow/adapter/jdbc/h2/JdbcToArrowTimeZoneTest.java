@@ -23,7 +23,6 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeVect
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
@@ -43,9 +42,11 @@ import org.junit.runners.Parameterized.Parameters;
 
 /**
  * 
- * JUnit Test class to test TimeZone based Date, Time and Timestamp datatypes for H2 database
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with TimeZone based Date, 
+ * Time and Timestamp datatypes for H2 database
  *
  */
+
 @RunWith(Parameterized.class)
 public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
 
@@ -92,47 +93,17 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
     }
     
     /**
-     * This method tests TimeZone based Date, Time and Timestamp datatypes for H2 database
-     * @throws SQLException
-     * @throws IOException
-     */
+     * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with TimeZone based Date, 
+     * Time and Timestamp datatype
+     */ 
     @Test
-    public void testTimeZoneBasedValues() throws SQLException, IOException {
-    	 try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(),
-                 new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))) {
-    		 
-    		 testDataSets(root);
-         }
-    } 
-    
-    /**
-     * This method tests TimeZone based Date, Time and Timestamp datatypes for H2 database using ResultSet
-     * @throws SQLException
-     * @throws IOException
-     */
-    @Test
-    public void testTimeZoneBasedValuesUsingResultSet() throws SQLException, IOException {
-    	try (Statement stmt = conn.createStatement();
-    			VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()),
-    			Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))) {
-
-    			testDataSets(root);
-    	}
-    }
-    
-    /**
-     * This method tests TimeZone based Date, Time and Timestamp datatypes for H2 database using ResultSet and Allocator
-     * @throws SQLException
-     * @throws IOException
-     */
-    @Test
-    public void testTimeZoneBasedValuesUsingResultSetAndAllocator() throws SQLException, IOException {
-    	try (Statement stmt = conn.createStatement();
-    			VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
-    			Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))) {
-    			
-    			testDataSets(root);
-         }
+    public void testJdbcToArroValues() throws SQLException, IOException {
+    	testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),  
+    			Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
+    			Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), 
+    			Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
     }
     
     /**
