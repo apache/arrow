@@ -41,7 +41,6 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
@@ -63,7 +62,8 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharV
 
 /**
  * 
- * JUnit Test class to test various datatypes converted into Arrow vector for H2 database
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types for H2 database 
+ * using multiple test data files
  *
  */
 @RunWith(Parameterized.class)
@@ -128,47 +128,17 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
     }
     
     /**
-     * This method tests various datatypes converted into Arrow vector for H2 database
-     * @throws SQLException
-     * @throws IOException
+     * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes 
      */
     @Test
-    public void testDBValues() throws SQLException, IOException {
-        try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(),
-                new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
-        	testDataSets(root);
-
-        }
-    }
-    
-    /**
-     * This method tests various datatypes converted into Arrow vector for H2 database using ResultSet
-     * @throws SQLException
-     * @throws IOException
-     */
-    @Test
-    public void testDBValuesUsingResultSet() throws SQLException, IOException {
-        try (Statement stmt = conn.createStatement();
-        		VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()),
-                	Calendar.getInstance())) {
-        	
-        	testDataSets(root);
-        }
-    }
-    
-    /**
-     * This method tests various datatypes converted into Arrow vector for H2 database using ResultSet And Allocator
-     * @throws SQLException
-     * @throws IOException
-     */
-    @Test
-    public void testDBValuesUsingResultSetAndAllocator() throws SQLException, IOException {
-        try (Statement stmt = conn.createStatement();
-        		VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()),
-        				new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
-        	
-        	testDataSets(root);
-        }
+    public void testJdbcToArroValues() throws SQLException, IOException {
+    	testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(),new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(),new RootAllocator(Integer.MAX_VALUE)));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
+    			Calendar.getInstance()));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE)));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()));
     }
     
     /**

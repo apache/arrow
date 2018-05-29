@@ -23,10 +23,10 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.After;
 import org.junit.Before;
-
+import org.junit.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
@@ -36,41 +36,6 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 public abstract class AbstractJdbcToArrowTest {
 	protected Connection conn = null;
 	protected Table table;
-    protected void createTestData(Connection conn, Table table) throws Exception {
-        Statement stmt = null;
-        try {
-            //create the table and insert the data and once done drop the table
-            stmt = conn.createStatement();
-            stmt.executeUpdate(table.getCreate());
-
-            for (String insert: table.getData()) {
-                stmt.executeUpdate(insert);
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (stmt != null) {
-                stmt.close();
-            }
-        }
-
-    }
-
-    protected void deleteTestData(Connection conn, Table table) throws Exception {
-        Statement stmt = null;
-        try {
-            stmt = conn.createStatement();
-            stmt.executeUpdate(table.getDrop());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (stmt != null) {
-                stmt.close();
-            }
-        }
-    }
     
     /**
      * This method creates Table object after reading YAML file
@@ -130,4 +95,19 @@ public abstract class AbstractJdbcToArrowTest {
           }
           return tableArr;
       }
+            
+      /**
+       * Abstract method to implement test Functionality to test JdbcToArrow methods 
+       * @throws SQLException
+       * @throws IOException
+       */
+      @Test
+      public abstract void testJdbcToArroValues() throws SQLException, IOException;
+      
+      /**
+       * Abstract method to implement logic to assert test various datatype values
+       * @param root
+       */
+      public abstract void testDataSets(VectorSchemaRoot root);
+
 }
