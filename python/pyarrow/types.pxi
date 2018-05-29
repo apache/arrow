@@ -414,7 +414,6 @@ cdef class Field:
         return field, (self.name, self.type, self.nullable, self.metadata)
 
     def __str__(self):
-        self._check_null()
         return 'pyarrow.Field<{0}>'.format(frombytes(self.field.ToString()))
 
     def __repr__(self):
@@ -426,27 +425,19 @@ cdef class Field:
     property nullable:
 
         def __get__(self):
-            self._check_null()
             return self.field.nullable()
 
     property name:
 
         def __get__(self):
-            self._check_null()
             return frombytes(self.field.name())
 
     property metadata:
 
         def __get__(self):
-            self._check_null()
             cdef shared_ptr[const CKeyValueMetadata] metadata = (
                 self.field.metadata())
             return box_metadata(metadata.get())
-
-    def _check_null(self):
-        if self.field == NULL:
-            raise ReferenceError(
-                'Field not initialized (references NULL pointer)')
 
     def add_metadata(self, dict metadata):
         """
@@ -518,11 +509,6 @@ cdef class Schema:
         for i in range(len(self)):
             yield self[i]
 
-    def _check_null(self):
-        if self.schema == NULL:
-            raise ReferenceError(
-                'Schema not initialized (references NULL pointer)')
-
     cdef void init(self, const vector[shared_ptr[CField]]& fields):
         self.schema = new CSchema(fields)
         self.sp_schema.reset(self.schema)
@@ -547,7 +533,6 @@ cdef class Schema:
     property metadata:
 
         def __get__(self):
-            self._check_null()
             cdef shared_ptr[const CKeyValueMetadata] metadata = (
                 self.schema.metadata())
             return box_metadata(metadata.get())
@@ -573,7 +558,6 @@ cdef class Schema:
         is_equal : boolean
         """
         cdef Schema _other = other
-
         return self.sp_schema.get().Equals(deref(_other.schema),
                                            check_metadata)
 
@@ -709,8 +693,6 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def __str__(self):
-        self._check_null()
-
         cdef:
             PrettyPrintOptions options
             c_string result
