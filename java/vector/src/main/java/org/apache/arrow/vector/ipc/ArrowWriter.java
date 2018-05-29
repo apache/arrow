@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -44,11 +45,11 @@ import com.google.common.collect.ImmutableList;
 
 public abstract class ArrowWriter implements AutoCloseable {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
+  protected static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
 
   // schema with fields in message format, not memory format
   private final Schema schema;
-  private final WriteChannel out;
+  protected final WriteChannel out;
 
   private final VectorUnloader unloader;
   private final List<ArrowDictionaryBatch> dictionaries;
@@ -163,5 +164,10 @@ public abstract class ArrowWriter implements AutoCloseable {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @VisibleForTesting
+  public List<ArrowBlock> getRecordBlocks() {
+    return recordBlocks;
   }
 }
