@@ -53,7 +53,6 @@ from pyarrow.lib import (null, bool_,
                          binary, string, decimal128,
                          list_, struct, union, dictionary, field,
                          type_for_alias,
-                         DataType, NAType,
                          Field,
                          Schema,
                          schema,
@@ -82,9 +81,6 @@ from pyarrow.lib import (null, bool_,
                          BinaryValue, StringValue, FixedSizeBinaryValue,
                          DecimalValue,
                          Date32Value, Date64Value, TimestampValue)
-
-# ARROW-1683: Remove after 0.8.0?
-from pyarrow.lib import TimestampType
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
