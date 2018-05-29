@@ -306,7 +306,6 @@ cdef class Column:
         CColumn* column
 
     cdef void init(self, const shared_ptr[CColumn]& column)
-    cdef int _check_nullptr(self) except -1
 
 
 cdef class Table:
@@ -315,7 +314,6 @@ cdef class Table:
         CTable* table
 
     cdef void init(self, const shared_ptr[CTable]& table)
-    cdef int _check_nullptr(self) except -1
 
 
 cdef class RecordBatch:
@@ -325,7 +323,6 @@ cdef class RecordBatch:
         Schema _schema
 
     cdef void init(self, const shared_ptr[CRecordBatch]& table)
-    cdef int _check_nullptr(self) except -1
 
 
 cdef class Buffer:

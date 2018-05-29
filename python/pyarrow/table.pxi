@@ -404,15 +404,12 @@ cdef class Column:
         are_equal : boolean
         """
         cdef:
-            CColumn* my_col = self.column
+            CColumn* this_col = self.column
             CColumn* other_col = other.column
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_col.Equals(deref(other_col))
+            result = this_col.Equals(deref(other_col))
 
         return result
 
@@ -422,20 +419,10 @@ cdef class Column:
         """
         return self.data.to_pylist()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.column == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def __len__(self):
         return self.length()
 
     def length(self):
-        self._check_nullptr()
         return self.column.length()
 
     @property
@@ -451,7 +438,6 @@ cdef class Column:
         -------
         (int,)
         """
-        self._check_nullptr()
         return (self.length(),)
 
     @property
@@ -463,7 +449,6 @@ cdef class Column:
         -------
         int
         """
-        self._check_nullptr()
         return self.column.null_count()
 
     @property
@@ -497,6 +482,7 @@ cdef class Column:
         -------
         pyarrow.ChunkedArray
         """
+        # TODO(kszucs): wrap
         cdef ChunkedArray chunked_array = ChunkedArray()
         chunked_array.init(self.column.data())
         return chunked_array
@@ -577,17 +563,7 @@ cdef class RecordBatch:
         self.sp_batch = batch
         self.batch = batch.get()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.batch == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def __len__(self):
-        self._check_nullptr()
         return self.batch.num_rows()
 
     def replace_schema_metadata(self, dict metadata=None):
@@ -623,7 +599,6 @@ cdef class RecordBatch:
         -------
         int
         """
-        self._check_nullptr()
         return self.batch.num_columns()
 
     @property
@@ -649,8 +624,6 @@ cdef class RecordBatch:
         -------
         pyarrow.Schema
         """
-        self._check_nullptr()
-
         if self._schema is None:
             self._schema = pyarrow_wrap_schema(self.batch.schema())
 
@@ -728,15 +701,12 @@ cdef class RecordBatch:
 
     def equals(self, RecordBatch other):
         cdef:
-            CRecordBatch* my_batch = self.batch
+            CRecordBatch* this_batch = self.batch
             CRecordBatch* other_batch = other.batch
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_batch.Equals(deref(other_batch))
+            result = this_batch.Equals(deref(other_batch))
 
         return result
 
@@ -880,18 +850,10 @@ cdef class Table:
         self.sp_table = table
         self.table = table.get()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.table == nullptr:
-            raise ReferenceError(
-                "Table object references a NULL pointer. Not initialized."
-            )
-        return 0
-
     def _validate(self):
         """
         Validate table consistency.
         """
-        self._check_nullptr()
         with nogil:
             check_status(self.table.Validate())
 
@@ -955,15 +917,12 @@ cdef class Table:
         are_equal : boolean
         """
         cdef:
-            CTable* my_table = self.table
+            CTable* this_table = self.table
             CTable* other_table = other.table
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_table.Equals(deref(other_table))
+            result = this_table.Equals(deref(other_table))
 
         return result
 
@@ -1194,7 +1153,7 @@ cdef class Table:
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
             use_threads=use_threads)
-        self._check_nullptr()
+
         mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
                                              categories)
         return pd.DataFrame(mgr)
@@ -1213,7 +1172,6 @@ cdef class Table:
             list entries = []
             Column column
 
-        self._check_nullptr()
         for i in range(num_columns):
             column = self.column(i)
             entries.append((column.name, column.to_pylist()))
@@ -1229,7 +1187,6 @@ cdef class Table:
         -------
         pyarrow.Schema
         """
-        self._check_nullptr()
         return pyarrow_wrap_schema(self.table.schema())
 
     def column(self, i):
@@ -1271,7 +1228,6 @@ cdef class Table:
             int num_columns = self.num_columns
             int index
 
-        self._check_nullptr()
         if not -num_columns <= i < num_columns:
             raise IndexError(
                 'Table column index {:d} is out of range'.format(i)
@@ -1302,7 +1258,6 @@ cdef class Table:
         -------
         int
         """
-        self._check_nullptr()
         return self.table.num_columns()
 
     @property
@@ -1317,7 +1272,6 @@ cdef class Table:
         -------
         int
         """
-        self._check_nullptr()
         return self.table.num_rows()
 
     def __len__(self):
@@ -1339,7 +1293,6 @@ cdef class Table:
         Add column to Table at position. Returns new table
         """
         cdef shared_ptr[CTable] c_table
-        self._check_nullptr()
 
         with nogil:
             check_status(self.table.AddColumn(i, column.sp_column, &c_table))
@@ -1357,7 +1310,6 @@ cdef class Table:
         Create new Table with the indicated column removed
         """
         cdef shared_ptr[CTable] c_table
-        self._check_nullptr()
 
         with nogil:
             check_status(self.table.RemoveColumn(i, &c_table))
