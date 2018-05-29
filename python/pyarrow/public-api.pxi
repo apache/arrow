@@ -38,14 +38,14 @@ cdef public api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
 
 
 cdef public api object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf):
-    cdef Buffer result = Buffer()
+    cdef Buffer result = Buffer.__new__(Buffer)
     result.init(buf)
     return result
 
 
 cdef public api object pyarrow_wrap_resizable_buffer(
         const shared_ptr[CResizableBuffer]& buf):
-    cdef ResizableBuffer result = ResizableBuffer()
+    cdef ResizableBuffer result = ResizableBuffer.__new__(ResizableBuffer)
     result.init_rz(buf)
     return result
 

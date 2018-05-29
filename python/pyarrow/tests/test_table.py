@@ -24,20 +24,6 @@ import pytest
 import pyarrow as pa
 
 
-@pytest.mark.parametrize('klass', [
-    pa.Column,
-    pa.ChunkedArray,
-    pa.RecordBatch,
-    pa.Table,
-])
-def test_constructor_errors(klass):
-    msg = ("Do not call {cls}'s constructor directly, use (.*) "
-           "function(s?) instead.".format(cls=klass.__name__))
-
-    with pytest.raises(TypeError, match=msg):
-        klass()
-
-
 def test_chunked_array_getitem():
     data = [
         pa.array([1, 2, 3]),
