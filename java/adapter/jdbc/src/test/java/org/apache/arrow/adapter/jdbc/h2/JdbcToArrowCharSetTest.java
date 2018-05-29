@@ -20,7 +20,6 @@ package org.apache.arrow.adapter.jdbc.h2;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharVectorValues;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -43,6 +42,12 @@ import org.junit.runners.Parameterized.Parameters;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getCharArrayWithCharSet;
 
+/**
+ * 
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with UTF-8 Charset, including 
+ * the multi-byte CJK characters for H2 database
+ * 
+ */
 @RunWith(Parameterized.class)
 public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
     private static final String VARCHAR = "VARCHAR_FIELD13";
@@ -94,60 +99,27 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
     public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
     	return Arrays.asList(prepareTestData(testFiles, JdbcToArrowCharSetTest.class));
     }
-
-   /**
-    * This method tests Chars, Varchars and Clob data with UTF-8 charset
-    * @throws SQLException
-    * @throws IOException
-    * @throws ClassNotFoundException
-    */
-    @Test
-    public void testCharSetBasedData() throws SQLException, IOException, ClassNotFoundException {
-    	try (VectorSchemaRoot root = JdbcToArrow.sqlToArrow(conn, table.getQuery(),
-    			new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
-    		
-    		testDataSets(root);
-    	}	
-    }
     
     /**
-     * This method tests Chars, Varchars and Clob data with UTF-8 charset using ResultSet
-     * @throws SQLException
-     * @throws IOException
-     * @throws ClassNotFoundException
+     * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with UTF-8 Charset, including 
+     * the multi-byte CJK characters
      */
-    
     @Test
-    public void testCharSetDataUsingResultSet() throws SQLException, IOException, ClassNotFoundException {
-    	try (Statement stmt = conn.createStatement();
-    			VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()),
-    				Calendar.getInstance())) {
-    		testDataSets(root);
-    	}
-    }
-    
-    /**
-     * This method tests Chars, Varchars and Clob data with UTF-8 charset using ResultSet and Allocator
-     * @throws SQLException
-     * @throws IOException
-     * @throws ClassNotFoundException
-     */
-    
-    @Test
-    public void testCharSetDataUsingResultSetAndAllocator() throws SQLException, IOException, ClassNotFoundException {
-    	try (Statement stmt = conn.createStatement();
-    			VectorSchemaRoot root = JdbcToArrow.sqlToArrow(stmt.executeQuery(table.getQuery()),
-    					new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())) {
-    		
-    		testDataSets(root);
-    	}	
+    public void testJdbcToArroValues() throws SQLException, IOException {
+    	testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE),
+    			Calendar.getInstance()));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), new RootAllocator(Integer.MAX_VALUE)));
+    	testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()));
     }
     
     /**
      * This method calls the assert methods for various DataSets
      * @param root
      */
-    public void testDataSets(VectorSchemaRoot root) throws UnsupportedEncodingException{
+    public void testDataSets(VectorSchemaRoot root) {
     	assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),
     			getCharArrayWithCharSet(table.getValues(), CLOB, StandardCharsets.UTF_8));
 
