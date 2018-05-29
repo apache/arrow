@@ -44,6 +44,8 @@ def test_cpu_count():
     pa.RecordBatch,
     pa.Table,
     pa.Buffer,
+    pa.Array,
+    pa.Tensor,
     pa.lib.DataType,
     pa.lib.ListType,
     pa.lib.UnionType,

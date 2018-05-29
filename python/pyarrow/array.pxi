@@ -347,17 +347,9 @@ def _restore_array(data):
 
 cdef class Array:
 
-    def __init__(self, *args, **kwargs):
-        """
-        Do not call this constructor directly, use factories
-        like ``pyarrow.array``.
-        """
-        # Check if the constructor was called with arguments.
-        # This was probably by accident from a user. Instead of segfaulting
-        # we should provide them with a meaningful error.
-        if len(args) > 0 or len(kwargs) > 0:
-            raise RuntimeError("Don't call pyarrow.Array directly, use "
-                               "pyarrow.array instead")
+    def __init__(self):
+        raise TypeError("Do not call Array's constructor directly, use one "
+                        "of the `pyarrow.Array.from_*` functions instead.")
 
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
@@ -652,6 +644,10 @@ cdef class Array:
 
 
 cdef class Tensor:
+
+    def __init__(self):
+        raise TypeError("Do not call Tensor's constructor directly, use "
+                        "`pyarrow.Tensor.from_*` function instead.")
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor):
         self.sp_tensor = sp_tensor
@@ -1044,7 +1040,6 @@ cdef class DictionaryArray(Array):
         """
         cdef:
             Array _indices, _dictionary
-            DictionaryArray result
             shared_ptr[CDataType] c_type
             shared_ptr[CArray] c_result
 
@@ -1082,9 +1077,7 @@ cdef class DictionaryArray(Array):
         else:
             c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
 
-        result = DictionaryArray()
-        result.init(c_result)
-        return result
+        return pyarrow_wrap_array(c_result)
 
 
 cdef class StructArray(Array):
@@ -1163,9 +1156,8 @@ cdef class StructArray(Array):
         ])
 
         c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))
-        result = StructArray()
-        result.init(c_result)
-        return result
+
+        return pyarrow_wrap_array(c_result)
 
 
 cdef dict _array_classes = {

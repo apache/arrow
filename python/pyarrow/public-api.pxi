@@ -154,7 +154,9 @@ cdef public api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     if data_type == NULL:
         raise ValueError('Array data type was NULL')
 
-    cdef Array arr = _array_classes[data_type.id()]()
+    klass = _array_classes[data_type.id()]
+
+    cdef Array arr = klass.__new__(klass)
     arr.init(sp_array)
     return arr
 
@@ -192,7 +194,7 @@ cdef public api object pyarrow_wrap_tensor(
     if sp_tensor.get() == NULL:
         raise ValueError('Tensor was NULL')
 
-    cdef Tensor tensor = Tensor()
+    cdef Tensor tensor = Tensor.__new__(Tensor)
     tensor.init(sp_tensor)
     return tensor
 
