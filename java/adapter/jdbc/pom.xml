@@ -29,6 +29,7 @@
             <artifactId>arrow-memory</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-vector -->
         <dependency>
             <groupId>org.apache.arrow</groupId>
@@ -41,7 +42,6 @@
             <version>${dep.guava.version}</version>
         </dependency>
 
-
         <!-- Test -->
         <dependency>
             <groupId>junit</groupId>
@@ -49,6 +49,7 @@
             <version>${dep.junit.version}</version>
             <scope>test</scope>
         </dependency>
+
         <!-- https://mvnrepository.com/artifact/com.h2database/h2 -->
         <dependency>
             <groupId>com.h2database</groupId>
@@ -83,18 +84,55 @@
 
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <systemPropertyVariables>
-                        <user.timezone>UTC</user.timezone>
-                    </systemPropertyVariables>
-                </configuration>
+	<build>	
+		<plugins>
+		    <plugin>
+			    <groupId>org.jacoco</groupId>
+			    <artifactId>jacoco-maven-plugin</artifactId>
+			    <version>0.8.1</version>
+					<executions>
+			        <!-- Prepares property pointing to JaCoCo runtime agent which is passed as VM argument when Surefire is executed.  -->
+			        <execution>
+			            <id>default-prepare-agent</id>
+			            <goals>
+			                <goal>prepare-agent</goal>
+			            </goals>
+			            <configuration>
+			                <!-- Sets the path to the file which contains the execution data. -->
+			                <destFile>${project.build.directory}/coverage-reports/jacoco-ut.exec</destFile>
+			                <!--Sets the name of the property containing the settings for JaCoCo runtime agent.	-->
+			                <propertyName>surefireArgLine</propertyName>
+			            </configuration>
+			        </execution>
+			        <!--Ensures that the code coverage report for unit tests is created after unit tests have been run. -->
+			        <execution>
+			            <id>post-unit-test</id>
+			            <phase>test</phase>
+			            <goals>
+			                <goal>report</goal>
+			            </goals>
+			            <configuration>
+			                <!-- Sets the path to the file which contains the execution data. -->
+			                <dataFile>${project.build.directory}/coverage-reports/jacoco-ut.exec</dataFile>
+			                <!-- Sets the output directory for the code coverage report. -->
+			                <includeTests>true</includeTests>
+			                <outputDirectory>${project.build.directory}/jacoco-ut</outputDirectory>
+			            </configuration>
+			        </execution>
+			    </executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<systemPropertyVariables>
+						<user.timezone>UTC</user.timezone>
+					</systemPropertyVariables>
+					 	<!-- Sets the VM argument line used when unit tests are run. -->
+				        <argLine>${surefireArgLine}</argLine>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 
-            </plugin>
-        </plugins>
-    </build>
 </project>
