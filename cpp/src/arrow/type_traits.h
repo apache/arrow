@@ -270,7 +270,7 @@ struct TypeTraits<Decimal128Type> {
   using BuilderType = Decimal128Builder;
   constexpr static bool is_parameter_free = false;
   constexpr static bool is_binary_like = false;
-  constexpr static bool is_primitive = true;
+  constexpr static bool is_primitive = false;
 };
 
 template <>

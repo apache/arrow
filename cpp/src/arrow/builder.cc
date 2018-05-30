@@ -898,35 +898,117 @@ using internal::DictionaryScalar;
 using internal::WrappedBinary;
 
 namespace {
-//
-// Fetch the value of a dictionary entry stored in a builder.
 
-// template <typename T,
-//           typename Builder = typename TypeTraits<T>::BuilderType,
-//           typename Scalar = typename std::enable_if<TypeTraits<T>::is_primitive,
-//           typename T::c_type>::type>
-// Scalar GetDictionaryValue(Builder& builder, int64_t index) {
-//   const Scalar* data = reinterpret_cast<const Scalar*>(builder.data()->data());
-//   return data[index];
-// }
-//
-// template <typename T,
-//           typename Builder = typename TypeTraits<T>::BuilderType,
-//           typename Scalar = typename std::enable_if<TypeTraits<T>::is_binary_like,
-//           WrappedBinary>::type>
-// WrappedBinary GetDictionaryValue(Builder& builder, int64_t index) {
-//   int32_t v_len;
-//   const uint8_t* v = builder.GetValue(static_cast<int64_t>(index), &v_len);
-//   return WrappedBinary(v, v_len);
-// }
-//
-// template <typename T,
-//           typename Builder = typename TypeTraits<T>::BuilderType,
-//           typename Scalar = typename std::enable_if<std::is_same<T,
-//           FixedSizeBinaryType>::value, const uint8_t*>::type>
-// const uint8_t* GetDictionaryValue(Builder& dictionary_builder, int64_t index) {
-//   return dictionary_builder.GetValue(index);
-// }
+// A helper class to manage a hash table embedded in a typed Builder.
+template <typename T, typename Enable = void>
+struct DictionaryHashHelper {};
+
+// DictionaryHashHelper implementation for primitive types
+template <typename T>
+struct DictionaryHashHelper<T,
+                            typename std::enable_if<TypeTraits<T>::is_primitive>::type> {
+  using Builder = typename TypeTraits<T>::BuilderType;
+  using Scalar = typename DictionaryScalar<T>::type;
+
+  // Get the dictionary value at the given builder index
+  static Scalar GetDictionaryValue(const Builder& builder, int64_t index) {
+    const Scalar* data = reinterpret_cast<const Scalar*>(builder.data()->data());
+    return data[index];
+  }
+
+  // Compute the hash of a scalar value
+  static int64_t HashValue(const Scalar& value, int byte_width) {
+    return HashUtil::Hash(&value, sizeof(Scalar), 0);
+  }
+
+  // Return whether the dictionary value at the given builder index is unequal to value
+  static bool SlotDifferent(const Builder& builder, int64_t index, const Scalar& value) {
+    return GetDictionaryValue(builder, index) != value;
+  }
+
+  // Append a value to the builder
+  static Status AppendValue(Builder& builder, const Scalar& value) {
+    return builder.Append(value);
+  }
+
+  // Append another builder's contents to the builder
+  static Status AppendBuilder(Builder& builder, const Builder& source_builder) {
+    return builder.AppendValues(
+        reinterpret_cast<const Scalar*>(source_builder.data()->data()),
+        source_builder.length(), nullptr);
+  }
+};
+
+// DictionaryHashHelper implementation for StringType / BinaryType
+template <typename T>
+struct DictionaryHashHelper<
+    T, typename std::enable_if<TypeTraits<T>::is_binary_like>::type> {
+  using Builder = typename TypeTraits<T>::BuilderType;
+  using Scalar = typename DictionaryScalar<T>::type;
+
+  static Scalar GetDictionaryValue(const Builder& builder, int64_t index) {
+    int32_t v_length;
+    const uint8_t* v_ptr = builder.GetValue(index, &v_length);
+    return WrappedBinary(v_ptr, v_length);
+  }
+
+  static int64_t HashValue(const Scalar& value, int byte_width) {
+    return HashUtil::Hash(value.ptr_, value.length_, 0);
+  }
+
+  static bool SlotDifferent(const Builder& builder, int64_t index, const Scalar& value) {
+    int32_t other_length;
+    const uint8_t* other_ptr = builder.GetValue(index, &other_length);
+    return value.length_ != other_length ||
+           memcmp(value.ptr_, other_ptr, other_length) != 0;
+  }
+
+  static Status AppendValue(Builder& builder, const Scalar& value) {
+    return builder.Append(value.ptr_, value.length_);
+  }
+
+  static Status AppendBuilder(Builder& builder, const Builder& source_builder) {
+    for (uint64_t index = 0, limit = source_builder.length(); index < limit; ++index) {
+      int32_t length;
+      const uint8_t* ptr = source_builder.GetValue(index, &length);
+      RETURN_NOT_OK(builder.Append(ptr, length));
+    }
+    return Status::OK();
+  }
+};
+
+// DictionaryHashHelper implementation for FixedSizeBinaryType
+template <>
+struct DictionaryHashHelper<FixedSizeBinaryType> {
+  using Builder = typename TypeTraits<FixedSizeBinaryType>::BuilderType;
+  using Scalar = typename DictionaryScalar<FixedSizeBinaryType>::type;
+
+  static Scalar GetDictionaryValue(const Builder& builder, int64_t index) {
+    return builder.GetValue(index);
+  }
+
+  static int64_t HashValue(const Scalar& value, int byte_width) {
+    return HashUtil::Hash(value, byte_width, 0);
+  }
+
+  static bool SlotDifferent(const Builder& builder, int64_t index, const uint8_t* value) {
+    const int32_t width = builder.byte_width();
+    const uint8_t* other_value = builder.GetValue(index);
+    return memcmp(value, other_value, width) != 0;
+  }
+
+  static Status AppendValue(Builder& builder, const Scalar& value) {
+    return builder.Append(value);
+  }
+
+  static Status AppendBuilder(Builder& builder, const Builder& source_builder) {
+    for (uint64_t index = 0, limit = source_builder.length(); index < limit; ++index) {
+      const Scalar value = GetDictionaryValue(source_builder, index);
+      RETURN_NOT_OK(builder.Append(value));
+    }
+    return Status::OK();
+  }
+};
 
 }  // namespace
 
@@ -1015,6 +1097,37 @@ Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
 }
 
 template <typename T>
+int64_t DictionaryBuilder<T>::HashValue(const Scalar& value) {
+  return DictionaryHashHelper<T>::HashValue(value, byte_width_);
+}
+
+template <typename T>
+typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
+    typename TypeTraits<T>::BuilderType& dictionary_builder, int64_t index) {
+  return DictionaryHashHelper<T>::GetDictionaryValue(dictionary_builder, index);
+}
+
+template <typename T>
+bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
+  DCHECK_GE(index, 0);
+  if (index >= entry_id_offset_) {
+    // Lookup delta dictionary
+    DCHECK_LT(index - entry_id_offset_, dict_builder_.length());
+    return DictionaryHashHelper<T>::SlotDifferent(
+        dict_builder_, static_cast<int64_t>(index - entry_id_offset_), value);
+  } else {
+    DCHECK_LT(index, overflow_dict_builder_.length());
+    return DictionaryHashHelper<T>::SlotDifferent(overflow_dict_builder_,
+                                                  static_cast<int64_t>(index), value);
+  }
+}
+
+template <typename T>
+Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
+  return DictionaryHashHelper<T>::AppendValue(dict_builder_, value);
+}
+
+template <typename T>
 Status DictionaryBuilder<T>::Append(const Scalar& value) {
   RETURN_NOT_OK(Reserve(1));
   // Based on DictEncoder<DType>::Put
@@ -1047,6 +1160,13 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
 
   return Status::OK();
 }
+
+template <typename T>
+Status DictionaryBuilder<T>::AppendNull() {
+  return values_builder_.AppendNull();
+}
+
+Status DictionaryBuilder<NullType>::AppendNull() { return values_builder_.AppendNull(); }
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendArray(const Array& array) {
@@ -1086,23 +1206,7 @@ Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
 }
 
 template <typename T>
-Status DictionaryBuilder<T>::AppendNull() {
-  return values_builder_.AppendNull();
-}
-
-Status DictionaryBuilder<NullType>::AppendNull() { return values_builder_.AppendNull(); }
-
-template <typename T>
-int64_t DictionaryBuilder<T>::HashValue(const Scalar& value) {
-  return HashUtil::Hash(&value, sizeof(Scalar), 0);
-}
-
-template <typename T>
 Status DictionaryBuilder<T>::DoubleTableSize() {
-  //   const auto GetDictBuilderValue = [this](hash_slot_t index) -> Scalar {
-  //     return GetDictionaryValue<T>(dict_builder_, static_cast<int64_t>(index));
-  //   };
-
 #define INNER_LOOP \
   int64_t j = HashValue(GetDictionaryValue(dict_builder_, index)) & new_mod_bitmask
 
@@ -1112,39 +1216,12 @@ Status DictionaryBuilder<T>::DoubleTableSize() {
 }
 
 template <typename T>
-typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
-    typename TypeTraits<T>::BuilderType& dictionary_builder, int64_t index) {
-  const Scalar* data = reinterpret_cast<const Scalar*>(dictionary_builder.data()->data());
-  return data[index];
-}
-
-template <typename T>
-bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
-  DCHECK_GE(index, 0);
-  if (index >= entry_id_offset_) {
-    // Lookup delta dictionary
-    DCHECK_LT(index - entry_id_offset_, dict_builder_.length());
-    return GetDictionaryValue(dict_builder_,
-                              static_cast<int64_t>(index - entry_id_offset_)) != value;
-  } else {
-    DCHECK_LT(index, overflow_dict_builder_.length());
-    return GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index)) !=
-           value;
-  }
-}
-
-template <typename T>
-Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
-  return dict_builder_.Append(value);
-}
-
-template <typename T>
 Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   entry_id_offset_ += dict_builder_.length();
   // Store current dict entries for further uses of this DictionaryBuilder
-  RETURN_NOT_OK(overflow_dict_builder_.AppendValues(
-      reinterpret_cast<const DictionaryBuilder<T>::Scalar*>(dict_builder_.data()->data()),
-      dict_builder_.length(), nullptr));
+  RETURN_NOT_OK(
+      DictionaryHashHelper<T>::AppendBuilder(overflow_dict_builder_, dict_builder_));
+  DCHECK_EQ(entry_id_offset_, overflow_dict_builder_.length());
 
   std::shared_ptr<Array> dictionary;
   RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
@@ -1166,138 +1243,24 @@ Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* o
 }
 
 //
-// FixedSizeBinaryType specializations
-//
-
-template <>
-const uint8_t* DictionaryBuilder<FixedSizeBinaryType>::GetDictionaryValue(
-    typename TypeTraits<FixedSizeBinaryType>::BuilderType& dictionary_builder,
-    int64_t index) {
-  return dictionary_builder.GetValue(index);
-}
-
-template <>
-Status DictionaryBuilder<FixedSizeBinaryType>::FinishInternal(
-    std::shared_ptr<ArrayData>* out) {
-  entry_id_offset_ += dict_builder_.length();
-
-  for (uint64_t index = 0, limit = dict_builder_.length(); index < limit; ++index) {
-    const Scalar value = GetDictionaryValue(dict_builder_, index);
-    RETURN_NOT_OK(overflow_dict_builder_.Append(value));
-  }
-
-  std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
-
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
-  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-
-  RETURN_NOT_OK(dict_builder_.Init(capacity_));
-  RETURN_NOT_OK(values_builder_.Init(capacity_));
-
-  return Status::OK();
-}
-
-template <>
-int64_t DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
-  return HashUtil::Hash(value, byte_width_, 0);
-}
-
-template <>
-bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
-                                                           const Scalar& value) {
-  const int32_t width = checked_cast<const FixedSizeBinaryType&>(*type_).byte_width();
-
-  DCHECK_GE(index, 0);
-  Scalar other;
-  if (index >= entry_id_offset_) {
-    // Lookup delta dictionary
-    DCHECK_LT(index - entry_id_offset_, dict_builder_.length());
-    other =
-        GetDictionaryValue(dict_builder_, static_cast<int64_t>(index - entry_id_offset_));
-  } else {
-    DCHECK_LT(index, overflow_dict_builder_.length());
-    other = GetDictionaryValue(overflow_dict_builder_, static_cast<int64_t>(index));
-  }
-  return memcmp(other, value, width) != 0;
-}
-
-//
 // StringType and BinaryType specializations
 //
 
-#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                                        \
-  template <>                                                                          \
-  WrappedBinary DictionaryBuilder<Type>::GetDictionaryValue(                           \
-      typename TypeTraits<Type>::BuilderType& dictionary_builder, int64_t index) {     \
-    int32_t v_len;                                                                     \
-    const uint8_t* v = dictionary_builder.GetValue(                                    \
-        static_cast<int64_t>(index - entry_id_offset_), &v_len);                       \
-    return WrappedBinary(v, v_len);                                                    \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::AppendDictionary(const WrappedBinary& value) {       \
-    return dict_builder_.Append(value.ptr_, value.length_);                            \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {                    \
-    const BinaryArray& binary_array = checked_cast<const BinaryArray&>(array);         \
-    WrappedBinary value(nullptr, 0);                                                   \
-    for (int64_t i = 0; i < array.length(); i++) {                                     \
-      if (array.IsNull(i)) {                                                           \
-        RETURN_NOT_OK(AppendNull());                                                   \
-      } else {                                                                         \
-        value.ptr_ = binary_array.GetValue(i, &value.length_);                         \
-        RETURN_NOT_OK(Append(value));                                                  \
-      }                                                                                \
-    }                                                                                  \
-    return Status::OK();                                                               \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  int64_t DictionaryBuilder<Type>::HashValue(const WrappedBinary& value) {             \
-    return HashUtil::Hash(value.ptr_, value.length_, 0);                               \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  bool DictionaryBuilder<Type>::SlotDifferent(hash_slot_t index,                       \
-                                              const WrappedBinary& value) {            \
-    DCHECK_GE(index, 0);                                                               \
-    const uint8_t* other_value;                                                        \
-    int32_t other_length;                                                              \
-    if (index >= entry_id_offset_) {                                                   \
-      DCHECK_LT(index - entry_id_offset_, dict_builder_.length());                     \
-      other_value = dict_builder_.GetValue(                                            \
-          static_cast<int64_t>(index - entry_id_offset_), &other_length);              \
-    } else {                                                                           \
-      DCHECK_LT(index, overflow_dict_builder_.length());                               \
-      other_value =                                                                    \
-          overflow_dict_builder_.GetValue(static_cast<int64_t>(index), &other_length); \
-    }                                                                                  \
-    return other_length != value.length_ ||                                            \
-           memcmp(other_value, value.ptr_, value.length_) != 0;                        \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::FinishInternal(std::shared_ptr<ArrayData>* out) {    \
-    entry_id_offset_ += dict_builder_.length();                                        \
-    for (uint64_t index = 0, limit = dict_builder_.length(); index < limit; ++index) { \
-      int32_t out_length;                                                              \
-      const uint8_t* value = dict_builder_.GetValue(index, &out_length);               \
-      RETURN_NOT_OK(overflow_dict_builder_.Append(value, out_length));                 \
-    }                                                                                  \
-                                                                                       \
-    std::shared_ptr<Array> dictionary;                                                 \
-    RETURN_NOT_OK(dict_builder_.Finish(&dictionary));                                  \
-                                                                                       \
-    RETURN_NOT_OK(values_builder_.FinishInternal(out));                                \
-    (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);         \
-                                                                                       \
-    RETURN_NOT_OK(dict_builder_.Init(capacity_));                                      \
-    RETURN_NOT_OK(values_builder_.Init(capacity_));                                    \
-    return Status::OK();                                                               \
+#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                                \
+                                                                               \
+  template <>                                                                  \
+  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {            \
+    const BinaryArray& binary_array = checked_cast<const BinaryArray&>(array); \
+    WrappedBinary value(nullptr, 0);                                           \
+    for (int64_t i = 0; i < array.length(); i++) {                             \
+      if (array.IsNull(i)) {                                                   \
+        RETURN_NOT_OK(AppendNull());                                           \
+      } else {                                                                 \
+        value.ptr_ = binary_array.GetValue(i, &value.length_);                 \
+        RETURN_NOT_OK(Append(value));                                          \
+      }                                                                        \
+    }                                                                          \
+    return Status::OK();                                                       \
   }
 
 BINARY_DICTIONARY_SPECIALIZATIONS(StringType);
