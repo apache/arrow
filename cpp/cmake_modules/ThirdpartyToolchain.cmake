@@ -25,6 +25,7 @@ set(GTEST_VERSION "1.8.0")
 set(GBENCHMARK_VERSION "1.1.0")
 set(FLATBUFFERS_VERSION "1.9.0")
 set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
+set(ZLIB_VERSION "1.2.11")
 set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
 set(LZ4_VERSION "1.7.5")
@@ -576,7 +577,7 @@ if (ARROW_WITH_ZLIB)
                         -DBUILD_SHARED_LIBS=OFF)
 
     ExternalProject_Add(zlib_ep
-      URL "http://zlib.net/fossils/zlib-1.2.8.tar.gz"
+      URL "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"
       ${EP_LOG_OPTIONS}
       BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
       CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
