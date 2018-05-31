@@ -905,8 +905,7 @@ struct DictionaryHashHelper {};
 
 // DictionaryHashHelper implementation for primitive types
 template <typename T>
-struct DictionaryHashHelper<T,
-                            typename std::enable_if<TypeTraits<T>::is_primitive>::type> {
+struct DictionaryHashHelper<T, enable_if_has_c_type<T>> {
   using Builder = typename TypeTraits<T>::BuilderType;
   using Scalar = typename DictionaryScalar<T>::type;
 
@@ -941,8 +940,7 @@ struct DictionaryHashHelper<T,
 
 // DictionaryHashHelper implementation for StringType / BinaryType
 template <typename T>
-struct DictionaryHashHelper<
-    T, typename std::enable_if<TypeTraits<T>::is_binary_like>::type> {
+struct DictionaryHashHelper<T, enable_if_binary<T>> {
   using Builder = typename TypeTraits<T>::BuilderType;
   using Scalar = typename DictionaryScalar<T>::type;
 
@@ -978,8 +976,8 @@ struct DictionaryHashHelper<
 };
 
 // DictionaryHashHelper implementation for FixedSizeBinaryType
-template <>
-struct DictionaryHashHelper<FixedSizeBinaryType> {
+template <typename T>
+struct DictionaryHashHelper<T, enable_if_fixed_size_binary<T>> {
   using Builder = typename TypeTraits<FixedSizeBinaryType>::BuilderType;
   using Scalar = typename DictionaryScalar<FixedSizeBinaryType>::type;
 
