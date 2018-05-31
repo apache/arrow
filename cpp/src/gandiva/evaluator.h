@@ -21,6 +21,7 @@
 #include <vector>
 #include "gandiva/arrow.h"
 #include "gandiva/expression.h"
+#include "gandiva/status.h"
 
 namespace gandiva {
 
@@ -33,9 +34,10 @@ class LLVMGenerator;
 class Evaluator {
  public:
   /// Build an evaluator for the given schema to evaluate the vector of expressions.
-  static std::shared_ptr<Evaluator> Make(SchemaPtr schema,
-                                         const ExpressionVector &exprs,
-                                         arrow::MemoryPool *pool);
+  static Status Make(SchemaPtr schema,
+                     const ExpressionVector &exprs,
+                     arrow::MemoryPool *pool,
+                     std::shared_ptr<Evaluator> *evaluator);
 
   /// Evaluate the specified record batch, and fill the output vectors.
   /// TODO : need a zero-copy variant if the caller can alloc the output vectors.

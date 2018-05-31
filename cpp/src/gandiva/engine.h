@@ -24,18 +24,23 @@
 #include <string>
 #include <vector>
 #include "gandiva/logging.h"
+#include "gandiva/status.h"
 
 namespace gandiva {
 
 /// \brief LLVM Execution engine wrapper.
 class Engine {
  public:
-  Engine();
-
   llvm::LLVMContext *context() { return context_.get(); }
   llvm::IRBuilder<> &ir_builder() { return *ir_builder_.get(); }
 
   llvm::Module *module() { return module_; }
+
+  /// factory method to create and initialize the engine
+  /// object.
+  ///
+  /// @param engine (out) : the created engine.
+  static Status Make(std::unique_ptr<Engine> *engine);
 
   /// Add the function to the list of IR functions that need to be compiled.
   /// Compiling only the functions that are used by the module saves time.
@@ -45,29 +50,33 @@ class Engine {
   }
 
   /// Optimise and compile the module.
-  void FinalizeModule(bool optimise_ir, bool dump_ir);
+  Status FinalizeModule(bool optimise_ir, bool dump_ir);
 
   /// Get the compiled function corresponding to the irfunction.
   void *CompiledFunction(llvm::Function *irFunction);
 
  private:
-  // do one time inits.
+  /// private constructor to ensure engine is created
+  /// only through the factory.
+  Engine() : module_finalized_(false) {}
+
+  /// do one time inits.
   static void InitOnce();
   static bool init_once_done_;
 
   llvm::ExecutionEngine &execution_engine() { return *execution_engine_.get(); }
 
-  // load pre-compiled modules and merge them into the main module.
-  void LoadPreCompiledIRFiles();
+  /// load pre-compiled modules and merge them into the main module.
+  Status LoadPreCompiledIRFiles();
 
-  // dump the IR code to stdout with the prefix string.
+  /// dump the IR code to stdout with the prefix string.
   void DumpIR(std::string prefix);
 
   std::unique_ptr<llvm::LLVMContext> context_;
   std::unique_ptr<llvm::ExecutionEngine> execution_engine_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
-  llvm::Module *module_; // This is owned by the execution_engine_, so doesn't need to be
-                         // explicitly deleted.
+  llvm::Module *module_; /// This is owned by the execution_engine_, so doesn't need to be
+                         /// explicitly deleted.
 
   std::vector<std::string> functions_to_compile_;
 

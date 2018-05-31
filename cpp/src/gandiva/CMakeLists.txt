@@ -31,6 +31,7 @@ add_library(gandiva SHARED
   llvm_types.cc
   node.cc
   tree_expr_builder.cc
+  status.cc
   ${BC_FILE_PATH_CC})
 
 # For users of gandiva library (including integ tests), include-dir is :
@@ -85,12 +86,13 @@ install(
 
 #args: label test-file src-files
 add_gandiva_unit_test(dex_llvm_test.cc)
-add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc status.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(function_signature_test.cc)
 add_gandiva_unit_test(function_registry_test.cc function_registry.cc)
 add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc function_registry.cc annotator.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc function_registry.cc annotator.cc status.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(annotator_test.cc annotator.cc)
 add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc node.cc annotator.cc function_registry.cc)
+add_gandiva_unit_test(status_test.cc status.cc)
 
 add_gandiva_integ_test(evaluator_test.cc)

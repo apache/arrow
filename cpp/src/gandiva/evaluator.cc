@@ -31,15 +31,17 @@ Evaluator::Evaluator(std::unique_ptr<LLVMGenerator> llvm_generator,
     output_fields_(output_fields),
     pool_(pool) {}
 
-// TODO : exceptions
-std::shared_ptr<Evaluator> Evaluator::Make(SchemaPtr schema,
-                                           const ExpressionVector &exprs,
-                                           arrow::MemoryPool *pool) {
+Status Evaluator::Make(SchemaPtr schema,
+                       const ExpressionVector &exprs,
+                       arrow::MemoryPool *pool,
+                       std::shared_ptr<Evaluator> *evaluator) {
   // TODO: validate schema
   // TODO : validate expressions (fields, function signatures, output types, ..)
 
   // Build LLVM generator, and generate code for the specified expressions
-  std::unique_ptr<LLVMGenerator> llvm_gen(new LLVMGenerator());
+  std::unique_ptr<LLVMGenerator> llvm_gen;
+  Status status = LLVMGenerator::Make(&llvm_gen);
+  GANDIVA_RETURN_NOT_OK(status);
   llvm_gen->Build(exprs);
 
   // save the output field types. Used for validation at Evaluate() time.
@@ -49,10 +51,11 @@ std::shared_ptr<Evaluator> Evaluator::Make(SchemaPtr schema,
   }
 
   // Instantiate the evaluator with the completely built llvm generator
-  return std::shared_ptr<Evaluator>(new Evaluator(std::move(llvm_gen),
-                                                  schema,
-                                                  output_fields,
-                                                  pool));
+  *evaluator = std::shared_ptr<Evaluator>(new Evaluator(std::move(llvm_gen),
+                                                        schema,
+                                                        output_fields,
+                                                        pool));
+  return Status::OK();
 }
 
 arrow::ArrayVector Evaluator::Evaluate(const arrow::RecordBatch &batch) {

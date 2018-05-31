@@ -36,24 +36,29 @@ namespace gandiva {
 /// Builds an LLVM module and generates code for the specified set of expressions.
 class LLVMGenerator {
  public:
-  LLVMGenerator();
   ~LLVMGenerator();
+
+  /// \brief Factory method to initialize the generator.
+  static Status Make(std::unique_ptr<LLVMGenerator> *llvm_generator);
 
   /// \brief Build the code for the expression trees. Each element in the vector
   /// represents an expression tree
-  void Build(const ExpressionVector &exprs);
+  Status Build(const ExpressionVector &exprs);
 
   /// \brief Execute the built expression against the provided arguments.
-  int Execute(const arrow::RecordBatch &record_batch, const arrow::ArrayVector &outputs);
+  Status Execute(const arrow::RecordBatch &record_batch,
+                 const arrow::ArrayVector &outputs);
 
  private:
+  LLVMGenerator();
+
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
   FRIEND_TEST(TestLLVMGenerator, TestIntersectBitMaps);
 
   llvm::Module *module() { return engine_->module(); }
   llvm::LLVMContext &context() { return *(engine_->context()); }
   llvm::IRBuilder<> &ir_builder() { return engine_->ir_builder(); }
-  LLVMTypes &types() { return types_; }
+  LLVMTypes *types() { return types_; }
 
   /// Visitor to generate the code for a decomposed expression.
   class Visitor : public DexVisitor {
@@ -95,7 +100,7 @@ class LLVMGenerator {
 
   // Generate the code for one expression, with the output of the expression going to
   // 'output'.
-  void Add(const ExpressionPtr expr, const FieldDescriptorPtr output);
+  Status Add(const ExpressionPtr expr, const FieldDescriptorPtr output);
 
   /// Generate code to load the vector at specified index in the 'arg_addrs' array.
   llvm::Value *LoadVectorAtIndex(llvm::Value *arg_addrs,
@@ -113,9 +118,10 @@ class LLVMGenerator {
                                 FieldPtr field);
 
   /// Generate code for the value array of one expression.
-  llvm::Function *CodeGenExprValue(DexPtr value_expr,
-                                   FieldDescriptorPtr output,
-                                   int suffix_idx);
+  Status CodeGenExprValue(DexPtr value_expr,
+                          FieldDescriptorPtr output,
+                          int suffix_idx,
+                          llvm::Function ** fn);
 
   /// Generate code to get the bit value at 'position' in the bitmap.
   llvm::Value *GetPackedBitValue(llvm::Value *bitMap, llvm::Value *position);
@@ -157,7 +163,7 @@ class LLVMGenerator {
 
   std::unique_ptr<Engine> engine_;
   std::vector<CompiledExpr *> compiled_exprs_;
-  LLVMTypes types_;
+  LLVMTypes * types_;
   FunctionRegistry function_registry_;
   Annotator annotator_;
 

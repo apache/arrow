@@ -27,7 +27,6 @@ namespace gandiva {
 using arrow::int32;
 using arrow::float32;
 using arrow::boolean;
-using arrow::Status;
 
 class TestEvaluator : public ::testing::Test {
  public:
@@ -72,10 +71,9 @@ TEST_F(TestEvaluator, TestIntSumSub) {
   auto sub_expr = TreeExprBuilder::MakeExpression("subtract", {field0, field1},
                                                   field_sub);
 
-  /*
-   * Build an evaluator for the expressions.
-   */
-  auto evaluator = Evaluator::Make(schema, {sum_expr, sub_expr}, pool_);
+  std::shared_ptr<Evaluator> evaluator;
+  Status status = Evaluator::Make(schema, {sum_expr, sub_expr}, pool_, &evaluator);
+  EXPECT_TRUE(status.ok());
 
   /* Create a row-batch with some sample data */
   int num_records = 4;
@@ -118,7 +116,10 @@ TEST_F(TestEvaluator, TestFloatLessThan) {
   /*
    * Build an evaluator for the expressions.
    */
-  auto evaluator = Evaluator::Make(schema, {lt_expr}, pool_);
+  std::shared_ptr<Evaluator> evaluator;
+  Status status = Evaluator::Make(schema, {lt_expr}, pool_, &evaluator);
+  EXPECT_TRUE(status.ok());
+
 
   /* Create a row-batch with some sample data */
   int num_records = 3;
@@ -157,7 +158,9 @@ TEST_F(TestEvaluator, TestIsNotNull) {
   /*
    * Build an evaluator for the expressions.
    */
-  auto evaluator = Evaluator::Make(schema, {myexpr}, pool_);
+  std::shared_ptr<Evaluator> evaluator;
+  Status status = Evaluator::Make(schema, {myexpr}, pool_, &evaluator);
+  EXPECT_TRUE(status.ok());
 
   /* Create a row-batch with some sample data */
   int num_records = 3;
