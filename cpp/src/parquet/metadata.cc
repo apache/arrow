@@ -141,7 +141,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   const std::vector<Encoding::type>& encodings() const { return encodings_; }
 
-  inline int64_t has_dictionary_page() const {
+  inline bool has_dictionary_page() const {
     return column_->meta_data.__isset.dictionary_page_offset;
   }
 
@@ -206,7 +206,7 @@ std::shared_ptr<RowGroupStatistics> ColumnChunkMetaData::statistics() const {
 
 bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
 
-int64_t ColumnChunkMetaData::has_dictionary_page() const {
+bool ColumnChunkMetaData::has_dictionary_page() const {
   return impl_->has_dictionary_page();
 }
 

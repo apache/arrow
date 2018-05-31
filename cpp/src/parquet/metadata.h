@@ -108,7 +108,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::shared_ptr<RowGroupStatistics> statistics() const;
   Compression::type compression() const;
   const std::vector<Encoding::type>& encodings() const;
-  int64_t has_dictionary_page() const;
+  bool has_dictionary_page() const;
   int64_t dictionary_page_offset() const;
   int64_t data_page_offset() const;
   int64_t index_page_offset() const;
