@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+extern "C" {
+
+#include "./types.h"
+
 /*
  * Expand inner macro for all numeric types.
  */
@@ -94,3 +98,5 @@ CAST_UNARY(castFLOAT8, float32, float64)
 NUMERIC_AND_BOOL_TYPES(VALIDITY_OP, isnull, !)
 NUMERIC_AND_BOOL_TYPES(VALIDITY_OP, isnotnull, +)
 NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
+
+} // extern "C"

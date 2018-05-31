@@ -19,11 +19,12 @@
 #include <memory>
 #include <utility>
 #include <vector>
-#include "common/arrow.h"
-#include "expr/expression.h"
-#include "codegen/llvm_generator.h"
+#include "gandiva/arrow.h"
+#include "gandiva/expression.h"
 
 namespace gandiva {
+
+class LLVMGenerator;
 
 /// \brief Evaluator for expressions.
 ///
@@ -44,12 +45,9 @@ class Evaluator {
   Evaluator(std::unique_ptr<LLVMGenerator> llvm_generator,
             SchemaPtr schema,
             const FieldVector &output_fields,
-            arrow::MemoryPool *pool)
-    : llvm_generator_(std::move(llvm_generator)),
-      schema_(schema),
-      output_fields_(output_fields),
-      pool_(pool) {}
+            arrow::MemoryPool *pool);
 
+  /// Allocate an arrow array of length 'length'.
   ArrayPtr AllocArray(DataTypePtr type, int length);
 
   const std::unique_ptr<LLVMGenerator> llvm_generator_;

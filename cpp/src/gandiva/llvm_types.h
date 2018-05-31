@@ -19,7 +19,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <map>
-#include "common/arrow.h"
+#include "gandiva/arrow.h"
 
 namespace gandiva {
 

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+extern "C" {
+
 #include<time.h>
 #include<stdlib.h>
 #include "./types.h"
@@ -86,3 +88,4 @@ DATE_TYPES(EXTRACT_HOUR)
 
 DATE_TYPES(EXTRACT_MINUTE)
 
+} // extern "C"

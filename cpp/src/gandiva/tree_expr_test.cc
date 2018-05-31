@@ -15,12 +15,12 @@
  */
 
 #include <gtest/gtest.h>
+#include "gandiva/gandiva_aliases.h"
+#include "gandiva/tree_expr_builder.h"
 #include "codegen/dex.h"
 #include "codegen/function_signature.h"
 #include "codegen/function_registry.h"
-#include "common/gandiva_aliases.h"
-#include "expr/annotator.h"
-#include "expr/tree_expr_builder.h"
+#include "codegen/annotator.h"
 
 namespace gandiva {
 

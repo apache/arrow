@@ -19,8 +19,8 @@
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "arrow/test-util.h"
-#include "expr/evaluator.h"
-#include "expr/tree_expr_builder.h"
+#include "gandiva/evaluator.h"
+#include "gandiva/tree_expr_builder.h"
 
 namespace gandiva {
 

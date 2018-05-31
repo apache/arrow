@@ -16,6 +16,10 @@
 
 /* BitMap functions */
 
+extern "C" {
+
+#include "./types.h"
+
 #define BITS_TO_BYTES(x) ((x + 7) / 8)
 #define BITS_TO_WORDS(x) ((x + 63) / 64)
 
@@ -40,3 +44,4 @@ void bitMapSetBit(unsigned char *bmap, int position, bool value) {
   }
 }
 
+} // extern "C"

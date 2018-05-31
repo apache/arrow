@@ -13,25 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef GANDIVA_EXPR_EXPRESSION_H
+#define GANDIVA_EXPR_EXPRESSION_H
 
-/*
- * All files that need to be pre-compiled to IR should be sourced into this file.
- */
-#include <stdio.h>
+#include "gandiva/gandiva_aliases.h"
+#include "gandiva/node.h"
 
-extern "C" {
+namespace gandiva {
 
-#include "./types.h"
-#include "./bitmap.cc"
-#include "./arithmetic_ops.cc"
-#include "./time.cc"
+class Expression {
+ public:
+  Expression(const NodePtr root, const FieldPtr result)
+    : root_(root), result_(result) {}
 
-int print_double(char *msg, double val) {
-  return printf(msg, val);
-}
+  NodePtr root() { return root_; }
 
-int print_float(char *msg, float val) {
-  return printf(msg, val);
-}
+  FieldPtr result() { return result_; }
 
-} // extern "C"
+  ValueValidityPairPtr Decompose(const FunctionRegistry &registry, Annotator &annotator) {
+    return root_->Decompose(registry, annotator);
+  }
+
+ private:
+  const NodePtr root_;
+  const FieldPtr result_;
+};
+
+} // namespace gandiva
+
+#endif // GANDIVA_EXPR_EXPRESSION_H

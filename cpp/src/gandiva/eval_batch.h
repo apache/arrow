@@ -16,7 +16,7 @@
 #ifndef GANDIVA_EXPR_EVALBATCH_H
 #define GANDIVA_EXPR_EVALBATCH_H
 
-#include "common/gandiva_aliases.h"
+#include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 

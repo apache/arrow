@@ -18,7 +18,7 @@
 
 #include <string>
 #include <vector>
-#include "common/gandiva_aliases.h"
+#include "gandiva/gandiva_aliases.h"
 #include "codegen/dex_visitor.h"
 #include "codegen/field_descriptor.h"
 #include "codegen/func_descriptor.h"

@@ -23,7 +23,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "common/logging.h"
+#include "gandiva/logging.h"
 
 namespace gandiva {
 
@@ -51,8 +51,6 @@ class Engine {
   void *CompiledFunction(llvm::Function *irFunction);
 
  private:
-  static const char kLibPreCompiledIRDir[];
-
   // do one time inits.
   static void InitOnce();
   static bool init_once_done_;

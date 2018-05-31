@@ -17,9 +17,12 @@
 #include <memory>
 #include <vector>
 #include <gtest/gtest.h>
-#include "codegen/llvm_generator.h"
-#include "codegen/function_registry.h"
+#include "gandiva/expression.h"
 #include "codegen/codegen_exception.h"
+#include "codegen/dex.h"
+#include "codegen/func_descriptor.h"
+#include "codegen/function_registry.h"
+#include "codegen/llvm_generator.h"
 
 namespace gandiva {
 

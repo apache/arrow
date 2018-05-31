@@ -17,6 +17,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "gandiva/expression.h"
 #include "codegen/codegen_exception.h"
 #include "codegen/dex.h"
 #include "codegen/function_registry.h"

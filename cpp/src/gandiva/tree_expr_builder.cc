@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "expr/tree_expr_builder.h"
+#include "gandiva/tree_expr_builder.h"
 
 namespace gandiva {
 

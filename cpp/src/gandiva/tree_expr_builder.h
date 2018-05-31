@@ -18,8 +18,8 @@
 
 #include <string>
 #include <vector>
-#include "expr/node.h"
-#include "expr/expression.h"
+#include "gandiva/node.h"
+#include "gandiva/expression.h"
 
 namespace gandiva {
 

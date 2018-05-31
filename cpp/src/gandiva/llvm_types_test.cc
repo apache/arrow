@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "codegen/llvm_types.h"
+#include "./llvm_types.h"
 
 namespace gandiva {
 

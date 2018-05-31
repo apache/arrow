@@ -18,11 +18,8 @@
 
 #include <string>
 #include <vector>
-#include "common/arrow.h"
-#include "common/gandiva_aliases.h"
-#include "codegen/func_descriptor.h"
-#include "codegen/dex.h"
-#include "codegen/value_validity_pair.h"
+#include "gandiva/arrow.h"
+#include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 

@@ -17,9 +17,19 @@
 #include <memory>
 #include <vector>
 #include <utility>
-#include "expr/evaluator.h"
+#include "gandiva/evaluator.h"
+#include "codegen/llvm_generator.h"
 
 namespace gandiva {
+
+Evaluator::Evaluator(std::unique_ptr<LLVMGenerator> llvm_generator,
+                     SchemaPtr schema,
+                     const FieldVector &output_fields,
+                     arrow::MemoryPool *pool)
+  : llvm_generator_(std::move(llvm_generator)),
+    schema_(schema),
+    output_fields_(output_fields),
+    pool_(pool) {}
 
 // TODO : exceptions
 std::shared_ptr<Evaluator> Evaluator::Make(SchemaPtr schema,

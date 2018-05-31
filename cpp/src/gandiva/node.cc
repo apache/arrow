@@ -17,11 +17,11 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "gandiva/node.h"
 #include "codegen/dex.h"
 #include "codegen/function_registry.h"
 #include "codegen/function_signature.h"
-#include "expr/annotator.h"
-#include "expr/node.h"
+#include "codegen/annotator.h"
 
 namespace gandiva {
 

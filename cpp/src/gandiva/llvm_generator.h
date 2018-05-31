@@ -21,7 +21,7 @@
 #include <vector>
 #include <cstdint>
 #include <gtest/gtest_prod.h>
-#include "common/gandiva_aliases.h"
+#include "gandiva/gandiva_aliases.h"
 #include "codegen/dex_visitor.h"
 #include "codegen/compiled_expr.h"
 #include "codegen/engine.h"
@@ -29,8 +29,7 @@
 #include "codegen/value_validity_pair.h"
 #include "codegen/llvm_types.h"
 #include "codegen/lvalue.h"
-#include "expr/annotator.h"
-#include "expr/expression.h"
+#include "codegen/annotator.h"
 
 namespace gandiva {
 

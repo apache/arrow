@@ -20,10 +20,10 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "common/arrow.h"
-#include "common/gandiva_aliases.h"
-#include "common/logging.h"
-#include "expr/eval_batch.h"
+#include "gandiva/arrow.h"
+#include "gandiva/gandiva_aliases.h"
+#include "gandiva/logging.h"
+#include "codegen/eval_batch.h"
 
 namespace gandiva {
 
