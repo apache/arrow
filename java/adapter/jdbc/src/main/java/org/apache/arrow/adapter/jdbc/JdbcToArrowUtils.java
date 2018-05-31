@@ -304,7 +304,6 @@ public class JdbcToArrowUtils {
                     case Types.VARBINARY:
                     case Types.LONGVARBINARY:
                         updateVector((VarBinaryVector)root.getVector(columnName),
-//                                rs.getBytes(i), !rs.wasNull(), rowCount);
                                 rs.getBinaryStream(i), !rs.wasNull(), rowCount);
                         break;
                     case Types.ARRAY:
@@ -474,7 +473,7 @@ public class JdbcToArrowUtils {
                 if (read == -1) {
                     break;
                 }
-                arrowBuf.setBytes(total, new ByteArrayInputStream(bytes, 0, read), read);
+                arrowBuf.setBytes(total, bytes, total, read);
                 total += read;
             }
             holder.end = total;
