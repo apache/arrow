@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
-  license agreements. See the NOTICE file distributed with this work for additional
-  information regarding copyright ownership. The ASF licenses this file to
-  You under the Apache License, Version 2.0 (the "License"); you may not use
-  this file except in compliance with the License. You may obtain a copy of
-  the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required
-  by applicable law or agreed to in writing, software distributed under the
-  License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
-  OF ANY KIND, either express or implied. See the License for the specific
-  language governing permissions and limitations under the License. -->
+    license agreements. See the NOTICE file distributed with this work for additional
+    information regarding copyright ownership. The ASF licenses this file to
+    You under the Apache License, Version 2.0 (the "License"); you may not use
+    this file except in compliance with the License. You may obtain a copy of
+    the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required
+    by applicable law or agreed to in writing, software distributed under the
+    License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+    OF ANY KIND, either express or implied. See the License for the specific
+    language governing permissions and limitations under the License. -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>org.apache.arrow</groupId>
         <artifactId>arrow-java-root</artifactId>
@@ -21,6 +22,7 @@
     <artifactId>arrow-jdbc</artifactId>
     <name>Arrow JDBC Adapter</name>
     <url>http://maven.apache.org</url>
+
     <dependencies>
 
         <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory -->
@@ -36,6 +38,7 @@
             <artifactId>arrow-vector</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
@@ -57,82 +60,47 @@
             <version>1.4.196</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
             <version>${dep.jackson.version}</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${dep.jackson.version}</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
             <version>${dep.jackson.version}</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <version>${dep.jackson.version}</version>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
-	<build>	
-		<plugins>
-		    <plugin>
-			    <groupId>org.jacoco</groupId>
-			    <artifactId>jacoco-maven-plugin</artifactId>
-			    <version>0.8.1</version>
-					<executions>
-			        <!-- Prepares property pointing to JaCoCo runtime agent which is passed as VM argument when Surefire is executed.  -->
-			        <execution>
-			            <id>default-prepare-agent</id>
-			            <goals>
-			                <goal>prepare-agent</goal>
-			            </goals>
-			            <configuration>
-			                <!-- Sets the path to the file which contains the execution data. -->
-			                <destFile>${project.build.directory}/coverage-reports/jacoco-ut.exec</destFile>
-			                <!--Sets the name of the property containing the settings for JaCoCo runtime agent.	-->
-			                <propertyName>surefireArgLine</propertyName>
-			            </configuration>
-			        </execution>
-			        <!--Ensures that the code coverage report for unit tests is created after unit tests have been run. -->
-			        <execution>
-			            <id>post-unit-test</id>
-			            <phase>test</phase>
-			            <goals>
-			                <goal>report</goal>
-			            </goals>
-			            <configuration>
-			                <!-- Sets the path to the file which contains the execution data. -->
-			                <dataFile>${project.build.directory}/coverage-reports/jacoco-ut.exec</dataFile>
-			                <!-- Sets the output directory for the code coverage report. -->
-			                <includeTests>true</includeTests>
-			                <outputDirectory>${project.build.directory}/jacoco-ut</outputDirectory>
-			            </configuration>
-			        </execution>
-			    </executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<configuration>
-					<systemPropertyVariables>
-						<user.timezone>UTC</user.timezone>
-					</systemPropertyVariables>
-					 	<!-- Sets the VM argument line used when unit tests are run. -->
-				        <argLine>${surefireArgLine}</argLine>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
-
+    <build>	
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <user.timezone>UTC</user.timezone>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
