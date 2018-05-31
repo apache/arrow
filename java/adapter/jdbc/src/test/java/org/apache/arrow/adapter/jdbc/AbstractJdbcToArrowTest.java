@@ -36,7 +36,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 public abstract class AbstractJdbcToArrowTest {
 	protected Connection conn = null;
 	protected Table table;
-    
+
     /**
      * This method creates Table object after reading YAML file
      * @param ymlFilePath
@@ -45,7 +45,7 @@ public abstract class AbstractJdbcToArrowTest {
      */
     protected static Table getTable(String ymlFilePath, Class clss) throws IOException {
         return new ObjectMapper(new YAMLFactory()).readValue(
-        		clss.getClassLoader().getResourceAsStream(ymlFilePath), Table.class);
+            clss.getClassLoader().getResourceAsStream(ymlFilePath), Table.class);
     }
 
     
@@ -67,7 +67,7 @@ public abstract class AbstractJdbcToArrowTest {
             }
         }
     }
-    
+
     /**
      * Clean up method to close connection after test completes
      * @throws SQLException
@@ -79,7 +79,7 @@ public abstract class AbstractJdbcToArrowTest {
             conn = null;
         }
     }
-    
+
     /**
      * This method returns collection of Table object for each test iteration
      * @return
@@ -88,14 +88,14 @@ public abstract class AbstractJdbcToArrowTest {
      * @throws IOException
      */
       public static Object[][] prepareTestData(String[] testFiles, Class clss) throws SQLException, ClassNotFoundException, IOException {
-      	Object[][] tableArr = new Object[testFiles.length][];
+      	  Object[][] tableArr = new Object[testFiles.length][];
           int i = 0;
           for (String testFile: testFiles) {
           	tableArr[i++] = new Object[]{getTable(testFile, clss)};
           }
           return tableArr;
       }
-            
+
       /**
        * Abstract method to implement test Functionality to test JdbcToArrow methods 
        * @throws SQLException
