@@ -216,9 +216,13 @@ export class ListData<T extends ListType> extends SingleNestedData<T> {
 export class UnionData<T extends (DenseUnion | SparseUnion) = any> extends NestedData<T> {
     public /*    [VectorType.TYPE]:*/ 3: T['TArray'];
     public get typeIds() { return this[VectorType.TYPE]; }
+    public readonly typeIdToChildIndex: { [key: number]: number };
     constructor(type: T, length: number, nullBitmap: Uint8Array | null | undefined, typeIds: Iterable<number>, childData: Data<any>[], offset?: number, nullCount?: number) {
         super(type, length, nullBitmap, childData, offset, nullCount);
         this[VectorType.TYPE] = toTypedArray(Int8Array, typeIds);
+        this.typeIdToChildIndex = type.typeIds.reduce((typeIdToChildIndex, typeId, idx) => {
+            return (typeIdToChildIndex[typeId] = idx) && typeIdToChildIndex || typeIdToChildIndex;
+        }, Object.create(null) as { [key: number]: number });
     }
     public clone<R extends T>(type: R, length = this.length, offset = this.offset, nullCount = this._nullCount) {
         return new UnionData<R>(type, length, this[VectorType.VALIDITY], this[VectorType.TYPE], this.childData, offset, nullCount);
