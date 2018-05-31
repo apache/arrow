@@ -200,8 +200,8 @@ struct CastFunctor<O, I,
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = GetValues<typename I::c_type>(input, 1);
-    internal::BitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
-                                  input.length);
+    internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
+                                           output->offset, input.length);
 
     for (int64_t i = 0; i < input.length; ++i) {
       if (*in_data++ != 0) {

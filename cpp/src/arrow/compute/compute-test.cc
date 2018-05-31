@@ -927,6 +927,8 @@ TYPED_TEST(TestHashKernelPrimitive, Unique) {
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckUnique<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1}, {true, false, true, true},
                             {2, 1}, {});
+  CheckUnique<TypeParam, T>(&this->ctx_, type, {2, 1, 3, 1}, {false, false, true, true},
+                            {3, 1}, {});
 }
 
 TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
