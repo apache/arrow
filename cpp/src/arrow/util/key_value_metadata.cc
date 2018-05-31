@@ -121,7 +121,7 @@ std::string KeyValueMetadata::ToString() const {
   return buffer.str();
 }
 
-std::shared_ptr<KeyValueMetadata> metadata(
+std::shared_ptr<KeyValueMetadata> key_value_metadata(
     const std::unordered_map<std::string, std::string>& pairs) {
   return std::make_shared<KeyValueMetadata>(pairs);
 }

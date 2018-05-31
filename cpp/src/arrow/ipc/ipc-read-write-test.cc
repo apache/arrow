@@ -118,8 +118,8 @@ TEST_F(TestSchemaMetadata, NestedFields) {
 }
 
 TEST_F(TestSchemaMetadata, KeyValueMetadata) {
-  auto field_metadata = metadata({{"key", "value"}});
-  auto schema_metadata = metadata({{"foo", "bar"}, {"bizz", "buzz"}});
+  auto field_metadata = key_value_metadata({{"key", "value"}});
+  auto schema_metadata = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
 
   auto f0 = field("f0", std::make_shared<Int8Type>());
   auto f1 = field("f1", std::make_shared<Int16Type>(), false, field_metadata);

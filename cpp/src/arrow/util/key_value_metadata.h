@@ -63,7 +63,7 @@ class ARROW_EXPORT KeyValueMetadata {
 ///
 /// \param pairs key-value mapping
 std::shared_ptr<KeyValueMetadata> ARROW_EXPORT
-metadata(const std::unordered_map<std::string, std::string>& pairs);
+key_value_metadata(const std::unordered_map<std::string, std::string>& pairs);
 
 }  // namespace arrow
 

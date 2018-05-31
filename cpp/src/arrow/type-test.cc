@@ -46,7 +46,7 @@ TEST(TestField, Basics) {
 }
 
 TEST(TestField, Equals) {
-  auto meta = metadata({{"a", "1"}, {"b", "2"}});
+  auto meta = key_value_metadata({{"a", "1"}, {"b", "2"}});
 
   Field f0("f0", int32());
   Field f0_nn("f0", int32(), false);
@@ -201,8 +201,8 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
-  auto metadata0 = metadata({{"foo", "bar"}, {"bizz", "buzz"}});
-  auto metadata1 = metadata({{"foo", "baz"}});
+  auto metadata0 = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
+  auto metadata1 = key_value_metadata({{"foo", "baz"}});
 
   auto schema0 = ::arrow::schema({f0, f1, f2}, metadata0);
   ASSERT_TRUE(metadata0->Equals(*schema0->metadata()));
