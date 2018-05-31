@@ -445,6 +445,7 @@ public class TestArrowFile extends BaseFileTest {
   public void testWriteReadDictionary() throws IOException {
     File file = new File("target/mytest_dict.arrow");
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
+    int numDictionaryBlocksWritten = 0;
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)) {
@@ -462,6 +463,7 @@ public class TestArrowFile extends BaseFileTest {
         streamWriter.writeBatch();
         fileWriter.end();
         streamWriter.end();
+        numDictionaryBlocksWritten = fileWriter.getDictionaryBlocks().size();
       }
 
       // Need to close dictionary vectors
@@ -479,6 +481,7 @@ public class TestArrowFile extends BaseFileTest {
       LOGGER.debug("reading schema: " + schema);
       Assert.assertTrue(arrowReader.loadNextBatch());
       validateFlatDictionary(root, arrowReader);
+      Assert.assertEquals(numDictionaryBlocksWritten, arrowReader.getDictionaryBlocks().size());
     }
 
     // Read from stream
@@ -712,6 +715,7 @@ public class TestArrowFile extends BaseFileTest {
   @Test
   public void testReadWriteMultipleBatches() throws IOException {
     File file = new File("target/mytest_nulls_multibatch.arrow");
+    int numBlocksWritten = 0;
 
     try (IntVector vector = new IntVector("foo", allocator);) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
@@ -719,6 +723,7 @@ public class TestArrowFile extends BaseFileTest {
            VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
            ArrowFileWriter writer = new ArrowFileWriter(root, null, fileOutputStream.getChannel());) {
         writeBatchData(writer, vector, root);
+        numBlocksWritten = writer.getRecordBlocks().size();
       }
     }
 
@@ -726,6 +731,7 @@ public class TestArrowFile extends BaseFileTest {
          ArrowFileReader reader = new ArrowFileReader(fileInputStream.getChannel(), allocator);) {
       IntVector vector = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
       validateBatchData(reader, vector);
+      Assert.assertEquals(numBlocksWritten, reader.getRecordBlocks().size());
     }
   }
 
