@@ -38,6 +38,7 @@ public class ArrowFileWriter extends ArrowWriter {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFileWriter.class);
 
+  // All ArrowBlocks written are saved in these lists to be passed to ArrowFooter in endInternal.
   private final List<ArrowBlock> dictionaryBlocks = new ArrayList<>();
   private final List<ArrowBlock> recordBlocks = new ArrayList<>();
 
