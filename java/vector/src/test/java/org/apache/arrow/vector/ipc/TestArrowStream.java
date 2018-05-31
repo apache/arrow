@@ -82,8 +82,6 @@ public class TestArrowStream extends BaseFileTest {
         }
         writer.end();
         bytesWritten = writer.bytesWritten();
-
-        assertTrue(writer.getRecordBlocks().isEmpty());
       }
 
       ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
@@ -110,8 +108,6 @@ public class TestArrowStream extends BaseFileTest {
       try (VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
         writeBatchData(writer, vector, root);
-
-        assertTrue(writer.getRecordBlocks().isEmpty());
       }
     }
 
