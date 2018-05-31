@@ -171,7 +171,7 @@ static void BM_FirstTimeBitmapWriter(benchmark::State& state) {
 }
 
 static void BM_CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
-  const int kBufferSize = state.range(0);
+  const int kBufferSize = static_cast<int>(state.range(0));
   std::shared_ptr<Buffer> buffer = CreateRandomBuffer(kBufferSize);
 
   const int num_bits = kBufferSize * 8;

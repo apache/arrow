@@ -22,7 +22,7 @@
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
 set(GFLAGS_VERSION "2.2.0")
 set(GTEST_VERSION "1.8.0")
-set(GBENCHMARK_VERSION "1.1.0")
+set(GBENCHMARK_VERSION "1.4.1")
 set(FLATBUFFERS_VERSION "1.9.0")
 set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
 set(SNAPPY_VERSION "1.1.3")
@@ -365,10 +365,12 @@ if(ARROW_BUILD_BENCHMARKS)
   add_custom_target(runbenchmark ctest -L benchmark)
 
   if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+    if(NOT MSVC)
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 ${EP_CXX_FLAGS}")
+    endif()
+
     if(APPLE)
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 -stdlib=libc++")
-    elseif(NOT MSVC)
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC --std=c++11")
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "${GBENCHMARK_CMAKE_CXX_FLAGS} -stdlib=libc++")
     endif()
 
     set(GBENCHMARK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gbenchmark_ep/src/gbenchmark_ep-install")
@@ -477,7 +479,7 @@ endif()
 
 if (ARROW_JEMALLOC)
   # We only use a vendored jemalloc as we want to control its version.
-  # Also our build of jemalloc is specially prefixed so that it will not 
+  # Also our build of jemalloc is specially prefixed so that it will not
   # conflict with the default allocator as well as other jemalloc
   # installations.
   # find_package(jemalloc)
