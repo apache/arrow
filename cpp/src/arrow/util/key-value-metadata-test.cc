@@ -96,4 +96,19 @@ TEST(KeyValueMetadataTest, Equals) {
   ASSERT_FALSE(metadata.Equals(metadata3));
 }
 
+TEST(KeyValueMetadataTest, ToString) {
+  std::vector<std::string> keys = {"foo", "bar"};
+  std::vector<std::string> values = {"bizz", "buzz"};
+
+  KeyValueMetadata metadata(keys, values);
+
+  std::string result = metadata.ToString();
+  std::string expected = R"(
+-- metadata --
+foo: bizz
+bar: buzz)";
+
+  ASSERT_EQ(expected, result);
+}
+
 }  // namespace arrow

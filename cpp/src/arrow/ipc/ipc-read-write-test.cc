@@ -117,6 +117,17 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   CheckRoundtrip(schema);
 }
 
+TEST_F(TestSchemaMetadata, KeyValueMetadata) {
+  auto field_metadata = key_value_metadata({{"key", "value"}});
+  auto schema_metadata = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
+
+  auto f0 = field("f0", std::make_shared<Int8Type>());
+  auto f1 = field("f1", std::make_shared<Int16Type>(), false, field_metadata);
+
+  Schema schema({f0, f1}, schema_metadata);
+  CheckRoundtrip(schema);
+}
+
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
                     &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \

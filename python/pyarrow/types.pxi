@@ -403,6 +403,16 @@ cdef class Field:
     def equals(self, Field other):
         """
         Test if this field is equal to the other
+
+        Parameters
+        ----------
+        other : pyarrow.Field
+        check_metadata : boolean, default True
+            Key/value metadata must be equal too
+
+        Returns
+        -------
+        is_equal : boolean
         """
         return self.field.Equals(deref(other.field))
 
@@ -564,22 +574,30 @@ cdef class Schema:
                 self.schema.metadata())
             return box_metadata(metadata.get())
 
-    def __richcmp__(self, other, int op):
-        if op == cp.Py_EQ:
+    def __eq__(self, other):
+        try:
             return self.equals(other)
-        elif op == cp.Py_NE:
-            return not self.equals(other)
-        else:
-            raise TypeError('Invalid comparison')
+        except TypeError:
+            return False
 
-    def equals(self, other):
+    def equals(self, other, bint check_metadata=True):
         """
         Test if this schema is equal to the other
-        """
-        cdef Schema _other
-        _other = other
 
-        return self.sp_schema.get().Equals(deref(_other.schema))
+        Parameters
+        ----------
+        other :  pyarrow.Schema
+        check_metadata : bool, default False
+            Key/value metadata must be equal too
+
+        Returns
+        -------
+        is_equal : boolean
+        """
+        cdef Schema _other = other
+
+        return self.sp_schema.get().Equals(deref(_other.schema),
+                                           check_metadata)
 
     def field_by_name(self, name):
         """

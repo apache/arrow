@@ -289,6 +289,29 @@ def test_type_equality_operators(index, ty):
             assert ty != other
 
 
+def test_field_equals():
+    meta1 = {b'foo': b'bar'}
+    meta2 = {b'bizz': b'bazz'}
+
+    f1 = pa.field('a', pa.int8(), nullable=True)
+    f2 = pa.field('a', pa.int8(), nullable=True)
+    f3 = pa.field('a', pa.int8(), nullable=False)
+    f4 = pa.field('a', pa.int16(), nullable=False)
+    f5 = pa.field('b', pa.int16(), nullable=False)
+    f6 = pa.field('a', pa.int8(), nullable=True, metadata=meta1)
+    f7 = pa.field('a', pa.int8(), nullable=True, metadata=meta1)
+    f8 = pa.field('a', pa.int8(), nullable=True, metadata=meta2)
+
+    assert f1.equals(f2)
+    assert f6.equals(f7)
+    assert not f1.equals(f3)
+    assert not f1.equals(f4)
+    assert not f3.equals(f4)
+    assert not f1.equals(f6)
+    assert not f4.equals(f5)
+    assert not f7.equals(f8)
+
+
 def test_field_equality_operators():
     f1 = pa.field('a', pa.int8(), nullable=True)
     f2 = pa.field('a', pa.int8(), nullable=True)
