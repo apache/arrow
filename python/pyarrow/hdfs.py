@@ -38,7 +38,8 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def __reduce__(self):
         return (HadoopFileSystem, (self.host, self.port, self.user,
-                                   self.kerb_ticket, self.driver, self.extra_conf))
+                                   self.kerb_ticket, self.driver,
+                                   self.extra_conf))
 
     def _isfilestore(self):
         """
