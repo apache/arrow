@@ -1,0 +1,51 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+tasks:
+  # conda packages
+  - name: conda-linux
+    platform: linux
+    template: conda-recipes/travis.linux.yml
+    params:
+  - name: conda-osx
+    platform: osx
+    template: conda-recipes/travis.osx.yml
+    params:
+  - name: conda-win
+    platform: win
+    template: conda-recipes/appveyor.yml
+    params:
+
+  # python wheels
+  - name: python-wheel-linux
+    platform: linux
+    template: python-wheels/travis.linux.yml
+    params:
+  - name: python-wheel-osx
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    params:
+  - name: python-wheel-win
+    platform: win
+    template: python-wheels/appveyor.yml
+    params:
+
+  # linux packages
+  - name: linux-packages
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:

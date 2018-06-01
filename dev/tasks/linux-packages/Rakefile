@@ -1,0 +1,112 @@
+# -*- ruby -*-
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+require_relative "package-task"
+
+class ApacheArrowPackageTask < PackageTask
+  def initialize
+    release_time = latest_commit_time(arrow_source_dir)
+    super("apache-arrow", detect_version(release_time), release_time)
+    @rpm_package = "arrow"
+  end
+
+  private
+  def arrow_source_dir
+    File.join(File.dirname(__FILE__), "..", "..", "..")
+  end
+
+  def detect_version(release_time)
+    pom_xml_path = File.join(arrow_source_dir, "java", "pom.xml")
+    version = File.read(pom_xml_path).scan(/^  <version>(.+?)<\/version>/)[0][0]
+    formatted_release_time = release_time.strftime("%Y%m%d")
+    version.gsub(/-SNAPSHOT\z/) {".#{formatted_release_time}"}
+  end
+
+  def define_archive_task
+    file @archive_name do
+      if /\A\d+\.\d+\.\d+\z/ =~ @version
+        download_archive
+      else
+        build_archive
+      end
+    end
+  end
+
+  def download_archive
+    mirror_base_url = "https://www.apache.org/dyn/closer.cgi/arrow"
+    mirror_list_url = "#{mirror_base_url}/arrow-#{@version}/#{@archive_name}"
+    open(mirror_list_url) do |response|
+      if /href="(.+?\/#{Regexp.escape(@archive_name)})"/ =~ response.read
+        download($1, ".")
+      end
+    end
+  end
+
+  def build_archive
+    cd(arrow_source_dir) do
+      sh("git", "archive", "HEAD",
+         "--prefix", "#{@archive_base_name}/",
+         "--output", @archive_name)
+      rm_f(@archive_base_name)
+      sh("tar", "xf", @archive_name)
+      rm_f(@archive_name)
+
+      c_glib_tmp_dir = "c_glib_tmp"
+      rm_rf(c_glib_tmp_dir)
+      mkdir_p(c_glib_tmp_dir)
+      cp_r(@archive_base_name, c_glib_tmp_dir)
+      c_glib_dir = File.expand_path("#{@archive_base_name}/c_glib")
+      rm_rf(c_glib_dir)
+      cd("#{c_glib_tmp_dir}/#{@archive_base_name}") do
+        build_type = "debug"
+        cpp_dir = File.expand_path("cpp")
+        cpp_build_dir = File.expand_path("cpp_build")
+        mkdir_p(cpp_build_dir)
+        cd(cpp_build_dir) do
+          sh("cmake", cpp_dir,
+             "-DCMAKE_BUILD_TYPE=#{build_type}",
+             "-DARROW_BOOST_USE_SHARED=ON",
+             "-DARROW_BUILD_TESTS=OFF")
+          sh("make", "-j8")
+        end
+        cd("c_glib") do
+          sh("./autogen.sh")
+          sh("./configure",
+             "--with-arrow-cpp-build-dir=#{cpp_build_dir}",
+             "--with-arrow-cpp-build-type=#{build_type}",
+             "--enable-gtk-doc")
+          sh({"LD_LIBRARY_PATH" => "#{cpp_build_dir}/#{build_type}"},
+             "make", "-j8")
+          sh("make", "dist")
+          tar_gz = Dir.glob("*.tar.gz").first
+          sh("tar", "xf", tar_gz)
+          mv(File.basename(tar_gz, ".tar.gz"),
+             c_glib_dir)
+        end
+      end
+      rm_rf(c_glib_tmp_dir)
+
+      sh("tar", "czf", @full_archive_name, @archive_base_name)
+      rm_rf(@archive_base_name)
+    end
+  end
+end
+
+task = ApacheArrowPackageTask.new
+task.define

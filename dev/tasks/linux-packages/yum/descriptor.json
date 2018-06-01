@@ -1,0 +1,22 @@
+{
+    "package": {
+        "name": "Yum",
+        "repo": "apache-arrow-yum",
+        "subject": "kou",
+        "licenses": ["Apache-2.0"],
+        "vcs_url": "htttps://github.com/apache/arrow.git"
+    },
+    "version": {
+        "name": "dev"
+    },
+    "files": [
+        {
+            "includePattern": "cpp-linux/yum/repositories/(centos)/([^/]+)/([^/]+)/[^/]+/([^/]+\\.rpm)",
+            "uploadPattern": "$1/$2/$3/$4",
+            "matrixParams": {
+                "override": 1
+            }
+        }
+    ],
+    "publish": true
+}
