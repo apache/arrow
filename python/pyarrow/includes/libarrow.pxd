@@ -18,7 +18,7 @@
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
-
+from libcpp.map cimport map as cppmap
 
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
@@ -651,6 +651,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int port
         c_string user
         c_string kerb_ticket
+        cppmap[c_string, c_string] extra_conf
         HdfsDriver driver
 
     cdef cppclass HdfsPathInfo:

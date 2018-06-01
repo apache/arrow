@@ -19,6 +19,7 @@
 #define ARROW_IO_HDFS
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -63,6 +64,7 @@ struct HdfsConnectionConfig {
   int port;
   std::string user;
   std::string kerb_ticket;
+  std::map<std::string, std::string> extra_conf;
   HdfsDriver driver;
 };
 
