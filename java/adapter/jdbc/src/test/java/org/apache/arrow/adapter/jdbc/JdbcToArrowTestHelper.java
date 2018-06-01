@@ -20,8 +20,6 @@ package org.apache.arrow.adapter.jdbc;
 
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -36,10 +34,11 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertArrayEquals;
+
 /**
  * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object
  *
@@ -50,13 +49,13 @@ public class JdbcToArrowTestHelper {
         assertEquals(rowCount, intVector.getValueCount());
 
         for(int j = 0; j < intVector.getValueCount(); j++) {
-        	assertEquals(values[j].intValue(), intVector.get(j));
+            assertEquals(values[j].intValue(), intVector.get(j));
         } 
     }
 
     public static void assertBooleanVectorValues(BitVector bitVector, int rowCount, Boolean[] values){
         assertEquals(rowCount, bitVector.getValueCount());
-        
+
         for(int j = 0; j < bitVector.getValueCount(); j++){
             assertEquals(values[j].booleanValue(), bitVector.get(j) == 1);
         }
@@ -98,7 +97,7 @@ public class JdbcToArrowTestHelper {
         assertEquals(rowCount, decimalVector.getValueCount());
 
         for(int j = 0; j < decimalVector.getValueCount(); j++){
-        	assertNotNull(decimalVector.getObject(j));
+            assertNotNull(decimalVector.getObject(j));
             assertEquals(values[j].doubleValue(), decimalVector.getObject(j).doubleValue(), 0);
         }
     }
@@ -123,7 +122,7 @@ public class JdbcToArrowTestHelper {
         assertEquals(rowCount, timeMilliVector.getValueCount());
 
         for(int j = 0; j < timeMilliVector.getValueCount(); j++){
-                assertEquals(values[j].longValue(), timeMilliVector.get(j));
+            assertEquals(values[j].longValue(), timeMilliVector.get(j));
         }
     }
 
@@ -147,7 +146,7 @@ public class JdbcToArrowTestHelper {
         assertEquals(rowCount, varBinaryVector.getValueCount());
 
         for(int j = 0; j < varBinaryVector.getValueCount(); j++){
-            assertEquals(Arrays.hashCode(values[j]), Arrays.hashCode(varBinaryVector.get(j)));
+            assertArrayEquals(values[j], varBinaryVector.get(j));
         }
     }
 
@@ -155,15 +154,15 @@ public class JdbcToArrowTestHelper {
         assertEquals(rowCount, varCharVector.getValueCount());
 
         for(int j = 0; j < varCharVector.getValueCount(); j++){
-            assertEquals(Arrays.hashCode(values[j]), Arrays.hashCode(varCharVector.get(j)));
+            assertArrayEquals(values[j], varCharVector.get(j));
         }
     }
-    
+
     public static void assertNullValues(BaseValueVector vector, int rowCount) {
         assertEquals(rowCount, vector.getValueCount());
 
         for(int j = 0; j < vector.getValueCount(); j++) {
-        	assertTrue(vector.isNull(j));
+            assertTrue(vector.isNull(j));
         } 
     }
     
@@ -172,109 +171,109 @@ public class JdbcToArrowTestHelper {
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
+                + Character.digit(s.charAt(i+1), 16));
         }
         return data;
     }
-    
+
     public static Integer [] getIntValues(String[] values, String dataType) {
-    	String[] dataArr= getValues(values, dataType);
-    	Integer [] valueArr = new Integer [dataArr.length];
-    	int i =0;
-    	for(String data : dataArr) {
-    		valueArr [i++] = Integer.parseInt(data);
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        Integer [] valueArr = new Integer [dataArr.length];
+        int i =0;
+        for(String data : dataArr) {
+            valueArr [i++] = Integer.parseInt(data);
+        }
+        return valueArr;
     }
-    
+
     public static Boolean [] getBooleanValues(String[] values, String dataType) {
-    	String[] dataArr= getValues(values, dataType);
-    	Boolean [] valueArr = new Boolean [dataArr.length];
-    	int i =0;
-    	for(String data : dataArr) { 
-    		valueArr [i++] = data.trim().equals("1");
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        Boolean [] valueArr = new Boolean [dataArr.length];
+        int i =0;
+        for(String data : dataArr) { 
+            valueArr [i++] = data.trim().equals("1");
+        }
+        return valueArr;
     }
     
     public static BigDecimal [] getDecimalValues(String[] values, String dataType) {
-    	String[] dataArr= getValues(values, dataType);
-    	BigDecimal [] valueArr = new BigDecimal [dataArr.length];
-    	int i =0;
-    	for(String data : dataArr) {
-    		valueArr[i++] = new BigDecimal(data);
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        BigDecimal [] valueArr = new BigDecimal [dataArr.length];
+        int i =0;
+        for(String data : dataArr) {
+            valueArr[i++] = new BigDecimal(data);
+        }
+        return valueArr;
     }
 
     public static Double [] getDoubleValues(String[] values, String dataType) {
-    	String[] dataArr= getValues(values, dataType);
-    	Double [] valueArr = new Double [dataArr.length];
-    	int i =0;
-    	for(String data : dataArr) {
-    		valueArr [i++] = Double.parseDouble(data);
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        Double [] valueArr = new Double [dataArr.length];
+        int i =0;
+        for(String data : dataArr) {
+            valueArr [i++] = Double.parseDouble(data);
+        }
+        return valueArr;
     }
-    
+
     public static Float [] getFloatValues(String[] values, String dataType) { 
-    	String[] dataArr= getValues(values, dataType);
-    	Float [] valueArr = new Float [dataArr.length];
-    	int i =0;
-    	for(String data : dataArr) {
-    		valueArr [i++] = Float.parseFloat(data);
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        Float [] valueArr = new Float [dataArr.length];
+        int i =0;
+        for(String data : dataArr) {
+            valueArr [i++] = Float.parseFloat(data);
+        }
+        return valueArr;
     }
-    
+
     public static Long [] getLongValues(String[] values, String dataType) {
-    	String[] dataArr= getValues(values, dataType);
-    	Long [] valueArr = new Long [dataArr.length];
-    	int i =0;
-    	for(String data : dataArr) {    
-    		valueArr [i++] = Long.parseLong(data);
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        Long [] valueArr = new Long [dataArr.length];
+        int i =0;
+        for(String data : dataArr) {    
+            valueArr [i++] = Long.parseLong(data);
+        }
+        return valueArr;
     }
-    
+
     public static byte [][] getCharArray(String[] values, String dataType) {
-    	String[] dataArr= getValues(values, dataType);
-    	byte [][] valueArr = new byte [dataArr.length][];
-    	int i =0;
-    	for(String data : dataArr) {     
-    		valueArr [i++] = data.trim().getBytes();
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        byte [][] valueArr = new byte [dataArr.length][];
+        int i =0;
+        for(String data : dataArr) {     
+            valueArr [i++] = data.trim().getBytes();
+        }
+        return valueArr;
     }
-    
+
     public static byte [][] getCharArrayWithCharSet(String[] values, String dataType, Charset charSet) {
-    	String[] dataArr= getValues(values, dataType);
-    	byte [][] valueArr = new byte [dataArr.length][];
-    	int i =0;
-    	for(String data : dataArr) {     
-    		valueArr [i++] = data.trim().getBytes(charSet);
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        byte [][] valueArr = new byte [dataArr.length][];
+        int i =0;
+        for(String data : dataArr) {     
+            valueArr [i++] = data.trim().getBytes(charSet);
+        }
+        return valueArr;
     }
-    
+
     public static byte [][] getBinaryValues(String[] values, String dataType) {
-    	String[] dataArr= getValues(values, dataType);
-    	byte [][] valueArr = new byte [dataArr.length][];
-    	int i =0;
-    	for(String data : dataArr) {     
-    		valueArr [i++] = hexStringToByteArray(data.trim());
-    	}
-    	return valueArr;
+        String[] dataArr= getValues(values, dataType);
+        byte [][] valueArr = new byte [dataArr.length][];
+        int i =0;
+        for(String data : dataArr) {     
+            valueArr [i++] = hexStringToByteArray(data.trim());
+        }
+        return valueArr;
     }  
-    
+
     public static String [] getValues(String[] values, String dataType) {
-    	String value = "";
-    	for(String val : values) {
-    		if(val.startsWith(dataType)) {
-    			value = val.split("=")[1];
-    			break;
-    		}
-    	}
-    	return value.split(",");
+        String value = "";
+        for(String val : values) {
+            if(val.startsWith(dataType)) {
+                value = val.split("=")[1];
+                break;
+            }
+        }
+        return value.split(",");
     }
 }

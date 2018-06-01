@@ -28,7 +28,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Table {
-
     private String name;
     private String type;
     private String vector;
@@ -93,6 +92,7 @@ public class Table {
         }
         return arr;
     }
+    
     public Boolean[] getBoolValues() {
         Boolean[] arr = new Boolean[values.length];
         int i = 0;
@@ -101,6 +101,7 @@ public class Table {
         }
         return arr;
     }
+
     public BigDecimal[] getBigDecimalValues() {
         BigDecimal[] arr = new BigDecimal[values.length];
         int i = 0;
@@ -109,6 +110,7 @@ public class Table {
         }
         return arr;
     }
+
     public Double[] getDoubleValues() {
         Double[] arr = new Double[values.length];
         int i = 0;
@@ -180,30 +182,30 @@ public class Table {
     }
 
     public String getTimezone() {
-		return timezone;
-	}
+        return timezone;
+    }
 
-	public void setTimezone(String timezone) {
-		this.timezone = timezone;
-	}
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
 
-	public String[] getVectors() {
-		return vectors;
-	}
+    public String[] getVectors() {
+        return vectors;
+    }
 
-	public void setVectors(String[] vectors) {
-		this.vectors = vectors;
-	}
-	
-	public int getRowCount() {
-		return rowCount;
-	}
+    public void setVectors(String[] vectors) {
+        this.vectors = vectors;
+    }
 
-	public void setRowCount(int rowCount) {
-		this.rowCount = rowCount;
-	}
+    public int getRowCount() {
+        return rowCount;
+    }
 
-	private byte[][] getByteArray(String[] data) {
+    public void setRowCount(int rowCount) {
+        this.rowCount = rowCount;
+    }
+
+    private byte[][] getByteArray(String[] data) {
         byte[][] byteArr = new byte[data.length][];
 
         for (int i = 0; i < data.length; i++) {
@@ -226,7 +228,7 @@ public class Table {
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i + 1), 16));
+                + Character.digit(s.charAt(i + 1), 16));
         }
         return data;
     }

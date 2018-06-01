@@ -30,6 +30,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.ResultSet;
 import java.util.Calendar;
+import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * Utility class to convert JDBC objects to columnar Arrow format objects.
@@ -85,7 +87,7 @@ public class JdbcToArrow {
         Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
         Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
 
-        return sqlToArrow(connection, query, allocator, Calendar.getInstance());
+        return sqlToArrow(connection, query, allocator, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT));
     }
 
     /**
@@ -121,7 +123,7 @@ public class JdbcToArrow {
     public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException, IOException {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
 
-        return sqlToArrow(resultSet, Calendar.getInstance());
+        return sqlToArrow(resultSet, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT));
     }
 
     /**
@@ -136,7 +138,7 @@ public class JdbcToArrow {
         Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
         Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
-        return sqlToArrow(resultSet, allocator, Calendar.getInstance());
+        return sqlToArrow(resultSet, allocator, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT));
     }
 
     /**
