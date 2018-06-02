@@ -23,8 +23,8 @@ WORKDIR /arrow/cpp/build-plain
 RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_JEMALLOC_USE_SHARED=OFF -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist ..
 RUN ninja install
 
-ADD scripts/check_arrow_visibility.sh /
-RUN /check_arrow_visibility.sh
+ADD scripts/check_arrow_visibility.py /
+RUN /check_arrow_visibility.py
 
 WORKDIR /
 RUN git clone https://github.com/apache/parquet-cpp.git
