@@ -67,8 +67,6 @@ def set_memory_pool(MemoryPool pool):
 cdef MemoryPool _default_memory_pool = default_memory_pool()
 cdef LoggingMemoryPool _logging_memory_pool = (
     LoggingMemoryPool(_default_memory_pool))
-cdef ProxyMemoryPool _proxy_memory_pool = (
-    ProxyMemoryPool(_default_memory_pool))
 
 
 def log_memory_allocations(enable=True):
