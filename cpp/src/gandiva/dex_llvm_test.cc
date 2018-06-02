@@ -26,8 +26,10 @@ class TestDex : public ::testing::Test {
   void SetUp() {
     name_map_[&typeid(VectorReadValidityDex)] = "VectorReadValidityDex";
     name_map_[&typeid(VectorReadValueDex)] = "VectorReadValueDex";
+    name_map_[&typeid(LocalBitMapValidityDex)] = "LocalBitMapValidityDex";
     name_map_[&typeid(NonNullableFuncDex)] = "NonNullableFuncDex";
     name_map_[&typeid(NullableNeverFuncDex)] = "NullableNeverFuncDex";
+    name_map_[&typeid(NullableInternalFuncDex)] = "NullableInternalFuncDex";
     name_map_[&typeid(LiteralDex)] = "LiteralDex";
   }
 
@@ -50,6 +52,10 @@ TEST_F(TestDex, TestVisitor) {
       *result_ = (*map_)[&typeid(dex)];
     }
 
+    void Visit(const LocalBitMapValidityDex &dex) override {
+      *result_ = (*map_)[&typeid(dex)];
+    }
+
     void Visit(const LiteralDex &dex) override {
       *result_ = (*map_)[&typeid(dex)];
     }
@@ -59,6 +65,10 @@ TEST_F(TestDex, TestVisitor) {
     }
 
     void Visit(const NullableNeverFuncDex &dex) override {
+      *result_ = (*map_)[&typeid(dex)];
+    }
+
+    void Visit(const NullableInternalFuncDex &dex) override {
       *result_ = (*map_)[&typeid(dex)];
     }
 
@@ -73,24 +83,32 @@ TEST_F(TestDex, TestVisitor) {
   FieldPtr field = arrow::field("abc", arrow::int32());
   FieldDescriptorPtr field_desc = std::make_shared<FieldDescriptor>(field, 0, 1, 2);
   VectorReadValidityDex vv_dex(field_desc);
-  vv_dex.Accept(&visitor);
+  vv_dex.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(VectorReadValidityDex)]);
 
   VectorReadValueDex vd_dex(field_desc);
-  vd_dex.Accept(&visitor);
+  vd_dex.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(VectorReadValueDex)]);
+
+  LocalBitMapValidityDex local_bitmap_dex(0);
+  local_bitmap_dex.Accept(visitor);
+  EXPECT_EQ(desc, name_map_[&typeid(LocalBitMapValidityDex)]);
 
   std::vector<DataTypePtr> params{arrow::int32()};
   FuncDescriptorPtr my_func =
       std::make_shared<FuncDescriptor>("abc", params, arrow::boolean());
 
   NonNullableFuncDex non_nullable_func(my_func, NULL, {NULL});
-  non_nullable_func.Accept(&visitor);
+  non_nullable_func.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(NonNullableFuncDex)]);
 
   NullableNeverFuncDex nullable_func(my_func, NULL, {NULL});
-  nullable_func.Accept(&visitor);
+  nullable_func.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(NullableNeverFuncDex)]);
+
+  NullableInternalFuncDex nullable_internal_func(my_func, NULL, {NULL}, 0);
+  nullable_internal_func.Accept(visitor);
+  EXPECT_EQ(desc, name_map_[&typeid(NullableInternalFuncDex)]);
 }
 
 int main(int argc, char **argv) {

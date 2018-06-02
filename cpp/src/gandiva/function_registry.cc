@@ -141,39 +141,47 @@ using arrow::date64;
  * list of registered native functions.
  */
 NativeFunction FunctionRegistry::pc_registry_[] = {
-    /* Arithmetic operations */
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
-    NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, divide),
-    BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
-    BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
+  /* Arithmetic operations */
+  NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, add),
+  NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, subtract),
+  NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, multiply),
+  NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, divide),
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
+  NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
+  NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
+  NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
+  NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
+  NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
+  NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
 
-    /* cast operations */
-    CAST_UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
-    CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int32, float32),
-    CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int64, float32),
-    CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int32, float64),
-    CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
-    CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
+  /* cast operations */
+  CAST_UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
+  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int32, float32),
+  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int64, float32),
+  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int32, float64),
+  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
+  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
 
-    /* nullable never operations */
-    NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
-    NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
-    NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
+  /* nullable never operations */
+  NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
+  NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
+  NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
 
-    // date/time operations */
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMonth),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
-    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
+  // date/time operations */
+  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
+  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMonth),
+  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
+  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
+  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
+
+  // Null internal (sample)
+  NativeFunction("half_or_null",
+    DataTypeVector{int32()},
+    int32(),
+    true,
+    RESULT_NULL_INTERNAL,
+    "half_or_null_int32"),
 };
 
 FunctionRegistry::SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();

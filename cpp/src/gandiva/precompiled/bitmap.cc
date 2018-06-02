@@ -44,4 +44,14 @@ void bitMapSetBit(unsigned char *bmap, int position, bool value) {
   }
 }
 
+// Clear the bit if value = false. Does nothing if value = true.
+__attribute__((always_inline))
+void bitMapClearBitIfFalse(unsigned char *bmap, int position, bool value) {
+  if (!value) {
+    int byteIdx = POS_TO_BYTE_INDEX(position);
+    int bitIdx = POS_TO_BIT_INDEX(position);
+    bmap[byteIdx] &= ~(1 << bitIdx);
+  }
+}
+
 } // extern "C"

@@ -21,7 +21,8 @@ set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
     time.cc
-    print.cc)
+    print.cc
+    sample.cc)
 
 # Create bitcode for each of the source files.
 foreach(SRC_FILE ${PRECOMPILED_SRCS})
@@ -46,8 +47,5 @@ add_custom_command(
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 
-# Install the pre-compiled bitcode file along with gandiva.
-install(
-  FILES ${GANDIVA_BC_OUTPUT_PATH}
-  DESTINATION ${GANDIVA_BC_INSTALL_DIR}
-)
+# testing
+add_precompiled_unit_test(sample_test.cc sample.cc)

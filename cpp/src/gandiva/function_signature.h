@@ -67,8 +67,8 @@ class FunctionSignature {
     boost::hash_combine(result, base_name_);
     boost::hash_combine(result, ret_type_->id());
     /// not using hash_range since we only want to include the id from the data type
-    for (auto it = param_types_.begin(); it != param_types_.end(); it++) {
-      boost::hash_combine(result, it->get()->id());
+    for (auto &param_type : param_types_) {
+      boost::hash_combine(result, param_type->id());
     }
     return result;
   }

@@ -44,9 +44,9 @@ ValueValidityPairPtr FunctionNode::Decompose(const FunctionRegistry &registry,
 
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
-  for (auto it = children_.begin(); it != children_.end(); ++it) {
-    ValueValidityPairPtr child = (*it)->Decompose(registry, annotator);
-    args.push_back(child);
+  for (auto &child : children_) {
+    ValueValidityPairPtr decomposed = child->Decompose(registry, annotator);
+    args.push_back(decomposed);
   }
 
   if (native_function->result_nullable_type() == RESULT_NULL_IF_NULL) {
@@ -54,13 +54,12 @@ ValueValidityPairPtr FunctionNode::Decompose(const FunctionRegistry &registry,
 
     std::vector<DexPtr> merged_validity;
 
-    for (auto it = args.begin(); it != args.end(); ++it) {
+    for (auto &decomposed : args) {
       // Merge the validity_expressions of the children to build a combined validity
       // expression.
-      ValueValidityPairPtr child = *it;
       merged_validity.insert(merged_validity.end(),
-                             child->validity_exprs().begin(),
-                             child->validity_exprs().end());
+                             decomposed->validity_exprs().begin(),
+                             decomposed->validity_exprs().end());
     }
 
     auto value_dex = std::make_shared<NonNullableFuncDex>(desc_, native_function, args);
@@ -70,9 +69,17 @@ ValueValidityPairPtr FunctionNode::Decompose(const FunctionRegistry &registry,
     auto value_dex = std::make_shared<NullableNeverFuncDex>(desc_, native_function, args);
     return std::make_shared<ValueValidityPair>(value_dex);
   } else {
-    // TODO
-    DCHECK(0);
-    return NULL;
+    DCHECK(native_function->result_nullable_type() == RESULT_NULL_INTERNAL);
+
+    // Add a local bitmap to track the output validity.
+    int local_bitmap_idx = annotator.AddLocalBitMap();
+    auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
+
+    auto value_dex = std::make_shared<NullableInternalFuncDex>(desc_,
+                                                               native_function,
+                                                               args,
+                                                               local_bitmap_idx);
+    return std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   }
 }
 
@@ -80,9 +87,8 @@ NodePtr FunctionNode::CreateFunction(const std::string &name,
                                      const NodeVector &children,
                                      DataTypePtr retType) {
   DataTypeVector paramTypes;
-  for (auto it = children.begin(); it != children.end(); ++it) {
-    auto arg = (*it)->return_type();
-    paramTypes.push_back(arg);
+  for (auto &child : children) {
+    paramTypes.push_back(child->return_type());
   }
 
   auto func_desc = FuncDescriptorPtr(new FuncDescriptor(name, paramTypes, retType));

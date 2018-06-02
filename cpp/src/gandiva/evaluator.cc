@@ -46,8 +46,8 @@ Status Evaluator::Make(SchemaPtr schema,
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
-  for (auto it = exprs.begin(); it != exprs.end(); ++it) {
-    output_fields.push_back((*it)->result());
+  for (auto &expr : exprs) {
+    output_fields.push_back(expr->result());
   }
 
   // Instantiate the evaluator with the completely built llvm generator
@@ -63,8 +63,7 @@ arrow::ArrayVector Evaluator::Evaluate(const arrow::RecordBatch &batch) {
   DCHECK_GT(batch.num_rows(), 0);
 
   arrow::ArrayVector outputs;
-  for (auto it = output_fields_.begin(); it != output_fields_.end(); ++it) {
-    auto field = *it;
+  for (auto &field : output_fields_) {
     auto output = AllocArray(field->type(), batch.num_rows());
     outputs.push_back(output);
   }

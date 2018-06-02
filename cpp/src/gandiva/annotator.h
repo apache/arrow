@@ -32,7 +32,8 @@ namespace gandiva {
 class Annotator {
  public:
   Annotator()
-    : buffer_count_(0) {}
+    : buffer_count_(0),
+      local_bitmap_count_(0) {}
 
   /// Add an annotated field descriptor for a field in an input schema.
   /// If the field is already annotated, returns that instead.
@@ -41,9 +42,11 @@ class Annotator {
   /// Add an annotated field descriptor for an output field.
   FieldDescriptorPtr AddOutputFieldDescriptor(FieldPtr field);
 
-  /*
-   * Prepare an eval batch for the incoming record batch.
-   */
+  /// Add a local bitmap (for saving validity bits of an intermediate node).
+  /// Returns the index of the bitmap in the list of local bitmaps.
+  int AddLocalBitMap() { return local_bitmap_count_++; }
+
+  /// Prepare an eval batch for the incoming record batch.
   EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch &batch,
                                 const arrow::ArrayVector &out_arrays);
 
@@ -56,7 +59,14 @@ class Annotator {
   void PrepareBuffersForField(const FieldDescriptor &desc,
                               const arrow::Array &array,
                               EvalBatch *eval_batch);
+
+  // The list of input/output buffers (includes bitmap buffers, value buffers and
+  // offset buffers).
   int buffer_count_;
+
+  // The number of local bitmaps. These are used to save the validity bits for
+  // intermediate nodes in the expression tree.
+  int local_bitmap_count_;
 
   /// map between field name and annotated input field descriptor.
   std::unordered_map<std::string, FieldDescriptorPtr> in_name_to_desc_;

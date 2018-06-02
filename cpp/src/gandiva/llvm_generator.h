@@ -54,6 +54,7 @@ class LLVMGenerator {
 
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
   FRIEND_TEST(TestLLVMGenerator, TestIntersectBitMaps);
+  FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
 
   llvm::Module *module() { return engine_->module(); }
   llvm::LLVMContext &context() { return *(engine_->context()); }
@@ -68,13 +69,16 @@ class LLVMGenerator {
             llvm::BasicBlock *entry_block,
             llvm::BasicBlock *loop_block,
             llvm::Value *arg_addrs,
+            llvm::Value *arg_local_bitmaps,
             llvm::Value *loop_var);
 
     void Visit(const VectorReadValidityDex &dex) override;
     void Visit(const VectorReadValueDex &dex) override;
+    void Visit(const LocalBitMapValidityDex &dex) override;
     void Visit(const LiteralDex &dex) override;
     void Visit(const NonNullableFuncDex &dex) override;
     void Visit(const NullableNeverFuncDex &dex) override;
+    void Visit(const NullableInternalFuncDex &dex) override;
 
     LValuePtr result() { return result_; }
 
@@ -86,15 +90,19 @@ class LLVMGenerator {
     // vector of validities.
     llvm::Value *BuildCombinedValidity(const DexVector &validities);
 
-    void AddTrace(const std::string &msg, llvm::Value *value = nullptr) {
-      generator_->AddTrace(msg, value);
-    }
+    // Generate code to build the params.
+    std::vector<llvm::Value *> BuildParams(const ValueValidityPairVector &args,
+                                           bool with_validity);
+
+    // Clear the bit in the local bitmap, if is_valid is 'false'
+    void ClearLocalBitMapIfNotValid(int local_bitmap_idx, llvm::Value *is_valid);
 
     LLVMGenerator *generator_;
     LValuePtr result_;
     llvm::BasicBlock *entry_block_;
     llvm::BasicBlock *loop_block_;
     llvm::Value *arg_addrs_;
+    llvm::Value *arg_local_bitmaps_;
     llvm::Value *loop_var_;
   };
 
@@ -123,11 +131,20 @@ class LLVMGenerator {
                           int suffix_idx,
                           llvm::Function ** fn);
 
+  /// Generate code to load the local bitmap specified index and cast it as bitmap.
+  llvm::Value *GetLocalBitMapReference(llvm::Value *arg_local_bitmaps, int idx);
+
   /// Generate code to get the bit value at 'position' in the bitmap.
   llvm::Value *GetPackedBitValue(llvm::Value *bitMap, llvm::Value *position);
 
   /// Generate code to set the bit value at 'position' in the bitmap to 'value'.
   void SetPackedBitValue(llvm::Value *bitMap, llvm::Value *position, llvm::Value *value);
+
+  /// Generate code to clear the bit value at 'position' in the bitmap if 'value'
+  /// is false.
+  void ClearPackedBitValueIfFalse(llvm::Value *bitMap,
+                                  llvm::Value *position,
+                                  llvm::Value *value);
 
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
   /// 'args' and has a return type 'ret_type'.
@@ -139,13 +156,9 @@ class LLVMGenerator {
   ///
   /// \param[in] : the compiled expression (includes the bitmap indices to be used for
   ///              computing the validity bitmap of the result).
-  /// \param[in] : raw buffers from a record batch.
-  /// \param[in] : number of buffers
-  /// \param[in] : number of records in the batch (same as #bits in the bitmap).
-  void ComputeBitMapsForExpr(CompiledExpr *compiled_expr,
-                             uint8_t **buffers,
-                             int num_buffers,
-                             int record_count);
+  /// \param[in] : eval_batch (includes input/output buffer addresses)
+  void ComputeBitMapsForExpr(const CompiledExpr &compiled_expr,
+                             const EvalBatch &eval_batch);
 
   /// Compute the result bitmap by doing a bitwise-and of the source bitmaps.
   static void IntersectBitMaps(uint8_t *dst_map,

@@ -31,7 +31,7 @@ namespace gandiva {
 class Dex {
  public:
   /// Derived classes should simply invoke the Visit api of the visitor.
-  virtual void Accept(DexVisitor *visitor) = 0;
+  virtual void Accept(DexVisitor &visitor) = 0;
   virtual ~Dex() = default;
 };
 
@@ -67,8 +67,8 @@ class VectorReadValidityDex : public VectorReadBaseDex {
     return field_desc_->validity_idx();
   }
 
-  void Accept(DexVisitor *visitor) override {
-    visitor->Visit(*this);
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
   }
 };
 
@@ -86,17 +86,36 @@ class VectorReadValueDex : public VectorReadBaseDex {
     return field_desc_->offsets_idx();
   }
 
-  void Accept(DexVisitor *visitor) override {
-    visitor->Visit(*this);
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
   }
 };
+
+// validity based on a local bitmap.
+class LocalBitMapValidityDex : public Dex {
+ public:
+  explicit LocalBitMapValidityDex(int local_bitmap_idx)
+    : local_bitmap_idx_(local_bitmap_idx) {}
+
+  int local_bitmap_idx() const {
+    return local_bitmap_idx_;
+  }
+
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
+  }
+
+ private:
+  int local_bitmap_idx_;
+};
+
 
 // base function expression
 class FuncDex : public Dex {
  public:
   FuncDex(FuncDescriptorPtr func_descriptor,
           const NativeFunction *native_function,
-          const std::vector<ValueValidityPairPtr> &args)
+          const ValueValidityPairVector &args)
     : func_descriptor_(func_descriptor),
       native_function_(native_function),
       args_(args) {}
@@ -105,12 +124,12 @@ class FuncDex : public Dex {
 
   const NativeFunction *native_function() const { return native_function_; }
 
-  const std::vector<ValueValidityPairPtr> &args() const { return args_; }
+  const ValueValidityPairVector &args() const { return args_; }
 
  private:
   FuncDescriptorPtr func_descriptor_;
   const NativeFunction *native_function_;
-  std::vector<ValueValidityPairPtr> args_;
+  ValueValidityPairVector args_;
 };
 
 // A function expression that only deals with non-null inputs, and generates non-null
@@ -119,11 +138,11 @@ class NonNullableFuncDex : public FuncDex {
  public:
   NonNullableFuncDex(FuncDescriptorPtr func_descriptor,
                      const NativeFunction *native_function,
-                     const std::vector<ValueValidityPairPtr> &args)
+                     const ValueValidityPairVector &args)
     : FuncDex(func_descriptor, native_function, args) {}
 
-  void Accept(DexVisitor *visitor) override {
-    visitor->Visit(*this);
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
   }
 };
 
@@ -133,12 +152,34 @@ class NullableNeverFuncDex : public FuncDex {
  public:
   NullableNeverFuncDex(FuncDescriptorPtr func_descriptor,
                        const NativeFunction *native_function,
-                       const std::vector<ValueValidityPairPtr> &args)
+                       const ValueValidityPairVector &args)
     : FuncDex(func_descriptor, native_function, args) {}
 
-  void Accept(DexVisitor *visitor) override {
-    visitor->Visit(*this);
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
   }
+};
+
+// A function expression that deals with nullable inputs, and
+// nullable outputs.
+class NullableInternalFuncDex : public FuncDex {
+ public:
+  NullableInternalFuncDex(FuncDescriptorPtr func_descriptor,
+                          const NativeFunction *native_function,
+                          const ValueValidityPairVector &args,
+                          int local_bitmap_idx)
+    : FuncDex(func_descriptor, native_function, args),
+      local_bitmap_idx_(local_bitmap_idx) {}
+
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
+  }
+
+  // The validity of the function result is saved in this bitmap.
+  int local_bitmap_idx() const { return local_bitmap_idx_; }
+
+ private:
+  int local_bitmap_idx_;
 };
 
 // decomposed expression for a literal.
@@ -151,8 +192,8 @@ class LiteralDex : public Dex {
     return type_;
   }
 
-  void Accept(DexVisitor *visitor) override {
-    visitor->Visit(*this);
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
   }
 
  private:

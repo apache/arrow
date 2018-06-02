@@ -27,6 +27,7 @@ using DexVector = std::vector<std::shared_ptr<Dex>>;
 
 class ValueValidityPair;
 using ValueValidityPairPtr = std::shared_ptr<ValueValidityPair>;
+using ValueValidityPairVector = std::vector<ValueValidityPairPtr>;
 
 class FieldDescriptor;
 using FieldDescriptorPtr = std::shared_ptr<FieldDescriptor>;
