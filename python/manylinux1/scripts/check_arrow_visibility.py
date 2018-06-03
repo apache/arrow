@@ -23,15 +23,16 @@ exceptions = [
     '__once_proxy',
 ]
 
-lines = subprocess.check_output(['nm', '-D', '-C',
-                                 '/arrow-dist/lib64/libarrow.so'])
-
-lines = lines.decode('ascii')
-lines = lines.split('\n')
+process = subprocess.Popen(['nm', '-D', '-C', '/arrow-dist/lib64/libarrow.so'],
+                           stdout=subprocess.PIPE)
+stdout_data, _ = process.communicate()
+stdout_data = stdout_data.decode('ascii')
+lines = stdout_data.split('\n')
 lines = [line for line in lines if ' T ' in line]
 lines = [line for line in lines if 'arrow' not in line]
 symbols = [line.split(' ')[2] for line in lines]
 symbols = [symbol for symbol in symbols if symbol not in exceptions]
 
+# TODO(rkn): We could just add '_fini' and '_init' to the exceptions list.
 if len(symbols) != 2:
     raise Exception(symbols)
