@@ -692,6 +692,10 @@ elseif (NOT MSVC)
     ${PTHREAD_LIBRARY})
 endif()
 
+if (PLASMA_BUILD_TENSORFLOW_OP)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+endif()
+
 ############################################################
 # Subdirectories
 ############################################################

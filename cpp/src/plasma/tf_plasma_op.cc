@@ -16,6 +16,9 @@
 // under the License.
 
 #include "plasma/client.h"
+#include "arrow/python/python_to_arrow.h"
+#include "arrow/tensor.h"
+#include "arrow/io/memory.h"
 
 #include "tensorflow/core/framework/device_base.h"
 #include "tensorflow/core/framework/op.h"
@@ -121,6 +124,13 @@ class TensorToPlasmaOp : public AsyncOpKernel {
       ARROW_CHECK_OK(client_.Create(object_id, static_cast<int64_t>(total_bytes),
                                     /*metadata=*/nullptr, 0, &data_buffer));
     }
+
+    std::vector<int64_t> shape = {offsets.back() / sizeof(float)};
+    arrow::Tensor empty_tensor(int64(), nullptr, shape);    // Change type?
+    arrow::py::SerializedPyObject serialized_tensor;
+    arrow::SerializeTensor(&empty_tensor, &serialized_tensor);     // check_status here?
+    arrow::io::FixedSizeBufferWriter buf(data_buffer);
+    serialized_tensor.WriteTo(&buf);
 
     float* data = reinterpret_cast<float*>(data_buffer->mutable_data());
 

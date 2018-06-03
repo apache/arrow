@@ -708,6 +708,17 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
   return Status::OK();
 }
 
+Status SerializeTensor(Tensor* tensor, SerializedPyObject* out) {
+  std::shared_ptr<Tensor> tensor_ptr(tensor);
+  std::shared_ptr<Array> array;
+  SequenceBuilder builder(nullptr);
+  RETURN_NOT_OK(builder.AppendTensor(static_cast<int32_t>(out->tensors.size())));
+  out->tensors.push_back(tensor_ptr);
+  RETURN_NOT_OK(builder.Finish(nullptr, nullptr, nullptr, nullptr, &array));
+  out->batch = MakeBatch(array);
+  return Status::OK();
+}
+
 Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int32_t num_tensors = static_cast<int32_t>(this->tensors.size());
   int32_t num_buffers = static_cast<int32_t>(this->buffers.size());
