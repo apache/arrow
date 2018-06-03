@@ -106,6 +106,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
     APPEND_STRING
     PROPERTY COMPILE_FLAGS
     " -Wno-parentheses-equality \
+-Wno-null-pointer-arithmetic \
 -Wno-shorten-64-to-32 \
 -Wno-unused-macros")
 
