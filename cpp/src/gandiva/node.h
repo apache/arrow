@@ -26,10 +26,8 @@ namespace gandiva {
 class FunctionRegistry;
 class Annotator;
 
-/*
- * Represents a node in the expression tree. Validity and value are
- * in a joined state.
- */
+/// \brief Represents a node in the expression tree. Validity and value are
+/// in a joined state.
 class Node {
  public:
   explicit Node(DataTypePtr return_type)
@@ -37,9 +35,8 @@ class Node {
 
   const DataTypePtr &return_type() { return return_type_; }
 
-  /*
-   * Called during code generation to separate out validity and value.
-   */
+
+  /// Called during code generation to separate out validity and value.
   virtual ValueValidityPairPtr Decompose(const FunctionRegistry &registry,
                                          Annotator &annotator) = 0;
 
@@ -47,9 +44,8 @@ class Node {
   DataTypePtr return_type_;
 };
 
-/*
- * Used to represent an arrow field.
- */
+
+/// \brief Node in the expression tree, representing an arrow field.
 class FieldNode : public Node {
  public:
   explicit FieldNode(FieldPtr field)
@@ -62,9 +58,7 @@ class FieldNode : public Node {
   FieldPtr field_;
 };
 
-/*
- * Used to represent functions
- */
+/// \brief Node in the expression tree, representing a function.
 class FunctionNode : public Node {
  public:
   FunctionNode(FuncDescriptorPtr desc,
@@ -77,10 +71,11 @@ class FunctionNode : public Node {
 
   const FuncDescriptorPtr &func_descriptor() { return desc_; }
 
-  static NodePtr CreateFunction(const std::string &name,
-                                const NodeVector &children,
-                                DataTypePtr retType);
-
+  /// Make a function node with params types specified by 'children', and
+  /// having return type ret_type.
+  static NodePtr MakeFunction(const std::string &name,
+                              const NodeVector &children,
+                              DataTypePtr return_type);
  private:
   FuncDescriptorPtr desc_;
   NodeVector children_;

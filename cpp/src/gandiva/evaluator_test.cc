@@ -232,11 +232,11 @@ TEST_F(TestEvaluator, TestNestedFunctions) {
   // expr2 : isnull(half_or_null(f0) * f1)
   auto node_f0 = TreeExprBuilder::MakeField(field0);
   auto node_f1 = TreeExprBuilder::MakeField(field1);
-  auto half = TreeExprBuilder::MakeUnaryFunction("half_or_null", node_f0, int32());
-  auto mult = TreeExprBuilder::MakeBinaryFunction("multiply", half, node_f1, int32());
+  auto half = TreeExprBuilder::MakeFunction("half_or_null", {node_f0}, int32());
+  auto mult = TreeExprBuilder::MakeFunction("multiply", {half, node_f1}, int32());
   auto expr1 = TreeExprBuilder::MakeExpression(mult, field_res1);
 
-  auto isnull = TreeExprBuilder::MakeUnaryFunction("isnull", mult, boolean());
+  auto isnull = TreeExprBuilder::MakeFunction("isnull", {mult}, boolean());
   auto expr2 = TreeExprBuilder::MakeExpression(isnull, field_res2);
 
   // Build an evaluator for the expressions.

@@ -21,6 +21,7 @@
 
 namespace gandiva {
 
+/// \brief An expression tree with a root node, and a result field.
 class Expression {
  public:
   Expression(const NodePtr root, const FieldPtr result)

@@ -22,17 +22,10 @@ NodePtr TreeExprBuilder::MakeField(FieldPtr field) {
   return NodePtr(new FieldNode(field));
 }
 
-NodePtr TreeExprBuilder::MakeBinaryFunction(const std::string &function,
-                                            NodePtr left,
-                                            NodePtr right,
-                                            DataTypePtr result) {
-  return FunctionNode::CreateFunction(function, {left, right}, result);
-}
-
-NodePtr TreeExprBuilder::MakeUnaryFunction(const std::string &function,
-                                           NodePtr param,
-                                           DataTypePtr result) {
-  return FunctionNode::CreateFunction(function, {param}, result);
+NodePtr TreeExprBuilder::MakeFunction(const std::string &name,
+                                      const NodeVector &params,
+                                      DataTypePtr result) {
+  return FunctionNode::MakeFunction(name, params, result);
 }
 
 ExpressionPtr TreeExprBuilder::MakeExpression(NodePtr root_node,
@@ -50,7 +43,7 @@ ExpressionPtr TreeExprBuilder::MakeExpression(
     auto node = MakeField(*it);
     field_nodes.push_back(node);
   }
-  auto func_node = FunctionNode::CreateFunction(function, field_nodes, out_field->type());
+  auto func_node = FunctionNode::MakeFunction(function, field_nodes, out_field->type());
   return MakeExpression(func_node, out_field);
 }
 

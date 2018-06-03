@@ -70,7 +70,7 @@ TEST_F(TestExprTree, TestBinary) {
   auto left = TreeExprBuilder::MakeField(i0_);
   auto right = TreeExprBuilder::MakeField(i1_);
 
-  auto n = TreeExprBuilder::MakeBinaryFunction("add", left, right, int32());
+  auto n = TreeExprBuilder::MakeFunction("add", {left, right}, int32());
   auto add = std::dynamic_pointer_cast<FunctionNode>(n);
 
   auto func_desc = add->func_descriptor();
@@ -94,7 +94,7 @@ TEST_F(TestExprTree, TestUnary) {
   Annotator annotator;
 
   auto arg = TreeExprBuilder::MakeField(i0_);
-  auto n = TreeExprBuilder::MakeUnaryFunction("isnumeric", arg, boolean());
+  auto n = TreeExprBuilder::MakeFunction("isnumeric", {arg}, boolean());
 
   auto unaryFn = std::dynamic_pointer_cast<FunctionNode>(n);
   auto func_desc = unaryFn->func_descriptor();
@@ -118,7 +118,7 @@ TEST_F(TestExprTree, TestExpression) {
   auto left = TreeExprBuilder::MakeField(i0_);
   auto right = TreeExprBuilder::MakeField(i1_);
 
-  auto n = TreeExprBuilder::MakeBinaryFunction("add", left, right, int32());
+  auto n = TreeExprBuilder::MakeFunction("add", {left, right}, int32());
   auto e = TreeExprBuilder::MakeExpression(n, field("r", int32()));
   auto root_node = e->root();
   EXPECT_EQ(root_node->return_type(), int32());

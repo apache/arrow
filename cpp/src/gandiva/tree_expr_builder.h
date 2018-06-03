@@ -29,16 +29,10 @@ class TreeExprBuilder {
   /// \brief create a node on arrow field.
   static NodePtr MakeField(FieldPtr field);
 
-  /// \brief create a node with a binary function.
-  static NodePtr MakeBinaryFunction(const std::string &function,
-                                    NodePtr left,
-                                    NodePtr right,
-                                    DataTypePtr result);
-
-  /// \brief create a node with a unary function.
-  static NodePtr MakeUnaryFunction(const std::string &function,
-                                   NodePtr param,
-                                   DataTypePtr result);
+  /// \brief create a node with a function.
+  static NodePtr MakeFunction(const std::string &name,
+                              const NodeVector &children,
+                              DataTypePtr return_type);
 
   /// \brief create an expression with the specified root_node, and the
   /// result written to result_field.

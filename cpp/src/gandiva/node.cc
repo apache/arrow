@@ -83,16 +83,16 @@ ValueValidityPairPtr FunctionNode::Decompose(const FunctionRegistry &registry,
   }
 }
 
-NodePtr FunctionNode::CreateFunction(const std::string &name,
-                                     const NodeVector &children,
-                                     DataTypePtr retType) {
-  DataTypeVector paramTypes;
+NodePtr FunctionNode::MakeFunction(const std::string &name,
+                                   const NodeVector &children,
+                                   DataTypePtr return_type) {
+  DataTypeVector param_types;
   for (auto &child : children) {
-    paramTypes.push_back(child->return_type());
+    param_types.push_back(child->return_type());
   }
 
-  auto func_desc = FuncDescriptorPtr(new FuncDescriptor(name, paramTypes, retType));
-  return NodePtr(new FunctionNode(func_desc, children, retType));
+  auto func_desc = FuncDescriptorPtr(new FuncDescriptor(name, param_types, return_type));
+  return NodePtr(new FunctionNode(func_desc, children, return_type));
 }
 
 } // namespace gandiva
