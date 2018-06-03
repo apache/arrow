@@ -89,7 +89,7 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
 
 /// Derived class for memory allocation.
 ///
-/// Tracks the number of bytes and maximum mmeory allocated through its direct
+/// Tracks the number of bytes and maximum memory allocated through its direct
 /// calls. Actual allocation is delegated to MemoryPool class.
 class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
  public:

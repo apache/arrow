@@ -45,6 +45,10 @@ cdef class LoggingMemoryPool(MemoryPool):
 
 
 cdef class ProxyMemoryPool(MemoryPool):
+    """
+    Derived MemoryPool class that tracks the number of bytes and
+    maximum memory allocated through its direct calls.
+    """
     cdef:
         unique_ptr[CProxyMemoryPool] proxy_pool
 
