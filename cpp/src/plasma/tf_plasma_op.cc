@@ -58,6 +58,49 @@ static mutex d2h_stream_mu;
 // TODO(zongheng): CPU kernels' std::memcpy might be able to be sped up by
 // parallelization.
 
+std::shared_ptr<arrow::DataType> tf_dtype_to_arrow(DataType dtype) {
+  switch (dtype) {
+    case DT_BOOL:
+        return arrow::boolean();
+    case DT_FLOAT:
+      return arrow::float32();
+    case DT_DOUBLE:
+      return arrow::float64();
+    case DT_HALF:
+      return arrow::float16();
+    case DT_INT8:
+      return arrow::int8();
+    case DT_INT16:
+      return arrow::int16();
+    case DT_INT32:
+      return arrow::int32();
+    case DT_INT64:
+      return arrow::int64();
+    case DT_UINT8:
+      return arrow::uint8();
+    case DT_UINT16:
+      return arrow::uint16();
+    case DT_UINT32:
+      return arrow::uint32();
+    case DT_UINT64:
+      return arrow::uint64();
+    case DT_BFLOAT16:
+    case DT_COMPLEX64:
+    case DT_COMPLEX128:
+    case DT_INVALID:
+    case DT_QINT8:
+    case DT_QINT16:
+    case DT_QINT32:
+    case DT_QUINT8:
+    case DT_QUINT16:
+    case DT_RESOURCE:
+    case DT_STRING:
+    case DT_VARIANT:
+    default:
+      ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError, "Tensorflow data type is not supported"));
+  }
+}
+
 // Put:  tf.Tensor -> plasma.
 template <typename Device>
 class TensorToPlasmaOp : public AsyncOpKernel {
@@ -126,9 +169,10 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     }
 
     std::vector<int64_t> shape = {offsets.back() / sizeof(float)};
-    arrow::Tensor empty_tensor(int64(), nullptr, shape);    // Change type?
+    auto dtype = tf_dtype_to_arrow(plasma_object_id.dtype());
+    arrow::Tensor empty_tensor(dtype, nullptr, shape);
     arrow::py::SerializedPyObject serialized_tensor;
-    arrow::SerializeTensor(&empty_tensor, &serialized_tensor);     // check_status here?
+    ARROW_CHECK_OK(arrow::SerializeTensor(&empty_tensor, &serialized_tensor));
     arrow::io::FixedSizeBufferWriter buf(data_buffer);
     serialized_tensor.WriteTo(&buf);
 
