@@ -298,17 +298,18 @@ def test_buffer_equals():
 
 
 def test_buffer_getitem():
-    data = b'some data!'
+    data = bytearray(b'some data!')
     buf = pa.py_buffer(data)
 
-    for ix in [0, 3, -1]:
+    n = len(data)
+    for ix in range(-n, n - 1):
         assert buf[ix] == data[ix]
 
     with pytest.raises(IndexError):
-        buf[10]
+        buf[n]
 
     with pytest.raises(IndexError):
-        buf[-11]
+        buf[-n - 1]
 
 
 def test_buffer_slicing():
