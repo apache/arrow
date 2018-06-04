@@ -297,6 +297,57 @@ def test_buffer_equals():
     eq(buf2, buf5)
 
 
+def test_buffer_getitem():
+    data = bytearray(b'some data!')
+    buf = pa.py_buffer(data)
+
+    n = len(data)
+    for ix in range(-n, n - 1):
+        assert buf[ix] == data[ix]
+
+    with pytest.raises(IndexError):
+        buf[n]
+
+    with pytest.raises(IndexError):
+        buf[-n - 1]
+
+
+def test_buffer_slicing():
+    data = b'some data!'
+    buf = pa.py_buffer(data)
+
+    sliced = buf.slice(2)
+    expected = pa.py_buffer(b'me data!')
+    assert sliced.equals(expected)
+
+    sliced2 = buf.slice(2, 4)
+    expected2 = pa.py_buffer(b'me d')
+    assert sliced2.equals(expected2)
+
+    # 0 offset
+    assert buf.slice(0).equals(buf)
+
+    # Slice past end of buffer
+    assert len(buf.slice(len(buf))) == 0
+
+    with pytest.raises(IndexError):
+        buf.slice(-1)
+
+    # Test slice notation
+    assert buf[2:].equals(buf.slice(2))
+    assert buf[2:5].equals(buf.slice(2, 3))
+    assert buf[-5:].equals(buf.slice(len(buf) - 5))
+    with pytest.raises(IndexError):
+        buf[::-1]
+    with pytest.raises(IndexError):
+        buf[::2]
+
+    n = len(buf)
+    for start in range(-n * 2, n * 2):
+        for stop in range(-n * 2, n * 2):
+            assert buf[start:stop].to_pybytes() == buf.to_pybytes()[start:stop]
+
+
 def test_buffer_hashing():
     # Buffers are unhashable
     with pytest.raises(TypeError, match="unhashable"):
