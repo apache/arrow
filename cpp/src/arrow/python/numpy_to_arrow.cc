@@ -724,7 +724,7 @@ Status NumPyConverter::ConvertDates() {
     obj = objects[i];
     if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
-    } else if (PyDate_CheckExact(obj)) {
+    } else if (PyDate_Check(obj)) {
       RETURN_NOT_OK(builder.Append(UnboxDate<ArrowType>::Unbox(obj)));
     } else {
       std::stringstream ss;
@@ -1071,11 +1071,11 @@ Status NumPyConverter::ConvertObjectsInfer() {
       return ConvertBooleans();
     } else if (PyObject_is_integer(obj)) {
       return ConvertObjectIntegers();
-    } else if (PyDate_CheckExact(obj)) {
+    } else if (PyDateTime_Check(obj)) {
+      return ConvertDateTimes();
+    } else if (PyDate_Check(obj)) {
       // We could choose Date32 or Date64
       return ConvertDates<Date32Type>();
-    } else if (PyDateTime_CheckExact(obj)) {
-      return ConvertDateTimes();
     } else if (PyTime_Check(obj)) {
       return ConvertTimes();
     } else if (PyObject_IsInstance(obj, decimal_type_.obj()) == 1) {
