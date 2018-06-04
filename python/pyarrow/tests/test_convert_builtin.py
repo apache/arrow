@@ -477,6 +477,55 @@ def test_sequence_timestamp_with_unit():
                                                   23, 34, 123456)
 
 
+def test_datetime_subclassing():
+    class MyDate(datetime.date):
+        pass
+    data = [
+        MyDate(2007, 7, 13),
+    ]
+    date_type = pa.date32()
+    arr_date = pa.array(data, type=date_type)
+    assert len(arr_date) == 1
+    assert arr_date.type == date_type
+    assert arr_date[0].as_py() == datetime.date(2007, 7, 13)
+
+    class MyDatetime(datetime.datetime):
+        pass
+
+    data = [
+        MyDatetime(2007, 7, 13, 1, 23, 34, 123456),
+    ]
+
+    s = pa.timestamp('s')
+    ms = pa.timestamp('ms')
+    us = pa.timestamp('us')
+    ns = pa.timestamp('ns')
+
+    arr_s = pa.array(data, type=s)
+    assert len(arr_s) == 1
+    assert arr_s.type == s
+    assert arr_s[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                 23, 34, 0)
+
+    arr_ms = pa.array(data, type=ms)
+    assert len(arr_ms) == 1
+    assert arr_ms.type == ms
+    assert arr_ms[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                  23, 34, 123000)
+
+    arr_us = pa.array(data, type=us)
+    assert len(arr_us) == 1
+    assert arr_us.type == us
+    assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                  23, 34, 123456)
+
+    arr_ns = pa.array(data, type=ns)
+    assert len(arr_ns) == 1
+    assert arr_ns.type == ns
+    assert arr_ns[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                  23, 34, 123456)
+
+
 def test_sequence_timestamp_from_int_with_unit():
     data = [1]
 

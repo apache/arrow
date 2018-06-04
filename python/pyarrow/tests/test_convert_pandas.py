@@ -15,24 +15,20 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-from collections import OrderedDict
-
-from datetime import date, datetime, time, timedelta
 import decimal
 import json
-
-import pytest
+from collections import OrderedDict
+from datetime import date, datetime, time, timedelta
 
 import numpy as np
 import numpy.testing as npt
-
 import pandas as pd
 import pandas.util.testing as tm
+import pytest
 
-from pyarrow.compat import PY2
 import pyarrow as pa
 import pyarrow.types as patypes
+from pyarrow.compat import PY2
 
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
@@ -818,6 +814,43 @@ class TestConvertDateTimeLikeTypes(object):
         expected_df = pd.DataFrame({
             'datetime': date_array
         })
+        tm.assert_frame_equal(expected_df, result)
+
+    def test_python_datetime_subclass(self):
+
+        class MyDatetime(datetime):
+            # see https://github.com/pandas-dev/pandas/issues/21142
+            nanosecond = 0.0
+
+        date_array = [MyDatetime(2000, 1, 1, 1, 1, 1)]
+        df = pd.DataFrame({"datetime": pd.Series(date_array, dtype=object)})
+
+        table = pa.Table.from_pandas(df)
+        assert isinstance(table[0].data.chunk(0), pa.TimestampArray)
+
+        result = table.to_pandas()
+        expected_df = pd.DataFrame({"datetime": date_array})
+
+        # https://github.com/pandas-dev/pandas/issues/21142
+        expected_df["datetime"] = pd.to_datetime(expected_df["datetime"])
+
+        tm.assert_frame_equal(expected_df, result)
+
+    def test_python_date_subclass(self):
+
+        class MyDate(date):
+            pass
+
+        date_array = [MyDate(2000, 1, 1)]
+        df = pd.DataFrame({"date": pd.Series(date_array, dtype=object)})
+
+        table = pa.Table.from_pandas(df)
+        assert isinstance(table[0].data.chunk(0), pa.Date32Array)
+
+        result = table.to_pandas()
+        expected_df = pd.DataFrame(
+            {"date": np.array(["2000-01-01"], dtype="datetime64[ns]")}
+        )
         tm.assert_frame_equal(expected_df, result)
 
     def test_datetime64_to_date32(self):
