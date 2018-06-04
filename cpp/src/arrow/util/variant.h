@@ -89,7 +89,7 @@ public:
 }; // class bad_variant_access
 
 #if !defined(ARROW_VARIANT_MINIMIZE_SIZE)
-using type_index_t = unsigned int;
+using type_index_t = std::size_t;
 #else
 #if defined(ARROW_VARIANT_OPTIMIZE_FOR_SPEED)
 using type_index_t = std::uint_fast8_t;
