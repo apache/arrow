@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "plasma/client.h"
+#include "arrow/io/memory.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/tensor.h"
-#include "arrow/io/memory.h"
+
+#include "plasma/client.h"
 
 #include "tensorflow/core/framework/device_base.h"
 #include "tensorflow/core/framework/op.h"
