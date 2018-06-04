@@ -154,6 +154,14 @@ class TensorToPlasmaOp : public AsyncOpKernel {
       offsets.push_back(total_bytes);
     }
 
+    // Check that all tensors have the same dtype
+    DataType tf_dtype = context->input(0).dtype();
+    for (int i = 1; i < num_inputs; i++) {
+      if (tf_dtype != context->input(i).dtype()) {
+        ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError, "All input tensors must have the same data type"));
+      }
+    }
+
     const Tensor& plasma_object_id = context->input(num_inputs - 1);
     CHECK_EQ(plasma_object_id.NumElements(), 1);
     const string& plasma_object_id_str = plasma_object_id.flat<std::string>()(0);
@@ -169,8 +177,8 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     }
 
     std::vector<int64_t> shape = {offsets.back() / sizeof(float)};
-    auto dtype = tf_dtype_to_arrow(plasma_object_id.dtype());
-    arrow::Tensor empty_tensor(dtype, nullptr, shape);
+    auto arrow_dtype = tf_dtype_to_arrow(plasma_object_id.dtype());
+    arrow::Tensor empty_tensor(arrow_dtype, nullptr, shape);
     arrow::py::SerializedPyObject serialized_tensor;
     ARROW_CHECK_OK(arrow::SerializeTensor(&empty_tensor, &serialized_tensor));
     arrow::io::FixedSizeBufferWriter buf(data_buffer);
