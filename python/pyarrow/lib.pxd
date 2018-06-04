@@ -331,6 +331,7 @@ cdef class Buffer:
         Py_ssize_t strides[1]
 
     cdef void init(self, const shared_ptr[CBuffer]& buffer)
+    cdef getitem(self, int64_t i)
 
 
 cdef class ResizableBuffer(Buffer):

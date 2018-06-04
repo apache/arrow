@@ -645,8 +645,41 @@ cdef class Buffer:
                 return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
-        # TODO(wesm): buffer slicing
-        raise NotImplementedError
+        if PySlice_Check(key):
+            return _normalize_slice(self, key)
+
+        return self.getitem(_normalize_index(key, self.size))
+
+    cdef getitem(self, int64_t i):
+        return self.buffer.get().data()[i]
+
+    def slice(self, offset=0, length=None):
+        """
+        Compute slice of this buffer
+
+        Parameters
+        ----------
+        offset : int, default 0
+            Offset from start of buffer to slice
+        length : int, default None
+            Length of slice (default is until end of Buffer starting from
+            offset)
+
+        Returns
+        -------
+        sliced : Buffer
+        """
+        cdef shared_ptr[CBuffer] result
+
+        if offset < 0:
+            raise IndexError('Offset must be non-negative')
+
+        if length is None:
+            result = SliceBuffer(self.buffer, offset)
+        else:
+            result = SliceBuffer(self.buffer, offset, max(length, 0))
+
+        return pyarrow_wrap_buffer(result)
 
     def equals(self, Buffer other):
         """
