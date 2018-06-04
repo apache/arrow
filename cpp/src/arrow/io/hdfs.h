@@ -19,9 +19,9 @@
 #define ARROW_IO_HDFS
 
 #include <cstdint>
-#include <unordered_map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/io/interfaces.h"
