@@ -95,4 +95,23 @@ NodePtr FunctionNode::MakeFunction(const std::string &name,
   return NodePtr(new FunctionNode(func_desc, children, return_type));
 }
 
+// Decompose an IfNode
+ValueValidityPairPtr IfNode::Decompose(const FunctionRegistry &registry,
+                                       Annotator &annotator) {
+  // Add a local bitmap to track the output validity.
+  int local_bitmap_idx = annotator.AddLocalBitMap();
+  auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
+
+  auto condition_vv = condition_->Decompose(registry, annotator);
+  auto then_vv = then_node_->Decompose(registry, annotator);
+  auto else_vv = else_node_->Decompose(registry, annotator);
+  auto value_dex = std::make_shared<IfDex>(condition_vv,
+                                           then_vv,
+                                           else_vv,
+                                           return_type_,
+                                           local_bitmap_idx);
+
+  return std::make_shared<ValueValidityPair>(validity_dex, value_dex);
+}
+
 } // namespace gandiva

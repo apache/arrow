@@ -94,5 +94,3 @@ add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_ty
 add_gandiva_unit_test(annotator_test.cc annotator.cc)
 add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc node.cc annotator.cc function_registry.cc)
 add_gandiva_unit_test(status_test.cc status.cc)
-
-add_gandiva_integ_test(evaluator_test.cc)

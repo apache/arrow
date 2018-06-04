@@ -39,9 +39,9 @@ class ValueValidityPair {
   explicit ValueValidityPair(DexPtr value_expr)
       : value_expr_(value_expr) {}
 
-  const DexVector &validity_exprs() { return validity_exprs_; }
+  const DexVector &validity_exprs() const { return validity_exprs_; }
 
-  const DexPtr &value_expr() { return value_expr_; }
+  const DexPtr &value_expr() const { return value_expr_; }
 
  private:
   DexVector validity_exprs_;

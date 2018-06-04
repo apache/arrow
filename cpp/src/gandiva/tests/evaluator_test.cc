@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#include <vector>
-#include <utility>
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
-#include "arrow/test-util.h"
+#include "integ/test_util.h"
 #include "gandiva/evaluator.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -35,24 +33,6 @@ class TestEvaluator : public ::testing::Test {
  protected:
   arrow::MemoryPool* pool_;
 };
-
-/*
- * Helper function to create an arrow-array of type ARROWTYPE
- * from primitive vectors of data & validity.
- *
- * arrow/test-util.h has good utility classes for this purpose.
- * Using those
- */
-template<typename TYPE, typename C_TYPE>
-static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values,
-                                     std::vector<bool> validity) {
-  ArrayPtr out;
-  arrow::ArrayFromVector<TYPE, C_TYPE>(validity, values, &out);
-  return out;
-}
-#define MakeArrowArrayInt32 MakeArrowArray<arrow::Int32Type, int32_t>
-#define MakeArrowArrayFloat32 MakeArrowArray<arrow::FloatType, float_t>
-#define MakeArrowArrayBool MakeArrowArray<arrow::BooleanType, bool>
 
 TEST_F(TestEvaluator, TestIntSumSub) {
   /* schema for input fields */

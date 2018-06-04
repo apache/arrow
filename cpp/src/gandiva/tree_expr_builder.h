@@ -34,6 +34,12 @@ class TreeExprBuilder {
                               const NodeVector &children,
                               DataTypePtr return_type);
 
+  /// \brief Create a node with an if-else expression.
+  static NodePtr MakeIf(NodePtr condition,
+                        NodePtr this_node,
+                        NodePtr else_node,
+                        DataTypePtr result_type);
+
   /// \brief create an expression with the specified root_node, and the
   /// result written to result_field.
   static ExpressionPtr MakeExpression(NodePtr root_node,

@@ -16,6 +16,8 @@
 
 #include "gandiva/tree_expr_builder.h"
 
+#include <utility>
+
 namespace gandiva {
 
 NodePtr TreeExprBuilder::MakeField(FieldPtr field) {
@@ -26,6 +28,14 @@ NodePtr TreeExprBuilder::MakeFunction(const std::string &name,
                                       const NodeVector &params,
                                       DataTypePtr result) {
   return FunctionNode::MakeFunction(name, params, result);
+}
+
+
+NodePtr TreeExprBuilder::MakeIf(NodePtr condition,
+                                NodePtr then_node,
+                                NodePtr else_node,
+                                DataTypePtr result_type) {
+  return std::make_shared<IfNode>(condition, then_node, else_node, result_type);
 }
 
 ExpressionPtr TreeExprBuilder::MakeExpression(NodePtr root_node,

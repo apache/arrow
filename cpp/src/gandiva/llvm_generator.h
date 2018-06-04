@@ -67,7 +67,6 @@ class LLVMGenerator {
     Visitor(LLVMGenerator *generator,
             llvm::Function *function,
             llvm::BasicBlock *entry_block,
-            llvm::BasicBlock *loop_block,
             llvm::Value *arg_addrs,
             llvm::Value *arg_local_bitmaps,
             llvm::Value *loop_var);
@@ -79,10 +78,17 @@ class LLVMGenerator {
     void Visit(const NonNullableFuncDex &dex) override;
     void Visit(const NullableNeverFuncDex &dex) override;
     void Visit(const NullableInternalFuncDex &dex) override;
+    void Visit(const IfDex &dex) override;
 
     LValuePtr result() { return result_; }
 
    private:
+    enum BufferType {
+      kBufferTypeValidity = 0,
+      kBufferTypeData,
+      kBufferTypeOffsets
+    };
+
     llvm::IRBuilder<> &ir_builder() { return generator_->ir_builder(); }
     llvm::Module *module() { return generator_->module(); }
 
@@ -90,17 +96,26 @@ class LLVMGenerator {
     // vector of validities.
     llvm::Value *BuildCombinedValidity(const DexVector &validities);
 
+    // Generate the code to build the validity and the value for the given pair.
+    LValuePtr BuildValueAndValidity(const ValueValidityPair &pair);
+
     // Generate code to build the params.
     std::vector<llvm::Value *> BuildParams(const ValueValidityPairVector &args,
                                            bool with_validity);
+
+    // Switch to the entry_block and get reference of the validity/value buffer
+    llvm::Value *GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
+
+    // Switch to the entry_block and get reference to the local bitmap.
+    llvm::Value *GetLocalBitMapReference(int idx);
 
     // Clear the bit in the local bitmap, if is_valid is 'false'
     void ClearLocalBitMapIfNotValid(int local_bitmap_idx, llvm::Value *is_valid);
 
     LLVMGenerator *generator_;
     LValuePtr result_;
+    llvm::Function *function_;
     llvm::BasicBlock *entry_block_;
-    llvm::BasicBlock *loop_block_;
     llvm::Value *arg_addrs_;
     llvm::Value *arg_local_bitmaps_;
     llvm::Value *loop_var_;
@@ -180,8 +195,8 @@ class LLVMGenerator {
   FunctionRegistry function_registry_;
   Annotator annotator_;
 
-  // used in replay/debug
-  bool in_replay_;
+  // used for debug
+  bool dump_ir_;
   bool optimise_ir_;
   bool enable_ir_traces_;
   std::vector<std::string> trace_strings_;

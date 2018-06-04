@@ -81,6 +81,27 @@ class FunctionNode : public Node {
   NodeVector children_;
 };
 
+/// \brief Node in the expression tree, representing an if-else expression.
+class IfNode : public Node {
+ public:
+  IfNode(NodePtr condition,
+         NodePtr then_node,
+         NodePtr else_node,
+         DataTypePtr result_type)
+    : Node(result_type),
+      condition_(condition),
+      then_node_(then_node),
+      else_node_(else_node) {}
+
+  ValueValidityPairPtr Decompose(const FunctionRegistry &registry,
+                                 Annotator &annotator) override;
+
+ private:
+  NodePtr condition_;
+  NodePtr then_node_;
+  NodePtr else_node_;
+};
+
 } // namespace gandiva
 
 #endif // GANDIVA_EXPR_NODE_H

@@ -31,6 +31,7 @@ class TestDex : public ::testing::Test {
     name_map_[&typeid(NullableNeverFuncDex)] = "NullableNeverFuncDex";
     name_map_[&typeid(NullableInternalFuncDex)] = "NullableInternalFuncDex";
     name_map_[&typeid(LiteralDex)] = "LiteralDex";
+    name_map_[&typeid(IfDex)] = "IfDex";
   }
 
   std::map<const std::type_info *, std::string> name_map_;
@@ -72,6 +73,10 @@ TEST_F(TestDex, TestVisitor) {
       *result_ = (*map_)[&typeid(dex)];
     }
 
+    void Visit(const IfDex &dex) override {
+      *result_ = (*map_)[&typeid(dex)];
+    }
+
    private:
     std::map<const std::type_info *, std::string> *map_;
     std::string *result_;
@@ -98,17 +103,21 @@ TEST_F(TestDex, TestVisitor) {
   FuncDescriptorPtr my_func =
       std::make_shared<FuncDescriptor>("abc", params, arrow::boolean());
 
-  NonNullableFuncDex non_nullable_func(my_func, NULL, {NULL});
+  NonNullableFuncDex non_nullable_func(my_func, nullptr, {nullptr});
   non_nullable_func.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(NonNullableFuncDex)]);
 
-  NullableNeverFuncDex nullable_func(my_func, NULL, {NULL});
+  NullableNeverFuncDex nullable_func(my_func, nullptr, {nullptr});
   nullable_func.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(NullableNeverFuncDex)]);
 
-  NullableInternalFuncDex nullable_internal_func(my_func, NULL, {NULL}, 0);
+  NullableInternalFuncDex nullable_internal_func(my_func, nullptr, {nullptr}, 0);
   nullable_internal_func.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(NullableInternalFuncDex)]);
+
+  IfDex if_dex(nullptr, nullptr, nullptr, arrow::int32(), 0);
+  if_dex.Accept(visitor);
+  EXPECT_EQ(desc, name_map_[&typeid(IfDex)]);
 }
 
 int main(int argc, char **argv) {

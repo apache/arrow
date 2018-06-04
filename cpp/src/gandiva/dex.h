@@ -185,7 +185,7 @@ class NullableInternalFuncDex : public FuncDex {
 // decomposed expression for a literal.
 class LiteralDex : public Dex {
  public:
-  explicit LiteralDex(const DataTypePtr type)
+  explicit LiteralDex(DataTypePtr type)
     : type_(type) {}
 
   DataTypePtr type() const {
@@ -200,6 +200,40 @@ class LiteralDex : public Dex {
   DataTypePtr type_;
 };
 
+// decomposed if-else expression.
+class IfDex : public Dex {
+ public:
+  IfDex(ValueValidityPairPtr condition_vv,
+        ValueValidityPairPtr then_vv,
+        ValueValidityPairPtr else_vv,
+        DataTypePtr result_type,
+        int local_bitmap_idx)
+    : condition_vv_(condition_vv),
+      then_vv_(then_vv),
+      else_vv_(else_vv),
+      result_type_(result_type),
+      local_bitmap_idx_(local_bitmap_idx) {}
+
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
+  }
+
+  const ValueValidityPair &condition_vv() const { return *condition_vv_; }
+  const ValueValidityPair &then_vv() const { return *then_vv_; }
+  const ValueValidityPair &else_vv() const { return *else_vv_; }
+
+  // The validity of the result is saved in this bitmap.
+  int local_bitmap_idx() const { return local_bitmap_idx_; }
+
+  const DataTypePtr &result_type() const { return result_type_; }
+
+ private:
+  ValueValidityPairPtr condition_vv_;
+  ValueValidityPairPtr then_vv_;
+  ValueValidityPairPtr else_vv_;
+  DataTypePtr result_type_;
+  int local_bitmap_idx_;
+};
 
 } // namespace gandiva
 

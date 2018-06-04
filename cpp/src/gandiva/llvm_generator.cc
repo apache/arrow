@@ -28,12 +28,12 @@
 namespace gandiva {
 
 #define ADD_TRACE(...)     \
-  if (enable_ir_traces_) {      \
+  if (enable_ir_traces_) { \
     AddTrace(__VA_ARGS__); \
   }
 
 LLVMGenerator::LLVMGenerator() :
-  in_replay_(false),
+  dump_ir_(false),
   optimise_ir_(true),
   enable_ir_traces_(false) {}
 
@@ -85,7 +85,7 @@ Status LLVMGenerator::Build(const ExpressionVector &exprs) {
   }
 
   // optimise, compile and finalize the module
-  Status result = engine_->FinalizeModule(optimise_ir_, in_replay_);
+  Status result = engine_->FinalizeModule(optimise_ir_, dump_ir_);
   GANDIVA_RETURN_NOT_OK(result);
 
   // setup the jit functions for each expression.
@@ -244,7 +244,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr,
   arg_addrs->setName("args");
   ++args;
   llvm::Value *arg_local_bitmaps = &*args;
-  arg_addrs->setName("local_bitmaps");
+  arg_local_bitmaps->setName("local_bitmaps");
   ++args;
   llvm::Value *arg_nrecords = &*args;
   arg_nrecords->setName("nrecords");
@@ -265,25 +265,21 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr,
 
   // define loop_var : start with 0, +1 after each iter
   llvm::PHINode *loop_var = builder.CreatePHI(types_->i32_type(), 2, "loop_var");
-  loop_var->addIncoming(types_->i32_constant(0), loop_entry);
-  llvm::Value *loop_update = builder.CreateAdd(loop_var,
-                                               types_->i32_constant(1),
-                                               "loop_var+1");
-  loop_var->addIncoming(loop_update, loop_body);
 
   // The visitor can add code to both the entry/loop blocks.
-  Visitor visitor(this, *fn, loop_entry, loop_body,
-                  arg_addrs, arg_local_bitmaps, loop_var);
+  Visitor visitor(this, *fn, loop_entry,  arg_addrs, arg_local_bitmaps, loop_var);
   value_expr->Accept(visitor);
   LValuePtr output_value = visitor.result();
+
+  // The "current" block may have changed due to code generation in the visitor.
+  llvm::BasicBlock *loop_body_tail = builder.GetInsertBlock();
 
   // add jump to "loop block" at the end of the "setup block".
   builder.SetInsertPoint(loop_entry);
   builder.CreateBr(loop_body);
 
-  // save the value in the output vector
-  builder.SetInsertPoint(loop_body);
-
+  // save the value in the output vector.
+  builder.SetInsertPoint(loop_body_tail);
   if (output->Type()->id() == arrow::Type::BOOL) {
     SetPackedBitValue(output_ref, loop_var, output_value->data());
   } else {
@@ -293,6 +289,12 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr,
   ADD_TRACE("saving result " + output->Name() + " value %T", output_value->data());
 
   // check loop_var
+  loop_var->addIncoming(types_->i32_constant(0), loop_entry);
+  llvm::Value *loop_update = builder.CreateAdd(loop_var,
+                                               types_->i32_constant(1),
+                                               "loop_var+1");
+  loop_var->addIncoming(loop_update, loop_body_tail);
+
   llvm::Value *loop_var_check = builder.CreateICmpSLT(loop_update,
                                                       arg_nrecords,
                                                       "loop_var < nrec");
@@ -460,13 +462,12 @@ llvm::Value *LLVMGenerator::AddFunctionCall(const std::string &full_name,
 LLVMGenerator::Visitor::Visitor(LLVMGenerator *generator,
                                 llvm::Function *function,
                                 llvm::BasicBlock *entry_block,
-                                llvm::BasicBlock *loop_block,
                                 llvm::Value *arg_addrs,
                                 llvm::Value *arg_local_bitmaps,
                                 llvm::Value *loop_var)
     : generator_(generator),
+      function_(function),
       entry_block_(entry_block),
-      loop_block_(loop_block),
       arg_addrs_(arg_addrs),
       arg_local_bitmaps_(arg_local_bitmaps),
       loop_var_(loop_var) {
@@ -477,12 +478,8 @@ LLVMGenerator::Visitor::Visitor(LLVMGenerator *generator,
 void LLVMGenerator::Visitor::Visit(const VectorReadValueDex &dex) {
   llvm::IRBuilder<> &builder = ir_builder();
 
-  builder.SetInsertPoint(entry_block_);
-  llvm::Value *slot_ref = generator_->GetDataReference(arg_addrs_,
-                                                       dex.DataIdx(),
-                                                       dex.Field());
+  llvm::Value *slot_ref = GetBufferReference(dex.DataIdx(), kBufferTypeData, dex.Field());
 
-  builder.SetInsertPoint(loop_block_);
   llvm::Value *slot_value;
   if (dex.FieldType()->id() == arrow::Type::BOOL) {
     slot_value = generator_->GetPackedBitValue(slot_ref, loop_var_);
@@ -496,28 +493,19 @@ void LLVMGenerator::Visitor::Visit(const VectorReadValueDex &dex) {
 }
 
 void LLVMGenerator::Visitor::Visit(const VectorReadValidityDex &dex) {
-  llvm::IRBuilder<> &builder = ir_builder();
-
-  builder.SetInsertPoint(entry_block_);
-  llvm::Value *slot_ref = generator_->GetValidityReference(arg_addrs_,
-                                                           dex.ValidityIdx(),
-                                                           dex.Field());
-
-  builder.SetInsertPoint(loop_block_);
+  llvm::Value *slot_ref = GetBufferReference(dex.ValidityIdx(),
+                                             kBufferTypeValidity,
+                                             dex.Field());
   llvm::Value *validity = generator_->GetPackedBitValue(slot_ref, loop_var_);
+
   ADD_VISITOR_TRACE("visit validity vector " + dex.FieldName() + " value %T", validity);
   result_.reset(new LValue(validity));
 }
 
 void LLVMGenerator::Visitor::Visit(const LocalBitMapValidityDex &dex) {
-  llvm::IRBuilder<> &builder = ir_builder();
-
-  builder.SetInsertPoint(entry_block_);
-  llvm::Value *slot_ref = generator_->GetLocalBitMapReference(arg_local_bitmaps_,
-                                                              dex.local_bitmap_idx());
-
-  builder.SetInsertPoint(loop_block_);
+  llvm::Value *slot_ref = GetLocalBitMapReference(dex.local_bitmap_idx());
   llvm::Value *validity = generator_->GetPackedBitValue(slot_ref, loop_var_);
+
   ADD_VISITOR_TRACE("visit local bitmap " +
                     std::to_string(dex.local_bitmap_idx()) + " value %T", validity);
   result_.reset(new LValue(validity));
@@ -525,27 +513,6 @@ void LLVMGenerator::Visitor::Visit(const LocalBitMapValidityDex &dex) {
 
 void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {
   // TODO
-}
-
-std::vector<llvm::Value *> LLVMGenerator::Visitor::BuildParams(
-    const ValueValidityPairVector &args,
-    bool with_validity) {
-
-  // build the function params, along with the validities.
-  std::vector<llvm::Value *> params;
-  for (auto &pair : args) {
-    // build value.
-    DexPtr value_expr = pair->value_expr();
-    value_expr->Accept(*this);
-    params.push_back(result()->data());
-
-    // build validity.
-    if (with_validity) {
-      llvm::Value *validity_expr = BuildCombinedValidity(pair->validity_exprs());
-      params.push_back(validity_expr);
-    }
-  }
-  return params;
 }
 
 void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex &dex) {
@@ -611,16 +578,96 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex &dex) {
   result_.reset(new LValue(value, result_valid));
 }
 
-/// The local bitmap is pre-filled with 1s. Clear only if invalid.
-void LLVMGenerator::Visitor::ClearLocalBitMapIfNotValid(int local_bitmap_idx,
-                                                        llvm::Value *is_valid) {
+void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
+  ADD_VISITOR_TRACE("visit IfExpression");
   llvm::IRBuilder<> &builder = ir_builder();
-  builder.SetInsertPoint(entry_block_);
-  llvm::Value *slot_ref = generator_->GetLocalBitMapReference(arg_local_bitmaps_,
-                                                              local_bitmap_idx);
+  LLVMTypes *types = generator_->types_;
 
-  builder.SetInsertPoint(loop_block_);
-  generator_->ClearPackedBitValueIfFalse(slot_ref, loop_var_, is_valid);
+  // Evaluate condition.
+  LValuePtr if_condition = BuildValueAndValidity(dex.condition_vv());
+
+  // Check if the result is valid, and there is match.
+  llvm::Value *validAndMatched = builder.CreateAnd(if_condition->data(),
+                                                   if_condition->validity(),
+                                                   "validAndMatch");
+
+  // Create blocks for the then, else and merge cases.
+  llvm::LLVMContext &context = generator_->context();
+  llvm::BasicBlock *then_bb = llvm::BasicBlock::Create(context, "then", function_);
+  llvm::BasicBlock *else_bb = llvm::BasicBlock::Create(context, "else", function_);
+  llvm::BasicBlock *merge_bb = llvm::BasicBlock::Create(context, "merge", function_);
+
+  builder.CreateCondBr(validAndMatched, then_bb, else_bb);
+
+  // Emit the then block.
+  builder.SetInsertPoint(then_bb);
+  ADD_VISITOR_TRACE("branch to then block");
+  LValuePtr then_lvalue = BuildValueAndValidity(dex.then_vv());
+  ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), then_lvalue->validity());
+  builder.CreateBr(merge_bb);
+
+  // refresh then_bb for phi (could have changed due to code generation of then_vv).
+  then_bb = builder.GetInsertBlock();
+
+  // Emit the else block.
+  builder.SetInsertPoint(else_bb);
+  ADD_VISITOR_TRACE("branch to else block");
+  LValuePtr else_lvalue = BuildValueAndValidity(dex.else_vv());
+  // update the local bitmap with the validity.
+  ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), else_lvalue->validity());
+  builder.CreateBr(merge_bb);
+
+  // refresh else_bb for phi (could have changed due to code generation of else_vv).
+  else_bb = builder.GetInsertBlock();
+
+  // Emit the merge block.
+  builder.SetInsertPoint(merge_bb);
+  llvm::Type *result_llvm_type = types->DataVecType(dex.result_type());
+  llvm::PHINode *result_value = builder.CreatePHI(result_llvm_type, 2, "res_value");
+  result_value->addIncoming(then_lvalue->data(), then_bb);
+  result_value->addIncoming(else_lvalue->data(), else_bb);
+
+  llvm::PHINode *result_validity = builder.CreatePHI(types->i1_type(), 2, "res_valid");
+  result_validity->addIncoming(then_lvalue->validity(), then_bb);
+  result_validity->addIncoming(else_lvalue->validity(), else_bb);
+
+  ADD_VISITOR_TRACE("IfExpression result value %T", result_value);
+  ADD_VISITOR_TRACE("IfExpression result validity %T", result_validity);
+
+  result_.reset(new LValue(result_value, result_validity));
+}
+
+LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair &pair) {
+  // generate code for value
+  auto value_expr = pair.value_expr();
+  value_expr->Accept(*this);
+  auto value = result()->data();
+
+  // generate code for validity
+  auto validity = BuildCombinedValidity(pair.validity_exprs());
+
+  return std::make_shared<LValue>(value, validity);
+}
+
+std::vector<llvm::Value *> LLVMGenerator::Visitor::BuildParams(
+    const ValueValidityPairVector &args,
+    bool with_validity) {
+
+  // build the function params, along with the validities.
+  std::vector<llvm::Value *> params;
+  for (auto &pair : args) {
+    // build value.
+    DexPtr value_expr = pair->value_expr();
+    value_expr->Accept(*this);
+    params.push_back(result()->data());
+
+    // build validity.
+    if (with_validity) {
+      llvm::Value *validity_expr = BuildCombinedValidity(pair->validity_exprs());
+      params.push_back(validity_expr);
+    }
+  }
+  return params;
 }
 
 /*
@@ -637,6 +684,56 @@ llvm::Value *LLVMGenerator::Visitor::BuildCombinedValidity(const DexVector &vali
   }
   ADD_VISITOR_TRACE("combined validity is %T", isValid);
   return isValid;
+}
+
+llvm::Value *LLVMGenerator::Visitor::GetBufferReference(int idx,
+                                                        BufferType buffer_type,
+                                                        FieldPtr field) {
+  llvm::IRBuilder<> &builder = ir_builder();
+
+  // Switch to the entry block to create a reference.
+  llvm::BasicBlock *saved_block = builder.GetInsertBlock();
+  builder.SetInsertPoint(entry_block_);
+
+  llvm::Value *slot_ref = nullptr;
+  switch (buffer_type) {
+  case kBufferTypeValidity:
+    slot_ref = generator_->GetValidityReference(arg_addrs_, idx, field);
+    break;
+
+  case kBufferTypeData:
+    slot_ref = generator_->GetDataReference(arg_addrs_, idx, field);
+    break;
+
+  default:
+    DCHECK(0);
+    break;
+  }
+
+  // Revert to the saved block.
+  builder.SetInsertPoint(saved_block);
+  return slot_ref;
+}
+
+llvm::Value *LLVMGenerator::Visitor::GetLocalBitMapReference(int idx) {
+  llvm::IRBuilder<> &builder = ir_builder();
+
+  // Switch to the entry block to create a reference.
+  llvm::BasicBlock *saved_block = builder.GetInsertBlock();
+  builder.SetInsertPoint(entry_block_);
+
+  llvm::Value *slot_ref = generator_->GetLocalBitMapReference(arg_local_bitmaps_, idx);
+
+  // Revert to the saved block.
+  builder.SetInsertPoint(saved_block);
+  return slot_ref;
+}
+
+/// The local bitmap is pre-filled with 1s. Clear only if invalid.
+void LLVMGenerator::Visitor::ClearLocalBitMapIfNotValid(int local_bitmap_idx,
+                                                        llvm::Value *is_valid) {
+  llvm::Value *slot_ref = GetLocalBitMapReference(local_bitmap_idx);
+  generator_->ClearPackedBitValueIfFalse(slot_ref, loop_var_, is_valid);
 }
 
 /*

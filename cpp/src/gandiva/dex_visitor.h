@@ -27,6 +27,7 @@ class LiteralDex;
 class NonNullableFuncDex;
 class NullableNeverFuncDex;
 class NullableInternalFuncDex;
+class IfDex;
 
 /// \brief Visitor for decomposed expression.
 class DexVisitor {
@@ -38,6 +39,7 @@ class DexVisitor {
   virtual void Visit(const NonNullableFuncDex &dex) = 0;
   virtual void Visit(const NullableNeverFuncDex &dex) = 0;
   virtual void Visit(const NullableInternalFuncDex &dex) = 0;
+  virtual void Visit(const IfDex &dex) = 0;
 };
 
 /// Default implementation with only DCHECK().
@@ -54,6 +56,7 @@ class DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(NonNullableFuncDex);
   VISIT_DCHECK(NullableNeverFuncDex);
   VISIT_DCHECK(NullableInternalFuncDex);
+  VISIT_DCHECK(IfDex);
 };
 
 } // namespace gandiva
