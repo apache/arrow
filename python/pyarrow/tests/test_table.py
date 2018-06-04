@@ -471,17 +471,3 @@ def test_table_negative_indexing():
 
     with pytest.raises(IndexError):
         table[4]
-
-
-def test_table_ctor_errors():
-    with pytest.raises(ReferenceError):
-        repr(pa.Table())
-    with pytest.raises(ReferenceError):
-        str(pa.Table())
-
-
-def test_schema_ctor_errors():
-    with pytest.raises(ReferenceError):
-        repr(pa.Schema())
-    with pytest.raises(ReferenceError):
-        str(pa.Schema())

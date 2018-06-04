@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import pytest
 
 import pyarrow as pa
 
@@ -33,3 +34,31 @@ def test_cpu_count():
         assert pa.cpu_count() == n + 5
     finally:
         pa.set_cpu_count(n)
+
+
+@pytest.mark.parametrize('klass', [
+    pa.Field,
+    pa.Schema,
+    pa.Column,
+    pa.ChunkedArray,
+    pa.RecordBatch,
+    pa.Table,
+    pa.Buffer,
+    pa.Array,
+    pa.Tensor,
+    pa.lib.DataType,
+    pa.lib.ListType,
+    pa.lib.UnionType,
+    pa.lib.StructType,
+    pa.lib.Time32Type,
+    pa.lib.Time64Type,
+    pa.lib.TimestampType,
+    pa.lib.Decimal128Type,
+    pa.lib.DictionaryType,
+    pa.lib.FixedSizeBinaryType
+])
+def test_extension_type_constructor_errors(klass):
+    # ARROW-2638: prevent calling extension class constructors directly
+    msg = "Do not call {cls}'s constructor directly, use .* instead."
+    with pytest.raises(TypeError, match=msg.format(cls=klass.__name__)):
+        klass()
