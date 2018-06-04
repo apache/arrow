@@ -526,8 +526,6 @@ cdef class Array:
         raise NotImplemented
 
     def __getitem__(self, key):
-        cdef Py_ssize_t n = len(self)
-
         if PySlice_Check(key):
             return _normalize_slice(self, key)
 

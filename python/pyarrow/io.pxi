@@ -645,8 +645,10 @@ cdef class Buffer:
                 return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
-        # TODO(wesm): buffer slicing
-        raise NotImplementedError
+        return self.getitem(_normalize_index(key, self.size))
+
+    cdef getitem(self, int64_t i):
+        return self.buffer.get().data()[i]
 
     def equals(self, Buffer other):
         """

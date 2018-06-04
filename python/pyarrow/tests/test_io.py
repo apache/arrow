@@ -297,6 +297,20 @@ def test_buffer_equals():
     eq(buf2, buf5)
 
 
+def test_buffer_getitem():
+    data = b'some data!'
+    buf = pa.py_buffer(data)
+
+    for ix in [0, 3, -1]:
+        assert buf[ix] == data[ix]
+
+    with pytest.raises(IndexError):
+        buf[10]
+
+    with pytest.raises(IndexError):
+        buf[-11]
+
+
 def test_buffer_hashing():
     # Buffers are unhashable
     with pytest.raises(TypeError, match="unhashable"):
