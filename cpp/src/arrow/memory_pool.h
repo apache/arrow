@@ -19,8 +19,8 @@
 #define ARROW_MEMORY_POOL_H
 
 #include <atomic>
-#include <mutex>
 #include <cstdint>
+#include <mutex>
 
 #include "arrow/util/visibility.h"
 
