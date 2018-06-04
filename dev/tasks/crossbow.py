@@ -197,7 +197,7 @@ class Queue(object):
         parent = self._get_parent_commit()
 
         # creating the tree we are going to push based on master's tree
-        builder = self.repo.TreeBuilder(parent.tree)
+        builder = self.repo.TreeBuilder()
 
         for filename, content in files.items():
             # insert the file and creating the new filetree
