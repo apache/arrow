@@ -318,6 +318,10 @@ hdfsFS LibHdfsShim::BuilderConnect(hdfsBuilder* bld) {
   return this->hdfsBuilderConnect(bld);
 }
 
+int LibHdfsShim::BuilderConfSetStr(hdfsBuilder* bld, const char* key, const char* val) {
+  return this->hdfsBuilderConfSetStr(bld, key, val);
+}
+
 int LibHdfsShim::Disconnect(hdfsFS fs) { return this->hdfsDisconnect(fs); }
 
 hdfsFile LibHdfsShim::OpenFile(hdfsFS fs, const char* path, int flags, int bufferSize,
@@ -495,6 +499,7 @@ Status LibHdfsShim::GetRequiredSymbols() {
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetUserName);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetKerbTicketCachePath);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderSetForceNewInstance);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderConfSetStr);
   GET_SYMBOL_REQUIRED(this, hdfsBuilderConnect);
   GET_SYMBOL_REQUIRED(this, hdfsCreateDirectory);
   GET_SYMBOL_REQUIRED(this, hdfsDelete);
