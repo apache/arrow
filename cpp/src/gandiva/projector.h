@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef GANDIVA_EXPR_EVALUATOR_H
-#define GANDIVA_EXPR_EVALUATOR_H
+#ifndef GANDIVA_EXPR_PROJECTOR_H
+#define GANDIVA_EXPR_PROJECTOR_H
 
 #include <memory>
 #include <utility>
@@ -27,24 +27,24 @@ namespace gandiva {
 
 class LLVMGenerator;
 
-/// \brief Evaluator for expressions.
+/// \brief projection using expressions.
 ///
-/// An evaluator is built for a specific schema and vector of expressions.
-/// Once the evaluator is built, it can be used to evaluate many row batches.
-class Evaluator {
+/// A projector is built for a specific schema and vector of expressions.
+/// Once the projector is built, it can be used to evaluate many row batches.
+class Projector {
  public:
-  /// Build an evaluator for the given schema to evaluate the vector of expressions.
+  /// Build a projector for the given schema to evaluate the vector of expressions.
   static Status Make(SchemaPtr schema,
                      const ExpressionVector &exprs,
                      arrow::MemoryPool *pool,
-                     std::shared_ptr<Evaluator> *evaluator);
+                     std::shared_ptr<Projector> *projector);
 
   /// Evaluate the specified record batch, and fill the output vectors.
   /// TODO : need a zero-copy variant if the caller can alloc the output vectors.
   arrow::ArrayVector Evaluate(const arrow::RecordBatch &batch);
 
  private:
-  Evaluator(std::unique_ptr<LLVMGenerator> llvm_generator,
+  Projector(std::unique_ptr<LLVMGenerator> llvm_generator,
             SchemaPtr schema,
             const FieldVector &output_fields,
             arrow::MemoryPool *pool);
@@ -60,4 +60,4 @@ class Evaluator {
 
 } // namespace gandiva
 
-#endif // GANDIVA_EXPR_EVALUATOR_H
+#endif // GANDIVA_EXPR_PROJECTOR_H

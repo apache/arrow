@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "integ/test_util.h"
-#include "gandiva/evaluator.h"
+#include "gandiva/projector.h"
 #include "gandiva/tree_expr_builder.h"
 
 namespace gandiva {
@@ -26,7 +26,7 @@ using arrow::int32;
 using arrow::float32;
 using arrow::boolean;
 
-class TestEvaluator : public ::testing::Test {
+class TestProjector : public ::testing::Test {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -34,7 +34,7 @@ class TestEvaluator : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestEvaluator, TestIntSumSub) {
+TEST_F(TestProjector, TestIntSumSub) {
   /* schema for input fields */
   auto field0 = field("f0", int32());
   auto field1 = field("f2", int32());
@@ -51,8 +51,8 @@ TEST_F(TestEvaluator, TestIntSumSub) {
   auto sub_expr = TreeExprBuilder::MakeExpression("subtract", {field0, field1},
                                                   field_sub);
 
-  std::shared_ptr<Evaluator> evaluator;
-  Status status = Evaluator::Make(schema, {sum_expr, sub_expr}, pool_, &evaluator);
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {sum_expr, sub_expr}, pool_, &projector);
   EXPECT_TRUE(status.ok());
 
   /* Create a row-batch with some sample data */
@@ -69,7 +69,7 @@ TEST_F(TestEvaluator, TestIntSumSub) {
   /*
    * Evaluate expression
    */
-  auto outputs = evaluator->Evaluate(*in_batch);
+  auto outputs = projector->Evaluate(*in_batch);
 
   /*
    * Validate results
@@ -78,7 +78,7 @@ TEST_F(TestEvaluator, TestIntSumSub) {
   EXPECT_TRUE(exp_sub->Equals(outputs.at(1)));
 }
 
-TEST_F(TestEvaluator, TestFloatLessThan) {
+TEST_F(TestProjector, TestFloatLessThan) {
   /* schema for input fields */
   auto field0 = field("f0", float32());
   auto field1 = field("f2", float32());
@@ -94,10 +94,10 @@ TEST_F(TestEvaluator, TestFloatLessThan) {
                                                  field_result);
 
   /*
-   * Build an evaluator for the expressions.
+   * Build a projector for the expressions.
    */
-  std::shared_ptr<Evaluator> evaluator;
-  Status status = Evaluator::Make(schema, {lt_expr}, pool_, &evaluator);
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {lt_expr}, pool_, &projector);
   EXPECT_TRUE(status.ok());
 
 
@@ -114,7 +114,7 @@ TEST_F(TestEvaluator, TestFloatLessThan) {
   /*
    * Evaluate expression
    */
-  auto outputs = evaluator->Evaluate(*in_batch);
+  auto outputs = projector->Evaluate(*in_batch);
 
   /*
    * Validate results
@@ -122,7 +122,7 @@ TEST_F(TestEvaluator, TestFloatLessThan) {
   EXPECT_TRUE(exp->Equals(outputs.at(0)));
 }
 
-TEST_F(TestEvaluator, TestIsNotNull) {
+TEST_F(TestProjector, TestIsNotNull) {
   /* schema for input fields */
   auto field0 = field("f0", float32());
   auto schema = arrow::schema({field0});
@@ -136,10 +136,10 @@ TEST_F(TestEvaluator, TestIsNotNull) {
   auto myexpr = TreeExprBuilder::MakeExpression("isnotnull", {field0}, field_result);
 
   /*
-   * Build an evaluator for the expressions.
+   * Build a projector for the expressions.
    */
-  std::shared_ptr<Evaluator> evaluator;
-  Status status = Evaluator::Make(schema, {myexpr}, pool_, &evaluator);
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {myexpr}, pool_, &projector);
   EXPECT_TRUE(status.ok());
 
   /* Create a row-batch with some sample data */
@@ -154,7 +154,7 @@ TEST_F(TestEvaluator, TestIsNotNull) {
   /*
    * Evaluate expression
    */
-  auto outputs = evaluator->Evaluate(*in_batch);
+  auto outputs = projector->Evaluate(*in_batch);
 
   /*
    * Validate results
@@ -162,7 +162,7 @@ TEST_F(TestEvaluator, TestIsNotNull) {
   EXPECT_TRUE(exp->Equals(outputs.at(0)));
 }
 
-TEST_F(TestEvaluator, TestNullInternal) {
+TEST_F(TestProjector, TestNullInternal) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto schema = arrow::schema({field0});
@@ -173,9 +173,9 @@ TEST_F(TestEvaluator, TestNullInternal) {
   // build expression.
   auto myexpr = TreeExprBuilder::MakeExpression("half_or_null", {field0}, field_result);
 
-  // Build an evaluator for the expressions.
-  std::shared_ptr<Evaluator> evaluator;
-  Status status = Evaluator::Make(schema, {myexpr}, pool_, &evaluator);
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {myexpr}, pool_, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -191,13 +191,13 @@ TEST_F(TestEvaluator, TestNullInternal) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   // Evaluate expression
-  auto outputs = evaluator->Evaluate(*in_batch);
+  auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
   EXPECT_TRUE(exp->Equals(outputs.at(0)));
 }
 
-TEST_F(TestEvaluator, TestNestedFunctions) {
+TEST_F(TestProjector, TestNestedFunctions) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -219,9 +219,9 @@ TEST_F(TestEvaluator, TestNestedFunctions) {
   auto isnull = TreeExprBuilder::MakeFunction("isnull", {mult}, boolean());
   auto expr2 = TreeExprBuilder::MakeExpression(isnull, field_res2);
 
-  // Build an evaluator for the expressions.
-  std::shared_ptr<Evaluator> evaluator;
-  Status status = Evaluator::Make(schema, {expr1, expr2}, pool_, &evaluator);
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr1, expr2}, pool_, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -237,7 +237,7 @@ TEST_F(TestEvaluator, TestNestedFunctions) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
   // Evaluate expression
-  auto outputs = evaluator->Evaluate(*in_batch);
+  auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
   EXPECT_TRUE(exp1->Equals(outputs.at(0)));

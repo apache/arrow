@@ -17,12 +17,12 @@
 #include <memory>
 #include <vector>
 #include <utility>
-#include "gandiva/evaluator.h"
+#include "gandiva/projector.h"
 #include "codegen/llvm_generator.h"
 
 namespace gandiva {
 
-Evaluator::Evaluator(std::unique_ptr<LLVMGenerator> llvm_generator,
+Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator,
                      SchemaPtr schema,
                      const FieldVector &output_fields,
                      arrow::MemoryPool *pool)
@@ -31,10 +31,10 @@ Evaluator::Evaluator(std::unique_ptr<LLVMGenerator> llvm_generator,
     output_fields_(output_fields),
     pool_(pool) {}
 
-Status Evaluator::Make(SchemaPtr schema,
+Status Projector::Make(SchemaPtr schema,
                        const ExpressionVector &exprs,
                        arrow::MemoryPool *pool,
-                       std::shared_ptr<Evaluator> *evaluator) {
+                       std::shared_ptr<Projector> *projector) {
   // TODO: validate schema
   // TODO : validate expressions (fields, function signatures, output types, ..)
 
@@ -50,15 +50,15 @@ Status Evaluator::Make(SchemaPtr schema,
     output_fields.push_back(expr->result());
   }
 
-  // Instantiate the evaluator with the completely built llvm generator
-  *evaluator = std::shared_ptr<Evaluator>(new Evaluator(std::move(llvm_gen),
+  // Instantiate the projector with the completely built llvm generator
+  *projector = std::shared_ptr<Projector>(new Projector(std::move(llvm_gen),
                                                         schema,
                                                         output_fields,
                                                         pool));
   return Status::OK();
 }
 
-arrow::ArrayVector Evaluator::Evaluate(const arrow::RecordBatch &batch) {
+arrow::ArrayVector Projector::Evaluate(const arrow::RecordBatch &batch) {
   DCHECK_EQ(batch.schema(), schema_);
   DCHECK_GT(batch.num_rows(), 0);
 
@@ -72,7 +72,7 @@ arrow::ArrayVector Evaluator::Evaluate(const arrow::RecordBatch &batch) {
 }
 
 // TODO : handle variable-len vectors
-ArrayPtr Evaluator::AllocArray(DataTypePtr type, int length) {
+ArrayPtr Projector::AllocArray(DataTypePtr type, int length) {
   arrow::Status status;
 
   auto null_bitmap = std::make_shared<arrow::PoolBuffer>(pool_);

@@ -17,6 +17,7 @@
 #include "gandiva/tree_expr_builder.h"
 
 #include <utility>
+#include <codegen/node.h>
 
 namespace gandiva {
 

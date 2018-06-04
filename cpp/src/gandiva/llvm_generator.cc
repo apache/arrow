@@ -21,6 +21,7 @@
 #include "gandiva/expression.h"
 #include "codegen/bitmap_dex_visitor.h"
 #include "codegen/dex.h"
+#include "codegen/expr_decomposer.h"
 #include "codegen/function_registry.h"
 #include "codegen/llvm_generator.h"
 #include "codegen/lvalue.h"
@@ -58,8 +59,8 @@ Status LLVMGenerator::Add(const ExpressionPtr expr,
   int idx = compiled_exprs_.size();
 
   // decompose the expression to separate out value and validities.
-  ValueValidityPairPtr value_validity = expr->Decompose(function_registry_,
-                                                        annotator_);
+  ExprDecomposer decomposer(function_registry_, annotator_);
+  ValueValidityPairPtr value_validity = decomposer.Decompose(*expr->root());
 
   // Generate the IR function for the decomposed expression.
   llvm::Function *ir_function = nullptr;

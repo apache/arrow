@@ -14,5 +14,5 @@
 
 project(gandiva)
 
-add_gandiva_integ_test(evaluator_test.cc)
+add_gandiva_integ_test(projector_test.cc)
 add_gandiva_integ_test(if_expr_test.cc)

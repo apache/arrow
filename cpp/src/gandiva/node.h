@@ -20,11 +20,10 @@
 #include <vector>
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
+#include "codegen/node_visitor.h"
+#include "codegen/func_descriptor.h"
 
 namespace gandiva {
-
-class FunctionRegistry;
-class Annotator;
 
 /// \brief Represents a node in the expression tree. Validity and value are
 /// in a joined state.
@@ -33,12 +32,10 @@ class Node {
   explicit Node(DataTypePtr return_type)
     : return_type_(return_type) { }
 
-  const DataTypePtr &return_type() { return return_type_; }
+  const DataTypePtr &return_type() const { return return_type_; }
 
-
-  /// Called during code generation to separate out validity and value.
-  virtual ValueValidityPairPtr Decompose(const FunctionRegistry &registry,
-                                         Annotator &annotator) = 0;
+  /// Derived classes should simply invoke the Visit api of the visitor.
+  virtual void Accept(NodeVisitor &visitor) const = 0;
 
  protected:
   DataTypePtr return_type_;
@@ -51,8 +48,11 @@ class FieldNode : public Node {
   explicit FieldNode(FieldPtr field)
     : Node(field->type()), field_(field) {}
 
-  ValueValidityPairPtr Decompose(const FunctionRegistry &registry,
-                                 Annotator &annotator) override;
+  void Accept(NodeVisitor &visitor) const override {
+    visitor.Visit(*this);
+  }
+
+  const FieldPtr &field() const { return field_; }
 
  private:
   FieldPtr field_;
@@ -61,15 +61,17 @@ class FieldNode : public Node {
 /// \brief Node in the expression tree, representing a function.
 class FunctionNode : public Node {
  public:
-  FunctionNode(FuncDescriptorPtr desc,
+  FunctionNode(FuncDescriptorPtr descriptor,
                const NodeVector &children,
                DataTypePtr retType)
-    : Node(retType), desc_(desc), children_(children) { }
+    : Node(retType), descriptor_(descriptor), children_(children) { }
 
-  ValueValidityPairPtr Decompose(const FunctionRegistry &registry,
-                                 Annotator &annotator) override;
+  void Accept(NodeVisitor &visitor) const override {
+    visitor.Visit(*this);
+  }
 
-  const FuncDescriptorPtr &func_descriptor() { return desc_; }
+  const FuncDescriptorPtr &descriptor() const { return descriptor_; }
+  const NodeVector &children() const { return children_; }
 
   /// Make a function node with params types specified by 'children', and
   /// having return type ret_type.
@@ -77,9 +79,22 @@ class FunctionNode : public Node {
                               const NodeVector &children,
                               DataTypePtr return_type);
  private:
-  FuncDescriptorPtr desc_;
+  FuncDescriptorPtr descriptor_;
   NodeVector children_;
 };
+
+inline
+NodePtr FunctionNode::MakeFunction(const std::string &name,
+                                   const NodeVector &children,
+                                   DataTypePtr return_type) {
+  DataTypeVector param_types;
+  for (auto &child : children) {
+    param_types.push_back(child->return_type());
+  }
+
+  auto func_desc = FuncDescriptorPtr(new FuncDescriptor(name, param_types, return_type));
+  return NodePtr(new FunctionNode(func_desc, children, return_type));
+}
 
 /// \brief Node in the expression tree, representing an if-else expression.
 class IfNode : public Node {
@@ -93,8 +108,13 @@ class IfNode : public Node {
       then_node_(then_node),
       else_node_(else_node) {}
 
-  ValueValidityPairPtr Decompose(const FunctionRegistry &registry,
-                                 Annotator &annotator) override;
+  void Accept(NodeVisitor &visitor) const override {
+    visitor.Visit(*this);
+  }
+
+  const NodePtr &condition() const { return condition_; }
+  const NodePtr &then_node() const { return then_node_; }
+  const NodePtr &else_node() const { return else_node_; }
 
  private:
   NodePtr condition_;

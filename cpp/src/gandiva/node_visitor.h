@@ -13,29 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef GANDIVA_EXPR_EXPRESSION_H
-#define GANDIVA_EXPR_EXPRESSION_H
+#ifndef GANDIVA_NODE_VISITOR_H
+#define GANDIVA_NODE_VISITOR_H
 
-#include "gandiva/arrow.h"
-#include "gandiva/gandiva_aliases.h"
+#include "gandiva/logging.h"
 
 namespace gandiva {
 
-/// \brief An expression tree with a root node, and a result field.
-class Expression {
+class FieldNode;
+class FunctionNode;
+class IfNode;
+
+/// \brief Visitor for nodes in the expression tree.
+class NodeVisitor {
  public:
-  Expression(const NodePtr root, const FieldPtr result)
-    : root_(root), result_(result) {}
-
-  const NodePtr &root() const { return root_; }
-
-  const FieldPtr &result() const { return result_; }
-
- private:
-  const NodePtr root_;
-  const FieldPtr result_;
+  virtual void Visit(const FieldNode &node) = 0;
+  virtual void Visit(const FunctionNode &node) = 0;
+  virtual void Visit(const IfNode &node) = 0;
 };
 
 } // namespace gandiva
 
-#endif // GANDIVA_EXPR_EXPRESSION_H
+#endif //GANDIVA_NODE_VISITOR_H

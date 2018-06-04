@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "integ/test_util.h"
-#include "gandiva/evaluator.h"
+#include "gandiva/projector.h"
 #include "gandiva/status.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -58,9 +58,9 @@ TEST_F(TestIfExpr, TestSimple) {
 
   auto expr = TreeExprBuilder::MakeExpression(if_node, field_result);
 
-  // Build an evaluator for the expressions.
-  std::shared_ptr<Evaluator> evaluator;
-  Status status = Evaluator::Make(schema, {expr}, pool_, &evaluator);
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -75,7 +75,7 @@ TEST_F(TestIfExpr, TestSimple) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
   // Evaluate expression
-  auto outputs = evaluator->Evaluate(*in_batch);
+  auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
   EXPECT_TRUE(exp->Equals(outputs.at(0)));
@@ -106,9 +106,9 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
 
   auto expr = TreeExprBuilder::MakeExpression(if_node, field_result);
 
-  // Build an evaluator for the expressions.
-  std::shared_ptr<Evaluator> evaluator;
-  Status status = Evaluator::Make(schema, {expr}, pool_, &evaluator);
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -123,7 +123,7 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
   // Evaluate expression
-  auto outputs = evaluator->Evaluate(*in_batch);
+  auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
   EXPECT_TRUE(exp->Equals(outputs.at(0)));
@@ -161,9 +161,9 @@ TEST_F(TestIfExpr, TestNestedIf) {
 
   auto expr = TreeExprBuilder::MakeExpression(if_node, field_result);
 
-  // Build an evaluator for the expressions.
-  std::shared_ptr<Evaluator> evaluator;
-  Status status = Evaluator::Make(schema, {expr}, pool_, &evaluator);
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -178,7 +178,7 @@ TEST_F(TestIfExpr, TestNestedIf) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
   // Evaluate expression
-  auto outputs = evaluator->Evaluate(*in_batch);
+  auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
   EXPECT_TRUE(exp->Equals(outputs.at(0)));

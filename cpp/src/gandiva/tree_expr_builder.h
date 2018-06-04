@@ -18,7 +18,6 @@
 
 #include <string>
 #include <vector>
-#include "gandiva/node.h"
 #include "gandiva/expression.h"
 
 namespace gandiva {

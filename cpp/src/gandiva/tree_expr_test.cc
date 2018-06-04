@@ -17,10 +17,12 @@
 #include <gtest/gtest.h>
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/tree_expr_builder.h"
+#include "codegen/annotator.h"
 #include "codegen/dex.h"
+#include "codegen/expr_decomposer.h"
 #include "codegen/function_signature.h"
 #include "codegen/function_registry.h"
-#include "codegen/annotator.h"
+#include "codegen/node.h"
 
 namespace gandiva {
 
@@ -53,7 +55,8 @@ TEST_F(TestExprTree, TestField) {
   auto n1 = TreeExprBuilder::MakeField(b0_);
   EXPECT_EQ(n1->return_type(), boolean());
 
-  auto pair = n1->Decompose(registry_, annotator);
+  ExprDecomposer decomposer(registry_, annotator);
+  auto pair = decomposer.Decompose(*n1);
   auto value = pair->value_expr();
   auto value_dex = std::dynamic_pointer_cast<VectorReadValueDex>(value);
   EXPECT_EQ(value_dex->FieldType(), boolean());
@@ -73,7 +76,7 @@ TEST_F(TestExprTree, TestBinary) {
   auto n = TreeExprBuilder::MakeFunction("add", {left, right}, int32());
   auto add = std::dynamic_pointer_cast<FunctionNode>(n);
 
-  auto func_desc = add->func_descriptor();
+  auto func_desc = add->descriptor();
   FunctionSignature sign(func_desc->name(),
                          func_desc->params(),
                          func_desc->return_type());
@@ -81,7 +84,8 @@ TEST_F(TestExprTree, TestBinary) {
   EXPECT_EQ(add->return_type(), int32());
   EXPECT_TRUE(sign == FunctionSignature("add", {int32(), int32()}, int32()));
 
-  auto pair = n->Decompose(registry_, annotator);
+  ExprDecomposer decomposer(registry_, annotator);
+  auto pair = decomposer.Decompose(*n);
   auto value = pair->value_expr();
   auto null_if_null = std::dynamic_pointer_cast<NonNullableFuncDex>(value);
 
@@ -97,14 +101,15 @@ TEST_F(TestExprTree, TestUnary) {
   auto n = TreeExprBuilder::MakeFunction("isnumeric", {arg}, boolean());
 
   auto unaryFn = std::dynamic_pointer_cast<FunctionNode>(n);
-  auto func_desc = unaryFn->func_descriptor();
+  auto func_desc = unaryFn->descriptor();
   FunctionSignature sign(func_desc->name(),
                          func_desc->params(),
                          func_desc->return_type());
   EXPECT_EQ(unaryFn->return_type(), boolean());
   EXPECT_TRUE(sign == FunctionSignature("isnumeric", {int32()}, boolean()));
 
-  auto pair = n->Decompose(registry_, annotator);
+  ExprDecomposer decomposer(registry_, annotator);
+  auto pair = decomposer.Decompose(*n);
   auto value = pair->value_expr();
   auto never_null = std::dynamic_pointer_cast<NullableNeverFuncDex>(value);
 
@@ -124,13 +129,14 @@ TEST_F(TestExprTree, TestExpression) {
   EXPECT_EQ(root_node->return_type(), int32());
 
   auto add_node = std::dynamic_pointer_cast<FunctionNode>(root_node);
-  auto func_desc = add_node->func_descriptor();
+  auto func_desc = add_node->descriptor();
   FunctionSignature sign(func_desc->name(),
                          func_desc->params(),
                          func_desc->return_type());
   EXPECT_TRUE(sign == FunctionSignature("add", {int32(), int32()}, int32()));
 
-  auto pair = e->Decompose(registry_, annotator);
+  ExprDecomposer decomposer(registry_, annotator);
+  auto pair = decomposer.Decompose(*root_node);
   auto value = pair->value_expr();
   auto null_if_null = std::dynamic_pointer_cast<NonNullableFuncDex>(value);
 

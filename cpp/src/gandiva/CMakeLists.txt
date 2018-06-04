@@ -25,13 +25,13 @@ configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
 add_library(gandiva SHARED
   annotator.cc
   engine.cc
-  evaluator.cc
+  expr_decomposer.cc
   function_registry.cc
   llvm_generator.cc
   llvm_types.cc
-  node.cc
-  tree_expr_builder.cc
+  projector.cc
   status.cc
+  tree_expr_builder.cc
   ${BC_FILE_PATH_CC})
 
 # For users of gandiva library (including integ tests), include-dir is :
@@ -90,7 +90,7 @@ add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc status.cc ${BC
 add_gandiva_unit_test(function_signature_test.cc)
 add_gandiva_unit_test(function_registry_test.cc function_registry.cc)
 add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc function_registry.cc annotator.cc status.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc status.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(annotator_test.cc annotator.cc)
-add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc node.cc annotator.cc function_registry.cc)
+add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc)
 add_gandiva_unit_test(status_test.cc status.cc)
