@@ -61,7 +61,7 @@ static mutex d2h_stream_mu;
 std::shared_ptr<arrow::DataType> tf_dtype_to_arrow(DataType dtype) {
   switch (dtype) {
     case DT_BOOL:
-        return arrow::boolean();
+      return arrow::boolean();
     case DT_FLOAT:
       return arrow::float32();
     case DT_DOUBLE:
@@ -97,7 +97,8 @@ std::shared_ptr<arrow::DataType> tf_dtype_to_arrow(DataType dtype) {
     case DT_STRING:
     case DT_VARIANT:
     default:
-      ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError, "Tensorflow data type is not supported"));
+      ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError,
+                                   "Tensorflow data type is not supported"));
   }
 }
 
@@ -158,7 +159,8 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     DataType tf_dtype = context->input(0).dtype();
     for (int i = 1; i < num_inputs; i++) {
       if (tf_dtype != context->input(i).dtype()) {
-        ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError, "All input tensors must have the same data type"));
+        ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError,
+                                     "All input tensors must have the same data type"));
       }
     }
 
