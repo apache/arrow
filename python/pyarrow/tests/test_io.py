@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from functools import partial
 from io import BytesIO, TextIOWrapper
 import gc
 import os
@@ -387,25 +386,9 @@ def test_buffer_memoryview_is_immutable():
 
 def test_uninitialized_buffer():
     # ARROW-2039: calling Buffer() directly creates an uninitialized object
-    check_uninitialized = partial(pytest.raises,
-                                  ReferenceError, match="uninitialized")
-    buf = pa.Buffer()
-    with check_uninitialized():
-        buf.size
-    with check_uninitialized():
-        len(buf)
-    with check_uninitialized():
-        buf.is_mutable
-    with check_uninitialized():
-        buf.parent
-    with check_uninitialized():
-        buf.to_pybytes()
-    with check_uninitialized():
-        memoryview(buf)
-    with check_uninitialized():
-        buf.equals(pa.py_buffer(b''))
-    with check_uninitialized():
-        pa.py_buffer(b'').equals(buf)
+    # ARROW-2638: prevent calling extension class constructors directly
+    with pytest.raises(TypeError):
+        pa.Buffer()
 
 
 def test_memory_output_stream():

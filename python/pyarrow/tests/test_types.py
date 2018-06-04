@@ -174,9 +174,17 @@ def test_is_primitive():
     assert not types.is_primitive(pa.list_(pa.int32()))
 
 
-def test_timestamp_type():
-    # See ARROW-1683
-    assert isinstance(pa.timestamp('ns'), pa.TimestampType)
+def test_struct_type():
+    fields = [pa.field('a', pa.int64()),
+              pa.field('a', pa.int32()),
+              pa.field('b', pa.int32())]
+    ty = pa.struct(fields)
+
+    assert len(ty) == ty.num_children == 3
+    assert list(ty) == fields
+
+    for a, b in zip(ty, fields):
+        a == b
 
 
 def test_union_type():
@@ -209,10 +217,10 @@ def test_types_hashable():
         assert in_dict[type_] == i
 
 
-def test_types_picklable():
-    for ty in MANY_TYPES:
-        data = pickle.dumps(ty)
-        assert pickle.loads(data) == ty
+@pytest.mark.parametrize('ty', MANY_TYPES, ids=str)
+def test_types_picklable(ty):
+    data = pickle.dumps(ty)
+    assert pickle.loads(data) == ty
 
 
 def test_dictionary_type():

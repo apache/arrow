@@ -23,6 +23,13 @@ import numpy as np
 import pyarrow as pa
 
 
+def test_schema_constructor_errors():
+    msg = ("Do not call Schema's constructor directly, use `pyarrow.schema` "
+           "instead")
+    with pytest.raises(TypeError, match=msg):
+        pa.Schema()
+
+
 def test_type_integers():
     dtypes = ['int8', 'int16', 'int32', 'int64',
               'uint8', 'uint16', 'uint32', 'uint64']
@@ -224,12 +231,6 @@ foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
-
-
-def test_field_empty():
-    f = pa.Field()
-    with pytest.raises(ReferenceError):
-        repr(f)
 
 
 def test_field_add_remove_metadata():

@@ -92,6 +92,11 @@ cdef class DataType:
     def __cinit__(self):
         pass
 
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly, use public "
+                        "functions like pyarrow.int64, pyarrow.list_, etc. "
+                        "instead.".format(self.__class__.__name__))
+
     cdef void init(self, const shared_ptr[CDataType]& type):
         self.sp_type = type
         self.type = type.get()
@@ -126,14 +131,7 @@ cdef class DataType:
         return hash(str(self))
 
     def __reduce__(self):
-        return self.__class__, (), self.__getstate__()
-
-    def __getstate__(self):
-        return str(self),
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = type_for_alias(state[0])
-        self.init(reconstituted.sp_type)
+        return type_for_alias, (str(self),)
 
     def __repr__(self):
         return '{0.__class__.__name__}({0})'.format(self)
@@ -206,14 +204,8 @@ cdef class ListType(DataType):
         DataType.init(self, type)
         self.list_type = <const CListType*> type.get()
 
-    def __getstate__(self):
-        cdef CField* field = self.list_type.value_field().get()
-        name = field.name()
-        return name, self.value_type
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = list_(field(state[0], state[1]))
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return list_, (self.value_type,)
 
     property value_type:
 
@@ -226,6 +218,13 @@ cdef class StructType(DataType):
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
 
+    def __len__(self):
+        return self.type.num_children()
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
     def __getitem__(self, i):
         cdef int index = <int> _normalize_index(i, self.num_children)
         return pyarrow_wrap_field(self.type.child(index))
@@ -235,13 +234,8 @@ cdef class StructType(DataType):
         def __get__(self):
             return self.type.num_children()
 
-    def __getstate__(self):
-        cdef CStructType* type = <CStructType*> self.sp_type.get()
-        return [self[i] for i in range(self.num_children)]
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = struct(state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return struct, (list(self),)
 
 
 cdef class UnionType(DataType):
@@ -265,17 +259,19 @@ cdef class UnionType(DataType):
                 return 'sparse'
             assert 0
 
+    def __len__(self):
+        return self.type.num_children()
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
     def __getitem__(self, i):
         cdef int index = <int> _normalize_index(i, self.num_children)
         return pyarrow_wrap_field(self.type.child(index))
 
-    def __getstate__(self):
-        children = [self[i] for i in range(self.num_children)]
-        return children, self.mode
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = union(*state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return union, (list(self), self.mode)
 
 
 cdef class TimestampType(DataType):
@@ -307,12 +303,8 @@ cdef class TimestampType(DataType):
             # Return DatetimeTZ
             return pdcompat.make_datetimetz(self.tz)
 
-    def __getstate__(self):
-        return self.unit, self.tz
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = timestamp(*state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return timestamp, (self.unit, self.tz)
 
 
 cdef class Time32Type(DataType):
@@ -346,12 +338,8 @@ cdef class FixedSizeBinaryType(DataType):
         self.fixed_size_binary_type = (
             <const CFixedSizeBinaryType*> type.get())
 
-    def __getstate__(self):
-        return self.byte_width
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = binary(state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return binary, (self.byte_width,)
 
     property byte_width:
 
@@ -365,12 +353,8 @@ cdef class Decimal128Type(FixedSizeBinaryType):
         FixedSizeBinaryType.init(self, type)
         self.decimal128_type = <const CDecimal128Type*> type.get()
 
-    def __getstate__(self):
-        return (self.precision, self.scale)
-
-    def __setstate__(self, state):
-        cdef DataType reconstituted = decimal128(*state)
-        self.init(reconstituted.sp_type)
+    def __reduce__(self):
+        return decimal128, (self.precision, self.scale)
 
     property precision:
 
@@ -394,6 +378,10 @@ cdef class Field:
     """
     def __cinit__(self):
         pass
+
+    def __init__(self):
+        raise TypeError("Do not call Field's constructor directly, use "
+                        "`pyarrow.field` instead.")
 
     cdef void init(self, const shared_ptr[CField]& field):
         self.sp_field = field
@@ -423,17 +411,9 @@ cdef class Field:
             return False
 
     def __reduce__(self):
-        return Field, (), self.__getstate__()
-
-    def __getstate__(self):
-        return (self.name, self.type, self.metadata)
-
-    def __setstate__(self, state):
-        cdef Field reconstituted = field(state[0], state[1], metadata=state[2])
-        self.init(reconstituted.sp_field)
+        return field, (self.name, self.type, self.nullable, self.metadata)
 
     def __str__(self):
-        self._check_null()
         return 'pyarrow.Field<{0}>'.format(frombytes(self.field.ToString()))
 
     def __repr__(self):
@@ -445,27 +425,19 @@ cdef class Field:
     property nullable:
 
         def __get__(self):
-            self._check_null()
             return self.field.nullable()
 
     property name:
 
         def __get__(self):
-            self._check_null()
             return frombytes(self.field.name())
 
     property metadata:
 
         def __get__(self):
-            self._check_null()
             cdef shared_ptr[const CKeyValueMetadata] metadata = (
                 self.field.metadata())
             return box_metadata(metadata.get())
-
-    def _check_null(self):
-        if self.field == NULL:
-            raise ReferenceError(
-                'Field not initialized (references NULL pointer)')
 
     def add_metadata(self, dict metadata):
         """
@@ -522,6 +494,10 @@ cdef class Schema:
     def __cinit__(self):
         pass
 
+    def __init__(self):
+        raise TypeError("Do not call Schema's constructor directly, use "
+                        "`pyarrow.schema` instead.")
+
     def __len__(self):
         return self.schema.num_fields()
 
@@ -533,11 +509,6 @@ cdef class Schema:
         for i in range(len(self)):
             yield self[i]
 
-    def _check_null(self):
-        if self.schema == NULL:
-            raise ReferenceError(
-                'Schema not initialized (references NULL pointer)')
-
     cdef void init(self, const vector[shared_ptr[CField]]& fields):
         self.schema = new CSchema(fields)
         self.sp_schema.reset(self.schema)
@@ -547,14 +518,7 @@ cdef class Schema:
         self.sp_schema = schema
 
     def __reduce__(self):
-        return Schema, (), self.__getstate__()
-
-    def __getstate__(self):
-        return ([self[i] for i in range(len(self))], self.metadata)
-
-    def __setstate__(self, state):
-        cdef Schema reconstituted = schema(state[0], metadata=state[1])
-        self.init_schema(reconstituted.sp_schema)
+        return schema, (list(self), self.metadata)
 
     property names:
 
@@ -569,7 +533,6 @@ cdef class Schema:
     property metadata:
 
         def __get__(self):
-            self._check_null()
             cdef shared_ptr[const CKeyValueMetadata] metadata = (
                 self.schema.metadata())
             return box_metadata(metadata.get())
@@ -595,7 +558,6 @@ cdef class Schema:
         is_equal : boolean
         """
         cdef Schema _other = other
-
         return self.sp_schema.get().Equals(deref(_other.schema),
                                            check_metadata)
 
@@ -622,7 +584,6 @@ cdef class Schema:
 
         Parameters
         ----------
-
         field: Field
 
         Returns
@@ -732,8 +693,6 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def __str__(self):
-        self._check_null()
-
         cdef:
             PrettyPrintOptions options
             c_string result
@@ -770,7 +729,7 @@ cdef DataType primitive_type(Type type):
     if type in _type_cache:
         return _type_cache[type]
 
-    cdef DataType out = DataType()
+    cdef DataType out = DataType.__new__(DataType)
     out.init(GetPrimitiveType(type))
 
     _type_cache[type] = out
@@ -812,7 +771,7 @@ def field(name, type, bint nullable=True, dict metadata=None):
     """
     cdef:
         shared_ptr[CKeyValueMetadata] c_meta
-        Field result = Field()
+        Field result = Field.__new__(Field)
         DataType _type
 
     if metadata is not None:
@@ -1029,7 +988,7 @@ def timestamp(unit, tz=None):
     else:
         raise ValueError('Invalid TimeUnit string')
 
-    cdef TimestampType out = TimestampType()
+    cdef TimestampType out = TimestampType.__new__(TimestampType)
 
     if tz is None:
         out.init(ctimestamp(unit_code))
@@ -1073,14 +1032,15 @@ def time32(unit):
     else:
         raise ValueError('Invalid TimeUnit for time32: {}'.format(unit))
 
-    cdef Time32Type out
     if unit_code in _time_type_cache:
         return _time_type_cache[unit_code]
-    else:
-        out = Time32Type()
-        out.init(ctime32(unit_code))
-        _time_type_cache[unit_code] = out
-        return out
+
+    cdef Time32Type out = Time32Type.__new__(Time32Type)
+
+    out.init(ctime32(unit_code))
+    _time_type_cache[unit_code] = out
+
+    return out
 
 
 def time64(unit):
@@ -1110,14 +1070,15 @@ def time64(unit):
     else:
         raise ValueError('Invalid TimeUnit for time64: {}'.format(unit))
 
-    cdef Time64Type out
     if unit_code in _time_type_cache:
         return _time_type_cache[unit_code]
-    else:
-        out = Time64Type()
-        out.init(ctime64(unit_code))
-        _time_type_cache[unit_code] = out
-        return out
+
+    cdef Time64Type out = Time64Type.__new__(Time64Type)
+
+    out.init(ctime64(unit_code))
+    _time_type_cache[unit_code] = out
+
+    return out
 
 
 def date32():
@@ -1215,7 +1176,7 @@ cpdef ListType list_(value_type):
         DataType data_type
         Field field
         shared_ptr[CDataType] list_type
-        ListType out = ListType()
+        ListType out = ListType.__new__(ListType)
 
     if isinstance(value_type, DataType):
         list_type.reset(new CListType((<DataType> value_type).sp_type))
@@ -1242,7 +1203,7 @@ cpdef DictionaryType dictionary(DataType index_type, Array dict_values,
     -------
     type : DictionaryType
     """
-    cdef DictionaryType out = DictionaryType()
+    cdef DictionaryType out = DictionaryType.__new__(DictionaryType)
     cdef shared_ptr[CDataType] dict_type
     dict_type.reset(new CDictionaryType(index_type.sp_type,
                                         dict_values.sp_array,
@@ -1426,7 +1387,7 @@ def schema(fields, dict metadata=None):
         convert_metadata(metadata, &c_meta)
 
     c_schema.reset(new CSchema(c_fields, c_meta))
-    result = Schema()
+    result = Schema.__new__(Schema)
     result.init_schema(c_schema)
     return result
 
