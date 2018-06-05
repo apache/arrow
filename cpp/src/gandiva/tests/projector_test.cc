@@ -74,8 +74,8 @@ TEST_F(TestProjector, TestIntSumSub) {
   /*
    * Validate results
    */
-  EXPECT_TRUE(exp_sum->Equals(outputs.at(0)));
-  EXPECT_TRUE(exp_sub->Equals(outputs.at(1)));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_sub, outputs.at(1));
 }
 
 TEST_F(TestProjector, TestFloatLessThan) {
@@ -119,7 +119,7 @@ TEST_F(TestProjector, TestFloatLessThan) {
   /*
    * Validate results
    */
-  EXPECT_TRUE(exp->Equals(outputs.at(0)));
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestIsNotNull) {
@@ -159,7 +159,7 @@ TEST_F(TestProjector, TestIsNotNull) {
   /*
    * Validate results
    */
-  EXPECT_TRUE(exp->Equals(outputs.at(0)));
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestNullInternal) {
@@ -194,7 +194,7 @@ TEST_F(TestProjector, TestNullInternal) {
   auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
-  EXPECT_TRUE(exp->Equals(outputs.at(0)));
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestNestedFunctions) {
@@ -240,8 +240,8 @@ TEST_F(TestProjector, TestNestedFunctions) {
   auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
-  EXPECT_TRUE(exp1->Equals(outputs.at(0)));
-  EXPECT_TRUE(exp2->Equals(outputs.at(1)));
+  EXPECT_ARROW_ARRAY_EQUALS(exp1, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp2, outputs.at(1));
 }
 
 } // namespace gandiva

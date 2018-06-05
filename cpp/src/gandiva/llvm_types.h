@@ -74,6 +74,10 @@ class LLVMTypes {
     return llvm::ConstantInt::get(context_, llvm::APInt(1, 0));
   }
 
+  llvm::Constant *i1_constant(bool val) {
+    return llvm::ConstantInt::get(context_, llvm::APInt(1, val));
+  }
+
   llvm::Constant *i32_constant(int32_t val) {
     return llvm::ConstantInt::get(context_, llvm::APInt(32, val));
   }

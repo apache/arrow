@@ -44,7 +44,7 @@ void ExprDecomposer::Visit(const FunctionNode &node) {
                               desc->params(),
                               desc->return_type());
   const NativeFunction *native_function = registry_.LookupSignature(signature);
-  DCHECK(native_function);
+  DCHECK(native_function) << "Missing Signature " << signature.ToString();
 
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
@@ -108,6 +108,11 @@ void ExprDecomposer::Visit(const IfNode &node) {
                                            local_bitmap_idx);
 
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
+}
+
+void ExprDecomposer::Visit(const LiteralNode &node) {
+  auto value_dex = std::make_shared<LiteralDex>(node.return_type(), node.holder());
+  result_ = std::make_shared<ValueValidityPair>(value_dex);
 }
 
 } // namespace gandiva

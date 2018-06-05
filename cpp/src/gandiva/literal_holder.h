@@ -13,27 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef GANDIVA_NODE_VISITOR_H
-#define GANDIVA_NODE_VISITOR_H
+#ifndef GANDIVA_LITERAL_HOLDER
+#define GANDIVA_LITERAL_HOLDER
 
-#include "gandiva/logging.h"
+#include <string>
+#include <boost/variant.hpp>
 
 namespace gandiva {
 
-class FieldNode;
-class FunctionNode;
-class IfNode;
-class LiteralNode;
-
-/// \brief Visitor for nodes in the expression tree.
-class NodeVisitor {
- public:
-  virtual void Visit(const FieldNode &node) = 0;
-  virtual void Visit(const FunctionNode &node) = 0;
-  virtual void Visit(const IfNode &node) = 0;
-  virtual void Visit(const LiteralNode &node) = 0;
-};
+using LiteralHolder = boost::variant<bool, int32_t, int64_t, float, double>;
 
 } // namespace gandiva
 
-#endif //GANDIVA_NODE_VISITOR_H
+#endif //GANDIVA_LITERAL_HOLDER

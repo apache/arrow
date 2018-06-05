@@ -78,7 +78,7 @@ TEST_F(TestIfExpr, TestSimple) {
   auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
-  EXPECT_TRUE(exp->Equals(outputs.at(0)));
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 TEST_F(TestIfExpr, TestSimpleArithmetic) {
@@ -126,7 +126,7 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
   auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
-  EXPECT_TRUE(exp->Equals(outputs.at(0)));
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 TEST_F(TestIfExpr, TestNestedIf) {
@@ -181,7 +181,60 @@ TEST_F(TestIfExpr, TestNestedIf) {
   auto outputs = projector->Evaluate(*in_batch);
 
   // Validate results
-  EXPECT_TRUE(exp->Equals(outputs.at(0)));
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestIfExpr, TestBigNestedIf) {
+  // schema for input fields
+  auto fielda = field("a", int32());
+  auto schema = arrow::schema({fielda});
+
+  // output fields
+  auto field_result = field("res", int32());
+
+  // build expression.
+  // if (a < 10)
+  //   10
+  // else if (a < 20)
+  //   20
+  // ..
+  // ..
+  // else if (a < 190)
+  //   190
+  // else
+  //   200
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+  auto top_node = TreeExprBuilder::MakeLiteral(200);
+  for (int thresh = 190; thresh > 0; thresh -= 10) {
+    auto literal = TreeExprBuilder::MakeLiteral(thresh);
+    auto condition = TreeExprBuilder::MakeFunction("less_than",
+                                                   {node_a, literal},
+                                                   boolean());
+    auto if_node = TreeExprBuilder::MakeIf(condition, literal, top_node, int32());
+    top_node = if_node;
+  }
+  auto expr = TreeExprBuilder::MakeExpression(top_node, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt32({10, 102, 158, 302}, { true, true, true, true });
+
+  // expected output
+  auto exp = MakeArrowArrayInt32({20, 110, 160, 200}, { true, true, true, true });
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  auto outputs = projector->Evaluate(*in_batch);
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 } // namespace gandiva

@@ -45,6 +45,7 @@ class ExprDecomposer : public NodeVisitor {
   void Visit(const FieldNode &node) override;
   void Visit(const FunctionNode &node) override;
   void Visit(const IfNode &node) override;
+  void Visit(const LiteralNode &node) override;
 
   ValueValidityPairPtr result() { return std::move(result_); }
 

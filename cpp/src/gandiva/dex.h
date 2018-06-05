@@ -22,6 +22,7 @@
 #include "codegen/dex_visitor.h"
 #include "codegen/field_descriptor.h"
 #include "codegen/func_descriptor.h"
+#include "codegen/literal_holder.h"
 #include "codegen/native_function.h"
 #include "codegen/value_validity_pair.h"
 
@@ -185,11 +186,16 @@ class NullableInternalFuncDex : public FuncDex {
 // decomposed expression for a literal.
 class LiteralDex : public Dex {
  public:
-  explicit LiteralDex(DataTypePtr type)
-    : type_(type) {}
+  LiteralDex(DataTypePtr type, const LiteralHolder &holder)
+    : type_(type),
+      holder_(holder) {}
 
-  DataTypePtr type() const {
+  const DataTypePtr &type() const {
     return type_;
+  }
+
+  const LiteralHolder &holder() const {
+    return holder_;
   }
 
   void Accept(DexVisitor &visitor) override {
@@ -198,6 +204,7 @@ class LiteralDex : public Dex {
 
  private:
   DataTypePtr type_;
+  LiteralHolder holder_;
 };
 
 // decomposed if-else expression.

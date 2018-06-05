@@ -513,7 +513,35 @@ void LLVMGenerator::Visitor::Visit(const LocalBitMapValidityDex &dex) {
 }
 
 void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {
-  // TODO
+  LLVMTypes *types = generator_->types_;
+  llvm::Value *value;
+
+  switch (dex.type()->id()) {
+  case arrow::Type::BOOL:
+    value = types->i1_constant(boost::get<bool>(dex.holder()));
+    break;
+
+  case arrow::Type::INT32:
+    value = types->i32_constant(boost::get<int32_t>(dex.holder()));
+    break;
+
+  case arrow::Type::INT64:
+    value = types->i64_constant(boost::get<int64_t>(dex.holder()));
+    break;
+
+  case arrow::Type::FLOAT:
+    value = types->float_constant(boost::get<float>(dex.holder()));
+    break;
+
+  case arrow::Type::DOUBLE:
+    value = types->double_constant(boost::get<double>(dex.holder()));
+    break;
+
+  default:
+    DCHECK(0);
+  }
+  ADD_VISITOR_TRACE("visit Literal %T", value);
+  result_.reset(new LValue(value));
 }
 
 void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex &dex) {

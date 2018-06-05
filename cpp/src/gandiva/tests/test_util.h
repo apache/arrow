@@ -38,9 +38,16 @@ static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values,
   arrow::ArrayFromVector<TYPE, C_TYPE>(validity, values, &out);
   return out;
 }
-#define MakeArrowArrayInt32 MakeArrowArray<arrow::Int32Type, int32_t>
-#define MakeArrowArrayFloat32 MakeArrowArray<arrow::FloatType, float_t>
 #define MakeArrowArrayBool MakeArrowArray<arrow::BooleanType, bool>
+#define MakeArrowArrayInt32 MakeArrowArray<arrow::Int32Type, int32_t>
+#define MakeArrowArrayInt64 MakeArrowArray<arrow::Int64Type, int64_t>
+#define MakeArrowArrayFloat32 MakeArrowArray<arrow::FloatType, float>
+#define MakeArrowArrayFloat64 MakeArrowArray<arrow::DoubleType, double>
+
+#define EXPECT_ARROW_ARRAY_EQUALS(a, b)         \
+  EXPECT_TRUE((a)->Equals(b))                   \
+      << "expected array: " << (a)->ToString()  \
+      << " actual array: " << (b)->ToString();
 
 } // namespace gandiva
 

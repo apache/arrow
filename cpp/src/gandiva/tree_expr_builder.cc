@@ -21,6 +21,17 @@
 
 namespace gandiva {
 
+#define MAKE_LITERAL(atype, ctype)                                       \
+  NodePtr TreeExprBuilder::MakeLiteral(ctype value) {                    \
+    return std::make_shared<LiteralNode>(atype, LiteralHolder(value));   \
+  }
+
+MAKE_LITERAL(arrow::boolean(), bool)
+MAKE_LITERAL(arrow::int32(), int32_t)
+MAKE_LITERAL(arrow::int64(), int64_t)
+MAKE_LITERAL(arrow::float32(), float)
+MAKE_LITERAL(arrow::float64(), double)
+
 NodePtr TreeExprBuilder::MakeField(FieldPtr field) {
   return NodePtr(new FieldNode(field));
 }
@@ -30,7 +41,6 @@ NodePtr TreeExprBuilder::MakeFunction(const std::string &name,
                                       DataTypePtr result) {
   return FunctionNode::MakeFunction(name, params, result);
 }
-
 
 NodePtr TreeExprBuilder::MakeIf(NodePtr condition,
                                 NodePtr then_node,

@@ -25,6 +25,13 @@ namespace gandiva {
 /// \brief Tree Builder for a nested expression.
 class TreeExprBuilder {
  public:
+  /// \brief create a node on a literal.
+  static NodePtr MakeLiteral(bool value);
+  static NodePtr MakeLiteral(int32_t value);
+  static NodePtr MakeLiteral(int64_t value);
+  static NodePtr MakeLiteral(float value);
+  static NodePtr MakeLiteral(double value);
+
   /// \brief create a node on arrow field.
   static NodePtr MakeField(FieldPtr field);
 
