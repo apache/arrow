@@ -181,21 +181,36 @@ class Queue(object):
         self.repo = pygit2.Repository(str(self.path))
         self.updated_branches = []
 
-    def _get_parent_commit(self):
-        """Currently this always returns the HEAD of master"""
-        master = self.repo.branches['master']
-        return self.repo[master.target]
+    @property
+    def origin(self):
+        return self.repo.remotes['origin']
+
+    def fetch(self):
+        self.origin.fetch()
 
     def _get_or_create_branch(self, name):
+        branches = self.repo.branches
+
+        upstream_name = '{}/{}'.format(self.origin.name, name)
+        upstream_branch = branches.remote.get(upstream_name)
+
         try:
-            return self.repo.branches[name]
+            branch = branches[name]
         except KeyError:
-            parent = self._get_parent_commit()
-            return self.repo.branches.create(name, parent)
+            if upstream_branch:
+                commit = self.repo[upstream_branch.target]
+                branch = branches.create(name, commit)
+            else:
+                master = branches['master']
+                commit = self.repo[master.target]
+                branch = branches.create(name, commit)
+
+        if upstream_branch:
+            branch.upstream = upstream_branch
+
+        return branch
 
     def _create_tree(self, files):
-        parent = self._get_parent_commit()
-
         # creating the tree we are going to push based on master's tree
         builder = self.repo.TreeBuilder()
 
@@ -224,22 +239,19 @@ class Queue(object):
         committer = pygit2.Signature(name, email, int(timestamp))
         message = build.description
 
-        reference = 'refs/heads/{}'.format(branch.branch_name)
-        commit_id = self.repo.create_commit(reference, author, committer,
-                                            message, tree_id, [branch.target])
-        logging.info('{} created on {}'.format(
-            commit_id, branch.branch_name))
+        commit_id = self.repo.create_commit(branch.name, author, committer, message,
+                                            tree_id, [branch.target])
+        logging.info('{} created on {}'.format(commit_id, branch.branch_name))
 
         self.updated_branches.append(branch)
 
     def push(self, token):
         callbacks = GitRemoteCallbacks(token)
 
-        remote = self.repo.remotes['origin']
         refs = [branch.name for branch in self.updated_branches]
         shorthands = [b.shorthand for b in self.updated_branches]
 
-        remote.push(refs, callbacks=callbacks)
+        self.origin.push(refs, callbacks=callbacks)
         self.updated_branches = []
 
         logging.info('\n - '.join(['\nUpdated branches:'] + shorthands))
@@ -281,6 +293,8 @@ def build(task_regex, config, dry_run, arrow_repo, queue_repo, github_token):
 
     arrow = Target(arrow_repo, template_directory='cd')
     queue = Queue(queue_repo)
+
+    queue.fetch()
 
     variables = {
         # these should be renamed
