@@ -140,14 +140,15 @@ class Target(object):
 
     @property
     def description(self):
-        return '[BUILD] {} of {}@{}'.format(self.version,
+        return 'Version {} of {}@{}'.format(self.version,
                                             self.current_remote.url,
                                             self.current_branch.branch_name)
 
 
-class Build(object):
+class Task(object):
 
-    def __init__(self, target, name, platform, template, **params):
+    def __init__(self, target, name, platform, template, branch=None,
+                 **params):
         assert isinstance(target, Target)
         assert isinstance(platform, Platform)
 
@@ -155,6 +156,7 @@ class Build(object):
         self.target = target
         self.platform = platform
         self.template = template
+        self.branch = branch or name
         self.params = params
 
     def render(self):
@@ -164,10 +166,6 @@ class Build(object):
 
     def config_files(self):
         return {self.platform.filename: self.render()}
-
-    @property
-    def branch(self):
-        return self.name
 
     @property
     def description(self):
@@ -223,7 +221,7 @@ class Queue(object):
         return tree_id
 
     def put(self, build):
-        assert isinstance(build, Build)
+        assert isinstance(build, Task)
 
         branch = self._get_or_create_branch(build.branch)
         tree_id = self._create_tree(build.config_files())
@@ -262,7 +260,7 @@ MESSAGE_EMAIL = 'szucs.krisztian@gmail.com'
 
 
 @click.command()
-@click.argument('task-regex', required=False)
+@click.argument('task-names', nargs=-1, required=True)
 @click.option('--config', help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
@@ -275,7 +273,7 @@ MESSAGE_EMAIL = 'szucs.krisztian@gmail.com'
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--github-token', default=False,
               help='Oauth token for Github authentication')
-def build(task_regex, config, dry_run, arrow_repo, queue_repo, github_token):
+def submit(task_names, config, dry_run, arrow_repo, queue_repo, github_token):
     if config is None:
         config = Path(__file__).absolute().parent / 'tasks.yml'
     else:
@@ -311,22 +309,24 @@ def build(task_regex, config, dry_run, arrow_repo, queue_repo, github_token):
     with config.open() as fp:
         tasks = yaml.load(fp)['tasks']
 
+    # filter task definitions according to task_names
+    tasks = [task for task in tasks if task['name'] in task_names]
+
     for task in tasks:
         name = task['name']
         template = config.parent / task['template']
         platform = Platform[task['platform'].upper()]
-        params = task.get('params') or {}
+        branch = task.get('branch')
+        params = task.get('params', {})
         params.update(variables)
 
-        build = Build(arrow, name=name, platform=platform, template=template,
-                      **params)
+        build = Task(arrow, name=name, platform=platform, template=template,
+                     branch=branch, **params)
 
-        # Regex pattern the task name is matched against
-        if task_regex is None or re.search(task_regex, build.name):
-            if dry_run:
-                logging.info('{}\n\n{}'.format(build.name, build.render()))
-            else:
-                queue.put(build)  # create the commit
+        if dry_run:
+            logging.info('{}\n\n{}'.format(build.name, build.render()))
+        else:
+            queue.put(build)  # create the commit
 
     if not dry_run:
         # push the changed branches
@@ -334,4 +334,4 @@ def build(task_regex, config, dry_run, arrow_repo, queue_repo, github_token):
 
 
 if __name__ == '__main__':
-    build(auto_envvar_prefix='CROSSBOW')
+    submit(auto_envvar_prefix='CROSSBOW')

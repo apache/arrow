@@ -135,74 +135,47 @@ The script does the following:
 
 The script accepts a pattern as a first argument to narrow the build scope:
 
-Run all builds:
+Run multiple builds:
 
 ```bash
-$ python crossbow.py
+$ python crossbow.py linux-packages conda-linux wheel-win
 Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
- - travis-osx-wheel
- - travis-linux-packages
- - travis-linux-wheel
- - appveyor-win-wheel
- - appveyor-win-conda
- - travis-linux-conda
- - travis-osx-conda
+ - linux-packages
+ - conda-linux
+ - wheel-win
 ```
 
 Just render without applying or committing the changes:
 
 ```bash
-$ python crossbow.py --dry-run
+$ python crossbow.py --dry-run task_name
 ```
 
 Run only `conda` package builds but on all platforms:
 
 ```bash
-$ python crossbow.py conda
+$ python crossbow.py conda-win conda-osx conda-linux
 Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
- - appveyor-win-conda
- - travis-linux-conda
- - travis-osx-conda
+ - conda-win
+ - conda-osx
+ - conda-linux
 ```
 
 Run `wheel` builds:
 
 ```bash
-$ python crossbow.py wheel
+$ python crossbow.py wheel-osx wheel-linux wheel-win
 Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
- - travis-osx-wheel
- - travis-linux-wheel
- - appveyor-win-wheel
-```
-
-Run `osx` builds:
-
-```bash
-$ python crossbow.py osx
-Repository: https://github.com/kszucs/arrow@tasks
-Commit SHA: cad1df2c7f650ad3434319bbbefed0d4abe45e4a
-Version: 0.9.1.dev130+gcad1df2c.d20180414
-Pushed branches:
- - travis-osx-wheel
- - travis-osx-conda
-```
-
-Run only `linux-conda` package build:
-
-```bash
-$ python crossbow.py linux-conda
-Repository: https://github.com/kszucs/arrow@tasks
-Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
-Version: 0.9.1.dev48+g810a7188.d20180414
-Pushed branches:
- - travis-linux-conda
+ - wheel-osx
+ - wheel-linux
+ - wheel-win
 ```

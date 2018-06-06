@@ -16,36 +16,43 @@
 # under the License.
 
 tasks:
+  # supported keys
+  # - name:
+  #   branch:
+  #   platform:
+  #   template:
+  #   params:
+  #     -
+
+  # configures master to submit packaging builds
+  - name: trigger-builds
+    branch: master
+    platform: linux
+    template: trigger-builds/travis.linux.yml
+
   # conda packages
   - name: conda-linux
     platform: linux
     template: conda-recipes/travis.linux.yml
-    params:
   - name: conda-osx
     platform: osx
     template: conda-recipes/travis.osx.yml
-    params:
   - name: conda-win
     platform: win
     template: conda-recipes/appveyor.yml
-    params:
 
   # python wheels
-  - name: python-wheel-linux
+  - name: wheel-linux
     platform: linux
     template: python-wheels/travis.linux.yml
-    params:
-  - name: python-wheel-osx
+  - name: wheel-osx
     platform: osx
     template: python-wheels/travis.osx.yml
-    params:
-  - name: python-wheel-win
+  - name: wheel-win
     platform: win
     template: python-wheels/appveyor.yml
-    params:
 
   # linux packages
   - name: linux-packages
     platform: linux
     template: linux-packages/travis.linux.yml
-    params:
