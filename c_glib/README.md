@@ -229,7 +229,7 @@ In this case, you need to run `brew link autoconf-archive`. It may fail with the
 
 ```console
 % brew link autoconf-archive
-Linking /usr/local/Cellar/autoconf-archive/2017.03.21... 
+Linking /usr/local/Cellar/autoconf-archive/2017.03.21...
 Error: Could not symlink share/aclocal/ax_check_enable_debug.m4
 Target /usr/local/share/aclocal/ax_check_enable_debug.m4
 is a symlink belonging to gnome-common. You can unlink it:
@@ -251,3 +251,28 @@ gobject-introspection requires libffi, and it's automatically installed with gob
 ### build failed - /usr/bin/ld: cannot find -larrow
 
 Arrow C++ must be installed to build Arrow GLib. Run `make install` on Arrow C++ build directory. In addtion, on linux, you may need to run `sudo ldconfig`.
+
+### build failed - unable to load http://docbook.sourceforge.net/release/xsl/current/html/chunk.xsl
+
+On macOS you may need to set the following environment variable:
+
+```console
+% export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
+```
+
+### build failed - Symbol not found, referenced from `libsource-highlight.4.dylib`
+
+On macOS if you see the following error you may need to upgrade `source-highlight`
+
+```console
+dyld: Symbol not found: __ZN5boost16re_detail_10650112perl_matcherIPKcNSt3__19allocatorINS_9sub_matchIS3_EEEENS_12regex_traitsIcNS_16cpp_regex_traitsIcEEEEE14construct_initERKNS_11basic_regexIcSC_EENS_15regex_constants12_match_flagsE
+  Referenced from: /usr/local/Cellar/source-highlight/3.1.8_7/lib/libsource-highlight.4.dylib
+  Expected in: flat namespace
+ in /usr/local/Cellar/source-highlight/3.1.8_7/lib/libsource-highlight.4.dylib
+```
+
+To fix do:
+
+```console
+% brew upgrade source-highlight
+```
