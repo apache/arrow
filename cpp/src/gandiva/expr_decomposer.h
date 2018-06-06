@@ -16,7 +16,10 @@
 #ifndef GANDIVA_EXPR_DECOMPOSER_H
 #define GANDIVA_EXPR_DECOMPOSER_H
 
+#include <stack>
+#include <memory>
 #include <utility>
+#include <gtest/gtest_prod.h>
 
 #include "gandiva/expression.h"
 #include "codegen/node_visitor.h"
@@ -42,15 +45,53 @@ class ExprDecomposer : public NodeVisitor {
   }
 
  private:
+  FRIEND_TEST(TestExprDecomposer, TestStackSimple);
+  FRIEND_TEST(TestExprDecomposer, TestNested);
+  FRIEND_TEST(TestExprDecomposer, TestInternalIf);
+  FRIEND_TEST(TestExprDecomposer, TestParallelIf);
+
   void Visit(const FieldNode &node) override;
   void Visit(const FunctionNode &node) override;
   void Visit(const IfNode &node) override;
   void Visit(const LiteralNode &node) override;
 
+  // stack of if nodes.
+  class IfStackEntry {
+   public:
+    IfStackEntry(const IfNode &if_node,
+                 bool is_then,
+                 bool is_terminal_else,
+                 int local_bitmap_idx)
+      : if_node_(if_node),
+        is_then_(is_then),
+        is_terminal_else_(is_terminal_else),
+        local_bitmap_idx_(local_bitmap_idx) {}
+
+    const IfNode &if_node_;
+    bool is_then_;
+    bool is_terminal_else_;
+    int local_bitmap_idx_;
+  };
+
+  // push 'then entry' to stack. returns either a new local bitmap or the parent's
+  // bitmap (in case of nested if-else).
+  int PushThenEntry(const IfNode &node);
+
+  // pop 'then entry' from stack.
+  void PopThenEntry(const IfNode &node);
+
+  // push 'else entry' into stack.
+  void PushElseEntry(const IfNode &node, int local_bmap_idx);
+
+  // pop 'else entry' from stack. returns 'true' if this is a terminal else condition
+  // i.e no nested if condition below this node.
+  bool PopElseEntry(const IfNode &node);
+
   ValueValidityPairPtr result() { return std::move(result_); }
 
   const FunctionRegistry &registry_;
   Annotator &annotator_;
+  std::stack<std::unique_ptr<IfStackEntry>> if_entries_stack_;
   ValueValidityPairPtr result_;
 };
 

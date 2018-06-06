@@ -115,7 +115,7 @@ TEST_F(TestDex, TestVisitor) {
   nullable_internal_func.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(NullableInternalFuncDex)]);
 
-  IfDex if_dex(nullptr, nullptr, nullptr, arrow::int32(), 0);
+  IfDex if_dex(nullptr, nullptr, nullptr, arrow::int32(), 0, false);
   if_dex.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(IfDex)]);
 }

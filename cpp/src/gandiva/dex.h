@@ -214,12 +214,14 @@ class IfDex : public Dex {
         ValueValidityPairPtr then_vv,
         ValueValidityPairPtr else_vv,
         DataTypePtr result_type,
-        int local_bitmap_idx)
+        int local_bitmap_idx,
+        bool is_terminal_else)
     : condition_vv_(condition_vv),
       then_vv_(then_vv),
       else_vv_(else_vv),
       result_type_(result_type),
-      local_bitmap_idx_(local_bitmap_idx) {}
+      local_bitmap_idx_(local_bitmap_idx),
+      is_terminal_else_(is_terminal_else) {}
 
   void Accept(DexVisitor &visitor) override {
     visitor.Visit(*this);
@@ -232,6 +234,9 @@ class IfDex : public Dex {
   // The validity of the result is saved in this bitmap.
   int local_bitmap_idx() const { return local_bitmap_idx_; }
 
+  // is this a terminal else ? i.e no nested if-else underneath.
+  bool is_terminal_else() const { return is_terminal_else_; }
+
   const DataTypePtr &result_type() const { return result_type_; }
 
  private:
@@ -240,6 +245,7 @@ class IfDex : public Dex {
   ValueValidityPairPtr else_vv_;
   DataTypePtr result_type_;
   int local_bitmap_idx_;
+  bool is_terminal_else_;
 };
 
 } // namespace gandiva

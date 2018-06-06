@@ -129,7 +129,7 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestIfExpr, TestNestedIf) {
+TEST_F(TestIfExpr, TestNested) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -184,7 +184,76 @@ TEST_F(TestIfExpr, TestNestedIf) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestIfExpr, TestBigNestedIf) {
+TEST_F(TestIfExpr, TestNestedInIf) {
+  // schema for input fields
+  auto fielda = field("a", int32());
+  auto fieldb = field("b", int32());
+  auto fieldc = field("c", int32());
+  auto schema = arrow::schema({fielda, fieldb, fieldc});
+
+  // output fields
+  auto field_result = field("res", int32());
+
+  // build expression.
+  // if (a > 10)
+  //   if (a < 20)
+  //     a + b
+  //   else
+  //     b + c
+  // else
+  //   a + c
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+  auto node_b = TreeExprBuilder::MakeField(fieldb);
+  auto node_c = TreeExprBuilder::MakeField(fieldc);
+
+  auto literal_10 = TreeExprBuilder::MakeLiteral(10);
+  auto literal_20 = TreeExprBuilder::MakeLiteral(20);
+
+  auto gt_10 = TreeExprBuilder::MakeFunction("greater_than",
+                                             {node_a, literal_10},
+                                             boolean());
+  auto lt_20 = TreeExprBuilder::MakeFunction("less_than",
+                                             {node_a, literal_20},
+                                             boolean());
+  auto sum_ab = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, int32());
+  auto sum_bc = TreeExprBuilder::MakeFunction("add", {node_b, node_c}, int32());
+  auto sum_ac = TreeExprBuilder::MakeFunction("add", {node_a, node_c}, int32());
+
+  auto if_lt_20 = TreeExprBuilder::MakeIf(lt_20, sum_ab, sum_bc, int32());
+  auto if_gt_10 = TreeExprBuilder::MakeIf(gt_10, if_lt_20, sum_ac, int32());
+
+  auto expr = TreeExprBuilder::MakeExpression(if_gt_10, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 6;
+  auto array_a = MakeArrowArrayInt32({21, 15, 5, 22, 15, 5},
+                                     {true, true, true, true, true, true});
+  auto array_b = MakeArrowArrayInt32({20, 18, 19, 20, 18, 19},
+                                     {true, true, true, false, false, false});
+  auto array_c = MakeArrowArrayInt32({35, 45, 55, 35, 45, 55},
+                                     {true, true, true, false, false, false});
+
+  // expected output
+  auto exp = MakeArrowArrayInt32({55, 33, 60, 0, 0, 0},
+                                 {true, true, true, false, false, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array_a, array_b, array_c});
+
+  // Evaluate expression
+  auto outputs = projector->Evaluate(*in_batch);
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestIfExpr, TestBigNested) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto schema = arrow::schema({fielda});

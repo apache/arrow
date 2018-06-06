@@ -514,7 +514,7 @@ void LLVMGenerator::Visitor::Visit(const LocalBitMapValidityDex &dex) {
 
 void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {
   LLVMTypes *types = generator_->types_;
-  llvm::Value *value;
+  llvm::Value *value = nullptr;
 
   switch (dex.type()->id()) {
   case arrow::Type::BOOL:
@@ -604,7 +604,7 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex &dex) {
   // set validity bit in the local bitmap.
   ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), result_valid);
 
-  result_.reset(new LValue(value, result_valid));
+  result_.reset(new LValue(value));
 }
 
 void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
@@ -633,6 +633,8 @@ void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
   ADD_VISITOR_TRACE("branch to then block");
   LValuePtr then_lvalue = BuildValueAndValidity(dex.then_vv());
   ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), then_lvalue->validity());
+  ADD_VISITOR_TRACE("IfExpression result validity %T in matching then",
+                    then_lvalue->validity());
   builder.CreateBr(merge_bb);
 
   // refresh then_bb for phi (could have changed due to code generation of then_vv).
@@ -640,10 +642,23 @@ void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
 
   // Emit the else block.
   builder.SetInsertPoint(else_bb);
-  ADD_VISITOR_TRACE("branch to else block");
-  LValuePtr else_lvalue = BuildValueAndValidity(dex.else_vv());
-  // update the local bitmap with the validity.
-  ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), else_lvalue->validity());
+  LValuePtr else_lvalue;
+  if (dex.is_terminal_else()) {
+    ADD_VISITOR_TRACE("branch to terminal else block");
+
+    else_lvalue = BuildValueAndValidity(dex.else_vv());
+    // update the local bitmap with the validity.
+    ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), else_lvalue->validity());
+    ADD_VISITOR_TRACE("IfExpression result validity %T in terminal else",
+                      else_lvalue->validity());
+  } else {
+    ADD_VISITOR_TRACE("branch to non-terminal else block");
+
+    // this is a non-terminal else. let the child (nested if/else) handle validity.
+    auto value_expr = dex.else_vv().value_expr();
+    value_expr->Accept(*this);
+    else_lvalue = std::make_shared<LValue>(result()->data());
+  }
   builder.CreateBr(merge_bb);
 
   // refresh else_bb for phi (could have changed due to code generation of else_vv).
@@ -656,14 +671,9 @@ void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
   result_value->addIncoming(then_lvalue->data(), then_bb);
   result_value->addIncoming(else_lvalue->data(), else_bb);
 
-  llvm::PHINode *result_validity = builder.CreatePHI(types->i1_type(), 2, "res_valid");
-  result_validity->addIncoming(then_lvalue->validity(), then_bb);
-  result_validity->addIncoming(else_lvalue->validity(), else_bb);
-
   ADD_VISITOR_TRACE("IfExpression result value %T", result_value);
-  ADD_VISITOR_TRACE("IfExpression result validity %T", result_validity);
 
-  result_.reset(new LValue(result_value, result_validity));
+  result_.reset(new LValue(result_value));
 }
 
 LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair &pair) {
