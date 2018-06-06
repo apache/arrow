@@ -257,7 +257,7 @@ Arrow C++ must be installed to build Arrow GLib. Run `make install` on Arrow C++
 On OSX you may need to set the following environment variable:
 
 ```console
-% export XML_CATALOG_FILES="/usr/local/etc/xml/catalog" required to build docs
+% export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
 ```
 
 ### build failed - Symbol not found, referenced from `libsource-highlight.4.dylib`
