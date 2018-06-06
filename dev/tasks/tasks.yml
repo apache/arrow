@@ -17,18 +17,17 @@
 
 tasks:
   # supported keys
-  # - name:
-  #   branch:
-  #   platform:
-  #   template:
-  #   params:
-  #     -
+  # - name: arbitrary task name
+  #   branch: defaults to name
+  #   platform: osx|linux|win
+  #   template: path of jinja2 templated yml
+  #   params: optional extra parameters
 
   # configures master to submit packaging builds
-  - name: trigger-builds
+  - name: config-nightlies
     branch: master
     platform: linux
-    template: trigger-builds/travis.linux.yml
+    template: config-nightlies/travis.linux.yml
 
   # conda packages
   - name: conda-linux
