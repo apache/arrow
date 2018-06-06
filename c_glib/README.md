@@ -254,7 +254,7 @@ Arrow C++ must be installed to build Arrow GLib. Run `make install` on Arrow C++
 
 ### build failed - unable to load http://docbook.sourceforge.net/release/xsl/current/html/chunk.xsl
 
-On OSX you may need to set the following environment variable:
+On macOS you may need to set the following environment variable:
 
 ```console
 % export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
@@ -262,7 +262,7 @@ On OSX you may need to set the following environment variable:
 
 ### build failed - Symbol not found, referenced from `libsource-highlight.4.dylib`
 
-On OSX if you see the following error you may need to upgrade `source-highlight`
+On macOS if you see the following error you may need to upgrade `source-highlight`
 
 ```console
 dyld: Symbol not found: __ZN5boost16re_detail_10650112perl_matcherIPKcNSt3__19allocatorINS_9sub_matchIS3_EEEENS_12regex_traitsIcNS_16cpp_regex_traitsIcEEEEE14construct_initERKNS_11basic_regexIcSC_EENS_15regex_constants12_match_flagsE
