@@ -72,22 +72,28 @@ cdef class ChunkedArray:
         """
         return self.chunked_array.null_count()
 
-    def __getitem__(self, key):
-        cdef:
-            int64_t item
-            int i
+    def __iter__(self):
+        for chunk in self.iterchunks():
+            for item in chunk:
+                yield item
 
+    def __getitem__(self, key):
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         elif isinstance(key, six.integer_types):
-            index = _normalize_index(key, self.chunked_array.length())
-            for i in range(self.num_chunks):
-                if index < self.chunked_array.chunk(i).get().length():
-                    return self.chunk(i)[index]
-                else:
-                    index -= self.chunked_array.chunk(i).get().length()
+            return self.getitem(key)
         else:
             raise TypeError("key must either be a slice or integer")
+
+    cdef getitem(self, int64_t i):
+        cdef int j
+
+        index = _normalize_index(i, self.chunked_array.length())
+        for j in range(self.num_chunks):
+            if index < self.chunked_array.chunk(j).get().length():
+                return self.chunk(j)[index]
+            else:
+                index -= self.chunked_array.chunk(j).get().length()
 
     def slice(self, offset=0, length=None):
         """

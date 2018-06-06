@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import collections
 import datetime
 import pytest
 import struct
@@ -160,6 +161,15 @@ def test_array_slice():
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
             assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
+
+
+def test_array_iter():
+    arr = pa.array(range(10))
+
+    for i, j in zip(range(10), arr):
+        assert i == j
+
+    assert isinstance(arr, collections.Iterable)
 
 
 def test_struct_array_slice():

@@ -502,7 +502,6 @@ cdef class Array:
     def __iter__(self):
         for i in range(len(self)):
             yield self.getitem(i)
-        raise StopIteration
 
     def __repr__(self):
         from pyarrow.formatting import array_format
@@ -526,8 +525,6 @@ cdef class Array:
         raise NotImplemented
 
     def __getitem__(self, key):
-        cdef Py_ssize_t n = len(self)
-
         if PySlice_Check(key):
             return _normalize_slice(self, key)
 
