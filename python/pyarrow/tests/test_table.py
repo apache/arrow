@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import OrderedDict
+from collections import OrderedDict, Iterable
 import numpy as np
 from pandas.util.testing import assert_frame_equal
 import pandas as pd
@@ -47,6 +47,21 @@ def test_chunked_array_getitem():
     data_slice = data[99:99]
     assert data_slice.type == data.type
     assert data_slice.to_pylist() == []
+
+
+def test_chunked_array_iter():
+    data = [
+        pa.array([0]),
+        pa.array([1, 2, 3]),
+        pa.array([4, 5, 6]),
+        pa.array([7, 8, 9])
+    ]
+    arr = pa.chunked_array(data)
+
+    for i, j in zip(range(10), arr):
+        assert i == j
+
+    assert isinstance(arr, Iterable)
 
 
 def test_column_basics():
