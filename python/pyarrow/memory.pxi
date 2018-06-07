@@ -44,6 +44,19 @@ cdef class LoggingMemoryPool(MemoryPool):
         self.init(self.logging_pool.get())
 
 
+cdef class ProxyMemoryPool(MemoryPool):
+    """
+    Derived MemoryPool class that tracks the number of bytes and
+    maximum memory allocated through its direct calls.
+    """
+    cdef:
+        unique_ptr[CProxyMemoryPool] proxy_pool
+
+    def __cinit__(self, MemoryPool pool):
+        self.proxy_pool.reset(new CProxyMemoryPool(pool.pool))
+        self.init(self.proxy_pool.get())
+
+
 def default_memory_pool():
     cdef:
         MemoryPool pool = MemoryPool()
