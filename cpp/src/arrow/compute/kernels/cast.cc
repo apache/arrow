@@ -200,18 +200,9 @@ struct CastFunctor<O, I,
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = GetValues<typename I::c_type>(input, 1);
-    internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
-                                           output->offset, input.length);
-
-    for (int64_t i = 0; i < input.length; ++i) {
-      if (*in_data++ != 0) {
-        writer.Set();
-      } else {
-        writer.Clear();
-      }
-      writer.Next();
-    }
-    writer.Finish();
+    const auto generate = [&in_data]() -> bool { return *in_data++ != 0; };
+    internal::GenerateBitsUnrolled(output->buffers[1]->mutable_data(), output->offset,
+                                   input.length, generate);
   }
 };
 
