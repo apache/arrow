@@ -51,6 +51,9 @@ std::string Status::CodeAsString() const {
     case StatusCode::CodeGenError:
       type = "CodeGenError";
       break;
+    case StatusCode::Invalid:
+      type = "Invalid";
+      break;
     default:
       type = "Unknown";
       break;

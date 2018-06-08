@@ -48,21 +48,21 @@ FieldDescriptorPtr Annotator::MakeDesc(FieldPtr field) {
 }
 
 void Annotator::PrepareBuffersForField(const FieldDescriptor &desc,
-                                       const arrow::Array &array,
+                                       const arrow::ArrayData &array_data,
                                        EvalBatch *eval_batch) {
   // TODO:
   // - validity is optional
   // - may have offsets also
 
-  uint8_t *validity_buf = const_cast<uint8_t *>(array.data()->buffers[0]->data());
+  uint8_t *validity_buf = const_cast<uint8_t *>(array_data.buffers[0]->data());
   eval_batch->SetBuffer(desc.validity_idx(), validity_buf);
 
-  uint8_t *data_buf = const_cast<uint8_t *>(array.data()->buffers[1]->data());
+  uint8_t *data_buf = const_cast<uint8_t *>(array_data.buffers[1]->data());
   eval_batch->SetBuffer(desc.data_idx(), data_buf);
 }
 
 EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch &record_batch,
-                                         const arrow::ArrayVector &out_arrays) {
+                                         const ArrayDataVector &out_vector) {
   EvalBatchPtr eval_batch = std::make_shared<EvalBatch>(record_batch.num_rows(),
                                                         buffer_count_,
                                                         local_bitmap_count_);
@@ -76,14 +76,17 @@ EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch &record_batch,
       continue;
     }
 
-    PrepareBuffersForField(*(found->second), *(record_batch.column(i)), eval_batch.get());
+    PrepareBuffersForField(*(found->second),
+                           *(record_batch.column(i))->data(),
+                           eval_batch.get());
   }
 
   // Fill in the entries for the output fields.
   int idx = 0;
-  for (auto it = out_arrays.begin(); it != out_arrays.end(); ++it, ++idx) {
+  for (auto &arraydata : out_vector) {
     const FieldDescriptorPtr &desc = out_descs_.at(idx);
-    PrepareBuffersForField(*desc, **it, eval_batch.get());
+    PrepareBuffersForField(*desc, *arraydata, eval_batch.get());
+    ++idx;
   }
   return eval_batch;
 }

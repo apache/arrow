@@ -47,7 +47,7 @@ class LLVMGenerator {
 
   /// \brief Execute the built expression against the provided arguments.
   Status Execute(const arrow::RecordBatch &record_batch,
-                 const arrow::ArrayVector &outputs);
+                 const ArrayDataVector &output_vector);
 
  private:
   LLVMGenerator();

@@ -69,7 +69,9 @@ TEST_F(TestProjector, TestIntSumSub) {
   /*
    * Evaluate expression
    */
-  auto outputs = projector->Evaluate(*in_batch);
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok());
 
   /*
    * Validate results
@@ -114,7 +116,9 @@ TEST_F(TestProjector, TestFloatLessThan) {
   /*
    * Evaluate expression
    */
-  auto outputs = projector->Evaluate(*in_batch);
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok());
 
   /*
    * Validate results
@@ -154,7 +158,9 @@ TEST_F(TestProjector, TestIsNotNull) {
   /*
    * Evaluate expression
    */
-  auto outputs = projector->Evaluate(*in_batch);
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok());
 
   /*
    * Validate results
@@ -191,7 +197,9 @@ TEST_F(TestProjector, TestNullInternal) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   // Evaluate expression
-  auto outputs = projector->Evaluate(*in_batch);
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok());
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
@@ -237,11 +245,126 @@ TEST_F(TestProjector, TestNestedFunctions) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
   // Evaluate expression
-  auto outputs = projector->Evaluate(*in_batch);
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok());
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp1, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(exp2, outputs.at(1));
+}
+
+TEST_F(TestProjector, TestZeroCopy) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto res = field("res", float32());
+
+  // Build expression
+  auto cast_expr = TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {cast_expr}, nullptr /*pool*/, &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt32({ 1, 2, 3, 4 }, { true, true, true, false });
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // expected output
+  auto exp = MakeArrowArrayFloat32({ 1, 2, 3, 0 }, { true, true, true, false });
+
+  // allocate output buffers
+  int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
+  std::unique_ptr<uint8_t []> bitmap(new uint8_t[bitmap_sz]);
+  std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
+      std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz);
+
+  int64_t data_sz = sizeof (float) * num_records;
+  std::unique_ptr<uint8_t []> data(new uint8_t[data_sz]);
+  std::shared_ptr<arrow::MutableBuffer> data_buf =
+      std::make_shared<arrow::MutableBuffer>(data.get(), data_sz);
+
+  auto array_data = arrow::ArrayData::Make(float32(), num_records, {bitmap_buf, data_buf});
+
+   // Evaluate expression
+  status = projector->Evaluate(*in_batch, {array_data});
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  auto output = arrow::MakeArray(array_data);
+  EXPECT_ARROW_ARRAY_EQUALS(exp, output);
+}
+
+TEST_F(TestProjector, TestZeroCopyNegative) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto res = field("res", float32());
+
+  // Build expression
+  auto cast_expr = TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {cast_expr}, nullptr /*pool*/, &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt32({ 1, 2, 3, 4 }, { true, true, true, false });
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // expected output
+  auto exp = MakeArrowArrayFloat32({ 1, 2, 3, 0 }, { true, true, true, false });
+
+  // allocate output buffers
+  int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
+  std::unique_ptr<uint8_t []> bitmap(new uint8_t[bitmap_sz]);
+  std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
+      std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz);
+
+  int64_t data_sz = sizeof (float) * num_records;
+  std::unique_ptr<uint8_t []> data(new uint8_t[data_sz]);
+  std::shared_ptr<arrow::MutableBuffer> data_buf =
+      std::make_shared<arrow::MutableBuffer>(data.get(), data_sz);
+
+  auto array_data = arrow::ArrayData::Make(float32(), num_records, {bitmap_buf, data_buf});
+
+  // the batch can't be empty.
+  auto bad_batch = arrow::RecordBatch::Make(schema, 0 /*num_records*/, {array0});
+  status = projector->Evaluate(*bad_batch, {array_data});
+  EXPECT_EQ(status.code(), StatusCode::Invalid);
+
+  // the output array can't be null.
+  std::shared_ptr<arrow::ArrayData> null_array_data;
+  status = projector->Evaluate(*in_batch, {null_array_data});
+  EXPECT_EQ(status.code(), StatusCode::Invalid);
+
+  // the output array must have atleast two buffers.
+  auto bad_array_data = arrow::ArrayData::Make(float32(), num_records, {bitmap_buf});
+  status = projector->Evaluate(*in_batch, {bad_array_data});
+  EXPECT_EQ(status.code(), StatusCode::Invalid);
+
+  // the output buffers must have sufficiently sized data_buf.
+  std::shared_ptr<arrow::MutableBuffer> bad_data_buf =
+      std::make_shared<arrow::MutableBuffer>(data.get(), data_sz - 1);
+  auto bad_array_data2 = arrow::ArrayData::Make(float32(),
+                                                num_records, {bitmap_buf, bad_data_buf});
+  status = projector->Evaluate(*in_batch, {bad_array_data2});
+  EXPECT_EQ(status.code(), StatusCode::Invalid);
+
+  // the output buffers must have sufficiently sized bitmap_buf.
+  std::shared_ptr<arrow::MutableBuffer> bad_bitmap_buf =
+      std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz - 1);
+  auto bad_array_data3 = arrow::ArrayData::Make(float32(),
+                                                num_records, {bad_bitmap_buf, data_buf});
+  status = projector->Evaluate(*in_batch, {bad_array_data3});
+  EXPECT_EQ(status.code(), StatusCode::Invalid);
 }
 
 } // namespace gandiva

@@ -102,10 +102,10 @@ Status LLVMGenerator::Build(const ExpressionVector &exprs) {
  * Execute the compiled module against the provided vectors.
  */
 Status LLVMGenerator::Execute(const arrow::RecordBatch &record_batch,
-                           const arrow::ArrayVector &outputs) {
+                              const ArrayDataVector &output_vector) {
   DCHECK_GT(record_batch.num_rows(), 0);
 
-  auto eval_batch = annotator_.PrepareEvalBatch(record_batch, outputs);
+  auto eval_batch = annotator_.PrepareEvalBatch(record_batch, output_vector);
   DCHECK_GT(eval_batch->num_buffers(), 0);
 
   // generate bitmap vectors, by doing an intersection.
@@ -237,7 +237,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr,
                                llvm::GlobalValue::ExternalLinkage,
                                func_name,
                                module());
-  GANDIVA_RETURN_FAILURE_IF_FALSE((fn != NULL),
+  GANDIVA_RETURN_FAILURE_IF_FALSE((*fn != nullptr),
                                   Status::CodeGenError("Error creating function."));
   // Name the arguments
   llvm::Function::arg_iterator args = (*fn)->arg_begin();

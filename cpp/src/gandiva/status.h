@@ -41,11 +41,21 @@ do {                                                                            
   }                                                                                         \
 } while (0)
 
+// Check arrow status & convert to gandiva status on error.
+#define GANDIVA_RETURN_ARROW_NOT_OK(astatus)                                            \
+  do {                                                                                  \
+   if (!(astatus).ok()) {                                                               \
+     return Status(StatusCode::ArrowError, (astatus).message());                        \
+   }                                                                                    \
+} while (0)
+
 namespace gandiva {
 
 enum class StatusCode : char {
   OK = 0,
-  CodeGenError = 1
+  Invalid = 1,
+  CodeGenError = 2,
+  ArrowError = 3,
 };
 
 class Status {
@@ -76,6 +86,10 @@ class Status {
   // Return error status of an appropriate type.
   static Status CodeGenError(const std::string& msg) {
     return Status(StatusCode::CodeGenError, msg);
+  }
+
+  static Status Invalid(const std::string& msg) {
+    return Status(StatusCode::Invalid, msg);
   }
 
   // Returns true if the status indicates success.

@@ -83,9 +83,8 @@ TEST_F(TestAnnotator, TestAdd) {
   auto record_batch = arrow::RecordBatch::Make(in_schema,
                                                num_records, {arrow_v0, arrow_v1});
 
-  /* TODO : use builder ? */
   auto arrow_sum = MakeInt32Array(num_records);
-  EvalBatchPtr batch = annotator.PrepareEvalBatch(*record_batch, {arrow_sum});
+  EvalBatchPtr batch = annotator.PrepareEvalBatch(*record_batch, {arrow_sum->data()});
   EXPECT_EQ(batch->num_buffers(), 6);
 
   auto buffers = batch->buffers();

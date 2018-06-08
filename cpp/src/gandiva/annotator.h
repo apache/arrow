@@ -48,7 +48,7 @@ class Annotator {
 
   /// Prepare an eval batch for the incoming record batch.
   EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch &batch,
-                                const arrow::ArrayVector &out_arrays);
+                                const ArrayDataVector &out_vector);
 
  private:
   /// Annotate a field and return the descriptor.
@@ -57,7 +57,7 @@ class Annotator {
   /// Populate eval_batch by extracting the raw buffers from the arrow array, whose
   /// contents are represent by the annotated descriptor 'desc'.
   void PrepareBuffersForField(const FieldDescriptor &desc,
-                              const arrow::Array &array,
+                              const arrow::ArrayData &array_data,
                               EvalBatch *eval_batch);
 
   // The list of input/output buffers (includes bitmap buffers, value buffers and

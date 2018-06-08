@@ -113,7 +113,9 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
                                            {array_a, array_b, array_c, array_d, array_e});
 
   // Evaluate expression
-  auto outputs = projector->Evaluate(*in_batch);
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok());
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_a, outputs.at(0));

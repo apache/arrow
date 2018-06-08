@@ -26,9 +26,6 @@ namespace gandiva {
 
 using ArrayPtr = std::shared_ptr<arrow::Array>;
 
-using ArrayBuilderPtr = std::shared_ptr<arrow::ArrayBuilder>;
-using ArrayBuilderVector = std::vector<ArrayBuilderPtr>;
-
 using DataTypePtr = std::shared_ptr<arrow::DataType>;
 using DataTypeVector = std::vector<DataTypePtr>;
 
@@ -38,6 +35,9 @@ using FieldVector = std::vector<FieldPtr>;
 using RecordBatchPtr = std::shared_ptr<arrow::RecordBatch>;
 
 using SchemaPtr = std::shared_ptr<arrow::Schema>;
+
+using ArrayDataPtr = std::shared_ptr<arrow::ArrayData>;
+using ArrayDataVector = std::vector<ArrayDataPtr>;
 
 } // namespace gandiva
 
