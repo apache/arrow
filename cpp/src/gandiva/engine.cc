@@ -1,18 +1,17 @@
-/*
- * Copyright (C) 2017-2018 Dremio Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (C) 2017-2018 Dremio Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
@@ -43,9 +42,7 @@ std::once_flag init_once_flag;
 
 extern const char kByteCodeFilePath[];
 
-/*
- * One-time initializations.
- */
+// One-time initializations.
 void Engine::InitOnce() {
   assert(!init_once_done_);
 
@@ -65,7 +62,7 @@ Status Engine::Make(std::unique_ptr<Engine> *engine) {
   engine_obj->context_.reset(new llvm::LLVMContext());
   engine_obj->ir_builder_.reset(new llvm::IRBuilder<>(*(engine_obj->context())));
 
-  /* Create the execution engine */
+  // Create the execution engine
   std::unique_ptr<llvm::Module> cg_module(new llvm::Module("codegen",
                                           *(engine_obj->context())));
   engine_obj->module_ = cg_module.get();
@@ -86,9 +83,7 @@ Status Engine::Make(std::unique_ptr<Engine> *engine) {
   return Status::OK();
 }
 
-/*
- * Handling for pre-compiled IR libraries.
- */
+// Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIRFiles() {
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
@@ -125,9 +120,7 @@ Status Engine::LoadPreCompiledIRFiles() {
   return Status::OK();
 }
 
-/*
- * Optimise and compile the module.
- */
+// Optimise and compile the module.
 Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
   if (dump_ir) {
     DumpIR("Before optimise");
@@ -138,12 +131,12 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
     std::unique_ptr<llvm::legacy::PassManager>
         pass_manager(new llvm::legacy::PassManager());
 
-    /* First round : get rid of all functions that don't need to be compiled.
-     * This helps in reducing the overall compilation time.
-     *
-     * Done by marking all the unused functions as internal, and then, running
-     * a pass for dead code elimination.
-     */
+    // First round : get rid of all functions that don't need to be compiled.
+    // This helps in reducing the overall compilation time.
+    // (Adapted from Apache Impala)
+    //
+    // Done by marking all the unused functions as internal, and then, running
+    // a pass for dead code elimination.
     std::unordered_set<std::string> used_functions;
     used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
 
@@ -154,9 +147,7 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
     pass_manager->add(llvm::createGlobalDCEPass());
     pass_manager->run(*module_);
 
-    /*
-     * Second round : misc passes to allow for inlining, vectorization, ..
-     */
+    // Second round : misc passes to allow for inlining, vectorization, ..
     pass_manager.reset(new llvm::legacy::PassManager());
     llvm::TargetIRAnalysis target_analysis =
         execution_engine_->getTargetMachine()->getTargetIRAnalysis();

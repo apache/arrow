@@ -1,18 +1,17 @@
-/*
- * Copyright (C) 2017-2018 Dremio Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (C) 2017-2018 Dremio Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef GANDIVA_ENGINE_H
 #define GANDIVA_ENGINE_H
 
@@ -36,10 +35,9 @@ class Engine {
 
   llvm::Module *module() { return module_; }
 
-  /// factory method to create and initialize the engine
-  /// object.
+  /// factory method to create and initialize the engine object.
   ///
-  /// @param engine (out) : the created engine.
+  /// \param[out] engine the created engine.
   static Status Make(std::unique_ptr<Engine> *engine);
 
   /// Add the function to the list of IR functions that need to be compiled.
@@ -75,8 +73,8 @@ class Engine {
   std::unique_ptr<llvm::LLVMContext> context_;
   std::unique_ptr<llvm::ExecutionEngine> execution_engine_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
-  llvm::Module *module_; /// This is owned by the execution_engine_, so doesn't need to be
-                         /// explicitly deleted.
+  llvm::Module *module_; // This is owned by the execution_engine_, so doesn't need to be
+                         // explicitly deleted.
 
   std::vector<std::string> functions_to_compile_;
 

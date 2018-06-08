@@ -1,18 +1,17 @@
-/*
- * Copyright (C) 2017-2018 Dremio Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (C) 2017-2018 Dremio Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef GANDIVA_DEX_DEX_H
 #define GANDIVA_DEX_DEX_H
 
@@ -36,7 +35,7 @@ class Dex {
   virtual ~Dex() = default;
 };
 
-// Base class for other Vector related Dex.
+/// Base class for other Vector related Dex.
 class VectorReadBaseDex : public Dex {
  public:
   explicit VectorReadBaseDex(FieldDescriptorPtr field_desc)
@@ -58,7 +57,7 @@ class VectorReadBaseDex : public Dex {
   FieldDescriptorPtr field_desc_;
 };
 
-// validity component of a ValueVector
+/// validity component of a ValueVector
 class VectorReadValidityDex : public VectorReadBaseDex {
  public:
   explicit VectorReadValidityDex(FieldDescriptorPtr field_desc)
@@ -73,7 +72,7 @@ class VectorReadValidityDex : public VectorReadBaseDex {
   }
 };
 
-// value component of a ValueVector
+/// value component of a ValueVector
 class VectorReadValueDex : public VectorReadBaseDex {
  public:
   explicit VectorReadValueDex(FieldDescriptorPtr field_desc)
@@ -92,7 +91,7 @@ class VectorReadValueDex : public VectorReadBaseDex {
   }
 };
 
-// validity based on a local bitmap.
+/// validity based on a local bitmap.
 class LocalBitMapValidityDex : public Dex {
  public:
   explicit LocalBitMapValidityDex(int local_bitmap_idx)
@@ -111,7 +110,7 @@ class LocalBitMapValidityDex : public Dex {
 };
 
 
-// base function expression
+/// base function expression
 class FuncDex : public Dex {
  public:
   FuncDex(FuncDescriptorPtr func_descriptor,
@@ -133,8 +132,8 @@ class FuncDex : public Dex {
   ValueValidityPairVector args_;
 };
 
-// A function expression that only deals with non-null inputs, and generates non-null
-// outputs.
+/// A function expression that only deals with non-null inputs, and generates non-null
+/// outputs.
 class NonNullableFuncDex : public FuncDex {
  public:
   NonNullableFuncDex(FuncDescriptorPtr func_descriptor,
@@ -147,8 +146,8 @@ class NonNullableFuncDex : public FuncDex {
   }
 };
 
-// A function expression that deals with nullable inputs, but generates non-null
-// outputs.
+/// A function expression that deals with nullable inputs, but generates non-null
+/// outputs.
 class NullableNeverFuncDex : public FuncDex {
  public:
   NullableNeverFuncDex(FuncDescriptorPtr func_descriptor,
@@ -161,8 +160,8 @@ class NullableNeverFuncDex : public FuncDex {
   }
 };
 
-// A function expression that deals with nullable inputs, and
-// nullable outputs.
+/// A function expression that deals with nullable inputs, and
+/// nullable outputs.
 class NullableInternalFuncDex : public FuncDex {
  public:
   NullableInternalFuncDex(FuncDescriptorPtr func_descriptor,
@@ -176,14 +175,14 @@ class NullableInternalFuncDex : public FuncDex {
     visitor.Visit(*this);
   }
 
-  // The validity of the function result is saved in this bitmap.
+  /// The validity of the function result is saved in this bitmap.
   int local_bitmap_idx() const { return local_bitmap_idx_; }
 
  private:
   int local_bitmap_idx_;
 };
 
-// decomposed expression for a literal.
+/// decomposed expression for a literal.
 class LiteralDex : public Dex {
  public:
   LiteralDex(DataTypePtr type, const LiteralHolder &holder)
@@ -207,7 +206,7 @@ class LiteralDex : public Dex {
   LiteralHolder holder_;
 };
 
-// decomposed if-else expression.
+/// decomposed if-else expression.
 class IfDex : public Dex {
  public:
   IfDex(ValueValidityPairPtr condition_vv,
@@ -231,10 +230,10 @@ class IfDex : public Dex {
   const ValueValidityPair &then_vv() const { return *then_vv_; }
   const ValueValidityPair &else_vv() const { return *else_vv_; }
 
-  // The validity of the result is saved in this bitmap.
+  /// The validity of the result is saved in this bitmap.
   int local_bitmap_idx() const { return local_bitmap_idx_; }
 
-  // is this a terminal else ? i.e no nested if-else underneath.
+  /// is this a terminal else ? i.e no nested if-else underneath.
   bool is_terminal_else() const { return is_terminal_else_; }
 
   const DataTypePtr &result_type() const { return result_type_; }

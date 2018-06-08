@@ -1,18 +1,17 @@
-/*
- * Copyright (C) 2017-2018 Dremio Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (C) 2017-2018 Dremio Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef GANDIVA_FUNCTION_SIGNATURE_H
 #define GANDIVA_FUNCTION_SIGNATURE_H
 
@@ -25,7 +24,6 @@
 
 namespace gandiva {
 
-///
 /// \brief Signature for a function : includes the base name, input param types and
 /// output types.
 class FunctionSignature {
@@ -66,7 +64,7 @@ class FunctionSignature {
     size_t result = kSeedValue;
     boost::hash_combine(result, base_name_);
     boost::hash_combine(result, ret_type_->id());
-    /// not using hash_range since we only want to include the id from the data type
+    // not using hash_range since we only want to include the id from the data type
     for (auto &param_type : param_types_) {
       boost::hash_combine(result, param_type->id());
     }
@@ -92,10 +90,8 @@ class FunctionSignature {
   }
 
  private:
-  /*
-   * TODO : for some of the types, this shouldn't match type specific data. eg. for
-   * decimals, this shouldn't match precision/scale.
-   */
+  // TODO : for some of the types, this shouldn't match type specific data. eg. for
+  // decimals, this shouldn't match precision/scale.
   bool DataTypeEquals(const DataTypePtr left, const DataTypePtr right) const {
     return left->Equals(right);
   }

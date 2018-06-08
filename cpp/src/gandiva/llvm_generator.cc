@@ -1,18 +1,17 @@
-/*
- * Copyright (C) 2017-2018 Dremio Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (C) 2017-2018 Dremio Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -76,9 +75,7 @@ Status LLVMGenerator::Add(const ExpressionPtr expr,
   return Status::OK();
 }
 
-/*
- * Build and optimise module for projection expression.
- */
+/// Build and optimise module for projection expression.
 Status LLVMGenerator::Build(const ExpressionVector &exprs) {
   for (auto &expr : exprs) {
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
@@ -98,9 +95,7 @@ Status LLVMGenerator::Build(const ExpressionVector &exprs) {
   return Status::OK();
 }
 
-/*
- * Execute the compiled module against the provided vectors.
- */
+/// Execute the compiled module against the provided vectors.
 Status LLVMGenerator::Execute(const arrow::RecordBatch &record_batch,
                               const ArrayDataVector &output_vector) {
   DCHECK_GT(record_batch.num_rows(), 0);
@@ -132,9 +127,7 @@ llvm::Value *LLVMGenerator::LoadVectorAtIndex(llvm::Value *arg_addrs,
   return builder.CreateLoad(offset, name + "_mem");
 }
 
-/*
- * Get reference to validity array at specified index in the args list.
- */
+/// Get reference to validity array at specified index in the args list.
 llvm::Value *LLVMGenerator::GetValidityReference(llvm::Value *arg_addrs,
                                                  int idx,
                                                  FieldPtr field) {
@@ -143,9 +136,7 @@ llvm::Value *LLVMGenerator::GetValidityReference(llvm::Value *arg_addrs,
   return ir_builder().CreateIntToPtr(load, types_->i64_ptr_type(), name + "_varray");
 }
 
-/*
- * Get reference to data array at specified index in the args list.
- */
+/// Get reference to data array at specified index in the args list.
 llvm::Value *LLVMGenerator::GetDataReference(llvm::Value *arg_addrs,
                                              int idx,
                                              FieldPtr field) {
@@ -307,9 +298,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr,
   return Status::OK();
 }
 
-/*
- * Return value of a bit in bitMap.
- */
+/// Return value of a bit in bitMap.
 llvm::Value *LLVMGenerator::GetPackedBitValue(llvm::Value *bitmap,
                                               llvm::Value *position) {
   ADD_TRACE("fetch bit at position %T", position);
@@ -320,9 +309,7 @@ llvm::Value *LLVMGenerator::GetPackedBitValue(llvm::Value *bitmap,
   return AddFunctionCall("bitMapGetBit", types_->i1_type(), {bitmap8, position});
 }
 
-/*
- * Set the value of a bit in bitMap.
- */
+/// Set the value of a bit in bitMap.
 void LLVMGenerator::SetPackedBitValue(llvm::Value *bitmap,
                                       llvm::Value *position,
                                       llvm::Value *value) {
@@ -350,9 +337,7 @@ void LLVMGenerator::ClearPackedBitValueIfFalse(llvm::Value *bitmap,
                   {bitmap8, position, value});
 }
 
-/*
- * Extract the bitmap addresses, and do an intersection.
- */
+/// Extract the bitmap addresses, and do an intersection.
 void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr &compiled_expr,
                                           const EvalBatch &eval_batch) {
   auto validities = compiled_expr.value_validity()->validity_exprs();
@@ -375,9 +360,7 @@ void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr &compiled_expr,
   IntersectBitMaps(dst_bitmap, src_bitmaps, eval_batch.num_records());
 }
 
-/*
- * Compute the intersection of multiple bitmaps.
- */
+/// Compute the intersection of multiple bitmaps.
 void
 LLVMGenerator::IntersectBitMaps(uint8_t *dst_map,
                                 const std::vector<uint8_t *> &src_maps,
@@ -389,19 +372,19 @@ LLVMGenerator::IntersectBitMaps(uint8_t *dst_map,
 
   switch (nmaps) {
     case 0: {
-      /* no src_maps bitmap. simply set all bits */
+      // no src_maps bitmap. simply set all bits
       memset(dst_map, 0xff, num_bytes);
       break;
     }
 
     case 1: {
-      /* one src_maps bitmap. copy to dst_map */
+      // one src_maps bitmap. copy to dst_map
       memcpy(dst_map, src_maps[0], num_bytes);
       break;
     }
 
     case 2: {
-      /* two src_maps bitmaps. do 64-bit ANDs */
+      // two src_maps bitmaps. do 64-bit ANDs
       uint64_t *src_maps0_64 = reinterpret_cast<uint64_t *>(src_maps[0]);
       uint64_t *src_maps1_64 = reinterpret_cast<uint64_t *>(src_maps[1]);
       for (int i = 0; i < num_words; ++i) {
@@ -775,13 +758,11 @@ void LLVMGenerator::Visitor::ClearLocalBitMapIfNotValid(int local_bitmap_idx,
   generator_->ClearPackedBitValueIfFalse(slot_ref, loop_var_, is_valid);
 }
 
-/*
- * Hooks for tracing/printfs.
- *
- * replace %T with the type-specific format specifier.
- * For some reason, float/double literals are getting lost when printing with the generic
- * printf. so, use a wrapper instead.
- */
+// Hooks for tracing/printfs.
+//
+// replace %T with the type-specific format specifier.
+// For some reason, float/double literals are getting lost when printing with the generic
+// printf. so, use a wrapper instead.
 std::string LLVMGenerator::ReplaceFormatInTrace(const std::string &in_msg,
                                                 llvm::Value *value,
                                                 std::string *print_fn) {
