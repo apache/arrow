@@ -924,7 +924,20 @@ cdef class Table:
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
                     nthreads=None, columns=None):
         """
-        Convert pandas.DataFrame to an Arrow Table
+        Convert pandas.DataFrame to an Arrow Table.
+
+        The column types in the resulting Arrow Table are inferred from the
+        dtypes of the pandas.Series in the DataFrame. In the case of non-object
+        Series, the NumPy dtype is translated to its Arrow equivalent. In the
+        case of `object`, we need to guess the datatype by looking at the
+        Python objects in this Series.
+
+        Be aware that Series of the `object` dtype don't carry enough
+        information to always lead to a meaningful Arrow type. In the case that
+        we cannot infer a type, e.g. because the DataFrame is of length 0 or
+        the Series only contains None/nan objects, the type is set to
+        null. This behavior can be avoided by constructing an explicit schema
+        and passing it to this function.
 
         Parameters
         ----------
