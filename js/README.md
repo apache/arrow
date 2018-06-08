@@ -82,6 +82,19 @@ console.log(table.toString());
 */
 ```
 
+## Load data with `fetch`
+
+```es6
+import { Table } from "apache-arrow";
+
+fetch(require("simple.arrow")).then(response => {
+  response.arrayBuffer().then(buffer => {
+    const table = Table.from(new Uint8Array(buffer));
+    console.log(table.toString());
+  });
+});
+```
+
 ## Columns are what you'd expect
 
 ```es6
