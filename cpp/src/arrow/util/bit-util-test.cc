@@ -282,6 +282,80 @@ TEST(FirstTimeBitmapWriter, NormalOperation) {
   }
 }
 
+// Tests for GenerateBits and GenerateBitsUnrolled
+
+struct GenerateBitsFunctor {
+  template <class Generator>
+  void operator()(uint8_t* bitmap, int64_t start_offset, int64_t length, Generator&& g) {
+    return internal::GenerateBits(bitmap, start_offset, length, g);
+  }
+};
+
+struct GenerateBitsUnrolledFunctor {
+  template <class Generator>
+  void operator()(uint8_t* bitmap, int64_t start_offset, int64_t length, Generator&& g) {
+    return internal::GenerateBitsUnrolled(bitmap, start_offset, length, g);
+  }
+};
+
+template <typename T>
+class TestGenerateBits : public ::testing::Test {};
+
+typedef ::testing::Types<GenerateBitsFunctor, GenerateBitsUnrolledFunctor>
+    GenerateBitsTypes;
+TYPED_TEST_CASE(TestGenerateBits, GenerateBitsTypes);
+
+TYPED_TEST(TestGenerateBits, NormalOperation) {
+  const int kSourceSize = 256;
+  uint8_t source[kSourceSize];
+  test::random_bytes(kSourceSize, 0, source);
+
+  const int64_t start_offsets[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 21, 31, 32};
+  const int64_t lengths[] = {0,  1,  2,  3,  4,   5,   6,   7,   8,   9,   12,  16,
+                             17, 21, 31, 32, 100, 201, 202, 203, 204, 205, 206, 207};
+  const uint8_t fill_bytes[] = {0x00, 0xff};
+
+  for (const int64_t start_offset : start_offsets) {
+    for (const int64_t length : lengths) {
+      for (const uint8_t fill_byte : fill_bytes) {
+        uint8_t bitmap[kSourceSize];
+        memset(bitmap, fill_byte, kSourceSize);
+        // First call GenerateBits
+        {
+          int64_t ncalled = 0;
+          internal::BitmapReader reader(source, 0, length);
+          TypeParam()(bitmap, start_offset, length, [&]() -> bool {
+            bool b = reader.IsSet();
+            reader.Next();
+            ++ncalled;
+            return b;
+          });
+          ASSERT_EQ(ncalled, length);
+        }
+        // Then check generated contents
+        {
+          internal::BitmapReader source_reader(source, 0, length);
+          internal::BitmapReader result_reader(bitmap, start_offset, length);
+          for (int64_t i = 0; i < length; ++i) {
+            ASSERT_EQ(source_reader.IsSet(), result_reader.IsSet())
+                << "mismatch at bit #" << i;
+            source_reader.Next();
+            result_reader.Next();
+          }
+        }
+        // Check bits preceding and following generated contents weren't clobbered
+        {
+          internal::BitmapReader reader_before(bitmap, 0, start_offset);
+          for (int64_t i = 0; i < start_offset; ++i) {
+            ASSERT_EQ(reader_before.IsSet(), fill_byte == 0xff)
+                << "mismatch at preceding bit #" << start_offset - i;
+          }
+        }
+      }
+    }
+  }
+}
+
 TEST(BitmapAnd, Aligned) {
   std::shared_ptr<Buffer> left, right, out;
   int64_t length;

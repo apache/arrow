@@ -210,7 +210,7 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   memset(null_bitmap_data_ + ((length_ + pad_to_byte) / 8), 0xFF,
          static_cast<size_t>(fast_length));
 
-  // Trailing bytes
+  // Trailing bits
   for (int64_t i = length_ + pad_to_byte + (fast_length * 8); i < new_length; ++i) {
     BitUtil::SetBit(null_bitmap_data_, i);
   }
@@ -775,16 +775,9 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
-  internal::FirstTimeBitmapWriter bit_writer(raw_data_, length_, length);
-  for (int64_t i = 0; i < length; ++i) {
-    if (values[i] != 0) {
-      bit_writer.Set();
-    } else {
-      bit_writer.Clear();
-    }
-    bit_writer.Next();
-  }
-  bit_writer.Finish();
+  int64_t i = 0;
+  internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                 [values, &i]() -> bool { return values[i++] != 0; });
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
@@ -801,16 +794,9 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
 
-  internal::FirstTimeBitmapWriter bit_writer(raw_data_, length_, length);
-  for (int64_t i = 0; i < length; ++i) {
-    if (values[i]) {
-      bit_writer.Set();
-    } else {
-      bit_writer.Clear();
-    }
-    bit_writer.Next();
-  }
-  bit_writer.Finish();
+  int64_t i = 0;
+  internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                 [values, &i]() -> bool { return values[i++]; });
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
@@ -846,16 +832,9 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
 
-  internal::FirstTimeBitmapWriter bit_writer(raw_data_, length_, length);
-  for (int64_t i = 0; i < length; ++i) {
-    if (values[i]) {
-      bit_writer.Set();
-    } else {
-      bit_writer.Clear();
-    }
-    bit_writer.Next();
-  }
-  bit_writer.Finish();
+  int64_t i = 0;
+  internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                 [values, &i]() -> bool { return values[i++]; });
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
@@ -871,16 +850,9 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
 
-  internal::FirstTimeBitmapWriter bit_writer(raw_data_, length_, length);
-  for (int64_t i = 0; i < length; ++i) {
-    if (values[i]) {
-      bit_writer.Set();
-    } else {
-      bit_writer.Clear();
-    }
-    bit_writer.Next();
-  }
-  bit_writer.Finish();
+  int64_t i = 0;
+  internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                 [values, &i]() -> bool { return values[i++]; });
 
   // this updates length_
   ArrayBuilder::UnsafeSetNotNull(length);

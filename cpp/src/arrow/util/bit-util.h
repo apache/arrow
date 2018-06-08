@@ -99,6 +99,9 @@ static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191,
 // Bitmask selecting the (k - 1) preceding bits in a byte
 static constexpr uint8_t kPrecedingBitmask[] = {0, 1, 3, 7, 15, 31, 63, 127};
 
+// the bitwise complement version of kPrecedingBitmask
+static constexpr uint8_t kTrailingBitmask[] = {255, 254, 252, 248, 240, 224, 192, 128};
+
 static inline int64_t CeilByte(int64_t size) { return (size + 7) & ~7; }
 
 static inline int64_t BytesForBits(int64_t size) { return CeilByte(size) / 8; }
@@ -465,7 +468,7 @@ class BitmapWriter {
   BitmapWriter(uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0), length_(length) {
     byte_offset_ = start_offset / 8;
-    bit_mask_ = static_cast<uint8_t>(1 << (start_offset % 8));
+    bit_mask_ = BitUtil::kBitmask[start_offset % 8];
     if (length > 0) {
       current_byte_ = bitmap[byte_offset_];
     } else {
@@ -519,7 +522,7 @@ class FirstTimeBitmapWriter {
       : bitmap_(bitmap), position_(0), length_(length) {
     current_byte_ = 0;
     byte_offset_ = start_offset / 8;
-    bit_mask_ = static_cast<uint8_t>(1 << (start_offset % 8));
+    bit_mask_ = BitUtil::kBitmask[start_offset % 8];
     if (length > 0) {
       current_byte_ = bitmap[byte_offset_] & BitUtil::kPrecedingBitmask[start_offset % 8];
     } else {
@@ -561,7 +564,83 @@ class FirstTimeBitmapWriter {
   int64_t byte_offset_;
 };
 
-// TODO: add a std::generate-like function for writing bitmaps?
+// A std::generate() like function to write sequential bits into a bitmap area.
+// Bits preceding the bitmap area are preserved, bits following the bitmap
+// area may be clobbered.
+
+template <class Generator>
+void GenerateBits(uint8_t* bitmap, int64_t start_offset, int64_t length, Generator&& g) {
+  if (length == 0) {
+    return;
+  }
+  uint8_t* cur = bitmap + start_offset / 8;
+  uint8_t bit_mask = BitUtil::kBitmask[start_offset % 8];
+  uint8_t current_byte = *cur & BitUtil::kPrecedingBitmask[start_offset % 8];
+
+  for (int64_t index = 0; index < length; ++index) {
+    const bool bit = g();
+    current_byte = bit ? (current_byte | bit_mask) : current_byte;
+    bit_mask = static_cast<uint8_t>(bit_mask << 1);
+    if (bit_mask == 0) {
+      bit_mask = 1;
+      *cur++ = current_byte;
+      current_byte = 0;
+    }
+  }
+  if (bit_mask != 1) {
+    *cur++ = current_byte;
+  }
+}
+
+// Like GenerateBits(), but unrolls its main loop for higher performance.
+
+template <class Generator>
+void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
+                          Generator&& g) {
+  if (length == 0) {
+    return;
+  }
+  uint8_t current_byte;
+  uint8_t* cur = bitmap + start_offset / 8;
+  const uint64_t start_bit_offset = start_offset % 8;
+  uint8_t bit_mask = BitUtil::kBitmask[start_bit_offset];
+  int64_t remaining = length;
+
+  if (bit_mask != 0x01) {
+    current_byte = *cur & BitUtil::kPrecedingBitmask[start_bit_offset];
+    while (bit_mask != 0 && remaining > 0) {
+      current_byte = g() ? (current_byte | bit_mask) : current_byte;
+      bit_mask = static_cast<uint8_t>(bit_mask << 1);
+      --remaining;
+    }
+    *cur++ = current_byte;
+  }
+
+  int64_t remaining_bytes = remaining / 8;
+  while (remaining_bytes-- > 0) {
+    current_byte = 0;
+    current_byte = g() ? current_byte | 0x01 : current_byte;
+    current_byte = g() ? current_byte | 0x02 : current_byte;
+    current_byte = g() ? current_byte | 0x04 : current_byte;
+    current_byte = g() ? current_byte | 0x08 : current_byte;
+    current_byte = g() ? current_byte | 0x10 : current_byte;
+    current_byte = g() ? current_byte | 0x20 : current_byte;
+    current_byte = g() ? current_byte | 0x40 : current_byte;
+    current_byte = g() ? current_byte | 0x80 : current_byte;
+    *cur++ = current_byte;
+  }
+
+  int64_t remaining_bits = remaining % 8;
+  if (remaining_bits) {
+    current_byte = 0;
+    bit_mask = 0x01;
+    while (remaining_bits-- > 0) {
+      current_byte = g() ? (current_byte | bit_mask) : current_byte;
+      bit_mask = static_cast<uint8_t>(bit_mask << 1);
+    }
+    *cur++ = current_byte;
+  }
+}
 
 }  // namespace internal
 

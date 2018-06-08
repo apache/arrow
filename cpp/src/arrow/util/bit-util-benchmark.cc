@@ -126,26 +126,48 @@ static void BenchmarkBitmapWriter(benchmark::State& state, int64_t nbytes) {
 
   const int64_t num_bits = nbytes * 8;
   uint8_t* bitmap = buffer->mutable_data();
+  const bool pattern[] = {false, false, false, true, true, true};
 
   while (state.KeepRunning()) {
-    {
-      BitmapWriterType writer(bitmap, 0, num_bits);
-      for (int64_t i = 0; i < num_bits; i++) {
+    int64_t pattern_index = 0;
+    BitmapWriterType writer(bitmap, 0, num_bits);
+    for (int64_t i = 0; i < num_bits; i++) {
+      if (pattern[pattern_index++]) {
         writer.Set();
-        writer.Next();
-      }
-      writer.Finish();
-      benchmark::ClobberMemory();
-    }
-    {
-      BitmapWriterType writer(bitmap, 0, num_bits);
-      for (int64_t i = 0; i < num_bits; i++) {
+      } else {
         writer.Clear();
-        writer.Next();
       }
-      writer.Finish();
-      benchmark::ClobberMemory();
+      if (pattern_index == sizeof(pattern) / sizeof(bool)) {
+        pattern_index = 0;
+      }
+      writer.Next();
     }
+    writer.Finish();
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(int64_t(state.iterations()) * nbytes);
+}
+
+template <typename GenerateBitsFunctorType>
+static void BenchmarkGenerateBits(benchmark::State& state, int64_t nbytes) {
+  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(nbytes);
+
+  const int64_t num_bits = nbytes * 8;
+  uint8_t* bitmap = buffer->mutable_data();
+  // pattern should be the same as in BenchmarkBitmapWriter
+  const bool pattern[] = {false, false, false, true, true, true};
+
+  while (state.KeepRunning()) {
+    int64_t pattern_index = 0;
+    const auto generate = [&]() -> bool {
+      bool b = pattern[pattern_index++];
+      if (pattern_index == sizeof(pattern) / sizeof(bool)) {
+        pattern_index = 0;
+      }
+      return b;
+    };
+    GenerateBitsFunctorType()(bitmap, 0, num_bits, generate);
+    benchmark::ClobberMemory();
   }
   state.SetBytesProcessed(2 * int64_t(state.iterations()) * nbytes);
 }
@@ -168,6 +190,28 @@ static void BM_BitmapWriter(benchmark::State& state) {
 
 static void BM_FirstTimeBitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<internal::FirstTimeBitmapWriter>(state, state.range(0));
+}
+
+struct GenerateBitsFunctor {
+  template <class Generator>
+  void operator()(uint8_t* bitmap, int64_t start_offset, int64_t length, Generator&& g) {
+    return internal::GenerateBits(bitmap, start_offset, length, g);
+  }
+};
+
+struct GenerateBitsUnrolledFunctor {
+  template <class Generator>
+  void operator()(uint8_t* bitmap, int64_t start_offset, int64_t length, Generator&& g) {
+    return internal::GenerateBitsUnrolled(bitmap, start_offset, length, g);
+  }
+};
+
+static void BM_GenerateBits(benchmark::State& state) {
+  BenchmarkGenerateBits<GenerateBitsFunctor>(state, state.range(0));
+}
+
+static void BM_GenerateBitsUnrolled(benchmark::State& state) {
+  BenchmarkGenerateBits<GenerateBitsUnrolledFunctor>(state, state.range(0));
 }
 
 static void BM_CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
@@ -201,13 +245,31 @@ BENCHMARK(BM_BitmapReader)->Args({100000})->MinTime(1.0)->Unit(benchmark::kMicro
 
 BENCHMARK(BM_NaiveBitmapWriter)
     ->Args({100000})
+    ->Repetitions(2)
     ->MinTime(1.0)
     ->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_BitmapWriter)->Args({100000})->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BitmapWriter)
+    ->Args({100000})
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_FirstTimeBitmapWriter)
     ->Args({100000})
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_GenerateBits)
+    ->Args({100000})
+    ->Repetitions(2)
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_GenerateBitsUnrolled)
+    ->Args({100000})
+    ->Repetitions(2)
     ->MinTime(1.0)
     ->Unit(benchmark::kMicrosecond);
 
