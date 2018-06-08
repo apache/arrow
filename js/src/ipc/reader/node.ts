@@ -50,7 +50,7 @@ export async function* fromReadableStream(stream: NodeJS.ReadableStream) {
             return yield bytes;
         }
 
-        if (messageLength <= 0) {
+        if (bytes.byteLength > 0 && messageLength <= 0) {
             messageLength = new DataView(bytes.buffer).getInt32(0, true);
         }
 
