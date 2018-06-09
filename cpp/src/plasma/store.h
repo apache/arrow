@@ -50,6 +50,10 @@ struct Client {
 
   /// Object ids that are used by this client.
   std::unordered_set<ObjectID> object_ids;
+
+  /// The file descriptor used to push notifications to client. This is only valid
+  /// if client subscribes to plasma store. -1 indicates invalid.
+  int notification_fd;
 };
 
 class PlasmaStore {
@@ -169,6 +173,8 @@ class PlasmaStore {
 
  private:
   void push_notification(ObjectInfoT* object_notification);
+
+  void push_notification(ObjectInfoT* object_notification, int client_fd);
 
   void add_to_client_object_ids(ObjectTableEntry* entry, Client* client);
 
