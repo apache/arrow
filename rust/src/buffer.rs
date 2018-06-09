@@ -186,8 +186,7 @@ mod tests {
     fn test_buffer_eq() {
         let a = Buffer::from(vec![1, 2, 3, 4, 5]);
         let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
+        let c = a.iter()
             .zip(b.iter())
             .map(|(a, b)| a == b)
             .collect::<Vec<bool>>();
@@ -198,8 +197,7 @@ mod tests {
     fn test_buffer_lt() {
         let a = Buffer::from(vec![1, 2, 3, 4, 5]);
         let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
+        let c = a.iter()
             .zip(b.iter())
             .map(|(a, b)| a < b)
             .collect::<Vec<bool>>();
@@ -210,8 +208,7 @@ mod tests {
     fn test_buffer_gt() {
         let a = Buffer::from(vec![1, 2, 3, 4, 5]);
         let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
+        let c = a.iter()
             .zip(b.iter())
             .map(|(a, b)| a > b)
             .collect::<Vec<bool>>();
@@ -222,8 +219,7 @@ mod tests {
     fn test_buffer_add() {
         let a = Buffer::from(vec![1, 2, 3, 4, 5]);
         let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
+        let c = a.iter()
             .zip(b.iter())
             .map(|(a, b)| a + b)
             .collect::<Vec<i32>>();
@@ -234,8 +230,7 @@ mod tests {
     fn test_buffer_multiply() {
         let a = Buffer::from(vec![1, 2, 3, 4, 5]);
         let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
+        let c = a.iter()
             .zip(b.iter())
             .map(|(a, b)| a * b)
             .collect::<Vec<i32>>();
