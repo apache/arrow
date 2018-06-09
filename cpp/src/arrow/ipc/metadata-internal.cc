@@ -106,8 +106,8 @@ static Status IntFromFlatbuffer(const flatbuf::Int* int_data,
   return Status::OK();
 }
 
-static Status FloatFromFlatuffer(const flatbuf::FloatingPoint* float_data,
-                                 std::shared_ptr<DataType>* out) {
+static Status FloatFromFlatbuffer(const flatbuf::FloatingPoint* float_data,
+                                  std::shared_ptr<DataType>* out) {
   if (float_data->precision() == flatbuf::Precision_HALF) {
     *out = float16();
   } else if (float_data->precision() == flatbuf::Precision_SINGLE) {
@@ -258,8 +258,8 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Int:
       return IntFromFlatbuffer(static_cast<const flatbuf::Int*>(type_data), out);
     case flatbuf::Type_FloatingPoint:
-      return FloatFromFlatuffer(static_cast<const flatbuf::FloatingPoint*>(type_data),
-                                out);
+      return FloatFromFlatbuffer(static_cast<const flatbuf::FloatingPoint*>(type_data),
+                                 out);
     case flatbuf::Type_Binary:
       *out = binary();
       return Status::OK();
@@ -511,6 +511,46 @@ static DictionaryOffset GetDictionaryEncoding(FBB& fbb, const DictionaryType& ty
                                            type.ordered());
 }
 
+static flatbuffers::Offset<flatbuffers::Vector<KeyValueOffset>>
+KeyValueMetadataToFlatbuffer(FBB& fbb, const KeyValueMetadata& metadata) {
+  std::vector<KeyValueOffset> key_value_offsets;
+
+  size_t metadata_size = metadata.size();
+  key_value_offsets.reserve(metadata_size);
+
+  for (size_t i = 0; i < metadata_size; ++i) {
+    const auto& key = metadata.key(i);
+    const auto& value = metadata.value(i);
+    key_value_offsets.push_back(
+        flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value)));
+  }
+
+  return fbb.CreateVector(key_value_offsets);
+}
+
+static Status KeyValueMetadataFromFlatbuffer(
+    const flatbuffers::Vector<KeyValueOffset>* fb_metadata,
+    std::shared_ptr<KeyValueMetadata>* out) {
+  auto metadata = std::make_shared<KeyValueMetadata>();
+
+  metadata->reserve(fb_metadata->size());
+  for (const auto& pair : *fb_metadata) {
+    if (pair->key() == nullptr) {
+      return Status::IOError(
+          "Key-pointer in custom metadata of flatbuffer-encoded Schema is null.");
+    }
+    if (pair->value() == nullptr) {
+      return Status::IOError(
+          "Value-pointer in custom metadata of flatbuffer-encoded Schema is null.");
+    }
+    metadata->Append(pair->key()->str(), pair->value()->str());
+  }
+
+  *out = metadata;
+
+  return Status::OK();
+}
+
 static Status FieldToFlatbuffer(FBB& fbb, const Field& field,
                                 DictionaryMemo* dictionary_memo, FieldOffset* offset) {
   auto fb_name = fbb.CreateString(field.name());
@@ -529,9 +569,15 @@ static Status FieldToFlatbuffer(FBB& fbb, const Field& field,
         fbb, checked_cast<const DictionaryType&>(*field.type()), dictionary_memo);
   }
 
-  // TODO: produce the list of VectorTypes
-  *offset = flatbuf::CreateField(fbb, fb_name, field.nullable(), type_enum, type_offset,
-                                 dictionary, fb_children);
+  auto metadata = field.metadata();
+  if (metadata != nullptr) {
+    auto fb_custom_metadata = KeyValueMetadataToFlatbuffer(fbb, *metadata);
+    *offset = flatbuf::CreateField(fbb, fb_name, field.nullable(), type_enum, type_offset,
+                                   dictionary, fb_children, fb_custom_metadata);
+  } else {
+    *offset = flatbuf::CreateField(fbb, fb_name, field.nullable(), type_enum, type_offset,
+                                   dictionary, fb_children);
+  }
 
   return Status::OK();
 }
@@ -566,7 +612,16 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
     RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
     type = ::arrow::dictionary(index_type, dictionary, encoding->isOrdered());
   }
-  *out = std::make_shared<Field>(field->name()->str(), type, field->nullable());
+
+  auto fb_metadata = field->custom_metadata();
+  std::shared_ptr<KeyValueMetadata> metadata;
+
+  if (fb_metadata != nullptr) {
+    RETURN_NOT_OK(KeyValueMetadataFromFlatbuffer(fb_metadata, &metadata));
+  }
+
+  *out = std::make_shared<Field>(field->name()->str(), type, field->nullable(), metadata);
+
   return Status::OK();
 }
 
@@ -616,20 +671,10 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   auto fb_offsets = fbb.CreateVector(field_offsets);
 
   /// Custom metadata
-  const KeyValueMetadata* metadata = schema.metadata().get();
-
+  auto metadata = schema.metadata();
   if (metadata != nullptr) {
-    std::vector<KeyValueOffset> key_value_offsets;
-    size_t metadata_size = metadata->size();
-    key_value_offsets.reserve(metadata_size);
-    for (size_t i = 0; i < metadata_size; ++i) {
-      const auto& key = metadata->key(i);
-      const auto& value = metadata->value(i);
-      key_value_offsets.push_back(
-          flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value)));
-    }
-    *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets,
-                                 fbb.CreateVector(key_value_offsets));
+    auto fb_custom_metadata = KeyValueMetadataToFlatbuffer(fbb, *metadata);
+    *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets, fb_custom_metadata);
   } else {
     *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets);
   }
@@ -864,24 +909,15 @@ Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_mem
     RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
 
-  auto metadata = std::make_shared<KeyValueMetadata>();
   auto fb_metadata = schema->custom_metadata();
+  std::shared_ptr<KeyValueMetadata> metadata;
+
   if (fb_metadata != nullptr) {
-    metadata->reserve(fb_metadata->size());
-    for (const auto& pair : *fb_metadata) {
-      if (pair->key() == nullptr) {
-        return Status::IOError(
-            "Key-pointer in custom metadata of flatbuffer-encoded Schema is null.");
-      }
-      if (pair->value() == nullptr) {
-        return Status::IOError(
-            "Value-pointer in custom metadata of flatbuffer-encoded Schema is null.");
-      }
-      metadata->Append(pair->key()->str(), pair->value()->str());
-    }
+    RETURN_NOT_OK(KeyValueMetadataFromFlatbuffer(fb_metadata, &metadata));
   }
 
   *out = ::arrow::schema(std::move(fields), metadata);
+
   return Status::OK();
 }
 

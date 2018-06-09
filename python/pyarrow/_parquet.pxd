@@ -198,7 +198,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         ParquetCompression compression() const
         const vector[ParquetEncoding]& encodings() const
 
-        bint has_dictionary_page() const
+        int64_t has_dictionary_page() const
         int64_t dictionary_page_offset() const
         int64_t data_page_offset() const
         int64_t index_page_offset() const

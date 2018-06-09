@@ -318,7 +318,9 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       APPEND_STRING PROPERTY
       COMPILE_FLAGS " -DARROW_VALGRIND")
     add_test(${TEST_NAME}
-      bash -c "cd ${EXECUTABLE_OUTPUT_PATH}; valgrind --tool=memcheck --leak-check=full --leak-check-heuristics=stdstring --error-exitcode=1 ${TEST_PATH}")
+      bash -c "cd '${CMAKE_SOURCE_DIR}'; \
+               valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
+                 --leak-check=full --leak-check-heuristics=stdstring --error-exitcode=1 ${TEST_PATH}")
   elseif(MSVC)
     add_test(${TEST_NAME} ${TEST_PATH})
   else()

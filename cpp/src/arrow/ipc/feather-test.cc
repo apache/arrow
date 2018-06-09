@@ -358,26 +358,41 @@ TEST_F(TestTableWriter, TimeTypes) {
   auto f3 = field("f3", timestamp(TimeUnit::SECOND, "US/Los_Angeles"));
   auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  std::vector<int64_t> values_vec = {0, 1, 2, 3, 4, 5, 6};
-  std::shared_ptr<Array> values;
-  ArrayFromVector<Int64Type, int64_t>(is_valid, values_vec, &values);
+  std::vector<int64_t> values64_vec = {0, 1, 2, 3, 4, 5, 6};
+  std::shared_ptr<Array> values64;
+  ArrayFromVector<Int64Type, int64_t>(is_valid, values64_vec, &values64);
 
-  std::vector<int32_t> date_values_vec = {0, 1, 2, 3, 4, 5, 6};
+  std::vector<int32_t> values32_vec = {10, 11, 12, 13, 14, 15, 16};
+  std::shared_ptr<Array> values32;
+  ArrayFromVector<Int32Type, int32_t>(is_valid, values32_vec, &values32);
+
+  std::vector<int32_t> date_values_vec = {20, 21, 22, 23, 24, 25, 26};
   std::shared_ptr<Array> date_array;
   ArrayFromVector<Date32Type, int32_t>(is_valid, date_values_vec, &date_array);
 
-  const auto& prim_values = checked_cast<const PrimitiveArray&>(*values);
-  BufferVector buffers = {prim_values.null_bitmap(), prim_values.values()};
+  const auto& prim_values64 = checked_cast<const PrimitiveArray&>(*values64);
+  BufferVector buffers64 = {prim_values64.null_bitmap(), prim_values64.values()};
 
+  const auto& prim_values32 = checked_cast<const PrimitiveArray&>(*values32);
+  BufferVector buffers32 = {prim_values32.null_bitmap(), prim_values32.values()};
+
+  // Push date32 ArrayData
   std::vector<std::shared_ptr<ArrayData>> arrays;
   arrays.push_back(date_array->data());
 
-  for (int i = 1; i < schema->num_fields(); ++i) {
-    arrays.emplace_back(ArrayData::Make(schema->field(i)->type(), values->length(),
-                                        BufferVector(buffers), values->null_count(), 0));
+  // Create time32 ArrayData
+  arrays.emplace_back(ArrayData::Make(schema->field(1)->type(), values32->length(),
+                                      BufferVector(buffers32), values32->null_count(),
+                                      0));
+
+  // Create timestamp ArrayData
+  for (int i = 2; i < schema->num_fields(); ++i) {
+    arrays.emplace_back(ArrayData::Make(schema->field(i)->type(), values64->length(),
+                                        BufferVector(buffers64), values64->null_count(),
+                                        0));
   }
 
-  auto batch = RecordBatch::Make(schema, values->length(), std::move(arrays));
+  auto batch = RecordBatch::Make(schema, 7, std::move(arrays));
   CheckBatch(*batch);
 }
 

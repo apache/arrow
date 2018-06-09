@@ -59,33 +59,8 @@ git push
 
 ### Updating Code Documentation
 
-#### Java
-
-```
-cd ../java
-mvn install
-mvn site
-rsync -r target/site/apidocs/ ../site/asf-site/docs/java/
-```
-
-#### C++
-
-```
-cd ../cpp/apidoc
-doxygen Doxyfile
-rsync -r html/ ../../site/asf-site/docs/cpp
-```
-
-#### Python
-
-First, build PyArrow with all optional extensions (Apache Parquet).
-
-```
-cd ../python
-python setup.py build_ext --inplace --with-parquet --with-plasma
-python setup.py build_sphinx -s doc/source
-rsync -r doc/_build/html/ ../site/asf-site/docs/python/
-```
+To update the documentation, run the script `./dev/gen_apidocs.sh`. This script
+will run the code documentation tools in a fixed environment.
 
 #### C (GLib)
 

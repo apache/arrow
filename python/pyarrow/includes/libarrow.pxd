@@ -19,7 +19,6 @@
 
 from pyarrow.includes.common cimport *
 
-
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
@@ -192,6 +191,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CLoggingMemoryPool" arrow::LoggingMemoryPool"(CMemoryPool):
         CLoggingMemoryPool(CMemoryPool*)
 
+    cdef cppclass CProxyMemoryPool" arrow::ProxyMemoryPool"(CMemoryPool):
+        CProxyMemoryPool(CMemoryPool*)
+
     cdef cppclass CBuffer" arrow::Buffer":
         CBuffer(const uint8_t* data, int64_t size)
         const uint8_t* data()
@@ -200,6 +202,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CBuffer] parent()
         c_bool is_mutable() const
         c_bool Equals(const CBuffer& other)
+
+    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
+                                    int64_t offset, int64_t length)
+    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
+                                    int64_t offset)
 
     cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
         CMutableBuffer(const uint8_t* data, int64_t size)
@@ -283,7 +290,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CSchema(const vector[shared_ptr[CField]]& fields,
                 const shared_ptr[CKeyValueMetadata]& metadata)
 
-        c_bool Equals(const CSchema& other)
+        c_bool Equals(const CSchema& other, c_bool check_metadata)
 
         shared_ptr[CField] field(int i)
         shared_ptr[const CKeyValueMetadata] metadata()
@@ -651,6 +658,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int port
         c_string user
         c_string kerb_ticket
+        unordered_map[c_string, c_string] extra_conf
         HdfsDriver driver
 
     cdef cppclass HdfsPathInfo:
@@ -959,7 +967,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         PandasOptions options,
         const unordered_set[c_string]& categorical_columns,
         const shared_ptr[CTable]& table,
-        int nthreads, CMemoryPool* pool,
+        CMemoryPool* pool,
         PyObject** out)
 
     void c_set_default_memory_pool \
@@ -987,6 +995,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool strings_to_categorical
         c_bool zero_copy_only
         c_bool integer_object_nulls
+        c_bool use_threads
 
 cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 
@@ -1045,3 +1054,8 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
                          int64_t* output_length)
 
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
+
+
+cdef extern from 'arrow/util/thread-pool.h' namespace 'arrow' nogil:
+    int GetCpuThreadPoolCapacity()
+    CStatus SetCpuThreadPoolCapacity(int threads)

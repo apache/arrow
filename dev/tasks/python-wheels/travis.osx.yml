@@ -1,0 +1,82 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+os: osx
+sudo: required
+language: objective-c
+
+env:
+  global:
+    - PLAT={{ PLAT }}
+    - BUILD_REF={{ BUILD_REF }}
+    - PYARROW_VERSION={{ PYARROW_VERSION }}
+
+matrix:
+  exclude:
+    - python: 3.5
+  include:
+    - env:
+        - MB_PYTHON_VERSION=2.7
+        - NP_BUILD_DEP="1.10.1"
+        - NP_TEST_DEP="1.10.1"
+        - PANDAS_DEP="0.20.3"
+    - env:
+        - MB_PYTHON_VERSION=3.5
+        - NP_BUILD_DEP="1.10.1"
+        - NP_TEST_DEP="1.10.1"
+        - PANDAS_DEP="0.20.3"
+    - env:
+        - MB_PYTHON_VERSION=3.6
+        - NP_BUILD_DEP="1.11.3"
+        - NP_TEST_DEP="1.11.3"
+        - PANDAS_DEP="0.20.3"
+
+before_install:
+  - git clone https://github.com/matthew-brett/multibuild # TODO pin it
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
+
+  # Also remove artifacts that depend on Boost
+  - brew uninstall boost cgal postgis sfcgal
+  - brew update
+  - brew upgrade cmake
+  - brew install bison flex
+
+  - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
+  - source multibuild/common_utils.sh
+  - source multibuild/travis_osx_steps.sh
+
+  - before_install
+
+install:
+  - BUILD_DEPENDS="numpy==$NP_BUILD_DEP six cython"
+  - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
+
+  - mkdir -p dist
+  - clean_code arrow $BUILD_REF
+  - build_wheel arrow $PLAT
+  - mv -v arrow/python/dist/* dist/
+
+script:
+  - echo "SCRIPT"
+  - pwd
+
+after_success:
+  - echo "After success"
+  - pwd
+
+notifications:
+  email:
+    - {{ EMAIL }}

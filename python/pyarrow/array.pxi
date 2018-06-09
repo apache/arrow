@@ -347,17 +347,9 @@ def _restore_array(data):
 
 cdef class Array:
 
-    def __init__(self, *args, **kwargs):
-        """
-        Do not call this constructor directly, use factories
-        like ``pyarrow.array``.
-        """
-        # Check if the constructor was called with arguments.
-        # This was probably by accident from a user. Instead of segfaulting
-        # we should provide them with a meaningful error.
-        if len(args) > 0 or len(kwargs) > 0:
-            raise RuntimeError("Don't call pyarrow.Array directly, use "
-                               "pyarrow.array instead")
+    def __init__(self):
+        raise TypeError("Do not call Array's constructor directly, use one "
+                        "of the `pyarrow.Array.from_*` functions instead.")
 
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
@@ -510,7 +502,6 @@ cdef class Array:
     def __iter__(self):
         for i in range(len(self)):
             yield self.getitem(i)
-        raise StopIteration
 
     def __repr__(self):
         from pyarrow.formatting import array_format
@@ -534,8 +525,6 @@ cdef class Array:
         raise NotImplemented
 
     def __getitem__(self, key):
-        cdef Py_ssize_t n = len(self)
-
         if PySlice_Check(key):
             return _normalize_slice(self, key)
 
@@ -602,7 +591,8 @@ cdef class Array:
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls)
+            integer_object_nulls=integer_object_nulls,
+            use_threads=False)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
                                               self, &out))
@@ -652,20 +642,16 @@ cdef class Array:
 
 cdef class Tensor:
 
+    def __init__(self):
+        raise TypeError("Do not call Tensor's constructor directly, use one "
+                        "of the `pyarrow.Tensor.from_*` functions instead.")
+
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor):
         self.sp_tensor = sp_tensor
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())
 
-    def _validate(self):
-        if self.tp is NULL:
-            raise TypeError(
-                'pyarrow.Tensor has not been initialized correctly Please use '
-                'pyarrow.Tensor.from_numpy to construct a pyarrow.Tensor')
-
     def __repr__(self):
-        if self.tp is NULL:
-            return '<invalid pyarrow.Tensor>'
         return """<pyarrow.Tensor>
 type: {0.type}
 shape: {0.shape}
@@ -683,8 +669,6 @@ strides: {0.strides}""".format(self)
         """
         Convert arrow::Tensor to numpy.ndarray with zero copy
         """
-        self._validate()
-
         cdef PyObject* out
 
         with nogil:
@@ -695,7 +679,6 @@ strides: {0.strides}""".format(self)
         """
         Return true if the tensors contains exactly equal data
         """
-        self._validate()
         return self.tp.Equals(deref(other.tp))
 
     def __eq__(self, other):
@@ -706,38 +689,30 @@ strides: {0.strides}""".format(self)
 
     @property
     def is_mutable(self):
-        self._validate()
         return self.tp.is_mutable()
 
     @property
     def is_contiguous(self):
-        self._validate()
         return self.tp.is_contiguous()
 
     @property
     def ndim(self):
-        self._validate()
         return self.tp.ndim()
 
     @property
     def size(self):
-        self._validate()
         return self.tp.size()
 
     @property
     def shape(self):
         # Cython knows how to convert a vector[T] to a Python list
-        self._validate()
         return tuple(self.tp.shape())
 
     @property
     def strides(self):
-        self._validate()
         return tuple(self.tp.strides())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
-        self._validate()
-
         buffer.buf = <char *> self.tp.data().get().data()
         pep3118_format = self.type.pep3118_format
         if pep3118_format is None:
@@ -1043,7 +1018,6 @@ cdef class DictionaryArray(Array):
         """
         cdef:
             Array _indices, _dictionary
-            DictionaryArray result
             shared_ptr[CDataType] c_type
             shared_ptr[CArray] c_result
 
@@ -1081,9 +1055,7 @@ cdef class DictionaryArray(Array):
         else:
             c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
 
-        result = DictionaryArray()
-        result.init(c_result)
-        return result
+        return pyarrow_wrap_array(c_result)
 
 
 cdef class StructArray(Array):
@@ -1162,9 +1134,8 @@ cdef class StructArray(Array):
         ])
 
         c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))
-        result = StructArray()
-        result.init(c_result)
-        return result
+
+        return pyarrow_wrap_array(c_result)
 
 
 cdef dict _array_classes = {

@@ -14,40 +14,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 # Basic OS dependencies
-RUN apt-get update && apt-get install -y \
-        wget \
+# First install JDK 8, then do a second apt call to install maven.
+# Otherwise this will install openjdk 8 and openjdk 11 at once.
+RUN apt-get update && \
+    apt-get install -y openjdk-8-jdk-headless && \
+	apt-get install -y \
+		gcc-8 \
+		g++-8 \
+		vim \
+		git \
+		wget \
+		make \
+		ninja-build \
         rsync \
-        git \
-        gcc-4.9 \
-        g++-4.9 \
-        build-essential \
-        software-properties-common
-
-# Java build fails with default JDK8
-RUN add-apt-repository ppa:openjdk-r/ppa &&\
-    apt-get update &&\
-    apt-get install -y openjdk-7-jdk &&\
-    update-java-alternatives -s java-1.7.0-openjdk-amd64
+        maven \
+        pkg-config \
+        gobject-introspection \
+        libgirepository1.0-dev \
+        gtk-doc-tools \
+        libtool \
+        autoconf-archive \
+        npm
 
 # This will install conda in /home/ubuntu/miniconda
 RUN wget -O /tmp/miniconda.sh \
     https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
     bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
     rm /tmp/miniconda.sh
-# C_Glib dependencies
-RUN apt-get install -y \
-    libgtk2.0-dev \
-    gtk-doc-tools \
-    gobject-introspection \
-    libgirepository1.0-dev \
-    autogen \
-    autoconf-archive
+
 # Python dependencies
-RUN apt-get install -y \
-    pkg-config
 # Create Conda environment
 RUN /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
         # Python
@@ -78,6 +76,9 @@ RUN /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
         doxygen \
         maven \
         -c conda-forge
+
+ENV CC=gcc-8
+ENV CXX=g++-8
 
 ADD . /apache-arrow
 WORKDIR /apache-arrow

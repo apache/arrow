@@ -20,6 +20,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 
 #include "arrow/util/visibility.h"
 
@@ -84,6 +85,30 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
 
  private:
   MemoryPool* pool_;
+};
+
+/// Derived class for memory allocation.
+///
+/// Tracks the number of bytes and maximum memory allocated through its direct
+/// calls. Actual allocation is delegated to MemoryPool class.
+class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
+ public:
+  explicit ProxyMemoryPool(MemoryPool* pool);
+
+  Status Allocate(int64_t size, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+
+  void Free(uint8_t* buffer, int64_t size) override;
+
+  int64_t bytes_allocated() const override;
+
+  int64_t max_memory() const override;
+
+ private:
+  mutable std::mutex lock_;
+  MemoryPool* pool_;
+  std::atomic<int64_t> bytes_allocated_{0};
+  std::atomic<int64_t> max_memory_{0};
 };
 
 ARROW_EXPORT MemoryPool* default_memory_pool();

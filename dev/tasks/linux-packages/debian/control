@@ -1,0 +1,192 @@
+Source: apache-arrow
+Section: devel
+Priority: optional
+Maintainer: Kouhei Sutou <kou@clear-code.com>
+Build-Depends:
+  debhelper (>= 9.20160115),
+  dh-autoreconf,
+  autoconf-archive,
+  pkg-config,
+  cmake,
+  git,
+  libboost-system-dev,
+  libboost-filesystem-dev,
+  libboost-regex-dev,
+  libjemalloc-dev,
+  python3-dev,
+  python3-numpy,
+  nvidia-cuda-toolkit,
+  libgirepository1.0-dev,
+  gtk-doc-tools,
+  gobject-introspection
+Build-Depends-Indep: libglib2.0-doc
+Standards-Version: 3.9.6
+Homepage: https://arrow.apache.org/
+
+Package: libarrow0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libjemalloc1
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides library files.
+
+Package: libarrow-python0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow0 (= ${binary:Version}),
+  python3,
+  python3-numpy
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides library files for Python support.
+
+Package: libarrow-gpu0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow0 (= ${binary:Version}),
+  libnvidia-fatbinaryloader,
+  libcuda1
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides library files for GPU support.
+
+Package: libarrow-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides header files.
+
+Package: libarrow-python-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libarrow-python0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides header files for Python support.
+
+Package: libarrow-gpu-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libarrow-gpu0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides header files for GPU support.
+
+Package: libarrow-glib0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides library files.
+
+Package: gir1.2-arrow-1.0
+Section: introspection
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${gir:Depends},
+  ${misc:Depends}
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides GObject Introspection typelib files.
+
+Package: libarrow-glib-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libglib2.0-dev,
+  libarrow-dev (= ${binary:Version}),
+  libarrow-glib0 (= ${binary:Version}),
+  gir1.2-arrow-1.0 (= ${binary:Version})
+Suggests: libarrow-glib-doc
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides header files.
+
+Package: libarrow-glib-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends:
+  ${misc:Depends}
+Recommends: libglib2.0-doc
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides documentations.
+
+Package: libarrow-gpu-glib0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow-glib0 (= ${binary:Version}),
+  libarrow-gpu0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides library files for GPU support.
+
+Package: gir1.2-arrow-gpu-1.0
+Section: introspection
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${gir:Depends},
+  ${misc:Depends}
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides GObject Introspection typelib files for GPU support.
+
+Package: libarrow-gpu-glib-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libarrow-glib-dev (= ${binary:Version}),
+  libarrow-gpu-dev (= ${binary:Version}),
+  libarrow-gpu-glib0 (= ${binary:Version}),
+  gir1.2-arrow-gpu-1.0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides header files for GPU support.

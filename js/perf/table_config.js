@@ -27,9 +27,9 @@ countBys = {
 }
 counts = {
     "tracks": [
-        {col: 'lat',    test: 'gteq', value: 0        },
-        {col: 'lng',    test: 'gteq', value: 0        },
-        {col: 'origin', test:   'eq', value: 'Seattle'},
+        {col: 'lat',    test: 'gt', value: 0        },
+        {col: 'lng',    test: 'gt', value: 0        },
+        {col: 'origin', test: 'eq', value: 'Seattle'},
     ]
 }
 

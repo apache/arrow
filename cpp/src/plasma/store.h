@@ -50,10 +50,16 @@ struct Client {
 
   /// Object ids that are used by this client.
   std::unordered_set<ObjectID> object_ids;
+
+  /// The file descriptor used to push notifications to client. This is only valid
+  /// if client subscribes to plasma store. -1 indicates invalid.
+  int notification_fd;
 };
 
 class PlasmaStore {
  public:
+  using NotificationMap = std::unordered_map<int, NotificationQueue>;
+
   // TODO: PascalCase PlasmaStore methods.
   PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
               bool hugetlbfs_enabled);
@@ -161,12 +167,14 @@ class PlasmaStore {
   /// @param client_fd The client file descriptor that is disconnected.
   void disconnect_client(int client_fd);
 
-  void send_notifications(int client_fd);
+  NotificationMap::iterator send_notifications(NotificationMap::iterator it);
 
   Status process_message(Client* client);
 
  private:
   void push_notification(ObjectInfoT* object_notification);
+
+  void push_notification(ObjectInfoT* object_notification, int client_fd);
 
   void add_to_client_object_ids(ObjectTableEntry* entry, Client* client);
 
@@ -194,7 +202,7 @@ class PlasmaStore {
   /// descriptor to an array of object_ids to send to that client.
   /// TODO(pcm): Consider putting this into the Client data structure and
   /// reorganize the code slightly.
-  std::unordered_map<int, NotificationQueue> pending_notifications_;
+  NotificationMap pending_notifications_;
 
   std::unordered_map<int, std::unique_ptr<Client>> connected_clients_;
 #ifdef PLASMA_GPU

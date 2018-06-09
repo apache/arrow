@@ -23,12 +23,12 @@ Status::Status(StatusCode code, const std::string& msg) {
   state_->msg = msg;
 }
 
-void Status::CopyFrom(const State* state) {
+void Status::CopyFrom(const Status& s) {
   delete state_;
-  if (state == nullptr) {
+  if (s.state_ == nullptr) {
     state_ = nullptr;
   } else {
-    state_ = new State(*state);
+    state_ = new State(*s.state_);
   }
 }
 

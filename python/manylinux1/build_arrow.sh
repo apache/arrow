@@ -37,6 +37,7 @@ cd /arrow/python
 
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
+export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
@@ -74,6 +75,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
     $PIP install -r requirements.txt
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
 

@@ -153,6 +153,12 @@ static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>&
   return std::make_shared<Buffer>(buffer, offset, length);
 }
 
+static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
+                                                  const int64_t offset) {
+  int64_t length = buffer->size() - offset;
+  return SliceBuffer(buffer, offset, length);
+}
+
 /// Construct a mutable buffer slice. If the parent buffer is not mutable, this
 /// will abort in debug builds
 ARROW_EXPORT

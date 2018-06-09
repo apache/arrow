@@ -775,7 +775,7 @@ class ParquetDataset(object):
         for piece in self.pieces:
             file_metadata = piece.get_metadata(open_file)
             file_schema = file_metadata.schema.to_arrow_schema()
-            if not dataset_schema.equals(file_schema):
+            if not dataset_schema.equals(file_schema, check_metadata=False):
                 raise ValueError('Schema in {0!s} was different. \n'
                                  '{1!s}\n\nvs\n\n{2!s}'
                                  .format(piece, file_schema,

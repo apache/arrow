@@ -20,16 +20,11 @@ package org.apache.arrow.vector.ipc;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.ipc.message.ArrowBlock;
-import org.apache.arrow.vector.ipc.ArrowWriter;
-import org.apache.arrow.vector.ipc.WriteChannel;
-import org.apache.arrow.vector.types.pojo.Schema;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-import java.util.List;
 
 public class ArrowStreamWriter extends ArrowWriter {
 
@@ -46,10 +41,7 @@ public class ArrowStreamWriter extends ArrowWriter {
   }
 
   @Override
-  protected void endInternal(WriteChannel out,
-                             Schema schema,
-                             List<ArrowBlock> dictionaries,
-                             List<ArrowBlock> records) throws IOException {
+  protected void endInternal(WriteChannel out) throws IOException {
     out.writeIntLittleEndian(0);
   }
 }

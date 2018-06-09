@@ -18,6 +18,7 @@
 #include <cstring>
 #include <iosfwd>
 #include <string>
+#include <utility>
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 #include <sstream>
@@ -100,7 +101,17 @@ class ARROW_EXPORT Status {
 
   // Copy the specified status.
   Status(const Status& s);
-  void operator=(const Status& s);
+  Status& operator=(const Status& s);
+
+  // Move the specified status.
+  Status(Status&& s);
+  Status& operator=(Status&& s);
+
+  // AND the statuses.
+  Status operator&(const Status& s) const;
+  Status operator&(Status&& s) const;
+  Status& operator&=(const Status& s);
+  Status& operator&=(Status&& s);
 
   // Return a success status.
   static Status OK() { return Status(); }
@@ -207,7 +218,8 @@ class ARROW_EXPORT Status {
   // a `State` structure containing the error code and message(s)
   State* state_;
 
-  void CopyFrom(const State* s);
+  void CopyFrom(const Status& s);
+  void MoveFrom(Status& s);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
@@ -215,15 +227,59 @@ static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
   return os;
 }
 
+inline void Status::MoveFrom(Status& s) {
+  delete state_;
+  state_ = s.state_;
+  s.state_ = NULL;
+}
+
 inline Status::Status(const Status& s)
     : state_((s.state_ == NULL) ? NULL : new State(*s.state_)) {}
 
-inline void Status::operator=(const Status& s) {
+inline Status& Status::operator=(const Status& s) {
   // The following condition catches both aliasing (when this == &s),
   // and the common case where both s and *this are ok.
   if (state_ != s.state_) {
-    CopyFrom(s.state_);
+    CopyFrom(s);
   }
+  return *this;
+}
+
+inline Status::Status(Status&& s) : state_(s.state_) { s.state_ = NULL; }
+
+inline Status& Status::operator=(Status&& s) {
+  MoveFrom(s);
+  return *this;
+}
+
+inline Status Status::operator&(const Status& s) const {
+  if (ok()) {
+    return s;
+  } else {
+    return *this;
+  }
+}
+
+inline Status Status::operator&(Status&& s) const {
+  if (ok()) {
+    return std::move(s);
+  } else {
+    return *this;
+  }
+}
+
+inline Status& Status::operator&=(const Status& s) {
+  if (ok() && !s.ok()) {
+    CopyFrom(s);
+  }
+  return *this;
+}
+
+inline Status& Status::operator&=(Status&& s) {
+  if (ok() && !s.ok()) {
+    MoveFrom(s);
+  }
+  return *this;
 }
 
 }  // namespace arrow

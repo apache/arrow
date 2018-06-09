@@ -233,6 +233,8 @@ class ARROW_EXPORT Field {
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
+  bool HasMetadata() const;
+
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
   std::shared_ptr<Field> RemoveMetadata() const;
@@ -750,7 +752,7 @@ class ARROW_EXPORT Schema {
   virtual ~Schema() = default;
 
   /// Returns true if all of the schema fields are equal
-  bool Equals(const Schema& other) const;
+  bool Equals(const Schema& other, bool check_metadata = true) const;
 
   /// Return the ith schema element. Does not boundscheck
   std::shared_ptr<Field> field(int i) const { return fields_[i]; }
@@ -784,6 +786,9 @@ class ARROW_EXPORT Schema {
 
   /// \brief Return copy of Schema without the KeyValueMetadata
   std::shared_ptr<Schema> RemoveMetadata() const;
+
+  /// \brief Indicates that Schema has non-empty KevValueMetadata
+  bool HasMetadata() const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const { return static_cast<int>(fields_.size()); }

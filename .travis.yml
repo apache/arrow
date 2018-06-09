@@ -45,7 +45,6 @@ matrix:
   - compiler: gcc
     language: cpp
     os: linux
-    group: deprecated
     env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_VALGRIND=1
@@ -130,6 +129,8 @@ matrix:
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk8
     env:
+    - ARROW_TRAVIS_PLASMA=1
+    - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
     - CC="clang-6.0"
     - CXX="clang++-6.0"
     before_script:
@@ -141,6 +142,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
   # NodeJS
   - language: node_js
     os: linux
@@ -152,7 +154,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
-  # C++ & glib w/ gcc 4.9
+  # C++ & GLib & Ruby w/ gcc 4.9
   - compiler: gcc
     language: cpp
     os: linux
@@ -161,13 +163,15 @@ matrix:
     - CC="gcc-4.9"
     - CXX="g++-4.9"
     before_script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
-  # [OS X] C++ & glib w/ XCode 8.3 & homebrew
+    - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
+  # [OS X] C++ & GLib & Ruby w/ XCode 8.3 & homebrew
   - compiler: clang
     osx_image: xcode8.3
     os: osx
@@ -175,12 +179,14 @@ matrix:
     addons:
     rvm: 2.2
     before_script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED != "1" ]; then exit; fi
+    - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library --homebrew
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
+    - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
+    - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
   # Rust
   - language: rust
     cache: cargo
@@ -215,3 +221,9 @@ after_failure:
 env:
   global:
   - secure: "GcrPtsKUCgNY7HKYjWlHQo8SiFrShDvdZSU8t1m1FJrE+UfK0Dgh9zXmAausM8GmhqSwkF0q4UbLQf2uCnSITWKeEPAL8Mo9eu4ib+ikJx/b3Sk81frgW5ADoHfW1Eyqd8xJNIMwMegJOtRLSDqiXh1CvMlKnY8PyTOGM2DgN9ona/v6p9OFH9Qs0JhBRVXAn0S4ztjumck8E56+01hqRfxbZ88pTfpKghBxYp9PJaMjtGdomjVWlqPaWaWJj+KptT8inV9NK+TVYKx0dXWD+S1Vgr1PytQnLdILOYV23gsOBYqn33ByF/yADl4m3hUjU/qeT0Fi7aWxmVpj+oTJISOSH5N8nIsuNH8mQk2ZzzXHfV7btFvP+cOPRczadoKkT6D6cHA8nQ7b0dphC6bl6SAeSfc/cbhRT+fYnIjg8jFXC8jlyWBr7LR6GXVpc0bND7i300ITo0FuRJhy2OxqPtGo3dKLE7eAcv78tuO0OYJ/kol1PEqFdFkbYbNVbg/cFpbGqiCXDsOtPDbAGBv69YnXdVowSxxs8cRGjSkDydv6ZSytb/Zd4lH/KAomcFNk8adx12O1Lk4sbmVav1cGig5P6OcQKS0jC5IiRb4THcQzVzAkXXbaafKm5sru/NoYxhzmkyhkOc11nTYHKVng+XKWzLCNn7pTTSLitp5+xa4="
+notifications:
+  slack:
+    on_success: change
+    on_failure: always
+    rooms:
+     - secure: "pjolv9Jg9c1XYIauRK1/SvfkWXxRxuDs2K3Vho8HapKTcQcB1FGsKUX+Ov/5uE4goOQiJuf8S8SzqpALZaNsn1d4nIo8qRKtcp+1cbL6vRBgaKDPIq8P/iv2Z1xf45uEpEYs9Ve7JHtqhOv320CrLK046F51Wym60D1ZybCrO8+kvEcfH6pmjsKsOhpvg8OS4Gc3jv84tN0Y1H1jI5VbWxgHh0pU1a9YdOlOLWa4K7HYrc/fgWzeevVPe3dzflP0z+8N/I39xjBK0DWHz+L3EAzaPSbWuGzo8+VydDnXC6FGtPjvVJbVxhFKKT4luFuWIW57FkwnPDLueAeNtVCB3uJl6sHRHwhKIQ2IqZAoFwEUbX79Hgti+uBg7RfkyAnUjg5rcuQmrRyvqThgaSbXp+Y7CvZOalUvM9yJy8LE6yDBgDLCrMo+vFGUDaMdT1351L4rPDNRnvJL7DbD7SzLIW33Iu4l0MZbiQvPs//Q+TaIo0NU+ZX41qMXBmnyBXG5DJMYw65mN9ftzixUe/ykGCtC5c6qr6b/pk+qpWUqHKa9VJbj+hzXut2WtQr95Pmacn87RZSzohfiELIL8ibYVJSmmmQq0GfyFI0ImXXkH4GxF+hFO9bGB1zxJlxjraKdgEDmmrS0npPx/AWktVRDgOrt/1B3fB+i+GQJkmlsVLY="

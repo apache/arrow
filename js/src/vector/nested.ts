@@ -18,6 +18,7 @@
 import { Data } from '../data';
 import { View, Vector } from '../vector';
 import { IterableArrayLike } from '../type';
+import { valueToString } from '../util/pretty';
 import { DataType, NestedType, DenseUnion, SparseUnion, Struct, Map_ } from '../type';
 
 export abstract class NestedView<T extends NestedType> implements View<T> {
@@ -45,7 +46,7 @@ export abstract class NestedView<T extends NestedType> implements View<T> {
     }
     public toJSON(): any { return this.toArray(); }
     public toString() {
-        return [...this].map((x) => stringify(x)).join(', ');
+        return [...this].map((x) => valueToString(x)).join(', ');
     }
     public get(index: number): T['TValue'] {
         return this.getNested(this, index);
@@ -213,8 +214,4 @@ export class MapRowView extends RowView {
         const child = self.getChildAt(typeIds[key]);
         return child ? child.set(self.rowIndex, value) : null;
     }
-}
-
-function stringify(x: any) {
-    return typeof x === 'string' ? `"${x}"` : Array.isArray(x) ? JSON.stringify(x) : ArrayBuffer.isView(x) ? `[${x}]` : `${x}`;
 }
