@@ -24,6 +24,14 @@ import pytest
 import pyarrow as pa
 
 
+def test_chunked_array_basics():
+    data = pa.chunked_array([], type=pa.string())
+    assert data.to_pylist() == []
+
+    with pytest.raises(ValueError):
+        pa.chunked_array([])
+
+
 def test_chunked_array_getitem():
     data = [
         pa.array([1, 2, 3]),
