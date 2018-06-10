@@ -537,22 +537,26 @@ def test_sequence_timestamp_from_int_with_unit():
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
     assert arr_s.type == s
-    assert str(arr_s[0]) == "Timestamp('1970-01-01 00:00:01')"
+    assert repr(arr_s[0]) == "Timestamp('1970-01-01 00:00:01')"
+    assert str(arr_s[0]) == "1970-01-01 00:00:01"
 
     arr_ms = pa.array(data, type=ms)
     assert len(arr_ms) == 1
     assert arr_ms.type == ms
-    assert str(arr_ms[0]) == "Timestamp('1970-01-01 00:00:00.001000')"
+    assert repr(arr_ms[0]) == "Timestamp('1970-01-01 00:00:00.001000')"
+    assert str(arr_ms[0]) == "1970-01-01 00:00:00.001000"
 
     arr_us = pa.array(data, type=us)
     assert len(arr_us) == 1
     assert arr_us.type == us
-    assert str(arr_us[0]) == "Timestamp('1970-01-01 00:00:00.000001')"
+    assert repr(arr_us[0]) == "Timestamp('1970-01-01 00:00:00.000001')"
+    assert str(arr_us[0]) == "1970-01-01 00:00:00.000001"
 
     arr_ns = pa.array(data, type=ns)
     assert len(arr_ns) == 1
     assert arr_ns.type == ns
-    assert str(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
+    assert repr(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
+    assert str(arr_ns[0]) == "1970-01-01 00:00:00.000000001"
 
     with pytest.raises(pa.ArrowException):
         class CustomClass():
