@@ -33,12 +33,7 @@ represent more data than a DataFrame, so a full conversion is not always possibl
 
 Conversion from a Table to a DataFrame is done by calling
 :meth:`pyarrow.table.Table.to_pandas`. The inverse is then achieved by using
-:meth:`pyarrow.Table.from_pandas`. This conversion routine provides the
-convience parameter ``timestamps_to_ms``. Although Arrow supports timestamps of
-different resolutions, pandas only supports nanosecond timestamps and most
-other systems (e.g. Parquet) only work on millisecond timestamps. This parameter
-can be used to already do the time conversion during the pandas to Arrow
-conversion.
+:meth:`pyarrow.Table.from_pandas`.
 
 .. code-block:: python
 
