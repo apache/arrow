@@ -22,14 +22,22 @@ use criterion::Criterion;
 
 extern crate arrow;
 
+use std::rc::Rc;
+
+use arrow::array_data::ArrayDataBuilder;
 use arrow::array::*;
+use arrow::datatypes::*;
+use arrow::buffer::Buffer;
 
 fn array_from_vec(n: usize) {
-    let mut v: Vec<i32> = Vec::with_capacity(n);
+    let mut v: Vec<u8> = Vec::with_capacity(n);
     for i in 0..n {
-        v.push(i as i32);
+        v.push((i % 0xffff) as u8);
     }
-    PrimitiveArray::from(v);
+    let arr_data = ArrayDataBuilder::new(DataType::Int32)
+        .add_buffer(Buffer::from(v))
+        .build();
+    let _: PrimitiveArray<i32> = PrimitiveArray::from(Rc::new(arr_data));
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

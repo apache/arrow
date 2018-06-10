@@ -21,14 +21,16 @@ extern crate libc;
 #[macro_use]
 extern crate serde_json;
 
+extern crate rand;
+
+pub mod util;
+pub mod array_data;
 pub mod array;
 pub mod bitmap;
 pub mod buffer;
 pub mod builder;
 pub mod datatypes;
 pub mod error;
-pub mod list;
-pub mod list_builder;
 pub mod memory;
 pub mod memory_pool;
 pub mod record_batch;

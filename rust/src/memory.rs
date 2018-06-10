@@ -68,6 +68,19 @@ pub fn free_aligned(p: *const u8) {
     }
 }
 
+pub fn memcpy(dst: *const u8, src: *const u8, len: usize) {
+    unsafe {
+        let src = mem::transmute::<*const u8, *const libc::c_void>(src);
+        let dst = mem::transmute::<*const u8, *mut libc::c_void>(dst);
+        libc::memcpy(dst, src, len);
+    }
+}
+
+extern {
+    #[inline]
+    pub fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> i32;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

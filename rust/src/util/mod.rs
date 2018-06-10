@@ -15,35 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#[macro_use]
-extern crate criterion;
-
-use criterion::Criterion;
-
-extern crate arrow;
-
-use arrow::array::*;
-use arrow::builder::*;
-
-fn array_from_builder(n: usize) {
-    let mut v: Builder<i32> = Builder::with_capacity(n);
-    for i in 0..n {
-        v.push(i as i32);
-    }
-    PrimitiveArray::from(v.finish());
-}
-
-fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("array_from_builder 128", |b| {
-        b.iter(|| array_from_builder(128))
-    });
-    c.bench_function("array_from_builder 256", |b| {
-        b.iter(|| array_from_builder(256))
-    });
-    c.bench_function("array_from_builder 512", |b| {
-        b.iter(|| array_from_builder(512))
-    });
-}
-
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
+pub mod test_util;
+pub mod bit_util;
