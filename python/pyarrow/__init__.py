@@ -80,8 +80,10 @@ from pyarrow.lib import (null, bool_,
                          UInt8Value, UInt16Value, UInt32Value, UInt64Value,
                          HalfFloatValue, FloatValue, DoubleValue, ListValue,
                          BinaryValue, StringValue, FixedSizeBinaryValue,
-                         DecimalValue,
-                         Date32Value, Date64Value, TimestampValue)
+                         DecimalValue, UnionValue, StructValue, DictionaryValue,
+                         Date32Value, Date64Value,
+                         Time32Value, Time64Value,
+                         TimestampValue)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,

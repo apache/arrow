@@ -42,6 +42,11 @@ NA = NAType()
 
 cdef class ArrayValue(Scalar):
 
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly, use array "
+                        "subscription instead."
+                        .format(self.__class__.__name__))
+
     cdef void init(self, DataType type, const shared_ptr[CArray]& sp_array,
                    int64_t index):
         self.type = type
@@ -51,14 +56,7 @@ cdef class ArrayValue(Scalar):
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
 
-    def _check_null(self):
-        if self.sp_array.get() == NULL:
-            raise ReferenceError(
-                'ArrayValue instance not propertly initialized '
-                '(references NULL pointer)')
-
     def __repr__(self):
-        self._check_null()
         if hasattr(self, 'as_py'):
             return repr(self.as_py())
         else:
@@ -74,7 +72,8 @@ cdef class ArrayValue(Scalar):
                 "Cannot compare Arrow values that don't support as_py()")
 
     def __hash__(self):
-            return hash(self.as_py())
+        return hash(self.as_py())
+
 
 cdef class BooleanValue(ArrayValue):
 
@@ -402,6 +401,7 @@ cdef class StructValue(ArrayValue):
             zip(child_names, wrapped_arrays)
         }
 
+
 cdef class DictionaryValue(ArrayValue):
 
     def as_py(self):
@@ -457,12 +457,14 @@ cdef dict _scalar_classes = {
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
                        int64_t index):
-    cdef ArrayValue val
+    cdef ArrayValue value
+
     if type.type.id() == _Type_NA:
         return NA
     elif sp_array.get().IsNull(index):
         return NA
     else:
-        val = _scalar_classes[type.type.id()]()
-        val.init(type, sp_array, index)
-        return val
+        klass = _scalar_classes[type.type.id()]
+        value = klass.__new__(klass)
+        value.init(type, sp_array, index)
+        return value
