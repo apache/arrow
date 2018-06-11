@@ -348,8 +348,9 @@ def _restore_array(data):
 cdef class Array:
 
     def __init__(self):
-        raise TypeError("Do not call Array's constructor directly, use one "
-                        "of the `pyarrow.Array.from_*` functions instead.")
+        raise TypeError("Do not call {}'s constructor directly, use one of "
+                        "the `pyarrow.Array.from_*` functions instead."
+                        .format(self.__class__.__name__))
 
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array

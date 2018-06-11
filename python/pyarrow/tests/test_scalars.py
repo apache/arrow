@@ -28,19 +28,8 @@ import pyarrow as pa
 class TestScalars(unittest.TestCase):
 
     def test_null_singleton(self):
-        with self.assertRaises(Exception):
+        with pytest.raises(Exception):
             pa.NAType()
-
-    def test_ctor_null_check(self):
-        # ARROW-1155
-        with pytest.raises(ReferenceError):
-            repr(pa.Int16Value())
-
-        with pytest.raises(ReferenceError):
-            str(pa.Int16Value())
-
-        with pytest.raises(ReferenceError):
-            repr(pa.StringValue())
 
     def test_bool(self):
         arr = pa.array([True, None, False, None])
