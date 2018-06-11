@@ -35,6 +35,10 @@ class LLVMTypes {
     return llvm::Type::getInt8Ty(context_);
   }
 
+  llvm::Type *i16_type() {
+    return llvm::Type::getInt16Ty(context_);
+  }
+
   llvm::Type *i32_type() {
     return llvm::Type::getInt32Ty(context_);
   }

@@ -48,4 +48,6 @@ add_custom_command(
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 
 # testing
+add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
+add_precompiled_unit_test(time_test.cc time.cc)
 add_precompiled_unit_test(sample_test.cc sample.cc)

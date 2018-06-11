@@ -72,6 +72,98 @@ TEST_F(TestProjector, TestIntSumSub) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sub, outputs.at(1));
 }
 
+template<typename TYPE, typename C_TYPE>
+static void TestArithmeticOpsForType(arrow::MemoryPool *pool) {
+  auto atype =  arrow::TypeTraits<TYPE>::type_singleton();
+
+  // schema for input fields
+  auto field0 = field("f0", atype);
+  auto field1 = field("f1", atype);
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_sum = field("add", atype);
+  auto field_sub = field("subtract", atype);
+  auto field_mul = field("multiply", atype);
+  auto field_div = field("divide", atype);
+  auto field_eq = field("equal", arrow::boolean());
+  auto field_lt = field("less_than", arrow::boolean());
+
+  // Build expression
+  auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
+  auto sub_expr = TreeExprBuilder::MakeExpression("subtract", {field0, field1},
+                                                  field_sub);
+  auto mul_expr = TreeExprBuilder::MakeExpression("multiply", {field0, field1},
+                                                  field_mul);
+  auto div_expr = TreeExprBuilder::MakeExpression("divide", {field0, field1}, field_div);
+  auto eq_expr = TreeExprBuilder::MakeExpression("equal", {field0, field1}, field_eq);
+  auto lt_expr = TreeExprBuilder::MakeExpression("less_than", {field0, field1}, field_lt);
+
+  std::shared_ptr<Projector> projector;
+  Status status =
+      Projector::Make(schema, {sum_expr, sub_expr, mul_expr, div_expr, eq_expr, lt_expr},
+                      pool, &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  std::vector<C_TYPE> input0 = {1, 2, 53, 84};
+  std::vector<C_TYPE> input1 = {10, 15, 23, 84};
+  std::vector<bool> validity = {true, true, true, true};
+
+  auto array0 = MakeArrowArray<TYPE, C_TYPE>(input0, validity);
+  auto array1 = MakeArrowArray<TYPE, C_TYPE>(input1, validity);
+
+  // expected output
+  std::vector<C_TYPE> sum;
+  std::vector<C_TYPE> sub;
+  std::vector<C_TYPE> mul;
+  std::vector<C_TYPE> div;
+  std::vector<bool> eq;
+  std::vector<bool> lt;
+  for (int i = 0; i < num_records; i++) {
+    sum.push_back(input0[i] + input1[i]);
+    sub.push_back(input0[i] - input1[i]);
+    mul.push_back(input0[i] * input1[i]);
+    div.push_back(input0[i] / input1[i]);
+    eq.push_back(input0[i] == input1[i]);
+    lt.push_back(input0[i] < input1[i]);
+  }
+  auto exp_sum = MakeArrowArray<TYPE, C_TYPE>(sum, validity);
+  auto exp_sub = MakeArrowArray<TYPE, C_TYPE>(sub, validity);
+  auto exp_mul = MakeArrowArray<TYPE, C_TYPE>(mul, validity);
+  auto exp_div = MakeArrowArray<TYPE, C_TYPE>(div, validity);
+  auto exp_eq = MakeArrowArray<arrow::BooleanType, bool>(eq, validity);
+  auto exp_lt = MakeArrowArray<arrow::BooleanType, bool>(lt, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_sub, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mul, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_div, outputs.at(3));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_eq, outputs.at(4));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_lt, outputs.at(5));
+}
+
+TEST_F(TestProjector, TestAllIntTypes) {
+  TestArithmeticOpsForType<arrow::UInt8Type, uint8_t>(pool_);
+  TestArithmeticOpsForType<arrow::UInt16Type, uint16_t>(pool_);
+  TestArithmeticOpsForType<arrow::UInt32Type, uint32_t>(pool_);
+  TestArithmeticOpsForType<arrow::UInt64Type, uint64_t>(pool_);
+  TestArithmeticOpsForType<arrow::Int8Type, int8_t>(pool_);
+  TestArithmeticOpsForType<arrow::Int16Type, int16_t>(pool_);
+  TestArithmeticOpsForType<arrow::Int32Type, int32_t>(pool_);
+  TestArithmeticOpsForType<arrow::Int64Type, int64_t>(pool_);
+}
+
 TEST_F(TestProjector, TestFloatLessThan) {
   // schema for input fields
   auto field0 = field("f0", float32());

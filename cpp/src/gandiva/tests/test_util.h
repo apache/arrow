@@ -35,8 +35,14 @@ static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values,
   return out;
 }
 #define MakeArrowArrayBool MakeArrowArray<arrow::BooleanType, bool>
+#define MakeArrowArrayInt8 MakeArrowArray<arrow::Int8Type, int8_t>
+#define MakeArrowArrayInt16 MakeArrowArray<arrow::Int16Type, int16_t>
 #define MakeArrowArrayInt32 MakeArrowArray<arrow::Int32Type, int32_t>
 #define MakeArrowArrayInt64 MakeArrowArray<arrow::Int64Type, int64_t>
+#define MakeArrowArrayUint8 MakeArrowArray<arrow::Unt8Type, uint8_t>
+#define MakeArrowArrayUint16 MakeArrowArray<arrow::Unt16Type, uint16_t>
+#define MakeArrowArrayUint32 MakeArrowArray<arrow::Unt32Type, uint32_t>
+#define MakeArrowArrayUint64 MakeArrowArray<arrow::Unt64Type, uint64_t>
 #define MakeArrowArrayFloat32 MakeArrowArray<arrow::FloatType, float>
 #define MakeArrowArrayFloat64 MakeArrowArray<arrow::DoubleType, double>
 

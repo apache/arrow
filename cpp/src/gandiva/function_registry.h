@@ -44,7 +44,7 @@ class FunctionRegistry {
     return arrow::time64(arrow::TimeUnit::MICRO);
   }
 
-  static DataTypePtr timestamp64() {
+  static DataTypePtr timestamp() {
     return arrow::timestamp(arrow::TimeUnit::MILLI);
   }
 

@@ -16,13 +16,21 @@
 
 namespace gandiva {
 
+// LLVM doesn't distinguish between signed and unsigned types.
+
 LLVMTypes::LLVMTypes(llvm::LLVMContext &context)
     : context_(context) {
 
   arrow_id_to_llvm_type_map_ = {
       {arrow::Type::type::BOOL, i1_type()},
+      {arrow::Type::type::INT8, i8_type()},
+      {arrow::Type::type::INT16, i16_type()},
       {arrow::Type::type::INT32, i32_type()},
       {arrow::Type::type::INT64, i64_type()},
+      {arrow::Type::type::UINT8, i8_type()},
+      {arrow::Type::type::UINT16, i16_type()},
+      {arrow::Type::type::UINT32, i32_type()},
+      {arrow::Type::type::UINT64, i64_type()},
       {arrow::Type::type::FLOAT, float_type()},
       {arrow::Type::type::DOUBLE, double_type()},
       {arrow::Type::type::DATE64, i64_type()},

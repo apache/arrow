@@ -18,8 +18,14 @@
 namespace gandiva {
 
 using std::vector;
+using arrow::int8;
+using arrow::int16;
 using arrow::int32;
 using arrow::int64;
+using arrow::uint8;
+using arrow::uint16;
+using arrow::uint32;
+using arrow::uint64;
 using arrow::float32;
 using arrow::float64;
 using arrow::boolean;
@@ -107,8 +113,14 @@ using arrow::date64;
 
 // Iterate the inner macro over all numeric types
 #define NUMERIC_TYPES(INNER, NAME) \
-  INNER(NAME, int32), \
-  INNER(NAME, int64), \
+  INNER(NAME, int8),    \
+  INNER(NAME, int16),   \
+  INNER(NAME, int32),   \
+  INNER(NAME, int64),   \
+  INNER(NAME, uint8),   \
+  INNER(NAME, uint16),  \
+  INNER(NAME, uint32),  \
+  INNER(NAME, uint64),  \
   INNER(NAME, float32), \
   INNER(NAME, float64)
 
@@ -121,7 +133,7 @@ using arrow::date64;
 #define DATE_TYPES(INNER, NAME) \
   INNER(NAME, date64), \
   INNER(NAME, time64), \
-  INNER(NAME, timestamp64)
+  INNER(NAME, timestamp)
 
 // list of registered native functions.
 NativeFunction FunctionRegistry::pc_registry_[] = {

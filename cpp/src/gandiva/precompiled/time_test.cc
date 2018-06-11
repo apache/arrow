@@ -12,24 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern "C" {
+#include <gtest/gtest.h>
+#include <time.h>
+#include "precompiled/types.h"
 
-#include "./types.h"
+namespace gandiva {
 
-// Dummy function to test NULL_INTERNAL (most valid ones need varchar).
-
-// If input is valid and a multiple of 2, return half the value. else, null.
-FORCE_INLINE
-int half_or_null_int32(int32 val, bool in_valid, bool *out_valid) {
-  if (in_valid && (val % 2 == 0)) {
-    // output is valid.
-    *out_valid = true;
-    return val / 2;
-  } else {
-    // output is invalid.
-    *out_valid = false;
-    return 0;
-  }
+timestamp StringToTimestamp(const char *buf) {
+  struct tm tm;
+  strptime(buf, "%Y-%m-%d %H:%M:%S", &tm);
+  return timegm(&tm) * 1000; // to millis
 }
 
-} // extern "C"
+TEST(TestTime, TestExtractTimestamp) {
+  timestamp ts = StringToTimestamp("1970-05-02 10:20:33");
+
+  EXPECT_EQ(extractYear_timestamp(ts), 1970);
+  EXPECT_EQ(extractMonth_timestamp(ts), 5);
+  EXPECT_EQ(extractDay_timestamp(ts), 2);
+  EXPECT_EQ(extractHour_timestamp(ts), 10);
+  EXPECT_EQ(extractMinute_timestamp(ts), 20);
+}
+
+} // namespace gandiva
