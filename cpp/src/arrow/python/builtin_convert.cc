@@ -62,7 +62,10 @@ class TypeInferrer {
         bool_count_(0),
         int_count_(0),
         date_count_(0),
-        timestamp_count_(0),
+        timestamp_second_count_(0),
+        timestamp_milli_count_(0),
+        timestamp_micro_count_(0),
+        timestamp_nano_count_(0),
         float_count_(0),
         binary_count_(0),
         unicode_count_(0),
@@ -94,7 +97,7 @@ class TypeInferrer {
     } else if (PyDate_CheckExact(obj)) {
       ++date_count_;
     } else if (PyDateTime_CheckExact(obj)) {
-      ++timestamp_count_;
+      ++timestamp_micro_count_;
     } else if (internal::IsPyBinary(obj)) {
       ++binary_count_;
     } else if (PyUnicode_Check(obj)) {
@@ -107,7 +110,18 @@ class TypeInferrer {
       } else if (is_floating(type->id())) {
         ++float_count_;
       } else if (type->id() == Type::TIMESTAMP) {
-        ++timestamp_count_;
+        const auto& type2 = checked_cast<TimestampType&>(*type);
+        if (type2.unit() == TimeUnit::NANO) {
+          ++timestamp_nano_count_;
+        } else if (type2.unit() == TimeUnit::MICRO) {
+          ++timestamp_micro_count_;
+        } else if (type2.unit() == TimeUnit::MILLI) {
+          ++timestamp_milli_count_;
+        } else if (type2.unit() == TimeUnit::SECOND) {
+          ++timestamp_second_count_;
+        } else {
+          throw std::runtime_error("Unknown unit of TimestampType");
+        }
       } else {
         std::ostringstream ss;
         ss << "Found a NumPy scalar with Arrow dtype that we cannot handle: ";
@@ -168,8 +182,14 @@ class TypeInferrer {
       return int64();
     } else if (date_count_) {
       return date64();
-    } else if (timestamp_count_) {
+    } else if (timestamp_nano_count_) {
+      return timestamp(TimeUnit::NANO);
+    } else if (timestamp_micro_count_) {
       return timestamp(TimeUnit::MICRO);
+    } else if (timestamp_milli_count_) {
+      return timestamp(TimeUnit::MILLI);
+    } else if (timestamp_second_count_) {
+      return timestamp(TimeUnit::SECOND);
     } else if (bool_count_) {
       return boolean();
     } else if (binary_count_) {
@@ -236,7 +256,10 @@ class TypeInferrer {
   int64_t bool_count_;
   int64_t int_count_;
   int64_t date_count_;
-  int64_t timestamp_count_;
+  int64_t timestamp_second_count_;
+  int64_t timestamp_milli_count_;
+  int64_t timestamp_micro_count_;
+  int64_t timestamp_nano_count_;
   int64_t float_count_;
   int64_t binary_count_;
   int64_t unicode_count_;
