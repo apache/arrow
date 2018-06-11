@@ -223,21 +223,42 @@ public class TestBaseAllocator {
   }
 
   // Allocation listener
-  // The only thing it does is it counts the number of times it has been invoked, and how much memory allocation it
-  // has seen
+  // It counts the number of times it has been invoked, and how much memory allocation it has seen
+  // When set to 'expand on fail', it attempts to expand the associated allocator's limit
   static class TestAllocationListener implements AllocationListener {
     private int numCalls;
     private long totalMem;
+    private boolean expandOnFail;
+    BufferAllocator expandAlloc;
+    long expandLimit;
 
     TestAllocationListener() {
       this.numCalls = 0;
       this.totalMem = 0;
+      this.expandOnFail = false;
+      this.expandAlloc = null;
+      this.expandLimit = 0;
     }
 
     @Override
     public void onAllocation(long size) {
       numCalls++;
       totalMem += size;
+    }
+
+    @Override
+    public boolean onFailedAllocation(long size,  Accountant.AllocationOutcome outcome) {
+      if (expandOnFail) {
+        expandAlloc.setLimit(expandLimit);
+        return true;
+      }
+      return false;
+    }
+
+    void setExpandOnFail(BufferAllocator expandAlloc, long expandLimit) {
+      this.expandOnFail = true;
+      this.expandAlloc = expandAlloc;
+      this.expandLimit = expandLimit;
     }
 
     int getNumCalls() {
@@ -288,7 +309,35 @@ public class TestBaseAllocator {
     }
   }
 
-  private static void allocateAndFree(final BufferAllocator allocator) {
+  @Test
+  public void testRootAllocator_listenerAllocationFail() throws Exception {
+    TestAllocationListener l1 = new TestAllocationListener();
+    assertEquals(0, l1.getNumCalls());
+    assertEquals(0, l1.getTotalMem());
+    // Test attempts to allocate too much from a child whose limit is set to half of the max allocation
+    // The listener's callback triggers, expanding the child allocator's limit, so then the allocation succeeds
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      try (final BufferAllocator c1 = rootAllocator.newChildAllocator("c1", l1,0, MAX_ALLOCATION / 2)) {
+        try {
+          c1.buffer(MAX_ALLOCATION);
+          fail("allocated memory beyond max allowed");
+        } catch (OutOfMemoryException e) {
+          // expected
+        }
+        assertEquals(0, l1.getNumCalls());
+        assertEquals(0, l1.getTotalMem());
+
+        l1.setExpandOnFail(c1, MAX_ALLOCATION);
+        ArrowBuf arrowBuf = c1.buffer(MAX_ALLOCATION);
+        assertNotNull("allocation failed", arrowBuf);
+        assertEquals(1, l1.getNumCalls());
+        assertEquals(MAX_ALLOCATION, l1.getTotalMem());
+        arrowBuf.release();
+      }
+    }
+  }
+
+    private static void allocateAndFree(final BufferAllocator allocator) {
     final ArrowBuf arrowBuf = allocator.buffer(512);
     assertNotNull("allocation failed", arrowBuf);
     arrowBuf.release();

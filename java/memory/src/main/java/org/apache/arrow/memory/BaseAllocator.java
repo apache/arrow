@@ -275,6 +275,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         nextPowerOfTwo(initialRequestSize)
         : initialRequestSize;
     AllocationOutcome outcome = this.allocateBytes(actualRequestSize);
+    if (!outcome.isOk() && listener.onFailedAllocation(actualRequestSize, outcome)) {
+      // Second try, in case the listener can do something about it
+      outcome = this.allocateBytes(actualRequestSize);
+    }
     if (!outcome.isOk()) {
       throw new OutOfMemoryException(createErrorMsg(this, actualRequestSize, initialRequestSize));
     }
