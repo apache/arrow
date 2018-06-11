@@ -44,8 +44,8 @@ cdef class ArrayValue(Scalar):
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly, use array "
-                        "subscription instead.".format(
-                        self.__class__.__name__))
+                        "subscription instead."
+                        .format(self.__class__.__name__))
 
     cdef void init(self, DataType type, const shared_ptr[CArray]& sp_array,
                    int64_t index):
