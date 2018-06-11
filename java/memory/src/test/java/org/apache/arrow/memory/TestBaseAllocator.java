@@ -222,6 +222,72 @@ public class TestBaseAllocator {
     }
   }
 
+  // Allocation listener
+  // The only thing it does is it counts the number of times it has been invoked, and how much memory allocation it
+  // has seen
+  static class TestAllocationListener implements AllocationListener {
+    private int numCalls;
+    private long totalMem;
+
+    TestAllocationListener() {
+      this.numCalls = 0;
+      this.totalMem = 0;
+    }
+
+    @Override
+    public void onAllocation(long size) {
+      numCalls++;
+      totalMem += size;
+    }
+
+    int getNumCalls() {
+      return numCalls;
+    }
+
+    long getTotalMem() {
+      return totalMem;
+    }
+  }
+
+  @Test
+  public void testRootAllocator_listeners() throws Exception {
+    TestAllocationListener l1 = new TestAllocationListener();
+    assertEquals(0, l1.getNumCalls());
+    assertEquals(0, l1.getTotalMem());
+    TestAllocationListener l2 = new TestAllocationListener();
+    assertEquals(0, l2.getNumCalls());
+    assertEquals(0, l2.getTotalMem());
+    // root and first-level child share the first listener
+    // second-level and third-level child share the second listener
+    try (final RootAllocator rootAllocator = new RootAllocator(l1, MAX_ALLOCATION)) {
+      try (final BufferAllocator c1 = rootAllocator.newChildAllocator("c1", 0, MAX_ALLOCATION)) {
+        final ArrowBuf buf1 = c1.buffer(16);
+        assertNotNull("allocation failed", buf1);
+        assertEquals(1, l1.getNumCalls());
+        assertEquals(16, l1.getTotalMem());
+        buf1.release();
+        try (final BufferAllocator c2 = c1.newChildAllocator("c2", l2, 0, MAX_ALLOCATION)) {
+          final ArrowBuf buf2 = c2.buffer(32);
+          assertNotNull("allocation failed", buf2);
+          assertEquals(1, l1.getNumCalls());
+          assertEquals(16, l1.getTotalMem());
+          assertEquals(1, l2.getNumCalls());
+          assertEquals(32, l2.getTotalMem());
+          buf2.release();
+          try (final BufferAllocator c3 = c2.newChildAllocator("c3", 0, MAX_ALLOCATION)) {
+            final ArrowBuf buf3 = c3.buffer(64);
+            assertNotNull("allocation failed", buf3);
+            assertEquals(1, l1.getNumCalls());
+            assertEquals(16, l1.getTotalMem());
+            assertEquals(2, l2.getNumCalls());
+            assertEquals(32 + 64, l2.getTotalMem());
+            buf3.release();
+          }
+        }
+      }
+    }
+  }
+
   private static void allocateAndFree(final BufferAllocator allocator) {
     final ArrowBuf arrowBuf = allocator.buffer(512);
     assertNotNull("allocation failed", arrowBuf);

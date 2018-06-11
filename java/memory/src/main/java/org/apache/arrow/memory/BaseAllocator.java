@@ -72,7 +72,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     this(parentAllocator.listener, parentAllocator, name, initReservation, maxAllocation);
   }
 
-  private BaseAllocator(
+  protected BaseAllocator(
       final AllocationListener listener,
       final BaseAllocator parentAllocator,
       final String name,
@@ -333,21 +333,31 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       final String name,
       final long initReservation,
       final long maxAllocation) {
+    return newChildAllocator(name, this.listener, initReservation, maxAllocation);
+  }
+
+  @Override
+  public BufferAllocator newChildAllocator(
+      final String name,
+      final AllocationListener listener,
+      final long initReservation,
+      final long maxAllocation) {
     assertOpen();
 
-    final ChildAllocator childAllocator = new ChildAllocator(this, name, initReservation,
-        maxAllocation);
+    final ChildAllocator childAllocator = new ChildAllocator(listener,this, name, initReservation,
+                                                             maxAllocation);
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
         childAllocators.put(childAllocator, childAllocator);
         historicalLog.recordEvent("allocator[%s] created new child allocator[%s]", name,
-            childAllocator.name);
+                                  childAllocator.name);
       }
     }
 
     return childAllocator;
   }
+
 
   @Override
   public AllocationReservation newReservation() {

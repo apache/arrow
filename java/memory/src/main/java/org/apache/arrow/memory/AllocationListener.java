@@ -21,8 +21,8 @@ package org.apache.arrow.memory;
 /**
  * An allocation listener being notified for allocation/deallocation
  * <p>
- * It is expected to be called from multiple threads and as such,
- * provider should take care of making the implementation thread-safe
+ * It might be called from multiple threads if the allocator hierarchy shares a listener, in which
+ * case, the provider should take care of making the implementation thread-safe.
  */
 public interface AllocationListener {
 
