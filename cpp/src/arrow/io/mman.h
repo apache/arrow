@@ -148,38 +148,6 @@ static int munmap(void* addr, size_t len) {
   return -1;
 }
 
-static void* win32_mremap(void* addr, size_t old_size, size_t new_size, int fildes) {
-  void* new_addr = MAP_FAILED;
-  HANDLE fm, h;
-  DWORD dwErrCode = 0;
-
-  /* First, unmap the file view */
-  if (!UnmapViewOfFile(addr)) {
-    errno = __map_mman_error(GetLastError(), EPERM);
-    return MAP_FAILED;
-  }
-
-  h = (HANDLE)_get_osfhandle(fildes);
-
-  LONG new_size_low = static_cast<LONG>(new_size & 0xFFFFFFFFL);
-  LONG new_size_high = static_cast<LONG>((new_size >> 32) & 0xFFFFFFFFL);
-
-  SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
-  SetEndOfFile(h);
-  fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
-  if (fm == NULL) {
-    errno = __map_mman_error(GetLastError(), EPERM);
-    return MAP_FAILED;
-  }
-  new_addr = MapViewOfFile(fm, FILE_MAP_WRITE, 0, 0, new_size);
-  CloseHandle(fm);
-  if (new_addr == NULL) {
-    errno = __map_mman_error(GetLastError(), EPERM);
-    return MAP_FAILED;
-  }
-  return new_addr;
-}
-
 static int mprotect(void* addr, size_t len, int prot) {
   DWORD newProtect = __map_mmap_prot_page(prot);
   DWORD oldProtect = 0;
