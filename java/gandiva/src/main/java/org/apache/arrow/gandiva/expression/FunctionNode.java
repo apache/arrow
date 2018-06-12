@@ -18,12 +18,17 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 import java.util.List;
 
 class FunctionNode implements TreeNode {
+    private final String function;
+    private final List<TreeNode> children;
+    private final ArrowType retType;
+
     FunctionNode(String function, List<TreeNode> children, ArrowType retType) {
         this.function = function;
         this.children = children;
@@ -31,10 +36,10 @@ class FunctionNode implements TreeNode {
     }
 
     @Override
-    public GandivaTypes.TreeNode toProtobuf() throws Exception {
+    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
         GandivaTypes.FunctionNode.Builder fnNode = GandivaTypes.FunctionNode.newBuilder();
         fnNode.setFunctionName(function);
-        fnNode.setReturnType(ArrowTypeHelper.ArrowTypeToProtobuf(retType));
+        fnNode.setReturnType(ArrowTypeHelper.arrowTypeToProtobuf(retType));
 
         for(TreeNode arg : children) {
             fnNode.addInArgs(arg.toProtobuf());
@@ -44,8 +49,4 @@ class FunctionNode implements TreeNode {
         builder.setFnNode(fnNode.build());
         return builder.build();
     }
-
-    private String function;
-    private List<TreeNode> children;
-    private ArrowType retType;
 }

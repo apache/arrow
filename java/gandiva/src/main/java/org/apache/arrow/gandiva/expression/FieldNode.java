@@ -18,6 +18,7 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.Field;
 
@@ -25,19 +26,19 @@ import org.apache.arrow.vector.types.pojo.Field;
  * Opaque class that captures the C++ node
  */
 class FieldNode implements TreeNode {
+    private final Field field;
+
     FieldNode(Field field) {
         this.field = field;
     }
 
     @Override
-    public GandivaTypes.TreeNode toProtobuf() throws Exception {
+    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
         GandivaTypes.FieldNode.Builder fieldNode = GandivaTypes.FieldNode.newBuilder();
-        fieldNode.setField(ArrowTypeHelper.ArrowFieldToProtobuf(field));
+        fieldNode.setField(ArrowTypeHelper.arrowFieldToProtobuf(field));
 
         GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
         builder.setFieldNode(fieldNode.build());
         return builder.build();
     }
-
-    private Field field;
 }

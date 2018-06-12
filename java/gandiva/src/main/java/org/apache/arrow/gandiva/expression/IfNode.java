@@ -18,10 +18,16 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 class IfNode implements TreeNode {
+    private final TreeNode condition;
+    private final TreeNode thenNode;
+    private final TreeNode elseNode;
+    private final ArrowType retType;
+
     IfNode(TreeNode condition, TreeNode thenNode, TreeNode elseNode, ArrowType retType) {
         this.condition = condition;
         this.thenNode = thenNode;
@@ -30,22 +36,15 @@ class IfNode implements TreeNode {
     }
 
     @Override
-    public GandivaTypes.TreeNode toProtobuf() throws Exception {
+    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
         GandivaTypes.IfNode.Builder ifNodeBuilder = GandivaTypes.IfNode.newBuilder();
         ifNodeBuilder.setCond(condition.toProtobuf());
         ifNodeBuilder.setThenNode(thenNode.toProtobuf());
-        if (elseNode != null) {
-            ifNodeBuilder.setElseNode(elseNode.toProtobuf());
-        }
-        ifNodeBuilder.setReturnType(ArrowTypeHelper.ArrowTypeToProtobuf(retType));
+        ifNodeBuilder.setElseNode(elseNode.toProtobuf());
+        ifNodeBuilder.setReturnType(ArrowTypeHelper.arrowTypeToProtobuf(retType));
 
         GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
         builder.setIfNode(ifNodeBuilder.build());
         return builder.build();
     }
-
-    private TreeNode condition;
-    private TreeNode thenNode;
-    private TreeNode elseNode;
-    private ArrowType retType;
 }

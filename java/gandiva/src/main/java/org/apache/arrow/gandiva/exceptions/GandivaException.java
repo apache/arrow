@@ -16,20 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.gandiva.expression;
+package org.apache.arrow.gandiva.exceptions;
 
-import org.apache.arrow.gandiva.exceptions.GandivaException;
-import org.apache.arrow.gandiva.ipc.GandivaTypes;
+public class GandivaException extends Exception {
+    private final String msg;
 
-/**
- * Defines an internal node in the expression tree
- */
-public interface TreeNode {
-    /**
-     * Converts a TreeNode into a protobuf
-     *
-     * @return A treenode protobuf
-     * @throws GandivaException in case the TreeNode cannot be processed
-     */
-    GandivaTypes.TreeNode toProtobuf() throws GandivaException;
+    public GandivaException(String msg) {
+        this.msg = msg;
+    }
+
+    @Override
+    public String toString() {
+        return msg;
+    }
 }

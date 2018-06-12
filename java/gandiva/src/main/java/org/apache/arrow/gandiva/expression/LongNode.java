@@ -22,14 +22,23 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
 /**
- * Defines an internal node in the expression tree
+ * Used to represent expression tree nodes representing long constants.
+ * Used in the expression (x + 5L)
  */
-public interface TreeNode {
-    /**
-     * Converts a TreeNode into a protobuf
-     *
-     * @return A treenode protobuf
-     * @throws GandivaException in case the TreeNode cannot be processed
-     */
-    GandivaTypes.TreeNode toProtobuf() throws GandivaException;
+class LongNode implements TreeNode {
+    private final Long value;
+
+    LongNode(Long value) {
+        this.value = value;
+    }
+
+    @Override
+    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
+        GandivaTypes.LongNode.Builder longBuilder = GandivaTypes.LongNode.newBuilder();
+        longBuilder.setValue(value.longValue());
+
+        GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
+        builder.setLongNode(longBuilder.build());
+        return builder.build();
+    }
 }

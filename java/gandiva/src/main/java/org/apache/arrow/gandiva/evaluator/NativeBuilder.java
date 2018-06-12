@@ -23,22 +23,56 @@ package org.apache.arrow.gandiva.evaluator;
  * to invoke functions in JNI
  */
  class NativeBuilder {
-    private final  static String LIBRARY_NAME = "JniGandiva";
+    //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(NativeBuilder.class);
+    private final static String LIBRARY_NAME = "gandiva_jni";
 
     static {
         try {
+            // TODO: Load the gandiva_jni lib dynamically from a jar
             System.loadLibrary(LIBRARY_NAME);
         } catch (UnsatisfiedLinkError e) {
-            System.err.println("Native code library failed to load.\n" + e);
+            //logger.error("Unable to load native code library: " + LIBRARY_NAME + " due to " + e.toString());
+            System.err.println("Unable to load native code library: " + LIBRARY_NAME + " due to " + e.toString());
+            // TODO: Need to handle this better. Gandiva cannot exit in case of a failure
             System.exit(1);
         }
     }
 
-    static native long BuildNativeCode(byte[] schemaBuf, byte[] exprListBuf);
+    /**
+     * Generates the LLVM module to evaluate the expressions
+     *
+     * @param schemaBuf The schema serialized as a protobuf. See Types.proto
+     *                  to see the protobuf specification
+     * @param exprListBuf The serialized protobuf of the expression vector. Each
+     *                    expression is created using TreeBuilder::MakeExpression
+     * @return A moduleID that is passed to the evaluate() and close() methods
+     */
+    static native long buildNativeCode(byte[] schemaBuf, byte[] exprListBuf);
 
-    static native void Evaluate(long moduleID,
-                                byte[] recordBatchBuf, int recordBatchOffset,
-                                long[] inputBufAddrs,
-                                long[] outValidityAddrs, long[] outValueAddrs);
+    /**
+     * Evaluate the expressions represented by the moduleID on a record batch
+     * and store the output in ValueVectors. Throws an exception in case of errors
+     *
+     * @param moduleID moduleID representing expressions. Created using a call to
+     *                 buildNativeCode
+     * @param num_rows Number of rows in the record batch
+     * @param bufAddrs An array of memory addresses. Each memory address points to
+     *                 a validity vector or a data vector (will add support for offset
+     *                 vectors later).
+     * @param bufSizes An array of buffer sizes. For each memory address in bufAddrs,
+     *                 the size of the buffer is present in bufSizes
+     * @param outAddrs An array of output buffers, including the validity and data
+     *                 addresses.
+     * @param outSizes The allocated size of the output buffers. On successful evaluation,
+     *                 the result is stored in the output buffers
+     */
+    static native void evaluate(long moduleID, int num_rows,
+                                long[] bufAddrs, long[] bufSizes,
+                                long[] outAddrs, long[] outSizes);
 
+    /**
+     * Closes the LLVM module referenced by moduleID
+     * @param moduleID moduleID that needs to be closed
+     */
+    static native void close(long moduleID);
 }

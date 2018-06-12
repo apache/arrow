@@ -18,13 +18,21 @@ project(gandiva_jni)
 set(Protobuf_USE_STATIC_LIBS, ON)
 find_package(Protobuf REQUIRED)
 
+# Find JNI
+find_package(JNI REQUIRED)
+
 # generate the protobuf files from the proto definition.
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${CMAKE_SOURCE_DIR}/../proto/Types.proto)
 
-add_library(gandiva_jni STATIC
-  #jni.cc
+# Create the jni header file (from the java class).
+set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/java")
+add_subdirectory(../../../java ./java)
+
+add_library(gandiva_jni SHARED
+  native_builder.cc
   ${PROTO_SRCS}
   ${PROTO_HDRS})
+add_dependencies(gandiva_jni gandiva_java)
 
 # For users of gandiva_jni library (including integ tests), include-dir is :
 #   /usr/**/include dir after install,
@@ -35,12 +43,16 @@ target_include_directories(gandiva_jni
   PUBLIC
     $<INSTALL_INTERFACE:include>
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    ${JNI_HEADERS_DIR}
   PRIVATE
+    ${JNI_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_SOURCE_DIR}/src
 )
 
-# ARROW is a public dependency i.e users of gandiva also will have a dependency on arrow.
+# PROTOBUF is a public dependency i.e users of gandiva also will have a dependency on arrow.
 target_link_libraries(gandiva_jni
   PRIVATE
     protobuf::libprotobuf
+    gandiva
 )

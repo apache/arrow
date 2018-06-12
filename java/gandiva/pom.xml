@@ -24,8 +24,9 @@
     <name>Gandiva Java Project</name>
     <properties>
         <arrow.version>0.9.0</arrow.version>
-        <cpp.dir>{$project.basedir}/</cpp.dir>
-        <cpp.dir>../cpp/src/gandiva/jni</cpp.dir>
+        <protobuf.version>2.5.0</protobuf.version>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
     <dependencies>
@@ -47,39 +48,34 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.4.0</version>
+            <version>${protobuf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
+        <!--
+        TODO: Need to package the jni code (gandiva_jni) in the gandiva jar
+        -->
+        <extensions>
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.5.0.Final</version>
+            </extension>
+        </extensions>
         <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>native-maven-plugin</artifactId>
-                <extensions>true</extensions>
-                <executions>
-                    <execution>
-                        <id>javah</id>
-                        <phase>process-classes</phase>
-                        <configuration>
-                            <javahOutputDirectory>${cpp.dir}</javahOutputDirectory>
-                            <javahOutputFileName>nativeBuilder.h</javahOutputFileName>
-                            <javahClassNames>
-                                <javahClassName>org.apache.arrow.gandiva.evaluator.NativeBuilder</javahClassName>
-                            </javahClassNames>
-                        </configuration>
-                        <goals>
-                            <goal>javah</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
                 <version>0.5.1</version>
                 <configuration>
-                    <protocExecutable>/usr/local/bin/protoc</protocExecutable>
+                    <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
                     <protoSourceRoot>../proto</protoSourceRoot>
                 </configuration>
                 <executions>

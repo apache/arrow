@@ -20,14 +20,34 @@ package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class TreeBuilder {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TreeBuilder.class);
+
+    /**
+     * Helper functions to create literal constants.
+     */
+    public static TreeNode makeLiteral(Boolean booleanConstant) {
+        return new BooleanNode(booleanConstant);
+    }
+
+    public static TreeNode makeLiteral(Float floatConstant) {
+        return new FloatNode(floatConstant);
+    }
+
+    public static TreeNode makeLiteral(Double doubleConstant) {
+        return new DoubleNode(doubleConstant);
+    }
+
+    public static TreeNode makeLiteral(Integer integerConstant) {
+        return new IntNode(integerConstant);
+    }
+
+    public static TreeNode makeLiteral(Long longConstant) {
+        return new LongNode(longConstant);
+    }
 
     /**
      * Invoke this function to create a node representing a field, e.g. a column name
@@ -35,19 +55,19 @@ public class TreeBuilder {
      * @param field represents the input argument - includes the name and type of the field
      * @return Node representing a field
      */
-    public static TreeNode MakeField(Field field) {
+    public static TreeNode makeField(Field field) {
         return new FieldNode(field);
     }
 
     /**
      * Invoke this function to create a node representing a function
      *
-     * @param function Name of the binary operator, e.g. add
+     * @param function Name of the function, e.g. add
      * @param children The arguments to the function
      * @param retType The type of the return value of the operator
      * @return Node representing a function
      */
-    public static TreeNode MakeFunction(String function,
+    public static TreeNode makeFunction(String function,
                                         List<TreeNode> children,
                                         ArrowType retType) {
         return new FunctionNode(function, children, retType);
@@ -62,7 +82,7 @@ public class TreeBuilder {
      * @param retType Return type of the node
      * @return Node representing an if-clause
      */
-    public static TreeNode MakeIf(TreeNode condition,
+    public static TreeNode makeIf(TreeNode condition,
                                   TreeNode thenNode,
                                   TreeNode elseNode,
                                   ArrowType retType) {
@@ -76,7 +96,7 @@ public class TreeBuilder {
      * @param result_field represents the return value of the expression
      * @return ExpressionTree referring to the root of an expression tree
      */
-    public static ExpressionTree MakeExpression(TreeNode root,
+    public static ExpressionTree makeExpression(TreeNode root,
                                                 Field result_field) {
         return new ExpressionTree(root, result_field);
     }
@@ -88,16 +108,15 @@ public class TreeBuilder {
      * @param in_fields: In arguments to the function
      * @param result_field represents the return value of the expression
      */
-    public static ExpressionTree MakeExpression(String function,
+    public static ExpressionTree makeExpression(String function,
                                                 List<Field> in_fields,
                                                 Field result_field) {
         List<TreeNode> children = new ArrayList<TreeNode>(in_fields.size());
         for(Field field : in_fields) {
-            children.add(MakeField(field));
+            children.add(makeField(field));
         }
 
-        TreeNode n = MakeFunction(function, children, result_field.getType());
-        return MakeExpression(n, result_field);
+        TreeNode n = makeFunction(function, children, result_field.getType());
+        return makeExpression(n, result_field);
     }
-
 }

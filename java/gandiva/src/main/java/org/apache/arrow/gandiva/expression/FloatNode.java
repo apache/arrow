@@ -22,14 +22,23 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
 /**
- * Defines an internal node in the expression tree
+ * Used to represent expression tree nodes representing float constants.
+ * Used in the expression (x + 5.0)
  */
-public interface TreeNode {
-    /**
-     * Converts a TreeNode into a protobuf
-     *
-     * @return A treenode protobuf
-     * @throws GandivaException in case the TreeNode cannot be processed
-     */
-    GandivaTypes.TreeNode toProtobuf() throws GandivaException;
+class FloatNode implements TreeNode {
+    private final Float value;
+
+    public FloatNode(Float value) {
+        this.value = value;
+    }
+
+    @Override
+    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
+        GandivaTypes.FloatNode.Builder floatBuilder = GandivaTypes.FloatNode.newBuilder();
+        floatBuilder.setValue(value.floatValue());
+
+        GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
+        builder.setFloatNode(floatBuilder.build());
+        return builder.build();
+    }
 }

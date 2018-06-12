@@ -19,30 +19,37 @@
 package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.flatbuf.Type;
+import org.apache.arrow.gandiva.exceptions.GandivaException;
+import org.apache.arrow.gandiva.exceptions.UnsupportedTypeException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 public class ArrowTypeHelper {
-    private static void InitArrowTypeInt(ArrowType.Int intType, GandivaTypes.ExtGandivaType.Builder builder) {
+    static final int WIDTH_8 = 8;
+    static final int WIDTH_16 = 16;
+    static final int WIDTH_32 = 32;
+    static final int WIDTH_64 = 64;
+
+    private static void initArrowTypeInt(ArrowType.Int intType, GandivaTypes.ExtGandivaType.Builder builder) {
         int width = intType.getBitWidth();
 
         if (intType.getIsSigned()) {
             switch (width) {
-                case 8: {
+                case WIDTH_8: {
                     builder.setType(GandivaTypes.GandivaType.INT8);
                     break;
                 }
-                case 16: {
+                case WIDTH_16: {
                     builder.setType(GandivaTypes.GandivaType.INT16);
                     break;
                 }
-                case 32: {
+                case WIDTH_32: {
                     builder.setType(GandivaTypes.GandivaType.INT32);
                     break;
                 }
-                case 64: {
+                case WIDTH_64: {
                     builder.setType(GandivaTypes.GandivaType.INT64);
                     break;
                 }
@@ -56,19 +63,19 @@ public class ArrowTypeHelper {
 
         // unsigned int
         switch (width) {
-            case 8: {
+            case WIDTH_8: {
                 builder.setType(GandivaTypes.GandivaType.UINT8);
                 break;
             }
-            case 16: {
+            case WIDTH_16: {
                 builder.setType(GandivaTypes.GandivaType.UINT16);
                 break;
             }
-            case 32: {
+            case WIDTH_32: {
                 builder.setType(GandivaTypes.GandivaType.UINT32);
                 break;
             }
-            case 64: {
+            case WIDTH_64: {
                 builder.setType(GandivaTypes.GandivaType.UINT64);
                 break;
             }
@@ -79,7 +86,7 @@ public class ArrowTypeHelper {
         }
     }
 
-    private static void InitArrowTypeFloat(ArrowType.FloatingPoint floatType, GandivaTypes.ExtGandivaType.Builder builder) {
+    private static void initArrowTypeFloat(ArrowType.FloatingPoint floatType, GandivaTypes.ExtGandivaType.Builder builder) {
         switch (floatType.getPrecision()) {
             case HALF: {
                 builder.setType(GandivaTypes.GandivaType.HALF_FLOAT);
@@ -96,13 +103,13 @@ public class ArrowTypeHelper {
         }
     }
 
-    private static void InitArrowTypeDecimal(ArrowType.Decimal decimalType, GandivaTypes.ExtGandivaType.Builder builder) {
+    private static void initArrowTypeDecimal(ArrowType.Decimal decimalType, GandivaTypes.ExtGandivaType.Builder builder) {
         builder.setPrecision(decimalType.getPrecision());
         builder.setScale(decimalType.getScale());
         builder.setType(GandivaTypes.GandivaType.DECIMAL);
     }
 
-    public static GandivaTypes.ExtGandivaType ArrowTypeToProtobuf(ArrowType arrowType) throws Exception {
+    public static GandivaTypes.ExtGandivaType arrowTypeToProtobuf(ArrowType arrowType) throws GandivaException {
         GandivaTypes.ExtGandivaType.Builder builder = GandivaTypes.ExtGandivaType.newBuilder();
 
         byte typeId = arrowType.getTypeID().getFlatbufID();
@@ -116,11 +123,11 @@ public class ArrowTypeHelper {
                 break;
             }
             case Type.Int: { // 2
-                ArrowTypeHelper.InitArrowTypeInt((ArrowType.Int)arrowType, builder);
+                ArrowTypeHelper.initArrowTypeInt((ArrowType.Int)arrowType, builder);
                 break;
             }
             case Type.FloatingPoint: { // 3
-                ArrowTypeHelper.InitArrowTypeFloat((ArrowType.FloatingPoint)arrowType, builder);
+                ArrowTypeHelper.initArrowTypeFloat((ArrowType.FloatingPoint)arrowType, builder);
                 break;
             }
             case Type.Binary: { // 4
@@ -136,7 +143,7 @@ public class ArrowTypeHelper {
                 break;
             }
             case Type.Decimal: { // 7
-                ArrowTypeHelper.InitArrowTypeDecimal((ArrowType.Decimal)arrowType, builder);
+                ArrowTypeHelper.initArrowTypeDecimal((ArrowType.Decimal)arrowType, builder);
                 break;
             }
             case Type.Date: { // 8
@@ -174,31 +181,31 @@ public class ArrowTypeHelper {
         if (!builder.hasType()) {
             // type has not been set
             // throw an exception
-            throw new Exception("Unhandled type" + arrowType.toString());
+            throw new UnsupportedTypeException("Unsupported type" + arrowType.toString());
         }
 
         return builder.build();
     }
 
-    public static GandivaTypes.Field ArrowFieldToProtobuf(Field field) throws Exception {
+    public static GandivaTypes.Field arrowFieldToProtobuf(Field field) throws GandivaException {
         GandivaTypes.Field.Builder builder = GandivaTypes.Field.newBuilder();
 
         builder.setName(field.getName());
-        builder.setType(ArrowTypeHelper.ArrowTypeToProtobuf(field.getType()));
+        builder.setType(ArrowTypeHelper.arrowTypeToProtobuf(field.getType()));
         builder.setNullable(field.isNullable());
 
         for(Field child : field.getChildren()) {
-            builder.addChildren(ArrowTypeHelper.ArrowFieldToProtobuf(child));
+            builder.addChildren(ArrowTypeHelper.arrowFieldToProtobuf(child));
         }
 
         return builder.build();
     }
 
-    public static GandivaTypes.Schema ArrowSchemaToProtobuf(Schema schema) throws Exception {
+    public static GandivaTypes.Schema arrowSchemaToProtobuf(Schema schema) throws GandivaException {
         GandivaTypes.Schema.Builder builder = GandivaTypes.Schema.newBuilder();
 
         for(Field field : schema.getFields()) {
-            builder.addColumns(ArrowTypeHelper.ArrowFieldToProtobuf(field));
+            builder.addColumns(ArrowTypeHelper.arrowFieldToProtobuf(field));
         }
 
         return builder.build();
