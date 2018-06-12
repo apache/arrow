@@ -759,6 +759,26 @@ def test_memory_map_writer(tmpdir):
     assert f.read(3) == b'foo'
 
 
+def test_memory_map_resize(tmpdir):
+    SIZE = 4096
+    arr = np.random.randint(0, 256, size=SIZE).astype(np.uint8)
+    data1 = arr.tobytes()[:(SIZE // 2)]
+    data2 = arr.tobytes()[(SIZE // 2):]
+
+    path = os.path.join(str(tmpdir), guid())
+
+    mmap = pa.create_memory_map(path, SIZE / 2)
+    mmap.write(data1)
+
+    mmap.resize(SIZE)
+    mmap.write(data2)
+
+    mmap.close()
+
+    with open(path, 'rb') as f:
+        assert f.read() == arr.tobytes()
+
+
 def test_memory_zero_length(tmpdir):
     path = os.path.join(str(tmpdir), guid())
     f = open(path, 'wb')
