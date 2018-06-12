@@ -477,8 +477,8 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
         ss << "mremap failed: " << std::strerror(errno);
         return Status::IOError(ss.str());
       }
-      return Status::OK();
-    #endif
+    #endif // _WIN32
+    return Status::OK();
   }
   std::unique_ptr<OSFile> file_;
   int64_t position_;
