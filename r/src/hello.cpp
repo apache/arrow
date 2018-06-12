@@ -20,13 +20,12 @@
 
 // [[Rcpp::plugins(cpp11)]]
 
-using namespace Rcpp ;
-using namespace arrow ;
+using namespace Rcpp;
+using namespace arrow;
 
 // [[Rcpp::export]]
-IntegerVector bla(){
-
-  arrow::NumericBuilder<Int32Type> builder ;
+IntegerVector bla() {
+  arrow::NumericBuilder<Int32Type> builder;
 
   builder.Append(1);
   builder.Append(2);
@@ -37,7 +36,7 @@ IntegerVector bla(){
   builder.Append(7);
 
   std::shared_ptr<Array> array;
-  builder.Finish(&array) ;
+  builder.Finish(&array);
 
   // Cast the Array to its actual type to access its data
   std::shared_ptr<Int32Array> int32_array = std::static_pointer_cast<Int32Array>(array);
@@ -48,12 +47,12 @@ IntegerVector bla(){
   // Get the pointer to the null bitmap.
   const uint8_t* null_bitmap = int32_array->null_bitmap_data();
 
-  int n = array->length( ) ;
-  IntegerVector out = no_init( array->length() ) ;
+  int n = array->length();
+  IntegerVector out = no_init(array->length());
 
-  for(int i=0; i<n; i++){
-    out[i] = BitUtil::BitNotSet(null_bitmap, i) ? NA_INTEGER : data[i] ;
+  for (int i = 0; i < n; i++) {
+    out[i] = BitUtil::BitNotSet(null_bitmap, i) ? NA_INTEGER : data[i];
   }
 
-  return out  ;
+  return out;
 }
