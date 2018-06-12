@@ -107,7 +107,7 @@ def test_single_pylist_column_roundtrip(tmpdir):
             assert data_written.equals(data_read)
 
 
-def alltypes_sample(size=10000, seed=0):
+def alltypes_sample(size=10000, seed=0, categorical=False):
     np.random.seed(seed)
     arrays = {
         'uint8': np.arange(size, dtype=np.uint8),
@@ -125,33 +125,36 @@ def alltypes_sample(size=10000, seed=0):
         # them
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
                               dtype='datetime64[ms]'),
-        'str': [str(x) for x in range(size)],
+        'str': pd.Series([str(x) for x in range(size)]),
         'empty_str': [''] * size,
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'null': [None] * size,
         'null_list': [None] * 2 + [[None] * (x % 4) for x in range(size - 2)],
     }
+    if categorical:
+        arrays['str_category'] = arrays['str'].astype('category')
     return pd.DataFrame(arrays)
 
 
 @parquet
-def test_pandas_parquet_2_0_rountrip(tmpdir):
+@pytest.mark.parametrize('chunk_size', [None, 1000])
+def test_pandas_parquet_2_0_rountrip(tmpdir, chunk_size):
     import pyarrow.parquet as pq
-    df = alltypes_sample(size=10000)
+    df = alltypes_sample(size=10000, categorical=True)
 
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = pa.Table.from_pandas(df)
     assert b'pandas' in arrow_table.schema.metadata
 
     _write_table(arrow_table, filename.strpath, version="2.0",
-                 coerce_timestamps='ms')
+                 coerce_timestamps='ms', chunk_size=chunk_size)
     table_read = pq.read_pandas(filename.strpath)
     assert b'pandas' in table_read.schema.metadata
 
     assert arrow_table.schema.metadata == table_read.schema.metadata
 
-    df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read)
+    df_read = table_read.to_pandas(categories=['str_category'])
+    tm.assert_frame_equal(df, df_read, check_categorical=False)
 
 
 @parquet
