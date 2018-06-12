@@ -166,22 +166,12 @@ static void* win32_mremap(void* addr, size_t old_size, size_t new_size, int fild
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
-  fm = CreateFileMapping(
-      h,
-      NULL,
-      PAGE_READWRITE,
-      0,
-      0,
-      "");
+  fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
   if (fm == NULL) {
     errno = __map_mman_error(GetLastError(), EPERM);
     return MAP_FAILED;
   }
-  new_addr = (char *) MapViewOfFile(fm,
-                      FILE_MAP_WRITE,
-                      0,
-                      0,
-                      new_size);
+  new_addr = MapViewOfFile(fm, FILE_MAP_WRITE, 0, 0, new_size);
   CloseHandle(fm);
   if (new_addr == NULL) {
     errno = __map_mman_error(GetLastError(), EPERM);

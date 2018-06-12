@@ -357,7 +357,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     }
   }
 
-  Status Open(const std::string& path, FileMode::type mode, int64_t size=-1) {
+  Status Open(const std::string& path, FileMode::type mode, int64_t size = -1) {
     int prot_flags;
     int map_mode;
 
@@ -387,8 +387,8 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
 
     // Memory mapping fails when file size is 0
     if (capacity_ > 0) {
-      result =
-          mmap(nullptr, static_cast<size_t>(capacity_), prot_flags, map_mode, file_->fd(), 0);
+      result = mmap(nullptr, static_cast<size_t>(capacity_), prot_flags, map_mode,
+                    file_->fd(), 0);
       if (result == MAP_FAILED) {
         std::stringstream ss;
         ss << "Memory mapping file failed: " << std::strerror(errno);
@@ -403,7 +403,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     return Status::OK();
   }
 
-  Status Resize(const int64_t new_size, bool shrink_to_fit=false) {
+  Status Resize(const int64_t new_size, bool shrink_to_fit = false) {
     if (!shrink_to_fit || (new_size > capacity_)) {
       RETURN_NOT_OK(Reserve(new_size));
     } else {
@@ -429,7 +429,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
 
       data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
     }
-      return Status::OK();
+    return Status::OK();
   }
 
   int64_t size() const { return size_; }
@@ -439,7 +439,8 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
       return Status::Invalid("position is out of bounds");
     }
     if (position > size_) {
-      return Status::Invalid("requested position is greater than the mmap size, resize first");
+      return Status::Invalid(
+          "requested position is greater than the mmap size, resize first");
     }
     position_ = position;
     return Status::OK();
@@ -463,26 +464,26 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   // Resize the map to the specified capacity. Keeps 64 alignment.
   Status resizeMap(int64_t capacity, void*& result) {
     int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
-    #ifdef _WIN32
-      result = win32_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
-      if (result == MAP_FAILED) {
-        std::stringstream ss;
-        ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
-        return Status::IOError(ss.str());
-      }
-    #else
-      if (ftruncate(file_->fd(), new_capacity) == -1) {
-        std::stringstream ss;
-        ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
-        return Status::IOError(ss.str());
-      }
-      result = mremap(mutable_data_, capacity_, new_capacity, MREMAP_MAYMOVE);
-      if (result == MAP_FAILED) {
-        std::stringstream ss;
-        ss << "mremap failed: " << std::strerror(errno);
-        return Status::IOError(ss.str());
-      }
-    #endif // _WIN32
+#ifdef _WIN32
+    result = win32_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
+    if (result == MAP_FAILED) {
+      std::stringstream ss;
+      ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
+      return Status::IOError(ss.str());
+    }
+#else
+    if (ftruncate(file_->fd(), new_capacity) == -1) {
+      std::stringstream ss;
+      ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
+      return Status::IOError(ss.str());
+    }
+    result = mremap(mutable_data_, capacity_, new_capacity, MREMAP_MAYMOVE);
+    if (result == MAP_FAILED) {
+      std::stringstream ss;
+      ss << "mremap failed: " << std::strerror(errno);
+      return Status::IOError(ss.str());
+    }
+#endif  // _WIN32
     capacity_ = new_capacity;
     return Status::OK();
   }
