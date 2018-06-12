@@ -27,6 +27,7 @@
 #undef Free
 #else
 #include <sys/mman.h>
+#include <unistd.h>
 #endif
 
 #include <string.h>
@@ -345,9 +346,9 @@ int FileOutputStream::file_descriptor() const { return impl_->fd(); }
 // ----------------------------------------------------------------------
 // Implement MemoryMappedFile
 
-class MemoryMappedFile::MemoryMap : public MutableBuffer {
+class MemoryMappedFile::MemoryMap : public ResizableBuffer {
  public:
-  MemoryMap() : MutableBuffer(nullptr, 0) {}
+  MemoryMap() : ResizableBuffer(nullptr, 0) {}
 
   ~MemoryMap() {
     if (file_->is_open()) {
@@ -356,7 +357,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
     }
   }
 
-  Status Open(const std::string& path, FileMode::type mode) {
+  Status Open(const std::string& path, FileMode::type mode, int64_t size=-1) {
     int prot_flags;
     int map_mode;
 
@@ -380,14 +381,14 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
       is_mutable_ = false;
     }
 
-    size_ = file_->size();
+    size_ = capacity_ = file_->size();
 
     void* result = nullptr;
 
     // Memory mapping fails when file size is 0
-    if (size_ > 0) {
+    if (capacity_ > 0) {
       result =
-          mmap(nullptr, static_cast<size_t>(size_), prot_flags, map_mode, file_->fd(), 0);
+          mmap(nullptr, static_cast<size_t>(capacity_), prot_flags, map_mode, file_->fd(), 0);
       if (result == MAP_FAILED) {
         std::stringstream ss;
         ss << "Memory mapping file failed: " << std::strerror(errno);
@@ -400,6 +401,33 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
     position_ = 0;
 
     return Status::OK();
+  }
+
+  Status Resize(const int64_t new_size, bool shrink_to_fit=false) {
+    if (!shrink_to_fit || (new_size > capacity_)) {
+      RETURN_NOT_OK(Reserve(new_size));
+    } else {
+      // shrink
+      if (new_size == 0) {
+        return Status::IOError("Cannot resize mmap to zero size");
+      }
+      void* result;
+      resizeMap(new_size, result);
+      data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
+      capacity_ = new_size;
+    }
+    size_ = new_size;
+    return Status::OK();
+  }
+
+  Status Reserve(const int64_t new_capacity) {
+    if (!mutable_data_ || new_capacity > capacity_) {
+      void* result;
+      RETURN_NOT_OK(resizeMap(new_capacity, result));
+
+      data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
+    }
+      return Status::OK();
   }
 
   int64_t size() const { return size_; }
@@ -427,6 +455,22 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   std::mutex& lock() { return file_->lock(); }
 
  private:
+  // Resize the map to the specified capacity. Keeps 64 alignment.
+  Status resizeMap(int64_t capacity, void*& result) {
+    int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+    if (ftruncate(file_->fd(), new_capacity) == -1) {
+      std::stringstream ss;
+      ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
+      return Status::IOError(ss.str());
+    }
+    result = mremap(mutable_data_, size_, new_capacity, MREMAP_MAYMOVE);
+    if (result == (void*)-1) {
+      std::stringstream ss;
+      ss << "mremap failed: " << std::strerror(errno);
+      return Status::IOError(ss.str());
+    }
+    return Status::OK();
+  }
   std::unique_ptr<OSFile> file_;
   int64_t position_;
 };
@@ -526,13 +570,14 @@ Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
-  if (nbytes + memory_map_->position() > memory_map_->size()) {
-    return Status::Invalid("Cannot write past end of memory map");
-  }
   return WriteInternal(data, nbytes);
 }
 
 Status MemoryMappedFile::WriteInternal(const void* data, int64_t nbytes) {
+  if (nbytes + memory_map_->position() > memory_map_->capacity()) {
+    int64_t new_capacity = BitUtil::NextPower2(nbytes + memory_map_->position());
+    RETURN_NOT_OK(memory_map_->Resize(new_capacity));
+  }
   memcpy(memory_map_->head(), data, static_cast<size_t>(nbytes));
   memory_map_->advance(nbytes);
   return Status::OK();
