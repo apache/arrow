@@ -458,18 +458,27 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   // Resize the map to the specified capacity. Keeps 64 alignment.
   Status resizeMap(int64_t capacity, void*& result) {
     int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
-    if (ftruncate(file_->fd(), new_capacity) == -1) {
-      std::stringstream ss;
-      ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
-      return Status::IOError(ss.str());
-    }
-    result = mremap(mutable_data_, size_, new_capacity, MREMAP_MAYMOVE);
-    if (result == (void*)-1) {
-      std::stringstream ss;
-      ss << "mremap failed: " << std::strerror(errno);
-      return Status::IOError(ss.str());
-    }
-    return Status::OK();
+    #ifdef _WIN32
+      result = win32_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
+      if (result == (void*)-1) {
+        std::stringstream ss;
+        ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
+        return Status::IOError(ss.str());
+      }
+    #else
+      if (ftruncate(file_->fd(), new_capacity) == -1) {
+        std::stringstream ss;
+        ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
+        return Status::IOError(ss.str());
+      }
+      result = mremap(mutable_data_, capacity_, new_capacity, MREMAP_MAYMOVE);
+      if (result == (void*)-1) {
+        std::stringstream ss;
+        ss << "mremap failed: " << std::strerror(errno);
+        return Status::IOError(ss.str());
+      }
+      return Status::OK();
+    #endif
   }
   std::unique_ptr<OSFile> file_;
   int64_t position_;
