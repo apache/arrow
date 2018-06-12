@@ -1895,6 +1895,11 @@ class TestConvertMisc(object):
         with pytest.raises(pa.ArrowTypeError):
             pa.Table.from_pandas(data)
 
+        data = pd.DataFrame({'a': ['a', 1, 2.0]})
+        expected_msg = 'Conversion failed for column a'
+        with pytest.raises(pa.ArrowTypeError, match=expected_msg):
+            pa.Table.from_pandas(data)
+
     def test_strided_data_import(self):
         cases = []
 
