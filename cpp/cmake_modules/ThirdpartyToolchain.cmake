@@ -446,7 +446,8 @@ if (ARROW_IPC)
     endif()
     # We always need to do release builds, otherwise flatc will not be installed.
     ExternalProject_Add(flatbuffers_ep
-      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+      # URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+      URL "https://github.com/google/flatbuffers/archive/master.zip"
       CMAKE_ARGS
       "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"

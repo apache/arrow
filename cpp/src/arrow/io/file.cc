@@ -412,9 +412,11 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
         return Status::IOError("Cannot resize mmap to zero size");
       }
       void* result;
-      resizeMap(new_size, result);
+      RETURN_NOT_OK(resizeMap(new_size, result));
       data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
-      capacity_ = new_size;
+      if (position_ >= size_) {
+        position_ = size_ - 1;
+      }
     }
     size_ = new_size;
     return Status::OK();
@@ -435,6 +437,9 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   Status Seek(int64_t position) {
     if (position < 0) {
       return Status::Invalid("position is out of bounds");
+    }
+    if (position > size_) {
+      return Status::Invalid("requested position is greater than the mmap size, resize first");
     }
     position_ = position;
     return Status::OK();
@@ -460,7 +465,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
     #ifdef _WIN32
       result = win32_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
-      if (result == (void*)-1) {
+      if (result == MAP_FAILED) {
         std::stringstream ss;
         ss << "Couldnot resize the mmapped file: " << std::strerror(errno);
         return Status::IOError(ss.str());
@@ -472,12 +477,13 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
         return Status::IOError(ss.str());
       }
       result = mremap(mutable_data_, capacity_, new_capacity, MREMAP_MAYMOVE);
-      if (result == (void*)-1) {
+      if (result == MAP_FAILED) {
         std::stringstream ss;
         ss << "mremap failed: " << std::strerror(errno);
         return Status::IOError(ss.str());
       }
     #endif // _WIN32
+    capacity_ = new_capacity;
     return Status::OK();
   }
   std::unique_ptr<OSFile> file_;

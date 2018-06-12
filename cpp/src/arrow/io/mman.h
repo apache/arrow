@@ -161,8 +161,8 @@ static void* win32_mremap(void* addr, size_t old_size, size_t new_size, int fild
 
   h = (HANDLE)_get_osfhandle(fildes);
 
-  LONG new_size_low = static_cast<DWORD>(new_size & 0xFFFFFFFFL);
-  LONG new_size_high = static_cast<DWORD>((new_size >> 32) & 0xFFFFFFFFL);
+  LONG new_size_low = static_cast<LONG>(new_size & 0xFFFFFFFFL);
+  LONG new_size_high = static_cast<LONG>((new_size >> 32) & 0xFFFFFFFFL);
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
@@ -187,7 +187,7 @@ static void* win32_mremap(void* addr, size_t old_size, size_t new_size, int fild
     errno = __map_mman_error(GetLastError(), EPERM);
     return MAP_FAILED;
   }
-  return NULL;
+  return new_addr;
 }
 
 static int mprotect(void* addr, size_t len, int prot) {
