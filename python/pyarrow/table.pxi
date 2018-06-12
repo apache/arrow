@@ -191,6 +191,7 @@ def chunked_array(arrays, type=None):
         Array arr
         vector[shared_ptr[CArray]] c_arrays
         shared_ptr[CChunkedArray] sp_chunked_array
+        shared_ptr[CDataType] sp_data_type
 
     for x in arrays:
         if isinstance(x, Array):
@@ -202,7 +203,14 @@ def chunked_array(arrays, type=None):
 
         c_arrays.push_back(arr.sp_array)
 
-    sp_chunked_array.reset(new CChunkedArray(c_arrays))
+    if type:
+        sp_data_type = pyarrow_unwrap_data_type(type)
+        sp_chunked_array.reset(new CChunkedArray(c_arrays, sp_data_type))
+    else:
+        if c_arrays.size() == 0:
+            raise ValueError("Cannot construct a chunked array with neither "
+                             "arrays nor type")
+        sp_chunked_array.reset(new CChunkedArray(c_arrays))
     return pyarrow_wrap_chunked_array(sp_chunked_array)
 
 

@@ -428,6 +428,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
         CChunkedArray(const vector[shared_ptr[CArray]]& arrays)
+        CChunkedArray(const vector[shared_ptr[CArray]]& arrays,
+                      const shared_ptr[CDataType]& type)
         int64_t length()
         int64_t null_count()
         int num_chunks()
