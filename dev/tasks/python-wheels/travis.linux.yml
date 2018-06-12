@@ -16,6 +16,7 @@
 
 env:
   global:
+    - TRAVIS_TAG={{ BUILD_TAG }}
     - PLAT={{ PLAT }}
     - BUILD_REF={{ BUILD_REF }}
     - PYARROW_VERSION={{ PYARROW_VERSION }}
@@ -44,6 +45,15 @@ script:
   - popd
 
   - sudo mv arrow/python/manylinux1/dist/* dist/
+
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: dist/*.whl
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:

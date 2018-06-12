@@ -26,6 +26,7 @@ env:
     - CONDA_PY=35
     - CONDA_PY=36
   global:
+    - TRAVIS_TAG={{ BUILD_TAG }}
     - ARROW_VERSION={{ ARROW_VERSION }}
 
 before_install:
@@ -65,6 +66,15 @@ script:
   - git -C arrow checkout {{ ARROW_SHA }}
   - pushd arrow/dev/tasks/conda-recipes
   - conda build parquet-cpp arrow-cpp pyarrow
+
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: /home/travis/miniconda3/conda-bld/osx-64/*.tar.gz
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:

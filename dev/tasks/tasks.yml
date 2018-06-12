@@ -24,34 +24,38 @@ tasks:
   #   params: optional extra parameters
 
   # configures master to submit packaging builds
-  - name: config-nightlies
-    branch: master
-    platform: linux
-    template: config-nightlies/travis.linux.yml
+  # - name: config-nightlies
+  #   branch: master
+  #   platform: linux
+  #   template: config-nightlies/travis.linux.yml
 
   # conda packages
-  - name: conda-linux
+  conda-linux:
     platform: linux
     template: conda-recipes/travis.linux.yml
-  - name: conda-osx
+
+  conda-osx:
     platform: osx
     template: conda-recipes/travis.osx.yml
-  - name: conda-win
+
+  conda-win:
     platform: win
     template: conda-recipes/appveyor.yml
 
   # python wheels
-  - name: wheel-linux
+  wheel-linux:
     platform: linux
     template: python-wheels/travis.linux.yml
-  - name: wheel-osx
+
+  wheel-osx:
     platform: osx
     template: python-wheels/travis.osx.yml
-  - name: wheel-win
+
+  wheel-win:
     platform: win
     template: python-wheels/appveyor.yml
 
   # linux packages
-  - name: linux-packages
+  linux-packages:
     platform: linux
     template: linux-packages/travis.linux.yml

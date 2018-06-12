@@ -18,7 +18,6 @@
 # under the License.
 
 import re
-import sys
 import yaml
 import time
 import click
@@ -29,8 +28,8 @@ from enum import Enum
 from pathlib import Path
 from textwrap import dedent
 from jinja2 import Template
+from collections import namedtuple
 from setuptools_scm import get_version
-from setuptools_scm.version import simplified_semver_version, meta
 
 
 logging.basicConfig(
@@ -70,6 +69,131 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
             return None
 
 
+class Repo(object):
+
+    def __init__(self, repo_path):
+        self.path = Path(repo_path).absolute()
+        self.repo = pygit2.Repository(str(self.path))
+
+    def __str__(self):
+        tpl = dedent('''
+            Repo: {remote}@{branch}
+            Commit: {head}
+        ''')
+        return tpl.format(
+            remote=self.remote.url,
+            branch=self.branch.branch_name,
+            head=self.head
+        )
+
+    def fetch(self):
+        self.origin.fetch()
+
+    @property
+    def head(self):
+        """Currently checked out commit's sha"""
+        return self.repo.head.target
+
+    @property
+    def branch(self):
+        """Currently checked out branch"""
+        reference = self.repo.head.shorthand
+        return self.repo.branches[reference]
+
+    @property
+    def remote(self):
+        """Currently checked out branch's remote counterpart"""
+        remote_name = self.branch.upstream.remote_name
+        return self.repo.remotes[remote_name]
+
+    @property
+    def origin(self):
+        return self.repo.remotes['origin']
+
+    @property
+    def signature(self):
+        name = next(self.repo.config.get_multivar('user.name'))
+        email = next(self.repo.config.get_multivar('user.email'))
+        return pygit2.Signature(name, email, int(time.time()))
+
+
+class Queue(Repo):
+
+    def __init__(self, repo_path):
+        super(Queue, self).__init__(repo_path)
+        self._updated_refs = []
+
+    def _next_job_id(self, prefix):
+        """Auto increments the branch's identifier based on the prefix"""
+        pattern = re.compile(prefix + '-(\d+)')
+        matches = list(filter(None, map(pattern.match, self.repo.branches)))
+        if matches:
+            latest = max(int(m.group(1)) for m in matches)
+        else:
+            latest = 0
+        return '{}-{}'.format(prefix, latest + 1)
+
+    def _create_branch(self, branch_name, files, parents=None, message=''):
+        # 1. create tree
+        builder = self.repo.TreeBuilder()
+
+        for filename, content in files.items():
+            # insert the file and creating the new filetree
+            blob_id = self.repo.create_blob(content)
+            builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
+
+        tree_id = builder.write()
+
+        # 2. create commit with the tree created above
+        author = committer = self.signature
+        parents = parents or [self.head]
+        commit_id = self.repo.create_commit(None, author, committer, message,
+                                            tree_id, parents)
+        commit = self.repo[commit_id]
+
+        # 3. create branch pointing to the previously created commit
+        branch = self.repo.create_branch(branch_name, commit)
+        # append to the pushable references
+        self._updated_refs.append('refs/heads/{}'.format(branch_name))
+
+        return branch
+
+    def _create_tag(self, tag_name, commit_id, message=''):
+        tag_id = self.repo.create_tag(tag_name, commit_id,
+                                      pygit2.GIT_OBJ_COMMIT, self.signature,
+                                      message)
+
+        # append to the pushable references
+        self._updated_refs.append('refs/tags/{}'.format(tag_name))
+
+        return self.repo[tag_id]
+
+    def put(self, job, prefix='build'):
+        assert isinstance(job, Job)
+
+        job.branch = self._next_job_id(prefix)
+
+        # create tasks' branches
+        for task_name, task in job.tasks.items():
+            task.branch = '{}-{}'.format(job.branch, task_name)
+            task.params['BUILD_TAG'] = job.branch  # this is ugly
+            branch = self._create_branch(task.branch, files=task.files())
+            task.commit = str(branch.target)
+
+        # create job's branch
+        branch = self._create_branch(job.branch, files=job.files())
+        tag = self._create_tag(job.branch, branch.target)
+
+        return branch
+
+    def push(self, token):
+        callbacks = GitRemoteCallbacks(token)
+        self.origin.push(self._updated_refs, callbacks=callbacks)
+        self.updated_refs = []
+
+        # logging.info('\n - '.join(['\nUpdated branches:'] + shorthands))
+
+
 class Platform(Enum):
     # in alphabetical order
     LINUX = 0
@@ -91,247 +215,132 @@ class Platform(Enum):
             return '.travis.yml'
 
 
-class Target(object):
-
-    def __init__(self, repo_path, template_directory=None):
-        self.path = Path(repo_path).absolute()
-
-        # relative to repository's path
-        if template_directory is None:
-            self.templates = self.path
-        else:
-            self.templates = self.path / template_directory
-
-        # initialize a repo object to interact with arrow's git data
-        self.repo = pygit2.Repository(str(self.path))
-
-        msg = dedent('''
-            Repository: {remote}@{branch}
-            Commit SHA: {sha}
-            Version: {version}
-        ''')
-        logging.info(msg.format(
-            remote=self.current_remote.url,
-            branch=self.current_branch.branch_name,
-            sha=self.sha,
-            version=self.version
-        ))
-
-    @property
-    def sha(self):
-        """Currently checked out commit's sha"""
-        return self.repo.head.target
-
-    @property
-    def version(self):
-        """Generate version number based on version control history"""
-        # TODO(kszucs) use self.repo.describe() instead
-        return get_version(self.path)
-
-    @property
-    def current_remote(self):
-        remote_name = self.current_branch.upstream.remote_name
-        return self.repo.remotes[remote_name]
-
-    @property
-    def current_branch(self):
-        reference = self.repo.head.shorthand
-        return self.repo.branches[reference]
-
-    @property
-    def description(self):
-        return 'Version {} of {}@{}'.format(self.version,
-                                            self.current_remote.url,
-                                            self.current_branch.branch_name)
-
-
 class Task(object):
 
-    def __init__(self, target, name, platform, template, branch=None,
-                 **params):
-        assert isinstance(target, Target)
+    def __init__(self, platform, template, commit=None, branch=None, **params):
         assert isinstance(platform, Platform)
-
-        self.name = name
-        self.target = target
+        assert isinstance(template, Path)
         self.platform = platform
         self.template = template
-        self.branch = branch or name
+        self.branch = branch
+        self.commit = commit
         self.params = params
 
-    def render(self):
-        path = Path(self.template)
-        template = Template(path.read_text())
-        return template.render(**self.params)
+    def to_dict(self):
+        return {'branch': self.branch,
+                'commit': str(self.commit),
+                'platform': self.platform.name,
+                'template': str(self.template),
+                'params': self.params}
 
-    def config_files(self):
-        return {self.platform.filename: self.render()}
+    @classmethod
+    def from_dict(cls, data):
+        return Task(platform=Platform[data['platform'].upper()],
+                    template=Path(data['template']),
+                    commit=data.get('commit'),
+                    branch=data.get('branch'),
+                    **data.get('params', {}))
 
-    @property
-    def description(self):
-        return self.target.description
+    def files(self):
+        template = Template(self.template.read_text())
+        rendered = template.render(**self.params)
+        return {self.platform.filename: rendered}
 
 
-class Queue(object):
+class Job(object):
 
-    def __init__(self, repo_path):
-        self.path = Path(repo_path).absolute()
-        self.repo = pygit2.Repository(str(self.path))
-        self.updated_branches = []
+    def __init__(self, tasks, branch=None):
+        assert all(isinstance(task, Task) for task in tasks.values())
+        self.branch = branch
+        self.tasks = tasks
 
-    @property
-    def origin(self):
-        return self.repo.remotes['origin']
+    def to_dict(self):
+        tasks = {name: task.to_dict() for name, task in self.tasks.items()}
+        return {'branch': self.branch,
+                'tasks': tasks}
 
-    def fetch(self):
-        self.origin.fetch()
+    @classmethod
+    def from_dict(cls, data):
+        tasks = {name: Task.from_dict(task)
+                 for name, task in data['tasks'].items()}
+        return Job(tasks=tasks, branch=data.get('branch'))
 
-    def _get_or_create_branch(self, name):
-        branches = self.repo.branches
-
-        upstream_name = '{}/{}'.format(self.origin.name, name)
-        upstream_branch = branches.remote.get(upstream_name)
-
-        try:
-            branch = branches[name]
-        except KeyError:
-            if upstream_branch:
-                commit = self.repo[upstream_branch.target]
-                branch = branches.create(name, commit)
-            else:
-                master = branches['master']
-                commit = self.repo[master.target]
-                branch = branches.create(name, commit)
-
-        if upstream_branch:
-            branch.upstream = upstream_branch
-
-        return branch
-
-    def _create_tree(self, files):
-        # creating the tree we are going to push based on master's tree
-        builder = self.repo.TreeBuilder()
-
-        for filename, content in files.items():
-            # insert the file and creating the new filetree
-            blob_id = self.repo.create_blob(content)
-            builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
-
-        tree_id = builder.write()
-        return tree_id
-
-    def put(self, build):
-        assert isinstance(build, Task)
-
-        branch = self._get_or_create_branch(build.branch)
-        tree_id = self._create_tree(build.config_files())
-
-        # creating the new commit
-        timestamp = int(time.time())
-
-        name = next(self.repo.config.get_multivar('user.name'))
-        email = next(self.repo.config.get_multivar('user.email'))
-
-        author = pygit2.Signature('crossbow', 'mailing@list.com',
-                                  int(timestamp))
-        committer = pygit2.Signature(name, email, int(timestamp))
-        message = build.description
-
-        commit_id = self.repo.create_commit(branch.name, author, committer, message,
-                                            tree_id, [branch.target])
-        logging.info('{} created on {}'.format(commit_id, branch.branch_name))
-
-        self.updated_branches.append(branch)
-
-    def push(self, token):
-        callbacks = GitRemoteCallbacks(token)
-
-        refs = [branch.name for branch in self.updated_branches]
-        shorthands = [b.shorthand for b in self.updated_branches]
-
-        self.origin.push(refs, callbacks=callbacks)
-        self.updated_branches = []
-
-        logging.info('\n - '.join(['\nUpdated branches:'] + shorthands))
+    def files(self):
+        return {'job.yml': yaml.dump(self.to_dict(), default_flow_style=False)}
 
 
 # this should be the mailing list
 MESSAGE_EMAIL = 'szucs.krisztian@gmail.com'
 
+CWD = Path(__file__).absolute()
+
+DEFAULT_CONFIG_PATH = CWD.parent / 'tasks.yml'
+DEFAULT_ARROW_PATH = CWD.parents[2]
+DEFAULT_QUEUE_PATH = CWD.parents[3] / 'crossbow'
+
 
 @click.command()
 @click.argument('task-names', nargs=-1, required=True)
-@click.option('--config', help='Task configuration yml. Defaults to tasks.yml')
+@click.option('--config-path', default=DEFAULT_CONFIG_PATH,
+              help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
-@click.option('--arrow-repo', default=None,
+@click.option('--arrow-path', default=DEFAULT_ARROW_PATH,
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
-@click.option('--queue-repo', default=None,
+@click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--github-token', default=False,
               help='Oauth token for Github authentication')
-def submit(task_names, config, dry_run, arrow_repo, queue_repo, github_token):
-    if config is None:
-        config = Path(__file__).absolute().parent / 'tasks.yml'
-    else:
-        config = Path(config)
+def submit(task_names, config_path, dry_run, arrow_path, queue_path,
+           github_token):
+    target = Repo(arrow_path)
+    queue = Queue(queue_path)
 
-    if arrow_repo is None:
-        arrow_repo = Path(__file__).absolute().parents[2]
-    else:
-        arrow_repo = Path(arrow_repo)
-
-    if queue_repo is None:
-        queue_repo = arrow_repo.parent / 'crossbow'
-    else:
-        queue_repo = Path(queue_repo)
-
-    arrow = Target(arrow_repo, template_directory='cd')
-    queue = Queue(queue_repo)
+    logging.info(target)
+    logging.info(queue)
 
     queue.fetch()
+
+    version = get_version(arrow_path)
 
     variables = {
         # these should be renamed
         'PLAT': 'x86_64',
         'EMAIL': MESSAGE_EMAIL,
-        'BUILD_REF': arrow.sha,
-        'ARROW_SHA': arrow.sha,
-        'ARROW_REPO': arrow.current_remote.url,
-        'ARROW_BRANCH': arrow.current_branch.branch_name,
-        'ARROW_VERSION': arrow.version,
-        'PYARROW_VERSION': arrow.version,
+        'BUILD_REF': str(target.head),
+        'ARROW_SHA': str(target.head),
+        'ARROW_REPO': target.remote.url,
+        'ARROW_BRANCH': target.branch.branch_name,
+        'ARROW_VERSION': version,
+        'PYARROW_VERSION': version,
     }
 
-    with config.open() as fp:
-        tasks = yaml.load(fp)['tasks']
+    with Path(config_path).open() as fp:
+        config = yaml.load(fp)
 
-    # filter task definitions according to task_names
-    tasks = [task for task in tasks if task['name'] in task_names]
+    # consider to set branch ids here instead of inside Queue.put
 
-    for task in tasks:
-        name = task['name']
-        template = config.parent / task['template']
-        platform = Platform[task['platform'].upper()]
-        branch = task.get('branch')
-        params = task.get('params', {})
-        params.update(variables)
+    # create and filter tasks
+    tasks = {name: Task.from_dict(task)
+             for name, task in config['tasks'].items()}
+    tasks = {name: tasks[name] for name in task_names}
 
-        build = Task(arrow, name=name, platform=platform, template=template,
-                     branch=branch, **params)
+    for task in tasks.values():
+        task.params.update(variables)
 
-        if dry_run:
-            logging.info('{}\n\n{}'.format(build.name, build.render()))
-        else:
-            queue.put(build)  # create the commit
+    # create job
+    job = Job(tasks)
 
-    if not dry_run:
-        # push the changed branches
+    if dry_run:
+        logging.info(yaml.dump(job.to_dict(), default_flow_style=False))
+    else:
+        queue.put(job)
         queue.push(token=github_token)
 
+# check status
 
 if __name__ == '__main__':
     submit(auto_envvar_prefix='CROSSBOW')

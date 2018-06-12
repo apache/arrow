@@ -52,6 +52,14 @@ after_build:
 artifacts:
   - path: wheels\*.whl
 
+deploy:
+  release: {{ BUILD_TAG }}
+  provider: GitHub
+  auth_token: $(CROSSBOW_GITHUB_TOKEN)
+  artifact: wheels\*.whl
+  draft: false
+  prerelease: false
+
 notifications:
   - provider: Email
     to:
