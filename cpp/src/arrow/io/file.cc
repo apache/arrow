@@ -438,10 +438,6 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     if (position < 0) {
       return Status::Invalid("position is out of bounds");
     }
-    if (position > size_) {
-      return Status::Invalid(
-          "requested position is greater than the mmap size, resize first");
-    }
     position_ = position;
     return Status::OK();
   }
