@@ -28,8 +28,8 @@
 #else
 #include <sys/mman.h>
 #include <unistd.h>
-#include "arrow/io/mremap.h"
 #endif
+#include "arrow/io/mremap.h"
 
 #include <string.h>
 
@@ -462,8 +462,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   Status resizeMap(int64_t capacity, void*& result) {
     int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
 
-    result =
-        arrow_mremap(mutable_data_, capacity_, new_capacity, MREMAP_MAYMOVE, file_->fd());
+    result = arrow_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
     if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "mremap failed: " << std::strerror(errno);
