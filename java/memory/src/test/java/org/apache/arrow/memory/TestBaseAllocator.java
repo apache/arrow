@@ -225,7 +225,7 @@ public class TestBaseAllocator {
   // Allocation listener
   // It counts the number of times it has been invoked, and how much memory allocation it has seen
   // When set to 'expand on fail', it attempts to expand the associated allocator's limit
-  static class TestAllocationListener implements AllocationListener {
+  private static final class TestAllocationListener implements AllocationListener {
     private int numCalls;
     private long totalMem;
     private boolean expandOnFail;

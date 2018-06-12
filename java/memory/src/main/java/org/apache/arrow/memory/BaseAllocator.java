@@ -275,12 +275,14 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         nextPowerOfTwo(initialRequestSize)
         : initialRequestSize;
     AllocationOutcome outcome = this.allocateBytes(actualRequestSize);
-    if (!outcome.isOk() && listener.onFailedAllocation(actualRequestSize, outcome)) {
-      // Second try, in case the listener can do something about it
-      outcome = this.allocateBytes(actualRequestSize);
-    }
     if (!outcome.isOk()) {
-      throw new OutOfMemoryException(createErrorMsg(this, actualRequestSize, initialRequestSize));
+      if (listener.onFailedAllocation(actualRequestSize, outcome)) {
+        // Second try, in case the listener can do something about it
+        outcome = this.allocateBytes(actualRequestSize);
+      }
+      if (!outcome.isOk()) {
+        throw new OutOfMemoryException(createErrorMsg(this, actualRequestSize, initialRequestSize));
+      }
     }
 
     boolean success = false;
@@ -349,19 +351,18 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     assertOpen();
 
     final ChildAllocator childAllocator = new ChildAllocator(listener,this, name, initReservation,
-                                                             maxAllocation);
+        maxAllocation);
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
         childAllocators.put(childAllocator, childAllocator);
         historicalLog.recordEvent("allocator[%s] created new child allocator[%s]", name,
-                                  childAllocator.name);
+            childAllocator.name);
       }
     }
 
     return childAllocator;
   }
-
 
   @Override
   public AllocationReservation newReservation() {
