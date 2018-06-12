@@ -19,16 +19,17 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+
 #include <gtest/gtest_prod.h>
-#include "gandiva/gandiva_aliases.h"
-#include "codegen/dex_visitor.h"
+#include "codegen/annotator.h"
 #include "codegen/compiled_expr.h"
+#include "codegen/dex_visitor.h"
 #include "codegen/engine.h"
 #include "codegen/function_registry.h"
-#include "codegen/value_validity_pair.h"
 #include "codegen/llvm_types.h"
 #include "codegen/lvalue.h"
-#include "codegen/annotator.h"
+#include "codegen/value_validity_pair.h"
+#include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 

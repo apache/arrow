@@ -18,6 +18,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+
 #include "boost/functional/hash.hpp"
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"

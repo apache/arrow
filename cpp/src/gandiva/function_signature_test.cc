@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <gtest/gtest.h>
-#include <memory>
 #include "codegen/function_signature.h"
+
+#include <memory>
+
+#include <gtest/gtest.h>
 
 namespace gandiva {
 

@@ -16,6 +16,7 @@
 #define GANDIVA_FIELDDESCRIPTOR_H
 
 #include <string>
+
 #include "gandiva/arrow.h"
 
 namespace gandiva {

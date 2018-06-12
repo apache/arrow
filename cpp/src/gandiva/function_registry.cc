@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <vector>
 #include "codegen/function_registry.h"
+
+#include <vector>
 
 namespace gandiva {
 

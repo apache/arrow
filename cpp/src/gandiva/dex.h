@@ -17,13 +17,14 @@
 
 #include <string>
 #include <vector>
-#include "gandiva/gandiva_aliases.h"
+
 #include "codegen/dex_visitor.h"
 #include "codegen/field_descriptor.h"
 #include "codegen/func_descriptor.h"
 #include "codegen/literal_holder.h"
 #include "codegen/native_function.h"
 #include "codegen/value_validity_pair.h"
+#include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 

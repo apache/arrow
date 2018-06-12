@@ -17,11 +17,12 @@
 
 #include <string>
 #include <vector>
-#include "gandiva/arrow.h"
-#include "gandiva/gandiva_aliases.h"
-#include "codegen/node_visitor.h"
+
 #include "codegen/func_descriptor.h"
 #include "codegen/literal_holder.h"
+#include "codegen/node_visitor.h"
+#include "gandiva/arrow.h"
+#include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 

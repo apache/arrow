@@ -19,6 +19,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+
 #include "gandiva/arrow.h"
 #include "gandiva/expression.h"
 #include "gandiva/status.h"

@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <vector>
+
 #include <arrow/builder.h>
 #include <arrow/record_batch.h>
 #include <arrow/type.h>

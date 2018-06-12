@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <gtest/gtest.h>
 #include "codegen/engine.h"
+
+#include <gtest/gtest.h>
 #include "codegen/llvm_types.h"
 
 namespace gandiva {

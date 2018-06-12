@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "codegen/expr_decomposer.h"
+
 #include <gtest/gtest.h>
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/tree_expr_builder.h"
 #include "codegen/annotator.h"
 #include "codegen/dex.h"
-#include "codegen/expr_decomposer.h"
 #include "codegen/function_signature.h"
 #include "codegen/function_registry.h"
 #include "codegen/node.h"

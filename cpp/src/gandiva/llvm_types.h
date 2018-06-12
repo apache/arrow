@@ -15,9 +15,10 @@
 #ifndef GANDIVA_LLVM_TYPES_H
 #define GANDIVA_LLVM_TYPES_H
 
+#include <map>
+
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
-#include <map>
 #include "gandiva/arrow.h"
 
 namespace gandiva {

@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "gandiva/projector.h"
+
 #include <memory>
 #include <vector>
 #include <utility>
-#include "gandiva/projector.h"
+
 #include "codegen/llvm_generator.h"
 
 namespace gandiva {

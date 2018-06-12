@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "codegen/llvm_generator.h"
+
 #include <memory>
 #include <vector>
+
 #include <gtest/gtest.h>
-#include "gandiva/expression.h"
 #include "codegen/dex.h"
 #include "codegen/func_descriptor.h"
 #include "codegen/function_registry.h"
-#include "codegen/llvm_generator.h"
+#include "gandiva/expression.h"
 
 namespace gandiva {
 

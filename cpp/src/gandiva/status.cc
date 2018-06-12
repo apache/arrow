@@ -14,9 +14,10 @@
 
 // Adapted from Apache Arrow.
 
-#include <string>
-#include <assert.h>
 #include "gandiva/status.h"
+
+#include <assert.h>
+#include <string>
 
 namespace gandiva {
 

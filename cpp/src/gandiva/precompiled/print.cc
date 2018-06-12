@@ -15,6 +15,7 @@
 extern "C" {
 
 #include <stdio.h>
+
 #include "./types.h"
 
 int print_double(char *msg, double val) {

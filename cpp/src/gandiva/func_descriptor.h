@@ -17,6 +17,7 @@
 
 #include <string>
 #include <vector>
+
 #include "gandiva/arrow.h"
 
 namespace gandiva {

@@ -16,6 +16,7 @@
 #define GANDIVA_LITERAL_HOLDER
 
 #include <string>
+
 #include <boost/variant.hpp>
 
 namespace gandiva {

@@ -15,13 +15,14 @@
 #ifndef GANDIVA_ENGINE_H
 #define GANDIVA_ENGINE_H
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
-#include <memory>
-#include <string>
-#include <vector>
 #include "gandiva/logging.h"
 #include "gandiva/status.h"
 

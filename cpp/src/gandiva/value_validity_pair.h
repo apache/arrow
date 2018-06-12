@@ -16,6 +16,7 @@
 #define GANDIVA_VALUEVALIDITYPAIR_H
 
 #include <vector>
+
 #include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {

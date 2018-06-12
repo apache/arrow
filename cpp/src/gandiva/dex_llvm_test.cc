@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <gtest/gtest.h>
+#include "codegen/dex.h"
+
 #include <map>
 #include <typeinfo>
-#include "codegen/dex.h"
+
+#include <gtest/gtest.h>
 
 namespace gandiva {
 

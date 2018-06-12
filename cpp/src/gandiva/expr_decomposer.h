@@ -18,11 +18,11 @@
 #include <stack>
 #include <memory>
 #include <utility>
-#include <gtest/gtest_prod.h>
 
-#include "gandiva/expression.h"
+#include <gtest/gtest_prod.h>
 #include "codegen/node_visitor.h"
 #include "codegen/node.h"
+#include "gandiva/expression.h"
 
 namespace gandiva {
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+    // Copyright (C) 2017-2018 Dremio Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 #ifndef GANDIVA_EXPR_EVALBATCH_H
 #define GANDIVA_EXPR_EVALBATCH_H
 
+#include <arrow/util/logging.h>
+#include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {

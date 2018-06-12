@@ -16,6 +16,7 @@
 #define GANDIVA_FUNCTION_REGISTRY_H
 
 #include <unordered_map>
+
 #include "codegen/native_function.h"
 
 namespace gandiva {
