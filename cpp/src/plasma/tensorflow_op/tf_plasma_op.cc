@@ -173,17 +173,20 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     std::vector<int64_t> shape = {static_cast<int64_t>(total_bytes / sizeof(float))};
 
     int64_t header_size;
-    ARROW_CHECK_OK(arrow::py::TensorFlowTensorGetHeaderSize(arrow_dtype, shape, &header_size));
+    ARROW_CHECK_OK(
+        arrow::py::TensorFlowTensorGetHeaderSize(arrow_dtype, shape, &header_size));
 
     std::shared_ptr<Buffer> data_buffer;
     {
       mutex_lock lock(mu_);
-      ARROW_CHECK_OK(client_.Create(object_id, header_size + static_cast<int64_t>(total_bytes),
+      ARROW_CHECK_OK(client_.Create(object_id,
+                                    header_size + static_cast<int64_t>(total_bytes),
                                     /*metadata=*/nullptr, 0, &data_buffer));
     }
 
     int64_t offset;
-    ARROW_CHECK_OK(arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, data_buffer, &offset));
+    ARROW_CHECK_OK(
+        arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, data_buffer, &offset));
 
     float* data = reinterpret_cast<float*>(data_buffer->mutable_data() + offset);
 

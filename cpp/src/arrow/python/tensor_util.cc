@@ -24,7 +24,9 @@ namespace arrow {
 
 namespace py {
 
-Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype, const std::vector<int64_t>& shape, int64_t *header_size) {
+Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype,
+                                     const std::vector<int64_t>& shape,
+                                     int64_t* header_size) {
   arrow::io::MockOutputStream mock;
   arrow::Tensor empty_tensor(dtype, nullptr, shape);
   arrow::py::SerializedPyObject serialized_tensor;
@@ -34,7 +36,9 @@ Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype, con
   return Status::OK();
 }
 
-Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype, const std::vector<int64_t>& shape, std::shared_ptr<Buffer> buffer, int64_t *offset) {
+Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype,
+                             const std::vector<int64_t>& shape,
+                             std::shared_ptr<Buffer> buffer, int64_t* offset) {
   arrow::io::FixedSizeBufferWriter buf(buffer);
   arrow::Tensor empty_tensor(dtype, nullptr, shape);
   arrow::py::SerializedPyObject serialized_tensor;
@@ -43,6 +47,6 @@ Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype, const std::
   return buf.Tell(offset);
 }
 
-}
+}  // namespace py
 
-}  // namespace plasma
+}  // namespace arrow
