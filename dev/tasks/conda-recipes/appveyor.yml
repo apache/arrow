@@ -50,11 +50,14 @@ test_script:
   - pushd %ARROW_SRC%\dev\tasks\conda-recipes
   - conda.exe build parquet-cpp arrow-cpp pyarrow
 
+artifacts:
+  - path: C:\bld\win-64\*.tar.bz2
+
 deploy:
   release: {{ BUILD_TAG }}
   provider: GitHub
   auth_token: "%CROSSBOW_GITHUB_TOKEN%"
-  artifact: "%CONDA_INSTALL_LOCN%\\conda-bld\\win-64\\*.tar.bz2"
+  artifact: /.*\.tar\.bz2/
   draft: false
   prerelease: false
 
