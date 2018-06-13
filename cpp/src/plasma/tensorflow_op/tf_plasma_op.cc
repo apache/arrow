@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/io/memory.h"
-#include "arrow/python/python_to_arrow.h"
-#include "arrow/tensor.h"
-
+#include "arrow/python/tensor_util.h"
 #include "plasma/client.h"
 
 #include "tensorflow/core/framework/device_base.h"
@@ -172,22 +169,23 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     const plasma::ObjectID object_id =
         plasma::ObjectID::from_binary(plasma_object_id_str);
 
+    auto arrow_dtype = tf_dtype_to_arrow(tf_dtype);
+    std::vector<int64_t> shape = {static_cast<int64_t>(total_bytes / sizeof(float))};
+
+    int64_t header_size;
+    ARROW_CHECK_OK(arrow::py::TensorFlowTensorGetHeaderSize(arrow_dtype, shape, &header_size));
+
     std::shared_ptr<Buffer> data_buffer;
     {
       mutex_lock lock(mu_);
-      ARROW_CHECK_OK(client_.Create(object_id, static_cast<int64_t>(total_bytes),
+      ARROW_CHECK_OK(client_.Create(object_id, header_size + static_cast<int64_t>(total_bytes),
                                     /*metadata=*/nullptr, 0, &data_buffer));
     }
 
-    std::vector<int64_t> shape = {offsets.back() / sizeof(float)};
-    auto arrow_dtype = tf_dtype_to_arrow(plasma_object_id.dtype());
-    arrow::Tensor empty_tensor(arrow_dtype, nullptr, shape);
-    arrow::py::SerializedPyObject serialized_tensor;
-    ARROW_CHECK_OK(arrow::SerializeTensor(&empty_tensor, &serialized_tensor));
-    arrow::io::FixedSizeBufferWriter buf(data_buffer);
-    serialized_tensor.WriteTo(&buf);
+    int64_t offset;
+    ARROW_CHECK_OK(arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, data_buffer, &offset));
 
-    float* data = reinterpret_cast<float*>(data_buffer->mutable_data());
+    float* data = reinterpret_cast<float*>(data_buffer->mutable_data() + offset);
 
     auto wrapped_callback = [this, context, done, data_buffer, object_id]() {
       {
@@ -316,7 +314,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
     }
 
     const int64_t size_in_bytes = object_buffer.data->size();
-    TensorShape shape({size_in_bytes / sizeof(float)});
+    TensorShape shape({static_cast<int64_t>(size_in_bytes / sizeof(float))});
 
     const float* plasma_data = reinterpret_cast<const float*>(object_buffer.data->data());
 

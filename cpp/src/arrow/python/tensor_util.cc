@@ -34,13 +34,13 @@ Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype, con
   return Status::OK();
 }
 
-Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype, const std::vector<int64_t>& shape, std::shared_ptr<Buffer> buffer, int64_t *index) {
+Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype, const std::vector<int64_t>& shape, std::shared_ptr<Buffer> buffer, int64_t *offset) {
   arrow::io::FixedSizeBufferWriter buf(buffer);
   arrow::Tensor empty_tensor(dtype, nullptr, shape);
   arrow::py::SerializedPyObject serialized_tensor;
   RETURN_NOT_OK(arrow::SerializeTensor(&empty_tensor, &serialized_tensor));
   RETURN_NOT_OK(serialized_tensor.WriteTo(&buf));
-  return buf.Tell(index);
+  return buf.Tell(offset);
 }
 
 }

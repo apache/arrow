@@ -23,6 +23,8 @@ namespace py {
 
 Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype, const std::vector<int64_t>& shape, int64_t *header_size);
 
+Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype, const std::vector<int64_t>& shape, std::shared_ptr<Buffer> buffer, int64_t *offset);
+
 }
 
 }

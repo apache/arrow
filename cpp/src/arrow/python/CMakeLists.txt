@@ -90,6 +90,7 @@ install(FILES
   python_to_arrow.h
   platform.h
   pyarrow.h
+  tensor_util.h
   type_traits.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 
