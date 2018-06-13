@@ -24,8 +24,8 @@
 #endif
 
 // define a wrapper around mremap which the same arguments on linux and on windows
-#ifdef _WIN32
 static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fildes) {
+#ifdef _WIN32
   // flags are ignored on windows
   void* new_addr = MAP_FAILED;
   HANDLE fm, h;
@@ -56,13 +56,11 @@ static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fild
     return MAP_FAILED;
   }
   return new_addr;
-}
 #else
-static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fildes) {
   // we don't need the file descriptor on linux
   if (ftruncate(fildes, new_size) == -1) {
     return MAP_FAILED;
   }
   return mremap(addr, old_size, new_size, MREMAP_MAYMOVE);
-}
 #endif
+}
