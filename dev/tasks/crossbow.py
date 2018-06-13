@@ -22,22 +22,22 @@ import yaml
 import time
 import click
 import pygit2
+import github3
 import logging
 
 from enum import Enum
 from pathlib import Path
 from textwrap import dedent
 from jinja2 import Template
-from collections import namedtuple
 from setuptools_scm import get_version
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(levelname)s Crossbow %(message)s",
-    datefmt="%H:%M:%S",
-    stream=click.get_text_stream('stdout')
-)
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="[%(asctime)s] %(levelname)s Crossbow %(message)s",
+#     datefmt="%H:%M:%S",
+#     stream=click.get_text_stream('stdout')
+# )
 
 
 class GitRemoteCallbacks(pygit2.RemoteCallbacks):
@@ -115,6 +115,11 @@ class Repo(object):
         name = next(self.repo.config.get_multivar('user.name'))
         email = next(self.repo.config.get_multivar('user.email'))
         return pygit2.Signature(name, email, int(time.time()))
+
+    def parse_user_repo(self):
+        m = re.match('.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote.url)
+        user, repo = m.group(1), m.group(2)
+        return user, repo
 
 
 class Queue(Repo):
@@ -309,7 +314,7 @@ def submit(task_names, config_path, dry_run, arrow_path, queue_path,
 
     queue.fetch()
 
-    version = get_version(arrow_path)
+    version = get_version(arrow_path, local_scheme='dirty-tag')
 
     variables = {
         # these should be renamed
@@ -348,38 +353,45 @@ def submit(task_names, config_path, dry_run, arrow_path, queue_path,
 
 @crossbow.command()
 @click.argument('job-name', required=True)
+@click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
+              help='The repository path used for scheduling the tasks. '
+                   'Defaults to crossbow directory placed next to arrow')
 @click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
               help='Oauth token for Github authentication')
-def status(job_name, github_token):
-    import github3
-
-    branch_name = job_name
+def status(job_name, queue_path, github_token):
+    queue = Queue(queue_path)
+    username, reponame = queue.parse_user_repo()
 
     gh = github3.login(token=github_token)
-    repo = gh.repository('kszucs', 'crossbow')  # FIXME(kszucs)
-    content = repo.file_contents('job.yml', branch_name)
+    repo = gh.repository(username, reponame)
+    content = repo.file_contents('job.yml', job_name)
 
     job = Job.from_dict(yaml.load(content.decoded))
     for name, task in job.tasks.items():
         for status in repo.statuses(task.commit):
-            print(status)
+            click.echo('[{:>7}] {:<} '.format(status.state, task.branch))
 
 
 @crossbow.command()
 @click.argument('job-name', required=True)
+@click.option('--target-dir', default=DEFAULT_ARROW_PATH,
+              help='Directory to download the build artifacts')
+@click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
+              help='The repository path used for scheduling the tasks. '
+                   'Defaults to crossbow directory placed next to arrow')
 @click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
               help='Oauth token for Github authentication')
-def artifacts(job_name, github_token):
-    import github3
-
-    branch_name = job_name
+def artifacts(job_name, target_dir, queue_path, github_token):
+    queue = Queue(queue_path)
+    username, reponame = queue.parse_user_repo()
 
     gh = github3.login(token=github_token)
-    repo = gh.repository('kszucs', 'crossbow')  # FIXME(kszucs)
-    release = repo.release_from_tag(branch_name)
+    repo = gh.repository(username, reponame)
+    release = repo.release_from_tag(job_name)
 
     for asset in release.assets():
-        asset.download()  # download to the current dir, FIXME
+        click.echo('Downloading asset {} ...'.format(asset.name))
+        asset.download(target_dir / asset.name)
 
 
 if __name__ == '__main__':

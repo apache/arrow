@@ -55,7 +55,7 @@ deploy:
   release: {{ BUILD_TAG }}
   provider: GitHub
   auth_token: "%CROSSBOW_GITHUB_TOKEN%"
-  artifact: wheels\*.whl
+  artifact: /.*\.whl/
   draft: false
   prerelease: false
 
