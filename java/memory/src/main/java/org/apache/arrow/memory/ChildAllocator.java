@@ -47,7 +47,7 @@ class ChildAllocator extends BaseAllocator {
       String name,
       long initReservation,
       long maxAllocation) {
-    super(listener, parentAllocator, name, initReservation, maxAllocation);
+    super(parentAllocator, listener, name, initReservation, maxAllocation);
   }
 
 
