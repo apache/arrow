@@ -460,6 +460,10 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
  private:
   // Resize the map to the specified capacity. Keeps 64 alignment.
   Status resizeMap(int64_t capacity, void*& result) {
+    if (file_->mode() != FileMode::type::READWRITE &&
+        file_->mode() != FileMode::type::WRITE) {
+      return Status::IOError("Cannot resize a readonly memory map");
+    }
     int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
 
     result = arrow_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
