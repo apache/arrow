@@ -365,5 +365,22 @@ def status(job_name, github_token):
             print(status)
 
 
+@crossbow.command()
+@click.argument('job-name', required=True)
+@click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
+              help='Oauth token for Github authentication')
+def artifacts(job_name, github_token):
+    import github3
+
+    branch_name = job_name
+
+    gh = github3.login(token=github_token)
+    repo = gh.repository('kszucs', 'crossbow')  # FIXME(kszucs)
+    release = repo.release_from_tag(branch_name)
+
+    for asset in release.assets():
+        asset.download()  # download to the current dir, FIXME
+
+
 if __name__ == '__main__':
     crossbow(auto_envvar_prefix='CROSSBOW')
