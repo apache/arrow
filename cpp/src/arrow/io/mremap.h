@@ -24,6 +24,7 @@
 #endif
 
 // define a wrapper around mremap which the same arguments on linux and on windows
+// should only be called with writable files
 static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fildes) {
 #ifdef _WIN32
   // flags are ignored on windows
@@ -57,10 +58,23 @@ static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fild
   }
   return new_addr;
 #else
-  // we don't need the file descriptor on linux
+#ifdef __APPLE__
+  // we have to close the mmap first, truncate the file to the new size
+  // and recreate the mmap
+  if (munmap(addr, old_size) == -1) {
+    return MAP_FAILED;
+  }
+  if (ftruncate(fildes, new_size) == -1) {
+    return MAP_FAILED;
+  }
+  // we set READ / WRITE flags on the new map, since we could only have
+  // unlarged a RW map in the first place
+  return mmap(NULL, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fildes, 0);
+#else
   if (ftruncate(fildes, new_size) == -1) {
     return MAP_FAILED;
   }
   return mremap(addr, old_size, new_size, MREMAP_MAYMOVE);
+#endif
 #endif
 }
