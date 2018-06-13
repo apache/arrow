@@ -61,6 +61,20 @@ public class MessageSerializerTest {
     return bytes;
   }
 
+  private int intToByteRoundtrip(int v, byte[] bytes) {
+    MessageSerializer.intToBytes(v, bytes);
+    return MessageSerializer.bytesToInt(bytes);
+  }
+
+  @Test
+  public void testIntToBytes() {
+    byte[] bytes = new byte[4];
+    int[] values = new int[] {1, 15, 1 << 8, 1 << 16, 1 << 32, Integer.MAX_VALUE};
+    for (int v: values) {
+      assertEquals(intToByteRoundtrip(v, bytes), v);
+    }
+  }
+
   @Test
   public void testSchemaMessageSerialization() throws IOException {
     Schema schema = testSchema();

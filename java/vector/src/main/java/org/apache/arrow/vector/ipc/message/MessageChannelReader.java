@@ -32,7 +32,7 @@ import java.nio.ByteBuffer;
  */
 public class MessageChannelReader implements MessageReader {
 
-  private ReadChannel in;
+  protected ReadChannel in;
 
   /**
    * Construct from an existing ReadChannel.
@@ -61,13 +61,18 @@ public class MessageChannelReader implements MessageReader {
       return null;
     }
 
-    buffer = ByteBuffer.allocate(messageLength);
+    return loadMessage(messageLength, ByteBuffer.allocate(messageLength));
+  }
+
+  /**
+   * Read a Message of the given length into the existing buffer and return the loaded Message.
+   */
+  protected Message loadMessage(int messageLength, ByteBuffer buffer) throws IOException {
     if (in.readFully(buffer) != messageLength) {
       throw new IOException(
-          "Unexpected end of stream trying to read message.");
+        "Unexpected end of stream trying to read message.");
     }
     buffer.rewind();
-
     return Message.getRootAsMessage(buffer);
   }
 

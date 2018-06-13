@@ -26,6 +26,7 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.FBSerializable;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,17 +77,10 @@ public class WriteChannel implements AutoCloseable {
     return length;
   }
 
-  public static byte[] intToBytes(int value) {
-    byte[] outBuffer = new byte[4];
-    outBuffer[3] = (byte) (value >>> 24);
-    outBuffer[2] = (byte) (value >>> 16);
-    outBuffer[1] = (byte) (value >>> 8);
-    outBuffer[0] = (byte) (value >>> 0);
-    return outBuffer;
-  }
-
   public long writeIntLittleEndian(int v) throws IOException {
-    return write(intToBytes(v));
+    byte[] outBuffer = new byte[4];
+    MessageSerializer.intToBytes(v, outBuffer);
+    return write(outBuffer);
   }
 
   public void write(ArrowBuf buffer) throws IOException {

@@ -56,11 +56,30 @@ import io.netty.buffer.ArrowBuf;
  */
 public class MessageSerializer {
 
+  /**
+   * Convert an array of 4 bytes to a little endian i32 value.
+   *
+   * @param bytes byte array with minimum length of 4
+   * @return converted little endian 32-bit integer
+   */
   public static int bytesToInt(byte[] bytes) {
     return ((bytes[3] & 255) << 24) +
         ((bytes[2] & 255) << 16) +
         ((bytes[1] & 255) << 8) +
         ((bytes[0] & 255) << 0);
+  }
+
+  /**
+   * Convert an integer to a 4 byte array.
+   *
+   * @param value integer value input
+   * @param bytes existing byte array with minimum length of 4 to contain the conversion output
+   */
+  public static void intToBytes(int value, byte[] bytes) {
+    bytes[3] = (byte) (value >>> 24);
+    bytes[2] = (byte) (value >>> 16);
+    bytes[1] = (byte) (value >>> 8);
+    bytes[0] = (byte) (value >>> 0);
   }
 
   /**
