@@ -62,6 +62,12 @@ cdef class ArrayValue(Scalar):
         else:
             return super(Scalar, self).__repr__()
 
+    def __str__(self):
+        if hasattr(self, 'as_py'):
+            return str(self.as_py())
+        else:
+            return super(Scalar, self).__str__()
+
     def __eq__(self, other):
         if hasattr(self, 'as_py'):
             if isinstance(other, ArrayValue):
