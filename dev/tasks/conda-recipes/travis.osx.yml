@@ -71,7 +71,7 @@ deploy:
   provider: releases
   api_key: $CROSSBOW_GITHUB_TOKEN
   file_glob: true
-  file: /home/travis/miniconda3/conda-bld/osx-64/*.tar.gz
+  file: /home/travis/miniconda3/conda-bld/osx-64/*.tar.bz2
   skip_cleanup: true
   on:
     tags: true

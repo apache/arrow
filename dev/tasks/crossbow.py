@@ -279,7 +279,12 @@ DEFAULT_ARROW_PATH = CWD.parents[2]
 DEFAULT_QUEUE_PATH = CWD.parents[3] / 'crossbow'
 
 
-@click.command()
+@click.group()
+def crossbow():
+    pass
+
+
+@crossbow.command()
 @click.argument('task-names', nargs=-1, required=True)
 @click.option('--config-path', default=DEFAULT_CONFIG_PATH,
               help='Task configuration yml. Defaults to tasks.yml')
@@ -292,7 +297,7 @@ DEFAULT_QUEUE_PATH = CWD.parents[3] / 'crossbow'
 @click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
-@click.option('--github-token', default=False,
+@click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
               help='Oauth token for Github authentication')
 def submit(task_names, config_path, dry_run, arrow_path, queue_path,
            github_token):
@@ -340,7 +345,25 @@ def submit(task_names, config_path, dry_run, arrow_path, queue_path,
         queue.put(job)
         queue.push(token=github_token)
 
-# check status
+
+@crossbow.command()
+@click.argument('job-name', required=True)
+@click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
+              help='Oauth token for Github authentication')
+def status(job_name, github_token):
+    import github3
+
+    branch_name = job_name
+
+    gh = github3.login(token=github_token)
+    repo = gh.repository('kszucs', 'crossbow')  # FIXME(kszucs)
+    content = repo.file_contents('job.yml', branch_name)
+
+    job = Job.from_dict(yaml.load(content.decoded))
+    for name, task in job.tasks.items():
+        for status in repo.statuses(task.commit):
+            print(status)
+
 
 if __name__ == '__main__':
-    submit(auto_envvar_prefix='CROSSBOW')
+    crossbow(auto_envvar_prefix='CROSSBOW')

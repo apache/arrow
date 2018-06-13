@@ -80,12 +80,12 @@ submission. The tasks are defined in `tasks.yml`
 6. Install the python dependencies for the script:
 
    ```bash
-   conda install -y jinja2 pygit2 click pyyaml setuptools_scm
+   conda install -y jinja2 pygit2 click pyyaml setuptools_scm github3.py
    ```
 
    ```bash
    # pygit2 requires libgit2: http://www.pygit2.org/install.html
-   pip install -y jinja2 pygit2 click pyyaml setuptools_scm
+   pip install -y jinja2 pygit2 click pyyaml setuptools_scm github3.py
    ```
 
 7. Try running it:

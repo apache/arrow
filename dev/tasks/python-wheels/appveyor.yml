@@ -39,7 +39,6 @@ init:
   - set MINICONDA=C:\Miniconda35-x64
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
-
 build_script:
   - mkdir wheels
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} %ARROW_SRC% || exit /B
@@ -55,7 +54,7 @@ artifacts:
 deploy:
   release: {{ BUILD_TAG }}
   provider: GitHub
-  auth_token: $(CROSSBOW_GITHUB_TOKEN)
+  auth_token: "%CROSSBOW_GITHUB_TOKEN%"
   artifact: wheels\*.whl
   draft: false
   prerelease: false
