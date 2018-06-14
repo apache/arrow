@@ -23,6 +23,7 @@ so_version=@PLASMA_SO_VERSION@
 abi_version=@PLASMA_SO_VERSION@
 full_so_version=@PLASMA_FULL_SO_VERSION@
 executable=${prefix}/@CMAKE_INSTALL_BINDIR@/plasma_store
+tf_op=${prefix}/@CMAKE_INSTALL_BINDIR@/tf_plasma_op.so
 
 Name: Plasma
 Description: Plasma is an in-memory object store and cache for big data.

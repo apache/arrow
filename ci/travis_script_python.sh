@@ -52,6 +52,12 @@ conda install -y -q pip \
 #   conda install -y -q pytorch torchvision -c soumith
 # fi
 
+PLASMA_BUILD_TENSORFLOW_OP="off"
+if [ $TRAVIS_OS_NAME != "osx" ]; then
+  conda install -y -c conda-forge tensorflow
+  PLASMA_BUILD_TENSORFLOW_OP="on"
+fi
+
 # Re-build C++ libraries with the right Python setup
 mkdir -p $ARROW_CPP_BUILD_DIR
 pushd $ARROW_CPP_BUILD_DIR
@@ -71,6 +77,7 @@ cmake -GNinja \
       -DARROW_BUILD_TESTS=on \
       -DARROW_BUILD_UTILITIES=off \
       -DARROW_PLASMA=on \
+      -DPLASMA_BUILD_TENSORFLOW_OP=$PLASMA_BUILD_TENSORFLOW_OP \
       -DARROW_PYTHON=on \
       -DARROW_ORC=on \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
