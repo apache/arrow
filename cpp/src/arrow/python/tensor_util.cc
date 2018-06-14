@@ -30,7 +30,7 @@ Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype,
   arrow::io::MockOutputStream mock;
   arrow::Tensor empty_tensor(dtype, nullptr, shape);
   arrow::py::SerializedPyObject serialized_tensor;
-  RETURN_NOT_OK(arrow::SerializeTensor(&empty_tensor, &serialized_tensor));
+  RETURN_NOT_OK(SerializeTensor(&empty_tensor, &serialized_tensor));
   RETURN_NOT_OK(serialized_tensor.WriteTo(&mock));
   *header_size = mock.GetExtentBytesWritten();
   return Status::OK();
@@ -42,7 +42,7 @@ Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype,
   arrow::io::FixedSizeBufferWriter buf(buffer);
   arrow::Tensor empty_tensor(dtype, nullptr, shape);
   arrow::py::SerializedPyObject serialized_tensor;
-  RETURN_NOT_OK(arrow::SerializeTensor(&empty_tensor, &serialized_tensor));
+  RETURN_NOT_OK(SerializeTensor(&empty_tensor, &serialized_tensor));
   RETURN_NOT_OK(serialized_tensor.WriteTo(&buf));
   return buf.Tell(offset);
 }

@@ -82,9 +82,12 @@ struct ARROW_EXPORT SerializedPyObject {
 /// Release GIL before calling
 ARROW_EXPORT
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out);
-}  // namespace py
+
 ARROW_EXPORT
 Status SerializeTensor(Tensor* tensor, py::SerializedPyObject* out);
+
+}  // namespace py
+
 }  // namespace arrow
 
 #endif  // ARROW_PYTHON_PYTHON_TO_ARROW_H
