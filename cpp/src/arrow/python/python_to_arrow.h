@@ -83,6 +83,7 @@ struct ARROW_EXPORT SerializedPyObject {
 ARROW_EXPORT
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out);
 }  // namespace py
+ARROW_EXPORT
 Status SerializeTensor(Tensor* tensor, py::SerializedPyObject* out);
 }  // namespace arrow
 
