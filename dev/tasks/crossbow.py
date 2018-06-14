@@ -128,7 +128,7 @@ class Queue(Repo):
         super(Queue, self).__init__(repo_path)
         self._updated_refs = []
 
-    def _next_job_id(self, prefix):
+    def next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
         pattern = re.compile(prefix + '-(\d+)')
         matches = list(filter(None, map(pattern.match, self.repo.branches)))
@@ -175,13 +175,10 @@ class Queue(Repo):
 
     def put(self, job, prefix='build'):
         assert isinstance(job, Job)
-
-        job.branch = self._next_job_id(prefix)
+        assert job.branch is not None
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
-            task.branch = '{}-{}'.format(job.branch, task_name)
-            task.params['BUILD_TAG'] = job.branch  # this is ugly
             branch = self._create_branch(task.branch, files=task.files())
             task.commit = str(branch.target)
 
@@ -315,11 +312,13 @@ def submit(task_names, config_path, dry_run, arrow_path, queue_path,
     queue.fetch()
 
     version = get_version(arrow_path, local_scheme='dirty-tag')
+    job_id = queue.next_job_id(prefix='build')
 
     variables = {
         # these should be renamed
         'PLAT': 'x86_64',
         'EMAIL': MESSAGE_EMAIL,
+        'BUILD_TAG': job_id,
         'BUILD_REF': str(target.head),
         'ARROW_SHA': str(target.head),
         'ARROW_REPO': target.remote.url,
@@ -331,22 +330,23 @@ def submit(task_names, config_path, dry_run, arrow_path, queue_path,
     with Path(config_path).open() as fp:
         config = yaml.load(fp)
 
-    # consider to set branch ids here instead of inside Queue.put
-
     # create and filter tasks
     tasks = {name: Task.from_dict(task)
              for name, task in config['tasks'].items()}
     tasks = {name: tasks[name] for name in task_names}
 
-    for task in tasks.values():
+    for task_name, task in tasks.items():
+        task.branch = '{}-{}'.format(job_id, task_name)
         task.params.update(variables)
 
     # create job
     job = Job(tasks)
+    job.branch = job_id
 
-    if dry_run:
-        logging.info(yaml.dump(job.to_dict(), default_flow_style=False))
-    else:
+    yaml_format = yaml.dump(job.to_dict(), default_flow_style=False)
+    click.echo(yaml_format)
+
+    if not dry_run:
         queue.put(job)
         queue.push(token=github_token)
 
