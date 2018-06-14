@@ -877,3 +877,14 @@ def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     dict_arr2 = pa.DictionaryArray.from_arrays([0, 1, 2, 1, 0], dict_arr)
     assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']
+
+
+@pytest.mark.parametrize('unit', ['ns', 'us', 'ms', 's'])
+def test_timestamp_units_from_list(unit):
+    x = np.datetime64('2017-01-01 01:01:01.111111111', unit)
+    a1 = pa.array([x])
+    a2 = pa.array([x], type=pa.timestamp(unit))
+
+    assert a1.type == a2.type
+    assert a1.type.unit == unit
+    assert a1[0] == a2[0]
