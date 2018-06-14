@@ -349,6 +349,7 @@ def submit(task_names, config_path, dry_run, arrow_path, queue_path,
     if not dry_run:
         queue.put(job)
         queue.push(token=github_token)
+        click.echo('Pushed job identifier is: `{}`'.format(job_id))
 
 
 @crossbow.command()
