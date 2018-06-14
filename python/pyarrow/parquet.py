@@ -251,6 +251,7 @@ coerce_timestamps : string, default None
     Valid values: {None, 'ms', 'us'}
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options for compatibility"""
 
