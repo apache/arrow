@@ -155,7 +155,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
     // Check that all tensors have the same dtype
     DataType tf_dtype = context->input(0).dtype();
-    for (int i = 1; i < num_inputs; i++) {
+    for (int i = 1; i < num_inputs - 1; i++) {
       if (tf_dtype != context->input(i).dtype()) {
         ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError,
                                      "All input tensors must have the same data type"));

@@ -84,7 +84,7 @@ ARROW_EXPORT
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out);
 
 ARROW_EXPORT
-Status SerializeTensor(Tensor* tensor, py::SerializedPyObject* out);
+Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* out);
 
 }  // namespace py
 

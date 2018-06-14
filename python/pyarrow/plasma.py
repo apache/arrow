@@ -27,7 +27,7 @@ from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
                              PlasmaBuffer, PlasmaClient, connect)
 
 
-TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], 'tf_plasma_op.so')
+TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], '', 'tf_plasma_op.so')
 has_tf_plasma_op = False
 if os.path.exists(TF_PLASMA_OP_PATH):
     try:
