@@ -37,6 +37,7 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert isinstance(v, pa.BooleanValue)
         assert repr(v) == "True"
+        assert str(v) == "True"
         assert v.as_py() is True
 
         assert arr[1] is pa.NA
@@ -47,6 +48,7 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert isinstance(v, pa.Int64Value)
         assert repr(v) == "1"
+        assert str(v) == "1"
         assert v.as_py() == 1
         assert v == 1
 
@@ -58,6 +60,7 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert isinstance(v, pa.DoubleValue)
         assert repr(v) == "1.5"
+        assert str(v) == "1.5"
         assert v.as_py() == 1.5
         assert v == 1.5
 
@@ -71,6 +74,7 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert isinstance(v, pa.HalfFloatValue)
         assert repr(v) == "1.5"
+        assert str(v) == "1.5"
         assert v.as_py() == 1.5
         assert v == 1.5
 
@@ -81,8 +85,10 @@ class TestScalars(unittest.TestCase):
 
         v = arr[0]
         assert isinstance(v, pa.StringValue)
-        assert v.as_py() == 'foo'
-        assert v == 'foo'
+        assert v.as_py() == u'foo'
+        assert repr(v) == repr(u"foo")
+        assert str(v) == str(u"foo")
+        assert v == u'foo'
         # Assert that newly created values are equal to the previously created
         # one.
         assert v == arr[0]
@@ -99,6 +105,8 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert isinstance(v, pa.BinaryValue)
         assert v.as_py() == b'foo'
+        assert str(v) == str(b"foo")
+        assert repr(v) == repr(b"foo")
         assert v == b'foo'
 
         assert arr[1] is pa.NA
