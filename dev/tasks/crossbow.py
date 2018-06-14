@@ -288,6 +288,8 @@ def crossbow():
 
 @crossbow.command()
 @click.argument('task-names', nargs=-1, required=True)
+@click.option('--job-prefix', default='build',
+               help='Arbitrary prefix for branch names, e.g. nightly')
 @click.option('--config-path', default=DEFAULT_CONFIG_PATH,
               help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--dry-run/--push', default=False,
@@ -301,8 +303,8 @@ def crossbow():
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
               help='Oauth token for Github authentication')
-def submit(task_names, config_path, dry_run, arrow_path, queue_path,
-           github_token):
+def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
+           queue_path, github_token):
     target = Repo(arrow_path)
     queue = Queue(queue_path)
 
@@ -312,7 +314,7 @@ def submit(task_names, config_path, dry_run, arrow_path, queue_path,
     queue.fetch()
 
     version = get_version(arrow_path, local_scheme='dirty-tag')
-    job_id = queue.next_job_id(prefix='build')
+    job_id = queue.next_job_id(prefix=job_prefix)
 
     variables = {
         # these should be renamed
