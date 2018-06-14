@@ -809,7 +809,8 @@ cdef class ParquetReader:
         return array
 
 cdef int check_compression_name(name) except -1:
-    if name.upper() not in ['NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD']:
+    if name.upper() not in ['NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4',
+                            'ZSTD']:
         raise ArrowException("Unsupported compression: " + name)
     return 0
 
