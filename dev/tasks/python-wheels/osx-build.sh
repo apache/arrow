@@ -44,7 +44,7 @@ function build_wheel {
 
     # Arrow is 64-bit-only at the moment
     export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//"-arch i386"/}"
-    export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//"-arch i386"}"
+    export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//"-arch i386"} -std=c++11"
 
     ./bootstrap.sh
     ./b2 tools/bcp > /dev/null 2>&1
@@ -56,6 +56,7 @@ function build_wheel {
     pushd "$arrow_boost"
     ./bootstrap.sh
     ./bjam cxxflags="${CXXFLAGS}" \
+        linkflags="-std=c++11" \
         cflags="${CFLAGS}" \
         variant=release \
         link=shared \
