@@ -346,6 +346,17 @@ Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
   return Status::OK();
 }
 
+Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
+                        std::shared_ptr<Schema>* out) const {
+  if (i < 0 || i > this->num_fields()) {
+    return Status::Invalid("Invalid column index to add field.");
+  }
+
+  *out = std::make_shared<Schema>(internal::ReplaceVectorElement(fields_, i, field),
+                                  metadata_);
+  return Status::OK();
+}
+
 bool Schema::HasMetadata() const {
   return (metadata_ != nullptr) && (metadata_->size() > 0);
 }
