@@ -31,7 +31,8 @@ cd gandiva/cpp
 mkdir debug
 cd debug
 cmake ..
-make test
+make
+ctest
 ```
 
 Release build :
@@ -42,7 +43,8 @@ cd gandiva/cpp
 mkdir release
 cd release
 cmake .. -DCMAKE_BUILD_TYPE=Release
-make test
+make
+ctest
 ```
 
 ## Validating code style
