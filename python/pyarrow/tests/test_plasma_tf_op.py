@@ -18,6 +18,51 @@
 import numpy as np
 import pytest
 
+def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name, use_gpu, dtype):
+    FORCE_DEVICE = '/gpu' if use_gpu else '/cpu'
+
+    object_id = np.random.bytes(20)
+
+    data = np.random.randn(3, 244, 244).astype(dtype)
+    ones = np.ones((3, 244, 244)).astype(dtype)
+
+    sess = tf.Session(config=tf.ConfigProto(
+        allow_soft_placement=True, log_device_placement=True))
+
+    def ToPlasma():
+        data_tensor = tf.constant(data)
+        ones_tensor = tf.constant(ones)
+        return plasma.tf_plasma_op.tensor_to_plasma(
+            [data_tensor, ones_tensor],
+            object_id,
+            plasma_store_socket_name=plasma_store_name,
+            plasma_manager_socket_name="")
+
+    def FromPlasma():
+        return plasma.tf_plasma_op.plasma_to_tensor(
+            object_id,
+            plasma_store_socket_name=plasma_store_name,
+            plasma_manager_socket_name="")
+
+    with tf.device(FORCE_DEVICE):
+        to_plasma = ToPlasma()
+        from_plasma = FromPlasma()
+
+    z = from_plasma + 1
+
+    sess.run(to_plasma)
+    # NOTE(zongheng): currently it returns a flat 1D tensor.
+    # So reshape manually.
+    out = sess.run(from_plasma)
+
+    out = np.split(out, 2)
+    out0 = out[0].reshape(3, 244, 244)
+    out1 = out[1].reshape(3, 244, 244)
+
+    sess.run(z)
+
+    assert np.array_equal(data, out0), "Data not equal!"
+    assert np.array_equal(ones, out1), "Data not equal!"
 
 @pytest.mark.plasma
 def test_plasma_tf_op(use_gpu=False):
@@ -32,47 +77,5 @@ def test_plasma_tf_op(use_gpu=False):
         pytest.skip("TensorFlow not installed")
 
     with plasma.start_plasma_store(10**8) as (plasma_store_name, p):
-        FORCE_DEVICE = '/gpu' if use_gpu else '/cpu'
-
-        object_id = np.random.bytes(20)
-
-        data = np.random.randn(3, 244, 244).astype(np.float32)
-        ones = np.ones((3, 244, 244)).astype(np.float32)
-
-        sess = tf.Session(config=tf.ConfigProto(
-            allow_soft_placement=True, log_device_placement=True))
-
-        def ToPlasma():
-            data_tensor = tf.constant(data)
-            ones_tensor = tf.constant(ones)
-            return plasma.tf_plasma_op.tensor_to_plasma(
-                [data_tensor, ones_tensor],
-                object_id,
-                plasma_store_socket_name=plasma_store_name,
-                plasma_manager_socket_name="")
-
-        def FromPlasma():
-            return plasma.tf_plasma_op.plasma_to_tensor(
-                object_id,
-                plasma_store_socket_name=plasma_store_name,
-                plasma_manager_socket_name="")
-
-        with tf.device(FORCE_DEVICE):
-            to_plasma = ToPlasma()
-            from_plasma = FromPlasma()
-
-        z = from_plasma + 1
-
-        sess.run(to_plasma)
-        # NOTE(zongheng): currently it returns a flat 1D tensor.
-        # So reshape manually.
-        out = sess.run(from_plasma)
-
-        out = np.split(out, 2)
-        out0 = out[0].reshape(3, 244, 244)
-        out1 = out[1].reshape(3, 244, 244)
-
-        sess.run(z)
-
-        assert np.array_equal(data, out0), "Data not equal!"
-        assert np.array_equal(ones, out1), "Data not equal!"
+        for dtype in [np.float32]:
+            run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name, use_gpu, dtype)

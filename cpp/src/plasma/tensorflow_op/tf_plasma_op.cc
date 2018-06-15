@@ -173,6 +173,10 @@ arrow::Status ArrowDtypeToTf(std::shared_ptr<arrow::DataType> dtype, DataType* o
   return arrow::Status::OK();
 }
 
+int64_t get_byte_width(std::shared_ptr<arrow::DataType> dtype) {
+  return arrow::checked_cast<const arrow::FixedWidthType&>(*dtype).bit_width() / CHAR_BIT;
+}
+
 // Put:  tf.Tensor -> plasma.
 template <typename Device>
 class TensorToPlasmaOp : public AsyncOpKernel {
@@ -214,18 +218,6 @@ class TensorToPlasmaOp : public AsyncOpKernel {
         done);
     const int num_tensors = num_inputs - 1;
 
-    std::vector<size_t> offsets;
-    offsets.reserve(num_tensors + 1);
-    offsets.push_back(0);
-    size_t total_bytes = 0;
-    for (int i = 0; i < num_tensors; ++i) {
-      const size_t s = context->input(i).TotalBytes();
-      CHECK_EQ(s, context->input(i).NumElements() * sizeof(float));
-      CHECK_GT(s, 0);
-      total_bytes += s;
-      offsets.push_back(total_bytes);
-    }
-
     // Check that all tensors have the same dtype
     DataType tf_dtype = context->input(0).dtype();
     for (int i = 1; i < num_inputs - 1; i++) {
@@ -235,6 +227,22 @@ class TensorToPlasmaOp : public AsyncOpKernel {
       }
     }
 
+    std::shared_ptr<arrow::DataType> arrow_dtype;
+    ARROW_CHECK_OK(TfDtypeToArrow(tf_dtype, &arrow_dtype));
+    int64_t byte_width = get_byte_width(arrow_dtype);
+
+    std::vector<size_t> offsets;
+    offsets.reserve(num_tensors + 1);
+    offsets.push_back(0);
+    int64_t total_bytes = 0;
+    for (int i = 0; i < num_tensors; ++i) {
+      const size_t s = context->input(i).TotalBytes();
+      CHECK_EQ(s, context->input(i).NumElements() * byte_width);
+      CHECK_GT(s, 0);
+      total_bytes += s;
+      offsets.push_back(total_bytes);
+    }
+
     const Tensor& plasma_object_id = context->input(num_inputs - 1);
     CHECK_EQ(plasma_object_id.NumElements(), 1);
     const string& plasma_object_id_str = plasma_object_id.flat<std::string>()(0);
@@ -242,9 +250,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     const plasma::ObjectID object_id =
         plasma::ObjectID::from_binary(plasma_object_id_str);
 
-    std::shared_ptr<arrow::DataType> arrow_dtype;
-    ARROW_CHECK_OK(TfDtypeToArrow(tf_dtype, &arrow_dtype));
-    std::vector<int64_t> shape = {static_cast<int64_t>(total_bytes / sizeof(float))};
+    std::vector<int64_t> shape = {total_bytes / byte_width};
 
     int64_t header_size;
     ARROW_CHECK_OK(
@@ -254,13 +260,13 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     {
       mutex_lock lock(mu_);
       ARROW_CHECK_OK(client_.Create(object_id,
-                                    header_size + static_cast<int64_t>(total_bytes),
+                                    header_size + total_bytes,
                                     /*metadata=*/nullptr, 0, &data_buffer));
     }
 
     int64_t offset;
     ARROW_CHECK_OK(
-        arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, static_cast<int64_t>(total_bytes), data_buffer, &offset));
+        arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, total_bytes, data_buffer, &offset));
 
     float* data = reinterpret_cast<float*>(data_buffer->mutable_data() + offset);
 
@@ -276,7 +282,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     if (std::is_same<Device, CPUDevice>::value) {
       for (int i = 0; i < num_tensors; ++i) {
         const auto& input_tensor = context->input(i);
-        std::memcpy(static_cast<void*>(data + offsets[i] / sizeof(float)),
+        std::memcpy(static_cast<void*>(data + offsets[i] / byte_width),
                     input_tensor.flat<float>().data(),
                     static_cast<uint64>(offsets[i + 1] - offsets[i]));
       }
@@ -308,7 +314,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
       for (int i = 0; i < num_tensors; ++i) {
         const auto& input_tensor = context->input(i);
-        float* input_buffer = const_cast<float*>(input_tensor.flat<Convert(DT_HALF)>().data());
+        float* input_buffer = const_cast<float*>(input_tensor.flat<float>().data());
         perftools::gputools::DeviceMemoryBase wrapped_src(
             static_cast<void*>(input_buffer));
         const bool success =
@@ -393,9 +399,10 @@ class PlasmaToTensorOp : public AsyncOpKernel {
     std::shared_ptr<arrow::Tensor> tensor;
     ARROW_CHECK_OK(arrow::py::ReadTensor(object_buffer.data, &tensor));
 
+    int64_t byte_width = get_byte_width(tensor->type());
     const int64_t size_in_bytes = tensor->data()->size();
 
-    TensorShape shape({static_cast<int64_t>(size_in_bytes / sizeof(float))});
+    TensorShape shape({static_cast<int64_t>(size_in_bytes / byte_width)});
 
     const float* plasma_data = reinterpret_cast<const float*>(tensor->raw_data());
 
