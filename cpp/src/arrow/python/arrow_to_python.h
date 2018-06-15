@@ -77,6 +77,10 @@ ARROW_EXPORT
 Status DeserializeObject(PyObject* context, const SerializedPyObject& object,
                          PyObject* base, PyObject** out);
 
+ARROW_EXPORT
+Status DeserializeTensor(const SerializedPyObject& object,
+                         std::shared_ptr<Tensor> *out);
+
 }  // namespace py
 }  // namespace arrow
 

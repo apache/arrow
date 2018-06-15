@@ -100,6 +100,53 @@ std::shared_ptr<arrow::DataType> tf_dtype_to_arrow(DataType dtype) {
   }
 }
 
+DataType arrow_dtype_to_tf(std::shared_ptr<arrow::DataType> dtype) {
+  switch (dtype->id()) {
+    case arrow::Type::BOOL:
+      return DT_BOOL;
+    case arrow::Type::UINT8:
+      return DT_UINT8;
+    case arrow::Type::INT8:
+      return DT_INT8;
+    case arrow::Type::UINT16:
+      return DT_UINT16;
+    case arrow::Type::INT16:
+      return DT_INT16;
+    case arrow::Type::UINT32:
+      return DT_UINT32;
+    case arrow::Type::INT32:
+      return DT_INT32;
+    case arrow::Type::UINT64:
+      return DT_UINT64;
+    case arrow::Type::INT64:
+      return DT_INT64;
+    case arrow::Type::HALF_FLOAT:
+      return DT_HALF;
+    case arrow::Type::FLOAT:
+      return DT_FLOAT;
+    case arrow::Type::DOUBLE:
+      return DT_DOUBLE;
+    case arrow::Type::STRING:
+    case arrow::Type::BINARY:
+    case arrow::Type::FIXED_SIZE_BINARY:
+    case arrow::Type::DATE32:
+    case arrow::Type::DATE64:
+    case arrow::Type::TIMESTAMP:
+    case arrow::Type::TIME32:
+    case arrow::Type::TIME64:
+    case arrow::Type::INTERVAL:
+    case arrow::Type::DECIMAL:
+    case arrow::Type::LIST:
+    case arrow::Type::STRUCT:
+    case arrow::Type::UNION:
+    case arrow::Type::DICTIONARY:
+    case arrow::Type::MAP:
+    default:
+    ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError,
+                                 "Arrow data type is not supported"));
+  }
+}
+
 // Put:  tf.Tensor -> plasma.
 template <typename Device>
 class TensorToPlasmaOp : public AsyncOpKernel {
@@ -186,7 +233,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
     int64_t offset;
     ARROW_CHECK_OK(
-        arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, data_buffer, &offset));
+        arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, static_cast<int64_t>(total_bytes), data_buffer, &offset));
 
     float* data = reinterpret_cast<float*>(data_buffer->mutable_data() + offset);
 
@@ -316,10 +363,14 @@ class PlasmaToTensorOp : public AsyncOpKernel {
                                  /*timeout_ms=*/-1, &object_buffer));
     }
 
-    const int64_t size_in_bytes = object_buffer.data->size();
+    std::shared_ptr<arrow::Tensor> tensor;
+    ARROW_CHECK_OK(arrow::py::ReadTensor(object_buffer.data, &tensor));
+
+    const int64_t size_in_bytes = tensor->data()->size();
+
     TensorShape shape({static_cast<int64_t>(size_in_bytes / sizeof(float))});
 
-    const float* plasma_data = reinterpret_cast<const float*>(object_buffer.data->data());
+    const float* plasma_data = reinterpret_cast<const float*>(tensor->raw_mutable_data());
 
     Tensor* output_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(context, context->allocate_output(0, shape, &output_tensor),

@@ -30,7 +30,12 @@ Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype,
 
 Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype,
                              const std::vector<int64_t>& shape,
+                             int64_t tensor_num_bytes,
                              std::shared_ptr<Buffer> buffer, int64_t* offset);
+
+ARROW_EXPORT
+Status ReadTensor(std::shared_ptr<Buffer> src,
+                  std::shared_ptr<Tensor>* out);
 
 }  // namespace py
 
