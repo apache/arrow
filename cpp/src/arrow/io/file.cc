@@ -384,7 +384,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     // Memory mapping fails when file size is 0, if it is 0,
     // delay it until the first resize, if it
     if (file_->size() > 0) {
-      InitMap(file_->size());
+      RETURN_NOT_OK(InitMMap(file_->size()));
     }
 
     position_ = 0;
@@ -467,14 +467,14 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     } else {
       // the mmap is not yet initialized, resize the underlying
       // file, since might have been 0-sized
-      InitMap(new_capacity, /*resize_file*/ true);
+      RETURN_NOT_OK(InitMMap(new_capacity, /*resize_file*/ true));
     }
     return Status::OK();
   }
   // Initialize the mmap and set capacity, size and the data pointers
-  Status InitMap(int64_t initial_capacity, bool resize_file = false) {
+  Status InitMMap(int64_t initial_capacity, bool resize_file = false) {
     if (resize_file) {
-      internal::FileTruncate(file_->fd(), initial_capacity);
+      RETURN_NOT_OK(internal::FileTruncate(file_->fd(), initial_capacity));
     }
     void* result = mmap(nullptr, static_cast<size_t>(initial_capacity), prot_flags_,
                         map_mode_, file_->fd(), 0);
