@@ -23,9 +23,11 @@
 #include <unistd.h>
 #endif
 
+namespace arrow {
+namespace internal {
 // define a wrapper around mremap which the same arguments on linux and on windows
 // should only be called with writable files
-static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fildes) {
+static void* MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes) {
 #ifdef _WIN32
   // flags are ignored on windows
   void* new_addr = MAP_FAILED;
@@ -80,3 +82,5 @@ static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fild
 #endif
 #endif
 }
+}  // namespace internal
+}  // namespace arrow

@@ -346,8 +346,8 @@ int FileOutputStream::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------
 // Implement MemoryMappedFile as a buffer subclass
-// The capacity corresponds to the real mmap size and the 
-// file size on disk. 
+// The capacity corresponds to the real mmap size and the
+// file size on disk.
 
 class MemoryMappedFile::MemoryMap : public ResizableBuffer {
  public:
@@ -361,7 +361,6 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   }
 
   Status Open(const std::string& path, FileMode::type mode, int64_t size = -1) {
-
     file_.reset(new OSFile());
 
     if (mode != FileMode::READ) {
@@ -382,7 +381,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
       is_mutable_ = false;
     }
 
-    // Memory mapping fails when file size is 0, if it is 0, 
+    // Memory mapping fails when file size is 0, if it is 0,
     // delay it until the first resize, if it
     if (file_->size() > 0) {
       InitMap(file_->size());
@@ -407,9 +406,9 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     }
     size_ = new_size;
     if (position_ >= size_) {
-        // if the old position is past the new file's end
-        // set it to the last byte
-        position_ = size_;
+      // if the old position is past the new file's end
+      // set it to the last byte
+      position_ = size_;
     }
     return Status::OK();
   }
@@ -456,18 +455,19 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(requested_capacity);
     void* result;
     if (mutable_data_) {
-      result = arrow_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
+      result =
+          internal::MemoryMapRemap(mutable_data_, capacity_, new_capacity, file_->fd());
       if (result == MAP_FAILED) {
         std::stringstream ss;
         ss << "mremap failed: " << std::strerror(errno);
-      return Status::IOError(ss.str());
-    }
-    capacity_ = new_capacity;
-    data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
+        return Status::IOError(ss.str());
+      }
+      capacity_ = new_capacity;
+      data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
     } else {
       // the mmap is not yet initialized, resize the underlying
       // file, since might have been 0-sized
-      InitMap(new_capacity, /*resize_file*/true);
+      InitMap(new_capacity, /*resize_file*/ true);
     }
     return Status::OK();
   }
@@ -476,8 +476,8 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     if (resize_file) {
       internal::FileTruncate(file_->fd(), initial_capacity);
     }
-    void* result = mmap(nullptr, static_cast<size_t>(initial_capacity), 
-                    prot_flags_, map_mode_, file_->fd(), 0);
+    void* result = mmap(nullptr, static_cast<size_t>(initial_capacity), prot_flags_,
+                        map_mode_, file_->fd(), 0);
     if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "Memory mapping file failed: " << std::strerror(errno);
@@ -595,7 +595,7 @@ Status MemoryMappedFile::Resize(int64_t new_size) {
   if (new_size >= memory_map_->capacity()) {
     return memory_map_->Reserve(new_size);
   } else {
-    return memory_map_->Resize(new_size, /*shrink_to_fit*/true);
+    return memory_map_->Resize(new_size, /*shrink_to_fit*/ true);
   }
 }
 
