@@ -43,9 +43,9 @@ if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
 
   PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 
-  flake8 --count $PYTHON_DIR/pyarrow
+  flake8 --count $PYTHON_DIR
 
   # Check Cython files with some checks turned off
   flake8 --count --config=$PYTHON_DIR/.flake8.cython \
-         $PYTHON_DIR/pyarrow
+         $PYTHON_DIR
 fi
