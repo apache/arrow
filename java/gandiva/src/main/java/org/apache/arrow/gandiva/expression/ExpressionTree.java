@@ -23,21 +23,25 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.Field;
 
 /**
- * Opaque class representing C++ expression
+ * Opaque class representing an expression.
  */
 public class ExpressionTree {
-    private final TreeNode root;
-    private final Field result_field;
+  private final TreeNode root;
+  private final Field resultField;
 
-    ExpressionTree(TreeNode root, Field result_field) {
-        this.root = root;
-        this.result_field = result_field;
-    }
+  ExpressionTree(TreeNode root, Field resultField) {
+    this.root = root;
+    this.resultField = resultField;
+  }
 
-    public GandivaTypes.ExpressionRoot toProtobuf() throws GandivaException {
-        GandivaTypes.ExpressionRoot.Builder builder = GandivaTypes.ExpressionRoot.newBuilder();
-        builder.setRoot(root.toProtobuf());
-        builder.setResultType(ArrowTypeHelper.arrowFieldToProtobuf(result_field));
-        return builder.build();
-    }
+  /**
+   * Converts an expression tree into a protobuf.
+   * @return A protobuf representing the expression tree
+   */
+  public GandivaTypes.ExpressionRoot toProtobuf() throws GandivaException {
+    GandivaTypes.ExpressionRoot.Builder builder = GandivaTypes.ExpressionRoot.newBuilder();
+    builder.setRoot(root.toProtobuf());
+    builder.setResultType(ArrowTypeHelper.arrowFieldToProtobuf(resultField));
+    return builder.build();
+  }
 }

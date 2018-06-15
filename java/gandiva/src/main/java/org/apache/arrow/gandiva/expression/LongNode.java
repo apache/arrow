@@ -26,19 +26,19 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
  * Used in the expression (x + 5L)
  */
 class LongNode implements TreeNode {
-    private final Long value;
+  private final Long value;
 
-    LongNode(Long value) {
-        this.value = value;
-    }
+  LongNode(Long value) {
+    this.value = value;
+  }
 
-    @Override
-    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
-        GandivaTypes.LongNode.Builder longBuilder = GandivaTypes.LongNode.newBuilder();
-        longBuilder.setValue(value.longValue());
+  @Override
+  public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
+    GandivaTypes.LongNode.Builder longBuilder = GandivaTypes.LongNode.newBuilder();
+    longBuilder.setValue(value.longValue());
 
-        GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
-        builder.setLongNode(longBuilder.build());
-        return builder.build();
-    }
+    GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
+    builder.setLongNode(longBuilder.build());
+    return builder.build();
+  }
 }

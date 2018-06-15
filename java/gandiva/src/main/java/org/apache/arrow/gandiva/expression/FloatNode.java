@@ -26,19 +26,19 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
  * Used in the expression (x + 5.0)
  */
 class FloatNode implements TreeNode {
-    private final Float value;
+  private final Float value;
 
-    public FloatNode(Float value) {
-        this.value = value;
-    }
+  public FloatNode(Float value) {
+    this.value = value;
+  }
 
-    @Override
-    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
-        GandivaTypes.FloatNode.Builder floatBuilder = GandivaTypes.FloatNode.newBuilder();
-        floatBuilder.setValue(value.floatValue());
+  @Override
+  public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
+    GandivaTypes.FloatNode.Builder floatBuilder = GandivaTypes.FloatNode.newBuilder();
+    floatBuilder.setValue(value.floatValue());
 
-        GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
-        builder.setFloatNode(floatBuilder.build());
-        return builder.build();
-    }
+    GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
+    builder.setFloatNode(floatBuilder.build());
+    return builder.build();
+  }
 }

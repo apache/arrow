@@ -19,14 +19,14 @@
 package org.apache.arrow.gandiva.exceptions;
 
 public class GandivaException extends Exception {
-    private final String msg;
+  private final String msg;
 
-    public GandivaException(String msg) {
-        this.msg = msg;
-    }
+  public GandivaException(String msg) {
+    this.msg = msg;
+  }
 
-    @Override
-    public String toString() {
-        return msg;
-    }
+  @Override
+  public String toString() {
+    return msg;
+  }
 }

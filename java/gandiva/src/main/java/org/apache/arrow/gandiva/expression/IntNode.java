@@ -26,19 +26,19 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
  * Used in the expression (x + 5)
  */
 class IntNode implements TreeNode {
-    private final Integer value;
+  private final Integer value;
 
-    IntNode(Integer value) {
-        this.value = value;
-    }
+  IntNode(Integer value) {
+    this.value = value;
+  }
 
-    @Override
-    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
-        GandivaTypes.IntNode.Builder intBuilder = GandivaTypes.IntNode.newBuilder();
-        intBuilder.setValue(value.intValue());
+  @Override
+  public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
+    GandivaTypes.IntNode.Builder intBuilder = GandivaTypes.IntNode.newBuilder();
+    intBuilder.setValue(value.intValue());
 
-        GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
-        builder.setIntNode(intBuilder.build());
-        return builder.build();
-    }
+    GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
+    builder.setIntNode(intBuilder.build());
+    return builder.build();
+  }
 }

@@ -25,28 +25,28 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import java.util.List;
 
 class FunctionNode implements TreeNode {
-    private final String function;
-    private final List<TreeNode> children;
-    private final ArrowType retType;
+  private final String function;
+  private final List<TreeNode> children;
+  private final ArrowType retType;
 
-    FunctionNode(String function, List<TreeNode> children, ArrowType retType) {
-        this.function = function;
-        this.children = children;
-        this.retType = retType;
+  FunctionNode(String function, List<TreeNode> children, ArrowType retType) {
+    this.function = function;
+    this.children = children;
+    this.retType = retType;
+  }
+
+  @Override
+  public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
+    GandivaTypes.FunctionNode.Builder fnNode = GandivaTypes.FunctionNode.newBuilder();
+    fnNode.setFunctionName(function);
+    fnNode.setReturnType(ArrowTypeHelper.arrowTypeToProtobuf(retType));
+
+    for (TreeNode arg : children) {
+      fnNode.addInArgs(arg.toProtobuf());
     }
 
-    @Override
-    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
-        GandivaTypes.FunctionNode.Builder fnNode = GandivaTypes.FunctionNode.newBuilder();
-        fnNode.setFunctionName(function);
-        fnNode.setReturnType(ArrowTypeHelper.arrowTypeToProtobuf(retType));
-
-        for(TreeNode arg : children) {
-            fnNode.addInArgs(arg.toProtobuf());
-        }
-
-        GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
-        builder.setFnNode(fnNode.build());
-        return builder.build();
-    }
+    GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
+    builder.setFnNode(fnNode.build());
+    return builder.build();
+  }
 }

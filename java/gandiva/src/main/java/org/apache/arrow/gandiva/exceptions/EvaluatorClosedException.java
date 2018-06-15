@@ -19,7 +19,7 @@
 package org.apache.arrow.gandiva.exceptions;
 
 public class EvaluatorClosedException extends GandivaException {
-    public EvaluatorClosedException() {
-        super("Cannot invoke methods on evaluator after closing it");
-    }
+  public EvaluatorClosedException() {
+    super("Cannot invoke methods on evaluator after closing it");
+  }
 }

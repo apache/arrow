@@ -23,28 +23,28 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 class IfNode implements TreeNode {
-    private final TreeNode condition;
-    private final TreeNode thenNode;
-    private final TreeNode elseNode;
-    private final ArrowType retType;
+  private final TreeNode condition;
+  private final TreeNode thenNode;
+  private final TreeNode elseNode;
+  private final ArrowType retType;
 
-    IfNode(TreeNode condition, TreeNode thenNode, TreeNode elseNode, ArrowType retType) {
-        this.condition = condition;
-        this.thenNode = thenNode;
-        this.elseNode = elseNode;
-        this.retType = retType;
-    }
+  IfNode(TreeNode condition, TreeNode thenNode, TreeNode elseNode, ArrowType retType) {
+    this.condition = condition;
+    this.thenNode = thenNode;
+    this.elseNode = elseNode;
+    this.retType = retType;
+  }
 
-    @Override
-    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
-        GandivaTypes.IfNode.Builder ifNodeBuilder = GandivaTypes.IfNode.newBuilder();
-        ifNodeBuilder.setCond(condition.toProtobuf());
-        ifNodeBuilder.setThenNode(thenNode.toProtobuf());
-        ifNodeBuilder.setElseNode(elseNode.toProtobuf());
-        ifNodeBuilder.setReturnType(ArrowTypeHelper.arrowTypeToProtobuf(retType));
+  @Override
+  public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
+    GandivaTypes.IfNode.Builder ifNodeBuilder = GandivaTypes.IfNode.newBuilder();
+    ifNodeBuilder.setCond(condition.toProtobuf());
+    ifNodeBuilder.setThenNode(thenNode.toProtobuf());
+    ifNodeBuilder.setElseNode(elseNode.toProtobuf());
+    ifNodeBuilder.setReturnType(ArrowTypeHelper.arrowTypeToProtobuf(retType));
 
-        GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
-        builder.setIfNode(ifNodeBuilder.build());
-        return builder.build();
-    }
+    GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
+    builder.setIfNode(ifNodeBuilder.build());
+    return builder.build();
+  }
 }

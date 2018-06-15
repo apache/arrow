@@ -26,19 +26,19 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
  * Used while creating expressions like if (!x).
  */
 class BooleanNode implements TreeNode {
-    private final Boolean value;
+  private final Boolean value;
 
-    BooleanNode(Boolean value) {
-        this.value = value;
-    }
+  BooleanNode(Boolean value) {
+    this.value = value;
+  }
 
-    @Override
-    public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
-        GandivaTypes.BooleanNode.Builder boolBuilder = GandivaTypes.BooleanNode.newBuilder();
-        boolBuilder.setValue(value.booleanValue());
+  @Override
+  public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
+    GandivaTypes.BooleanNode.Builder boolBuilder = GandivaTypes.BooleanNode.newBuilder();
+    boolBuilder.setValue(value.booleanValue());
 
-        GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
-        builder.setBooleanNode(boolBuilder.build());
-        return builder.build();
-    }
+    GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
+    builder.setBooleanNode(boolBuilder.build());
+    return builder.build();
+  }
 }

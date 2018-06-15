@@ -27,187 +27,210 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 public class ArrowTypeHelper {
-    static final int WIDTH_8 = 8;
-    static final int WIDTH_16 = 16;
-    static final int WIDTH_32 = 32;
-    static final int WIDTH_64 = 64;
+  static final int WIDTH_8 = 8;
+  static final int WIDTH_16 = 16;
+  static final int WIDTH_32 = 32;
+  static final int WIDTH_64 = 64;
 
-    private static void initArrowTypeInt(ArrowType.Int intType, GandivaTypes.ExtGandivaType.Builder builder) {
-        int width = intType.getBitWidth();
+  private static void initArrowTypeInt(ArrowType.Int intType,
+                                       GandivaTypes.ExtGandivaType.Builder builder)
+          throws GandivaException {
+    int width = intType.getBitWidth();
 
-        if (intType.getIsSigned()) {
-            switch (width) {
-                case WIDTH_8: {
-                    builder.setType(GandivaTypes.GandivaType.INT8);
-                    break;
-                }
-                case WIDTH_16: {
-                    builder.setType(GandivaTypes.GandivaType.INT16);
-                    break;
-                }
-                case WIDTH_32: {
-                    builder.setType(GandivaTypes.GandivaType.INT32);
-                    break;
-                }
-                case WIDTH_64: {
-                    builder.setType(GandivaTypes.GandivaType.INT64);
-                    break;
-                }
-                default: {
-                    // TODO: Cannot handle. Should throw exception
-                    break;
-                }
-            }
-            return;
+    if (intType.getIsSigned()) {
+      switch (width) {
+        case WIDTH_8: {
+          builder.setType(GandivaTypes.GandivaType.INT8);
+          return;
         }
-
-        // unsigned int
-        switch (width) {
-            case WIDTH_8: {
-                builder.setType(GandivaTypes.GandivaType.UINT8);
-                break;
-            }
-            case WIDTH_16: {
-                builder.setType(GandivaTypes.GandivaType.UINT16);
-                break;
-            }
-            case WIDTH_32: {
-                builder.setType(GandivaTypes.GandivaType.UINT32);
-                break;
-            }
-            case WIDTH_64: {
-                builder.setType(GandivaTypes.GandivaType.UINT64);
-                break;
-            }
-            default: {
-                // TODO: Cannot handle. Should throw exception
-                break;
-            }
+        case WIDTH_16: {
+          builder.setType(GandivaTypes.GandivaType.INT16);
+          return;
         }
+        case WIDTH_32: {
+          builder.setType(GandivaTypes.GandivaType.INT32);
+          return;
+        }
+        case WIDTH_64: {
+          builder.setType(GandivaTypes.GandivaType.INT64);
+          return;
+        }
+        default: {
+          throw new UnsupportedTypeException("Unsupported width for integer type");
+        }
+      }
     }
 
-    private static void initArrowTypeFloat(ArrowType.FloatingPoint floatType, GandivaTypes.ExtGandivaType.Builder builder) {
-        switch (floatType.getPrecision()) {
-            case HALF: {
-                builder.setType(GandivaTypes.GandivaType.HALF_FLOAT);
-                break;
-            }
-            case SINGLE: {
-                builder.setType(GandivaTypes.GandivaType.FLOAT);
-                break;
-            }
-            case DOUBLE: {
-                builder.setType(GandivaTypes.GandivaType.DOUBLE);
-                break;
-            }
-        }
+    // unsigned int
+    switch (width) {
+      case WIDTH_8: {
+        builder.setType(GandivaTypes.GandivaType.UINT8);
+        return;
+      }
+      case WIDTH_16: {
+        builder.setType(GandivaTypes.GandivaType.UINT16);
+        return;
+      }
+      case WIDTH_32: {
+        builder.setType(GandivaTypes.GandivaType.UINT32);
+        return;
+      }
+      case WIDTH_64: {
+        builder.setType(GandivaTypes.GandivaType.UINT64);
+        return;
+      }
+      default: {
+        throw new UnsupportedTypeException("Unsupported width for integer type");
+      }
+    }
+  }
+
+  private static void initArrowTypeFloat(ArrowType.FloatingPoint floatType,
+                                         GandivaTypes.ExtGandivaType.Builder builder)
+          throws GandivaException {
+    switch (floatType.getPrecision()) {
+      case HALF: {
+        builder.setType(GandivaTypes.GandivaType.HALF_FLOAT);
+        break;
+      }
+      case SINGLE: {
+        builder.setType(GandivaTypes.GandivaType.FLOAT);
+        break;
+      }
+      case DOUBLE: {
+        builder.setType(GandivaTypes.GandivaType.DOUBLE);
+        break;
+      }
+      default: {
+        throw new UnsupportedTypeException("Floating point type with unknown precision");
+      }
+    }
+  }
+
+  private static void initArrowTypeDecimal(ArrowType.Decimal decimalType,
+                                           GandivaTypes.ExtGandivaType.Builder builder) {
+    builder.setPrecision(decimalType.getPrecision());
+    builder.setScale(decimalType.getScale());
+    builder.setType(GandivaTypes.GandivaType.DECIMAL);
+  }
+
+  /**
+   * Converts an arrow type into a protobuf.
+   * @param arrowType Arrow type to be converted
+   * @return Protobuf representing the arrow type
+   */
+  public static GandivaTypes.ExtGandivaType arrowTypeToProtobuf(ArrowType arrowType)
+          throws GandivaException {
+    GandivaTypes.ExtGandivaType.Builder builder = GandivaTypes.ExtGandivaType.newBuilder();
+
+    byte typeId = arrowType.getTypeID().getFlatbufID();
+    switch (typeId) {
+      case Type.NONE: { // 0
+        builder.setType(GandivaTypes.GandivaType.NONE);
+        break;
+      }
+      case Type.Null: { // 1
+        // TODO: Need to handle this later
+        break;
+      }
+      case Type.Int: { // 2
+        ArrowTypeHelper.initArrowTypeInt((ArrowType.Int) arrowType, builder);
+        break;
+      }
+      case Type.FloatingPoint: { // 3
+        ArrowTypeHelper.initArrowTypeFloat((ArrowType.FloatingPoint) arrowType, builder);
+        break;
+      }
+      case Type.Binary: { // 4
+        builder.setType(GandivaTypes.GandivaType.BINARY);
+        break;
+      }
+      case Type.Utf8: { // 5
+        builder.setType(GandivaTypes.GandivaType.UTF8);
+        break;
+      }
+      case Type.Bool: { // 6
+        builder.setType(GandivaTypes.GandivaType.BOOL);
+        break;
+      }
+      case Type.Decimal: { // 7
+        ArrowTypeHelper.initArrowTypeDecimal((ArrowType.Decimal) arrowType, builder);
+        break;
+      }
+      case Type.Date: { // 8
+        break;
+      }
+      case Type.Time: { // 9
+        break;
+      }
+      case Type.Timestamp: { // 10
+        break;
+      }
+      case Type.Interval: { // 11
+        break;
+      }
+      case Type.List: { // 12
+        break;
+      }
+      case Type.Struct_: { // 13
+        break;
+      }
+      case Type.Union: { // 14
+        break;
+      }
+      case Type.FixedSizeBinary: { // 15
+        break;
+      }
+      case Type.FixedSizeList: { // 16
+        break;
+      }
+      case Type.Map: { // 17
+        break;
+      }
+      default: {
+        break;
+      }
     }
 
-    private static void initArrowTypeDecimal(ArrowType.Decimal decimalType, GandivaTypes.ExtGandivaType.Builder builder) {
-        builder.setPrecision(decimalType.getPrecision());
-        builder.setScale(decimalType.getScale());
-        builder.setType(GandivaTypes.GandivaType.DECIMAL);
+    if (!builder.hasType()) {
+      // type has not been set
+      // throw an exception
+      throw new UnsupportedTypeException("Unsupported type" + arrowType.toString());
     }
 
-    public static GandivaTypes.ExtGandivaType arrowTypeToProtobuf(ArrowType arrowType) throws GandivaException {
-        GandivaTypes.ExtGandivaType.Builder builder = GandivaTypes.ExtGandivaType.newBuilder();
+    return builder.build();
+  }
 
-        byte typeId = arrowType.getTypeID().getFlatbufID();
-        switch (typeId) {
-            case Type.NONE: { // 0
-                builder.setType(GandivaTypes.GandivaType.NONE);
-                break;
-            }
-            case Type.Null: { // 1
-                // TODO: Need to handle this later
-                break;
-            }
-            case Type.Int: { // 2
-                ArrowTypeHelper.initArrowTypeInt((ArrowType.Int)arrowType, builder);
-                break;
-            }
-            case Type.FloatingPoint: { // 3
-                ArrowTypeHelper.initArrowTypeFloat((ArrowType.FloatingPoint)arrowType, builder);
-                break;
-            }
-            case Type.Binary: { // 4
-                builder.setType(GandivaTypes.GandivaType.BINARY);
-                break;
-            }
-            case Type.Utf8: { // 5
-                builder.setType(GandivaTypes.GandivaType.UTF8);
-                break;
-            }
-            case Type.Bool: { // 6
-                builder.setType(GandivaTypes.GandivaType.BOOL);
-                break;
-            }
-            case Type.Decimal: { // 7
-                ArrowTypeHelper.initArrowTypeDecimal((ArrowType.Decimal)arrowType, builder);
-                break;
-            }
-            case Type.Date: { // 8
-                break;
-            }
-            case Type.Time: { // 9
-                break;
-            }
-            case Type.Timestamp: { // 10
-                break;
-            }
-            case Type.Interval: { // 11
-                break;
-            }
-            case Type.List: { // 12
-                break;
-            }
-            case Type.Struct_: { // 13
-                break;
-            }
-            case Type.Union: { // 14
-                break;
-            }
-            case Type.FixedSizeBinary: { // 15
-                break;
-            }
-            case Type.FixedSizeList: { // 16
-                break;
-            }
-            case Type.Map: { // 17
-                break;
-            }
-        }
+  /**
+   * Converts an arrow field object to a protobuf.
+   * @param field Arrow field to be converted
+   * @return Protobuf representing the arrow field
+   */
+  public static GandivaTypes.Field arrowFieldToProtobuf(Field field) throws GandivaException {
+    GandivaTypes.Field.Builder builder = GandivaTypes.Field.newBuilder();
+    builder.setName(field.getName());
+    builder.setType(ArrowTypeHelper.arrowTypeToProtobuf(field.getType()));
+    builder.setNullable(field.isNullable());
 
-        if (!builder.hasType()) {
-            // type has not been set
-            // throw an exception
-            throw new UnsupportedTypeException("Unsupported type" + arrowType.toString());
-        }
-
-        return builder.build();
+    for (Field child : field.getChildren()) {
+      builder.addChildren(ArrowTypeHelper.arrowFieldToProtobuf(child));
     }
 
-    public static GandivaTypes.Field arrowFieldToProtobuf(Field field) throws GandivaException {
-        GandivaTypes.Field.Builder builder = GandivaTypes.Field.newBuilder();
+    return builder.build();
+  }
 
-        builder.setName(field.getName());
-        builder.setType(ArrowTypeHelper.arrowTypeToProtobuf(field.getType()));
-        builder.setNullable(field.isNullable());
+  /**
+   * Converts a schema object to a protobuf.
+   * @param schema Schema object to be converted
+   * @return Protobuf representing a schema object
+   */
+  public static GandivaTypes.Schema arrowSchemaToProtobuf(Schema schema) throws GandivaException {
+    GandivaTypes.Schema.Builder builder = GandivaTypes.Schema.newBuilder();
 
-        for(Field child : field.getChildren()) {
-            builder.addChildren(ArrowTypeHelper.arrowFieldToProtobuf(child));
-        }
-
-        return builder.build();
+    for (Field field : schema.getFields()) {
+      builder.addColumns(ArrowTypeHelper.arrowFieldToProtobuf(field));
     }
 
-    public static GandivaTypes.Schema arrowSchemaToProtobuf(Schema schema) throws GandivaException {
-        GandivaTypes.Schema.Builder builder = GandivaTypes.Schema.newBuilder();
-
-        for(Field field : schema.getFields()) {
-            builder.addColumns(ArrowTypeHelper.arrowFieldToProtobuf(field));
-        }
-
-        return builder.build();
-    }
+    return builder.build();
+  }
 }
