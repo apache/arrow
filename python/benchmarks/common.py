@@ -38,7 +38,7 @@ def _multiplicate_sequence(base, target_size):
     return [base] * q + [base[:r]]
 
 
-def get_random_bytes(n, *, seed=42):
+def get_random_bytes(n, seed=42):
     """
     Generate a random bytes object of size *n*.
     Note the result might be compressible.
@@ -57,7 +57,7 @@ def get_random_bytes(n, *, seed=42):
     return result
 
 
-def get_random_ascii(n, *, seed=42):
+def get_random_ascii(n, seed=42):
     """
     Get a random ASCII-only unicode string of size *n*.
     """
@@ -68,7 +68,7 @@ def get_random_ascii(n, *, seed=42):
     return result
 
 
-def _random_unicode_letters(n, *, seed=42):
+def _random_unicode_letters(n, seed=42):
     """
     Generate a string of random unicode letters (slow).
     """
@@ -92,7 +92,7 @@ def _random_unicode_letters(n, *, seed=42):
 _1024_random_unicode_letters = _random_unicode_letters(1024)
 
 
-def get_random_unicode(n, *, seed=42):
+def get_random_unicode(n, seed=42):
     """
     Get a random non-ASCII unicode string of size *n*.
     """
