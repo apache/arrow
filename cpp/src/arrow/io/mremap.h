@@ -37,6 +37,10 @@ static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fild
   }
 
   h = (HANDLE)_get_osfhandle(fildes);
+  if (h == INVALID_HANDLE_VALUE) {
+    errno = __map_mman_error(GetLastError(), EPERM);
+    return MAP_FAILED;
+  }
 
   LONG new_size_low = static_cast<LONG>(new_size & 0xFFFFFFFFL);
   LONG new_size_high = static_cast<LONG>((new_size >> 32) & 0xFFFFFFFFL);
