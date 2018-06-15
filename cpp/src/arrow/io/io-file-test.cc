@@ -669,7 +669,7 @@ TEST_F(TestMemoryMappedFile, WriteThenShrink) {
 
   std::shared_ptr<Buffer> out_buffer;
   ASSERT_OK(result->Write(buffer.data(), buffer_size));
-  result->Resize(buffer_size);
+  ASSERT_OK(result->Resize(buffer_size));
 
   ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
   ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
@@ -694,7 +694,7 @@ TEST_F(TestMemoryMappedFile, WriteThenShrinkToHalfThenWrite) {
 
   std::shared_ptr<Buffer> out_buffer;
   ASSERT_OK(result->Write(buffer.data(), buffer_size));
-  result->Resize(buffer_size / 2);
+  ASSERT_OK(result->Resize(buffer_size / 2));
 
   int64_t position;
   ASSERT_OK(result->Tell(&position));
