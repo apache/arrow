@@ -370,7 +370,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
 
     TensorShape shape({static_cast<int64_t>(size_in_bytes / sizeof(float))});
 
-    const float* plasma_data = reinterpret_cast<const float*>(tensor->raw_mutable_data());
+    const float* plasma_data = reinterpret_cast<const float*>(tensor->raw_data());
 
     Tensor* output_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(context, context->allocate_output(0, shape, &output_tensor),
@@ -378,7 +378,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
 
     if (std::is_same<Device, CPUDevice>::value) {
       std::memcpy(output_tensor->flat<float>().data(),
-                  reinterpret_cast<const float*>(object_buffer.data->data()),
+                  plasma_data,
                   size_in_bytes);
       done();
     } else {
