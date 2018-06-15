@@ -409,7 +409,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     if (position_ >= size_) {
         // if the old position is past the new file's end
         // set it to the last byte
-        position_ = size_ - 1;
+        position_ = size_;
     }
     return Status::OK();
   }
