@@ -30,9 +30,7 @@ static void* arrow_mremap(void* addr, size_t old_size, size_t new_size, int fild
   // flags are ignored on windows
   void* new_addr = MAP_FAILED;
   HANDLE fm, h;
-  DWORD dwErrCode = 0;
 
-  /* First, unmap the file view */
   if (!UnmapViewOfFile(addr)) {
     errno = __map_mman_error(GetLastError(), EPERM);
     return MAP_FAILED;
