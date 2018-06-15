@@ -21,14 +21,19 @@ package org.apache.arrow.memory;
 /**
  * An allocation listener being notified for allocation/deallocation
  * <p>
- * It is expected to be called from multiple threads and as such,
- * provider should take care of making the implementation thread-safe
+ * It might be called from multiple threads if the allocator hierarchy shares a listener, in which
+ * case, the provider should take care of making the implementation thread-safe.
  */
 public interface AllocationListener {
 
   public static final AllocationListener NOOP = new AllocationListener() {
     @Override
     public void onAllocation(long size) {
+    }
+
+    @Override
+    public boolean onFailedAllocation(long size, Accountant.AllocationOutcome outcome) {
+      return false;
     }
   };
 
@@ -38,5 +43,16 @@ public interface AllocationListener {
    * @param size the buffer size being allocated
    */
   void onAllocation(long size);
+
+  /**
+   * Called whenever an allocation failed, giving the caller a chance to create some space in the allocator
+   * (either by freeing some resource, or by changing the limit), and, if successful, allowing the allocator
+   * to retry the allocation.
+   *
+   * @param size     the buffer size that was being allocated
+   * @param outcome  the outcome of the failed allocation. Carries information of what failed
+   * @return true, if the allocation can be retried; false if the allocation should fail
+   */
+  boolean onFailedAllocation(long size, Accountant.AllocationOutcome outcome);
 
 }

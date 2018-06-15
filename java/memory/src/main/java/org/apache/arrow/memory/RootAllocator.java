@@ -31,7 +31,7 @@ public class RootAllocator extends BaseAllocator {
   }
 
   public RootAllocator(final AllocationListener listener, final long limit) {
-    super(listener, "ROOT", 0, limit);
+    super(null, listener, "ROOT", 0, limit);
   }
 
   /**
