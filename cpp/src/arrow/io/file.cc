@@ -345,7 +345,12 @@ Status FileOutputStream::Write(const void* data, int64_t length) {
 int FileOutputStream::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------
-// Implement MemoryMappedFile
+// Implement MemoryMappedFile as a buffer subclass
+// Other than other buffers doesn't differentiate between size
+// and capacity, both correspond to the size of the map
+// and the mapped file on disk. By convention we only use
+// size_ in the internal code, but always set the values to
+// both size_ and capacity_ so not to confuse the user.
 
 class MemoryMappedFile::MemoryMap : public ResizableBuffer {
  public:
@@ -387,8 +392,8 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
     void* result = nullptr;
 
     // Memory mapping fails when file size is 0
-    if (capacity_ > 0) {
-      result = mmap(nullptr, static_cast<size_t>(capacity_), prot_flags, map_mode,
+    if (size_ > 0) {
+      result = mmap(nullptr, static_cast<size_t>(size_), prot_flags, map_mode,
                     file_->fd(), 0);
       if (result == MAP_FAILED) {
         std::stringstream ss;
@@ -405,7 +410,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   }
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = false) {
-    if (!shrink_to_fit || (new_size > capacity_)) {
+    if (!shrink_to_fit || (new_size > size_)) {
       RETURN_NOT_OK(Reserve(new_size));
     } else {
       // shrink
@@ -416,17 +421,18 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
       RETURN_NOT_OK(ResizeMap(new_size, &result));
       data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
       if (position_ >= size_) {
+        // if the old position is past the new file's end
+        // set it to the last position of the file
         position_ = size_ - 1;
       }
     }
-    size_ = new_size;
     return Status::OK();
   }
 
-  Status Reserve(const int64_t new_capacity) {
-    if (!mutable_data_ || new_capacity > capacity_) {
+  Status Reserve(const int64_t new_size) {
+    if (!mutable_data_ || new_size > size_) {
       void* result;
-      RETURN_NOT_OK(ResizeMap(new_capacity, &result));
+      RETURN_NOT_OK(ResizeMap(new_size, &result));
 
       data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
     }
@@ -458,21 +464,22 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   std::mutex& lock() { return file_->lock(); }
 
  private:
-  // Resize the map to the specified capacity. Keeps 64 alignment.
-  Status ResizeMap(int64_t capacity, void** result) {
+  // Resize the map to the specified size. Keeps 64 alignment.
+  // Sets size_ and capacity_ to the new size.
+  Status ResizeMap(int64_t requested_size, void** result) {
     if (file_->mode() != FileMode::type::READWRITE &&
         file_->mode() != FileMode::type::WRITE) {
       return Status::IOError("Cannot resize a readonly memory map");
     }
-    int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+    int64_t new_size = BitUtil::RoundUpToMultipleOf64(requested_size);
 
-    *result = arrow_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
+    *result = arrow_mremap(mutable_data_, size_, new_size, file_->fd());
     if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "mremap failed: " << std::strerror(errno);
       return Status::IOError(ss.str());
     }
-    capacity_ = new_capacity;
+    size_ = capacity_ = new_size;
     return Status::OK();
   }
   std::unique_ptr<OSFile> file_;
@@ -579,8 +586,8 @@ Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
 
 Status MemoryMappedFile::WriteInternal(const void* data, int64_t nbytes) {
   if (nbytes + memory_map_->position() > memory_map_->capacity()) {
-    int64_t new_capacity = BitUtil::NextPower2(nbytes + memory_map_->position());
-    RETURN_NOT_OK(memory_map_->Resize(new_capacity));
+    int64_t new_size = BitUtil::NextPower2(nbytes + memory_map_->position());
+    RETURN_NOT_OK(memory_map_->Resize(new_size));
   }
   memcpy(memory_map_->head(), data, static_cast<size_t>(nbytes));
   memory_map_->advance(nbytes);
