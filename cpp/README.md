@@ -156,29 +156,17 @@ There are some problems that may occur during the compilation process:
 - libfuzzer was not distributed with your LLVM: `ld: file not found: .../libLLVMFuzzer.a`
 - your LLVM is too old: `clang: error: unsupported argument 'fuzzer' to option 'fsanitize='`
 
-### Third-party environment variables
+### Third-party dependencies and configuration
 
-To set up your own specific build toolchain, here are the relevant environment
-variables
+Arrow depends on a number of thirdparty libraries. We support these in a few
+ways:
 
-* Boost: `BOOST_ROOT`
-* Googletest: `GTEST_HOME` (only required to build the unit tests)
-* gflags: `GFLAGS_HOME` (only required to build the unit tests)
-* Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
-* Flatbuffers: `FLATBUFFERS_HOME` (only required for the IPC extensions)
-* Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)
-* jemalloc: `JEMALLOC_HOME`
-* brotli: `BROTLI_HOME`, can be disabled with `-DARROW_WITH_BROTLI=off`
-* lz4: `LZ4_HOME`, can be disabled with `-DARROW_WITH_LZ4=off`
-* snappy: `SNAPPY_HOME`, can be disabled with `-DARROW_WITH_SNAPPY=off`
-* zlib: `ZLIB_HOME`, can be disabled with `-DARROW_WITH_ZLIB=off`
-* zstd: `ZSTD_HOME`, can be disabled with `-DARROW_WITH_ZSTD=off`
+* Building dependencies from source by downloading archives from the internet
+* Building dependencies from source using from local archives (to allow offline
+  builds)
+* Building with locally-installed libraries
 
-If you have all of your toolchain libraries installed at the same prefix, you
-can use the environment variable `$ARROW_BUILD_TOOLCHAIN` to automatically set
-all of these variables. Note that `ARROW_BUILD_TOOLCHAIN` will not set
-`BOOST_ROOT`, so if you have custom Boost installation, you must set this
-environment variable separately.
+See [thirdparty/README.md][5] for details about these options.
 
 ### Building Python integration library (optional)
 
@@ -382,3 +370,4 @@ both of these options would be used rarely. Current known uses-cases when they a
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md
 [3]: https://google.github.io/styleguide/cppguide.html
 [4]: https://github.com/include-what-you-use/include-what-you-use
+[5]: https://github.com/apache/arrow/blob/master/cpp/thirdparty/README.md
