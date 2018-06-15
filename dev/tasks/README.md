@@ -106,7 +106,7 @@ The script does the following:
    $ git clone https://github.com/kszucs/crossbow
 
    $ cd arrow/dev/tasks
-   $ python crossbow.py
+   $ python crossbow.py submit <task names>
    ```
 
 2. Gets the HEAD commit of the currently checked out branch and generates
@@ -115,7 +115,7 @@ The script does the following:
 
    ```bash
    git checkout ARROW-<ticket number>
-   python dev/tasks/crossbow.py --dry-run
+   python dev/tasks/crossbow.py submit --dry-run <task names>
    ```
 
    > Note that the arrow branch must be pushed beforehand, because the script
@@ -124,12 +124,24 @@ The script does the following:
 3. Reads and renders the required build configurations with the parameters
    substituted.
 2. Create a commit per build configuration to its own branch. For example
-   to build `travis-linux-conda.yml` it will place a commit to the tip of
-   `crossbow@travis-linux-conda` branch.
+   to build conda recipes on linux it will place a commit to the tip of
+   `crossbow@conda-linux` branch.
 3. Pushes the modified branches to GitHub which triggers the builds.
    For authentication it uses github oauth tokens described in the install
    section.
 
+
+### Query the build status
+
+```bash
+python crossbow.py status <build id / branch name>
+```
+
+### Download the build artifacts
+
+```bash
+python crossbow.py artifacts <build id / branch name>
+```
 
 ### Examples
 
@@ -138,7 +150,7 @@ The script accepts a pattern as a first argument to narrow the build scope:
 Run multiple builds:
 
 ```bash
-$ python crossbow.py linux-packages conda-linux wheel-win
+$ python crossbow.py submit linux-packages conda-linux wheel-win
 Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
@@ -151,31 +163,17 @@ Pushed branches:
 Just render without applying or committing the changes:
 
 ```bash
-$ python crossbow.py --dry-run task_name
+$ python crossbow.py submit --dry-run task_name
 ```
 
 Run only `conda` package builds but on all platforms:
 
 ```bash
-$ python crossbow.py conda-win conda-osx conda-linux
-Repository: https://github.com/kszucs/arrow@tasks
-Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
-Version: 0.9.1.dev48+g810a7188.d20180414
-Pushed branches:
- - conda-win
- - conda-osx
- - conda-linux
+$ python crossbow.py submit conda-win conda-osx conda-linux
 ```
 
 Run `wheel` builds:
 
 ```bash
-$ python crossbow.py wheel-osx wheel-linux wheel-win
-Repository: https://github.com/kszucs/arrow@tasks
-Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
-Version: 0.9.1.dev48+g810a7188.d20180414
-Pushed branches:
- - wheel-osx
- - wheel-linux
- - wheel-win
+$ python crossbow.py submit wheel-osx wheel-linux wheel-win
 ```

@@ -30,11 +30,11 @@ env:
 matrix:
   include:
     - script:
-        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
+        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 && rake version:update && rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
     - script:
-        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=yes DEBUG=no)
+        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 && rake version:update && rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=yes DEBUG=no)
     - script:
-        - (cd arrow/dev/tasks/linux-packages && rake yum:build PARALLEL=yes DEBUG=no)
+        - (cd arrow/dev/tasks/linux-packages && rake version:update && rake yum:build PARALLEL=yes DEBUG=no)
 
 before_install:
   - sudo apt update -y -qq
