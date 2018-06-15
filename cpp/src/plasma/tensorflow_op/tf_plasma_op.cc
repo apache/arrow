@@ -15,9 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/tensor_util.h"
-#include "plasma/client.h"
-
 #include "tensorflow/core/framework/device_base.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
@@ -32,6 +29,9 @@
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
 #include "tensorflow/core/platform/stream_executor.h"
 #endif
+
+#include "arrow/python/tensor_util.h"
+#include "plasma/client.h"
 
 using namespace tensorflow;  // NOLINT
 
@@ -56,32 +56,44 @@ static mutex d2h_stream_mu;
 // TODO(zongheng): CPU kernels' std::memcpy might be able to be sped up by
 // parallelization.
 
-std::shared_ptr<arrow::DataType> tf_dtype_to_arrow(DataType dtype) {
+arrow::Status TfDtypeToArrow(DataType dtype, std::shared_ptr<arrow::DataType>* out) {
   switch (dtype) {
     case DT_BOOL:
-      return arrow::boolean();
+      *out = arrow::boolean();
+      break;
     case DT_FLOAT:
-      return arrow::float32();
+      *out = arrow::float32();
+      break;
     case DT_DOUBLE:
-      return arrow::float64();
+      *out = arrow::float64();
+      break;
     case DT_HALF:
-      return arrow::float16();
+      *out = arrow::float16();
+      break;
     case DT_INT8:
-      return arrow::int8();
+      *out = arrow::int8();
+      break;
     case DT_INT16:
-      return arrow::int16();
+      *out = arrow::int16();
+      break;
     case DT_INT32:
-      return arrow::int32();
+      *out = arrow::int32();
+      break;
     case DT_INT64:
-      return arrow::int64();
+      *out = arrow::int64();
+      break;
     case DT_UINT8:
-      return arrow::uint8();
+      *out = arrow::uint8();
+      break;
     case DT_UINT16:
-      return arrow::uint16();
+      *out = arrow::uint16();
+      break;
     case DT_UINT32:
-      return arrow::uint32();
+      *out = arrow::uint32();
+      break;
     case DT_UINT64:
-      return arrow::uint64();
+      *out = arrow::uint64();
+      break;
     case DT_BFLOAT16:
     case DT_COMPLEX64:
     case DT_COMPLEX128:
@@ -95,37 +107,50 @@ std::shared_ptr<arrow::DataType> tf_dtype_to_arrow(DataType dtype) {
     case DT_STRING:
     case DT_VARIANT:
     default:
-      ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError,
-                                   "Tensorflow data type is not supported"));
+      return arrow::Status(arrow::StatusCode::TypeError,
+                           "Tensorflow data type is not supported");
   }
+  return arrow::Status::OK();
 }
 
-DataType arrow_dtype_to_tf(std::shared_ptr<arrow::DataType> dtype) {
+arrow::Status ArrowDtypeToTf(std::shared_ptr<arrow::DataType> dtype, DataType* out) {
   switch (dtype->id()) {
     case arrow::Type::BOOL:
-      return DT_BOOL;
+      *out = DT_BOOL;
+      break;
     case arrow::Type::UINT8:
-      return DT_UINT8;
+      *out = DT_UINT8;
+      break;
     case arrow::Type::INT8:
-      return DT_INT8;
+      *out = DT_INT8;
+      break;
     case arrow::Type::UINT16:
-      return DT_UINT16;
+      *out = DT_UINT16;
+      break;
     case arrow::Type::INT16:
-      return DT_INT16;
+      *out = DT_INT16;
+      break;
     case arrow::Type::UINT32:
-      return DT_UINT32;
+      *out = DT_UINT32;
+      break;
     case arrow::Type::INT32:
-      return DT_INT32;
+      *out = DT_INT32;
+      break;
     case arrow::Type::UINT64:
-      return DT_UINT64;
+      *out = DT_UINT64;
+      break;
     case arrow::Type::INT64:
-      return DT_INT64;
+      *out = DT_INT64;
+      break;
     case arrow::Type::HALF_FLOAT:
-      return DT_HALF;
+      *out = DT_HALF;
+      break;
     case arrow::Type::FLOAT:
-      return DT_FLOAT;
+      *out = DT_FLOAT;
+      break;
     case arrow::Type::DOUBLE:
-      return DT_DOUBLE;
+      *out = DT_DOUBLE;
+      break;
     case arrow::Type::STRING:
     case arrow::Type::BINARY:
     case arrow::Type::FIXED_SIZE_BINARY:
@@ -142,9 +167,10 @@ DataType arrow_dtype_to_tf(std::shared_ptr<arrow::DataType> dtype) {
     case arrow::Type::DICTIONARY:
     case arrow::Type::MAP:
     default:
-    ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError,
-                                 "Arrow data type is not supported"));
+    return arrow::Status(arrow::StatusCode::TypeError,
+                         "Arrow data type is not supported");
   }
+  return arrow::Status::OK();
 }
 
 // Put:  tf.Tensor -> plasma.
@@ -161,7 +187,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
       VLOG(1) << "Connecting to Plasma...";
       ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
                                      plasma_manager_socket_name_,
-                                     PLASMA_DEFAULT_RELEASE_DELAY));
+                                     plasma::kPlasmaDefaultReleaseDelay));
       VLOG(1) << "Connected!";
       connected_ = true;
     }
@@ -216,7 +242,8 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     const plasma::ObjectID object_id =
         plasma::ObjectID::from_binary(plasma_object_id_str);
 
-    auto arrow_dtype = tf_dtype_to_arrow(tf_dtype);
+    std::shared_ptr<arrow::DataType> arrow_dtype;
+    ARROW_CHECK_OK(TfDtypeToArrow(tf_dtype, &arrow_dtype));
     std::vector<int64_t> shape = {static_cast<int64_t>(total_bytes / sizeof(float))};
 
     int64_t header_size;
@@ -281,7 +308,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
       for (int i = 0; i < num_tensors; ++i) {
         const auto& input_tensor = context->input(i);
-        float* input_buffer = const_cast<float*>(input_tensor.flat<float>().data());
+        float* input_buffer = const_cast<float*>(input_tensor.flat<Convert(DT_HALF)>().data());
         perftools::gputools::DeviceMemoryBase wrapped_src(
             static_cast<void*>(input_buffer));
         const bool success =
@@ -325,7 +352,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
       VLOG(1) << "Connecting to Plasma...";
       ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
                                      plasma_manager_socket_name_,
-                                     PLASMA_DEFAULT_RELEASE_DELAY));
+                                     plasma::kPlasmaDefaultReleaseDelay));
       VLOG(1) << "Connected!";
       connected_ = true;
     }
