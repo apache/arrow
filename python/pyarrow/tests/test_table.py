@@ -22,7 +22,6 @@ import pandas as pd
 import pytest
 
 import pyarrow as pa
-import copy
 
 
 def test_chunked_array_basics():
@@ -394,7 +393,7 @@ def test_table_set_column():
     col = pa.Column.from_array('d', data[1])
     t2 = table.set_column(0, col)
 
-    expected_data = copy.copy(data)
+    expected_data = list(data)
     expected_data[0] = data[1]
     expected = pa.Table.from_arrays(expected_data,
                                     names=('d', 'b', 'c'))
