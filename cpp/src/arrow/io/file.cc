@@ -413,7 +413,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
         return Status::IOError("Cannot resize mmap to zero size");
       }
       void* result;
-      RETURN_NOT_OK(resizeMap(new_size, result));
+      RETURN_NOT_OK(ResizeMap(new_size, &result));
       data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
       if (position_ >= size_) {
         position_ = size_ - 1;
@@ -426,7 +426,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   Status Reserve(const int64_t new_capacity) {
     if (!mutable_data_ || new_capacity > capacity_) {
       void* result;
-      RETURN_NOT_OK(resizeMap(new_capacity, result));
+      RETURN_NOT_OK(ResizeMap(new_capacity, &result));
 
       data_ = mutable_data_ = reinterpret_cast<uint8_t*>(result);
     }
@@ -459,14 +459,14 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
 
  private:
   // Resize the map to the specified capacity. Keeps 64 alignment.
-  Status resizeMap(int64_t capacity, void*& result) {
+  Status ResizeMap(int64_t capacity, void** result) {
     if (file_->mode() != FileMode::type::READWRITE &&
         file_->mode() != FileMode::type::WRITE) {
       return Status::IOError("Cannot resize a readonly memory map");
     }
     int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
 
-    result = arrow_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
+    *result = arrow_mremap(mutable_data_, capacity_, new_capacity, file_->fd());
     if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "mremap failed: " << std::strerror(errno);
