@@ -200,6 +200,10 @@ struct CastFunctor<O, I,
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = GetValues<typename I::c_type>(input, 1);
+    if (in_data == NULLPTR) {
+      ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+      return;
+    }
     const auto generate = [&in_data]() -> bool { return *in_data++ != 0; };
     internal::GenerateBitsUnrolled(output->buffers[1]->mutable_data(), output->offset,
                                    input.length, generate);
@@ -217,6 +221,10 @@ struct CastFunctor<O, I,
     auto in_offset = input.offset;
 
     const in_type* in_data = GetValues<in_type>(input, 1);
+    if (in_data == NULLPTR) {
+      ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+      return;
+    }
     auto out_data = GetMutableValues<out_type>(output, 1);
 
     if (!options.allow_int_overflow) {
@@ -261,6 +269,10 @@ struct CastFunctor<O, I,
     using out_type = typename O::c_type;
 
     const in_type* in_data = GetValues<in_type>(input, 1);
+    if (in_data == NULLPTR) {
+      ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+      return;
+    }
     auto out_data = GetMutableValues<out_type>(output, 1);
     for (int64_t i = 0; i < input.length; ++i) {
       *out_data++ = static_cast<out_type>(*in_data++);
@@ -275,6 +287,10 @@ template <typename in_type, typename out_type>
 void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_multiply,
                const int64_t factor, const ArrayData& input, ArrayData* output) {
   const in_type* in_data = GetValues<in_type>(input, 1);
+  if (in_data == NULLPTR) {
+    ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+    return;
+  }
   auto out_data = GetMutableValues<out_type>(output, 1);
 
   if (factor == 1) {
@@ -522,6 +538,10 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
   using index_c_type = typename IndexType::c_type;
 
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
+  if (in == NULLPTR) {
+    ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+    return;
+  }
   int32_t byte_width =
       checked_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
 
@@ -595,6 +615,9 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
   BinaryBuilder* binary_builder = checked_cast<BinaryBuilder*>(builder.get());
 
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
+  if (in == NULLPTR) {
+    return Status::Invalid("Buffer or it's contents are null");
+  }
   if (indices.null_count() != 0) {
     internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
                                              indices.length());
@@ -676,6 +699,10 @@ void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
                                            indices.length());
 
   auto in = GetValues<typename IndexType::c_type>(*indices.data(), 1);
+  if (in == NULLPTR) {
+    ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+    return;
+  }
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (valid_bits_reader.IsSet()) {
       out[i] = dictionary[in[i]];
@@ -702,6 +729,10 @@ struct CastFunctor<T, DictionaryType,
         << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
     const c_type* dictionary = GetValues<c_type>(*type.dictionary()->data(), 1);
+    if (dictionary == NULLPTR) {
+      ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+      return;
+    }
 
     auto out = GetMutableValues<c_type>(output, 1);
     const Array& indices = *dict_array.indices();

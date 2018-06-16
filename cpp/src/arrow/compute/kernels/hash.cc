@@ -243,6 +243,9 @@ class HashTableKernel<
     }
 
     const T* values = GetValues<T>(arr, 1);
+    if (values == NULLPTR) {
+      return Status::Invalid("Buffer or it's contents are null");
+    }
     auto action = checked_cast<Action*>(this);
 
     RETURN_NOT_OK(action->Reserve(arr.length));
@@ -418,11 +421,17 @@ class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
     }
 
     const int32_t* offsets = GetValues<int32_t>(arr, 1);
+    if (offsets == NULLPTR) {
+      return Status::Invalid("Buffer or it's contents are null");
+    }
     const uint8_t* data;
     if (arr.buffers[2].get() == nullptr) {
       data = &empty_value;
     } else {
       data = GetValues<uint8_t>(arr, 2);
+      if (data == NULLPTR) {
+        return Status::Invalid("Buffer or it's contents are null");
+      }
     }
 
     auto action = checked_cast<Action*>(this);
@@ -538,6 +547,9 @@ class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
     }
 
     const uint8_t* data = GetValues<uint8_t>(arr, 1);
+    if (data == NULLPTR) {
+      return Status::Invalid("Buffer or it's contents are null");
+    }
 
     auto action = checked_cast<Action*>(this);
     RETURN_NOT_OK(action->Reserve(arr.length));
@@ -646,6 +658,9 @@ class HashTableKernel<Type, Action, enable_if_8bit_int<Type>> : public HashTable
 
   Status Append(const ArrayData& arr) override {
     const T* values = GetValues<T>(arr, 1);
+    if (values == NULLPTR) {
+      return Status::Invalid("Buffer or it's contents are null");
+    }
     auto action = checked_cast<Action*>(this);
     RETURN_NOT_OK(action->Reserve(arr.length));
 
