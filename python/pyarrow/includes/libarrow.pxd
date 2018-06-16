@@ -19,7 +19,6 @@
 
 from pyarrow.includes.common cimport *
 
-
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
@@ -192,6 +191,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CLoggingMemoryPool" arrow::LoggingMemoryPool"(CMemoryPool):
         CLoggingMemoryPool(CMemoryPool*)
 
+    cdef cppclass CProxyMemoryPool" arrow::ProxyMemoryPool"(CMemoryPool):
+        CProxyMemoryPool(CMemoryPool*)
+
     cdef cppclass CBuffer" arrow::Buffer":
         CBuffer(const uint8_t* data, int64_t size)
         const uint8_t* data()
@@ -200,6 +202,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CBuffer] parent()
         c_bool is_mutable() const
         c_bool Equals(const CBuffer& other)
+
+    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
+                                    int64_t offset, int64_t length)
+    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
+                                    int64_t offset)
 
     cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
         CMutableBuffer(const uint8_t* data, int64_t size)
@@ -283,7 +290,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CSchema(const vector[shared_ptr[CField]]& fields,
                 const shared_ptr[CKeyValueMetadata]& metadata)
 
-        c_bool Equals(const CSchema& other)
+        c_bool Equals(const CSchema& other, c_bool check_metadata)
 
         shared_ptr[CField] field(int i)
         shared_ptr[const CKeyValueMetadata] metadata()
@@ -421,6 +428,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
         CChunkedArray(const vector[shared_ptr[CArray]]& arrays)
+        CChunkedArray(const vector[shared_ptr[CArray]]& arrays,
+                      const shared_ptr[CDataType]& type)
         int64_t length()
         int64_t null_count()
         int num_chunks()
@@ -651,6 +660,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int port
         c_string user
         c_string kerb_ticket
+        unordered_map[c_string, c_string] extra_conf
         HdfsDriver driver
 
     cdef cppclass HdfsPathInfo:

@@ -426,7 +426,7 @@ mod tests {
     fn test_struct() {
         let a: Rc<Array> = Rc::new(PrimitiveArray::from(Buffer::from(vec![1, 2, 3, 4, 5])));
         let b: Rc<Array> = Rc::new(PrimitiveArray::from(Buffer::from(vec![
-            1.1, 2.2, 3.3, 4.4, 5.5
+            1.1, 2.2, 3.3, 4.4, 5.5,
         ])));
 
         let s = StructArray::from(vec![a, b]);

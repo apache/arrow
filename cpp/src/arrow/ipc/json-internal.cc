@@ -372,27 +372,42 @@ class ArrayWriter {
   template <typename T>
   typename std::enable_if<IsSignedInt<T>::value, void>::type WriteDataValues(
       const T& arr) {
+    static const char null_string[] = "0";
     const auto data = arr.raw_values();
-    for (int i = 0; i < arr.length(); ++i) {
-      writer_->Int64(data[i]);
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        writer_->Int64(data[i]);
+      } else {
+        writer_->RawNumber(null_string, sizeof(null_string));
+      }
     }
   }
 
   template <typename T>
   typename std::enable_if<IsUnsignedInt<T>::value, void>::type WriteDataValues(
       const T& arr) {
+    static const char null_string[] = "0";
     const auto data = arr.raw_values();
-    for (int i = 0; i < arr.length(); ++i) {
-      writer_->Uint64(data[i]);
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        writer_->Uint64(data[i]);
+      } else {
+        writer_->RawNumber(null_string, sizeof(null_string));
+      }
     }
   }
 
   template <typename T>
   typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
       const T& arr) {
+    static const char null_string[] = "0.";
     const auto data = arr.raw_values();
-    for (int i = 0; i < arr.length(); ++i) {
-      writer_->Double(data[i]);
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        writer_->Double(data[i]);
+      } else {
+        writer_->RawNumber(null_string, sizeof(null_string));
+      }
     }
   }
 
@@ -424,15 +439,24 @@ class ArrayWriter {
   }
 
   void WriteDataValues(const Decimal128Array& arr) {
+    static const char null_string[] = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
-      const Decimal128 value(arr.GetValue(i));
-      writer_->String(value.ToIntegerString());
+      if (arr.IsValid(i)) {
+        const Decimal128 value(arr.GetValue(i));
+        writer_->String(value.ToIntegerString());
+      } else {
+        writer_->String(null_string, sizeof(null_string));
+      }
     }
   }
 
   void WriteDataValues(const BooleanArray& arr) {
-    for (int i = 0; i < arr.length(); ++i) {
-      writer_->Bool(arr.Value(i));
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        writer_->Bool(arr.Value(i));
+      } else {
+        writer_->Bool(false);
+      }
     }
   }
 

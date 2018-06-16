@@ -19,7 +19,6 @@ import codecs
 import decimal
 from functools import partial
 import itertools
-import os
 import sys
 import unicodedata
 
@@ -39,7 +38,7 @@ def _multiplicate_sequence(base, target_size):
     return [base] * q + [base[:r]]
 
 
-def get_random_bytes(n, *, seed=42):
+def get_random_bytes(n, seed=42):
     """
     Generate a random bytes object of size *n*.
     Note the result might be compressible.
@@ -58,7 +57,7 @@ def get_random_bytes(n, *, seed=42):
     return result
 
 
-def get_random_ascii(n, *, seed=42):
+def get_random_ascii(n, seed=42):
     """
     Get a random ASCII-only unicode string of size *n*.
     """
@@ -69,7 +68,7 @@ def get_random_ascii(n, *, seed=42):
     return result
 
 
-def _random_unicode_letters(n, *, seed=42):
+def _random_unicode_letters(n, seed=42):
     """
     Generate a string of random unicode letters (slow).
     """
@@ -93,7 +92,7 @@ def _random_unicode_letters(n, *, seed=42):
 _1024_random_unicode_letters = _random_unicode_letters(1024)
 
 
-def get_random_unicode(n, *, seed=42):
+def get_random_unicode(n, seed=42):
     """
     Get a random non-ASCII unicode string of size *n*.
     """
@@ -179,7 +178,8 @@ class BuiltinsGenerator(object):
         self.sprinkle_nones(data, none_prob)
         return data
 
-    def _generate_varying_sequences(self, random_factory, n, min_size, max_size, none_prob):
+    def _generate_varying_sequences(self, random_factory, n, min_size,
+                                    max_size, none_prob):
         """
         Generate a list of *n* sequences of varying size between *min_size*
         and *max_size*, with *none_prob* probability of an entry being None.
@@ -207,7 +207,6 @@ class BuiltinsGenerator(object):
         return self._generate_varying_sequences(get_random_bytes, n,
                                                 size, size, none_prob)
 
-
     def generate_varying_binary_list(self, n, min_size, max_size,
                                      none_prob=DEFAULT_NONE_PROB):
         """
@@ -216,7 +215,6 @@ class BuiltinsGenerator(object):
         """
         return self._generate_varying_sequences(get_random_bytes, n,
                                                 min_size, max_size, none_prob)
-
 
     def generate_ascii_string_list(self, n, min_size, max_size,
                                    none_prob=DEFAULT_NONE_PROB):
@@ -227,7 +225,6 @@ class BuiltinsGenerator(object):
         return self._generate_varying_sequences(get_random_ascii, n,
                                                 min_size, max_size, none_prob)
 
-
     def generate_unicode_string_list(self, n, min_size, max_size,
                                      none_prob=DEFAULT_NONE_PROB):
         """
@@ -236,7 +233,6 @@ class BuiltinsGenerator(object):
         """
         return self._generate_varying_sequences(get_random_unicode, n,
                                                 min_size, max_size, none_prob)
-
 
     def generate_int_list_list(self, n, min_size, max_size,
                                none_prob=DEFAULT_NONE_PROB):
@@ -263,7 +259,9 @@ class BuiltinsGenerator(object):
     def generate_dict_list(self, n, none_prob=DEFAULT_NONE_PROB):
         """
         Generate a list of dicts with random values.
-        Each dict has the form `{'u': int value, 'v': float value, 'w': bool value}`
+        Each dict has the form
+
+            `{'u': int value, 'v': float value, 'w': bool value}`
         """
         ints = self.generate_int_list(n, none_prob=none_prob)
         floats = self.generate_float_list(n, none_prob=none_prob)

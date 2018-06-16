@@ -34,6 +34,10 @@
 
 namespace arrow {
 
+bool Field::HasMetadata() const {
+  return (metadata_ != nullptr) && (metadata_->size() > 0);
+}
+
 std::shared_ptr<Field> Field::AddMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Field>(name_, type_, nullable_, metadata);
@@ -64,12 +68,12 @@ bool Field::Equals(const Field& other) const {
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
-    if (metadata_ == nullptr && other.metadata_ == nullptr) {
-      return true;
-    } else if ((metadata_ == nullptr) ^ (other.metadata_ == nullptr)) {
-      return false;
-    } else {
+    if (this->HasMetadata() && other.HasMetadata()) {
       return metadata_->Equals(*other.metadata_);
+    } else if (!this->HasMetadata() && !other.HasMetadata()) {
+      return true;
+    } else {
+      return false;
     }
   }
   return false;
@@ -284,11 +288,12 @@ Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
     : fields_(std::move(fields)), metadata_(metadata) {}
 
-bool Schema::Equals(const Schema& other) const {
+bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
     return true;
   }
 
+  // checks field equality
   if (num_fields() != other.num_fields()) {
     return false;
   }
@@ -297,7 +302,17 @@ bool Schema::Equals(const Schema& other) const {
       return false;
     }
   }
-  return true;
+
+  // check metadata equality
+  if (!check_metadata) {
+    return true;
+  } else if (this->HasMetadata() && other.HasMetadata()) {
+    return metadata_->Equals(*other.metadata_);
+  } else if (!this->HasMetadata() && !other.HasMetadata()) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
@@ -329,6 +344,10 @@ Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
   *out =
       std::make_shared<Schema>(internal::AddVectorElement(fields_, i, field), metadata_);
   return Status::OK();
+}
+
+bool Schema::HasMetadata() const {
+  return (metadata_ != nullptr) && (metadata_->size() > 0);
 }
 
 std::shared_ptr<Schema> Schema::AddMetadata(
@@ -364,10 +383,7 @@ std::string Schema::ToString() const {
   }
 
   if (metadata_) {
-    buffer << "\n-- metadata --";
-    for (int64_t i = 0; i < metadata_->size(); ++i) {
-      buffer << "\n" << metadata_->key(i) << ": " << metadata_->value(i);
-    }
+    buffer << metadata_->ToString();
   }
 
   return buffer.str();

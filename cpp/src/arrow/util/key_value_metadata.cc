@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <sstream>
 #include <utility>
 
 #include "arrow/util/key_value_metadata.h"
@@ -108,4 +109,21 @@ bool KeyValueMetadata::Equals(const KeyValueMetadata& other) const {
          std::equal(keys_.cbegin(), keys_.cend(), other.keys_.cbegin()) &&
          std::equal(values_.cbegin(), values_.cend(), other.values_.cbegin());
 }
+
+std::string KeyValueMetadata::ToString() const {
+  std::stringstream buffer;
+
+  buffer << "\n-- metadata --";
+  for (int64_t i = 0; i < size(); ++i) {
+    buffer << "\n" << keys_[i] << ": " << values_[i];
+  }
+
+  return buffer.str();
+}
+
+std::shared_ptr<KeyValueMetadata> key_value_metadata(
+    const std::unordered_map<std::string, std::string>& pairs) {
+  return std::make_shared<KeyValueMetadata>(pairs);
+}
+
 }  // namespace arrow

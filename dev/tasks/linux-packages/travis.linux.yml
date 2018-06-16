@@ -1,0 +1,67 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+os: linux
+dist: trusty
+sudo: required
+language: ruby
+
+env:
+  global:
+    - PLAT={{ PLAT }}
+    - BUILD_REF={{ BUILD_REF }}
+    - PYARROW_VERSION={{ PYARROW_VERSION }}
+
+matrix:
+  include:
+    - script:
+        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
+    - script:
+        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=yes DEBUG=no)
+    - script:
+        - (cd arrow/dev/tasks/linux-packages && rake yum:build PARALLEL=yes DEBUG=no)
+
+before_install:
+  - sudo apt update -y -qq
+  - |
+    sudo apt install -y -qq \
+        autoconf-archive \
+        build-essential \
+        cmake \
+        debhelper \
+        devscripts \
+        git \
+        gtk-doc-tools \
+        libboost-filesystem-dev \
+        libboost-regex-dev \
+        libboost-system-dev \
+        libgirepository1.0-dev \
+        libglib2.0-doc \
+        libjemalloc-dev \
+        lsb-release \
+        nvidia-cuda-toolkit \
+        pkg-config \
+        python3-dev \
+        python3-numpy
+
+before_script:
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
+  - git -C arrow checkout {{ ARROW_SHA }}
+
+notifications:
+  email:
+    - {{ EMAIL }}

@@ -56,28 +56,21 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private final HistoricalLog historicalLog;
   private volatile boolean isClosed = false; // the allocator has been closed
 
+  /**
+   * Initialize an allocator
+   * @param parentAllocator   parent allocator. null if defining a root allocator
+   * @param listener          listener callback. Must be non-null -- use {@link AllocationListener#NOOP} if no listener
+   *                          desired
+   * @param name              name of this allocator
+   * @param initReservation   initial reservation. Cannot be modified after construction
+   * @param maxAllocation     limit. Allocations past the limit fail. Can be modified after construction
+   */
   protected BaseAllocator(
-      final AllocationListener listener,
-      final String name,
-      final long initReservation,
-      final long maxAllocation) throws OutOfMemoryException {
-    this(listener, null, name, initReservation, maxAllocation);
-  }
-
-  protected BaseAllocator(
-      final BaseAllocator parentAllocator,
-      final String name,
-      final long initReservation,
-      final long maxAllocation) throws OutOfMemoryException {
-    this(parentAllocator.listener, parentAllocator, name, initReservation, maxAllocation);
-  }
-
-  private BaseAllocator(
-      final AllocationListener listener,
-      final BaseAllocator parentAllocator,
-      final String name,
-      final long initReservation,
-      final long maxAllocation) throws OutOfMemoryException {
+          final BaseAllocator parentAllocator,
+          final AllocationListener listener,
+          final String name,
+          final long initReservation,
+          final long maxAllocation) throws OutOfMemoryException {
     super(parentAllocator, initReservation, maxAllocation);
 
     this.listener = listener;
@@ -276,7 +269,13 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         : initialRequestSize;
     AllocationOutcome outcome = this.allocateBytes(actualRequestSize);
     if (!outcome.isOk()) {
-      throw new OutOfMemoryException(createErrorMsg(this, actualRequestSize, initialRequestSize));
+      if (listener.onFailedAllocation(actualRequestSize, outcome)) {
+        // Second try, in case the listener can do something about it
+        outcome = this.allocateBytes(actualRequestSize);
+      }
+      if (!outcome.isOk()) {
+        throw new OutOfMemoryException(createErrorMsg(this, actualRequestSize, initialRequestSize));
+      }
     }
 
     boolean success = false;
@@ -333,9 +332,18 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       final String name,
       final long initReservation,
       final long maxAllocation) {
+    return newChildAllocator(name, this.listener, initReservation, maxAllocation);
+  }
+
+  @Override
+  public BufferAllocator newChildAllocator(
+      final String name,
+      final AllocationListener listener,
+      final long initReservation,
+      final long maxAllocation) {
     assertOpen();
 
-    final ChildAllocator childAllocator = new ChildAllocator(this, name, initReservation,
+    final ChildAllocator childAllocator = new ChildAllocator(listener, this, name, initReservation,
         maxAllocation);
 
     if (DEBUG) {

@@ -38,7 +38,7 @@ Apache Arrow is the emerging standard for large in-memory columnar data ([Spark]
 
 # Usage
 
-## Get a table from an Arrow file on disk
+## Get a table from an Arrow file on disk (in IPC format)
 
 ```es6
 import { readFileSync } from 'fs';

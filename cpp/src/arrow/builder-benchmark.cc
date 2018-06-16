@@ -115,6 +115,27 @@ static void BM_BuildAdaptiveUIntNoNulls(
   state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t));
 }
 
+static void BM_BuildBooleanArrayNoNulls(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // 2 MiB block
+  std::vector<uint8_t> data(2 * 1024 * 1024);
+  constexpr uint8_t bit_pattern = 0xcc;  // 0b11001100
+  uint64_t index = 0;
+  std::generate(data.begin(), data.end(),
+                [&index]() -> uint8_t { return (bit_pattern >> ((index++) % 8)) & 1; });
+
+  while (state.KeepRunning()) {
+    BooleanBuilder builder;
+    for (int i = 0; i < kFinalSize; i++) {
+      // Build up an array of 512 MiB in size
+      ABORT_NOT_OK(builder.AppendValues(data.data(), data.size()));
+    }
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+  state.SetBytesProcessed(state.iterations() * data.size() * kFinalSize);
+}
+
 static void BM_BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t iterations = 1 << 20;
 
@@ -152,6 +173,9 @@ static void BM_BuildFixedSizeBinaryArray(
 
 BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildVectorNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_BuildBooleanArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+
 BENCHMARK(BM_BuildAdaptiveIntNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildAdaptiveIntNoNullsScalarAppend)
     ->Repetitions(3)

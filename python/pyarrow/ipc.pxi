@@ -260,8 +260,7 @@ cdef class _RecordBatchReader:
             check_status(CRecordBatchStreamReader.Open(
                 self.in_stream.get(), &self.reader))
 
-        self.schema = Schema()
-        self.schema.init_schema(self.reader.get().schema())
+        self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
     def __iter__(self):
         while True:

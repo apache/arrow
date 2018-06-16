@@ -23,6 +23,13 @@ import numpy as np
 import pyarrow as pa
 
 
+def test_schema_constructor_errors():
+    msg = ("Do not call Schema's constructor directly, use `pyarrow.schema` "
+           "instead")
+    with pytest.raises(TypeError, match=msg):
+        pa.Schema()
+
+
 def test_type_integers():
     dtypes = ['int8', 'int16', 'int32', 'int64',
               'uint8', 'uint16', 'uint32', 'uint64']
@@ -226,12 +233,6 @@ baz: list<item: int8>
   child 0, item: int8"""
 
 
-def test_field_empty():
-    f = pa.Field()
-    with pytest.raises(ReferenceError):
-        repr(f)
-
-
 def test_field_add_remove_metadata():
     f0 = pa.field('foo', pa.int32())
 
@@ -304,14 +305,45 @@ def test_schema_equals():
         pa.field('bar', pa.string()),
         pa.field('baz', pa.list_(pa.int8()))
     ]
+    metadata = {b'foo': b'bar', b'pandas': b'badger'}
 
     sch1 = pa.schema(fields)
     sch2 = pa.schema(fields)
+    sch3 = pa.schema(fields, metadata=metadata)
+    sch4 = pa.schema(fields, metadata=metadata)
+
     assert sch1.equals(sch2)
+    assert sch3.equals(sch4)
+    assert sch1.equals(sch3, check_metadata=False)
+    assert not sch1.equals(sch3, check_metadata=True)
+    assert not sch1.equals(sch3)
 
     del fields[-1]
     sch3 = pa.schema(fields)
     assert not sch1.equals(sch3)
+
+
+def test_schema_equality_operators():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+    metadata = {b'foo': b'bar', b'pandas': b'badger'}
+
+    sch1 = pa.schema(fields)
+    sch2 = pa.schema(fields)
+    sch3 = pa.schema(fields, metadata=metadata)
+    sch4 = pa.schema(fields, metadata=metadata)
+
+    assert sch1 == sch2
+    assert sch3 == sch4
+    assert sch1 != sch3
+    assert sch2 != sch4
+
+    # comparison with other types doesn't raise
+    assert sch1 != []
+    assert sch3 != 'foo'
 
 
 def test_schema_negative_indexing():
