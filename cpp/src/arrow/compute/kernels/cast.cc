@@ -201,7 +201,7 @@ struct CastFunctor<O, I,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = GetValues<typename I::c_type>(input, 1);
     if (in_data == NULLPTR) {
-      ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+      ARROW_LOG(ERROR) << "Buffer or it's contents are null";
       return;
     }
     const auto generate = [&in_data]() -> bool { return *in_data++ != 0; };
@@ -222,7 +222,7 @@ struct CastFunctor<O, I,
 
     const in_type* in_data = GetValues<in_type>(input, 1);
     if (in_data == NULLPTR) {
-      ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+      ARROW_LOG(ERROR) << "Buffer or it's contents are null";
       return;
     }
     auto out_data = GetMutableValues<out_type>(output, 1);
@@ -270,7 +270,7 @@ struct CastFunctor<O, I,
 
     const in_type* in_data = GetValues<in_type>(input, 1);
     if (in_data == NULLPTR) {
-      ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+      ARROW_LOG(ERROR) << "Buffer or it's contents are null";
       return;
     }
     auto out_data = GetMutableValues<out_type>(output, 1);
@@ -288,7 +288,7 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
                const int64_t factor, const ArrayData& input, ArrayData* output) {
   const in_type* in_data = GetValues<in_type>(input, 1);
   if (in_data == NULLPTR) {
-    ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+    ARROW_LOG(ERROR) << "Buffer or it's contents are null";
     return;
   }
   auto out_data = GetMutableValues<out_type>(output, 1);
@@ -539,7 +539,7 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
 
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
   if (in == NULLPTR) {
-    ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+    ARROW_LOG(ERROR) << "Buffer or it's contents are null";
     return;
   }
   int32_t byte_width =
@@ -700,7 +700,7 @@ void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
 
   auto in = GetValues<typename IndexType::c_type>(*indices.data(), 1);
   if (in == NULLPTR) {
-    ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+    ARROW_LOG(ERROR) << "Buffer or it's contents are null";
     return;
   }
   for (int64_t i = 0; i < indices.length(); ++i) {
@@ -730,7 +730,7 @@ struct CastFunctor<T, DictionaryType,
 
     const c_type* dictionary = GetValues<c_type>(*type.dictionary()->data(), 1);
     if (dictionary == NULLPTR) {
-      ARROW_LOG(ERROR) << "Buffer or it's contents are null"
+      ARROW_LOG(ERROR) << "Buffer or it's contents are null";
       return;
     }
 
