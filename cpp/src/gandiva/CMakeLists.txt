@@ -32,6 +32,7 @@ add_library(gandiva SHARED
   projector.cc
   status.cc
   tree_expr_builder.cc
+  expr_validator.cc
   ${BC_FILE_PATH_CC})
 
 # For users of gandiva library (including integ tests), include-dir is :

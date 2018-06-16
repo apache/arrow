@@ -18,7 +18,9 @@
 #include <vector>
 #include <utility>
 
+#include "codegen/expr_validator.h"
 #include "codegen/llvm_generator.h"
+#include "gandiva/status.h"
 
 namespace gandiva {
 
@@ -35,13 +37,24 @@ Status Projector::Make(SchemaPtr schema,
                        const ExpressionVector &exprs,
                        arrow::MemoryPool *pool,
                        std::shared_ptr<Projector> *projector) {
-  // TODO: validate schema
-  // TODO : validate expressions (fields, function signatures, output types, ..)
-
+  GANDIVA_RETURN_FAILURE_IF_FALSE((schema != nullptr),
+                                  Status::Invalid("schema cannot be null"));
+  GANDIVA_RETURN_FAILURE_IF_FALSE(!exprs.empty(),
+                                   Status::Invalid("expressions need to be non-empty"));
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
   Status status = LLVMGenerator::Make(&llvm_gen);
   GANDIVA_RETURN_NOT_OK(status);
+
+  // Run the validation on the expressions.
+  // Return if any of the expression is invalid since
+  // we will not be able to process further.
+  ExprValidator expr_validator(llvm_gen->types(), schema);
+  for (auto &expr : exprs) {
+    status = expr_validator.Validate(expr);
+    GANDIVA_RETURN_NOT_OK(status);
+  }
+
   llvm_gen->Build(exprs);
 
   // save the output field types. Used for validation at Evaluate() time.
@@ -94,6 +107,10 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch,
 
   if (output == nullptr) {
     return Status::Invalid("output must be non-null.");
+  }
+
+  if (pool_ == nullptr) {
+    return Status::Invalid("memory pool must be non-null.");
   }
 
   // Allocate the output data vecs.

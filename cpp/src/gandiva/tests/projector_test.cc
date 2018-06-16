@@ -433,5 +433,4 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   status = projector->Evaluate(*in_batch, {bad_array_data3});
   EXPECT_EQ(status.code(), StatusCode::Invalid);
 }
-
 } // namespace gandiva

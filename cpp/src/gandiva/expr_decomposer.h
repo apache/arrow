@@ -49,10 +49,10 @@ class ExprDecomposer : public NodeVisitor {
   FRIEND_TEST(TestExprDecomposer, TestInternalIf);
   FRIEND_TEST(TestExprDecomposer, TestParallelIf);
 
-  void Visit(const FieldNode &node) override;
-  void Visit(const FunctionNode &node) override;
-  void Visit(const IfNode &node) override;
-  void Visit(const LiteralNode &node) override;
+  Status Visit(const FieldNode &node) override;
+  Status Visit(const FunctionNode &node) override;
+  Status Visit(const IfNode &node) override;
+  Status Visit(const LiteralNode &node) override;
 
   // stack of if nodes.
   class IfStackEntry {

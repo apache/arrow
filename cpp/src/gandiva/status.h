@@ -19,6 +19,7 @@
 #define GANDIVA_STATUS_H
 
 #include <string>
+#include <sstream>
 #include <utility>
 
 #define GANDIVA_RETURN_NOT_OK(status)                                                         \
@@ -26,7 +27,8 @@
     Status _status = (status);                                                                \
     if (!_status.ok()) {                                                                      \
       std::stringstream ss;                                                                   \
-      ss << __FILE__ << ":" << __LINE__ << " code: " << #status << "\n" << _status.message(); \
+      ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString()                \
+         << " \n " << _status.message();                                                      \
       return Status(_status.code(), ss.str());                                                \
     }                                                                                         \
 } while (0)
@@ -36,7 +38,8 @@ do {                                                                            
   if (!condition) {                                                                         \
     Status _status = (status);                                                              \
     std::stringstream ss;                                                                   \
-    ss << __FILE__ << ":" << __LINE__ << " code: " << #status << "\n" << _status.message(); \
+    ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString()                \
+       << " \n " << _status.message();                                                      \
     return Status(_status.code(), ss.str());                                                \
   }                                                                                         \
 } while (0)
@@ -56,6 +59,7 @@ enum class StatusCode : char {
   Invalid = 1,
   CodeGenError = 2,
   ArrowError = 3,
+  ExpressionValidationError = 4,
 };
 
 class Status {
@@ -92,10 +96,25 @@ class Status {
     return Status(StatusCode::Invalid, msg);
   }
 
+  static Status ArrowError(const std::string& msg) {
+    return Status(StatusCode::ArrowError, msg);
+  }
+
+  static Status ExpressionValidationError(const std::string& msg) {
+    return Status(StatusCode::ExpressionValidationError, msg);
+  }
+
+
   // Returns true if the status indicates success.
   bool ok() const { return (state_ == NULL); }
 
   bool IsCodeGenError() const { return code() == StatusCode::CodeGenError; }
+
+  bool IsInvalid() const { return code() == StatusCode::Invalid; }
+
+  bool IsArrowError() const {return code() == StatusCode::ArrowError; }
+
+  bool IsExpressionValidationError() const {return code() == StatusCode::ExpressionValidationError; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.

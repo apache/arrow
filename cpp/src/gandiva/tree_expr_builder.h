@@ -34,14 +34,17 @@ class TreeExprBuilder {
   static NodePtr MakeLiteral(double value);
 
   /// \brief create a node on arrow field.
+  /// returns null if input is null.
   static NodePtr MakeField(FieldPtr field);
 
   /// \brief create a node with a function.
+  /// returns null if return_type is null
   static NodePtr MakeFunction(const std::string &name,
                               const NodeVector &children,
                               DataTypePtr return_type);
 
-  /// \brief Create a node with an if-else expression.
+  /// \brief create a node with an if-else expression.
+  /// returns null if any of the inputs is null.
   static NodePtr MakeIf(NodePtr condition,
                         NodePtr this_node,
                         NodePtr else_node,
@@ -49,10 +52,12 @@ class TreeExprBuilder {
 
   /// \brief create an expression with the specified root_node, and the
   /// result written to result_field.
+  /// returns null if the result_field is null.
   static ExpressionPtr MakeExpression(NodePtr root_node,
                                       FieldPtr result_field);
 
   /// \brief convenience function for simple function expressions.
+  /// returns null if the out_field is null.
   static ExpressionPtr MakeExpression(const std::string &function,
                                       const FieldVector &in_fields,
                                       FieldPtr out_field);

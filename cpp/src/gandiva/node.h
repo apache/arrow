@@ -23,6 +23,7 @@
 #include "codegen/node_visitor.h"
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/status.h"
 
 namespace gandiva {
 
@@ -36,7 +37,7 @@ class Node {
   const DataTypePtr &return_type() const { return return_type_; }
 
   /// Derived classes should simply invoke the Visit api of the visitor.
-  virtual void Accept(NodeVisitor &visitor) const = 0;
+  virtual Status Accept(NodeVisitor &visitor) const = 0;
 
  protected:
   DataTypePtr return_type_;
@@ -49,8 +50,8 @@ class LiteralNode : public Node {
     : Node(type),
       holder_(holder) {}
 
-  void Accept(NodeVisitor &visitor) const override {
-    visitor.Visit(*this);
+  Status Accept(NodeVisitor &visitor) const override {
+    return visitor.Visit(*this);
   }
 
   const LiteralHolder &holder() const { return holder_; }
@@ -65,8 +66,8 @@ class FieldNode : public Node {
   explicit FieldNode(FieldPtr field)
     : Node(field->type()), field_(field) {}
 
-  void Accept(NodeVisitor &visitor) const override {
-    visitor.Visit(*this);
+  Status Accept(NodeVisitor &visitor) const override {
+    return visitor.Visit(*this);
   }
 
   const FieldPtr &field() const { return field_; }
@@ -83,8 +84,8 @@ class FunctionNode : public Node {
                DataTypePtr retType)
     : Node(retType), descriptor_(descriptor), children_(children) { }
 
-  void Accept(NodeVisitor &visitor) const override {
-    visitor.Visit(*this);
+  Status Accept(NodeVisitor &visitor) const override {
+    return visitor.Visit(*this);
   }
 
   const FuncDescriptorPtr &descriptor() const { return descriptor_; }
@@ -125,8 +126,8 @@ class IfNode : public Node {
       then_node_(then_node),
       else_node_(else_node) {}
 
-  void Accept(NodeVisitor &visitor) const override {
-    visitor.Visit(*this);
+  Status Accept(NodeVisitor &visitor) const override {
+    return visitor.Visit(*this);
   }
 
   const NodePtr &condition() const { return condition_; }

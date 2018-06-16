@@ -28,17 +28,18 @@
 namespace gandiva {
 
 // Decompose a field node - simply seperate out validity & value arrays.
-void ExprDecomposer::Visit(const FieldNode &node) {
+Status ExprDecomposer::Visit(const FieldNode &node) {
   auto desc = annotator_.CheckAndAddInputFieldDescriptor(node.field());
 
   DexPtr validity_dex = std::make_shared<VectorReadValidityDex>(desc);
   DexPtr value_dex = std::make_shared<VectorReadValueDex>(desc);
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
+  return Status::OK();
 }
 
 // Decompose a field node - wherever possible, merge the validity vectors of the
 // child nodes.
-void ExprDecomposer::Visit(const FunctionNode &node) {
+Status ExprDecomposer::Visit(const FunctionNode &node) {
   auto desc = node.descriptor();
   FunctionSignature signature(desc->name(),
                               desc->params(),
@@ -84,10 +85,11 @@ void ExprDecomposer::Visit(const FunctionNode &node) {
                                                                local_bitmap_idx);
     result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   }
+  return Status::OK();
 }
 
 // Decompose an IfNode
-void ExprDecomposer::Visit(const IfNode &node) {
+Status ExprDecomposer::Visit(const IfNode &node) {
   // Add a local bitmap to track the output validity.
   node.condition()->Accept(*this);
   auto condition_vv = result();
@@ -111,11 +113,13 @@ void ExprDecomposer::Visit(const IfNode &node) {
                                            is_terminal_else);
 
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
+  return Status::OK();
 }
 
-void ExprDecomposer::Visit(const LiteralNode &node) {
+Status ExprDecomposer::Visit(const LiteralNode &node) {
   auto value_dex = std::make_shared<LiteralDex>(node.return_type(), node.holder());
   result_ = std::make_shared<ValueValidityPair>(value_dex);
+  return Status::OK();
 }
 
 // The bolow functions use a stack to detect :

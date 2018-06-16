@@ -53,6 +53,9 @@ std::string Status::CodeAsString() const {
     case StatusCode::Invalid:
       type = "Invalid";
       break;
+    case StatusCode::ExpressionValidationError:
+      type = "ExpressionValidationError";
+      break;
     default:
       type = "Unknown";
       break;

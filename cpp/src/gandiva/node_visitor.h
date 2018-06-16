@@ -16,6 +16,7 @@
 #define GANDIVA_NODE_VISITOR_H
 
 #include "gandiva/logging.h"
+#include "gandiva/status.h"
 
 namespace gandiva {
 
@@ -27,10 +28,10 @@ class LiteralNode;
 /// \brief Visitor for nodes in the expression tree.
 class NodeVisitor {
  public:
-  virtual void Visit(const FieldNode &node) = 0;
-  virtual void Visit(const FunctionNode &node) = 0;
-  virtual void Visit(const IfNode &node) = 0;
-  virtual void Visit(const LiteralNode &node) = 0;
+  virtual Status Visit(const FieldNode &node) = 0;
+  virtual Status Visit(const FunctionNode &node) = 0;
+  virtual Status Visit(const IfNode &node) = 0;
+  virtual Status Visit(const LiteralNode &node) = 0;
 };
 
 } // namespace gandiva

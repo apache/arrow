@@ -38,6 +38,9 @@ NodePtr TreeExprBuilder::MakeField(FieldPtr field) {
 NodePtr TreeExprBuilder::MakeFunction(const std::string &name,
                                       const NodeVector &params,
                                       DataTypePtr result) {
+  if (result == nullptr) {
+    return nullptr;
+  }
   return FunctionNode::MakeFunction(name, params, result);
 }
 
@@ -45,11 +48,18 @@ NodePtr TreeExprBuilder::MakeIf(NodePtr condition,
                                 NodePtr then_node,
                                 NodePtr else_node,
                                 DataTypePtr result_type) {
+  if (condition == nullptr || then_node == nullptr ||
+      else_node == nullptr || result_type == nullptr) {
+    return nullptr;
+  }
   return std::make_shared<IfNode>(condition, then_node, else_node, result_type);
 }
 
 ExpressionPtr TreeExprBuilder::MakeExpression(NodePtr root_node,
                                               FieldPtr result_field) {
+  if (result_field == nullptr) {
+    return nullptr;
+  }
   return ExpressionPtr(new Expression(root_node, result_field));
 }
 
@@ -57,7 +67,9 @@ ExpressionPtr TreeExprBuilder::MakeExpression(
     const std::string &function,
     const FieldVector &in_fields,
     FieldPtr out_field) {
-
+  if (out_field == nullptr) {
+    return nullptr;
+  }
   std::vector<NodePtr> field_nodes;
   for (auto it = in_fields.begin(); it != in_fields.end(); ++it) {
     auto node = MakeField(*it);

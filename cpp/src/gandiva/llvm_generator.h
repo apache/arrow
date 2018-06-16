@@ -49,6 +49,8 @@ class LLVMGenerator {
   Status Execute(const arrow::RecordBatch &record_batch,
                  const ArrayDataVector &output_vector);
 
+  LLVMTypes *types() { return types_; }
+
  private:
   LLVMGenerator();
 
@@ -59,7 +61,6 @@ class LLVMGenerator {
   llvm::Module *module() { return engine_->module(); }
   llvm::LLVMContext &context() { return *(engine_->context()); }
   llvm::IRBuilder<> &ir_builder() { return engine_->ir_builder(); }
-  LLVMTypes *types() { return types_; }
 
   /// Visitor to generate the code for a decomposed expression.
   class Visitor : public DexVisitor {
