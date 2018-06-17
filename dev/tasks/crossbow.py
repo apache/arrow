@@ -371,15 +371,16 @@ def status(job_name, queue_path, github_token):
 
     job = Job.from_dict(yaml.load(content.decoded))
 
-    tpl = '[{:>7}] {:<20} {:<10} {:<30}'
-    header = tpl.format('status', 'branch', 'github_id', 'target_url')
+    tpl = '[{:>7}] {:<24} {:<40}'
+    header = tpl.format('status', 'branch', 'sha')
     click.echo(header)
     click.echo('-' * len(header))
 
     for name, task in job.tasks.items():
-        for status in repo.statuses(task.commit):
-            click.echo(tpl.format(status.state, task.branch, status.id,
-                                  status.target_url))
+        commit = repo.commit(task.commit)
+        status = commit.status()
+
+        click.echo(tpl.format(status.state, task.branch, task.commit))
 
 
 @crossbow.command()
