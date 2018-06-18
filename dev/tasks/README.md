@@ -106,7 +106,7 @@ The script does the following:
    $ git clone https://github.com/kszucs/crossbow
 
    $ cd arrow/dev/tasks
-   $ python crossbow.py submit <task names>
+   $ python crossbow.py submit conda-win conda-linux conda-osx
    ```
 
 2. Gets the HEAD commit of the currently checked out branch and generates
@@ -115,7 +115,7 @@ The script does the following:
 
    ```bash
    git checkout ARROW-<ticket number>
-   python dev/tasks/crossbow.py submit --dry-run <task names>
+   python dev/tasks/crossbow.py submit --dry-run conda-linux conda-osx
    ```
 
    > Note that the arrow branch must be pushed beforehand, because the script

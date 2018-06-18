@@ -67,7 +67,7 @@ deploy:
   provider: releases
   api_key: $CROSSBOW_GITHUB_TOKEN
   file_glob: true
-  file: /path/to/pachages/*.tar.gz
+  file: /path/to/pachages/*.tar.gz  # FIXME(kszucs) after the builds pass
   skip_cleanup: true
   on:
     tags: true
