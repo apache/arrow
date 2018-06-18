@@ -231,6 +231,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     std::shared_ptr<arrow::DataType> arrow_dtype;
     ARROW_CHECK_OK(TfDtypeToArrow(tf_dtype, &arrow_dtype));
     int64_t byte_width = get_byte_width(arrow_dtype);
+    std::cout << "YYY byte_width = " << byte_width << std::endl;
 
     std::vector<size_t> offsets;
     offsets.reserve(num_tensors + 1);
