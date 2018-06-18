@@ -33,14 +33,6 @@ from jinja2 import Template
 from setuptools_scm import get_version
 
 
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format="[%(asctime)s] %(levelname)s Crossbow %(message)s",
-#     datefmt="%H:%M:%S",
-#     stream=click.get_text_stream('stdout')
-# )
-
-
 class GitRemoteCallbacks(pygit2.RemoteCallbacks):
 
     def __init__(self, token):
