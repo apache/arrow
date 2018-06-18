@@ -48,10 +48,12 @@ test_script:
   - git -C arrow checkout {{ ARROW_SHA }} || exit /B
   - pushd arrow\dev\tasks\conda-recipes
   - conda.exe build --output-folder . parquet-cpp arrow-cpp pyarrow
+  - pushd win-64
+  - ren *.tar.bz2 *-win-64.tar.bz2
 
 artifacts:
   # this must be relative and child of the build C:\projects\crossbow directory
-  - path: arrow\dev\tasks\conda-recipes\*.tar.bz2
+  - path: arrow\dev\tasks\conda-recipes\win-64\*.tar.bz2
 
 deploy:
   release: {{ BUILD_TAG }}
