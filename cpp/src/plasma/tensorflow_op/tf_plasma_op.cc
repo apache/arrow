@@ -402,6 +402,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
     ARROW_CHECK_OK(arrow::py::ReadTensor(object_buffer.data, &tensor));
 
     int64_t byte_width = get_byte_width(tensor->type());
+    std::cout << "XXX byte_width = " << byte_width << std::endl;
     const int64_t size_in_bytes = tensor->data()->size();
 
     TensorShape shape({static_cast<int64_t>(size_in_bytes / byte_width)});
