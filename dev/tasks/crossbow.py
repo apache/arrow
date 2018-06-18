@@ -134,7 +134,7 @@ class Queue(Repo):
             latest = 0
         return '{}-{}'.format(prefix, latest + 1)
 
-    def _create_branch(self, branch_name, files, parents=None, message=''):
+    def _create_branch(self, branch_name, files, parents=[], message=''):
         # 1. create tree
         builder = self.repo.TreeBuilder()
 
@@ -147,7 +147,6 @@ class Queue(Repo):
 
         # 2. create commit with the tree created above
         author = committer = self.signature
-        parents = parents or [self.head]
         commit_id = self.repo.create_commit(None, author, committer, message,
                                             tree_id, parents)
         commit = self.repo[commit_id]
@@ -188,8 +187,6 @@ class Queue(Repo):
         callbacks = GitRemoteCallbacks(token)
         self.origin.push(self._updated_refs, callbacks=callbacks)
         self.updated_refs = []
-
-        # logging.info('\n - '.join(['\nUpdated branches:'] + shorthands))
 
 
 class Platform(Enum):
