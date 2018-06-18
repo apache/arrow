@@ -284,7 +284,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
       for (int i = 0; i < num_tensors; ++i) {
         const auto& input_tensor = context->input(i);
         std::memcpy(static_cast<void*>(data + offsets[i] / byte_width),
-                    input_tensor.flat<float>().data(),
+                    input_tensor.tensor_data().data(),
                     static_cast<uint64>(offsets[i + 1] - offsets[i]));
       }
       wrapped_callback();
@@ -315,7 +315,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
       for (int i = 0; i < num_tensors; ++i) {
         const auto& input_tensor = context->input(i);
-        float* input_buffer = const_cast<float*>(input_tensor.flat<float>().data());
+        float* input_buffer = const_cast<float*>(input_tensor.tensor_data().data());
         perftools::gputools::DeviceMemoryBase wrapped_src(
             static_cast<void*>(input_buffer));
         const bool success =
@@ -413,7 +413,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
                          done);
 
     if (std::is_same<Device, CPUDevice>::value) {
-      std::memcpy(output_tensor->flat<float>().data(),
+      std::memcpy(reinterpret_cast<void*>(const_cast<char*>(output_tensor->tensor_data().data())),
                   plasma_data,
                   size_in_bytes);
       done();
@@ -440,7 +440,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
           static_cast<uint64>(size_in_bytes));
 
       perftools::gputools::DeviceMemoryBase wrapped_dst(
-          static_cast<void*>(output_tensor->flat<float>().data()));
+          static_cast<void*>(output_tensor->tensor_data().data()));
       const bool success =
           h2d_stream
               ->ThenMemcpy(&wrapped_dst, static_cast<const void*>(plasma_data),
