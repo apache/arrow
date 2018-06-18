@@ -290,6 +290,25 @@ def crossbow():
     pass
 
 
+def github_token_validation_callback(ctx, param, value):
+    if value is None:
+        raise click.ClickException(
+            'Could not determine GitHub token. Please set the '
+            'CROSSBOW_GITHUB_TOKEN environment variable to a '
+            'valid github access token or pass one to --github-token.'
+        )
+    return value
+
+
+github_token = click.option(
+    '--github-token',
+    default=None,
+    envvar='CROSSBOW_GITHUB_TOKEN',
+    help='OAuth token for Github authentication',
+    callback=github_token_validation_callback,
+)
+
+
 @crossbow.command()
 @click.argument('task-names', nargs=-1, required=True)
 @click.option('--job-prefix', default='build',
@@ -305,8 +324,7 @@ def crossbow():
 @click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
-@click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
-              help='Oauth token for Github authentication')
+@github_token
 def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
            queue_path, github_token):
     target = Repo(arrow_path)
@@ -363,8 +381,7 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
 @click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
-@click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
-              help='Oauth token for Github authentication')
+@github_token
 def status(job_name, queue_path, github_token):
     queue = Queue(queue_path)
     username, reponame = queue.parse_user_repo()
@@ -394,8 +411,7 @@ def status(job_name, queue_path, github_token):
 @click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
-@click.option('--github-token', default=False, envvar='CROSSBOW_GITHUB_TOKEN',
-              help='Oauth token for Github authentication')
+@github_token
 def artifacts(job_name, target_dir, queue_path, github_token):
     queue = Queue(queue_path)
     username, reponame = queue.parse_user_repo()
