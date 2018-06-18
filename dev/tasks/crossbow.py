@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import re
 import yaml
 import time
@@ -111,10 +112,13 @@ class Repo(object):
         return self.repo.remotes['origin']
 
     @property
+    def email(self):
+        return next(self.repo.config.get_multivar('user.email'))
+
+    @property
     def signature(self):
         name = next(self.repo.config.get_multivar('user.name'))
-        email = next(self.repo.config.get_multivar('user.email'))
-        return pygit2.Signature(name, email, int(time.time()))
+        return pygit2.Signature(name, self.email, int(time.time()))
 
     def parse_user_repo(self):
         m = re.match('.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote.url)
@@ -319,7 +323,7 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
     variables = {
         # these should be renamed
         'PLAT': 'x86_64',
-        'EMAIL': MESSAGE_EMAIL,
+        'EMAIL': os.environ.get('CROSSBOW_EMAIL', target.email),
         'BUILD_TAG': job_id,
         'BUILD_REF': str(target.head),
         'ARROW_SHA': str(target.head),
