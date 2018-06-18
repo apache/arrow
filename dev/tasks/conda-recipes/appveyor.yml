@@ -62,6 +62,7 @@ deploy:
   artifact: /.*\.tar\.bz2/
   draft: false
   prerelease: false
+  force_update: true
 
 notifications:
   - provider: Email
