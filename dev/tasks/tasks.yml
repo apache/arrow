@@ -16,18 +16,11 @@
 # under the License.
 
 tasks:
-  # supported keys
-  # - name: arbitrary task name
+  # arbitrary_task_name:
   #   branch: defaults to name
   #   platform: osx|linux|win
   #   template: path of jinja2 templated yml
   #   params: optional extra parameters
-
-  # configures master to submit packaging builds
-  # - name: config-nightlies
-  #   branch: master
-  #   platform: linux
-  #   template: config-nightlies/travis.linux.yml
 
   # conda packages
   conda-linux:
