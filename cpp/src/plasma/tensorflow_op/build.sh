@@ -11,7 +11,7 @@ NDEBUG="-DNDEBUG"
 
 g++ -std=c++11 -g -shared tf_plasma_op.cc -o tf_plasma_op.so \
     ${NDEBUG} \
-    `pkg-config --cflags --libs plasma arrow` \
+    `pkg-config --cflags --libs plasma arrow arrow-python` \
     -fPIC \
     ${TF_CFLAGS[@]} \
     ${TF_LFLAGS[@]} \

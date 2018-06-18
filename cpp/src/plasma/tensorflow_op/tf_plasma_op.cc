@@ -201,6 +201,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     {
       mutex_lock lock(mu_);
       ARROW_CHECK_OK(client_.Disconnect());
+      connected_ = false;
     }
     {
       mutex_lock lock(d2h_stream_mu);
@@ -368,6 +369,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
     {
       mutex_lock lock(mu_);
       ARROW_CHECK_OK(client_.Disconnect());
+      connected_ = false;
     }
     {
       mutex_lock lock(h2d_stream_mu);
