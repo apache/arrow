@@ -123,9 +123,9 @@ The script does the following:
 
 3. Reads and renders the required build configurations with the parameters
    substituted.
-2. Create a commit per build configuration to its own branch. For example
-   to build conda recipes on linux it will place a commit to the tip of
-   `crossbow@conda-linux` branch.
+2. Create a branch per task, prefixed with the job id. For example
+   to build conda recipes on linux it will create a new branch:
+   `crossbow@build-<id>-conda-linux`.
 3. Pushes the modified branches to GitHub which triggers the builds.
    For authentication it uses github oauth tokens described in the install
    section.
