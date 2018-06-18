@@ -41,6 +41,7 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name, use_gpu, dtype
     def FromPlasma():
         return plasma.tf_plasma_op.plasma_to_tensor(
             object_id,
+            dtype=tf.as_dtype(dtype),
             plasma_store_socket_name=plasma_store_name,
             plasma_manager_socket_name="")
 
@@ -77,5 +78,5 @@ def test_plasma_tf_op(use_gpu=False):
         pytest.skip("TensorFlow not installed")
 
     with plasma.start_plasma_store(10**8) as (plasma_store_name, p):
-        for dtype in [np.float32]:
+        for dtype in [np.float32, np.float64]:
             run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name, use_gpu, dtype)

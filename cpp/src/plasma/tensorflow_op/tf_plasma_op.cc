@@ -481,7 +481,8 @@ REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(DEVICE_GPU),
 
 REGISTER_OP("PlasmaToTensor")
     .Input("plasma_object_id: string")
-    .Output("tensor: float")
+    .Output("tensor: dtype")
+    .Attr("dtype: type")
     .Attr("plasma_store_socket_name: string")
     .Attr("plasma_manager_socket_name: string");
 
