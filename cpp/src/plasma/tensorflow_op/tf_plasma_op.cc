@@ -270,7 +270,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     ARROW_CHECK_OK(
         arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, total_bytes, data_buffer, &offset));
 
-    float* data = reinterpret_cast<float*>(data_buffer->mutable_data() + offset);
+    uint8_t* data = reinterpret_cast<uint8_t*>(data_buffer->mutable_data() + offset);
 
     auto wrapped_callback = [this, context, done, data_buffer, object_id]() {
       {
@@ -284,7 +284,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     if (std::is_same<Device, CPUDevice>::value) {
       for (int i = 0; i < num_tensors; ++i) {
         const auto& input_tensor = context->input(i);
-        std::memcpy(static_cast<void*>(data + offsets[i] / byte_width),
+        std::memcpy(static_cast<void*>(data + offsets[i]),
                     input_tensor.tensor_data().data(),
                     static_cast<uint64>(offsets[i + 1] - offsets[i]));
       }
@@ -321,7 +321,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
             static_cast<void*>(input_buffer));
         const bool success =
             d2h_stream
-                ->ThenMemcpy(static_cast<void*>(data + offsets[i] / sizeof(float)),
+                ->ThenMemcpy(static_cast<void*>(data + offsets[i]),
                              wrapped_src,
                              static_cast<uint64>(offsets[i + 1] - offsets[i]))
                 .ok();
