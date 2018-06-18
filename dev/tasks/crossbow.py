@@ -188,7 +188,7 @@ class Queue(Repo):
 
         # create job's branch
         branch = self._create_branch(job.branch, files=job.files())
-        tag = self._create_tag(job.branch, branch.target)
+        self._create_tag(job.branch, branch.target)
 
         return branch
 
@@ -293,7 +293,7 @@ def crossbow():
 @crossbow.command()
 @click.argument('task-names', nargs=-1, required=True)
 @click.option('--job-prefix', default='build',
-               help='Arbitrary prefix for branch names, e.g. nightly')
+              help='Arbitrary prefix for branch names, e.g. nightly')
 @click.option('--config-path', default=DEFAULT_CONFIG_PATH,
               help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--dry-run/--push', default=False,
@@ -350,7 +350,7 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
     job.branch = job_id
 
     yaml_format = yaml.dump(job.to_dict(), default_flow_style=False)
-    click.echo(yaml_format)
+    click.echo(yaml_format.strip())
 
     if not dry_run:
         queue.put(job)
