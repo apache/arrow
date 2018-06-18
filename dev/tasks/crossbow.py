@@ -309,11 +309,29 @@ github_token = click.option(
 )
 
 
+def config_path_validation_callback(ctx, param, value):
+    with Path(value).open() as fp:
+        config = yaml.load(fp)
+    task_names = ctx.params['task_names']
+    valid_tasks = set(config['tasks'].keys())
+    invalid_tasks = {task for task in task_names if task not in valid_tasks}
+    if invalid_tasks:
+        raise click.ClickException(
+            'Invalid task(s) {!r}. Must be one of {!r}'.format(
+                invalid_tasks,
+                valid_tasks
+            )
+        )
+    return value
+
+
 @crossbow.command()
 @click.argument('task-names', nargs=-1, required=True)
 @click.option('--job-prefix', default='build',
               help='Arbitrary prefix for branch names, e.g. nightly')
 @click.option('--config-path', default=DEFAULT_CONFIG_PATH,
+              type=click.Path(exists=True),
+              callback=config_path_validation_callback,
               help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
