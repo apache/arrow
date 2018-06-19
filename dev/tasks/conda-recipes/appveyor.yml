@@ -49,7 +49,8 @@ test_script:
   - pushd arrow\dev\tasks\conda-recipes
   - conda.exe build --output-folder . parquet-cpp arrow-cpp pyarrow
   - pushd win-64
-  - ren *.tar.bz2 *-win-64.tar.bz2
+  - for %%f in (*.tar.bz2) do ren "%%f" "%%~nf-win-64.tar.bz2"
+  - popd
 
 artifacts:
   # this must be relative and child of the build C:\projects\crossbow directory
