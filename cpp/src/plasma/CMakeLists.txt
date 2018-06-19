@@ -68,12 +68,6 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-find_package(TensorFlow)
-
-option(PLASMA_BUILD_TENSORFLOW_OP
-  "Build the Plasma TensorFlow Op"
-  OFF)
-
 set(PLASMA_SRCS
   client.cc
   common.cc
@@ -130,19 +124,6 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
     " -Wno-conversion")
 endif()
 
-if (PLASMA_BUILD_TENSORFLOW_OP)
-  if (NOT TensorFlow_FOUND)
-    message(FATAL_ERROR "Need TensorFlow to build the TensorFlow op")
-  endif()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-  include_directories(${TensorFlow_INCLUDE_DIRS})
-  # see https://github.com/sadeepj/crfasrnn_keras/issues/19
-  include_directories(${TensorFlow_INCLUDE_DIRS}/external/nsync/public)
-  add_library(tf_plasma_op SHARED tf_plasma_op.cc)
-  set_target_properties(tf_plasma_op PROPERTIES PREFIX "")
-  target_link_libraries(tf_plasma_op ${TensorFlow_LIBRARY_DIRS} plasma_static ${PLASMA_LINK_LIBS})
-endif()
-
 add_executable(plasma_store store.cc)
 target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS})
 
@@ -171,11 +152,6 @@ install(FILES
 # Plasma store
 set_target_properties(plasma_store PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 install(TARGETS plasma_store DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-if (PLASMA_BUILD_TENSORFLOW_OP)
-  # TensorFlow Plasma Op
-  install(TARGETS tf_plasma_op DESTINATION ${CMAKE_INSTALL_BINDIR})
-endif()
 
 # pkg-config support
 configure_file(plasma.pc.in
