@@ -167,8 +167,8 @@ arrow::Status ArrowDtypeToTf(std::shared_ptr<arrow::DataType> dtype, DataType* o
     case arrow::Type::DICTIONARY:
     case arrow::Type::MAP:
     default:
-    return arrow::Status(arrow::StatusCode::TypeError,
-                         "Arrow data type is not supported");
+      return arrow::Status(arrow::StatusCode::TypeError,
+                           "Arrow data type is not supported");
   }
   return arrow::Status::OK();
 }
@@ -261,14 +261,13 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     std::shared_ptr<Buffer> data_buffer;
     {
       mutex_lock lock(mu_);
-      ARROW_CHECK_OK(client_.Create(object_id,
-                                    header_size + total_bytes,
+      ARROW_CHECK_OK(client_.Create(object_id, header_size + total_bytes,
                                     /*metadata=*/nullptr, 0, &data_buffer));
     }
 
     int64_t offset;
-    ARROW_CHECK_OK(
-        arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, total_bytes, data_buffer, &offset));
+    ARROW_CHECK_OK(arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, total_bytes,
+                                                    data_buffer, &offset));
 
     uint8_t* data = reinterpret_cast<uint8_t*>(data_buffer->mutable_data() + offset);
 
@@ -321,8 +320,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
             static_cast<void*>(input_buffer));
         const bool success =
             d2h_stream
-                ->ThenMemcpy(static_cast<void*>(data + offsets[i]),
-                             wrapped_src,
+                ->ThenMemcpy(static_cast<void*>(data + offsets[i]), wrapped_src,
                              static_cast<uint64>(offsets[i + 1] - offsets[i]))
                 .ok();
         OP_REQUIRES_ASYNC(context, success,
@@ -415,9 +413,9 @@ class PlasmaToTensorOp : public AsyncOpKernel {
                          done);
 
     if (std::is_same<Device, CPUDevice>::value) {
-      std::memcpy(reinterpret_cast<void*>(const_cast<char*>(output_tensor->tensor_data().data())),
-                  plasma_data,
-                  size_in_bytes);
+      std::memcpy(
+          reinterpret_cast<void*>(const_cast<char*>(output_tensor->tensor_data().data())),
+          plasma_data, size_in_bytes);
       done();
     } else {
 #ifdef GOOGLE_CUDA

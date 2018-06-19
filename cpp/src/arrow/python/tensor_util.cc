@@ -28,7 +28,8 @@ Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype,
                                      const std::vector<int64_t>& shape,
                                      int64_t* header_size) {
   arrow::io::MockOutputStream mock;
-  auto empty_tensor = std::make_shared<arrow::Tensor>(dtype, std::make_shared<arrow::Buffer>(nullptr, 0), shape);
+  auto empty_tensor = std::make_shared<arrow::Tensor>(
+      dtype, std::make_shared<arrow::Buffer>(nullptr, 0), shape);
   arrow::py::SerializedPyObject serialized_tensor;
   RETURN_NOT_OK(SerializeTensor(empty_tensor, &serialized_tensor));
   RETURN_NOT_OK(serialized_tensor.WriteTo(&mock));
@@ -37,11 +38,11 @@ Status TensorFlowTensorGetHeaderSize(std::shared_ptr<arrow::DataType> dtype,
 }
 
 Status TensorFlowTensorWrite(std::shared_ptr<arrow::DataType> dtype,
-                             const std::vector<int64_t>& shape,
-                             int64_t tensor_num_bytes,
+                             const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
                              std::shared_ptr<Buffer> buffer, int64_t* offset) {
   arrow::io::FixedSizeBufferWriter buf(buffer);
-  auto empty_tensor = std::make_shared<arrow::Tensor>(dtype, std::make_shared<arrow::Buffer>(nullptr, tensor_num_bytes), shape);
+  auto empty_tensor = std::make_shared<arrow::Tensor>(
+      dtype, std::make_shared<arrow::Buffer>(nullptr, tensor_num_bytes), shape);
   arrow::py::SerializedPyObject serialized_tensor;
   RETURN_NOT_OK(SerializeTensor(empty_tensor, &serialized_tensor));
   RETURN_NOT_OK(serialized_tensor.WriteTo(&buf));
