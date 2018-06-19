@@ -41,6 +41,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/cast.h"
 #include "arrow/compute/kernels/hash.h"
+#include "arrow/compute/kernels/util-internal.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -668,6 +669,15 @@ TEST_F(TestCast, FromNull) {
 
   // OK to look at bitmaps
   ASSERT_ARRAYS_EQUAL(*result, *result);
+}
+
+TEST_F(TestCast, EmptyArray) {
+  const int length = 0;
+  auto out_data = ArrayData::Make(int32(), length, {nullptr, nullptr});
+
+  auto arr = out_data.get();
+  auto ret = GetValues<int32_t>(*arr, 1);
+  ASSERT_EQ(ret, nullptr);
 }
 
 TEST_F(TestCast, PreallocatedMemory) {

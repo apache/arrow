@@ -31,7 +31,8 @@ class FunctionContext;
 
 template <typename T>
 inline const T* GetValues(const ArrayData& data, int i) {
-  return (data.buffers[i] == NULLPTR || data.buffers[i]->data() == NULLPTR) ?
+  const Buffer* buffer = data.buffers[i].get();
+  return (buffer == NULLPTR || buffer->data() == NULLPTR) ?
 	  NULLPTR : reinterpret_cast<const T*>(data.buffers[i]->data()) + data.offset;
 }
 
