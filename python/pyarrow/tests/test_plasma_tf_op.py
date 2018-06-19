@@ -18,7 +18,9 @@
 import numpy as np
 import pytest
 
-def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name, use_gpu, dtype):
+
+def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
+                                   use_gpu, dtype):
     FORCE_DEVICE = '/gpu' if use_gpu else '/cpu'
 
     object_id = np.random.bytes(20)
@@ -65,6 +67,7 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name, use_gpu, dtype
     assert np.array_equal(data, out0), "Data not equal!"
     assert np.array_equal(ones, out1), "Data not equal!"
 
+
 @pytest.mark.plasma
 def test_plasma_tf_op(use_gpu=False):
     import pyarrow.plasma as plasma
@@ -78,5 +81,7 @@ def test_plasma_tf_op(use_gpu=False):
         pytest.skip("TensorFlow not installed")
 
     with plasma.start_plasma_store(10**8) as (plasma_store_name, p):
-        for dtype in [np.float32, np.float64, np.int8, np.int16, np.int32, np.int64]:
-            run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name, use_gpu, dtype)
+        for dtype in [np.float32, np.float64,
+                      np.int8, np.int16, np.int32, np.int64]:
+            run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
+                                           use_gpu, dtype)
