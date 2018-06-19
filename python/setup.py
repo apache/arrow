@@ -345,6 +345,7 @@ class build_ext(_build_ext):
                                       name + '_api.h'))
 
             if self.with_plasma:
+                build_py = self.get_finalized_command('build_py')
                 # Move the plasma store
                 source = os.path.join(self.build_type, "plasma_store")
                 target = os.path.join(build_lib,
