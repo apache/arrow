@@ -593,9 +593,6 @@ if (ARROW_WITH_GRPC)
 endif()
 
 if (ARROW_ORC)
-  SET(ARROW_STATIC_LINK_LIBS
-    orc
-    ${ARROW_STATIC_LINK_LIBS})
   if (ARROW_PROTOBUF_USE_SHARED)
     SET(ARROW_LINK_LIBS
       protobuf
@@ -605,6 +602,9 @@ if (ARROW_ORC)
       protobuf
       ${ARROW_STATIC_LINK_LIBS})
   endif()
+  SET(ARROW_STATIC_LINK_LIBS
+    orc
+    ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
