@@ -27,14 +27,18 @@ from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
                              PlasmaBuffer, PlasmaClient, connect)
 
 
-TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], '', 'tf_plasma_op.so')
 has_tf_plasma_op = False
-if os.path.exists(TF_PLASMA_OP_PATH):
+if os.path.exists(os.path.join(pa.__path__[0], "tensorflow")):
     try:
         import tensorflow as tf
     except ImportError:
         pass
     else:
+        TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], "tensorflow", "plasma_op.so")
+        if not os.path.exists(TF_PLASMA_OP_PATH):
+            print("Compiling Plasma TensorFlow Op...")
+            script_path = os.path.join(pa.__path__[0], "tensorflow", "build.sh")
+            subprocess.check_call(["bash", script_path])
         tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
         has_tf_plasma_op = True
 

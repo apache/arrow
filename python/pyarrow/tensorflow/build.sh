@@ -19,6 +19,8 @@
 
 set -ex
 
+PYARROW_TENSORFLOW_DIR=$(cd "$(dirname "${BASH_SOURCE:-$0}")"; pwd)
+
 TF_CFLAGS=$(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_compile_flags()))')
 TF_LFLAGS=$(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_link_flags()))')
 
@@ -28,12 +30,10 @@ fi
 
 NDEBUG="-DNDEBUG"
 
-g++ -std=c++11 -g -shared tf_plasma_op.cc -o tf_plasma_op.so \
+g++ -std=c++11 -g -shared $PYARROW_TENSORFLOW_DIR/plasma_op.cc -o $PYARROW_TENSORFLOW_DIR/plasma_op.so \
     ${NDEBUG} \
     `pkg-config --cflags --libs plasma arrow arrow-python` \
     -fPIC \
     ${TF_CFLAGS[@]} \
     ${TF_LFLAGS[@]} \
     -O2
-
-cp tf_plasma_op.so ../../../../python/pyarrow
