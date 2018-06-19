@@ -296,7 +296,7 @@ class HdfsTestCases(object):
         expected = pa.concat_tables(test_data)
         return expected
 
-    @test_parquet.parquet
+    @pytest.mark.parquet
     def test_read_multiple_parquet_files(self):
 
         tmpdir = pjoin(self.tmp_path, 'multi-parquet-' + guid())
@@ -310,7 +310,7 @@ class HdfsTestCases(object):
                                .sort_values(by='index').reset_index(drop=True),
                                expected.to_pandas())
 
-    @test_parquet.parquet
+    @pytest.mark.parquet
     def test_read_multiple_parquet_files_with_uri(self):
         import pyarrow.parquet as pq
 
@@ -326,7 +326,7 @@ class HdfsTestCases(object):
                                .sort_values(by='index').reset_index(drop=True),
                                expected.to_pandas())
 
-    @test_parquet.parquet
+    @pytest.mark.parquet
     def test_read_write_parquet_files_with_uri(self):
         import pyarrow.parquet as pq
 
@@ -346,20 +346,20 @@ class HdfsTestCases(object):
 
         pdt.assert_frame_equal(result, df)
 
-    @test_parquet.parquet
+    @pytest.mark.parquet
     def test_read_common_metadata_files(self):
         tmpdir = pjoin(self.tmp_path, 'common-metadata-' + guid())
         self.hdfs.mkdir(tmpdir)
         test_parquet._test_read_common_metadata_files(self.hdfs, tmpdir)
 
-    @test_parquet.parquet
+    @pytest.mark.parquet
     def test_write_to_dataset_with_partitions(self):
         tmpdir = pjoin(self.tmp_path, 'write-partitions-' + guid())
         self.hdfs.mkdir(tmpdir)
         test_parquet._test_write_to_dataset_with_partitions(
             tmpdir, filesystem=self.hdfs)
 
-    @test_parquet.parquet
+    @pytest.mark.parquet
     def test_write_to_dataset_no_partitions(self):
         tmpdir = pjoin(self.tmp_path, 'write-no_partitions-' + guid())
         self.hdfs.mkdir(tmpdir)
