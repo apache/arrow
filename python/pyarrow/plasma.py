@@ -33,6 +33,7 @@ TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], "tensorflow", "plasma_op.so")
 def build_plasma_tensorflow_op():
     try:
         import tensorflow as tf
+        print("TensorFlow version: " + tf.__version__)
     except ImportError:
         pass
     else:
@@ -43,6 +44,7 @@ def build_plasma_tensorflow_op():
 
 has_tf_plasma_op = False
 if os.path.exists(TF_PLASMA_OP_PATH):
+    import tensorflow as tf
     tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
     has_tf_plasma_op = True
 
