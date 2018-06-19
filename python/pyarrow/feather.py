@@ -26,6 +26,8 @@ from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
 from pyarrow.lib import RecordBatch, Table, concat_tables
 import pyarrow.lib as ext
+from .util import _deprecate_nthreads
+
 
 try:
     infer_dtype = pdapi.infer_dtype
@@ -45,7 +47,7 @@ class FeatherReader(ext.FeatherReader):
 
     def read(self, *args, **kwargs):
         warnings.warn("read has been deprecated. Use read_pandas instead.",
-                      DeprecationWarning)
+                      FutureWarning, stacklevel=2)
         return self.read_pandas(*args, **kwargs)
 
     def read_table(self, columns=None):
@@ -66,8 +68,10 @@ class FeatherReader(ext.FeatherReader):
         table = Table.from_arrays(columns, names=names)
         return table
 
-    def read_pandas(self, columns=None, nthreads=1):
-        return self.read_table(columns=columns).to_pandas(nthreads=nthreads)
+    def read_pandas(self, columns=None, nthreads=None, use_threads=False):
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
+        return self.read_table(columns=columns).to_pandas(
+            use_threads=use_threads)
 
 
 class FeatherWriter(object):
@@ -141,7 +145,7 @@ class FeatherDataset(object):
                              .format(piece, self.schema,
                                      table.schema))
 
-    def read_pandas(self, columns=None, nthreads=1):
+    def read_pandas(self, columns=None, nthreads=None, use_threads=False):
         """
         Read multiple Parquet files as a single pandas DataFrame
 
@@ -157,7 +161,9 @@ class FeatherDataset(object):
         pandas.DataFrame
             Content of the file as a pandas DataFrame (of columns)
         """
-        return self.read_table(columns=columns).to_pandas(nthreads=nthreads)
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
+        return self.read_table(columns=columns).to_pandas(
+            use_threads=use_threads)
 
 
 def write_feather(df, dest):
@@ -186,7 +192,7 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None, nthreads=1):
+def read_feather(source, columns=None, nthreads=None, use_threads=False):
     """
     Read a pandas.DataFrame from Feather format
 
@@ -196,15 +202,16 @@ def read_feather(source, columns=None, nthreads=1):
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read
-    nthreads : int, default 1
-        Number of CPU threads to use when reading to pandas.DataFrame
+    use_threads: bool, default False
+        Whether to parallelize reading using multiple threads
 
     Returns
     -------
     df : pandas.DataFrame
     """
+    use_threads = _deprecate_nthreads(use_threads, nthreads)
     reader = FeatherReader(source)
-    return reader.read_pandas(columns=columns, nthreads=nthreads)
+    return reader.read_pandas(columns=columns, use_threads=use_threads)
 
 
 def read_table(source, columns=None):

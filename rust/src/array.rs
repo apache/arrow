@@ -55,6 +55,18 @@ impl<T> ListArray<T>
 where
     T: ArrowPrimitiveType,
 {
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn null_count(&self) -> usize {
+        self.null_count
+    }
+
+    pub fn validity_bitmap(&self) -> &Option<Bitmap> {
+        &self.validity_bitmap
+    }
+
     pub fn get(&self, i: usize) -> &[T] {
         self.data.get(i)
     }
@@ -143,6 +155,10 @@ where
 
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    pub fn get(&self, i: usize) -> &T {
+        self.data.get(i)
     }
 
     pub fn iter(&self) -> BufferIterator<T> {
@@ -410,7 +426,7 @@ mod tests {
     fn test_struct() {
         let a: Rc<Array> = Rc::new(PrimitiveArray::from(Buffer::from(vec![1, 2, 3, 4, 5])));
         let b: Rc<Array> = Rc::new(PrimitiveArray::from(Buffer::from(vec![
-            1.1, 2.2, 3.3, 4.4, 5.5
+            1.1, 2.2, 3.3, 4.4, 5.5,
         ])));
 
         let s = StructArray::from(vec![a, b]);

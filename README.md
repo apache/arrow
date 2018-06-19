@@ -51,7 +51,8 @@ Major components of the project include:
  - [JavaScript libraries](https://github.com/apache/arrow/tree/master/js)
  - [Plasma Object Store](https://github.com/apache/arrow/tree/master/cpp/src/plasma): a
    shared-memory blob store, part of the C++ codebase
- - [Python bindings to C++](https://github.com/apache/arrow/tree/master/python)
+ - [Python libraries](https://github.com/apache/arrow/tree/master/python)
+ - [Ruby libraries](https://github.com/apache/arrow/tree/master/ruby)
  - [Rust libraries](https://github.com/apache/arrow/tree/master/rust)
 
 Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at

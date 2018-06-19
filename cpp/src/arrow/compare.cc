@@ -319,7 +319,10 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
     for (int64_t i = 0; i < left.length(); ++i) {
       const bool left_null = left.IsNull(i);
       const bool right_null = right.IsNull(i);
-      if (!left_null && (memcmp(left_data, right_data, byte_width) != 0 || right_null)) {
+      if (left_null != right_null) {
+        return false;
+      }
+      if (!left_null && memcmp(left_data, right_data, byte_width) != 0) {
         return false;
       }
       left_data += byte_width;

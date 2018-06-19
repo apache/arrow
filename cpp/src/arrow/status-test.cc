@@ -40,4 +40,41 @@ TEST(StatusTest, TestToString) {
   ASSERT_EQ(file_error.ToString(), ss.str());
 }
 
+TEST(StatusTest, AndStatus) {
+  Status a = Status::OK();
+  Status b = Status::OK();
+  Status c = Status::Invalid("invalid value");
+  Status d = Status::IOError("file error");
+
+  Status res;
+  res = a & b;
+  ASSERT_TRUE(res.ok());
+  res = a & c;
+  ASSERT_TRUE(res.IsInvalid());
+  res = d & c;
+  ASSERT_TRUE(res.IsIOError());
+
+  res = Status::OK();
+  res &= c;
+  ASSERT_TRUE(res.IsInvalid());
+  res &= d;
+  ASSERT_TRUE(res.IsInvalid());
+
+  // With rvalues
+  res = Status::OK() & Status::Invalid("foo");
+  ASSERT_TRUE(res.IsInvalid());
+  res = Status::Invalid("foo") & Status::OK();
+  ASSERT_TRUE(res.IsInvalid());
+  res = Status::Invalid("foo") & Status::IOError("bar");
+  ASSERT_TRUE(res.IsInvalid());
+
+  res = Status::OK();
+  res &= Status::OK();
+  ASSERT_TRUE(res.ok());
+  res &= Status::Invalid("foo");
+  ASSERT_TRUE(res.IsInvalid());
+  res &= Status::IOError("bar");
+  ASSERT_TRUE(res.IsInvalid());
+}
+
 }  // namespace arrow

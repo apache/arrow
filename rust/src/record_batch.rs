@@ -66,7 +66,7 @@ mod tests {
         ]);
 
         let a = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
-        let b = PrimitiveArray::from(vec!["a", "b", "c", "d", "e"]);
+        let b = ListArray::from(vec!["a", "b", "c", "d", "e"]);
 
         let record_batch = RecordBatch::new(Rc::new(schema), vec![Rc::new(a), Rc::new(b)]);
 

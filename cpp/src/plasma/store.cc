@@ -103,7 +103,7 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
   num_objects_to_wait_for = unique_ids.size();
 }
 
-Client::Client(int fd) : fd(fd) {}
+Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
 PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
                          bool hugepages_enabled)
@@ -559,21 +559,34 @@ void PlasmaStore::disconnect_client(int client_fd) {
     remove_from_client_object_ids(entry, client);
   }
 
-  // Note, the store may still attempt to send a message to the disconnected
-  // client (for example, when an object ID that the client was waiting for
-  // is ready). In these cases, the attempt to send the message will fail, but
-  // the store should just ignore the failure.
+  if (client->notification_fd > 0) {
+    // This client has subscribed for notifications.
+    auto notify_fd = client->notification_fd;
+    loop_->RemoveFileEvent(notify_fd);
+    // Close socket.
+    close(notify_fd);
+    // Remove notification queue for this fd from global map.
+    pending_notifications_.erase(notify_fd);
+    // Reset fd.
+    client->notification_fd = -1;
+  }
+
   connected_clients_.erase(it);
 }
 
 /// Send notifications about sealed objects to the subscribers. This is called
 /// in seal_object. If the socket's send buffer is full, the notification will
-/// be
-/// buffered, and this will be called again when the send buffer has room.
+/// be buffered, and this will be called again when the send buffer has room.
+/// Since we call erase on pending_notifications_, all iterators get
+/// invalidated, which is why we return a valid iterator to the next client to
+/// be used in push_notification.
 ///
-/// @param client_fd The client to send the notification to.
-void PlasmaStore::send_notifications(int client_fd) {
-  auto& notifications = pending_notifications_[client_fd].object_notifications;
+/// @param it Iterator that points to the client to send the notification to.
+/// @return Iterator pointing to the next client.
+PlasmaStore::NotificationMap::iterator PlasmaStore::send_notifications(
+    PlasmaStore::NotificationMap::iterator it) {
+  int client_fd = it->first;
+  auto& notifications = it->second.object_notifications;
 
   int num_processed = 0;
   bool closed = false;
@@ -599,7 +612,7 @@ void PlasmaStore::send_notifications(int client_fd) {
       // TODO(pcm): Introduce status codes and check in case the file descriptor
       // is added twice.
       loop_->AddFileEvent(client_fd, kEventLoopWrite, [this, client_fd](int events) {
-        send_notifications(client_fd);
+        send_notifications(pending_notifications_.find(client_fd));
       });
       break;
     } else {
@@ -622,21 +635,38 @@ void PlasmaStore::send_notifications(int client_fd) {
   // Stop sending notifications if the pipe was broken.
   if (closed) {
     close(client_fd);
-    pending_notifications_.erase(client_fd);
+    return pending_notifications_.erase(it);
+  } else {
+    return ++it;
   }
 }
 
 void PlasmaStore::push_notification(ObjectInfoT* object_info) {
-  for (auto& element : pending_notifications_) {
+  auto it = pending_notifications_.begin();
+  while (it != pending_notifications_.end()) {
     auto notification = create_object_info_buffer(object_info);
-    element.second.object_notifications.emplace_back(std::move(notification));
-    send_notifications(element.first);
+    it->second.object_notifications.emplace_back(std::move(notification));
+    it = send_notifications(it);
+  }
+}
+
+void PlasmaStore::push_notification(ObjectInfoT* object_info, int client_fd) {
+  auto it = pending_notifications_.find(client_fd);
+  if (it != pending_notifications_.end()) {
+    auto notification = create_object_info_buffer(object_info);
+    it->second.object_notifications.emplace_back(std::move(notification));
+    send_notifications(it);
   }
 }
 
 // Subscribe to notifications about sealed objects.
 void PlasmaStore::subscribe_to_updates(Client* client) {
   ARROW_LOG(DEBUG) << "subscribing to updates on fd " << client->fd;
+  if (client->notification_fd > 0) {
+    // This client has already subscribed. Return.
+    return;
+  }
+
   // TODO(rkn): The store could block here if the client doesn't send a file
   // descriptor.
   int fd = recv_fd(client->fd);
@@ -649,12 +679,14 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 
   // Add this fd to global map, which is needed for this client to receive notifications.
   pending_notifications_[fd];
+  client->notification_fd = fd;
 
-  // Push notifications to the new subscriber about existing objects.
+  // Push notifications to the new subscriber about existing sealed objects.
   for (const auto& entry : store_info_.objects) {
-    push_notification(&entry.second->info);
+    if (entry.second->state == PLASMA_SEALED) {
+      push_notification(&entry.second->info, fd);
+    }
   }
-  send_notifications(fd);
 }
 
 Status PlasmaStore::process_message(Client* client) {

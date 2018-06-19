@@ -1,0 +1,6 @@
+usr/include/arrow-glib/
+usr/lib/*/libarrow-glib.a
+usr/lib/*/libarrow-glib.so
+usr/lib/*/pkgconfig/arrow-glib.pc
+usr/share/gir-1.0/Arrow-1.0.gir
+usr/share/arrow-glib/example/

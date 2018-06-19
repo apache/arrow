@@ -365,7 +365,11 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None):
             nthreads = 1
 
     def convert_column(col, ty):
-        return pa.array(col, from_pandas=True, type=ty)
+        try:
+            return pa.array(col, from_pandas=True, type=ty)
+        except (pa.ArrowInvalid, pa.ArrowTypeError) as e:
+            e.args += ("Conversion failed for column %s" % col.name,)
+            raise e
 
     if nthreads == 1:
         arrays = [convert_column(c, t)
@@ -493,8 +497,7 @@ def _make_datetimetz(tz):
 # Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
-def table_to_blockmanager(options, table, memory_pool, nthreads=1,
-                          categories=None):
+def table_to_blockmanager(options, table, memory_pool, categories=None):
     from pyarrow.compat import DatetimeTZDtype
 
     index_columns = []
@@ -568,8 +571,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
                 block_table.schema.get_field_index(raw_name)
             )
 
-    blocks = _table_to_blocks(options, block_table, nthreads, memory_pool,
-                              categories)
+    blocks = _table_to_blocks(options, block_table, memory_pool, categories)
 
     # Construct the row index
     if len(index_arrays) > 1:
@@ -650,6 +652,7 @@ _pandas_logical_type_map = {
     'string': np.str_,
     'empty': np.object_,
     'mixed': np.object_,
+    'mixed-integer': np.object_
 }
 
 
@@ -728,12 +731,12 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     return pd.MultiIndex(levels=new_levels, labels=labels, names=columns.names)
 
 
-def _table_to_blocks(options, block_table, nthreads, memory_pool, categories):
+def _table_to_blocks(options, block_table, memory_pool, categories):
     # Part of table_to_blockmanager
 
     # Convert an arrow table to Block from the internal pandas API
-    result = pa.lib.table_to_blocks(options, block_table, nthreads,
-                                    memory_pool, categories)
+    result = pa.lib.table_to_blocks(options, block_table, memory_pool,
+                                    categories)
 
     # Defined above
     return [_reconstruct_block(item) for item in result]

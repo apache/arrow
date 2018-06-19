@@ -2,6 +2,7 @@
   "version": "0.3.0",
   "name": "apache-arrow",
   "description": "Apache Arrow columnar in-memory format",
+  "main": "./index",
   "bin": {
     "arrow2csv": "bin/arrow2csv.js"
   },
@@ -53,7 +54,7 @@
   ],
   "dependencies": {
     "@types/flatbuffers": "1.6.5",
-    "@types/node": "9.3.0",
+    "@types/node": "10.0.8",
     "@types/text-encoding-utf-8": "1.0.1",
     "command-line-args": "5.0.1",
     "command-line-usage": "4.1.0",
@@ -65,22 +66,20 @@
   "devDependencies": {
     "@std/esm": "0.26.0",
     "@types/glob": "5.0.35",
-    "@types/jest": "22.1.0",
-    "ast-types": "0.10.1",
-    "babel-jest": "22.4.1",
+    "@types/jest": "22.2.3",
+    "babel-jest": "22.4.3",
     "benchmark": "2.1.4",
     "coveralls": "3.0.0",
     "del": "3.0.0",
     "glob": "7.1.2",
-    "google-closure-compiler": "20180101.0.0",
+    "google-closure-compiler": "20180506.0.0",
     "gulp": "github:gulpjs/gulp#6d71a658c61edb3090221579d8f97dbe086ba2ed",
     "gulp-json-transform": "0.4.5",
     "gulp-rename": "1.2.2",
     "gulp-sourcemaps": "2.6.3",
-    "gulp-transform-js-ast": "1.0.2",
     "gulp-typescript": "3.2.4",
     "ix": "2.3.4",
-    "jest": "22.1.4",
+    "jest": "22.4.3",
     "jest-environment-node-debug": "2.0.0",
     "json": "9.0.6",
     "lerna": "2.7.1",
@@ -94,7 +93,8 @@
     "shx": "0.2.2",
     "source-map-loader": "0.2.3",
     "trash": "4.2.1",
-    "ts-jest": "22.0.1",
+    "ts-jest": "22.4.6",
+    "ts-node": "6.0.3",
     "tslint": "5.9.1",
     "typedoc": "0.10.0",
     "typescript": "2.7.1",
@@ -113,8 +113,10 @@
   },
   "jest": {
     "verbose": false,
+    "testEnvironment": "node",
     "globals": {
       "ts-jest": {
+        "skipBabel": true,
         "tsConfigFile": "test/tsconfig.json"
       }
     },

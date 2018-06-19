@@ -199,12 +199,18 @@ cdef class PlasmaBuffer(Buffer):
         ObjectID object_id
         PlasmaClient client
 
-    def __cinit__(self, ObjectID object_id, PlasmaClient client):
-        """
-        Initialize a PlasmaBuffer.
-        """
+    @staticmethod
+    cdef PlasmaBuffer create(ObjectID object_id, PlasmaClient client,
+                             const shared_ptr[CBuffer]& buffer):
+        cdef PlasmaBuffer self = PlasmaBuffer.__new__(PlasmaBuffer)
         self.object_id = object_id
         self.client = client
+        self.init(buffer)
+        return self
+
+    def __init__(self):
+        raise TypeError("Do not call PlasmaBuffer's constructor directly, use "
+                        "`PlasmaClient.create` instead.")
 
     def __dealloc__(self):
         """
@@ -252,9 +258,7 @@ cdef class PlasmaClient:
                                      int64_t size):
         cdef shared_ptr[CBuffer] buffer
         buffer.reset(new CMutableBuffer(data, size))
-        result = PlasmaBuffer(object_id, self)
-        result.init(buffer)
-        return result
+        return PlasmaBuffer.create(object_id, self, buffer)
 
     @property
     def store_socket_name(self):

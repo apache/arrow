@@ -1,0 +1,55 @@
+{
+    "package": {
+        "name": "APT",
+        "repo": "apache-arrow-apt",
+        "subject": "kou",
+        "licenses": ["Apache-2.0"],
+        "vcs_url": "htttps://github.com/apache/arrow.git"
+    },
+    "version": {
+        "name": "dev"
+    },
+    "files": [
+        {
+            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/stretch/main/a/apache-arrow/([^/]+\\.deb)\\z",
+            "uploadPattern": "pool/stretch/main/$2",
+            "matrixParams": {
+                "deb_distribution": "stretch",
+                "deb_component": "main",
+                "deb_architecture": "amd64",
+                "override": 1
+            }
+        },
+        {
+            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/trusty/universe/a/apache-arrow/([^/]+\\.deb)\\z",
+            "uploadPattern": "pool/trusty/universe/$2",
+            "matrixParams": {
+                "deb_distribution": "trusty",
+                "deb_component": "universe",
+                "deb_architecture": "amd64",
+                "override": 1
+            }
+        },
+        {
+            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/xenial/universe/a/apache-arrow/([^/]+\\.deb)\\z",
+            "uploadPattern": "pool/xenial/universe/$2",
+            "matrixParams": {
+                "deb_distribution": "xenial",
+                "deb_component": "universe",
+                "deb_architecture": "amd64",
+                "override": 1
+            }
+        },
+        {
+            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/artful/universe/a/apache-arrow/([^/]+\\.deb)\\z",
+            "uploadPattern": "pool/artful/universe/$2",
+            "matrixParams": {
+                "deb_distribution": "artful",
+                "deb_component": "universe",
+                "deb_architecture": "amd64",
+                "override": 1
+            }
+        }
+    ],
+    "publish": true
+}

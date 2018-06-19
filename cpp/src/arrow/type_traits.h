@@ -26,6 +26,10 @@
 
 namespace arrow {
 
+//
+// Per-type type traits
+//
+
 template <typename T>
 struct TypeTraits {};
 
@@ -297,6 +301,67 @@ struct TypeTraits<DictionaryType> {
   using ArrayType = DictionaryArray;
   constexpr static bool is_parameter_free = false;
 };
+
+//
+// Useful type predicates
+//
+
+template <typename T>
+using is_number = std::is_base_of<Number, T>;
+
+template <typename T>
+struct has_c_type {
+  static constexpr bool value =
+      (std::is_base_of<PrimitiveCType, T>::value || std::is_base_of<DateType, T>::value ||
+       std::is_base_of<TimeType, T>::value || std::is_base_of<TimestampType, T>::value);
+};
+
+template <typename T>
+struct is_8bit_int {
+  static constexpr bool value =
+      (std::is_same<UInt8Type, T>::value || std::is_same<Int8Type, T>::value);
+};
+
+template <typename T>
+using enable_if_8bit_int = typename std::enable_if<is_8bit_int<T>::value>::type;
+
+template <typename T>
+using enable_if_primitive_ctype =
+    typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value>::type;
+
+template <typename T>
+using enable_if_date = typename std::enable_if<std::is_base_of<DateType, T>::value>::type;
+
+template <typename T>
+using enable_if_time = typename std::enable_if<std::is_base_of<TimeType, T>::value>::type;
+
+template <typename T>
+using enable_if_timestamp =
+    typename std::enable_if<std::is_base_of<TimestampType, T>::value>::type;
+
+template <typename T>
+using enable_if_has_c_type = typename std::enable_if<has_c_type<T>::value>::type;
+
+template <typename T>
+using enable_if_null = typename std::enable_if<std::is_same<NullType, T>::value>::type;
+
+template <typename T>
+using enable_if_binary =
+    typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type;
+
+template <typename T>
+using enable_if_boolean =
+    typename std::enable_if<std::is_same<BooleanType, T>::value>::type;
+
+template <typename T>
+using enable_if_fixed_size_binary =
+    typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value>::type;
+
+template <typename T>
+using enable_if_list = typename std::enable_if<std::is_base_of<ListType, T>::value>::type;
+
+template <typename T>
+using enable_if_number = typename std::enable_if<is_number<T>::value>::type;
 
 namespace detail {
 

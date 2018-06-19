@@ -27,6 +27,8 @@ except ImportError:
 else:
     import pyarrow.pandas_compat as pdcompat
 
+from .util import _deprecate_nthreads
+
 
 cdef class ChunkedArray:
     """
@@ -40,6 +42,10 @@ cdef class ChunkedArray:
     def __cinit__(self):
         self.chunked_array = NULL
 
+    def __init__(self):
+        raise TypeError("Do not call ChunkedArray's constructor directly, use "
+                        "`chunked_array` function instead.")
+
     cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array):
         self.sp_chunked_array = chunked_array
         self.chunked_array = chunked_array.get()
@@ -49,17 +55,7 @@ cdef class ChunkedArray:
         def __get__(self):
             return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
 
-    cdef int _check_nullptr(self) except -1:
-        if self.chunked_array == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def length(self):
-        self._check_nullptr()
         return self.chunked_array.length()
 
     def __len__(self):
@@ -74,24 +70,30 @@ cdef class ChunkedArray:
         -------
         int
         """
-        self._check_nullptr()
         return self.chunked_array.null_count()
 
+    def __iter__(self):
+        for chunk in self.iterchunks():
+            for item in chunk:
+                yield item
+
     def __getitem__(self, key):
-        cdef int64_t item
-        cdef int i
-        self._check_nullptr()
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         elif isinstance(key, six.integer_types):
-            index = _normalize_index(key, self.chunked_array.length())
-            for i in range(self.num_chunks):
-                if index < self.chunked_array.chunk(i).get().length():
-                    return self.chunk(i)[index]
-                else:
-                    index -= self.chunked_array.chunk(i).get().length()
+            return self.getitem(key)
         else:
             raise TypeError("key must either be a slice or integer")
+
+    cdef getitem(self, int64_t i):
+        cdef int j
+
+        index = _normalize_index(i, self.chunked_array.length())
+        for j in range(self.num_chunks):
+            if index < self.chunked_array.chunk(j).get().length():
+                return self.chunk(j)[index]
+            else:
+                index -= self.chunked_array.chunk(j).get().length()
 
     def slice(self, offset=0, length=None):
         """
@@ -130,7 +132,6 @@ cdef class ChunkedArray:
         -------
         int
         """
-        self._check_nullptr()
         return self.chunked_array.num_chunks()
 
     def chunk(self, i):
@@ -145,8 +146,6 @@ cdef class ChunkedArray:
         -------
         pyarrow.Array
         """
-        self._check_nullptr()
-
         if i >= self.num_chunks or i < 0:
             raise IndexError('Chunk index out of range.')
 
@@ -192,6 +191,7 @@ def chunked_array(arrays, type=None):
         Array arr
         vector[shared_ptr[CArray]] c_arrays
         shared_ptr[CChunkedArray] sp_chunked_array
+        shared_ptr[CDataType] sp_data_type
 
     for x in arrays:
         if isinstance(x, Array):
@@ -203,7 +203,14 @@ def chunked_array(arrays, type=None):
 
         c_arrays.push_back(arr.sp_array)
 
-    sp_chunked_array.reset(new CChunkedArray(c_arrays))
+    if type:
+        sp_data_type = pyarrow_unwrap_data_type(type)
+        sp_chunked_array.reset(new CChunkedArray(c_arrays, sp_data_type))
+    else:
+        if c_arrays.size() == 0:
+            raise ValueError("Cannot construct a chunked array with neither "
+                             "arrays nor type")
+        sp_chunked_array.reset(new CChunkedArray(c_arrays))
     return pyarrow_wrap_chunked_array(sp_chunked_array)
 
 
@@ -263,6 +270,10 @@ cdef class Column:
 
     def __cinit__(self):
         self.column = NULL
+
+    def __init__(self):
+        raise TypeError("Do not call Column's constructor directly, use one "
+                        "of the `Column.from_*` functions instead.")
 
     cdef void init(self, const shared_ptr[CColumn]& column):
         self.sp_column = column
@@ -365,7 +376,8 @@ cdef class Column:
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls)
+            integer_object_nulls=integer_object_nulls,
+            use_threads=False)
 
         with nogil:
             check_status(libarrow.ConvertColumnToPandas(options,
@@ -397,15 +409,12 @@ cdef class Column:
         are_equal : boolean
         """
         cdef:
-            CColumn* my_col = self.column
+            CColumn* this_col = self.column
             CColumn* other_col = other.column
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_col.Equals(deref(other_col))
+            result = this_col.Equals(deref(other_col))
 
         return result
 
@@ -415,20 +424,10 @@ cdef class Column:
         """
         return self.data.to_pylist()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.column == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def __len__(self):
         return self.length()
 
     def length(self):
-        self._check_nullptr()
         return self.column.length()
 
     @property
@@ -444,7 +443,6 @@ cdef class Column:
         -------
         (int,)
         """
-        self._check_nullptr()
         return (self.length(),)
 
     @property
@@ -456,7 +454,6 @@ cdef class Column:
         -------
         int
         """
-        self._check_nullptr()
         return self.column.null_count()
 
     @property
@@ -490,9 +487,7 @@ cdef class Column:
         -------
         pyarrow.ChunkedArray
         """
-        cdef ChunkedArray chunked_array = ChunkedArray()
-        chunked_array.init(self.column.data())
-        return chunked_array
+        return pyarrow_wrap_chunked_array(self.column.data())
 
 
 cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
@@ -554,29 +549,23 @@ cdef class RecordBatch:
 
     Warning
     -------
-    Do not call this class's constructor directly, use one of the ``from_*``
-    methods instead.
+    Do not call this class's constructor directly, use one of the
+    ``RecordBatch.from_*`` functions instead.
     """
 
     def __cinit__(self):
         self.batch = NULL
         self._schema = None
 
+    def __init__(self):
+        raise TypeError("Do not call RecordBatch's constructor directly, use "
+                        "one of the `RecordBatch.from_*` functions instead.")
+
     cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
         self.batch = batch.get()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.batch == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def __len__(self):
-        self._check_nullptr()
         return self.batch.num_rows()
 
     def replace_schema_metadata(self, dict metadata=None):
@@ -612,7 +601,6 @@ cdef class RecordBatch:
         -------
         int
         """
-        self._check_nullptr()
         return self.batch.num_columns()
 
     @property
@@ -638,12 +626,8 @@ cdef class RecordBatch:
         -------
         pyarrow.Schema
         """
-        cdef Schema schema
-        self._check_nullptr()
         if self._schema is None:
-            schema = Schema()
-            schema.init_schema(self.batch.schema())
-            self._schema = schema
+            self._schema = pyarrow_wrap_schema(self.batch.schema())
 
         return self._schema
 
@@ -719,15 +703,12 @@ cdef class RecordBatch:
 
     def equals(self, RecordBatch other):
         cdef:
-            CRecordBatch* my_batch = self.batch
+            CRecordBatch* this_batch = self.batch
             CRecordBatch* other_batch = other.batch
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_batch.Equals(deref(other_batch))
+            result = this_batch.Equals(deref(other_batch))
 
         return result
 
@@ -746,7 +727,7 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-    def to_pandas(self, nthreads=None):
+    def to_pandas(self, nthreads=None, use_threads=False):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
 
@@ -754,7 +735,8 @@ cdef class RecordBatch:
         -------
         pandas.DataFrame
         """
-        return Table.from_batches([self]).to_pandas(nthreads=nthreads)
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
+        return Table.from_batches([self]).to_pandas(use_threads=use_threads)
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
@@ -825,7 +807,7 @@ cdef class RecordBatch:
             CRecordBatch.Make(schema, num_rows, c_arrays))
 
 
-def table_to_blocks(PandasOptions options, Table table, int nthreads,
+def table_to_blocks(PandasOptions options, Table table,
                     MemoryPool memory_pool, categories):
     cdef:
         PyObject* result_obj
@@ -840,9 +822,7 @@ def table_to_blocks(PandasOptions options, Table table, int nthreads,
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                options, categorical_columns, c_table, nthreads, pool,
-                &result_obj
-            )
+                options, categorical_columns, c_table, pool, &result_obj)
         )
 
     return PyObject_to_object(result_obj)
@@ -861,6 +841,10 @@ cdef class Table:
     def __cinit__(self):
         self.table = NULL
 
+    def __init__(self):
+        raise TypeError("Do not call Table's constructor directly, use one of "
+                        "the `Table.from_*` functions instead.")
+
     def __repr__(self):
         return 'pyarrow.{}\n{}'.format(type(self).__name__, str(self.schema))
 
@@ -868,18 +852,10 @@ cdef class Table:
         self.sp_table = table
         self.table = table.get()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.table == nullptr:
-            raise ReferenceError(
-                "Table object references a NULL pointer. Not initialized."
-            )
-        return 0
-
     def _validate(self):
         """
         Validate table consistency.
         """
-        self._check_nullptr()
         with nogil:
             check_status(self.table.Validate())
 
@@ -943,15 +919,12 @@ cdef class Table:
         are_equal : boolean
         """
         cdef:
-            CTable* my_table = self.table
+            CTable* this_table = self.table
             CTable* other_table = other.table
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_table.Equals(deref(other_table))
+            result = this_table.Equals(deref(other_table))
 
         return result
 
@@ -959,7 +932,20 @@ cdef class Table:
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
                     nthreads=None, columns=None):
         """
-        Convert pandas.DataFrame to an Arrow Table
+        Convert pandas.DataFrame to an Arrow Table.
+
+        The column types in the resulting Arrow Table are inferred from the
+        dtypes of the pandas.Series in the DataFrame. In the case of non-object
+        Series, the NumPy dtype is translated to its Arrow equivalent. In the
+        case of `object`, we need to guess the datatype by looking at the
+        Python objects in this Series.
+
+        Be aware that Series of the `object` dtype don't carry enough
+        information to always lead to a meaningful Arrow type. In the case that
+        we cannot infer a type, e.g. because the DataFrame is of length 0 or
+        the Series only contains None/nan objects, the type is set to
+        null. This behavior can be avoided by constructing an explicit schema
+        and passing it to this function.
 
         Parameters
         ----------
@@ -1148,16 +1134,12 @@ cdef class Table:
 
     def to_pandas(self, nthreads=None, strings_to_categorical=False,
                   memory_pool=None, zero_copy_only=False, categories=None,
-                  integer_object_nulls=False):
+                  integer_object_nulls=False, use_threads=False):
         """
         Convert the arrow::Table to a pandas DataFrame
 
         Parameters
         ----------
-        nthreads : int, default max(1, multiprocessing.cpu_count() / 2)
-            For the default, we divide the CPU count by 2 because most modern
-            computers have hyperthreading turned on, so doubling the CPU count
-            beyond the number of physical cores does not help
         strings_to_categorical : boolean, default False
             Encode string (UTF8) and binary types to pandas.Categorical
         memory_pool: MemoryPool, optional
@@ -1169,6 +1151,8 @@ cdef class Table:
             List of columns that should be returned as pandas.Categorical
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
+        use_threads: boolean, default False
+            Whether to parallelize the conversion using multiple threads
 
         Returns
         -------
@@ -1177,15 +1161,16 @@ cdef class Table:
         cdef:
             PandasOptions options
 
+        use_threads = _deprecate_nthreads(use_threads, nthreads)
+
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls)
-        self._check_nullptr()
-        if nthreads is None:
-            nthreads = cpu_count()
+            integer_object_nulls=integer_object_nulls,
+            use_threads=use_threads)
+
         mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
-                                             nthreads, categories)
+                                             categories)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):
@@ -1202,7 +1187,6 @@ cdef class Table:
             list entries = []
             Column column
 
-        self._check_nullptr()
         for i in range(num_columns):
             column = self.column(i)
             entries.append((column.name, column.to_pylist()))
@@ -1218,7 +1202,6 @@ cdef class Table:
         -------
         pyarrow.Schema
         """
-        self._check_nullptr()
         return pyarrow_wrap_schema(self.table.schema())
 
     def column(self, i):
@@ -1257,11 +1240,9 @@ cdef class Table:
         pyarrow.Column
         """
         cdef:
-            Column column = Column()
             int num_columns = self.num_columns
             int index
 
-        self._check_nullptr()
         if not -num_columns <= i < num_columns:
             raise IndexError(
                 'Table column index {:d} is out of range'.format(i)
@@ -1270,8 +1251,7 @@ cdef class Table:
         index = i if i >= 0 else num_columns + i
         assert index >= 0
 
-        column.init(self.table.column(index))
-        return column
+        return pyarrow_wrap_column(self.table.column(index))
 
     def __getitem__(self, key):
         cdef int index = <int> _normalize_index(key, self.num_columns)
@@ -1293,7 +1273,6 @@ cdef class Table:
         -------
         int
         """
-        self._check_nullptr()
         return self.table.num_columns()
 
     @property
@@ -1308,7 +1287,6 @@ cdef class Table:
         -------
         int
         """
-        self._check_nullptr()
         return self.table.num_rows()
 
     def __len__(self):
@@ -1330,7 +1308,6 @@ cdef class Table:
         Add column to Table at position. Returns new table
         """
         cdef shared_ptr[CTable] c_table
-        self._check_nullptr()
 
         with nogil:
             check_status(self.table.AddColumn(i, column.sp_column, &c_table))
@@ -1348,7 +1325,6 @@ cdef class Table:
         Create new Table with the indicated column removed
         """
         cdef shared_ptr[CTable] c_table
-        self._check_nullptr()
 
         with nogil:
             check_status(self.table.RemoveColumn(i, &c_table))

@@ -406,9 +406,9 @@ def test_get_record_batch_size():
     assert pa.get_record_batch_size(batch) > (N * itemsize)
 
 
-def _check_serialize_pandas_round_trip(df, nthreads=1):
-    buf = pa.serialize_pandas(df, nthreads=nthreads)
-    result = pa.deserialize_pandas(buf, nthreads=nthreads)
+def _check_serialize_pandas_round_trip(df, use_threads=False):
+    buf = pa.serialize_pandas(df, nthreads=2 if use_threads else 1)
+    result = pa.deserialize_pandas(buf, use_threads=use_threads)
     assert_frame_equal(result, df)
 
 
@@ -429,7 +429,7 @@ def test_pandas_serialize_round_trip_nthreads():
         {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
         index=index, columns=columns
     )
-    _check_serialize_pandas_round_trip(df, nthreads=2)
+    _check_serialize_pandas_round_trip(df, use_threads=True)
 
 
 def test_pandas_serialize_round_trip_multi_index():
@@ -505,6 +505,24 @@ def test_schema_batch_serialize_methods():
     recons_schema = pa.read_schema(s_schema)
     recons_batch = pa.read_record_batch(s_batch, recons_schema)
     assert recons_batch.equals(batch)
+
+
+def test_schema_serialization_with_metadata():
+    field_metadata = {b'foo': b'bar', b'kind': b'field'}
+    schema_metadata = {b'foo': b'bar', b'kind': b'schema'}
+
+    f0 = pa.field('a', pa.int8())
+    f1 = pa.field('b', pa.string(), metadata=field_metadata)
+
+    schema = pa.schema([f0, f1], metadata=schema_metadata)
+
+    s_schema = schema.serialize()
+    recons_schema = pa.read_schema(s_schema)
+
+    assert recons_schema.equals(schema)
+    assert recons_schema.metadata == schema_metadata
+    assert recons_schema[0].metadata is None
+    assert recons_schema[1].metadata == field_metadata
 
 
 def write_file(batch, sink):

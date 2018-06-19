@@ -23,9 +23,9 @@ from libc.stdint cimport uintptr_t
 from libcpp.vector cimport vector
 from libcpp.pair cimport pair
 
-cimport numpy as np
 import numpy as np
 
+cimport numpy as np
 
 cdef extern from "<queue>" namespace "std" nogil:
     cdef cppclass priority_queue[T]:
@@ -44,7 +44,7 @@ def multimerge2d(*arrays):
     This assumes C style ordering for both input and output arrays. For
     each input array we have array[i,0] <= array[i+1,0] and for the output
     array the same will hold.
-    
+
     Ideally this code would be simpler and also support both C style
     and Fortran style ordering.
     """

@@ -25,14 +25,39 @@
 namespace arrow {
 namespace internal {
 
+struct ThreadPool::State {
+  State() : desired_capacity_(0), please_shutdown_(false), quick_shutdown_(false) {}
+
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  std::condition_variable cv_shutdown_;
+
+  std::list<std::thread> workers_;
+  // Trashcan for finished threads
+  std::vector<std::thread> finished_workers_;
+  std::deque<std::function<void()>> pending_tasks_;
+
+  // Desired number of threads
+  int desired_capacity_;
+  // Are we shutting down?
+  bool please_shutdown_;
+  bool quick_shutdown_;
+};
+
 ThreadPool::ThreadPool()
-    : desired_capacity_(0), please_shutdown_(false), quick_shutdown_(false) {}
+    : sp_state_(std::make_shared<ThreadPool::State>()),
+      state_(sp_state_.get()),
+      shutdown_on_destroy_(true) {}
 
-ThreadPool::~ThreadPool() { ARROW_UNUSED(Shutdown(false /* wait */)); }
+ThreadPool::~ThreadPool() {
+  if (shutdown_on_destroy_) {
+    ARROW_UNUSED(Shutdown(false /* wait */));
+  }
+}
 
-Status ThreadPool::SetCapacity(size_t threads) {
-  std::unique_lock<std::mutex> lock(mutex_);
-  if (please_shutdown_) {
+Status ThreadPool::SetCapacity(int threads) {
+  std::unique_lock<std::mutex> lock(state_->mutex_);
+  if (state_->please_shutdown_) {
     return Status::Invalid("operation forbidden during or after shutdown");
   }
   if (threads <= 0) {
@@ -40,63 +65,76 @@ Status ThreadPool::SetCapacity(size_t threads) {
   }
   CollectFinishedWorkersUnlocked();
 
-  desired_capacity_ = threads;
-  int64_t diff = desired_capacity_ - workers_.size();
+  state_->desired_capacity_ = threads;
+  int diff = static_cast<int>(threads - state_->workers_.size());
   if (diff > 0) {
-    LaunchWorkersUnlocked(static_cast<size_t>(diff));
+    LaunchWorkersUnlocked(diff);
   } else if (diff < 0) {
     // Wake threads to ask them to stop
-    cv_.notify_all();
+    state_->cv_.notify_all();
   }
   return Status::OK();
 }
 
-size_t ThreadPool::GetCapacity() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  return workers_.size();
+int ThreadPool::GetCapacity() {
+  std::unique_lock<std::mutex> lock(state_->mutex_);
+  return state_->desired_capacity_;
+}
+
+int ThreadPool::GetActualCapacity() {
+  std::unique_lock<std::mutex> lock(state_->mutex_);
+  return static_cast<int>(state_->workers_.size());
 }
 
 Status ThreadPool::Shutdown(bool wait) {
-  std::unique_lock<std::mutex> lock(mutex_);
+  std::unique_lock<std::mutex> lock(state_->mutex_);
 
-  if (please_shutdown_) {
+  if (state_->please_shutdown_) {
     return Status::Invalid("Shutdown() already called");
   }
-  please_shutdown_ = true;
-  quick_shutdown_ = !wait;
-  cv_.notify_all();
-  cv_shutdown_.wait(lock, [this] { return workers_.empty(); });
-  if (!quick_shutdown_) {
-    DCHECK_EQ(pending_tasks_.size(), 0);
+  state_->please_shutdown_ = true;
+  state_->quick_shutdown_ = !wait;
+  state_->cv_.notify_all();
+  state_->cv_shutdown_.wait(lock, [this] { return state_->workers_.empty(); });
+  if (!state_->quick_shutdown_) {
+    DCHECK_EQ(state_->pending_tasks_.size(), 0);
   } else {
-    pending_tasks_.clear();
+    state_->pending_tasks_.clear();
   }
   CollectFinishedWorkersUnlocked();
   return Status::OK();
 }
 
 void ThreadPool::CollectFinishedWorkersUnlocked() {
-  for (auto& thread : finished_workers_) {
+  for (auto& thread : state_->finished_workers_) {
     // Make sure OS thread has exited
     thread.join();
   }
-  finished_workers_.clear();
+  state_->finished_workers_.clear();
 }
 
-void ThreadPool::LaunchWorkersUnlocked(size_t threads) {
-  for (size_t i = 0; i < threads; i++) {
-    workers_.emplace_back();
-    auto it = --workers_.end();
-    *it = std::thread([this, it] { WorkerLoop(it); });
+void ThreadPool::LaunchWorkersUnlocked(int threads) {
+  std::shared_ptr<State> state = sp_state_;
+
+  for (int i = 0; i < threads; i++) {
+    state_->workers_.emplace_back();
+    auto it = --(state_->workers_.end());
+    *it = std::thread([state, it] { WorkerLoop(state, it); });
   }
 }
 
-void ThreadPool::WorkerLoop(std::list<std::thread>::iterator it) {
-  std::unique_lock<std::mutex> lock(mutex_);
+void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
+                            std::list<std::thread>::iterator it) {
+  std::unique_lock<std::mutex> lock(state->mutex_);
 
   // Since we hold the lock, `it` now points to the correct thread object
   // (LaunchWorkersUnlocked has exited)
   DCHECK_EQ(std::this_thread::get_id(), it->get_id());
+
+  // If too many threads, we should secede from the pool
+  const auto should_secede = [&]() -> bool {
+    return state->workers_.size() > static_cast<size_t>(state->desired_capacity_);
+  };
 
   while (true) {
     // By the time this thread is started, some tasks may have been pushed
@@ -104,27 +142,26 @@ void ThreadPool::WorkerLoop(std::list<std::thread>::iterator it) {
     // condition variable at the end of the loop.
 
     // Execute pending tasks if any
-    while (!pending_tasks_.empty() && !quick_shutdown_) {
-      // If too many threads, secede from the pool.
+    while (!state->pending_tasks_.empty() && !state->quick_shutdown_) {
       // We check this opportunistically at each loop iteration since
       // it releases the lock below.
-      if (workers_.size() > desired_capacity_) {
+      if (should_secede()) {
         break;
       }
       {
-        std::function<void()> task = std::move(pending_tasks_.front());
-        pending_tasks_.pop_front();
+        std::function<void()> task = std::move(state->pending_tasks_.front());
+        state->pending_tasks_.pop_front();
         lock.unlock();
         task();
       }
       lock.lock();
     }
     // Now either the queue is empty *or* a quick shutdown was requested
-    if (please_shutdown_ || workers_.size() > desired_capacity_) {
+    if (state->please_shutdown_ || should_secede()) {
       break;
     }
     // Wait for next wakeup
-    cv_.wait(lock);
+    state->cv_.wait(lock);
   }
 
   // We're done.  Move our thread object to the trashcan of finished
@@ -135,28 +172,28 @@ void ThreadPool::WorkerLoop(std::list<std::thread>::iterator it) {
   //    are exited before the ThreadPool is destroyed.  Otherwise subtle
   //    timing conditions can lead to false positives with Valgrind.
   DCHECK_EQ(std::this_thread::get_id(), it->get_id());
-  finished_workers_.push_back(std::move(*it));
-  workers_.erase(it);
-  if (please_shutdown_) {
+  state->finished_workers_.push_back(std::move(*it));
+  state->workers_.erase(it);
+  if (state->please_shutdown_) {
     // Notify the function waiting in Shutdown().
-    cv_shutdown_.notify_one();
+    state->cv_shutdown_.notify_one();
   }
 }
 
 Status ThreadPool::SpawnReal(std::function<void()> task) {
   {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (please_shutdown_) {
+    std::lock_guard<std::mutex> lock(state_->mutex_);
+    if (state_->please_shutdown_) {
       return Status::Invalid("operation forbidden during or after shutdown");
     }
     CollectFinishedWorkersUnlocked();
-    pending_tasks_.push_back(std::move(task));
+    state_->pending_tasks_.push_back(std::move(task));
   }
-  cv_.notify_one();
+  state_->cv_.notify_one();
   return Status::OK();
 }
 
-Status ThreadPool::Make(size_t threads, std::shared_ptr<ThreadPool>* out) {
+Status ThreadPool::Make(int threads, std::shared_ptr<ThreadPool>* out) {
   auto pool = std::shared_ptr<ThreadPool>(new ThreadPool());
   RETURN_NOT_OK(pool->SetCapacity(threads));
   *out = std::move(pool);
@@ -166,7 +203,7 @@ Status ThreadPool::Make(size_t threads, std::shared_ptr<ThreadPool>* out) {
 // ----------------------------------------------------------------------
 // Global thread pool
 
-static size_t ParseOMPEnvVar(const char* name) {
+static int ParseOMPEnvVar(const char* name) {
   // OMP_NUM_THREADS is a comma-separated list of positive integers.
   // We are only interested in the first (top-level) number.
   std::string str;
@@ -178,14 +215,14 @@ static size_t ParseOMPEnvVar(const char* name) {
     str = str.substr(0, first_comma);
   }
   try {
-    return static_cast<size_t>(std::max(0LL, std::stoll(str)));
+    return std::max(0, std::stoi(str));
   } catch (...) {
     return 0;
   }
 }
 
-size_t ThreadPool::DefaultCapacity() {
-  size_t capacity, limit;
+int ThreadPool::DefaultCapacity() {
+  int capacity, limit;
   capacity = ParseOMPEnvVar("OMP_NUM_THREADS");
   if (capacity == 0) {
     capacity = std::thread::hardware_concurrency();
@@ -203,21 +240,30 @@ size_t ThreadPool::DefaultCapacity() {
 }
 
 // Helper for the singleton pattern
-static std::shared_ptr<ThreadPool> MakePoolWithDefaultCapacity() {
+std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
   std::shared_ptr<ThreadPool> pool;
   DCHECK_OK(ThreadPool::Make(ThreadPool::DefaultCapacity(), &pool));
+  // On Windows, the global ThreadPool destructor may be called after
+  // non-main threads have been killed by the OS, and hang in a condition
+  // variable.
+  // On Unix, we want to avoid leak reports by Valgrind.
+#ifdef _WIN32
+  pool->shutdown_on_destroy_ = false;
+#endif
   return pool;
 }
 
-ThreadPool* CPUThreadPool() {
-  static std::shared_ptr<ThreadPool> singleton = MakePoolWithDefaultCapacity();
+ThreadPool* GetCpuThreadPool() {
+  static std::shared_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
   return singleton.get();
 }
 
 }  // namespace internal
 
-Status SetCPUThreadPoolCapacity(size_t threads) {
-  return internal::CPUThreadPool()->SetCapacity(threads);
+int GetCpuThreadPoolCapacity() { return internal::GetCpuThreadPool()->GetCapacity(); }
+
+Status SetCpuThreadPoolCapacity(int threads) {
+  return internal::GetCpuThreadPool()->SetCapacity(threads);
 }
 
 }  // namespace arrow

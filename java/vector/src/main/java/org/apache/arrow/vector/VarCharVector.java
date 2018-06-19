@@ -265,6 +265,29 @@ public class VarCharVector extends BaseVariableWidthVector {
     lastSet = index;
   }
 
+  /**
+   * Set the variable length element at the specified index to the
+   * content in supplied Text
+   *
+   * @param index   position of the element to set
+   * @param text    Text object with data
+   */
+  public void set(int index, Text text) {
+    set(index, text.getBytes(), 0, text.getLength());
+  }
+
+  /**
+   * Same as {@link #set(int, NullableVarCharHolder)} except that it handles the
+   * case where index and length of new element are beyond the existing
+   * capacity of the vector.
+   *
+   * @param index   position of the element to set.
+   * @param text    Text object with data
+   */
+  public void setSafe(int index, Text text) {
+    setSafe(index, text.getBytes(), 0, text.getLength());
+  }
+
 
   /******************************************************************
    *                                                                *

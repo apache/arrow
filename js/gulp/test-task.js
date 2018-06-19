@@ -50,7 +50,7 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
     opts.env = { ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
-        TEST_TS_SOURCE: !!argv.coverage,
+        TEST_TS_SOURCE: !!argv.coverage || (target === 'src') || (opts.env.TEST_TS_SOURCE === 'true'),
         JSON_PATHS: JSON.stringify(Array.isArray(argv.json_files) ? argv.json_files : [argv.json_files]),
         ARROW_PATHS: JSON.stringify(Array.isArray(argv.arrow_files) ? argv.arrow_files : [argv.arrow_files]),
     };
@@ -80,13 +80,18 @@ const javaFilesDir = path.join(testFilesDir, 'java');
 const jsonFilesDir = path.join(testFilesDir, 'json');
 
 async function cleanTestData() {
-    return await del([`${testFilesDir}/**`, `${snapshotsDir}/**`]);
+    return await del([
+        `${cppFilesDir}/**`,
+        `${javaFilesDir}/**`,
+        `${jsonFilesDir}/**`,
+        `${snapshotsDir}/**`
+    ]);
 }
 
 async function createTestJSON() {
     await mkdirp(jsonFilesDir);
     await exec(`shx cp ${ARROW_INTEGRATION_DIR}/data/*.json ${jsonFilesDir}`);
-    await exec(`python ${ARROW_INTEGRATION_DIR}/integration_test.py --write_generated_json ${jsonFilesDir}`);
+    await exec(`python3 ${ARROW_INTEGRATION_DIR}/integration_test.py --write_generated_json ${jsonFilesDir}`);
 }
 
 async function createTestData() {

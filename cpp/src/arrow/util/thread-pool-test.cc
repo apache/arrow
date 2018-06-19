@@ -127,7 +127,7 @@ class TestThreadPool : public ::testing::Test {
 
   std::shared_ptr<ThreadPool> MakeThreadPool() { return MakeThreadPool(4); }
 
-  std::shared_ptr<ThreadPool> MakeThreadPool(size_t threads) {
+  std::shared_ptr<ThreadPool> MakeThreadPool(int threads) {
     std::shared_ptr<ThreadPool> pool;
     Status st = ThreadPool::Make(threads, &pool);
     return pool;
@@ -163,7 +163,7 @@ class TestThreadPool : public ::testing::Test {
 
 TEST_F(TestThreadPool, ConstructDestruct) {
   // Stress shutdown-at-destruction logic
-  for (size_t threads : {1, 2, 3, 8, 32, 70}) {
+  for (int threads : {1, 2, 3, 8, 32, 70}) {
     auto pool = this->MakeThreadPool(threads);
   }
 }
@@ -223,21 +223,31 @@ TEST_F(TestThreadPool, QuickShutdown) {
 TEST_F(TestThreadPool, SetCapacity) {
   auto pool = this->MakeThreadPool(3);
   ASSERT_EQ(pool->GetCapacity(), 3);
+  ASSERT_EQ(pool->GetActualCapacity(), 3);
+
   ASSERT_OK(pool->SetCapacity(5));
   ASSERT_EQ(pool->GetCapacity(), 5);
+  ASSERT_EQ(pool->GetActualCapacity(), 5);
+
   ASSERT_OK(pool->SetCapacity(2));
-  // Wait for workers to wake up and secede
-  busy_wait(0.5, [&] { return pool->GetCapacity() == 2; });
   ASSERT_EQ(pool->GetCapacity(), 2);
+  // Wait for workers to wake up and secede
+  busy_wait(0.5, [&] { return pool->GetActualCapacity() == 2; });
+  ASSERT_EQ(pool->GetActualCapacity(), 2);
+
   ASSERT_OK(pool->SetCapacity(5));
   ASSERT_EQ(pool->GetCapacity(), 5);
+  ASSERT_EQ(pool->GetActualCapacity(), 5);
+
   // Downsize while tasks are pending
   for (int i = 0; i < 10; ++i) {
     ASSERT_OK(pool->Spawn(std::bind(sleep_for, 0.01 /* seconds */)));
   }
   ASSERT_OK(pool->SetCapacity(2));
-  busy_wait(0.5, [&] { return pool->GetCapacity() == 2; });
   ASSERT_EQ(pool->GetCapacity(), 2);
+  busy_wait(0.5, [&] { return pool->GetActualCapacity() == 2; });
+  ASSERT_EQ(pool->GetActualCapacity(), 2);
+
   // Ensure nothing got stuck
   ASSERT_OK(pool->Shutdown());
 }
@@ -274,14 +284,16 @@ TEST_F(TestThreadPool, Submit) {
 
 TEST(TestGlobalThreadPool, Capacity) {
   // Sanity check
-  auto pool = CPUThreadPool();
-  size_t capacity = pool->GetCapacity();
+  auto pool = GetCpuThreadPool();
+  int capacity = pool->GetCapacity();
   ASSERT_GT(capacity, 0);
+  ASSERT_EQ(pool->GetActualCapacity(), capacity);
+  ASSERT_EQ(GetCpuThreadPoolCapacity(), capacity);
 
   // Exercise default capacity heuristic
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
   ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));
-  size_t hw_capacity = std::thread::hardware_concurrency();
+  int hw_capacity = std::thread::hardware_concurrency();
   ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 13);

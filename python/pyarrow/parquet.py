@@ -251,6 +251,7 @@ coerce_timestamps : string, default None
     Valid values: {None, 'ms', 'us'}
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options for compatibility"""
 
@@ -775,7 +776,7 @@ class ParquetDataset(object):
         for piece in self.pieces:
             file_metadata = piece.get_metadata(open_file)
             file_schema = file_metadata.schema.to_arrow_schema()
-            if not dataset_schema.equals(file_schema):
+            if not dataset_schema.equals(file_schema, check_metadata=False):
                 raise ValueError('Schema in {0!s} was different. \n'
                                  '{1!s}\n\nvs\n\n{2!s}'
                                  .format(piece, file_schema,

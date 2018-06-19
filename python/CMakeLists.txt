@@ -124,13 +124,6 @@ else()
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
-  # Using Clang with ccache causes a bunch of spurious warnings that are
-  # purportedly fixed in the next version of ccache. See the following for details:
-  #
-  #   http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html
-  #   http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
-
   # Cython warnings in clang
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
@@ -143,6 +136,9 @@ endif()
 
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
+
+# Add C++-only flags, like -std=c++11
+set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
 
 if (MSVC)
   # MSVC makes its own output directories based on the build configuration

@@ -698,7 +698,7 @@ bool PlasmaClient::Impl::compute_object_hash_parallel(XXH64_state_t* hash_state,
                                                       int64_t nbytes) {
   // Note that this function will likely be faster if the address of data is
   // aligned on a 64-byte boundary.
-  auto pool = arrow::internal::CPUThreadPool();
+  auto pool = arrow::internal::GetCpuThreadPool();
 
   const int num_threads = kHashingConcurrency;
   uint64_t threadhash[num_threads + 1];

@@ -19,6 +19,8 @@ import { RecordBatch } from './recordbatch';
 import { Col, Predicate } from './predicate';
 import { Schema, Field, Struct } from './type';
 import { read, readAsync } from './ipc/reader/arrow';
+import { writeTableBinary } from './ipc/writer/arrow';
+import { PipeIterator } from './util/node';
 import { isPromise, isAsyncIterable } from './util/compat';
 import { Vector, DictionaryVector, IntVector, StructVector } from './vector';
 import { ChunkedView } from './vector/chunked';
@@ -179,8 +181,12 @@ export class Table implements DataFrame {
         }
         return str;
     }
-    public rowsToString(separator = ' | '): TableToStringIterator {
-        return new TableToStringIterator(tableRowsToString(this, separator));
+    // @ts-ignore
+    public serialize(encoding = 'binary', stream = true) {
+        return writeTableBinary(this, stream);
+    }
+    public rowsToString(separator = ' | ') {
+        return new PipeIterator(tableRowsToString(this, separator), 'utf8');
     }
 }
 
@@ -290,55 +296,25 @@ export class CountByResult extends Table implements DataFrame {
     }
 }
 
-export class TableToStringIterator implements IterableIterator<string> {
-    constructor(private iterator: IterableIterator<string>) {}
-    [Symbol.iterator]() { return this.iterator; }
-    next(value?: any) { return this.iterator.next(value); }
-    throw(error?: any) { return this.iterator.throw && this.iterator.throw(error) || { done: true, value: '' }; }
-    return(value?: any) { return this.iterator.return && this.iterator.return(value) || { done: true, value: '' }; }
-    pipe(stream: NodeJS.WritableStream) {
-        let res: IteratorResult<string>;
-        let write = () => {
-            if (stream['writable']) {
-                do {
-                    if ((res = this.next()).done) { break; }
-                } while (stream['write'](res.value + '\n', 'utf8'));
-            }
-            if (!res || !res.done) {
-                stream['once']('drain', write);
-            } else if (!(stream as any)['isTTY']) {
-                stream['end']('\n');
-            }
-        };
-        write();
-    }
-}
-
 function* tableRowsToString(table: Table, separator = ' | ') {
-    const fields = table.schema.fields;
-    const header = ['row_id', ...fields.map((f) => `${f}`)].map(stringify);
-    const maxColumnWidths = header.map(x => x.length);
-    // Pass one to convert to strings and count max column widths
-    for (let i = -1, n = table.length - 1; ++i < n;) {
-        let val, row = [i, ...table.get(i)];
-        for (let j = -1, k = row.length; ++j < k; ) {
-            val = stringify(row[j]);
-            maxColumnWidths[j] = Math.max(maxColumnWidths[j], val.length);
+    let rowOffset = 0;
+    let firstValues = [];
+    let maxColumnWidths: number[] = [];
+    let iterators: IterableIterator<string>[] = [];
+    // Gather all the `rowsToString` iterators into a list before iterating,
+    // so that `maxColumnWidths` is filled with the maxWidth for each column
+    // across all RecordBatches.
+    for (const batch of table.batches) {
+        const iterator = batch.rowsToString(separator, rowOffset, maxColumnWidths);
+        const { done, value } = iterator.next();
+        if (!done) {
+            firstValues.push(value);
+            iterators.push(iterator);
+            rowOffset += batch.length;
         }
     }
-    yield header.map((x, j) => leftPad(x, ' ', maxColumnWidths[j])).join(separator);
-    for (let i = -1; ++i < table.length;) {
-        yield [i, ...table.get(i)]
-            .map((x) => stringify(x))
-            .map((x, j) => leftPad(x, ' ', maxColumnWidths[j]))
-            .join(separator);
+    for (const iterator of iterators) {
+        yield firstValues.shift();
+        yield* iterator;
     }
-}
-
-function leftPad(str: string, fill: string, n: number) {
-    return (new Array(n + 1).join(fill) + str).slice(-1 * n);
-}
-
-function stringify(x: any) {
-    return typeof x === 'string' ? `"${x}"` : ArrayBuffer.isView(x) ? `[${x}]` : JSON.stringify(x);
 }

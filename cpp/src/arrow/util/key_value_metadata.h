@@ -50,6 +50,7 @@ class ARROW_EXPORT KeyValueMetadata {
   std::shared_ptr<KeyValueMetadata> Copy() const;
 
   bool Equals(const KeyValueMetadata& other) const;
+  std::string ToString() const;
 
  private:
   std::vector<std::string> keys_;
@@ -57,6 +58,12 @@ class ARROW_EXPORT KeyValueMetadata {
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(KeyValueMetadata);
 };
+
+/// \brief Create a KeyValueMetadata instance
+///
+/// \param pairs key-value mapping
+std::shared_ptr<KeyValueMetadata> ARROW_EXPORT
+key_value_metadata(const std::unordered_map<std::string, std::string>& pairs);
 
 }  // namespace arrow
 

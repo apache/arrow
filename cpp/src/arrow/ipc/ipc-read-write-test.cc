@@ -117,6 +117,17 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   CheckRoundtrip(schema);
 }
 
+TEST_F(TestSchemaMetadata, KeyValueMetadata) {
+  auto field_metadata = key_value_metadata({{"key", "value"}});
+  auto schema_metadata = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
+
+  auto f0 = field("f0", std::make_shared<Int8Type>());
+  auto f1 = field("f1", std::make_shared<Int16Type>(), false, field_metadata);
+
+  Schema schema({f0, f1}, schema_metadata);
+  CheckRoundtrip(schema);
+}
+
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
                     &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
@@ -621,6 +632,9 @@ INSTANTIATE_TEST_CASE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES(
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
 
+// This test uses uninitialized memory
+
+#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
 TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
 
@@ -649,6 +663,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
 
   ASSERT_EQ(length, result->num_rows());
 }
+#endif
 
 void CheckBatchDictionaries(const RecordBatch& batch) {
   // Check that dictionaries that should be the same are the same
