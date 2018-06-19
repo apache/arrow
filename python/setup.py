@@ -345,20 +345,12 @@ class build_ext(_build_ext):
                                       name + '_api.h'))
 
             if self.with_plasma:
-                build_py = self.get_finalized_command('build_py')
                 # Move the plasma store
                 source = os.path.join(self.build_type, "plasma_store")
                 target = os.path.join(build_lib,
                                       self._get_build_dir(),
                                       "plasma_store")
                 shutil.move(source, target)
-                # Move the tensorflow op
-                source = os.path.join(self.build_type, "tf_plasma_op.so")
-                target = os.path.join(build_lib,
-                                      build_py.get_package_dir('pyarrow'),
-                                      "tf_plasma_op.so")
-                if os.path.isfile(source):
-                    shutil.move(source, target)
 
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:

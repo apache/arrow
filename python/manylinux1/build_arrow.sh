@@ -62,21 +62,13 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]
     then
       $PIP install --ignore-installed --upgrade tensorflow
-      # TensorFlow is broken on manylinux1
-      # (see https://github.com/tensorflow/tensorflow/issues/8802),
-      # so we cannot use it to determine the include path for its library.
-      # The following is a workaround:
-      PATH="$PATH:${CPYTHON_PATH}/bin" export TENSORFLOW_INCLUDE_DIR=`$PYTHON_INTERPRETER -c "import site; import os; print(os.path.join(site.getsitepackages()[0], 'tensorflow', 'include'))"`
-      PLASMA_BUILD_TENSORFLOW_OP="on"
-    else
-      PLASMA_BUILD_TENSORFLOW_OP="off"
     fi
 
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
     ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"
     pushd "${ARROW_BUILD_DIR}"
-    PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON -DPLASMA_BUILD_TENSORFLOW_OP=$PLASMA_BUILD_TENSORFLOW_OP -DARROW_ORC=ON -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist -GNinja ..
+    PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON -DPLASMA_ENABLE_TENSORFLOW_OP=ON -DARROW_ORC=ON -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist -GNinja ..
     ninja install
     popd
 
