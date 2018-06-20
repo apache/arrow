@@ -102,6 +102,8 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     pip install -q coverage
 fi
 
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
+
 export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
