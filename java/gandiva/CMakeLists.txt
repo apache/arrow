@@ -23,6 +23,7 @@ message("generating headers to ${JNI_HEADERS_DIR}/jni")
 add_jar(
   gandiva_java
     src/main/java/org/apache/arrow/gandiva/evaluator/NativeBuilder.java
+    src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java
   GENERATE_NATIVE_HEADERS gandivajni_headers
     DESTINATION ${JNI_HEADERS_DIR}/jni
 )
