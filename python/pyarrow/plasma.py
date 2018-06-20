@@ -30,7 +30,15 @@ from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
 TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], "tensorflow", "plasma_op.so")
 
 
+has_tf_plasma_op = False
+if os.path.exists(TF_PLASMA_OP_PATH):
+    import tensorflow as tf
+    tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
+    has_tf_plasma_op = True
+
+
 def build_plasma_tensorflow_op():
+    global has_tf_plasma_op
     try:
         import tensorflow as tf
         print("TensorFlow version: " + tf.__version__)
@@ -40,13 +48,7 @@ def build_plasma_tensorflow_op():
         print("Compiling Plasma TensorFlow Op...")
         script_path = os.path.join(pa.__path__[0], "tensorflow", "build.sh")
         subprocess.check_call(["bash", script_path])
-
-
-has_tf_plasma_op = False
-if os.path.exists(TF_PLASMA_OP_PATH):
-    import tensorflow as tf
-    tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
-    has_tf_plasma_op = True
+        has_tf_plasma_op = True
 
 
 @contextlib.contextmanager

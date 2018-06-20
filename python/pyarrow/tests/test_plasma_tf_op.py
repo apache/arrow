@@ -72,13 +72,10 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
 def test_plasma_tf_op(use_gpu=False):
     import pyarrow.plasma as plasma
 
-    if not plasma.has_tf_plasma_op:
-        return
+    plasma.build_plasma_tensorflow_op()
 
-    try:
-        import tensorflow as tf
-    except ImportError:
-        pytest.skip("TensorFlow not installed")
+    if not plasma.has_tf_plasma_op:
+        pytest.skip("TensorFlow Op not found")
 
     with plasma.start_plasma_store(10**8) as (plasma_store_name, p):
         for dtype in [np.float32, np.float64,
