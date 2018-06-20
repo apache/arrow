@@ -77,6 +77,11 @@ def test_plasma_tf_op(use_gpu=False):
     if not plasma.has_tf_plasma_op:
         pytest.skip("TensorFlow Op not found")
 
+    try:
+        import tensorflow as tf
+    except ImportError:
+        pytest.skip("TensorFlow not installed")
+
     with plasma.start_plasma_store(10**8) as (plasma_store_name, p):
         for dtype in [np.float32, np.float64,
                       np.int8, np.int16, np.int32, np.int64]:
