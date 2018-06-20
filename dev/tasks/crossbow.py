@@ -342,7 +342,7 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
 
     queue.fetch()
 
-    version = get_version(arrow_path, local_scheme='dirty-tag')
+    version = get_version(arrow_path, local_scheme=lambda v: '')
     job_id = queue.next_job_id(prefix=job_prefix)
 
     variables = {
