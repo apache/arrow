@@ -170,7 +170,7 @@ class Accountant implements AutoCloseable {
     }
 
     final AllocationOutcome finalOutcome = beyondLimit ? AllocationOutcome.FAILED_LOCAL :
-        parentOutcome.ok ? AllocationOutcome.SUCCESS : AllocationOutcome.FAILED_PARENT;
+        parentOutcome.isOk() ? AllocationOutcome.SUCCESS : AllocationOutcome.FAILED_PARENT;
 
     if (updatePeak) {
       updatePeak();
@@ -258,39 +258,4 @@ class Accountant implements AutoCloseable {
     return Math.min(localHeadroom, parent.getHeadroom());
   }
 
-  /**
-   * Describes the type of outcome that occurred when trying to account for allocation of memory.
-   */
-  public static enum AllocationOutcome {
-
-    /**
-     * Allocation succeeded.
-     */
-    SUCCESS(true),
-
-    /**
-     * Allocation succeeded but only because the allocator was forced to move beyond a limit.
-     */
-    FORCED_SUCCESS(true),
-
-    /**
-     * Allocation failed because the local allocator's limits were exceeded.
-     */
-    FAILED_LOCAL(false),
-
-    /**
-     * Allocation failed because a parent allocator's limits were exceeded.
-     */
-    FAILED_PARENT(false);
-
-    private final boolean ok;
-
-    AllocationOutcome(boolean ok) {
-      this.ok = ok;
-    }
-
-    public boolean isOk() {
-      return ok;
-    }
-  }
 }
