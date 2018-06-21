@@ -100,6 +100,8 @@ class build_ext(_build_ext):
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
+                     ('with-tensorflow', None,
+                      'build pyarrow with TensorFlow support'),
                      ('with-orc', None, 'build the ORC extension'),
                      ('generate-coverage', None,
                       'enable Cython code coverage'),
@@ -193,6 +195,9 @@ class build_ext(_build_ext):
 
             if self.with_plasma:
                 cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
+
+            if self.with_tensorflow:
+                cmake_options.append('-DPYARROW_USE_TENSORFLOW=on')
 
             if self.with_orc:
                 cmake_options.append('-DPYARROW_BUILD_ORC=on')

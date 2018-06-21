@@ -70,6 +70,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_PLASMA
     "Build the PyArrow Plasma integration"
     OFF)
+  option(PYARROW_USE_TENSORFLOW
+    "Build PyArrow with TensorFlow support"
+    OFF)
   option(PYARROW_BUILD_ORC
     "Build the PyArrow ORC integration"
     OFF)
@@ -405,6 +408,12 @@ if (PYARROW_BUILD_PLASMA)
 
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _plasma)
   file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+endif()
+
+
+if (PYARROW_USE_TENSORFLOW)
+  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
 
