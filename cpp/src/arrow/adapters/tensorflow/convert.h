@@ -15,100 +15,119 @@
 // specific language governing permissions and limitations
 // under the License.
 
-arrow::Status GetArrowType(DataType dtype, std::shared_ptr<arrow::DataType>* out) {
+#ifndef ARROW_TENSORFLOW_CONVERTER_H
+#define ARROW_TENSORFLOW_CONVERTER_H
+
+#include "tensorflow/core/framework/op.h"
+
+#include "arrow/type.h"
+
+// These utilities are supposed to be included in TensorFlow operators
+// that need to be compiled separately from Arrow because of ABI issues.
+// They therefore need to be header-only.
+
+namespace arrow {
+
+namespace adapters {
+
+namespace tensorflow {
+
+arrow::Status GetArrowType(::tensorflow::DataType dtype,
+                           std::shared_ptr<arrow::DataType>* out) {
   switch (dtype) {
-    case DT_BOOL:
+    case ::tensorflow::DT_BOOL:
       *out = arrow::boolean();
       break;
-    case DT_FLOAT:
+    case ::tensorflow::DT_FLOAT:
       *out = arrow::float32();
       break;
-    case DT_DOUBLE:
+    case ::tensorflow::DT_DOUBLE:
       *out = arrow::float64();
       break;
-    case DT_HALF:
+    case ::tensorflow::DT_HALF:
       *out = arrow::float16();
       break;
-    case DT_INT8:
+    case ::tensorflow::DT_INT8:
       *out = arrow::int8();
       break;
-    case DT_INT16:
+    case ::tensorflow::DT_INT16:
       *out = arrow::int16();
       break;
-    case DT_INT32:
+    case ::tensorflow::DT_INT32:
       *out = arrow::int32();
       break;
-    case DT_INT64:
+    case ::tensorflow::DT_INT64:
       *out = arrow::int64();
       break;
-    case DT_UINT8:
+    case ::tensorflow::DT_UINT8:
       *out = arrow::uint8();
       break;
-    case DT_UINT16:
+    case ::tensorflow::DT_UINT16:
       *out = arrow::uint16();
       break;
-    case DT_UINT32:
+    case ::tensorflow::DT_UINT32:
       *out = arrow::uint32();
       break;
-    case DT_UINT64:
+    case ::tensorflow::DT_UINT64:
       *out = arrow::uint64();
       break;
-    case DT_BFLOAT16:
-    case DT_COMPLEX64:
-    case DT_COMPLEX128:
-    case DT_INVALID:
-    case DT_QINT8:
-    case DT_QINT16:
-    case DT_QINT32:
-    case DT_QUINT8:
-    case DT_QUINT16:
-    case DT_RESOURCE:
-    case DT_STRING:
-    case DT_VARIANT:
+    case ::tensorflow::DT_BFLOAT16:
+    case ::tensorflow::DT_COMPLEX64:
+    case ::tensorflow::DT_COMPLEX128:
+    case ::tensorflow::DT_INVALID:
+    case ::tensorflow::DT_QINT8:
+    case ::tensorflow::DT_QINT16:
+    case ::tensorflow::DT_QINT32:
+    case ::tensorflow::DT_QUINT8:
+    case ::tensorflow::DT_QUINT16:
+    case ::tensorflow::DT_RESOURCE:
+    case ::tensorflow::DT_STRING:
+    case ::tensorflow::DT_VARIANT:
     default:
       return arrow::Status(arrow::StatusCode::TypeError,
-                           "Tensorflow data type is not supported");
+                           "TensorFlow data type is not supported");
   }
   return arrow::Status::OK();
 }
 
-arrow::Status GetTensorFlowType(std::shared_ptr<arrow::DataType> dtype, DataType* out) {
+arrow::Status GetTensorFlowType(std::shared_ptr<arrow::DataType> dtype,
+                                ::tensorflow::DataType* out) {
   switch (dtype->id()) {
     case arrow::Type::BOOL:
-      *out = DT_BOOL;
+      *out = ::tensorflow::DT_BOOL;
       break;
     case arrow::Type::UINT8:
-      *out = DT_UINT8;
+      *out = ::tensorflow::DT_UINT8;
       break;
     case arrow::Type::INT8:
-      *out = DT_INT8;
+      *out = ::tensorflow::DT_INT8;
       break;
     case arrow::Type::UINT16:
-      *out = DT_UINT16;
+      *out = ::tensorflow::DT_UINT16;
       break;
     case arrow::Type::INT16:
-      *out = DT_INT16;
+      *out = ::tensorflow::DT_INT16;
       break;
     case arrow::Type::UINT32:
-      *out = DT_UINT32;
+      *out = ::tensorflow::DT_UINT32;
       break;
     case arrow::Type::INT32:
-      *out = DT_INT32;
+      *out = ::tensorflow::DT_INT32;
       break;
     case arrow::Type::UINT64:
-      *out = DT_UINT64;
+      *out = ::tensorflow::DT_UINT64;
       break;
     case arrow::Type::INT64:
-      *out = DT_INT64;
+      *out = ::tensorflow::DT_INT64;
       break;
     case arrow::Type::HALF_FLOAT:
-      *out = DT_HALF;
+      *out = ::tensorflow::DT_HALF;
       break;
     case arrow::Type::FLOAT:
-      *out = DT_FLOAT;
+      *out = ::tensorflow::DT_FLOAT;
       break;
     case arrow::Type::DOUBLE:
-      *out = DT_DOUBLE;
+      *out = ::tensorflow::DT_DOUBLE;
       break;
     case arrow::Type::STRING:
     case arrow::Type::BINARY:
@@ -131,3 +150,11 @@ arrow::Status GetTensorFlowType(std::shared_ptr<arrow::DataType> dtype, DataType
   }
   return arrow::Status::OK();
 }
+
+}  // namespace tensorflow
+
+}  // namespace adapters
+
+}  // namespace arrow
+
+#endif  // ARROW_TENSORFLOW_CONVERTER_H
