@@ -104,8 +104,6 @@ endif()
 
 if (ARROW_TENSORFLOW)
   add_subdirectory(adapters/tensorflow)
-  # TensorFlow uses the old GLIBCXX ABI
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
 if (NOT ARROW_BOOST_HEADER_ONLY)

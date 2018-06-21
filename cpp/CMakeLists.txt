@@ -350,6 +350,11 @@ set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 # Add C++-only flags, like -std=c++11
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
 
+if (ARROW_TENSORFLOW)
+  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+endif()
+
 # ASAN / TSAN / UBSAN
 if(ARROW_FUZZING)
   set(ARROW_USE_COVERAGE ON)
