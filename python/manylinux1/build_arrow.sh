@@ -93,6 +93,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install repaired_wheels/*.whl
 
+    # The TensorFlow test will be skipped here, since TensorFlow is not
+    # manylinux1 compatible; however, the wheels will support TensorFlow on
+    # a TensorFlow compatible system
     py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow
     deactivate
 

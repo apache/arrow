@@ -75,8 +75,7 @@ def test_plasma_tf_op(use_gpu=False):
     plasma.build_plasma_tensorflow_op()
 
     if plasma.tf_plasma_op is None:
-        assert False
-        # pytest.skip("TensorFlow Op not found")
+        pytest.skip("TensorFlow Op not found")
 
     try:
         import tensorflow as tf
