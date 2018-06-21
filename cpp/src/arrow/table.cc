@@ -308,6 +308,24 @@ class SimpleTable : public Table {
     return Status::OK();
   }
 
+  Status SetColumn(int i, const std::shared_ptr<Column>& col,
+                   std::shared_ptr<Table>* out) const override {
+    DCHECK(col != nullptr);
+
+    if (col->length() != num_rows_) {
+      std::stringstream ss;
+      ss << "Added column's length must match table's length. Expected length "
+         << num_rows_ << " but got length " << col->length();
+      return Status::Invalid(ss.str());
+    }
+
+    std::shared_ptr<Schema> new_schema;
+    RETURN_NOT_OK(schema_->SetField(i, col->field(), &new_schema));
+
+    *out = Table::Make(new_schema, internal::ReplaceVectorElement(columns_, i, col));
+    return Status::OK();
+  }
+
   std::shared_ptr<Table> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
     auto new_schema = schema_->AddMetadata(metadata);
