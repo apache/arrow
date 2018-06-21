@@ -18,6 +18,8 @@
 #ifndef ARROW_TENSORFLOW_CONVERTER_H
 #define ARROW_TENSORFLOW_CONVERTER_H
 
+#include <memory>
+
 #include "tensorflow/core/framework/op.h"
 
 #include "arrow/type.h"
