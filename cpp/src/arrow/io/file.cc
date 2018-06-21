@@ -354,7 +354,9 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
 
   ~MemoryMap() {
     if (file_->is_open()) {
-      munmap(mutable_data_, static_cast<size_t>(size_));
+      if (mutable_data_ != nullptr) {
+        DCHECK_EQ(munmap(mutable_data_, static_cast<size_t>(capacity_)), 0);
+      }
       DCHECK(file_->Close().ok());
     }
   }
@@ -398,9 +400,6 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
       RETURN_NOT_OK(Reserve(new_size));
     } else {
       // shrink
-      if (new_size == 0) {
-        return Status::IOError("Cannot resize mmap to zero size");
-      }
       RETURN_NOT_OK(ResizeMap(new_size));
     }
     size_ = new_size;
@@ -452,6 +451,19 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
       return Status::IOError("Cannot resize a readonly memory map");
     }
 
+    if (requested_capacity == 0) {
+      if (mutable_data_ != nullptr) {
+        // just unmap the mmap and truncate the file to 0 size
+        if (munmap(mutable_data_, capacity_) != 0) {
+          return Status::IOError("Cannot unmap the file");
+        }
+        RETURN_NOT_OK(internal::FileTruncate(file_->fd(), 0));
+        data_ = mutable_data_ = nullptr;
+        size_ = capacity_ = 0;
+      }
+      return Status::OK();
+    }
+
     int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(requested_capacity);
     if (mutable_data_) {
       void* result;
@@ -469,6 +481,8 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
 
   // Initialize the mmap and set capacity, size and the data pointers
   Status InitMMap(int64_t initial_capacity, bool resize_file = false) {
+    DCHECK(data_ == nullptr && mutable_data_ == nullptr);
+
     if (resize_file) {
       RETURN_NOT_OK(internal::FileTruncate(file_->fd(), initial_capacity));
     }

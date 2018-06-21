@@ -258,7 +258,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   if (h == INVALID_HANDLE_VALUE) {
     errno = __map_mman_error(GetLastError(), EPERM);
     std::stringstream ss;
-    ss << "couldnot get file handle: " << std::strerror(errno);
+    ss << "cannot get file handle: " << std::strerror(errno);
     return Status::IOError(ss.str());
   }
 
