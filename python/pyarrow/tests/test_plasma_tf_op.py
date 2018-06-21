@@ -74,8 +74,8 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
     result0 = result[0].reshape(3, 244, 244)
     result1 = result[1].reshape(3, 244, 244)
 
-    assert np.array_equal(data, out0), "Data not equal!"
-    assert np.array_equal(ones, out1), "Data not equal!"
+    assert np.array_equal(data, result0), "Data not equal!"
+    assert np.array_equal(ones, result1), "Data not equal!"
 
 
 @pytest.mark.plasma
