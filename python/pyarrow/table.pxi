@@ -1331,6 +1331,17 @@ cdef class Table:
 
         return pyarrow_wrap_table(c_table)
 
+    def set_column(self, int i, Column column):
+        """
+        Replace column in Table at position. Returns new table
+        """
+        cdef shared_ptr[CTable] c_table
+
+        with nogil:
+            check_status(self.table.SetColumn(i, column.sp_column, &c_table))
+
+        return pyarrow_wrap_table(c_table)
+
     def drop(self, columns):
         """
         Drop one or more columns and return a new table.

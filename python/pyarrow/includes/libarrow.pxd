@@ -302,6 +302,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus AddField(int i, const shared_ptr[CField]& field,
                          shared_ptr[CSchema]* out)
         CStatus RemoveField(int i, shared_ptr[CSchema]* out)
+        CStatus SetField(int i, const shared_ptr[CField]& field,
+                         shared_ptr[CSchema]* out)
 
         # Removed const in Cython so don't have to cast to get code to generate
         shared_ptr[CSchema] AddMetadata(
@@ -509,6 +511,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus AddColumn(int i, const shared_ptr[CColumn]& column,
                           shared_ptr[CTable]* out)
         CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
+        CStatus SetColumn(int i, const shared_ptr[CColumn]& column,
+                          shared_ptr[CTable]* out)
 
         CStatus Flatten(CMemoryPool* pool, shared_ptr[CTable]* out)
 

@@ -635,6 +635,30 @@ cdef class Schema:
 
         return pyarrow_wrap_schema(new_schema)
 
+    def set(self, int i, Field field):
+        """
+        Replace a field at position i in the schema.
+
+        Parameters
+        ----------
+        i: int
+        field: Field
+
+        Returns
+        -------
+        schema: Schema
+        """
+        cdef:
+            shared_ptr[CSchema] new_schema
+            shared_ptr[CField] c_field
+
+        c_field = field.sp_field
+
+        with nogil:
+            check_status(self.schema.SetField(i, c_field, &new_schema))
+
+        return pyarrow_wrap_schema(new_schema)
+
     def add_metadata(self, dict metadata):
         """
         Add metadata as dict of string keys and values to Schema

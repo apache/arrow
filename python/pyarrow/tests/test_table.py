@@ -382,6 +382,24 @@ def test_table_add_column():
     assert t4.equals(expected)
 
 
+def test_table_set_column():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+
+    col = pa.Column.from_array('d', data[1])
+    t2 = table.set_column(0, col)
+
+    expected_data = list(data)
+    expected_data[0] = data[1]
+    expected = pa.Table.from_arrays(expected_data,
+                                    names=('d', 'b', 'c'))
+    assert t2.equals(expected)
+
+
 def test_table_drop():
     """ drop one or more columns given labels"""
     a = pa.array(range(5))
