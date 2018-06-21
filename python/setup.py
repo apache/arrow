@@ -137,6 +137,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
+        self.with_tensorflow = strtobool(
+            os.environ.get('PYARROW_WITH_TENSORFLOW', '0'))
         self.with_orc = strtobool(
             os.environ.get('PYARROW_WITH_ORC', '0'))
         self.generate_coverage = strtobool(
