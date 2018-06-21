@@ -30,8 +30,10 @@
 #include "tensorflow/core/platform/stream_executor.h"
 #endif
 
+#include "arrow/adapters/tensorflow/convert.h"
 #include "arrow/python/tensor_util.h"
 #include "plasma/client.h"
+
 
 using namespace tensorflow;  // NOLINT
 
@@ -55,123 +57,6 @@ static mutex d2h_stream_mu;
 
 // TODO(zongheng): CPU kernels' std::memcpy might be able to be sped up by
 // parallelization.
-
-arrow::Status TfDtypeToArrow(DataType dtype, std::shared_ptr<arrow::DataType>* out) {
-  switch (dtype) {
-    case DT_BOOL:
-      *out = arrow::boolean();
-      break;
-    case DT_FLOAT:
-      *out = arrow::float32();
-      break;
-    case DT_DOUBLE:
-      *out = arrow::float64();
-      break;
-    case DT_HALF:
-      *out = arrow::float16();
-      break;
-    case DT_INT8:
-      *out = arrow::int8();
-      break;
-    case DT_INT16:
-      *out = arrow::int16();
-      break;
-    case DT_INT32:
-      *out = arrow::int32();
-      break;
-    case DT_INT64:
-      *out = arrow::int64();
-      break;
-    case DT_UINT8:
-      *out = arrow::uint8();
-      break;
-    case DT_UINT16:
-      *out = arrow::uint16();
-      break;
-    case DT_UINT32:
-      *out = arrow::uint32();
-      break;
-    case DT_UINT64:
-      *out = arrow::uint64();
-      break;
-    case DT_BFLOAT16:
-    case DT_COMPLEX64:
-    case DT_COMPLEX128:
-    case DT_INVALID:
-    case DT_QINT8:
-    case DT_QINT16:
-    case DT_QINT32:
-    case DT_QUINT8:
-    case DT_QUINT16:
-    case DT_RESOURCE:
-    case DT_STRING:
-    case DT_VARIANT:
-    default:
-      return arrow::Status(arrow::StatusCode::TypeError,
-                           "Tensorflow data type is not supported");
-  }
-  return arrow::Status::OK();
-}
-
-arrow::Status ArrowDtypeToTf(std::shared_ptr<arrow::DataType> dtype, DataType* out) {
-  switch (dtype->id()) {
-    case arrow::Type::BOOL:
-      *out = DT_BOOL;
-      break;
-    case arrow::Type::UINT8:
-      *out = DT_UINT8;
-      break;
-    case arrow::Type::INT8:
-      *out = DT_INT8;
-      break;
-    case arrow::Type::UINT16:
-      *out = DT_UINT16;
-      break;
-    case arrow::Type::INT16:
-      *out = DT_INT16;
-      break;
-    case arrow::Type::UINT32:
-      *out = DT_UINT32;
-      break;
-    case arrow::Type::INT32:
-      *out = DT_INT32;
-      break;
-    case arrow::Type::UINT64:
-      *out = DT_UINT64;
-      break;
-    case arrow::Type::INT64:
-      *out = DT_INT64;
-      break;
-    case arrow::Type::HALF_FLOAT:
-      *out = DT_HALF;
-      break;
-    case arrow::Type::FLOAT:
-      *out = DT_FLOAT;
-      break;
-    case arrow::Type::DOUBLE:
-      *out = DT_DOUBLE;
-      break;
-    case arrow::Type::STRING:
-    case arrow::Type::BINARY:
-    case arrow::Type::FIXED_SIZE_BINARY:
-    case arrow::Type::DATE32:
-    case arrow::Type::DATE64:
-    case arrow::Type::TIMESTAMP:
-    case arrow::Type::TIME32:
-    case arrow::Type::TIME64:
-    case arrow::Type::INTERVAL:
-    case arrow::Type::DECIMAL:
-    case arrow::Type::LIST:
-    case arrow::Type::STRUCT:
-    case arrow::Type::UNION:
-    case arrow::Type::DICTIONARY:
-    case arrow::Type::MAP:
-    default:
-      return arrow::Status(arrow::StatusCode::TypeError,
-                           "Arrow data type is not supported");
-  }
-  return arrow::Status::OK();
-}
 
 int64_t get_byte_width(std::shared_ptr<arrow::DataType> dtype) {
   return arrow::checked_cast<const arrow::FixedWidthType&>(*dtype).bit_width() / CHAR_BIT;
@@ -229,7 +114,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     }
 
     std::shared_ptr<arrow::DataType> arrow_dtype;
-    ARROW_CHECK_OK(TfDtypeToArrow(tf_dtype, &arrow_dtype));
+    ARROW_CHECK_OK(arrow::adapters::tensorflow::GetArrowType(tf_dtype, &arrow_dtype));
     int64_t byte_width = get_byte_width(arrow_dtype);
     std::cout << "YYY byte_width = " << byte_width << std::endl;
 

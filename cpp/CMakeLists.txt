@@ -147,6 +147,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow ORC adapter"
     OFF)
 
+  option(ARROW_TENSORFLOW
+    "Build Arrow with TensorFlow support enabled"
+    OFF)
+
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
     OFF)
@@ -684,10 +688,6 @@ elseif (NOT MSVC)
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
     ${PTHREAD_LIBRARY})
-endif()
-
-if (PLASMA_BUILD_TENSORFLOW_OP)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
 ############################################################

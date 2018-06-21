@@ -75,7 +75,7 @@ cmake -GNinja \
       -DARROW_BUILD_TESTS=on \
       -DARROW_BUILD_UTILITIES=off \
       -DARROW_PLASMA=on \
-      -DPLASMA_ENABLE_TENSORFLOW_OP=on \
+      -ARROW_TENSORFLOW=on \
       -DARROW_PYTHON=on \
       -DARROW_ORC=on \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
