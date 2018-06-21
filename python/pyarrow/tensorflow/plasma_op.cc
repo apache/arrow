@@ -31,7 +31,9 @@
 #endif
 
 #include "arrow/adapters/tensorflow/convert.h"
+#include "arrow/python/arrow_to_python.h"
 #include "arrow/python/tensor_util.h"
+#include "arrow/python/python_to_arrow.h"
 #include "plasma/client.h"
 
 
@@ -116,7 +118,6 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     std::shared_ptr<arrow::DataType> arrow_dtype;
     ARROW_CHECK_OK(arrow::adapters::tensorflow::GetArrowType(tf_dtype, &arrow_dtype));
     int64_t byte_width = get_byte_width(arrow_dtype);
-    std::cout << "YYY byte_width = " << byte_width << std::endl;
 
     std::vector<size_t> offsets;
     offsets.reserve(num_tensors + 1);
@@ -286,7 +287,6 @@ class PlasmaToTensorOp : public AsyncOpKernel {
     ARROW_CHECK_OK(arrow::py::ReadTensor(object_buffer.data, &tensor));
 
     int64_t byte_width = get_byte_width(tensor->type());
-    std::cout << "XXX byte_width = " << byte_width << std::endl;
     const int64_t size_in_bytes = tensor->data()->size();
 
     TensorShape shape({static_cast<int64_t>(size_in_bytes / byte_width)});

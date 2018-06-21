@@ -34,6 +34,9 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
+#include "arrow/python/common.h"
+#include "arrow/python/platform.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/record_batch.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging.h"
@@ -716,6 +719,16 @@ Status SerializeTensor(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) 
   RETURN_NOT_OK(builder.Finish(nullptr, nullptr, nullptr, nullptr, &array));
   out->batch = MakeBatch(array);
   return Status::OK();
+}
+
+Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
+                         const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
+                         io::OutputStream* dst) {
+  auto empty_tensor = std::make_shared<arrow::Tensor>(
+      dtype, std::make_shared<arrow::Buffer>(nullptr, tensor_num_bytes), shape);
+  arrow::py::SerializedPyObject serialized_tensor;
+  RETURN_NOT_OK(SerializeTensor(empty_tensor, &serialized_tensor));
+  return serialized_tensor.WriteTo(dst);
 }
 
 Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
