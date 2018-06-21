@@ -630,4 +630,31 @@ gint64 garrow_time64_array_get_value(GArrowTime64Array *array,
 const gint64 *garrow_time64_array_get_values(GArrowTime64Array *array,
                                              gint64 *length);
 
+
+#define GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY (garrow_fixed_size_binary_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeBinaryArray,
+                         garrow_fixed_size_binary_array,
+                         GARROW,
+                         FIXED_SIZE_BINARY_ARRAY,
+                         GArrowPrimitiveArray)
+struct _GArrowFixedSizeBinaryArrayClass
+{
+  GArrowPrimitiveArrayClass parent_class;
+};
+
+
+#define GARROW_TYPE_DECIMAL128_ARRAY (garrow_decimal128_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128Array,
+                         garrow_decimal128_array,
+                         GARROW,
+                         DECIMAL128_ARRAY,
+                         GArrowFixedSizeBinaryArray)
+struct _GArrowDecimal128ArrayClass
+{
+  GArrowFixedSizeBinaryArrayClass parent_class;
+};
+
+gchar *garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
+                                         gint64 i);
+
 G_END_DECLS
