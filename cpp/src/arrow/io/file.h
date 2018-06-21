@@ -209,7 +209,7 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   /// Write data at the current position in the file. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
 
-  /// The set size of the map to new_size.
+  /// Set the size of the map to new_size.
   Status Resize(int64_t new_size);
 
   /// Write data at a particular position in the file. Thread-safe

@@ -381,8 +381,8 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
       is_mutable_ = false;
     }
 
-    // Memory mapping fails when file size is 0, if it is 0,
-    // delay it until the first resize, if it
+    // Memory mapping fails when file size is 0
+    // delay it until the first resize
     if (file_->size() > 0) {
       RETURN_NOT_OK(InitMMap(file_->size()));
     }
@@ -393,7 +393,7 @@ class MemoryMappedFile::MemoryMap : public ResizableBuffer {
   }
 
   // Sets the size to the specified value. If the current position
-  // is further then the new size, sets the position to the last byte.
+  // is further than the new size, sets the position to the last byte.
   Status Resize(const int64_t new_size, bool shrink_to_fit = false) {
     if (!shrink_to_fit || (new_size > capacity_)) {
       RETURN_NOT_OK(Reserve(new_size));
