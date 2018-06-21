@@ -254,7 +254,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return Status::IOError(ss.str());
   }
 
-  h = static_cast<HANDLE>(_get_osfhandle(fildes));
+  h = reinterpret_cast<HANDLE>(_get_osfhandle(fildes));
   if (h == INVALID_HANDLE_VALUE) {
     errno = __map_mman_error(GetLastError(), EPERM);
     std::stringstream ss;
