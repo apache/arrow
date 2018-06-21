@@ -31,9 +31,10 @@
 #endif
 
 #include "arrow/adapters/tensorflow/convert.h"
+#include "arrow/io/memory.h"
 #include "arrow/python/arrow_to_python.h"
-#include "arrow/python/tensor_util.h"
 #include "arrow/python/python_to_arrow.h"
+#include "arrow/tensor.h"
 #include "plasma/client.h"
 
 
@@ -140,9 +141,9 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
     std::vector<int64_t> shape = {total_bytes / byte_width};
 
-    int64_t header_size;
-    ARROW_CHECK_OK(
-        arrow::py::TensorFlowTensorGetHeaderSize(arrow_dtype, shape, &header_size));
+    arrow::io::MockOutputStream mock;
+    ARROW_CHECK_OK(arrow::py::WriteTensorHeader(arrow_dtype, shape, 0, &mock));
+    int64_t header_size = mock.GetExtentBytesWritten();
 
     std::shared_ptr<Buffer> data_buffer;
     {
@@ -152,8 +153,9 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     }
 
     int64_t offset;
-    ARROW_CHECK_OK(arrow::py::TensorFlowTensorWrite(arrow_dtype, shape, total_bytes,
-                                                    data_buffer, &offset));
+    arrow::io::FixedSizeBufferWriter buf(data_buffer);
+    ARROW_CHECK_OK(arrow::py::WriteTensorHeader(arrow_dtype, shape, total_bytes, &buf));
+    ARROW_CHECK_OK(buf.Tell(&offset));
 
     uint8_t* data = reinterpret_cast<uint8_t*>(data_buffer->mutable_data() + offset);
 
