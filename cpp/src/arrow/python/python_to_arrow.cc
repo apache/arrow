@@ -34,9 +34,6 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
-#include "arrow/python/common.h"
-#include "arrow/python/platform.h"
-#include "arrow/python/pyarrow.h"
 #include "arrow/record_batch.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging.h"
@@ -46,6 +43,7 @@
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/util/datetime.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
