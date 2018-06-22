@@ -94,8 +94,14 @@ class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 class ARROW_EXPORT Status {
  public:
   // Create a success status.
-  Status() : state_(NULL) {}
-  ~Status() { delete state_; }
+  Status() noexcept : state_(NULL) {}
+  ~Status() noexcept {
+    // ARROW-2400: On certain compilers, splitting off the slow path improves
+    // performance significantly.
+    if (ARROW_PREDICT_FALSE(state_ != NULL)) {
+      DeleteState();
+    }
+  }
 
   Status(StatusCode code, const std::string& msg);
 
@@ -104,14 +110,14 @@ class ARROW_EXPORT Status {
   Status& operator=(const Status& s);
 
   // Move the specified status.
-  Status(Status&& s);
-  Status& operator=(Status&& s);
+  Status(Status&& s) noexcept;
+  Status& operator=(Status&& s) noexcept;
 
   // AND the statuses.
-  Status operator&(const Status& s) const;
-  Status operator&(Status&& s) const;
-  Status& operator&=(const Status& s);
-  Status& operator&=(Status&& s);
+  Status operator&(const Status& s) const noexcept;
+  Status operator&(Status&& s) const noexcept;
+  Status& operator&=(const Status& s) noexcept;
+  Status& operator&=(Status&& s) noexcept;
 
   // Return a success status.
   static Status OK() { return Status(); }
@@ -218,6 +224,10 @@ class ARROW_EXPORT Status {
   // a `State` structure containing the error code and message(s)
   State* state_;
 
+  void DeleteState() {
+    delete state_;
+    state_ = NULL;
+  }
   void CopyFrom(const Status& s);
   void MoveFrom(Status& s);
 };
@@ -245,14 +255,14 @@ inline Status& Status::operator=(const Status& s) {
   return *this;
 }
 
-inline Status::Status(Status&& s) : state_(s.state_) { s.state_ = NULL; }
+inline Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULL; }
 
-inline Status& Status::operator=(Status&& s) {
+inline Status& Status::operator=(Status&& s) noexcept {
   MoveFrom(s);
   return *this;
 }
 
-inline Status Status::operator&(const Status& s) const {
+inline Status Status::operator&(const Status& s) const noexcept {
   if (ok()) {
     return s;
   } else {
@@ -260,7 +270,7 @@ inline Status Status::operator&(const Status& s) const {
   }
 }
 
-inline Status Status::operator&(Status&& s) const {
+inline Status Status::operator&(Status&& s) const noexcept {
   if (ok()) {
     return std::move(s);
   } else {
@@ -268,14 +278,14 @@ inline Status Status::operator&(Status&& s) const {
   }
 }
 
-inline Status& Status::operator&=(const Status& s) {
+inline Status& Status::operator&=(const Status& s) noexcept {
   if (ok() && !s.ok()) {
     CopyFrom(s);
   }
   return *this;
 }
 
-inline Status& Status::operator&=(Status&& s) {
+inline Status& Status::operator&=(Status&& s) noexcept {
   if (ok() && !s.ok()) {
     MoveFrom(s);
   }
