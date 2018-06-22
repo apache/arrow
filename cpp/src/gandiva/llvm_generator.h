@@ -80,6 +80,8 @@ class LLVMGenerator {
     void Visit(const NullableNeverFuncDex &dex) override;
     void Visit(const NullableInternalFuncDex &dex) override;
     void Visit(const IfDex &dex) override;
+    void Visit(const BooleanAndDex &dex) override;
+    void Visit(const BooleanOrDex &dex) override;
 
     LValuePtr result() { return result_; }
 

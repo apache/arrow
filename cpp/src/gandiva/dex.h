@@ -248,6 +248,48 @@ class IfDex : public Dex {
   bool is_terminal_else_;
 };
 
+// decomposed boolean expression.
+class BooleanDex : public Dex {
+ public:
+  BooleanDex(const ValueValidityPairVector &args,
+             int local_bitmap_idx)
+    : args_(args),
+      local_bitmap_idx_(local_bitmap_idx) {}
+
+  const ValueValidityPairVector &args() const { return args_; }
+
+  /// The validity of the result is saved in this bitmap.
+  int local_bitmap_idx() const { return local_bitmap_idx_; }
+
+ private:
+  ValueValidityPairVector args_;
+  int local_bitmap_idx_;
+};
+
+/// Boolean-AND expression
+class BooleanAndDex : public BooleanDex {
+ public:
+  BooleanAndDex(const ValueValidityPairVector &args,
+                int local_bitmap_idx)
+    : BooleanDex(args, local_bitmap_idx) {}
+
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
+  }
+};
+
+/// Boolean-OR expression
+class BooleanOrDex : public BooleanDex {
+ public:
+  BooleanOrDex(const ValueValidityPairVector &args,
+               int local_bitmap_idx)
+    : BooleanDex(args, local_bitmap_idx) {}
+
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
+  }
+};
+
 } // namespace gandiva
 
 #endif //GANDIVA_DEX_DEX_H

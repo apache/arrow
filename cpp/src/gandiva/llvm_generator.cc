@@ -661,6 +661,146 @@ void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
   result_.reset(new LValue(result_value));
 }
 
+
+// Boolean AND
+// if any arg is valid and false,
+//   short-circuit and return FALSE (value=false, valid=true)
+// else if all args are valid and true
+//   return TRUE (value=true, valid=true)
+// else
+//   return NULL (value=true, valid=false)
+
+void LLVMGenerator::Visitor::Visit(const BooleanAndDex &dex) {
+  ADD_VISITOR_TRACE("visit BooleanAndExpression");
+  llvm::IRBuilder<> &builder = ir_builder();
+  LLVMTypes *types = generator_->types_;
+  llvm::LLVMContext &context = generator_->context();
+
+  // Create blocks for short-circuit.
+  llvm::BasicBlock *short_circuit_bb = llvm::BasicBlock::Create(context,
+                                                                "short_circuit",
+                                                                function_);
+  llvm::BasicBlock *non_short_circuit_bb = llvm::BasicBlock::Create(context,
+                                                                    "non_short_circuit",
+                                                                    function_);
+  llvm::BasicBlock *merge_bb = llvm::BasicBlock::Create(context, "merge", function_);
+
+  llvm::Value *all_exprs_valid = types->true_constant();
+  for (auto &pair : dex.args()) {
+    LValuePtr current = BuildValueAndValidity(*pair);
+
+    ADD_VISITOR_TRACE("BooleanAndExpression arg value %T", current->data());
+    ADD_VISITOR_TRACE("BooleanAndExpression arg valdity %T", current->validity());
+
+    // short-circuit if valid and false
+    llvm::Value *is_false = builder.CreateNot(current->data());
+    llvm::Value *valid_and_false = builder.CreateAnd(is_false,
+                                                     current->validity(),
+                                                     "valid_and_false");
+
+    llvm::BasicBlock *else_bb = llvm::BasicBlock::Create(context, "else", function_);
+    builder.CreateCondBr(valid_and_false, short_circuit_bb, else_bb);
+
+    // Emit the else block.
+    builder.SetInsertPoint(else_bb);
+    // remember if any nulls were encountered.
+    all_exprs_valid = builder.CreateAnd(all_exprs_valid, current->validity(),
+                                        "validityBitAnd");
+    // continue to evaluate the next pair in list.
+  }
+  builder.CreateBr(non_short_circuit_bb);
+
+  // Short-circuit case (atleast one of the expressions is valid and false).
+  // No need to set validity bit (valid by default).
+  builder.SetInsertPoint(short_circuit_bb);
+  ADD_VISITOR_TRACE("BooleanAndExpression result value false");
+  ADD_VISITOR_TRACE("BooleanAndExpression result valdity true");
+  builder.CreateBr(merge_bb);
+
+  // non short-circuit case (All expressions are either true or null).
+  // result valid if all of the exprs are non-null.
+  builder.SetInsertPoint(non_short_circuit_bb);
+  ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), all_exprs_valid);
+  ADD_VISITOR_TRACE("BooleanAndExpression result value true");
+  ADD_VISITOR_TRACE("BooleanAndExpression result valdity %T", all_exprs_valid);
+  builder.CreateBr(merge_bb);
+
+  builder.SetInsertPoint(merge_bb);
+  llvm::PHINode *result_value = builder.CreatePHI(types->i1_type(), 2, "res_value");
+  result_value->addIncoming(types->false_constant(), short_circuit_bb);
+  result_value->addIncoming(types->true_constant(), non_short_circuit_bb);
+  result_.reset(new LValue(result_value));
+}
+
+// Boolean OR
+// if any arg is valid and true,
+//   short-circuit and return TRUE (value=true, valid=true)
+// else if all args are valid and false
+//   return FALSE (value=false, valid=true)
+// else
+//   return NULL (value=false, valid=false)
+
+void LLVMGenerator::Visitor::Visit(const BooleanOrDex &dex) {
+  ADD_VISITOR_TRACE("visit BooleanOrExpression");
+  llvm::IRBuilder<> &builder = ir_builder();
+  LLVMTypes *types = generator_->types_;
+  llvm::LLVMContext &context = generator_->context();
+
+  // Create blocks for short-circuit.
+  llvm::BasicBlock *short_circuit_bb = llvm::BasicBlock::Create(context,
+                                                                "short_circuit",
+                                                                function_);
+  llvm::BasicBlock *non_short_circuit_bb = llvm::BasicBlock::Create(context,
+                                                                    "non_short_circuit",
+                                                                    function_);
+  llvm::BasicBlock *merge_bb = llvm::BasicBlock::Create(context, "merge", function_);
+
+  llvm::Value *all_exprs_valid = types->true_constant();
+  for (auto &pair : dex.args()) {
+    LValuePtr current = BuildValueAndValidity(*pair);
+
+    ADD_VISITOR_TRACE("BooleanOrExpression arg value %T", current->data());
+    ADD_VISITOR_TRACE("BooleanOrExpression arg valdity %T", current->validity());
+
+    // short-circuit if valid and true.
+    llvm::Value *valid_and_true = builder.CreateAnd(current->data(),
+                                                    current->validity(),
+                                                    "valid_and_true");
+
+    llvm::BasicBlock *else_bb = llvm::BasicBlock::Create(context, "else", function_);
+    builder.CreateCondBr(valid_and_true, short_circuit_bb, else_bb);
+
+    // Emit the else block.
+    builder.SetInsertPoint(else_bb);
+    // remember if any nulls were encountered.
+    all_exprs_valid = builder.CreateAnd(all_exprs_valid, current->validity(),
+                                        "validityBitAnd");
+    // continue to evaluate the next pair in list.
+  }
+  builder.CreateBr(non_short_circuit_bb);
+
+  // Short-circuit case (atleast one of the expressions is valid and true).
+  // No need to set validity bit (valid by default).
+  builder.SetInsertPoint(short_circuit_bb);
+  ADD_VISITOR_TRACE("BooleanOrExpression result value true");
+  ADD_VISITOR_TRACE("BooleanOrExpression result valdity true");
+  builder.CreateBr(merge_bb);
+
+  // non short-circuit case (All expressions are either false or null).
+  // result valid if all of the exprs are non-null.
+  builder.SetInsertPoint(non_short_circuit_bb);
+  ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), all_exprs_valid);
+  ADD_VISITOR_TRACE("BooleanOrExpression result value false");
+  ADD_VISITOR_TRACE("BooleanOrExpression result valdity %T", all_exprs_valid);
+  builder.CreateBr(merge_bb);
+
+  builder.SetInsertPoint(merge_bb);
+  llvm::PHINode *result_value = builder.CreatePHI(types->i1_type(), 2, "res_value");
+  result_value->addIncoming(types->true_constant(), short_circuit_bb);
+  result_value->addIncoming(types->false_constant(), non_short_circuit_bb);
+  result_.reset(new LValue(result_value));
+}
+
 LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair &pair) {
   // generate code for value
   auto value_expr = pair.value_expr();
@@ -777,8 +917,10 @@ std::string LLVMGenerator::ReplaceFormatInTrace(const std::string &in_msg,
 
   llvm::Type *type = value->getType();
   const char *fmt = "";
-  if (type->isIntegerTy(1) || type->isIntegerTy(32)) {
-    // bit or int
+  if (type->isIntegerTy(1) ||
+      type->isIntegerTy(8) ||
+      type->isIntegerTy(16) ||
+      type->isIntegerTy(32)) {
     fmt = "%d";
   } else if (type->isIntegerTy(64)) {
     // bigint

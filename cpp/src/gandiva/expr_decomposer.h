@@ -53,6 +53,7 @@ class ExprDecomposer : public NodeVisitor {
   Status Visit(const FunctionNode &node) override;
   Status Visit(const IfNode &node) override;
   Status Visit(const LiteralNode &node) override;
+  Status Visit(const BooleanNode &node) override;
 
   // stack of if nodes.
   class IfStackEntry {

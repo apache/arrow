@@ -140,6 +140,29 @@ class IfNode : public Node {
   NodePtr else_node_;
 };
 
+/// \brief Node in the expression tree, representing an and/or boolean expression.
+class BooleanNode : public Node {
+ public:
+  enum ExprType : char { AND, OR };
+
+  BooleanNode(ExprType expr_type, const NodeVector &children)
+    : Node(arrow::boolean()),
+      expr_type_(expr_type),
+      children_(children) {}
+
+  Status Accept(NodeVisitor &visitor) const override {
+    return visitor.Visit(*this);
+  }
+
+  ExprType expr_type() const { return expr_type_; }
+
+  const NodeVector &children() const { return children_; }
+
+ private:
+  ExprType expr_type_;
+  NodeVector children_;
+};
+
 } // namespace gandiva
 
 #endif // GANDIVA_EXPR_NODE_H

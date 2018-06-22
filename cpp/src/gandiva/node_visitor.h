@@ -24,6 +24,7 @@ class FieldNode;
 class FunctionNode;
 class IfNode;
 class LiteralNode;
+class BooleanNode;
 
 /// \brief Visitor for nodes in the expression tree.
 class NodeVisitor {
@@ -32,6 +33,7 @@ class NodeVisitor {
   virtual Status Visit(const FunctionNode &node) = 0;
   virtual Status Visit(const IfNode &node) = 0;
   virtual Status Visit(const LiteralNode &node) = 0;
+  virtual Status Visit(const BooleanNode &node) = 0;
 };
 
 } // namespace gandiva

@@ -129,4 +129,30 @@ Status ExprValidator::Visit(const LiteralNode &node) {
   return Status::OK();
 }
 
+Status ExprValidator::Visit(const BooleanNode &node) {
+  Status status;
+
+  if (node.children().size() < 2) {
+    std::stringstream ss;
+    ss << "Boolean expression has "
+       << node.children().size()
+       << " children, expected atleast two";
+    return Status::ExpressionValidationError(ss.str());
+  }
+
+  for (auto &child : node.children()) {
+    if (child->return_type() != arrow::boolean()) {
+      std::stringstream ss;
+      ss << "Boolean expression has a child with return type "
+         << child->return_type()->name()
+         << ", expected return type boolean";
+      return Status::ExpressionValidationError(ss.str());
+    }
+
+    status = child->Accept(*this);
+    GANDIVA_RETURN_NOT_OK(status);
+  }
+  return Status::OK();
+}
+
 } // namespace gandiva

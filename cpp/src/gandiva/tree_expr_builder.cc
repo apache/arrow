@@ -55,6 +55,14 @@ NodePtr TreeExprBuilder::MakeIf(NodePtr condition,
   return std::make_shared<IfNode>(condition, then_node, else_node, result_type);
 }
 
+NodePtr TreeExprBuilder::MakeAnd(const NodeVector &children) {
+  return std::make_shared<BooleanNode>(BooleanNode::AND, children);
+}
+
+NodePtr TreeExprBuilder::MakeOr(const NodeVector &children) {
+  return std::make_shared<BooleanNode>(BooleanNode::OR, children);
+}
+
 ExpressionPtr TreeExprBuilder::MakeExpression(NodePtr root_node,
                                               FieldPtr result_field) {
   if (result_field == nullptr) {

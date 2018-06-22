@@ -32,6 +32,8 @@ class TestDex : public ::testing::Test {
     name_map_[&typeid(NullableInternalFuncDex)] = "NullableInternalFuncDex";
     name_map_[&typeid(LiteralDex)] = "LiteralDex";
     name_map_[&typeid(IfDex)] = "IfDex";
+    name_map_[&typeid(BooleanAndDex)] = "BooleanAndDex";
+    name_map_[&typeid(BooleanOrDex)] = "BooleanOrDex";
   }
 
   std::map<const std::type_info *, std::string> name_map_;
@@ -77,6 +79,14 @@ TEST_F(TestDex, TestVisitor) {
       *result_ = (*map_)[&typeid(dex)];
     }
 
+    void Visit(const BooleanAndDex &dex) override {
+      *result_ = (*map_)[&typeid(dex)];
+    }
+
+    void Visit(const BooleanOrDex &dex) override {
+      *result_ = (*map_)[&typeid(dex)];
+    }
+
    private:
     std::map<const std::type_info *, std::string> *map_;
     std::string *result_;
@@ -118,6 +128,14 @@ TEST_F(TestDex, TestVisitor) {
   IfDex if_dex(nullptr, nullptr, nullptr, arrow::int32(), 0, false);
   if_dex.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(IfDex)]);
+
+  BooleanAndDex and_dex({nullptr}, 0);
+  and_dex.Accept(visitor);
+  EXPECT_EQ(desc, name_map_[&typeid(BooleanAndDex)]);
+
+  BooleanOrDex or_dex({nullptr}, 0);
+  or_dex.Accept(visitor);
+  EXPECT_EQ(desc, name_map_[&typeid(BooleanOrDex)]);
 }
 
 int main(int argc, char **argv) {

@@ -134,7 +134,6 @@ TEST_F(TestProjector, TestIncorrectSchemaTypeNotMatching) {
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {lt_expr}, pool_, &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
-  std::cout<<status.message();
   std::string expected_error =
     "Field definition in schema f2: int32 different from field in expression f2: float";
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
@@ -254,6 +253,52 @@ TEST_F(TestProjector, TestElseNotSupportedType) {
   EXPECT_TRUE(status.IsExpressionValidationError());
   std::string expected_error =
     "Field c has unsupported data type list";
+  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+}
+
+TEST_F(TestProjector, TestAndMinChildren) {
+  // schema for input fields
+  auto fielda = field("a", boolean());
+  auto schema = arrow::schema({fielda});
+
+  // output fields
+  auto field_result = field("res", boolean());
+
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+  auto and_node = TreeExprBuilder::MakeAnd({node_a});
+
+  auto expr = TreeExprBuilder::MakeExpression(and_node, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError());
+  std::string expected_error =
+    "Boolean expression has 1 children, expected atleast two";
+  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+}
+
+TEST_F(TestProjector, TestAndBooleanArgType) {
+  // schema for input fields
+  auto fielda = field("a", boolean());
+  auto fieldb = field("b", int32());
+  auto schema = arrow::schema({fielda, fieldb});
+
+  // output fields
+  auto field_result = field("res", int32());
+
+  auto node_a = TreeExprBuilder::MakeField(fielda);
+  auto node_b = TreeExprBuilder::MakeField(fieldb);
+  auto and_node = TreeExprBuilder::MakeAnd({node_a, node_b});
+
+  auto expr = TreeExprBuilder::MakeExpression(and_node, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError());
+  std::string expected_error =
+    "Boolean expression has a child with return type int32, expected return type boolean";
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 

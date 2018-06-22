@@ -116,6 +116,32 @@ Status ExprDecomposer::Visit(const IfNode &node) {
   return Status::OK();
 }
 
+// Decompose a BooleanNode
+Status ExprDecomposer::Visit(const BooleanNode &node) {
+  // decompose the children.
+  std::vector<ValueValidityPairPtr> args;
+  for (auto &child : node.children()) {
+    child->Accept(*this);
+    args.push_back(result());
+  }
+
+  // Add a local bitmap to track the output validity.
+  int local_bitmap_idx = annotator_.AddLocalBitMap();
+  auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
+
+  std::shared_ptr<BooleanDex> value_dex;
+  switch (node.expr_type()) {
+  case BooleanNode::AND:
+    value_dex = std::make_shared<BooleanAndDex>(args, local_bitmap_idx);
+    break;
+  case BooleanNode::OR:
+    value_dex = std::make_shared<BooleanOrDex>(args, local_bitmap_idx);
+    break;
+  }
+  result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
+  return Status::OK();
+}
+
 Status ExprDecomposer::Visit(const LiteralNode &node) {
   auto value_dex = std::make_shared<LiteralDex>(node.return_type(), node.holder());
   result_ = std::make_shared<ValueValidityPair>(value_dex);

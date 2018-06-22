@@ -50,6 +50,12 @@ class TreeExprBuilder {
                         NodePtr else_node,
                         DataTypePtr result_type);
 
+  /// \brief create a node with a boolean AND expression.
+  static NodePtr MakeAnd(const NodeVector &children);
+
+  /// \brief create a node with a boolean OR expression.
+  static NodePtr MakeOr(const NodeVector &children);
+
   /// \brief create an expression with the specified root_node, and the
   /// result written to result_field.
   /// returns null if the result_field is null.
