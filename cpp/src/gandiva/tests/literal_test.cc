@@ -123,4 +123,87 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_e, outputs.at(4));
 }
 
+TEST_F(TestLiteral, TestNullLiteral) {
+  // schema for input fields
+  auto field_a = field("a", int32());
+  auto field_b = field("b", int32());
+  auto schema = arrow::schema({field_a, field_b});
+
+  // output fields
+  auto res = field("a+b+null", int32());
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_b = TreeExprBuilder::MakeField(field_b);
+  auto literal_c = TreeExprBuilder::MakeNull(arrow::int32());
+  auto add_a_b = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, int32());
+  auto add_a_b_c = TreeExprBuilder::MakeFunction("add", {add_a_b, literal_c}, int32());
+  auto expr = TreeExprBuilder::MakeExpression(add_a_b_c, res);
+
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a = MakeArrowArrayInt32({5, 15, -15, 17}, {true, true, true, false});
+  auto array_b = MakeArrowArrayInt32({5, 15, -15, 17}, {true, true, true, false});
+
+  // expected output
+  auto exp = MakeArrowArrayInt32({0, 0, 0, 0}, {false, false, false, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestLiteral, TestNullLiteralInIf) {
+  // schema for input fields
+  auto field_a = field("a", float64());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res = field("res", float64());
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto literal_5 = TreeExprBuilder::MakeLiteral((double_t)5);
+  auto a_gt_5 = TreeExprBuilder::MakeFunction("greater_than", {node_a, literal_5},
+                                              arrow::boolean());
+  auto literal_null = TreeExprBuilder::MakeNull(arrow::float64());
+  auto if_node = TreeExprBuilder::MakeIf(a_gt_5, literal_5, literal_null,
+                                         arrow::float64());
+  auto expr = TreeExprBuilder::MakeExpression(if_node, res);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a = MakeArrowArrayFloat64({6, 15, -15, 17}, {true, true, true, false});
+
+  // expected output
+  auto exp = MakeArrowArrayFloat64({5, 5, 0, 0}, {true, true, false, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 } // namespace gandiva

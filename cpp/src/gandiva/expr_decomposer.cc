@@ -144,7 +144,13 @@ Status ExprDecomposer::Visit(const BooleanNode &node) {
 
 Status ExprDecomposer::Visit(const LiteralNode &node) {
   auto value_dex = std::make_shared<LiteralDex>(node.return_type(), node.holder());
-  result_ = std::make_shared<ValueValidityPair>(value_dex);
+  DexPtr validity_dex;
+  if (node.is_null()) {
+    validity_dex = std::make_shared<FalseDex>();
+  } else {
+    validity_dex = std::make_shared<TrueDex>();
+  }
+  result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   return Status::OK();
 }
 

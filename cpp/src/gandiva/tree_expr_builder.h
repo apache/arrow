@@ -28,10 +28,20 @@ class TreeExprBuilder {
  public:
   /// \brief create a node on a literal.
   static NodePtr MakeLiteral(bool value);
+  static NodePtr MakeLiteral(uint8_t value);
+  static NodePtr MakeLiteral(uint16_t value);
+  static NodePtr MakeLiteral(uint32_t value);
+  static NodePtr MakeLiteral(uint64_t value);
+  static NodePtr MakeLiteral(int8_t value);
+  static NodePtr MakeLiteral(int16_t value);
   static NodePtr MakeLiteral(int32_t value);
   static NodePtr MakeLiteral(int64_t value);
   static NodePtr MakeLiteral(float value);
   static NodePtr MakeLiteral(double value);
+
+  /// \brief create a node on a null literal.
+  /// returns null if data_type is null or if it's not a supported datatype.
+  static NodePtr MakeNull(DataTypePtr data_type);
 
   /// \brief create a node on arrow field.
   /// returns null if input is null.

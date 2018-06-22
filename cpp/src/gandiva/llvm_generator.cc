@@ -20,7 +20,7 @@
 #include <vector>
 #include <utility>
 
-#include "codegen/bitmap_dex_visitor.h"
+#include "codegen/bitmap_accumulator.h"
 #include "codegen/dex.h"
 #include "codegen/expr_decomposer.h"
 #include "codegen/function_registry.h"
@@ -343,15 +343,11 @@ void LLVMGenerator::ClearPackedBitValueIfFalse(llvm::Value *bitmap,
 void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr &compiled_expr,
                                           const EvalBatch &eval_batch) {
   auto validities = compiled_expr.value_validity()->validity_exprs();
-  BitMapDexVisitor dex_visitor(eval_batch);
 
   // Extract all the source bitmap addresses.
-  std::vector<uint8_t *> src_bitmaps;
+  BitMapAccumulator accumulator(eval_batch);
   for (auto &validity_dex : validities) {
-    validity_dex->Accept(dex_visitor);
-
-    DCHECK_NE(dex_visitor.bitmap(), nullptr);
-    src_bitmaps.push_back(dex_visitor.bitmap());
+    validity_dex->Accept(accumulator);
   }
 
   // Extract the destination bitmap address.
@@ -359,57 +355,9 @@ void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr &compiled_expr,
   uint8_t *dst_bitmap = eval_batch.GetBuffer(out_idx);
 
   // Compute the destination bitmap.
-  IntersectBitMaps(dst_bitmap, src_bitmaps, eval_batch.num_records());
+  accumulator.ComputeResult(dst_bitmap);
 }
 
-/// Compute the intersection of multiple bitmaps.
-void
-LLVMGenerator::IntersectBitMaps(uint8_t *dst_map,
-                                const std::vector<uint8_t *> &src_maps,
-                                int num_records) {
-  uint64_t *dst_map64 = reinterpret_cast<uint64_t *>(dst_map);
-  int num_words = (num_records + 63) / 64; // aligned to 8-byte.
-  int num_bytes = num_words * 8;
-  int nmaps = src_maps.size();
-
-  switch (nmaps) {
-    case 0: {
-      // no src_maps bitmap. simply set all bits
-      memset(dst_map, 0xff, num_bytes);
-      break;
-    }
-
-    case 1: {
-      // one src_maps bitmap. copy to dst_map
-      memcpy(dst_map, src_maps[0], num_bytes);
-      break;
-    }
-
-    case 2: {
-      // two src_maps bitmaps. do 64-bit ANDs
-      uint64_t *src_maps0_64 = reinterpret_cast<uint64_t *>(src_maps[0]);
-      uint64_t *src_maps1_64 = reinterpret_cast<uint64_t *>(src_maps[1]);
-      for (int i = 0; i < num_words; ++i) {
-        dst_map64[i] = src_maps0_64[i] & src_maps1_64[i];
-      }
-      break;
-    }
-
-    default: {
-      /* > 2 src_maps bitmaps. do 64-bit ANDs */
-      uint64_t *src_maps0_64 = reinterpret_cast<uint64_t *>(src_maps[0]);
-      memcpy(dst_map64, src_maps0_64, num_bytes);
-      for (int m = 1; m < nmaps; ++m) {
-        for (int i = 0; i < num_words; ++i) {
-          uint64_t *src_mapsm_64 = reinterpret_cast<uint64_t *>(src_maps[m]);
-          dst_map64[i] &= src_mapsm_64[i];
-        }
-      }
-
-      break;
-    }
-  }
-}
 
 llvm::Value *LLVMGenerator::AddFunctionCall(const std::string &full_name,
                                             llvm::Type *ret_type,
@@ -495,6 +443,14 @@ void LLVMGenerator::Visitor::Visit(const LocalBitMapValidityDex &dex) {
   ADD_VISITOR_TRACE("visit local bitmap " +
                     std::to_string(dex.local_bitmap_idx()) + " value %T", validity);
   result_.reset(new LValue(validity));
+}
+
+void LLVMGenerator::Visitor::Visit(const TrueDex &dex) {
+  result_.reset(new LValue(generator_->types_->true_constant()));
+}
+
+void LLVMGenerator::Visitor::Visit(const FalseDex &dex) {
+  result_.reset(new LValue(generator_->types_->false_constant()));
 }
 
 void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {

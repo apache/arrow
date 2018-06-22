@@ -183,6 +183,20 @@ class NullableInternalFuncDex : public FuncDex {
   int local_bitmap_idx_;
 };
 
+/// special validity type that always returns true.
+class TrueDex : public Dex {
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
+  }
+};
+
+/// special validity type that always returns false.
+class FalseDex : public Dex {
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
+  }
+};
+
 /// decomposed expression for a literal.
 class LiteralDex : public Dex {
  public:

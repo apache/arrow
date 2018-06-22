@@ -46,9 +46,10 @@ class Node {
 /// \brief Node in the expression tree, representing a literal.
 class LiteralNode : public Node {
  public:
-  LiteralNode(DataTypePtr type, const LiteralHolder &holder)
+  LiteralNode(DataTypePtr type, const LiteralHolder &holder, bool is_null)
     : Node(type),
-      holder_(holder) {}
+      holder_(holder),
+      is_null_(is_null) {}
 
   Status Accept(NodeVisitor &visitor) const override {
     return visitor.Visit(*this);
@@ -56,8 +57,11 @@ class LiteralNode : public Node {
 
   const LiteralHolder &holder() const { return holder_; }
 
+  bool is_null() const { return is_null_; }
+
  private:
   LiteralHolder holder_;
+  bool is_null_;
 };
 
 /// \brief Node in the expression tree, representing an arrow field.

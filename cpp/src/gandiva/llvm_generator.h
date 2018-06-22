@@ -55,7 +55,6 @@ class LLVMGenerator {
   LLVMGenerator();
 
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
-  FRIEND_TEST(TestLLVMGenerator, TestIntersectBitMaps);
   FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
 
   llvm::Module *module() { return engine_->module(); }
@@ -75,6 +74,8 @@ class LLVMGenerator {
     void Visit(const VectorReadValidityDex &dex) override;
     void Visit(const VectorReadValueDex &dex) override;
     void Visit(const LocalBitMapValidityDex &dex) override;
+    void Visit(const TrueDex &dex) override;
+    void Visit(const FalseDex &dex) override;
     void Visit(const LiteralDex &dex) override;
     void Visit(const NonNullableFuncDex &dex) override;
     void Visit(const NullableNeverFuncDex &dex) override;
@@ -177,11 +178,6 @@ class LLVMGenerator {
   /// \param[in] : eval_batch (includes input/output buffer addresses)
   void ComputeBitMapsForExpr(const CompiledExpr &compiled_expr,
                              const EvalBatch &eval_batch);
-
-  /// Compute the result bitmap by doing a bitwise-and of the source bitmaps.
-  static void IntersectBitMaps(uint8_t *dst_map,
-                               const std::vector<uint8_t *> &src_maps,
-                               int num_records);
 
   /// Replace the %T in the trace msg with the correct type corresponding to 'type'
   /// eg. %d for int32, %ld for int64, ..

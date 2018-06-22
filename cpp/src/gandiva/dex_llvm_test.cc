@@ -30,6 +30,8 @@ class TestDex : public ::testing::Test {
     name_map_[&typeid(NonNullableFuncDex)] = "NonNullableFuncDex";
     name_map_[&typeid(NullableNeverFuncDex)] = "NullableNeverFuncDex";
     name_map_[&typeid(NullableInternalFuncDex)] = "NullableInternalFuncDex";
+    name_map_[&typeid(TrueDex)] = "TrueDex";
+    name_map_[&typeid(FalseDex)] = "FalseDex";
     name_map_[&typeid(LiteralDex)] = "LiteralDex";
     name_map_[&typeid(IfDex)] = "IfDex";
     name_map_[&typeid(BooleanAndDex)] = "BooleanAndDex";
@@ -56,6 +58,14 @@ TEST_F(TestDex, TestVisitor) {
     }
 
     void Visit(const LocalBitMapValidityDex &dex) override {
+      *result_ = (*map_)[&typeid(dex)];
+    }
+
+    void Visit(const TrueDex &dex) override {
+      *result_ = (*map_)[&typeid(dex)];
+    }
+
+    void Visit(const FalseDex &dex) override {
       *result_ = (*map_)[&typeid(dex)];
     }
 

@@ -20,16 +20,55 @@
 
 namespace gandiva {
 
-#define MAKE_LITERAL(atype, ctype)                                       \
-  NodePtr TreeExprBuilder::MakeLiteral(ctype value) {                    \
-    return std::make_shared<LiteralNode>(atype, LiteralHolder(value));   \
+#define MAKE_LITERAL(atype, ctype)                                              \
+  NodePtr TreeExprBuilder::MakeLiteral(ctype value) {                           \
+    return std::make_shared<LiteralNode>(atype, LiteralHolder(value), false);   \
   }
 
 MAKE_LITERAL(arrow::boolean(), bool)
+MAKE_LITERAL(arrow::int8(), int8_t)
+MAKE_LITERAL(arrow::int16(), int16_t)
 MAKE_LITERAL(arrow::int32(), int32_t)
 MAKE_LITERAL(arrow::int64(), int64_t)
+MAKE_LITERAL(arrow::uint8(), uint8_t)
+MAKE_LITERAL(arrow::uint16(), uint16_t)
+MAKE_LITERAL(arrow::uint32(), uint32_t)
+MAKE_LITERAL(arrow::uint64(), uint64_t)
 MAKE_LITERAL(arrow::float32(), float)
 MAKE_LITERAL(arrow::float64(), double)
+
+NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
+  if (data_type == nullptr) {
+    return nullptr;
+  }
+
+  switch (data_type->id()) {
+  case arrow::Type::BOOL:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder(false), true);
+  case arrow::Type::INT8:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((int8_t)0), true);
+  case arrow::Type::INT16:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((int16_t)0), true);
+  case arrow::Type::INT32:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((int32_t)0), true);
+  case arrow::Type::INT64:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
+  case arrow::Type::UINT8:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint8_t)0), true);
+  case arrow::Type::UINT16:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint16_t)0), true);
+  case arrow::Type::UINT32:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint32_t)0), true);
+  case arrow::Type::UINT64:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint64_t)0), true);
+  case arrow::Type::FLOAT:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((float_t)0), true);
+  case arrow::Type::DOUBLE:
+    return std::make_shared<LiteralNode>(data_type, LiteralHolder((double_t)0), true);
+  default:
+    return nullptr;
+  }
+}
 
 NodePtr TreeExprBuilder::MakeField(FieldPtr field) {
   return NodePtr(new FieldNode(field));
