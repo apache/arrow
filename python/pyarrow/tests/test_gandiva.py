@@ -26,6 +26,8 @@ def test_tree_exp_builder():
     b = pa.array([5, 15, 15, 17], type=pa.int32())
     c = pa.array([True, True, True, False])
     d = pa.array([True, True, True, True])
+    e = pa.array([10, 15, 15, 17], type=pa.int32())
     input_batch = pa.RecordBatch.from_arrays([a, b], names=['a', 'b'])
 
-    projector.evaluate(input_batch)
+    r, = projector.evaluate(input_batch)
+    assert r.equals(e)
