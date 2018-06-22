@@ -83,37 +83,54 @@ endif()
 # Versions and URLs for toolchain builds, which also can be used to configure
 # offline builds
 
-set(BOOST_TOOLCHAIN_VERSION "1.67.0")
+# Read toolchain versions from cpp/thirdparty/versions.txt
+file(STRINGS "${THIRDPARTY_DIR}/versions.txt" TOOLCHAIN_VERSIONS_TXT)
+foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
+  # Exclude comments
+  if(_VERSION_ENTRY MATCHES "#.*")
+    continue()
+  endif()
+
+  string(REGEX MATCH "^[^=]*" _LIB_NAME ${_VERSION_ENTRY})
+  string(REPLACE "${_LIB_NAME}=" "" _LIB_VERSION ${_VERSION_ENTRY})
+
+  # Skip blank or malformed lines
+  if(${_LIB_VERSION} STREQUAL "")
+    continue()
+  endif()
+
+  # For debugging
+  message(STATUS "${_LIB_NAME}: ${_LIB_VERSION}")
+
+  set(${_LIB_NAME} "${_LIB_VERSION}")
+endforeach()
+
 if (DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
-  string(REPLACE "." "_" BOOST_TOOLCHAIN_VERSION_UNDERSCORES ${BOOST_TOOLCHAIN_VERSION})
+  string(REPLACE "." "_" BOOST_VERSION_UNDERSCORES ${BOOST_VERSION})
   set(BOOST_SOURCE_URL
-    "https://dl.bintray.com/boostorg/release/${BOOST_TOOLCHAIN_VERSION}/source/boost_${BOOST_TOOLCHAIN_VERSION_UNDERSCORES}.tar.gz")
+    "https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERSCORES}.tar.gz")
 endif()
 
-set(GTEST_VERSION "1.8.0")
 if (DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
   set(GTEST_SOURCE_URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz")
 endif()
 
-set(GFLAGS_VERSION "2.2.0")
 if (DEFINED ENV{ARROW_GFLAGS_URL})
   set(GFLAGS_SOURCE_URL "$ENV{ARROW_GFLAGS_URL}")
 else()
   set(GFLAGS_SOURCE_URL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz")
 endif()
 
-set(GBENCHMARK_VERSION "1.4.1")
 if (DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
   set(GBENCHMARK_SOURCE_URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz")
 endif()
 
-set(RAPIDJSON_VERSION "1.1.0")
 set(RAPIDJSON_SOURCE_MD5 "badd12c511e081fec6c89c43a7027bce")
 if (DEFINED ENV{ARROW_RAPIDJSON_URL})
   set(RAPIDJSON_SOURCE_URL "$ENV{ARROW_RAPIDJSON_URL}")
@@ -121,66 +138,54 @@ else()
   set(RAPIDJSON_SOURCE_URL "https://github.com/miloyip/rapidjson/archive/v${RAPIDJSON_VERSION}.tar.gz")
 endif()
 
-set(FLATBUFFERS_VERSION "1.9.0")
 if (DEFINED ENV{ARROW_FLATBUFFERS_URL})
   set(FLATBUFFERS_SOURCE_URL "$ENV{ARROW_FLATBUFFERS_URL}")
 else()
   set(FLATBUFFERS_SOURCE_URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz")
 endif()
 
-# jemalloc is vendored, nothing to configure, see later
-set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
-
-set(SNAPPY_VERSION "1.1.3")
 if (DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
   set(SNAPPY_SOURCE_URL "https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz")
 endif()
 
-set(BROTLI_VERSION "v0.6.0")
 if (DEFINED ENV{ARROW_BROTLI_URL})
   set(BROTLI_SOURCE_URL "$ENV{ARROW_BROTLI_URL}")
 else()
   set(BROTLI_SOURCE_URL "https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz")
 endif()
 
-set(LZ4_VERSION "1.7.5")
 if (DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
   set(LZ4_SOURCE_URL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz")
 endif()
 
-set(ZLIB_VERSION "1.2.8")
 if (DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
   set(ZLIB_SOURCE_URL "http://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
 endif()
 
-set(ZSTD_VERSION "1.2.0")
 if (DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
   set(ZSTD_SOURCE_URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz")
 endif()
 
-set(PROTOBUF_VERSION "2.6.0")
 if (DEFINED ENV{ARROW_PROTOBUF_URL})
   set(PROTOBUF_SOURCE_URL "$ENV{ARROW_PROTOBUF_URL}")
 else()
   set(PROTOBUF_SOURCE_URL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
 endif()
 
-set(GRPC_VERSION "1.12.1")
 if (DEFINED ENV{ARROW_GRPC_URL})
   set(GRPC_SOURCE_URL "$ENV{ARROW_GRPC_URL}")
 else()
   set(GRPC_SOURCE_URL "https://github.com/grpc/grpc/archive/v${GRPC_VERSION}.tar.gz")
 endif()
 
-set(ORC_VERSION "cf00b67795717ab3eb04e950780ed6d104109017")
 if (DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
