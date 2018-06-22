@@ -407,6 +407,28 @@ if (PYARROW_BUILD_PLASMA)
   file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
 endif()
 
+## Gandiva
+
+find_package(Gandiva)
+
+if(NOT GANDIVA_FOUND)
+  message(FATAL_ERROR "Unable to locate Gandiva libraries")
+endif()
+
+include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
+ADD_THIRDPARTY_LIB(libgandiva
+  SHARED_LIB ${GANDIVA_SHARED_LIB})
+
+if (PYARROW_BUNDLE_ARROW_CPP)
+  bundle_arrow_lib(PLASMA_SHARED_LIB
+    ABI_VERSION ${ARROW_ABI_VERSION}
+    SO_VERSION ${ARROW_SO_VERSION})
+endif()
+set(LINK_LIBS
+  ${LINK_LIBS}
+  libgandiva_shared)
+
+set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 
 if (PYARROW_BUILD_ORC)
   ## ORC

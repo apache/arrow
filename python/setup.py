@@ -146,6 +146,7 @@ class build_ext(_build_ext):
 
     CYTHON_MODULE_NAMES = [
         'lib',
+        'gandiva',
         '_parquet',
         '_orc',
         '_plasma']

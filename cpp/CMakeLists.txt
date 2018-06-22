@@ -696,6 +696,8 @@ endif()
 
 add_subdirectory(src/arrow)
 
+add_subdirectory(src/gandiva)
+
 if(ARROW_PYTHON)
   find_package(PythonLibsNew REQUIRED)
   find_package(NumPy REQUIRED)
