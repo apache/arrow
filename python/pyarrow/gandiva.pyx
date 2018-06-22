@@ -26,6 +26,7 @@ from libcpp.vector cimport vector as c_vector
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
+from pyarrow.compat import frombytes
 
 from pyarrow.includes.libgandiva cimport (GStatus, CExpression, CNode, CProjector,
                                           TreeExprBuilder_MakeExpression,
@@ -35,13 +36,15 @@ from pyarrow.includes.libgandiva cimport (GStatus, CExpression, CNode, CProjecto
                                           TreeExprBuilder_MakeIf,
                                           Projector_Make)
 
-from pyarrow.lib cimport DataType, Field, MemoryPool, Schema
+from pyarrow.lib cimport Array, DataType, Field, MemoryPool, RecordBatch, Schema
 
 cdef int check_status(const GStatus& status) nogil except -1:
     if status.ok():
         return 0
-    else:
-        return -1
+
+    with gil:
+        message = frombytes(status.message())
+        raise Exception(message)
 
 cdef class Node:
     cdef:
@@ -57,12 +60,26 @@ cdef class Expression:
     cdef void init(self, shared_ptr[CExpression] expression):
          self.expression = expression
 
+cdef make_array(shared_ptr[CArray] array):
+    cdef Array result = Array()
+    result.init(array)
+    return result
+
 cdef class Projector:
     cdef:
         shared_ptr[CProjector] projector
 
     cdef void init(self, shared_ptr[CProjector] projector):
         self.projector = projector
+
+    def evaluate(self, RecordBatch batch):
+        cdef vector[shared_ptr[CArray]] results
+        check_status(self.projector.get().Evaluate(batch.sp_batch.get()[0], &results))
+        cdef shared_ptr[CArray] result
+        arrays = []
+        for result in results:
+            arrays.append(make_array(result))
+        return arrays
 
 cdef class TreeExprBuilder:
 

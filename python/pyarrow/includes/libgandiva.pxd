@@ -46,6 +46,11 @@ cdef extern from "gandiva/gandiva_aliases.h" namespace "gandiva" nogil:
     ctypedef vector[shared_ptr[CExpression]] CExpressionVector" gandiva::ExpressionVector"
 
 
+cdef extern from "gandiva/arrow.h" namespace "gandiva" nogil:
+
+    ctypedef vector[shared_ptr[CArray]] CArrayVector" gandiva::ArrayVector"
+
+
 cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
 
     cdef shared_ptr[CNode] TreeExprBuilder_MakeLiteral "gandiva::TreeExprBuilder::MakeLiteral"(c_bool value)
@@ -63,4 +68,5 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
 cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
 
     cdef cppclass CProjector" gandiva::Projector":
-         pass
+
+         GStatus Evaluate(const CRecordBatch& batch, CArrayVector* output)
