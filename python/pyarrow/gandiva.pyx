@@ -28,7 +28,8 @@ from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from pyarrow.includes.libarrow cimport *
 from pyarrow.compat import frombytes
 
-from pyarrow.includes.libgandiva cimport (GStatus, CExpression, CNode, CProjector,
+from pyarrow.includes.libgandiva cimport (GStatus, CExpression,
+                                          CNode, CProjector,
                                           TreeExprBuilder_MakeExpression,
                                           TreeExprBuilder_MakeFunction,
                                           TreeExprBuilder_MakeLiteral,
@@ -36,7 +37,8 @@ from pyarrow.includes.libgandiva cimport (GStatus, CExpression, CNode, CProjecto
                                           TreeExprBuilder_MakeIf,
                                           Projector_Make)
 
-from pyarrow.lib cimport Array, DataType, Field, MemoryPool, RecordBatch, Schema
+from pyarrow.lib cimport (Array, DataType, Field, MemoryPool,
+                          RecordBatch, Schema)
 
 cdef int check_status(const GStatus& status) nogil except -1:
     if status.ok():
@@ -53,12 +55,17 @@ cdef class Node:
     cdef void init(self, shared_ptr[CNode] node):
         self.node = node
 
+cdef make_node(shared_ptr[CNode] node):
+    cdef Node result = Node()
+    result.init(node)
+    return result
+
 cdef class Expression:
     cdef:
-         shared_ptr[CExpression] expression
+        shared_ptr[CExpression] expression
 
     cdef void init(self, shared_ptr[CExpression] expression):
-         self.expression = expression
+        self.expression = expression
 
 cdef make_array(shared_ptr[CArray] array):
     cdef Array result = Array()
@@ -74,7 +81,8 @@ cdef class Projector:
 
     def evaluate(self, RecordBatch batch):
         cdef vector[shared_ptr[CArray]] results
-        check_status(self.projector.get().Evaluate(batch.sp_batch.get()[0], &results))
+        check_status(self.projector.get().Evaluate(
+            batch.sp_batch.get()[0], &results))
         cdef shared_ptr[CArray] result
         arrays = []
         for result in results:
@@ -85,12 +93,11 @@ cdef class TreeExprBuilder:
 
     def make_literal(self, value):
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeLiteral(value)
-        cdef Node node = Node()
-        node.init(r)
-        return node
+        return make_node(r)
 
     def make_expression(self, Node root_node, Field return_field):
-        cdef shared_ptr[CExpression] r = TreeExprBuilder_MakeExpression(root_node.node, return_field.sp_field)
+        cdef shared_ptr[CExpression] r = TreeExprBuilder_MakeExpression(
+            root_node.node, return_field.sp_field)
         cdef Expression expression = Expression()
         expression.init(r)
         return expression
@@ -100,22 +107,20 @@ cdef class TreeExprBuilder:
         cdef Node child
         for child in children:
             c_children.push_back(child.node)
-        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeFunction(name, c_children, return_type.sp_type)
-        cdef Node node = Node()
-        node.init(r)
-        return node
+        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeFunction(
+            name, c_children, return_type.sp_type)
+        return make_node(r)
 
     def make_field(self, Field field):
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeField(field.sp_field)
-        cdef Node node = Node()
-        node.init(r)
-        return node
+        return make_node(r)
 
-    def make_if(self, Node condition, Node this_node, Node else_node, DataType return_type):
-        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeIf(condition.node, this_node.node, else_node.node, return_type.sp_type)
-        cdef Node node = Node()
-        node.init(r)
-        return node
+    def make_if(self, Node condition, Node this_node,
+                Node else_node, DataType return_type):
+        cdef shared_ptr[CNode] r = TreeExprBuilder_MakeIf(
+            condition.node, this_node.node, else_node.node,
+            return_type.sp_type)
+        return make_node(r)
 
 cpdef make_projector(Schema schema, children, MemoryPool pool):
     cdef c_vector[shared_ptr[CExpression]] c_children
@@ -123,7 +128,8 @@ cpdef make_projector(Schema schema, children, MemoryPool pool):
     for child in children:
         c_children.push_back(child.expression)
     cdef shared_ptr[CProjector] result
-    check_status(Projector_Make(schema.sp_schema, c_children, pool.pool, &result))
+    check_status(Projector_Make(schema.sp_schema, c_children,
+                                pool.pool, &result))
     cdef Projector projector = Projector()
     projector.init(result)
     return projector

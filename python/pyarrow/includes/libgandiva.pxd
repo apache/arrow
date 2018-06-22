@@ -43,7 +43,8 @@ cdef extern from "gandiva/gandiva_aliases.h" namespace "gandiva" nogil:
 
     ctypedef vector[shared_ptr[CNode]] CNodeVector" gandiva::NodeVector"
 
-    ctypedef vector[shared_ptr[CExpression]] CExpressionVector" gandiva::ExpressionVector"
+    ctypedef vector[shared_ptr[CExpression]] \
+        CExpressionVector" gandiva::ExpressionVector"
 
 
 cdef extern from "gandiva/arrow.h" namespace "gandiva" nogil:
@@ -53,17 +54,30 @@ cdef extern from "gandiva/arrow.h" namespace "gandiva" nogil:
 
 cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
 
-    cdef shared_ptr[CNode] TreeExprBuilder_MakeLiteral "gandiva::TreeExprBuilder::MakeLiteral"(c_bool value)
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeLiteral \
+        "gandiva::TreeExprBuilder::MakeLiteral"(c_bool value)
 
-    cdef shared_ptr[CExpression] TreeExprBuilder_MakeExpression "gandiva::TreeExprBuilder::MakeExpression"(shared_ptr[CNode] root_node, shared_ptr[CField] result_field)
+    cdef shared_ptr[CExpression] TreeExprBuilder_MakeExpression\
+        "gandiva::TreeExprBuilder::MakeExpression"(
+            shared_ptr[CNode] root_node, shared_ptr[CField] result_field)
 
-    cdef shared_ptr[CNode] TreeExprBuilder_MakeFunction "gandiva::TreeExprBuilder::MakeFunction"(const c_string& name, const CNodeVector& children, shared_ptr[CDataType] return_type)
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeFunction \
+        "gandiva::TreeExprBuilder::MakeFunction"(
+            const c_string& name, const CNodeVector& children,
+            shared_ptr[CDataType] return_type)
 
-    cdef shared_ptr[CNode] TreeExprBuilder_MakeField "gandiva::TreeExprBuilder::MakeField"(shared_ptr[CField] field)
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeField \
+        "gandiva::TreeExprBuilder::MakeField"(shared_ptr[CField] field)
 
-    cdef shared_ptr[CNode] TreeExprBuilder_MakeIf "gandiva::TreeExprBuilder::MakeIf"(shared_ptr[CNode] condition, shared_ptr[CNode] this_node, shared_ptr[CNode] else_node, shared_ptr[CDataType] return_type)
+    cdef shared_ptr[CNode] TreeExprBuilder_MakeIf \
+        "gandiva::TreeExprBuilder::MakeIf"(
+            shared_ptr[CNode] condition, shared_ptr[CNode] this_node,
+            shared_ptr[CNode] else_node, shared_ptr[CDataType] return_type)
 
-    cdef GStatus Projector_Make "gandiva::Projector::Make"(shared_ptr[CSchema] schema, const CExpressionVector& children, CMemoryPool* pool, shared_ptr[CProjector]* projector)
+    cdef GStatus Projector_Make \
+        "gandiva::Projector::Make"(
+            shared_ptr[CSchema] schema, const CExpressionVector& children,
+            CMemoryPool* pool, shared_ptr[CProjector]* projector)
 
 cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
 
