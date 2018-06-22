@@ -21,10 +21,10 @@
 
 ## System setup
 
-Arrow uses CMake as a build configuration system. Currently, it supports in-source and
-out-of-source builds with the latter one being preferred.
+Arrow uses CMake as a build configuration system. Currently, it supports
+in-source and out-of-source builds with the latter one being preferred.
 
-Build Arrow requires:
+Building Arrow requires:
 
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
 * CMake
@@ -108,11 +108,11 @@ ASAN, and `ARROW_USE_ASAN` is mutually-exclusive with the valgrind option
 
 ### Building/Running fuzzers
 
-Fuzzers can help finding unhandled exceptions and problems with untrusted input that
-may lead to crashes, security issues and undefined behavior. They do this by
-generating random input data and observing the behavior of the executed code. To build
-the fuzzer code, LLVM is required (GCC-based compilers won't work). You can build them
-using the following code:
+Fuzzers can help finding unhandled exceptions and problems with untrusted input
+that may lead to crashes, security issues and undefined behavior. They do this
+by generating random input data and observing the behavior of the executed
+code. To build the fuzzer code, LLVM is required (GCC-based compilers won't
+work). You can build them using the following code:
 
     cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON ..
 
@@ -158,7 +158,7 @@ There are some problems that may occur during the compilation process:
 
 ### Third-party dependencies and configuration
 
-Arrow depends on a number of thirdparty libraries. We support these in a few
+Arrow depends on a number of third-party libraries. We support these in a few
 ways:
 
 * Building dependencies from source by downloading archives from the internet
@@ -166,7 +166,8 @@ ways:
   builds)
 * Building with locally-installed libraries
 
-See [thirdparty/README.md][5] for details about these options.
+See [thirdparty/README.md][5] for details about these options and how to
+configure your build toolchain.
 
 ### Building Python integration library (optional)
 
