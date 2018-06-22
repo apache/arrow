@@ -322,9 +322,9 @@ class PlasmaToTensorOp : public AsyncOpKernel {
       // Important.  See note in T2P op.
       // We don't check the return status since the host memory might've been
       // already registered (e.g., the TensorToPlasmaOp might've been run).
-      stream_executor->HostMemoryRegister(
+      CHECK(stream_executor->HostMemoryRegister(
           const_cast<void*>(static_cast<const void*>(plasma_data)),
-          static_cast<uint64>(size_in_bytes));
+          static_cast<uint64>(size_in_bytes)));
 
       perftools::gputools::DeviceMemoryBase wrapped_dst(
           reinterpret_cast<void*>(const_cast<char*>(output_tensor->tensor_data().data())));
