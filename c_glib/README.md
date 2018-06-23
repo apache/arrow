@@ -118,7 +118,7 @@ On CentOS 7 or later:
 On macOS with [Homebrew](https://brew.sh/):
 
 ```text
-% brew install -y gtk-doc gobject-introspection
+% brew install -y automake gtk-doc gobject-introspection
 ```
 
 Now, you can build Arrow GLib:
