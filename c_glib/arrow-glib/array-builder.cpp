@@ -25,6 +25,7 @@
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
+#include <arrow-glib/decimal.hpp>
 
 template <typename BUILDER, typename VALUE>
 gboolean
@@ -223,6 +224,9 @@ G_BEGIN_DECLS
  *
  * #GArrowStructArrayBuilder is the class to create a new
  * #GArrowStructArray.
+ *
+ * #GArrowDecimal128ArrayBuilder is the class to create a new
+ * #GArrowDecimal128Array.
  */
 
 typedef struct GArrowArrayBuilderPrivate_ {
@@ -3270,6 +3274,61 @@ garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder
 }
 
 
+G_DEFINE_TYPE(GArrowDecimal128ArrayBuilder,
+              garrow_decimal128_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_decimal128_array_builder_init(GArrowDecimal128ArrayBuilder *builder)
+{
+}
+
+static void
+garrow_decimal128_array_builder_class_init(GArrowDecimal128ArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_decimal128_array_builder_new:
+ * @data_type: #GArrowDecimalDataType for the decimal.
+ *
+ * Returns: A newly created #GArrowDecimal128ArrayBuilder.
+ *
+ * Since: 0.10.0
+ */
+GArrowDecimal128ArrayBuilder *
+garrow_decimal128_array_builder_new(GArrowDecimalDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          NULL,
+                                          "[decimal128-array-builder][new]");
+  return GARROW_DECIMAL128_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_decimal128_array_builder_append:
+ * @builder: A #GArrowDecimal128ArrayBuilder.
+ * @value: A decimal value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.10.0
+ */
+gboolean
+garrow_decimal128_array_builder_append(GArrowDecimal128ArrayBuilder *builder,
+                                       GArrowDecimal128 *value,
+                                       GError **error)
+{
+  auto arrow_decimal = garrow_decimal128_get_raw(value);
+  return garrow_array_builder_append<arrow::Decimal128Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     *arrow_decimal,
+     error,
+     "[decimal128-array-builder][append]");
+}
+
 G_END_DECLS
 
 GArrowArrayBuilder *
@@ -3337,6 +3396,9 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::STRUCT:
       type = GARROW_TYPE_STRUCT_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::DECIMAL:
+      type = GARROW_TYPE_DECIMAL128_ARRAY_BUILDER;
       break;
     default:
       type = GARROW_TYPE_ARRAY_BUILDER;
