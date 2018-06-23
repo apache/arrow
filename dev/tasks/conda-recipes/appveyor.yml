@@ -23,7 +23,6 @@ environment:
     - TARGET_ARCH: x64
       CONDA_PY: 36
       CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
-  ARROW_SRC: C:\apache-arrow
   ARROW_VERSION: {{ ARROW_VERSION }}
 
 install:
@@ -45,11 +44,28 @@ install:
 build: off
 
 test_script:
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} %ARROW_SRC% || exit /B
-  - git checkout {{ ARROW_SHA }} || exit /B
-  - pushd %ARROW_SRC%\dev\tasks\conda-recipes
-  - conda.exe build parquet-cpp arrow-cpp pyarrow
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow || exit /B
+  - git -C arrow checkout {{ ARROW_SHA }} || exit /B
+  - pushd arrow\dev\tasks\conda-recipes
+  - conda.exe build --output-folder . parquet-cpp arrow-cpp pyarrow
+  - pushd win-64
+  - for %%f in (*.tar.bz2) do (
+      set %%g=%%~nf
+      ren "%%f" "%%~ng-win-64.tar.bz2"
+    )
 
+artifacts:
+  # this must be relative and child of the build C:\projects\crossbow directory
+  - path: arrow\dev\tasks\conda-recipes\win-64\*.tar.bz2
+
+deploy:
+  release: {{ BUILD_TAG }}
+  provider: GitHub
+  auth_token: "%CROSSBOW_GITHUB_TOKEN%"
+  artifact: /.*\.tar\.bz2/
+  draft: false
+  prerelease: false
+  force_update: true
 
 notifications:
   - provider: Email

@@ -16,36 +16,39 @@
 # under the License.
 
 tasks:
+  # arbitrary_task_name:
+  #   branch: defaults to name
+  #   platform: osx|linux|win
+  #   template: path of jinja2 templated yml
+  #   params: optional extra parameters
+
   # conda packages
-  - name: conda-linux
+  conda-linux:
     platform: linux
     template: conda-recipes/travis.linux.yml
-    params:
-  - name: conda-osx
+
+  conda-osx:
     platform: osx
     template: conda-recipes/travis.osx.yml
-    params:
-  - name: conda-win
+
+  conda-win:
     platform: win
     template: conda-recipes/appveyor.yml
-    params:
 
   # python wheels
-  - name: python-wheel-linux
+  wheel-linux:
     platform: linux
     template: python-wheels/travis.linux.yml
-    params:
-  - name: python-wheel-osx
+
+  wheel-osx:
     platform: osx
     template: python-wheels/travis.osx.yml
-    params:
-  - name: python-wheel-win
+
+  wheel-win:
     platform: win
     template: python-wheels/appveyor.yml
-    params:
 
   # linux packages
-  - name: linux-packages
+  linux-packages:
     platform: linux
     template: linux-packages/travis.linux.yml
-    params:

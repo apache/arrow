@@ -14,12 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+language: generic
+
 os: osx
+osx_image: xcode8.3
+
 sudo: required
-language: objective-c
 
 env:
   global:
+    - TRAVIS_TAG={{ BUILD_TAG }}
     - PLAT={{ PLAT }}
     - BUILD_REF={{ BUILD_REF }}
     - PYARROW_VERSION={{ PYARROW_VERSION }}
@@ -69,13 +73,14 @@ install:
   - build_wheel arrow $PLAT
   - mv -v arrow/python/dist/* dist/
 
-script:
-  - echo "SCRIPT"
-  - pwd
-
-after_success:
-  - echo "After success"
-  - pwd
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: dist/*.whl
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:
