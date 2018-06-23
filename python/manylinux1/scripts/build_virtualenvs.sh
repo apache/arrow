@@ -49,8 +49,8 @@ done
 find /venv-test-*/lib/*/site-packages/pandas -name '*.so' -exec strip '{}' ';'
 find /venv-test-*/lib/*/site-packages/numpy -name '*.so' -exec strip '{}' ';'
 find /opt/_internal/cpython-*/lib/*/site-packages/pandas -name '*.so' -exec strip '{}' ';'
-# Only Python 3.6 packages are stripable as they are built inside of the image 
-find /opt/_internal/cpython-3.6.4/lib/python3.6/site-packages/numpy -name '*.so' -exec strip '{}' ';'
+# Only Python 3.6 packages are stripable as they are built inside of the image
+find /opt/_internal/cpython-3.6.*/lib/python3.6/site-packages/numpy -name '*.so' -exec strip '{}' ';'
 find /opt/_internal/*/lib/*/site-packages/Cython -name '*.so' -exec strip '{}' ';'
 
 # Remove pip cache again. It's useful during the virtualenv creation but we
