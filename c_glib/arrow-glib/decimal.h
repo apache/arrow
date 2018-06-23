@@ -42,5 +42,6 @@ gchar *garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal,
 gchar *garrow_decimal128_to_string(GArrowDecimal128 *decimal);
 void garrow_decimal128_abs(GArrowDecimal128 *decimal);
 void garrow_decimal128_negate(GArrowDecimal128 *decimal);
+gint64 garrow_decimal128_to_integer(GArrowDecimal128 *decimal);
 
 G_END_DECLS
