@@ -189,7 +189,7 @@ endif()
 if (DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
-  set(ORC_SOURCE_URL "https://github.com/apache/orc/archive/${ORC_VERSION}.tar.gz")
+  set(ORC_SOURCE_URL "https://github.com/apache/orc/archive/rel/release-${ORC_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
