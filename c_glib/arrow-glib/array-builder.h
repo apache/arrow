@@ -21,6 +21,7 @@
 
 #include <arrow-glib/array.h>
 #include <arrow-glib/gobject-type.h>
+#include <arrow-glib/decimal.h>
 
 G_BEGIN_DECLS
 
@@ -1308,5 +1309,54 @@ gboolean garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *build
 GArrowArrayBuilder *garrow_struct_array_builder_get_field_builder(GArrowStructArrayBuilder *builder,
                                                                   gint i);
 GList *garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder);
+
+
+#define GARROW_TYPE_DECIMAL128_ARRAY_BUILDER        \
+  (garrow_decimal128_array_builder_get_type())
+#define GARROW_DECIMAL128_ARRAY_BUILDER(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                \
+                              GARROW_TYPE_DECIMAL128_ARRAY_BUILDER, \
+                              GArrowDecimal128ArrayBuilder))
+#define GARROW_DECIMAL128_ARRAY_BUILDER_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                                 \
+                           GARROW_TYPE_DECIMAL128_ARRAY_BUILDER,    \
+                           GArrowDecimal128ArrayBuilderClass))
+#define GARROW_IS_DECIMAL128_ARRAY_BUILDER(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                        \
+                              GARROW_TYPE_DECIMAL128_ARRAY_BUILDER))
+#define GARROW_IS_DECIMAL128_ARRAY_BUILDER_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                                 \
+                           GARROW_TYPE_DECIMAL128_ARRAY_BUILDER))
+#define GARROW_DECIMAL128_ARRAY_BUILDER_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                                 \
+                             GARROW_TYPE_DECIMAL128_ARRAY_BUILDER,  \
+                             GArrowDecimal128ArrayBuilderClass))
+
+typedef struct _GArrowDecimal128ArrayBuilder         GArrowDecimal128ArrayBuilder;
+typedef struct _GArrowDecimal128ArrayBuilderClass    GArrowDecimal128ArrayBuilderClass;
+
+/**
+ * GArrowDecimal128ArrayBuilder:
+ *
+ * It wraps `arrow::Decimal128Builder`.
+ */
+struct _GArrowDecimal128ArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowDecimal128ArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_decimal128_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowDecimal128ArrayBuilder *garrow_decimal128_array_builder_new(GArrowDecimalDataType *data_type);
+
+gboolean garrow_decimal128_array_builder_append(GArrowDecimal128ArrayBuilder *builder,
+                                                GArrowDecimal128 *value,
+                                                GError **error);
 
 G_END_DECLS
