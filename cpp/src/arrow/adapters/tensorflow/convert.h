@@ -34,8 +34,8 @@ namespace adapters {
 
 namespace tensorflow {
 
-arrow::Status GetArrowType(::tensorflow::DataType dtype,
-                           std::shared_ptr<arrow::DataType>* out) {
+Status GetArrowType(::tensorflow::DataType dtype,
+                    std::shared_ptr<DataType>* out) {
   switch (dtype) {
     case ::tensorflow::DT_BOOL:
       *out = arrow::boolean();
@@ -86,69 +86,67 @@ arrow::Status GetArrowType(::tensorflow::DataType dtype,
     case ::tensorflow::DT_STRING:
     case ::tensorflow::DT_VARIANT:
     default:
-      return arrow::Status(arrow::StatusCode::TypeError,
-                           "TensorFlow data type is not supported");
+      return Status::TypeError("TensorFlow data type is not supported");
   }
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
-arrow::Status GetTensorFlowType(std::shared_ptr<arrow::DataType> dtype,
-                                ::tensorflow::DataType* out) {
+Status GetTensorFlowType(std::shared_ptr<DataType> dtype,
+                         ::tensorflow::DataType* out) {
   switch (dtype->id()) {
-    case arrow::Type::BOOL:
+    case Type::BOOL:
       *out = ::tensorflow::DT_BOOL;
       break;
-    case arrow::Type::UINT8:
+    case Type::UINT8:
       *out = ::tensorflow::DT_UINT8;
       break;
-    case arrow::Type::INT8:
+    case Type::INT8:
       *out = ::tensorflow::DT_INT8;
       break;
-    case arrow::Type::UINT16:
+    case Type::UINT16:
       *out = ::tensorflow::DT_UINT16;
       break;
-    case arrow::Type::INT16:
+    case Type::INT16:
       *out = ::tensorflow::DT_INT16;
       break;
-    case arrow::Type::UINT32:
+    case Type::UINT32:
       *out = ::tensorflow::DT_UINT32;
       break;
-    case arrow::Type::INT32:
+    case Type::INT32:
       *out = ::tensorflow::DT_INT32;
       break;
-    case arrow::Type::UINT64:
+    case Type::UINT64:
       *out = ::tensorflow::DT_UINT64;
       break;
-    case arrow::Type::INT64:
+    case Type::INT64:
       *out = ::tensorflow::DT_INT64;
       break;
-    case arrow::Type::HALF_FLOAT:
+    case Type::HALF_FLOAT:
       *out = ::tensorflow::DT_HALF;
       break;
-    case arrow::Type::FLOAT:
+    case Type::FLOAT:
       *out = ::tensorflow::DT_FLOAT;
       break;
-    case arrow::Type::DOUBLE:
+    case Type::DOUBLE:
       *out = ::tensorflow::DT_DOUBLE;
       break;
-    case arrow::Type::STRING:
-    case arrow::Type::BINARY:
-    case arrow::Type::FIXED_SIZE_BINARY:
-    case arrow::Type::DATE32:
-    case arrow::Type::DATE64:
-    case arrow::Type::TIMESTAMP:
-    case arrow::Type::TIME32:
-    case arrow::Type::TIME64:
-    case arrow::Type::INTERVAL:
-    case arrow::Type::DECIMAL:
-    case arrow::Type::LIST:
-    case arrow::Type::STRUCT:
-    case arrow::Type::UNION:
-    case arrow::Type::DICTIONARY:
-    case arrow::Type::MAP:
+    case Type::STRING:
+    case Type::BINARY:
+    case Type::FIXED_SIZE_BINARY:
+    case Type::DATE32:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME32:
+    case Type::TIME64:
+    case Type::INTERVAL:
+    case Type::DECIMAL:
+    case Type::LIST:
+    case Type::STRUCT:
+    case Type::UNION:
+    case Type::DICTIONARY:
+    case Type::MAP:
     default:
-      return arrow::Status(arrow::StatusCode::TypeError,
-                           "Arrow data type is not supported");
+      return Status::TypeError("Arrow data type is not supported");
   }
   return arrow::Status::OK();
 }

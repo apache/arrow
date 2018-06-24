@@ -722,9 +722,9 @@ Status SerializeTensor(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) 
 Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
                          const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
                          io::OutputStream* dst) {
-  auto empty_tensor = std::make_shared<arrow::Tensor>(
-      dtype, std::make_shared<arrow::Buffer>(nullptr, tensor_num_bytes), shape);
-  arrow::py::SerializedPyObject serialized_tensor;
+  auto empty_tensor = std::make_shared<Tensor>(
+      dtype, std::make_shared<Buffer>(nullptr, tensor_num_bytes), shape);
+  SerializedPyObject serialized_tensor;
   RETURN_NOT_OK(SerializeTensor(empty_tensor, &serialized_tensor));
   return serialized_tensor.WriteTo(dst);
 }
