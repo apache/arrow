@@ -34,8 +34,7 @@ namespace adapters {
 
 namespace tensorflow {
 
-Status GetArrowType(::tensorflow::DataType dtype,
-                    std::shared_ptr<DataType>* out) {
+Status GetArrowType(::tensorflow::DataType dtype, std::shared_ptr<DataType>* out) {
   switch (dtype) {
     case ::tensorflow::DT_BOOL:
       *out = arrow::boolean();
@@ -91,8 +90,7 @@ Status GetArrowType(::tensorflow::DataType dtype,
   return Status::OK();
 }
 
-Status GetTensorFlowType(std::shared_ptr<DataType> dtype,
-                         ::tensorflow::DataType* out) {
+Status GetTensorFlowType(std::shared_ptr<DataType> dtype, ::tensorflow::DataType* out) {
   switch (dtype->id()) {
     case Type::BOOL:
       *out = ::tensorflow::DT_BOOL;

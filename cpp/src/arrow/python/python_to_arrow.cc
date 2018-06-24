@@ -585,7 +585,7 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
         "This object exceeds the maximum recursion depth. It may contain itself "
         "recursively.");
   }
-  SequenceBuilder builder(nullptr);
+  SequenceBuilder builder;
   std::vector<PyObject*> sublists, subtuples, subdicts, subsets;
   for (const auto& sequence : sequences) {
     auto visit = [&](PyObject* obj) {
@@ -711,7 +711,7 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
 
 Status SerializeTensor(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) {
   std::shared_ptr<Array> array;
-  SequenceBuilder builder(nullptr);
+  SequenceBuilder builder;
   RETURN_NOT_OK(builder.AppendTensor(static_cast<int32_t>(out->tensors.size())));
   out->tensors.push_back(tensor);
   RETURN_NOT_OK(builder.Finish(nullptr, nullptr, nullptr, nullptr, &array));
