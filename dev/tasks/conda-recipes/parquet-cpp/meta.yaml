@@ -36,9 +36,8 @@ source:
 
 build:
   number: 0
-  skip: true  # [win and not (py35 and win64)]
   features:
-    - vc14  # [win and py35]
+    - vc14  # [win]
 
 requirements:
   build:
@@ -46,16 +45,12 @@ requirements:
     - boost-cpp 1.66.0
     - cmake
     - thrift-cpp >=0.11
-    - python            # [win]
     - arrow-cpp {{ ARROW_VERSION }}
 
   run:
     - arrow-cpp {{ ARROW_VERSION }}
 
 test:
-  requires:
-    - python {{ environ['PY_VER'] + '*' }}  # [win]
-
   commands:
     - test -f $PREFIX/lib/libparquet.so                                       # [linux]
     - test -f $PREFIX/lib/libparquet.dylib                                    # [osx]

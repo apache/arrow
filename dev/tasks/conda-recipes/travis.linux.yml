@@ -26,6 +26,7 @@ env:
     - CONDA_PY=35
     - CONDA_PY=36
   global:
+    - TRAVIS_TAG={{ BUILD_TAG }}
     - ARROW_VERSION={{ ARROW_VERSION }}
 
 install:
@@ -55,7 +56,22 @@ script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
   - git -C arrow checkout {{ ARROW_SHA }}
   - pushd arrow/dev/tasks/conda-recipes
-  - conda build parquet-cpp arrow-cpp pyarrow
+  - conda build --output-folder . parquet-cpp arrow-cpp pyarrow
+  - |
+    pushd linux-64
+    for file in *.tar.bz2; do
+      mv "$file" "$(basename "$file" .tar.bz2)-linux-64.tar.bz2"
+    done
+    popd
+
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: $TRAVIS_BUILD_DIR/arrow/dev/tasks/conda-recipes/linux-64/*.tar.bz2
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:

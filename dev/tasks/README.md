@@ -80,12 +80,12 @@ submission. The tasks are defined in `tasks.yml`
 6. Install the python dependencies for the script:
 
    ```bash
-   conda install -y jinja2 pygit2 click pyyaml
+   conda install -y jinja2 pygit2 click pyyaml setuptools_scm github3.py
    ```
 
    ```bash
    # pygit2 requires libgit2: http://www.pygit2.org/install.html
-   pip install -y jinja2 pygit2 click pyyaml
+   pip install -y jinja2 pygit2 click pyyaml setuptools_scm github3.py
    ```
 
 7. Try running it:
@@ -106,7 +106,7 @@ The script does the following:
    $ git clone https://github.com/kszucs/crossbow
 
    $ cd arrow/dev/tasks
-   $ python crossbow.py
+   $ python crossbow.py submit conda-win conda-linux conda-osx
    ```
 
 2. Gets the HEAD commit of the currently checked out branch and generates
@@ -115,7 +115,7 @@ The script does the following:
 
    ```bash
    git checkout ARROW-<ticket number>
-   python dev/tasks/crossbow.py --dry-run
+   python dev/tasks/crossbow.py submit --dry-run conda-linux conda-osx
    ```
 
    > Note that the arrow branch must be pushed beforehand, because the script
@@ -123,86 +123,57 @@ The script does the following:
 
 3. Reads and renders the required build configurations with the parameters
    substituted.
-2. Create a commit per build configuration to its own branch. For example
-   to build `travis-linux-conda.yml` it will place a commit to the tip of
-   `crossbow@travis-linux-conda` branch.
+2. Create a branch per task, prefixed with the job id. For example
+   to build conda recipes on linux it will create a new branch:
+   `crossbow@build-<id>-conda-linux`.
 3. Pushes the modified branches to GitHub which triggers the builds.
    For authentication it uses github oauth tokens described in the install
    section.
 
 
+### Query the build status
+
+```bash
+python crossbow.py status <build id / branch name>
+```
+
+### Download the build artifacts
+
+```bash
+python crossbow.py artifacts <build id / branch name>
+```
+
 ### Examples
 
 The script accepts a pattern as a first argument to narrow the build scope:
 
-Run all builds:
+Run multiple builds:
 
 ```bash
-$ python crossbow.py
+$ python crossbow.py submit linux-packages conda-linux wheel-win
 Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
- - travis-osx-wheel
- - travis-linux-packages
- - travis-linux-wheel
- - appveyor-win-wheel
- - appveyor-win-conda
- - travis-linux-conda
- - travis-osx-conda
+ - linux-packages
+ - conda-linux
+ - wheel-win
 ```
 
 Just render without applying or committing the changes:
 
 ```bash
-$ python crossbow.py --dry-run
+$ python crossbow.py submit --dry-run task_name
 ```
 
 Run only `conda` package builds but on all platforms:
 
 ```bash
-$ python crossbow.py conda
-Repository: https://github.com/kszucs/arrow@tasks
-Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
-Version: 0.9.1.dev48+g810a7188.d20180414
-Pushed branches:
- - appveyor-win-conda
- - travis-linux-conda
- - travis-osx-conda
+$ python crossbow.py submit conda-win conda-osx conda-linux
 ```
 
 Run `wheel` builds:
 
 ```bash
-$ python crossbow.py wheel
-Repository: https://github.com/kszucs/arrow@tasks
-Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
-Version: 0.9.1.dev48+g810a7188.d20180414
-Pushed branches:
- - travis-osx-wheel
- - travis-linux-wheel
- - appveyor-win-wheel
-```
-
-Run `osx` builds:
-
-```bash
-$ python crossbow.py osx
-Repository: https://github.com/kszucs/arrow@tasks
-Commit SHA: cad1df2c7f650ad3434319bbbefed0d4abe45e4a
-Version: 0.9.1.dev130+gcad1df2c.d20180414
-Pushed branches:
- - travis-osx-wheel
- - travis-osx-conda
-```
-
-Run only `linux-conda` package build:
-
-```bash
-$ python crossbow.py linux-conda
-Repository: https://github.com/kszucs/arrow@tasks
-Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
-Version: 0.9.1.dev48+g810a7188.d20180414
-Pushed branches:
- - travis-linux-conda
+$ python crossbow.py submit wheel-osx wheel-linux wheel-win
 ```

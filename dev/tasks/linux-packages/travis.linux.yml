@@ -22,6 +22,7 @@ language: ruby
 
 env:
   global:
+    - TRAVIS_TAG={{ BUILD_TAG }}
     - PLAT={{ PLAT }}
     - BUILD_REF={{ BUILD_REF }}
     - PYARROW_VERSION={{ PYARROW_VERSION }}
@@ -29,11 +30,11 @@ env:
 matrix:
   include:
     - script:
-        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
+        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 && rake version:update && rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
     - script:
-        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=yes DEBUG=no)
+        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 && rake version:update && rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=yes DEBUG=no)
     - script:
-        - (cd arrow/dev/tasks/linux-packages && rake yum:build PARALLEL=yes DEBUG=no)
+        - (cd arrow/dev/tasks/linux-packages && rake version:update && rake yum:build PARALLEL=yes DEBUG=no)
 
 before_install:
   - sudo apt update -y -qq
@@ -61,6 +62,15 @@ before_install:
 before_script:
   - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
   - git -C arrow checkout {{ ARROW_SHA }}
+
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: /path/to/pachages/*.tar.gz  # FIXME(kszucs) after the builds pass
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:
