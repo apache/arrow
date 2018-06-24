@@ -61,8 +61,8 @@ static mutex d2h_stream_mu;
 // TODO(zongheng): CPU kernels' std::memcpy might be able to be sped up by
 // parallelization.
 
-int64_t get_byte_width(std::shared_ptr<arrow::DataType> dtype) {
-  return arrow::checked_cast<const arrow::FixedWidthType&>(*dtype).bit_width() / CHAR_BIT;
+int64_t get_byte_width(const arrow::DataType& dtype) {
+  return arrow::checked_cast<const arrow::FixedWidthType&>(dtype).bit_width() / CHAR_BIT;
 }
 
 // Put:  tf.Tensor -> plasma.
@@ -119,7 +119,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
     std::shared_ptr<arrow::DataType> arrow_dtype;
     ARROW_CHECK_OK(arrow::adapters::tensorflow::GetArrowType(tf_dtype, &arrow_dtype));
-    int64_t byte_width = get_byte_width(arrow_dtype);
+    int64_t byte_width = get_byte_width(*arrow_dtype);
 
     std::vector<size_t> offsets;
     offsets.reserve(num_tensors + 1);
@@ -290,7 +290,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
     std::shared_ptr<arrow::Tensor> tensor;
     ARROW_CHECK_OK(arrow::py::ReadTensor(object_buffer.data, &tensor));
 
-    int64_t byte_width = get_byte_width(tensor->type());
+    int64_t byte_width = get_byte_width(*tensor->type());
     const int64_t size_in_bytes = tensor->data()->size();
 
     TensorShape shape({static_cast<int64_t>(size_in_bytes / byte_width)});

@@ -70,6 +70,10 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
     # Try getting the data from Python
     plasma_object_id = plasma.ObjectID(object_id)
     obj = client.get(plasma_object_id)
+
+    # Deserialized Tensor should be 64-byte aligned.
+    assert obj.ctypes.data % 64 == 0
+
     result = np.split(obj, 2)
     result0 = result[0].reshape(3, 244, 244)
     result1 = result[1].reshape(3, 244, 244)
