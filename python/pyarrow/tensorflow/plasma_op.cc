@@ -38,15 +38,11 @@
 #include "plasma/client.h"
 
 
-using namespace tensorflow;  // NOLINT
+namespace tf = tensorflow;
 
 using ArrowStatus = arrow::Status;
 using CPUDevice = Eigen::ThreadPoolDevice;
 using GPUDevice = Eigen::GpuDevice;
-
-// static plasma::PlasmaClient client_;
-// static bool connected_ = false;
-// static mutex mu_;
 
 using Event = perftools::gputools::Event;
 using Stream = perftools::gputools::Stream;
@@ -56,7 +52,7 @@ using Stream = perftools::gputools::Stream;
 // static object's dtor gets called *after* TensorFlow's own CUDA cleanup.
 // Instead, we use a raw pointer here and manually clean up in the Ops' dtors.
 static Stream* d2h_stream = nullptr;
-static mutex d2h_stream_mu;
+static tf::mutex d2h_stream_mu;
 
 // TODO(zongheng): CPU kernels' std::memcpy might be able to be sped up by
 // parallelization.
@@ -67,14 +63,14 @@ int64_t get_byte_width(const arrow::DataType& dtype) {
 
 // Put:  tf.Tensor -> plasma.
 template <typename Device>
-class TensorToPlasmaOp : public AsyncOpKernel {
+class TensorToPlasmaOp : public tf::AsyncOpKernel {
  public:
-  explicit TensorToPlasmaOp(OpKernelConstruction* context) : AsyncOpKernel(context) {
+  explicit TensorToPlasmaOp(tf::OpKernelConstruction* context) : tf::AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("plasma_store_socket_name",
                                              &plasma_store_socket_name_));
     OP_REQUIRES_OK(context, context->GetAttr("plasma_manager_socket_name",
                                              &plasma_manager_socket_name_));
-    mutex_lock lock(mu_);
+    tf::mutex_lock lock(mu_);
     if (!connected_) {
       VLOG(1) << "Connecting to Plasma...";
       ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
@@ -87,12 +83,12 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
   ~TensorToPlasmaOp() override {
     {
-      mutex_lock lock(mu_);
+      tf::mutex_lock lock(mu_);
       ARROW_CHECK_OK(client_.Disconnect());
       connected_ = false;
     }
     {
-      mutex_lock lock(d2h_stream_mu);
+      tf::mutex_lock lock(d2h_stream_mu);
       if (d2h_stream != nullptr) {
         delete d2h_stream;
         d2h_stream = nullptr;
@@ -100,16 +96,16 @@ class TensorToPlasmaOp : public AsyncOpKernel {
     }
   }
 
-  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+  void ComputeAsync(tf::OpKernelContext* context, DoneCallback done) override {
     const int num_inputs = context->num_inputs();
     OP_REQUIRES_ASYNC(
         context, num_inputs >= 2,
-        errors::InvalidArgument("Input should have at least 1 tensor and 1 object_id"),
+        tf::errors::InvalidArgument("Input should have at least 1 tensor and 1 object_id"),
         done);
     const int num_tensors = num_inputs - 1;
 
     // Check that all tensors have the same dtype
-    DataType tf_dtype = context->input(0).dtype();
+    tf::DataType tf_dtype = context->input(0).dtype();
     for (int i = 1; i < num_inputs - 1; i++) {
       if (tf_dtype != context->input(i).dtype()) {
         ARROW_CHECK_OK(arrow::Status(arrow::StatusCode::TypeError,
@@ -133,9 +129,9 @@ class TensorToPlasmaOp : public AsyncOpKernel {
       offsets.push_back(total_bytes);
     }
 
-    const Tensor& plasma_object_id = context->input(num_inputs - 1);
+    const tf::Tensor& plasma_object_id = context->input(num_inputs - 1);
     CHECK_EQ(plasma_object_id.NumElements(), 1);
-    const string& plasma_object_id_str = plasma_object_id.flat<std::string>()(0);
+    const std::string& plasma_object_id_str = plasma_object_id.flat<std::string>()(0);
     VLOG(1) << "plasma_object_id_str: '" << plasma_object_id_str << "'";
     const plasma::ObjectID object_id =
         plasma::ObjectID::from_binary(plasma_object_id_str);
@@ -148,7 +144,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
     std::shared_ptr<Buffer> data_buffer;
     {
-      mutex_lock lock(mu_);
+      tf::mutex_lock lock(mu_);
       ARROW_CHECK_OK(client_.Create(object_id, header_size + total_bytes,
                                     /*metadata=*/nullptr, 0, &data_buffer));
     }
@@ -162,7 +158,7 @@ class TensorToPlasmaOp : public AsyncOpKernel {
 
     auto wrapped_callback = [this, context, done, data_buffer, object_id]() {
       {
-        mutex_lock lock(mu_);
+        tf::mutex_lock lock(mu_);
         ARROW_CHECK_OK(client_.Seal(object_id));
       }
       context->SetStatus(tensorflow::Status::OK());
@@ -174,24 +170,24 @@ class TensorToPlasmaOp : public AsyncOpKernel {
         const auto& input_tensor = context->input(i);
         std::memcpy(static_cast<void*>(data + offsets[i]),
                     input_tensor.tensor_data().data(),
-                    static_cast<uint64>(offsets[i + 1] - offsets[i]));
+                    static_cast<tf::uint64>(offsets[i + 1] - offsets[i]));
       }
       wrapped_callback();
     } else {
 #ifdef GOOGLE_CUDA
       auto orig_stream = context->op_device_context()->stream();
       OP_REQUIRES_ASYNC(context, orig_stream != nullptr,
-                        errors::Internal("No GPU stream available."), done);
+                        tf::errors::Internal("No GPU stream available."), done);
       auto stream_executor = orig_stream->parent();
 
       // NOTE(zongheng): this is critical of getting good performance out of D2H
       // async memcpy.  Under the hood it performs cuMemHostRegister(), see:
       // http://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__MEM.html#group__CUDA__MEM_1gf0a9fe11544326dabd743b7aa6b54223
       CHECK(stream_executor->HostMemoryRegister(static_cast<void*>(data),
-                                                static_cast<uint64>(total_bytes)));
+                                                static_cast<tf::uint64>(total_bytes)));
 
       {
-        mutex_lock l(d2h_stream_mu);
+        tf::mutex_lock l(d2h_stream_mu);
         if (d2h_stream == nullptr) {
           d2h_stream = new Stream(stream_executor);
           CHECK(d2h_stream->Init().ok());
@@ -210,10 +206,10 @@ class TensorToPlasmaOp : public AsyncOpKernel {
         const bool success =
             d2h_stream
                 ->ThenMemcpy(static_cast<void*>(data + offsets[i]), wrapped_src,
-                             static_cast<uint64>(offsets[i + 1] - offsets[i]))
+                             static_cast<tf::uint64>(offsets[i + 1] - offsets[i]))
                 .ok();
         OP_REQUIRES_ASYNC(context, success,
-                          errors::Internal("D2H memcpy failed to be enqueued."), done);
+                          tf::errors::Internal("D2H memcpy failed to be enqueued."), done);
       }
       context->device()->tensorflow_gpu_device_info()->event_mgr->ThenExecute(
           d2h_stream, std::move(wrapped_callback));
@@ -225,24 +221,24 @@ class TensorToPlasmaOp : public AsyncOpKernel {
   std::string plasma_store_socket_name_;
   std::string plasma_manager_socket_name_;
 
-  mutex mu_;
+  tf::mutex mu_;
   bool connected_ = false;
   plasma::PlasmaClient client_ GUARDED_BY(mu_);
 };
 
 static Stream* h2d_stream = nullptr;
-static mutex h2d_stream_mu;
+static tf::mutex h2d_stream_mu;
 
 // Get:  plasma -> tf.Tensor.
 template <typename Device>
-class PlasmaToTensorOp : public AsyncOpKernel {
+class PlasmaToTensorOp : public tf::AsyncOpKernel {
  public:
-  explicit PlasmaToTensorOp(OpKernelConstruction* context) : AsyncOpKernel(context) {
+  explicit PlasmaToTensorOp(tf::OpKernelConstruction* context) : tf::AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("plasma_store_socket_name",
                                              &plasma_store_socket_name_));
     OP_REQUIRES_OK(context, context->GetAttr("plasma_manager_socket_name",
                                              &plasma_manager_socket_name_));
-    mutex_lock lock(mu_);
+    tf::mutex_lock lock(mu_);
     if (!connected_) {
       VLOG(1) << "Connecting to Plasma...";
       ARROW_CHECK_OK(client_.Connect(plasma_store_socket_name_,
@@ -255,12 +251,12 @@ class PlasmaToTensorOp : public AsyncOpKernel {
 
   ~PlasmaToTensorOp() override {
     {
-      mutex_lock lock(mu_);
+      tf::mutex_lock lock(mu_);
       ARROW_CHECK_OK(client_.Disconnect());
       connected_ = false;
     }
     {
-      mutex_lock lock(h2d_stream_mu);
+      tf::mutex_lock lock(h2d_stream_mu);
       if (h2d_stream != nullptr) {
         delete h2d_stream;
         h2d_stream = nullptr;
@@ -268,10 +264,10 @@ class PlasmaToTensorOp : public AsyncOpKernel {
     }
   }
 
-  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
-    const Tensor& plasma_object_id = context->input(0);
+  void ComputeAsync(tf::OpKernelContext* context, DoneCallback done) override {
+    const tf::Tensor& plasma_object_id = context->input(0);
     CHECK_EQ(plasma_object_id.NumElements(), 1);
-    const string& plasma_object_id_str = plasma_object_id.flat<std::string>()(0);
+    const std::string& plasma_object_id_str = plasma_object_id.flat<std::string>()(0);
 
     VLOG(1) << "plasma_object_id_str: '" << plasma_object_id_str << "'";
     const plasma::ObjectID object_id =
@@ -279,7 +275,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
 
     plasma::ObjectBuffer object_buffer;
     {
-      mutex_lock lock(mu_);
+      tf::mutex_lock lock(mu_);
       // NOTE(zongheng): this is a blocking call.  We might want to (1) make
       // Plasma asynchronous, (2) launch a thread / event here ourselves, or
       // something like that...
@@ -293,11 +289,11 @@ class PlasmaToTensorOp : public AsyncOpKernel {
     int64_t byte_width = get_byte_width(*tensor->type());
     const int64_t size_in_bytes = tensor->data()->size();
 
-    TensorShape shape({static_cast<int64_t>(size_in_bytes / byte_width)});
+    tf::TensorShape shape({static_cast<int64_t>(size_in_bytes / byte_width)});
 
     const float* plasma_data = reinterpret_cast<const float*>(tensor->raw_data());
 
-    Tensor* output_tensor = nullptr;
+    tf::Tensor* output_tensor = nullptr;
     OP_REQUIRES_OK_ASYNC(context, context->allocate_output(0, shape, &output_tensor),
                          done);
 
@@ -310,11 +306,11 @@ class PlasmaToTensorOp : public AsyncOpKernel {
 #ifdef GOOGLE_CUDA
       auto orig_stream = context->op_device_context()->stream();
       OP_REQUIRES_ASYNC(context, orig_stream != nullptr,
-                        errors::Internal("No GPU stream available."), done);
+                        tf::errors::Internal("No GPU stream available."), done);
       auto stream_executor = orig_stream->parent();
 
       {
-        mutex_lock l(h2d_stream_mu);
+        tf::mutex_lock l(h2d_stream_mu);
         if (h2d_stream == nullptr) {
           h2d_stream = new Stream(stream_executor);
           CHECK(h2d_stream->Init().ok());
@@ -326,17 +322,17 @@ class PlasmaToTensorOp : public AsyncOpKernel {
       // already registered (e.g., the TensorToPlasmaOp might've been run).
       CHECK(stream_executor->HostMemoryRegister(
           const_cast<void*>(static_cast<const void*>(plasma_data)),
-          static_cast<uint64>(size_in_bytes)));
+          static_cast<tf::uint64>(size_in_bytes)));
 
       perftools::gputools::DeviceMemoryBase wrapped_dst(
           reinterpret_cast<void*>(const_cast<char*>(output_tensor->tensor_data().data())));
       const bool success =
           h2d_stream
               ->ThenMemcpy(&wrapped_dst, static_cast<const void*>(plasma_data),
-                           static_cast<uint64>(size_in_bytes))
+                           static_cast<tf::uint64>(size_in_bytes))
               .ok();
       OP_REQUIRES_ASYNC(context, success,
-                        errors::Internal("H2D memcpy failed to be enqueued."), done);
+                        tf::errors::Internal("H2D memcpy failed to be enqueued."), done);
 
       // Without this sync the main compute stream might proceed to use the
       // Tensor buffer, but its contents might still be in-flight from our
@@ -353,7 +349,7 @@ class PlasmaToTensorOp : public AsyncOpKernel {
   std::string plasma_store_socket_name_;
   std::string plasma_manager_socket_name_;
 
-  mutex mu_;
+  tf::mutex mu_;
   bool connected_ = false;
   plasma::PlasmaClient client_ GUARDED_BY(mu_);
 };
@@ -365,10 +361,10 @@ REGISTER_OP("TensorToPlasma")
     .Attr("plasma_store_socket_name: string")
     .Attr("plasma_manager_socket_name: string");
 
-REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(tf::DEVICE_CPU),
                         TensorToPlasmaOp<CPUDevice>);
 #ifdef GOOGLE_CUDA
-REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("TensorToPlasma").Device(tf::DEVICE_GPU),
                         TensorToPlasmaOp<GPUDevice>);
 #endif
 
@@ -379,9 +375,9 @@ REGISTER_OP("PlasmaToTensor")
     .Attr("plasma_store_socket_name: string")
     .Attr("plasma_manager_socket_name: string");
 
-REGISTER_KERNEL_BUILDER(Name("PlasmaToTensor").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("PlasmaToTensor").Device(tf::DEVICE_CPU),
                         PlasmaToTensorOp<CPUDevice>);
 #ifdef GOOGLE_CUDA
-REGISTER_KERNEL_BUILDER(Name("PlasmaToTensor").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("PlasmaToTensor").Device(tf::DEVICE_GPU),
                         PlasmaToTensorOp<GPUDevice>);
 #endif
