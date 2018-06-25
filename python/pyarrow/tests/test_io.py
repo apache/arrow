@@ -268,6 +268,26 @@ def test_buffer_from_numpy():
         buf = pa.py_buffer(arr.T[::2])
 
 
+def test_buffer_address():
+    b1 = b'some data!'
+    b2 = bytearray(b1)
+    b3 = bytearray(b1)
+
+    buf1 = pa.py_buffer(b1)
+    buf2 = pa.py_buffer(b1)
+    buf3 = pa.py_buffer(b2)
+    buf4 = pa.py_buffer(b3)
+
+    assert buf1.address > 0
+    assert buf1.address == buf2.address
+    assert buf3.address != buf2.address
+    assert buf4.address != buf3.address
+
+    arr = np.arange(5)
+    buf = pa.py_buffer(arr)
+    assert buf.address == arr.ctypes.data
+
+
 def test_buffer_equals():
     # Buffer.equals() returns true iff the buffers have the same contents
     def eq(a, b):
