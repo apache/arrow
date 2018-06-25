@@ -51,29 +51,12 @@ public class MessageChannelReader implements MessageReader {
    */
   @Override
   public Message readNextMessage() throws IOException {
-    // Read the message size. There is an i32 little endian prefix.
-    ByteBuffer buffer = ByteBuffer.allocate(4);
-    if (in.readFully(buffer) != 4) {
-      return null;
-    }
-    int messageLength = MessageSerializer.bytesToInt(buffer.array());
+    int messageLength = readMessageLength(in);
     if (messageLength == 0) {
       return null;
     }
 
-    return loadMessage(messageLength, ByteBuffer.allocate(messageLength));
-  }
-
-  /**
-   * Read a Message of the given length into the existing buffer and return the loaded Message.
-   */
-  protected Message loadMessage(int messageLength, ByteBuffer buffer) throws IOException {
-    if (in.readFully(buffer) != messageLength) {
-      throw new IOException(
-        "Unexpected end of stream trying to read message.");
-    }
-    buffer.rewind();
-    return Message.getRootAsMessage(buffer);
+    return loadMessage(in, messageLength, ByteBuffer.allocate(messageLength));
   }
 
   /**
@@ -116,5 +99,31 @@ public class MessageChannelReader implements MessageReader {
   @Override
   public void close() throws IOException {
     in.close();
+  }
+
+
+  /**
+   * Read 4-bytes from the input channel stream and return the message length.
+   * Will return 0 when the EOS is reached.
+   */
+  public static int readMessageLength(ReadChannel in) throws IOException {
+    // Read the message size. There is an i32 little endian prefix.
+    ByteBuffer buffer = ByteBuffer.allocate(4);
+    if (in.readFully(buffer) != 4) {
+      return 0;
+    }
+    return MessageSerializer.bytesToInt(buffer.array());
+  }
+
+  /**
+   * Read a Message of the given length into the existing buffer and return the loaded Message.
+   */
+  public static Message loadMessage(ReadChannel in, int messageLength, ByteBuffer buffer) throws IOException {
+    if (in.readFully(buffer) != messageLength) {
+      throw new IOException(
+        "Unexpected end of stream trying to read message.");
+    }
+    buffer.rewind();
+    return Message.getRootAsMessage(buffer);
   }
 }
