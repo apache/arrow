@@ -1017,47 +1017,59 @@ if (ARROW_ORC)
   endif ()
 
   # orc
-  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
-  set(ORC_HOME "${ORC_PREFIX}")
-  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
-  set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  if ("${COMPILER_FAMILY}" STREQUAL "clang")
-    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
-      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
--Wno-inconsistent-missing-destructor-override ")
+  if ("${ORC_HOME}" STREQUAL "")
+    set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+    set(ORC_HOME "${ORC_PREFIX}")
+    set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+    set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+    if ("${COMPILER_FAMILY}" STREQUAL "clang")
+      if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+        set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
+  -Wno-inconsistent-missing-destructor-override ")
+      endif()
     endif()
-  endif()
 
-  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
+    set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
 
-  # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
-  # ${LZ4_HOME}/include, which forces us to specify the include directory
-  # manually as well.
-  set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                      -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
-                      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
-                      -DBUILD_LIBHDFSPP=OFF
-                      -DBUILD_JAVA=OFF
-                      -DBUILD_TOOLS=OFF
-                      -DBUILD_CPP_TESTS=OFF
-                      -DINSTALL_VENDORED_LIBS=OFF
-                      -DPROTOBUF_HOME=${PROTOBUF_HOME}
-                      -DLZ4_HOME=${LZ4_HOME}
-                      -DLZ4_INCLUDE_DIR=${LZ4_INCLUDE_DIR}
-                      -DSNAPPY_HOME=${SNAPPY_HOME}
-                      -DZLIB_HOME=${ZLIB_HOME})
+    # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
+    # ${LZ4_HOME}/include, which forces us to specify the include directory
+    # manually as well.
+    set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
+                        -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
+                        -DBUILD_LIBHDFSPP=OFF
+                        -DBUILD_JAVA=OFF
+                        -DBUILD_TOOLS=OFF
+                        -DBUILD_CPP_TESTS=OFF
+                        -DINSTALL_VENDORED_LIBS=OFF
+                        -DPROTOBUF_HOME=${PROTOBUF_HOME}
+                        -DLZ4_HOME=${LZ4_HOME}
+                        -DLZ4_INCLUDE_DIR=${LZ4_INCLUDE_DIR}
+                        -DSNAPPY_HOME=${SNAPPY_HOME}
+                        -DZLIB_HOME=${ZLIB_HOME})
 
-  ExternalProject_Add(orc_ep
-    URL ${ORC_SOURCE_URL}
-    BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-    CMAKE_ARGS ${ORC_CMAKE_ARGS}
-    ${EP_LOG_OPTIONS})
+    ExternalProject_Add(orc_ep
+      URL ${ORC_SOURCE_URL}
+      BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+      CMAKE_ARGS ${ORC_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
+
+    set (ORC_VENDORED 1)
+  else ()
+     set(ORC_INCLUDE_DIR "${ORC_HOME}/include")
+     set(ORC_STATIC_LIB "${ORC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+     set (ORC_VENDORED 0)
+  endif ()
 
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(orc
     STATIC_LIB ${ORC_STATIC_LIB})
 
-  add_dependencies(orc_ep protobuf lz4_static snappy zlib)
-  add_dependencies(orc orc_ep)
+  if (ORC_VENDORED)
+    add_dependencies(orc orc_ep)
+  endif ()
+
+  add_dependencies(orc lz4_static snappy zlib)
 endif()
