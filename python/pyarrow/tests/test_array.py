@@ -516,6 +516,10 @@ def test_unique_simple():
     for arr, expected in cases:
         result = arr.unique()
         assert result.equals(expected)
+        result = pa.column("column", arr).unique()
+        assert result.equals(expected)
+        result = pa.chunked_array([arr]).unique()
+        assert result.equals(expected)
 
 
 def test_dictionary_encode_simple():
@@ -532,6 +536,10 @@ def test_dictionary_encode_simple():
     for arr, expected in cases:
         result = arr.dictionary_encode()
         assert result.equals(expected)
+        result = pa.column("column", arr).dictionary_encode()
+        assert result.data.chunk(0).equals(expected)
+        result = pa.chunked_array([arr]).dictionary_encode()
+        assert result.chunk(0).equals(expected)
 
 
 def test_cast_time32_to_int():
