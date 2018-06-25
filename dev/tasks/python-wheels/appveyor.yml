@@ -30,8 +30,8 @@ environment:
   MSVC_DEFAULT_OPTIONS: ON
   BOOST_ROOT: C:\Libraries\boost_1_63_0
   BOOST_LIBRARYDIR: C:\Libraries\boost_1_63_0\lib64-msvc-14.0
-  pyarrow_version: {{ PYARROW_VERSION }}
-  pyarrow_ref: {{ BUILD_REF }}
+  pyarrow_version: {{ arrow.version }}
+  pyarrow_ref: {{ arrow.head }}
   parquet_cpp_ref: apache-parquet-cpp-1.4.0
   ARROW_SRC: C:\apache-arrow
 
@@ -41,8 +41,8 @@ init:
 
 build_script:
   - mkdir wheels
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} %ARROW_SRC% || exit /B
-  - git -C arrow checkout {{ ARROW_SHA }} || exit /B
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} %ARROW_SRC% || exit /B
+  - git -C arrow checkout {{ arrow.head }} || exit /B
   - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
 
 after_build:
@@ -52,7 +52,7 @@ artifacts:
   - path: wheels\*.whl
 
 deploy:
-  release: {{ BUILD_TAG }}
+  release: {{ job.branch }}
   provider: GitHub
   auth_token: "%CROSSBOW_GITHUB_TOKEN%"
   artifact: /.*\.whl/
@@ -62,4 +62,4 @@ deploy:
 notifications:
   - provider: Email
     to:
-      - {{ EMAIL }}
+      - {{ job.email }}

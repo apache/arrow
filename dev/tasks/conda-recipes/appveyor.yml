@@ -23,7 +23,7 @@ environment:
     - TARGET_ARCH: x64
       CONDA_PY: 36
       CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
-  ARROW_VERSION: {{ ARROW_VERSION }}
+  ARROW_VERSION: {{ arrow.version }}
 
 install:
     - cmd: rmdir C:\cygwin /s /q
@@ -44,8 +44,8 @@ install:
 build: off
 
 test_script:
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow || exit /B
-  - git -C arrow checkout {{ ARROW_SHA }} || exit /B
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
+  - git -C arrow checkout {{ arrow.head }} || exit /B
   - pushd arrow\dev\tasks\conda-recipes
   - conda.exe build --output-folder . parquet-cpp arrow-cpp pyarrow
   - pushd win-64
@@ -59,7 +59,7 @@ artifacts:
   - path: arrow\dev\tasks\conda-recipes\win-64\*.tar.bz2
 
 deploy:
-  release: {{ BUILD_TAG }}
+  release: {{ job.branch }}
   provider: GitHub
   auth_token: "%CROSSBOW_GITHUB_TOKEN%"
   artifact: /.*\.tar\.bz2/
@@ -70,4 +70,4 @@ deploy:
 notifications:
   - provider: Email
     to:
-      - {{ EMAIL }}
+      - {{ job.email }}

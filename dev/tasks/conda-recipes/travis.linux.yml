@@ -26,8 +26,8 @@ env:
     - CONDA_PY=35
     - CONDA_PY=36
   global:
-    - TRAVIS_TAG={{ BUILD_TAG }}
-    - ARROW_VERSION={{ ARROW_VERSION }}
+    - TRAVIS_TAG={{ job.branch }}
+    - ARROW_VERSION={{ arrow.version }}
 
 install:
     # Install Miniconda.
@@ -53,8 +53,8 @@ install:
       source run_conda_forge_build_setup
 
 script:
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - git -C arrow checkout {{ ARROW_SHA }}
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
   - conda build --output-folder . parquet-cpp arrow-cpp pyarrow
   - |
@@ -75,4 +75,4 @@ deploy:
 
 notifications:
   email:
-    - {{ EMAIL }}
+    - {{ job.email }}
