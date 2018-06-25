@@ -286,7 +286,6 @@ class Job(object):
         self.target = target
         self.tasks = tasks
         self.branch = None
-        self.queue = None
 
     def render_files(self):
         with StringIO() as buf:
