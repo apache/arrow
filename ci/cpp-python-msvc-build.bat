@@ -133,6 +133,8 @@ popd
 
 pushd python
 
+pip install pickle5
+
 set PYARROW_CXXFLAGS=/WX
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_BUNDLE_ARROW_CPP=ON
@@ -167,6 +169,6 @@ pip install %WHEEL_PATH% || exit /B
 python -c "import pyarrow" || exit /B
 python -c "import pyarrow.parquet" || exit /B
 
-pip install pandas pytest pytest-faulthandler
+pip install pandas pickle5 pytest pytest-faulthandler
 
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
