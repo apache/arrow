@@ -666,8 +666,8 @@ def test_array_pickle(data, typ):
 @pickle_test_parametrize
 def test_array_pickle5(data, typ):
     # Test zero-copy pickling with protocol 5 (PEP 574)
-    pickle = pickle5 or pickle  # flake8: noqa
-    if pickle5 is None and pickle.HIGHEST_PROTOCOL < 5:
+    picklemod = pickle5 or pickle
+    if pickle5 is None and picklemod.HIGHEST_PROTOCOL < 5:
         pytest.skip("need pickle5 package or Python 3.8+")
 
     array = pa.array(data, type=typ)
@@ -676,8 +676,8 @@ def test_array_pickle5(data, typ):
 
     for proto in range(5, pickle.HIGHEST_PROTOCOL + 1):
         buffers = []
-        pickled = pickle.dumps(array, proto, buffer_callback=buffers.append)
-        result = pickle.loads(pickled, buffers=buffers)
+        pickled = picklemod.dumps(array, proto, buffer_callback=buffers.append)
+        result = picklemod.loads(pickled, buffers=buffers)
         assert array.equals(result)
 
         result_addresses = [buf.address if buf is not None else 0
