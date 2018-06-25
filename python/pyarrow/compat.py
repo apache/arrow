@@ -107,7 +107,10 @@ if PY2:
     def unichar(s):
         return unichr(s)
 else:
-    import pickle as builtin_pickle
+    try:
+        import pickle5 as builtin_pickle
+    except ImportError:
+        import pickle as builtin_pickle
 
     unicode_type = str
     def lzip(*x):
@@ -142,10 +145,7 @@ else:
 try:
     import cloudpickle as pickle
 except ImportError:
-    try:
-        import cPickle as pickle
-    except ImportError:
-        import pickle
+    pickle = builtin_pickle
 
 def encode_file_path(path):
     import os
