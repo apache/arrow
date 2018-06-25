@@ -1058,12 +1058,12 @@ cdef class Table:
     @staticmethod
     def from_batches(batches, Schema schema=None):
         """
-        Construct a Table from a list of Arrow RecordBatches
+        Construct a Table from an iterator of Arrow RecordBatches
 
         Parameters
         ----------
-        batches: list of RecordBatch
-            RecordBatch list to be converted, all schemas must be equal
+        batches: iterator of RecordBatch
+            Iterator of RecordBatch to be converted, all schemas must be equal
         schema : Schema, default None
             If not passed, will be inferred from the first RecordBatch
 
@@ -1081,7 +1081,7 @@ cdef class Table:
             c_batches.push_back(batch.sp_batch)
 
         if schema is None:
-            if len(batches) == 0:
+            if c_batches.size() == 0:
                 raise ValueError('Must pass schema, or at least '
                                  'one RecordBatch')
             c_schema = c_batches[0].get().schema()
