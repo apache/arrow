@@ -418,22 +418,31 @@ def status(job_name, queue_path, github_token):
     click.echo(header)
     click.echo('-' * len(header))
 
+    colors = {'ok': 'green',
+              'error': 'red',
+              'missing': 'red',
+              'failure': 'red',
+              'pending': 'yellow',
+              'success': 'green'}
+
     statuses = queue.github_statuses(job_name, token=github_token)
     for task, status, artifacts in statuses:
         assets = 'uploaded {} / {}'.format(sum(artifacts.values()),
                                            len(task.artifacts))
         leadline = tpl.format(status.state.upper(), task.branch, assets)
-        click.echo(leadline)
+        click.echo(click.style(leadline, fg=colors[status.state]))
 
         for name, uploaded in artifacts.items():
             if uploaded:
-                msg = 'uploaded'
+                state = 'ok'
             elif status.state == 'pending':
-                msg = 'pending'
+                state = 'pending'
             else:
-                msg = 'missing'
+                state = 'missing'
 
-            click.echo('{:>69} [{:<8}]'.format(name, msg.upper()))
+            filename = '{:>70} '.format(name)
+            statemsg = '[{:>7}]'.format(state.upper())
+            click.echo(filename + click.style(statemsg, fg=colors[state]))
 
 
 @crossbow.command()
