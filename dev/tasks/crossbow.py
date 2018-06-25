@@ -437,7 +437,7 @@ def status(job_name, queue_path, github_token):
             click.echo('{:>69} [{:<8}]'.format(name, msg.upper()))
 
 
-@crossbow.command('download')
+@crossbow.command()
 @click.argument('job-name', required=True)
 @click.option('--target-dir', default=DEFAULT_ARROW_PATH,
               help='Directory to download the build artifacts')
@@ -446,6 +446,7 @@ def status(job_name, queue_path, github_token):
                    'Defaults to crossbow directory placed next to arrow')
 @github_token
 def download(job_name, target_dir, queue_path, github_token):
+    """Download build artifacts from github releases"""
     queue = Queue(queue_path)
 
     for asset in queue.github_assets(job_name, token=github_token):
