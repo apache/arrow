@@ -45,7 +45,7 @@ before_install:
       conda config --set show_channel_urls true
 
 install:
-  - conda install -y -q jinja2 pygit2 click pyyaml setuptools_scm
+  - conda install -y -q jinja2 pygit2 click ruamel.yaml setuptools_scm
 
 script:
   # fetch all branches of crossbow
