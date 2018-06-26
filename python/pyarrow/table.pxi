@@ -1058,12 +1058,12 @@ cdef class Table:
     @staticmethod
     def from_batches(batches, Schema schema=None):
         """
-        Construct a Table from an iterator of Arrow RecordBatches
+        Construct a Table from a sequence or iterator of Arrow RecordBatches
 
         Parameters
         ----------
-        batches: iterator of RecordBatch
-            Iterator of RecordBatch to be converted, all schemas must be equal
+        batches: sequence or iterator of RecordBatch
+            Sequence of RecordBatch to be converted, all schemas must be equal
         schema : Schema, default None
             If not passed, will be inferred from the first RecordBatch
 
