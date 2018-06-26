@@ -629,6 +629,11 @@ cdef class Buffer:
         def __get__(self):
             return self.buffer.get().size()
 
+    property address:
+
+        def __get__(self):
+            return <uintptr_t> self.buffer.get().data()
+
     property is_mutable:
 
         def __get__(self):
