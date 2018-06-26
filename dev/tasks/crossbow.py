@@ -458,8 +458,6 @@ def status(job_name, queue_path, github_token):
 
 @crossbow.command()
 @click.argument('job-name', required=True)
-@click.option('--upload/--no-upload', default=True,
-              help='Upload the signatures to github releases')
 @click.option('--gpg-homedir', default=None,
               help=('Full pathname to directory containing the public and '
                     'private keyrings. Default is whatever GnuPG defaults to'))
@@ -469,7 +467,7 @@ def status(job_name, queue_path, github_token):
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @github_token
-def sign(job_name, upload, gpg_homedir, target_dir, queue_path, github_token):
+def sign(job_name, gpg_homedir, target_dir, queue_path, github_token):
     """Download and sign build artifacts from github releases"""
 
     import gnupg
@@ -488,12 +486,11 @@ def sign(job_name, upload, gpg_homedir, target_dir, queue_path, github_token):
     target_dir.mkdir(exist_ok=True)
 
     tpl = '[{:>8}] '
-    signatures = []
     for task_name, task in job.tasks.items():
         for artifact in task.artifacts:
             if artifact not in assets:
                 msg = click.style(tpl.format('MISSING'), fg=COLORS['missing'])
-                click.echo(msg + fname)
+                click.echo(msg + artifact)
                 continue
 
             # download artifact
@@ -508,15 +505,6 @@ def sign(job_name, upload, gpg_homedir, target_dir, queue_path, github_token):
 
             msg = click.style(tpl.format('SIGNED'), fg=COLORS['ok'])
             click.echo(msg + artifact)
-
-            signatures.append(signature_path)
-
-    # upload the signatures
-    if upload:
-        queue.upload_assets(job, signatures, token=github_token,
-                            content_type='application/pgp-signature')
-        msg = click.style('Artifacts uploaded.', fg=COLORS['ok'])
-        click.echo(msg)
 
 
 if __name__ == '__main__':
