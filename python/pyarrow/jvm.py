@@ -14,6 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+"""
+Functions to interact with Arrow memory allocated by Arrow Java.
+
+These functions convert the objects holding the metadata, the actual
+data is not copied at all.
+
+This will only work with a JVM running in the same process such as provided
+through jpype. Modules that talk to a remote JVM like py4j will not work as the
+memory addresses reported by them are not reachable in the python process.
+"""
+
 
 import pyarrow as pa
 
