@@ -68,6 +68,8 @@ using internal::NumPyTypeSize;
 
 namespace {
 
+constexpr int64_t kMillisecondsInDay = 86400000;
+
 inline bool PyObject_is_integer(PyObject* obj) {
   return !PyBool_Check(obj) && PyArray_IsIntegerScalar(obj);
 }
@@ -351,7 +353,7 @@ class NumPyConverter {
   Status Visit(const HalfFloatType& type) { return VisitNative<UInt16Type>(); }
 
   Status Visit(const Date32Type& type) { return VisitNative<Date32Type>(); }
-  Status Visit(const Date64Type& type) { return VisitNative<Int64Type>(); }
+  Status Visit(const Date64Type& type) { return VisitNative<Date64Type>(); }
   Status Visit(const TimestampType& type) { return VisitNative<TimestampType>(); }
   Status Visit(const Time32Type& type) { return VisitNative<Int32Type>(); }
   Status Visit(const Time64Type& type) { return VisitNative<Int64Type>(); }
@@ -660,6 +662,51 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
       // overflow here?
       Status s = StaticCastBuffer<int64_t, int32_t>(**data, length_, pool_, data);
       RETURN_NOT_OK(s);
+    } else {
+      RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+      if (!input_type->Equals(*type_)) {
+        // The null bitmap was already computed in VisitNative()
+        RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
+                                 type_, pool_, data));
+      }
+    }
+  } else {
+    RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+    if (!input_type->Equals(*type_)) {
+      RETURN_NOT_OK(
+          CastBuffer(input_type, *data, length_, nullptr, 0, type_, pool_, data));
+    }
+  }
+
+  return Status::OK();
+}
+
+template <>
+inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* data) {
+  if (is_strided()) {
+    RETURN_NOT_OK(CopyStridedArray<Date64Type>(arr_, length_, pool_, data));
+  } else {
+    // Can zero-copy
+    *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
+  }
+
+  std::shared_ptr<DataType> input_type;
+
+  auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(dtype_->c_metadata);
+  if (dtype_->type_num == NPY_DATETIME) {
+    // If we have inbound datetime64[D] data, this needs to be downcasted
+    // separately here from int64_t to int32_t, because this data is not
+    // supported in compute::Cast
+    if (date_dtype->meta.base == NPY_FR_D) {
+      auto result = std::make_shared<PoolBuffer>(pool_);
+      RETURN_NOT_OK(result->Resize(sizeof(int64_t) * length_));
+
+      auto in_values = reinterpret_cast<const int64_t*>((*data)->data());
+      auto out_values = reinterpret_cast<int64_t*>(result->mutable_data());
+      for (int64_t i = 0; i < length_; ++i) {
+        *out_values++ = kMillisecondsInDay * (*in_values++);
+      }
+      *data = result;
     } else {
       RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
       if (!input_type->Equals(*type_)) {
