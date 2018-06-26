@@ -1857,6 +1857,15 @@ Status ConvertArrayToPandas(PandasOptions options, const std::shared_ptr<Array>&
   return ConvertColumnToPandas(options, col, py_ref, out);
 }
 
+Status ConvertChunkedArrayToPandas(PandasOptions options,
+                                   const std::shared_ptr<ChunkedArray>& ca,
+                                   PyObject* py_ref, PyObject** out) {
+  static std::string dummy_name = "dummy";
+  auto field = std::make_shared<Field>(dummy_name, ca->type());
+  auto col = std::make_shared<Column>(field, ca);
+  return ConvertColumnToPandas(options, col, py_ref, out);
+}
+
 Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column>& col,
                              PyObject* py_ref, PyObject** out) {
   ArrowDeserializer converter(options, col, py_ref);

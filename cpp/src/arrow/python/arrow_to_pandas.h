@@ -32,6 +32,7 @@
 namespace arrow {
 
 class Array;
+class ChunkedArray;
 class Column;
 class DataType;
 class MemoryPool;
@@ -57,6 +58,11 @@ struct PandasOptions {
 ARROW_EXPORT
 Status ConvertArrayToPandas(PandasOptions options, const std::shared_ptr<Array>& arr,
                             PyObject* py_ref, PyObject** out);
+
+ARROW_EXPORT
+Status ConvertChunkedArrayToPandas(PandasOptions options,
+                                   const std::shared_ptr<ChunkedArray>& col,
+                                   PyObject* py_ref, PyObject** out);
 
 ARROW_EXPORT
 Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column>& col,
