@@ -206,24 +206,23 @@ class Queue(Repo):
 
         return branch
 
-    def github_assets(self, tag, token=None):
+    def github_statuses(self, job, token=None):
         repo = self.as_github_repo(token=token)
+        return {name: repo.commit(task.commit).status()
+                for name, task in job.tasks.items()}
+
+    def github_artifacts(self, job, token=None):
+        repo = self.as_github_repo(token=token)
+
         try:
-            release = repo.release_from_tag(tag)
+            release = repo.release_from_tag(job.branch)
         except github3.exceptions.NotFoundError:
-            return {}
+            assets = {}
         else:
-            return {a.name: a for a in release.assets()}
+            assets = {a.name: a for a in release.assets()}
 
-    def github_statuses(self, job_name, token=None):
-        job = self.get(job_name)
-        repo = self.as_github_repo(token=token)
-        assets = self.github_assets(job_name, token=token)
-
-        for name, task in job.tasks.items():
-            status = repo.commit(task.commit).status()
-            artifacts = {name: name in assets for name in task.artifacts}
-            yield task, status, artifacts
+        return {name: {a: assets.get(a) for a in task.artifacts}
+                for name, task in job.tasks.items()}
 
 
 class Target(object):
@@ -382,7 +381,7 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
     for task_name in task_names:
         task = config['tasks'][task_name]
         # replace version number in artifact names
-        artifacts = task.pop('artifacts', [])
+        artifacts = task.pop('artifacts', None) or []
         artifacts = [a.format(version=target.version) for a in artifacts]
         # create task instance from configuration
         tasks[task_name] = Task(**task, artifacts=artifacts)
@@ -425,22 +424,28 @@ def status(job_name, queue_path, github_token):
               'pending': 'yellow',
               'success': 'green'}
 
-    statuses = queue.github_statuses(job_name, token=github_token)
-    for task, status, artifacts in statuses:
-        assets = 'uploaded {} / {}'.format(sum(artifacts.values()),
-                                           len(task.artifacts))
-        leadline = tpl.format(status.state.upper(), task.branch, assets)
+    job = queue.get(job_name)
+    statuses = queue.github_statuses(job, token=github_token)
+    artifacts = queue.github_artifacts(job, token=github_token)
+
+    for task_name, task in job.tasks.items():
+        status = statuses[task_name]
+        assets = artifacts[task_name]
+
+        uploaded = 'uploaded {} / {}'.format(sum(map(bool, assets.values())),
+                                             len(task.artifacts))
+        leadline = tpl.format(status.state.upper(), task.branch, uploaded)
         click.echo(click.style(leadline, fg=colors[status.state]))
 
-        for name, uploaded in artifacts.items():
-            if uploaded:
+        for fname, asset in assets.items():
+            if asset is not None:
                 state = 'ok'
             elif status.state == 'pending':
                 state = 'pending'
             else:
                 state = 'missing'
 
-            filename = '{:>70} '.format(name)
+            filename = '{:>70} '.format(fname)
             statemsg = '[{:>7}]'.format(state.upper())
             click.echo(filename + click.style(statemsg, fg=colors[state]))
 
@@ -456,10 +461,29 @@ def status(job_name, queue_path, github_token):
 def download(job_name, target_dir, queue_path, github_token):
     """Download build artifacts from github releases"""
     queue = Queue(queue_path)
+    queue.fetch()
 
-    for asset in queue.github_assets(job_name, token=github_token):
-        click.echo('Downloading asset {} ...'.format(asset.name))
-        asset.download(target_dir / asset.name)
+    job = queue.get(job_name)
+    artifacts = queue.github_artifacts(job, token=github_token)
+
+    click.echo('Downloading assets')
+
+    missing = []
+    for task_name, task in job.tasks.items():
+        assets = artifacts[task_name]
+        for fname, asset in assets.items():
+            if asset is None:
+                missing.append(fname)
+            else:
+                click.echo(' - {}...'.format(asset.name))
+                asset.download(target_dir / asset.name)
+
+    click.echo('\nMissing artifacts:')
+    for fname in missing:
+        click.echo(' - ' + click.style(fname, fg='red'))
+
+    if missing:
+        raise click.ClickException('There are missing artifacts')
 
 
 if __name__ == '__main__':
