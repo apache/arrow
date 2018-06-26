@@ -1074,6 +1074,42 @@ garrow_decimal_data_type_new(gint32 precision,
   return data_type;
 }
 
+/**
+ * garrow_decimal_data_type_get_precision:
+ * @decimal_data_type: The #GArrowDecimalDataType.
+ *
+ * Returns: The precision of the decimal data type.
+ *
+ * Since: 0.10.0
+ */
+gint32
+garrow_decimal_data_type_get_precision(GArrowDecimalDataType *decimal_data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(decimal_data_type));
+  const auto arrow_decimal_type =
+    std::static_pointer_cast<arrow::DecimalType>(arrow_data_type);
+  return arrow_decimal_type->precision();
+}
+
+/**
+ * garrow_decimal_data_type_get_scale:
+ * @decimal_data_type: The #GArrowDecimalDataType.
+ *
+ * Returns: The scale of the decimal data type.
+ *
+ * Since: 0.10.0
+ */
+gint32
+garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(decimal_data_type));
+  const auto arrow_decimal_type =
+    std::static_pointer_cast<arrow::DecimalType>(arrow_data_type);
+  return arrow_decimal_type->scale();
+}
+
 G_END_DECLS
 
 GArrowDataType *
