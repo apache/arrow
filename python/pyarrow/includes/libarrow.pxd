@@ -965,6 +965,10 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                  const shared_ptr[CArray]& arr,
                                  object py_ref, PyObject** out)
 
+    CStatus ConvertChunkedArrayToPandas(PandasOptions options,
+                                        const shared_ptr[CChunkedArray]& arr,
+                                        object py_ref, PyObject** out)
+
     CStatus ConvertColumnToPandas(PandasOptions options,
                                   const shared_ptr[CColumn]& arr,
                                   object py_ref, PyObject** out)

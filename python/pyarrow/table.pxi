@@ -95,6 +95,35 @@ cdef class ChunkedArray:
             else:
                 index -= self.chunked_array.chunk(j).get().length()
 
+    def to_pandas(self,
+                  c_bool strings_to_categorical=False,
+                  c_bool zero_copy_only=False,
+                  c_bool integer_object_nulls=False):
+        """
+        Convert the arrow::Column to a pandas.Series
+
+        Returns
+        -------
+        pandas.Series
+        """
+        cdef:
+            PyObject* out
+            PandasOptions options
+
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls,
+            use_threads=False)
+
+        with nogil:
+            check_status(libarrow.ConvertChunkedArrayToPandas(
+                options,
+                self.sp_chunked_array,
+                self, &out))
+
+        return wrap_array_output(out)
+
     def slice(self, offset=0, length=None):
         """
         Compute zero-copy slice of this ChunkedArray
@@ -369,22 +398,10 @@ cdef class Column:
         -------
         pandas.Series
         """
-        cdef:
-            PyObject* out
-            PandasOptions options
-
-        options = PandasOptions(
+        values = self.data.to_pandas(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls,
-            use_threads=False)
-
-        with nogil:
-            check_status(libarrow.ConvertColumnToPandas(options,
-                                                        self.sp_column,
-                                                        self, &out))
-
-        values = wrap_array_output(out)
+            integer_object_nulls=integer_object_nulls)
         result = pd.Series(values, name=self.name)
 
         if isinstance(self.type, TimestampType):
