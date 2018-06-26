@@ -28,6 +28,7 @@ mkdir build-dir
 cd build-dir
 
 cmake \
+    -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
     -DCMAKE_BUILD_TYPE=release \
     -DCMAKE_INSTALL_PREFIX=$PREFIX \
     -DCMAKE_INSTALL_LIBDIR=$PREFIX/lib \
