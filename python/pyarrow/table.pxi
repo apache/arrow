@@ -127,6 +127,11 @@ cdef class ChunkedArray:
     def dictionary_encode(self):
         """
         Compute dictionary-encoded representation of array
+
+        Returns
+        -------
+        pyarrow.ChunkedArray
+            Same chunking as the input, all chunks share a common dictionary.
         """
         cdef CDatum out
 
@@ -140,6 +145,10 @@ cdef class ChunkedArray:
     def unique(self):
         """
         Compute distinct elements in array
+
+        Returns
+        -------
+        pyarrow.Array
         """
         cdef shared_ptr[CArray] result
 
@@ -392,6 +401,11 @@ cdef class Column:
     def dictionary_encode(self):
         """
         Compute dictionary-encoded representation of array
+
+        Returns
+        -------
+        pyarrow.Column
+            Same chunking as the input, all chunks share a common dictionary.
         """
         ca = self.data.dictionary_encode()
         return column(self.name, ca)
@@ -399,6 +413,10 @@ cdef class Column:
     def unique(self):
         """
         Compute distinct elements in array
+
+        Returns
+        -------
+        pyarrow.Array
         """
         return self.data.unique()
 
