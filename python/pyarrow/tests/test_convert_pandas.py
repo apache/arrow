@@ -119,8 +119,8 @@ def _check_array_roundtrip(values, expected=None, mask=None,
                                check_names=False)
 
 
-def _check_array_from_pandas_roundtrip(np_array):
-    arr = pa.array(np_array, from_pandas=True)
+def _check_array_from_pandas_roundtrip(np_array, type=None):
+    arr = pa.array(np_array, from_pandas=True, type=type)
     result = arr.to_pandas()
     npt.assert_array_equal(result, np_array)
 
@@ -1114,14 +1114,15 @@ class TestConvertDateTimeLikeTypes(object):
                 dtype='datetime64[s]')
         _check_array_from_pandas_roundtrip(datetime64_s)
 
-    def test_numpy_datetime64_day_unit(self):
+    @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])
+    def test_numpy_datetime64_day_unit(self, dtype):
         datetime64_d = np.array([
                 '2007-07-13',
                 None,
                 '2006-01-15',
                 '2010-08-19'],
                 dtype='datetime64[D]')
-        _check_array_from_pandas_roundtrip(datetime64_d)
+        _check_array_from_pandas_roundtrip(datetime64_d, type=dtype)
 
     def test_array_from_pandas_date_with_mask(self):
         m = np.array([True, False, True])
