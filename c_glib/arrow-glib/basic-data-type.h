@@ -663,5 +663,7 @@ struct _GArrowDecimalDataTypeClass
 
 GArrowDecimalDataType   *garrow_decimal_data_type_new     (gint32 precision,
                                                            gint32 scale);
+gint32 garrow_decimal_data_type_get_precision(GArrowDecimalDataType *decimal_data_type);
+gint32 garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type);
 
 G_END_DECLS

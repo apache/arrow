@@ -25,4 +25,14 @@ class TestDecimalDataType < Test::Unit::TestCase
     data_type = Arrow::DecimalDataType.new(2, 0)
     assert_equal("decimal(2, 0)", data_type.to_s)
   end
+
+  def test_precision
+    data_type = Arrow::DecimalDataType.new(8, 2)
+    assert_equal(8, data_type.precision)
+  end
+
+  def test_scale
+    data_type = Arrow::DecimalDataType.new(8, 2)
+    assert_equal(2, data_type.scale)
+  end
 end
