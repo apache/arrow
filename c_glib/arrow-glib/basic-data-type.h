@@ -650,47 +650,17 @@ GArrowTime64DataType *garrow_time64_data_type_new      (GArrowTimeUnit unit,
                                                         GError **error);
 
 
-#define GARROW_TYPE_DECIMAL_DATA_TYPE            \
-  (garrow_decimal_data_type_get_type())
-#define GARROW_DECIMAL_DATA_TYPE(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                             \
-                              GARROW_TYPE_DECIMAL_DATA_TYPE,     \
-                              GArrowDecimalDataType))
-#define GARROW_DECIMAL_DATA_TYPE_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                              \
-                           GARROW_TYPE_DECIMAL_DATA_TYPE,        \
-                           GArrowDecimalDataTypeClass))
-#define GARROW_IS_DECIMAL_DATA_TYPE(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                             \
-                            GARROW_TYPE_DECIMAL_DATA_TYPE))
-#define GARROW_IS_DECIMAL_DATA_TYPE_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                              \
-                           GARROW_TYPE_DECIMAL_DATA_TYPE))
-#define GARROW_DECIMAL_DATA_TYPE_GET_CLASS(obj),                 \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                              \
-                             GARROW_TYPE_DECIMAL_DATA_TYPE,      \
-                             GArrowDecimalDataTypeClass))
-
-typedef struct _GArrowDecimalDataType       GArrowDecimalDataType;
-typedef struct _GArrowDecimalDataTypeClass  GArrowDecimalDataTypeClass;
-
-/**
- * GArrowDecimalType:
- *
- * It wraps `arrow::DecimalType`.
- */
-struct _GArrowDecimalDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_DECIMAL_DATA_TYPE (garrow_decimal_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimalDataType,
+                         garrow_decimal_data_type,
+                         GARROW,
+                         DECIMAL_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowDecimalDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType                   garrow_decimal_data_type_get_type (void) G_GNUC_CONST;
 GArrowDecimalDataType   *garrow_decimal_data_type_new     (gint32 precision,
                                                            gint32 scale);
 
