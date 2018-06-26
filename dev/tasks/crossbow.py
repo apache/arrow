@@ -211,18 +211,23 @@ class Queue(Repo):
         return {name: repo.commit(task.commit).status()
                 for name, task in job.tasks.items()}
 
-    def github_artifacts(self, job, token=None):
+    def github_assets(self, job, token=None):
         repo = self.as_github_repo(token=token)
+        release = repo.release_from_tag(job.branch)
+        return {a.name: a for a in release.assets()}
 
-        try:
-            release = repo.release_from_tag(job.branch)
-        except github3.exceptions.NotFoundError:
-            assets = {}
-        else:
-            assets = {a.name: a for a in release.assets()}
+    def upload_assets(self, job, files, content_type, token=None):
+        repo = self.as_github_repo(token=token)
+        release = repo.release_from_tag(job.branch)
+        assets = {a.name: a for a in release.assets()}
 
-        return {name: {a: assets.get(a) for a in task.artifacts}
-                for name, task in job.tasks.items()}
+        for path in files:
+            if path.name in assets:
+                # remove already uploaded asset
+                assets[path.name].delete()
+            with path.open('rb') as fp:
+                release.upload_asset(name=path.name, asset=fp,
+                                     content_type=content_type)
 
 
 class Target(object):
@@ -303,6 +308,13 @@ yaml.register_class(Job)
 yaml.register_class(Task)
 yaml.register_class(Target)
 
+# state color mapping to highlight console output
+COLORS = {'ok': 'green',
+          'error': 'red',
+          'missing': 'red',
+          'failure': 'red',
+          'pending': 'yellow',
+          'success': 'green'}
 
 # define default paths
 CWD = Path(__file__).absolute()
@@ -417,73 +429,94 @@ def status(job_name, queue_path, github_token):
     click.echo(header)
     click.echo('-' * len(header))
 
-    colors = {'ok': 'green',
-              'error': 'red',
-              'missing': 'red',
-              'failure': 'red',
-              'pending': 'yellow',
-              'success': 'green'}
-
     job = queue.get(job_name)
+    assets = queue.github_assets(job, token=github_token)
     statuses = queue.github_statuses(job, token=github_token)
-    artifacts = queue.github_artifacts(job, token=github_token)
 
     for task_name, task in job.tasks.items():
         status = statuses[task_name]
-        assets = artifacts[task_name]
 
-        uploaded = 'uploaded {} / {}'.format(sum(map(bool, assets.values())),
-                                             len(task.artifacts))
+        uploaded = 'uploaded {} / {}'.format(
+            sum(a in assets for a in task.artifacts),
+            len(task.artifacts)
+        )
         leadline = tpl.format(status.state.upper(), task.branch, uploaded)
-        click.echo(click.style(leadline, fg=colors[status.state]))
+        click.echo(click.style(leadline, fg=COLORS[status.state]))
 
-        for fname, asset in assets.items():
-            if asset is not None:
+        for artifact in task.artifacts:
+            if artifact in assets:
                 state = 'ok'
             elif status.state == 'pending':
                 state = 'pending'
             else:
                 state = 'missing'
 
-            filename = '{:>70} '.format(fname)
+            filename = '{:>70} '.format(artifact)
             statemsg = '[{:>7}]'.format(state.upper())
-            click.echo(filename + click.style(statemsg, fg=colors[state]))
+            click.echo(filename + click.style(statemsg, fg=COLORS[state]))
 
 
 @crossbow.command()
 @click.argument('job-name', required=True)
-@click.option('--target-dir', default=DEFAULT_ARROW_PATH,
+@click.option('--upload/--no-upload', default=True,
+              help='Upload the signatures to github releases')
+@click.option('--gpg-homedir', default=None,
+              help=('Full pathname to directory containing the public and '
+                    'private keyrings. Default is whatever GnuPG defaults to'))
+@click.option('--target-dir', default=DEFAULT_ARROW_PATH / 'pkgs',
               help='Directory to download the build artifacts')
 @click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @github_token
-def download(job_name, target_dir, queue_path, github_token):
-    """Download build artifacts from github releases"""
+def sign(job_name, upload, gpg_homedir, target_dir, queue_path, github_token):
+    """Download and sign build artifacts from github releases"""
+
+    import gnupg
+    gpg = gnupg.GPG(gnupghome=gpg_homedir)
+
+    # initialize and fetch the queue repository
     queue = Queue(queue_path)
     queue.fetch()
 
+    # query the job's artifacts
     job = queue.get(job_name)
-    artifacts = queue.github_artifacts(job, token=github_token)
+    assets = queue.github_assets(job, token=github_token)
 
-    click.echo('Downloading assets')
+    click.echo('Downloading and signing assets...')
+    target_dir = Path(target_dir).absolute()
+    target_dir.mkdir(exist_ok=True)
 
-    missing = []
+    tpl = '[{:>8}] '
+    signatures = []
     for task_name, task in job.tasks.items():
-        assets = artifacts[task_name]
-        for fname, asset in assets.items():
-            if asset is None:
-                missing.append(fname)
-            else:
-                click.echo(' - {}...'.format(asset.name))
-                asset.download(target_dir / asset.name)
+        for artifact in task.artifacts:
+            if artifact not in assets:
+                msg = click.style(tpl.format('MISSING'), fg=COLORS['missing'])
+                click.echo(msg + fname)
+                continue
 
-    click.echo('\nMissing artifacts:')
-    for fname in missing:
-        click.echo(' - ' + click.style(fname, fg='red'))
+            # download artifact
+            target_path = target_dir / artifact
+            assets[artifact].download(target_path)
 
-    if missing:
-        raise click.ClickException('There are missing artifacts')
+            # sign the artifact
+            with target_path.open('rb') as fp:
+                signature_path = Path(str(target_path) + '.sig')
+                gpg.sign_file(fp, detach=True, clearsign=False,
+                              output=str(signature_path))
+
+            msg = click.style(tpl.format('SIGNED'), fg=COLORS['ok'])
+            click.echo(msg + artifact)
+
+            signatures.append(signature_path)
+
+    # upload the signatures
+    if upload:
+        queue.upload_assets(job, signatures, token=github_token,
+                            content_type='application/pgp-signature')
+        msg = click.style('Artifacts uploaded.', fg=COLORS['ok'])
+        click.echo(msg)
 
 
 if __name__ == '__main__':
