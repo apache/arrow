@@ -18,7 +18,11 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.DateMilliReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -27,7 +31,8 @@ import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.LocalDateTime;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * DateMilliVector implements a fixed width vector (8 bytes) of
@@ -127,8 +132,8 @@ public class DateMilliVector extends BaseFixedWidthVector {
       return null;
     } else {
       final long millis = valueBuffer.getLong(index * TYPE_WIDTH);
-      final LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
-              org.joda.time.DateTimeZone.UTC);
+      final Instant inst = Instant.ofEpochMilli(millis);
+      final LocalDateTime localDateTime = LocalDateTime.ofInstant(inst, ZoneId.of("UTC"));
       return localDateTime;
     }
   }

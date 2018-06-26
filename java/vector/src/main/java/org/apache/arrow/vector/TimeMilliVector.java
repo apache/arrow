@@ -27,7 +27,12 @@ import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.LocalDateTime;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+
 import org.slf4j.Logger;
 
 /**
@@ -126,8 +131,8 @@ public class TimeMilliVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     }
-    org.joda.time.LocalDateTime ldt = new org.joda.time.LocalDateTime(get(index),
-            org.joda.time.DateTimeZone.UTC);
+    Instant inst = Instant.ofEpochMilli(get(index));
+    LocalDateTime ldt = LocalDateTime.ofInstant(inst, ZoneId.of("UTC"));
     return ldt;
   }
 

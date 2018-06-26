@@ -18,14 +18,13 @@
 
 package org.apache.arrow.vector.util;
 
-import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDateTime;
-import org.joda.time.LocalDateTimes;
-import org.joda.time.Period;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.DateTimeParser;
+import java.time.ZoneId;
+import java.time.LocalDateTime;
+import java.time.Period;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 
 import com.carrotsearch.hppc.ObjectIntHashMap;
 
@@ -621,10 +620,10 @@ public class DateUtility {
     }
   }
 
-  public static final DateTimeFormatter formatDate = DateTimeFormat.forPattern("yyyy-MM-dd");
-  public static final DateTimeFormatter formatTimeStampMilli = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-  public static final DateTimeFormatter formatTimeStampTZ = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
-  public static final DateTimeFormatter formatTime = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+  public static final DateTimeFormatter formatDate = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+  public static final DateTimeFormatter formatTimeStampMilli = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+  public static final DateTimeFormatter formatTimeStampTZ = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
+  public static final DateTimeFormatter formatTime = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
   public static DateTimeFormatter dateTimeTZFormat = null;
   public static DateTimeFormatter timeFormat = null;
@@ -650,10 +649,10 @@ public class DateUtility {
   public static DateTimeFormatter getDateTimeFormatter() {
 
     if (dateTimeTZFormat == null) {
-      DateTimeFormatter dateFormatter = DateTimeFormat.forPattern("yyyy-MM-dd");
-      DateTimeParser optionalTime = DateTimeFormat.forPattern(" HH:mm:ss").getParser();
-      DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
-      DateTimeParser optionalZone = DateTimeFormat.forPattern(" ZZZ").getParser();
+      DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+      DateTimeFormatter optionalTime = DateTimeFormatter.ofPattern(" HH:mm:ss");
+      DateTimeFormatter optionalSec = DateTimeFormatter.ofPattern(".SSS");
+      DateTimeFormatter optionalZone = DateTimeFormatter.ofPattern(" ZZZ");
 
       dateTimeTZFormat = new DateTimeFormatterBuilder().append(dateFormatter).appendOptional(optionalTime).appendOptional(optionalSec).appendOptional(optionalZone).toFormatter();
     }
@@ -664,8 +663,8 @@ public class DateUtility {
   // Function returns time formatter used to parse time strings
   public static DateTimeFormatter getTimeFormatter() {
     if (timeFormat == null) {
-      DateTimeFormatter timeFormatter = DateTimeFormat.forPattern("HH:mm:ss");
-      DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
+      DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+      DateTimeFormatter optionalSec = DateTimeFormatter.ofPattern(".SSS");
       timeFormat = new DateTimeFormatterBuilder().append(timeFormatter).appendOptional(optionalSec).toFormatter();
     }
     return timeFormat;
@@ -676,17 +675,17 @@ public class DateUtility {
   }
 
   public static int millisFromPeriod(final Period period) {
-    return (period.getHours() * hoursToMillis) +
-        (period.getMinutes() * minutesToMillis) +
-        (period.getSeconds() * secondsToMillis) +
-        (period.getMillis());
+    return (int) ((period.get(ChronoUnit.HOURS) * hoursToMillis) +
+        (period.get(ChronoUnit.MINUTES) * minutesToMillis) +
+        (period.get(ChronoUnit.SECONDS) * secondsToMillis) +
+        (period.get(ChronoUnit.MILLIS)));
   }
 
   public static long toMillis(LocalDateTime localDateTime) {
-    return LocalDateTimes.getLocalMillis(localDateTime);
+    return localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
   }
 
   public static int toMillisOfDay(final LocalDateTime localDateTime) {
-    return localDateTime.toDateTime(DateTimeZone.UTC).millisOfDay().get();
+    return localDateTime.atZone(ZoneId.of("UTC")).get(ChronoField.MILLI_OF_DAY);
   }
 }

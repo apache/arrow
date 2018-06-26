@@ -40,8 +40,8 @@ package org.apache.arrow.vector.complex.impl;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-
-import org.joda.time.Period;
+import java.time.LocalDateTime;
+import java.time.Period;
 
 // Source code generated using FreeMarker template ${.template_name}
 
@@ -131,6 +131,9 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
   <#elseif minor.class == "FixedSizeBinary">
     byte[] value = new byte [holder.byteWidth];
     holder.buffer.getBytes(0, value, 0, holder.byteWidth);
+    return value;
+  <#elseif minor.class == "LocalDateTime">
+    ${friendlyType} value = LocalDateTime.ofEpochSecond(this.holder.value, 0, null);
     return value;
   <#else>
     ${friendlyType} value = new ${friendlyType}(this.holder.value);

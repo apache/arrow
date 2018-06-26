@@ -26,7 +26,10 @@ import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.LocalDateTime;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * TimeStampMicroVector implements a fixed width vector (8 bytes) of
@@ -114,9 +117,9 @@ public class TimeStampMicroVector extends TimeStampVector {
          /* value is truncated when converting microseconds to milliseconds in order to use DateTime type */
       final long micros = valueBuffer.getLong(index * TYPE_WIDTH);
       final long millis = java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(micros);
-      final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
-              org.joda.time.DateTimeZone.UTC);
-      return localDateTime;
+      final Instant inst = Instant.ofEpochMilli(millis);
+      final LocalDateTime ldt = LocalDateTime.ofInstant(inst, ZoneId.of("UTC"));
+      return ldt;
     }
   }
 

@@ -21,7 +21,9 @@ package org.apache.arrow.vector;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.joda.time.Period;
+import java.time.Period;
+import java.time.temporal.ChronoUnit;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -548,7 +550,7 @@ public class TestCopyFrom {
         } else {
           final Period p = vector1.getObject(i);
           assertEquals(days + i, p.getDays());
-          assertEquals(milliseconds + i, p.getMillis());
+          assertEquals(milliseconds + i, p.get(ChronoUnit.MILLIS));
         }
       }
 
@@ -576,7 +578,7 @@ public class TestCopyFrom {
         } else {
           final Period p = vector2.getObject(i);
           assertEquals(days + i, p.getDays());
-          assertEquals(milliseconds + i, p.getMillis());
+          assertEquals(milliseconds + i, p.get(ChronoUnit.MILLIS));
         }
       }
     }
@@ -598,10 +600,9 @@ public class TestCopyFrom {
           continue;
         }
         vector1.setSafe(i, interval + i);
-        final Period p = new Period();
         final int years = (interval + i) / org.apache.arrow.vector.util.DateUtility.yearsToMonths;
         final int months = (interval + i) % org.apache.arrow.vector.util.DateUtility.yearsToMonths;
-        periods[i] = p.plusYears(years).plusMonths(months);;
+        periods[i] = Period.ofYears(years).plusMonths(months);;
       }
 
       vector1.setValueCount(4096);

@@ -18,7 +18,10 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
+import java.time.Duration;
+import java.time.Period;
+import java.time.temporal.TemporalAmount;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.IntervalDayReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -27,7 +30,8 @@ import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.Period;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * IntervalDayVector implements a fixed width vector (8 bytes) of
@@ -133,8 +137,9 @@ public class IntervalDayVector extends BaseFixedWidthVector {
       final int startIndex = index * TYPE_WIDTH;
       final int days = valueBuffer.getInt(startIndex);
       final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-      final Period p = new Period();
-      return p.plusDays(days).plusMillis(milliseconds);
+      TemporalAmount tempAmt = Duration.ofMillis(milliseconds);
+      final Period p = Period.ofDays(days);
+      return p.plus(tempAmt);
     }
   }
 

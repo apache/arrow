@@ -61,8 +61,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.Text;
-import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoField;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -83,7 +85,7 @@ public class BaseFileTest {
   protected static final int COUNT = 10;
   protected BufferAllocator allocator;
 
-  private DateTimeZone defaultTimezone = DateTimeZone.getDefault();
+  private ZoneId defaultTimezone = ZoneId.systemDefault();
 
   @Before
   public void init() {
@@ -189,7 +191,7 @@ public class BaseFileTest {
   }
 
   private LocalDateTime makeDateTimeFromCount(int i) {
-    return new LocalDateTime(2000 + i, 1 + i, 1 + i, i, i, i, i);
+    return LocalDateTime.of(2000 + i, 1 + i, 1 + i, i, i, i, i);
   }
 
   protected void writeDateTimeData(int count, StructVector parent) {
@@ -204,11 +206,12 @@ public class BaseFileTest {
       LocalDateTime dt = makeDateTimeFromCount(i);
       // Number of days in milliseconds since epoch, stored as 64-bit integer, only date part is used
       dateWriter.setPosition(i);
-      long dateLong = DateUtility.toMillis(dt.minusMillis(dt.getMillisOfDay()));
+      long dateLong = DateUtility.toMillis(dt.minus(
+		  Duration.ofMillis(dt.atZone(ZoneId.of("UTC")).get(ChronoField.MILLI_OF_DAY))));
       dateWriter.writeDateMilli(dateLong);
       // Time is a value in milliseconds since midnight, stored as 32-bit integer
       timeWriter.setPosition(i);
-      timeWriter.writeTimeMilli(dt.getMillisOfDay());
+      timeWriter.writeTimeMilli(dt.atZone(ZoneId.of("UTC")).get(ChronoField.MILLI_OF_DAY));
       // Timestamp is milliseconds since the epoch, stored as 64-bit integer
       timeStampMilliWriter.setPosition(i);
       timeStampMilliWriter.writeTimeStampMilli(DateUtility.toMillis(dt));
@@ -224,10 +227,11 @@ public class BaseFileTest {
     for (int i = 0; i < count; i++) {
       long dateVal = ((DateMilliVector) root.getVector("date")).get(i);
       LocalDateTime dt = makeDateTimeFromCount(i);
-      LocalDateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
+      LocalDateTime dateExpected = dt.minus(Duration.ofMillis(
+		  dt.atZone(ZoneId.of("UTC")).get(ChronoField.MILLI_OF_DAY)));
       Assert.assertEquals(DateUtility.toMillis(dateExpected), dateVal);
       long timeVal = ((TimeMilliVector) root.getVector("time")).get(i);
-      Assert.assertEquals(dt.getMillisOfDay(), timeVal);
+      Assert.assertEquals(dt.atZone(ZoneId.of("UTC")).get(ChronoField.MILLI_OF_DAY), timeVal);
       Object timestampMilliVal = root.getVector("timestamp-milli").getObject(i);
       Assert.assertEquals(dt, timestampMilliVal);
       Object timestampMilliTZVal = root.getVector("timestamp-milliTZ").getObject(i);
