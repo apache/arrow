@@ -36,10 +36,15 @@ source activate $CONDA_ENV_DIR
 python --version
 which python
 
+if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
+  CONDA_JVM_DEPS="jpype1"
+fi
+
 conda install -y -q pip \
       nomkl \
       cloudpickle \
       numpy=1.13.1 \
+      ${CONDA_JVM_DEPS} \
       pandas \
       cython
 

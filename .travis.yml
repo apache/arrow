@@ -45,6 +45,7 @@ matrix:
   - compiler: gcc
     language: cpp
     os: linux
+    jdk: openjdk8
     env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_VALGRIND=1
@@ -55,6 +56,7 @@ matrix:
     - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - ARROW_TRAVIS_PYTHON_JVM=1
     - CC="clang-6.0"
     - CXX="clang++-6.0"
     before_script:
@@ -71,6 +73,8 @@ matrix:
     # All test steps are required for accurate C++ coverage info
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
+    # Build Arrow Java to test the pyarrow<->JVM in-process bridge
+    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
