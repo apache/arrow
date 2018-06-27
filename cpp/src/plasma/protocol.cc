@@ -278,7 +278,7 @@ Status ReadDeleteObjsRequest(uint8_t* data, size_t size,
   int num_objects = message->count();
   object_ids.clear();
   object_ids.reserve(num_objects);
-  for (uoffset_t i = 0; i < num_objects; ++i) {
+  for (int i = 0; i < num_objects; ++i) {
     object_ids.push_back(ObjectID::from_binary(message->object_ids()->Get(i)->str()));
   }
   return Status::OK();
@@ -304,7 +304,7 @@ Status ReadDeleteObjsReply(uint8_t* data, size_t size, std::vector<ObjectID>& ob
   object_ids.reserve(num_objects);
   errors.clear();
   errors.reserve(num_objects);
-  for (uoffset_t i = 0; i < num_objects; ++i) {
+  for (int i = 0; i < num_objects; ++i) {
     object_ids.push_back(ObjectID::from_binary(message->object_ids()->Get(i)->str()));
   }
   for (uoffset_t i = 0; i < num_objects; ++i) {
