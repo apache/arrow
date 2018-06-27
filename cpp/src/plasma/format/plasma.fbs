@@ -17,7 +17,7 @@
 
 // Plasma protocol specification
 
-enum MessageType:int64 {
+enum MessageType:long {
   // Message that gets send when a client hangs up.
   PlasmaDisconnectClient = 0,
   // Create a new object.
