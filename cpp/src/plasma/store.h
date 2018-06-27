@@ -83,14 +83,14 @@ class PlasmaStore {
   /// @param client The client that created the object.
   /// @param result The object that has been created.
   /// @return One of the following error codes:
-  ///  - PlasmaError_OK, if the object was created successfully.
-  ///  - PlasmaError_ObjectExists, if an object with this ID is already
+  ///  - PlasmaError::OK, if the object was created successfully.
+  ///  - PlasmaError::ObjectExists, if an object with this ID is already
   ///    present in the store. In this case, the client should not call
   ///    plasma_release.
-  ///  - PlasmaError_OutOfMemory, if the store is out of memory and
+  ///  - PlasmaError::OutOfMemory, if the store is out of memory and
   ///    cannot create the object. In this case, the client should not call
   ///    plasma_release.
-  int create_object(const ObjectID& object_id, int64_t data_size, int64_t metadata_size,
+  PlasmaError create_object(const ObjectID& object_id, int64_t data_size, int64_t metadata_size,
                     int device_num, Client* client, PlasmaObject* result);
 
   /// Abort a created but unsealed object. If the client is not the
@@ -106,10 +106,10 @@ class PlasmaStore {
   ///
   /// @param object_id Object ID of the object to be deleted.
   /// @return One of the following error codes:
-  ///  - PlasmaError_OK, if the object was delete successfully.
-  ///  - PlasmaError_ObjectNonexistent, if ths object isn't existed.
-  ///  - PlasmaError_ObjectInUse, if the object is in use.
-  int delete_object(ObjectID& object_id);
+  ///  - PlasmaError::OK, if the object was delete successfully.
+  ///  - PlasmaError::ObjectNonexistent, if ths object isn't existed.
+  ///  - PlasmaError::ObjectInUse, if the object is in use.
+  PlasmaError delete_object(ObjectID& object_id);
 
   /// Delete objects that have been created in the hash table. This should only
   /// be called on objects that are returned by the eviction policy to evict.
