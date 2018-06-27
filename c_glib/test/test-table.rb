@@ -110,5 +110,13 @@ class TestTable < Test::Unit::TestCase
       assert_equal(["valid"],
                    new_table.schema.fields.collect(&:name))
     end
+
+    def test_replace_column
+      field = Arrow::Field.new("added", Arrow::BooleanDataType.new)
+      column = Arrow::Column.new(field, build_boolean_array([true]))
+      new_table = @table.replace_column(0, column)
+      assert_equal(["added", "valid"],
+                   new_table.schema.fields.collect(&:name))
+    end
   end
 end
