@@ -23,47 +23,16 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_SCHEMA                      \
-  (garrow_schema_get_type())
-#define GARROW_SCHEMA(obj)                              \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_SCHEMA,       \
-                              GArrowSchema))
-#define GARROW_SCHEMA_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_CAST((klass),             \
-                           GARROW_TYPE_SCHEMA,  \
-                           GArrowSchemaClass))
-#define GARROW_IS_SCHEMA(obj)                           \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
-                              GARROW_TYPE_SCHEMA))
-#define GARROW_IS_SCHEMA_CLASS(klass)           \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),             \
-                           GARROW_TYPE_SCHEMA))
-#define GARROW_SCHEMA_GET_CLASS(obj)                    \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_SCHEMA,        \
-                             GArrowSchemaClass))
-
-typedef struct _GArrowSchema         GArrowSchema;
-typedef struct _GArrowSchemaClass    GArrowSchemaClass;
-
-/**
- * GArrowSchema:
- *
- * It wraps `arrow::Schema`.
- */
-struct _GArrowSchema
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_SCHEMA (garrow_schema_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSchema,
+                         garrow_schema,
+                         GARROW,
+                         SCHEMA,
+                         GObject)
 struct _GArrowSchemaClass
 {
   GObjectClass parent_class;
 };
-
-GType            garrow_schema_get_type         (void) G_GNUC_CONST;
 
 GArrowSchema    *garrow_schema_new              (GList *fields);
 
@@ -78,5 +47,17 @@ guint            garrow_schema_n_fields         (GArrowSchema *schema);
 GList           *garrow_schema_get_fields       (GArrowSchema *schema);
 
 gchar           *garrow_schema_to_string        (GArrowSchema *schema);
+
+GArrowSchema    *garrow_schema_add_field        (GArrowSchema *schema,
+                                                 guint i,
+                                                 GArrowField *field,
+                                                 GError **error);
+GArrowSchema    *garrow_schema_remove_field     (GArrowSchema *schema,
+                                                 guint i,
+                                                 GError **error);
+GArrowSchema    *garrow_schema_replace_field    (GArrowSchema *schema,
+                                                 guint i,
+                                                 GArrowField *field,
+                                                 GError **error);
 
 G_END_DECLS
