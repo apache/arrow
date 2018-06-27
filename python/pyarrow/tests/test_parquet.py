@@ -42,8 +42,6 @@ pytestmark = pytest.mark.parquet
 
 
 def _write_table(table, path, **kwargs):
-    import pyarrow.parquet as pq
-
     if isinstance(table, pd.DataFrame):
         table = pa.Table.from_pandas(table)
 
@@ -52,7 +50,6 @@ def _write_table(table, path, **kwargs):
 
 
 def _read_table(*args, **kwargs):
-    import pyarrow.parquet as pq
     return pq.read_table(*args, **kwargs)
 
 
