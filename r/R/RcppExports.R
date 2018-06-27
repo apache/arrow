@@ -19,120 +19,98 @@ bla <- function() {
     .Call(`_arrow_bla`)
 }
 
-#' @export
-int8 <- function() {
-    .Call(`_arrow_int8`)
+Int8_initialize <- function() {
+    .Call(`_arrow_Int8_initialize`)
 }
 
-#' @export
-int16 <- function() {
-    .Call(`_arrow_int16`)
+Int16_initialize <- function() {
+    .Call(`_arrow_Int16_initialize`)
 }
 
-#' @export
-int32 <- function() {
-    .Call(`_arrow_int32`)
+Int32_initialize <- function() {
+    .Call(`_arrow_Int32_initialize`)
 }
 
-#' @export
-int64 <- function() {
-    .Call(`_arrow_int64`)
+Int64_initialize <- function() {
+    .Call(`_arrow_Int64_initialize`)
 }
 
-#' @export
-uint8 <- function() {
-    .Call(`_arrow_uint8`)
+UInt8_initialize <- function() {
+    .Call(`_arrow_UInt8_initialize`)
 }
 
-#' @export
-uint16 <- function() {
-    .Call(`_arrow_uint16`)
+UInt16_initialize <- function() {
+    .Call(`_arrow_UInt16_initialize`)
 }
 
-#' @export
-uint32 <- function() {
-    .Call(`_arrow_uint32`)
+UInt32_initialize <- function() {
+    .Call(`_arrow_UInt32_initialize`)
 }
 
-#' @export
-uint64 <- function() {
-    .Call(`_arrow_uint64`)
+UInt64_initialize <- function() {
+    .Call(`_arrow_UInt64_initialize`)
 }
 
-#' @export
-float16 <- function() {
-    .Call(`_arrow_float16`)
+Float16_initialize <- function() {
+    .Call(`_arrow_Float16_initialize`)
 }
 
-#' @export
-float32 <- function() {
-    .Call(`_arrow_float32`)
+Float32_initialize <- function() {
+    .Call(`_arrow_Float32_initialize`)
 }
 
-#' @export
-float64 <- function() {
-    .Call(`_arrow_float64`)
+Float64_initialize <- function() {
+    .Call(`_arrow_Float64_initialize`)
 }
 
-#' @export
-boolean <- function() {
-    .Call(`_arrow_boolean`)
+Boolean_initialize <- function() {
+    .Call(`_arrow_Boolean_initialize`)
 }
 
-#' @export
-utf8 <- function() {
-    .Call(`_arrow_utf8`)
+Utf8_initialize <- function() {
+    .Call(`_arrow_Utf8_initialize`)
 }
 
-#' @export
-date32 <- function() {
-    .Call(`_arrow_date32`)
+Date32_initialize <- function() {
+    .Call(`_arrow_Date32_initialize`)
 }
 
-#' @export
-date64 <- function() {
-    .Call(`_arrow_date64`)
+Date64_initialize <- function() {
+    .Call(`_arrow_Date64_initialize`)
 }
 
-#' @export
-null <- function() {
-    .Call(`_arrow_null`)
+Null_initialize <- function() {
+    .Call(`_arrow_Null_initialize`)
 }
 
-#' @export
-decimal_type <- function(precision, scale) {
-    .Call(`_arrow_decimal_type`, precision, scale)
+DecimalType_initialize <- function(precision, scale) {
+    .Call(`_arrow_DecimalType_initialize`, precision, scale)
 }
 
-#' @export
-fixed_size_binary <- function(byte_width) {
-    .Call(`_arrow_fixed_size_binary`, byte_width)
+FixedSizeBinary_initialize <- function(byte_width) {
+    .Call(`_arrow_FixedSizeBinary_initialize`, byte_width)
 }
 
-timestamp1 <- function(unit) {
-    .Call(`_arrow_timestamp1`, unit)
+Timestamp_initialize1 <- function(unit) {
+    .Call(`_arrow_Timestamp_initialize1`, unit)
 }
 
-timestamp2 <- function(unit, timezone) {
-    .Call(`_arrow_timestamp2`, unit, timezone)
+Timestamp_initialize2 <- function(unit, timezone) {
+    .Call(`_arrow_Timestamp_initialize2`, unit, timezone)
 }
 
-#' @export
-time32 <- function(unit) {
-    .Call(`_arrow_time32_`, unit)
+Time32_initialize <- function(unit) {
+    .Call(`_arrow_Time32_initialize`, unit)
 }
 
-#' @export
-time64 <- function(unit) {
-    .Call(`_arrow_time64_`, unit)
+Time64_initialize <- function(unit) {
+    .Call(`_arrow_Time64_initialize`, unit)
 }
 
-#' @export
 list_ <- function(x) {
     .Call(`_arrow_list_`, x)
 }
 
-#' @export
 struct_ <- function(fields) {
     .Call(`_arrow_struct_`, fields)
 }

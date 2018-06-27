@@ -34,65 +34,52 @@ xptr_DataType metadata_integer(const std::shared_ptr<arrow::DataType>& ptr) {
                   "arrow::FixedWidthType", "arrow::DataType");
 }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType int8() { return metadata_integer(arrow::int8()); }
+xptr_DataType Int8_initialize() { return metadata_integer(arrow::int8()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType int16() { return metadata_integer(arrow::int16()); }
+xptr_DataType Int16_initialize() { return metadata_integer(arrow::int16()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType int32() { return metadata_integer(arrow::int32()); }
+xptr_DataType Int32_initialize() { return metadata_integer(arrow::int32()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType int64() { return metadata_integer(arrow::int64()); }
+xptr_DataType Int64_initialize() { return metadata_integer(arrow::int64()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType uint8() { return metadata_integer(arrow::uint8()); }
+xptr_DataType UInt8_initialize() { return metadata_integer(arrow::uint8()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType uint16() { return metadata_integer(arrow::uint16()); }
+xptr_DataType UInt16_initialize() { return metadata_integer(arrow::uint16()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType uint32() { return metadata_integer(arrow::uint32()); }
+xptr_DataType UInt32_initialize() { return metadata_integer(arrow::uint32()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType uint64() { return metadata_integer(arrow::uint64()); }
+xptr_DataType UInt64_initialize() { return metadata_integer(arrow::uint64()); }
 
 xptr_DataType metadata_float(const std::shared_ptr<arrow::DataType>& ptr) {
   return metadata(ptr, "arrow::FloatingPoint", "arrow::Number", "arrow::PrimitiveCType",
                   "arrow::FixedWidthType", "arrow::DataType");
 }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType float16() { return metadata_float(arrow::float16()); }
+xptr_DataType Float16_initialize() { return metadata_float(arrow::float16()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType float32() { return metadata_float(arrow::float32()); }
+xptr_DataType Float32_initialize() { return metadata_float(arrow::float32()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType float64() { return metadata_float(arrow::float64()); }
+xptr_DataType Float64_initialize() { return metadata_float(arrow::float64()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType boolean() {
+xptr_DataType Boolean_initialize() {
   return metadata(arrow::boolean(), "arrow::BooleanType", "arrow::FixedWidthType",
                   "arrow::DataType");
 }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType utf8() {
+xptr_DataType Utf8_initialize() {
   return metadata(arrow::utf8(), "arrow::StringType", "arrow::BinaryType",
                   "arrow::DataType");
 }
@@ -103,29 +90,24 @@ xptr_DataType metadata_date(const std::shared_ptr<arrow::DataType>& ptr) {
   return metadata(ptr, "arrow::DateType", "arrow::FixedWidthType", "arrow::DataType");
 }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType date32() { return metadata_date(arrow::date32()); }
+xptr_DataType Date32_initialize() { return metadata_date(arrow::date32()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType date64() { return metadata_date(arrow::date64()); }
+xptr_DataType Date64_initialize() { return metadata_date(arrow::date64()); }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType null() {
+xptr_DataType Null_initialize() {
   return metadata(arrow::null(), "arrow::NullType", "arrow::DataType");
 }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType decimal_type(int32_t precision, int32_t scale) {
+xptr_DataType DecimalType_initialize(int32_t precision, int32_t scale) {
   return metadata(arrow::decimal(precision, scale), "arrow::NullType", "arrow::DataType");
 }
 
-//' @export
 // [[Rcpp::export]]
-xptr_DataType fixed_size_binary(int32_t byte_width) {
+xptr_DataType FixedSizeBinary_initialize(int32_t byte_width) {
   return metadata(arrow::fixed_size_binary(byte_width), "arrow::FixedSizeBinaryType",
                   "arrow::FixedWidthType", "arrow::DataType");
 }
@@ -139,32 +121,29 @@ arrow::TimeUnit::type as<arrow::TimeUnit::type>(SEXP x) {
 }  // namespace Rcpp
 
 // [[Rcpp::export]]
-xptr_DataType timestamp1(arrow::TimeUnit::type unit) {
+xptr_DataType Timestamp_initialize1(arrow::TimeUnit::type unit) {
   return metadata(arrow::timestamp(unit), "arrow::TimestampType", "arrow::FixedWidthType",
                   "arrow::DataType");
 }
 
 // [[Rcpp::export]]
-xptr_DataType timestamp2(arrow::TimeUnit::type unit, const std::string& timezone) {
+xptr_DataType Timestamp_initialize2(arrow::TimeUnit::type unit, const std::string& timezone) {
   return metadata(arrow::timestamp(unit, timezone), "arrow::TimestampType",
                   "arrow::FixedWidthType", "arrow::DataType");
 }
 
-//' @export
-// [[Rcpp::export(name="time32")]]
-xptr_DataType time32_(arrow::TimeUnit::type unit) {
+// [[Rcpp::export]]
+xptr_DataType Time32_initialize(arrow::TimeUnit::type unit) {
   return metadata(arrow::time32(unit), "arrow::Time32Type", "arrow::TimeType",
                   "arrow::FixedWidthType", "arrow::DataType");
 }
 
-//' @export
-// [[Rcpp::export(name="time64")]]
-xptr_DataType time64_(arrow::TimeUnit::type unit) {
+// [[Rcpp::export]]
+xptr_DataType Time64_initialize(arrow::TimeUnit::type unit) {
   return metadata(arrow::time64(unit), "arrow::Time64Type", "arrow::TimeType",
                   "arrow::FixedWidthType", "arrow::DataType");
 }
 
-//' @export
 // [[Rcpp::export]]
 SEXP list_(SEXP x) {
   if (Rf_inherits(x, "arrow::Field")) {
@@ -181,7 +160,6 @@ SEXP list_(SEXP x) {
   return R_NilValue;
 }
 
-//' @export
 // [[Rcpp::export]]
 xptr_DataType struct_(ListOf<xptr_Field> fields) {
   int n = fields.size();
