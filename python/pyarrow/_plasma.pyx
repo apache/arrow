@@ -63,8 +63,8 @@ cdef extern from "plasma/common.h":
     cdef int64_t kDigestSize" plasma::kDigestSize"
 
     cdef enum ObjectRequestType:
-        PLASMA_QUERY_LOCAL"plasma::PLASMA_QUERY_LOCAL",
-        PLASMA_QUERY_ANYWHERE"plasma::PLASMA_QUERY_ANYWHERE"
+        PLASMA_QUERY_LOCAL"plasma::ObjectRequestType::PLASMA_QUERY_LOCAL",
+        PLASMA_QUERY_ANYWHERE"plasma::ObjectRequestType::PLASMA_QUERY_ANYWHERE"
 
     cdef int ObjectStatusLocal"plasma::ObjectStatusLocal"
     cdef int ObjectStatusRemote"plasma::ObjectStatusRemote"
