@@ -257,6 +257,16 @@ NodePtr ProtoTypeToOrNode(const types::OrNode& node) {
   return TreeExprBuilder::MakeOr(children);
 }
 
+NodePtr ProtoTypeToNullNode(const types::NullNode& node) {
+  DataTypePtr data_type = ProtoTypeToDataType(node.type());
+  if (data_type == nullptr) {
+    std::cerr << "Unknown type " << data_type->ToString() << " for null node\n";
+    return nullptr;
+  }
+
+  return TreeExprBuilder::MakeNull(data_type);
+}
+
 NodePtr ProtoTypeToNode(const types::TreeNode& node) {
   if (node.has_fieldnode()) {
     return ProtoTypeToFieldNode(node.fieldnode());
@@ -276,6 +286,10 @@ NodePtr ProtoTypeToNode(const types::TreeNode& node) {
 
   if (node.has_ornode()) {
     return ProtoTypeToOrNode(node.ornode());
+  }
+
+  if (node.has_nullnode()) {
+    return ProtoTypeToNullNode(node.nullnode());
   }
 
   if (node.has_intnode()) {

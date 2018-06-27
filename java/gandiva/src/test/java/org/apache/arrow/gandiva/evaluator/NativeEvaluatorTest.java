@@ -410,6 +410,55 @@ public class NativeEvaluatorTest {
   }
 
   @Test
+  public void testNull() throws GandivaException, Exception {
+    /*
+     * when x < 10 then 1
+     * else null
+     */
+    ArrowType int64 = new ArrowType.Int(64, true);
+
+    Field x = Field.nullable("x", int64);
+    TreeNode x_node = TreeBuilder.makeField(x);
+
+    // if (x < 10) then 1 else null
+    TreeNode ifLess10 = ifLongLessThanElse(x_node, 10L, 1L, TreeBuilder.makeNull(int64), int64);
+
+    ExpressionTree expr = TreeBuilder.makeExpression(ifLess10, x);
+    Schema schema = new Schema(Lists.newArrayList(x));
+    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+
+    int numRows = 2;
+    byte[] validity = new byte[]{(byte) 255};
+    long[] values_x = new long[]{5, 32};
+    long[] expected = new long[]{1, 0};
+
+    ArrowBuf validity_buf = buf(validity);
+    ArrowBuf data_x = longBuf(values_x);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+      numRows,
+      Lists.newArrayList(fieldNode),
+      Lists.newArrayList(validity_buf, data_x));
+
+    BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, allocator);
+    bigIntVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bigIntVector);
+    eval.evaluate(batch, output);
+
+    // first element should be 1
+    assertFalse(bigIntVector.isNull(0));
+    assertEquals(expected[0], bigIntVector.get(0));
+
+    // second element should be null
+    assertTrue(bigIntVector.isNull(1));
+
+    eval.close();
+  }
+
+  @Test
   public void testIsNull() throws GandivaException, Exception {
     ArrowType float64 = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
     Field x = Field.nullable("x", float64);

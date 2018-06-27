@@ -18,6 +18,7 @@ package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.Test;
@@ -53,6 +54,25 @@ public class TreeBuilderTest {
     n = TreeBuilder.makeLiteral(d);
     node = n.toProtobuf();
     assertEquals(d.doubleValue(), node.getDoubleNode().getValue(), 0.1);
+  }
+
+  @Test
+  public void testMakeNull() throws GandivaException {
+    TreeNode n = TreeBuilder.makeNull(new ArrowType.Bool());
+    GandivaTypes.TreeNode node = n.toProtobuf();
+    assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, node.getNullNode().getType().getType().getNumber());
+
+    n = TreeBuilder.makeNull(new ArrowType.Int(32, true));
+    node = n.toProtobuf();
+    assertEquals(GandivaTypes.GandivaType.INT32_VALUE, node.getNullNode().getType().getType().getNumber());
+
+    n = TreeBuilder.makeNull(new ArrowType.Int(64, false));
+    node = n.toProtobuf();
+    assertEquals(GandivaTypes.GandivaType.UINT64_VALUE, node.getNullNode().getType().getType().getNumber());
+
+    n = TreeBuilder.makeNull(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE));
+    node = n.toProtobuf();
+    assertEquals(GandivaTypes.GandivaType.FLOAT_VALUE, node.getNullNode().getType().getType().getNumber());
   }
 
   @Test

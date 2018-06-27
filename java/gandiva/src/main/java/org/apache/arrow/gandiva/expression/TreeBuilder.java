@@ -47,6 +47,13 @@ public class TreeBuilder {
   }
 
   /**
+   * create a null literal.
+   */
+  public static TreeNode makeNull(ArrowType type) {
+    return new NullNode(type);
+  }
+
+  /**
    * Invoke this function to create a node representing a field, e.g. a column name.
    *
    * @param field represents the input argument - includes the name and type of the field
