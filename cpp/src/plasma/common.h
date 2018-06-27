@@ -82,9 +82,9 @@ struct ObjectRequest {
   ObjectRequestType type;
   /// Object status. Same as the status returned by plasma_status() function
   /// call. This is filled in by plasma_wait_for_objects1():
-  ///  - ObjectStatus_Local: object is ready at the local Plasma Store.
-  ///  - ObjectStatus_Remote: object is ready at a remote Plasma Store.
-  ///  - ObjectStatus_Nonexistent: object does not exist in the system.
+  ///  - ObjectStatus::Local: object is ready at the local Plasma Store.
+  ///  - ObjectStatus::Remote: object is ready at a remote Plasma Store.
+  ///  - ObjectStatus::Nonexistent: object does not exist in the system.
   ///  - PLASMA_CLIENT_IN_TRANSFER, if the object is currently being scheduled
   ///    for being transferred or it is transferring.
   ObjectStatus status;
