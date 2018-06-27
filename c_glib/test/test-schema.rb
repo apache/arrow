@@ -77,4 +77,45 @@ enabled: bool
 required: bool
     SCHEMA
   end
+
+  def test_add_field
+    fields = [
+      Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+      Arrow::Field.new("required", Arrow::BooleanDataType.new)
+    ]
+    schema = Arrow::Schema.new(fields)
+    new_field = Arrow::Field.new("new", Arrow::BooleanDataType.new)
+    new_schema = schema.add_field(1, new_field)
+    assert_equal(<<-SCHEMA.chomp, new_schema.to_s)
+enabled: bool
+new: bool
+required: bool
+    SCHEMA
+  end
+
+  def test_remove_field
+    fields = [
+      Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+      Arrow::Field.new("required", Arrow::BooleanDataType.new)
+    ]
+    schema = Arrow::Schema.new(fields)
+    new_schema = schema.remove_field(0)
+    assert_equal(<<-SCHEMA.chomp, new_schema.to_s)
+required: bool
+    SCHEMA
+  end
+
+  def test_replace_field
+    fields = [
+      Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+      Arrow::Field.new("required", Arrow::BooleanDataType.new)
+    ]
+    schema = Arrow::Schema.new(fields)
+    new_field = Arrow::Field.new("new", Arrow::BooleanDataType.new)
+    new_schema = schema.replace_field(1, new_field)
+    assert_equal(<<-SCHEMA.chomp, new_schema.to_s)
+enabled: bool
+new: bool
+    SCHEMA
+  end
 end
