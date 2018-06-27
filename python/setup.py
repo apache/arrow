@@ -230,11 +230,8 @@ class build_ext(_build_ext):
                 raise RuntimeError('Not supported on 32-bit Windows')
 
             # Generate the build files
-            cmake_command = (['cmake'] + extra_cmake_args +
-                             cmake_options + [source])
-
             print("-- Runnning cmake for pyarrow")
-            self.spawn(cmake_command)
+            self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
             print("-- Finished cmake for pyarrow")
 
             # Do the build
