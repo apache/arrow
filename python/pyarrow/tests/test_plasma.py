@@ -770,7 +770,7 @@ def test_use_huge_pages():
             plasma_directory="/mnt/hugepages",
             use_hugepages=True) as (plasma_store_name, p):
         plasma_client = plasma.connect(plasma_store_name, "", 64)
-        create_object(plasma_client, 100000000)
+        create_object(plasma_client, 50000000)
 
 
 # This is checking to make sure plasma_clients cannot be destroyed
