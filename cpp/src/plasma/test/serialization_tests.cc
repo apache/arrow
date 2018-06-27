@@ -80,7 +80,8 @@ TEST(PlasmaSerialization, CreateRequest) {
   int device_num1 = 0;
   ARROW_CHECK_OK(
       SendCreateRequest(fd, object_id1, data_size1, metadata_size1, device_num1));
-  std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaCreateRequest);
+  std::vector<uint8_t> data =
+      read_message_from_file(fd, MessageType::PlasmaCreateRequest);
   ObjectID object_id2;
   int64_t data_size2;
   int64_t metadata_size2;
@@ -223,7 +224,8 @@ TEST(PlasmaSerialization, DeleteRequest) {
   int fd = create_temp_file();
   ObjectID object_id1 = ObjectID::from_random();
   ARROW_CHECK_OK(SendDeleteRequest(fd, object_id1));
-  std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaDeleteRequest);
+  std::vector<uint8_t> data =
+      read_message_from_file(fd, MessageType::PlasmaDeleteRequest);
   ObjectID object_id2;
   ARROW_CHECK_OK(ReadDeleteRequest(data.data(), data.size(), &object_id2));
   ASSERT_EQ(object_id1, object_id2);
@@ -250,7 +252,8 @@ TEST(PlasmaSerialization, StatusRequest) {
   object_ids[0] = ObjectID::from_random();
   object_ids[1] = ObjectID::from_random();
   ARROW_CHECK_OK(SendStatusRequest(fd, object_ids, num_objects));
-  std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaStatusRequest);
+  std::vector<uint8_t> data =
+      read_message_from_file(fd, MessageType::PlasmaStatusRequest);
   ObjectID object_ids_read[num_objects];
   ARROW_CHECK_OK(
       ReadStatusRequest(data.data(), data.size(), object_ids_read, num_objects));
@@ -320,8 +323,10 @@ TEST(PlasmaSerialization, WaitRequest) {
   int fd = create_temp_file();
   const int num_objects_in = 2;
   ObjectRequest object_requests_in[num_objects_in] = {
-      ObjectRequest({ObjectID::from_random(), PLASMA_QUERY_ANYWHERE, ObjectStatus::Local}),
-      ObjectRequest({ObjectID::from_random(), PLASMA_QUERY_LOCAL, ObjectStatus::Local})};
+      ObjectRequest({ObjectID::from_random(), ObjectRequestType::PLASMA_QUERY_ANYWHERE,
+                     ObjectStatus::Local}),
+      ObjectRequest({ObjectID::from_random(), ObjectRequestType::PLASMA_QUERY_LOCAL,
+                     ObjectStatus::Local})};
   const int num_ready_objects_in = 1;
   int64_t timeout_ms = 1000;
 
@@ -353,9 +358,11 @@ TEST(PlasmaSerialization, WaitReply) {
   /* Create a map with two ObjectRequests in it. */
   ObjectRequestMap objects_in(num_objects_in);
   ObjectID id1 = ObjectID::from_random();
-  objects_in[id1] = ObjectRequest({id1, 0, ObjectStatus::Local});
+  objects_in[id1] =
+      ObjectRequest({id1, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectStatus::Local});
   ObjectID id2 = ObjectID::from_random();
-  objects_in[id2] = ObjectRequest({id2, 0, ObjectStatus::Nonexistent});
+  objects_in[id2] = ObjectRequest(
+      {id2, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectStatus::Nonexistent});
 
   ARROW_CHECK_OK(SendWaitReply(fd, objects_in, num_objects_in));
   /* Read message back. */

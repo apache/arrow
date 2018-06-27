@@ -95,14 +95,14 @@ struct PlasmaObject {
   int device_num;
 };
 
-enum object_state {
+enum class object_state : int {
   /// Object was created but not sealed in the local Plasma Store.
   PLASMA_CREATED = 1,
   /// Object is sealed and stored in the local Plasma Store.
   PLASMA_SEALED
 };
 
-enum object_status {
+enum class object_status : int {
   /// The object was not found.
   OBJECT_NOT_FOUND = 0,
   /// The object was found.

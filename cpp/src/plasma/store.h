@@ -90,8 +90,9 @@ class PlasmaStore {
   ///  - PlasmaError::OutOfMemory, if the store is out of memory and
   ///    cannot create the object. In this case, the client should not call
   ///    plasma_release.
-  PlasmaError create_object(const ObjectID& object_id, int64_t data_size, int64_t metadata_size,
-                    int device_num, Client* client, PlasmaObject* result);
+  PlasmaError create_object(const ObjectID& object_id, int64_t data_size,
+                            int64_t metadata_size, int device_num, Client* client,
+                            PlasmaObject* result);
 
   /// Abort a created but unsealed object. If the client is not the
   /// creator, then the abort will fail.
@@ -144,7 +145,7 @@ class PlasmaStore {
   /// @param object_id Object ID that will be checked.
   /// @return OBJECT_FOUND if the object is in the store, OBJECT_NOT_FOUND if
   /// not
-  int contains_object(const ObjectID& object_id);
+  object_status contains_object(const ObjectID& object_id);
 
   /// Record the fact that a particular client is no longer using an object.
   ///

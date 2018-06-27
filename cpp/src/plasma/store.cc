@@ -145,8 +145,8 @@ void PlasmaStore::add_to_client_object_ids(ObjectTableEntry* entry, Client* clie
 
 // Create a new object buffer in the hash table.
 PlasmaError PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
-                               int64_t metadata_size, int device_num, Client* client,
-                               PlasmaObject* result) {
+                                       int64_t metadata_size, int device_num,
+                                       Client* client, PlasmaObject* result) {
   ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
   if (store_info_.objects.count(object_id) != 0) {
     // There is already an object with the same ID in the Plasma Store, so
@@ -211,7 +211,7 @@ PlasmaError PlasmaStore::create_object(const ObjectID& object_id, int64_t data_s
   entry->fd = fd;
   entry->map_size = map_size;
   entry->offset = offset;
-  entry->state = PLASMA_CREATED;
+  entry->state = object_state::PLASMA_CREATED;
   entry->device_num = device_num;
 #ifdef PLASMA_GPU
   if (device_num != 0) {
@@ -238,7 +238,7 @@ PlasmaError PlasmaStore::create_object(const ObjectID& object_id, int64_t data_s
 void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(object != NULL);
   DCHECK(entry != NULL);
-  DCHECK(entry->state == PLASMA_SEALED);
+  DCHECK(entry->state == object_state::PLASMA_SEALED);
 #ifdef PLASMA_GPU
   if (entry->device_num != 0) {
     object->ipc_handle = entry->ipc_handle;
@@ -357,7 +357,7 @@ void PlasmaStore::process_get_request(Client* client,
     // Check if this object is already present locally. If so, record that the
     // object is being used and mark it as accounted for.
     auto entry = get_object_table_entry(&store_info_, object_id);
-    if (entry && entry->state == PLASMA_SEALED) {
+    if (entry && entry->state == object_state::PLASMA_SEALED) {
       // Update the get request to take into account the present object.
       PlasmaObject_init(&get_req->objects[object_id], entry);
       get_req->num_satisfied += 1;
@@ -419,9 +419,11 @@ void PlasmaStore::release_object(const ObjectID& object_id, Client* client) {
 }
 
 // Check if an object is present.
-int PlasmaStore::contains_object(const ObjectID& object_id) {
+object_status PlasmaStore::contains_object(const ObjectID& object_id) {
   auto entry = get_object_table_entry(&store_info_, object_id);
-  return entry && (entry->state == PLASMA_SEALED) ? OBJECT_FOUND : OBJECT_NOT_FOUND;
+  return entry && (entry->state == object_state::PLASMA_SEALED)
+             ? object_status::OBJECT_FOUND
+             : object_status::OBJECT_NOT_FOUND;
 }
 
 // Seal an object that has been created in the hash table.
@@ -429,9 +431,9 @@ void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[])
   ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();
   auto entry = get_object_table_entry(&store_info_, object_id);
   ARROW_CHECK(entry != NULL);
-  ARROW_CHECK(entry->state == PLASMA_CREATED);
+  ARROW_CHECK(entry->state == object_state::PLASMA_CREATED);
   // Set the state of object to SEALED.
-  entry->state = PLASMA_SEALED;
+  entry->state = object_state::PLASMA_SEALED;
   // Set the object digest.
   entry->info.digest = std::string(reinterpret_cast<char*>(&digest[0]), kDigestSize);
   // Inform all subscribers that a new object has been sealed.
@@ -444,7 +446,7 @@ void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[])
 int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
   auto entry = get_object_table_entry(&store_info_, object_id);
   ARROW_CHECK(entry != NULL) << "To abort an object it must be in the object table.";
-  ARROW_CHECK(entry->state != PLASMA_SEALED)
+  ARROW_CHECK(entry->state != object_state::PLASMA_SEALED)
       << "To abort an object it must not have been sealed.";
   auto it = client->object_ids.find(object_id);
   if (it == client->object_ids.end()) {
@@ -468,7 +470,7 @@ PlasmaError PlasmaStore::delete_object(ObjectID& object_id) {
     return PlasmaError::ObjectNonexistent;
   }
 
-  if (entry->state != PLASMA_SEALED) {
+  if (entry->state != object_state::PLASMA_SEALED) {
     // To delete an object it must have been sealed.
     return PlasmaError::ObjectNotSealed;
   }
@@ -498,7 +500,7 @@ void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
     // error. Maybe we should also support deleting objects that have been
     // created but not sealed.
     ARROW_CHECK(entry != NULL) << "To delete an object it must be in the object table.";
-    ARROW_CHECK(entry->state == PLASMA_SEALED)
+    ARROW_CHECK(entry->state == object_state::PLASMA_SEALED)
         << "To delete an object it must have been sealed.";
     ARROW_CHECK(entry->ref_count == 0)
         << "To delete an object, there must be no clients currently using it.";
@@ -545,7 +547,7 @@ void PlasmaStore::disconnect_client(int client_fd) {
       continue;
     }
 
-    if (it->second->state == PLASMA_SEALED) {
+    if (it->second->state == object_state::PLASMA_SEALED) {
       // Add sealed objects to a temporary list of object IDs. Do not perform
       // the remove here, since it potentially modifies the object_ids table.
       sealed_objects.push_back(it->second.get());
@@ -683,7 +685,7 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 
   // Push notifications to the new subscriber about existing sealed objects.
   for (const auto& entry : store_info_.objects) {
-    if (entry.second->state == PLASMA_SEALED) {
+    if (entry.second->state == object_state::PLASMA_SEALED) {
       push_notification(&entry.second->info, fd);
     }
   }
@@ -746,7 +748,7 @@ Status PlasmaStore::process_message(Client* client) {
     } break;
     case MessageType::PlasmaContainsRequest: {
       RETURN_NOT_OK(ReadContainsRequest(input, input_size, &object_id));
-      if (contains_object(object_id) == OBJECT_FOUND) {
+      if (contains_object(object_id) == object_status::OBJECT_FOUND) {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 1), client->fd);
       } else {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 0), client->fd);

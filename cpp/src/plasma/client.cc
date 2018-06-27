@@ -958,8 +958,8 @@ Status PlasmaClient::Impl::Wait(int64_t num_object_requests,
   ARROW_CHECK(num_ready_objects <= num_object_requests);
 
   for (int i = 0; i < num_object_requests; ++i) {
-    ARROW_CHECK(object_requests[i].type == PLASMA_QUERY_LOCAL ||
-                object_requests[i].type == PLASMA_QUERY_ANYWHERE);
+    ARROW_CHECK(object_requests[i].type == ObjectRequestType::PLASMA_QUERY_LOCAL ||
+                object_requests[i].type == ObjectRequestType::PLASMA_QUERY_ANYWHERE);
   }
 
   RETURN_NOT_OK(SendWaitRequest(manager_conn_, object_requests, num_object_requests,
@@ -971,15 +971,15 @@ Status PlasmaClient::Impl::Wait(int64_t num_object_requests,
 
   *num_objects_ready = 0;
   for (int i = 0; i < num_object_requests; ++i) {
-    int type = object_requests[i].type;
+    ObjectRequestType type = object_requests[i].type;
     ObjectStatus status = object_requests[i].status;
     switch (type) {
-      case PLASMA_QUERY_LOCAL:
+      case ObjectRequestType::PLASMA_QUERY_LOCAL:
         if (status == ObjectStatus::Local) {
           *num_objects_ready += 1;
         }
         break;
-      case PLASMA_QUERY_ANYWHERE:
+      case ObjectRequestType::PLASMA_QUERY_ANYWHERE:
         if (status == ObjectStatus::Local || status == ObjectStatus::Remote) {
           *num_objects_ready += 1;
         } else {
