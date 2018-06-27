@@ -276,6 +276,36 @@ garrow_table_remove_column(GArrowTable *table,
   }
 }
 
+/**
+ * garrow_table_replace_column:
+ * @table: A #GArrowTable.
+ * @i: The index of the column to be replaced.
+ * @column: The newly added #GArrowColumn.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The newly allocated
+ * #GArrowTable that has @column as the @i-th column or %NULL on
+ * error.
+ *
+ * Since: 0.10.0
+ */
+GArrowTable *
+garrow_table_replace_column(GArrowTable *table,
+                            guint i,
+                            GArrowColumn *column,
+                            GError **error)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  const auto arrow_column = garrow_column_get_raw(column);
+  std::shared_ptr<arrow::Table> arrow_new_table;
+  auto status = arrow_table->SetColumn(i, arrow_column, &arrow_new_table);
+  if (garrow_error_check(error, status, "[table][replace-column]")) {
+    return garrow_table_new_raw(&arrow_new_table);
+  } else {
+    return NULL;
+  }
+}
+
 G_END_DECLS
 
 GArrowTable *
