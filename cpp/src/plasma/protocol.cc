@@ -240,7 +240,7 @@ Status SendDeleteRequest(int sock, ObjectID object_id) {
 
 Status ReadDeleteRequest(uint8_t* data, size_t size, ObjectID* object_id) {
   DCHECK(data);
-  auto message = flatbuffers::GetRoot<PlasmaReleaseReply>(data);
+  auto message = flatbuffers::GetRoot<PlasmaDeleteRequest>(data);
   DCHECK(verify_flatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
   return Status::OK();
