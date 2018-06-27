@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -231,7 +232,10 @@ class build_ext(_build_ext):
                 print("-- Runnning cmake for pyarrow")
                 self.spawn(cmake_command)
                 print("-- Finished cmake for pyarrow")
-                args = ['make']
+                if os.environ.get('PYARROW_CMAKE_GENERATOR') == 'Ninja':
+                    args = ['ninja']
+                else:
+                    args = ['make']
                 if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
                     args.append('VERBOSE=1')
 
