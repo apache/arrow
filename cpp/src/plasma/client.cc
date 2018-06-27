@@ -184,6 +184,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Delete(const ObjectID& object_id);
 
+  Status DeleteObjects(const std::vector<ObjectID>& object_ids);
+
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
   Status Hash(const ObjectID& object_id, uint8_t* digest);
@@ -825,6 +827,30 @@ Status PlasmaClient::Impl::Delete(const ObjectID& object_id) {
   }
 }
 
+Status PlasmaClient::Impl::DeleteObjects(const std::vector<ObjectID>& object_ids) {
+  RETURN_NOT_OK(FlushReleaseHistory());
+  std::vector<ObjectID> not_in_use_ids;
+  for (auto& object_id : object_ids) {
+    // If the object is in used, skip it.
+    if (objects_in_use_.count(object_id) == 0) {
+      not_in_use_ids.push_back(object_id);
+    }
+  }
+  if (not_in_use_ids.size() > 0) {
+    RETURN_NOT_OK(SendDeleteObjsRequest(store_conn_, not_in_use_ids));
+    std::vector<uint8_t> buffer;
+    RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaDeleteObjsReply, &buffer));
+    DCHECK_GT(buffer.size(), 0);
+    std::vector<PlasmaError> error_codes;
+    not_in_use_ids.clear();
+    RETURN_NOT_OK(
+        ReadDeleteObjsReply(buffer.data(), buffer.size(), not_in_use_ids, error_codes));
+    return Status::OK();
+  } else {
+    return Status::UnknownError("All PlasmaClient::Objects are in use.");
+  }
+}
+
 Status PlasmaClient::Impl::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {
   // Send a request to the store to evict objects.
   RETURN_NOT_OK(SendEvictRequest(store_conn_, num_bytes));
@@ -1037,6 +1063,10 @@ Status PlasmaClient::Seal(const ObjectID& object_id) { return impl_->Seal(object
 
 Status PlasmaClient::Delete(const ObjectID& object_id) {
   return impl_->Delete(object_id);
+}
+
+Status PlasmaClient::DeleteObjects(const std::vector<ObjectID>& object_ids) {
+  return impl_->DeleteObjects(object_ids);
 }
 
 Status PlasmaClient::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {

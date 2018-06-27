@@ -746,6 +746,17 @@ Status PlasmaStore::process_message(Client* client) {
       PlasmaError error_code = delete_object(object_id);
       HANDLE_SIGPIPE(SendDeleteReply(client->fd, object_id, error_code), client->fd);
     } break;
+    case MessageType::PlasmaDeleteObjsRequest: {
+      std::vector<ObjectID> object_ids;
+      std::vector<PlasmaError> error_codes;
+      RETURN_NOT_OK(ReadDeleteObjsRequest(input, input_size, object_ids));
+      error_codes.reserve(object_ids.size());
+      for (auto& object_id : object_ids) {
+        error_codes.push_back(delete_object(object_id));
+      }
+      HANDLE_SIGPIPE(SendDeleteObjsReply(client->fd, object_ids, error_codes),
+                     client->fd);
+    } break;
     case MessageType::PlasmaContainsRequest: {
       RETURN_NOT_OK(ReadContainsRequest(input, input_size, &object_id));
       if (contains_object(object_id) == object_status::OBJECT_FOUND) {

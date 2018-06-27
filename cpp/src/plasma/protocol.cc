@@ -261,6 +261,58 @@ Status ReadDeleteReply(uint8_t* data, size_t size, ObjectID* object_id) {
   return plasma_error_status(message->error());
 }
 
+// Delete objects messages.
+
+Status SendDeleteObjsRequest(int sock, const std::vector<ObjectID>& object_ids) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = CreatePlasmaDeleteObjsRequest(
+      fbb, object_ids.size(), to_flatbuffer(&fbb, &object_ids[0], object_ids.size()));
+  return PlasmaSend(sock, MessageType::PlasmaDeleteObjsRequest, &fbb, message);
+}
+
+Status ReadDeleteObjsRequest(uint8_t* data, size_t size,
+                             std::vector<ObjectID>& object_ids) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<PlasmaDeleteObjsRequest>(data);
+  DCHECK(verify_flatbuffer(message, data, size));
+  int num_objects = message->count();
+  object_ids.clear();
+  object_ids.reserve(num_objects);
+  for (uoffset_t i = 0; i < num_objects; ++i) {
+    object_ids.push_back(ObjectID::from_binary(message->object_ids()->Get(i)->str()));
+  }
+  return Status::OK();
+}
+
+Status SendDeleteObjsReply(int sock, const std::vector<ObjectID>& object_ids,
+                           const std::vector<PlasmaError>& errors) {
+  DCHECK(object_ids.size() == errors.size());
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = CreatePlasmaDeleteObjsReply(
+      fbb, object_ids.size(), to_flatbuffer(&fbb, &object_ids[0], object_ids.size()),
+      fbb.CreateVector(reinterpret_cast<const int*>(&errors[0]), object_ids.size()));
+  return PlasmaSend(sock, MessageType::PlasmaDeleteObjsReply, &fbb, message);
+}
+
+Status ReadDeleteObjsReply(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids,
+                           std::vector<PlasmaError>& errors) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<PlasmaDeleteObjsReply>(data);
+  DCHECK(verify_flatbuffer(message, data, size));
+  int num_objects = message->count();
+  object_ids.clear();
+  object_ids.reserve(num_objects);
+  errors.clear();
+  errors.reserve(num_objects);
+  for (uoffset_t i = 0; i < num_objects; ++i) {
+    object_ids.push_back(ObjectID::from_binary(message->object_ids()->Get(i)->str()));
+  }
+  for (uoffset_t i = 0; i < num_objects; ++i) {
+    errors.push_back(static_cast<PlasmaError>(message->errors()->data()[i]));
+  }
+  return Status::OK();
+}
+
 // Satus messages.
 
 Status SendStatusRequest(int sock, const ObjectID* object_ids, int64_t num_objects) {

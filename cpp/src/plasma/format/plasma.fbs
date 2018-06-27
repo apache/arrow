@@ -67,7 +67,10 @@ enum MessageType:long {
   // reply messages get sent. Each one contains a fixed number of bytes.
   PlasmaDataReply,
   // Object notifications.
-  PlasmaNotification
+  PlasmaNotification,
+  // Delete a list of objects.
+  PlasmaDeleteObjsRequest,
+  PlasmaDeleteObjsReply
 }
 
 enum PlasmaError:int {
@@ -209,6 +212,22 @@ table PlasmaDeleteReply {
   object_id: string;
   // Error code.
   error: PlasmaError;
+}
+
+table PlasmaDeleteObjsRequest {
+  // The number of objects to delete.
+  count: int;
+  // ID of the object to be deleted.
+  object_ids: [string];
+}
+
+table PlasmaDeleteObjsReply {
+  // The number of objects to delete.
+  count: int;
+  // ID of the object that was deleted.
+  object_ids: [string];
+  // Error code.
+  errors: [PlasmaError];
 }
 
 table PlasmaStatusRequest {
