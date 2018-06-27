@@ -24,47 +24,16 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_TABLE                       \
-  (garrow_table_get_type())
-#define GARROW_TABLE(obj)                               \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_TABLE,        \
-                              GArrowTable))
-#define GARROW_TABLE_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_CAST((klass),             \
-                           GARROW_TYPE_TABLE,   \
-                           GArrowTableClass))
-#define GARROW_IS_TABLE(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
-                              GARROW_TYPE_TABLE))
-#define GARROW_IS_TABLE_CLASS(klass)            \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),             \
-                           GARROW_TYPE_TABLE))
-#define GARROW_TABLE_GET_CLASS(obj)             \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),             \
-                             GARROW_TYPE_TABLE, \
-                             GArrowTableClass))
-
-typedef struct _GArrowTable         GArrowTable;
-typedef struct _GArrowTableClass    GArrowTableClass;
-
-/**
- * GArrowTable:
- *
- * It wraps `arrow::Table`.
- */
-struct _GArrowTable
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_TABLE (garrow_table_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowTable,
+                         garrow_table,
+                         GARROW,
+                         TABLE,
+                         GObject)
 struct _GArrowTableClass
 {
   GObjectClass parent_class;
 };
-
-GType           garrow_table_get_type      (void) G_GNUC_CONST;
 
 GArrowTable    *garrow_table_new           (GArrowSchema *schema,
                                             GList *columns);
@@ -84,6 +53,10 @@ GArrowTable    *garrow_table_add_column    (GArrowTable *table,
                                             GError **error);
 GArrowTable    *garrow_table_remove_column (GArrowTable *table,
                                             guint i,
+                                            GError **error);
+GArrowTable    *garrow_table_replace_column(GArrowTable *table,
+                                            guint i,
+                                            GArrowColumn *column,
                                             GError **error);
 
 G_END_DECLS
