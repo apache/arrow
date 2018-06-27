@@ -102,9 +102,6 @@ pushd $ARROW_PYTHON_DIR
 
 # Other stuff pip install
 pip install -q -r requirements.txt
-if [ "$PYTHON_VERSION" == "2.7" ]; then
-  pip install -q futures
-fi
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
     pip install -q coverage
@@ -192,7 +189,7 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   source activate pyarrow_asv
   pip install -q git+https://github.com/pitrou/asv.git@customize_commands
 
-  export PYARROW_WITH_PARQUET=0
+  export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
   export PYARROW_WITH_ORC=0
 
