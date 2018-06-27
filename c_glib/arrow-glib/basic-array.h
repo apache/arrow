@@ -654,7 +654,7 @@ struct _GArrowDecimal128ArrayClass
   GArrowFixedSizeBinaryArrayClass parent_class;
 };
 
-gchar *garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
-                                         gint64 i);
+gchar *garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
+                                            gint64 i);
 
 G_END_DECLS

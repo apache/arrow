@@ -2139,17 +2139,20 @@ garrow_decimal128_array_class_init(GArrowDecimal128ArrayClass *klass)
 }
 
 /**
- * garrow_decimal128_array_get_value:
+ * garrow_decimal128_array_format_value:
  * @array: A #GArrowDecimal128Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The formatted i-th value.
+ *
+ * The returned string should be freed with g_free() when no longer
+ * needed.
  *
  * Since: 0.10.0
  */
 gchar *
-garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
-                                  gint64 i)
+garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
+                                     gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_decimal128_array =
