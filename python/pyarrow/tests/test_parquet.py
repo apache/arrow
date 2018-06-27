@@ -1631,6 +1631,18 @@ def test_read_non_existent_file(tmpdir):
         assert path in e.args[0]
 
 
+@parquet
+def test_read_table_doesnt_warn():
+    import pyarrow.parquet as pq
+
+    path = os.path.join(os.path.dirname(__file__), 'data', 'v0.7.1.parquet')
+
+    with pytest.warns(None) as record:
+        pq.read_table(path)
+
+    assert len(record) == 0
+
+
 def _test_write_to_dataset_with_partitions(base_path, filesystem=None):
     # ARROW-1400
     import pyarrow.parquet as pq

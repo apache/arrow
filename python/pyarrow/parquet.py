@@ -1191,20 +1191,6 @@ def read_schema(where):
     return ParquetFile(where).schema.to_arrow_schema()
 
 
-def _ensure_file(source):
-    if is_path(source):
-        fs = _get_fs_from_path(source)
-        try:
-            return fs.open(source)
-        except IOError as e:
-            raise lib.ArrowIOError("failed to open file {}, {}"
-                                   .format(source, e))
-    elif not hasattr(source, 'seek'):
-        raise ValueError('Source does not appear file-like')
-    else:
-        return source
-
-
 def _get_fs_from_path(path):
     """
     return filesystem from path which could be an HDFS URI
