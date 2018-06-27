@@ -1056,8 +1056,10 @@ garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
 
 /**
  * garrow_decimal_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
  *
- * Returns: The newly created decimal datatype.
+ * Returns: The newly created decimal data type.
  *
  * Since: 0.10.0
  */
