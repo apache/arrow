@@ -252,7 +252,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
     jbyteArray_to_object_id(
         env, reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(object_ids, i)),
         &oreqs[i].object_id);
-    oreqs[i].type = plasma::PLASMA_QUERY_ANYWHERE;
+    oreqs[i].type = plasma::ObjectRequestType::PLASMA_QUERY_ANYWHERE;
   }
 
   int num_return_objects;
