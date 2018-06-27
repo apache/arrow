@@ -198,7 +198,7 @@ G_BEGIN_DECLS
  *
  * #GArrowDecimal128Array is a class for 128-bit decimal array. It can store zero
  * or more 128-bit decimal data. If you don't have Arrow format data, you need
- * to use #GArrowDecimalArrayBuilder to create a new array.
+ * to use #GArrowDecimal128ArrayBuilder to create a new array.
  */
 
 typedef struct GArrowArrayPrivate_ {
