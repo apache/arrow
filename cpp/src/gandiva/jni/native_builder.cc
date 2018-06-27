@@ -225,6 +225,38 @@ NodePtr ProtoTypeToIfNode(const types::IfNode& node) {
   return TreeExprBuilder::MakeIf(cond, then_node, else_node, return_type);
 }
 
+NodePtr ProtoTypeToAndNode(const types::AndNode& node) {
+  NodeVector children;
+
+  for (int i = 0; i < node.args_size(); i++) {
+    const types::TreeNode& arg = node.args(i);
+
+    NodePtr n = ProtoTypeToNode(arg);
+    if (n == nullptr) {
+      std::cerr << "Unable to create argument for boolean and\n";
+      return nullptr;
+    }
+    children.push_back(n);
+  }
+  return TreeExprBuilder::MakeAnd(children);
+}
+
+NodePtr ProtoTypeToOrNode(const types::OrNode& node) {
+  NodeVector children;
+
+  for (int i = 0; i < node.args_size(); i++) {
+    const types::TreeNode& arg = node.args(i);
+
+    NodePtr n = ProtoTypeToNode(arg);
+    if (n == nullptr) {
+      std::cerr << "Unable to create argument for boolean or\n";
+      return nullptr;
+    }
+    children.push_back(n);
+  }
+  return TreeExprBuilder::MakeOr(children);
+}
+
 NodePtr ProtoTypeToNode(const types::TreeNode& node) {
   if (node.has_fieldnode()) {
     return ProtoTypeToFieldNode(node.fieldnode());
@@ -236,6 +268,14 @@ NodePtr ProtoTypeToNode(const types::TreeNode& node) {
 
   if (node.has_ifnode()) {
     return ProtoTypeToIfNode(node.ifnode());
+  }
+
+  if (node.has_andnode()) {
+    return ProtoTypeToAndNode(node.andnode());
+  }
+
+  if (node.has_ornode()) {
+    return ProtoTypeToOrNode(node.ornode());
   }
 
   if (node.has_intnode()) {

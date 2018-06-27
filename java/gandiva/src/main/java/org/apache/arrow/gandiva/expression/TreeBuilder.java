@@ -87,6 +87,26 @@ public class TreeBuilder {
   }
 
   /**
+   * Invoke this function to create a node representing an and-clause.
+   *
+   * @param nodes  Nodes in the 'and' clause.
+   * @return Node representing an and-clause
+   */
+  public static TreeNode makeAnd(List<TreeNode> nodes) {
+    return new AndNode(nodes);
+  }
+
+  /**
+   * Invoke this function to create a node representing an or-clause.
+   *
+   * @param nodes  Nodes in the 'or' clause.
+   * @return Node representing an or-clause
+   */
+  public static TreeNode makeOr(List<TreeNode> nodes) {
+    return new OrNode(nodes);
+  }
+
+  /**
    * Invoke this function to create an expression tree.
    *
    * @param root         is returned by a call to MakeField, MakeFunction, or MakeIf

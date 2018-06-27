@@ -34,7 +34,6 @@ import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -220,15 +219,21 @@ public class NativeEvaluatorTest {
     eval.close();
   }
 
-  private TreeNode makeLongLessThanCond(TreeNode arg, long value, ArrowType type) {
+  private TreeNode makeLongLessThanCond(TreeNode arg, long value) {
     return TreeBuilder.makeFunction("less_than",
-            Lists.newArrayList(arg, TreeBuilder.makeLiteral(value)),
-            type);
+      Lists.newArrayList(arg, TreeBuilder.makeLiteral(value)),
+      boolType);
+  }
+
+  private TreeNode makeLongGreaterThanCond(TreeNode arg, long value) {
+    return TreeBuilder.makeFunction("greater_than",
+      Lists.newArrayList(arg, TreeBuilder.makeLiteral(value)),
+      boolType);
   }
 
   private TreeNode ifLongLessThanElse(TreeNode arg, long value, long then_value, TreeNode elseNode, ArrowType type) {
     return TreeBuilder.makeIf(
-            makeLongLessThanCond(arg, value, boolType),
+            makeLongLessThanCond(arg, value),
             TreeBuilder.makeLiteral(then_value),
             elseNode,
             type);
@@ -303,6 +308,102 @@ public class NativeEvaluatorTest {
     for (int i = 0; i < numRows; i++) {
       assertFalse(bigIntVector.isNull(i));
       assertEquals(expected[i], bigIntVector.get(i));
+    }
+
+    eval.close();
+  }
+
+  @Test
+  public void testAnd() throws GandivaException, Exception {
+    /*
+     * x > 10 AND x < 20
+     */
+    ArrowType int64 = new ArrowType.Int(64, true);
+
+    Field x = Field.nullable("x", int64);
+    TreeNode x_node = TreeBuilder.makeField(x);
+    TreeNode gt10 = makeLongGreaterThanCond(x_node, 10);
+    TreeNode lt20 = makeLongLessThanCond(x_node, 20);
+    TreeNode and = TreeBuilder.makeAnd(Lists.newArrayList(gt10, lt20));
+
+    Field res = Field.nullable("res", boolType);
+
+    ExpressionTree expr = TreeBuilder.makeExpression(and, res);
+    Schema schema = new Schema(Lists.newArrayList(x));
+    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+
+    int numRows = 4;
+    byte[] validity = new byte[]{(byte) 255};
+    long[] values_x = new long[]{9, 15, 17, 25};
+    boolean[] expected = new boolean[]{false, true, true, false};
+
+    ArrowBuf validity_buf = buf(validity);
+    ArrowBuf data_x = longBuf(values_x);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+      numRows,
+      Lists.newArrayList(fieldNode),
+      Lists.newArrayList(validity_buf, data_x));
+
+    BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    bitVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bitVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < numRows; i++) {
+      assertFalse(bitVector.isNull(i));
+      assertEquals(expected[i], bitVector.getObject(i).booleanValue());
+    }
+
+    eval.close();
+  }
+
+  @Test
+  public void testOr() throws GandivaException, Exception {
+    /*
+     * x > 10 OR x < 5
+     */
+    ArrowType int64 = new ArrowType.Int(64, true);
+
+    Field x = Field.nullable("x", int64);
+    TreeNode x_node = TreeBuilder.makeField(x);
+    TreeNode gt10 = makeLongGreaterThanCond(x_node, 10);
+    TreeNode lt5 = makeLongLessThanCond(x_node, 5);
+    TreeNode or = TreeBuilder.makeOr(Lists.newArrayList(gt10, lt5));
+
+    Field res = Field.nullable("res", boolType);
+
+    ExpressionTree expr = TreeBuilder.makeExpression(or, res);
+    Schema schema = new Schema(Lists.newArrayList(x));
+    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+
+    int numRows = 4;
+    byte[] validity = new byte[]{(byte) 255};
+    long[] values_x = new long[]{4, 9, 15, 17};
+    boolean[] expected = new boolean[]{true, false, true, true};
+
+    ArrowBuf validity_buf = buf(validity);
+    ArrowBuf data_x = longBuf(values_x);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+      numRows,
+      Lists.newArrayList(fieldNode),
+      Lists.newArrayList(validity_buf, data_x));
+
+    BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    bitVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bitVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < numRows; i++) {
+      assertFalse(bitVector.isNull(i));
+      assertEquals(expected[i], bitVector.getObject(i).booleanValue());
     }
 
     eval.close();

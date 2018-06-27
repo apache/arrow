@@ -106,6 +106,40 @@ public class TreeBuilderTest {
   }
 
   @Test
+  public void testMakeAnd() throws GandivaException {
+    TreeNode a = TreeBuilder.makeField(Field.nullable("a", new ArrowType.Bool()));
+    TreeNode b = TreeBuilder.makeField(Field.nullable("b", new ArrowType.Bool()));
+    List<TreeNode> args = new ArrayList<TreeNode>(2);
+    args.add(a);
+    args.add(b);
+
+    TreeNode andNode = TreeBuilder.makeAnd(args);
+    GandivaTypes.TreeNode node = andNode.toProtobuf();
+
+    assertTrue(node.hasAndNode());
+    assertEquals(2, node.getAndNode().getArgsList().size());
+    assertEquals("a", node.getAndNode().getArgsList().get(0).getFieldNode().getField().getName());
+    assertEquals("b", node.getAndNode().getArgsList().get(1).getFieldNode().getField().getName());
+  }
+
+  @Test
+  public void testMakeOr() throws GandivaException {
+    TreeNode a = TreeBuilder.makeField(Field.nullable("a", new ArrowType.Bool()));
+    TreeNode b = TreeBuilder.makeField(Field.nullable("b", new ArrowType.Bool()));
+    List<TreeNode> args = new ArrayList<TreeNode>(2);
+    args.add(a);
+    args.add(b);
+
+    TreeNode orNode = TreeBuilder.makeOr(args);
+    GandivaTypes.TreeNode node = orNode.toProtobuf();
+
+    assertTrue(node.hasOrNode());
+    assertEquals(2, node.getOrNode().getArgsList().size());
+    assertEquals("a", node.getOrNode().getArgsList().get(0).getFieldNode().getField().getName());
+    assertEquals("b", node.getOrNode().getArgsList().get(1).getFieldNode().getField().getName());
+  }
+
+  @Test
   public void testExpression() throws GandivaException {
     Field a = Field.nullable("a", new ArrowType.Int(64, false));
     Field b = Field.nullable("b", new ArrowType.Int(64, false));
@@ -151,5 +185,42 @@ public class TreeBuilderTest {
     assertEquals(GandivaTypes.GandivaType.UINT64_VALUE, node.getFnNode().getReturnType().getType().getNumber());
   }
 
+  @Test
+  public void testExpressionWithAnd() throws GandivaException {
+    TreeNode a = TreeBuilder.makeField(Field.nullable("a", new ArrowType.Bool()));
+    TreeNode b = TreeBuilder.makeField(Field.nullable("b", new ArrowType.Bool()));
+    List<TreeNode> args = new ArrayList<TreeNode>(2);
+    args.add(a);
+    args.add(b);
+
+    TreeNode andNode = TreeBuilder.makeAnd(args);
+    ExpressionTree expr = TreeBuilder.makeExpression(andNode, Field.nullable("c", new ArrowType.Bool()));
+    GandivaTypes.ExpressionRoot root = expr.toProtobuf();
+
+    assertTrue(root.getRoot().hasAndNode());
+    assertEquals("a", root.getRoot().getAndNode().getArgsList().get(0).getFieldNode().getField().getName());
+    assertEquals("b", root.getRoot().getAndNode().getArgsList().get(1).getFieldNode().getField().getName());
+    assertEquals("c", root.getResultType().getName());
+    assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
+  }
+
+  @Test
+  public void testExpressionWithOr() throws GandivaException {
+    TreeNode a = TreeBuilder.makeField(Field.nullable("a", new ArrowType.Bool()));
+    TreeNode b = TreeBuilder.makeField(Field.nullable("b", new ArrowType.Bool()));
+    List<TreeNode> args = new ArrayList<TreeNode>(2);
+    args.add(a);
+    args.add(b);
+
+    TreeNode orNode = TreeBuilder.makeOr(args);
+    ExpressionTree expr = TreeBuilder.makeExpression(orNode, Field.nullable("c", new ArrowType.Bool()));
+    GandivaTypes.ExpressionRoot root = expr.toProtobuf();
+
+    assertTrue(root.getRoot().hasOrNode());
+    assertEquals("a", root.getRoot().getOrNode().getArgsList().get(0).getFieldNode().getField().getName());
+    assertEquals("b", root.getRoot().getOrNode().getArgsList().get(1).getFieldNode().getField().getName());
+    assertEquals("c", root.getResultType().getName());
+    assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
+  }
 }
 
