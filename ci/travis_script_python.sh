@@ -120,6 +120,7 @@ fi
 
 # Set up huge pages for plasma test
 if [ $TRAVIS_OS_NAME == "linux" ]; then
+    sudo sysctl -w vm.nr_hugepages=256
     sudo mkdir -p /mnt/hugepages
     sudo mount -t hugetlbfs -o uid=`id -u` -o gid=`id -g` none /mnt/hugepages
     sudo bash -c "echo `id -g` > /proc/sys/vm/hugetlb_shm_group"
