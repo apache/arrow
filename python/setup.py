@@ -226,8 +226,18 @@ class build_ext(_build_ext):
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
-            if sys.platform == 'win32' and not is_64_bit:
-                raise RuntimeError('Not supported on 32-bit Windows')
+            build_tool_args = []
+            if sys.platform == 'win32':
+                if not is_64_bit:
+                    raise RuntimeError('Not supported on 32-bit Windows')
+            else:
+                # additional arguments for make and/or ninja
+                build_tool_args.append('--')
+                if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
+                    build_tool_args.append('VERBOSE=1')
+                if os.environ.get('PYARROW_PARALLEL'):
+                    build_tool_args.append(
+                        '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
             # Generate the build files
             print("-- Runnning cmake for pyarrow")
@@ -235,16 +245,9 @@ class build_ext(_build_ext):
             print("-- Finished cmake for pyarrow")
 
             # Do the build
-            build_tool_args = []
-            if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
-                build_tool_args.append('VERBOSE=1')
-            if os.environ.get('PYARROW_PARALLEL'):
-                build_tool_args.append(
-                    '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
-
             print("-- Running cmake --build for pyarrow")
-            self.spawn(['cmake', '--build', '.', '--config',
-                        self.build_type, '--'] + build_tool_args)
+            self.spawn(['cmake', '--build', '.', '--config', self.build_type]
+                       + build_tool_args)
             print("-- Finished cmake --build for pyarrow")
 
             if self.inplace:
