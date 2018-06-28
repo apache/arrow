@@ -31,16 +31,11 @@ from pyarrow.lib cimport (Array, Schema,
                           NativeFile, get_reader, get_writer)
 
 from pyarrow.compat import tobytes, frombytes
+from pyarrow.formatting import indent
 from pyarrow.lib import ArrowException, NativeFile, _stringify_path
 
 import six
-
-try:
-    from textwrap import indent
-except ImportError:
-    def indent(text, prefix):
-        lines = [prefix + line for line in text.splitlines(True)]
-        return ''.join(lines)
+import warnings
 
 
 cdef class RowGroupStatistics:
@@ -95,49 +90,42 @@ cdef class RowGroupStatistics:
         else:
             raise ValueError('Unknown physical ParquetType')
 
-    property has_min_max:
+    @property
+    def has_min_max(self):
+        return self.statistics.get().HasMinMax()
 
-        def __get__(self):
-            return self.statistics.get().HasMinMax()
+    @property
+    def min(self):
+        raw_physical_type = self.statistics.get().physical_type()
+        encode_min = self.statistics.get().EncodeMin()
 
-    property min:
+        min_value = FormatStatValue(raw_physical_type, encode_min.c_str())
+        return self._cast_statistic(min_value)
 
-        def __get__(self):
-            raw_physical_type = self.statistics.get().physical_type()
-            encode_min = self.statistics.get().EncodeMin()
+    @property
+    def max(self):
+        raw_physical_type = self.statistics.get().physical_type()
+        encode_max = self.statistics.get().EncodeMax()
 
-            min_value = FormatStatValue(raw_physical_type, encode_min.c_str())
-            return self._cast_statistic(min_value)
+        max_value = FormatStatValue(raw_physical_type, encode_max.c_str())
+        return self._cast_statistic(max_value)
 
-    property max:
+    @property
+    def null_count(self):
+        return self.statistics.get().null_count()
 
-        def __get__(self):
-            raw_physical_type = self.statistics.get().physical_type()
-            encode_max = self.statistics.get().EncodeMax()
+    @property
+    def distinct_count(self):
+        return self.statistics.get().distinct_count()
 
-            max_value = FormatStatValue(raw_physical_type, encode_max.c_str())
-            return self._cast_statistic(max_value)
+    @property
+    def num_values(self):
+        return self.statistics.get().num_values()
 
-    property null_count:
-
-        def __get__(self):
-            return self.statistics.get().null_count()
-
-    property distinct_count:
-
-        def __get__(self):
-            return self.statistics.get().distinct_count()
-
-    property num_values:
-
-        def __get__(self):
-            return self.statistics.get().num_values()
-
-    property physical_type:
-
-        def __get__(self):
-            physical_type = self.statistics.get().physical_type()
-            return physical_type_name_from_enum(physical_type)
+    @property
+    def physical_type(self):
+        raw_physical_type = self.statistics.get().physical_type()
+        return physical_type_name_from_enum(raw_physical_type)
 
 
 cdef class ColumnChunkMetaData:
@@ -187,86 +175,72 @@ cdef class ColumnChunkMetaData:
                                           self.total_compressed_size,
                                           self.total_uncompressed_size)
 
-    property file_offset:
+    @property
+    def file_offset(self):
+        return self.metadata.file_offset()
 
-        def __get__(self):
-            return self.metadata.file_offset()
+    @property
+    def file_path(self):
+        return frombytes(self.metadata.file_path())
 
-    property file_path:
+    @property
+    def type(self):
+        # XXX: shouldn't this be called pshysical_type like in
+        # RowGroupStatistics?
+        return physical_type_name_from_enum(self.metadata.type())
 
-        def __get__(self):
-            return frombytes(self.metadata.file_path())
+    @property
+    def num_values(self):
+        return self.metadata.num_values()
 
-    property type:
+    @property
+    def path_in_schema(self):
+        path = self.metadata.path_in_schema().get().ToDotString()
+        return frombytes(path)
 
-        def __get__(self):
-            return physical_type_name_from_enum(self.metadata.type())
+    @property
+    def is_stats_set(self):
+        return self.metadata.is_stats_set()
 
-    property num_values:
+    @property
+    def statistics(self):
+        if not self.metadata.is_stats_set():
+            return None
+        statistics = RowGroupStatistics()
+        statistics.init(self.metadata.statistics())
+        return statistics
 
-        def __get__(self):
-            return self.metadata.num_values()
+    @property
+    def compression(self):
+        return self.metadata.compression()
 
-    property path_in_schema:
+    @property
+    def encodings(self):
+        return map(encoding_name_from_enum, self.metadata.encodings())
 
-        def __get__(self):
-            path = self.metadata.path_in_schema().get().ToDotString()
-            return frombytes(path)
+    @property
+    def has_dictionary_page(self):
+        return self.metadata.has_dictionary_page()
 
-    property is_stats_set:
+    @property
+    def dictionary_page_offset(self):
+        return self.metadata.dictionary_page_offset()
 
-        def __get__(self):
-            return self.metadata.is_stats_set()
+    @property
+    def data_page_offset(self):
+        return self.metadata.data_page_offset()
 
-    property statistics:
+    @property
+    def index_page_offset(self):
+        return self.metadata.index_page_offset()
 
-        def __get__(self):
-            if not self.metadata.is_stats_set():
-                return None
-            statistics = RowGroupStatistics()
-            statistics.init(self.metadata.statistics())
-            return statistics
+    @property
+    def total_compressed_size(self):
+        return self.metadata.total_compressed_size()
 
-    property compression:
-
-        def __get__(self):
-            return self.metadata.compression()
-
-    property encodings:
-
-        def __get__(self):
-            return map(encoding_name_from_enum,
-                       self.metadata.encodings())
-
-    property has_dictionary_page:
-
-        def __get__(self):
-            return self.metadata.has_dictionary_page()
-
-    property dictionary_page_offset:
-
-        def __get__(self):
-            return self.metadata.dictionary_page_offset()
-
-    property data_page_offset:
-
-        def __get__(self):
-            return self.metadata.data_page_offset()
-
-    property index_page_offset:
-
-        def __get__(self):
-            return self.metadata.index_page_offset()
-
-    property total_compressed_size:
-
-        def __get__(self):
-            return self.metadata.total_compressed_size()
-
-    property total_uncompressed_size:
-
-        def __get__(self):
-            return self.metadata.total_uncompressed_size()
+    @property
+    def total_uncompressed_size(self):
+        return self.metadata.total_uncompressed_size()
 
 
 cdef class RowGroupMetaData:
@@ -299,20 +273,17 @@ cdef class RowGroupMetaData:
                                  self.num_rows,
                                  self.total_byte_size)
 
-    property num_columns:
+    @property
+    def num_columns(self):
+        return self.metadata.num_columns()
 
-        def __get__(self):
-            return self.metadata.num_columns()
+    @property
+    def num_rows(self):
+        return self.metadata.num_rows()
 
-    property num_rows:
-
-        def __get__(self):
-            return self.metadata.num_rows()
-
-    property total_byte_size:
-
-        def __get__(self):
-            return self.metadata.total_byte_size()
+    @property
+    def total_byte_size(self):
+        return self.metadata.total_byte_size()
 
 
 cdef class FileMetaData:
@@ -351,43 +322,37 @@ cdef class FileMetaData:
         self._schema = schema
         return schema
 
-    property serialized_size:
+    @property
+    def serialized_size(self):
+        return self._metadata.size()
 
-        def __get__(self):
-            return self._metadata.size()
+    @property
+    def num_columns(self):
+        return self._metadata.num_columns()
 
-    property num_columns:
+    @property
+    def num_rows(self):
+        return self._metadata.num_rows()
 
-        def __get__(self):
-            return self._metadata.num_columns()
+    @property
+    def num_row_groups(self):
+        return self._metadata.num_row_groups()
 
-    property num_rows:
+    @property
+    def format_version(self):
+        cdef ParquetVersion version = self._metadata.version()
+        if version == ParquetVersion_V1:
+            return '1.0'
+        if version == ParquetVersion_V2:
+            return '2.0'
+        else:
+            # TODO(kszucs) warn instead of print
+            print('Unrecognized file version, assuming 1.0: {}'.format(version))
+            return '1.0'
 
-        def __get__(self):
-            return self._metadata.num_rows()
-
-    property num_row_groups:
-
-        def __get__(self):
-            return self._metadata.num_row_groups()
-
-    property format_version:
-
-        def __get__(self):
-            cdef ParquetVersion version = self._metadata.version()
-            if version == ParquetVersion_V1:
-                return '1.0'
-            if version == ParquetVersion_V2:
-                return '2.0'
-            else:
-                print('Unrecognized file version, assuming 1.0: {0}'
-                      .format(version))
-                return '1.0'
-
-    property created_by:
-
-        def __get__(self):
-            return frombytes(self._metadata.created_by())
+    @property
+    def created_by(self):
+        return frombytes(self._metadata.created_by())
 
     def row_group(self, int i):
         """
@@ -444,10 +409,9 @@ cdef class ParquetSchema:
     def __getitem__(self, i):
         return self.column(i)
 
-    property names:
-
-        def __get__(self):
-            return [self[i].name for i in range(len(self))]
+    @property
+    def names(self):
+        return [self[i].name for i in range(len(self))]
 
     def to_arrow_schema(self):
         """
@@ -457,8 +421,7 @@ cdef class ParquetSchema:
         -------
         schema : pyarrow.Schema
         """
-        cdef:
-            shared_ptr[CSchema] sp_arrow_schema
+        cdef shared_ptr[CSchema] sp_arrow_schema
 
         with nogil:
             check_status(FromParquetSchema(
@@ -466,6 +429,8 @@ cdef class ParquetSchema:
                 &sp_arrow_schema))
 
         return pyarrow_wrap_schema(sp_arrow_schema)
+
+    # TODO(kszucs): impl __eq__
 
     def equals(self, ParquetSchema other):
         """
@@ -477,9 +442,7 @@ cdef class ParquetSchema:
         if i < 0 or i >= len(self):
             raise IndexError('{0} out of bounds'.format(i))
 
-        cdef ColumnSchema col = ColumnSchema()
-        col.init_from_schema(self, i)
-        return col
+        return ColumnSchema(self, i)
 
 
 cdef class ColumnSchema:
@@ -487,12 +450,11 @@ cdef class ColumnSchema:
         ParquetSchema parent
         const ColumnDescriptor* descr
 
-    def __cinit__(self):
-        self.descr = NULL
-
-    cdef init_from_schema(self, ParquetSchema schema, int i):
-        self.parent = schema
+    def __cinit__(self, ParquetSchema schema, int i):
+        self.parent = schema  # XXX why is it needed? ownership?
         self.descr = schema.schema.Column(i)
+
+    # TODO(kszucs) impl __eq__
 
     def equals(self, ColumnSchema other):
         """
@@ -520,52 +482,43 @@ cdef class ColumnSchema:
                               self.max_repetition_level, physical_type,
                               logical_type)
 
-    property name:
+    @property
+    def name(self):
+        return frombytes(self.descr.name())
 
-        def __get__(self):
-            return frombytes(self.descr.name())
+    @property
+    def path(self):
+        return frombytes(self.descr.path().get().ToDotString())
 
-    property path:
+    @property
+    def max_definition_level(self):
+        return self.descr.max_definition_level()
 
-        def __get__(self):
-            return frombytes(self.descr.path().get().ToDotString())
+    @property
+    def max_repetition_level(self):
+        return self.descr.max_repetition_level()
 
-    property max_definition_level:
+    @property
+    def physical_type(self):
+        return physical_type_name_from_enum(self.descr.physical_type())
 
-        def __get__(self):
-            return self.descr.max_definition_level()
-
-    property max_repetition_level:
-
-        def __get__(self):
-            return self.descr.max_repetition_level()
-
-    property physical_type:
-
-        def __get__(self):
-            return physical_type_name_from_enum(self.descr.physical_type())
-
-    property logical_type:
-
-        def __get__(self):
-            return logical_type_name_from_enum(self.descr.logical_type())
+    @property
+    def logical_type(self):
+        return logical_type_name_from_enum(self.descr.logical_type())
 
     # FIXED_LEN_BYTE_ARRAY attribute
-    property length:
-
-        def __get__(self):
-            return self.descr.type_length()
+    @property
+    def length(self):
+        return self.descr.type_length()
 
     # Decimal attributes
-    property precision:
+    @property
+    def precision(self):
+        return self.descr.type_precision()
 
-        def __get__(self):
-            return self.descr.type_precision()
-
-    property scale:
-
-        def __get__(self):
-            return self.descr.type_scale()
+    @property
+    def scale(self):
+        return self.descr.type_scale()
 
 
 cdef physical_type_name_from_enum(ParquetType type_):
@@ -654,22 +607,21 @@ cdef class ParquetReader:
             check_status(OpenFile(rd_handle, self.allocator, properties,
                                   c_metadata, &self.reader))
 
-    property column_paths:
+    @property
+    def column_paths(self):
+        cdef:
+            FileMetaData container = self.metadata
+            const CFileMetaData* metadata = container._metadata
+            vector[c_string] path
+            int i = 0
 
-        def __get__(self):
-            cdef:
-                FileMetaData container = self.metadata
-                const CFileMetaData* metadata = container._metadata
-                vector[c_string] path
-                int i = 0
+        paths = []
+        for i in range(0, metadata.num_columns()):
+            path = (metadata.schema().Column(i)
+                    .path().get().ToDotVector())
+            paths.append([frombytes(x) for x in path])
 
-            paths = []
-            for i in range(0, metadata.num_columns()):
-                path = (metadata.schema().Column(i)
-                        .path().get().ToDotVector())
-                paths.append([frombytes(x) for x in path])
-
-            return paths
+        return paths
 
     @property
     def metadata(self):
@@ -686,10 +638,9 @@ cdef class ParquetReader:
         result.init(metadata)
         return result
 
-    property num_row_groups:
-
-        def __get__(self):
-            return self.reader.get().num_row_groups()
+    @property
+    def num_row_groups(self):
+        return self.reader.get().num_row_groups()
 
     def set_num_threads(self, int nthreads):
         self.reader.get().set_num_threads(nthreads)
@@ -809,26 +760,27 @@ cdef class ParquetReader:
         array.init(carray)
         return array
 
+
 cdef int check_compression_name(name) except -1:
-    if name.upper() not in ['NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4',
-                            'ZSTD']:
+    if name.upper() not in {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4',
+                            'ZSTD'}:
         raise ArrowException("Unsupported compression: " + name)
     return 0
 
 
 cdef ParquetCompression compression_from_name(str name):
     name = name.upper()
-    if name == "SNAPPY":
+    if name == 'SNAPPY':
         return ParquetCompression_SNAPPY
-    elif name == "GZIP":
+    elif name == 'GZIP':
         return ParquetCompression_GZIP
-    elif name == "LZO":
+    elif name == 'LZO':
         return ParquetCompression_LZO
-    elif name == "BROTLI":
+    elif name == 'BROTLI':
         return ParquetCompression_BROTLI
-    elif name == "LZ4":
+    elif name == 'LZ4':
         return ParquetCompression_LZ4
-    elif name == "ZSTD":
+    elif name == 'ZSTD':
         return ParquetCompression_ZSTD
     else:
         return ParquetCompression_UNCOMPRESSED

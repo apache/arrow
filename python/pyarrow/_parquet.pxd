@@ -41,7 +41,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
-    enum ParquetType" parquet::Type::type":
+    cpdef enum ParquetType" parquet::Type::type":
         ParquetType_BOOLEAN" parquet::Type::BOOLEAN"
         ParquetType_INT32" parquet::Type::INT32"
         ParquetType_INT64" parquet::Type::INT64"

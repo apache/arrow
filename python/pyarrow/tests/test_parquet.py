@@ -564,31 +564,42 @@ def test_parquet_metadata_api():
 
 
 @pytest.mark.parametrize(
-    'data, dtype, min_value, max_value, null_count, num_values',
+    (
+        'data',
+        'dtype',
+        'physical_type',
+        'min_value',
+        'max_value',
+        'null_count',
+        'num_values',
+        'distinct_count'
+    ),
     [
-        ([1, 2, 2, None, 4], np.uint8, 1, 4, 1, 4),
-        ([1, 2, 2, None, 4], np.uint16, 1, 4, 1, 4),
-        ([1, 2, 2, None, 4], np.uint32, 1, 4, 1, 4),
-        ([1, 2, 2, None, 4], np.uint64, 1, 4, 1, 4),
-        ([-1, 2, 2, None, 4], np.int16, -1, 4, 1, 4),
-        ([-1, 2, 2, None, 4], np.int32, -1, 4, 1, 4),
-        ([-1, 2, 2, None, 4], np.int64, -1, 4, 1, 4),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, -1.1, 4.4, 1, 4),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float64, -1.1, 4.4, 1, 4),
+        ([1, 2, 2, None, 4], np.uint8, 'INT64', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], np.uint16, 'INT64', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], np.uint32, 'INT64', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], np.uint64, 'INT64', 1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], np.int16, 'INT64', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], np.int32, 'INT64', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], np.int64, 'INT64', -1, 4, 1, 4, 0),
+        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, 'FLOAT', -1.1, 4.4, 1, 4, 0),
+        (
+            [-1.1, 2.2, 2.3, None, 4.4],
+            np.float64, 'DOUBLE', -1.1, 4.4, 1, 4, 0
+        ),
         (
             [u'', u'b', unichar(1000), None, u'aaa'],
-            object, b'', unichar(1000).encode('utf-8'), 1, 4
+            object, 'BYTE_ARRAY', b'', unichar(1000).encode('utf-8'), 1, 4, 0
         ),
-        ([True, False, False, True, True], np.bool, False, True, 0, 5),
+        (
+            [True, False, False, True, True],
+            np.bool, 'BOOLEAN', False, True, 0, 5, 0
+        ),
     ]
 )
-def test_parquet_column_statistics_api(
-        data,
-        dtype,
-        min_value,
-        max_value,
-        null_count,
-        num_values):
+def test_parquet_column_statistics_api(data, dtype, physical_type, min_value,
+                                       max_value, null_count, num_values,
+                                       distinct_count):
     df = pd.DataFrame({'data': data}, dtype=dtype)
 
     fileh = make_sample_file(df)
@@ -599,10 +610,13 @@ def test_parquet_column_statistics_api(
     col_meta = rg_meta.column(0)
 
     stat = col_meta.statistics
+    assert stat.has_min_max
     assert stat.min == min_value
     assert stat.max == max_value
     assert stat.null_count == null_count
     assert stat.num_values == num_values
+    assert stat.distinct_count == distinct_count
+    assert stat.physical_type == physical_type
 
 
 def test_compare_schemas():

@@ -20,6 +20,12 @@
 import pyarrow.lib as lib
 import warnings
 
+try:
+    from textwrap import indent
+except ImportError:
+    def indent(text, prefix):
+        return ''.join(prefix + line for line in text.splitlines(True))
+
 
 def array_format(arr, window=10):
     warnings.warn("array_format is deprecated, use Array.format() instead",
@@ -32,13 +38,6 @@ def value_format(x, indent_level=0):
                   FutureWarning)
     if isinstance(x, lib.ListValue):
         contents = ',\n'.join(value_format(item) for item in x)
-        return '[{0}]'.format(_indent(contents, 1).strip())
+        return '[{0}]'.format(indent(contents, ' ').strip())
     else:
         return repr(x)
-
-
-def _indent(text, spaces):
-    if spaces == 0:
-        return text
-    block = ' ' * spaces
-    return '\n'.join(block + x for x in text.split('\n'))
