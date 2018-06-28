@@ -339,8 +339,8 @@ cdef class FileMetaData:
         if version == ParquetVersion_V2:
             return '2.0'
         else:
-            # TODO(kszucs) warn instead of print
-            print('Unrecognized file version, assuming 1.0: {}'.format(version))
+            warnings.warn('Unrecognized file version, assuming 1.0: {}'
+                          .format(version))
             return '1.0'
 
     @property
