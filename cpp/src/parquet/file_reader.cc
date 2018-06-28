@@ -273,14 +273,14 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
     const std::shared_ptr<FileMetaData>& metadata) {
   std::shared_ptr<::arrow::io::ReadableFileInterface> source;
   if (memory_map) {
-    std::shared_ptr<::arrow::io::ReadableFile> handle;
-    PARQUET_THROW_NOT_OK(
-        ::arrow::io::ReadableFile::Open(path, props.memory_pool(), &handle));
-    source = handle;
-  } else {
     std::shared_ptr<::arrow::io::MemoryMappedFile> handle;
     PARQUET_THROW_NOT_OK(
         ::arrow::io::MemoryMappedFile::Open(path, ::arrow::io::FileMode::READ, &handle));
+    source = handle;
+  } else {
+    std::shared_ptr<::arrow::io::ReadableFile> handle;
+    PARQUET_THROW_NOT_OK(
+        ::arrow::io::ReadableFile::Open(path, props.memory_pool(), &handle));
     source = handle;
   }
 
