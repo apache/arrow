@@ -231,7 +231,6 @@ class build_ext(_build_ext):
                 if not is_64_bit:
                     raise RuntimeError('Not supported on 32-bit Windows')
             else:
-                # additional arguments for make and/or ninja
                 build_tool_args.append('--')
                 if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
                     build_tool_args.append('VERBOSE=1')
