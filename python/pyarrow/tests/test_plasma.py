@@ -766,11 +766,11 @@ def test_object_id_equality_operators():
 def test_use_huge_pages():
     import pyarrow.plasma as plasma
     with plasma.start_plasma_store(
-            plasma_store_memory=128*10**6,
+            plasma_store_memory=2*10**9,
             plasma_directory="/mnt/hugepages",
             use_hugepages=True) as (plasma_store_name, p):
         plasma_client = plasma.connect(plasma_store_name, "", 64)
-        create_object(plasma_client, 64*10**6)
+        create_object(plasma_client, 10**8)
 
 
 # This is checking to make sure plasma_clients cannot be destroyed
