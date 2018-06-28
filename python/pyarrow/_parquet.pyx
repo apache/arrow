@@ -249,10 +249,7 @@ cdef class RowGroupMetaData:
         CRowGroupMetaData* metadata
         FileMetaData parent
 
-    def __cinit__(self):
-        pass
-
-    cdef void init_from_file(self, FileMetaData parent, int i):
+    def __cinit__(self, FileMetaData parent, int i):
         if i < 0 or i >= parent.num_row_groups:
             raise IndexError('{0} out of bounds'.format(i))
         self.up_metadata = parent._metadata.RowGroup(i)
@@ -314,13 +311,9 @@ cdef class FileMetaData:
 
     @property
     def schema(self):
-        if self._schema is not None:
-            return self._schema
-
-        cdef ParquetSchema schema = ParquetSchema()
-        schema.init_from_filemeta(self)
-        self._schema = schema
-        return schema
+        if self._schema is None:
+            self._schema = ParquetSchema(self)
+        return self._schema
 
     @property
     def serialized_size(self):
@@ -354,26 +347,20 @@ cdef class FileMetaData:
     def created_by(self):
         return frombytes(self._metadata.created_by())
 
+    @property
+    def metadata(self):
+        cdef:
+            unordered_map[c_string, c_string] metadata
+            const CKeyValueMetadata* underlying_metadata
+        underlying_metadata = self._metadata.key_value_metadata().get()
+        if underlying_metadata != NULL:
+            underlying_metadata.ToUnorderedMap(&metadata)
+            return metadata
+        else:
+            return None
+
     def row_group(self, int i):
-        """
-
-        """
-        cdef RowGroupMetaData result = RowGroupMetaData()
-        result.init_from_file(self, i)
-        return result
-
-    property metadata:
-
-        def __get__(self):
-            cdef:
-                unordered_map[c_string, c_string] metadata
-                const CKeyValueMetadata* underlying_metadata
-            underlying_metadata = self._metadata.key_value_metadata().get()
-            if underlying_metadata != NULL:
-                underlying_metadata.ToUnorderedMap(&metadata)
-                return metadata
-            else:
-                return None
+        return RowGroupMetaData(self, i)
 
 
 cdef class ParquetSchema:
@@ -381,8 +368,9 @@ cdef class ParquetSchema:
         FileMetaData parent  # the FileMetaData owning the SchemaDescriptor
         const SchemaDescriptor* schema
 
-    def __cinit__(self):
-        self.schema = NULL
+    def __cinit__(self, FileMetaData container):
+        self.parent = container
+        self.schema = container._metadata.schema()
 
     def __repr__(self):
         cdef const ColumnDescriptor* descr
@@ -398,10 +386,6 @@ cdef class ParquetSchema:
         return """{0}
 {1}
  """.format(object.__repr__(self), '\n'.join(elements))
-
-    cdef init_from_filemeta(self, FileMetaData container):
-        self.parent = container
-        self.schema = container._metadata.schema()
 
     def __len__(self):
         return self.schema.num_columns()
