@@ -866,6 +866,18 @@ class ParquetDataset(object):
                 return True
 
             f_type = type(f_value)
+
+            if isinstance(f_value, set):
+                if not f_value:
+                    raise ValueError("Cannot use empty set as filter value")
+                if op not in {'in', 'not in'}:
+                    raise ValueError("Op '%s' not supported with set value",
+                                     op)
+                if len(set([type(item) for item in f_value])) != 1:
+                    raise ValueError("All elements of set '%s' must be of"
+                                     " same type", f_value)
+                f_type = type(next(iter(f_value)))
+
             p_value = f_type((self.partitions
                                   .levels[level]
                                   .dictionary[p_value_index]
@@ -883,6 +895,10 @@ class ParquetDataset(object):
                 return p_value <= f_value
             elif op == '>=':
                 return p_value >= f_value
+            elif op == 'in':
+                return p_value in f_value
+            elif op == 'not in':
+                return p_value not in f_value
             else:
                 raise ValueError("'%s' is not a valid operator in predicates.",
                                  filter[1])
