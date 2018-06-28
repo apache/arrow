@@ -66,10 +66,7 @@ def _check_roundtrip(table, expected=None, **params):
         expected = table
 
     result = _roundtrip_table(table, **params)
-    if not result.equals(expected):
-        print(expected)
-        print(result)
-        assert result.equals(expected)
+    assert result.equals(expected)
 
     result = _roundtrip_table(result, **params)
     assert result.equals(expected)
