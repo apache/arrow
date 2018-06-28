@@ -398,9 +398,11 @@ inline void DictionaryDecoder<ByteArrayType>::SetDict(
   for (int i = 0; i < num_dictionary_values; ++i) {
     total_size += dictionary_[i].len;
   }
-  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
-  int offset = 0;
+  if (total_size > 0) {
+    PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
+  }
 
+  int offset = 0;
   uint8_t* bytes_data = byte_array_data_->mutable_data();
   for (int i = 0; i < num_dictionary_values; ++i) {
     memcpy(bytes_data + offset, dictionary_[i].ptr, dictionary_[i].len);
