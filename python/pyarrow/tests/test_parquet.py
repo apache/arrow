@@ -527,6 +527,8 @@ def test_parquet_metadata_api():
     assert meta.num_row_groups == 1
     assert meta.format_version == '2.0'
     assert 'parquet-cpp' in meta.created_by
+    assert isinstance(meta.serialized_size, int)
+    assert isinstance(meta.metadata, dict)
 
     # Schema
     schema = fileh.schema
@@ -627,12 +629,18 @@ def test_compare_schemas():
     fileh3 = make_sample_file(df[df.columns[::2]])
 
     assert fileh.schema.equals(fileh.schema)
+    assert fileh.schema == fileh.schema
     assert fileh.schema.equals(fileh2.schema)
-
+    assert fileh.schema == fileh2.schema
+    assert fileh.schema != 'arbitrary object'
     assert not fileh.schema.equals(fileh3.schema)
+    assert fileh.schema != fileh3.schema
 
     assert fileh.schema[0].equals(fileh.schema[0])
+    assert fileh.schema[0] == fileh.schema[0]
     assert not fileh.schema[0].equals(fileh.schema[1])
+    assert fileh.schema[0] != fileh.schema[1]
+    assert fileh.schema[0] != 'arbitrary object'
 
 
 def test_column_of_arrays(tmpdir):

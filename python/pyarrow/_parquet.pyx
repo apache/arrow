@@ -414,7 +414,11 @@ cdef class ParquetSchema:
 
         return pyarrow_wrap_schema(sp_arrow_schema)
 
-    # TODO(kszucs): impl __eq__
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
     def equals(self, ParquetSchema other):
         """
@@ -438,7 +442,11 @@ cdef class ColumnSchema:
         self.parent = schema  # XXX why is it needed? ownership?
         self.descr = schema.schema.Column(i)
 
-    # TODO(kszucs) impl __eq__
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
     def equals(self, ColumnSchema other):
         """
