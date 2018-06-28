@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -224,46 +225,35 @@ class build_ext(_build_ext):
                                      .format(self.boost_namespace))
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
-            if sys.platform != 'win32':
-                cmake_command = (['cmake'] + extra_cmake_args +
-                                 cmake_options + [source])
 
-                print("-- Runnning cmake for pyarrow")
-                self.spawn(cmake_command)
-                print("-- Finished cmake for pyarrow")
-                args = ['make']
-                if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
-                    args.append('VERBOSE=1')
-
-                if 'PYARROW_PARALLEL' in os.environ:
-                    args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
-                print("-- Running cmake --build for pyarrow")
-                self.spawn(args)
-                print("-- Finished cmake --build for pyarrow")
-            else:
+            build_tool_args = []
+            if sys.platform == 'win32':
                 if not is_64_bit:
                     raise RuntimeError('Not supported on 32-bit Windows')
+            else:
+                build_tool_args.append('--')
+                if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
+                    build_tool_args.append('VERBOSE=1')
+                if os.environ.get('PYARROW_PARALLEL'):
+                    build_tool_args.append(
+                        '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
-                # Generate the build files
-                cmake_command = (['cmake'] + extra_cmake_args +
-                                 cmake_options + [source])
+            # Generate the build files
+            print("-- Runnning cmake for pyarrow")
+            self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+            print("-- Finished cmake for pyarrow")
 
-                print("-- Runnning cmake for pyarrow")
-                self.spawn(cmake_command)
-                print("-- Finished cmake for pyarrow")
-                # Do the build
-                print("-- Running cmake --build for pyarrow")
-                self.spawn(['cmake', '--build', '.', '--config',
-                            self.build_type])
-                print("-- Finished cmake --build for pyarrow")
+            # Do the build
+            print("-- Running cmake --build for pyarrow")
+            self.spawn(['cmake', '--build', '.', '--config', self.build_type]
+                       + build_tool_args)
+            print("-- Finished cmake --build for pyarrow")
 
             if self.inplace:
                 # a bit hacky
                 build_lib = saved_cwd
 
-            # Move the libraries to the place expected by the Python
-            # build
-
+            # Move the libraries to the place expected by the Python build
             try:
                 os.makedirs(pjoin(build_lib, 'pyarrow'))
             except OSError:
