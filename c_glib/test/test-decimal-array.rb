@@ -22,6 +22,6 @@ class TestDecimalArray < Test::Unit::TestCase
     decimal = Arrow::Decimal128.new("23423445")
     builder.append(decimal)
     array = builder.finish
-    assert_equal("234234.45", array.get_value(0))
+    assert_equal("234234.45", array.format_value(0))
   end
 end
