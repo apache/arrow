@@ -1061,40 +1061,41 @@ def test_equivalency(tmpdir):
     assert 'b' not in result_df['string'].values
     assert False not in result_df['boolean'].values
 
-    @parquet
-    def test_cutoff_exclusive_integer(tmpdir):
-        fs = LocalFileSystem.get_instance()
-        base_path = str(tmpdir)
 
-        import pyarrow.parquet as pq
+@parquet
+def test_cutoff_exclusive_integer(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
 
-        integer_keys = [0, 1, 2, 3, 4]
-        partition_spec = [
-            ['integers', integer_keys],
+    import pyarrow.parquet as pq
+
+    integer_keys = [0, 1, 2, 3, 4]
+    partition_spec = [
+        ['integers', integer_keys],
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'integers': np.array(integer_keys, dtype='i4'),
+    }, columns=['index', 'integers'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[
+            ('integers', '<', 4),
+            ('integers', '>', 1),
         ]
-        N = 5
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas()
+                      .sort_values(by='index')
+                      .reset_index(drop=True))
 
-        df = pd.DataFrame({
-            'index': np.arange(N),
-            'integers': np.array(integer_keys, dtype='i4'),
-        }, columns=['index', 'integers'])
-
-        _generate_partition_directories(fs, base_path, partition_spec, df)
-
-        dataset = pq.ParquetDataset(
-            base_path, filesystem=fs,
-            filters=[
-                ('integers', '<', 4),
-                ('integers', '>', 1),
-            ]
-        )
-        table = dataset.read()
-        result_df = (table.to_pandas()
-                          .sort_values(by='index')
-                          .reset_index(drop=True))
-
-        result_list = [x for x in map(int, result_df['integers'].values)]
-        assert result_list == [2, 3]
+    result_list = [x for x in map(int, result_df['integers'].values)]
+    assert result_list == [2, 3]
 
 
 @parquet
@@ -1183,6 +1184,44 @@ def test_inclusive_integer(tmpdir):
 
 
 @parquet
+def test_inclusive_set(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    import pyarrow.parquet as pq
+
+    integer_keys = [0, 1]
+    string_keys = ['a', 'b', 'c']
+    boolean_keys = [True, False]
+    partition_spec = [
+        ['integer', integer_keys],
+        ['string', string_keys],
+        ['boolean', boolean_keys]
+    ]
+
+    df = pd.DataFrame({
+        'integer': np.array(integer_keys, dtype='i4').repeat(15),
+        'string': np.tile(np.tile(np.array(string_keys, dtype=object), 5), 2),
+        'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5),
+                           3),
+    }, columns=['integer', 'string', 'boolean'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[('integer', 'in', {1}), ('string', 'in', {'a', 'b'}),
+                 ('boolean', 'in', {True})]
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas().reset_index(drop=True))
+
+    assert 0 not in result_df['integer'].values
+    assert 'c' not in result_df['string'].values
+    assert False not in result_df['boolean'].values
+
+
+@parquet
 def test_invalid_pred_op(tmpdir):
     fs = LocalFileSystem.get_instance()
     base_path = str(tmpdir)
@@ -1207,6 +1246,20 @@ def test_invalid_pred_op(tmpdir):
                           filesystem=fs,
                           filters=[
                             ('integers', '=<', 3),
+                          ])
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[
+                            ('integers', 'in', set()),
+                          ])
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[
+                            ('integers', '!=', {3}),
                           ])
 
 
