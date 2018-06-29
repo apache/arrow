@@ -330,3 +330,17 @@ def test_field_equality_operators():
     assert f1 != f3
     assert f3 != f4
     assert f1 != 'foo'
+
+
+def test_field_metadata():
+    f1 = pa.field('a', pa.int8(), metadata=None)
+    f2 = pa.field('a', pa.int8(), metadata={})
+    f3 = pa.field('a', pa.int8(), metadata={b'bizz': b'bazz'})
+    f4 = f1.add_metadata({b'foo': b'bar'})
+    f5 = f3.remove_metadata()
+
+    assert f1.metadata is None
+    assert f2.metadata == {}
+    assert f3.metadata[b'bizz'] == b'bazz'
+    assert f4.metadata == {b'foo': b'bar'}
+    assert f5.metadata is None
