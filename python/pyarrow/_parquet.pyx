@@ -184,9 +184,7 @@ cdef class ColumnChunkMetaData:
         return frombytes(self.metadata.file_path())
 
     @property
-    def type(self):
-        # XXX: shouldn't this be called pshysical_type like in
-        # RowGroupStatistics?
+    def physical_type(self):
         return physical_type_name_from_enum(self.metadata.type())
 
     @property
