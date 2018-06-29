@@ -23,8 +23,6 @@ JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 
 pushd $JAVA_DIR
 
-echo "finding arrow in repo"
-find /home/travis/.m2/repository/org/apache/arrow/
 echo "finding all in repo"
 find /home/travis/.m2/repository/
 echo "done"
