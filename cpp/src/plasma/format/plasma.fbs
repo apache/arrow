@@ -67,7 +67,7 @@ enum MessageType:long {
   // reply messages get sent. Each one contains a fixed number of bytes.
   PlasmaDataReply,
   // Object notifications.
-  PlasmaNotification,
+  PlasmaNotification
 }
 
 enum PlasmaError:int {
