@@ -234,8 +234,9 @@ Status ReadReleaseReply(uint8_t* data, size_t size, ObjectID* object_id) {
 
 Status SendDeleteRequest(int sock, const std::vector<ObjectID>& object_ids) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = CreatePlasmaDeleteRequest(
-      fbb, object_ids.size(), to_flatbuffer(&fbb, &object_ids[0], object_ids.size()));
+  auto message =
+      CreatePlasmaDeleteRequest(fbb, static_cast<int>(object_ids.size()),
+                                to_flatbuffer(&fbb, &object_ids[0], object_ids.size()));
   return PlasmaSend(sock, MessageType::PlasmaDeleteRequest, &fbb, message);
 }
 
@@ -257,7 +258,8 @@ Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
   DCHECK(object_ids.size() == errors.size());
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreatePlasmaDeleteReply(
-      fbb, object_ids.size(), to_flatbuffer(&fbb, &object_ids[0], object_ids.size()),
+      fbb, static_cast<int>(object_ids.size()),
+      to_flatbuffer(&fbb, &object_ids[0], object_ids.size()),
       fbb.CreateVector(reinterpret_cast<const int*>(&errors[0]), object_ids.size()));
   return PlasmaSend(sock, MessageType::PlasmaDeleteReply, &fbb, message);
 }
