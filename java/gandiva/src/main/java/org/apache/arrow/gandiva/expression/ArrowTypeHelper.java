@@ -16,6 +16,8 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import org.apache.arrow.flatbuf.DateUnit;
+import org.apache.arrow.flatbuf.TimeUnit;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.exceptions.UnsupportedTypeException;
@@ -112,6 +114,85 @@ public class ArrowTypeHelper {
     builder.setType(GandivaTypes.GandivaType.DECIMAL);
   }
 
+  private static void initArrowTypeDate(ArrowType.Date dateType,
+                                        GandivaTypes.ExtGandivaType.Builder builder) {
+    short dateUnit = dateType.getUnit().getFlatbufID();
+    switch (dateUnit) {
+      case DateUnit.DAY: {
+        builder.setType(GandivaTypes.GandivaType.DATE32);
+        break;
+      }
+      case DateUnit.MILLISECOND: {
+        builder.setType(GandivaTypes.GandivaType.DATE64);
+        break;
+      }
+      default: {
+        // not supported
+        break;
+      }
+    }
+  }
+
+  private static void initArrowTypeTime(ArrowType.Time timeType,
+                                        GandivaTypes.ExtGandivaType.Builder builder) {
+    short timeUnit = timeType.getUnit().getFlatbufID();
+    switch (timeUnit) {
+      case TimeUnit.SECOND: {
+        builder.setType(GandivaTypes.GandivaType.TIME32);
+        builder.setTimeUnit(GandivaTypes.TimeUnit.SEC);
+        break;
+      }
+      case TimeUnit.MILLISECOND: {
+        builder.setType(GandivaTypes.GandivaType.TIME32);
+        builder.setTimeUnit(GandivaTypes.TimeUnit.MILLISEC);
+        break;
+      }
+      case TimeUnit.MICROSECOND: {
+        builder.setType(GandivaTypes.GandivaType.TIME64);
+        builder.setTimeUnit(GandivaTypes.TimeUnit.MICROSEC);
+        break;
+      }
+      case TimeUnit.NANOSECOND: {
+        builder.setType(GandivaTypes.GandivaType.TIME64);
+        builder.setTimeUnit(GandivaTypes.TimeUnit.NANOSEC);
+        break;
+      }
+      default: {
+        // not supported
+      }
+    }
+  }
+
+  private static void initArrowTypeTimestamp(ArrowType.Timestamp timestampType,
+                                             GandivaTypes.ExtGandivaType.Builder builder) {
+    short timeUnit = timestampType.getUnit().getFlatbufID();
+    switch (timeUnit) {
+      case TimeUnit.SECOND: {
+        builder.setType(GandivaTypes.GandivaType.TIMESTAMP);
+        builder.setTimeUnit(GandivaTypes.TimeUnit.SEC);
+        break;
+      }
+      case TimeUnit.MILLISECOND: {
+        builder.setType(GandivaTypes.GandivaType.TIMESTAMP);
+        builder.setTimeUnit(GandivaTypes.TimeUnit.MILLISEC);
+        break;
+      }
+      case TimeUnit.MICROSECOND: {
+        builder.setType(GandivaTypes.GandivaType.TIMESTAMP);
+        builder.setTimeUnit(GandivaTypes.TimeUnit.MICROSEC);
+        break;
+      }
+      case TimeUnit.NANOSECOND: {
+        builder.setType(GandivaTypes.GandivaType.TIMESTAMP);
+        builder.setTimeUnit(GandivaTypes.TimeUnit.NANOSEC);
+        break;
+      }
+      default: {
+        // not supported
+      }
+    }
+  }
+
   /**
    * Converts an arrow type into a protobuf.
    * @param arrowType Arrow type to be converted
@@ -156,12 +237,15 @@ public class ArrowTypeHelper {
         break;
       }
       case Type.Date: { // 8
+        ArrowTypeHelper.initArrowTypeDate((ArrowType.Date) arrowType, builder);
         break;
       }
       case Type.Time: { // 9
+        ArrowTypeHelper.initArrowTypeTime((ArrowType.Time) arrowType, builder);
         break;
       }
       case Type.Timestamp: { // 10
+        ArrowTypeHelper.initArrowTypeTimestamp((ArrowType.Timestamp) arrowType, builder);
         break;
       }
       case Type.Interval: { // 11

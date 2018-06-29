@@ -55,25 +55,25 @@ TEST_F(TestProjector, TestNonExistentFunction) {
 }
 
 TEST_F(TestProjector, TestNotMatchingDataType) {
-   // schema for input fields
-   auto field0 = field("f0", float32());
-   auto schema = arrow::schema({field0});
+  // schema for input fields
+  auto field0 = field("f0", float32());
+  auto schema = arrow::schema({field0});
 
-   // output fields
-   auto field_result = field("res", boolean());
+  // output fields
+  auto field_result = field("res", boolean());
 
-   // Build expression
-   auto node_f0 = TreeExprBuilder::MakeField(field0);
-   auto lt_expr = TreeExprBuilder::MakeExpression(node_f0, field_result);
+  // Build expression
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+  auto lt_expr = TreeExprBuilder::MakeExpression(node_f0, field_result);
 
-   // Build a projector for the expressions.
-   std::shared_ptr<Projector> projector;
-   Status status = Projector::Make(schema, {lt_expr}, pool_, &projector);
-   EXPECT_TRUE(status.IsExpressionValidationError());
-   std::string expected_error =
-     "Return type of root node float does not match that of expression bool";
-   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
- }
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {lt_expr}, pool_, &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError());
+  std::string expected_error =
+    "Return type of root node float does not match that of expression bool";
+  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+}
 
 TEST_F(TestProjector, TestNotSupportedDataType) {
   // schema for input fields
@@ -96,24 +96,24 @@ TEST_F(TestProjector, TestNotSupportedDataType) {
 }
 
 TEST_F(TestProjector, TestIncorrectSchemaMissingField) {
-   // schema for input fields
-   auto field0 = field("f0", float32());
-   auto field1 = field("f2", float32());
-   auto schema = arrow::schema({field0, field0});
+  // schema for input fields
+  auto field0 = field("f0", float32());
+  auto field1 = field("f2", float32());
+  auto schema = arrow::schema({field0, field0});
 
-   // output fields
-   auto field_result = field("res", boolean());
+  // output fields
+  auto field_result = field("res", boolean());
 
-   // Build expression
-   auto lt_expr = TreeExprBuilder::MakeExpression("less_than",
+  // Build expression
+  auto lt_expr = TreeExprBuilder::MakeExpression("less_than",
                                                   {field0, field1}, field_result);
 
-   // Build a projector for the expressions.
-   std::shared_ptr<Projector> projector;
-   Status status = Projector::Make(schema, {lt_expr}, pool_, &projector);
-   EXPECT_TRUE(status.IsExpressionValidationError());
-   std::string expected_error = "Field f2 not in schema";
-   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {lt_expr}, pool_, &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError());
+  std::string expected_error = "Field f2 not in schema";
+  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 
 TEST_F(TestProjector, TestIncorrectSchemaTypeNotMatching) {

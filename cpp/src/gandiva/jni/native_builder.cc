@@ -92,6 +92,46 @@ std::shared_ptr<ProjectorHolder> MapLookup(jlong module_id) {
   return result;
 }
 
+DataTypePtr ProtoTypeToTime32(const types::ExtGandivaType& ext_type) {
+  switch (ext_type.timeunit()) {
+    case types::SEC:
+      return arrow::time32(arrow::TimeUnit::SECOND);
+    case types::MILLISEC:
+      return arrow::time32(arrow::TimeUnit::MILLI);
+    default:
+      std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for time32\n";
+      return nullptr;
+  }
+}
+
+DataTypePtr ProtoTypeToTime64(const types::ExtGandivaType& ext_type) {
+  switch (ext_type.timeunit()) {
+    case types::MICROSEC:
+      return arrow::time64(arrow::TimeUnit::MICRO);
+    case types::NANOSEC:
+      return arrow::time64(arrow::TimeUnit::NANO);
+    default:
+      std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for time64\n";
+      return nullptr;
+  }
+}
+
+DataTypePtr ProtoTypeToTimestamp(const types::ExtGandivaType& ext_type) {
+  switch (ext_type.timeunit()) {
+    case types::SEC:
+      return arrow::timestamp(arrow::TimeUnit::SECOND);
+    case types::MILLISEC:
+      return arrow::timestamp(arrow::TimeUnit::MILLI);
+    case types::MICROSEC:
+      return arrow::timestamp(arrow::TimeUnit::MICRO);
+    case types::NANOSEC:
+      return arrow::timestamp(arrow::TimeUnit::NANO);
+    default:
+      std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for timestamp\n";
+      return nullptr;
+  }
+}
+
 DataTypePtr ProtoTypeToDataType(const types::ExtGandivaType& ext_type) {
   switch (ext_type.type()) {
     case types::NONE:
@@ -131,11 +171,14 @@ DataTypePtr ProtoTypeToDataType(const types::ExtGandivaType& ext_type) {
     case types::DECIMAL:
       // TODO: error handling
       return arrow::decimal(ext_type.precision(), ext_type.scale());
+    case types::TIME32:
+      return ProtoTypeToTime32(ext_type);
+    case types::TIME64:
+      return ProtoTypeToTime64(ext_type);
+    case types::TIMESTAMP:
+      return ProtoTypeToTimestamp(ext_type);
 
     case types::FIXED_SIZE_BINARY:
-    case types::TIMESTAMP:
-    case types::TIME32:
-    case types::TIME64:
     case types::INTERVAL:
     case types::LIST:
     case types::STRUCT:

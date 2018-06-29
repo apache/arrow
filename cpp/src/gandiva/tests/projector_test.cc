@@ -346,18 +346,21 @@ TEST_F(TestProjector, TestZeroCopy) {
 
   // allocate output buffers
   int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
-  std::unique_ptr<uint8_t []> bitmap(new uint8_t[bitmap_sz]);
+  std::unique_ptr<uint8_t[]> bitmap(new uint8_t[bitmap_sz]);
   std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
       std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz);
 
   int64_t data_sz = sizeof (float) * num_records;
-  std::unique_ptr<uint8_t []> data(new uint8_t[data_sz]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[data_sz]);
   std::shared_ptr<arrow::MutableBuffer> data_buf =
       std::make_shared<arrow::MutableBuffer>(data.get(), data_sz);
 
-  auto array_data = arrow::ArrayData::Make(float32(), num_records, {bitmap_buf, data_buf});
+  auto array_data = arrow::ArrayData::Make(
+    float32(),
+    num_records,
+    {bitmap_buf, data_buf});
 
-   // Evaluate expression
+  // Evaluate expression
   status = projector->Evaluate(*in_batch, {array_data});
   EXPECT_TRUE(status.ok());
 
@@ -391,16 +394,19 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
 
   // allocate output buffers
   int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
-  std::unique_ptr<uint8_t []> bitmap(new uint8_t[bitmap_sz]);
+  std::unique_ptr<uint8_t[]> bitmap(new uint8_t[bitmap_sz]);
   std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
       std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz);
 
   int64_t data_sz = sizeof (float) * num_records;
-  std::unique_ptr<uint8_t []> data(new uint8_t[data_sz]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[data_sz]);
   std::shared_ptr<arrow::MutableBuffer> data_buf =
       std::make_shared<arrow::MutableBuffer>(data.get(), data_sz);
 
-  auto array_data = arrow::ArrayData::Make(float32(), num_records, {bitmap_buf, data_buf});
+  auto array_data = arrow::ArrayData::Make(
+    float32(),
+    num_records,
+    {bitmap_buf, data_buf});
 
   // the batch can't be empty.
   auto bad_batch = arrow::RecordBatch::Make(schema, 0 /*num_records*/, {array0});
@@ -433,4 +439,5 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   status = projector->Evaluate(*in_batch, {bad_array_data3});
   EXPECT_EQ(status.code(), StatusCode::Invalid);
 }
+
 } // namespace gandiva

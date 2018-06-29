@@ -29,7 +29,7 @@ using uint32 = uint32_t;
 using uint64 = uint64_t;
 using float32 = float;
 using float64 = double;
-using date = int64_t;
+using date64 = int64_t;
 using time64 = int64_t;
 using timestamp = int64_t;
 

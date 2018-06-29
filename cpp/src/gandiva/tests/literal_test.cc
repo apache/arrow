@@ -73,12 +73,12 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
   auto expr_c = TreeExprBuilder::MakeExpression(func_c, res_c);
 
   auto node_d = TreeExprBuilder::MakeField(field_d);
-  auto literal_d = TreeExprBuilder::MakeLiteral((float)1);
+  auto literal_d = TreeExprBuilder::MakeLiteral(static_cast<float>(1));
   auto func_d = TreeExprBuilder::MakeFunction("add", {node_d, literal_d}, float32());
   auto expr_d = TreeExprBuilder::MakeExpression(func_d, res_d);
 
   auto node_e = TreeExprBuilder::MakeField(field_e);
-  auto literal_e = TreeExprBuilder::MakeLiteral((double)1);
+  auto literal_e = TreeExprBuilder::MakeLiteral(static_cast<double>(1));
   auto func_e = TreeExprBuilder::MakeFunction("add", {node_e, literal_e}, float64());
   auto expr_e = TreeExprBuilder::MakeExpression(func_e, res_e);
 
@@ -93,14 +93,14 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_a = MakeArrowArrayBool({true, true, false, true},{true, true, true, false});
+  auto array_a = MakeArrowArrayBool({true, true, false, true}, {true, true, true, false});
   auto array_b = MakeArrowArrayInt32({5, 15, -15, 17}, {true, true, true, false});
   auto array_c = MakeArrowArrayInt64({5, 15, -15, 17}, {true, true, true, false});
   auto array_d = MakeArrowArrayFloat32({5.2, 15, -15.6, 17}, {true, true, true, false});
   auto array_e = MakeArrowArrayFloat64({5.6, 15, -15.9, 17}, {true, true, true, false});
 
   // expected output
-  auto exp_a = MakeArrowArrayBool({true, true, false, false},{true, true, true, false});
+  auto exp_a = MakeArrowArrayBool({true, true, false, false}, {true, true, true, false});
   auto exp_b = MakeArrowArrayInt32({6, 16, -14, 0}, {true, true, true, false});
   auto exp_c = MakeArrowArrayInt64({6, 16, -14, 0}, {true, true, true, false});
   auto exp_d = MakeArrowArrayFloat32({6.2, 16, -14.6, 0}, {true, true, true, false});

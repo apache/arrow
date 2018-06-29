@@ -219,7 +219,7 @@ TEST_F(TestBooleanExpr, AndThree) {
 
   int num_records = 8;
   std::vector<bool> validity({true, true, true, true, true, true, true, true });
-  auto arraya = MakeArrowArrayInt32({2, 2, 2, 0, 2, 0, 0, 0}, validity) ;
+  auto arraya = MakeArrowArrayInt32({2, 2, 2, 0, 2, 0, 0, 0}, validity);
   auto arrayb = MakeArrowArrayInt32({2, 2, 0, 2, 0, 2, 0, 0}, validity);
   auto arrayc = MakeArrowArrayInt32({2, 0, 2, 2, 0, 0, 2, 0}, validity);
   auto exp = MakeArrowArrayBool({true, false, false, false, false, false, false, false },
@@ -267,7 +267,7 @@ TEST_F(TestBooleanExpr, OrThree) {
 
   int num_records = 8;
   std::vector<bool> validity({true, true, true, true, true, true, true, true });
-  auto arraya = MakeArrowArrayInt32({2, 2, 2, 0, 2, 0, 0, 0}, validity) ;
+  auto arraya = MakeArrowArrayInt32({2, 2, 2, 0, 2, 0, 0, 0}, validity);
   auto arrayb = MakeArrowArrayInt32({2, 2, 0, 2, 0, 2, 0, 0}, validity);
   auto arrayc = MakeArrowArrayInt32({2, 0, 2, 2, 0, 0, 2, 0}, validity);
   auto exp = MakeArrowArrayBool({true, true, true, true, true, true, true, false},
@@ -328,7 +328,7 @@ TEST_F(TestBooleanExpr, BooleanAndInsideIf) {
 
   int num_records = 4;
   std::vector<bool> validity({true, true, true, true });
-  auto arraya = MakeArrowArrayInt32({4, 4, 2, 1}, validity) ;
+  auto arraya = MakeArrowArrayInt32({4, 4, 2, 1}, validity);
   auto arrayb = MakeArrowArrayInt32({5, 3, 3, 1}, validity);
   auto exp = MakeArrowArrayBool({true, false, true, false},
                                 validity);
@@ -380,7 +380,7 @@ TEST_F(TestBooleanExpr, IfInsideBooleanAnd) {
 
   int num_records = 4;
   std::vector<bool> validity({true, true, true, true });
-  auto arraya = MakeArrowArrayInt32({4, 3, 3, 2}, validity) ;
+  auto arraya = MakeArrowArrayInt32({4, 3, 3, 2}, validity);
   auto arrayb = MakeArrowArrayInt32({3, 4, 2, 3}, validity);
   auto exp = MakeArrowArrayBool({true, true, false, false},
                                 validity);

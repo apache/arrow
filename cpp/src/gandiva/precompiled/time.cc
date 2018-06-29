@@ -23,7 +23,7 @@ extern "C" {
 
 // Expand inner macro for all date types.
 #define DATE_TYPES(INNER) \
-  INNER(date) \
+  INNER(date64) \
   INNER(time64) \
   INNER(timestamp)
 
