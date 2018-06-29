@@ -100,28 +100,17 @@ Status SendReleaseReply(int sock, ObjectID object_id, PlasmaError error);
 
 Status ReadReleaseReply(uint8_t* data, size_t size, ObjectID* object_id);
 
-/* Plasma Delete message functions. */
-
-Status SendDeleteRequest(int sock, ObjectID object_id);
-
-Status ReadDeleteRequest(uint8_t* data, size_t size, ObjectID* object_id);
-
-Status SendDeleteReply(int sock, ObjectID object_id, PlasmaError error);
-
-Status ReadDeleteReply(uint8_t* data, size_t size, ObjectID* object_id);
-
 /* Plasma Delete objects message functions. */
 
-Status SendDeleteObjsRequest(int sock, const std::vector<ObjectID>& object_ids);
+Status SendDeleteRequest(int sock, const std::vector<ObjectID>& object_ids);
 
-Status ReadDeleteObjsRequest(uint8_t* data, size_t size,
-                             std::vector<ObjectID>& object_ids);
+Status ReadDeleteRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids);
 
-Status SendDeleteObjsReply(int sock, const std::vector<ObjectID>& object_ids,
-                           const std::vector<PlasmaError>& errors);
+Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
+                       const std::vector<PlasmaError>& errors);
 
-Status ReadDeleteObjsReply(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids,
-                           std::vector<PlasmaError>& errors);
+Status ReadDeleteReply(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids,
+                       std::vector<PlasmaError>& errors);
 
 /* Satus messages. */
 

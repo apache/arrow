@@ -168,24 +168,13 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Seal(const ObjectID& object_id);
 
-  /// Delete an object from the object store. This currently assumes that the
-  /// object is present, has been sealed and not used by another client. Otherwise,
-  /// it is a no operation.
-  ///
-  /// @todo We may want to allow the deletion of objects that are not present or
-  ///       haven't been sealed.
-  ///
-  /// \param object_id The ID of the object to delete.
-  /// \return The return status.
-  Status Delete(const ObjectID& object_id);
-
   /// Delete a list of objects from the object store. This currently assumes that the
   /// object is present, has been sealed and not used by another client. Otherwise,
   /// it is a no operation.
   ///
   /// \param object_ids The list of IDs of the objects to delete.
-  /// \return The return status.
-  Status DeleteObjects(const std::vector<ObjectID>& object_ids);
+  /// \return The return status. If all the objects are non-existent, return OK.
+  Status Delete(const std::vector<ObjectID>& object_ids);
 
   /// Delete objects until we have freed up num_bytes bytes or there are no more
   /// released objects that can be deleted.
