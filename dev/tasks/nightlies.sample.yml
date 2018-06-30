@@ -66,9 +66,10 @@ script:
   # fetch all branches of crossbow
   - git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
 
-  # clone arrow
+  # to build against a specific branch of a fork
+  # git clone -b <branch> https://github.com/<user>/arrow
   - pushd ..
-  - git clone https://github.com/apache/arrow
+  - git clone -b master https://github.com/apache/arrow
 
   # submit packaging tasks
   - |
