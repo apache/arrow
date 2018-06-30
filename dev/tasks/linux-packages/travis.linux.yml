@@ -25,7 +25,7 @@ env:
     - PLAT=x86_64
     - TRAVIS_TAG={{ job.branch }}
     - BUILD_REF={{ arrow.head }}
-    - PYARROW_VERSION={{ arrow.version }}
+    - ARROW_VERSION={{ arrow.version }}
 
 matrix:
   include:
