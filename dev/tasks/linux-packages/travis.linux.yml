@@ -41,14 +41,15 @@ matrix:
           tags: true
     - script:
         - (cd arrow/dev/tasks/linux-packages && rake version:update && travis_wait 40 rake apt:build APT_TARGETS=ubuntu-xenial,ubuntu-artful PARALLEL=yes DEBUG=no)
-      deploy:
-        provider: releases
-        api_key: $CROSSBOW_GITHUB_TOKEN
-        file_glob: true
-        file: "**/*.deb"
-        skip_cleanup: true
-        on:
-          tags: true
+      # TODO(kszucs) resolve artifact naming conflict with other debian pkgs
+      # deploy:
+      #   provider: releases
+      #   api_key: $CROSSBOW_GITHUB_TOKEN
+      #   file_glob: true
+      #   file: "**/*.deb"
+      #   skip_cleanup: true
+      #   on:
+      #     tags: true
     - script:
         - (cd arrow/dev/tasks/linux-packages && rake version:update && rake yum:build PARALLEL=yes DEBUG=no)
       deploy:
