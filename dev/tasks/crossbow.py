@@ -214,8 +214,12 @@ class Queue(Repo):
 
     def github_assets(self, job, token=None):
         repo = self.as_github_repo(token=token)
-        release = repo.release_from_tag(job.branch)
-        return {a.name: a for a in release.assets()}
+        try:
+            release = repo.release_from_tag(job.branch)
+        except github3.exceptions.NotFoundError:
+            return {}
+        else:
+            return {a.name: a for a in release.assets()}
 
     def upload_assets(self, job, files, content_type, token=None):
         repo = self.as_github_repo(token=token)
