@@ -27,6 +27,7 @@ import github3
 
 from io import StringIO
 from pathlib import Path
+from datetime import date
 from textwrap import dedent
 from jinja2 import Template, StrictUndefined
 from setuptools_scm import get_version
@@ -389,12 +390,14 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
     with Path(config_path).open() as fp:
         config = yaml.load(fp)
 
+    today = date.today().strftime('%Y%m%d')
     tasks = {}
     for task_name in task_names:
         task = config['tasks'][task_name]
-        # replace version number in artifact names
+        # replace version number and current date in artifact names
         artifacts = task.pop('artifacts', None) or []
-        artifacts = [a.format(version=target.version) for a in artifacts]
+        artifacts = [fname.format(version=target.version, date=today)
+                     for fname in artifacts]
         # create task instance from configuration
         tasks[task_name] = Task(**task, artifacts=artifacts)
 
