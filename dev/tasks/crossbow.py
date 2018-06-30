@@ -34,6 +34,9 @@ from setuptools_scm import get_version
 from ruamel.yaml import YAML
 
 
+CWD = Path(__file__).parent.absolute()
+
+
 class GitRemoteCallbacks(pygit2.RemoteCallbacks):
 
     def __init__(self, token):
@@ -267,7 +270,7 @@ class Task(object):
         self.commit = None
 
     def render_files(self, **extra_params):
-        path = Path(self.template)
+        path = CWD / self.template
         template = Template(path.read_text(), undefined=StrictUndefined)
         rendered = template.render(**self.params, **extra_params)
         return {self.filename: rendered}
@@ -322,10 +325,9 @@ COLORS = {'ok': 'green',
           'success': 'green'}
 
 # define default paths
-CWD = Path(__file__).absolute()
-DEFAULT_CONFIG_PATH = CWD.parent / 'tasks.yml'
-DEFAULT_ARROW_PATH = CWD.parents[2]
-DEFAULT_QUEUE_PATH = CWD.parents[3] / 'crossbow'
+DEFAULT_CONFIG_PATH = CWD / 'tasks.yml'
+DEFAULT_ARROW_PATH = CWD.parents[1]
+DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 
 
 @click.group()
