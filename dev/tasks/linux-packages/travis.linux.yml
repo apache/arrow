@@ -31,10 +31,34 @@ matrix:
   include:
     - script:
         - (cd arrow/dev/tasks/linux-packages && rake version:update && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty PARALLEL=yes DEBUG=no)
+      deploy:
+        provider: releases
+        api_key: $CROSSBOW_GITHUB_TOKEN
+        file_glob: true
+        file: "**/*.deb"
+        skip_cleanup: true
+        on:
+          tags: true
     - script:
         - (cd arrow/dev/tasks/linux-packages && rake version:update && travis_wait 40 rake apt:build APT_TARGETS=ubuntu-xenial,ubuntu-artful PARALLEL=yes DEBUG=no)
+      deploy:
+        provider: releases
+        api_key: $CROSSBOW_GITHUB_TOKEN
+        file_glob: true
+        file: "**/*.deb"
+        skip_cleanup: true
+        on:
+          tags: true
     - script:
         - (cd arrow/dev/tasks/linux-packages && rake version:update && rake yum:build PARALLEL=yes DEBUG=no)
+      deploy:
+        provider: releases
+        api_key: $CROSSBOW_GITHUB_TOKEN
+        file_glob: true
+        file: "**/*.rpm"
+        skip_cleanup: true
+        on:
+          tags: true
 
 before_install:
   - sudo apt update -y -qq
@@ -62,15 +86,6 @@ before_install:
 before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file: /path/to/pachages/*.tar.gz  # FIXME(kszucs) after the builds pass
-  skip_cleanup: true
-  on:
-    tags: true
 
 notifications:
   email:
