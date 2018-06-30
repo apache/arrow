@@ -110,9 +110,40 @@ export class Table implements DataFrame {
             batches.reduce((union, batch) => union.concat(batch));
         this.length = this.batchesUnion.length;
         this.numCols = this.batchesUnion.numCols;
+
+        class RowProxy {
+            constructor(public __row__: Struct['TValue']) {}
+        }
+
+        const proto = RowProxy.prototype;
+
+        Object.defineProperty(proto, '__row__', {
+            value: -1,
+            writable: true
+        });
+
+        schema.fields.forEach(function (f, i) {
+            Object.defineProperty(proto, f.name, {
+                get: function () {
+                    return (this as RowProxy).__row__!.get(i);
+                },
+                enumerable: true
+            });
+        });
+
+        this.__make_row_proxy = function (row: Struct['TValue']) {
+            return new RowProxy(row) as Object;
+        }
     }
-    public get(index: number): Struct['TValue'] {
-        return this.batchesUnion.get(index)!;
+
+    // Re-written based on the Schema at construction time
+    private __make_row_proxy(row: Struct['TValue']): Object {
+        return row;
+    }
+
+    public get(index: number): Object|null {
+        const row = this.batchesUnion.get(index)
+        return row ? this.__make_row_proxy(row) as Object : null;
     }
     public getColumn(name: string) {
         return this.getColumnAt(this.getColumnIndex(name));
@@ -126,8 +157,10 @@ export class Table implements DataFrame {
     public getColumnIndex(name: string) {
         return this.schema.fields.findIndex((f) => f.name === name);
     }
-    public [Symbol.iterator](): IterableIterator<Struct['TValue']> {
-        return this.batchesUnion[Symbol.iterator]() as any;
+    public *[Symbol.iterator](): IterableIterator<Object> {
+        for (const row of this.batchesUnion[Symbol.iterator]()) {
+            yield this.__make_row_proxy(row!);
+        }
     }
     public filter(predicate: Predicate): DataFrame {
         return new FilteredDataFrame(this.batches, predicate);
