@@ -412,10 +412,16 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
     yaml.dump(job, sys.stdout)
 
     if dry_run:
-        for name, task in job.tasks.items():
-            for file in task.render_files(job=job, arrow=job.target).values():
-                click.echo(file)
-        click.echo('-'*80)
+        delimiter = '-' * 79
+        for task_name, task in job.tasks.items():
+            files = task.render_files(job=job, arrow=job.target)
+            for filename, content in files.items():
+                click.echo('\n\n')
+                click.echo(delimiter)
+                click.echo('{:<29}{:>50}'.format(task_name, filename))
+                click.echo(delimiter)
+                click.echo(content)
+
     else:
         queue.fetch()
         queue.put(job)
