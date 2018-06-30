@@ -1403,6 +1403,41 @@ def test_read_common_metadata_files(tmpdir):
     _test_read_common_metadata_files(fs, base_path)
 
 
+def _test_read_metadata_files(fs, base_path):
+    import pyarrow.parquet as pq
+
+    N = 100
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
+
+    data_path = pjoin(base_path, 'data.parquet')
+
+    table = pa.Table.from_pandas(df)
+
+    with fs.open(data_path, 'wb') as f:
+        _write_table(table, f)
+
+    metadata_path = pjoin(base_path, '_metadata')
+    with fs.open(metadata_path, 'wb') as f:
+        pq.write_metadata(table.schema, f)
+
+    dataset = pq.ParquetDataset(base_path, filesystem=fs)
+    assert dataset.metadata_path == metadata_path
+
+    with fs.open(data_path) as f:
+        metadata_schema = pq.read_metadata(f).schema
+    assert dataset.schema.equals(metadata_schema)
+
+
+@parquet
+def test_read_metadata_files(tmpdir):
+    base_path = str(tmpdir)
+    fs = LocalFileSystem.get_instance()
+    _test_read_metadata_files(fs, base_path)
+
+
 @parquet
 def test_read_schema(tmpdir):
     import pyarrow.parquet as pq
