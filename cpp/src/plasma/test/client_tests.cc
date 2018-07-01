@@ -133,7 +133,7 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
 
   // Delete the object.
   ARROW_CHECK_OK(local_client.Release(object_id));
-  ARROW_CHECK_OK(local_client.Delete(std::vector<ObjectID>{object_id}));
+  ARROW_CHECK_OK(local_client.Delete(object_id));
 
   ARROW_CHECK_OK(
       local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
@@ -182,7 +182,7 @@ TEST_F(TestPlasmaStore, DeleteTest) {
 
   // Avoid race condition of Plasma Manager waiting for notification.
   ARROW_CHECK_OK(client_.Release(object_id));
-  ARROW_CHECK_OK(client_.Delete(std::vector<ObjectID>{object_id}));
+  ARROW_CHECK_OK(client_.Delete(object_id));
 }
 
 TEST_F(TestPlasmaStore, DeleteObjectsTest) {
