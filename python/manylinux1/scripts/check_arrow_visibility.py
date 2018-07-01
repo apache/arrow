@@ -19,9 +19,7 @@
 
 import subprocess
 
-exceptions = [
-    '__once_proxy',
-]
+exceptions = []
 
 process = subprocess.Popen(['nm', '-D', '-C', '/arrow-dist/lib64/libarrow.so'],
                            stdout=subprocess.PIPE)
@@ -33,6 +31,5 @@ lines = [line for line in lines if 'arrow' not in line]
 symbols = [line.split(' ')[2] for line in lines]
 symbols = [symbol for symbol in symbols if symbol not in exceptions]
 
-# TODO(rkn): We could just add '_fini' and '_init' to the exceptions list.
-if len(symbols) != 2:
+if len(symbols) > 0:
     raise Exception(symbols)
