@@ -277,10 +277,16 @@ Status ReadDeleteReply(uint8_t* data, size_t size, std::vector<ObjectID>& object
   for (int i = 0; i < num_objects; ++i) {
     object_ids.push_back(ObjectID::from_binary(message->object_ids()->Get(i)->str()));
   }
+  PlasmaError return_error = PlasmaError::ObjectNonexistent;
   for (int i = 0; i < num_objects; ++i) {
-    errors.push_back(static_cast<PlasmaError>(message->errors()->data()[i]));
+    PlasmaError error = static_cast<PlasmaError>(message->errors()->data()[i]);
+    if (return_error == PlasmaError::ObjectNonexistent &&
+        error != PlasmaError::ObjectNonexistent) {
+      return_error = PlasmaError::OK;
+    }
+    errors.push_back(error);
   }
-  return Status::OK();
+  return plasma_error_status(return_error);
 }
 
 // Satus messages.

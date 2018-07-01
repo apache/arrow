@@ -1042,6 +1042,10 @@ Status PlasmaClient::Abort(const ObjectID& object_id) { return impl_->Abort(obje
 
 Status PlasmaClient::Seal(const ObjectID& object_id) { return impl_->Seal(object_id); }
 
+Status PlasmaClient::Delete(const ObjectID& object_id) {
+  return impl_->Delete(std::vector<ObjectID>{object_id});
+}
+
 Status PlasmaClient::Delete(const std::vector<ObjectID>& object_ids) {
   return impl_->Delete(object_ids);
 }
