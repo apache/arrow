@@ -55,10 +55,17 @@ if (MSVC)
     )
 endif()
 
+if(NOT APPLE AND NOT MSVC)
+  # Localize thirdparty symbols using a linker version script. This hides them
+  # from the client application. The OS X linker does not support the
+  # version-script option.
+  set(ARROW_PYTHON_SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
+endif()
+
 ADD_ARROW_LIB(arrow_python
   SOURCES ${ARROW_PYTHON_SRCS}
-  SHARED_LINK_FLAGS ""
-  SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
+  SHARED_LINK_FLAGS ${ARROW_PYTHON_SHARED_LINK_FLAGS}
+  SHARED_PRIVATE_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
   STATIC_LINK_LIBS "${PYTHON_OTHER_LIBS}"
 )
 
