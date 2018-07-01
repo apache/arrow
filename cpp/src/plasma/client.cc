@@ -828,7 +828,7 @@ Status PlasmaClient::Impl::Delete(const std::vector<ObjectID>& object_ids) {
         ReadDeleteReply(buffer.data(), buffer.size(), not_in_use_ids, error_codes));
     return Status::OK();
   } else {
-    return Status::UnknownError("All PlasmaClient::Objects are in use.");
+    return Status::UnknownError("PlasmaClient::All Objects are in use.");
   }
 }
 
