@@ -22,5 +22,6 @@
         };
 
     local:
+        __once_proxy;
         *;
 };

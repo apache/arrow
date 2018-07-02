@@ -253,17 +253,9 @@ std::unique_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
   return pool;
 }
 
-namespace {
-  std::mutex cpu_thread_pool_mutex;
-  std::unique_ptr<ThreadPool> cpu_thread_pool;
-}
-
 ThreadPool* GetCpuThreadPool() {
-  std::lock_guard<std::mutex> lock(cpu_thread_pool_mutex);
-  if (!cpu_thread_pool) {
-    cpu_thread_pool = ThreadPool::MakeCpuThreadPool();
-  }
-  return cpu_thread_pool.get();
+  static std::unique_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
+  return singleton.get();
 }
 
 }  // namespace internal
