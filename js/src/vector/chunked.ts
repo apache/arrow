@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { ChunkedData } from '../data';
+import { ChunkedData, Data } from '../data';
 import { View, Vector, NestedVector } from '../vector';
 import { DataType, TypedArray, IterableArrayLike } from '../type';
 
@@ -28,7 +28,7 @@ export class ChunkedView<T extends DataType> implements View<T> {
         this.chunkVectors = data.chunkVectors;
         this.chunkOffsets = data.chunkOffsets;
     }
-    public clone(data: ChunkedData<T>): this {
+    public clone(data: ChunkedData<T> & Data<T>): this {
         return new ChunkedView(data) as this;
     }
     public *[Symbol.iterator](): IterableIterator<T['TValue'] | null> {

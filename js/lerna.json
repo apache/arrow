@@ -1,5 +1,5 @@
 {
-  "lerna": "2.0.0",
+  "lerna": "2.11.0",
   "version": "0.1.1",
   "packages": [
     "targets/ts",

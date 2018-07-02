@@ -49,7 +49,7 @@ export class Vector<T extends DataType = any> implements VectorLike, View<T>, Vi
         this.length = data.length;
         let nulls: Uint8Array;
         if ((<any> data instanceof ChunkedData) && !(view instanceof ChunkedView)) {
-            this.view = new ChunkedView(data);
+            this.view = new ChunkedView(data as any) as any;
         } else if (!(view instanceof ValidityView) && (nulls = data.nullBitmap!) && nulls.length > 0 && data.nullCount > 0) {
             this.view = new ValidityView(data, view);
         } else {
@@ -159,12 +159,12 @@ export abstract class NestedVector<T extends NestedType> extends Vector<T>  {
             return data as Data<any>[];
         } else if (!(<any> (data = this.data) instanceof ChunkedData)) {
             // If data isn't chunked, cache and return NestedData's childData
-            return this._childData = (data as NestedData<T>).childData;
+            return this._childData = data.childData;
         }
         // Otherwise if the data is chunked, concatenate the childVectors from each chunk
         // to construct a single chunked Vector for each column. Then return the ChunkedData
         // instance from each unified chunked column as the childData of a chunked NestedVector
-        const chunks = ((data as ChunkedData<T>).chunkVectors as NestedVector<T>[]);
+        const chunks = ((data as any as ChunkedData<T>).chunkVectors as NestedVector<T>[]);
         return this._childData = chunks
             .reduce<(Vector<T> | null)[][]>((cols, chunk) => chunk.childData
             .reduce<(Vector<T> | null)[][]>((cols, _, i) => (
@@ -197,7 +197,7 @@ export class NullVector extends Vector<Null> {
 
 export class BoolVector extends Vector<Bool> {
     public static from(data: IterableArrayLike<boolean>) {
-        return new BoolVector(new BoolData(new Bool(), data.length, null, packBools(data)));
+        return new BoolVector(new BoolData(new Bool(), data.length, null, packBools(data)) as Data<Bool>);
     }
     public get values() { return this.data.values; }
     constructor(data: Data<Bool>, view: View<Bool> = new BoolView(data)) {
@@ -360,7 +360,7 @@ export class Utf8Vector extends ListVectorBase<Utf8> {
 export class ListVector<T extends DataType = DataType> extends ListVectorBase<List<T>> {
     // @ts-ignore
     public readonly view: ListView<T>;
-    constructor(data: Data<T>, view: View<List<T>> = new ListView(data)) {
+    constructor(data: Data<List<T>>, view: ListView<T> = new ListView<T>(data as any)) {
         super(data, view);
     }
     public getChildAt(index: number): Vector<T> | null {
@@ -439,22 +439,22 @@ export const createVector = ((VectorLoader: new <T extends DataType>(data: Data<
     <T extends DataType>(data: Data<T>) => TypeVisitor.visitTypeInline(new VectorLoader(data), data.type) as Vector<T>
 ))(class VectorLoader<T extends DataType> extends TypeVisitor {
     constructor(private data: Data<T>) { super(); }
-    visitNull           (_type: Null)            { return new NullVector(this.data);            }
-    visitInt            (_type: Int)             { return new IntVector(this.data);             }
-    visitFloat          (_type: Float)           { return new FloatVector(this.data);           }
-    visitBinary         (_type: Binary)          { return new BinaryVector(this.data);          }
-    visitUtf8           (_type: Utf8)            { return new Utf8Vector(this.data);            }
-    visitBool           (_type: Bool)            { return new BoolVector(this.data);            }
-    visitDecimal        (_type: Decimal)         { return new DecimalVector(this.data);         }
-    visitDate           (_type: Date_)           { return new DateVector(this.data);            }
-    visitTime           (_type: Time)            { return new TimeVector(this.data);            }
-    visitTimestamp      (_type: Timestamp)       { return new TimestampVector(this.data);       }
-    visitInterval       (_type: Interval)        { return new IntervalVector(this.data);        }
-    visitList           (_type: List)            { return new ListVector(this.data);            }
-    visitStruct         (_type: Struct)          { return new StructVector(this.data);          }
-    visitUnion          (_type: Union)           { return new UnionVector(this.data);           }
-    visitFixedSizeBinary(_type: FixedSizeBinary) { return new FixedSizeBinaryVector(this.data); }
-    visitFixedSizeList  (_type: FixedSizeList)   { return new FixedSizeListVector(this.data);   }
-    visitMap            (_type: Map_)            { return new MapVector(this.data);             }
-    visitDictionary     (_type: Dictionary)      { return new DictionaryVector(this.data);      }
+    visitNull           (_type: Null)            { return new NullVector(<any> this.data);            }
+    visitInt            (_type: Int)             { return new IntVector(<any> this.data);             }
+    visitFloat          (_type: Float)           { return new FloatVector(<any> this.data);           }
+    visitBinary         (_type: Binary)          { return new BinaryVector(<any> this.data);          }
+    visitUtf8           (_type: Utf8)            { return new Utf8Vector(<any> this.data);            }
+    visitBool           (_type: Bool)            { return new BoolVector(<any> this.data);            }
+    visitDecimal        (_type: Decimal)         { return new DecimalVector(<any> this.data);         }
+    visitDate           (_type: Date_)           { return new DateVector(<any> this.data);            }
+    visitTime           (_type: Time)            { return new TimeVector(<any> this.data);            }
+    visitTimestamp      (_type: Timestamp)       { return new TimestampVector(<any> this.data);       }
+    visitInterval       (_type: Interval)        { return new IntervalVector(<any> this.data);        }
+    visitList           (_type: List)            { return new ListVector(<any> this.data);            }
+    visitStruct         (_type: Struct)          { return new StructVector(<any> this.data);          }
+    visitUnion          (_type: Union)           { return new UnionVector(<any> this.data);           }
+    visitFixedSizeBinary(_type: FixedSizeBinary) { return new FixedSizeBinaryVector(<any> this.data); }
+    visitFixedSizeList  (_type: FixedSizeList)   { return new FixedSizeListVector(<any> this.data);   }
+    visitMap            (_type: Map_)            { return new MapVector(<any> this.data);             }
+    visitDictionary     (_type: Dictionary)      { return new DictionaryVector(<any> this.data);      }
 });
