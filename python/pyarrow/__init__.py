@@ -47,10 +47,12 @@ except DistributionNotFound:
 try:
     import ctypes
     import os
+    from sys import platform
     import site
-    SITE_PATH, = site.getsitepackages()
-    ctypes.CDLL(os.path.join(SITE_PATH, "tensorflow",
-                             "libtensorflow_framework.so"))
+    if platform == "linux" or platform == "linux2":
+        SITE_PATH, = site.getsitepackages()
+        ctypes.CDLL(os.path.join(SITE_PATH, "tensorflow",
+                                 "libtensorflow_framework.so"))
 except:
     pass
 
