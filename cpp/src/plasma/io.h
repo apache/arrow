@@ -30,6 +30,9 @@
 #include "arrow/status.h"
 #include "plasma/compat.h"
 
+// Forward declaration outside the namespace, which is defined in plasma_generated.h.
+enum class MessageType : int64_t;
+
 namespace plasma {
 
 // TODO(pcm): Replace our own custom message header (message type,
@@ -41,11 +44,11 @@ using arrow::Status;
 
 Status WriteBytes(int fd, uint8_t* cursor, size_t length);
 
-Status WriteMessage(int fd, int64_t type, int64_t length, uint8_t* bytes);
+Status WriteMessage(int fd, MessageType type, int64_t length, uint8_t* bytes);
 
 Status ReadBytes(int fd, uint8_t* cursor, size_t length);
 
-Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer);
+Status ReadMessage(int fd, MessageType* type, std::vector<uint8_t>* buffer);
 
 int bind_ipc_sock(const std::string& pathname, bool shall_listen);
 

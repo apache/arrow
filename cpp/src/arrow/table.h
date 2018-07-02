@@ -220,6 +220,10 @@ class ARROW_EXPORT Table {
   virtual Status AddColumn(int i, const std::shared_ptr<Column>& column,
                            std::shared_ptr<Table>* out) const = 0;
 
+  /// \brief Replace a column in the table, producing a new Table
+  virtual Status SetColumn(int i, const std::shared_ptr<Column>& column,
+                           std::shared_ptr<Table>* out) const = 0;
+
   /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
   /// \since 0.5.0
   ///

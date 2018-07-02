@@ -42,6 +42,10 @@ cdef class ChunkedArray:
     def __cinit__(self):
         self.chunked_array = NULL
 
+    def __init__(self):
+        raise TypeError("Do not call ChunkedArray's constructor directly, use "
+                        "`chunked_array` function instead.")
+
     cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array):
         self.sp_chunked_array = chunked_array
         self.chunked_array = chunked_array.get()
@@ -51,17 +55,7 @@ cdef class ChunkedArray:
         def __get__(self):
             return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
 
-    cdef int _check_nullptr(self) except -1:
-        if self.chunked_array == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def length(self):
-        self._check_nullptr()
         return self.chunked_array.length()
 
     def __len__(self):
@@ -76,24 +70,59 @@ cdef class ChunkedArray:
         -------
         int
         """
-        self._check_nullptr()
         return self.chunked_array.null_count()
 
+    def __iter__(self):
+        for chunk in self.iterchunks():
+            for item in chunk:
+                yield item
+
     def __getitem__(self, key):
-        cdef int64_t item
-        cdef int i
-        self._check_nullptr()
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         elif isinstance(key, six.integer_types):
-            index = _normalize_index(key, self.chunked_array.length())
-            for i in range(self.num_chunks):
-                if index < self.chunked_array.chunk(i).get().length():
-                    return self.chunk(i)[index]
-                else:
-                    index -= self.chunked_array.chunk(i).get().length()
+            return self.getitem(key)
         else:
             raise TypeError("key must either be a slice or integer")
+
+    cdef getitem(self, int64_t i):
+        cdef int j
+
+        index = _normalize_index(i, self.chunked_array.length())
+        for j in range(self.num_chunks):
+            if index < self.chunked_array.chunk(j).get().length():
+                return self.chunk(j)[index]
+            else:
+                index -= self.chunked_array.chunk(j).get().length()
+
+    def to_pandas(self,
+                  c_bool strings_to_categorical=False,
+                  c_bool zero_copy_only=False,
+                  c_bool integer_object_nulls=False):
+        """
+        Convert the arrow::Column to a pandas.Series
+
+        Returns
+        -------
+        pandas.Series
+        """
+        cdef:
+            PyObject* out
+            PandasOptions options
+
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls,
+            use_threads=False)
+
+        with nogil:
+            check_status(libarrow.ConvertChunkedArrayToPandas(
+                options,
+                self.sp_chunked_array,
+                self, &out))
+
+        return wrap_array_output(out)
 
     def slice(self, offset=0, length=None):
         """
@@ -132,7 +161,6 @@ cdef class ChunkedArray:
         -------
         int
         """
-        self._check_nullptr()
         return self.chunked_array.num_chunks()
 
     def chunk(self, i):
@@ -147,8 +175,6 @@ cdef class ChunkedArray:
         -------
         pyarrow.Array
         """
-        self._check_nullptr()
-
         if i >= self.num_chunks or i < 0:
             raise IndexError('Chunk index out of range.')
 
@@ -194,6 +220,7 @@ def chunked_array(arrays, type=None):
         Array arr
         vector[shared_ptr[CArray]] c_arrays
         shared_ptr[CChunkedArray] sp_chunked_array
+        shared_ptr[CDataType] sp_data_type
 
     for x in arrays:
         if isinstance(x, Array):
@@ -205,7 +232,14 @@ def chunked_array(arrays, type=None):
 
         c_arrays.push_back(arr.sp_array)
 
-    sp_chunked_array.reset(new CChunkedArray(c_arrays))
+    if type:
+        sp_data_type = pyarrow_unwrap_data_type(type)
+        sp_chunked_array.reset(new CChunkedArray(c_arrays, sp_data_type))
+    else:
+        if c_arrays.size() == 0:
+            raise ValueError("Cannot construct a chunked array with neither "
+                             "arrays nor type")
+        sp_chunked_array.reset(new CChunkedArray(c_arrays))
     return pyarrow_wrap_chunked_array(sp_chunked_array)
 
 
@@ -265,6 +299,10 @@ cdef class Column:
 
     def __cinit__(self):
         self.column = NULL
+
+    def __init__(self):
+        raise TypeError("Do not call Column's constructor directly, use one "
+                        "of the `Column.from_*` functions instead.")
 
     cdef void init(self, const shared_ptr[CColumn]& column):
         self.sp_column = column
@@ -360,22 +398,10 @@ cdef class Column:
         -------
         pandas.Series
         """
-        cdef:
-            PyObject* out
-            PandasOptions options
-
-        options = PandasOptions(
+        values = self.data.to_pandas(
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls,
-            use_threads=False)
-
-        with nogil:
-            check_status(libarrow.ConvertColumnToPandas(options,
-                                                        self.sp_column,
-                                                        self, &out))
-
-        values = wrap_array_output(out)
+            integer_object_nulls=integer_object_nulls)
         result = pd.Series(values, name=self.name)
 
         if isinstance(self.type, TimestampType):
@@ -400,15 +426,12 @@ cdef class Column:
         are_equal : boolean
         """
         cdef:
-            CColumn* my_col = self.column
+            CColumn* this_col = self.column
             CColumn* other_col = other.column
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_col.Equals(deref(other_col))
+            result = this_col.Equals(deref(other_col))
 
         return result
 
@@ -418,20 +441,10 @@ cdef class Column:
         """
         return self.data.to_pylist()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.column == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def __len__(self):
         return self.length()
 
     def length(self):
-        self._check_nullptr()
         return self.column.length()
 
     @property
@@ -447,7 +460,6 @@ cdef class Column:
         -------
         (int,)
         """
-        self._check_nullptr()
         return (self.length(),)
 
     @property
@@ -459,7 +471,6 @@ cdef class Column:
         -------
         int
         """
-        self._check_nullptr()
         return self.column.null_count()
 
     @property
@@ -493,9 +504,7 @@ cdef class Column:
         -------
         pyarrow.ChunkedArray
         """
-        cdef ChunkedArray chunked_array = ChunkedArray()
-        chunked_array.init(self.column.data())
-        return chunked_array
+        return pyarrow_wrap_chunked_array(self.column.data())
 
 
 cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
@@ -557,29 +566,23 @@ cdef class RecordBatch:
 
     Warning
     -------
-    Do not call this class's constructor directly, use one of the ``from_*``
-    methods instead.
+    Do not call this class's constructor directly, use one of the
+    ``RecordBatch.from_*`` functions instead.
     """
 
     def __cinit__(self):
         self.batch = NULL
         self._schema = None
 
+    def __init__(self):
+        raise TypeError("Do not call RecordBatch's constructor directly, use "
+                        "one of the `RecordBatch.from_*` functions instead.")
+
     cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
         self.batch = batch.get()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.batch == NULL:
-            raise ReferenceError(
-                "{} object references a NULL pointer. Not initialized.".format(
-                    type(self).__name__
-                )
-            )
-        return 0
-
     def __len__(self):
-        self._check_nullptr()
         return self.batch.num_rows()
 
     def replace_schema_metadata(self, dict metadata=None):
@@ -615,7 +618,6 @@ cdef class RecordBatch:
         -------
         int
         """
-        self._check_nullptr()
         return self.batch.num_columns()
 
     @property
@@ -641,12 +643,8 @@ cdef class RecordBatch:
         -------
         pyarrow.Schema
         """
-        cdef Schema schema
-        self._check_nullptr()
         if self._schema is None:
-            schema = Schema()
-            schema.init_schema(self.batch.schema())
-            self._schema = schema
+            self._schema = pyarrow_wrap_schema(self.batch.schema())
 
         return self._schema
 
@@ -722,15 +720,12 @@ cdef class RecordBatch:
 
     def equals(self, RecordBatch other):
         cdef:
-            CRecordBatch* my_batch = self.batch
+            CRecordBatch* this_batch = self.batch
             CRecordBatch* other_batch = other.batch
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_batch.Equals(deref(other_batch))
+            result = this_batch.Equals(deref(other_batch))
 
         return result
 
@@ -863,6 +858,10 @@ cdef class Table:
     def __cinit__(self):
         self.table = NULL
 
+    def __init__(self):
+        raise TypeError("Do not call Table's constructor directly, use one of "
+                        "the `Table.from_*` functions instead.")
+
     def __repr__(self):
         return 'pyarrow.{}\n{}'.format(type(self).__name__, str(self.schema))
 
@@ -870,18 +869,10 @@ cdef class Table:
         self.sp_table = table
         self.table = table.get()
 
-    cdef int _check_nullptr(self) except -1:
-        if self.table == nullptr:
-            raise ReferenceError(
-                "Table object references a NULL pointer. Not initialized."
-            )
-        return 0
-
     def _validate(self):
         """
         Validate table consistency.
         """
-        self._check_nullptr()
         with nogil:
             check_status(self.table.Validate())
 
@@ -945,15 +936,12 @@ cdef class Table:
         are_equal : boolean
         """
         cdef:
-            CTable* my_table = self.table
+            CTable* this_table = self.table
             CTable* other_table = other.table
             c_bool result
 
-        self._check_nullptr()
-        other._check_nullptr()
-
         with nogil:
-            result = my_table.Equals(deref(other_table))
+            result = this_table.Equals(deref(other_table))
 
         return result
 
@@ -961,7 +949,20 @@ cdef class Table:
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
                     nthreads=None, columns=None):
         """
-        Convert pandas.DataFrame to an Arrow Table
+        Convert pandas.DataFrame to an Arrow Table.
+
+        The column types in the resulting Arrow Table are inferred from the
+        dtypes of the pandas.Series in the DataFrame. In the case of non-object
+        Series, the NumPy dtype is translated to its Arrow equivalent. In the
+        case of `object`, we need to guess the datatype by looking at the
+        Python objects in this Series.
+
+        Be aware that Series of the `object` dtype don't carry enough
+        information to always lead to a meaningful Arrow type. In the case that
+        we cannot infer a type, e.g. because the DataFrame is of length 0 or
+        the Series only contains None/nan objects, the type is set to
+        null. This behavior can be avoided by constructing an explicit schema
+        and passing it to this function.
 
         Parameters
         ----------
@@ -1074,12 +1075,12 @@ cdef class Table:
     @staticmethod
     def from_batches(batches, Schema schema=None):
         """
-        Construct a Table from a list of Arrow RecordBatches
+        Construct a Table from a sequence or iterator of Arrow RecordBatches
 
         Parameters
         ----------
-        batches: list of RecordBatch
-            RecordBatch list to be converted, all schemas must be equal
+        batches: sequence or iterator of RecordBatch
+            Sequence of RecordBatch to be converted, all schemas must be equal
         schema : Schema, default None
             If not passed, will be inferred from the first RecordBatch
 
@@ -1097,7 +1098,7 @@ cdef class Table:
             c_batches.push_back(batch.sp_batch)
 
         if schema is None:
-            if len(batches) == 0:
+            if c_batches.size() == 0:
                 raise ValueError('Must pass schema, or at least '
                                  'one RecordBatch')
             c_schema = c_batches[0].get().schema()
@@ -1184,7 +1185,7 @@ cdef class Table:
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
             use_threads=use_threads)
-        self._check_nullptr()
+
         mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
                                              categories)
         return pd.DataFrame(mgr)
@@ -1203,7 +1204,6 @@ cdef class Table:
             list entries = []
             Column column
 
-        self._check_nullptr()
         for i in range(num_columns):
             column = self.column(i)
             entries.append((column.name, column.to_pylist()))
@@ -1219,7 +1219,6 @@ cdef class Table:
         -------
         pyarrow.Schema
         """
-        self._check_nullptr()
         return pyarrow_wrap_schema(self.table.schema())
 
     def column(self, i):
@@ -1258,11 +1257,9 @@ cdef class Table:
         pyarrow.Column
         """
         cdef:
-            Column column = Column()
             int num_columns = self.num_columns
             int index
 
-        self._check_nullptr()
         if not -num_columns <= i < num_columns:
             raise IndexError(
                 'Table column index {:d} is out of range'.format(i)
@@ -1271,8 +1268,7 @@ cdef class Table:
         index = i if i >= 0 else num_columns + i
         assert index >= 0
 
-        column.init(self.table.column(index))
-        return column
+        return pyarrow_wrap_column(self.table.column(index))
 
     def __getitem__(self, key):
         cdef int index = <int> _normalize_index(key, self.num_columns)
@@ -1294,7 +1290,6 @@ cdef class Table:
         -------
         int
         """
-        self._check_nullptr()
         return self.table.num_columns()
 
     @property
@@ -1309,7 +1304,6 @@ cdef class Table:
         -------
         int
         """
-        self._check_nullptr()
         return self.table.num_rows()
 
     def __len__(self):
@@ -1331,7 +1325,6 @@ cdef class Table:
         Add column to Table at position. Returns new table
         """
         cdef shared_ptr[CTable] c_table
-        self._check_nullptr()
 
         with nogil:
             check_status(self.table.AddColumn(i, column.sp_column, &c_table))
@@ -1349,10 +1342,20 @@ cdef class Table:
         Create new Table with the indicated column removed
         """
         cdef shared_ptr[CTable] c_table
-        self._check_nullptr()
 
         with nogil:
             check_status(self.table.RemoveColumn(i, &c_table))
+
+        return pyarrow_wrap_table(c_table)
+
+    def set_column(self, int i, Column column):
+        """
+        Replace column in Table at position. Returns new table
+        """
+        cdef shared_ptr[CTable] c_table
+
+        with nogil:
+            check_status(self.table.SetColumn(i, column.sp_column, &c_table))
 
         return pyarrow_wrap_table(c_table)
 

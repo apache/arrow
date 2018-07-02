@@ -81,6 +81,10 @@ endif(NOT BUILD_WARNING_LEVEL)
 
 string(TOUPPER ${BUILD_WARNING_LEVEL} UPPERCASE_BUILD_WARNING_LEVEL)
 
+if (NOT ("${COMPILER_FAMILY}" STREQUAL "msvc"))
+  set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -std=c++11")
+endif()
+
 if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
   if ("${COMPILER_FAMILY}" STREQUAL "msvc")
@@ -124,9 +128,11 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     # Treat all compiler warnings as errors
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
   elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall -Wconversion -Wno-sign-conversion")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall \
+-Wconversion -Wno-sign-conversion")
+
     # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
@@ -172,8 +178,21 @@ if ("${COMPILER_FAMILY}" STREQUAL "msvc")
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4800")
 endif()
 
-# Avoid clang error when an unknown warning flag is passed
+if ("${COMPILER_FAMILY}" STREQUAL "gcc")
+  # Without this, gcc >= 7 warns related to changes in C++17
+  set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
+endif()
+
+# Clang options for all builds
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
+  # Using Clang with ccache causes a bunch of spurious warnings that are
+  # purportedly fixed in the next version of ccache. See the following for details:
+  #
+  #   http://petereisentraut.blogspot.com/2011/05/ccache-and-clang.html
+  #   http://petereisentraut.blogspot.com/2011/09/ccache-and-clang-part-2.html
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
+
+  # Avoid clang error when an unknown warning flag is passed
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
 endif()
 
@@ -183,10 +202,6 @@ if (BUILD_WARNING_FLAGS)
   # warnings (use with Clang's -Weverything flag to find potential errors)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${BUILD_WARNING_FLAGS}")
 endif(BUILD_WARNING_FLAGS)
-
-if (NOT ("${COMPILER_FAMILY}" STREQUAL "msvc"))
-set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -std=c++11")
-endif()
 
 # Only enable additional instruction sets if they are supported
 if (CXX_SUPPORTS_SSE3 AND ARROW_SSE3)

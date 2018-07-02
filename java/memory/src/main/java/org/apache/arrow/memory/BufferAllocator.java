@@ -69,6 +69,17 @@ public interface BufferAllocator extends AutoCloseable {
   public BufferAllocator newChildAllocator(String name, long initReservation, long maxAllocation);
 
   /**
+   * Create a new child allocator.
+   *
+   * @param name            the name of the allocator.
+   * @param listener        allocation listener for the newly created child
+   * @param initReservation the initial space reservation (obtained from this allocator)
+   * @param maxAllocation   maximum amount of space the new allocator can allocate
+   * @return the new allocator, or null if it can't be created
+   */
+  public BufferAllocator newChildAllocator(String name, AllocationListener listener, long initReservation, long maxAllocation);
+
+  /**
    * Close and release all buffers generated from this buffer pool.
    *
    * <p>When assertions are on, complains if there are any outstanding buffers; to avoid

@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import collections
 import datetime
 import pytest
 import struct
@@ -34,11 +35,6 @@ def test_total_bytes_allocated():
     assert pa.total_allocated_bytes() == 0
 
 
-def test_repr_on_pre_init_array():
-    arr = pa.Array()
-    assert len(repr(arr)) > 0
-
-
 def test_getitem_NA():
     arr = pa.array([1, None, 2])
     assert arr[1] is pa.NA
@@ -46,7 +42,8 @@ def test_getitem_NA():
 
 def test_constructor_raises():
     # This could happen by wrong capitalization.
-    with pytest.raises(RuntimeError):
+    # ARROW-2638: prevent calling extension class constructors directly
+    with pytest.raises(TypeError):
         pa.Array([1, 2])
 
 
@@ -164,6 +161,15 @@ def test_array_slice():
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
             assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
+
+
+def test_array_iter():
+    arr = pa.array(range(10))
+
+    for i, j in zip(range(10), arr):
+        assert i == j
+
+    assert isinstance(arr, collections.Iterable)
 
 
 def test_struct_array_slice():
@@ -581,12 +587,6 @@ def test_cast_date64_to_int():
     assert result.equals(expected)
 
 
-def test_simple_type_construction():
-    result = pa.lib.TimestampType()
-    with pytest.raises(TypeError):
-        str(result)
-
-
 @pytest.mark.parametrize(
     ('data', 'typ'),
     [
@@ -821,14 +821,14 @@ def test_buffers_nested():
 
 
 def test_invalid_tensor_constructor_repr():
-    t = pa.Tensor([1])
-    assert repr(t) == '<invalid pyarrow.Tensor>'
-
-
-def test_invalid_tensor_operation():
-    t = pa.Tensor()
+    # ARROW-2638: prevent calling extension class constructors directly
     with pytest.raises(TypeError):
-        t.to_numpy()
+        repr(pa.Tensor([1]))
+
+
+def test_invalid_tensor_construction():
+    with pytest.raises(TypeError):
+        pa.Tensor()
 
 
 def test_struct_array_flatten():
@@ -877,3 +877,14 @@ def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     dict_arr2 = pa.DictionaryArray.from_arrays([0, 1, 2, 1, 0], dict_arr)
     assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']
+
+
+@pytest.mark.parametrize('unit', ['ns', 'us', 'ms', 's'])
+def test_timestamp_units_from_list(unit):
+    x = np.datetime64('2017-01-01 01:01:01.111111111', unit)
+    a1 = pa.array([x])
+    a2 = pa.array([x], type=pa.timestamp(unit))
+
+    assert a1.type == a2.type
+    assert a1.type.unit == unit
+    assert a1[0] == a2[0]

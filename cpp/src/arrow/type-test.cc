@@ -46,12 +46,16 @@ TEST(TestField, Basics) {
 }
 
 TEST(TestField, Equals) {
+  auto meta = key_value_metadata({{"a", "1"}, {"b", "2"}});
+
   Field f0("f0", int32());
   Field f0_nn("f0", int32(), false);
   Field f0_other("f0", int32());
+  Field f0_with_meta("f0", int32(), true, meta);
 
   ASSERT_TRUE(f0.Equals(f0_other));
   ASSERT_FALSE(f0.Equals(f0_nn));
+  ASSERT_FALSE(f0.Equals(f0_with_meta));
 }
 
 TEST(TestField, TestMetadataConstruction) {
@@ -197,10 +201,25 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
-  auto metadata = std::shared_ptr<KeyValueMetadata>(
-      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
-  auto schema = ::arrow::schema({f0, f1, f2}, metadata);
-  ASSERT_TRUE(metadata->Equals(*schema->metadata()));
+  auto metadata0 = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
+  auto metadata1 = key_value_metadata({{"foo", "baz"}});
+
+  auto schema0 = ::arrow::schema({f0, f1, f2}, metadata0);
+  ASSERT_TRUE(metadata0->Equals(*schema0->metadata()));
+
+  auto schema1 = ::arrow::schema({f0, f1, f2}, metadata1);
+  ASSERT_TRUE(metadata1->Equals(*schema1->metadata()));
+
+  auto schema2 = ::arrow::schema({f0, f1, f2}, metadata0->Copy());
+  ASSERT_TRUE(metadata0->Equals(*schema2->metadata()));
+
+  ASSERT_TRUE(schema0->Equals(*schema2));
+  ASSERT_FALSE(schema0->Equals(*schema1));
+  ASSERT_FALSE(schema2->Equals(*schema1));
+
+  // don't check metadata
+  ASSERT_TRUE(schema0->Equals(*schema1, false));
+  ASSERT_TRUE(schema2->Equals(*schema1, false));
 }
 
 TEST_F(TestSchema, TestAddMetadata) {

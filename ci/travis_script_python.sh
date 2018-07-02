@@ -36,10 +36,15 @@ source activate $CONDA_ENV_DIR
 python --version
 which python
 
+if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
+  CONDA_JVM_DEPS="jpype1"
+fi
+
 conda install -y -q pip \
       nomkl \
       cloudpickle \
       numpy=1.13.1 \
+      ${CONDA_JVM_DEPS} \
       pandas \
       cython
 
@@ -115,10 +120,11 @@ fi
 
 # Set up huge pages for plasma test
 if [ $TRAVIS_OS_NAME == "linux" ]; then
+    sudo sysctl -w vm.nr_hugepages=2048
     sudo mkdir -p /mnt/hugepages
     sudo mount -t hugetlbfs -o uid=`id -u` -o gid=`id -g` none /mnt/hugepages
     sudo bash -c "echo `id -g` > /proc/sys/vm/hugetlb_shm_group"
-    sudo bash -c "echo 20000 > /proc/sys/vm/nr_hugepages"
+    sudo bash -c "echo 2048 > /proc/sys/vm/nr_hugepages"
 fi
 
 # Need to run tests from the source tree for Cython coverage and conftest.py

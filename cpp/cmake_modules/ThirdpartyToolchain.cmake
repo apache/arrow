@@ -17,44 +17,9 @@
 
 
 # ----------------------------------------------------------------------
-# Thirdparty toolchain
+# Thirdparty versions, environment variables, source URLs
 
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
-set(GFLAGS_VERSION "2.2.0")
-set(GTEST_VERSION "1.8.0")
-set(GBENCHMARK_VERSION "1.1.0")
-set(FLATBUFFERS_VERSION "1.9.0")
-set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
-set(SNAPPY_VERSION "1.1.3")
-set(BROTLI_VERSION "v0.6.0")
-set(LZ4_VERSION "1.7.5")
-set(ZSTD_VERSION "1.2.0")
-set(PROTOBUF_VERSION "2.6.0")
-set(GRPC_VERSION "94582910ad7f82ad447ecc72e6548cb669e4f7a9") # v1.6.5
-set(ORC_VERSION "cf00b67795717ab3eb04e950780ed6d104109017")
-
-string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
-
-set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
-set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
-
-if (NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
-  set(EP_LOG_OPTIONS
-    LOG_CONFIGURE 1
-    LOG_BUILD 1
-    LOG_INSTALL 1
-    LOG_DOWNLOAD 1)
-  set(Boost_DEBUG FALSE)
-else()
-  set(EP_LOG_OPTIONS)
-  set(Boost_DEBUG TRUE)
-endif()
-
-if (NOT MSVC)
-  # Set -fPIC on all external projects
-  set(EP_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
-  set(EP_C_FLAGS "${EP_C_FLAGS} -fPIC")
-endif()
 
 if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -114,6 +79,145 @@ if (DEFINED ENV{PROTOBUF_HOME})
   set(PROTOBUF_HOME "$ENV{PROTOBUF_HOME}")
 endif()
 
+# ----------------------------------------------------------------------
+# Versions and URLs for toolchain builds, which also can be used to configure
+# offline builds
+
+# Read toolchain versions from cpp/thirdparty/versions.txt
+file(STRINGS "${THIRDPARTY_DIR}/versions.txt" TOOLCHAIN_VERSIONS_TXT)
+foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
+  # Exclude comments
+  if(_VERSION_ENTRY MATCHES "#.*")
+    continue()
+  endif()
+
+  string(REGEX MATCH "^[^=]*" _LIB_NAME ${_VERSION_ENTRY})
+  string(REPLACE "${_LIB_NAME}=" "" _LIB_VERSION ${_VERSION_ENTRY})
+
+  # Skip blank or malformed lines
+  if(${_LIB_VERSION} STREQUAL "")
+    continue()
+  endif()
+
+  # For debugging
+  message(STATUS "${_LIB_NAME}: ${_LIB_VERSION}")
+
+  set(${_LIB_NAME} "${_LIB_VERSION}")
+endforeach()
+
+if (DEFINED ENV{ARROW_BOOST_URL})
+  set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
+else()
+  string(REPLACE "." "_" BOOST_VERSION_UNDERSCORES ${BOOST_VERSION})
+  set(BOOST_SOURCE_URL
+    "https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERSCORES}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_GTEST_URL})
+  set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
+else()
+  set(GTEST_SOURCE_URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_GFLAGS_URL})
+  set(GFLAGS_SOURCE_URL "$ENV{ARROW_GFLAGS_URL}")
+else()
+  set(GFLAGS_SOURCE_URL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_GBENCHMARK_URL})
+  set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
+else()
+  set(GBENCHMARK_SOURCE_URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz")
+endif()
+
+set(RAPIDJSON_SOURCE_MD5 "badd12c511e081fec6c89c43a7027bce")
+if (DEFINED ENV{ARROW_RAPIDJSON_URL})
+  set(RAPIDJSON_SOURCE_URL "$ENV{ARROW_RAPIDJSON_URL}")
+else()
+  set(RAPIDJSON_SOURCE_URL "https://github.com/miloyip/rapidjson/archive/v${RAPIDJSON_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_FLATBUFFERS_URL})
+  set(FLATBUFFERS_SOURCE_URL "$ENV{ARROW_FLATBUFFERS_URL}")
+else()
+  set(FLATBUFFERS_SOURCE_URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_SNAPPY_URL})
+  set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
+else()
+  set(SNAPPY_SOURCE_URL "https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_BROTLI_URL})
+  set(BROTLI_SOURCE_URL "$ENV{ARROW_BROTLI_URL}")
+else()
+  set(BROTLI_SOURCE_URL "https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_LZ4_URL})
+  set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
+else()
+  set(LZ4_SOURCE_URL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_ZLIB_URL})
+  set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
+else()
+  set(ZLIB_SOURCE_URL "http://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_ZSTD_URL})
+  set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
+else()
+  set(ZSTD_SOURCE_URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_PROTOBUF_URL})
+  set(PROTOBUF_SOURCE_URL "$ENV{ARROW_PROTOBUF_URL}")
+else()
+  set(PROTOBUF_SOURCE_URL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_GRPC_URL})
+  set(GRPC_SOURCE_URL "$ENV{ARROW_GRPC_URL}")
+else()
+  set(GRPC_SOURCE_URL "https://github.com/grpc/grpc/archive/v${GRPC_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_ORC_URL})
+  set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
+else()
+  set(ORC_SOURCE_URL "https://github.com/apache/orc/archive/rel/release-${ORC_VERSION}.tar.gz")
+endif()
+
+# ----------------------------------------------------------------------
+# ExternalProject options
+
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
+
+set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
+set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
+
+if (NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
+  set(EP_LOG_OPTIONS
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    LOG_DOWNLOAD 1)
+  set(Boost_DEBUG FALSE)
+else()
+  set(EP_LOG_OPTIONS)
+  set(Boost_DEBUG TRUE)
+endif()
+
+if (NOT MSVC)
+  # Set -fPIC on all external projects
+  set(EP_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
+  set(EP_C_FLAGS "${EP_C_FLAGS} -fPIC")
+endif()
+
 # Ensure that a default make is set
 if ("${MAKE}" STREQUAL "")
     if (NOT MSVC)
@@ -137,6 +241,8 @@ if (MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+  "1.68.0" "1.68"
+  "1.67.0" "1.67"
   "1.66.0" "1.66"
   "1.65.0" "1.65"
   "1.64.0" "1.64"
@@ -144,10 +250,6 @@ set(Boost_ADDITIONAL_VERSIONS
   "1.62.0" "1.61"
   "1.61.0" "1.62"
   "1.60.0" "1.60")
-list(GET Boost_ADDITIONAL_VERSIONS 0 BOOST_LATEST_VERSION)
-string(REPLACE "." "_" BOOST_LATEST_VERSION_IN_PATH ${BOOST_LATEST_VERSION})
-set(BOOST_LATEST_URL
-  "https://dl.bintray.com/boostorg/release/${BOOST_LATEST_VERSION}/source/boost_${BOOST_LATEST_VERSION_IN_PATH}.tar.gz")
 
 if (ARROW_BOOST_VENDORED)
   set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
@@ -183,7 +285,7 @@ if (ARROW_BOOST_VENDORED)
       "cxxflags=-fPIC")
   endif()
   ExternalProject_Add(boost_ep
-    URL ${BOOST_LATEST_URL}
+    URL ${BOOST_SOURCE_URL}
     BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
     BUILD_IN_SOURCE 1
     CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
@@ -286,7 +388,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     endif()
 
     ExternalProject_Add(googletest_ep
-      URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
+      URL ${GTEST_SOURCE_URL}
       BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
       CMAKE_ARGS ${GTEST_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
@@ -312,7 +414,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   if("${GFLAGS_HOME}" STREQUAL "")
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
-    set(GFLAGS_URL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz")
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
     set(GFLAGS_HOME "${GFLAGS_PREFIX}")
     set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
@@ -335,7 +436,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                           -DCMAKE_CXX_FLAGS=${GFLAGS_CMAKE_CXX_FLAGS})
 
     ExternalProject_Add(gflags_ep
-      URL ${GFLAGS_URL}
+      URL ${GFLAGS_SOURCE_URL}
       ${EP_LOG_OPTIONS}
       BUILD_IN_SOURCE 1
       BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
@@ -365,10 +466,12 @@ if(ARROW_BUILD_BENCHMARKS)
   add_custom_target(runbenchmark ctest -L benchmark)
 
   if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+    if(NOT MSVC)
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 ${EP_CXX_FLAGS}")
+    endif()
+
     if(APPLE)
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 -stdlib=libc++")
-    elseif(NOT MSVC)
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC --std=c++11")
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "${GBENCHMARK_CMAKE_CXX_FLAGS} -stdlib=libc++")
     endif()
 
     set(GBENCHMARK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gbenchmark_ep/src/gbenchmark_ep-install")
@@ -385,7 +488,7 @@ if(ARROW_BUILD_BENCHMARKS)
     endif()
 
     ExternalProject_Add(gbenchmark_ep
-      URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz"
+      URL ${GBENCHMARK_SOURCE_URL}
       BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}"
       CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
@@ -410,8 +513,8 @@ if (ARROW_IPC)
   if("${RAPIDJSON_HOME}" STREQUAL "")
     ExternalProject_Add(rapidjson_ep
       PREFIX "${CMAKE_BINARY_DIR}"
-      URL "https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz"
-      URL_MD5 "badd12c511e081fec6c89c43a7027bce"
+      URL ${RAPIDJSON_SOURCE_URL}
+      URL_MD5 ${RAPIDJSON_SOURCE_MD5}
       CONFIGURE_COMMAND ""
       BUILD_COMMAND ""
       BUILD_IN_SOURCE 1
@@ -442,7 +545,7 @@ if (ARROW_IPC)
     endif()
     # We always need to do release builds, otherwise flatc will not be installed.
     ExternalProject_Add(flatbuffers_ep
-      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+      URL ${FLATBUFFERS_SOURCE_URL}
       CMAKE_ARGS
       "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
@@ -477,7 +580,7 @@ endif()
 
 if (ARROW_JEMALLOC)
   # We only use a vendored jemalloc as we want to control its version.
-  # Also our build of jemalloc is specially prefixed so that it will not 
+  # Also our build of jemalloc is specially prefixed so that it will not
   # conflict with the default allocator as well as other jemalloc
   # installations.
   # find_package(jemalloc)
@@ -576,7 +679,7 @@ if (ARROW_WITH_ZLIB)
                         -DBUILD_SHARED_LIBS=OFF)
 
     ExternalProject_Add(zlib_ep
-      URL "http://zlib.net/fossils/zlib-1.2.8.tar.gz"
+      URL ${ZLIB_SOURCE_URL}
       ${EP_LOG_OPTIONS}
       BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
       CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
@@ -609,7 +712,6 @@ if (ARROW_WITH_SNAPPY)
       set(SNAPPY_STATIC_LIB_NAME snappy)
     endif()
     set(SNAPPY_STATIC_LIB "${SNAPPY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(SNAPPY_SRC_URL "https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz")
 
     if (${UPPERCASE_BUILD_TYPE} EQUAL "RELEASE")
       if (APPLE)
@@ -638,7 +740,7 @@ if (ARROW_WITH_SNAPPY)
         BUILD_IN_SOURCE 1
         BUILD_COMMAND ${MAKE}
         INSTALL_DIR ${SNAPPY_PREFIX}
-        URL ${SNAPPY_SRC_URL}
+        URL ${SNAPPY_SOURCE_URL}
         CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
         BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
     else()
@@ -648,7 +750,7 @@ if (ARROW_WITH_SNAPPY)
         BUILD_IN_SOURCE 1
         BUILD_COMMAND ${MAKE}
         INSTALL_DIR ${SNAPPY_PREFIX}
-        URL ${SNAPPY_SRC_URL}
+        URL ${SNAPPY_SOURCE_URL}
         BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
     endif()
     set(SNAPPY_VENDORED 1)
@@ -692,7 +794,7 @@ if (ARROW_WITH_BROTLI)
                           -DBUILD_SHARED_LIBS=OFF)
 
     ExternalProject_Add(brotli_ep
-      URL "https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz"
+      URL ${BROTLI_SOURCE_URL}
       BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}" "${BROTLI_STATIC_LIBRARY_DEC}" "${BROTLI_STATIC_LIBRARY_COMMON}"
       ${BROTLI_BUILD_BYPRODUCTS}
       ${EP_LOG_OPTIONS}
@@ -754,7 +856,7 @@ if (ARROW_WITH_LZ4)
     endif()
 
     ExternalProject_Add(lz4_ep
-        URL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz"
+        URL ${LZ4_SOURCE_URL}
         ${EP_LOG_OPTIONS}
         UPDATE_COMMAND ""
         ${LZ4_PATCH_COMMAND}
@@ -807,7 +909,7 @@ if (ARROW_WITH_ZSTD)
     endif()
 
     ExternalProject_Add(zstd_ep
-        URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz"
+        URL ${ZSTD_SOURCE_URL}
         ${EP_LOG_OPTIONS}
         UPDATE_COMMAND ""
         ${ZSTD_PATCH_COMMAND}
@@ -887,12 +989,11 @@ if (ARROW_ORC)
     set (PROTOBUF_HOME "${PROTOBUF_PREFIX}")
     set (PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
     set (PROTOBUF_STATIC_LIB "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set (PROTOBUF_SRC_URL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
 
     ExternalProject_Add(protobuf_ep
       CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
       BUILD_IN_SOURCE 1
-      URL ${PROTOBUF_SRC_URL}
+      URL ${PROTOBUF_SOURCE_URL}
       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}"
       ${EP_LOG_OPTIONS})
 
@@ -916,47 +1017,68 @@ if (ARROW_ORC)
   endif ()
 
   # orc
-  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
-  set(ORC_HOME "${ORC_PREFIX}")
-  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
-  set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  if ("${COMPILER_FAMILY}" STREQUAL "clang")
-    if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
-      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
--Wno-inconsistent-missing-destructor-override ")
+  if ("${ORC_HOME}" STREQUAL "")
+    set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+    set(ORC_HOME "${ORC_PREFIX}")
+    set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+    set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+    if ("${COMPILER_FAMILY}" STREQUAL "clang")
+      if ("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+        set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
+  -Wno-inconsistent-missing-destructor-override ")
+      endif()
     endif()
+
+    set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
+
+    # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
+    # ${LZ4_HOME}/include, which forces us to specify the include directory
+    # manually as well.
+    set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
+                        -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
+                        -DBUILD_LIBHDFSPP=OFF
+                        -DBUILD_JAVA=OFF
+                        -DBUILD_TOOLS=OFF
+                        -DBUILD_CPP_TESTS=OFF
+                        -DINSTALL_VENDORED_LIBS=OFF
+                        -DPROTOBUF_HOME=${PROTOBUF_HOME}
+                        -DLZ4_HOME=${LZ4_HOME}
+                        -DLZ4_INCLUDE_DIR=${LZ4_INCLUDE_DIR}
+                        -DSNAPPY_HOME=${SNAPPY_HOME}
+                        -DZLIB_HOME=${ZLIB_HOME})
+
+    ExternalProject_Add(orc_ep
+      URL ${ORC_SOURCE_URL}
+      BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+      CMAKE_ARGS ${ORC_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
+
+    set(ORC_VENDORED 1)
+    add_dependencies(orc_ep zlib)
+    if (LZ4_VENDORED)
+      add_dependencies(orc_ep lz4_static)
+    endif()
+    if (SNAPPY_VENDORED)
+      add_dependencies(orc_ep snappy)
+    endif()
+    if (PROTOBUF_VENDORED)
+      add_dependencies(orc_ep protobuf_ep)
+    endif()
+  else()
+     set(ORC_INCLUDE_DIR "${ORC_HOME}/include")
+     set(ORC_STATIC_LIB "${ORC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+     set(ORC_VENDORED 0)
   endif()
-
-  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
-
-  # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
-  # ${LZ4_HOME}/include, which forces us to specify the include directory
-  # manually as well.
-  set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                      -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
-                      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
-                      -DBUILD_LIBHDFSPP=OFF
-                      -DBUILD_JAVA=OFF
-                      -DBUILD_TOOLS=OFF
-                      -DBUILD_CPP_TESTS=OFF
-                      -DINSTALL_VENDORED_LIBS=OFF
-                      -DPROTOBUF_HOME=${PROTOBUF_HOME}
-                      -DLZ4_HOME=${LZ4_HOME}
-                      -DLZ4_INCLUDE_DIR=${LZ4_INCLUDE_DIR}
-                      -DSNAPPY_HOME=${SNAPPY_HOME}
-                      -DZLIB_HOME=${ZLIB_HOME})
-
-  ExternalProject_Add(orc_ep
-    URL "https://github.com/apache/orc/archive/${ORC_VERSION}.tar.gz"
-    BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-    CMAKE_ARGS ${ORC_CMAKE_ARGS}
-    ${EP_LOG_OPTIONS})
 
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(orc
     STATIC_LIB ${ORC_STATIC_LIB})
 
-  add_dependencies(orc_ep protobuf lz4_static snappy zlib)
-  add_dependencies(orc orc_ep)
+  if (ORC_VENDORED)
+    add_dependencies(orc orc_ep)
+  endif()
+
 endif()

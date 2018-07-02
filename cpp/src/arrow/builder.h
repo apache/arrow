@@ -837,6 +837,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
 
+  int32_t byte_width() const { return byte_width_; }
+
   /// Temporary access to a value.
   ///
   /// This pointer becomes invalid on the next modifying operation.
@@ -940,7 +942,7 @@ struct DictionaryScalar<StringType> {
 
 template <>
 struct DictionaryScalar<FixedSizeBinaryType> {
-  using type = uint8_t const*;
+  using type = const uint8_t*;
 };
 
 }  // namespace internal
@@ -984,10 +986,12 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   bool is_building_delta() { return entry_id_offset_ > 0; }
 
  protected:
+  // Hash table implementation helpers
   Status DoubleTableSize();
   Scalar GetDictionaryValue(typename TypeTraits<T>::BuilderType& dictionary_builder,
                             int64_t index);
   int64_t HashValue(const Scalar& value);
+  // Check whether the dictionary entry in *slot* is equal to the given *value*
   bool SlotDifferent(hash_slot_t slot, const Scalar& value);
   Status AppendDictionary(const Scalar& value);
 
@@ -997,16 +1001,20 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   /// Size of the table. Must be a power of 2.
   int64_t hash_table_size_;
 
-  // offset for the entry ids. Used to build delta dictionaries,
-  // increased on every InternalFinish by the number of current entries
-  // in the dictionary
+  // Offset for the dictionary entries in dict_builder_.
+  // Increased on every Finish call by the number of current entries
+  // in the dictionary.
   int64_t entry_id_offset_;
 
   // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
   // hash_table_size_, but uses far fewer CPU cycles
   int64_t mod_bitmask_;
 
+  // This builder accumulates new dictionary entries since the last Finish call
+  // (or since the beginning if Finish hasn't been called).
+  // In other words, it contains the current delta dictionary.
   typename TypeTraits<T>::BuilderType dict_builder_;
+  // This builder stores dictionary entries encountered before the last Finish call.
   typename TypeTraits<T>::BuilderType overflow_dict_builder_;
 
   AdaptiveIntBuilder values_builder_;

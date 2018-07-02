@@ -107,7 +107,7 @@ def test_single_pylist_column_roundtrip(tmpdir):
             assert data_written.equals(data_read)
 
 
-def alltypes_sample(size=10000, seed=0):
+def alltypes_sample(size=10000, seed=0, categorical=False):
     np.random.seed(seed)
     arrays = {
         'uint8': np.arange(size, dtype=np.uint8),
@@ -125,33 +125,36 @@ def alltypes_sample(size=10000, seed=0):
         # them
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
                               dtype='datetime64[ms]'),
-        'str': [str(x) for x in range(size)],
+        'str': pd.Series([str(x) for x in range(size)]),
         'empty_str': [''] * size,
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'null': [None] * size,
         'null_list': [None] * 2 + [[None] * (x % 4) for x in range(size - 2)],
     }
+    if categorical:
+        arrays['str_category'] = arrays['str'].astype('category')
     return pd.DataFrame(arrays)
 
 
 @parquet
-def test_pandas_parquet_2_0_rountrip(tmpdir):
+@pytest.mark.parametrize('chunk_size', [None, 1000])
+def test_pandas_parquet_2_0_rountrip(tmpdir, chunk_size):
     import pyarrow.parquet as pq
-    df = alltypes_sample(size=10000)
+    df = alltypes_sample(size=10000, categorical=True)
 
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = pa.Table.from_pandas(df)
     assert b'pandas' in arrow_table.schema.metadata
 
     _write_table(arrow_table, filename.strpath, version="2.0",
-                 coerce_timestamps='ms')
+                 coerce_timestamps='ms', chunk_size=chunk_size)
     table_read = pq.read_pandas(filename.strpath)
     assert b'pandas' in table_read.schema.metadata
 
     assert arrow_table.schema.metadata == table_read.schema.metadata
 
-    df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read)
+    df_read = table_read.to_pandas(categories=['str_category'])
+    tm.assert_frame_equal(df, df_read, check_categorical=False)
 
 
 @parquet
@@ -498,7 +501,7 @@ def test_pandas_parquet_configuration_options(tmpdir):
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
-    for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4']:
+    for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4', 'ZSTD']:
         _write_table(arrow_table, filename.strpath,
                      version="2.0",
                      compression=compression)
@@ -1058,40 +1061,41 @@ def test_equivalency(tmpdir):
     assert 'b' not in result_df['string'].values
     assert False not in result_df['boolean'].values
 
-    @parquet
-    def test_cutoff_exclusive_integer(tmpdir):
-        fs = LocalFileSystem.get_instance()
-        base_path = str(tmpdir)
 
-        import pyarrow.parquet as pq
+@parquet
+def test_cutoff_exclusive_integer(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
 
-        integer_keys = [0, 1, 2, 3, 4]
-        partition_spec = [
-            ['integers', integer_keys],
+    import pyarrow.parquet as pq
+
+    integer_keys = [0, 1, 2, 3, 4]
+    partition_spec = [
+        ['integers', integer_keys],
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'integers': np.array(integer_keys, dtype='i4'),
+    }, columns=['index', 'integers'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[
+            ('integers', '<', 4),
+            ('integers', '>', 1),
         ]
-        N = 5
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas()
+                      .sort_values(by='index')
+                      .reset_index(drop=True))
 
-        df = pd.DataFrame({
-            'index': np.arange(N),
-            'integers': np.array(integer_keys, dtype='i4'),
-        }, columns=['index', 'integers'])
-
-        _generate_partition_directories(fs, base_path, partition_spec, df)
-
-        dataset = pq.ParquetDataset(
-            base_path, filesystem=fs,
-            filters=[
-                ('integers', '<', 4),
-                ('integers', '>', 1),
-            ]
-        )
-        table = dataset.read()
-        result_df = (table.to_pandas()
-                          .sort_values(by='index')
-                          .reset_index(drop=True))
-
-        result_list = [x for x in map(int, result_df['integers'].values)]
-        assert result_list == [2, 3]
+    result_list = [x for x in map(int, result_df['integers'].values)]
+    assert result_list == [2, 3]
 
 
 @parquet
@@ -1180,6 +1184,44 @@ def test_inclusive_integer(tmpdir):
 
 
 @parquet
+def test_inclusive_set(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    import pyarrow.parquet as pq
+
+    integer_keys = [0, 1]
+    string_keys = ['a', 'b', 'c']
+    boolean_keys = [True, False]
+    partition_spec = [
+        ['integer', integer_keys],
+        ['string', string_keys],
+        ['boolean', boolean_keys]
+    ]
+
+    df = pd.DataFrame({
+        'integer': np.array(integer_keys, dtype='i4').repeat(15),
+        'string': np.tile(np.tile(np.array(string_keys, dtype=object), 5), 2),
+        'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5),
+                           3),
+    }, columns=['integer', 'string', 'boolean'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[('integer', 'in', {1}), ('string', 'in', {'a', 'b'}),
+                 ('boolean', 'in', {True})]
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas().reset_index(drop=True))
+
+    assert 0 not in result_df['integer'].values
+    assert 'c' not in result_df['string'].values
+    assert False not in result_df['boolean'].values
+
+
+@parquet
 def test_invalid_pred_op(tmpdir):
     fs = LocalFileSystem.get_instance()
     base_path = str(tmpdir)
@@ -1204,6 +1246,20 @@ def test_invalid_pred_op(tmpdir):
                           filesystem=fs,
                           filters=[
                             ('integers', '=<', 3),
+                          ])
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[
+                            ('integers', 'in', set()),
+                          ])
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[
+                            ('integers', '!=', {3}),
                           ])
 
 
@@ -1345,6 +1401,41 @@ def test_read_common_metadata_files(tmpdir):
     base_path = str(tmpdir)
     fs = LocalFileSystem.get_instance()
     _test_read_common_metadata_files(fs, base_path)
+
+
+def _test_read_metadata_files(fs, base_path):
+    import pyarrow.parquet as pq
+
+    N = 100
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
+
+    data_path = pjoin(base_path, 'data.parquet')
+
+    table = pa.Table.from_pandas(df)
+
+    with fs.open(data_path, 'wb') as f:
+        _write_table(table, f)
+
+    metadata_path = pjoin(base_path, '_metadata')
+    with fs.open(metadata_path, 'wb') as f:
+        pq.write_metadata(table.schema, f)
+
+    dataset = pq.ParquetDataset(base_path, filesystem=fs)
+    assert dataset.metadata_path == metadata_path
+
+    with fs.open(data_path) as f:
+        metadata_schema = pq.read_metadata(f).schema
+    assert dataset.schema.equals(metadata_schema)
+
+
+@parquet
+def test_read_metadata_files(tmpdir):
+    base_path = str(tmpdir)
+    fs = LocalFileSystem.get_instance()
+    _test_read_metadata_files(fs, base_path)
 
 
 @parquet
@@ -1626,6 +1717,18 @@ def test_read_non_existent_file(tmpdir):
         pq.read_table(path)
     except Exception as e:
         assert path in e.args[0]
+
+
+@parquet
+def test_read_table_doesnt_warn():
+    import pyarrow.parquet as pq
+
+    path = os.path.join(os.path.dirname(__file__), 'data', 'v0.7.1.parquet')
+
+    with pytest.warns(None) as record:
+        pq.read_table(path)
+
+    assert len(record) == 0
 
 
 def _test_write_to_dataset_with_partitions(base_path, filesystem=None):

@@ -105,6 +105,4 @@ cdef class FeatherReader:
             check_status(self.reader.get()
                          .GetColumn(i, &sp_column))
 
-        cdef Column col = Column()
-        col.init(sp_column)
-        return col
+        return pyarrow_wrap_column(sp_column)

@@ -251,6 +251,7 @@ coerce_timestamps : string, default None
     Valid values: {None, 'ms', 'us'}
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options for compatibility"""
 
@@ -728,8 +729,10 @@ class ParquetDataset(object):
 
         self.paths = path_or_paths
 
-        (self.pieces, self.partitions,
-         self.common_metadata_path) = _make_manifest(path_or_paths, self.fs)
+        (self.pieces,
+         self.partitions,
+         self.common_metadata_path,
+         self.metadata_path) = _make_manifest(path_or_paths, self.fs)
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
@@ -737,7 +740,12 @@ class ParquetDataset(object):
         else:
             self.common_metadata = None
 
-        self.metadata = metadata
+        if metadata is None and self.metadata_path is not None:
+            with self.fs.open(self.metadata_path) as f:
+                self.metadata = ParquetFile(f).metadata
+        else:
+            self.metadata = metadata
+
         self.schema = schema
 
         self.split_row_groups = split_row_groups
@@ -755,8 +763,8 @@ class ParquetDataset(object):
         open_file = self._get_open_file_func()
 
         if self.metadata is None and self.schema is None:
-            if self.common_metadata_path is not None:
-                self.schema = open_file(self.common_metadata_path).schema
+            if self.common_metadata is not None:
+                self.schema = self.common_metadata.schema
             else:
                 self.schema = self.pieces[0].get_metadata(open_file).schema
         elif self.schema is None:
@@ -775,7 +783,7 @@ class ParquetDataset(object):
         for piece in self.pieces:
             file_metadata = piece.get_metadata(open_file)
             file_schema = file_metadata.schema.to_arrow_schema()
-            if not dataset_schema.equals(file_schema):
+            if not dataset_schema.equals(file_schema, check_metadata=False):
                 raise ValueError('Schema in {0!s} was different. \n'
                                  '{1!s}\n\nvs\n\n{2!s}'
                                  .format(piece, file_schema,
@@ -865,6 +873,18 @@ class ParquetDataset(object):
                 return True
 
             f_type = type(f_value)
+
+            if isinstance(f_value, set):
+                if not f_value:
+                    raise ValueError("Cannot use empty set as filter value")
+                if op not in {'in', 'not in'}:
+                    raise ValueError("Op '%s' not supported with set value",
+                                     op)
+                if len(set([type(item) for item in f_value])) != 1:
+                    raise ValueError("All elements of set '%s' must be of"
+                                     " same type", f_value)
+                f_type = type(next(iter(f_value)))
+
             p_value = f_type((self.partitions
                                   .levels[level]
                                   .dictionary[p_value_index]
@@ -882,6 +902,10 @@ class ParquetDataset(object):
                 return p_value <= f_value
             elif op == '>=':
                 return p_value >= f_value
+            elif op == 'in':
+                return p_value in f_value
+            elif op == 'not in':
+                return p_value not in f_value
             else:
                 raise ValueError("'%s' is not a valid operator in predicates.",
                                  filter[1])
@@ -918,6 +942,7 @@ def _ensure_filesystem(fs):
 def _make_manifest(path_or_paths, fs, pathsep='/'):
     partitions = None
     common_metadata_path = None
+    metadata_path = None
 
     if len(path_or_paths) == 1:
         # Dask passes a directory as a list of length 1
@@ -927,6 +952,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/'):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    pathsep=fs.pathsep)
         common_metadata_path = manifest.common_metadata_path
+        metadata_path = manifest.metadata_path
         pieces = manifest.pieces
         partitions = manifest.partitions
     else:
@@ -945,7 +971,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/'):
             piece = ParquetDatasetPiece(path)
             pieces.append(piece)
 
-    return pieces, partitions, common_metadata_path
+    return pieces, partitions, common_metadata_path, metadata_path
 
 
 _read_table_docstring = """
@@ -1188,20 +1214,6 @@ def read_schema(where):
     schema : pyarrow.Schema
     """
     return ParquetFile(where).schema.to_arrow_schema()
-
-
-def _ensure_file(source):
-    if is_path(source):
-        fs = _get_fs_from_path(source)
-        try:
-            return fs.open(source)
-        except IOError as e:
-            raise lib.ArrowIOError("failed to open file {}, {}"
-                                   .format(source, e))
-    elif not hasattr(source, 'seek'):
-        raise ValueError('Source does not appear file-like')
-    else:
-        return source
 
 
 def _get_fs_from_path(path):

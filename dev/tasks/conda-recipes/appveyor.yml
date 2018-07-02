@@ -1,0 +1,73 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+environment:
+  matrix:
+    - TARGET_ARCH: x64
+      CONDA_PY: 35
+      CONDA_INSTALL_LOCN: C:\\Miniconda35-x64
+    - TARGET_ARCH: x64
+      CONDA_PY: 36
+      CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
+  ARROW_VERSION: {{ ARROW_VERSION }}
+
+install:
+    - cmd: rmdir C:\cygwin /s /q
+    # Add path, activate `conda` and update conda.
+    - cmd: call %CONDA_INSTALL_LOCN%\Scripts\activate.bat
+    - cmd: conda.exe update --yes --quiet conda
+    - cmd: set PYTHONUNBUFFERED=1
+    # Add our channels.
+    - cmd: conda.exe config --set show_channel_urls true
+    - cmd: conda.exe config --remove channels defaults
+    - cmd: conda.exe config --add channels defaults
+    - cmd: conda.exe config --add channels conda-forge
+    # Configure the VM.
+    - cmd: conda.exe install -n root --quiet --yes conda-forge-build-setup
+    - cmd: run_conda_forge_build_setup
+
+# Skip .NET project specific build phase.
+build: off
+
+test_script:
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow || exit /B
+  - git -C arrow checkout {{ ARROW_SHA }} || exit /B
+  - pushd arrow\dev\tasks\conda-recipes
+  - conda.exe build --output-folder . parquet-cpp arrow-cpp pyarrow
+  - pushd win-64
+  - for %%f in (*.tar.bz2) do (
+      set %%g=%%~nf
+      ren "%%f" "%%~ng-win-64.tar.bz2"
+    )
+
+artifacts:
+  # this must be relative and child of the build C:\projects\crossbow directory
+  - path: arrow\dev\tasks\conda-recipes\win-64\*.tar.bz2
+
+deploy:
+  release: {{ BUILD_TAG }}
+  provider: GitHub
+  auth_token: "%CROSSBOW_GITHUB_TOKEN%"
+  artifact: /.*\.tar\.bz2/
+  draft: false
+  prerelease: false
+  force_update: true
+
+notifications:
+  - provider: Email
+    to:
+      - {{ EMAIL }}

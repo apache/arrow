@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/io/interfaces.h"
@@ -63,6 +64,7 @@ struct HdfsConnectionConfig {
   int port;
   std::string user;
   std::string kerb_ticket;
+  std::unordered_map<std::string, std::string> extra_conf;
   HdfsDriver driver;
 };
 

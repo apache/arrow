@@ -64,8 +64,9 @@ cdef class HadoopFileSystem:
         str kerb_ticket
         str driver
         int port
+        dict extra_conf
 
-    def _connect(self, host, port, user, kerb_ticket, driver):
+    def _connect(self, host, port, user, kerb_ticket, driver, extra_conf):
         cdef HdfsConnectionConfig conf
 
         if host is not None:
@@ -94,6 +95,11 @@ cdef class HadoopFileSystem:
         else:
             raise ValueError("unknown driver: %r" % driver)
         self.driver = driver
+
+        if extra_conf is not None and isinstance(extra_conf, dict):
+            conf.extra_conf = {tobytes(k): tobytes(v)
+                               for k, v in extra_conf.items()}
+        self.extra_conf = extra_conf
 
         with nogil:
             check_status(CHadoopFileSystem.Connect(&conf, &self.client))

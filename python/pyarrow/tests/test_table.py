@@ -15,13 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import OrderedDict
+from collections import OrderedDict, Iterable
 import numpy as np
 from pandas.util.testing import assert_frame_equal
 import pandas as pd
 import pytest
 
 import pyarrow as pa
+
+
+def test_chunked_array_basics():
+    data = pa.chunked_array([], type=pa.string())
+    assert data.to_pylist() == []
+
+    with pytest.raises(ValueError):
+        pa.chunked_array([])
 
 
 def test_chunked_array_getitem():
@@ -47,6 +55,21 @@ def test_chunked_array_getitem():
     data_slice = data[99:99]
     assert data_slice.type == data.type
     assert data_slice.to_pylist() == []
+
+
+def test_chunked_array_iter():
+    data = [
+        pa.array([0]),
+        pa.array([1, 2, 3]),
+        pa.array([4, 5, 6]),
+        pa.array([7, 8, 9])
+    ]
+    arr = pa.chunked_array(data)
+
+    for i, j in zip(range(10), arr):
+        assert i == j
+
+    assert isinstance(arr, Iterable)
 
 
 def test_column_basics():
@@ -95,6 +118,16 @@ def test_column_to_pandas():
     assert series.name == 'a'
     assert series.shape == (5,)
     assert series.iloc[0] == -10
+
+
+def test_chunked_array_to_pandas():
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+    array = table.column(0).data.to_pandas()
+    assert array.shape == (5,)
+    assert array[0] == -10
 
 
 def test_column_flatten():
@@ -279,6 +312,9 @@ def test_table_to_batches():
     assert_frame_equal(pa.Table.from_batches(batches).to_pandas(),
                        expected_df)
 
+    table_from_iter = pa.Table.from_batches(iter([batch1, batch2, batch1]))
+    assert table.equals(table_from_iter)
+
 
 def test_table_basics():
     data = [
@@ -357,6 +393,24 @@ def test_table_add_column():
     expected = pa.Table.from_arrays([data[1]] + data,
                                     names=('d', 'a', 'b', 'c'))
     assert t4.equals(expected)
+
+
+def test_table_set_column():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+
+    col = pa.Column.from_array('d', data[1])
+    t2 = table.set_column(0, col)
+
+    expected_data = list(data)
+    expected_data[0] = data[1]
+    expected = pa.Table.from_arrays(expected_data,
+                                    names=('d', 'b', 'c'))
+    assert t2.equals(expected)
 
 
 def test_table_drop():
@@ -471,17 +525,3 @@ def test_table_negative_indexing():
 
     with pytest.raises(IndexError):
         table[4]
-
-
-def test_table_ctor_errors():
-    with pytest.raises(ReferenceError):
-        repr(pa.Table())
-    with pytest.raises(ReferenceError):
-        str(pa.Table())
-
-
-def test_schema_ctor_errors():
-    with pytest.raises(ReferenceError):
-        repr(pa.Schema())
-    with pytest.raises(ReferenceError):
-        str(pa.Schema())

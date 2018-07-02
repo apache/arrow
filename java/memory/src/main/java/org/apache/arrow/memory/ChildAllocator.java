@@ -32,6 +32,7 @@ class ChildAllocator extends BaseAllocator {
   /**
    * Constructor.
    *
+   * @param listener        Allocation listener to be used in this child
    * @param parentAllocator parent allocator -- the one creating this child
    * @param name            the name of this child allocator
    * @param initReservation initial amount of space to reserve (obtained from the parent)
@@ -41,11 +42,12 @@ class ChildAllocator extends BaseAllocator {
    *                        allocation policy in force, even less memory may be available
    */
   ChildAllocator(
+      AllocationListener listener,
       BaseAllocator parentAllocator,
       String name,
       long initReservation,
       long maxAllocation) {
-    super(parentAllocator, name, initReservation, maxAllocation);
+    super(parentAllocator, listener, name, initReservation, maxAllocation);
   }
 
 

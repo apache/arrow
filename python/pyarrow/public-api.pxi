@@ -38,14 +38,14 @@ cdef public api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
 
 
 cdef public api object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf):
-    cdef Buffer result = Buffer()
+    cdef Buffer result = Buffer.__new__(Buffer)
     result.init(buf)
     return result
 
 
 cdef public api object pyarrow_wrap_resizable_buffer(
         const shared_ptr[CResizableBuffer]& buf):
-    cdef ResizableBuffer result = ResizableBuffer()
+    cdef ResizableBuffer result = ResizableBuffer.__new__(ResizableBuffer)
     result.init_rz(buf)
     return result
 
@@ -66,28 +66,27 @@ cdef public api shared_ptr[CDataType] pyarrow_unwrap_data_type(
 
 cdef public api object pyarrow_wrap_data_type(
         const shared_ptr[CDataType]& type):
-    cdef:
-        DataType out
+    cdef DataType out
 
     if type.get() == NULL:
         return None
 
     if type.get().id() == _Type_DICTIONARY:
-        out = DictionaryType()
+        out = DictionaryType.__new__(DictionaryType)
     elif type.get().id() == _Type_LIST:
-        out = ListType()
+        out = ListType.__new__(ListType)
     elif type.get().id() == _Type_STRUCT:
-        out = StructType()
+        out = StructType.__new__(StructType)
     elif type.get().id() == _Type_UNION:
-        out = UnionType()
+        out = UnionType.__new__(UnionType)
     elif type.get().id() == _Type_TIMESTAMP:
-        out = TimestampType()
+        out = TimestampType.__new__(TimestampType)
     elif type.get().id() == _Type_FIXED_SIZE_BINARY:
-        out = FixedSizeBinaryType()
+        out = FixedSizeBinaryType.__new__(FixedSizeBinaryType)
     elif type.get().id() == _Type_DECIMAL:
-        out = Decimal128Type()
+        out = Decimal128Type.__new__(Decimal128Type)
     else:
-        out = DataType()
+        out = DataType.__new__(DataType)
 
     out.init(type)
     return out
@@ -109,7 +108,7 @@ cdef public api shared_ptr[CField] pyarrow_unwrap_field(object field):
 cdef public api object pyarrow_wrap_field(const shared_ptr[CField]& field):
     if field.get() == NULL:
         return None
-    cdef Field out = Field()
+    cdef Field out = Field.__new__(Field)
     out.init(field)
     return out
 
@@ -127,9 +126,9 @@ cdef public api shared_ptr[CSchema] pyarrow_unwrap_schema(object schema):
     return shared_ptr[CSchema]()
 
 
-cdef public api object pyarrow_wrap_schema(const shared_ptr[CSchema]& type):
-    cdef Schema out = Schema()
-    out.init_schema(type)
+cdef public api object pyarrow_wrap_schema(const shared_ptr[CSchema]& schema):
+    cdef Schema out = Schema.__new__(Schema)
+    out.init_schema(schema)
     return out
 
 
@@ -155,7 +154,9 @@ cdef public api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     if data_type == NULL:
         raise ValueError('Array data type was NULL')
 
-    cdef Array arr = _array_classes[data_type.id()]()
+    klass = _array_classes[data_type.id()]
+
+    cdef Array arr = klass.__new__(klass)
     arr.init(sp_array)
     return arr
 
@@ -170,7 +171,7 @@ cdef public api object pyarrow_wrap_chunked_array(
     if data_type == NULL:
         raise ValueError('ChunkedArray data type was NULL')
 
-    cdef ChunkedArray arr = ChunkedArray()
+    cdef ChunkedArray arr = ChunkedArray.__new__(ChunkedArray)
     arr.init(sp_array)
     return arr
 
@@ -193,7 +194,7 @@ cdef public api object pyarrow_wrap_tensor(
     if sp_tensor.get() == NULL:
         raise ValueError('Tensor was NULL')
 
-    cdef Tensor tensor = Tensor()
+    cdef Tensor tensor = Tensor.__new__(Tensor)
     tensor.init(sp_tensor)
     return tensor
 
@@ -212,7 +213,7 @@ cdef public api shared_ptr[CColumn] pyarrow_unwrap_column(object column):
 
 
 cdef public api object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn):
-    cdef Column column = Column()
+    cdef Column column = Column.__new__(Column)
     column.init(ccolumn)
     return column
 
@@ -231,7 +232,7 @@ cdef public api shared_ptr[CTable] pyarrow_unwrap_table(object table):
 
 
 cdef public api object pyarrow_wrap_table(const shared_ptr[CTable]& ctable):
-    cdef Table table = Table()
+    cdef Table table = Table.__new__(Table)
     table.init(ctable)
     return table
 
@@ -251,6 +252,6 @@ cdef public api shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch):
 
 cdef public api object pyarrow_wrap_batch(
         const shared_ptr[CRecordBatch]& cbatch):
-    cdef RecordBatch batch = RecordBatch()
+    cdef RecordBatch batch = RecordBatch.__new__(RecordBatch)
     batch.init(cbatch)
     return batch

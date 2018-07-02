@@ -1,0 +1,93 @@
+Source: apache-arrow
+Section: devel
+Priority: optional
+Maintainer: Kouhei Sutou <kou@clear-code.com>
+Build-Depends:
+  debhelper (>= 9),
+  pkg-config,
+  cmake,
+  git,
+  libboost-system-dev,
+  libboost-filesystem-dev,
+  libboost-regex-dev,
+  libjemalloc-dev,
+  libgirepository1.0-dev,
+  gtk-doc-tools,
+  gobject-introspection
+Build-Depends-Indep: libglib2.0-doc
+Standards-Version: 3.9.6
+Homepage: https://arrow.apache.org/
+
+Package: libarrow0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libjemalloc1
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides library files.
+
+Package: libarrow-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides header files.
+
+Package: libarrow-glib0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides library files.
+
+Package: gir1.2-arrow-1.0
+Section: introspection
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${gir:Depends},
+  ${misc:Depends}
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides GObject Introspection typelib files.
+
+Package: libarrow-glib-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libglib2.0-dev,
+  libarrow-dev (= ${binary:Version}),
+  libarrow-glib0 (= ${binary:Version}),
+  gir1.2-arrow-1.0 (= ${binary:Version})
+Suggests: libarrow-glib-doc
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides header files.
+
+Package: libarrow-glib-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends:
+  ${misc:Depends}
+Recommends: libglib2.0-doc
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides documentations.

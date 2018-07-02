@@ -84,6 +84,8 @@ G_BEGIN_DECLS
  *
  * #GArrowTime64DataType is a class for the number of microseconds or
  * nanoseconds since midnight in 64-bit signed integer data type.
+ *
+ * #GArrowDecimalDataType is a class for 128-bit decimal data type.
  */
 
 typedef struct GArrowDataTypePrivate_ {
@@ -1037,6 +1039,79 @@ garrow_time64_data_type_new(GArrowTimeUnit unit, GError **error)
   return data_type;
 }
 
+
+G_DEFINE_TYPE(GArrowDecimalDataType,                \
+              garrow_decimal_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_decimal_data_type_init(GArrowDecimalDataType *object)
+{
+}
+
+static void
+garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ *
+ * Returns: The newly created decimal data type.
+ *
+ * Since: 0.10.0
+ */
+GArrowDecimalDataType *
+garrow_decimal_data_type_new(gint32 precision,
+                             gint32 scale)
+{
+  auto arrow_data_type = arrow::decimal(precision, scale);
+
+  GArrowDecimalDataType *data_type =
+    GARROW_DECIMAL_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL_DATA_TYPE,
+                                          "data-type", &arrow_data_type,
+                                          NULL));
+  return data_type;
+}
+
+/**
+ * garrow_decimal_data_type_get_precision:
+ * @decimal_data_type: The #GArrowDecimalDataType.
+ *
+ * Returns: The precision of the decimal data type.
+ *
+ * Since: 0.10.0
+ */
+gint32
+garrow_decimal_data_type_get_precision(GArrowDecimalDataType *decimal_data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(decimal_data_type));
+  const auto arrow_decimal_type =
+    std::static_pointer_cast<arrow::DecimalType>(arrow_data_type);
+  return arrow_decimal_type->precision();
+}
+
+/**
+ * garrow_decimal_data_type_get_scale:
+ * @decimal_data_type: The #GArrowDecimalDataType.
+ *
+ * Returns: The scale of the decimal data type.
+ *
+ * Since: 0.10.0
+ */
+gint32
+garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(decimal_data_type));
+  const auto arrow_decimal_type =
+    std::static_pointer_cast<arrow::DecimalType>(arrow_data_type);
+  return arrow_decimal_type->scale();
+}
+
 G_END_DECLS
 
 GArrowDataType *
@@ -1111,6 +1186,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;
+    break;
+  case arrow::Type::type::DECIMAL:
+    type = GARROW_TYPE_DECIMAL_DATA_TYPE;
     break;
   default:
     type = GARROW_TYPE_DATA_TYPE;

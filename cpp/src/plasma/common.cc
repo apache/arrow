@@ -78,24 +78,24 @@ bool UniqueID::operator==(const UniqueID& rhs) const {
   return std::memcmp(data(), rhs.data(), kUniqueIDSize) == 0;
 }
 
-Status plasma_error_status(int plasma_error) {
+Status plasma_error_status(PlasmaError plasma_error) {
   switch (plasma_error) {
-    case PlasmaError_OK:
+    case PlasmaError::OK:
       return Status::OK();
-    case PlasmaError_ObjectExists:
+    case PlasmaError::ObjectExists:
       return Status::PlasmaObjectExists("object already exists in the plasma store");
-    case PlasmaError_ObjectNonexistent:
+    case PlasmaError::ObjectNonexistent:
       return Status::PlasmaObjectNonexistent("object does not exist in the plasma store");
-    case PlasmaError_OutOfMemory:
+    case PlasmaError::OutOfMemory:
       return Status::PlasmaStoreFull("object does not fit in the plasma store");
     default:
-      ARROW_LOG(FATAL) << "unknown plasma error code " << plasma_error;
+      ARROW_LOG(FATAL) << "unknown plasma error code " << static_cast<int>(plasma_error);
   }
   return Status::OK();
 }
 
-ARROW_EXPORT int ObjectStatusLocal = ObjectStatus_Local;
-ARROW_EXPORT int ObjectStatusRemote = ObjectStatus_Remote;
+ARROW_EXPORT ObjectStatus ObjectStatusLocal = ObjectStatus::Local;
+ARROW_EXPORT ObjectStatus ObjectStatusRemote = ObjectStatus::Remote;
 
 const PlasmaStoreInfo* plasma_config;
 

@@ -1,0 +1,67 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+branches:
+  # don't attempt to build branches intented for windows builds
+  except:
+    - /.*win.*/
+
+os: linux
+dist: trusty
+language: generic
+
+before_install:
+    # Install Miniconda.
+    - echo `pwd`
+    - |
+      echo ""
+      echo "Installing a fresh version of Miniconda."
+      MINICONDA_URL="https://repo.continuum.io/miniconda"
+      MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
+      curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
+      bash $MINICONDA_FILE -b
+
+    # Configure conda.
+    - |
+      echo ""
+      echo "Configuring conda."
+      source /home/travis/miniconda3/bin/activate root
+      conda config --remove channels defaults
+      conda config --add channels defaults
+      conda config --add channels conda-forge
+      conda config --set show_channel_urls true
+
+install:
+  - conda install -y -q jinja2 pygit2 click pyyaml setuptools_scm
+
+script:
+  # fetch all branches of crossbow
+  - git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
+
+  # clone arrow with crossbow tool
+  - pushd ..
+  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }}
+
+  # submit packaging tasks
+  - |
+    python arrow/dev/tasks/crossbow.py \
+      conda-linux \
+      conda-win \
+      conda-osx \
+      wheel-linux \
+      wheel-win \
+      wheel-osx \
+      linux-packages

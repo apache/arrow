@@ -102,7 +102,8 @@ class build_ext(_build_ext):
                      ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
                      ('with-orc', None, 'build the ORC extension'),
-                     ('generate-coverage', None, 'enable Cython code coverage'),
+                     ('generate-coverage', None,
+                      'enable Cython code coverage'),
                      ('bundle-boost', None,
                       'bundle the (shared) Boost libraries'),
                      ('bundle-arrow-cpp', None,
@@ -116,7 +117,8 @@ class build_ext(_build_ext):
             self.cmake_generator = 'Visual Studio 14 2015 Win64'
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
-        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE', 'boost')
+        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
+                                              'boost')
 
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
@@ -223,45 +225,35 @@ class build_ext(_build_ext):
                                      .format(self.boost_namespace))
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
-            if sys.platform != 'win32':
-                cmake_command = (['cmake'] + extra_cmake_args +
-                                 cmake_options + [source])
 
-                print("-- Runnning cmake for pyarrow")
-                self.spawn(cmake_command)
-                print("-- Finished cmake for pyarrow")
-                args = ['make']
-                if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
-                    args.append('VERBOSE=1')
-
-                if 'PYARROW_PARALLEL' in os.environ:
-                    args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
-                print("-- Running cmake --build for pyarrow")
-                self.spawn(args)
-                print("-- Finished cmake --build for pyarrow")
-            else:
+            build_tool_args = []
+            if sys.platform == 'win32':
                 if not is_64_bit:
                     raise RuntimeError('Not supported on 32-bit Windows')
+            else:
+                build_tool_args.append('--')
+                if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
+                    build_tool_args.append('VERBOSE=1')
+                if os.environ.get('PYARROW_PARALLEL'):
+                    build_tool_args.append(
+                        '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
-                # Generate the build files
-                cmake_command = (['cmake'] + extra_cmake_args +
-                                 cmake_options + [source])
+            # Generate the build files
+            print("-- Runnning cmake for pyarrow")
+            self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+            print("-- Finished cmake for pyarrow")
 
-                print("-- Runnning cmake for pyarrow")
-                self.spawn(cmake_command)
-                print("-- Finished cmake for pyarrow")
-                # Do the build
-                print("-- Running cmake --build for pyarrow")
-                self.spawn(['cmake', '--build', '.', '--config', self.build_type])
-                print("-- Finished cmake --build for pyarrow")
+            # Do the build
+            print("-- Running cmake --build for pyarrow")
+            self.spawn(['cmake', '--build', '.', '--config', self.build_type]
+                       + build_tool_args)
+            print("-- Finished cmake --build for pyarrow")
 
             if self.inplace:
                 # a bit hacky
                 build_lib = saved_cwd
 
-            # Move the libraries to the place expected by the Python
-            # build
-
+            # Move the libraries to the place expected by the Python build
             try:
                 os.makedirs(pjoin(build_lib, 'pyarrow'))
             except OSError:
@@ -297,14 +289,16 @@ class build_ext(_build_ext):
             shutil.move(pjoin(build_prefix, 'include'),
                         pjoin(build_lib, 'pyarrow'))
 
-            # Move the built C-extension to the place expected by the Python build
+            # Move the built C-extension to the place expected by the Python
+            # build
             self._found_names = []
             for name in self.CYTHON_MODULE_NAMES:
                 built_path = self.get_ext_built(name)
                 if not os.path.exists(built_path):
                     print(built_path)
                     if self._failure_permitted(name):
-                        print('Cython module {0} failure permitted'.format(name))
+                        print('Cython module {0} failure permitted'
+                              .format(name))
                         continue
                     raise RuntimeError('pyarrow C-extension failed to build:',
                                        os.path.abspath(built_path))
@@ -337,11 +331,11 @@ class build_ext(_build_ext):
 
                 if os.path.exists(self.get_ext_built_api_header(name)):
                     shutil.move(self.get_ext_built_api_header(name),
-                                pjoin(os.path.dirname(ext_path), name + '_api.h'))
+                                pjoin(os.path.dirname(ext_path),
+                                      name + '_api.h'))
 
             # Move the plasma store
             if self.with_plasma:
-                build_py = self.get_finalized_command('build_py')
                 source = os.path.join(self.build_type, "plasma_store")
                 target = os.path.join(build_lib,
                                       self._get_build_dir(),
@@ -486,7 +480,8 @@ install_requires = (
 def parse_version(root):
     from setuptools_scm import version_from_scm
     import setuptools_scm.git
-    describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --match 'apache-arrow-[0-9]*'"
+    describe = (setuptools_scm.git.DEFAULT_DESCRIBE +
+                " --match 'apache-arrow-[0-9]*'")
     # Strip catchall from the commandline
     describe = describe.replace("--match *.*", "")
     version = setuptools_scm.git.parse(root, describe)
@@ -520,7 +515,8 @@ setup(
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
-    use_scm_version={"root": "..", "relative_to": __file__, "parse": parse_version},
+    use_scm_version={"root": "..", "relative_to": __file__,
+                     "parse": parse_version},
     setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas'],
