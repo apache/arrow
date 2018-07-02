@@ -67,7 +67,7 @@ struct packaged_task_wrapper {
 class ARROW_EXPORT ThreadPool {
  public:
   // Construct a thread pool with the given number of worker threads
-  static Status Make(int threads, std::unique_ptr<ThreadPool>* out);
+  static Status Make(int threads, std::shared_ptr<ThreadPool>* out);
 
   // Destroy thread pool; the pool will first be shut down
   ~ThreadPool();
@@ -146,7 +146,7 @@ class ARROW_EXPORT ThreadPool {
   static void WorkerLoop(std::shared_ptr<State> state,
                          std::list<std::thread>::iterator it);
 
-  static std::unique_ptr<ThreadPool> MakeCpuThreadPool();
+  static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
   const std::shared_ptr<State> sp_state_;
   State* const state_;

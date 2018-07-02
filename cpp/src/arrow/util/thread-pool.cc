@@ -193,8 +193,8 @@ Status ThreadPool::SpawnReal(std::function<void()> task) {
   return Status::OK();
 }
 
-Status ThreadPool::Make(int threads, std::unique_ptr<ThreadPool>* out) {
-  auto pool = std::unique_ptr<ThreadPool>(new ThreadPool());
+Status ThreadPool::Make(int threads, std::shared_ptr<ThreadPool>* out) {
+  auto pool = std::shared_ptr<ThreadPool>(new ThreadPool());
   RETURN_NOT_OK(pool->SetCapacity(threads));
   *out = std::move(pool);
   return Status::OK();
@@ -240,8 +240,8 @@ int ThreadPool::DefaultCapacity() {
 }
 
 // Helper for the singleton pattern
-std::unique_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
-  std::unique_ptr<ThreadPool> pool;
+std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
+  std::shared_ptr<ThreadPool> pool;
   DCHECK_OK(ThreadPool::Make(ThreadPool::DefaultCapacity(), &pool));
   // On Windows, the global ThreadPool destructor may be called after
   // non-main threads have been killed by the OS, and hang in a condition
@@ -254,7 +254,7 @@ std::unique_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
 }
 
 ThreadPool* GetCpuThreadPool() {
-  static std::unique_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
+  static std::shared_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
   return singleton.get();
 }
 
