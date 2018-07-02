@@ -515,12 +515,11 @@ Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nby
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
   }
-
-  RETURN_NOT_OK(memory_map_->Seek(position));
-  if (nbytes + memory_map_->position() > memory_map_->size()) {
+  if (position + nbytes > memory_map_->size()) {
     return Status::Invalid("Cannot write past end of memory map");
   }
 
+  RETURN_NOT_OK(memory_map_->Seek(position));
   return WriteInternal(data, nbytes);
 }
 
