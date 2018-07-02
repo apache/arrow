@@ -63,9 +63,6 @@ install:
       python-gnupg
 
 script:
-  # fetch all branches of crossbow
-  - git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
-
   # to build against a specific branch of a fork
   # git clone -b <branch> https://github.com/<user>/arrow
   - pushd ..

@@ -89,7 +89,8 @@ class Repo(object):
         return self.repo.remotes['origin']
 
     def fetch(self):
-        self.origin.fetch()
+        refspec = '+refs/heads/*:refs/remotes/origin/*'
+        self.origin.fetch([refspec])
 
     def push(self, token):
         callbacks = GitRemoteCallbacks(token)
