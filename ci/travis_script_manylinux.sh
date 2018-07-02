@@ -24,3 +24,11 @@ pushd python/manylinux1
 git clone ../../ arrow
 docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
 docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+
+# Testing for https://issues.apache.org/jira/browse/ARROW-2657
+# These tests cannot be run inside of the docker container, since TensorFlow
+# does not run on manylinux1
+
+pip install tensorflow
+pip install "dist/`ls dist/ | grep cp36`"
+python -c "import pyarrow; import tensorflow"
