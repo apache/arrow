@@ -44,6 +44,17 @@ except DistributionNotFound:
         __version__ = None
 
 
+try:
+    import ctypes
+    import os
+    import site
+    SITE_PATH, = site.getsitepackages()
+    ctypes.CDLL(os.path.join(SITE_PATH, "tensorflow",
+                             "libtensorflow_framework.so"))
+except:
+    pass
+
+
 from pyarrow.lib import cpu_count, set_cpu_count
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
