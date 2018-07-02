@@ -614,6 +614,30 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
   }
 }
 
+TEST_F(TestMemoryMappedFile, WriteBeyondEnd) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size - 1, path, &result));
+
+  ASSERT_RAISES(Invalid, result->Write(buffer.data(), buffer_size));
+}
+
+TEST_F(TestMemoryMappedFile, WriteAtBeyondEnd) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  ASSERT_RAISES(Invalid, result->WriteAt(1, buffer.data(), buffer_size));
+}
+
 TEST_F(TestMemoryMappedFile, GetSize) {
   std::string path = "io-memory-map-get-size";
   std::shared_ptr<MemoryMappedFile> result;
