@@ -217,6 +217,16 @@ matrix:
     - mkdir -p target/kcov
     - RUST_BACKTRACE=1 cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+  # Go
+  - language: go
+    os: linux
+    go:
+    - 1.10.x
+    script:
+    - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
+    - go get -d -t -v ./go/arrow/...
+    - go install -v ./go/arrow/...
+    - go test -v ./go/arrow/...
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
