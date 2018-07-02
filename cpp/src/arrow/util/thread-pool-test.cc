@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -125,10 +126,10 @@ class TestThreadPool : public ::testing::Test {
     fflush(stderr);
   }
 
-  std::shared_ptr<ThreadPool> MakeThreadPool() { return MakeThreadPool(4); }
+  std::unique_ptr<ThreadPool> MakeThreadPool() { return MakeThreadPool(4); }
 
-  std::shared_ptr<ThreadPool> MakeThreadPool(int threads) {
-    std::shared_ptr<ThreadPool> pool;
+  std::unique_ptr<ThreadPool> MakeThreadPool(int threads) {
+    std::unique_ptr<ThreadPool> pool;
     Status st = ThreadPool::Make(threads, &pool);
     return pool;
   }
