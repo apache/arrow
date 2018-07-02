@@ -39,6 +39,7 @@ Apache Arrow is the emerging standard for large in-memory columnar data ([Spark]
 
 # Usage
 
+
 ## Get a table from an Arrow file on disk (in IPC format)
 
 ```es6
@@ -81,6 +82,31 @@ console.log(table.toString());
 29.533695220947266, -98.46977996826172
 29.533695220947266, -98.46977996826172
 */
+```
+
+## Create a Table from JavaScript arrays
+
+```es6
+const fields = [{
+        name: 'precipitation',
+        type: { name: 'floatingpoint', precision: 'SINGLE'},
+        nullable: false, children: []
+    }, {
+        name: 'date',
+        type: { name: 'date', unit: 'MILLISECOND' },
+        nullable: false, children: []
+    }];
+const rainAmounts = Array.from({length: LENGTH}, () => Number((Math.random() * 20).toFixed(1)));
+const rainDates = Array.from({length: LENGTH}, (_, i) => Date.now() - 1000 * 60 * 60 * 24 * i);
+
+const LENGTH = 2000;
+const rainfall = arrow.Table.from({
+  schema: { fields: fields },
+  batches: [{ 
+    count: LENGTH,
+    columns: [
+      {name: "precipitation", count: LENGTH, VALIDITY: [], DATA: rainAmounts },
+      {name: "date",          count: LENGTH, VALIDITY: [], DATA: rainDates } ] }] })
 ```
 
 ## Load data with `fetch`
@@ -158,6 +184,12 @@ Index,   origin_city
 */
 ```
 
+# Tutorials and examples
+
+* [JavaScript Introduction to Arrow][6]
+* [Manipulating flat arrays arrow-style][7]
+* [/js/test/unit](https://github.com/apache/arrow/tree/master/js/test/unit) - Unit tests for Table and Vector
+
 # Getting involved
 
 See [develop.md](https://github.com/apache/arrow/blob/master/develop.md)
@@ -165,6 +197,7 @@ See [develop.md](https://github.com/apache/arrow/blob/master/develop.md)
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
 
+* [Join the Slack channel][5]: Channels `#general` and `#javascript`
 * Join the mailing list: send an email to
   [dev-subscribe@arrow.apache.org][1]. Share your ideas and use cases for the
   project.
@@ -242,3 +275,6 @@ Full list of broader Apache Arrow [projects & organizations](https://github.com/
 [2]: https://github.com/apache/arrow/tree/master/format
 [3]: https://issues.apache.org/jira/browse/ARROW
 [4]: https://github.com/apache/arrow
+[5]: https://apachearrow.slack.com
+[6]: https://beta.observablehq.com/@theneuralbit/introduction-to-apache-arrow
+[7]: https://beta.observablehq.com/@lmeyerov/manipulating-flat-arrays-arrow-style
