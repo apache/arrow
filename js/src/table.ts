@@ -36,7 +36,12 @@ export interface DataFrame {
     [Symbol.iterator](): IterableIterator<Struct['TValue']>;
 }
 
+interface RowProxyConstructor<T extends {[name: string]: any} = {[name: string]: any}> {
+    readonly prototype: T;
+    new (row: Struct['TValue']): T;
+}
 export class Table implements DataFrame {
+    private RowProxy: RowProxyConstructor;
     static empty() { return new Table(new Schema([]), []); }
     static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
         if (sources) {
@@ -131,19 +136,12 @@ export class Table implements DataFrame {
             });
         });
 
-        this.__make_row_proxy = function (row: Struct['TValue']) {
-            return new RowProxy(row) as Object;
-        }
-    }
-
-    // Re-written based on the Schema at construction time
-    private __make_row_proxy(row: Struct['TValue']): Object {
-        return row;
+        this.RowProxy = (RowProxy as any);
     }
 
     public get(index: number): Object|null {
         const row = this.batchesUnion.get(index)
-        return row ? this.__make_row_proxy(row) as Object : null;
+        return row ? new this.RowProxy(row) : null;
     }
     public getColumn(name: string) {
         return this.getColumnAt(this.getColumnIndex(name));
@@ -159,7 +157,7 @@ export class Table implements DataFrame {
     }
     public *[Symbol.iterator](): IterableIterator<Object> {
         for (const row of this.batchesUnion[Symbol.iterator]()) {
-            yield this.__make_row_proxy(row!);
+            yield new this.RowProxy(row!);
         }
     }
     public filter(predicate: Predicate): DataFrame {
