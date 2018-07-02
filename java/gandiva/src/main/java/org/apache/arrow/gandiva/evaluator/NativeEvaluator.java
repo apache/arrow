@@ -63,10 +63,28 @@ public class NativeEvaluator {
    * @param schema Table schema. The field names in the schema should match the fields used
    *               to create the TreeNodes
    * @param exprs  List of expressions to be evaluated against data
+   *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
   public static NativeEvaluator makeProjector(Schema schema, List<ExpressionTree> exprs)
           throws GandivaException {
+    return makeProjector(schema, exprs, ConfigurationBuilder.getDefaultConfiguration());
+  }
+
+  /**
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
+   * Invoke NativeEvaluator::Evalute() against a RecordBatch to evaluate the record batch
+   * against these projections.
+   *
+   * @param schema Table schema. The field names in the schema should match the fields used
+   *               to create the TreeNodes
+   * @param exprs  List of expressions to be evaluated against data
+   * @param configurationId Custom configuration created through config builder.
+   *
+   * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
+   */
+  public static NativeEvaluator makeProjector(Schema schema, List<ExpressionTree> exprs, long
+          configurationId) throws GandivaException {
     // serialize the schema and the list of expressions as a protobuf
     GandivaTypes.ExpressionList.Builder builder = GandivaTypes.ExpressionList.newBuilder();
     for (ExpressionTree expr : exprs) {
@@ -75,8 +93,9 @@ public class NativeEvaluator {
 
     // Invoke the JNI layer to create the LLVM module representing the expressions
     GandivaTypes.Schema schemaBuf = ArrowTypeHelper.arrowSchemaToProtobuf(schema);
-    long moduleId = NativeBuilder.buildNativeCode(schemaBuf.toByteArray(),
-            builder.build().toByteArray());
+    NativeBuilder gandivaBridge = NativeBuilder.getInstance();
+    long moduleId = gandivaBridge.buildNativeCode(schemaBuf.toByteArray(), builder.build()
+            .toByteArray(), configurationId);
     return new NativeEvaluator(moduleId, schema, exprs.size());
   }
 
@@ -87,7 +106,7 @@ public class NativeEvaluator {
    * @param outColumns Result of applying the project on the data
    */
   public void evaluate(ArrowRecordBatch recordBatch, List<ValueVector> outColumns)
-          throws GandivaException, Exception {
+          throws GandivaException {
     if (this.closed) {
       throw new EvaluatorClosedException();
     }
@@ -130,7 +149,7 @@ public class NativeEvaluator {
       valueVector.setValueCount(numRows);
     }
 
-    NativeBuilder.evaluate(this.moduleId, numRows,
+    NativeBuilder.getInstance().evaluate(this.moduleId, numRows,
             bufAddrs, bufSizes,
             outAddrs, outSizes);
   }
@@ -143,7 +162,7 @@ public class NativeEvaluator {
       return;
     }
 
-    NativeBuilder.close(this.moduleId);
+    NativeBuilder.getInstance().close(this.moduleId);
     this.closed = true;
   }
 }

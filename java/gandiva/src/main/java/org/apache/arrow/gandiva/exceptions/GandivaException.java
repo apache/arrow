@@ -17,14 +17,17 @@
 package org.apache.arrow.gandiva.exceptions;
 
 public class GandivaException extends Exception {
-  private final String msg;
 
   public GandivaException(String msg) {
-    this.msg = msg;
+    super(msg);
+  }
+
+  public GandivaException(String msg, Exception cause) {
+    super(msg, cause);
   }
 
   @Override
   public String toString() {
-    return msg;
+    return getMessage();
   }
 }

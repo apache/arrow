@@ -17,11 +17,13 @@
 #define GANDIVA_EXPR_PROJECTOR_H
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "gandiva/arrow.h"
 #include "gandiva/expression.h"
+#include "gandiva/configuration.h"
 #include "gandiva/status.h"
 
 namespace gandiva {
@@ -34,7 +36,8 @@ class LLVMGenerator;
 /// Once the projector is built, it can be used to evaluate many row batches.
 class Projector {
  public:
-  /// Build a projector for the given schema to evaluate the vector of expressions.
+  /// Build a default projector for the given schema to evaluate
+  /// the vector of expressions.
   ///
   /// \param[in] : schema schema for the record batches, and the expressions.
   /// \param[in] : exprs vector of expressions.
@@ -43,6 +46,20 @@ class Projector {
   static Status Make(SchemaPtr schema,
                      const ExpressionVector &exprs,
                      arrow::MemoryPool *pool,
+                     std::shared_ptr<Projector> *projector);
+
+  /// Build a projector for the given schema to evaluate the vector of expressions.
+  /// Customize the projector with runtime configuration.
+  ///
+  /// \param[in] : schema schema for the record batches, and the expressions.
+  /// \param[in] : exprs vector of expressions.
+  /// \param[in] : pool memory pool used to allocate output arrays (if required).
+  /// \param[in] : run time configuration.
+  /// \param[out]: projector the returned projector object
+  static Status Make(SchemaPtr schema,
+                     const ExpressionVector &exprs,
+                     arrow::MemoryPool *pool,
+                     std::shared_ptr<Configuration>,
                      std::shared_ptr<Projector> *projector);
 
   /// Evaluate the specified record batch, and return the allocated and populated output
@@ -67,7 +84,8 @@ class Projector {
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator,
             SchemaPtr schema,
             const FieldVector &output_fields,
-            arrow::MemoryPool *pool);
+            arrow::MemoryPool *pool,
+            std::shared_ptr<Configuration>);
 
   /// Allocate an ArrowData of length 'length'.
   Status AllocArrayData(const DataTypePtr &type,
@@ -86,6 +104,7 @@ class Projector {
   const SchemaPtr schema_;
   const FieldVector output_fields_;
   arrow::MemoryPool *pool_;
+  const std::shared_ptr<Configuration> configuration_;
 };
 
 } // namespace gandiva

@@ -31,6 +31,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <dep.guava.version>18.0</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
+        <gandiva.cpp.build.dir>../cpp/debug</gandiva.cpp.build.dir>
     </properties>
 
     <dependencies>
@@ -63,9 +64,21 @@
     </dependencies>
 
     <build>
-        <!--
-        TODO: Need to package the jni code (gandiva_jni) in the gandiva jar
-        -->
+        <resources>
+            <resource>
+                <directory>${gandiva.cpp.build.dir}/src/jni</directory>
+                <includes>
+                    <include>**/libgandiva_jni.*</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>${gandiva.cpp.build.dir}</directory>
+                <includes>
+                    <include>irhelpers.bc</include>
+                </includes>
+            </resource>
+        </resources>
+
         <extensions>
             <extension>
                 <groupId>kr.motd.maven</groupId>

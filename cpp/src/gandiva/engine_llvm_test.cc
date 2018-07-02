@@ -102,7 +102,8 @@ llvm::Function *TestEngine::BuildVecAdd(Engine *engine, LLVMTypes *types) {
 
 TEST_F(TestEngine, TestAddUnoptimised) {
   std::unique_ptr<Engine> engine;
-  Engine::Make(&engine);
+  Engine::Make(ConfigurationBuilder::DefaultConfiguration(),
+               &engine);
   LLVMTypes types(*engine->context());
   llvm::Function *ir_func = BuildVecAdd(engine.get(), &types);
   engine->FinalizeModule(false, false);
@@ -116,7 +117,8 @@ TEST_F(TestEngine, TestAddUnoptimised) {
 
 TEST_F(TestEngine, TestAddOptimised) {
   std::unique_ptr<Engine> engine;
-  Engine::Make(&engine);
+  Engine::Make(ConfigurationBuilder::DefaultConfiguration(),
+               &engine);
   LLVMTypes types(*engine->context());
   llvm::Function *ir_func = BuildVecAdd(engine.get(), &types);
   engine->FinalizeModule(true, false);

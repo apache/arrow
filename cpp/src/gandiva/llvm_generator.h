@@ -29,6 +29,7 @@
 #include "codegen/llvm_types.h"
 #include "codegen/lvalue.h"
 #include "codegen/value_validity_pair.h"
+#include "gandiva/configuration.h"
 #include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
@@ -39,7 +40,8 @@ class LLVMGenerator {
   ~LLVMGenerator();
 
   /// \brief Factory method to initialize the generator.
-  static Status Make(std::unique_ptr<LLVMGenerator> *llvm_generator);
+  static Status Make(std::shared_ptr<Configuration> config,
+                     std::unique_ptr<LLVMGenerator> *llvm_generator);
 
   /// \brief Build the code for the expression trees. Each element in the vector
   /// represents an expression tree

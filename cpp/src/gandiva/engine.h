@@ -23,8 +23,10 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
+#include "gandiva/configuration.h"
 #include "gandiva/logging.h"
 #include "gandiva/status.h"
+
 
 namespace gandiva {
 
@@ -39,7 +41,8 @@ class Engine {
   /// factory method to create and initialize the engine object.
   ///
   /// \param[out] engine the created engine.
-  static Status Make(std::unique_ptr<Engine> *engine);
+  static Status Make(std::shared_ptr<Configuration> config,
+                     std::unique_ptr<Engine> *engine);
 
   /// Add the function to the list of IR functions that need to be compiled.
   /// Compiling only the functions that are used by the module saves time.
@@ -66,7 +69,7 @@ class Engine {
   llvm::ExecutionEngine &execution_engine() { return *execution_engine_.get(); }
 
   /// load pre-compiled modules and merge them into the main module.
-  Status LoadPreCompiledIRFiles();
+  Status LoadPreCompiledIRFiles(const std::string &byte_code_file_path);
 
   /// dump the IR code to stdout with the prefix string.
   void DumpIR(std::string prefix);

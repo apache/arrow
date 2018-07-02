@@ -25,6 +25,7 @@ configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
 add_library(gandiva SHARED
   annotator.cc
   bitmap_accumulator.cc
+  configuration.cc
   engine.cc
   expr_decomposer.cc
   expr_validator.cc
@@ -89,11 +90,11 @@ install(
 #args: label test-file src-files
 add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
 add_gandiva_unit_test(dex_llvm_test.cc)
-add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc status.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc status.cc configuration.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(function_signature_test.cc)
 add_gandiva_unit_test(function_registry_test.cc function_registry.cc)
 add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc status.cc bitmap_accumulator.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc status.cc bitmap_accumulator.cc configuration.cc  ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(annotator_test.cc annotator.cc)
 add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc)
 add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc)

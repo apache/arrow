@@ -72,6 +72,50 @@ TEST_F(TestProjector, TestIntSumSub) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sub, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestIntSumSubCustomConfig) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto field1 = field("f2", int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_sum = field("add", int32());
+  auto field_sub = field("subtract", int32());
+
+  // Build expression
+  auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
+  auto sub_expr = TreeExprBuilder::MakeExpression("subtract", {field0, field1},
+                                                  field_sub);
+
+  std::shared_ptr<Projector> projector;
+  ConfigurationBuilder config_builder;
+  std::shared_ptr<Configuration> config = config_builder.build();
+
+  Status status = Projector::Make(schema,
+                                 {sum_expr, sub_expr}, pool_, config, &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt32({ 1, 2, 3, 4 }, { true, true, true, false });
+  auto array1 = MakeArrowArrayInt32({ 11, 13, 15, 17 }, { true, true, false, true });
+  // expected output
+  auto exp_sum = MakeArrowArrayInt32({ 12, 15, 0, 0 }, { true, true, false, false });
+  auto exp_sub = MakeArrowArrayInt32({ -10, -11, 0, 0 }, { true, true, false, false });
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_sub, outputs.at(1));
+}
+
 template<typename TYPE, typename C_TYPE>
 static void TestArithmeticOpsForType(arrow::MemoryPool *pool) {
   auto atype =  arrow::TypeTraits<TYPE>::type_singleton();

@@ -15,7 +15,7 @@
 project(gandiva_jni)
 
 # Find protobuf
-set(Protobuf_USE_STATIC_LIBS, ON)
+set(Protobuf_USE_STATIC_LIBS "ON")
 find_package(Protobuf REQUIRED)
 
 # Find JNI
@@ -30,6 +30,8 @@ add_subdirectory(../../../java ./java)
 
 add_library(gandiva_jni SHARED
   native_builder.cc
+  config_builder.cc
+  config_holder.cc
   ${PROTO_SRCS}
   ${PROTO_HDRS})
 add_dependencies(gandiva_jni gandiva_java)

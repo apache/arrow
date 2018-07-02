@@ -22,6 +22,7 @@
 #include "codegen/func_descriptor.h"
 #include "codegen/function_registry.h"
 #include "gandiva/expression.h"
+#include "gandiva/configuration.h"
 
 namespace gandiva {
 
@@ -35,7 +36,8 @@ class TestLLVMGenerator : public ::testing::Test {
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
   std::unique_ptr<LLVMGenerator> generator;
-  Status status = LLVMGenerator::Make(&generator);
+  Status status = LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(),
+                                      &generator);
   EXPECT_TRUE(status.ok());
   Annotator annotator;
 
@@ -100,7 +102,8 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 TEST_F(TestLLVMGenerator, TestNullInternal) {
   // Setup LLVM generator to evaluate a NULL_INTERNAL type function.
   std::unique_ptr<LLVMGenerator> generator;
-  Status status = LLVMGenerator::Make(&generator);
+  Status status = LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(),
+                                      &generator);
   EXPECT_TRUE(status.ok());
   Annotator annotator;
 

@@ -27,23 +27,36 @@ namespace gandiva {
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator,
                      SchemaPtr schema,
                      const FieldVector &output_fields,
-                     arrow::MemoryPool *pool)
+                     arrow::MemoryPool *pool,
+                     std::shared_ptr<Configuration> configuration)
   : llvm_generator_(std::move(llvm_generator)),
     schema_(schema),
     output_fields_(output_fields),
-    pool_(pool) {}
+    pool_(pool),
+    configuration_(configuration) {}
 
 Status Projector::Make(SchemaPtr schema,
                        const ExpressionVector &exprs,
                        arrow::MemoryPool *pool,
                        std::shared_ptr<Projector> *projector) {
+  return Projector::Make(schema, exprs, pool,
+                         ConfigurationBuilder::DefaultConfiguration(), projector);
+}
+
+Status Projector::Make(SchemaPtr schema,
+                       const ExpressionVector &exprs,
+                       arrow::MemoryPool *pool,
+                       std::shared_ptr<Configuration> configuration,
+                       std::shared_ptr<Projector> *projector) {
   GANDIVA_RETURN_FAILURE_IF_FALSE((schema != nullptr),
                                   Status::Invalid("schema cannot be null"));
   GANDIVA_RETURN_FAILURE_IF_FALSE(!exprs.empty(),
                                    Status::Invalid("expressions need to be non-empty"));
+  GANDIVA_RETURN_FAILURE_IF_FALSE((configuration != nullptr),
+                                  Status::Invalid("configuration cannot be null"));
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
-  Status status = LLVMGenerator::Make(&llvm_gen);
+  Status status = LLVMGenerator::Make(configuration, &llvm_gen);
   GANDIVA_RETURN_NOT_OK(status);
 
   // Run the validation on the expressions.
@@ -67,7 +80,8 @@ Status Projector::Make(SchemaPtr schema,
   *projector = std::shared_ptr<Projector>(new Projector(std::move(llvm_gen),
                                                         schema,
                                                         output_fields,
-                                                        pool));
+                                                        pool,
+                                                        configuration));
   return Status::OK();
 }
 

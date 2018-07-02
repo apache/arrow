@@ -39,9 +39,10 @@ LLVMGenerator::LLVMGenerator() :
   optimise_ir_(true),
   enable_ir_traces_(false) {}
 
-Status LLVMGenerator::Make(std::unique_ptr<LLVMGenerator> *llvm_generator) {
+Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
+                           std::unique_ptr<LLVMGenerator> *llvm_generator) {
   std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator());
-  Status status = Engine::Make(&(llvmgen_obj->engine_));
+  Status status = Engine::Make(config, &(llvmgen_obj->engine_));
   GANDIVA_RETURN_NOT_OK(status);
   llvmgen_obj->types_ = new LLVMTypes(*(llvmgen_obj->engine_)->context());
   *llvm_generator = std::move(llvmgen_obj);
