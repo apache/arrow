@@ -760,7 +760,7 @@ def test_object_id_equality_operators():
     assert oid2 != oid3
     assert oid1 != 'foo'
 
-
+@pytest.mark.xfail(reason="often fails on travis")
 @pytest.mark.skipif(not os.path.exists("/mnt/hugepages"),
                     reason="requires hugepage support")
 def test_use_huge_pages():
