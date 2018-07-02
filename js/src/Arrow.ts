@@ -296,6 +296,7 @@ type_.DataType['isDictionary'] = type_.DataType.isDictionary;
 
 vector_.BoolVector['from'] = vector_.BoolVector.from;
 vector_.IntVector['from'] = vector_.IntVector.from;
+vector_.Utf8Vector['from'] = vector_.Utf8Vector.from;
 vector_.FloatVector['from'] = vector_.FloatVector.from;
 
 visitor_.TypeVisitor['visitTypeInline'] = visitor_.TypeVisitor.visitTypeInline;

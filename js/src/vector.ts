@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { TextEncoder } from 'text-encoding-utf-8';
+
 import { Data, ChunkedData, FlatData, BoolData, FlatListData, NestedData, DictionaryData } from './data';
 import { VisitorNode, TypeVisitor, VectorVisitor } from './visitor';
 import { DataType, ListType, FlatType, NestedType, FlatListType, TimeUnit } from './type';
@@ -348,7 +350,15 @@ export class FixedSizeBinaryVector extends FlatVector<FixedSizeBinary> {
     }
 }
 
+const utf8Encoder = new TextEncoder('utf-8');
+
 export class Utf8Vector extends ListVectorBase<Utf8> {
+    static from(values: string[]) {
+        let offset = 0;
+        const offsets = Uint32Array.of(0, ...values.map((d) => { offset += d.length; return offset; }));
+        const data = utf8Encoder.encode(values.join(''))
+        return new Utf8Vector(new FlatListData(new Utf8(), values.length, null, offsets, data));
+    }
     constructor(data: Data<Utf8>, view: View<Utf8> = new Utf8View(data)) {
         super(data, view);
     }

@@ -308,9 +308,7 @@ for (const [VectorName, [VectorType, DataType]] of fixedWidthVectors) {
 
 describe(`Utf8Vector`, () => {
     const values = ['foo', 'bar', 'baz', 'foo bar', 'bar'], n = values.length;
-    let offset = 0;
-    const offsets = Uint32Array.of(0, ...values.map((d) => { offset += d.length; return offset; }));
-    const vector = new Utf8Vector(new FlatListData(new Utf8(), n, null, offsets, utf8Encoder.encode(values.join(''))));
+    const vector = Utf8Vector.from(values);
     basicVectorTests(vector, values, ['abc', '123']);
     describe(`sliced`, () => {
         basicVectorTests(vector.slice(1,3), values.slice(1,3), ['foo', 'abc']);

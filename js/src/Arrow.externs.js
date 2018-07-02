@@ -547,6 +547,8 @@ BinaryVector.prototype.asUtf8;
 var FixedSizeBinaryVector = function() {};
 var Utf8Vector = function() {};
 /** @type {?} */
+Utf8Vector.from = function() {};
+/** @type {?} */
 Utf8Vector.prototype.asBinary;
 var ListVector = function() {};
 /** @type {?} */
