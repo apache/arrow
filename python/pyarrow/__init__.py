@@ -45,6 +45,12 @@ except DistributionNotFound:
 
 
 try:
+    # We need to do the following to load TensorFlow before
+    # pyarrow.lib. If we don't do this there are symbol clashes
+    # between TensorFlow's use of threading and our global
+    # thread pool, see also
+    # https://issues.apache.org/jira/browse/ARROW-2657 and
+    # https://github.com/apache/arrow/pull/2096.
     import ctypes
     import os
     from sys import platform
