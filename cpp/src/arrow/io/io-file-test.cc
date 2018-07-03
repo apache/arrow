@@ -624,15 +624,14 @@ TEST_F(TestMemoryMappedFile, WriteAt) {
   ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
 
   int64_t position;
-  ASSERT_OK(result->Seek(buffer_size / 4));
   ASSERT_OK(result->WriteAt(0, buffer.data(), buffer_size / 2));
   ASSERT_OK(result->Tell(&position));
-  ASSERT_EQ(position, buffer_size / 4);
+  ASSERT_EQ(position, buffer_size / 2);
 
   ASSERT_OK(
       result->WriteAt(buffer_size / 2, buffer.data() + buffer_size / 2, buffer_size / 2));
   ASSERT_OK(result->Tell(&position));
-  ASSERT_EQ(position, buffer_size / 4);
+  ASSERT_EQ(position, buffer_size);
 
   std::shared_ptr<Buffer> out_buffer;
   ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
@@ -668,6 +667,11 @@ TEST_F(TestMemoryMappedFile, WriteAtBeyondEnd) {
   ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
 
   ASSERT_RAISES(Invalid, result->WriteAt(1, buffer.data(), buffer_size));
+
+  // The position should remain unchanged afterwards
+  int64_t position;
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(position, 0);
 }
 
 TEST_F(TestMemoryMappedFile, GetSize) {
