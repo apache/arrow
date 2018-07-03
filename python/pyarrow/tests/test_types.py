@@ -297,6 +297,19 @@ def test_type_equality_operators(index, ty):
             assert ty != other
 
 
+def test_field_basic():
+    t = pa.string()
+    f = pa.field('foo', t)
+
+    assert f.name == 'foo'
+    assert f.nullable
+    assert f.type is t
+    assert repr(f) == "pyarrow.Field<foo: string>"
+
+    f = pa.field('foo', t, False)
+    assert not f.nullable
+
+
 def test_field_equals():
     meta1 = {b'foo': b'bar'}
     meta2 = {b'bizz': b'bazz'}
@@ -330,3 +343,35 @@ def test_field_equality_operators():
     assert f1 != f3
     assert f3 != f4
     assert f1 != 'foo'
+
+
+def test_field_metadata():
+    f1 = pa.field('a', pa.int8())
+    f2 = pa.field('a', pa.int8(), metadata={})
+    f3 = pa.field('a', pa.int8(), metadata={b'bizz': b'bazz'})
+
+    assert f1.metadata is None
+    assert f2.metadata == {}
+    assert f3.metadata[b'bizz'] == b'bazz'
+
+
+def test_field_add_remove_metadata():
+    f0 = pa.field('foo', pa.int32())
+
+    assert f0.metadata is None
+
+    metadata = {b'foo': b'bar', b'pandas': b'badger'}
+
+    f1 = f0.add_metadata(metadata)
+    assert f1.metadata == metadata
+
+    f3 = f1.remove_metadata()
+    assert f3.metadata is None
+
+    # idempotent
+    f4 = f3.remove_metadata()
+    assert f4.metadata is None
+
+    f5 = pa.field('foo', pa.int32(), True, metadata)
+    f6 = f0.add_metadata(metadata)
+    assert f5.equals(f6)

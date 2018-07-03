@@ -197,19 +197,6 @@ def test_from_numpy_dtype():
         pa.from_numpy_dtype('not_convertible_to_dtype')
 
 
-def test_field():
-    t = pa.string()
-    f = pa.field('foo', t)
-
-    assert f.name == 'foo'
-    assert f.nullable
-    assert f.type is t
-    assert repr(f) == "pyarrow.Field<foo: string>"
-
-    f = pa.field('foo', t, False)
-    assert not f.nullable
-
-
 def test_schema():
     fields = [
         pa.field('foo', pa.int32()),
@@ -231,28 +218,6 @@ foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
-
-
-def test_field_add_remove_metadata():
-    f0 = pa.field('foo', pa.int32())
-
-    assert f0.metadata is None
-
-    metadata = {b'foo': b'bar', b'pandas': b'badger'}
-
-    f1 = f0.add_metadata(metadata)
-    assert f1.metadata == metadata
-
-    f3 = f1.remove_metadata()
-    assert f3.metadata is None
-
-    # idempotent
-    f4 = f3.remove_metadata()
-    assert f4.metadata is None
-
-    f5 = pa.field('foo', pa.int32(), True, metadata)
-    f6 = f0.add_metadata(metadata)
-    assert f5.equals(f6)
 
 
 def test_field_flatten():
