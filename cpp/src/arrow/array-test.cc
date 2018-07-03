@@ -1815,7 +1815,7 @@ TEST_F(TestAdaptiveIntBuilder, TestIsZeroPadded) {
 TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
   int64_t size = 1000;
   for (unsigned index = 0; index < size; ++index) {
-    builder_->AppendNull();
+    ASSERT_OK(builder_->AppendNull());
   }
 
   Done();
@@ -1836,7 +1836,7 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
 TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
   const uint8_t nullmap[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
-  builder_->AppendNulls(nullmap, size);
+  ASSERT_OK(builder_->AppendNulls(nullmap, size));
 
   Done();
 
@@ -1960,7 +1960,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestIsZeroPadded) {
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
   int64_t size = 1000;
   for (unsigned index = 0; index < size; ++index) {
-    builder_->AppendNull();
+    ASSERT_OK(builder_->AppendNull());
   }
 
   Done();
@@ -1981,7 +1981,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
   const uint8_t nullmap[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
-  builder_->AppendNulls(nullmap, size);
+  ASSERT_OK(builder_->AppendNulls(nullmap, size));
 
   Done();
 
