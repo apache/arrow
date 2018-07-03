@@ -128,9 +128,36 @@ export class DenseUnionView extends UnionView<DenseUnion> {
     }
 }
 
+type RowProxy = {[name: string]: any};
+interface RowViewConstructor<T extends RowProxy = RowProxy> {
+    readonly prototype: T & RowView;
+    new (data: Data<SparseUnion> & NestedView<any>, children?: Vector<any>[], rowIndex?: number): T & RowView;
+}
+
 export class StructView extends NestedView<Struct> {
+    private RowView: RowViewConstructor;
+
+    constructor(data: Data<Struct>, children?: Vector<any>[]) {
+        super(data, children);
+
+        // Make a customized RowView that includes proxies for
+        class RowProxy extends RowView {}
+
+        const proto = RowProxy.prototype;
+
+        data.type.children.forEach(function (f, i) {
+            Object.defineProperty(proto, f.name, {
+                get: function () {
+                    return (this as any as RowView).get(i);
+                },
+                enumerable: true
+            });
+        });
+
+        this.RowView = (RowProxy as any);
+    }
     protected getNested(self: StructView, index: number) {
-        return new RowView(self as any, self._children, index);
+        return new self.RowView(self as any, self._children, index);
     }
     protected setNested(self: StructView, index: number, value: any): void {
         let idx = -1, len = self.numChildren, child: Vector | null;
