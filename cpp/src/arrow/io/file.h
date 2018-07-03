@@ -201,15 +201,16 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                 void* out) override;
 
-  /// Default implementation is thread-safe
+  // Default implementation is thread-safe
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   bool supports_zero_copy() const override;
 
-  /// Write data at the current position in the file. Thread-safe
+  // Write data at the current position in the file. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
 
-  /// Write data at a particular position in the file. Thread-safe
+  // Write data at a particular position in the file. Doesn't change file
+  // heads position. Thread-safe
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
 
   // @return: the size in bytes of the memory source
@@ -219,8 +220,6 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
  private:
   MemoryMappedFile();
-
-  Status WriteInternal(const void* data, int64_t nbytes);
 
   class ARROW_NO_EXPORT MemoryMap;
   std::shared_ptr<MemoryMap> memory_map_;

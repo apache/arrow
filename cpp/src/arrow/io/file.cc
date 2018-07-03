@@ -519,8 +519,8 @@ Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nby
     return Status::Invalid("Cannot write past end of memory map");
   }
 
-  RETURN_NOT_OK(memory_map_->Seek(position));
-  return WriteInternal(data, nbytes);
+  memcpy(memory_map_->mutable_data() + position, data, static_cast<size_t>(nbytes));
+  return Status::OK();
 }
 
 Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
@@ -533,10 +533,6 @@ Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
     return Status::Invalid("Cannot write past end of memory map");
   }
 
-  return WriteInternal(data, nbytes);
-}
-
-Status MemoryMappedFile::WriteInternal(const void* data, int64_t nbytes) {
   memcpy(memory_map_->head(), data, static_cast<size_t>(nbytes));
   memory_map_->advance(nbytes);
   return Status::OK();
