@@ -399,11 +399,16 @@ AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBas
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   const int64_t bytes_required = length_ * int_size_;
-  if (bytes_required > 0 && bytes_required < data_->size()) {
-    // Trim buffers
-    RETURN_NOT_OK(data_->Resize(bytes_required));
+  if (data_) {
+    if (bytes_required > 0 && bytes_required < data_->size()) {
+      // Trim buffers
+      RETURN_NOT_OK(data_->Resize(bytes_required));
+    }
+    // zero the padding
+    memset(data_->mutable_data() + bytes_required, 0, data_->capacity() - bytes_required);
+  } else {
+    DCHECK_EQ(bytes_required, 0);
   }
-  memset(data_->mutable_data() + bytes_required, 0, data_->capacity() - bytes_required);
 
   std::shared_ptr<DataType> output_type;
   switch (int_size_) {
@@ -562,12 +567,16 @@ AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
 
 Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   const int64_t bytes_required = length_ * int_size_;
-  if (bytes_required > 0 && bytes_required < data_->size()) {
-    // Trim buffers
-    RETURN_NOT_OK(data_->Resize(bytes_required));
+  if (data_) {
+    if (bytes_required > 0 && bytes_required < data_->size()) {
+      // Trim buffers
+      RETURN_NOT_OK(data_->Resize(bytes_required));
+    }
+    // zero the padding
+    memset(data_->mutable_data() + bytes_required, 0, data_->capacity() - bytes_required);
+  } else {
+    DCHECK_EQ(bytes_required, 0);
   }
-  // zero the padding
-  memset(data_->mutable_data() + bytes_required, 0, data_->capacity() - bytes_required);
 
   std::shared_ptr<DataType> output_type;
   switch (int_size_) {
@@ -764,12 +773,16 @@ Status BooleanBuilder::Resize(int64_t capacity) {
 
 Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   const int64_t bytes_required = BitUtil::BytesForBits(length_);
-  if (bytes_required > 0 && bytes_required < data_->size()) {
-    // Trim buffers
-    RETURN_NOT_OK(data_->Resize(bytes_required));
+  if (data_) {
+    if (bytes_required > 0 && bytes_required < data_->size()) {
+      // Trim buffers
+      RETURN_NOT_OK(data_->Resize(bytes_required));
+    }
+    // zero the padding
+    memset(data_->mutable_data() + bytes_required, 0, data_->capacity() - bytes_required);
+  } else {
+    DCHECK_EQ(bytes_required, 0);
   }
-  // zero the padding
-  memset(data_->mutable_data() + bytes_required, 0, data_->capacity() - bytes_required);
 
   int64_t bit_offset = length_ % 8;
   if (bit_offset > 0) {
