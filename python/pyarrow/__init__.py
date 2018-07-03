@@ -44,23 +44,11 @@ except DistributionNotFound:
         __version__ = None
 
 
-try:
-    # We need to do the following to load TensorFlow before
-    # pyarrow.lib. If we don't do this there are symbol clashes
-    # between TensorFlow's use of threading and our global
-    # thread pool, see also
-    # https://issues.apache.org/jira/browse/ARROW-2657 and
-    # https://github.com/apache/arrow/pull/2096.
-    import ctypes
-    import os
-    from sys import platform
-    import site
-    if platform == "linux" or platform == "linux2":
-        SITE_PATH, = site.getsitepackages()
-        ctypes.CDLL(os.path.join(SITE_PATH, "tensorflow",
-                                 "libtensorflow_framework.so"))
-except:
-    pass
+from pyarrow.compat import import_tensorflow_extension
+
+
+# Workaround for https://issues.apache.org/jira/browse/ARROW-2657
+import_tensorflow_extension()
 
 
 from pyarrow.lib import cpu_count, set_cpu_count

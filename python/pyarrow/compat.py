@@ -160,6 +160,25 @@ def encode_file_path(path):
     # will convert utf8 to utf16
     return encoded_path
 
+def import_tensorflow_extension():
+    """
+    Load the TensorFlow extension if it exists.
+
+    This is used to load the TensorFlow extension before
+    pyarrow.lib. If we don't do this there are symbol clashes
+    between TensorFlow's use of threading and our global
+    thread pool, see also
+    https://issues.apache.org/jira/browse/ARROW-2657 and
+    https://github.com/apache/arrow/pull/2096.
+    """
+    import os
+    import site
+    for site_path in site.getsitepackages():
+        ext = os.path.join(site_path, "tensorflow",
+                           "libtensorflow_framework.so")
+        if os.path.exists(ext):
+            import ctypes
+            ctypes.CDLL(ext)
 
 integer_types = six.integer_types + (np.integer,)
 
