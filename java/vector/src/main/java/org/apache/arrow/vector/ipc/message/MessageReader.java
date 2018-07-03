@@ -18,48 +18,50 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-
-import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.flatbuf.Message;
-import org.apache.arrow.memory.BufferAllocator;
-
 import java.io.IOException;
 
 /**
- * Interface for reading a sequence of messages.
+ * Abstract base class for reading a sequence of messages.
  */
-public interface MessageReader {
+public abstract class MessageReader<T extends MessageReadHolder> {
 
   /**
-   * Read the next message in the sequence.
+   * Read the next message in the sequence and message body, if message has a defined
+   * body length.
    *
-   * @return The read message or null if reached the end of the message sequence
+   * @param holder Data structure to hold message information read.
+   * @return true if a Message was read or false if no more messages.
    * @throws IOException
    */
-  Message readNextMessage() throws IOException;
+  public boolean readNext(T holder) throws IOException {
+
+    // Read message and body if bodyLength is specified
+    readMessage(holder);
+    if (holder.message == null) {
+      return false;
+    }
+    if (holder.message.bodyLength() > 0) {
+      readMessageBody(holder);
+    }
+    return true;
+  }
 
   /**
-   * When a message is followed by a body of data, read that data into an ArrowBuf. This should
-   * only be called when a Message has a body length > 0.
+   * Attempt to read a message. If no new message is available, set holder.message to null to
+   * indicate no further messages in the sequence.
    *
-   * @param message Read message that is followed by a body of data
-   * @param allocator BufferAllocator to allocate memory for body data
-   * @return An ArrowBuf containing the body of the message that was read
+   * @param holder Message and message information that is populated when read by implementation.
    * @throws IOException
    */
-  ArrowBuf readMessageBody(Message message, BufferAllocator allocator) throws IOException;
+  protected abstract void readMessage(T holder) throws IOException;
 
   /**
-   * Return the current number of bytes that have been read.
+   * Read the body of a message, implementation should populate holder accordingly.
+   * Called when holder.message.bodyLength > 0.
    *
-   * @return number of bytes read
-   */
-  long bytesRead();
-
-  /**
-   * Close any resource opened by the message reader, not including message body allocations.
-   *
+   * @param holder Contains message information from readMessage, message body is populated when
+   *               read by implementation.
    * @throws IOException
    */
-  void close() throws IOException;
+  protected abstract void readMessageBody(T holder) throws IOException;
 }

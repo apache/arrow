@@ -23,16 +23,13 @@ import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 
-import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.ipc.ArrowReader;
+import org.apache.arrow.vector.ipc.message.ArrowBufReadHolder;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
-import org.apache.arrow.vector.ipc.message.MessageReader;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
-import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
@@ -40,7 +37,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
  */
 public class ArrowStreamReader extends ArrowReader {
 
-  private MessageReader messageReader;
+  private MessageChannelReader messageReader;
 
   /**
    * Constructs a streaming reader using the MessageReader interface. Non-blocking.
@@ -48,7 +45,7 @@ public class ArrowStreamReader extends ArrowReader {
    * @param messageReader interface to get read messages
    * @param allocator to allocate new buffers
    */
-  public ArrowStreamReader(MessageReader messageReader, BufferAllocator allocator) {
+  public ArrowStreamReader(MessageChannelReader messageReader, BufferAllocator allocator) {
     super(allocator);
     this.messageReader = messageReader;
   }
@@ -60,7 +57,7 @@ public class ArrowStreamReader extends ArrowReader {
    * @param allocator to allocate new buffers
    */
   public ArrowStreamReader(ReadableByteChannel in, BufferAllocator allocator) {
-    this(new MessageChannelReader(new ReadChannel(in)), allocator);
+    this(new MessageChannelReader(new ReadChannel(in), allocator), allocator);
   }
 
   /**
@@ -101,19 +98,18 @@ public class ArrowStreamReader extends ArrowReader {
    */
   public boolean loadNextBatch() throws IOException {
     prepareLoadNextBatch();
-
-    Message message = messageReader.readNextMessage();
+    ArrowBufReadHolder holder = new ArrowBufReadHolder();
 
     // Reached EOS
-    if (message == null) {
+    if (!messageReader.readNext(holder)) {
       return false;
     }
 
-    if (message.headerType() != MessageHeader.RecordBatch) {
-      throw new IOException("Expected RecordBatch but header was " + message.headerType());
+    if (holder.message.headerType() != MessageHeader.RecordBatch) {
+      throw new IOException("Expected RecordBatch but header was " + holder.message.headerType());
     }
 
-    ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(messageReader, message, allocator);
+    ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(holder.message, holder.bodyBuffer);
     loadRecordBatch(batch);
     return true;
   }
@@ -125,7 +121,17 @@ public class ArrowStreamReader extends ArrowReader {
    */
   @Override
   protected Schema readSchema() throws IOException {
-    return MessageSerializer.deserializeSchema(messageReader);
+    ArrowBufReadHolder holder = new ArrowBufReadHolder();
+
+    if (!messageReader.readNext(holder)) {
+      throw new IOException("Unexpected end of input. Missing schema.");
+    }
+
+    if (holder.message.headerType() != MessageHeader.Schema) {
+      throw new IOException("Expected schema but header was " + holder.message.headerType());
+    }
+
+    return MessageSerializer.deserializeSchema(holder.message);
   }
 
   /**
@@ -137,12 +143,16 @@ public class ArrowStreamReader extends ArrowReader {
    */
   @Override
   protected ArrowDictionaryBatch readDictionary() throws IOException {
-    Message message = messageReader.readNextMessage();
+    ArrowBufReadHolder holder = new ArrowBufReadHolder();
 
-    if (message.headerType() != MessageHeader.DictionaryBatch) {
-      throw new IOException("Expected DictionaryBatch but header was " + message.headerType());
+    if (!messageReader.readNext(holder)) {
+      throw new IOException("Unexpected end of input. Expected DictionaryBatch");
     }
 
-    return MessageSerializer.deserializeDictionaryBatch(messageReader, message, allocator);
+    if (holder.message.headerType() != MessageHeader.DictionaryBatch) {
+      throw new IOException("Expected DictionaryBatch but header was " + holder.message.headerType());
+    }
+
+    return MessageSerializer.deserializeDictionaryBatch(holder.message, holder.bodyBuffer);
   }
 }

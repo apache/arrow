@@ -115,19 +115,10 @@ public class MessageSerializer {
   /**
    * Deserializes a schema object. Format is from serialize().
    *
-   * @param reader the reader interface to deserialize from
+   * @param message A Message of type MessageHeader.Schema
    * @return the deserialized object
-   * @throws IOException if something went wrong
    */
-  public static Schema deserializeSchema(MessageReader reader) throws IOException {
-    Message message = reader.readNextMessage();
-    if (message == null) {
-      throw new IOException("Unexpected end of input. Missing schema.");
-    }
-    if (message.headerType() != MessageHeader.Schema) {
-      throw new IOException("Expected schema but header was " + message.headerType());
-    }
-
+  public static Schema deserializeSchema(Message message) {
     return Schema.convertSchema((org.apache.arrow.flatbuf.Schema)
         message.header(new org.apache.arrow.flatbuf.Schema()));
   }
@@ -140,7 +131,16 @@ public class MessageSerializer {
    * @throws IOException if something went wrong
    */
   public static Schema deserializeSchema(ReadChannel in) throws IOException {
-    return deserializeSchema(new MessageChannelReader(in));
+    MessageReadHolder holder = new MessageReadHolder();
+    readMessage(holder, in);
+    if (holder.message == null) {
+      throw new IOException("Unexpected end of input. Missing schema.");
+    }
+    if (holder.message.headerType() != MessageHeader.Schema) {
+      throw new IOException("Expected schema but header was " + holder.message.headerType());
+    }
+
+    return deserializeSchema(holder.message);
   }
 
   /**
@@ -209,19 +209,33 @@ public class MessageSerializer {
   /**
    * Deserializes a RecordBatch.
    *
-   * @param reader  the reader interface to deserialize from
-   * @param message the object to deserialize to
-   * @param alloc   to allocate buffers
+   * @param message the object to deserialize from
+   * @param bodyBuffer Arrow buffer containing the RecordBatch data
    * @return the deserialized object
    * @throws IOException if something went wrong
    */
-  public static ArrowRecordBatch deserializeRecordBatch(MessageReader reader, Message message, BufferAllocator alloc)
+  public static ArrowRecordBatch deserializeRecordBatch(Message message, ArrowBuf bodyBuffer)
       throws IOException {
     RecordBatch recordBatchFB = (RecordBatch) message.header(new RecordBatch());
+    return deserializeRecordBatch(recordBatchFB, bodyBuffer);
+  }
 
-    // Now read the record batch body
-    ArrowBuf buffer = reader.readMessageBody(message, alloc);
-    return deserializeRecordBatch(recordBatchFB, buffer);
+  /**
+   * Deserializes a RecordBatch.
+   *
+   * @param in Channel to read a RecordBatch message and data from
+   * @param allocator BufferAllocator to allocate an Arrow buffer to read message body data
+   * @return the deserialized object
+   * @throws IOException
+   */
+  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
+    ArrowBufReadHolder holder = new ArrowBufReadHolder();
+    readMessage(holder, in);
+    if (holder.message.headerType() != MessageHeader.RecordBatch) {
+      throw new IOException("Expected RecordBatch but header was " + holder.message.headerType());
+    }
+    readMessageBody(holder, in, allocator);
+    return deserializeRecordBatch(holder.message, holder.bodyBuffer);
   }
 
   /**
@@ -341,21 +355,25 @@ public class MessageSerializer {
   /**
    * Deserializes a DictionaryBatch.
    *
-   * @param reader  where to read from
-   * @param message the message message metadata to deserialize
-   * @param alloc   the allocator for new buffers
+   * @param message the message metadata to deserialize
+   * @param bodyBuffer Arrow buffer containing the DictionaryBatch data
    * @return the corresponding dictionary batch
    * @throws IOException if something went wrong
    */
-  public static ArrowDictionaryBatch deserializeDictionaryBatch(MessageReader reader,
-                                                                Message message,
-                                                                BufferAllocator alloc) throws IOException {
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(Message message, ArrowBuf bodyBuffer) throws IOException {
     DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
-
-    // Now read the record batch body
-    ArrowBuf body = reader.readMessageBody(message, alloc);
-    ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), body);
+    ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), bodyBuffer);
     return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
+  }
+
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
+    ArrowBufReadHolder holder = new ArrowBufReadHolder();
+    readMessage(holder, in);
+    if (holder.message.headerType() != MessageHeader.DictionaryBatch) {
+      throw new IOException("Expected DictionaryBatch but header was " + holder.message.headerType());
+    }
+    readMessageBody(holder, in, allocator);
+    return deserializeDictionaryBatch(holder.message, holder.bodyBuffer);
   }
 
   /**
@@ -400,30 +418,29 @@ public class MessageSerializer {
   /**
    * Deserialize a message that is either an ArrowDictionaryBatch or ArrowRecordBatch.
    *
-   * @param reader Interface to read messages from
-   * @param alloc Allocator for message data
+   * @param reader Interface to read messages and message body data from
    * @return The deserialized record batch
    * @throws IOException if the message is not an ArrowDictionaryBatch or ArrowRecordBatch
    */
-  public static ArrowMessage deserializeMessageBatch(MessageReader reader, BufferAllocator alloc) throws IOException {
-    Message message = reader.readNextMessage();
-    if (message == null) {
+  public static ArrowMessage deserializeMessageBatch(MessageReader reader) throws IOException {
+    ArrowBufReadHolder holder = new ArrowBufReadHolder();
+    if (!reader.readNext(holder)) {
       return null;
-    } else if (message.bodyLength() > Integer.MAX_VALUE) {
+    } else if (holder.message.bodyLength() > Integer.MAX_VALUE) {
       throw new IOException("Cannot currently deserialize record batches over 2GB");
     }
 
-    if (message.version() != MetadataVersion.V4) {
+    if (holder.message.version() != MetadataVersion.V4) {
       throw new IOException("Received metadata with an incompatible version number");
     }
 
-    switch (message.headerType()) {
+    switch (holder.message.headerType()) {
       case MessageHeader.RecordBatch:
-        return deserializeRecordBatch(reader, message, alloc);
+        return deserializeRecordBatch(holder.message, holder.bodyBuffer);
       case MessageHeader.DictionaryBatch:
-        return deserializeDictionaryBatch(reader, message, alloc);
+        return deserializeDictionaryBatch(holder.message, holder.bodyBuffer);
       default:
-        throw new IOException("Unexpected message header type " + message.headerType());
+        throw new IOException("Unexpected message header type " + holder.message.headerType());
     }
   }
 
@@ -436,7 +453,7 @@ public class MessageSerializer {
    * @throws IOException if the message is not an ArrowDictionaryBatch or ArrowRecordBatch
    */
   public static ArrowMessage deserializeMessageBatch(ReadChannel in, BufferAllocator alloc) throws IOException {
-    return deserializeMessageBatch(new MessageChannelReader(in), alloc);
+    return deserializeMessageBatch(new MessageChannelReader(in, alloc));
   }
 
   /**
@@ -459,24 +476,59 @@ public class MessageSerializer {
     return builder.dataBuffer();
   }
 
-  private static Message deserializeMessage(ReadChannel in) throws IOException {
+  /**
+   * Read a Message from the in channel and populate holder information, if no more messages set
+   * holder.message to null. This first clears all variables in MessageReadHolder.
+   *
+   * @param holder Message and message information that is populated when read
+   * @param in ReadChannel to read messages from
+   * @throws IOException
+   */
+  public static void readMessage(MessageReadHolder holder, ReadChannel in) throws IOException {
+
+    // Clear message info
+    holder.messageLength = 0;
+    holder.message = null;
+    holder.messageBuffer = null;
+
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
-    if (in.readFully(buffer) != 4) {
-      return null;
-    }
-    int messageLength = bytesToInt(buffer.array());
-    if (messageLength == 0) {
-      return null;
-    }
+    if (in.readFully(buffer) == 4) {
+      holder.messageLength = MessageSerializer.bytesToInt(buffer.array());
 
-    buffer = ByteBuffer.allocate(messageLength);
-    if (in.readFully(buffer) != messageLength) {
-      throw new IOException(
-          "Unexpected end of stream trying to read message.");
-    }
-    buffer.rewind();
+      // Length of 0 indicates end of stream
+      if (holder.messageLength != 0) {
 
-    return Message.getRootAsMessage(buffer);
+        // Read the message into the buffer.
+        holder.messageBuffer = ByteBuffer.allocate(holder.messageLength);
+        if (in.readFully(holder.messageBuffer) != holder.messageLength) {
+          throw new IOException(
+            "Unexpected end of stream trying to read message.");
+        }
+        holder.messageBuffer.rewind();
+
+        // Load the message.
+        holder.message = Message.getRootAsMessage(holder.messageBuffer);
+      }
+    }
+  }
+
+  /**
+   * Read a Message body from the in channel into the holder bodyBuffer.
+   *
+   * @param holder Must have message already set, will then read the message body into the
+   *               ArrowBuf body buffer
+   * @param in ReadChannel to read message body from
+   * @param allocator Allocate the ArrowBuf to contain message body data
+   * @throws IOException
+   */
+  public static void readMessageBody(ArrowBufReadHolder holder, ReadChannel in, BufferAllocator allocator) throws IOException {
+    int bodyLength = (int) holder.message.bodyLength();
+
+    // Now read the record batch body
+    holder.bodyBuffer = allocator.buffer(bodyLength);
+    if (in.readFully(holder.bodyBuffer, bodyLength) != bodyLength) {
+      throw new IOException("Unexpected end of input trying to read batch.");
+    }
   }
 }
