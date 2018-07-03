@@ -109,6 +109,11 @@ public class ArrowStreamReader extends ArrowReader {
       throw new IOException("Expected RecordBatch but header was " + holder.message.headerType());
     }
 
+    // For zero-length batches, need an empty buffer to deserialize the batch
+    if (holder.bodyBuffer == null) {
+      holder.bodyBuffer = allocator.getEmpty();
+    }
+
     ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(holder.message, holder.bodyBuffer);
     loadRecordBatch(batch);
     return true;
@@ -151,6 +156,11 @@ public class ArrowStreamReader extends ArrowReader {
 
     if (holder.message.headerType() != MessageHeader.DictionaryBatch) {
       throw new IOException("Expected DictionaryBatch but header was " + holder.message.headerType());
+    }
+
+    // For zero-length batches, need an empty buffer to deserialize the batch
+    if (holder.bodyBuffer == null) {
+      holder.bodyBuffer = allocator.getEmpty();
     }
 
     return MessageSerializer.deserializeDictionaryBatch(holder.message, holder.bodyBuffer);
