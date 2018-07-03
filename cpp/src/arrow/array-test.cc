@@ -38,6 +38,9 @@
 
 namespace arrow {
 
+// used to prevent compiler optimizing away side-effect-less statements
+volatile int throw_away = 0;
+
 using std::string;
 using std::vector;
 
@@ -456,12 +459,38 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
     ASSERT_OK(this->builder_->AppendNull());
   }
 
-  std::shared_ptr<Array> result;
-  ASSERT_OK(this->builder_->Finish(&result));
+  std::shared_ptr<Array> out;
+  ASSERT_OK(this->builder_->Finish(&out));
+  auto result = std::dynamic_pointer_cast<typename TypeParam::ArrayType>(out);
 
   for (int64_t i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i)) << i;
   }
+
+  // valgrind will detect uninitialized memory
+  std::vector<typename TypeParam::T> zeros(size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(result->values()->data()), zeros.data(), 
+    TypeTraits<typename TypeParam::Type>::bytes_required(size));
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
+  const int64_t size = 10;
+  const uint8_t nullmap[10] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+
+  ASSERT_OK(this->builder_->AppendNulls(nullmap, size));
+
+  std::shared_ptr<Array> out;
+  ASSERT_OK(this->builder_->Finish(&out));
+  auto result = std::dynamic_pointer_cast<typename TypeParam::ArrayType>(out);
+
+  for (int64_t i = 0; i < size; ++i) {
+    ASSERT_TRUE(result->IsValid(i) == nullmap[i]);
+  }
+
+  // valgrind will detect uninitialized memory
+  std::vector<typename TypeParam::T> zeros(size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(result->values()->data()), zeros.data(), 
+    TypeTraits<typename TypeParam::Type>::bytes_required(size));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
@@ -1284,6 +1313,9 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   for (int i = 0; i < N * reps; ++i) {
     if (is_null[i % N]) {
       ASSERT_TRUE(result_->IsNull(i));
+      // value should still be in initialized memory, valgrind will catch this
+      const uint8_t* vals = result_->GetValue(i, &length);
+      throw_away = std::memcmp(vals, strings[i % N].data(), length);
     } else {
       ASSERT_FALSE(result_->IsNull(i));
       const uint8_t* vals = result_->GetValue(i, &length);
@@ -1437,6 +1469,8 @@ TEST_F(TestFWBinaryArray, Builder) {
                   memcmp(raw_data + byte_width * i, fw_result.GetValue(i), byte_width));
       } else {
         ASSERT_TRUE(fw_result.IsNull(i));
+        // valgrind will check if the memory is initialized
+        throw_away = memcmp(raw_data + byte_width * i, fw_result.GetValue(i), byte_width);
       }
     }
   };
@@ -1702,6 +1736,45 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendValues) {
   ASSERT_TRUE(expected_->Equals(result_));
 }
 
+TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
+  int64_t size = 1000;
+  for (unsigned index = 0; index < size; ++index) {
+    builder_->AppendNull();
+  }
+
+  Done();
+
+  for (unsigned index = 0; index < size; ++index) {
+    ASSERT_TRUE(result_->IsNull(index));
+  }
+
+  auto converted = std::dynamic_pointer_cast<Int8Array>(result_);
+  ASSERT_TRUE(converted);
+
+  // Valgrind will detect uninitialized memory
+  std::vector<int8_t> zeros(size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()), zeros.data(), size);
+}
+
+TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
+  constexpr int64_t size = 10;
+  const uint8_t nullmap[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+  builder_->AppendNulls(nullmap, size);
+
+  Done();
+
+  for (unsigned index = 0; index < size; ++index) {
+    ASSERT_TRUE(result_->IsValid(index) == nullmap[index]);
+  }
+
+  auto converted = std::dynamic_pointer_cast<Int8Array>(result_);
+  ASSERT_TRUE(converted);
+
+  // Valgrind will detect uninitialized memory
+  std::vector<int8_t> zeros(size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()), zeros.data(), size);
+}
+
 class TestAdaptiveUIntBuilder : public TestBuilder {
  public:
   void SetUp() {
@@ -1795,6 +1868,45 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendValues) {
 
   ArrayFromVector<UInt64Type, uint64_t>(expected_values, &expected_);
   ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
+  int64_t size = 1000;
+  for (unsigned index = 0; index < size; ++index) {
+    builder_->AppendNull();
+  }
+
+  Done();
+
+  for (unsigned index = 0; index < size; ++index) {
+    ASSERT_TRUE(result_->IsNull(index));
+  }
+
+  auto converted = std::dynamic_pointer_cast<UInt8Array>(result_);
+  ASSERT_TRUE(converted);
+
+  // Valgrind will detect uninitialized memory
+  std::vector<int8_t> zeros(size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()), zeros.data(), size);
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
+  constexpr int64_t size = 10;
+  const uint8_t nullmap[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+  builder_->AppendNulls(nullmap, size);
+
+  Done();
+
+  for (unsigned index = 0; index < size; ++index) {
+    ASSERT_TRUE(result_->IsValid(index) == nullmap[index]);
+  }
+
+  auto converted = std::dynamic_pointer_cast<UInt8Array>(result_);
+  ASSERT_TRUE(converted);
+
+  // Valgrind will detect uninitialized memory
+  std::vector<int8_t> zeros(size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()), zeros.data(), size);
 }
 
 // ----------------------------------------------------------------------
