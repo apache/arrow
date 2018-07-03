@@ -176,11 +176,14 @@ def import_tensorflow_extension():
     tensorflow_loaded = False
 
     # Try to load the tensorflow extension directly
-    # (this is much faster than importing tensorflow)
+    # This is a performance optimization, tensorflow will always be
+    # loaded via the "import tensorflow" statement below if this
+    # doesn't succeed.
     try:
         site_paths = site.getsitepackages() + [site.getusersitepackages()]
     except AttributeError:
-        # Workaround for https://github.com/pypa/virtualenv/issues/228
+        # Workaround for https://github.com/pypa/virtualenv/issues/228,
+        # this happends in some configurations of virtualenv
         site_paths = [os.path.dirname(site.__file__) + '/site-packages']
     for site_path in site_paths:
         ext = os.path.join(site_path, "tensorflow",
@@ -191,7 +194,7 @@ def import_tensorflow_extension():
             tensorflow_loaded = True
             break
 
-    # If this failed, try to load tensorflow the normal ways
+    # If the above failed, try to load tensorflow the normal way
     # (this is more expensive)
     if not tensorflow_loaded:
         try:
