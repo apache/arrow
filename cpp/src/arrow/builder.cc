@@ -339,7 +339,7 @@ Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   } else {
     DCHECK_EQ(bytes_required, 0);
   }
-  
+
   *out = ArrayData::Make(type_, length_, {null_bitmap_, data_}, null_count_);
 
   data_ = null_bitmap_ = nullptr;
@@ -1604,8 +1604,6 @@ Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
 Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
-  
-
 
   *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
 

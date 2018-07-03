@@ -49,7 +49,7 @@ bool IsZeroPadded(const Array& array) {
   }
   return true;
 }
-}
+}  // namespace
 
 // used to prevent compiler optimizing away side-effect-less statements
 volatile int throw_away = 0;
@@ -482,8 +482,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
 
   // valgrind will detect uninitialized memory
   std::vector<typename TypeParam::T> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(result->values()->data()), zeros.data(), 
-    TypeTraits<typename TypeParam::Type>::bytes_required(size));
+  throw_away =
+      memcmp(reinterpret_cast<const uint8_t*>(result->values()->data()), zeros.data(),
+             TypeTraits<typename TypeParam::Type>::bytes_required(size));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
@@ -502,8 +503,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
 
   // valgrind will detect uninitialized memory
   std::vector<typename TypeParam::T> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(result->values()->data()), zeros.data(), 
-    TypeTraits<typename TypeParam::Type>::bytes_required(size));
+  throw_away =
+      memcmp(reinterpret_cast<const uint8_t*>(result->values()->data()), zeros.data(),
+             TypeTraits<typename TypeParam::Type>::bytes_required(size));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
@@ -1286,9 +1288,7 @@ TEST_F(TestBinaryArray, TestNullValuesInitialized) {
   }
 }
 
-TEST_F(TestBinaryArray, TestPaddingZeroed) {
-  ASSERT_TRUE(strings_);
-}
+TEST_F(TestBinaryArray, TestPaddingZeroed) { ASSERT_TRUE(strings_); }
 
 TEST_F(TestBinaryArray, TestGetString) {
   for (size_t i = 0; i < expected_.size(); ++i) {
@@ -1829,7 +1829,8 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
 
   // Valgrind will detect uninitialized memory
   std::vector<int8_t> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()), zeros.data(), size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()),
+                      zeros.data(), size);
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
@@ -1848,7 +1849,8 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
 
   // Valgrind will detect uninitialized memory
   std::vector<int8_t> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()), zeros.data(), size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()),
+                      zeros.data(), size);
 }
 
 class TestAdaptiveUIntBuilder : public TestBuilder {
@@ -1972,7 +1974,8 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
 
   // Valgrind will detect uninitialized memory
   std::vector<int8_t> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()), zeros.data(), size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()),
+                      zeros.data(), size);
 }
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
@@ -1991,7 +1994,8 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
 
   // Valgrind will detect uninitialized memory
   std::vector<int8_t> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()), zeros.data(), size);
+  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()),
+                      zeros.data(), size);
 }
 
 // ----------------------------------------------------------------------
