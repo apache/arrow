@@ -120,11 +120,13 @@ fi
 
 # Set up huge pages for plasma test
 if [ $TRAVIS_OS_NAME == "linux" ]; then
-    sudo sysctl -w vm.nr_hugepages=2048
-    sudo mkdir -p /mnt/hugepages
-    sudo mount -t hugetlbfs -o uid=`id -u` -o gid=`id -g` none /mnt/hugepages
-    sudo bash -c "echo `id -g` > /proc/sys/vm/hugetlb_shm_group"
-    sudo bash -c "echo 2048 > /proc/sys/vm/nr_hugepages"
+    source $TRAVIS_BUILD_DIR/ci/travis_config_hugepages.sh
+    # declare -A UNIT_MAP=( [Kb]=$((10**3)) [Mb]=200 [Gb]=300 )
+    # sudo sysctl -w vm.nr_hugepages=2048
+    # sudo mkdir -p /mnt/hugepages
+    # sudo mount -t hugetlbfs -o uid=`id -u` -o gid=`id -g` none /mnt/hugepages
+    # sudo bash -c "echo `id -g` > /proc/sys/vm/hugetlb_shm_group"
+    # sudo bash -c "echo 2048 > /proc/sys/vm/nr_hugepages"
 fi
 
 # Need to run tests from the source tree for Cython coverage and conftest.py
