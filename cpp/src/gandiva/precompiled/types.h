@@ -32,6 +32,8 @@ using float64 = double;
 using date64 = int64_t;
 using time64 = int64_t;
 using timestamp = int64_t;
+using utf8 = char *;
+using binary = char *;
 
 #ifdef GANDIVA_UNIT_TEST
 // unit tests may be compiled without O2, so inlining may not happen.
@@ -53,6 +55,8 @@ int64 extractMonth_timestamp(timestamp millis);
 int64 extractDay_timestamp(timestamp millis);
 int64 extractHour_timestamp(timestamp millis);
 int64 extractMinute_timestamp(timestamp millis);
+
+int32 mem_compare(const char *left, int32 left_len, const char *right, int32 right_len);
 
 } // extern "C"
 

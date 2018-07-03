@@ -20,7 +20,8 @@
 namespace gandiva {
 
 class VectorReadValidityDex;
-class VectorReadValueDex;
+class VectorReadFixedLenValueDex;
+class VectorReadVarLenValueDex;
 class LocalBitMapValidityDex;
 class LiteralDex;
 class TrueDex;
@@ -36,7 +37,8 @@ class BooleanOrDex;
 class DexVisitor {
  public:
   virtual void Visit(const VectorReadValidityDex &dex) = 0;
-  virtual void Visit(const VectorReadValueDex &dex) = 0;
+  virtual void Visit(const VectorReadFixedLenValueDex &dex) = 0;
+  virtual void Visit(const VectorReadVarLenValueDex &dex) = 0;
   virtual void Visit(const LocalBitMapValidityDex &dex) = 0;
   virtual void Visit(const TrueDex &dex) = 0;
   virtual void Visit(const FalseDex &dex) = 0;
@@ -57,7 +59,8 @@ class DexVisitor {
 
 class DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(VectorReadValidityDex);
-  VISIT_DCHECK(VectorReadValueDex);
+  VISIT_DCHECK(VectorReadFixedLenValueDex);
+  VISIT_DCHECK(VectorReadVarLenValueDex);
   VISIT_DCHECK(LocalBitMapValidityDex);
   VISIT_DCHECK(TrueDex);
   VISIT_DCHECK(FalseDex);

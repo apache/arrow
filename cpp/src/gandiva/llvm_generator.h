@@ -52,6 +52,7 @@ class LLVMGenerator {
                  const ArrayDataVector &output_vector);
 
   LLVMTypes *types() { return types_; }
+  llvm::Module *module() { return engine_->module(); }
 
  private:
   LLVMGenerator();
@@ -59,7 +60,6 @@ class LLVMGenerator {
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
   FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
 
-  llvm::Module *module() { return engine_->module(); }
   llvm::LLVMContext &context() { return *(engine_->context()); }
   llvm::IRBuilder<> &ir_builder() { return engine_->ir_builder(); }
 
@@ -74,7 +74,8 @@ class LLVMGenerator {
             llvm::Value *loop_var);
 
     void Visit(const VectorReadValidityDex &dex) override;
-    void Visit(const VectorReadValueDex &dex) override;
+    void Visit(const VectorReadFixedLenValueDex &dex) override;
+    void Visit(const VectorReadVarLenValueDex &dex) override;
     void Visit(const LocalBitMapValidityDex &dex) override;
     void Visit(const TrueDex &dex) override;
     void Visit(const FalseDex &dex) override;
@@ -109,7 +110,7 @@ class LLVMGenerator {
     std::vector<llvm::Value *> BuildParams(const ValueValidityPairVector &args,
                                            bool with_validity);
 
-    // Switch to the entry_block and get reference of the validity/value buffer
+    // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value *GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
 
     // Switch to the entry_block and get reference to the local bitmap.
@@ -145,6 +146,11 @@ class LLVMGenerator {
   llvm::Value *GetDataReference(llvm::Value *arg_addrs,
                                 int idx,
                                 FieldPtr field);
+
+  /// Generate code to load the vector at specified index and cast it as offsets array.
+  llvm::Value *GetOffsetsReference(llvm::Value *arg_addrs,
+                                   int idx,
+                                   FieldPtr field);
 
   /// Generate code for the value array of one expression.
   Status CodeGenExprValue(DexPtr value_expr,

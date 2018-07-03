@@ -12,21 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GANDIVA_LITERAL_HOLDER
-#define GANDIVA_LITERAL_HOLDER
-
-#include <string>
-
-#include <boost/variant.hpp>
+#include <gtest/gtest.h>
+#include "precompiled/types.h"
 
 namespace gandiva {
 
-using LiteralHolder = boost::variant<
-  bool, float, double,
-  int8_t, int16_t, int32_t, int64_t,
-  uint8_t, uint16_t, uint32_t, uint64_t,
-  std::string>;
+TEST(TestStringOps, TestCompare) {
+  const char *left = "abcd789";
+  const char *right = "abcd123";
+
+  // 0 for equal
+  EXPECT_EQ(mem_compare(left, 4, right, 4), 0);
+
+  // compare lengths if the prefixes match
+  EXPECT_GT(mem_compare(left, 5, right, 4), 0);
+  EXPECT_LT(mem_compare(left, 4, right, 5), 0);
+
+  // compare bytes if the prefixes don't match
+  EXPECT_GT(mem_compare(left, 5, right, 5), 0);
+  EXPECT_GT(mem_compare(left, 5, right, 7), 0);
+  EXPECT_GT(mem_compare(left, 7, right, 5), 0);
+}
 
 } // namespace gandiva
-
-#endif //GANDIVA_LITERAL_HOLDER

@@ -50,6 +50,10 @@ class FieldDescriptor {
   const std::string &Name() const { return field_->name(); }
   DataTypePtr Type() const { return field_->type(); }
 
+  bool HasOffsetsIdx() const {
+    return offsets_idx_ != kInvalidIdx;
+  }
+
  private:
   FieldPtr field_;
   int data_idx_;

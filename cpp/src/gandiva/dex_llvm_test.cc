@@ -25,7 +25,8 @@ class TestDex : public ::testing::Test {
  protected:
   void SetUp() {
     name_map_[&typeid(VectorReadValidityDex)] = "VectorReadValidityDex";
-    name_map_[&typeid(VectorReadValueDex)] = "VectorReadValueDex";
+    name_map_[&typeid(VectorReadFixedLenValueDex)] = "VectorReadFixedLenValueDex";
+    name_map_[&typeid(VectorReadVarLenValueDex)] = "VectorReadVarLenValueDex";
     name_map_[&typeid(LocalBitMapValidityDex)] = "LocalBitMapValidityDex";
     name_map_[&typeid(NonNullableFuncDex)] = "NonNullableFuncDex";
     name_map_[&typeid(NullableNeverFuncDex)] = "NullableNeverFuncDex";
@@ -53,7 +54,11 @@ TEST_F(TestDex, TestVisitor) {
       *result_ = (*map_)[&typeid(dex)];
     }
 
-    void Visit(const VectorReadValueDex &dex) override {
+    void Visit(const VectorReadFixedLenValueDex &dex) override {
+      *result_ = (*map_)[&typeid(dex)];
+    }
+
+    void Visit(const VectorReadVarLenValueDex &dex) override {
       *result_ = (*map_)[&typeid(dex)];
     }
 
@@ -111,9 +116,9 @@ TEST_F(TestDex, TestVisitor) {
   vv_dex.Accept(visitor);
   EXPECT_EQ(desc, name_map_[&typeid(VectorReadValidityDex)]);
 
-  VectorReadValueDex vd_dex(field_desc);
+  VectorReadFixedLenValueDex vd_dex(field_desc);
   vd_dex.Accept(visitor);
-  EXPECT_EQ(desc, name_map_[&typeid(VectorReadValueDex)]);
+  EXPECT_EQ(desc, name_map_[&typeid(VectorReadFixedLenValueDex)]);
 
   LocalBitMapValidityDex local_bitmap_dex(0);
   local_bitmap_dex.Accept(visitor);

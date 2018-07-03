@@ -38,6 +38,8 @@ class TreeExprBuilder {
   static NodePtr MakeLiteral(int64_t value);
   static NodePtr MakeLiteral(float value);
   static NodePtr MakeLiteral(double value);
+  static NodePtr MakeStringLiteral(const std::string &value);
+  static NodePtr MakeBinaryLiteral(const std::string &value);
 
   /// \brief create a node on a null literal.
   /// returns null if data_type is null or if it's not a supported datatype.

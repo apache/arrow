@@ -42,24 +42,36 @@ FieldDescriptorPtr Annotator::AddOutputFieldDescriptor(FieldPtr field) {
 FieldDescriptorPtr Annotator::MakeDesc(FieldPtr field) {
   // TODO:
   // - validity is optional
-  // - may have offsets also
   int data_idx = buffer_count_++;
   int validity_idx = buffer_count_++;
-  return std::make_shared<FieldDescriptor>(field, data_idx, validity_idx);
+  int offsets_idx = FieldDescriptor::kInvalidIdx;
+  if (arrow::is_binary_like(field->type()->id())) {
+    offsets_idx = buffer_count_++;
+  }
+  return std::make_shared<FieldDescriptor>(field, data_idx, validity_idx, offsets_idx);
 }
 
 void Annotator::PrepareBuffersForField(const FieldDescriptor &desc,
                                        const arrow::ArrayData &array_data,
                                        EvalBatch *eval_batch) {
+  int buffer_idx = 0;
+
   // TODO:
   // - validity is optional
-  // - may have offsets also
 
-  uint8_t *validity_buf = const_cast<uint8_t *>(array_data.buffers[0]->data());
+  uint8_t *validity_buf = const_cast<uint8_t *>(array_data.buffers[buffer_idx]->data());
   eval_batch->SetBuffer(desc.validity_idx(), validity_buf);
+  ++buffer_idx;
 
-  uint8_t *data_buf = const_cast<uint8_t *>(array_data.buffers[1]->data());
+  if (desc.HasOffsetsIdx()) {
+    uint8_t *offsets_buf = const_cast<uint8_t *>(array_data.buffers[buffer_idx]->data());
+    eval_batch->SetBuffer(desc.offsets_idx(), offsets_buf);
+    ++buffer_idx;
+  }
+
+  uint8_t *data_buf = const_cast<uint8_t *>(array_data.buffers[buffer_idx]->data());
   eval_batch->SetBuffer(desc.data_idx(), data_buf);
+  ++buffer_idx;
 }
 
 EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch &record_batch,

@@ -20,9 +20,10 @@ set(LINK_EXECUTABLE ${LLVM_TOOLS_BINARY_DIR}/llvm-link)
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
-    time.cc
     print.cc
-    sample.cc)
+    sample.cc
+    string_ops.cc
+    time.cc)
 
 # Create bitcode for each of the source files.
 foreach(SRC_FILE ${PRECOMPILED_SRCS})
@@ -51,3 +52,4 @@ add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
 add_precompiled_unit_test(time_test.cc time.cc)
 add_precompiled_unit_test(sample_test.cc sample.cc)
+add_precompiled_unit_test(string_ops_test.cc string_ops.cc)

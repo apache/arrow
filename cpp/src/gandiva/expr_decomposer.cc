@@ -32,7 +32,12 @@ Status ExprDecomposer::Visit(const FieldNode &node) {
   auto desc = annotator_.CheckAndAddInputFieldDescriptor(node.field());
 
   DexPtr validity_dex = std::make_shared<VectorReadValidityDex>(desc);
-  DexPtr value_dex = std::make_shared<VectorReadValueDex>(desc);
+  DexPtr value_dex;
+  if (desc->HasOffsetsIdx()) {
+    value_dex = std::make_shared<VectorReadVarLenValueDex>(desc);
+  } else {
+    value_dex = std::make_shared<VectorReadFixedLenValueDex>(desc);
+  }
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   return Status::OK();
 }

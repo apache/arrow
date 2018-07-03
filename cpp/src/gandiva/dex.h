@@ -73,10 +73,25 @@ class VectorReadValidityDex : public VectorReadBaseDex {
   }
 };
 
-/// value component of a ValueVector
-class VectorReadValueDex : public VectorReadBaseDex {
+/// value component of a fixed-len ValueVector
+class VectorReadFixedLenValueDex : public VectorReadBaseDex {
  public:
-  explicit VectorReadValueDex(FieldDescriptorPtr field_desc)
+  explicit VectorReadFixedLenValueDex(FieldDescriptorPtr field_desc)
+    : VectorReadBaseDex(field_desc) {}
+
+  int DataIdx() const {
+    return field_desc_->data_idx();
+  }
+
+  void Accept(DexVisitor &visitor) override {
+    visitor.Visit(*this);
+  }
+};
+
+/// value component of a variable-len ValueVector
+class VectorReadVarLenValueDex : public VectorReadBaseDex {
+ public:
+  explicit VectorReadVarLenValueDex(FieldDescriptorPtr field_desc)
     : VectorReadBaseDex(field_desc) {}
 
   int DataIdx() const {

@@ -36,6 +36,8 @@ LLVMTypes::LLVMTypes(llvm::LLVMContext &context)
       {arrow::Type::type::DATE64, i64_type()},
       {arrow::Type::type::TIME64, i64_type()},
       {arrow::Type::type::TIMESTAMP, i64_type()},
+      {arrow::Type::type::STRING, i8_ptr_type()},
+      {arrow::Type::type::BINARY, i8_ptr_type()},
   };
 }
 

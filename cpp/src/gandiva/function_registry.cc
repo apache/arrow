@@ -31,6 +31,8 @@ using arrow::float32;
 using arrow::float64;
 using arrow::boolean;
 using arrow::date64;
+using arrow::utf8;
+using arrow::binary;
 
 #define STRINGIFY(a) #a
 
@@ -80,7 +82,7 @@ using arrow::date64;
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type name. eg. castFloat_int32
-#define CAST_UNARY_SAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE) \
+#define UNARY_SAFE_NULL_IF_NULL(NAME, IN_TYPE, OUT_TYPE) \
   NativeFunction(#NAME, \
     DataTypeVector{IN_TYPE()}, \
     OUT_TYPE(), \
@@ -136,6 +138,11 @@ using arrow::date64;
   INNER(NAME, time64), \
   INNER(NAME, timestamp)
 
+// Iterate the inner macro over all data types
+#define VAR_LEN_TYPES(INNER, NAME) \
+  INNER(NAME, utf8), \
+  INNER(NAME, binary)
+
 // list of registered native functions.
 NativeFunction FunctionRegistry::pc_registry_[] = {
   // Arithmetic operations
@@ -153,17 +160,17 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
   NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
 
   // cast operations
-  CAST_UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
-  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int32, float32),
-  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int64, float32),
-  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int32, float64),
-  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
-  CAST_UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
+  UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
+  UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int32, float32),
+  UNARY_SAFE_NULL_IF_NULL(castFLOAT4, int64, float32),
+  UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int32, float64),
+  UNARY_SAFE_NULL_IF_NULL(castFLOAT8, int64, float64),
+  UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
 
   // nullable never operations
   NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
   NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
-  NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
+  NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
 
   // date/time operations
   DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
@@ -171,6 +178,18 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
   DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
   DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
   DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
+
+  // utf8/binary operations
+  UNARY_SAFE_NULL_IF_NULL(octet_length, utf8, int32),
+  UNARY_SAFE_NULL_IF_NULL(octet_length, binary, int32),
+  UNARY_SAFE_NULL_IF_NULL(bit_length, utf8, int32),
+  UNARY_SAFE_NULL_IF_NULL(bit_length, binary, int32),
+  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
+  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
+  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
+  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
+  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
+  VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
 
   // Null internal (sample)
   NativeFunction("half_or_null",
@@ -180,6 +199,14 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     RESULT_NULL_INTERNAL,
     "half_or_null_int32"),
 };
+
+FunctionRegistry::iterator FunctionRegistry::begin() const {
+  return std::begin(pc_registry_);
+}
+
+FunctionRegistry::iterator FunctionRegistry::end() const {
+  return std::end(pc_registry_);
+}
 
 FunctionRegistry::SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
 

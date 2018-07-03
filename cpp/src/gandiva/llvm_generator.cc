@@ -146,8 +146,21 @@ llvm::Value *LLVMGenerator::GetDataReference(llvm::Value *arg_addrs,
   const std::string &name = field->name();
   llvm::Value *load = LoadVectorAtIndex(arg_addrs, idx, name);
   llvm::Type *base_type = types_->DataVecType(field->type());
-  llvm::Type *pointer_type = types_->ptr_type(base_type);
-  return ir_builder().CreateIntToPtr(load, pointer_type, name + "_darray");
+  if (base_type->isPointerTy()) {
+    return ir_builder().CreateIntToPtr(load, base_type, name + "_darray");
+  } else {
+    llvm::Type *pointer_type = types_->ptr_type(base_type);
+    return ir_builder().CreateIntToPtr(load, pointer_type, name + "_darray");
+  }
+}
+
+/// Get reference to offsets array at specified index in the args list.
+llvm::Value *LLVMGenerator::GetOffsetsReference(llvm::Value *arg_addrs,
+                                                int idx,
+                                                FieldPtr field) {
+  const std::string &name = field->name();
+  llvm::Value *load = LoadVectorAtIndex(arg_addrs, idx, name);
+  return ir_builder().CreateIntToPtr(load, types_->i32_ptr_type(), name + "_oarray");
 }
 
 /// Get reference to local bitmap array at specified index in the args list.
@@ -410,7 +423,7 @@ LLVMGenerator::Visitor::Visitor(LLVMGenerator *generator,
   ADD_VISITOR_TRACE("Iteration %T", loop_var);
 }
 
-void LLVMGenerator::Visitor::Visit(const VectorReadValueDex &dex) {
+void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex &dex) {
   llvm::IRBuilder<> &builder = ir_builder();
 
   llvm::Value *slot_ref = GetBufferReference(dex.DataIdx(), kBufferTypeData, dex.Field());
@@ -423,8 +436,41 @@ void LLVMGenerator::Visitor::Visit(const VectorReadValueDex &dex) {
     slot_value = builder.CreateLoad(slot_offset, dex.FieldName());
   }
 
-  ADD_VISITOR_TRACE("visit data vector " + dex.FieldName() + " value %T", slot_value);
+  ADD_VISITOR_TRACE("visit fixed-len data vector " + dex.FieldName() + " value %T",
+                    slot_value);
   result_.reset(new LValue(slot_value));
+}
+
+void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex &dex) {
+  llvm::IRBuilder<> &builder = ir_builder();
+  llvm::Value *slot;
+
+  // compute len from the offsets array.
+  llvm::Value *offsets_slot_ref = GetBufferReference(dex.OffsetsIdx(), kBufferTypeOffsets,
+                                                     dex.Field());
+
+  // => offset_start = offsets[loop_var]
+  slot = builder.CreateGEP(offsets_slot_ref, loop_var_);
+  llvm::Value *offset_start = builder.CreateLoad(slot, "offset_start");
+
+  // => offset_end = offsets[loop_var + 1]
+  llvm::Value *loop_var_next = builder.CreateAdd(loop_var_,
+                                                 generator_->types_->i32_constant(1),
+                                                 "loop_var+1");
+  slot = builder.CreateGEP(offsets_slot_ref, loop_var_next);
+  llvm::Value *offset_end = builder.CreateLoad(slot, "offset_end");
+
+  // => len_value = offset_end - offset_start
+  llvm::Value *len_value = builder.CreateSub(offset_end, offset_start,
+                                             dex.FieldName() + "Len");
+
+  // get the data from the data array, at offset 'offset_start'.
+  llvm::Value *data_slot_ref = GetBufferReference(dex.DataIdx(), kBufferTypeData,
+                                                  dex.Field());
+  llvm::Value *data_value = builder.CreateGEP(data_slot_ref, offset_start);
+  ADD_VISITOR_TRACE("visit var-len data vector " + dex.FieldName() + " len %T",
+                    len_value);
+  result_.reset(new LValue(data_value, len_value));
 }
 
 void LLVMGenerator::Visitor::Visit(const VectorReadValidityDex &dex) {
@@ -457,10 +503,35 @@ void LLVMGenerator::Visitor::Visit(const FalseDex &dex) {
 void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {
   LLVMTypes *types = generator_->types_;
   llvm::Value *value = nullptr;
+  llvm::Value *len = nullptr;
 
   switch (dex.type()->id()) {
   case arrow::Type::BOOL:
     value = types->i1_constant(boost::get<bool>(dex.holder()));
+    break;
+
+  case arrow::Type::UINT8:
+    value = types->i8_constant(boost::get<uint8_t>(dex.holder()));
+    break;
+
+  case arrow::Type::UINT16:
+    value = types->i16_constant(boost::get<uint16_t>(dex.holder()));
+    break;
+
+  case arrow::Type::UINT32:
+    value = types->i32_constant(boost::get<uint32_t>(dex.holder()));
+    break;
+
+  case arrow::Type::UINT64:
+    value = types->i64_constant(boost::get<uint64_t>(dex.holder()));
+    break;
+
+  case arrow::Type::INT8:
+    value = types->i8_constant(boost::get<int8_t>(dex.holder()));
+    break;
+
+  case arrow::Type::INT16:
+    value = types->i16_constant(boost::get<int16_t>(dex.holder()));
     break;
 
   case arrow::Type::INT32:
@@ -479,11 +550,21 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {
     value = types->double_constant(boost::get<double>(dex.holder()));
     break;
 
+  case arrow::Type::STRING:
+  case arrow::Type::BINARY: {
+    const std::string &str = boost::get<std::string>(dex.holder());
+
+    llvm::Constant *str_int_cast = types->i64_constant((int64_t)str.c_str());
+    value = llvm::ConstantExpr::getIntToPtr(str_int_cast, types->i8_ptr_type());
+    len = types->i32_constant(str.length());
+    break;
+  }
+
   default:
     DCHECK(0);
   }
   ADD_VISITOR_TRACE("visit Literal %T", value);
-  result_.reset(new LValue(value));
+  result_.reset(new LValue(value, len));
 }
 
 void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex &dex) {
@@ -599,7 +680,7 @@ void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
     // this is a non-terminal else. let the child (nested if/else) handle validity.
     auto value_expr = dex.else_vv().value_expr();
     value_expr->Accept(*this);
-    else_lvalue = std::make_shared<LValue>(result()->data());
+    else_lvalue = result();
   }
   builder.CreateBr(merge_bb);
 
@@ -613,9 +694,17 @@ void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
   result_value->addIncoming(then_lvalue->data(), then_bb);
   result_value->addIncoming(else_lvalue->data(), else_bb);
 
+  llvm::PHINode *result_length = nullptr;
+  if (then_lvalue->length() != nullptr) {
+    result_length = builder.CreatePHI(types->i32_type(), 2, "res_length");
+    result_length->addIncoming(then_lvalue->length(), then_bb);
+    result_length->addIncoming(else_lvalue->length(), else_bb);
+
+    ADD_VISITOR_TRACE("IfExpression result length %T", result_length);
+  }
   ADD_VISITOR_TRACE("IfExpression result value %T", result_value);
 
-  result_.reset(new LValue(result_value));
+  result_.reset(new LValue(result_value, result_length));
 }
 
 
@@ -763,11 +852,12 @@ LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair 
   auto value_expr = pair.value_expr();
   value_expr->Accept(*this);
   auto value = result()->data();
+  auto length = result()->length();
 
   // generate code for validity
   auto validity = BuildCombinedValidity(pair.validity_exprs());
 
-  return std::make_shared<LValue>(value, validity);
+  return std::make_shared<LValue>(value, length, validity);
 }
 
 std::vector<llvm::Value *> LLVMGenerator::Visitor::BuildParams(
@@ -780,7 +870,13 @@ std::vector<llvm::Value *> LLVMGenerator::Visitor::BuildParams(
     // build value.
     DexPtr value_expr = pair->value_expr();
     value_expr->Accept(*this);
-    params.push_back(result()->data());
+    LValue &result_ref = *result();
+    params.push_back(result_ref.data());
+
+    // build length (for var len data types)
+    if (result_ref.length() != nullptr) {
+      params.push_back(result_ref.length());
+    }
 
     // build validity.
     if (with_validity) {
@@ -826,8 +922,8 @@ llvm::Value *LLVMGenerator::Visitor::GetBufferReference(int idx,
     slot_ref = generator_->GetDataReference(arg_addrs_, idx, field);
     break;
 
-  default:
-    DCHECK(0);
+  case kBufferTypeOffsets:
+    slot_ref = generator_->GetOffsetsReference(arg_addrs_, idx, field);
     break;
   }
 
@@ -914,7 +1010,7 @@ void LLVMGenerator::AddTrace(const std::string &msg, llvm::Value *value) {
   llvm::Constant *str_int_cast = types_->i64_constant((int64_t)str);
   llvm::Constant *str_ptr_cast = llvm::ConstantExpr::getIntToPtr(
                                    str_int_cast,
-                                   types_->ptr_type(types_->i8_type()));
+                                   types_->i8_ptr_type());
 
   std::vector<llvm::Value *> args;
   args.push_back(str_ptr_cast);

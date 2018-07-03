@@ -24,8 +24,13 @@ namespace gandiva {
 ///\brief Registry of pre-compiled IR functions.
 class FunctionRegistry {
  public:
+  using iterator = const NativeFunction *;
+
   /// Lookup a pre-compiled function by its signature.
   const NativeFunction *LookupSignature(const FunctionSignature &signature) const;
+
+  iterator begin() const;
+  iterator end() const;
 
  private:
   struct KeyHash {
@@ -40,7 +45,6 @@ class FunctionRegistry {
     }
   };
 
- private:
   static DataTypePtr time64() {
     return arrow::time64(arrow::TimeUnit::MICRO);
   }

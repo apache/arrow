@@ -56,6 +56,10 @@ class LLVMTypes {
     return llvm::Type::getDoubleTy(context_);
   }
 
+  llvm::PointerType *i8_ptr_type() {
+    return llvm::PointerType::get(i8_type(), 0);
+  }
+
   llvm::PointerType *i32_ptr_type() {
     return llvm::PointerType::get(i32_type(), 0);
   }
@@ -80,6 +84,14 @@ class LLVMTypes {
 
   llvm::Constant *i1_constant(bool val) {
     return llvm::ConstantInt::get(context_, llvm::APInt(1, val));
+  }
+
+  llvm::Constant *i8_constant(bool val) {
+    return llvm::ConstantInt::get(context_, llvm::APInt(8, val));
+  }
+
+  llvm::Constant *i16_constant(bool val) {
+    return llvm::ConstantInt::get(context_, llvm::APInt(16, val));
   }
 
   llvm::Constant *i32_constant(int32_t val) {

@@ -154,8 +154,11 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch,
 Status Projector::AllocArrayData(const DataTypePtr &type,
                                  int num_records,
                                  ArrayDataPtr *array_data) {
-  arrow::Status astatus;
+  if (!arrow::is_primitive(type->id())) {
+    return Status::Invalid("Unsupported output data type " + type->ToString());
+  }
 
+  arrow::Status astatus;
   auto null_bitmap = std::make_shared<arrow::PoolBuffer>(pool_);
   astatus = null_bitmap->Resize(arrow::BitUtil::BytesForBits(num_records));
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);

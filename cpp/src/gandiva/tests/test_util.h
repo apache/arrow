@@ -56,6 +56,8 @@ static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
 #define MakeArrowArrayUint64 MakeArrowArray<arrow::Unt64Type, uint64_t>
 #define MakeArrowArrayFloat32 MakeArrowArray<arrow::FloatType, float>
 #define MakeArrowArrayFloat64 MakeArrowArray<arrow::DoubleType, double>
+#define MakeArrowArrayUtf8 MakeArrowArray<arrow::StringType, std::string>
+#define MakeArrowArrayBinary MakeArrowArray<arrow::BinaryType, std::string>
 
 #define EXPECT_ARROW_ARRAY_EQUALS(a, b)         \
   EXPECT_TRUE((a)->Equals(b))                   \

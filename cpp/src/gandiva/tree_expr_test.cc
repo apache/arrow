@@ -57,7 +57,7 @@ TEST_F(TestExprTree, TestField) {
   ExprDecomposer decomposer(registry_, annotator);
   auto pair = decomposer.Decompose(*n1);
   auto value = pair->value_expr();
-  auto value_dex = std::dynamic_pointer_cast<VectorReadValueDex>(value);
+  auto value_dex = std::dynamic_pointer_cast<VectorReadFixedLenValueDex>(value);
   EXPECT_EQ(value_dex->FieldType(), boolean());
 
   EXPECT_EQ(pair->validity_exprs().size(), 1);

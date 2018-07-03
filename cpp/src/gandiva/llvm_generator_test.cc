@@ -33,6 +33,21 @@ class TestLLVMGenerator : public ::testing::Test {
   FunctionRegistry registry_;
 };
 
+// Verify that a valid pc function exists for every function in the registry.
+TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
+  std::unique_ptr<LLVMGenerator> generator;
+  Status status = LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(),
+                                      &generator);
+  EXPECT_TRUE(status.ok());
+
+  llvm::Module *module = generator->module();
+  for (auto &iter : registry_) {
+    llvm::Function *fn = module->getFunction(iter.pc_name());
+    EXPECT_NE(fn, nullptr) << "function " << iter.pc_name() <<
+                              " missing in precompiled module\n";
+  }
+}
+
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
   std::unique_ptr<LLVMGenerator> generator;
@@ -44,13 +59,13 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   auto field0 = std::make_shared<arrow::Field>("f0", arrow::int32());
   auto desc0 = annotator.CheckAndAddInputFieldDescriptor(field0);
   auto validity_dex0 = std::make_shared<VectorReadValidityDex>(desc0);
-  auto value_dex0 = std::make_shared<VectorReadValueDex>(desc0);
+  auto value_dex0 = std::make_shared<VectorReadFixedLenValueDex>(desc0);
   auto pair0 = std::make_shared<ValueValidityPair>(validity_dex0, value_dex0);
 
   auto field1 = std::make_shared<arrow::Field>("f1", arrow::int32());
   auto desc1 = annotator.CheckAndAddInputFieldDescriptor(field1);
   auto validity_dex1 = std::make_shared<VectorReadValidityDex>(desc1);
-  auto value_dex1 = std::make_shared<VectorReadValueDex>(desc1);
+  auto value_dex1 = std::make_shared<VectorReadFixedLenValueDex>(desc1);
   auto pair1 = std::make_shared<ValueValidityPair>(validity_dex1, value_dex1);
 
   DataTypeVector params{arrow::int32(), arrow::int32()};
@@ -111,7 +126,7 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
   auto field0 = std::make_shared<arrow::Field>("f0", arrow::int32());
   auto desc0 = annotator.CheckAndAddInputFieldDescriptor(field0);
   auto validity_dex0 = std::make_shared<VectorReadValidityDex>(desc0);
-  auto value_dex0 = std::make_shared<VectorReadValueDex>(desc0);
+  auto value_dex0 = std::make_shared<VectorReadFixedLenValueDex>(desc0);
   auto pair0 = std::make_shared<ValueValidityPair>(validity_dex0, value_dex0);
 
   DataTypeVector params{arrow::int32()};
