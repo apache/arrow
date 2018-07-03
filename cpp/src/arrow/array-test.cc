@@ -38,6 +38,19 @@
 
 namespace arrow {
 
+namespace {
+bool IsZeroPadded(const Array& array) {
+  for (auto& buffer : array.data()->buffers) {
+    const int64_t padding = buffer->capacity() - buffer->size();
+    std::vector<uint8_t> zeros(padding);
+    if (memcmp(buffer->data() + buffer->size(), zeros.data(), padding) != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+}
+
 // used to prevent compiler optimizing away side-effect-less statements
 volatile int throw_away = 0;
 
@@ -685,6 +698,27 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   this->Check(this->builder_nn_, false);
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
+  DECL_T();
+
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  vector<T>& draws = this->draws_;
+  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+
+  // first slug
+  int64_t K = 1000;
+
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), K, valid_bytes.data()));
+
+  std::shared_ptr<Array> out;
+
+  ASSERT_OK(this->builder_->Finish(&out));
+
+  ASSERT_TRUE(IsZeroPadded(*out));
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   // ARROW-1383
   DECL_T();
@@ -1236,6 +1270,26 @@ TEST_F(TestBinaryArray, TestGetValue) {
   }
 }
 
+TEST_F(TestBinaryArray, TestNullValuesInitialized) {
+  for (size_t i = 0; i < expected_.size(); ++i) {
+    if (valid_bytes_[i] == 0) {
+      ASSERT_TRUE(strings_->IsNull(i));
+      // value should still be in initialized memory, valgrind will catch this
+      int32_t len = -1;
+      const uint8_t* bytes = strings_->GetValue(i, &len);
+      throw_away = std::memcmp(expected_[i].data(), bytes, len);
+    } else {
+      int32_t len = -1;
+      const uint8_t* bytes = strings_->GetValue(i, &len);
+      ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
+    }
+  }
+}
+
+TEST_F(TestBinaryArray, TestPaddingZeroed) {
+  ASSERT_TRUE(strings_);
+}
+
 TEST_F(TestBinaryArray, TestGetString) {
   for (size_t i = 0; i < expected_.size(); ++i) {
     if (valid_bytes_[i] == 0) {
@@ -1313,9 +1367,6 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   for (int i = 0; i < N * reps; ++i) {
     if (is_null[i % N]) {
       ASSERT_TRUE(result_->IsNull(i));
-      // value should still be in initialized memory, valgrind will catch this
-      const uint8_t* vals = result_->GetValue(i, &length);
-      throw_away = std::memcmp(vals, strings[i % N].data(), length);
     } else {
       ASSERT_FALSE(result_->IsNull(i));
       const uint8_t* vals = result_->GetValue(i, &length);
@@ -1565,6 +1616,22 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   ASSERT_EQ(3, array->null_count());
 }
 
+TEST_F(TestFWBinaryArray, ZeroPadding) {
+  auto type = fixed_size_binary(4);
+  FixedSizeBinaryBuilder builder(type);
+
+  ASSERT_OK(builder.Append("foo1"));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append("foo2"));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append("foo3"));
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  ASSERT_TRUE(IsZeroPadded(*array));
+}
+
 TEST_F(TestFWBinaryArray, Slice) {
   auto type = fixed_size_binary(4);
   FixedSizeBinaryBuilder builder(type);
@@ -1736,6 +1803,15 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendValues) {
   ASSERT_TRUE(expected_->Equals(result_));
 }
 
+TEST_F(TestAdaptiveIntBuilder, TestIsZeroPadded) {
+  std::vector<int64_t> values(
+      {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
+  ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+  Done();
+
+  ASSERT_TRUE(IsZeroPadded(*result_));
+}
+
 TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
   int64_t size = 1000;
   for (unsigned index = 0; index < size; ++index) {
@@ -1868,6 +1944,15 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendValues) {
 
   ArrayFromVector<UInt64Type, uint64_t>(expected_values, &expected_);
   ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestIsZeroPadded) {
+  std::vector<uint64_t> values(
+      {0, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1});
+  ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+  Done();
+
+  ASSERT_TRUE(IsZeroPadded(*result_));
 }
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
