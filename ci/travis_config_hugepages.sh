@@ -32,6 +32,9 @@ TARGETOBJECTSIZE=${UNITSMAP[gB]}
 
 NBPAGETORESERVE=$(($TARGETOBJECTSIZE/ $HUGEPAGESIZE))
 
+echo "current_hugepagesize="$HUGEPAGESIZE
+echo "nb_reserved_pages="$NBPAGETORESERVE
+
 sudo mkdir -p /mnt/hugepages
 sudo mount -t hugetlbfs -o uid=`id -u` -o gid=`id -g` none /mnt/hugepages
 sudo bash -c "echo `id -g` > /proc/sys/vm/hugetlb_shm_group"
