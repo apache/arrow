@@ -234,7 +234,7 @@ default behaviour when no filesystem is added is to use the local filesystem.
 .. code-block:: python
 
    # Local dataset write
-   pq.write_to_dataset(table, root_path='dataset_name', partition_columns=['one', 'two'])
+   pq.write_to_dataset(table, root_path='dataset_name', partition_cols=['one', 'two'])
 
 The root path in this case specifies the parent directory to which data will be saved. The partition columns are the
 column names by which to partition the dataset. Columns are partitioned in the order they are given. The partition
