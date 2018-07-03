@@ -623,15 +623,10 @@ TEST_F(TestMemoryMappedFile, WriteAt) {
   std::shared_ptr<MemoryMappedFile> result;
   ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
 
-  int64_t position;
   ASSERT_OK(result->WriteAt(0, buffer.data(), buffer_size / 2));
-  ASSERT_OK(result->Tell(&position));
-  ASSERT_EQ(position, buffer_size / 2);
 
   ASSERT_OK(
       result->WriteAt(buffer_size / 2, buffer.data() + buffer_size / 2, buffer_size / 2));
-  ASSERT_OK(result->Tell(&position));
-  ASSERT_EQ(position, buffer_size);
 
   std::shared_ptr<Buffer> out_buffer;
   ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
