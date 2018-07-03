@@ -173,12 +173,28 @@ def import_tensorflow_extension():
     """
     import os
     import site
-    for site_path in site.getsitepackages():
+    tensorflow_loaded = False
+
+    # Try to load the tensorflow extension directly
+    # (this is much faster than importing tensorflow)
+    site_paths = site.getsitepackages() + [site.getusersitepackages()]
+    for site_path in site_paths:
         ext = os.path.join(site_path, "tensorflow",
                            "libtensorflow_framework.so")
         if os.path.exists(ext):
             import ctypes
             ctypes.CDLL(ext)
+            tensorflow_loaded = True
+            break
+
+    # If this failed, try to load tensorflow the normal ways
+    # (this is more expensive)
+    if not tensorflow_loaded:
+        try:
+            import tensorflow
+        except:
+            pass
+
 
 integer_types = six.integer_types + (np.integer,)
 
