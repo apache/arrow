@@ -177,7 +177,7 @@ class Queue(Repo):
 
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
-        pattern = re.compile(prefix + '-(\d+)')
+        pattern = re.compile('[\w\/-]*{}-(\d+)'.format(prefix))
         matches = list(filter(None, map(pattern.match, self.repo.branches)))
         if matches:
             latest = max(int(m.group(1)) for m in matches)
@@ -410,9 +410,9 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
 
     # create job instance, doesn't mutate git data yet
     job = Job(target=target, tasks=tasks)
-    yaml.dump(job, sys.stdout)
 
     if dry_run:
+        yaml.dump(job, sys.stdout)
         delimiter = '-' * 79
         for task_name, task in job.tasks.items():
             files = task.render_files(job=job, arrow=job.target)
@@ -422,11 +422,11 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
                 click.echo('{:<29}{:>50}'.format(task_name, filename))
                 click.echo(delimiter)
                 click.echo(content)
-
     else:
         queue.fetch()
         queue.put(job)
         queue.push(token=github_token)
+        yaml.dump(job, sys.stdout)
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
 
