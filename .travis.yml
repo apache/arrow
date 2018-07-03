@@ -222,11 +222,14 @@ matrix:
     os: linux
     go:
     - 1.10.x
-    script:
+    before_script:
     - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
-    - go get -d -t -v ./go/arrow/...
-    - go install -v ./go/arrow/...
-    - go test -v ./go/arrow/...
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_go.sh
+    after_success:
+    - pushd ${TRAVIS_BUILD_DIR}/go/arrow
+    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
