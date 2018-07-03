@@ -498,7 +498,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
   auto result = std::dynamic_pointer_cast<typename TypeParam::ArrayType>(out);
 
   for (int64_t i = 0; i < size; ++i) {
-    ASSERT_TRUE(result->IsValid(i) == nullmap[i]);
+    ASSERT_TRUE(result->IsValid(i) == static_cast<bool>(nullmap[i]));
   }
 
   // valgrind will detect uninitialized memory
@@ -1841,7 +1841,7 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   Done();
 
   for (unsigned index = 0; index < size; ++index) {
-    ASSERT_TRUE(result_->IsValid(index) == nullmap[index]);
+    ASSERT_TRUE(result_->IsValid(index) == static_cast<bool>(nullmap[index]));
   }
 
   auto converted = std::dynamic_pointer_cast<Int8Array>(result_);
@@ -1986,7 +1986,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   Done();
 
   for (unsigned index = 0; index < size; ++index) {
-    ASSERT_TRUE(result_->IsValid(index) == nullmap[index]);
+    ASSERT_TRUE(result_->IsValid(index) == static_cast<bool>(nullmap[index]));
   }
 
   auto converted = std::dynamic_pointer_cast<UInt8Array>(result_);
