@@ -177,7 +177,11 @@ def import_tensorflow_extension():
 
     # Try to load the tensorflow extension directly
     # (this is much faster than importing tensorflow)
-    site_paths = site.getsitepackages() + [site.getusersitepackages()]
+    try:
+        site_paths = site.getsitepackages() + [site.getusersitepackages()]
+    except AttributeError:
+        # Workaround for https://github.com/pypa/virtualenv/issues/228
+        site_paths = [os.path.dirname(site.__file__) + '/site-packages']
     for site_path in site_paths:
         ext = os.path.join(site_path, "tensorflow",
                            "libtensorflow_framework.so")
@@ -192,7 +196,7 @@ def import_tensorflow_extension():
     if not tensorflow_loaded:
         try:
             import tensorflow
-        except:
+        except ImportError:
             pass
 
 
