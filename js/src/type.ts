@@ -372,9 +372,11 @@ export class Union<TType extends Type = any> extends DataType<TType> {
     constructor(public readonly mode: UnionMode,
                 public readonly typeIds: ArrowType[],
                 public readonly children: Field[]) {
-        super(<TType> (mode === UnionMode.Sparse ? Type.SparseUnion : Type.DenseUnion), children);
+        super(<TType> Type.Union, children);
     }
-    public toString() { return `${this[Symbol.toStringTag]}<${this.typeIds.map((x) => Type[x]).join(` | `)}>`; }
+    public toString() { return `${this[Symbol.toStringTag]}<${
+        this.children.map((x) => `${x.type}`).join(` | `)
+    }>`; }
     protected static [Symbol.toStringTag] = ((proto: Union) => {
         (<any> proto).ArrayType = Int8Array;
         return proto[Symbol.toStringTag] = 'Union';
