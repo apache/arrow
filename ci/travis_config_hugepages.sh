@@ -26,7 +26,7 @@ HUGEPAGEVALUE=$(awk '/Hugepagesize/ { print $2 }' /proc/meminfo)
 HUGEPAGEUNIT=$(awk '/Hugepagesize/ { print $3 }' /proc/meminfo)
 
 # Compute the current value of hugepagesize
-HUGEPAGESIZE=$(($HUGEPAGEVALUE*${UNITSMAP[$HUGEPAGEUNIT]}))
+HUGEPAGESIZE=$(($HUGEPAGEVALUE*${UNITSMAP[$HUGEPAGEUNIT]} / ${UNITSMAP[kB]}))
 
 TARGETOBJECTSIZE=${UNITSMAP[gB]}
 
