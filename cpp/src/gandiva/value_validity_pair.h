@@ -24,18 +24,14 @@ namespace gandiva {
 /// Pair of vector/validities generated after decomposing an expression tree/subtree.
 class ValueValidityPair {
  public:
-  ValueValidityPair(const DexVector &validity_exprs,
-                    DexPtr value_expr)
-      : validity_exprs_(validity_exprs),
-        value_expr_(value_expr) {}
+  ValueValidityPair(const DexVector &validity_exprs, DexPtr value_expr)
+      : validity_exprs_(validity_exprs), value_expr_(value_expr) {}
 
-  ValueValidityPair(DexPtr validity_expr, DexPtr value_expr)
-      : value_expr_(value_expr) {
+  ValueValidityPair(DexPtr validity_expr, DexPtr value_expr) : value_expr_(value_expr) {
     validity_exprs_.push_back(validity_expr);
   }
 
-  explicit ValueValidityPair(DexPtr value_expr)
-      : value_expr_(value_expr) {}
+  explicit ValueValidityPair(DexPtr value_expr) : value_expr_(value_expr) {}
 
   const DexVector &validity_exprs() const { return validity_exprs_; }
 
@@ -46,6 +42,6 @@ class ValueValidityPair {
   DexPtr value_expr_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_VALUEVALIDITYPAIR_H
+#endif  // GANDIVA_VALUEVALIDITYPAIR_H

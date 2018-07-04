@@ -18,15 +18,15 @@
 #include "codegen/annotator.h"
 #include "codegen/dex.h"
 #include "codegen/expr_decomposer.h"
-#include "codegen/function_signature.h"
 #include "codegen/function_registry.h"
+#include "codegen/function_signature.h"
 #include "codegen/node.h"
 #include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 
-using arrow::int32;
 using arrow::boolean;
+using arrow::int32;
 
 class TestExprTree : public ::testing::Test {
  public:
@@ -38,10 +38,10 @@ class TestExprTree : public ::testing::Test {
   }
 
  protected:
-  FieldPtr i0_; // int32
-  FieldPtr i1_; // int32
+  FieldPtr i0_;  // int32
+  FieldPtr i1_;  // int32
 
-  FieldPtr b0_; // bool
+  FieldPtr b0_;  // bool
   FunctionRegistry registry_;
 };
 
@@ -76,8 +76,7 @@ TEST_F(TestExprTree, TestBinary) {
   auto add = std::dynamic_pointer_cast<FunctionNode>(n);
 
   auto func_desc = add->descriptor();
-  FunctionSignature sign(func_desc->name(),
-                         func_desc->params(),
+  FunctionSignature sign(func_desc->name(), func_desc->params(),
                          func_desc->return_type());
 
   EXPECT_EQ(add->return_type(), int32());
@@ -101,8 +100,7 @@ TEST_F(TestExprTree, TestUnary) {
 
   auto unaryFn = std::dynamic_pointer_cast<FunctionNode>(n);
   auto func_desc = unaryFn->descriptor();
-  FunctionSignature sign(func_desc->name(),
-                         func_desc->params(),
+  FunctionSignature sign(func_desc->name(), func_desc->params(),
                          func_desc->return_type());
   EXPECT_EQ(unaryFn->return_type(), boolean());
   EXPECT_TRUE(sign == FunctionSignature("isnumeric", {int32()}, boolean()));
@@ -129,8 +127,7 @@ TEST_F(TestExprTree, TestExpression) {
 
   auto add_node = std::dynamic_pointer_cast<FunctionNode>(root_node);
   auto func_desc = add_node->descriptor();
-  FunctionSignature sign(func_desc->name(),
-                         func_desc->params(),
+  FunctionSignature sign(func_desc->name(), func_desc->params(),
                          func_desc->return_type());
   EXPECT_TRUE(sign == FunctionSignature("add", {int32(), int32()}, int32()));
 
@@ -149,4 +146,4 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

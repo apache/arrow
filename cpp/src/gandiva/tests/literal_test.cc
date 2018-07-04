@@ -14,18 +14,18 @@
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
-#include "integ/test_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/status.h"
 #include "gandiva/tree_expr_builder.h"
+#include "integ/test_util.h"
 
 namespace gandiva {
 
-using arrow::int32;
-using arrow::int64;
+using arrow::boolean;
 using arrow::float32;
 using arrow::float64;
-using arrow::boolean;
+using arrow::int32;
+using arrow::int64;
 
 class TestLiteral : public ::testing::Test {
  public:
@@ -82,12 +82,9 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
   auto func_e = TreeExprBuilder::MakeFunction("add", {node_e, literal_e}, float64());
   auto expr_e = TreeExprBuilder::MakeExpression(func_e, res_e);
 
-
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema,
-                                  {expr_a, expr_b, expr_c, expr_d, expr_e},
-                                  pool_,
+  Status status = Projector::Make(schema, {expr_a, expr_b, expr_c, expr_d, expr_e}, pool_,
                                   &projector);
   EXPECT_TRUE(status.ok());
 
@@ -139,7 +136,6 @@ TEST_F(TestLiteral, TestNullLiteral) {
   auto add_a_b_c = TreeExprBuilder::MakeFunction("add", {add_a_b, literal_c}, int32());
   auto expr = TreeExprBuilder::MakeExpression(add_a_b_c, res);
 
-
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {expr}, pool_, &projector);
@@ -178,8 +174,8 @@ TEST_F(TestLiteral, TestNullLiteralInIf) {
   auto a_gt_5 = TreeExprBuilder::MakeFunction("greater_than", {node_a, literal_5},
                                               arrow::boolean());
   auto literal_null = TreeExprBuilder::MakeNull(arrow::float64());
-  auto if_node = TreeExprBuilder::MakeIf(a_gt_5, literal_5, literal_null,
-                                         arrow::float64());
+  auto if_node =
+      TreeExprBuilder::MakeIf(a_gt_5, literal_5, literal_null, arrow::float64());
   auto expr = TreeExprBuilder::MakeExpression(if_node, res);
 
   // Build a projector for the expressions.
@@ -206,4 +202,4 @@ TEST_F(TestLiteral, TestNullLiteralInIf) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-} // namespace gandiva
+}  // namespace gandiva

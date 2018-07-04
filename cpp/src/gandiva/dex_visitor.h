@@ -52,10 +52,8 @@ class DexVisitor {
 };
 
 /// Default implementation with only DCHECK().
-#define VISIT_DCHECK(DEX_CLASS)               \
-  void Visit(const DEX_CLASS &dex) override { \
-    DCHECK(0);                                \
-  }
+#define VISIT_DCHECK(DEX_CLASS) \
+  void Visit(const DEX_CLASS &dex) override { DCHECK(0); }
 
 class DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(VectorReadValidityDex);
@@ -73,6 +71,6 @@ class DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(BooleanOrDex);
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_DEX_DEXVISITOR_H
+#endif  // GANDIVA_DEX_DEXVISITOR_H

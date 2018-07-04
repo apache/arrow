@@ -22,7 +22,7 @@ namespace gandiva {
 timestamp StringToTimestamp(const char *buf) {
   struct tm tm;
   strptime(buf, "%Y-%m-%d %H:%M:%S", &tm);
-  return timegm(&tm) * 1000; // to millis
+  return timegm(&tm) * 1000;  // to millis
 }
 
 TEST(TestTime, TestExtractTimestamp) {
@@ -35,4 +35,4 @@ TEST(TestTime, TestExtractTimestamp) {
   EXPECT_EQ(extractMinute_timestamp(ts), 20);
 }
 
-} // namespace gandiva
+}  // namespace gandiva

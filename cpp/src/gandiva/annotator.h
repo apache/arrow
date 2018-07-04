@@ -31,9 +31,7 @@ namespace gandiva {
 /// to convert the incoming arrow-format row batch to an EvalBatch.
 class Annotator {
  public:
-  Annotator()
-    : buffer_count_(0),
-      local_bitmap_count_(0) {}
+  Annotator() : buffer_count_(0), local_bitmap_count_(0) {}
 
   /// Add an annotated field descriptor for a field in an input schema.
   /// If the field is already annotated, returns that instead.
@@ -57,8 +55,7 @@ class Annotator {
   /// Populate eval_batch by extracting the raw buffers from the arrow array, whose
   /// contents are represent by the annotated descriptor 'desc'.
   void PrepareBuffersForField(const FieldDescriptor &desc,
-                              const arrow::ArrayData &array_data,
-                              EvalBatch *eval_batch);
+                              const arrow::ArrayData &array_data, EvalBatch *eval_batch);
 
   /// The list of input/output buffers (includes bitmap buffers, value buffers and
   /// offset buffers).
@@ -75,6 +72,6 @@ class Annotator {
   std::vector<FieldDescriptorPtr> out_descs_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_EXPR_ANNOTATOR_H
+#endif  // GANDIVA_EXPR_ANNOTATOR_H

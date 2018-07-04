@@ -13,12 +13,12 @@
 // limitations under the License.
 #include <string>
 
-#include "jni/org_apache_arrow_gandiva_evaluator_ConfigurationBuilder.h"
 #include "gandiva/configuration.h"
 #include "jni/config_holder.h"
+#include "jni/org_apache_arrow_gandiva_evaluator_ConfigurationBuilder.h"
 
-using gandiva::Configuration;
 using gandiva::ConfigHolder;
+using gandiva::Configuration;
 using gandiva::ConfigurationBuilder;
 
 jclass configuration_builder_class_;
@@ -30,8 +30,8 @@ jmethodID byte_code_accessor_method_id_;
  * Signature: ()J
  */
 JNIEXPORT jlong JNICALL
-Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance
-(JNIEnv * env, jobject configuration) {
+Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance(
+    JNIEnv *env, jobject configuration) {
   if (configuration_builder_class_ == nullptr) {
     const char class_name[] = "org/apache/arrow/gandiva/evaluator/ConfigurationBuilder";
     configuration_builder_class_ = env->FindClass(class_name);
@@ -40,12 +40,12 @@ Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance
   if (byte_code_accessor_method_id_ == nullptr) {
     const char method_name[] = "getByteCodeFilePath";
     const char return_type[] = "()Ljava/lang/String;";
-    byte_code_accessor_method_id_ = env->GetMethodID(configuration_builder_class_,
-                                                     method_name, return_type);
+    byte_code_accessor_method_id_ =
+        env->GetMethodID(configuration_builder_class_, method_name, return_type);
   }
 
-  jstring byte_code_file_path = (jstring) env->CallObjectMethod(configuration,
-                                                 byte_code_accessor_method_id_, 0);
+  jstring byte_code_file_path =
+      (jstring)env->CallObjectMethod(configuration, byte_code_accessor_method_id_, 0);
   ConfigurationBuilder configuration_builder;
   if (byte_code_file_path != nullptr) {
     const char *byte_code_file_path_cpp = env->GetStringUTFChars(byte_code_file_path, 0);
@@ -61,7 +61,7 @@ Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance
  * Signature: (J)V
  */
 JNIEXPORT void JNICALL
-Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_releaseConfigInstance
-(JNIEnv *env, jobject configuration, jlong config_id) {
+Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_releaseConfigInstance(
+    JNIEnv *env, jobject configuration, jlong config_id) {
   ConfigHolder::MapErase(config_id);
 }

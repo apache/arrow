@@ -15,10 +15,10 @@
 #ifndef GANDIVA_LLVMGENERATOR_H
 #define GANDIVA_LLVMGENERATOR_H
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
-#include <cstdint>
 
 #include <gtest/gtest_prod.h>
 #include "codegen/annotator.h"
@@ -66,12 +66,9 @@ class LLVMGenerator {
   /// Visitor to generate the code for a decomposed expression.
   class Visitor : public DexVisitor {
    public:
-    Visitor(LLVMGenerator *generator,
-            llvm::Function *function,
-            llvm::BasicBlock *entry_block,
-            llvm::Value *arg_addrs,
-            llvm::Value *arg_local_bitmaps,
-            llvm::Value *loop_var);
+    Visitor(LLVMGenerator *generator, llvm::Function *function,
+            llvm::BasicBlock *entry_block, llvm::Value *arg_addrs,
+            llvm::Value *arg_local_bitmaps, llvm::Value *loop_var);
 
     void Visit(const VectorReadValidityDex &dex) override;
     void Visit(const VectorReadFixedLenValueDex &dex) override;
@@ -90,11 +87,7 @@ class LLVMGenerator {
     LValuePtr result() { return result_; }
 
    private:
-    enum BufferType {
-      kBufferTypeValidity = 0,
-      kBufferTypeData,
-      kBufferTypeOffsets
-    };
+    enum BufferType { kBufferTypeValidity = 0, kBufferTypeData, kBufferTypeOffsets };
 
     llvm::IRBuilder<> &ir_builder() { return generator_->ir_builder(); }
     llvm::Module *module() { return generator_->module(); }
@@ -133,30 +126,21 @@ class LLVMGenerator {
   Status Add(const ExpressionPtr expr, const FieldDescriptorPtr output);
 
   /// Generate code to load the vector at specified index in the 'arg_addrs' array.
-  llvm::Value *LoadVectorAtIndex(llvm::Value *arg_addrs,
-                                 int idx,
+  llvm::Value *LoadVectorAtIndex(llvm::Value *arg_addrs, int idx,
                                  const std::string &name);
 
   /// Generate code to load the vector at specified index and cast it as bitmap.
-  llvm::Value *GetValidityReference(llvm::Value *arg_addrs,
-                                    int idx,
-                                    FieldPtr field);
+  llvm::Value *GetValidityReference(llvm::Value *arg_addrs, int idx, FieldPtr field);
 
   /// Generate code to load the vector at specified index and cast it as data array.
-  llvm::Value *GetDataReference(llvm::Value *arg_addrs,
-                                int idx,
-                                FieldPtr field);
+  llvm::Value *GetDataReference(llvm::Value *arg_addrs, int idx, FieldPtr field);
 
   /// Generate code to load the vector at specified index and cast it as offsets array.
-  llvm::Value *GetOffsetsReference(llvm::Value *arg_addrs,
-                                   int idx,
-                                   FieldPtr field);
+  llvm::Value *GetOffsetsReference(llvm::Value *arg_addrs, int idx, FieldPtr field);
 
   /// Generate code for the value array of one expression.
-  Status CodeGenExprValue(DexPtr value_expr,
-                          FieldDescriptorPtr output,
-                          int suffix_idx,
-                          llvm::Function ** fn);
+  Status CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr output, int suffix_idx,
+                          llvm::Function **fn);
 
   /// Generate code to load the local bitmap specified index and cast it as bitmap.
   llvm::Value *GetLocalBitMapReference(llvm::Value *arg_local_bitmaps, int idx);
@@ -169,14 +153,12 @@ class LLVMGenerator {
 
   /// Generate code to clear the bit value at 'position' in the bitmap if 'value'
   /// is false.
-  void ClearPackedBitValueIfFalse(llvm::Value *bitMap,
-                                  llvm::Value *position,
+  void ClearPackedBitValueIfFalse(llvm::Value *bitMap, llvm::Value *position,
                                   llvm::Value *value);
 
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
   /// 'args' and has a return type 'ret_type'.
-  llvm::Value *AddFunctionCall(const std::string &full_name,
-                               llvm::Type *ret_type,
+  llvm::Value *AddFunctionCall(const std::string &full_name, llvm::Type *ret_type,
                                const std::vector<llvm::Value *> &args);
 
   /// Compute the result bitmap for the expression.
@@ -189,8 +171,7 @@ class LLVMGenerator {
 
   /// Replace the %T in the trace msg with the correct type corresponding to 'type'
   /// eg. %d for int32, %ld for int64, ..
-  std::string ReplaceFormatInTrace(const std::string &msg,
-                                   llvm::Value *value,
+  std::string ReplaceFormatInTrace(const std::string &msg, llvm::Value *value,
                                    std::string *print_fn);
 
   /// Generate the code to print a trace msg with one optional argument (%T)
@@ -198,7 +179,7 @@ class LLVMGenerator {
 
   std::unique_ptr<Engine> engine_;
   std::vector<CompiledExpr *> compiled_exprs_;
-  LLVMTypes * types_;
+  LLVMTypes *types_;
   FunctionRegistry function_registry_;
   Annotator annotator_;
 
@@ -209,6 +190,6 @@ class LLVMGenerator {
   std::vector<std::string> trace_strings_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // GANDIVA_LLVMGENERATOR_H
+#endif  // GANDIVA_LLVMGENERATOR_H

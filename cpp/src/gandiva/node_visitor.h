@@ -36,6 +36,6 @@ class NodeVisitor {
   virtual Status Visit(const BooleanNode &node) = 0;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_NODE_VISITOR_H
+#endif  // GANDIVA_NODE_VISITOR_H

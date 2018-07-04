@@ -31,8 +31,7 @@ namespace gandiva {
 /// in a joined state.
 class Node {
  public:
-  explicit Node(DataTypePtr return_type)
-    : return_type_(return_type) { }
+  explicit Node(DataTypePtr return_type) : return_type_(return_type) {}
 
   const DataTypePtr &return_type() const { return return_type_; }
 
@@ -47,13 +46,9 @@ class Node {
 class LiteralNode : public Node {
  public:
   LiteralNode(DataTypePtr type, const LiteralHolder &holder, bool is_null)
-    : Node(type),
-      holder_(holder),
-      is_null_(is_null) {}
+      : Node(type), holder_(holder), is_null_(is_null) {}
 
-  Status Accept(NodeVisitor &visitor) const override {
-    return visitor.Visit(*this);
-  }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
   const LiteralHolder &holder() const { return holder_; }
 
@@ -67,12 +62,9 @@ class LiteralNode : public Node {
 /// \brief Node in the expression tree, representing an arrow field.
 class FieldNode : public Node {
  public:
-  explicit FieldNode(FieldPtr field)
-    : Node(field->type()), field_(field) {}
+  explicit FieldNode(FieldPtr field) : Node(field->type()), field_(field) {}
 
-  Status Accept(NodeVisitor &visitor) const override {
-    return visitor.Visit(*this);
-  }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
   const FieldPtr &field() const { return field_; }
 
@@ -83,32 +75,28 @@ class FieldNode : public Node {
 /// \brief Node in the expression tree, representing a function.
 class FunctionNode : public Node {
  public:
-  FunctionNode(FuncDescriptorPtr descriptor,
-               const NodeVector &children,
+  FunctionNode(FuncDescriptorPtr descriptor, const NodeVector &children,
                DataTypePtr retType)
-    : Node(retType), descriptor_(descriptor), children_(children) { }
+      : Node(retType), descriptor_(descriptor), children_(children) {}
 
-  Status Accept(NodeVisitor &visitor) const override {
-    return visitor.Visit(*this);
-  }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
   const FuncDescriptorPtr &descriptor() const { return descriptor_; }
   const NodeVector &children() const { return children_; }
 
   /// Make a function node with params types specified by 'children', and
   /// having return type ret_type.
-  static NodePtr MakeFunction(const std::string &name,
-                              const NodeVector &children,
+  static NodePtr MakeFunction(const std::string &name, const NodeVector &children,
                               DataTypePtr return_type);
+
  private:
   FuncDescriptorPtr descriptor_;
   NodeVector children_;
 };
 
-inline
-NodePtr FunctionNode::MakeFunction(const std::string &name,
-                                   const NodeVector &children,
-                                   DataTypePtr return_type) {
+inline NodePtr FunctionNode::MakeFunction(const std::string &name,
+                                          const NodeVector &children,
+                                          DataTypePtr return_type) {
   DataTypeVector param_types;
   for (auto &child : children) {
     param_types.push_back(child->return_type());
@@ -121,18 +109,13 @@ NodePtr FunctionNode::MakeFunction(const std::string &name,
 /// \brief Node in the expression tree, representing an if-else expression.
 class IfNode : public Node {
  public:
-  IfNode(NodePtr condition,
-         NodePtr then_node,
-         NodePtr else_node,
-         DataTypePtr result_type)
-    : Node(result_type),
-      condition_(condition),
-      then_node_(then_node),
-      else_node_(else_node) {}
+  IfNode(NodePtr condition, NodePtr then_node, NodePtr else_node, DataTypePtr result_type)
+      : Node(result_type),
+        condition_(condition),
+        then_node_(then_node),
+        else_node_(else_node) {}
 
-  Status Accept(NodeVisitor &visitor) const override {
-    return visitor.Visit(*this);
-  }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
   const NodePtr &condition() const { return condition_; }
   const NodePtr &then_node() const { return then_node_; }
@@ -150,13 +133,9 @@ class BooleanNode : public Node {
   enum ExprType : char { AND, OR };
 
   BooleanNode(ExprType expr_type, const NodeVector &children)
-    : Node(arrow::boolean()),
-      expr_type_(expr_type),
-      children_(children) {}
+      : Node(arrow::boolean()), expr_type_(expr_type), children_(children) {}
 
-  Status Accept(NodeVisitor &visitor) const override {
-    return visitor.Visit(*this);
-  }
+  Status Accept(NodeVisitor &visitor) const override { return visitor.Visit(*this); }
 
   ExprType expr_type() const { return expr_type_; }
 
@@ -167,6 +146,6 @@ class BooleanNode : public Node {
   NodeVector children_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // GANDIVA_EXPR_NODE_H
+#endif  // GANDIVA_EXPR_NODE_H

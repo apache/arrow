@@ -14,7 +14,7 @@
 
 #include "gandiva/configuration.h"
 
-namespace  gandiva {
-  const std::shared_ptr<Configuration>
-    ConfigurationBuilder::default_configuration_ = InitDefaultConfig();
+namespace gandiva {
+const std::shared_ptr<Configuration> ConfigurationBuilder::default_configuration_ =
+    InitDefaultConfig();
 }

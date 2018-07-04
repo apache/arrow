@@ -14,16 +14,16 @@
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
-#include "integ/test_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/status.h"
 #include "gandiva/tree_expr_builder.h"
+#include "integ/test_util.h"
 
 namespace gandiva {
 
-using arrow::utf8;
-using arrow::int32;
 using arrow::boolean;
+using arrow::int32;
+using arrow::utf8;
 
 class TestUtf8 : public ::testing::Test {
  public:
@@ -52,8 +52,8 @@ TEST_F(TestUtf8, TestSimple) {
   auto literal_8 = TreeExprBuilder::MakeLiteral((int32_t)8);
   auto bit_length = TreeExprBuilder::MakeFunction("bit_length", {node_a}, int32());
   auto div_8 = TreeExprBuilder::MakeFunction("divide", {bit_length, literal_8}, int32());
-  auto is_equal = TreeExprBuilder::MakeFunction("equal", {octet_length, div_8},
-                                                boolean());
+  auto is_equal =
+      TreeExprBuilder::MakeFunction("equal", {octet_length, div_8}, boolean());
   auto expr_b = TreeExprBuilder::MakeExpression(is_equal, res_2);
 
   // Build a projector for the expressions.
@@ -63,8 +63,8 @@ TEST_F(TestUtf8, TestSimple) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_a = MakeArrowArrayUtf8({"foo", "hello", "bye", "hi"},
-                                    {true, true, false, true});
+  auto array_a =
+      MakeArrowArrayUtf8({"foo", "hello", "bye", "hi"}, {true, true, false, true});
 
   // expected output
   auto exp_1 = MakeArrowArrayInt32({3, 5, 0, 2}, {true, true, false, true});
@@ -96,8 +96,7 @@ TEST_F(TestUtf8, TestLiteral) {
 
   auto node_a = TreeExprBuilder::MakeField(field_a);
   auto literal_s = TreeExprBuilder::MakeStringLiteral("hello");
-  auto is_equal = TreeExprBuilder::MakeFunction("equal", {node_a, literal_s},
-                                                boolean());
+  auto is_equal = TreeExprBuilder::MakeFunction("equal", {node_a, literal_s}, boolean());
   auto expr = TreeExprBuilder::MakeExpression(is_equal, res);
 
   // Build a projector for the expressions.
@@ -107,8 +106,8 @@ TEST_F(TestUtf8, TestLiteral) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_a = MakeArrowArrayUtf8({"foo", "hello", "bye", "hi"},
-                                    {true, true, true, false});
+  auto array_a =
+      MakeArrowArrayUtf8({"foo", "hello", "bye", "hi"}, {true, true, true, false});
 
   // expected output
   auto exp = MakeArrowArrayBool({false, true, false, false}, {true, true, true, false});
@@ -138,8 +137,8 @@ TEST_F(TestUtf8, TestNullLiteral) {
 
   auto node_a = TreeExprBuilder::MakeField(field_a);
   auto literal_null = TreeExprBuilder::MakeNull(arrow::utf8());
-  auto is_equal = TreeExprBuilder::MakeFunction("equal", {node_a, literal_null},
-                                                boolean());
+  auto is_equal =
+      TreeExprBuilder::MakeFunction("equal", {node_a, literal_null}, boolean());
   auto expr = TreeExprBuilder::MakeExpression(is_equal, res);
 
   // Build a projector for the expressions.
@@ -149,12 +148,12 @@ TEST_F(TestUtf8, TestNullLiteral) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_a = MakeArrowArrayUtf8({"foo", "hello", "bye", "hi"},
-                                    {true, true, true, false});
+  auto array_a =
+      MakeArrowArrayUtf8({"foo", "hello", "bye", "hi"}, {true, true, true, false});
 
   // expected output
-  auto exp = MakeArrowArrayBool({false, false, false, false},
-                                {false, false, false, false});
+  auto exp =
+      MakeArrowArrayBool({false, false, false, false}, {false, false, false, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
@@ -168,4 +167,4 @@ TEST_F(TestUtf8, TestNullLiteral) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-} // namespace gandiva
+}  // namespace gandiva

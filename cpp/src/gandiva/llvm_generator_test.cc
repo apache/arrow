@@ -21,8 +21,8 @@
 #include "codegen/dex.h"
 #include "codegen/func_descriptor.h"
 #include "codegen/function_registry.h"
-#include "gandiva/expression.h"
 #include "gandiva/configuration.h"
+#include "gandiva/expression.h"
 
 namespace gandiva {
 
@@ -36,23 +36,23 @@ class TestLLVMGenerator : public ::testing::Test {
 // Verify that a valid pc function exists for every function in the registry.
 TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   std::unique_ptr<LLVMGenerator> generator;
-  Status status = LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(),
-                                      &generator);
+  Status status =
+      LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(), &generator);
   EXPECT_TRUE(status.ok());
 
   llvm::Module *module = generator->module();
   for (auto &iter : registry_) {
     llvm::Function *fn = module->getFunction(iter.pc_name());
-    EXPECT_NE(fn, nullptr) << "function " << iter.pc_name() <<
-                              " missing in precompiled module\n";
+    EXPECT_NE(fn, nullptr) << "function " << iter.pc_name()
+                           << " missing in precompiled module\n";
   }
 }
 
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
   std::unique_ptr<LLVMGenerator> generator;
-  Status status = LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(),
-                                      &generator);
+  Status status =
+      LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(), &generator);
   EXPECT_TRUE(status.ok());
   Annotator annotator;
 
@@ -70,8 +70,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 
   DataTypeVector params{arrow::int32(), arrow::int32()};
   auto func_desc = std::make_shared<FuncDescriptor>("add", params, arrow::int32());
-  FunctionSignature signature(func_desc->name(),
-                              func_desc->params(),
+  FunctionSignature signature(func_desc->name(), func_desc->params(),
                               func_desc->return_type());
   const NativeFunction *native_func =
       generator->function_registry_.LookupSignature(signature);
@@ -99,17 +98,14 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   uint64_t out_bitmap = 0;
 
   uint8_t *addrs[] = {
-    reinterpret_cast<uint8_t *>(a0),
-    reinterpret_cast<uint8_t *>(&in_bitmap),
-    reinterpret_cast<uint8_t *>(a1),
-    reinterpret_cast<uint8_t *>(&in_bitmap),
-    reinterpret_cast<uint8_t *>(out),
-    reinterpret_cast<uint8_t *>(&out_bitmap),
+      reinterpret_cast<uint8_t *>(a0),  reinterpret_cast<uint8_t *>(&in_bitmap),
+      reinterpret_cast<uint8_t *>(a1),  reinterpret_cast<uint8_t *>(&in_bitmap),
+      reinterpret_cast<uint8_t *>(out), reinterpret_cast<uint8_t *>(&out_bitmap),
   };
   eval_func(addrs, nullptr, num_records);
 
-  uint32_t expected[] = { 6, 8, 10, 12 };
-  for (int i = 0; i  < num_records; i++) {
+  uint32_t expected[] = {6, 8, 10, 12};
+  for (int i = 0; i < num_records; i++) {
     EXPECT_EQ(expected[i], out[i]);
   }
 }
@@ -117,12 +113,12 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 TEST_F(TestLLVMGenerator, TestNullInternal) {
   // Setup LLVM generator to evaluate a NULL_INTERNAL type function.
   std::unique_ptr<LLVMGenerator> generator;
-  Status status = LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(),
-                                      &generator);
+  Status status =
+      LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(), &generator);
   EXPECT_TRUE(status.ok());
   Annotator annotator;
 
-  //generator.enable_ir_traces_ = true;
+  // generator.enable_ir_traces_ = true;
   auto field0 = std::make_shared<arrow::Field>("f0", arrow::int32());
   auto desc0 = annotator.CheckAndAddInputFieldDescriptor(field0);
   auto validity_dex0 = std::make_shared<VectorReadValidityDex>(desc0);
@@ -130,10 +126,9 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
   auto pair0 = std::make_shared<ValueValidityPair>(validity_dex0, value_dex0);
 
   DataTypeVector params{arrow::int32()};
-  auto func_desc = std::make_shared<FuncDescriptor>("half_or_null", params,
-                                                    arrow::int32());
-  FunctionSignature signature(func_desc->name(),
-                              func_desc->params(),
+  auto func_desc =
+      std::make_shared<FuncDescriptor>("half_or_null", params, arrow::int32());
+  FunctionSignature signature(func_desc->name(), func_desc->params(),
                               func_desc->return_type());
   const NativeFunction *native_func =
       generator->function_registry_.LookupSignature(signature);
@@ -164,22 +159,22 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
   uint64_t local_bitmap = UINT64_MAX;
 
   uint8_t *addrs[] = {
-    reinterpret_cast<uint8_t *>(a0),
-    reinterpret_cast<uint8_t *>(&in_bitmap),
-    reinterpret_cast<uint8_t *>(out),
-    reinterpret_cast<uint8_t *>(&out_bitmap),
+      reinterpret_cast<uint8_t *>(a0),
+      reinterpret_cast<uint8_t *>(&in_bitmap),
+      reinterpret_cast<uint8_t *>(out),
+      reinterpret_cast<uint8_t *>(&out_bitmap),
   };
 
   uint8_t *local_bitmap_addrs[] = {
-    reinterpret_cast<uint8_t *>(&local_bitmap),
+      reinterpret_cast<uint8_t *>(&local_bitmap),
   };
 
   eval_func(addrs, local_bitmap_addrs, num_records);
 
-  uint32_t expected_value[] = { 0, 1, 0, 2 };
-  bool expected_validity[] = { false, true, false, true };
+  uint32_t expected_value[] = {0, 1, 0, 2};
+  bool expected_validity[] = {false, true, false, true};
 
-  for (int i = 0; i  < num_records; i++) {
+  for (int i = 0; i < num_records; i++) {
     EXPECT_EQ(expected_value[i], out[i]);
     EXPECT_EQ(expected_validity[i], (local_bitmap & (1 << i)) != 0);
   }
@@ -190,4 +185,4 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

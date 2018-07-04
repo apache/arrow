@@ -52,4 +52,4 @@ void bitMapClearBitIfFalse(unsigned char *bmap, int position, bool value) {
   }
 }
 
-} // extern "C"
+}  // extern "C"

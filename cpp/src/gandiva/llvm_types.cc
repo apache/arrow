@@ -18,9 +18,7 @@ namespace gandiva {
 
 // LLVM doesn't distinguish between signed and unsigned types.
 
-LLVMTypes::LLVMTypes(llvm::LLVMContext &context)
-    : context_(context) {
-
+LLVMTypes::LLVMTypes(llvm::LLVMContext &context) : context_(context) {
   arrow_id_to_llvm_type_map_ = {
       {arrow::Type::type::BOOL, i1_type()},
       {arrow::Type::type::INT8, i8_type()},
@@ -41,4 +39,4 @@ LLVMTypes::LLVMTypes(llvm::LLVMContext &context)
   };
 }
 
-} // namespace gandiva
+}  // namespace gandiva

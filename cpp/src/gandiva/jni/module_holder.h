@@ -18,8 +18,8 @@
 #ifndef JNI_MODULE_HOLDER_H
 #define JNI_MODULE_HOLDER_H
 
-#include <utility>
 #include <memory>
+#include <utility>
 
 #include "gandiva/arrow.h"
 #include "gandiva/projector.h"
@@ -28,23 +28,20 @@ namespace gandiva {
 
 class ProjectorHolder {
  public:
-    ProjectorHolder(SchemaPtr schema,
-                    FieldVector ret_types,
-                    std::shared_ptr<Projector> projector)
-    : schema_(schema),
-      ret_types_(ret_types),
-      projector_(std::move(projector)) {}
+  ProjectorHolder(SchemaPtr schema, FieldVector ret_types,
+                  std::shared_ptr<Projector> projector)
+      : schema_(schema), ret_types_(ret_types), projector_(std::move(projector)) {}
 
-    SchemaPtr schema() { return schema_; }
-    FieldVector rettypes() { return ret_types_; }
-    std::shared_ptr<Projector> projector() { return projector_; }
+  SchemaPtr schema() { return schema_; }
+  FieldVector rettypes() { return ret_types_; }
+  std::shared_ptr<Projector> projector() { return projector_; }
 
  private:
-    SchemaPtr schema_;
-    FieldVector ret_types_;
-    std::shared_ptr<Projector> projector_;
+  SchemaPtr schema_;
+  FieldVector ret_types_;
+  std::shared_ptr<Projector> projector_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // JNI_MODULE_HOLDER_H
+#endif  // JNI_MODULE_HOLDER_H

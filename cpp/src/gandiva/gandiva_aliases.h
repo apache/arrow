@@ -49,6 +49,6 @@ using NodeVector = std::vector<std::shared_ptr<Node>>;
 class EvalBatch;
 using EvalBatchPtr = std::shared_ptr<EvalBatch>;
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // GANDIVA_ALIASES_H
+#endif  // GANDIVA_ALIASES_H

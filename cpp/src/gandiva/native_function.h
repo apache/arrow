@@ -42,16 +42,14 @@ class NativeFunction {
   bool param_null_safe() const { return param_null_safe_; }
 
  private:
-  NativeFunction(const std::string &base_name,
-                 const DataTypeVector &param_types,
-                 DataTypePtr ret_type,
-                 bool param_null_safe,
+  NativeFunction(const std::string &base_name, const DataTypeVector &param_types,
+                 DataTypePtr ret_type, bool param_null_safe,
                  const ResultNullableType &result_nullable_type,
                  const std::string &pc_name)
       : signature_(base_name, param_types, ret_type),
         param_null_safe_(param_null_safe),
         result_nullable_type_(result_nullable_type),
-        pc_name_(pc_name) { }
+        pc_name_(pc_name) {}
 
   FunctionSignature signature_;
 
@@ -65,6 +63,6 @@ class NativeFunction {
   friend class FunctionRegistry;
 };
 
-} // end namespace gandiva
+}  // end namespace gandiva
 
-#endif //GANDIVA_NATIVE_FUNCTION_H
+#endif  // GANDIVA_NATIVE_FUNCTION_H

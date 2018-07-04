@@ -41,10 +41,10 @@ class TestFunctionSignature : public ::testing::Test {
 };
 
 TEST_F(TestFunctionSignature, TestToString) {
-  EXPECT_EQ(FunctionSignature("myfunc",
-                              {arrow::int32(), arrow::float32()},
-                              arrow::float64()).ToString(),
-    "double myfunc(int32, float)");
+  EXPECT_EQ(
+      FunctionSignature("myfunc", {arrow::int32(), arrow::float32()}, arrow::float64())
+          .ToString(),
+      "double myfunc(int32, float)");
 }
 
 TEST_F(TestFunctionSignature, TestEqualsName) {
@@ -58,25 +58,23 @@ TEST_F(TestFunctionSignature, TestEqualsName) {
                FunctionSignature("sub", {arrow::int32()}, arrow::int32()));
 }
 
-
 TEST_F(TestFunctionSignature, TestEqualsParamCount) {
-  EXPECT_FALSE(FunctionSignature("add", {arrow::int32(), arrow::int32()},
-                                 arrow::int32()) ==
-               FunctionSignature("add", {arrow::int32()}, arrow::int32()));
+  EXPECT_FALSE(
+      FunctionSignature("add", {arrow::int32(), arrow::int32()}, arrow::int32()) ==
+      FunctionSignature("add", {arrow::int32()}, arrow::int32()));
 }
 
 TEST_F(TestFunctionSignature, TestEqualsParamValue) {
   EXPECT_FALSE(FunctionSignature("add", {arrow::int32()}, arrow::int32()) ==
                FunctionSignature("add", {arrow::int64()}, arrow::int32()));
 
-  EXPECT_FALSE(FunctionSignature("add", {arrow::int32()}, arrow::int32()) ==
-               FunctionSignature("add", {arrow::float32(), arrow::float32()},
-                                 arrow::int32()));
+  EXPECT_FALSE(
+      FunctionSignature("add", {arrow::int32()}, arrow::int32()) ==
+      FunctionSignature("add", {arrow::float32(), arrow::float32()}, arrow::int32()));
 
-  EXPECT_FALSE(FunctionSignature("add", {arrow::int32(), arrow::int64()},
-                                 arrow::int32()) ==
-               FunctionSignature("add", {arrow::int64(), arrow::int32()},
-                                 arrow::int32()));
+  EXPECT_FALSE(
+      FunctionSignature("add", {arrow::int32(), arrow::int64()}, arrow::int32()) ==
+      FunctionSignature("add", {arrow::int64(), arrow::int32()}, arrow::int32()));
 
   EXPECT_EQ(FunctionSignature("extract_month", {arrow::date32()}, arrow::int64()),
             FunctionSignature("extract_month", {local_date32_type_}, local_i64_type_));
@@ -101,4 +99,4 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

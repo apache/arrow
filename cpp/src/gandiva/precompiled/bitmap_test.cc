@@ -56,5 +56,4 @@ TEST(TestBitMap, TestClearIfFalse) {
   EXPECT_EQ(bitMapGetBit(bit_map, 24), false);
 }
 
-
-} // namespace gandiva
+}  // namespace gandiva

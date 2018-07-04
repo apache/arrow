@@ -19,4 +19,4 @@
 // TODO : setup logging or use glog.
 #include <arrow/util/logging.h>
 
-#endif // GANDIVA_LOGGING_H
+#endif  // GANDIVA_LOGGING_H

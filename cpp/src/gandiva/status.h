@@ -18,39 +18,39 @@
 #ifndef GANDIVA_STATUS_H
 #define GANDIVA_STATUS_H
 
-#include <string>
 #include <sstream>
+#include <string>
 #include <utility>
 
-#define GANDIVA_RETURN_NOT_OK(status)                                                         \
-  do {                                                                                        \
-    Status _status = (status);                                                                \
-    if (!_status.ok()) {                                                                      \
-      std::stringstream ss;                                                                   \
-      ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString()                \
-         << " \n " << _status.message();                                                      \
-      return Status(_status.code(), ss.str());                                                \
-    }                                                                                         \
-} while (0)
+#define GANDIVA_RETURN_NOT_OK(status)                                                    \
+  do {                                                                                   \
+    Status _status = (status);                                                           \
+    if (!_status.ok()) {                                                                 \
+      std::stringstream ss;                                                              \
+      ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString() << " \n " \
+         << _status.message();                                                           \
+      return Status(_status.code(), ss.str());                                           \
+    }                                                                                    \
+  } while (0)
 
-#define GANDIVA_RETURN_FAILURE_IF_FALSE(condition, status)                                  \
-do {                                                                                        \
-  if (!condition) {                                                                         \
-    Status _status = (status);                                                              \
-    std::stringstream ss;                                                                   \
-    ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString()                \
-       << " \n " << _status.message();                                                      \
-    return Status(_status.code(), ss.str());                                                \
-  }                                                                                         \
-} while (0)
+#define GANDIVA_RETURN_FAILURE_IF_FALSE(condition, status)                               \
+  do {                                                                                   \
+    if (!condition) {                                                                    \
+      Status _status = (status);                                                         \
+      std::stringstream ss;                                                              \
+      ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString() << " \n " \
+         << _status.message();                                                           \
+      return Status(_status.code(), ss.str());                                           \
+    }                                                                                    \
+  } while (0)
 
 // Check arrow status & convert to gandiva status on error.
-#define GANDIVA_RETURN_ARROW_NOT_OK(astatus)                                            \
-  do {                                                                                  \
-   if (!(astatus).ok()) {                                                               \
-     return Status(StatusCode::ArrowError, (astatus).message());                        \
-   }                                                                                    \
-} while (0)
+#define GANDIVA_RETURN_ARROW_NOT_OK(astatus)                      \
+  do {                                                            \
+    if (!(astatus).ok()) {                                        \
+      return Status(StatusCode::ArrowError, (astatus).message()); \
+    }                                                             \
+  } while (0)
 
 namespace gandiva {
 
@@ -104,7 +104,6 @@ class Status {
     return Status(StatusCode::ExpressionValidationError, msg);
   }
 
-
   // Returns true if the status indicates success.
   bool ok() const { return (state_ == NULL); }
 
@@ -112,9 +111,11 @@ class Status {
 
   bool IsInvalid() const { return code() == StatusCode::Invalid; }
 
-  bool IsArrowError() const {return code() == StatusCode::ArrowError; }
+  bool IsArrowError() const { return code() == StatusCode::ArrowError; }
 
-  bool IsExpressionValidationError() const {return code() == StatusCode::ExpressionValidationError; }
+  bool IsExpressionValidationError() const {
+    return code() == StatusCode::ExpressionValidationError;
+  }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.
@@ -195,5 +196,5 @@ inline Status& Status::operator&=(Status&& s) {
   return *this;
 }
 
-} // namespace gandiva
-#endif // GANDIVA_STATUS_H
+}  // namespace gandiva
+#endif  // GANDIVA_STATUS_H

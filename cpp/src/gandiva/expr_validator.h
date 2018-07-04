@@ -20,9 +20,9 @@
 
 #include "boost/functional/hash.hpp"
 #include "codegen/function_registry.h"
-#include "codegen/node_visitor.h"
-#include "codegen/node.h"
 #include "codegen/llvm_types.h"
+#include "codegen/node.h"
+#include "codegen/node_visitor.h"
 #include "gandiva/arrow.h"
 #include "gandiva/expression.h"
 #include "gandiva/status.h"
@@ -35,13 +35,12 @@ class FunctionRegistry;
 /// data types, signatures and return types
 class ExprValidator : public NodeVisitor {
  public:
-  explicit ExprValidator(LLVMTypes * types, SchemaPtr schema)
-    : types_(types),
-      schema_(schema) {
-      for (auto &field : schema_->fields()) {
-        field_map_[field->name()] =  field;
-      }
+  explicit ExprValidator(LLVMTypes *types, SchemaPtr schema)
+      : types_(types), schema_(schema) {
+    for (auto &field : schema_->fields()) {
+      field_map_[field->name()] = field;
     }
+  }
 
   /// \brief Validates the root node
   /// of an expression.
@@ -64,12 +63,10 @@ class ExprValidator : public NodeVisitor {
 
   SchemaPtr schema_;
 
-  using FieldMap = std::unordered_map<std::string,
-                                      FieldPtr,
-                                      boost::hash<std::string>>;
+  using FieldMap = std::unordered_map<std::string, FieldPtr, boost::hash<std::string>>;
   FieldMap field_map_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_EXPR_VALIDATOR_H
+#endif  // GANDIVA_EXPR_VALIDATOR_H

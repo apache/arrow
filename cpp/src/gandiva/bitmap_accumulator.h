@@ -17,8 +17,8 @@
 
 #include <vector>
 
-#include "codegen/dex_visitor.h"
 #include "codegen/dex.h"
+#include "codegen/dex_visitor.h"
 #include "codegen/eval_batch.h"
 
 namespace gandiva {
@@ -28,8 +28,7 @@ namespace gandiva {
 class BitMapAccumulator : public DexDefaultVisitor {
  public:
   explicit BitMapAccumulator(const EvalBatch &eval_batch)
-    : eval_batch_(eval_batch),
-      all_invalid_(false) {}
+      : eval_batch_(eval_batch), all_invalid_(false) {}
 
   void Visit(const VectorReadValidityDex &dex) {
     int idx = dex.ValidityIdx();
@@ -57,8 +56,7 @@ class BitMapAccumulator : public DexDefaultVisitor {
 
   /// Compute the intersection of the accumulated bitmaps and save the result in
   /// dst_bmap.
-  static void IntersectBitMaps(uint8_t *dst_map,
-                               const std::vector<uint8_t *> &src_maps,
+  static void IntersectBitMaps(uint8_t *dst_map, const std::vector<uint8_t *> &src_maps,
                                int num_records);
 
  private:
@@ -67,6 +65,6 @@ class BitMapAccumulator : public DexDefaultVisitor {
   bool all_invalid_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_BITMAP_ACCUMULATOR_H
+#endif  // GANDIVA_BITMAP_ACCUMULATOR_H

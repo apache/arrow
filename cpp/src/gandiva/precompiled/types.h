@@ -58,6 +58,6 @@ int64 extractMinute_timestamp(timestamp millis);
 
 int32 mem_compare(const char *left, int32 left_len, const char *right, int32 right_len);
 
-} // extern "C"
+}  // extern "C"
 
-#endif //PRECOMPILED_TYPES_H
+#endif  // PRECOMPILED_TYPES_H

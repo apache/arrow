@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "gandiva/projector.h"
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
-#include "integ/test_util.h"
-#include "gandiva/projector.h"
 #include "gandiva/tree_expr_builder.h"
+#include "integ/test_util.h"
 
 namespace gandiva {
 
-using arrow::int32;
-using arrow::float32;
 using arrow::boolean;
+using arrow::float32;
+using arrow::int32;
 
 class TestProjector : public ::testing::Test {
  public:
@@ -44,8 +44,8 @@ TEST_F(TestProjector, TestIntSumSub) {
 
   // Build expression
   auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
-  auto sub_expr = TreeExprBuilder::MakeExpression("subtract", {field0, field1},
-                                                  field_sub);
+  auto sub_expr =
+      TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
 
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(schema, {sum_expr, sub_expr}, pool_, &projector);
@@ -53,11 +53,11 @@ TEST_F(TestProjector, TestIntSumSub) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({ 1, 2, 3, 4 }, { true, true, true, false });
-  auto array1 = MakeArrowArrayInt32({ 11, 13, 15, 17 }, { true, true, false, true });
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, false});
+  auto array1 = MakeArrowArrayInt32({11, 13, 15, 17}, {true, true, false, true});
   // expected output
-  auto exp_sum = MakeArrowArrayInt32({ 12, 15, 0, 0 }, { true, true, false, false });
-  auto exp_sub = MakeArrowArrayInt32({ -10, -11, 0, 0 }, { true, true, false, false });
+  auto exp_sum = MakeArrowArrayInt32({12, 15, 0, 0}, {true, true, false, false});
+  auto exp_sub = MakeArrowArrayInt32({-10, -11, 0, 0}, {true, true, false, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -84,24 +84,24 @@ TEST_F(TestProjector, TestIntSumSubCustomConfig) {
 
   // Build expression
   auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
-  auto sub_expr = TreeExprBuilder::MakeExpression("subtract", {field0, field1},
-                                                  field_sub);
+  auto sub_expr =
+      TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
 
   std::shared_ptr<Projector> projector;
   ConfigurationBuilder config_builder;
   std::shared_ptr<Configuration> config = config_builder.build();
 
-  Status status = Projector::Make(schema,
-                                 {sum_expr, sub_expr}, pool_, config, &projector);
+  Status status =
+      Projector::Make(schema, {sum_expr, sub_expr}, pool_, config, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({ 1, 2, 3, 4 }, { true, true, true, false });
-  auto array1 = MakeArrowArrayInt32({ 11, 13, 15, 17 }, { true, true, false, true });
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, false});
+  auto array1 = MakeArrowArrayInt32({11, 13, 15, 17}, {true, true, false, true});
   // expected output
-  auto exp_sum = MakeArrowArrayInt32({ 12, 15, 0, 0 }, { true, true, false, false });
-  auto exp_sub = MakeArrowArrayInt32({ -10, -11, 0, 0 }, { true, true, false, false });
+  auto exp_sum = MakeArrowArrayInt32({12, 15, 0, 0}, {true, true, false, false});
+  auto exp_sub = MakeArrowArrayInt32({-10, -11, 0, 0}, {true, true, false, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -116,9 +116,9 @@ TEST_F(TestProjector, TestIntSumSubCustomConfig) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sub, outputs.at(1));
 }
 
-template<typename TYPE, typename C_TYPE>
-static void TestArithmeticOpsForType(arrow::MemoryPool *pool) {
-  auto atype =  arrow::TypeTraits<TYPE>::type_singleton();
+template <typename TYPE, typename C_TYPE>
+static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
+  auto atype = arrow::TypeTraits<TYPE>::type_singleton();
 
   // schema for input fields
   auto field0 = field("f0", atype);
@@ -135,10 +135,10 @@ static void TestArithmeticOpsForType(arrow::MemoryPool *pool) {
 
   // Build expression
   auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
-  auto sub_expr = TreeExprBuilder::MakeExpression("subtract", {field0, field1},
-                                                  field_sub);
-  auto mul_expr = TreeExprBuilder::MakeExpression("multiply", {field0, field1},
-                                                  field_mul);
+  auto sub_expr =
+      TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
+  auto mul_expr =
+      TreeExprBuilder::MakeExpression("multiply", {field0, field1}, field_mul);
   auto div_expr = TreeExprBuilder::MakeExpression("divide", {field0, field1}, field_div);
   auto eq_expr = TreeExprBuilder::MakeExpression("equal", {field0, field1}, field_eq);
   auto lt_expr = TreeExprBuilder::MakeExpression("less_than", {field0, field1}, field_lt);
@@ -218,8 +218,8 @@ TEST_F(TestProjector, TestFloatLessThan) {
   auto field_result = field("res", boolean());
 
   // Build expression
-  auto lt_expr = TreeExprBuilder::MakeExpression("less_than", {field0, field1},
-                                                 field_result);
+  auto lt_expr =
+      TreeExprBuilder::MakeExpression("less_than", {field0, field1}, field_result);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
@@ -228,10 +228,10 @@ TEST_F(TestProjector, TestFloatLessThan) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayFloat32({ 1.0, 8.9, 3.0 }, { true, true, false });
-  auto array1 = MakeArrowArrayFloat32({ 4.0, 3.4, 6.8 }, { true, true, true });
+  auto array0 = MakeArrowArrayFloat32({1.0, 8.9, 3.0}, {true, true, false});
+  auto array1 = MakeArrowArrayFloat32({4.0, 3.4, 6.8}, {true, true, true});
   // expected output
-  auto exp = MakeArrowArrayBool({ true, false, false }, { true, true, false });
+  auto exp = MakeArrowArrayBool({true, false, false}, {true, true, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -263,9 +263,9 @@ TEST_F(TestProjector, TestIsNotNull) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayFloat32({ 1.0, 8.9, 3.0 }, { true, true, false });
+  auto array0 = MakeArrowArrayFloat32({1.0, 8.9, 3.0}, {true, true, false});
   // expected output
-  auto exp = MakeArrowArrayBool({ true, true, false }, { true, true, true });
+  auto exp = MakeArrowArrayBool({true, true, false}, {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
@@ -298,11 +298,10 @@ TEST_F(TestProjector, TestNullInternal) {
   // Create a row-batch with some sample data
   int num_records = 5;
   auto array0 =
-      MakeArrowArrayInt32({ 10, 10, -20, 5, -7 }, { true, false, true, true, true });
+      MakeArrowArrayInt32({10, 10, -20, 5, -7}, {true, false, true, true, true});
 
   // expected output
-  auto exp =
-      MakeArrowArrayInt32({ 5, 0, -10, 0, 0 }, { true, false, true, false, false });
+  auto exp = MakeArrowArrayInt32({5, 0, -10, 0, 0}, {true, false, true, false, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
@@ -345,12 +344,12 @@ TEST_F(TestProjector, TestNestedFunctions) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({ 10, 10, -20, 5}, { true, false, true, true });
-  auto array1 = MakeArrowArrayInt32({ 11, 13, 15, 17 }, { true, true, false, true });
+  auto array0 = MakeArrowArrayInt32({10, 10, -20, 5}, {true, false, true, true});
+  auto array1 = MakeArrowArrayInt32({11, 13, 15, 17}, {true, true, false, true});
 
   // expected output
-  auto exp1 = MakeArrowArrayInt32({ 55, 65, -150, 0 }, { true, false, false, false });
-  auto exp2 = MakeArrowArrayBool({ false, true, true, true }, { true, true, true, true });
+  auto exp1 = MakeArrowArrayInt32({55, 65, -150, 0}, {true, false, false, false});
+  auto exp2 = MakeArrowArrayBool({false, true, true, true}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -382,11 +381,11 @@ TEST_F(TestProjector, TestZeroCopy) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({ 1, 2, 3, 4 }, { true, true, true, false });
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, false});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   // expected output
-  auto exp = MakeArrowArrayFloat32({ 1, 2, 3, 0 }, { true, true, true, false });
+  auto exp = MakeArrowArrayFloat32({1, 2, 3, 0}, {true, true, true, false});
 
   // allocate output buffers
   int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
@@ -394,15 +393,13 @@ TEST_F(TestProjector, TestZeroCopy) {
   std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
       std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz);
 
-  int64_t data_sz = sizeof (float) * num_records;
+  int64_t data_sz = sizeof(float) * num_records;
   std::unique_ptr<uint8_t[]> data(new uint8_t[data_sz]);
   std::shared_ptr<arrow::MutableBuffer> data_buf =
       std::make_shared<arrow::MutableBuffer>(data.get(), data_sz);
 
-  auto array_data = arrow::ArrayData::Make(
-    float32(),
-    num_records,
-    {bitmap_buf, data_buf});
+  auto array_data =
+      arrow::ArrayData::Make(float32(), num_records, {bitmap_buf, data_buf});
 
   // Evaluate expression
   status = projector->Evaluate(*in_batch, {array_data});
@@ -430,11 +427,11 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({ 1, 2, 3, 4 }, { true, true, true, false });
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, false});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   // expected output
-  auto exp = MakeArrowArrayFloat32({ 1, 2, 3, 0 }, { true, true, true, false });
+  auto exp = MakeArrowArrayFloat32({1, 2, 3, 0}, {true, true, true, false});
 
   // allocate output buffers
   int64_t bitmap_sz = arrow::BitUtil::BytesForBits(num_records);
@@ -442,15 +439,13 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
       std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz);
 
-  int64_t data_sz = sizeof (float) * num_records;
+  int64_t data_sz = sizeof(float) * num_records;
   std::unique_ptr<uint8_t[]> data(new uint8_t[data_sz]);
   std::shared_ptr<arrow::MutableBuffer> data_buf =
       std::make_shared<arrow::MutableBuffer>(data.get(), data_sz);
 
-  auto array_data = arrow::ArrayData::Make(
-    float32(),
-    num_records,
-    {bitmap_buf, data_buf});
+  auto array_data =
+      arrow::ArrayData::Make(float32(), num_records, {bitmap_buf, data_buf});
 
   // the batch can't be empty.
   auto bad_batch = arrow::RecordBatch::Make(schema, 0 /*num_records*/, {array0});
@@ -470,18 +465,18 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   // the output buffers must have sufficiently sized data_buf.
   std::shared_ptr<arrow::MutableBuffer> bad_data_buf =
       std::make_shared<arrow::MutableBuffer>(data.get(), data_sz - 1);
-  auto bad_array_data2 = arrow::ArrayData::Make(float32(),
-                                                num_records, {bitmap_buf, bad_data_buf});
+  auto bad_array_data2 =
+      arrow::ArrayData::Make(float32(), num_records, {bitmap_buf, bad_data_buf});
   status = projector->Evaluate(*in_batch, {bad_array_data2});
   EXPECT_EQ(status.code(), StatusCode::Invalid);
 
   // the output buffers must have sufficiently sized bitmap_buf.
   std::shared_ptr<arrow::MutableBuffer> bad_bitmap_buf =
       std::make_shared<arrow::MutableBuffer>(bitmap.get(), bitmap_sz - 1);
-  auto bad_array_data3 = arrow::ArrayData::Make(float32(),
-                                                num_records, {bad_bitmap_buf, data_buf});
+  auto bad_array_data3 =
+      arrow::ArrayData::Make(float32(), num_records, {bad_bitmap_buf, data_buf});
   status = projector->Evaluate(*in_batch, {bad_array_data3});
   EXPECT_EQ(status.code(), StatusCode::Invalid);
 }
 
-} // namespace gandiva
+}  // namespace gandiva

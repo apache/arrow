@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include <memory>
-#include <vector>
 #include <utility>
+#include <vector>
 #include "arrow/test-util.h"
 #include "gandiva/arrow.h"
 
@@ -28,16 +28,15 @@ namespace gandiva {
 //
 // arrow/test-util.h has good utility classes for this purpose.
 // Using those
-template<typename TYPE, typename C_TYPE>
-static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values,
-                               std::vector<bool> validity) {
+template <typename TYPE, typename C_TYPE>
+static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values, std::vector<bool> validity) {
   ArrayPtr out;
   arrow::ArrayFromVector<TYPE, C_TYPE>(validity, values, &out);
   return out;
 }
 
-template<typename TYPE, typename C_TYPE>
-static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
+template <typename TYPE, typename C_TYPE>
+static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType> &type,
                                    const std::vector<C_TYPE> &values,
                                    const std::vector<bool> &validity) {
   ArrayPtr out;
@@ -59,11 +58,10 @@ static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
 #define MakeArrowArrayUtf8 MakeArrowArray<arrow::StringType, std::string>
 #define MakeArrowArrayBinary MakeArrowArray<arrow::BinaryType, std::string>
 
-#define EXPECT_ARROW_ARRAY_EQUALS(a, b)         \
-  EXPECT_TRUE((a)->Equals(b))                   \
-      << "expected array: " << (a)->ToString()  \
-      << " actual array: " << (b)->ToString();
+#define EXPECT_ARROW_ARRAY_EQUALS(a, b)                                \
+  EXPECT_TRUE((a)->Equals(b)) << "expected array: " << (a)->ToString() \
+                              << " actual array: " << (b)->ToString();
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // GANDIVA_TEST_UTIL_H
+#endif  // GANDIVA_TEST_UTIL_H

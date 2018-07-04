@@ -20,13 +20,12 @@
 
 namespace gandiva {
 
-using EvalFunc = int(*)(uint8_t **buffers, uint8_t **local_bitmaps, int record_count);
+using EvalFunc = int (*)(uint8_t **buffers, uint8_t **local_bitmaps, int record_count);
 
 /// \brief Tracks the compiled state for one expression.
 class CompiledExpr {
  public:
-  CompiledExpr(ValueValidityPairPtr value_validity,
-               FieldDescriptorPtr output,
+  CompiledExpr(ValueValidityPairPtr value_validity, FieldDescriptorPtr output,
                llvm::Function *ir_function)
       : value_validity_(value_validity),
         output_(output),
@@ -57,6 +56,6 @@ class CompiledExpr {
   EvalFunc jit_function_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // GANDIVA_COMPILED_EXPR_H
+#endif  // GANDIVA_COMPILED_EXPR_H

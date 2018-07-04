@@ -35,17 +35,14 @@ llvm::Function *TestEngine::BuildVecAdd(Engine *engine, LLVMTypes *types) {
   std::vector<llvm::Type *> arguments;
   arguments.push_back(types->i64_ptr_type());
   arguments.push_back(types->i32_type());
-  llvm::FunctionType *prototype = llvm::FunctionType::get(types->i64_type(),
-                                                          arguments,
-                                                          false /*isVarArg*/);
+  llvm::FunctionType *prototype =
+      llvm::FunctionType::get(types->i64_type(), arguments, false /*isVarArg*/);
 
   // Create fn
   std::string func_name = "add_longs";
   engine->AddFunctionToCompile(func_name);
-  llvm::Function *fn = llvm::Function::Create(prototype,
-                                              llvm::GlobalValue::ExternalLinkage,
-                                              func_name,
-                                              engine->module());
+  llvm::Function *fn = llvm::Function::Create(
+      prototype, llvm::GlobalValue::ExternalLinkage, func_name, engine->module());
   assert(fn != NULL);
 
   // Name the arguments
@@ -75,9 +72,8 @@ llvm::Function *TestEngine::BuildVecAdd(Engine *engine, LLVMTypes *types) {
   sum->addIncoming(types->i64_constant(0), loop_entry);
 
   // setup loop PHI
-  llvm::Value *loop_update = builder.CreateAdd(loop_var,
-                                               types->i32_constant(1),
-                                               "loop_var+1");
+  llvm::Value *loop_update =
+      builder.CreateAdd(loop_var, types->i32_constant(1), "loop_var+1");
   loop_var->addIncoming(loop_update, loop_body);
 
   // get the current value
@@ -89,9 +85,8 @@ llvm::Function *TestEngine::BuildVecAdd(Engine *engine, LLVMTypes *types) {
   sum->addIncoming(sum_update, loop_body);
 
   // check loop_var
-  llvm::Value *loop_var_check = builder.CreateICmpSLT(loop_update,
-                                                      arg_nelements,
-                                                      "loop_var < nrec");
+  llvm::Value *loop_var_check =
+      builder.CreateICmpSLT(loop_update, arg_nelements, "loop_var < nrec");
   builder.CreateCondBr(loop_var_check, loop_body, loop_exit);
 
   // Loop exit
@@ -102,8 +97,7 @@ llvm::Function *TestEngine::BuildVecAdd(Engine *engine, LLVMTypes *types) {
 
 TEST_F(TestEngine, TestAddUnoptimised) {
   std::unique_ptr<Engine> engine;
-  Engine::Make(ConfigurationBuilder::DefaultConfiguration(),
-               &engine);
+  Engine::Make(ConfigurationBuilder::DefaultConfiguration(), &engine);
   LLVMTypes types(*engine->context());
   llvm::Function *ir_func = BuildVecAdd(engine.get(), &types);
   engine->FinalizeModule(false, false);
@@ -117,8 +111,7 @@ TEST_F(TestEngine, TestAddUnoptimised) {
 
 TEST_F(TestEngine, TestAddOptimised) {
   std::unique_ptr<Engine> engine;
-  Engine::Make(ConfigurationBuilder::DefaultConfiguration(),
-               &engine);
+  Engine::Make(ConfigurationBuilder::DefaultConfiguration(), &engine);
   LLVMTypes types(*engine->context());
   llvm::Function *ir_func = BuildVecAdd(engine.get(), &types);
   engine->FinalizeModule(true, false);
@@ -135,4 +128,4 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

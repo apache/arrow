@@ -34,34 +34,28 @@ class FunctionRegistry {
 
  private:
   struct KeyHash {
-    std::size_t operator()(const FunctionSignature *k) const {
-      return k->Hash();
-    }
+    std::size_t operator()(const FunctionSignature *k) const { return k->Hash(); }
   };
 
   struct KeyEquals {
-    bool operator() (const FunctionSignature *s1, const FunctionSignature *s2) const {
+    bool operator()(const FunctionSignature *s1, const FunctionSignature *s2) const {
       return *s1 == *s2;
     }
   };
 
-  static DataTypePtr time64() {
-    return arrow::time64(arrow::TimeUnit::MICRO);
-  }
+  static DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
 
-  static DataTypePtr timestamp() {
-    return arrow::timestamp(arrow::TimeUnit::MILLI);
-  }
+  static DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
 
-  typedef std::unordered_map<const FunctionSignature *,
-                             const NativeFunction *,
-                             KeyHash, KeyEquals> SignatureMap;
+  typedef std::unordered_map<const FunctionSignature *, const NativeFunction *, KeyHash,
+                             KeyEquals>
+      SignatureMap;
   static SignatureMap InitPCMap();
 
   static NativeFunction pc_registry_[];
   static SignatureMap pc_registry_map_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_FUNCTION_REGISTRY_H
+#endif  // GANDIVA_FUNCTION_REGISTRY_H

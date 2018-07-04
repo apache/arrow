@@ -22,8 +22,8 @@
 #include <vector>
 
 #include "gandiva/arrow.h"
-#include "gandiva/expression.h"
 #include "gandiva/configuration.h"
+#include "gandiva/expression.h"
 #include "gandiva/status.h"
 
 namespace gandiva {
@@ -43,10 +43,8 @@ class Projector {
   /// \param[in] : exprs vector of expressions.
   /// \param[in] : pool memory pool used to allocate output arrays (if required).
   /// \param[out]: projector the returned projector object
-  static Status Make(SchemaPtr schema,
-                     const ExpressionVector &exprs,
-                     arrow::MemoryPool *pool,
-                     std::shared_ptr<Projector> *projector);
+  static Status Make(SchemaPtr schema, const ExpressionVector &exprs,
+                     arrow::MemoryPool *pool, std::shared_ptr<Projector> *projector);
 
   /// Build a projector for the given schema to evaluate the vector of expressions.
   /// Customize the projector with runtime configuration.
@@ -56,10 +54,8 @@ class Projector {
   /// \param[in] : pool memory pool used to allocate output arrays (if required).
   /// \param[in] : run time configuration.
   /// \param[out]: projector the returned projector object
-  static Status Make(SchemaPtr schema,
-                     const ExpressionVector &exprs,
-                     arrow::MemoryPool *pool,
-                     std::shared_ptr<Configuration>,
+  static Status Make(SchemaPtr schema, const ExpressionVector &exprs,
+                     arrow::MemoryPool *pool, std::shared_ptr<Configuration>,
                      std::shared_ptr<Projector> *projector);
 
   /// Evaluate the specified record batch, and return the allocated and populated output
@@ -68,8 +64,7 @@ class Projector {
   ///
   /// \param[in] : batch the record batch. schema should be the same as the one in 'Make'
   /// \param[out]: output the vector of allocated/populated arrays.
-  Status Evaluate(const arrow::RecordBatch &batch,
-                  arrow::ArrayVector *ouput);
+  Status Evaluate(const arrow::RecordBatch &batch, arrow::ArrayVector *ouput);
 
   /// Evaluate the specified record batch, and populate the output arrays. The output
   /// arrays of sufficient capacity must be allocated by the caller.
@@ -77,25 +72,19 @@ class Projector {
   /// \param[in] : batch the record batch. schema should be the same as the one in 'Make'
   /// \param[in/out]: vector of arrays, the arrays are allocated by the caller and
   ///                 populated by Evaluate.
-  Status Evaluate(const arrow::RecordBatch &batch,
-                  const ArrayDataVector &output);
+  Status Evaluate(const arrow::RecordBatch &batch, const ArrayDataVector &output);
 
  private:
-  Projector(std::unique_ptr<LLVMGenerator> llvm_generator,
-            SchemaPtr schema,
-            const FieldVector &output_fields,
-            arrow::MemoryPool *pool,
+  Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
+            const FieldVector &output_fields, arrow::MemoryPool *pool,
             std::shared_ptr<Configuration>);
 
   /// Allocate an ArrowData of length 'length'.
-  Status AllocArrayData(const DataTypePtr &type,
-                        int length,
-                        ArrayDataPtr *array_data);
+  Status AllocArrayData(const DataTypePtr &type, int length, ArrayDataPtr *array_data);
 
   /// Validate that the ArrayData has sufficient capacity to accomodate 'num_records'.
   Status ValidateArrayDataCapacity(const arrow::ArrayData &array_data,
-                                   const arrow::Field &field,
-                                   int num_records);
+                                   const arrow::Field &field, int num_records);
 
   /// Validate the common args for Evaluate() APIs.
   Status ValidateEvaluateArgsCommon(const arrow::RecordBatch &batch);
@@ -107,6 +96,6 @@ class Projector {
   const std::shared_ptr<Configuration> configuration_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // GANDIVA_EXPR_PROJECTOR_H
+#endif  // GANDIVA_EXPR_PROJECTOR_H

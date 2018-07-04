@@ -1,4 +1,4 @@
-    // Copyright (C) 2017-2018 Dremio Corporation
+// Copyright (C) 2017-2018 Dremio Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,20 +25,17 @@ namespace gandiva {
 /// expression evaluation.
 class EvalBatch {
  public:
-  explicit EvalBatch(int num_records,
-                     int num_buffers,
-                     int num_local_bitmaps)
-    : num_records_(num_records),
-      num_buffers_(num_buffers),
-      num_local_bitmaps_(num_local_bitmaps) {
-
+  explicit EvalBatch(int num_records, int num_buffers, int num_local_bitmaps)
+      : num_records_(num_records),
+        num_buffers_(num_buffers),
+        num_local_bitmaps_(num_local_bitmaps) {
     buffers_ = new uint8_t *[num_buffers];
     AllocLocalBitMaps();
   }
 
   ~EvalBatch() {
     FreeLocalBitMaps();
-    delete [] buffers_;
+    delete[] buffers_;
   }
 
   int num_records() const { return num_records_; }
@@ -108,11 +105,11 @@ inline void EvalBatch::AllocLocalBitMaps() {
 
 inline void EvalBatch::FreeLocalBitMaps() {
   for (int i = 0; i < num_local_bitmaps_; ++i) {
-    delete [] local_bitmaps_[i];
+    delete[] local_bitmaps_[i];
   }
-  delete [] local_bitmaps_;
+  delete[] local_bitmaps_;
 }
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_EXPR_EVALBATCH_H
+#endif  // GANDIVA_EXPR_EVALBATCH_H

@@ -76,9 +76,8 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor &desc,
 
 EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch &record_batch,
                                          const ArrayDataVector &out_vector) {
-  EvalBatchPtr eval_batch = std::make_shared<EvalBatch>(record_batch.num_rows(),
-                                                        buffer_count_,
-                                                        local_bitmap_count_);
+  EvalBatchPtr eval_batch = std::make_shared<EvalBatch>(
+      record_batch.num_rows(), buffer_count_, local_bitmap_count_);
 
   // Fill in the entries for the input fields.
   for (int i = 0; i < record_batch.num_columns(); ++i) {
@@ -89,8 +88,7 @@ EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch &record_batch,
       continue;
     }
 
-    PrepareBuffersForField(*(found->second),
-                           *(record_batch.column(i))->data(),
+    PrepareBuffersForField(*(found->second), *(record_batch.column(i))->data(),
                            eval_batch.get());
   }
 
@@ -104,4 +102,4 @@ EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch &record_batch,
   return eval_batch;
 }
 
-} // namespace gandiva
+}  // namespace gandiva

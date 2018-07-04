@@ -67,4 +67,4 @@ TEST(StatusTest, AndStatus) {
   ASSERT_TRUE(res.IsCodeGenError());
 }
 
-} // namespace gandiva
+}  // namespace gandiva

@@ -14,16 +14,16 @@
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
-#include "integ/test_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/status.h"
 #include "gandiva/tree_expr_builder.h"
+#include "integ/test_util.h"
 
 namespace gandiva {
 
 using arrow::binary;
-using arrow::int32;
 using arrow::boolean;
+using arrow::int32;
 
 class TestBinary : public ::testing::Test {
  public:
@@ -49,10 +49,10 @@ TEST_F(TestBinary, TestSimple) {
   auto octet_len_a = TreeExprBuilder::MakeFunction("octet_length", {node_a}, int32());
   auto octet_len_b = TreeExprBuilder::MakeFunction("octet_length", {node_b}, int32());
 
-  auto is_greater = TreeExprBuilder::MakeFunction("greater_than", {node_a, node_b},
-                                                boolean());
-  auto if_greater = TreeExprBuilder::MakeIf(is_greater, octet_len_a, octet_len_b,
-                                            int32());
+  auto is_greater =
+      TreeExprBuilder::MakeFunction("greater_than", {node_a, node_b}, boolean());
+  auto if_greater =
+      TreeExprBuilder::MakeIf(is_greater, octet_len_a, octet_len_b, int32());
   auto expr = TreeExprBuilder::MakeExpression(if_greater, res);
 
   // Build a projector for the expressions.
@@ -62,10 +62,10 @@ TEST_F(TestBinary, TestSimple) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_a = MakeArrowArrayBinary({"foo", "hello", "hi", "bye"},
-                                      {true, true, true, false});
-  auto array_b = MakeArrowArrayBinary({"fo", "hellos", "hi", "bye"},
-                                      {true, true, true, true});
+  auto array_a =
+      MakeArrowArrayBinary({"foo", "hello", "hi", "bye"}, {true, true, true, false});
+  auto array_b =
+      MakeArrowArrayBinary({"fo", "hellos", "hi", "bye"}, {true, true, true, true});
 
   // expected output
   auto exp = MakeArrowArrayInt32({3, 6, 2, 3}, {true, true, true, true});
@@ -82,4 +82,4 @@ TEST_F(TestBinary, TestSimple) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-} // namespace gandiva
+}  // namespace gandiva

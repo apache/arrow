@@ -45,10 +45,8 @@ class TestDex : public ::testing::Test {
 TEST_F(TestDex, TestVisitor) {
   class TestVisitor : public DexVisitor {
    public:
-    TestVisitor(std::map<const std::type_info *, std::string> *map,
-                std::string *result)
-      : map_(map),
-        result_(result) {}
+    TestVisitor(std::map<const std::type_info *, std::string> *map, std::string *result)
+        : map_(map), result_(result) {}
 
     void Visit(const VectorReadValidityDex &dex) override {
       *result_ = (*map_)[&typeid(dex)];
@@ -66,17 +64,11 @@ TEST_F(TestDex, TestVisitor) {
       *result_ = (*map_)[&typeid(dex)];
     }
 
-    void Visit(const TrueDex &dex) override {
-      *result_ = (*map_)[&typeid(dex)];
-    }
+    void Visit(const TrueDex &dex) override { *result_ = (*map_)[&typeid(dex)]; }
 
-    void Visit(const FalseDex &dex) override {
-      *result_ = (*map_)[&typeid(dex)];
-    }
+    void Visit(const FalseDex &dex) override { *result_ = (*map_)[&typeid(dex)]; }
 
-    void Visit(const LiteralDex &dex) override {
-      *result_ = (*map_)[&typeid(dex)];
-    }
+    void Visit(const LiteralDex &dex) override { *result_ = (*map_)[&typeid(dex)]; }
 
     void Visit(const NonNullableFuncDex &dex) override {
       *result_ = (*map_)[&typeid(dex)];
@@ -90,17 +82,11 @@ TEST_F(TestDex, TestVisitor) {
       *result_ = (*map_)[&typeid(dex)];
     }
 
-    void Visit(const IfDex &dex) override {
-      *result_ = (*map_)[&typeid(dex)];
-    }
+    void Visit(const IfDex &dex) override { *result_ = (*map_)[&typeid(dex)]; }
 
-    void Visit(const BooleanAndDex &dex) override {
-      *result_ = (*map_)[&typeid(dex)];
-    }
+    void Visit(const BooleanAndDex &dex) override { *result_ = (*map_)[&typeid(dex)]; }
 
-    void Visit(const BooleanOrDex &dex) override {
-      *result_ = (*map_)[&typeid(dex)];
-    }
+    void Visit(const BooleanOrDex &dex) override { *result_ = (*map_)[&typeid(dex)]; }
 
    private:
     std::map<const std::type_info *, std::string> *map_;
@@ -158,4 +144,4 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

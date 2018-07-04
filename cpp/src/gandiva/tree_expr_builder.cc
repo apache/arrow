@@ -20,9 +20,9 @@
 
 namespace gandiva {
 
-#define MAKE_LITERAL(atype, ctype)                                              \
-  NodePtr TreeExprBuilder::MakeLiteral(ctype value) {                           \
-    return std::make_shared<LiteralNode>(atype, LiteralHolder(value), false);   \
+#define MAKE_LITERAL(atype, ctype)                                            \
+  NodePtr TreeExprBuilder::MakeLiteral(ctype value) {                         \
+    return std::make_shared<LiteralNode>(atype, LiteralHolder(value), false); \
   }
 
 MAKE_LITERAL(arrow::boolean(), bool)
@@ -53,33 +53,33 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
   }
 
   switch (data_type->id()) {
-  case arrow::Type::BOOL:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder(false), true);
-  case arrow::Type::INT8:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((int8_t)0), true);
-  case arrow::Type::INT16:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((int16_t)0), true);
-  case arrow::Type::INT32:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((int32_t)0), true);
-  case arrow::Type::INT64:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
-  case arrow::Type::UINT8:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint8_t)0), true);
-  case arrow::Type::UINT16:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint16_t)0), true);
-  case arrow::Type::UINT32:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint32_t)0), true);
-  case arrow::Type::UINT64:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint64_t)0), true);
-  case arrow::Type::FLOAT:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((float_t)0), true);
-  case arrow::Type::DOUBLE:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder((double_t)0), true);
-  case arrow::Type::STRING:
-  case arrow::Type::BINARY:
-    return std::make_shared<LiteralNode>(data_type, LiteralHolder(empty), true);
-  default:
-    return nullptr;
+    case arrow::Type::BOOL:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder(false), true);
+    case arrow::Type::INT8:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int8_t)0), true);
+    case arrow::Type::INT16:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int16_t)0), true);
+    case arrow::Type::INT32:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int32_t)0), true);
+    case arrow::Type::INT64:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
+    case arrow::Type::UINT8:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint8_t)0), true);
+    case arrow::Type::UINT16:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint16_t)0), true);
+    case arrow::Type::UINT32:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint32_t)0), true);
+    case arrow::Type::UINT64:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint64_t)0), true);
+    case arrow::Type::FLOAT:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((float_t)0), true);
+    case arrow::Type::DOUBLE:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((double_t)0), true);
+    case arrow::Type::STRING:
+    case arrow::Type::BINARY:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder(empty), true);
+    default:
+      return nullptr;
   }
 }
 
@@ -87,8 +87,7 @@ NodePtr TreeExprBuilder::MakeField(FieldPtr field) {
   return NodePtr(new FieldNode(field));
 }
 
-NodePtr TreeExprBuilder::MakeFunction(const std::string &name,
-                                      const NodeVector &params,
+NodePtr TreeExprBuilder::MakeFunction(const std::string &name, const NodeVector &params,
                                       DataTypePtr result) {
   if (result == nullptr) {
     return nullptr;
@@ -96,12 +95,10 @@ NodePtr TreeExprBuilder::MakeFunction(const std::string &name,
   return FunctionNode::MakeFunction(name, params, result);
 }
 
-NodePtr TreeExprBuilder::MakeIf(NodePtr condition,
-                                NodePtr then_node,
-                                NodePtr else_node,
+NodePtr TreeExprBuilder::MakeIf(NodePtr condition, NodePtr then_node, NodePtr else_node,
                                 DataTypePtr result_type) {
-  if (condition == nullptr || then_node == nullptr ||
-      else_node == nullptr || result_type == nullptr) {
+  if (condition == nullptr || then_node == nullptr || else_node == nullptr ||
+      result_type == nullptr) {
     return nullptr;
   }
   return std::make_shared<IfNode>(condition, then_node, else_node, result_type);
@@ -115,18 +112,16 @@ NodePtr TreeExprBuilder::MakeOr(const NodeVector &children) {
   return std::make_shared<BooleanNode>(BooleanNode::OR, children);
 }
 
-ExpressionPtr TreeExprBuilder::MakeExpression(NodePtr root_node,
-                                              FieldPtr result_field) {
+ExpressionPtr TreeExprBuilder::MakeExpression(NodePtr root_node, FieldPtr result_field) {
   if (result_field == nullptr) {
     return nullptr;
   }
   return ExpressionPtr(new Expression(root_node, result_field));
 }
 
-ExpressionPtr TreeExprBuilder::MakeExpression(
-    const std::string &function,
-    const FieldVector &in_fields,
-    FieldPtr out_field) {
+ExpressionPtr TreeExprBuilder::MakeExpression(const std::string &function,
+                                              const FieldVector &in_fields,
+                                              FieldPtr out_field) {
   if (out_field == nullptr) {
     return nullptr;
   }
@@ -139,4 +134,4 @@ ExpressionPtr TreeExprBuilder::MakeExpression(
   return MakeExpression(func_node, out_field);
 }
 
-} // namespace gandiva
+}  // namespace gandiva

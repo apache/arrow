@@ -15,13 +15,13 @@
 #ifndef GANDIVA_EXPR_DECOMPOSER_H
 #define GANDIVA_EXPR_DECOMPOSER_H
 
-#include <stack>
 #include <memory>
+#include <stack>
 #include <utility>
 
 #include <gtest/gtest_prod.h>
-#include "codegen/node_visitor.h"
 #include "codegen/node.h"
+#include "codegen/node_visitor.h"
 #include "gandiva/expression.h"
 
 namespace gandiva {
@@ -33,10 +33,8 @@ class Annotator;
 /// value expressions.
 class ExprDecomposer : public NodeVisitor {
  public:
-  explicit ExprDecomposer(const FunctionRegistry &registry,
-                          Annotator &annotator)
-    : registry_(registry),
-      annotator_(annotator) {}
+  explicit ExprDecomposer(const FunctionRegistry &registry, Annotator &annotator)
+      : registry_(registry), annotator_(annotator) {}
 
   ValueValidityPairPtr Decompose(const Node &root) {
     root.Accept(*this);
@@ -58,14 +56,12 @@ class ExprDecomposer : public NodeVisitor {
   // stack of if nodes.
   class IfStackEntry {
    public:
-    IfStackEntry(const IfNode &if_node,
-                 bool is_then,
-                 bool is_terminal_else,
+    IfStackEntry(const IfNode &if_node, bool is_then, bool is_terminal_else,
                  int local_bitmap_idx)
-      : if_node_(if_node),
-        is_then_(is_then),
-        is_terminal_else_(is_terminal_else),
-        local_bitmap_idx_(local_bitmap_idx) {}
+        : if_node_(if_node),
+          is_then_(is_then),
+          is_terminal_else_(is_terminal_else),
+          local_bitmap_idx_(local_bitmap_idx) {}
 
     const IfNode &if_node_;
     bool is_then_;
@@ -95,6 +91,6 @@ class ExprDecomposer : public NodeVisitor {
   ValueValidityPairPtr result_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_EXPR_DECOMPOSER_H
+#endif  // GANDIVA_EXPR_DECOMPOSER_H

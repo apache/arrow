@@ -33,13 +33,11 @@ TEST_F(TestFunctionRegistry, TestFound) {
 }
 
 TEST_F(TestFunctionRegistry, TestNotFound) {
-  FunctionSignature addX_i32_i32("addX",
-                                 {arrow::int32(), arrow::int32()},
+  FunctionSignature addX_i32_i32("addX", {arrow::int32(), arrow::int32()},
                                  arrow::int32());
   EXPECT_EQ(registry_.LookupSignature(addX_i32_i32), nullptr);
 
-  FunctionSignature add_i32_i32_ret64("add",
-                                      {arrow::int32(), arrow::int32()},
+  FunctionSignature add_i32_i32_ret64("add", {arrow::int32(), arrow::int32()},
                                       arrow::int64());
   EXPECT_EQ(registry_.LookupSignature(add_i32_i32_ret64), nullptr);
 }
@@ -49,4 +47,4 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

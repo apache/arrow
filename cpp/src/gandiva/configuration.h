@@ -16,8 +16,8 @@
 #ifndef GANDIVA_CONFIGURATION_H
 #define GANDIVA_CONFIGURATION_H
 
-#include <string>
 #include <memory>
+#include <string>
 
 #include "gandiva/status.h"
 
@@ -32,13 +32,12 @@ class ConfigurationBuilder;
 /// at run time.
 class Configuration {
  public:
-  const std::string &byte_code_file_path() const {
-    return byte_code_file_path_;
-  }
+  const std::string &byte_code_file_path() const { return byte_code_file_path_; }
   friend class ConfigurationBuilder;
+
  private:
-  explicit Configuration(const std::string byte_code_file_path):
-    byte_code_file_path_(byte_code_file_path) {}
+  explicit Configuration(const std::string byte_code_file_path)
+      : byte_code_file_path_(byte_code_file_path) {}
 
   const std::string byte_code_file_path_;
 };
@@ -49,15 +48,14 @@ class Configuration {
 /// to override specific values and build a custom instance
 class ConfigurationBuilder {
  public:
-  ConfigurationBuilder() :
-    byte_code_file_path_(kByteCodeFilePath) {}
+  ConfigurationBuilder() : byte_code_file_path_(kByteCodeFilePath) {}
 
-  ConfigurationBuilder& set_byte_code_file_path(const std::string &byte_code_file_path) {
+  ConfigurationBuilder &set_byte_code_file_path(const std::string &byte_code_file_path) {
     byte_code_file_path_ = byte_code_file_path;
     return *this;
   }
 
-  std::shared_ptr<Configuration> build () {
+  std::shared_ptr<Configuration> build() {
     std::shared_ptr<Configuration> configuration(new Configuration(byte_code_file_path_));
     return configuration;
   }
@@ -65,6 +63,7 @@ class ConfigurationBuilder {
   static std::shared_ptr<Configuration> DefaultConfiguration() {
     return default_configuration_;
   }
+
  private:
   std::string byte_code_file_path_;
 
@@ -76,5 +75,5 @@ class ConfigurationBuilder {
   static const std::shared_ptr<Configuration> default_configuration_;
 };
 
-} // namespace gandiva
-#endif // GANDIVA_CONFIGURATION_H
+}  // namespace gandiva
+#endif  // GANDIVA_CONFIGURATION_H

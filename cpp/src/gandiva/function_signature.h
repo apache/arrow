@@ -15,8 +15,8 @@
 #ifndef GANDIVA_FUNCTION_SIGNATURE_H
 #define GANDIVA_FUNCTION_SIGNATURE_H
 
-#include <string>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "boost/functional/hash.hpp"
@@ -29,12 +29,9 @@ namespace gandiva {
 /// output types.
 class FunctionSignature {
  public:
-  FunctionSignature(const std::string &base_name,
-                    const DataTypeVector &param_types,
+  FunctionSignature(const std::string &base_name, const DataTypeVector &param_types,
                     DataTypePtr ret_type)
-      : base_name_(base_name),
-        param_types_(param_types),
-        ret_type_(ret_type) {
+      : base_name_(base_name), param_types_(param_types), ret_type_(ret_type) {
     DCHECK_GT(base_name.length(), 0);
     DCHECK_GE(param_types.size(), 0);
     for (auto it = param_types_.begin(); it != param_types_.end(); it++) {
@@ -43,10 +40,9 @@ class FunctionSignature {
     DCHECK(ret_type);
   }
 
-  bool operator == (const FunctionSignature &other) const {
+  bool operator==(const FunctionSignature &other) const {
     if (param_types_.size() != other.param_types_.size() ||
-        !DataTypeEquals(ret_type_, other.ret_type_) ||
-        base_name_ != other.base_name_) {
+        !DataTypeEquals(ret_type_, other.ret_type_) || base_name_ != other.base_name_) {
       return false;
     }
 
@@ -102,7 +98,6 @@ class FunctionSignature {
   DataTypePtr ret_type_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_FUNCTION_SIGNATURE_H
-
+#endif  // GANDIVA_FUNCTION_SIGNATURE_H

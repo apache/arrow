@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <string>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "codegen/expr_validator.h"
@@ -45,8 +45,8 @@ Status ExprValidator::Visit(const FieldNode &node) {
   auto llvm_type = types_->IRType(node.return_type()->id());
   if (llvm_type == nullptr) {
     std::stringstream ss;
-    ss << "Field "<< node.field()->name() << " has unsupported data type "
-      << node.return_type()->name();
+    ss << "Field " << node.field()->name() << " has unsupported data type "
+       << node.return_type()->name();
     return Status::ExpressionValidationError(ss.str());
   }
 
@@ -55,7 +55,7 @@ Status ExprValidator::Visit(const FieldNode &node) {
   // validate that field is in schema.
   if (field_in_schema_entry == field_map_.end()) {
     std::stringstream ss;
-    ss << "Field " <<  node.field()->name() << " not in schema.";
+    ss << "Field " << node.field()->name() << " not in schema.";
     return Status::ExpressionValidationError(ss.str());
   }
 
@@ -63,7 +63,7 @@ Status ExprValidator::Visit(const FieldNode &node) {
   // validate that field matches the definition in schema.
   if (!field_in_schema->Equals(node.field())) {
     std::stringstream ss;
-    ss << "Field definition in schema " <<  field_in_schema->ToString()
+    ss << "Field definition in schema " << field_in_schema->ToString()
        << " different from field in expression " << node.field()->ToString();
     return Status::ExpressionValidationError(ss.str());
   }
@@ -72,13 +72,11 @@ Status ExprValidator::Visit(const FieldNode &node) {
 
 Status ExprValidator::Visit(const FunctionNode &node) {
   auto desc = node.descriptor();
-  FunctionSignature signature(desc->name(),
-                              desc->params(),
-                              desc->return_type());
+  FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
   const NativeFunction *native_function = registry_.LookupSignature(signature);
   if (native_function == nullptr) {
     std::stringstream ss;
-    ss << "Function "<< signature.ToString() << " not supported yet. ";
+    ss << "Function " << signature.ToString() << " not supported yet. ";
     return Status::ExpressionValidationError(ss.str());
   }
 
@@ -103,16 +101,16 @@ Status ExprValidator::Visit(const IfNode &node) {
 
   if (if_node_ret_type != then_node_ret_type) {
     std::stringstream ss;
-    ss << "Return type of if "<< *if_node_ret_type  << " and then "
-      << then_node_ret_type->name()  << " not matching.";
+    ss << "Return type of if " << *if_node_ret_type << " and then "
+       << then_node_ret_type->name() << " not matching.";
     return Status::ExpressionValidationError(ss.str());
   }
 
   if (if_node_ret_type != else_node_ret_type) {
-     std::stringstream ss;
-     ss << "Return type of if "<< *if_node_ret_type  << " and else "
-       << else_node_ret_type->name()  << " not matching.";
-     return Status::ExpressionValidationError(ss.str());
+    std::stringstream ss;
+    ss << "Return type of if " << *if_node_ret_type << " and else "
+       << else_node_ret_type->name() << " not matching.";
+    return Status::ExpressionValidationError(ss.str());
   }
 
   return Status::OK();
@@ -122,8 +120,8 @@ Status ExprValidator::Visit(const LiteralNode &node) {
   auto llvm_type = types_->IRType(node.return_type()->id());
   if (llvm_type == nullptr) {
     std::stringstream ss;
-    ss << "Value "<< node.holder() << " has unsupported data type "
-      << node.return_type()->name();
+    ss << "Value " << node.holder() << " has unsupported data type "
+       << node.return_type()->name();
     return Status::ExpressionValidationError(ss.str());
   }
   return Status::OK();
@@ -134,8 +132,7 @@ Status ExprValidator::Visit(const BooleanNode &node) {
 
   if (node.children().size() < 2) {
     std::stringstream ss;
-    ss << "Boolean expression has "
-       << node.children().size()
+    ss << "Boolean expression has " << node.children().size()
        << " children, expected atleast two";
     return Status::ExpressionValidationError(ss.str());
   }
@@ -144,8 +141,7 @@ Status ExprValidator::Visit(const BooleanNode &node) {
     if (child->return_type() != arrow::boolean()) {
       std::stringstream ss;
       ss << "Boolean expression has a child with return type "
-         << child->return_type()->name()
-         << ", expected return type boolean";
+         << child->return_type()->name() << ", expected return type boolean";
       return Status::ExpressionValidationError(ss.str());
     }
 
@@ -155,4 +151,4 @@ Status ExprValidator::Visit(const BooleanNode &node) {
   return Status::OK();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

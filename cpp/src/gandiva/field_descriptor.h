@@ -27,9 +27,7 @@ class FieldDescriptor {
  public:
   static const int kInvalidIdx = -1;
 
-  FieldDescriptor(FieldPtr field,
-                  int data_idx,
-                  int validity_idx = kInvalidIdx,
+  FieldDescriptor(FieldPtr field, int data_idx, int validity_idx = kInvalidIdx,
                   int offsets_idx = kInvalidIdx)
       : field_(field),
         data_idx_(data_idx),
@@ -50,9 +48,7 @@ class FieldDescriptor {
   const std::string &Name() const { return field_->name(); }
   DataTypePtr Type() const { return field_->type(); }
 
-  bool HasOffsetsIdx() const {
-    return offsets_idx_ != kInvalidIdx;
-  }
+  bool HasOffsetsIdx() const { return offsets_idx_ != kInvalidIdx; }
 
  private:
   FieldPtr field_;
@@ -61,6 +57,6 @@ class FieldDescriptor {
   int offsets_idx_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_FIELDDESCRIPTOR_H
+#endif  // GANDIVA_FIELDDESCRIPTOR_H

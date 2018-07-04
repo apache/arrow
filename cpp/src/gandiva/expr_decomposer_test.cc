@@ -15,13 +15,13 @@
 #include "codegen/expr_decomposer.h"
 
 #include <gtest/gtest.h>
-#include "gandiva/gandiva_aliases.h"
-#include "gandiva/tree_expr_builder.h"
 #include "codegen/annotator.h"
 #include "codegen/dex.h"
-#include "codegen/function_signature.h"
 #include "codegen/function_registry.h"
+#include "codegen/function_signature.h"
 #include "codegen/node.h"
+#include "gandiva/gandiva_aliases.h"
+#include "gandiva/tree_expr_builder.h"
 
 namespace gandiva {
 
@@ -75,7 +75,7 @@ TEST_F(TestExprDecomposer, TestNested) {
     decomposer.PushElseEntry(node_b, idx_b);
     bool is_terminal_b = decomposer.PopElseEntry(node_b);
     EXPECT_EQ(is_terminal_b, true);
-  } // end b
+  }  // end b
 
   bool is_terminal_a = decomposer.PopElseEntry(node_a);
   EXPECT_EQ(is_terminal_a, false);  // there was a nested if.
@@ -105,7 +105,7 @@ TEST_F(TestExprDecomposer, TestInternalIf) {
     decomposer.PushElseEntry(node_b, idx_b);
     bool is_terminal_b = decomposer.PopElseEntry(node_b);
     EXPECT_EQ(is_terminal_b, true);
-  } // end b
+  }  // end b
 
   decomposer.PopThenEntry(node_a);
   decomposer.PushElseEntry(node_a, idx_a);
@@ -153,4 +153,4 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

@@ -31,15 +31,12 @@ ArrayPtr TestAnnotator::MakeInt32Array(int length) {
   arrow::Status status;
 
   std::shared_ptr<arrow::Buffer> validity;
-  status = arrow::AllocateBuffer(arrow::default_memory_pool(),
-                                 (length + 63) / 8,
-                                 &validity);
+  status =
+      arrow::AllocateBuffer(arrow::default_memory_pool(), (length + 63) / 8, &validity);
   DCHECK_EQ(status.ok(), true);
 
   std::shared_ptr<arrow::Buffer> value;
-  status = AllocateBuffer(arrow::default_memory_pool(),
-                          length * sizeof (int32_t),
-                          &value);
+  status = AllocateBuffer(arrow::default_memory_pool(), length * sizeof(int32_t), &value);
   DCHECK_EQ(status.ok(), true);
 
   auto array_data = arrow::ArrayData::Make(arrow::int32(), length, {validity, value});
@@ -80,8 +77,8 @@ TEST_F(TestAnnotator, TestAdd) {
   auto arrow_v1 = MakeInt32Array(num_records);
 
   // prepare input record batch
-  auto record_batch = arrow::RecordBatch::Make(in_schema,
-                                               num_records, {arrow_v0, arrow_v1});
+  auto record_batch =
+      arrow::RecordBatch::Make(in_schema, num_records, {arrow_v0, arrow_v1});
 
   auto arrow_sum = MakeInt32Array(num_records);
   EvalBatchPtr batch = annotator.PrepareEvalBatch(*record_batch, {arrow_sum->data()});
@@ -96,5 +93,4 @@ TEST_F(TestAnnotator, TestAdd) {
   EXPECT_EQ(buffers[desc_sum->data_idx()], arrow_sum->data()->buffers.at(1)->data());
 }
 
-} // namespace gandiva
-
+}  // namespace gandiva

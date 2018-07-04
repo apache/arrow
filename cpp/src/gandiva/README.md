@@ -53,7 +53,14 @@ We follow the [google cpp code style][3]. To validate compliance,
 
 ```shell
 cd debug
-make lint
+make stylecheck
+```
+
+## Fixing code style
+
+```shell
+cd debug
+make stylefix
 ```
 
 [1]: https://brew.sh/

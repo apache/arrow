@@ -46,9 +46,7 @@ Status ExprDecomposer::Visit(const FieldNode &node) {
 // child nodes.
 Status ExprDecomposer::Visit(const FunctionNode &node) {
   auto desc = node.descriptor();
-  FunctionSignature signature(desc->name(),
-                              desc->params(),
-                              desc->return_type());
+  FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
   const NativeFunction *native_function = registry_.LookupSignature(signature);
   DCHECK(native_function) << "Missing Signature " << signature.ToString();
 
@@ -66,8 +64,7 @@ Status ExprDecomposer::Visit(const FunctionNode &node) {
     for (auto &decomposed : args) {
       // Merge the validity_expressions of the children to build a combined validity
       // expression.
-      merged_validity.insert(merged_validity.end(),
-                             decomposed->validity_exprs().begin(),
+      merged_validity.insert(merged_validity.end(), decomposed->validity_exprs().begin(),
                              decomposed->validity_exprs().end());
     }
 
@@ -84,10 +81,8 @@ Status ExprDecomposer::Visit(const FunctionNode &node) {
     int local_bitmap_idx = annotator_.AddLocalBitMap();
     auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
 
-    auto value_dex = std::make_shared<NullableInternalFuncDex>(desc,
-                                                               native_function,
-                                                               args,
-                                                               local_bitmap_idx);
+    auto value_dex = std::make_shared<NullableInternalFuncDex>(desc, native_function,
+                                                               args, local_bitmap_idx);
     result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   }
   return Status::OK();
@@ -110,12 +105,9 @@ Status ExprDecomposer::Visit(const IfNode &node) {
   bool is_terminal_else = PopElseEntry(node);
 
   auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
-  auto value_dex = std::make_shared<IfDex>(condition_vv,
-                                           then_vv,
-                                           else_vv,
-                                           node.return_type(),
-                                           local_bitmap_idx,
-                                           is_terminal_else);
+  auto value_dex =
+      std::make_shared<IfDex>(condition_vv, then_vv, else_vv, node.return_type(),
+                              local_bitmap_idx, is_terminal_else);
 
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   return Status::OK();
@@ -136,12 +128,12 @@ Status ExprDecomposer::Visit(const BooleanNode &node) {
 
   std::shared_ptr<BooleanDex> value_dex;
   switch (node.expr_type()) {
-  case BooleanNode::AND:
-    value_dex = std::make_shared<BooleanAndDex>(args, local_bitmap_idx);
-    break;
-  case BooleanNode::OR:
-    value_dex = std::make_shared<BooleanOrDex>(args, local_bitmap_idx);
-    break;
+    case BooleanNode::AND:
+      value_dex = std::make_shared<BooleanAndDex>(args, local_bitmap_idx);
+      break;
+    case BooleanNode::OR:
+      value_dex = std::make_shared<BooleanOrDex>(args, local_bitmap_idx);
+      break;
   }
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   return Status::OK();
@@ -184,10 +176,8 @@ int ExprDecomposer::PushThenEntry(const IfNode &node) {
   }
 
   // push new entry to the stack.
-  std::unique_ptr<IfStackEntry> entry(new IfStackEntry(node,
-                                                       true /*is_then*/,
-                                                       false /*is_terminal_else*/,
-                                                       local_bitmap_idx));
+  std::unique_ptr<IfStackEntry> entry(new IfStackEntry(
+      node, true /*is_then*/, false /*is_terminal_else*/, local_bitmap_idx));
   if_entries_stack_.push(std::move(entry));
   return local_bitmap_idx;
 }
@@ -203,10 +193,8 @@ void ExprDecomposer::PopThenEntry(const IfNode &node) {
 }
 
 void ExprDecomposer::PushElseEntry(const IfNode &node, int local_bitmap_idx) {
-  std::unique_ptr<IfStackEntry> entry(new IfStackEntry(node,
-                                                       false /*is_then*/,
-                                                       true /*is_terminal_else*/,
-                                                       local_bitmap_idx));
+  std::unique_ptr<IfStackEntry> entry(new IfStackEntry(
+      node, false /*is_then*/, true /*is_terminal_else*/, local_bitmap_idx));
   if_entries_stack_.push(std::move(entry));
 }
 
@@ -222,4 +210,4 @@ bool ExprDecomposer::PopElseEntry(const IfNode &node) {
   return is_terminal_else;
 }
 
-} // namespace gandiva
+}  // namespace gandiva

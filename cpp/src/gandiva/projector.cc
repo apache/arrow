@@ -15,8 +15,8 @@
 #include "gandiva/projector.h"
 
 #include <memory>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include "codegen/expr_validator.h"
 #include "codegen/llvm_generator.h"
@@ -24,34 +24,29 @@
 
 namespace gandiva {
 
-Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator,
-                     SchemaPtr schema,
-                     const FieldVector &output_fields,
-                     arrow::MemoryPool *pool,
+Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
+                     const FieldVector &output_fields, arrow::MemoryPool *pool,
                      std::shared_ptr<Configuration> configuration)
-  : llvm_generator_(std::move(llvm_generator)),
-    schema_(schema),
-    output_fields_(output_fields),
-    pool_(pool),
-    configuration_(configuration) {}
+    : llvm_generator_(std::move(llvm_generator)),
+      schema_(schema),
+      output_fields_(output_fields),
+      pool_(pool),
+      configuration_(configuration) {}
 
-Status Projector::Make(SchemaPtr schema,
-                       const ExpressionVector &exprs,
-                       arrow::MemoryPool *pool,
-                       std::shared_ptr<Projector> *projector) {
+Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
+                       arrow::MemoryPool *pool, std::shared_ptr<Projector> *projector) {
   return Projector::Make(schema, exprs, pool,
                          ConfigurationBuilder::DefaultConfiguration(), projector);
 }
 
-Status Projector::Make(SchemaPtr schema,
-                       const ExpressionVector &exprs,
+Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
                        arrow::MemoryPool *pool,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector> *projector) {
   GANDIVA_RETURN_FAILURE_IF_FALSE((schema != nullptr),
                                   Status::Invalid("schema cannot be null"));
   GANDIVA_RETURN_FAILURE_IF_FALSE(!exprs.empty(),
-                                   Status::Invalid("expressions need to be non-empty"));
+                                  Status::Invalid("expressions need to be non-empty"));
   GANDIVA_RETURN_FAILURE_IF_FALSE((configuration != nullptr),
                                   Status::Invalid("configuration cannot be null"));
   // Build LLVM generator, and generate code for the specified expressions
@@ -77,11 +72,8 @@ Status Projector::Make(SchemaPtr schema,
   }
 
   // Instantiate the projector with the completely built llvm generator
-  *projector = std::shared_ptr<Projector>(new Projector(std::move(llvm_gen),
-                                                        schema,
-                                                        output_fields,
-                                                        pool,
-                                                        configuration));
+  *projector = std::shared_ptr<Projector>(
+      new Projector(std::move(llvm_gen), schema, output_fields, pool, configuration));
   return Status::OK();
 }
 
@@ -105,17 +97,15 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch,
       return Status::Invalid(ss.str());
     }
 
-    Status status = ValidateArrayDataCapacity(*array_data,
-                                              *(output_fields_[idx]),
-                                              batch.num_rows());
+    Status status =
+        ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]), batch.num_rows());
     GANDIVA_RETURN_NOT_OK(status);
     ++idx;
   }
   return llvm_generator_->Execute(batch, output_data_vecs);
 }
 
-Status Projector::Evaluate(const arrow::RecordBatch &batch,
-                           arrow::ArrayVector *output) {
+Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::ArrayVector *output) {
   Status status = ValidateEvaluateArgsCommon(batch);
   GANDIVA_RETURN_NOT_OK(status);
 
@@ -151,8 +141,7 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch,
 }
 
 // TODO : handle variable-len vectors
-Status Projector::AllocArrayData(const DataTypePtr &type,
-                                 int num_records,
+Status Projector::AllocArrayData(const DataTypePtr &type, int num_records,
                                  ArrayDataPtr *array_data) {
   if (!arrow::is_primitive(type->id())) {
     return Status::Invalid("Unsupported output data type " + type->ToString());
@@ -164,12 +153,12 @@ Status Projector::AllocArrayData(const DataTypePtr &type,
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
   auto data = std::make_shared<arrow::PoolBuffer>(pool_);
-  const auto &fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
+  const auto &fw_type = dynamic_cast<const arrow::FixedWidthType &>(*type);
   int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
   astatus = data->Resize(data_len);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
-  *array_data = arrow::ArrayData::Make(type, num_records, { null_bitmap, data });
+  *array_data = arrow::ArrayData::Make(type, num_records, {null_bitmap, data});
   return Status::OK();
 }
 
@@ -184,41 +173,37 @@ Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch &batch) {
 }
 
 Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData &array_data,
-                                            const arrow::Field &field,
-                                            int num_records) {
+                                            const arrow::Field &field, int num_records) {
   // verify that there are atleast two buffers (validity and data).
   if (array_data.buffers.size() < 2) {
     std::stringstream ss;
-    ss << "number of buffers for output field " << field.name()
-       << "is " << array_data.buffers.size()
-       << ", must have minimum 2.";
+    ss << "number of buffers for output field " << field.name() << "is "
+       << array_data.buffers.size() << ", must have minimum 2.";
     return Status::Invalid(ss.str());
   }
 
   // verify size of bitmap buffer.
   int64_t min_bitmap_len = arrow::BitUtil::BytesForBits(num_records);
-  int64_t bitmap_len =  array_data.buffers[0]->capacity();
+  int64_t bitmap_len = array_data.buffers[0]->capacity();
   if (bitmap_len < min_bitmap_len) {
     std::stringstream ss;
-    ss << "bitmap buffer for output field " << field.name()
-       << "has size " << bitmap_len
+    ss << "bitmap buffer for output field " << field.name() << "has size " << bitmap_len
        << ", must have minimum size " << min_bitmap_len;
     return Status::Invalid(ss.str());
   }
 
   // verify size of data buffer.
   // TODO : handle variable-len vectors
-  const auto &fw_type = dynamic_cast<const arrow::FixedWidthType&>(*field.type());
+  const auto &fw_type = dynamic_cast<const arrow::FixedWidthType &>(*field.type());
   int64_t min_data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
   int64_t data_len = array_data.buffers[1]->capacity();
   if (data_len < min_data_len) {
     std::stringstream ss;
-    ss << "data buffer for output field " << field.name()
-       << "has size " << data_len
+    ss << "data buffer for output field " << field.name() << "has size " << data_len
        << ", must have minimum size " << min_data_len;
     return Status::Invalid(ss.str());
   }
   return Status::OK();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

@@ -14,16 +14,16 @@
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
-#include "integ/test_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/status.h"
 #include "gandiva/tree_expr_builder.h"
+#include "integ/test_util.h"
 
 namespace gandiva {
 
-using arrow::int32;
-using arrow::float32;
 using arrow::boolean;
+using arrow::float32;
+using arrow::int32;
 
 class TestIfExpr : public ::testing::Test {
  public:
@@ -49,9 +49,8 @@ TEST_F(TestIfExpr, TestSimple) {
   //   b
   auto node_a = TreeExprBuilder::MakeField(fielda);
   auto node_b = TreeExprBuilder::MakeField(fieldb);
-  auto condition = TreeExprBuilder::MakeFunction("greater_than",
-                                                 {node_a, node_b},
-                                                 boolean());
+  auto condition =
+      TreeExprBuilder::MakeFunction("greater_than", {node_a, node_b}, boolean());
   auto if_node = TreeExprBuilder::MakeIf(condition, node_a, node_b, int32());
 
   auto expr = TreeExprBuilder::MakeExpression(if_node, field_result);
@@ -63,11 +62,11 @@ TEST_F(TestIfExpr, TestSimple) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({10, 12, -20, 5}, { true, true, true, false });
-  auto array1 = MakeArrowArrayInt32({5, 15, 15, 17}, { true, true, true, true });
+  auto array0 = MakeArrowArrayInt32({10, 12, -20, 5}, {true, true, true, false});
+  auto array1 = MakeArrowArrayInt32({5, 15, 15, 17}, {true, true, true, true});
 
   // expected output
-  auto exp = MakeArrowArrayInt32({10, 15, 15, 17 }, { true, true, true, true });
+  auto exp = MakeArrowArrayInt32({10, 15, 15, 17}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -97,9 +96,8 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
   //   a - b
   auto node_a = TreeExprBuilder::MakeField(fielda);
   auto node_b = TreeExprBuilder::MakeField(fieldb);
-  auto condition = TreeExprBuilder::MakeFunction("greater_than",
-                                                 {node_a, node_b},
-                                                 boolean());
+  auto condition =
+      TreeExprBuilder::MakeFunction("greater_than", {node_a, node_b}, boolean());
   auto sum = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, int32());
   auto sub = TreeExprBuilder::MakeFunction("subtract", {node_a, node_b}, int32());
   auto if_node = TreeExprBuilder::MakeIf(condition, sum, sub, int32());
@@ -113,11 +111,11 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({10, 12, -20, 5}, { true, true, true, false });
-  auto array1 = MakeArrowArrayInt32({5, 15, 15, 17}, { true, true, true, true });
+  auto array0 = MakeArrowArrayInt32({10, 12, -20, 5}, {true, true, true, false});
+  auto array1 = MakeArrowArrayInt32({5, 15, 15, 17}, {true, true, true, true});
 
   // expected output
-  auto exp = MakeArrowArrayInt32({15, -3, -35, 0 }, { true, true, true, false });
+  auto exp = MakeArrowArrayInt32({15, -3, -35, 0}, {true, true, true, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -149,12 +147,10 @@ TEST_F(TestIfExpr, TestNested) {
   //   a * b
   auto node_a = TreeExprBuilder::MakeField(fielda);
   auto node_b = TreeExprBuilder::MakeField(fieldb);
-  auto condition_gt = TreeExprBuilder::MakeFunction("greater_than",
-                                                    {node_a, node_b},
-                                                    boolean());
-  auto condition_lt = TreeExprBuilder::MakeFunction("less_than",
-                                                    {node_a, node_b},
-                                                    boolean());
+  auto condition_gt =
+      TreeExprBuilder::MakeFunction("greater_than", {node_a, node_b}, boolean());
+  auto condition_lt =
+      TreeExprBuilder::MakeFunction("less_than", {node_a, node_b}, boolean());
   auto sum = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, int32());
   auto sub = TreeExprBuilder::MakeFunction("subtract", {node_a, node_b}, int32());
   auto mult = TreeExprBuilder::MakeFunction("multiply", {node_a, node_b}, int32());
@@ -170,11 +166,11 @@ TEST_F(TestIfExpr, TestNested) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({10, 12, 15, 5}, { true, true, true, false });
-  auto array1 = MakeArrowArrayInt32({5, 15, 15, 17}, { true, true, true, true });
+  auto array0 = MakeArrowArrayInt32({10, 12, 15, 5}, {true, true, true, false});
+  auto array1 = MakeArrowArrayInt32({5, 15, 15, 17}, {true, true, true, true});
 
   // expected output
-  auto exp = MakeArrowArrayInt32({15, -3, 225, 0 }, { true, true, true, false });
+  auto exp = MakeArrowArrayInt32({15, -3, 225, 0}, {true, true, true, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -213,12 +209,10 @@ TEST_F(TestIfExpr, TestNestedInIf) {
   auto literal_10 = TreeExprBuilder::MakeLiteral(10);
   auto literal_20 = TreeExprBuilder::MakeLiteral(20);
 
-  auto gt_10 = TreeExprBuilder::MakeFunction("greater_than",
-                                             {node_a, literal_10},
-                                             boolean());
-  auto lt_20 = TreeExprBuilder::MakeFunction("less_than",
-                                             {node_a, literal_20},
-                                             boolean());
+  auto gt_10 =
+      TreeExprBuilder::MakeFunction("greater_than", {node_a, literal_10}, boolean());
+  auto lt_20 =
+      TreeExprBuilder::MakeFunction("less_than", {node_a, literal_20}, boolean());
   auto sum_ab = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, int32());
   auto sum_bc = TreeExprBuilder::MakeFunction("add", {node_b, node_c}, int32());
   auto sum_ac = TreeExprBuilder::MakeFunction("add", {node_a, node_c}, int32());
@@ -235,20 +229,20 @@ TEST_F(TestIfExpr, TestNestedInIf) {
 
   // Create a row-batch with some sample data
   int num_records = 6;
-  auto array_a = MakeArrowArrayInt32({21, 15, 5, 22, 15, 5},
-                                     {true, true, true, true, true, true});
+  auto array_a =
+      MakeArrowArrayInt32({21, 15, 5, 22, 15, 5}, {true, true, true, true, true, true});
   auto array_b = MakeArrowArrayInt32({20, 18, 19, 20, 18, 19},
                                      {true, true, true, false, false, false});
   auto array_c = MakeArrowArrayInt32({35, 45, 55, 35, 45, 55},
                                      {true, true, true, false, false, false});
 
   // expected output
-  auto exp = MakeArrowArrayInt32({55, 33, 60, 0, 0, 0},
-                                 {true, true, true, false, false, false});
+  auto exp =
+      MakeArrowArrayInt32({55, 33, 60, 0, 0, 0}, {true, true, true, false, false, false});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
-                                           {array_a, array_b, array_c});
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array_a, array_b, array_c});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
@@ -282,9 +276,8 @@ TEST_F(TestIfExpr, TestBigNested) {
   auto top_node = TreeExprBuilder::MakeLiteral(200);
   for (int thresh = 190; thresh > 0; thresh -= 10) {
     auto literal = TreeExprBuilder::MakeLiteral(thresh);
-    auto condition = TreeExprBuilder::MakeFunction("less_than",
-                                                   {node_a, literal},
-                                                   boolean());
+    auto condition =
+        TreeExprBuilder::MakeFunction("less_than", {node_a, literal}, boolean());
     auto if_node = TreeExprBuilder::MakeIf(condition, literal, top_node, int32());
     top_node = if_node;
   }
@@ -297,10 +290,10 @@ TEST_F(TestIfExpr, TestBigNested) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayInt32({10, 102, 158, 302}, { true, true, true, true });
+  auto array0 = MakeArrowArrayInt32({10, 102, 158, 302}, {true, true, true, true});
 
   // expected output
-  auto exp = MakeArrowArrayInt32({20, 110, 160, 200}, { true, true, true, true });
+  auto exp = MakeArrowArrayInt32({20, 110, 160, 200}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
@@ -314,4 +307,4 @@ TEST_F(TestIfExpr, TestBigNested) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-} // namespace gandiva
+}  // namespace gandiva

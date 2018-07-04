@@ -14,8 +14,8 @@
 #ifndef CONFIG_HOLDER_H
 #define CONFIG_HOLDER_H
 
-#include <mutex>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <utility>
 
@@ -30,7 +30,7 @@ class ConfigHolder {
 
     int64_t result = config_id_++;
     configuration_map_.insert(
-          std::pair<int64_t, std::shared_ptr<Configuration>>(result, config));
+        std::pair<int64_t, std::shared_ptr<Configuration>>(result, config));
 
     g_mtx_.unlock();
     return result;
@@ -62,5 +62,5 @@ class ConfigHolder {
   // atomic counter for projector module ids
   static int64_t config_id_;
 };
-} //namespace gandiva
-#endif // CONFIG_HOLDER_H
+}  // namespace gandiva
+#endif  // CONFIG_HOLDER_H

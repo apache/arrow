@@ -28,14 +28,14 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
-#include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/Scalar.h>
-#include <llvm/Transforms/Vectorize.h>
 #include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Vectorize.h>
 
 namespace gandiva {
 
@@ -59,13 +59,13 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
                     std::unique_ptr<Engine> *engine) {
   std::unique_ptr<Engine> engine_obj(new Engine());
 
-  std::call_once(init_once_flag, [&engine_obj] {engine_obj->InitOnce();});
+  std::call_once(init_once_flag, [&engine_obj] { engine_obj->InitOnce(); });
   engine_obj->context_.reset(new llvm::LLVMContext());
   engine_obj->ir_builder_.reset(new llvm::IRBuilder<>(*(engine_obj->context())));
 
   // Create the execution engine
-  std::unique_ptr<llvm::Module> cg_module(new llvm::Module("codegen",
-                                          *(engine_obj->context())));
+  std::unique_ptr<llvm::Module> cg_module(
+      new llvm::Module("codegen", *(engine_obj->context())));
   engine_obj->module_ = cg_module.get();
 
   llvm::EngineBuilder engineBuilder(std::move(cg_module));
@@ -91,15 +91,15 @@ Status Engine::LoadPreCompiledIRFiles(const std::string &byte_code_file_path) {
       llvm::MemoryBuffer::getFile(byte_code_file_path);
   if (!buffer_or_error) {
     std::stringstream ss;
-    ss << "Could not load module from IR " << byte_code_file_path << ": " <<
-          buffer_or_error.getError().message();
+    ss << "Could not load module from IR " << byte_code_file_path << ": "
+       << buffer_or_error.getError().message();
     return Status::CodeGenError(ss.str());
   }
   std::unique_ptr<llvm::MemoryBuffer> buffer = move(buffer_or_error.get());
 
   /// Parse the IR module.
-  llvm::Expected<std::unique_ptr<llvm::Module>>
-      module_or_error = llvm::getOwningLazyBitcodeModule(move(buffer), *context());
+  llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
+      llvm::getOwningLazyBitcodeModule(move(buffer), *context());
   if (!module_or_error) {
     std::string error_string;
     llvm::handleAllErrors(module_or_error.takeError(), [&](llvm::ErrorInfoBase &eib) {
@@ -129,8 +129,8 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
 
   // Setup an optimiser pipeline
   if (optimise_ir) {
-    std::unique_ptr<llvm::legacy::PassManager>
-        pass_manager(new llvm::legacy::PassManager());
+    std::unique_ptr<llvm::legacy::PassManager> pass_manager(
+        new llvm::legacy::PassManager());
 
     // First round : get rid of all functions that don't need to be compiled.
     // This helps in reducing the overall compilation time.
@@ -197,4 +197,4 @@ void Engine::DumpIR(std::string prefix) {
   std::cout << "====" << prefix << "===" << str << "\n";
 }
 
-} // namespace gandiva
+}  // namespace gandiva

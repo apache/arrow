@@ -28,45 +28,25 @@ class LLVMTypes {
  public:
   explicit LLVMTypes(llvm::LLVMContext &context);
 
-  llvm::Type *i1_type() {
-    return llvm::Type::getInt1Ty(context_);
-  }
+  llvm::Type *i1_type() { return llvm::Type::getInt1Ty(context_); }
 
-  llvm::Type *i8_type() {
-    return llvm::Type::getInt8Ty(context_);
-  }
+  llvm::Type *i8_type() { return llvm::Type::getInt8Ty(context_); }
 
-  llvm::Type *i16_type() {
-    return llvm::Type::getInt16Ty(context_);
-  }
+  llvm::Type *i16_type() { return llvm::Type::getInt16Ty(context_); }
 
-  llvm::Type *i32_type() {
-    return llvm::Type::getInt32Ty(context_);
-  }
+  llvm::Type *i32_type() { return llvm::Type::getInt32Ty(context_); }
 
-  llvm::Type *i64_type() {
-    return llvm::Type::getInt64Ty(context_);
-  }
+  llvm::Type *i64_type() { return llvm::Type::getInt64Ty(context_); }
 
-  llvm::Type *float_type() {
-    return llvm::Type::getFloatTy(context_);
-  }
+  llvm::Type *float_type() { return llvm::Type::getFloatTy(context_); }
 
-  llvm::Type *double_type() {
-    return llvm::Type::getDoubleTy(context_);
-  }
+  llvm::Type *double_type() { return llvm::Type::getDoubleTy(context_); }
 
-  llvm::PointerType *i8_ptr_type() {
-    return llvm::PointerType::get(i8_type(), 0);
-  }
+  llvm::PointerType *i8_ptr_type() { return llvm::PointerType::get(i8_type(), 0); }
 
-  llvm::PointerType *i32_ptr_type() {
-    return llvm::PointerType::get(i32_type(), 0);
-  }
+  llvm::PointerType *i32_ptr_type() { return llvm::PointerType::get(i32_type(), 0); }
 
-  llvm::PointerType *i64_ptr_type() {
-    return llvm::PointerType::get(i64_type(), 0);
-  }
+  llvm::PointerType *i64_ptr_type() { return llvm::PointerType::get(i64_type(), 0); }
 
   llvm::PointerType *ptr_type(llvm::Type *base_type) {
     return llvm::PointerType::get(base_type, 0);
@@ -127,6 +107,6 @@ class LLVMTypes {
   llvm::LLVMContext &context_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_LLVM_TYPES_H
+#endif  // GANDIVA_LLVM_TYPES_H

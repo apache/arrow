@@ -45,4 +45,4 @@ TEST(TestSample, half_or_null) {
   EXPECT_EQ(is_valid, false);
 }
 
-} // namespace gandiva
+}  // namespace gandiva

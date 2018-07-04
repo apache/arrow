@@ -20,12 +20,8 @@ namespace gandiva {
 
 class TestLLVMTypes : public ::testing::Test {
  protected:
-  virtual void SetUp() {
-    types_ = new LLVMTypes(context_);
-  }
-  virtual void TearDown() {
-    delete types_;
-  }
+  virtual void SetUp() { types_ = new LLVMTypes(context_); }
+  virtual void TearDown() { delete types_; }
 
   llvm::LLVMContext context_;
   LLVMTypes *types_;
@@ -63,4 +59,4 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
-} // namespace gandiva
+}  // namespace gandiva

@@ -78,4 +78,4 @@ std::string Status::ToString() const {
   result += state_->msg;
   return result;
 }
-} // namespace gandiva
+}  // namespace gandiva

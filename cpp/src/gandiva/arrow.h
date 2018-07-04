@@ -40,6 +40,6 @@ using SchemaPtr = std::shared_ptr<arrow::Schema>;
 using ArrayDataPtr = std::shared_ptr<arrow::ArrayData>;
 using ArrayDataVector = std::vector<ArrayDataPtr>;
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // GANDIVA_EXPR_ARROW_H
+#endif  // GANDIVA_EXPR_ARROW_H

@@ -34,4 +34,4 @@ TEST(TestStringOps, TestCompare) {
   EXPECT_GT(mem_compare(left, 7, right, 5), 0);
 }
 
-} // namespace gandiva
+}  // namespace gandiva

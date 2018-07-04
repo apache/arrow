@@ -18,33 +18,31 @@ extern "C" {
 
 // Expand inner macro for all numeric types.
 #define NUMERIC_TYPES(INNER, NAME, OP) \
-  INNER(NAME, int8, OP)   \
-  INNER(NAME, int16, OP)  \
-  INNER(NAME, int32, OP)  \
-  INNER(NAME, int64, OP)  \
-  INNER(NAME, uint8, OP)  \
-  INNER(NAME, uint16, OP) \
-  INNER(NAME, uint32, OP) \
-  INNER(NAME, uint64, OP) \
-  INNER(NAME, float32, OP)\
+  INNER(NAME, int8, OP)                \
+  INNER(NAME, int16, OP)               \
+  INNER(NAME, int32, OP)               \
+  INNER(NAME, int64, OP)               \
+  INNER(NAME, uint8, OP)               \
+  INNER(NAME, uint16, OP)              \
+  INNER(NAME, uint32, OP)              \
+  INNER(NAME, uint64, OP)              \
+  INNER(NAME, float32, OP)             \
   INNER(NAME, float64, OP)
 
 #define NUMERIC_AND_BOOL_TYPES(INNER, NAME, OP) \
-  NUMERIC_TYPES(INNER, NAME, OP) \
+  NUMERIC_TYPES(INNER, NAME, OP)                \
   INNER(NAME, boolean, OP)
 
-#define BINARY_GENERIC_OP(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE, OP) \
-  FORCE_INLINE \
+#define BINARY_GENERIC_OP(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE, OP)          \
+  FORCE_INLINE                                                             \
   OUT_TYPE NAME##_##IN_TYPE1##_##IN_TYPE2(IN_TYPE1 left, IN_TYPE2 right) { \
-    return left OP right; \
+    return left OP right;                                                  \
   }
 
 // Symmetric binary fns : left, right params and return type are same.
 #define BINARY_SYMMETRIC(NAME, TYPE, OP) \
-  FORCE_INLINE \
-  TYPE NAME##_##TYPE##_##TYPE(TYPE left, TYPE right) { \
-    return left OP right; \
-  }
+  FORCE_INLINE                           \
+  TYPE NAME##_##TYPE##_##TYPE(TYPE left, TYPE right) { return left OP right; }
 
 NUMERIC_TYPES(BINARY_SYMMETRIC, add, +)
 NUMERIC_TYPES(BINARY_SYMMETRIC, subtract, -)
@@ -54,13 +52,10 @@ NUMERIC_TYPES(BINARY_SYMMETRIC, divide, /)
 BINARY_GENERIC_OP(mod, int64, int32, int32, %)
 BINARY_GENERIC_OP(mod, int64, int64, int64, %)
 
-
 // Relational binary fns : left, right params are same, return is bool.
 #define BINARY_RELATIONAL(NAME, TYPE, OP) \
-  FORCE_INLINE \
-  bool NAME##_##TYPE##_##TYPE(TYPE left, TYPE right) { \
-    return left OP right; \
-  }
+  FORCE_INLINE                            \
+  bool NAME##_##TYPE##_##TYPE(TYPE left, TYPE right) { return left OP right; }
 
 NUMERIC_AND_BOOL_TYPES(BINARY_RELATIONAL, equal, ==)
 NUMERIC_AND_BOOL_TYPES(BINARY_RELATIONAL, not_equal, !=)
@@ -71,10 +66,8 @@ NUMERIC_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 
 // cast fns : takes one param type, returns another type.
 #define CAST_UNARY(NAME, IN_TYPE, OUT_TYPE) \
-  FORCE_INLINE \
-  OUT_TYPE NAME##_##IN_TYPE(IN_TYPE in) { \
-    return (OUT_TYPE)in; \
-  }
+  FORCE_INLINE                              \
+  OUT_TYPE NAME##_##IN_TYPE(IN_TYPE in) { return (OUT_TYPE)in; }
 
 CAST_UNARY(castBIGINT, int32, int64)
 CAST_UNARY(castFLOAT4, int32, float32)
@@ -85,13 +78,11 @@ CAST_UNARY(castFLOAT8, float32, float64)
 
 // simple nullable functions, result value = fn(input validity)
 #define VALIDITY_OP(NAME, TYPE, OP) \
-  FORCE_INLINE \
-  bool NAME##_##TYPE(TYPE in, boolean is_valid) { \
-    return OP is_valid; \
-  }
+  FORCE_INLINE                      \
+  bool NAME##_##TYPE(TYPE in, boolean is_valid) { return OP is_valid; }
 
 NUMERIC_AND_BOOL_TYPES(VALIDITY_OP, isnull, !)
 NUMERIC_AND_BOOL_TYPES(VALIDITY_OP, isnotnull, +)
 NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
-} // extern "C"
+}  // extern "C"

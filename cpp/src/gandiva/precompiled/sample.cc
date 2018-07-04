@@ -32,4 +32,4 @@ int half_or_null_int32(int32 val, bool in_valid, bool *out_valid) {
   }
 }
 
-} // extern "C"
+}  // extern "C"

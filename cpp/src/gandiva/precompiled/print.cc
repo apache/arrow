@@ -18,12 +18,8 @@ extern "C" {
 
 #include "./types.h"
 
-int print_double(char *msg, double val) {
-  return printf(msg, val);
-}
+int print_double(char *msg, double val) { return printf(msg, val); }
 
-int print_float(char *msg, float val) {
-  return printf(msg, val);
-}
+int print_float(char *msg, float val) { return printf(msg, val); }
 
-} // extern "C"
+}  // extern "C"

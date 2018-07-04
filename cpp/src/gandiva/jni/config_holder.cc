@@ -20,7 +20,7 @@ int64_t ConfigHolder::config_id_ = 1;
 
 // map of configuration objects created so far
 std::unordered_map<int64_t, std::shared_ptr<Configuration>>
-  ConfigHolder::configuration_map_;
+    ConfigHolder::configuration_map_;
 
 std::mutex ConfigHolder::g_mtx_;
-} //namespace gandiva
+}  // namespace gandiva

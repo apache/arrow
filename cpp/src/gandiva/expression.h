@@ -24,8 +24,7 @@ namespace gandiva {
 /// \brief An expression tree with a root node, and a result field.
 class Expression {
  public:
-  Expression(const NodePtr root, const FieldPtr result)
-    : root_(root), result_(result) {}
+  Expression(const NodePtr root, const FieldPtr result) : root_(root), result_(result) {}
 
   const NodePtr &root() const { return root_; }
 
@@ -36,6 +35,6 @@ class Expression {
   const FieldPtr result_;
 };
 
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif // GANDIVA_EXPR_EXPRESSION_H
+#endif  // GANDIVA_EXPR_EXPRESSION_H
