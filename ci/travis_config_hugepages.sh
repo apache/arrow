@@ -25,6 +25,7 @@ sudo sysctl -w vm.nr_hugepages=2048
 HUGEPAGEVALUE=$(awk '/Hugepagesize/ { print $2 }' /proc/meminfo)
 HUGEPAGEUNIT=$(awk '/Hugepagesize/ { print $3 }' /proc/meminfo)
 
+echo $HUGEPAGEVALUE" "$HUGEPAGEUNIT
 # Compute the current value of hugepagesize
 HUGEPAGESIZE=$(($HUGEPAGEVALUE*${UNITSMAP[$HUGEPAGEUNIT]} / ${UNITSMAP[kB]}))
 
