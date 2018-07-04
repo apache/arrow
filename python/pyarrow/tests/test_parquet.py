@@ -499,10 +499,13 @@ def test_pandas_parquet_configuration_options(tmpdir):
         tm.assert_frame_equal(df, df_read)
 
 
-def make_sample_file(df):
+def make_sample_file(table_or_df):
     import pyarrow.parquet as pq
 
-    a_table = pa.Table.from_pandas(df)
+    if isinstance(table_or_df, pa.Table):
+        a_table = table_or_df
+    else:
+        a_table = pa.Table.from_pandas(table_or_df)
 
     buf = io.BytesIO()
     _write_table(a_table, buf, compression='SNAPPY', version='2.0',
@@ -568,7 +571,7 @@ def test_parquet_metadata_api():
 @pytest.mark.parametrize(
     (
         'data',
-        'dtype',
+        'type',
         'physical_type',
         'min_value',
         'max_value',
@@ -577,34 +580,39 @@ def test_parquet_metadata_api():
         'distinct_count'
     ),
     [
-        ([1, 2, 2, None, 4], np.uint8, 'INT64', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], np.uint16, 'INT64', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], np.uint32, 'INT64', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], np.uint64, 'INT64', 1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], np.int16, 'INT64', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], np.int32, 'INT64', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], np.int64, 'INT64', -1, 4, 1, 4, 0),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, 'FLOAT', -1.1, 4.4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, 0),
         (
-            [-1.1, 2.2, 2.3, None, 4.4],
-            np.float64, 'DOUBLE', -1.1, 4.4, 1, 4, 0
+            [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
+            'FLOAT', -1.1, 4.4, 1, 4, 0
         ),
         (
-            [u'', u'b', unichar(1000), None, u'aaa'],
-            object, 'BYTE_ARRAY', b'', unichar(1000).encode('utf-8'), 1, 4, 0
+            [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
+            'DOUBLE', -1.1, 4.4, 1, 4, 0
         ),
         (
-            [True, False, False, True, True],
-            np.bool, 'BOOLEAN', False, True, 0, 5, 0
+            [u'', u'b', unichar(1000), None, u'aaa'], pa.binary(),
+            'BYTE_ARRAY', b'', unichar(1000).encode('utf-8'), 1, 4, 0
+        ),
+        (
+            [True, False, False, True, True], pa.bool_(),
+            'BOOLEAN', False, True, 0, 5, 0
         ),
     ]
 )
-def test_parquet_column_statistics_api(data, dtype, physical_type, min_value,
+def test_parquet_column_statistics_api(data, type, physical_type, min_value,
                                        max_value, null_count, num_values,
                                        distinct_count):
-    df = pd.DataFrame({'data': data}, dtype=dtype)
-
-    fileh = make_sample_file(df)
+    df = pd.DataFrame({'data': data})
+    schema = pa.schema([pa.field('data', type)])
+    table = pa.Table.from_pandas(df, schema=schema)
+    fileh = make_sample_file(table)
 
     meta = fileh.metadata
 

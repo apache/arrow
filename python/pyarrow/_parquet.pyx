@@ -145,7 +145,7 @@ cdef class ColumnChunkMetaData:
         return """{0}
   file_offset: {1}
   file_path: {2}
-  type: {3}
+  physical_type: {3}
   num_values: {4}
   path_in_schema: {5}
   is_stats_set: {6}
@@ -161,7 +161,7 @@ cdef class ColumnChunkMetaData:
   total_uncompressed_size: {15}""".format(object.__repr__(self),
                                           self.file_offset,
                                           self.file_path,
-                                          self.type,
+                                          self.physical_type,
                                           self.num_values,
                                           self.path_in_schema,
                                           self.is_stats_set,
