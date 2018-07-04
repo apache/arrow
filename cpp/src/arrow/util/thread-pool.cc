@@ -25,16 +25,58 @@
 namespace arrow {
 namespace internal {
 
+class ThreadPoolLock {
+public:
+  ThreadPoolLock(pthread_mutex_t* mutex) : mutex_(mutex) {
+    lock();
+  };
+  ~ThreadPoolLock() {
+    unlock();
+  }
+  void lock() {
+    pthread_mutex_lock(mutex_);
+  }
+  void unlock() {
+    pthread_mutex_unlock(mutex_);
+  }
+
+private:
+  pthread_mutex_t* mutex_;
+};
+
+class ThreadPool::Thread {
+public:
+  Thread() : thread_(new pthread_t()), function_(new std::function<void()>()) {}
+  void Start(std::shared_ptr<State> state, std::list<Thread>::iterator it) {
+    *function_ = [state, it] { WorkerLoop(state, it); };
+    auto thunk = [](void* context) -> void* {
+      (*static_cast<std::function<void()>*>(context))();
+      return NULL;
+    };
+    pthread_create(it->thread(), NULL, thunk, function_);
+  }
+  pthread_t *thread() {
+    return thread_;
+  }
+  ~Thread() {
+    delete function_;
+    delete thread_;
+  }
+private:
+  pthread_t* thread_;
+  std::function<void()>* function_;
+};
+
 struct ThreadPool::State {
   State() : desired_capacity_(0), please_shutdown_(false), quick_shutdown_(false) {}
 
-  std::mutex mutex_;
-  std::condition_variable cv_;
-  std::condition_variable cv_shutdown_;
+  pthread_mutex_t mutex_;
+  pthread_cond_t cv_;
+  pthread_cond_t cv_shutdown_;
 
-  std::list<std::thread> workers_;
+  std::list<Thread> workers_;
   // Trashcan for finished threads
-  std::vector<std::thread> finished_workers_;
+  std::vector<Thread> finished_workers_;
   std::deque<std::function<void()>> pending_tasks_;
 
   // Desired number of threads
@@ -56,7 +98,7 @@ ThreadPool::~ThreadPool() {
 }
 
 Status ThreadPool::SetCapacity(int threads) {
-  std::unique_lock<std::mutex> lock(state_->mutex_);
+  ThreadPoolLock lock(&state_->mutex_);
   if (state_->please_shutdown_) {
     return Status::Invalid("operation forbidden during or after shutdown");
   }
@@ -71,31 +113,33 @@ Status ThreadPool::SetCapacity(int threads) {
     LaunchWorkersUnlocked(diff);
   } else if (diff < 0) {
     // Wake threads to ask them to stop
-    state_->cv_.notify_all();
+    DCHECK(pthread_cond_broadcast(&state_->cv_));
   }
   return Status::OK();
 }
 
 int ThreadPool::GetCapacity() {
-  std::unique_lock<std::mutex> lock(state_->mutex_);
+  ThreadPoolLock lock(&state_->mutex_);
   return state_->desired_capacity_;
 }
 
 int ThreadPool::GetActualCapacity() {
-  std::unique_lock<std::mutex> lock(state_->mutex_);
+  ThreadPoolLock lock(&state_->mutex_);
   return static_cast<int>(state_->workers_.size());
 }
 
 Status ThreadPool::Shutdown(bool wait) {
-  std::unique_lock<std::mutex> lock(state_->mutex_);
+  ThreadPoolLock lock(&state_->mutex_);
 
   if (state_->please_shutdown_) {
     return Status::Invalid("Shutdown() already called");
   }
   state_->please_shutdown_ = true;
   state_->quick_shutdown_ = !wait;
-  state_->cv_.notify_all();
-  state_->cv_shutdown_.wait(lock, [this] { return state_->workers_.empty(); });
+  DCHECK(pthread_cond_broadcast(&state_->cv_));
+  while (state_->workers_.empty()) {
+    pthread_cond_wait(&state_->cv_shutdown_, &state_->mutex_);
+  }
   if (!state_->quick_shutdown_) {
     DCHECK_EQ(state_->pending_tasks_.size(), 0);
   } else {
@@ -106,9 +150,9 @@ Status ThreadPool::Shutdown(bool wait) {
 }
 
 void ThreadPool::CollectFinishedWorkersUnlocked() {
-  for (auto& thread : state_->finished_workers_) {
+  for (auto thread : state_->finished_workers_) {
     // Make sure OS thread has exited
-    thread.join();
+    pthread_join(*thread.thread(), NULL);
   }
   state_->finished_workers_.clear();
 }
@@ -119,17 +163,17 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
   for (int i = 0; i < threads; i++) {
     state_->workers_.emplace_back();
     auto it = --(state_->workers_.end());
-    *it = std::thread([state, it] { WorkerLoop(state, it); });
+    it->Start(state, it);
   }
 }
 
 void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
-                            std::list<std::thread>::iterator it) {
-  std::unique_lock<std::mutex> lock(state->mutex_);
+                            std::list<Thread>::iterator it) {
+  ThreadPoolLock lock(&state->mutex_);
 
   // Since we hold the lock, `it` now points to the correct thread object
   // (LaunchWorkersUnlocked has exited)
-  DCHECK_EQ(std::this_thread::get_id(), it->get_id());
+  // XXX DCHECK_EQ(std::this_thread::get_id(), it->get_id());
 
   // If too many threads, we should secede from the pool
   const auto should_secede = [&]() -> bool {
@@ -161,7 +205,7 @@ void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
       break;
     }
     // Wait for next wakeup
-    state->cv_.wait(lock);
+    pthread_cond_wait(&state->cv_, &state->mutex_);
   }
 
   // We're done.  Move our thread object to the trashcan of finished
@@ -171,25 +215,25 @@ void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
   // 2) we can explicitly join() the trashcan threads to make sure all OS threads
   //    are exited before the ThreadPool is destroyed.  Otherwise subtle
   //    timing conditions can lead to false positives with Valgrind.
-  DCHECK_EQ(std::this_thread::get_id(), it->get_id());
+  // XXX DCHECK_EQ(std::this_thread::get_id(), it->get_id());
   state->finished_workers_.push_back(std::move(*it));
   state->workers_.erase(it);
   if (state->please_shutdown_) {
     // Notify the function waiting in Shutdown().
-    state->cv_shutdown_.notify_one();
+    DCHECK(pthread_cond_signal(&state->cv_shutdown_));
   }
 }
 
 Status ThreadPool::SpawnReal(std::function<void()> task) {
   {
-    std::lock_guard<std::mutex> lock(state_->mutex_);
+    ThreadPoolLock lock(&state_->mutex_);
     if (state_->please_shutdown_) {
       return Status::Invalid("operation forbidden during or after shutdown");
     }
     CollectFinishedWorkersUnlocked();
     state_->pending_tasks_.push_back(std::move(task));
   }
-  state_->cv_.notify_one();
+  DCHECK(pthread_cond_signal(&state_->cv_));
   return Status::OK();
 }
 

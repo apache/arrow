@@ -18,15 +18,12 @@
 #ifndef ARROW_UTIL_THREAD_POOL_H
 #define ARROW_UTIL_THREAD_POOL_H
 
-#include <condition_variable>
 #include <deque>
 #include <exception>
 #include <functional>
 #include <future>
 #include <list>
 #include <memory>
-#include <mutex>
-#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -128,6 +125,7 @@ class ARROW_EXPORT ThreadPool {
   friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
   struct State;
+  class Thread;
 
   ThreadPool();
 
@@ -144,7 +142,7 @@ class ARROW_EXPORT ThreadPool {
   // The worker loop is a static method so that it can keep running
   // after the ThreadPool is destroyed
   static void WorkerLoop(std::shared_ptr<State> state,
-                         std::list<std::thread>::iterator it);
+                         std::list<Thread>::iterator it);
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
