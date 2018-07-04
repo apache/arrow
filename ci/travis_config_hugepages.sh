@@ -33,6 +33,8 @@ TARGETOBJECTSIZE=${UNITSMAP[gB]}
 
 NBPAGETORESERVE=$(($TARGETOBJECTSIZE/ $HUGEPAGESIZE))
 
+cat /proc/meminfo | head -n2
+
 echo "current_hugepagesize="$HUGEPAGESIZE
 echo "nb_reserved_pages="$NBPAGETORESERVE
 
