@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,13 +17,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-{
-    global:
-        extern "C++" {
-          *arrow::*;
-        };
+import subprocess
 
-    local:
-        __once_proxy;
-        *;
-};
+exceptions = []
+
+process = subprocess.Popen(['nm', '-D', '-C', '/arrow-dist/lib64/libarrow.so'],
+                           stdout=subprocess.PIPE)
+stdout_data, _ = process.communicate()
+stdout_data = stdout_data.decode('ascii')
+lines = stdout_data.split('\n')
+lines = [line for line in lines if ' T ' in line]
+lines = [line for line in lines if 'arrow' not in line]
+symbols = [line.split(' ')[2] for line in lines]
+symbols = [symbol for symbol in symbols if symbol not in exceptions]
+
+if len(symbols) > 0:
+    raise Exception(symbols)
