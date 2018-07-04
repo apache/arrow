@@ -83,11 +83,49 @@ public class MessageSerializer {
   }
 
   /**
+   * Writes the message length prefix and message buffer to the Channel.
+   *
+   * @param out Output Channel
+   * @param messageLength Number of bytes in the message buffer, written as little Endian prefix
+   * @param messageBuffer Message buffer to be written
+   * @return Number of bytes written
+   * @throws IOException
+   */
+  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer) throws IOException {
+    out.writeIntLittleEndian(messageLength);
+    out.write(messageBuffer);
+    return messageLength + 4;
+  }
+
+  /**
+   * Aligns the message to 8 byte boundary and adjusts messageLength accordingly, then writes
+   * the message length prefix and message buffer to the Channel.
+   *
+   * @param out Output Channel
+   * @param messageLength Number of bytes in the message buffer, written as little Endian prefix
+   * @param messageBuffer Message buffer to be written
+   * @return Number of bytes written
+   * @return
+   * @throws IOException
+   */
+  public static int writeMessageBufferAligned(WriteChannel out, int messageLength, ByteBuffer messageBuffer) throws IOException {
+
+    // ensure that message aligns to 8 byte padding - 4 bytes for size, then message body
+    if ((messageLength + 4) % 8 != 0) {
+      messageLength += 8 - (messageLength + 4) % 8;
+    }
+    int bytesWritten = writeMessageBuffer(out, messageLength, messageBuffer);
+    out.align(); // any bytes written are already captured by our size modification above
+
+    return bytesWritten;
+  }
+
+  /**
    * Serialize a schema object.
    *
    * @param out    where to write the schema
    * @param schema the object to serialize to out
-   * @return the resulting size of the serialized schema
+   * @return the number of bytes written
    * @throws IOException if something went wrong
    */
   public static long serialize(WriteChannel out, Schema schema) throws IOException {
@@ -98,18 +136,9 @@ public class MessageSerializer {
     int schemaOffset = schema.getSchema(builder);
     ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.Schema, schemaOffset, 0);
 
-    int size = serializedMessage.remaining();
-    // ensure that message aligns to 8 byte padding - 4 bytes for size, then message body
-    if ((size + 4) % 8 != 0) {
-      size += 8 - (size + 4) % 8;
-    }
+    int messageLength = serializedMessage.remaining();
 
-    out.writeIntLittleEndian(size);
-    out.write(serializedMessage);
-    out.align(); // any bytes written are already captured by our size modification above
-
-    assert (size + 4) % 8 == 0;
-    return size + 4;
+    return writeMessageBufferAligned(out, messageLength, serializedMessage);
   }
 
   /**
@@ -488,8 +517,8 @@ public class MessageSerializer {
 
     // Clear message info
     holder.messageLength = 0;
-    holder.message = null;
     holder.messageBuffer = null;
+    holder.message = null;
 
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
