@@ -437,7 +437,7 @@ cdef class ColumnSchema:
         const ColumnDescriptor* descr
 
     def __cinit__(self, ParquetSchema schema, int i):
-        self.parent = schema  # XXX why is it needed? ownership?
+        self.parent = schema
         self.descr = schema.schema.Column(i)
 
     def __eq__(self, other):
