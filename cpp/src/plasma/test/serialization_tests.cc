@@ -223,12 +223,13 @@ TEST(PlasmaSerialization, ReleaseReply) {
 TEST(PlasmaSerialization, DeleteRequest) {
   int fd = create_temp_file();
   ObjectID object_id1 = ObjectID::from_random();
-  ARROW_CHECK_OK(SendDeleteRequest(fd, object_id1));
+  ARROW_CHECK_OK(SendDeleteRequest(fd, std::vector<ObjectID>{object_id1}));
   std::vector<uint8_t> data =
       read_message_from_file(fd, MessageType::PlasmaDeleteRequest);
-  ObjectID object_id2;
-  ARROW_CHECK_OK(ReadDeleteRequest(data.data(), data.size(), &object_id2));
-  ASSERT_EQ(object_id1, object_id2);
+  std::vector<ObjectID> object_vec;
+  ARROW_CHECK_OK(ReadDeleteRequest(data.data(), data.size(), &object_vec));
+  ASSERT_EQ(object_vec.size(), 1);
+  ASSERT_EQ(object_id1, object_vec[0]);
   close(fd);
 }
 
@@ -236,12 +237,17 @@ TEST(PlasmaSerialization, DeleteReply) {
   int fd = create_temp_file();
   ObjectID object_id1 = ObjectID::from_random();
   PlasmaError error1 = PlasmaError::ObjectExists;
-  ARROW_CHECK_OK(SendDeleteReply(fd, object_id1, error1));
+  ARROW_CHECK_OK(SendDeleteReply(fd, std::vector<ObjectID>{object_id1},
+                                 std::vector<PlasmaError>{error1}));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaDeleteReply);
-  ObjectID object_id2;
-  Status s = ReadDeleteReply(data.data(), data.size(), &object_id2);
-  ASSERT_EQ(object_id1, object_id2);
-  ASSERT_TRUE(s.IsPlasmaObjectExists());
+  std::vector<ObjectID> object_vec;
+  std::vector<PlasmaError> error_vec;
+  Status s = ReadDeleteReply(data.data(), data.size(), &object_vec, &error_vec);
+  ASSERT_EQ(object_vec.size(), 1);
+  ASSERT_EQ(object_id1, object_vec[0]);
+  ASSERT_EQ(error_vec.size(), 1);
+  ASSERT_TRUE(error_vec[0] == PlasmaError::ObjectExists);
+  ASSERT_TRUE(s.ok());
   close(fd);
 }
 

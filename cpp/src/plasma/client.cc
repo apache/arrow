@@ -182,7 +182,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Seal(const ObjectID& object_id);
 
-  Status Delete(const ObjectID& object_id);
+  Status Delete(const std::vector<ObjectID>& object_ids);
 
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
@@ -808,21 +808,26 @@ Status PlasmaClient::Impl::Abort(const ObjectID& object_id) {
   return ReadAbortReply(buffer.data(), buffer.size(), &id);
 }
 
-Status PlasmaClient::Impl::Delete(const ObjectID& object_id) {
+Status PlasmaClient::Impl::Delete(const std::vector<ObjectID>& object_ids) {
   RETURN_NOT_OK(FlushReleaseHistory());
-  // If the object is in used, client can't send the remove message.
-  if (objects_in_use_.count(object_id) > 0) {
-    return Status::UnknownError("PlasmaClient::Object is in use.");
-  } else {
-    // If we don't already have a reference to the object, we can try to remove the object
-    RETURN_NOT_OK(SendDeleteRequest(store_conn_, object_id));
+  std::vector<ObjectID> not_in_use_ids;
+  for (auto& object_id : object_ids) {
+    // If the object is in used, skip it.
+    if (objects_in_use_.count(object_id) == 0) {
+      not_in_use_ids.push_back(object_id);
+    }
+  }
+  if (not_in_use_ids.size() > 0) {
+    RETURN_NOT_OK(SendDeleteRequest(store_conn_, not_in_use_ids));
     std::vector<uint8_t> buffer;
     RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaDeleteReply, &buffer));
-    ObjectID object_id2;
     DCHECK_GT(buffer.size(), 0);
-    RETURN_NOT_OK(ReadDeleteReply(buffer.data(), buffer.size(), &object_id2));
-    return Status::OK();
+    std::vector<PlasmaError> error_codes;
+    not_in_use_ids.clear();
+    RETURN_NOT_OK(
+        ReadDeleteReply(buffer.data(), buffer.size(), &not_in_use_ids, &error_codes));
   }
+  return Status::OK();
 }
 
 Status PlasmaClient::Impl::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {
@@ -1036,7 +1041,11 @@ Status PlasmaClient::Abort(const ObjectID& object_id) { return impl_->Abort(obje
 Status PlasmaClient::Seal(const ObjectID& object_id) { return impl_->Seal(object_id); }
 
 Status PlasmaClient::Delete(const ObjectID& object_id) {
-  return impl_->Delete(object_id);
+  return impl_->Delete(std::vector<ObjectID>{object_id});
+}
+
+Status PlasmaClient::Delete(const std::vector<ObjectID>& object_ids) {
+  return impl_->Delete(object_ids);
 }
 
 Status PlasmaClient::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {

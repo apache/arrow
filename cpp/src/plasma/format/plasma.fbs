@@ -200,15 +200,19 @@ table PlasmaReleaseReply {
 }
 
 table PlasmaDeleteRequest {
+  // The number of objects to delete.
+  count: int;
   // ID of the object to be deleted.
-  object_id: string;
+  object_ids: [string];
 }
 
 table PlasmaDeleteReply {
+  // The number of objects to delete.
+  count: int;
   // ID of the object that was deleted.
-  object_id: string;
+  object_ids: [string];
   // Error code.
-  error: PlasmaError;
+  errors: [PlasmaError];
 }
 
 table PlasmaStatusRequest {

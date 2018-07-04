@@ -165,7 +165,7 @@ TEST_F(TestPlasmaStore, DeleteTest) {
 
   // Test for deleting non-existance object.
   Status result = client_.Delete(object_id);
-  ASSERT_TRUE(result.IsPlasmaObjectNonexistent());
+  ARROW_CHECK_OK(result);
 
   // Test for the object being in local Plasma store.
   // First create object.
@@ -176,13 +176,40 @@ TEST_F(TestPlasmaStore, DeleteTest) {
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id));
 
-  // Object is in use, can't be delete.
   result = client_.Delete(object_id);
-  ASSERT_TRUE(result.IsUnknownError());
+  // TODO: Guarantee that the in-use object will be deleted when it is released.
+  ARROW_CHECK_OK(result);
 
   // Avoid race condition of Plasma Manager waiting for notification.
   ARROW_CHECK_OK(client_.Release(object_id));
   ARROW_CHECK_OK(client_.Delete(object_id));
+}
+
+TEST_F(TestPlasmaStore, DeleteObjectsTest) {
+  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id2 = ObjectID::from_random();
+
+  // Test for deleting non-existance object.
+  Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  ARROW_CHECK_OK(result);
+  // Test for the object being in local Plasma store.
+  // First create object.
+  int64_t data_size = 100;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  std::shared_ptr<Buffer> data;
+  ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
+  ARROW_CHECK_OK(client_.Seal(object_id1));
+  ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
+  ARROW_CHECK_OK(client_.Seal(object_id2));
+  // Objects are in use.
+  result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  // TODO: Guarantee that the in-use object will be deleted when it is released.
+  ARROW_CHECK_OK(result);
+  // Avoid race condition of Plasma Manager waiting for notification.
+  ARROW_CHECK_OK(client_.Release(object_id1));
+  ARROW_CHECK_OK(client_.Release(object_id2));
+  ARROW_CHECK_OK(client_.Delete(std::vector<ObjectID>{object_id1, object_id2}));
 }
 
 TEST_F(TestPlasmaStore, ContainsTest) {
