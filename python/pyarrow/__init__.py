@@ -44,11 +44,11 @@ except DistributionNotFound:
         __version__ = None
 
 
-from pyarrow.compat import import_tensorflow_extension
+import pyarrow.compat as compat
 
 
 # Workaround for https://issues.apache.org/jira/browse/ARROW-2657
-import_tensorflow_extension()
+compat.import_tensorflow_extension()
 
 
 from pyarrow.lib import cpu_count, set_cpu_count
