@@ -21,10 +21,4 @@
     Memcheck:Cond
     fun:*CastFunctor*BooleanType*
 }
-{
-    # Data can be uninitialized when its null bit is set, but we write raw buffers
-    <write_unitialized_data>
-    Memcheck:Param
-    write(buf)
-    fun:__write_nocancel
-}
+
