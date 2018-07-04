@@ -227,7 +227,7 @@ TEST(PlasmaSerialization, DeleteRequest) {
   std::vector<uint8_t> data =
       read_message_from_file(fd, MessageType::PlasmaDeleteRequest);
   std::vector<ObjectID> object_vec;
-  ARROW_CHECK_OK(ReadDeleteRequest(data.data(), data.size(), object_vec));
+  ARROW_CHECK_OK(ReadDeleteRequest(data.data(), data.size(), &object_vec));
   ASSERT_EQ(object_vec.size(), 1);
   ASSERT_EQ(object_id1, object_vec[0]);
   close(fd);
@@ -242,7 +242,7 @@ TEST(PlasmaSerialization, DeleteReply) {
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaDeleteReply);
   std::vector<ObjectID> object_vec;
   std::vector<PlasmaError> error_vec;
-  Status s = ReadDeleteReply(data.data(), data.size(), object_vec, error_vec);
+  Status s = ReadDeleteReply(data.data(), data.size(), &object_vec, &error_vec);
   ASSERT_EQ(object_vec.size(), 1);
   ASSERT_EQ(object_id1, object_vec[0]);
   ASSERT_EQ(error_vec.size(), 1);

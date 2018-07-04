@@ -104,13 +104,13 @@ Status ReadReleaseReply(uint8_t* data, size_t size, ObjectID* object_id);
 
 Status SendDeleteRequest(int sock, const std::vector<ObjectID>& object_ids);
 
-Status ReadDeleteRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids);
+Status ReadDeleteRequest(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids);
 
 Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
                        const std::vector<PlasmaError>& errors);
 
-Status ReadDeleteReply(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids,
-                       std::vector<PlasmaError>& errors);
+Status ReadDeleteReply(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids,
+                       std::vector<PlasmaError>* errors);
 
 /* Satus messages. */
 

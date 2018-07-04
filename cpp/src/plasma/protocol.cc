@@ -50,6 +50,18 @@ Status PlasmaReceive(int sock, MessageType message_type, std::vector<uint8_t>* b
   return Status::OK();
 }
 
+// Helper function to create a vector of elements from Data (Request/Reply struct).
+// The Getter function is used to extract one element from Data.
+template <typename T, typename Data, typename Getter>
+void to_vector(const Data& request, std::vector<T>* out, const Getter& getter) {
+  int count = request.count();
+  out->clear();
+  out->reserve(count);
+  for (int i = 0; i < count; ++i) {
+    out->push_back(getter(request, i));
+  }
+}
+
 template <typename Message>
 Status PlasmaSend(int sock, MessageType message_type, flatbuffers::FlatBufferBuilder* fbb,
                   const Message& message) {
@@ -235,21 +247,19 @@ Status ReadReleaseReply(uint8_t* data, size_t size, ObjectID* object_id) {
 Status SendDeleteRequest(int sock, const std::vector<ObjectID>& object_ids) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message =
-      CreatePlasmaDeleteRequest(fbb, static_cast<int>(object_ids.size()),
+      CreatePlasmaDeleteRequest(fbb, static_cast<int32_t>(object_ids.size()),
                                 to_flatbuffer(&fbb, &object_ids[0], object_ids.size()));
   return PlasmaSend(sock, MessageType::PlasmaDeleteRequest, &fbb, message);
 }
 
-Status ReadDeleteRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids) {
+Status ReadDeleteRequest(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids) {
   DCHECK(data);
+  DCHECK(object_ids);
   auto message = flatbuffers::GetRoot<PlasmaDeleteRequest>(data);
   DCHECK(verify_flatbuffer(message, data, size));
-  int num_objects = message->count();
-  object_ids.clear();
-  object_ids.reserve(num_objects);
-  for (int i = 0; i < num_objects; ++i) {
-    object_ids.push_back(ObjectID::from_binary(message->object_ids()->Get(i)->str()));
-  }
+  to_vector(*message, object_ids, [](const PlasmaDeleteRequest& request, int i) {
+    return ObjectID::from_binary(request.object_ids()->Get(i)->str());
+  });
   return Status::OK();
 }
 
@@ -258,35 +268,26 @@ Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
   DCHECK(object_ids.size() == errors.size());
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreatePlasmaDeleteReply(
-      fbb, static_cast<int>(object_ids.size()),
+      fbb, static_cast<int32_t>(object_ids.size()),
       to_flatbuffer(&fbb, &object_ids[0], object_ids.size()),
-      fbb.CreateVector(reinterpret_cast<const int*>(&errors[0]), object_ids.size()));
+      fbb.CreateVector(reinterpret_cast<const int32_t*>(&errors[0]), object_ids.size()));
   return PlasmaSend(sock, MessageType::PlasmaDeleteReply, &fbb, message);
 }
 
-Status ReadDeleteReply(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids,
-                       std::vector<PlasmaError>& errors) {
+Status ReadDeleteReply(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids,
+                       std::vector<PlasmaError>* errors) {
   DCHECK(data);
+  DCHECK(object_ids);
+  DCHECK(errors);
   auto message = flatbuffers::GetRoot<PlasmaDeleteReply>(data);
   DCHECK(verify_flatbuffer(message, data, size));
-  int num_objects = message->count();
-  object_ids.clear();
-  object_ids.reserve(num_objects);
-  errors.clear();
-  errors.reserve(num_objects);
-  for (int i = 0; i < num_objects; ++i) {
-    object_ids.push_back(ObjectID::from_binary(message->object_ids()->Get(i)->str()));
-  }
-  PlasmaError return_error = PlasmaError::ObjectNonexistent;
-  for (int i = 0; i < num_objects; ++i) {
-    PlasmaError error = static_cast<PlasmaError>(message->errors()->data()[i]);
-    if (return_error == PlasmaError::ObjectNonexistent &&
-        error != PlasmaError::ObjectNonexistent) {
-      return_error = PlasmaError::OK;
-    }
-    errors.push_back(error);
-  }
-  return plasma_error_status(return_error);
+  to_vector(*message, object_ids, [](const PlasmaDeleteReply& request, int i) {
+    return ObjectID::from_binary(request.object_ids()->Get(i)->str());
+  });
+  to_vector(*message, errors, [](const PlasmaDeleteReply& request, int i) {
+    return static_cast<PlasmaError>(request.errors()->data()[i]);
+  });
+  return Status::OK();
 }
 
 // Satus messages.

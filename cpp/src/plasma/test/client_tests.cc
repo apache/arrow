@@ -165,7 +165,7 @@ TEST_F(TestPlasmaStore, DeleteTest) {
 
   // Test for deleting non-existance object.
   Status result = client_.Delete(object_id);
-  ASSERT_TRUE(result.IsPlasmaObjectNonexistent());
+  ARROW_CHECK_OK(result);
 
   // Test for the object being in local Plasma store.
   // First create object.
@@ -176,9 +176,9 @@ TEST_F(TestPlasmaStore, DeleteTest) {
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id));
 
-  // Object is in use, can't be delete.
   result = client_.Delete(object_id);
-  ASSERT_TRUE(result.IsUnknownError());
+  // TODO: Guarantee that the in-use object will be deleted when it is released.
+  ARROW_CHECK_OK(result);
 
   // Avoid race condition of Plasma Manager waiting for notification.
   ARROW_CHECK_OK(client_.Release(object_id));
@@ -191,7 +191,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
 
   // Test for deleting non-existance object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  ASSERT_TRUE(result.IsPlasmaObjectNonexistent());
+  ARROW_CHECK_OK(result);
   // Test for the object being in local Plasma store.
   // First create object.
   int64_t data_size = 100;
@@ -202,9 +202,10 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   ARROW_CHECK_OK(client_.Seal(object_id1));
   ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id2));
-  // Objects are in use, can't be deleted.
+  // Objects are in use.
   result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  ASSERT_TRUE(result.IsUnknownError());
+  // TODO: Guarantee that the in-use object will be deleted when it is released.
+  ARROW_CHECK_OK(result);
   // Avoid race condition of Plasma Manager waiting for notification.
   ARROW_CHECK_OK(client_.Release(object_id1));
   ARROW_CHECK_OK(client_.Release(object_id2));
