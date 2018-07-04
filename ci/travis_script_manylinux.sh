@@ -24,3 +24,21 @@ pushd python/manylinux1
 git clone ../../ arrow
 docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
 docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+
+# Testing for https://issues.apache.org/jira/browse/ARROW-2657
+# These tests cannot be run inside of the docker container, since TensorFlow
+# does not run on manylinux1
+
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
+source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+
+PYTHON_VERSION=3.6
+CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
+
+conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
+source activate $CONDA_ENV_DIR
+
+pip install -q tensorflow
+pip install "dist/`ls dist/ | grep cp36`"
+python -c "import pyarrow; import tensorflow"
