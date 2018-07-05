@@ -17,6 +17,9 @@
 
 # flake8: noqa
 
+import os as _os
+import sys as _sys
+
 from pkg_resources import get_distribution, DistributionNotFound
 try:
     __version__ = get_distribution(__name__).version
@@ -48,7 +51,8 @@ import pyarrow.compat as compat
 
 
 # Workaround for https://issues.apache.org/jira/browse/ARROW-2657
-compat.import_tensorflow_extension()
+if _sys.platform in ('linux', 'linux2'):
+    compat.import_tensorflow_extension()
 
 
 from pyarrow.lib import cpu_count, set_cpu_count
@@ -161,11 +165,10 @@ def _plasma_store_entry_point():
     from the command line and will start the plasma_store executable with the
     given arguments.
     """
-    import os
     import pyarrow
-    import sys
-    plasma_store_executable = os.path.join(pyarrow.__path__[0], "plasma_store")
-    os.execv(plasma_store_executable, sys.argv)
+    plasma_store_executable = _os.path.join(pyarrow.__path__[0],
+                                            "plasma_store")
+    _os.execv(plasma_store_executable, _sys.argv)
 
 # ----------------------------------------------------------------------
 # Deprecations
@@ -183,8 +186,7 @@ def get_include():
     Return absolute path to directory containing Arrow C++ include
     headers. Similar to numpy.get_include
     """
-    import os
-    return os.path.join(os.path.dirname(__file__), 'include')
+    return _os.path.join(_os.path.dirname(__file__), 'include')
 
 
 def get_libraries():
@@ -200,18 +202,16 @@ def get_library_dirs():
     Return lists of directories likely to contain Arrow C++ libraries for
     linking C or Cython extensions using pyarrow
     """
-    import os
-    import sys
-    package_cwd = os.path.dirname(__file__)
+    package_cwd = _os.path.dirname(__file__)
 
     library_dirs = [package_cwd]
 
-    if sys.platform == 'win32':
+    if _sys.platform == 'win32':
         # TODO(wesm): Is this necessary, or does setuptools within a conda
         # installation add Library\lib to the linker path for MSVC?
-        site_packages, _ = os.path.split(package_cwd)
-        python_base_install, _ = os.path.split(site_packages)
-        library_dirs.append(os.path.join(python_base_install,
-                                         'Library', 'lib'))
+        site_packages, _ = _os.path.split(package_cwd)
+        python_base_install, _ = _os.path.split(site_packages)
+        library_dirs.append(_os.path.join(python_base_install,
+                                          'Library', 'lib'))
 
     return library_dirs
