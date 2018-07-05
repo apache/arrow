@@ -83,8 +83,8 @@ export abstract class VariableListViewBase<T extends (ListType | FlatListType)> 
 export class ListView<T extends DataType> extends VariableListViewBase<List<T>> {
     public values: Vector<T>;
     constructor(data: Data<T>) {
-        super(data);
-        this.values = createVector(data.values);
+        super(data as any);
+        this.values = createVector((data as any).values);
     }
     public getChildAt<R extends T = T>(index: number): Vector<R> | null {
         return index === 0 ? (this.values as Vector<R>) : null;

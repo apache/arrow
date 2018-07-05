@@ -18,6 +18,8 @@
 /* tslint:disable */
 // Dynamically load an Arrow target build based on command line arguments
 
+(<any> global).window = (<any> global).window || global;
+
 // Fix for Jest in node v10.x
 Object.defineProperty(ArrayBuffer, Symbol.hasInstance, {
     writable: true,
