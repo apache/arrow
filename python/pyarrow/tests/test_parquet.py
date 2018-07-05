@@ -65,7 +65,10 @@ def _check_roundtrip(table, expected=None, **params):
     if expected is None:
         expected = table
 
+    # intentionally check twice
     result = _roundtrip_table(table, **params)
+    assert result.equals(expected)
+    result = _roundtrip_table(result, **params)
     assert result.equals(expected)
 
 
