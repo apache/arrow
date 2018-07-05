@@ -21,7 +21,7 @@ RUN apt-get update -y \
  && apt-get install -y \
 		  gcc-8 \
 		  g++-8 \
-      git \
+		  git \
 		  wget \
 		  ninja-build
 
@@ -37,9 +37,28 @@ ENV PATH="/opt/conda/bin:$PATH"
 
 # create conda env with deps
 RUN conda create -y -q -c conda-forge -n pyarrow-dev \
-      python=3.6 numpy six setuptools cython pandas pytest \
-	    cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
-      gflags brotli jemalloc lz4-c zstd nomkl libhdfs3 hdfs3 \
+      python=3.6 \
+      numpy \
+      six \
+      setuptools \
+      cython \
+      pandas \
+      pytest \
+      cmake \
+      flatbuffers \
+      rapidjson \
+      boost-cpp \
+      thrift-cpp \
+      snappy \
+      zlib \
+      gflags \
+      brotli \
+      jemalloc \
+      lz4-c \
+      zstd \
+      nomkl \
+      libhdfs3 \
+      hdfs3 \
  && conda clean --all
 
 ADD . /apache-arrow
