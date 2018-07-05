@@ -111,8 +111,8 @@ describe(`Table`, () => {
                     }
                 });
             });
-            test(`count() returns the correct length`, () => {
-                expect(table.count()).toEqual(values.length);
+            test(`length getter returns the correct length`, () => {
+                expect(table.length).toEqual(values.length);
             });
             test(`getColumnIndex`, () => {
                 expect(table.getColumnIndex('i32')).toEqual(I32);
@@ -191,8 +191,8 @@ describe(`Table`, () => {
             for (let this_test of filter_tests) {
                 const { name, filtered, expected } = this_test;
                 describe(name, () => {
-                    test(`count() returns the correct length`, () => {
-                        expect(filtered.count()).toEqual(expected.length);
+                    test(`length getter returns the correct length`, () => {
+                        expect(filtered.length).toEqual(expected.length);
                     });
                     describe(`scan()`, () => {
                         test(`iterates over expected values`, () => {
@@ -266,26 +266,26 @@ describe(`Table`, () => {
                 })].join('\n') + '\n';
                 expect(selected.toString()).toEqual(expected);
             });
-            test(`table.filter(..).count() on always false predicates returns 0`, () => {
-                expect(table.filter(col('i32').ge(100)).count()).toEqual(0);
-                expect(table.filter(col('dictionary').eq('z')).count()).toEqual(0);
+            test(`table.filter(..).length on always false predicates returns 0`, () => {
+                expect(table.filter(col('i32').ge(100)).length).toEqual(0);
+                expect(table.filter(col('dictionary').eq('z')).length).toEqual(0);
             });
             describe(`lit-lit comparison`, () => {
-                test(`always-false count() returns 0`, () => {
-                    expect(table.filter(lit('abc').eq('def')).count()).toEqual(0);
-                    expect(table.filter(lit(0).ge(1)).count()).toEqual(0);
+                test(`always-false length returns 0`, () => {
+                    expect(table.filter(lit('abc').eq('def')).length).toEqual(0);
+                    expect(table.filter(lit(0).ge(1)).length).toEqual(0);
                 });
-                test(`always-true count() returns length`, () => {
-                    expect(table.filter(lit('abc').eq('abc')).count()).toEqual(table.length);
-                    expect(table.filter(lit(-100).le(0)).count()).toEqual(table.length);
+                test(`always-true length is the same as table length`, () => {
+                    expect(table.filter(lit('abc').eq('abc')).length).toEqual(table.length);
+                    expect(table.filter(lit(-100).le(0)).length).toEqual(table.length);
                 });
             });
             describe(`col-col comparison`, () => {
-                test(`always-false count() returns 0`, () => {
-                    expect(table.filter(col('dictionary').eq(col('i32'))).count()).toEqual(0);
+                test(`always-false length returns 0`, () => {
+                    expect(table.filter(col('dictionary').eq(col('i32'))).length).toEqual(0);
                 });
-                test(`always-true count() returns length`, () => {
-                    expect(table.filter(col('dictionary').eq(col('dictionary'))).count()).toEqual(table.length);
+                test(`always-true length is the same as table length`, () => {
+                    expect(table.filter(col('dictionary').eq(col('dictionary'))).length).toEqual(table.length);
                 });
             });
         });
