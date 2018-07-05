@@ -25,7 +25,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -33,7 +32,6 @@ import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.List;
 
-import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils;
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
