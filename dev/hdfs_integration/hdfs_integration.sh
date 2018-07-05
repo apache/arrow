@@ -22,57 +22,68 @@ set -e
 # cwd is mounted from host machine to
 # and contains both arrow and parquet-cpp
 
+# Activate conda environment
+source activate pyarrow-dev
+
+# Set environment variable
 export ARROW_BUILD_TYPE=debug
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 export PARQUET_HOME=$CONDA_PREFIX
 
-# export CC=gcc-4.9
-# export CXX=g++-4.9
+# For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
+export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
+export PYARROW_CXXFLAGS=$CXXFLAGS
+export PYARROW_CMAKE_GENERATOR=Ninja
 
-# install arrow
+# Install arrow-cpp
 mkdir -p arrow/cpp/build
 pushd arrow/cpp/build
 
-rm -rf ./*
-
-cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+cmake -GNinja \
+      -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-      -DARROW_PYTHON=on \
-      -DARROW_PLASMA=on \
-      -DARROW_HDFS=on \
+      -DARROW_PYTHON=ON \
+      -DARROW_PLASMA=ON \
+      -DARROW_HDFS=ON \
+      -DARROW_BUILD_TESTS=ON \
+      -DCMAKE_CXX_FLAGS=$CXXFLAGS \
       ..
-make -j4
-make install
+ninja
+ninja install
+
 popd
 
-# install parquet-cpp
+# Install parquet-cpp
 mkdir -p parquet-cpp/build
 pushd parquet-cpp/build
 
-rm -rf ./*
-
-cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+cmake -GNinja \
+      -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-      -DPARQUET_BUILD_BENCHMARKS=off \
-      -DPARQUET_BUILD_EXECUTABLES=off \
-      -DPARQUET_BUILD_TESTS=on \
+      -DPARQUET_BUILD_BENCHMARKS=OFF \
+      -DPARQUET_BUILD_EXECUTABLES=OFF \
+      -DPARQUET_BUILD_TESTS=ON \
+      -DCMAKE_CXX_FLAGS=$CXXFLAGS \
       ..
+ninja
+ninja install
 
-make -j4
-make install
 popd
 
-# install pyarrow
+# Install pyarrow
 pushd arrow/python
 
-python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-    --with-parquet --with-plasma --inplace
+python setup.py build_ext \
+    --build-type=$ARROW_BUILD_TYPE \
+    --with-parquet \
+    --with-plasma \
+    --inplace
 
 popd
 
-
+# Run tests
 arrow/cpp/build/debug/io-hdfs-test
 
 python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs

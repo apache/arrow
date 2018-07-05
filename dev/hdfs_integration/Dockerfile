@@ -14,31 +14,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM ubuntu:14.04
 
-# Basic OS utilities
-RUN apt-get update && \
-    apt-get install -y \
-        git \
-        wget \
-        ccache \
-        build-essential
+FROM ubuntu:18.04
 
-# install conda in /home/ubuntu/miniconda
-RUN wget -O /tmp/miniconda.sh \
-    https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash /tmp/miniconda.sh -b -p /opt/conda && \
-    rm /tmp/miniconda.sh
+RUN apt-get update -y \
+ && apt-get install -y \
+		  gcc-8 \
+		  g++-8 \
+      git \
+		  wget \
+		  ninja-build
 
-ENV PATH=/opt/conda/bin:$PATH CONDA_PREFIX=/opt/conda
+ENV CC=gcc-8
+ENV CXX=g++-8
 
-# Create Conda environment
-RUN conda update conda -y && \
-    conda install -c conda-forge \
-        python=3.6 numpy six setuptools cython pandas pytest \
-        cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
-        gflags brotli jemalloc lz4-c zstd hdfs3 libhdfs3 && \
-    conda clean --all
+# Miniconda - Python 3.6, 64-bit, x86, latest
+RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh \
+ && /bin/bash conda.sh -b -p /opt/conda \
+ && rm conda.sh
+
+ENV PATH="/opt/conda/bin:$PATH"
+
+# create conda env with deps
+RUN conda create -y -q -c conda-forge -n pyarrow-dev \
+      python=3.6 numpy six setuptools cython pandas pytest \
+	    cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
+      gflags brotli jemalloc lz4-c zstd nomkl libhdfs3 hdfs3 \
+ && conda clean --all
 
 ADD . /apache-arrow
 WORKDIR /apache-arrow
