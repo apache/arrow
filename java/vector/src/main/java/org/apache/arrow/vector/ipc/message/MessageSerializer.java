@@ -138,7 +138,9 @@ public class MessageSerializer {
 
     int messageLength = serializedMessage.remaining();
 
-    return writeMessageBufferAligned(out, messageLength, serializedMessage);
+    int bytesWritten = writeMessageBufferAligned(out, messageLength, serializedMessage);
+    assert bytesWritten % 8 == 0;
+    return bytesWritten;
   }
 
   /**
