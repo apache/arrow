@@ -39,20 +39,33 @@
 namespace arrow {
 
 namespace {
+// used to prevent compiler optimizing away side-effect-less statements
+volatile int throw_away = 0;
+
 bool IsZeroPadded(const Array& array) {
   for (auto& buffer : array.data()->buffers) {
-    const int64_t padding = buffer->capacity() - buffer->size();
-    std::vector<uint8_t> zeros(padding);
-    if (memcmp(buffer->data() + buffer->size(), zeros.data(), padding) != 0) {
-      return false;
+    if (buffer) {
+      const int64_t padding = buffer->capacity() - buffer->size();
+      std::vector<uint8_t> zeros(padding);
+      if (memcmp(buffer->data() + buffer->size(), zeros.data(), padding) != 0) {
+        return false;
+      }
     }
   }
   return true;
 }
+
+// valgrind will detect uninitialized memory
+void TestInitialized(const Array& array) {
+  for (auto& buffer : array.data()->buffers) {
+    if (buffer) {
+      std::vector<uint8_t> zeros(buffer->capacity());
+      throw_away = memcmp(buffer->data(), zeros.data(), buffer->capacity());
+    }
+  }
+}
 }  // namespace
 
-// used to prevent compiler optimizing away side-effect-less statements
-volatile int throw_away = 0;
 
 using std::string;
 using std::vector;
@@ -480,11 +493,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
     ASSERT_TRUE(result->IsNull(i)) << i;
   }
 
-  // valgrind will detect uninitialized memory
-  std::vector<typename TypeParam::T> zeros(size);
-  throw_away =
-      memcmp(reinterpret_cast<const uint8_t*>(result->values()->data()), zeros.data(),
-             TypeTraits<typename TypeParam::Type>::bytes_required(size));
+  TestInitialized(*result);
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
@@ -501,11 +510,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
     ASSERT_TRUE(result->IsValid(i) == static_cast<bool>(nullmap[i]));
   }
 
-  // valgrind will detect uninitialized memory
-  std::vector<typename TypeParam::T> zeros(size);
-  throw_away =
-      memcmp(reinterpret_cast<const uint8_t*>(result->values()->data()), zeros.data(),
-             TypeTraits<typename TypeParam::Type>::bytes_required(size));
+  TestInitialized(*result);
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
@@ -1276,19 +1281,16 @@ TEST_F(TestBinaryArray, TestNullValuesInitialized) {
   for (size_t i = 0; i < expected_.size(); ++i) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
-      // value should still be in initialized memory, valgrind will catch this
-      int32_t len = -1;
-      const uint8_t* bytes = strings_->GetValue(i, &len);
-      throw_away = std::memcmp(expected_[i].data(), bytes, len);
     } else {
       int32_t len = -1;
       const uint8_t* bytes = strings_->GetValue(i, &len);
       ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
     }
   }
+  TestInitialized(*strings_);
 }
 
-TEST_F(TestBinaryArray, TestPaddingZeroed) { ASSERT_TRUE(strings_); }
+TEST_F(TestBinaryArray, TestPaddingZeroed) { ASSERT_TRUE(IsZeroPadded(*strings_)); }
 
 TEST_F(TestBinaryArray, TestGetString) {
   for (size_t i = 0; i < expected_.size(); ++i) {
@@ -1520,10 +1522,11 @@ TEST_F(TestFWBinaryArray, Builder) {
                   memcmp(raw_data + byte_width * i, fw_result.GetValue(i), byte_width));
       } else {
         ASSERT_TRUE(fw_result.IsNull(i));
-        // valgrind will check if the memory is initialized
-        throw_away = memcmp(raw_data + byte_width * i, fw_result.GetValue(i), byte_width);
       }
     }
+
+    ASSERT_TRUE(IsZeroPadded(fw_result));
+    TestInitialized(fw_result);
   };
 
   // Build using iterative API
@@ -1827,10 +1830,7 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
   auto converted = std::dynamic_pointer_cast<Int8Array>(result_);
   ASSERT_TRUE(converted);
 
-  // Valgrind will detect uninitialized memory
-  std::vector<int8_t> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()),
-                      zeros.data(), size);
+  TestInitialized(*converted);
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
@@ -1847,10 +1847,7 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   auto converted = std::dynamic_pointer_cast<Int8Array>(result_);
   ASSERT_TRUE(converted);
 
-  // Valgrind will detect uninitialized memory
-  std::vector<int8_t> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()),
-                      zeros.data(), size);
+  TestInitialized(*converted);
 }
 
 class TestAdaptiveUIntBuilder : public TestBuilder {
@@ -1972,10 +1969,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
   auto converted = std::dynamic_pointer_cast<UInt8Array>(result_);
   ASSERT_TRUE(converted);
 
-  // Valgrind will detect uninitialized memory
-  std::vector<int8_t> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()),
-                      zeros.data(), size);
+  TestInitialized(*converted);
 }
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
@@ -1992,10 +1986,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   auto converted = std::dynamic_pointer_cast<UInt8Array>(result_);
   ASSERT_TRUE(converted);
 
-  // Valgrind will detect uninitialized memory
-  std::vector<int8_t> zeros(size);
-  throw_away = memcmp(reinterpret_cast<const uint8_t*>(converted->values()->data()),
-                      zeros.data(), size);
+  TestInitialized(*converted);
 }
 
 // ----------------------------------------------------------------------
@@ -2106,7 +2097,12 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
 
     DictionaryArray expected(dtype, int_array);
     ASSERT_TRUE(expected.Equals(result));
+
+    ASSERT_TRUE(IsZeroPadded(*result));
+    TestInitialized(*result);
   }
+
+  
 }
 
 TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
@@ -2166,6 +2162,9 @@ TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
 
   DictionaryArray expected_delta(dtype2, int_array2);
   ASSERT_TRUE(expected_delta.Equals(result_delta));
+
+  ASSERT_TRUE(IsZeroPadded(*result));
+  TestInitialized(*result);
 }
 
 TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
@@ -2255,6 +2254,9 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
 
   DictionaryArray expected_delta2(dtype3, int_array3);
   ASSERT_TRUE(expected_delta2.Equals(result_delta2));
+
+  ASSERT_TRUE(IsZeroPadded(*result));
+  TestInitialized(*result);
 }
 
 TEST(TestStringDictionaryBuilder, Basic) {
@@ -2320,6 +2322,9 @@ TEST(TestStringDictionaryBuilder, DoubleTableSize) {
 
   DictionaryArray expected(dtype, int_array);
   ASSERT_TRUE(expected.Equals(result));
+
+  ASSERT_TRUE(IsZeroPadded(*result));
+  TestInitialized(*result);
 }
 
 TEST(TestStringDictionaryBuilder, DeltaDictionary) {
@@ -2374,6 +2379,9 @@ TEST(TestStringDictionaryBuilder, DeltaDictionary) {
 
   DictionaryArray expected_delta(dtype2, int_array2);
   ASSERT_TRUE(expected_delta.Equals(result_delta));
+
+  ASSERT_TRUE(IsZeroPadded(*result_delta));
+  TestInitialized(*result_delta);
 }
 
 TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
@@ -2460,6 +2468,9 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
 
   DictionaryArray expected3(dtype3, int_array3);
   ASSERT_TRUE(expected3.Equals(result3));
+
+  ASSERT_TRUE(IsZeroPadded(*result));
+  TestInitialized(*result);
 }
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
@@ -2492,6 +2503,9 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
 
   DictionaryArray expected(dtype, int_array);
   ASSERT_TRUE(expected.Equals(result));
+
+  ASSERT_TRUE(IsZeroPadded(*result));
+  TestInitialized(*result);
 }
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
@@ -2551,6 +2565,12 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
 
   DictionaryArray expected2(dtype2, int_array2);
   ASSERT_TRUE(expected2.Equals(result2));
+
+  ASSERT_TRUE(IsZeroPadded(*result1));
+  ASSERT_TRUE(IsZeroPadded(*result2));
+
+  TestInitialized(*result1);
+  TestInitialized(*result2);
 }
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
@@ -2879,6 +2899,9 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(values[i], varr->Value(i));
   }
+
+  ASSERT_TRUE(IsZeroPadded(*result));
+  TestInitialized(*result);
 }
 
 TEST_F(TestListArray, TestBasics) {
@@ -3137,6 +3160,9 @@ void ValidateBasicStructArray(const StructArray* result,
   for (size_t i = 0; i < int_values.size(); ++i) {
     ASSERT_EQ(int_values[i], int32_arr->Value(i));
   }
+
+  ASSERT_TRUE(IsZeroPadded(*result));
+  TestInitialized(*result);
 }
 
 // ----------------------------------------------------------------------------------
@@ -3549,6 +3575,9 @@ TEST(TestUnionArrayAdHoc, TestSliceEquals) {
 
     ASSERT_TRUE(slice->Equals(slice2));
     ASSERT_TRUE(array->RangeEquals(1, 6, 0, slice));
+
+    ASSERT_TRUE(IsZeroPadded(*array));
+    TestInitialized(*array);
   };
 
   CheckUnion(batch->column(1));
@@ -3613,6 +3642,9 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     std::shared_ptr<Array> rhs = expected->Slice(offset);
     bool result = lhs->Equals(rhs);
     ASSERT_TRUE(result);
+
+    ASSERT_TRUE(IsZeroPadded(*lhs));
+    TestInitialized(*lhs);
   }
 };
 
@@ -3662,6 +3694,13 @@ TEST(TestRechunkArraysConsistently, Trivial) {
   groups = {{a1, a2}, {}, {b1}};
   rechunked = internal::RechunkArraysConsistently(groups);
   ASSERT_EQ(rechunked.size(), 3);
+
+  for (auto& arrvec : rechunked) {
+    for (auto& arr : arrvec ) {
+      ASSERT_TRUE(IsZeroPadded(*arr));
+      TestInitialized(*arr);
+    }
+  }
 }
 
 TEST(TestRechunkArraysConsistently, Plain) {
@@ -3708,6 +3747,13 @@ TEST(TestRechunkArraysConsistently, Plain) {
   ASSERT_ARRAYS_EQUAL(*rb[3], *expected);
   ArrayFromVector<Int32Type, int32_t>({48, 49}, &expected);
   ASSERT_ARRAYS_EQUAL(*rb[4], *expected);
+
+  for (auto& arrvec : rechunked) {
+    for (auto& arr : arrvec ) {
+      ASSERT_TRUE(IsZeroPadded(*arr));
+      TestInitialized(*arr);
+    }
+  }
 }
 
 }  // namespace arrow
