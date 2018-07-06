@@ -17,7 +17,7 @@
 
 import { RecordBatch } from './recordbatch';
 import { Col, Predicate } from './predicate';
-import { Schema, Field, Struct } from './type';
+import { Schema, Field, Struct, StructData } from './type';
 import { read, readAsync } from './ipc/reader/arrow';
 import { writeTableBinary } from './ipc/writer/arrow';
 import { PipeIterator } from './util/node';
@@ -36,7 +36,7 @@ export interface DataFrame {
     [Symbol.iterator](): IterableIterator<Struct['TValue']>;
 }
 
-export class Table implements DataFrame {
+export class Table<T extends StructData = StructData> implements DataFrame {
     static empty() { return new Table(new Schema([]), []); }
     static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
         if (sources) {
@@ -78,7 +78,7 @@ export class Table implements DataFrame {
     public readonly length: number;
     public readonly numCols: number;
     // List of inner RecordBatches
-    public readonly batches: RecordBatch[];
+    public readonly batches: RecordBatch<T>[];
     // List of inner Vectors, possibly spanning batches
     protected readonly _columns: Vector<any>[] = [];
     // Union of all inner RecordBatches into one RecordBatch, possibly chunked.
@@ -86,12 +86,12 @@ export class Table implements DataFrame {
     // If the Table has multiple inner RecordBatches, then this is a Chunked view
     // over the list of RecordBatches. This allows us to delegate the responsibility
     // of indexing, iterating, slicing, and visiting to the Nested/Chunked Data/Views.
-    public readonly batchesUnion: RecordBatch;
+    public readonly batchesUnion: RecordBatch<T>;
 
-    constructor(batches: RecordBatch[]);
-    constructor(...batches: RecordBatch[]);
-    constructor(schema: Schema, batches: RecordBatch[]);
-    constructor(schema: Schema, ...batches: RecordBatch[]);
+    constructor(batches: RecordBatch<T>[]);
+    constructor(...batches: RecordBatch<T>[]);
+    constructor(schema: Schema, batches: RecordBatch<T>[]);
+    constructor(schema: Schema, ...batches: RecordBatch<T>[]);
     constructor(...args: any[]) {
 
         let schema: Schema = null!;
@@ -102,7 +102,7 @@ export class Table implements DataFrame {
 
         let batches = args.reduce(function flatten(xs: any[], x: any): any[] {
             return Array.isArray(x) ? x.reduce(flatten, xs) : [...xs, x];
-        }, []).filter((x: any): x is RecordBatch => x instanceof RecordBatch);
+        }, []).filter((x: any): x is RecordBatch<T> => x instanceof RecordBatch);
 
         if (!schema && !(schema = batches[0] && batches[0].schema)) {
             throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch with a Schema');
@@ -111,16 +111,16 @@ export class Table implements DataFrame {
         this.schema = schema;
         this.batches = batches;
         this.batchesUnion = batches.length == 0 ?
-            new RecordBatch(schema, 0, []) :
+            new RecordBatch<T>(schema, 0, []) :
             batches.reduce((union, batch) => union.concat(batch));
         this.length = this.batchesUnion.length;
         this.numCols = this.batchesUnion.numCols;
     }
 
-    public get(index: number): Struct['TValue'] {
+    public get(index: number): Struct<T>['TValue'] {
         return this.batchesUnion.get(index)!;
     }
-    public getColumn(name: string) {
+    public getColumn<R extends keyof T>(name: R): Vector<T[R]>|null {
         return this.getColumnAt(this.getColumnIndex(name));
     }
     public getColumnAt(index: number) {
@@ -129,7 +129,7 @@ export class Table implements DataFrame {
             : this._columns[index] || (
               this._columns[index] = this.batchesUnion.getChildAt(index)!);
     }
-    public getColumnIndex(name: string) {
+    public getColumnIndex<R extends keyof T>(name: R) {
         return this.schema.fields.findIndex((f) => f.name === name);
     }
     public [Symbol.iterator](): IterableIterator<Struct['TValue']> {
@@ -194,7 +194,7 @@ export class Table implements DataFrame {
     public serialize(encoding = 'binary', stream = true) {
         return writeTableBinary(this, stream);
     }
-    public rowsToString(separator = ' | ') {
+    public rowsToString(separator = ' | '): PipeIterator<string|undefined> {
         return new PipeIterator(tableRowsToString(this, separator), 'utf8');
     }
 }

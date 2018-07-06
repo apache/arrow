@@ -178,7 +178,7 @@ export abstract class NestedVector<T extends NestedType> extends Vector<T>  {
 import { List, Binary, Utf8, Bool, } from './type';
 import { Null, Int, Float, Decimal, Date_, Time, Timestamp, Interval } from './type';
 import { Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64, Float16, Float32, Float64 } from './type';
-import { Struct, Union, SparseUnion, DenseUnion, FixedSizeBinary, FixedSizeList, Map_, Dictionary } from './type';
+import { Struct, StructData, Union, SparseUnion, DenseUnion, FixedSizeBinary, FixedSizeList, Map_, Dictionary } from './type';
 
 import { ChunkedView } from './vector/chunked';
 import { ValidityView } from './vector/validity';
@@ -405,8 +405,8 @@ export class MapVector extends NestedVector<Map_> {
     }
 }
 
-export class StructVector extends NestedVector<Struct> {
-    constructor(data: Data<Struct>, view: View<Struct> = new StructView(data)) {
+export class StructVector<T extends StructData = StructData> extends NestedVector<Struct<T>> {
+    constructor(data: Data<Struct<T>>, view: View<Struct<T>> = new StructView<T>(data)) {
         super(data, view);
     }
     public asMap(keysSorted: boolean = false) {
