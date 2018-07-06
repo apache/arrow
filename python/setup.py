@@ -94,7 +94,8 @@ class build_ext(_build_ext):
     description = "Build the C-extensions for arrow"
     user_options = ([('cmake-generator=', None, 'CMake generator'),
                      ('extra-cmake-args=', None, 'extra arguments for CMake'),
-                     ('build-type=', None, 'build type (debug or release)'),
+                     ('build-type=', None,
+                      'build type (debug or release), default release'),
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
                      ('with-parquet', None, 'build the Parquet extension'),
@@ -116,7 +117,8 @@ class build_ext(_build_ext):
         if not self.cmake_generator and sys.platform == 'win32':
             self.cmake_generator = 'Visual Studio 14 2015 Win64'
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
-        self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
+        self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
+                                         'release').lower()
         self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
                                               'boost')
 
