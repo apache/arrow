@@ -356,6 +356,14 @@ NodePtr ProtoTypeToNode(const types::TreeNode &node) {
     return TreeExprBuilder::MakeLiteral(node.doublenode().value());
   }
 
+  if (node.has_stringnode()) {
+    return TreeExprBuilder::MakeStringLiteral(node.stringnode().value());
+  }
+
+  if (node.has_binarynode()) {
+    return TreeExprBuilder::MakeBinaryLiteral(node.binarynode().value());
+  }
+
   std::cerr << "Unknown node type in protobuf\n";
   return nullptr;
 }
@@ -502,12 +510,37 @@ err_out:
   return module_id;
 }
 
+#define CHECK_IN_BUFFER_IDX_AND_BREAK(idx, len)                               \
+  if (idx >= len) {                                                           \
+    status = gandiva::Status::Invalid("insufficient number of in_buf_addrs"); \
+    break;                                                                    \
+  }
+
+#define CHECK_OUT_BUFFER_IDX_AND_BREAK(idx, len)                               \
+  if (idx >= len) {                                                            \
+    status = gandiva::Status::Invalid("insufficient number of out_buf_addrs"); \
+    break;                                                                     \
+  }
+
 JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_evaluate(
     JNIEnv *env, jobject cls, jlong module_id, jint num_rows, jlongArray buf_addrs,
     jlongArray buf_sizes, jlongArray out_buf_addrs, jlongArray out_buf_sizes) {
+  gandiva::Status status;
   std::shared_ptr<ProjectorHolder> holder = MapLookup(module_id);
   if (holder == nullptr) {
     ThrowException(env, "Unknown module id");
+    return;
+  }
+
+  int in_bufs_len = env->GetArrayLength(buf_addrs);
+  if (in_bufs_len != env->GetArrayLength(buf_sizes)) {
+    ThrowException(env, "mismatch in arraylen of buf_addrs and buf_sizes");
+    return;
+  }
+
+  int out_bufs_len = env->GetArrayLength(out_buf_addrs);
+  if (out_bufs_len != env->GetArrayLength(out_buf_sizes)) {
+    ThrowException(env, "mismatch in arraylen of out_buf_addrs and out_buf_sizes");
     return;
   }
 
@@ -517,63 +550,87 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_eva
   jlong *out_bufs = env->GetLongArrayElements(out_buf_addrs, 0);
   jlong *out_sizes = env->GetLongArrayElements(out_buf_sizes, 0);
 
-  auto schema = holder->schema();
-  std::vector<std::shared_ptr<arrow::ArrayData>> columns;
-  auto num_fields = schema->num_fields();
-  int buf_idx = 0;
-  int sz_idx = 0;
+  do {
+    auto schema = holder->schema();
+    std::vector<std::shared_ptr<arrow::ArrayData>> columns;
+    auto num_fields = schema->num_fields();
+    int buf_idx = 0;
+    int sz_idx = 0;
 
-  for (int i = 0; i < num_fields; i++) {
-    auto field = schema->field(i);
-    jlong validity_addr = in_buf_addrs[buf_idx++];
-    jlong value_addr = in_buf_addrs[buf_idx++];
+    for (int i = 0; i < num_fields; i++) {
+      auto field = schema->field(i);
+      std::vector<std::shared_ptr<arrow::Buffer>> buffers;
 
-    jlong validity_size = in_buf_sizes[sz_idx++];
-    jlong value_size = in_buf_sizes[sz_idx++];
+      CHECK_IN_BUFFER_IDX_AND_BREAK(buf_idx, in_bufs_len);
+      jlong validity_addr = in_buf_addrs[buf_idx++];
+      jlong validity_size = in_buf_sizes[sz_idx++];
+      auto validity = std::shared_ptr<arrow::Buffer>(
+          new arrow::Buffer(reinterpret_cast<uint8_t *>(validity_addr), validity_size));
+      buffers.push_back(validity);
 
-    auto validity = std::shared_ptr<arrow::Buffer>(
-        new arrow::Buffer(reinterpret_cast<uint8_t *>(validity_addr), validity_size));
-    auto data = std::shared_ptr<arrow::Buffer>(
-        new arrow::Buffer(reinterpret_cast<uint8_t *>(value_addr), value_size));
+      CHECK_IN_BUFFER_IDX_AND_BREAK(buf_idx, in_bufs_len);
+      jlong value_addr = in_buf_addrs[buf_idx++];
+      jlong value_size = in_buf_sizes[sz_idx++];
+      auto data = std::shared_ptr<arrow::Buffer>(
+          new arrow::Buffer(reinterpret_cast<uint8_t *>(value_addr), value_size));
+      buffers.push_back(data);
 
-    auto array_data = arrow::ArrayData::Make(field->type(), num_rows, {validity, data});
-    columns.push_back(array_data);
-  }
+      if (arrow::is_binary_like(field->type()->id())) {
+        CHECK_IN_BUFFER_IDX_AND_BREAK(buf_idx, in_bufs_len);
 
-  auto ret_types = holder->rettypes();
-  ArrayDataVector output;
-  buf_idx = 0;
-  sz_idx = 0;
-  for (FieldPtr field : ret_types) {
-    uint8_t *validity_buf = reinterpret_cast<uint8_t *>(out_bufs[buf_idx++]);
-    uint8_t *value_buf = reinterpret_cast<uint8_t *>(out_bufs[buf_idx++]);
+        // add offsets buffer for variable-len fields.
+        jlong offsets_addr = in_buf_addrs[buf_idx++];
+        jlong offsets_size = in_buf_sizes[sz_idx++];
+        auto offsets = std::shared_ptr<arrow::Buffer>(
+            new arrow::Buffer(reinterpret_cast<uint8_t *>(offsets_addr), offsets_size));
+        buffers.push_back(offsets);
+      }
 
-    jlong bitmap_sz = out_sizes[sz_idx++];
-    jlong data_sz = out_sizes[sz_idx++];
+      auto array_data =
+          arrow::ArrayData::Make(field->type(), num_rows, std::move(buffers));
+      columns.push_back(array_data);
+    }
+    if (!status.ok()) {
+      break;
+    }
 
-    std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
-        std::make_shared<arrow::MutableBuffer>(validity_buf, bitmap_sz);
-    std::shared_ptr<arrow::MutableBuffer> data_buf =
-        std::make_shared<arrow::MutableBuffer>(value_buf, data_sz);
+    auto ret_types = holder->rettypes();
+    ArrayDataVector output;
+    buf_idx = 0;
+    sz_idx = 0;
+    for (FieldPtr field : ret_types) {
+      CHECK_OUT_BUFFER_IDX_AND_BREAK(buf_idx, out_bufs_len);
+      uint8_t *validity_buf = reinterpret_cast<uint8_t *>(out_bufs[buf_idx++]);
+      jlong bitmap_sz = out_sizes[sz_idx++];
+      std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
+          std::make_shared<arrow::MutableBuffer>(validity_buf, bitmap_sz);
 
-    auto array_data =
-        arrow::ArrayData::Make(field->type(), num_rows, {bitmap_buf, data_buf});
-    output.push_back(array_data);
-  }
+      CHECK_OUT_BUFFER_IDX_AND_BREAK(buf_idx, out_bufs_len);
+      uint8_t *value_buf = reinterpret_cast<uint8_t *>(out_bufs[buf_idx++]);
+      jlong data_sz = out_sizes[sz_idx++];
+      std::shared_ptr<arrow::MutableBuffer> data_buf =
+          std::make_shared<arrow::MutableBuffer>(value_buf, data_sz);
 
-  auto in_batch = arrow::RecordBatch::Make(schema, num_rows, columns);
-  gandiva::Status status = holder->projector()->Evaluate(*in_batch, output);
+      auto array_data =
+          arrow::ArrayData::Make(field->type(), num_rows, {bitmap_buf, data_buf});
+      output.push_back(array_data);
+    }
+    if (!status.ok()) {
+      break;
+    }
+
+    auto in_batch = arrow::RecordBatch::Make(schema, num_rows, columns);
+    status = holder->projector()->Evaluate(*in_batch, output);
+  } while (0);
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
   env->ReleaseLongArrayElements(out_buf_addrs, out_bufs, JNI_ABORT);
   env->ReleaseLongArrayElements(out_buf_sizes, out_sizes, JNI_ABORT);
 
-  if (status.ok()) {
-    return;
+  if (!status.ok()) {
+    ThrowException(env, status.message());
   }
-
-  ThrowException(env, status.message());
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_close(

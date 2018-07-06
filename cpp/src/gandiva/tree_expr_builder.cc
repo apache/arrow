@@ -46,7 +46,7 @@ NodePtr TreeExprBuilder::MakeBinaryLiteral(const std::string &value) {
 }
 
 NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
-  static const std::string empty = "";
+  static const std::string empty;
 
   if (data_type == nullptr) {
     return nullptr;
@@ -88,11 +88,11 @@ NodePtr TreeExprBuilder::MakeField(FieldPtr field) {
 }
 
 NodePtr TreeExprBuilder::MakeFunction(const std::string &name, const NodeVector &params,
-                                      DataTypePtr result) {
-  if (result == nullptr) {
+                                      DataTypePtr result_type) {
+  if (result_type == nullptr) {
     return nullptr;
   }
-  return FunctionNode::MakeFunction(name, params, result);
+  return FunctionNode::MakeFunction(name, params, result_type);
 }
 
 NodePtr TreeExprBuilder::MakeIf(NodePtr condition, NodePtr then_node, NodePtr else_node,

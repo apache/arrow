@@ -42,16 +42,9 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
   std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator());
   Status status = Engine::Make(config, &(llvmgen_obj->engine_));
   GANDIVA_RETURN_NOT_OK(status);
-  llvmgen_obj->types_ = new LLVMTypes(*(llvmgen_obj->engine_)->context());
+  llvmgen_obj->types_.reset(new LLVMTypes(*(llvmgen_obj->engine_)->context()));
   *llvm_generator = std::move(llvmgen_obj);
   return Status::OK();
-}
-
-LLVMGenerator::~LLVMGenerator() {
-  for (auto it = compiled_exprs_.begin(); it != compiled_exprs_.end(); ++it) {
-    delete *it;
-  }
-  delete types_;
 }
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
@@ -68,8 +61,9 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
       CodeGenExprValue(value_validity->value_expr(), output, idx, &ir_function);
   GANDIVA_RETURN_NOT_OK(status);
 
-  CompiledExpr *compiled_expr = new CompiledExpr(value_validity, output, ir_function);
-  compiled_exprs_.push_back(compiled_expr);
+  std::unique_ptr<CompiledExpr> compiled_expr(
+      new CompiledExpr(value_validity, output, ir_function));
+  compiled_exprs_.push_back(std::move(compiled_expr));
   return Status::OK();
 }
 
@@ -85,7 +79,7 @@ Status LLVMGenerator::Build(const ExpressionVector &exprs) {
   GANDIVA_RETURN_NOT_OK(result);
 
   // setup the jit functions for each expression.
-  for (auto compiled_expr : compiled_exprs_) {
+  for (auto &compiled_expr : compiled_exprs_) {
     llvm::Function *ir_func = compiled_expr->ir_function();
     EvalFunc fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_func));
     compiled_expr->set_jit_function(fn);
@@ -102,7 +96,7 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch &record_batch,
   DCHECK_GT(eval_batch->num_buffers(), 0);
 
   // generate bitmap vectors, by doing an intersection.
-  for (auto compiled_expr : compiled_exprs_) {
+  for (auto &compiled_expr : compiled_exprs_) {
     // generate data/offset vectors.
     EvalFunc jit_function = compiled_expr->jit_function();
     jit_function(eval_batch->buffers(), eval_batch->local_bitmaps(),
@@ -136,12 +130,14 @@ llvm::Value *LLVMGenerator::GetDataReference(llvm::Value *arg_addrs, int idx,
   const std::string &name = field->name();
   llvm::Value *load = LoadVectorAtIndex(arg_addrs, idx, name);
   llvm::Type *base_type = types_->DataVecType(field->type());
+  llvm::Value *ret;
   if (base_type->isPointerTy()) {
-    return ir_builder().CreateIntToPtr(load, base_type, name + "_darray");
+    ret = ir_builder().CreateIntToPtr(load, base_type, name + "_darray");
   } else {
     llvm::Type *pointer_type = types_->ptr_type(base_type);
-    return ir_builder().CreateIntToPtr(load, pointer_type, name + "_darray");
+    ret = ir_builder().CreateIntToPtr(load, pointer_type, name + "_darray");
   }
+  return ret;
 }
 
 /// Get reference to offsets array at specified index in the args list.
@@ -355,20 +351,22 @@ llvm::Value *LLVMGenerator::AddFunctionCall(const std::string &full_name,
   llvm::Function *fn = module()->getFunction(full_name);
   DCHECK(fn != NULL);
 
-  if (enable_ir_traces_ && full_name.compare("printf") && full_name.compare("printff")) {
+  if (enable_ir_traces_ && full_name.compare("printf") != 0 &&
+      full_name.compare("printff") != 0) {
     // Trace for debugging
     ADD_TRACE("invoke native fn " + full_name);
   }
 
   // build a call to the llvm function.
+  llvm::Value *value;
   if (ret_type->isVoidTy()) {
     // void functions can't have a name for the call.
-    return ir_builder().CreateCall(fn, args);
+    value = ir_builder().CreateCall(fn, args);
   } else {
-    llvm::Value *value = ir_builder().CreateCall(fn, args, full_name);
+    value = ir_builder().CreateCall(fn, args, full_name);
     DCHECK(value->getType() == ret_type);
-    return value;
   }
+  return value;
 }
 
 #define ADD_VISITOR_TRACE(...)         \
@@ -466,7 +464,7 @@ void LLVMGenerator::Visitor::Visit(const FalseDex &dex) {
 }
 
 void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {
-  LLVMTypes *types = generator_->types_;
+  LLVMTypes *types = generator_->types_.get();
   llvm::Value *value = nullptr;
   llvm::Value *len = nullptr;
 
@@ -535,7 +533,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {
 void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex &dex) {
   ADD_VISITOR_TRACE("visit NonNullableFunc base function " +
                     dex.func_descriptor()->name());
-  LLVMTypes *types = generator_->types_;
+  LLVMTypes *types = generator_->types_.get();
 
   // build the function params (ignore validity).
   auto params = BuildParams(dex.args(), false);
@@ -549,7 +547,7 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex &dex) {
 
 void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex &dex) {
   ADD_VISITOR_TRACE("visit NullableNever base function " + dex.func_descriptor()->name());
-  LLVMTypes *types = generator_->types_;
+  LLVMTypes *types = generator_->types_.get();
 
   // build function params along with validity.
   auto params = BuildParams(dex.args(), true);
@@ -565,7 +563,7 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex &dex) {
   ADD_VISITOR_TRACE("visit NullableInternal base function " +
                     dex.func_descriptor()->name());
   llvm::IRBuilder<> &builder = ir_builder();
-  LLVMTypes *types = generator_->types_;
+  LLVMTypes *types = generator_->types_.get();
 
   // build function params along with validity.
   auto params = BuildParams(dex.args(), true);
@@ -593,7 +591,7 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex &dex) {
 void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
   ADD_VISITOR_TRACE("visit IfExpression");
   llvm::IRBuilder<> &builder = ir_builder();
-  LLVMTypes *types = generator_->types_;
+  LLVMTypes *types = generator_->types_.get();
 
   // Evaluate condition.
   LValuePtr if_condition = BuildValueAndValidity(dex.condition_vv());
@@ -677,7 +675,7 @@ void LLVMGenerator::Visitor::Visit(const IfDex &dex) {
 void LLVMGenerator::Visitor::Visit(const BooleanAndDex &dex) {
   ADD_VISITOR_TRACE("visit BooleanAndExpression");
   llvm::IRBuilder<> &builder = ir_builder();
-  LLVMTypes *types = generator_->types_;
+  LLVMTypes *types = generator_->types_.get();
   llvm::LLVMContext &context = generator_->context();
 
   // Create blocks for short-circuit.
@@ -744,7 +742,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanAndDex &dex) {
 void LLVMGenerator::Visitor::Visit(const BooleanOrDex &dex) {
   ADD_VISITOR_TRACE("visit BooleanOrExpression");
   llvm::IRBuilder<> &builder = ir_builder();
-  LLVMTypes *types = generator_->types_;
+  LLVMTypes *types = generator_->types_.get();
   llvm::LLVMContext &context = generator_->context();
 
   // Create blocks for short-circuit.
@@ -842,7 +840,7 @@ std::vector<llvm::Value *> LLVMGenerator::Visitor::BuildParams(
  */
 llvm::Value *LLVMGenerator::Visitor::BuildCombinedValidity(const DexVector &validities) {
   llvm::IRBuilder<> &builder = ir_builder();
-  LLVMTypes *types = generator_->types_;
+  LLVMTypes *types = generator_->types_.get();
 
   llvm::Value *isValid = types->true_constant();
   for (auto &dex : validities) {
@@ -913,7 +911,7 @@ std::string LLVMGenerator::ReplaceFormatInTrace(const std::string &in_msg,
   std::string msg = in_msg;
   std::size_t pos = msg.find("%T");
   if (pos == std::string::npos) {
-    assert(0);
+    DCHECK(0);
     return msg;
   }
 
@@ -934,7 +932,7 @@ std::string LLVMGenerator::ReplaceFormatInTrace(const std::string &in_msg,
     fmt = "%lf";
     *print_fn = "print_double";
   } else {
-    assert(0);
+    DCHECK(0);
   }
   msg.replace(pos, 2, fmt);
   return msg;
@@ -947,7 +945,7 @@ void LLVMGenerator::AddTrace(const std::string &msg, llvm::Value *value) {
 
   std::string dmsg = "IR_TRACE:: " + msg + "\n";
   std::string print_fn_name = "printf";
-  if (value) {
+  if (value != nullptr) {
     dmsg = ReplaceFormatInTrace(dmsg, value, &print_fn_name);
   }
   trace_strings_.push_back(dmsg);
@@ -960,7 +958,7 @@ void LLVMGenerator::AddTrace(const std::string &msg, llvm::Value *value) {
 
   std::vector<llvm::Value *> args;
   args.push_back(str_ptr_cast);
-  if (value) {
+  if (value != nullptr) {
     args.push_back(value);
   }
   AddFunctionCall(print_fn_name, types_->i32_type(), args);

@@ -51,12 +51,12 @@ class TreeExprBuilder {
 
   /// \brief create a node with a function.
   /// returns null if return_type is null
-  static NodePtr MakeFunction(const std::string &name, const NodeVector &children,
+  static NodePtr MakeFunction(const std::string &name, const NodeVector &params,
                               DataTypePtr return_type);
 
   /// \brief create a node with an if-else expression.
   /// returns null if any of the inputs is null.
-  static NodePtr MakeIf(NodePtr condition, NodePtr this_node, NodePtr else_node,
+  static NodePtr MakeIf(NodePtr condition, NodePtr then_node, NodePtr else_node,
                         DataTypePtr result_type);
 
   /// \brief create a node with a boolean AND expression.

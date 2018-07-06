@@ -52,7 +52,7 @@ class BitMapAccumulator : public DexDefaultVisitor {
   }
 
   /// Compute the dst_bmap based on the contents and type of the accumulated bitmap dex.
-  void ComputeResult(uint8_t *dst_bmap);
+  void ComputeResult(uint8_t *dst_bitmap);
 
   /// Compute the intersection of the accumulated bitmaps and save the result in
   /// dst_bmap.

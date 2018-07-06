@@ -37,8 +37,6 @@ namespace gandiva {
 /// Builds an LLVM module and generates code for the specified set of expressions.
 class LLVMGenerator {
  public:
-  ~LLVMGenerator();
-
   /// \brief Factory method to initialize the generator.
   static Status Make(std::shared_ptr<Configuration> config,
                      std::unique_ptr<LLVMGenerator> *llvm_generator);
@@ -51,7 +49,7 @@ class LLVMGenerator {
   Status Execute(const arrow::RecordBatch &record_batch,
                  const ArrayDataVector &output_vector);
 
-  LLVMTypes *types() { return types_; }
+  LLVMTypes &types() { return *types_; }
   llvm::Module *module() { return engine_->module(); }
 
  private:
@@ -143,17 +141,17 @@ class LLVMGenerator {
                           llvm::Function **fn);
 
   /// Generate code to load the local bitmap specified index and cast it as bitmap.
-  llvm::Value *GetLocalBitMapReference(llvm::Value *arg_local_bitmaps, int idx);
+  llvm::Value *GetLocalBitMapReference(llvm::Value *arg_bitmaps, int idx);
 
   /// Generate code to get the bit value at 'position' in the bitmap.
-  llvm::Value *GetPackedBitValue(llvm::Value *bitMap, llvm::Value *position);
+  llvm::Value *GetPackedBitValue(llvm::Value *bitmap, llvm::Value *position);
 
   /// Generate code to set the bit value at 'position' in the bitmap to 'value'.
-  void SetPackedBitValue(llvm::Value *bitMap, llvm::Value *position, llvm::Value *value);
+  void SetPackedBitValue(llvm::Value *bitmap, llvm::Value *position, llvm::Value *value);
 
   /// Generate code to clear the bit value at 'position' in the bitmap if 'value'
   /// is false.
-  void ClearPackedBitValueIfFalse(llvm::Value *bitMap, llvm::Value *position,
+  void ClearPackedBitValueIfFalse(llvm::Value *bitmap, llvm::Value *position,
                                   llvm::Value *value);
 
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
@@ -178,8 +176,8 @@ class LLVMGenerator {
   void AddTrace(const std::string &msg, llvm::Value *value = nullptr);
 
   std::unique_ptr<Engine> engine_;
-  std::vector<CompiledExpr *> compiled_exprs_;
-  LLVMTypes *types_;
+  std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
+  std::unique_ptr<LLVMTypes> types_;
   FunctionRegistry function_registry_;
   Annotator annotator_;
 

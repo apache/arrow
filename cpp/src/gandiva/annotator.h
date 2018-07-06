@@ -45,7 +45,7 @@ class Annotator {
   int AddLocalBitMap() { return local_bitmap_count_++; }
 
   /// Prepare an eval batch for the incoming record batch.
-  EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch &batch,
+  EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch &record_batch,
                                 const ArrayDataVector &out_vector);
 
  private:

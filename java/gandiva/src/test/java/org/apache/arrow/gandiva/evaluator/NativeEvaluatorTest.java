@@ -44,7 +44,9 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -57,6 +59,8 @@ public class NativeEvaluatorTest {
 
   private BufferAllocator allocator;
   private ArrowType boolType;
+  private Charset utf8Charset = Charset.forName("UTF-8");
+  private Charset utf16Charset = Charset.forName("UTF-16");
 
   @Before
   public void init() {
@@ -93,6 +97,32 @@ public class NativeEvaluatorTest {
     }
 
     return buffer;
+  }
+
+  List<ArrowBuf> varBufs(String[] strings, Charset charset) {
+    ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
+    ArrowBuf dataBuffer = allocator.buffer(strings.length * 8);
+
+    int startOffset = 0;
+    for (int i = 0; i < strings.length; i++) {
+      offsetsBuffer.writeInt(startOffset);
+
+      final byte[] bytes = strings[i].getBytes(charset);
+      dataBuffer = dataBuffer.reallocIfNeeded(dataBuffer.writerIndex() + bytes.length);
+      dataBuffer.setBytes(startOffset, bytes, 0, bytes.length);
+      startOffset += bytes.length;
+    }
+    offsetsBuffer.writeInt(startOffset); // offset for the last element
+
+    return Arrays.asList(offsetsBuffer, dataBuffer);
+  }
+
+  List<ArrowBuf> stringBufs(String[] strings) {
+    return varBufs(strings, utf8Charset);
+  }
+
+  List<ArrowBuf> binaryBufs(String[] strings) {
+    return varBufs(strings, utf16Charset);
   }
 
   ArrowBuf stringToMillis(String[] dates) {
@@ -231,6 +261,115 @@ public class NativeEvaluatorTest {
     }
     for (int i = 8; i < 16; i++) {
       assertTrue(intVector.isNull(i));
+    }
+    eval.close();
+  }
+
+  @Test
+  public void testStringFields() throws GandivaException {
+    /*
+     * when x < "hello" then octet_length(x) + a
+     * else octet_length(x) + b
+     */
+
+    Field x = Field.nullable("x", new ArrowType.Utf8());
+    Field a = Field.nullable("a", new ArrowType.Int(32, true));
+    Field b = Field.nullable("b", new ArrowType.Int(32, true));
+
+    ArrowType retType = new ArrowType.Int(32, true);
+
+    TreeNode cond = TreeBuilder.makeFunction("less_than",
+      Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeStringLiteral("hello")),
+      boolType);
+    TreeNode octetLenFuncNode = TreeBuilder.makeFunction("octet_length",
+      Lists.newArrayList(TreeBuilder.makeField(x)),
+      retType);
+    TreeNode octetLenPlusANode = TreeBuilder.makeFunction("add",
+      Lists.newArrayList(TreeBuilder.makeField(a), octetLenFuncNode),
+      retType);
+    TreeNode octetLenPlusBNode = TreeBuilder.makeFunction("add",
+      Lists.newArrayList(TreeBuilder.makeField(b), octetLenFuncNode),
+      retType);
+
+    TreeNode ifHello = TreeBuilder.makeIf(cond, octetLenPlusANode, octetLenPlusBNode, retType);
+
+    ExpressionTree expr = TreeBuilder.makeExpression(ifHello, Field.nullable("res", retType));
+    Schema schema = new Schema(Lists.newArrayList(a, x, b));
+    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+
+    int numRows = 5;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    // "A função" means "The function" in portugese
+    String[] valuesX = new String[]{"hell", "abc", "hellox", "ijk", "A função" };
+    int[] valuesA = new int[]{10, 20, 30, 40, 50};
+    int[] valuesB = new int[]{110, 120, 130, 140, 150};
+    int[] expected = new int[]{14, 23, 136, 143, 60};
+
+    ArrowBuf validityX = buf(validity);
+    List<ArrowBuf> dataBufsX = stringBufs(valuesX);
+    ArrowBuf validityA = buf(validity);
+    ArrowBuf dataA = intBuf(valuesA);
+    ArrowBuf validityB = buf(validity);
+    ArrowBuf dataB = intBuf(valuesB);
+
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+      numRows,
+      Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
+      Lists.newArrayList(validityA, dataA, validityX, dataBufsX.get(0), dataBufsX.get(1), validityB, dataB));
+
+    IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+    intVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(intVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < numRows; i++) {
+      assertFalse(intVector.isNull(i));
+      assertEquals(expected[i], intVector.get(i));
+    }
+    eval.close();
+  }
+
+  @Test
+  public void testBinaryFields() throws GandivaException {
+    Field a = Field.nullable("a", new ArrowType.Binary());
+    Field b = Field.nullable("b", new ArrowType.Binary());
+    List<Field> args = Lists.newArrayList(a, b);
+
+    ArrowType retType = new ArrowType.Bool();
+    ExpressionTree expr = TreeBuilder.makeExpression("equal", args,
+      Field.nullable("res", retType));
+
+    Schema schema = new Schema(Lists.newArrayList(args));
+    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+
+    int numRows = 5;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    String[] valuesA = new String[]{"a", "aa", "aaa", "aaaa", "A função"};
+    String[] valuesB = new String[]{"a", "bb", "aaa", "bbbbb", "A função"};
+    boolean[] expected = new boolean[]{true, false, true, false, true};
+
+    ArrowBuf validitya = buf(validity);
+    ArrowBuf validityb = buf(validity);
+    List<ArrowBuf> inBufsA = binaryBufs(valuesA);
+    List<ArrowBuf> inBufsB = binaryBufs(valuesB);
+
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+      numRows,
+      Lists.newArrayList(new ArrowFieldNode(numRows, 8), new ArrowFieldNode(numRows, 8)),
+      Lists.newArrayList(validitya, inBufsA.get(0), inBufsA.get(1), validityb, inBufsB.get(0), inBufsB.get(1)));
+
+    BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    bitVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bitVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < numRows; i++) {
+      assertFalse(bitVector.isNull(i));
+      assertEquals(expected[i], bitVector.getObject(i).booleanValue());
     }
     eval.close();
   }

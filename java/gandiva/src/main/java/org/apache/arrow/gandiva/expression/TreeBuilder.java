@@ -46,6 +46,14 @@ public class TreeBuilder {
     return new LongNode(longConstant);
   }
 
+  public static TreeNode makeStringLiteral(String stringConstant) {
+    return new StringNode(stringConstant);
+  }
+
+  public static TreeNode makeBinaryLiteral(byte[] binaryConstant) {
+    return new BinaryNode(binaryConstant);
+  }
+
   /**
    * create a null literal.
    */

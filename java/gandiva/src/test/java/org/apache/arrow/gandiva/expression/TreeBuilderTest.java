@@ -23,6 +23,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -54,6 +55,16 @@ public class TreeBuilderTest {
     n = TreeBuilder.makeLiteral(d);
     node = n.toProtobuf();
     assertEquals(d.doubleValue(), node.getDoubleNode().getValue(), 0.1);
+
+    String s = new String("hello");
+    n = TreeBuilder.makeStringLiteral(s);
+    node = n.toProtobuf();
+    assertArrayEquals(s.getBytes(), node.getStringNode().getValue().toByteArray());
+
+    byte[] b = new String("hello").getBytes();
+    n = TreeBuilder.makeBinaryLiteral(b);
+    node = n.toProtobuf();
+    assertArrayEquals(b, node.getBinaryNode().getValue().toByteArray());
   }
 
   @Test

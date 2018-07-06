@@ -77,7 +77,7 @@ class ExprDecomposer : public NodeVisitor {
   void PopThenEntry(const IfNode &node);
 
   // push 'else entry' into stack.
-  void PushElseEntry(const IfNode &node, int local_bmap_idx);
+  void PushElseEntry(const IfNode &node, int local_bitmap_idx);
 
   // pop 'else entry' from stack. returns 'true' if this is a terminal else condition
   // i.e no nested if condition below this node.

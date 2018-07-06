@@ -44,7 +44,7 @@ std::once_flag init_once_flag;
 
 // One-time initializations.
 void Engine::InitOnce() {
-  assert(!init_once_done_);
+  DCHECK_EQ(init_once_done_, false);
 
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
@@ -110,7 +110,7 @@ Status Engine::LoadPreCompiledIRFiles(const std::string &byte_code_file_path) {
   std::unique_ptr<llvm::Module> ir_module = move(module_or_error.get());
 
   /// Verify the IR module
-  if (llvm::verifyModule(*ir_module.get(), &llvm::errs())) {
+  if (llvm::verifyModule(*ir_module, &llvm::errs())) {
     return Status::CodeGenError("verify of IR Module failed");
   }
 
