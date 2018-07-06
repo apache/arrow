@@ -66,7 +66,6 @@ void TestInitialized(const Array& array) {
 }
 }  // namespace
 
-
 using std::string;
 using std::vector;
 
@@ -2101,8 +2100,6 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
     ASSERT_TRUE(IsZeroPadded(*result));
     TestInitialized(*result);
   }
-
-  
 }
 
 TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
@@ -3696,7 +3693,7 @@ TEST(TestRechunkArraysConsistently, Trivial) {
   ASSERT_EQ(rechunked.size(), 3);
 
   for (auto& arrvec : rechunked) {
-    for (auto& arr : arrvec ) {
+    for (auto& arr : arrvec) {
       ASSERT_TRUE(IsZeroPadded(*arr));
       TestInitialized(*arr);
     }
@@ -3749,7 +3746,7 @@ TEST(TestRechunkArraysConsistently, Plain) {
   ASSERT_ARRAYS_EQUAL(*rb[4], *expected);
 
   for (auto& arrvec : rechunked) {
-    for (auto& arr : arrvec ) {
+    for (auto& arr : arrvec) {
       ASSERT_TRUE(IsZeroPadded(*arr));
       TestInitialized(*arr);
     }
