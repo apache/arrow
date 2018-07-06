@@ -186,11 +186,19 @@ def import_tensorflow_extension():
         import importlib
         absolute_name = importlib.util.resolve_name("tensorflow", None)
     except (ImportError, AttributeError):
+        # Sometimes, importlib is not available (e.g. Python 2)
+        # or importlib.util is not available (e.g. Python 2.7)
         spec = None
     else:
         import sys
         for finder in sys.meta_path:
-            spec = finder.find_spec(absolute_name, None)
+            try:
+                spec = finder.find_spec(absolute_name, None)
+            except AttributeError:
+                # On Travis (Python 3.5) the above produced:
+                # AttributeError: 'VendorImporter' object has no
+                # attribute 'find_spec'
+                spec = None
             if spec is not None:
                 break
 
