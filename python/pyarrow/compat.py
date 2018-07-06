@@ -184,11 +184,11 @@ def import_tensorflow_extension():
 
     try:
         import importlib
-    except ImportError:
+        absolute_name = importlib.util.resolve_name("tensorflow", None)
+    except (ImportError, AttributeError):
         spec = None
     else:
         import sys
-        absolute_name = importlib.util.resolve_name("tensorflow", None)
         for finder in sys.meta_path:
             spec = finder.find_spec(absolute_name, None)
             if spec is not None:
