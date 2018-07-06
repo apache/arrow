@@ -38,10 +38,15 @@
 
 namespace arrow {
 
+using std::string;
+using std::vector;
+
 namespace {
 // used to prevent compiler optimizing away side-effect-less statements
 volatile int throw_away = 0;
 
+// checks if the padding of the buffers of the array is zero
+// also causes valgrind warnings if the padding bytes are uninitialized
 bool IsZeroPadded(const Array& array) {
   for (auto& buffer : array.data()->buffers) {
     if (buffer) {
@@ -55,19 +60,17 @@ bool IsZeroPadded(const Array& array) {
   return true;
 }
 
-// valgrind will detect uninitialized memory
+// Check if the valid buffer bytes are initialized by
+// callling memcmp on them which will cause valgrind warnings otherwise
 void TestInitialized(const Array& array) {
   for (auto& buffer : array.data()->buffers) {
     if (buffer) {
       std::vector<uint8_t> zeros(buffer->capacity());
-      throw_away = memcmp(buffer->data(), zeros.data(), buffer->capacity());
+      throw_away = memcmp(buffer->data(), zeros.data(), buffer->size());
     }
   }
 }
 }  // namespace
-
-using std::string;
-using std::vector;
 
 class TestArray : public ::testing::Test {
  public:
@@ -501,12 +504,11 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
 
   ASSERT_OK(this->builder_->AppendNulls(nullmap, size));
 
-  std::shared_ptr<Array> out;
-  ASSERT_OK(this->builder_->Finish(&out));
-  auto result = std::dynamic_pointer_cast<typename TypeParam::ArrayType>(out);
+  std::shared_ptr<Array> result;
+  ASSERT_OK(this->builder_->Finish(&result));
 
   for (int64_t i = 0; i < size; ++i) {
-    ASSERT_TRUE(result->IsValid(i) == static_cast<bool>(nullmap[i]));
+    ASSERT_EQ(result->IsValid(i), static_cast<bool>(nullmap[i]));
   }
 
   TestInitialized(*result);
@@ -1840,7 +1842,7 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   Done();
 
   for (unsigned index = 0; index < size; ++index) {
-    ASSERT_TRUE(result_->IsValid(index) == static_cast<bool>(nullmap[index]));
+    ASSERT_EQ(result_->IsValid(index), static_cast<bool>(nullmap[index]));
   }
 
   auto converted = std::dynamic_pointer_cast<Int8Array>(result_);
@@ -1979,7 +1981,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   Done();
 
   for (unsigned index = 0; index < size; ++index) {
-    ASSERT_TRUE(result_->IsValid(index) == static_cast<bool>(nullmap[index]));
+    ASSERT_EQ(result_->IsValid(index), static_cast<bool>(nullmap[index]));
   }
 
   auto converted = std::dynamic_pointer_cast<UInt8Array>(result_);
