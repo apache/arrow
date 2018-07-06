@@ -297,6 +297,19 @@ You can contact the author at :
 
 --------------------------------------------------------------------------------
 
+src/plasma/common.cc (some portions)
+
+Copyright (c) Austin Appleby (aappleby (AT) gmail)
+
+Some portions of this file are derived from code in the MurmurHash project
+
+All code is released to the public domain. For business purposes, Murmurhash is
+under the MIT license.
+
+https://sites.google.com/site/murmurhash/
+
+--------------------------------------------------------------------------------
+
 src/arrow/util (some portions): Apache 2.0, and 3-clause BSD
 
 Some portions of this module are derived from code in the Chromium project,
