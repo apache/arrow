@@ -21,6 +21,11 @@
 
 
 cdef class MemoryPool:
+
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly"
+                        .format(self.__class__.__name__))
+
     cdef void init(self, CMemoryPool* pool):
         self.pool = pool
 
@@ -39,6 +44,10 @@ cdef class LoggingMemoryPool(MemoryPool):
     cdef:
         unique_ptr[CLoggingMemoryPool] logging_pool
 
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly"
+                        .format(self.__class__.__name__))
+
     def __cinit__(self, MemoryPool pool):
         self.logging_pool.reset(new CLoggingMemoryPool(pool.pool))
         self.init(self.logging_pool.get())
@@ -52,16 +61,28 @@ cdef class ProxyMemoryPool(MemoryPool):
     cdef:
         unique_ptr[CProxyMemoryPool] proxy_pool
 
-    def __cinit__(self, MemoryPool pool):
-        self.proxy_pool.reset(new CProxyMemoryPool(pool.pool))
-        self.init(self.proxy_pool.get())
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly. "
+                        "Use pyarrow.proxy_memory_pool instead."
+                        .format(self.__class__.__name__))
 
 
 def default_memory_pool():
     cdef:
-        MemoryPool pool = MemoryPool()
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
     pool.init(c_get_memory_pool())
     return pool
+
+
+def proxy_memory_pool(MemoryPool parent):
+    """
+    Derived MemoryPool class that tracks the number of bytes and
+    maximum memory allocated through its direct calls.
+    """
+    cdef ProxyMemoryPool out = ProxyMemoryPool.__new__(ProxyMemoryPool)
+    out.proxy_pool.reset(new CProxyMemoryPool(parent.pool))
+    out.init(out.proxy_pool.get())
+    return out
 
 
 def set_memory_pool(MemoryPool pool):
@@ -69,8 +90,8 @@ def set_memory_pool(MemoryPool pool):
 
 
 cdef MemoryPool _default_memory_pool = default_memory_pool()
-cdef LoggingMemoryPool _logging_memory_pool = (
-    LoggingMemoryPool(_default_memory_pool))
+cdef LoggingMemoryPool _logging_memory_pool = LoggingMemoryPool.__new__(
+    LoggingMemoryPool, _default_memory_pool)
 
 
 def log_memory_allocations(enable=True):
