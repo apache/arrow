@@ -53,51 +53,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class NativeEvaluatorTest {
-
-  private final static String EMPTY_SCHEMA_PATH = "";
-
-  private BufferAllocator allocator;
-  private ArrowType boolType;
+public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
   private Charset utf8Charset = Charset.forName("UTF-8");
   private Charset utf16Charset = Charset.forName("UTF-16");
-
-  @Before
-  public void init() {
-    allocator = new RootAllocator(Long.MAX_VALUE);
-    boolType = new ArrowType.Bool();
-  }
-
-  ArrowBuf buf(byte[] bytes) {
-    ArrowBuf buffer = allocator.buffer(bytes.length);
-    buffer.writeBytes(bytes);
-    return buffer;
-  }
-
-  ArrowBuf intBuf(int[] ints) {
-    ArrowBuf buffer = allocator.buffer(ints.length * 4);
-    for (int i = 0; i < ints.length; i++) {
-      buffer.writeInt(ints[i]);
-    }
-    return buffer;
-  }
-
-  ArrowBuf longBuf(long[] longs) {
-    ArrowBuf buffer = allocator.buffer(longs.length * 8);
-    for (int i = 0; i < longs.length; i++) {
-      buffer.writeLong(longs[i]);
-    }
-    return buffer;
-  }
-
-  ArrowBuf doubleBuf(double[] data) {
-    ArrowBuf buffer = allocator.buffer(data.length * 8);
-    for (int i = 0; i < data.length; i++) {
-      buffer.writeDouble(data[i]);
-    }
-
-    return buffer;
-  }
 
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
     ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
@@ -125,20 +83,10 @@ public class NativeEvaluatorTest {
     return varBufs(strings, utf16Charset);
   }
 
-  ArrowBuf stringToMillis(String[] dates) {
-    ArrowBuf buffer = allocator.buffer(dates.length * 8);
-    for(int i = 0; i < dates.length; i++) {
-      Instant instant = Instant.parse(dates[i]);
-      buffer.writeLong(instant.getMillis());
-    }
-
-    return buffer;
-  }
-
   @Test
   public void testMakeProjector() throws GandivaException {
-    Field a = Field.nullable("a", new ArrowType.Int(64, true));
-    Field b = Field.nullable("b", new ArrowType.Int(64, true));
+    Field a = Field.nullable("a", int64);
+    Field b = Field.nullable("b", int64);
     TreeNode aNode = TreeBuilder.makeField(a);
     TreeNode bNode = TreeBuilder.makeField(b);
     List<TreeNode> args = Lists.newArrayList(aNode, bNode);
@@ -146,11 +94,10 @@ public class NativeEvaluatorTest {
     List<Field> cols = Lists.newArrayList(a, b);
     Schema schema = new Schema(cols);
 
-    ArrowType retType = new ArrowType.Int(64, true);
     TreeNode cond = TreeBuilder.makeFunction("greater_than", args, boolType);
-    TreeNode ifNode = TreeBuilder.makeIf(cond, aNode, bNode, retType);
+    TreeNode ifNode = TreeBuilder.makeIf(cond, aNode, bNode, int64);
 
-    ExpressionTree expr = TreeBuilder.makeExpression(ifNode, Field.nullable("c", retType));
+    ExpressionTree expr = TreeBuilder.makeExpression(ifNode, Field.nullable("c", int64));
     List<ExpressionTree> exprs = Lists.newArrayList(expr);
 
     NativeEvaluator evaluator1 = NativeEvaluator.makeProjector(schema, exprs);
@@ -164,11 +111,11 @@ public class NativeEvaluatorTest {
 
   @Test
   public void testEvaluate() throws GandivaException, Exception {
-    Field a = Field.nullable("a", new ArrowType.Int(32, true));
-    Field b = Field.nullable("b", new ArrowType.Int(32, true));
+    Field a = Field.nullable("a", int32);
+    Field b = Field.nullable("b", int32);
     List<Field> args = Lists.newArrayList(a, b);
 
-    Field retType = Field.nullable("c", new ArrowType.Int(32, true));
+    Field retType = Field.nullable("c", int32);
     ExpressionTree root = TreeBuilder.makeExpression("add", args, retType);
 
     List<ExpressionTree> exprs = Lists.newArrayList(root);
@@ -205,13 +152,15 @@ public class NativeEvaluatorTest {
     for (int i = 8; i < 16; i++) {
       assertTrue(intVector.isNull(i));
     }
+
+    // free buffers
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
   @Test
   public void testAdd3() throws GandivaException, Exception {
-    ArrowType int32 = new ArrowType.Int(32, true);
-
     Field x = Field.nullable("x", int32);
     Field N2x = Field.nullable("N2x", int32);
     Field N3x = Field.nullable("N3x", int32);
@@ -237,16 +186,18 @@ public class NativeEvaluatorTest {
 
     int[] expected = new int[]{18, 19, 20, 21, 21, 20, 19, 18, 18, 19, 20, 21, 21, 20, 19, 18};
 
-    ArrowBuf validity_buf = buf(validity);
+    ArrowBuf validity_x = buf(validity);
     ArrowBuf data_x = intBuf(values_x);
+    ArrowBuf validity_N2x = buf(validity);
     ArrowBuf data_N2x = intBuf(values_N2x);
+    ArrowBuf validity_N3x = buf(validity);
     ArrowBuf data_N3x = intBuf(values_N3x);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 8);
     ArrowRecordBatch batch = new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(fieldNode, fieldNode, fieldNode),
-            Lists.newArrayList(validity_buf, data_x, validity_buf, data_N2x, validity_buf, data_N3x));
+            Lists.newArrayList(validity_x, data_x, validity_N2x, data_N2x, validity_N3x, data_N3x));
 
     IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
     intVector.allocateNew(numRows);
@@ -262,6 +213,9 @@ public class NativeEvaluatorTest {
     for (int i = 8; i < 16; i++) {
       assertTrue(intVector.isNull(i));
     }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
@@ -313,9 +267,9 @@ public class NativeEvaluatorTest {
     ArrowBuf dataB = intBuf(valuesB);
 
     ArrowRecordBatch batch = new ArrowRecordBatch(
-      numRows,
-      Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
-      Lists.newArrayList(validityA, dataA, validityX, dataBufsX.get(0), dataBufsX.get(1), validityB, dataB));
+            numRows,
+            Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
+            Lists.newArrayList(validityA, dataA, validityX, dataBufsX.get(0), dataBufsX.get(1), validityB, dataB));
 
     IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
     intVector.allocateNew(numRows);
@@ -328,6 +282,9 @@ public class NativeEvaluatorTest {
       assertFalse(intVector.isNull(i));
       assertEquals(expected[i], intVector.get(i));
     }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
@@ -356,9 +313,9 @@ public class NativeEvaluatorTest {
     List<ArrowBuf> inBufsB = binaryBufs(valuesB);
 
     ArrowRecordBatch batch = new ArrowRecordBatch(
-      numRows,
-      Lists.newArrayList(new ArrowFieldNode(numRows, 8), new ArrowFieldNode(numRows, 8)),
-      Lists.newArrayList(validitya, inBufsA.get(0), inBufsA.get(1), validityb, inBufsB.get(0), inBufsB.get(1)));
+            numRows,
+            Lists.newArrayList(new ArrowFieldNode(numRows, 8), new ArrowFieldNode(numRows, 8)),
+            Lists.newArrayList(validitya, inBufsA.get(0), inBufsA.get(1), validityb, inBufsB.get(0), inBufsB.get(1)));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -371,6 +328,9 @@ public class NativeEvaluatorTest {
       assertFalse(bitVector.isNull(i));
       assertEquals(expected[i], bitVector.getObject(i).booleanValue());
     }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
@@ -409,8 +369,6 @@ public class NativeEvaluatorTest {
      * when x < 100 then 9
      * else 10
      */
-    ArrowType int64 = new ArrowType.Int(64, true);
-
     Field x = Field.nullable("x", int64);
     TreeNode x_node = TreeBuilder.makeField(x);
 
@@ -465,6 +423,8 @@ public class NativeEvaluatorTest {
       assertEquals(expected[i], bigIntVector.get(i));
     }
 
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
@@ -513,6 +473,8 @@ public class NativeEvaluatorTest {
       assertEquals(expected[i], bitVector.getObject(i).booleanValue());
     }
 
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
@@ -561,6 +523,8 @@ public class NativeEvaluatorTest {
       assertEquals(expected[i], bitVector.getObject(i).booleanValue());
     }
 
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
@@ -610,12 +574,13 @@ public class NativeEvaluatorTest {
     // second element should be null
     assertTrue(bigIntVector.isNull(1));
 
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
   @Test
   public void testIsNull() throws GandivaException, Exception {
-    ArrowType float64 = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
     Field x = Field.nullable("x", float64);
 
     TreeNode x_node = TreeBuilder.makeField(x);
@@ -651,12 +616,13 @@ public class NativeEvaluatorTest {
       assertTrue(bitVector.getObject(i).booleanValue());
     }
 
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
   @Test
   public void testEquals() throws GandivaException, Exception {
-    ArrowType int32 = new ArrowType.Int(32, true);
     Field c1 = Field.nullable("c1", int32);
     Field c2 = Field.nullable("c2", int32);
 
@@ -672,15 +638,16 @@ public class NativeEvaluatorTest {
     int[] values_c1 = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
     int[] values_c2 = new int[]{1, 2, 3, 4, 8, 7, 6, 5, 16, 15, 14, 13, 12, 11, 10, 9};
 
-    ArrowBuf validity_buf = buf(validity);
+    ArrowBuf validity_c1 = buf(validity);
     ArrowBuf data_c1 = intBuf(values_c1);
+    ArrowBuf validity_c2 = buf(validity);
     ArrowBuf data_c2 = intBuf(values_c2);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch = new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(fieldNode, fieldNode),
-            Lists.newArrayList(validity_buf, data_c1, validity_buf, data_c2));
+            Lists.newArrayList(validity_c1, data_c1, validity_c2, data_c2));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -699,12 +666,13 @@ public class NativeEvaluatorTest {
       assertTrue(bitVector.isNull(i));
     }
 
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
   @Test
   public void testSmallOutputVectors() throws GandivaException, Exception {
-    ArrowType int32 = new ArrowType.Int(32, true);
     Field a = Field.nullable("a", int32);
     Field b = Field.nullable("b", int32);
     List<Field> args = Lists.newArrayList(a, b);
@@ -750,12 +718,14 @@ public class NativeEvaluatorTest {
     for (int i = 8; i < 16; i++) {
       assertTrue(intVector.isNull(i));
     }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
     eval.close();
   }
 
   @Test
   public void testDateTime() throws GandivaException, Exception {
-    ArrowType int64 = new ArrowType.Int(64, true);
     ArrowType date64 = new ArrowType.Date(DateUnit.MILLISECOND);
     //ArrowType time32 = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
     ArrowType timeStamp = new ArrowType.Timestamp(TimeUnit.MILLISECOND, "TZ");
@@ -826,12 +796,14 @@ public class NativeEvaluatorTest {
 
     ArrowBuf validity_buf = buf(validity);
     ArrowBuf data_millis = stringToMillis(values);
+    ArrowBuf validity_buf2 = buf(validity);
+    ArrowBuf data_millis2 = stringToMillis(values);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch = new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(fieldNode, fieldNode),
-            Lists.newArrayList(validity_buf, data_millis, validity_buf, data_millis));
+            Lists.newArrayList(validity_buf, data_millis, validity_buf2, data_millis2));
 
     List<ValueVector> output = new ArrayList<ValueVector>();
     for(int i = 0; i < exprs.size(); i++) {
@@ -851,13 +823,15 @@ public class NativeEvaluatorTest {
         assertEquals(expected[j], bigIntVector.get(j));
       }
     }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
   }
 
   // This test is ignored until the cpp layer handles errors gracefully
   @Ignore
   @Test
   public void testUnknownFunction() {
-    ArrowType int8 = new ArrowType.Int(8, true);
     Field c1 = Field.nullable("c1", int8);
     Field c2 = Field.nullable("c2", int8);
 

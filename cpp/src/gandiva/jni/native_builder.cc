@@ -528,6 +528,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_eva
   gandiva::Status status;
   std::shared_ptr<ProjectorHolder> holder = MapLookup(module_id);
   if (holder == nullptr) {
+    std::cerr << "Unknown module id\n";
     ThrowException(env, "Unknown module id");
     return;
   }
@@ -629,7 +630,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_eva
   env->ReleaseLongArrayElements(out_buf_sizes, out_sizes, JNI_ABORT);
 
   if (!status.ok()) {
+    std::cerr << "Evaluate returned " << status.message() << "\n";
     ThrowException(env, status.message());
+    return;
   }
 }
 
