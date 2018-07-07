@@ -171,7 +171,7 @@ Status MakeRandomBooleanArray(const int length, bool include_nulls,
     test::random_null_bytes(length, 0.1, valid_bytes.data());
     *out = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
   } else {
-    *out = std::make_shared<BooleanArray>(length, data, nullptr, 0);
+    *out = std::make_shared<BooleanArray>(length, data, NULLPTR, 0);
   }
   return Status::OK();
 }
@@ -461,7 +461,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   auto sparse_no_nulls =
       std::make_shared<UnionArray>(sparse_type, length, sparse_children, type_ids_buffer);
   auto sparse = std::make_shared<UnionArray>(sparse_type, length, sparse_children,
-                                             type_ids_buffer, nullptr, null_bitmask, 1);
+                                             type_ids_buffer, NULLPTR, null_bitmask, 1);
 
   auto dense =
       std::make_shared<UnionArray>(dense_type, length, dense_children, type_ids_buffer,

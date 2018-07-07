@@ -22,8 +22,8 @@ set -ex
 # Fail fast for code linting issues
 
 if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
-  mkdir $TRAVIS_BUILD_DIR/cpp/lint
-  pushd $TRAVIS_BUILD_DIR/cpp/lint
+  mkdir $ARROW_CPP_DIR/lint
+  pushd $ARROW_CPP_DIR/lint
 
   cmake ..
   make lint
@@ -31,6 +31,8 @@ if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
   if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
     make check-format
   fi
+
+  python $ARROW_CPP_DIR/build-support/lint_cpp_cli.py $ARROW_CPP_DIR/src
 
   popd
 fi

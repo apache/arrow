@@ -143,7 +143,7 @@ struct ARROW_EXPORT PyBytesView {
   const char* bytes;
   Py_ssize_t size;
 
-  PyBytesView() : bytes(nullptr), size(0), ref(nullptr) {}
+  PyBytesView() : bytes(NULLPTR), size(0), ref(NULLPTR) {}
 
   // View the given Python object as binary-like, i.e. bytes
   Status FromBinary(PyObject* obj) { return FromBinary(obj, "a bytes object"); }
@@ -180,7 +180,7 @@ struct ARROW_EXPORT PyBytesView {
   }
 
  protected:
-  PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = nullptr)
+  PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = NULLPTR)
       : bytes(b), size(s), ref(obj) {}
 
   Status FromBinary(PyObject* obj, const char* expected_msg) {
