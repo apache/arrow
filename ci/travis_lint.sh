@@ -19,6 +19,8 @@
 
 set -ex
 
+# Disable toolchain variables in this script
+export ARROW_TRAVIS_USE_TOOLCHAIN=0
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 # Fail fast for code linting issues
