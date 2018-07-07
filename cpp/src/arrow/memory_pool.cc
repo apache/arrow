@@ -206,7 +206,7 @@ int64_t LoggingMemoryPool::max_memory() const {
 
 class ProxyMemoryPool::ProxyMemoryPoolImpl {
  public:
-  ProxyMemoryPoolImpl(MemoryPool* pool) : pool_(pool) {}
+  explicit ProxyMemoryPoolImpl(MemoryPool* pool) : pool_(pool) {}
 
   Status Allocate(int64_t size, uint8_t** out) {
     RETURN_NOT_OK(pool_->Allocate(size, out));
