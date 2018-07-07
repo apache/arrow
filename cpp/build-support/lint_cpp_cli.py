@@ -56,6 +56,7 @@ def lint_file(path):
 
 EXCLUSIONS = [
     'arrow/util/macros.h',
+    'arrow/util/parallel.h',
     'arrow/io/hdfs-internal.h'
 ]
 
@@ -72,8 +73,9 @@ for dirpath, _, filenames in os.walk(arguments.source_path):
                 break
 
         if exclude:
-            break
+            continue
 
         # Only run on header files
         if filename.endswith('.h'):
+            print(full_path)
             lint_file(full_path)
