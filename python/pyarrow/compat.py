@@ -204,12 +204,13 @@ def import_tensorflow_extension():
 
     if spec:
         module = importlib.util.module_from_spec(spec)
-        ext = os.path.join(module.__path__,
-                           "libtensorflow_framework.so")
-        if os.path.exists(ext):
-            import ctypes
-            ctypes.CDLL(ext)
-            tensorflow_loaded = True
+        for path in module.__path__:
+            ext = os.path.join(path, "libtensorflow_framework.so")
+            if os.path.exists(ext):
+                import ctypes
+                ctypes.CDLL(ext)
+                tensorflow_loaded = True
+                break
 
 
     # If the above failed, try to load tensorflow the normal way
