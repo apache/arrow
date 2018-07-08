@@ -36,7 +36,7 @@ class Ndarray1DIndexer {
  public:
   typedef int64_t size_type;
 
-  Ndarray1DIndexer() : arr_(nullptr), data_(nullptr) {}
+  Ndarray1DIndexer() : arr_(NULLPTR), data_(NULLPTR) {}
 
   explicit Ndarray1DIndexer(PyArrayObject* arr) : Ndarray1DIndexer() { Init(arr); }
 

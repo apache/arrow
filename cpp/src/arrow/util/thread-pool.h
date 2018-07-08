@@ -18,15 +18,11 @@
 #ifndef ARROW_UTIL_THREAD_POOL_H
 #define ARROW_UTIL_THREAD_POOL_H
 
-#include <condition_variable>
-#include <deque>
 #include <exception>
 #include <functional>
 #include <future>
 #include <list>
 #include <memory>
-#include <mutex>
-#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>

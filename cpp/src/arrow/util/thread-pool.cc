@@ -20,7 +20,11 @@
 #include "arrow/util/logging.h"
 
 #include <algorithm>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
 #include <string>
+#include <thread>
 
 namespace arrow {
 namespace internal {
