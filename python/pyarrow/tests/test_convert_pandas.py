@@ -2084,3 +2084,19 @@ def _pytime_to_micros(pytime):
             pytime.minute * 60000000 +
             pytime.second * 1000000 +
             pytime.microsecond)
+
+
+def test_convert_unsupported_type_error_message():
+    # ARROW-1454
+
+    df = pd.DataFrame({
+        't1': pd.date_range('2000-01-01', periods=20),
+        't2': pd.date_range('2000-05-01', periods=20)
+    })
+
+    # timedelta64 as yet unsupported
+    df['diff'] = df.t2 - df.t1
+
+    expected_msg = 'Conversion failed for column diff with type timedelta64'
+    with pytest.raises(pa.ArrowNotImplementedError, match=expected_msg):
+        pa.Table.from_pandas(df)
