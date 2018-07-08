@@ -238,7 +238,11 @@ Status PrimitiveBuilder<T>::Init(int64_t capacity) {
   RETURN_NOT_OK(data_->Resize(nbytes));
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
+
+  // TODO(wesm): ARROW-2790, ARROW-2811; removing this memset causes
+  // non-determinism in pyarrow/tests/test_serialization.py, but not sure why
   memset(raw_data_, 0, nbytes);
+
   return Status::OK();
 }
 
@@ -327,10 +331,12 @@ Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values) {
   return AppendValues(values);
 }
 
+namespace {
+
 Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
   if (buffer) {
-    if (bytes_filled > 0 && bytes_filled < buffer->size()) {
-      // Trim buffers
+    if (bytes_filled < buffer->size()) {
+      // Trim buffer
       RETURN_NOT_OK(buffer->Resize(bytes_filled));
     }
     // zero the padding
@@ -340,6 +346,8 @@ Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
   }
   return Status::OK();
 }
+
+}  // namespace
 
 template <typename T>
 Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
@@ -756,8 +764,7 @@ Status BooleanBuilder::Resize(int64_t capacity) {
     if (new_bytes > old_bytes) {
       RETURN_NOT_OK(data_->Resize(new_bytes));
       raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-      memset(raw_data_ + old_bytes, 0,
-             static_cast<size_t>(new_bytes - old_bytes));
+      memset(raw_data_ + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
     }
   }
   return Status::OK();
