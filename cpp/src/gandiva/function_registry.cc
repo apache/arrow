@@ -101,8 +101,9 @@ using std::vector;
   NUMERIC_TYPES(INNER, NAME), INNER(NAME, boolean)
 
 // Iterate the inner macro over all data types
-#define DATE_TYPES(INNER, NAME) \
-  INNER(NAME, date64), INNER(NAME, time64), INNER(NAME, timestamp)
+#define DATE_TYPES(INNER, NAME) INNER(NAME, date64), INNER(NAME, timestamp)
+
+#define TIME_TYPES(INNER, NAME) INNER(NAME, time32)
 
 // Iterate the inner macro over all data types
 #define VAR_LEN_TYPES(INNER, NAME) INNER(NAME, utf8), INNER(NAME, binary)
@@ -136,12 +137,26 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
     NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
 
-    // date/time operations
+    // date/timestamp operations
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMonth),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
+
+    // time operations
+    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
+    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
+
+    // timestamp diff operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffSecond, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffMinute, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffHour, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffDay, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffWeek, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffMonth, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffQuarter, timestamp, timestamp, int32),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffYear, timestamp, timestamp, int32),
 
     // utf8/binary operations
     UNARY_SAFE_NULL_IF_NULL(octet_length, utf8, int32),

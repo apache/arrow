@@ -32,6 +32,7 @@ LLVMTypes::LLVMTypes(llvm::LLVMContext &context) : context_(context) {
       {arrow::Type::type::FLOAT, float_type()},
       {arrow::Type::type::DOUBLE, double_type()},
       {arrow::Type::type::DATE64, i64_type()},
+      {arrow::Type::type::TIME32, i32_type()},
       {arrow::Type::type::TIME64, i64_type()},
       {arrow::Type::type::TIMESTAMP, i64_type()},
       {arrow::Type::type::STRING, i8_ptr_type()},

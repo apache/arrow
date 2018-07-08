@@ -23,7 +23,8 @@ set(PRECOMPILED_SRCS
     print.cc
     sample.cc
     string_ops.cc
-    time.cc)
+    time.cc
+    timestamp_diff.cc)
 
 # Create bitcode for each of the source files.
 foreach(SRC_FILE ${PRECOMPILED_SRCS})

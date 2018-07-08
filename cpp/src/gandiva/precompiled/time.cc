@@ -20,11 +20,13 @@ extern "C" {
 #include "./types.h"
 
 #define MILLIS_TO_SEC(millis) (millis / 1000)
+#define MILLIS_TO_MINS(millis) ((millis) / (60 * 1000))
+#define MILLIS_TO_HOUR(millis) ((millis) / (60 * 60 * 1000))
+#define MINS_IN_HOUR 60
 
 // Expand inner macro for all date types.
 #define DATE_TYPES(INNER) \
   INNER(date64)           \
-  INNER(time64)           \
   INNER(timestamp)
 
 // Extract  year.
@@ -82,5 +84,20 @@ DATE_TYPES(EXTRACT_HOUR)
   }
 
 DATE_TYPES(EXTRACT_MINUTE)
+
+// Functions that work on millis in a day
+#define EXTRACT_MINUTE_TIME(TYPE)             \
+  FORCE_INLINE                                \
+  int64 extractMinute##_##TYPE(TYPE millis) { \
+    TYPE mins = MILLIS_TO_MINS(millis);       \
+    return (mins % (MINS_IN_HOUR));           \
+  }
+
+#define EXTRACT_HOUR_TIME(TYPE) \
+  FORCE_INLINE                  \
+  int64 extractHour##_##TYPE(TYPE millis) { return MILLIS_TO_HOUR(millis); }
+
+EXTRACT_MINUTE_TIME(time32)
+EXTRACT_HOUR_TIME(time32)
 
 }  // extern "C"
