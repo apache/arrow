@@ -343,7 +343,6 @@ Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
 template <typename T>
 Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(TrimBuffer(TypeTraits<T>::bytes_required(length_), data_.get()));
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
 
   *out = ArrayData::Make(type_, length_, {null_bitmap_, data_}, null_count_);
 
@@ -423,7 +422,6 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
 
   *out = ArrayData::Make(output_type, length_, {null_bitmap_, data_}, null_count_);
 
@@ -582,7 +580,6 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
 
   *out = ArrayData::Make(output_type, length_, {null_bitmap_, data_}, null_count_);
 
@@ -766,7 +763,6 @@ Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), data_.get()));
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
 
   *out = ArrayData::Make(boolean(), length_, {null_bitmap_, data_}, null_count_);
 
@@ -1275,7 +1271,6 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
   *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
   return Status::OK();
 }
@@ -1349,8 +1344,6 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   } else {
     RETURN_NOT_OK(value_builder_->FinishInternal(&items));
   }
-
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
 
   *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets}, null_count_);
   (*out)->child_data.emplace_back(std::move(items));
@@ -1435,8 +1428,6 @@ Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> offsets, value_data;
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
   RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
-
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
 
   *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets, value_data}, null_count_,
                          0);
@@ -1604,7 +1595,6 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
   *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
 
   null_bitmap_ = nullptr;
@@ -1627,7 +1617,6 @@ StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* 
 }
 
 Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
   *out = ArrayData::Make(type_, length_, {null_bitmap_}, null_count_);
 
   (*out)->child_data.resize(field_builders_.size());
