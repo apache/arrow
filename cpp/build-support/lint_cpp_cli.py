@@ -68,7 +68,6 @@ for dirpath, _, filenames in os.walk(arguments.source_path):
         exclude = False
         for exclusion in EXCLUSIONS:
             if exclusion in full_path:
-                # print('Skipping excluded header: {0}'.format(filename))
                 exclude = True
                 break
 
@@ -77,5 +76,4 @@ for dirpath, _, filenames in os.walk(arguments.source_path):
 
         # Only run on header files
         if filename.endswith('.h'):
-            print(full_path)
             lint_file(full_path)
