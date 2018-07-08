@@ -304,11 +304,8 @@ class ARROW_EXPORT BufferBuilder {
     size_ += length;
   }
 
-  Status Finish(std::shared_ptr<Buffer>* out) {
-    // Do not shrink to fit to avoid unneeded realloc
-    if (size_ > 0) {
-      RETURN_NOT_OK(buffer_->Resize(size_, false));
-    }
+  Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
+    RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     *out = buffer_;
     Reset();
     return Status::OK();

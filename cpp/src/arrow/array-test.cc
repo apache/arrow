@@ -245,7 +245,10 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
 
   BooleanBuilder builder;
   ASSERT_OK(builder.Reserve(length));
+
+  // Advance does not write to data, see docstring
   ASSERT_OK(builder.Advance(length));
+  memset(builder.data()->mutable_data(), 0, BitUtil::BytesForBits(length));
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(&builder, &result);
@@ -1414,7 +1417,9 @@ TEST_F(TestBinaryBuilder, TestCapacityReserve) {
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(0, result_->null_count());
   ASSERT_EQ(reps * 40, result_->value_data()->size());
-  ASSERT_EQ(expected_capacity, result_->value_data()->capacity());
+
+  // Capacity is shrunk after `Finish`
+  ASSERT_EQ(640, result_->value_data()->capacity());
 }
 
 TEST_F(TestBinaryBuilder, TestZeroLength) {
