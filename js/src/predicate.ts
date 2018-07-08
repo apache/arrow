@@ -77,10 +77,9 @@ export class Col<T= any> extends Value<T> {
 
 export abstract class Predicate {
     abstract bind(batch: RecordBatch): PredicateFunc;
-    and(expr: Predicate): Predicate { return new And(this, expr); }
-    or(expr: Predicate): Predicate { return new Or(this, expr); }
+    and(...expr: Predicate[]): And { return new And(this, ...expr); }
+    or(...expr: Predicate[]): And { return new Or(this, ...expr); }
     not(): Predicate { return new Not(this); }
-    ands(): Predicate[] { return [this]; }
 }
 
 export abstract class ComparisonPredicate<T= any> extends Predicate {
@@ -112,25 +111,38 @@ export abstract class ComparisonPredicate<T= any> extends Predicate {
 }
 
 export abstract class CombinationPredicate extends Predicate {
-    constructor(public readonly left: Predicate, public readonly right: Predicate) {
+    readonly predicates: Predicate[]
+    constructor(...predicates: Predicate[]) {
         super();
+        this.predicates = predicates;
     }
 }
 
 export class And extends CombinationPredicate {
-    bind(batch: RecordBatch) {
-        const left = this.left.bind(batch);
-        const right = this.right.bind(batch);
-        return (idx: number, batch: RecordBatch) => left(idx, batch) && right(idx, batch);
+    constructor(...predicates: Predicate[]) {
+        // Flatten any Ands
+        predicates = predicates.reduce((accum: Predicate[], p: Predicate): Predicate[] => {
+            return accum.concat(p instanceof And ? p.predicates : p)
+        }, [])
+        super(...predicates);
     }
-    ands(): Predicate[] { return this.left.ands().concat(this.right.ands()); }
+    bind(batch: RecordBatch) {
+        const bound = this.predicates.map((p) => p.bind(batch));
+        return (idx: number, batch: RecordBatch) => bound.every((p) => p(idx, batch));
+    }
 }
 
 export class Or extends CombinationPredicate {
+    constructor(...predicates: Predicate[]) {
+        // Flatten any Ors
+        predicates = predicates.reduce((accum: Predicate[], p: Predicate): Predicate[] => {
+            return accum.concat(p instanceof Or ? p.predicates : p)
+        }, [])
+        super(...predicates);
+    }
     bind(batch: RecordBatch) {
-        const left = this.left.bind(batch);
-        const right = this.right.bind(batch);
-        return (idx: number, batch: RecordBatch) => left(idx, batch) || right(idx, batch);
+        const bound = this.predicates.map((p) => p.bind(batch));
+        return (idx: number, batch: RecordBatch) => bound.some((p) => p(idx, batch));
     }
 }
 
@@ -256,6 +268,8 @@ export class CustomPredicate extends Predicate {
 
 export function lit(v: any): Value<any> { return new Literal(v); }
 export function col(n: string): Col<any> { return new Col(n); }
+export function and(...p: Predicate[]): Predicate { return new And(...p); }
+export function or(...p: Predicate[]): Predicate { return new Or(...p); }
 export function custom(next: PredicateFunc, bind: (batch: RecordBatch) => void) {
     return new CustomPredicate(next, bind);
 }

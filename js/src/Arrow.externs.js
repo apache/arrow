@@ -74,6 +74,8 @@ CountByResult.prototype.asJSON;
 
 var col = function () {};
 var lit = function () {};
+var and = function () {};
+var or = function () {};
 var custom = function () {};
 
 var Value = function() {};
