@@ -35,38 +35,45 @@ if __name__ == "__main__":
     parser.add_argument("exclude_globs",
                         help="Filename containing globs for files "
                         "that should be excluded from the checks")
-    parser.add_argument("source_dir", 
+    parser.add_argument("source_dir",
                         help="Root directory of the source code")
     parser.add_argument("--fix", default=False,
                         action="store_true",
                         help="If specified, will re-format the source "
                         "code instead of comparing the re-formatted "
                         "output, defaults to %(default)s")
+    parser.add_argument("--quiet", default=False,
+                        action="store_true",
+                        help="If specified, only print errors")
 
     arguments = parser.parse_args()
 
     formatted_filenames = []
     exclude_globs = [line.strip() for line in open(arguments.exclude_globs)]
     for directory, subdirs, filenames in os.walk(arguments.source_dir):
-        fullpaths = (os.path.join(directory, filename) for filename in filenames)
-        source_files = filter(lambda x: x.endswith(".h") or x.endswith(".cc"), fullpaths)
+        fullpaths = (os.path.join(directory, filename)
+                     for filename in filenames)
+        source_files = [x for x in fullpaths
+                        if x.endswith(".h") or x.endswith(".cc")]
         formatted_filenames.extend(
             # Filter out files that match the globs in the globs file
             [filename for filename in source_files
              if not any((fnmatch.fnmatch(filename, exclude_glob)
                          for exclude_glob in exclude_globs))])
-        
+
     error = False
     if arguments.fix:
-        # Print out each file on its own line, but run
-        # clang format once for all of the files
-        print("\n".join(map(lambda x: "Formatting {}".format(x),
-                            formatted_filenames)))
+        if not arguments.quiet:
+            # Print out each file on its own line, but run
+            # clang format once for all of the files
+            print("\n".join(map(lambda x: "Formatting {}".format(x),
+                                formatted_filenames)))
         subprocess.check_call([arguments.clang_format_binary,
                                "-i"] + formatted_filenames)
     else:
         for filename in formatted_filenames:
-            print("Checking {}".format(filename))
+            if not arguments.quiet:
+                print("Checking {}".format(filename))
             #
             # Due to some incompatibilities between Python 2 and
             # Python 3, there are some specific actions we take here
@@ -101,6 +108,7 @@ if __name__ == "__main__":
                     tofile="{} (after clang format)".format(
                         filename)))
                 if diff:
+                    print("{} had clang-format style issues".format(filename))
                     # Print out the diff to stderr
                     error = True
                     sys.stderr.writelines(diff)
