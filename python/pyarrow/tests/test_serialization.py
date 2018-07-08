@@ -717,3 +717,15 @@ def test_tensor_alignment():
     ys = pa.deserialize(pa.serialize(xs).to_buffer())
     for y in ys:
         assert y.ctypes.data % 64 == 0
+
+def test_repeated_serialization():
+    # ARROW-1996: serializing several objects to the same file
+    for u, v in zip(PRIMITIVE_OBJECTS, PRIMITIVE_OBJECTS[1:]):
+        f = pa.BufferOutputStream()
+        pa.serialize_to(u, f)
+        pa.serialize_to(v, f)
+        f = pa.BufferReader(f.get_result())
+        uu = pa.deserialize_from(f, base=None)
+        vv = pa.deserialize_from(f, base=None)
+        assert_equal(uu, u)
+        assert_equal(vv, v)

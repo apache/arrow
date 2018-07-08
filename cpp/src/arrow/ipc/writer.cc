@@ -839,7 +839,9 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl : public StreamBookKe
 
     // Write 0 EOS message
     const int32_t kEos = 0;
-    return Write(&kEos, sizeof(int32_t));
+    RETURN_NOT_OK(Write(&kEos, sizeof(int32_t)));
+    // Align the stream for further data to be written to it
+    return Align();
   }
 
   Status CheckStarted() {
