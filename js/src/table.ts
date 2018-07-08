@@ -29,7 +29,7 @@ export type NextFunc = (idx: number, batch: RecordBatch) => void;
 export type BindFunc = (batch: RecordBatch) => void;
 
 export interface DataFrame {
-    readonly length: number;
+    count(): number;
     filter(predicate: Predicate): DataFrame;
     scan(next: NextFunc, bind?: BindFunc): void;
     countBy(col: (Col|string)): CountByResult;
@@ -171,6 +171,9 @@ export class Table implements DataFrame {
         }
         return new CountByResult(vector.dictionary, IntVector.from(counts));
     }
+    public count(): number {
+        return this.length;
+    }
     public select(...columnNames: string[]) {
         return new Table(this.batches.map((batch) => batch.select(...columnNames)));
     }
@@ -218,7 +221,7 @@ class FilteredDataFrame implements DataFrame {
             }
         }
     }
-    public get length(): number {
+    public count(): number {
         // inlined version of this:
         // let sum = 0;
         // this.parent.scan((idx, columns) => {
