@@ -144,21 +144,21 @@ public class MessageSerializer {
   }
 
   /**
-   * Deserializes a schema object. Format is from serialize().
+   * Deserializes an Arrow Schema object from a schema message. Format is from serialize().
    *
-   * @param message A Message of type MessageHeader.Schema
-   * @return the deserialized object
+   * @param schemaMessage a Message of type MessageHeader.Schema
+   * @return the deserialized Arrow Schema
    */
-  public static Schema deserializeSchema(Message message) {
+  public static Schema deserializeSchema(Message schemaMessage) {
     return Schema.convertSchema((org.apache.arrow.flatbuf.Schema)
-        message.header(new org.apache.arrow.flatbuf.Schema()));
+      schemaMessage.header(new org.apache.arrow.flatbuf.Schema()));
   }
 
   /**
-   * Deserializes a schema object. Format is from serialize().
+   * Deserializes an Arrow Schema read from the input channel. Format is from serialize().
    *
    * @param in the channel to deserialize from
-   * @return the deserialized object
+   * @return the deserialized Arrow Schema
    * @throws IOException if something went wrong
    */
   public static Schema deserializeSchema(ReadChannel in) throws IOException {
@@ -215,6 +215,14 @@ public class MessageSerializer {
     return new ArrowBlock(start, metadataLength + 4, bufferLength);
   }
 
+  /**
+   * Write the Arrow buffers of the record batch to the output channel.
+   *
+   * @param out the output channel to write the buffers to
+   * @param batch an ArrowRecordBatch containing buffers to be written
+   * @return the number of bytes written
+   * @throws IOException
+   */
   public static long writeBatchBuffers(WriteChannel out, ArrowRecordBatch batch) throws IOException {
     long bufferStart = out.getCurrentPosition();
     List<ArrowBuf> buffers = batch.getBuffers();
@@ -238,25 +246,26 @@ public class MessageSerializer {
   }
 
   /**
-   * Deserializes a RecordBatch.
+   * Deserializes an ArrowRecordBatch from a record batch message and data in an ArrowBuf.
    *
-   * @param message the object to deserialize from
+   * @param recordBatchMessage a Message of type MessageHeader.RecordBatch
    * @param bodyBuffer Arrow buffer containing the RecordBatch data
-   * @return the deserialized object
+   * @return the deserialized ArrowRecordBatch
    * @throws IOException if something went wrong
    */
-  public static ArrowRecordBatch deserializeRecordBatch(Message message, ArrowBuf bodyBuffer)
+  public static ArrowRecordBatch deserializeRecordBatch(Message recordBatchMessage, ArrowBuf bodyBuffer)
       throws IOException {
-    RecordBatch recordBatchFB = (RecordBatch) message.header(new RecordBatch());
+    RecordBatch recordBatchFB = (RecordBatch) recordBatchMessage.header(new RecordBatch());
     return deserializeRecordBatch(recordBatchFB, bodyBuffer);
   }
 
   /**
-   * Deserializes a RecordBatch.
+   * Deserializes an ArrowRecordBatch read from the input channel. This uses the given allocator
+   * to create an ArrowBuf for the batch body data.
    *
    * @param in Channel to read a RecordBatch message and data from
    * @param allocator BufferAllocator to allocate an Arrow buffer to read message body data
-   * @return the deserialized object
+   * @return the deserialized ArrowRecordBatch
    * @throws IOException
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
@@ -270,13 +279,13 @@ public class MessageSerializer {
   }
 
   /**
-   * Deserializes a RecordBatch knowing the size of the entire message up front. This
+   * Deserializes an ArrowRecordBatch knowing the size of the entire message up front. This
    * minimizes the number of reads to the underlying stream.
    *
    * @param in    the channel to deserialize from
    * @param block the object to deserialize to
    * @param alloc to allocate buffers
-   * @return the deserialized object
+   * @return the deserialized ArrowRecordBatch
    * @throws IOException if something went wrong
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block,
@@ -307,7 +316,7 @@ public class MessageSerializer {
   }
 
   /**
-   * Deserializes a record batch given the Flatbuffer metadata and in-memory body.
+   * Deserializes an ArrowRecordBatch given the Flatbuffer metadata and in-memory body.
    *
    * @param recordBatchFB Deserialized FlatBuffer record batch
    * @param body Read body of the record batch
@@ -384,11 +393,12 @@ public class MessageSerializer {
   }
 
   /**
-   * Deserializes a DictionaryBatch.
+   * Deserializes an ArrowDictionaryBatch from a dictionary batch Message and data in an ArrowBuf.
    *
-   * @param message the message metadata to deserialize
+   * @param message a message of type MessageHeader.DictionaryBatch
    * @param bodyBuffer Arrow buffer containing the DictionaryBatch data
-   * @return the corresponding dictionary batch
+   *                   of type MessageHeader.DictionaryBatch
+   * @return the deserialized ArrowDictionaryBatch
    * @throws IOException if something went wrong
    */
   public static ArrowDictionaryBatch deserializeDictionaryBatch(Message message, ArrowBuf bodyBuffer) throws IOException {
@@ -397,6 +407,15 @@ public class MessageSerializer {
     return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
   }
 
+  /**
+   * Deserializes an ArrowDictionaryBatch read from the input channel. This uses the given allocator
+   * to create an ArrowBuf for the batch body data.
+   *
+   * @param in Channel to read a DictionaryBatch message and data from
+   * @param allocator BufferAllocator to allocate an Arrow buffer to read message body data
+   * @return the deserialized ArrowDictionaryBatch
+   * @throws IOException
+   */
   public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
     ArrowBufReadHolder holder = new ArrowBufReadHolder();
     readMessage(holder, in);
@@ -414,7 +433,7 @@ public class MessageSerializer {
    * @param in    where to read from
    * @param block block metadata for deserializing
    * @param alloc to allocate new buffers
-   * @return the corresponding dictionary
+   * @return the deserialized ArrowDictionaryBatch
    * @throws IOException if something went wrong
    */
   public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
