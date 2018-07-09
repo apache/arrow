@@ -35,9 +35,10 @@ RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -
 
 ENV PATH="/opt/conda/bin:$PATH"
 
-# create conda env with deps
+# create conda env with the required dependences
 RUN conda create -y -q -c conda-forge -n pyarrow-dev \
       python=3.6 \
+      nomkl \
       numpy \
       six \
       setuptools \
@@ -56,9 +57,16 @@ RUN conda create -y -q -c conda-forge -n pyarrow-dev \
       jemalloc \
       lz4-c \
       zstd \
-      nomkl \
-      libhdfs3 \
+ && conda clean --all
+
+# installing in the previous step boost=1.60 and boost-cpp=1.67 gets installed,
+# cmake finds 1.60 and parquet fails to compile
+# installing it in a separate step, boost=1.60 and boost-cpp=1.64 gets
+# installed, cmake finds 1.64
+# libhdfs3 needs to be pinned,see ARROW-1465 and ARROW-1445
+RUN conda install -y -q -n pyarrow-dev -c conda-forge \
       hdfs3 \
+      libhdfs3=2.2.31 \
  && conda clean --all
 
 ADD . /apache-arrow

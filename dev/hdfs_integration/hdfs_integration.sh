@@ -37,6 +37,8 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export PYARROW_CXXFLAGS=$CXXFLAGS
 export PYARROW_CMAKE_GENERATOR=Ninja
 
+export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
+
 # Install arrow-cpp
 mkdir -p arrow/cpp/build
 pushd arrow/cpp/build
@@ -86,4 +88,4 @@ popd
 # Run tests
 arrow/cpp/build/debug/io-hdfs-test
 
-python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs
+#python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs
