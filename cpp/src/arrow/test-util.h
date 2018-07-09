@@ -128,6 +128,8 @@ inline Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* poo
   RETURN_NOT_OK(buffer->Resize(nbytes));
   auto immutable_data = reinterpret_cast<const uint8_t*>(values.data());
   std::copy(immutable_data, immutable_data + nbytes, buffer->mutable_data());
+  memset(buffer->mutable_data() + nbytes, 0,
+         static_cast<size_t>(buffer->capacity() - nbytes));
 
   *result = buffer;
   return Status::OK();
