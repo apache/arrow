@@ -37,8 +37,6 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export PYARROW_CXXFLAGS=$CXXFLAGS
 export PYARROW_CMAKE_GENERATOR=Ninja
 
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-
 # Install arrow-cpp
 mkdir -p arrow/cpp/build
 pushd arrow/cpp/build
@@ -86,10 +84,11 @@ python setup.py build_ext \
 popd
 
 # Run tests
+export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 export LIBHDFS3_CONF=arrow/dev/hdfs_integration/libhdfs3-client-config.xml
 
 # C++
 arrow/cpp/build/debug/io-hdfs-test
 
 # Python
-# python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs
+python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs

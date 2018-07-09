@@ -15,25 +15,25 @@
 # limitations under the License.
 #
 
-FROM ubuntu:18.04
+# FROM ubuntu:18.04
+FROM gelog/hadoop
+
+ENV CC=gcc \
+    CXX=g++ \
+    PATH=/opt/conda/bin:$PATH
 
 RUN apt-get update -y \
  && apt-get install -y \
-		  gcc-8 \
-		  g++-8 \
+		  gcc \
+		  g++ \
 		  git \
 		  wget \
 		  ninja-build
-
-ENV CC=gcc-8
-ENV CXX=g++-8
 
 # Miniconda - Python 3.6, 64-bit, x86, latest
 RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh \
  && /bin/bash conda.sh -b -p /opt/conda \
  && rm conda.sh
-
-ENV PATH="/opt/conda/bin:$PATH"
 
 # create conda env with the required dependences
 RUN conda create -y -q -c conda-forge -n pyarrow-dev \
