@@ -742,7 +742,9 @@ Status BooleanBuilder::Init(int64_t capacity) {
   // We zero the memory for booleans to keep things simple; for some reason if
   // we do not, even though we may write every bit (through in-place | or &),
   // valgrind will still show a warning. If we do not zero the bytes here, we
-  // will have to be careful to zero them in AppendNull and AppendNulls
+  // will have to be careful to zero them in AppendNull and AppendNulls. Also,
+  // zeroing the bits results in deterministic bits when each byte may have a
+  // mix of nulls and not nulls.
   memset(raw_data_, 0, static_cast<size_t>(nbytes));
 
   return Status::OK();
