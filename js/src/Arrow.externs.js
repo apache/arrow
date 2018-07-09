@@ -95,6 +95,9 @@ Value.prototype.ne;
 var Col = function() {};
 /** @type {?} */
 Col.prototype.bind;
+var CombinationPredicate = function () {};
+/** @type {?} */
+CombinationPredicate.prototype.predicates;
 var Or = function() {};
 var And = function() {};
 var Not = function() {};
