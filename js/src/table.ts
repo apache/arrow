@@ -29,10 +29,11 @@ export type NextFunc = (idx: number, batch: RecordBatch) => void;
 export type BindFunc = (batch: RecordBatch) => void;
 
 export interface DataFrame {
+    count(): number;
     filter(predicate: Predicate): DataFrame;
     scan(next: NextFunc, bind?: BindFunc): void;
-    count(): number;
     countBy(col: (Col|string)): CountByResult;
+    [Symbol.iterator](): IterableIterator<Struct['TValue']>;
 }
 
 export class Table implements DataFrame {
@@ -143,7 +144,6 @@ export class Table implements DataFrame {
             }
         }
     }
-    public count(): number { return this.length; }
     public countBy(name: Col | string): CountByResult {
         const batches = this.batches, numBatches = batches.length;
         const count_by = typeof name === 'string' ? new Col(name) : name;
@@ -170,6 +170,9 @@ export class Table implements DataFrame {
             }
         }
         return new CountByResult(vector.dictionary, IntVector.from(counts));
+    }
+    public count(): number {
+        return this.length;
     }
     public select(...columnNames: string[]) {
         return new Table(this.batches.map((batch) => batch.select(...columnNames)));
@@ -238,6 +241,26 @@ class FilteredDataFrame implements DataFrame {
             }
         }
         return sum;
+    }
+    public *[Symbol.iterator](): IterableIterator<Struct['TValue']> {
+        // inlined version of this:
+        // this.parent.scan((idx, columns) => {
+        //     if (this.predicate(idx, columns)) next(idx, columns);
+        // });
+        const batches = this.batches;
+        const numBatches = batches.length;
+        for (let batchIndex = -1; ++batchIndex < numBatches;) {
+            // load batches
+            const batch = batches[batchIndex];
+            // TODO: bind batches lazily
+            // If predicate doesn't match anything in the batch we don't need
+            // to bind the callback
+            const predicate = this.predicate.bind(batch);
+            // yield all indices
+            for (let index = -1, numRows = batch.length; ++index < numRows;) {
+                if (predicate(index, batch)) { yield batch.get(index) as any; }
+            }
+        }
     }
     public filter(predicate: Predicate): DataFrame {
         return new FilteredDataFrame(
