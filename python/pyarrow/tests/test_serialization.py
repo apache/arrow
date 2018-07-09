@@ -717,3 +717,10 @@ def test_tensor_alignment():
     ys = pa.deserialize(pa.serialize(xs).to_buffer())
     for y in ys:
         assert y.ctypes.data % 64 == 0
+
+
+def test_serialization_determinism():
+    for obj in COMPLEX_OBJECTS:
+        buf1 = pa.serialize(obj).to_buffer()
+        buf2 = pa.serialize(obj).to_buffer()
+        assert buf1.to_pybytes() == buf2.to_pybytes()

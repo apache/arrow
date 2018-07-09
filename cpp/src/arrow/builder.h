@@ -197,14 +197,20 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  /// The memory at the corresponding data slot is set to 0 to prevent uninitialized
+  /// memory access
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     RETURN_NOT_OK(Reserve(length));
+    memset(raw_data_ + length_, 0,
+           static_cast<size_t>(TypeTraits<Type>::bytes_required(length)));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
 
   Status AppendNull() {
     RETURN_NOT_OK(Reserve(1));
+    memset(raw_data_ + length_, 0,
+           static_cast<size_t>(TypeTraits<Type>::bytes_required(1)));
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }
@@ -340,12 +346,14 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     RETURN_NOT_OK(Reserve(length));
+    memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
 
   Status AppendNull() {
     RETURN_NOT_OK(Reserve(1));
+    memset(data_->mutable_data() + length_ * int_size_, 0, int_size_);
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }
@@ -551,12 +559,23 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     RETURN_NOT_OK(Reserve(length));
+    // zero bits starting with the next whole bytes, since the bytes before
+    // should be already initialized
+
+    const int64_t old_bytes = BitUtil::BytesForBits(length_);
+    const int64_t new_bytes = BitUtil::BytesForBits(length_ + length);
+    memset(raw_data_ + old_bytes, 0, new_bytes - old_bytes);
     UnsafeAppendToBitmap(valid_bytes, length);
+
     return Status::OK();
   }
 
   Status AppendNull() {
     RETURN_NOT_OK(Reserve(1));
+    if (BitUtil::IsMultipleOf8(length_)) {
+      // zero next byte
+      memset(raw_data_ + (length_ / 8), 0, 1);
+    }
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }

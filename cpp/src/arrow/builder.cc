@@ -238,6 +238,7 @@ Status PrimitiveBuilder<T>::Init(int64_t capacity) {
   RETURN_NOT_OK(data_->Resize(nbytes));
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
+
   return Status::OK();
 }
 
@@ -326,13 +327,29 @@ Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values) {
   return AppendValues(values);
 }
 
+namespace {
+
+Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
+  if (buffer) {
+    if (bytes_filled < buffer->size()) {
+      // Trim buffer
+      RETURN_NOT_OK(buffer->Resize(bytes_filled));
+    }
+    // zero the padding
+    memset(buffer->mutable_data() + bytes_filled, 0, buffer->capacity() - bytes_filled);
+  } else {
+    DCHECK_EQ(bytes_filled, 0);
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 template <typename T>
 Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  const int64_t bytes_required = TypeTraits<T>::bytes_required(length_);
-  if (bytes_required > 0 && bytes_required < data_->size()) {
-    // Trim buffers
-    RETURN_NOT_OK(data_->Resize(bytes_required));
-  }
+  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
+  RETURN_NOT_OK(TrimBuffer(TypeTraits<T>::bytes_required(length_), data_.get()));
+
   *out = ArrayData::Make(type_, length_, {null_bitmap_, data_}, null_count_);
 
   data_ = null_bitmap_ = nullptr;
@@ -391,12 +408,6 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  const int64_t bytes_required = length_ * int_size_;
-  if (bytes_required > 0 && bytes_required < data_->size()) {
-    // Trim buffers
-    RETURN_NOT_OK(data_->Resize(bytes_required));
-  }
-
   std::shared_ptr<DataType> output_type;
   switch (int_size_) {
     case 1:
@@ -415,6 +426,9 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
       DCHECK(false);
       return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
   }
+
+  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
+  RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
 
   *out = ArrayData::Make(output_type, length_, {null_bitmap_, data_}, null_count_);
 
@@ -553,11 +567,6 @@ AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
     : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  const int64_t bytes_required = length_ * int_size_;
-  if (bytes_required > 0 && bytes_required < data_->size()) {
-    // Trim buffers
-    RETURN_NOT_OK(data_->Resize(bytes_required));
-  }
   std::shared_ptr<DataType> output_type;
   switch (int_size_) {
     case 1:
@@ -576,6 +585,9 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
       DCHECK(false);
       return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
   }
+
+  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
+  RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
 
   *out = ArrayData::Make(output_type, length_, {null_bitmap_, data_}, null_count_);
 
@@ -726,6 +738,8 @@ Status BooleanBuilder::Init(int64_t capacity) {
   RETURN_NOT_OK(data_->Resize(nbytes));
 
   raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
+  memset(raw_data_, 0, static_cast<size_t>(nbytes));
+
   return Status::OK();
 }
 
@@ -743,26 +757,24 @@ Status BooleanBuilder::Resize(int64_t capacity) {
     const int64_t old_bytes = data_->size();
     const int64_t new_bytes = BitUtil::BytesForBits(capacity);
 
-    if (new_bytes != old_bytes) {
+    if (new_bytes > old_bytes) {
       RETURN_NOT_OK(data_->Resize(new_bytes));
       raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
+      memset(raw_data_ + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
     }
   }
   return Status::OK();
 }
 
 Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  const int64_t bytes_required = BitUtil::BytesForBits(length_);
-  if (bytes_required > 0 && bytes_required < data_->size()) {
-    // Trim buffers
-    RETURN_NOT_OK(data_->Resize(bytes_required));
-  }
-
   int64_t bit_offset = length_ % 8;
   if (bit_offset > 0) {
     // Adjust last byte
     data_->mutable_data()[length_ / 8] &= BitUtil::kPrecedingBitmask[bit_offset];
   }
+
+  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
+  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), data_.get()));
 
   *out = ArrayData::Make(boolean(), length_, {null_bitmap_, data_}, null_count_);
 
@@ -1334,6 +1346,7 @@ Status ListBuilder::Resize(int64_t capacity) {
 Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(AppendNextOffset());
 
+  // Offset padding zeroed by BufferBuilder
   std::shared_ptr<Buffer> offsets;
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
 
@@ -1422,8 +1435,9 @@ Status BinaryBuilder::AppendNull() {
 Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   // Write final offset (values length)
   RETURN_NOT_OK(AppendNextOffset());
-  std::shared_ptr<Buffer> offsets, value_data;
 
+  // These buffers' padding zeroed by BufferBuilder
+  std::shared_ptr<Buffer> offsets, value_data;
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
   RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
 
@@ -1615,6 +1629,7 @@ StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* 
 }
 
 Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
   *out = ArrayData::Make(type_, length_, {null_bitmap_}, null_count_);
 
   (*out)->child_data.resize(field_builders_.size());
