@@ -45,22 +45,6 @@ bool is_contiguous(PyObject* array) {
   }
 }
 
-int cast_npy_type_compat(int type_num) {
-  // Both LONGLONG and INT64 can be observed in the wild, which is buggy. We set
-  // U/LONGLONG to U/INT64 so things work properly.
-
-#if (NPY_INT64 == NPY_LONGLONG) && (NPY_SIZEOF_LONGLONG == 8)
-  if (type_num == NPY_LONGLONG) {
-    type_num = NPY_INT64;
-  }
-  if (type_num == NPY_ULONGLONG) {
-    type_num = NPY_UINT64;
-  }
-#endif
-
-  return type_num;
-}
-
 NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
   arr_ = ao;
   Py_INCREF(ao);
@@ -92,7 +76,7 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
     return Status::TypeError("Did not pass numpy.dtype object");
   }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
-  int type_num = cast_npy_type_compat(descr->type_num);
+  int type_num = fix_numpy_type_num(descr->type_num);
 
   switch (type_num) {
     TO_ARROW_TYPE_CASE(BOOL, uint8);
@@ -100,16 +84,10 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
     TO_ARROW_TYPE_CASE(INT16, int16);
     TO_ARROW_TYPE_CASE(INT32, int32);
     TO_ARROW_TYPE_CASE(INT64, int64);
-#if (NPY_INT64 != NPY_LONGLONG)
-    TO_ARROW_TYPE_CASE(LONGLONG, int64);
-#endif
     TO_ARROW_TYPE_CASE(UINT8, uint8);
     TO_ARROW_TYPE_CASE(UINT16, uint16);
     TO_ARROW_TYPE_CASE(UINT32, uint32);
     TO_ARROW_TYPE_CASE(UINT64, uint64);
-#if (NPY_UINT64 != NPY_ULONGLONG)
-    TO_ARROW_CASE(ULONGLONG);
-#endif
     TO_ARROW_TYPE_CASE(FLOAT16, float16);
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
@@ -160,7 +138,7 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
 }
 
 Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
-  int type_num = cast_npy_type_compat(descr->type_num);
+  int type_num = fix_numpy_type_num(descr->type_num);
 
   switch (type_num) {
     TO_ARROW_TYPE_CASE(BOOL, boolean);
@@ -168,16 +146,10 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
     TO_ARROW_TYPE_CASE(INT16, int16);
     TO_ARROW_TYPE_CASE(INT32, int32);
     TO_ARROW_TYPE_CASE(INT64, int64);
-#if (NPY_INT64 != NPY_LONGLONG)
-    TO_ARROW_TYPE_CASE(LONGLONG, int64);
-#endif
     TO_ARROW_TYPE_CASE(UINT8, uint8);
     TO_ARROW_TYPE_CASE(UINT16, uint16);
     TO_ARROW_TYPE_CASE(UINT32, uint32);
     TO_ARROW_TYPE_CASE(UINT64, uint64);
-#if (NPY_UINT64 != NPY_ULONGLONG)
-    TO_ARROW_CASE(ULONGLONG);
-#endif
     TO_ARROW_TYPE_CASE(FLOAT16, float16);
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
