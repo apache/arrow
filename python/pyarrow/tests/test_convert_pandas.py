@@ -569,6 +569,12 @@ class TestConvertPrimitiveTypes(object):
         df = pd.DataFrame(data)
         _check_pandas_roundtrip(df)
 
+        # Do the same with pa.array()
+        # (for some reason, it doesn't use the same code paths at all)
+        for np_arr in data.values():
+            arr = pa.array(np_arr)
+            assert arr.to_pylist() == np_arr.tolist()
+
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype
 

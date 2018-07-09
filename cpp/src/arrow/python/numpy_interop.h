@@ -80,6 +80,19 @@ inline int import_numpy() {
   return 0;
 }
 
+// See above about the missing Numpy integer type numbers
+inline int fix_numpy_type_num(int type_num) {
+#if !NPY_INT32_IS_INT && NPY_BITSOF_INT == 32
+  if (type_num == NPY_INT) return NPY_INT32;
+  if (type_num == NPY_UINT) return NPY_UINT32;
+#endif
+#if !NPY_INT64_IS_LONG_LONG && NPY_BITSOF_LONGLONG == 64
+  if (type_num == NPY_LONGLONG) return NPY_INT64;
+  if (type_num == NPY_ULONGLONG) return NPY_UINT64;
+#endif
+  return type_num;
+}
+
 }  // namespace py
 }  // namespace arrow
 
