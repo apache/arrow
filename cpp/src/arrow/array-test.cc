@@ -507,15 +507,15 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
   const int64_t size = 10;
-  const uint8_t nullmap[10] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+  const uint8_t valid_bytes[10] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
 
-  ASSERT_OK(this->builder_->AppendNulls(nullmap, size));
+  ASSERT_OK(this->builder_->AppendNulls(valid_bytes, size));
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
 
   for (int64_t i = 0; i < size; ++i) {
-    ASSERT_EQ(result->IsValid(i), static_cast<bool>(nullmap[i]));
+    ASSERT_EQ(result->IsValid(i), static_cast<bool>(valid_bytes[i]));
   }
 }
 
@@ -1829,13 +1829,13 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
-  const uint8_t nullmap[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
-  ASSERT_OK(builder_->AppendNulls(nullmap, size));
+  const uint8_t valid_bytes[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+  ASSERT_OK(builder_->AppendNulls(valid_bytes, size));
 
   Done();
 
   for (unsigned index = 0; index < size; ++index) {
-    ASSERT_EQ(result_->IsValid(index), static_cast<bool>(nullmap[index]));
+    ASSERT_EQ(result_->IsValid(index), static_cast<bool>(valid_bytes[index]));
   }
 }
 
@@ -1956,13 +1956,13 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
-  const uint8_t nullmap[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
-  ASSERT_OK(builder_->AppendNulls(nullmap, size));
+  const uint8_t valid_bytes[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+  ASSERT_OK(builder_->AppendNulls(valid_bytes, size));
 
   Done();
 
   for (unsigned index = 0; index < size; ++index) {
-    ASSERT_EQ(result_->IsValid(index), static_cast<bool>(nullmap[index]));
+    ASSERT_EQ(result_->IsValid(index), static_cast<bool>(valid_bytes[index]));
   }
 }
 

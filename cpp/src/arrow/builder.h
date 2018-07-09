@@ -209,8 +209,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 
   Status AppendNull() {
     RETURN_NOT_OK(Reserve(1));
-    memset(raw_data_ + length_, 0,
-           static_cast<size_t>(TypeTraits<Type>::bytes_required(1)));
+    memset(raw_data_ + length_, 0, sizeof(value_type));
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }
