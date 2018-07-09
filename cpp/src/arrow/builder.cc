@@ -239,10 +239,6 @@ Status PrimitiveBuilder<T>::Init(int64_t capacity) {
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
 
-  // TODO(wesm): ARROW-2790, ARROW-2811; removing this memset causes
-  // non-determinism in pyarrow/tests/test_serialization.py, but not sure why
-  memset(raw_data_, 0, nbytes);
-
   return Status::OK();
 }
 

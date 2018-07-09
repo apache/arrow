@@ -271,9 +271,17 @@ class SequenceBuilder {
     RETURN_NOT_OK(AddSubsequence(dict_tag_, dict_data, dict_offsets_, "dict"));
     RETURN_NOT_OK(AddSubsequence(set_tag_, set_data, set_offsets_, "set"));
 
+    std::shared_ptr<Array> types_array;
+    RETURN_NOT_OK(types_.Finish(&types_array));
+    const auto& types = checked_cast<const Int8Array&>(*types_array);
+
+    std::shared_ptr<Array> offsets_array;
+    RETURN_NOT_OK(offsets_.Finish(&offsets_array));
+    const auto& offsets = checked_cast<const Int32Array&>(*offsets_array);
+
     auto type = ::arrow::union_(fields_, type_ids_, UnionMode::DENSE);
-    out->reset(new UnionArray(type, types_.length(), children_, types_.data(),
-                              offsets_.data(), nones_.null_bitmap(),
+    out->reset(new UnionArray(type, types.length(), children_, types.values(),
+                              offsets.values(), nones_.null_bitmap(),
                               nones_.null_count()));
     return Status::OK();
   }
