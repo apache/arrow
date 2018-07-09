@@ -86,6 +86,10 @@ python setup.py build_ext \
 popd
 
 # Run tests
+export LIBHDFS3_CONF=arrow/dev/hdfs_integration/libhdfs3-client-config.xml
+
+# C++
 arrow/cpp/build/debug/io-hdfs-test
 
-#python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs
+# Python
+# python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs
