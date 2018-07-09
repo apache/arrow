@@ -58,7 +58,7 @@ struct ARROW_EXPORT Datum {
       value;
 
   /// \brief Empty datum, to be populated elsewhere
-  Datum() : value(nullptr) {}
+  Datum() : value(NULLPTR) {}
 
   explicit Datum(const std::shared_ptr<Scalar>& value) : value(value) {}
 
@@ -124,7 +124,7 @@ struct ARROW_EXPORT Datum {
     } else if (this->kind() == Datum::CHUNKED_ARRAY) {
       return util::get<std::shared_ptr<ChunkedArray>>(this->value)->type();
     }
-    return nullptr;
+    return NULLPTR;
   }
 };
 

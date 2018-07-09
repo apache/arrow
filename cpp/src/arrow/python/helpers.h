@@ -112,10 +112,10 @@ inline Status CastSize(Py_ssize_t size, int32_t* out,
 }
 
 Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid = false,
-                     bool* is_full = nullptr);
-Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full = nullptr);
+                     bool* is_full = NULLPTR);
+Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full = NULLPTR);
 Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
-                     bool* is_full = nullptr);
+                     bool* is_full = NULLPTR);
 
 }  // namespace internal
 }  // namespace py

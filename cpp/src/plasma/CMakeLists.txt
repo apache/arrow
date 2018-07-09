@@ -39,7 +39,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 # Compile flatbuffers
 
 set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs" "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
-set(OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/)
+set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/src/plasma)
 
 set(PLASMA_FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/common_generated.h"
@@ -140,12 +140,12 @@ endif()
 # Headers: top level
 install(FILES
   common.h
-  common_generated.h
+  "${OUTPUT_DIR}/common_generated.h"
   compat.h
   client.h
   events.h
   plasma.h
-  plasma_generated.h
+  "${OUTPUT_DIR}/plasma_generated.h"
   protocol.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 

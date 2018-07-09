@@ -16,9 +16,15 @@
 // under the License.
 
 #include "arrow/api.h"
+#include "arrow/io/api.h"
+#include "arrow/ipc/api.h"
 
 #ifdef DCHECK
 #error "DCHECK should not be visible from Arrow public headers."
+#endif
+
+#ifdef ARROW_UTIL_PARALLEL_H
+#error "arrow/util/parallel.h is an internal header"
 #endif
 
 #include <gtest/gtest.h>
