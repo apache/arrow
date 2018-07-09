@@ -32,7 +32,7 @@ export ARROW_INTEGRATION_DIR=$TRAVIS_BUILD_DIR/integration
 export ARROW_RUBY_DIR=$TRAVIS_BUILD_DIR/ruby
 export ARROW_RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
-if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
+if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export ARROW_CPP_COVERAGE_FILE=${TRAVIS_BUILD_DIR}/coverage.info
     export ARROW_PYTHON_COVERAGE_FILE=${TRAVIS_BUILD_DIR}/.coverage
 fi
