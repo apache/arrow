@@ -58,7 +58,7 @@ test_script:
   - pushd arrow\dev\tasks\conda-recipes
   - conda.exe build --output-folder . -m %CONFIG% parquet-cpp arrow-cpp pyarrow
   - pushd win-64
-    for %%f in (*.tar.bz2) do (
+  - for %%f in (*.tar.bz2) do (
       set %%g=%%~nf
       ren "%%f" "%%~ng-win-64.tar.bz2"
     )
