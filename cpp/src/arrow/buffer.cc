@@ -142,7 +142,7 @@ MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::shared_ptr<Buffer>* out) {
   auto buffer = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(buffer->Resize(size, false));
+  RETURN_NOT_OK(buffer->Resize(size));
   buffer->ZeroPadding();
   *out = buffer;
   return Status::OK();
@@ -155,7 +155,7 @@ Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out) {
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
   auto buffer = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(buffer->Resize(size, false));
+  RETURN_NOT_OK(buffer->Resize(size));
   buffer->ZeroPadding();
   *out = buffer;
   return Status::OK();
