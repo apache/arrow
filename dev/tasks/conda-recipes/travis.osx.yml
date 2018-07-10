@@ -22,12 +22,13 @@ osx_image: xcode6.4
 
 env:
   matrix:
-    - CONDA_PY=27
-    - CONDA_PY=35
-    - CONDA_PY=36
+    - CONFIG=variants/osx_python2.7.yaml
+    - CONFIG=variants/osx_python3.5.yaml
+    - CONFIG=variants/osx_python3.6.yaml
   global:
-    - TRAVIS_TAG={{ BUILD_TAG }}
-    - ARROW_VERSION={{ ARROW_VERSION }}
+    - TRAVIS_TAG={{ job.branch }}
+    - ARROW_VERSION={{ arrow.version }}
+    - PYTHONUNBUFFERED=1
 
 before_install:
     # Remove homebrew.
@@ -58,16 +59,18 @@ install:
       conda config --add channels defaults
       conda config --add channels conda-forge
       conda config --set show_channel_urls true
-      conda install --yes --quiet conda-forge-build-setup
+      conda install --yes --quiet conda-forge-ci-setup=1
       source run_conda_forge_build_setup
 
+# conda install --yes --quiet conda-build
+
 script:
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - git -C arrow checkout {{ ARROW_SHA }}
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
-  - conda build --output-folder . parquet-cpp arrow-cpp pyarrow
+  - conda build --output-folder . -m $CONFIG parquet-cpp arrow-cpp pyarrow
+  - pushd osx-64
   - |
-    pushd osx-64
     for file in *.tar.bz2; do
       mv "$file" "$(basename "$file" .tar.bz2)-osx-64.tar.bz2"
     done
@@ -84,4 +87,4 @@ deploy:
 
 notifications:
   email:
-    - {{ EMAIL }}
+    - {{ job.email }}

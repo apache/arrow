@@ -1,5 +1,3 @@
-#!/bin/sh
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,29 +15,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-set -x
-
-# Build dependencies
-export ARROW_BUILD_TOOLCHAIN=$PREFIX
-
-cd cpp
-mkdir build-dir
-cd build-dir
-
-cmake \
-    -DCMAKE_BUILD_TYPE=release \
-    -DCMAKE_INSTALL_PREFIX=$PREFIX \
-    -DCMAKE_INSTALL_LIBDIR=$PREFIX/lib \
-    -DARROW_BOOST_USE_SHARED=ON \
-    -DARROW_BUILD_BENCHMARKS=OFF \
-    -DARROW_BUILD_UTILITIES=OFF \
-    -DARROW_BUILD_TESTS=OFF \
-    -DARROW_JEMALLOC=ON \
-    -DARROW_PLASMA=ON \
-    -DARROW_PYTHON=ON \
-    -DARROW_ORC=ON \
-    ..
-
-make -j${CPU_COUNT}
-make install
+boost_cpp:
+- 1.67.0
+c_compiler:
+- vs2015
+cxx_compiler:
+- vs2015
+lz4_c:
+- 1.8.1
+pin_run_as_build:
+  boost-cpp:
+    max_pin: x.x.x
+  lz4-c:
+    max_pin: x.x.x
+  python:
+    min_pin: x.x
+    max_pin: x.x
+  snappy:
+    max_pin: x.x.x
+  zlib:
+    max_pin: x.x
+  zstd:
+    max_pin: x.x.x
+python:
+- '3.6'
+snappy:
+- 1.1.7
+zip_keys:
+- - python
+  - c_compiler
+  - cxx_compiler
+zlib:
+- '1.2'
+zstd:
+- 1.3.3

@@ -132,6 +132,7 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/libarrow.so
 %{_libdir}/pkgconfig/arrow.pc
 %{_libdir}/pkgconfig/arrow-compute.pc
+%{_libdir}/pkgconfig/arrow-orc.pc
 
 %if %{use_python}
 %package python-libs

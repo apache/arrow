@@ -19,18 +19,22 @@
 
 import os
 import re
-import yaml
+import sys
 import time
 import click
 import pygit2
 import github3
-import logging
 
-from enum import Enum
+from io import StringIO
 from pathlib import Path
+from datetime import date
 from textwrap import dedent
-from jinja2 import Template
+from jinja2 import Template, StrictUndefined
 from setuptools_scm import get_version
+from ruamel.yaml import YAML
+
+
+CWD = Path(__file__).parent.absolute()
 
 
 class GitRemoteCallbacks(pygit2.RemoteCallbacks):
@@ -63,10 +67,18 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
 
 
 class Repo(object):
+    """Base class for interaction with local git repositories
 
-    def __init__(self, repo_path):
-        self.path = Path(repo_path).absolute()
+    A high level wrapper used for both reading revision information from
+    arrow's repository and pushing continuous integration tasks to the queue
+    repository.
+    """
+
+    def __init__(self, path, github_token=None):
+        self.path = Path(path)
         self.repo = pygit2.Repository(str(self.path))
+        self.github_token = github_token
+        self._updated_refs = []
 
     def __str__(self):
         tpl = dedent('''
@@ -79,29 +91,33 @@ class Repo(object):
             head=self.head
         )
 
+    @property
+    def origin(self):
+        return self.repo.remotes['origin']
+
     def fetch(self):
-        self.origin.fetch()
+        refspec = '+refs/heads/*:refs/remotes/origin/*'
+        self.origin.fetch([refspec])
+
+    def push(self):
+        callbacks = GitRemoteCallbacks(self.github_token)
+        self.origin.push(self._updated_refs, callbacks=callbacks)
+        self.updated_refs = []
 
     @property
     def head(self):
         """Currently checked out commit's sha"""
-        return self.repo.head.target
+        return self.repo.head
 
     @property
     def branch(self):
         """Currently checked out branch"""
-        reference = self.repo.head.shorthand
-        return self.repo.branches[reference]
+        return self.repo.branches[self.repo.head.shorthand]
 
     @property
     def remote(self):
         """Currently checked out branch's remote counterpart"""
-        remote_name = self.branch.upstream.remote_name
-        return self.repo.remotes[remote_name]
-
-    @property
-    def origin(self):
-        return self.repo.remotes['origin']
+        return self.repo.remotes[self.branch.upstream.remote_name]
 
     @property
     def email(self):
@@ -112,29 +128,7 @@ class Repo(object):
         name = next(self.repo.config.get_multivar('user.name'))
         return pygit2.Signature(name, self.email, int(time.time()))
 
-    def parse_user_repo(self):
-        m = re.match('.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote.url)
-        user, repo = m.group(1), m.group(2)
-        return user, repo
-
-
-class Queue(Repo):
-
-    def __init__(self, repo_path):
-        super(Queue, self).__init__(repo_path)
-        self._updated_refs = []
-
-    def next_job_id(self, prefix):
-        """Auto increments the branch's identifier based on the prefix"""
-        pattern = re.compile(prefix + '-(\d+)')
-        matches = list(filter(None, map(pattern.match, self.repo.branches)))
-        if matches:
-            latest = max(int(m.group(1)) for m in matches)
-        else:
-            latest = 0
-        return '{}-{}'.format(prefix, latest + 1)
-
-    def _create_branch(self, branch_name, files, parents=[], message=''):
+    def create_branch(self, branch_name, files, parents=[], message=''):
         # 1. create tree
         builder = self.repo.TreeBuilder()
 
@@ -153,12 +147,13 @@ class Queue(Repo):
 
         # 3. create branch pointing to the previously created commit
         branch = self.repo.create_branch(branch_name, commit)
+
         # append to the pushable references
         self._updated_refs.append('refs/heads/{}'.format(branch_name))
 
         return branch
 
-    def _create_tag(self, tag_name, commit_id, message=''):
+    def create_tag(self, tag_name, commit_id, message=''):
         tag_id = self.repo.create_tag(tag_name, commit_id,
                                       pygit2.GIT_OBJ_COMMIT, self.signature,
                                       message)
@@ -168,36 +163,146 @@ class Queue(Repo):
 
         return self.repo[tag_id]
 
+    def file_contents(self, commit_id, file):
+        commit = self.repo[commit_id]
+        entry = commit.tree[file]
+        blob = self.repo[entry.id]
+        return blob.data
+
+    def _parse_github_user_repo(self):
+        m = re.match('.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote.url)
+        user, repo = m.group(1), m.group(2)
+        return user, repo
+
+    def as_github_repo(self):
+        """Converts it to a repository object which wraps the GitHub API"""
+        username, reponame = self._parse_github_user_repo()
+        gh = github3.login(token=self.github_token)
+        return gh.repository(username, reponame)
+
+
+class Queue(Repo):
+
+    def _next_job_id(self, prefix):
+        """Auto increments the branch's identifier based on the prefix"""
+        pattern = re.compile('[\w\/-]*{}-(\d+)'.format(prefix))
+        matches = list(filter(None, map(pattern.match, self.repo.branches)))
+        if matches:
+            latest = max(int(m.group(1)) for m in matches)
+        else:
+            latest = 0
+        return '{}-{}'.format(prefix, latest + 1)
+
+    def get(self, job_name):
+        branch_name = 'origin/{}'.format(job_name)
+        branch = self.repo.branches[branch_name]
+        content = self.file_contents(branch.target, 'job.yml')
+        buffer = StringIO(content.decode('utf-8'))
+        return yaml.load(buffer)
+
     def put(self, job, prefix='build'):
         assert isinstance(job, Job)
-        assert job.branch is not None
+        assert job.branch is None
+
+        # auto increment and set next job id, e.g. build-85
+        job.branch = self._next_job_id(prefix)
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
-            branch = self._create_branch(task.branch, files=task.files())
+            task.branch = '{}-{}'.format(job.branch, task_name)
+            files = task.render_files(job=job, arrow=job.target)
+            branch = self.create_branch(task.branch, files=files)
             task.commit = str(branch.target)
 
         # create job's branch
-        branch = self._create_branch(job.branch, files=job.files())
-        self._create_tag(job.branch, branch.target)
+        branch = self.create_branch(job.branch, files=job.render_files())
+        self.create_tag(job.branch, branch.target)
 
         return branch
 
-    def push(self, token):
-        callbacks = GitRemoteCallbacks(token)
-        self.origin.push(self._updated_refs, callbacks=callbacks)
-        self.updated_refs = []
+    def github_statuses(self, job):
+        repo = self.as_github_repo()
+        return {name: repo.commit(task.commit).status()
+                for name, task in job.tasks.items()}
+
+    def github_assets(self, job):
+        repo = self.as_github_repo()
+        try:
+            release = repo.release_from_tag(job.branch)
+        except github3.exceptions.NotFoundError:
+            return {}
+        else:
+            return {a.name: a for a in release.assets()}
+
+    def upload_assets(self, job, files, content_type):
+        repo = self.as_github_repo()
+        release = repo.release_from_tag(job.branch)
+        assets = {a.name: a for a in release.assets()}
+
+        for path in files:
+            if path.name in assets:
+                # remove already uploaded asset
+                assets[path.name].delete()
+            with path.open('rb') as fp:
+                release.upload_asset(name=path.name, asset=fp,
+                                     content_type=content_type)
 
 
-class Platform(Enum):
-    # in alphabetical order
-    LINUX = 0
-    OSX = 1
-    WIN = 2
+class Target(object):
+    """Describes target repository and revision the builds run against
+
+    This serializable data container holding information about arrow's
+    git remote, branch, sha and version number as well as some metadata
+    (currently only an email address where the notification should be sent).
+    """
+
+    def __init__(self, head, branch, remote, version, email=None):
+        self.head = head
+        self.email = email
+        self.branch = branch
+        self.remote = remote
+        self.version = version
+
+    @classmethod
+    def from_repo(cls, repo_path):
+        repo = Repo(repo_path)
+        version = get_version(repo.path, local_scheme=lambda v: '')
+        return cls(head=str(repo.head.target),
+                   email=repo.email,
+                   branch=repo.branch.branch_name,
+                   remote=repo.remote.url,
+                   version=version)
+
+
+class Task(object):
+    """Describes a build task and metadata required to render CI templates
+
+    A task is represented as a single git commit and branch containing jinja2
+    rendered files (currently appveyor.yml or .travis.yml configurations).
+
+    A task can't be directly submitted to a queue, must belong to a job.
+    Each task's unique identifier is its branch name, which is generated after
+    submitting the job to a queue.
+    """
+
+    def __init__(self, platform, template, artifacts=None, params=None):
+        assert platform in {'win', 'osx', 'linux'}
+        self.platform = platform
+        self.template = template
+        self.artifacts = artifacts or []
+        self.params = params or {}
+        self.branch = None  # filled after adding to a queue
+        self.commit = None
+
+    def render_files(self, **extra_params):
+        path = CWD / self.template
+        template = Template(path.read_text(), undefined=StrictUndefined)
+        rendered = template.render(**self.params, **extra_params)
+        return {self.filename: rendered}
 
     @property
     def ci(self):
-        if self is self.WIN:
+        if self.platform == 'win':
             return 'appveyor'
         else:
             return 'travis'
@@ -210,68 +315,45 @@ class Platform(Enum):
             return '.travis.yml'
 
 
-class Task(object):
-
-    def __init__(self, platform, template, commit=None, branch=None, **params):
-        assert isinstance(platform, Platform)
-        assert isinstance(template, Path)
-        self.platform = platform
-        self.template = template
-        self.branch = branch
-        self.commit = commit
-        self.params = params
-
-    def to_dict(self):
-        return {'branch': self.branch,
-                'commit': str(self.commit),
-                'platform': self.platform.name,
-                'template': str(self.template),
-                'params': self.params}
-
-    @classmethod
-    def from_dict(cls, data):
-        return Task(platform=Platform[data['platform'].upper()],
-                    template=Path(data['template']),
-                    commit=data.get('commit'),
-                    branch=data.get('branch'),
-                    **data.get('params', {}))
-
-    def files(self):
-        template = Template(self.template.read_text())
-        rendered = template.render(**self.params)
-        return {self.platform.filename: rendered}
-
-
 class Job(object):
+    """Describes multiple tasks against a single target repository"""
 
-    def __init__(self, tasks, branch=None):
+    def __init__(self, target, tasks):
+        assert isinstance(target, Target)
         assert all(isinstance(task, Task) for task in tasks.values())
-        self.branch = branch
+        self.target = target
         self.tasks = tasks
+        self.branch = None  # filled after adding to a queue
 
-    def to_dict(self):
-        tasks = {name: task.to_dict() for name, task in self.tasks.items()}
-        return {'branch': self.branch,
-                'tasks': tasks}
+    def render_files(self):
+        with StringIO() as buf:
+            yaml.dump(self, buf)
+            content = buf.getvalue()
+        return {'job.yml': content}
 
-    @classmethod
-    def from_dict(cls, data):
-        tasks = {name: Task.from_dict(task)
-                 for name, task in data['tasks'].items()}
-        return Job(tasks=tasks, branch=data.get('branch'))
-
-    def files(self):
-        return {'job.yml': yaml.dump(self.to_dict(), default_flow_style=False)}
+    @property
+    def email(self):
+        return os.environ.get('CROSSBOW_EMAIL', self.target.email)
 
 
-# this should be the mailing list
-MESSAGE_EMAIL = 'szucs.krisztian@gmail.com'
+# configure yaml serializer
+yaml = YAML()
+yaml.register_class(Job)
+yaml.register_class(Task)
+yaml.register_class(Target)
 
-CWD = Path(__file__).absolute()
+# state color mapping to highlight console output
+COLORS = {'ok': 'green',
+          'error': 'red',
+          'missing': 'red',
+          'failure': 'red',
+          'pending': 'yellow',
+          'success': 'green'}
 
-DEFAULT_CONFIG_PATH = CWD.parent / 'tasks.yml'
-DEFAULT_ARROW_PATH = CWD.parents[2]
-DEFAULT_QUEUE_PATH = CWD.parents[3] / 'crossbow'
+# define default paths
+DEFAULT_CONFIG_PATH = CWD / 'tasks.yml'
+DEFAULT_ARROW_PATH = CWD.parents[1]
+DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 
 
 @click.group()
@@ -334,53 +416,43 @@ def config_path_validation_callback(ctx, param, value):
 @github_token
 def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
            queue_path, github_token):
-    target = Repo(arrow_path)
-    queue = Queue(queue_path)
-
-    logging.info(target)
-    logging.info(queue)
-
-    queue.fetch()
-
-    version = get_version(arrow_path, local_scheme=lambda v: '')
-    job_id = queue.next_job_id(prefix=job_prefix)
-
-    variables = {
-        # these should be renamed
-        'PLAT': 'x86_64',
-        'EMAIL': os.environ.get('CROSSBOW_EMAIL', target.email),
-        'BUILD_TAG': job_id,
-        'BUILD_REF': str(target.head),
-        'ARROW_SHA': str(target.head),
-        'ARROW_REPO': target.remote.url,
-        'ARROW_BRANCH': target.branch.branch_name,
-        'ARROW_VERSION': version,
-        'PYARROW_VERSION': version,
-    }
+    queue = Queue(queue_path, github_token=github_token)
+    target = Target.from_repo(arrow_path)
 
     with Path(config_path).open() as fp:
         config = yaml.load(fp)
 
-    # create and filter tasks
-    tasks = {name: Task.from_dict(task)
-             for name, task in config['tasks'].items()}
-    tasks = {name: tasks[name] for name in task_names}
+    today = date.today().strftime('%Y%m%d')
+    tasks = {}
+    for task_name in task_names:
+        task = config['tasks'][task_name]
+        # replace version number and current date in artifact names
+        artifacts = task.pop('artifacts', None) or []
+        artifacts = [fname.format(version=target.version, date=today)
+                     for fname in artifacts]
+        # create task instance from configuration
+        tasks[task_name] = Task(**task, artifacts=artifacts)
 
-    for task_name, task in tasks.items():
-        task.branch = '{}-{}'.format(job_id, task_name)
-        task.params.update(variables)
+    # create job instance, doesn't mutate git data yet
+    job = Job(target=target, tasks=tasks)
 
-    # create job
-    job = Job(tasks)
-    job.branch = job_id
-
-    yaml_format = yaml.dump(job.to_dict(), default_flow_style=False)
-    click.echo(yaml_format.strip())
-
-    if not dry_run:
+    if dry_run:
+        yaml.dump(job, sys.stdout)
+        delimiter = '-' * 79
+        for task_name, task in job.tasks.items():
+            files = task.render_files(job=job, arrow=job.target)
+            for filename, content in files.items():
+                click.echo('\n\n')
+                click.echo(delimiter)
+                click.echo('{:<29}{:>50}'.format(task_name, filename))
+                click.echo(delimiter)
+                click.echo(content)
+    else:
+        queue.fetch()
         queue.put(job)
-        queue.push(token=github_token)
-        click.echo('Pushed job identifier is: `{}`'.format(job_id))
+        queue.push()
+        yaml.dump(job, sys.stdout)
+        click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
 
 @crossbow.command()
@@ -390,46 +462,90 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
                    'Defaults to crossbow directory placed next to arrow')
 @github_token
 def status(job_name, queue_path, github_token):
-    queue = Queue(queue_path)
-    username, reponame = queue.parse_user_repo()
+    queue = Queue(queue_path, github_token=github_token)
+    queue.fetch()
 
-    gh = github3.login(token=github_token)
-    repo = gh.repository(username, reponame)
-    content = repo.file_contents('job.yml', job_name)
-
-    job = Job.from_dict(yaml.load(content.decoded))
-
-    tpl = '[{:>7}] {:<24} {:<40}'
-    header = tpl.format('status', 'branch', 'sha')
+    tpl = '[{:>7}] {:<24} {:>45}'
+    header = tpl.format('status', 'branch', 'artifacts')
     click.echo(header)
     click.echo('-' * len(header))
 
-    for name, task in job.tasks.items():
-        commit = repo.commit(task.commit)
-        status = commit.status()
+    job = queue.get(job_name)
+    assets = queue.github_assets(job)
+    statuses = queue.github_statuses(job)
 
-        click.echo(tpl.format(status.state, task.branch, task.commit))
+    for task_name, task in job.tasks.items():
+        status = statuses[task_name]
+
+        uploaded = 'uploaded {} / {}'.format(
+            sum(a in assets for a in task.artifacts),
+            len(task.artifacts)
+        )
+        leadline = tpl.format(status.state.upper(), task.branch, uploaded)
+        click.echo(click.style(leadline, fg=COLORS[status.state]))
+
+        for artifact in task.artifacts:
+            if artifact in assets:
+                state = 'ok'
+            elif status.state == 'pending':
+                state = 'pending'
+            else:
+                state = 'missing'
+
+            filename = '{:>70} '.format(artifact)
+            statemsg = '[{:>7}]'.format(state.upper())
+            click.echo(filename + click.style(statemsg, fg=COLORS[state]))
 
 
 @crossbow.command()
 @click.argument('job-name', required=True)
-@click.option('--target-dir', default=DEFAULT_ARROW_PATH,
+@click.option('--gpg-homedir', default=None,
+              help=('Full pathname to directory containing the public and '
+                    'private keyrings. Default is whatever GnuPG defaults to'))
+@click.option('--target-dir', default=DEFAULT_ARROW_PATH / 'pkgs',
               help='Directory to download the build artifacts')
 @click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @github_token
-def artifacts(job_name, target_dir, queue_path, github_token):
-    queue = Queue(queue_path)
-    username, reponame = queue.parse_user_repo()
+def sign(job_name, gpg_homedir, target_dir, queue_path, github_token):
+    """Download and sign build artifacts from github releases"""
 
-    gh = github3.login(token=github_token)
-    repo = gh.repository(username, reponame)
-    release = repo.release_from_tag(job_name)
+    import gnupg
+    gpg = gnupg.GPG(gnupghome=gpg_homedir)
 
-    for asset in release.assets():
-        click.echo('Downloading asset {} ...'.format(asset.name))
-        asset.download(target_dir / asset.name)
+    # initialize and fetch the queue repository
+    queue = Queue(queue_path, github_token=github_token)
+    queue.fetch()
+
+    # query the job's artifacts
+    job = queue.get(job_name)
+    assets = queue.github_assets(job)
+
+    click.echo('Downloading and signing assets...')
+    target_dir = Path(target_dir).absolute()
+    target_dir.mkdir(exist_ok=True)
+
+    tpl = '[{:>8}] '
+    for task_name, task in job.tasks.items():
+        for artifact in task.artifacts:
+            if artifact not in assets:
+                msg = click.style(tpl.format('MISSING'), fg=COLORS['missing'])
+                click.echo(msg + artifact)
+                continue
+
+            # download artifact
+            target_path = target_dir / artifact
+            assets[artifact].download(target_path)
+
+            # sign the artifact
+            with target_path.open('rb') as fp:
+                signature_path = Path(str(target_path) + '.sig')
+                gpg.sign_file(fp, detach=True, clearsign=False,
+                              output=str(signature_path))
+
+            msg = click.style(tpl.format('SIGNED'), fg=COLORS['ok'])
+            click.echo(msg + artifact)
 
 
 if __name__ == '__main__':

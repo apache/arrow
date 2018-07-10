@@ -1,5 +1,3 @@
-#!/bin/sh
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,29 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-set -x
+FROM ubuntu:18.04
 
-# Build dependencies
-export ARROW_BUILD_TOOLCHAIN=$PREFIX
+ENV DEBIAN_FRONTEND noninteractive
 
-cd cpp
-mkdir build-dir
-cd build-dir
+ARG DEBUG
 
-cmake \
-    -DCMAKE_BUILD_TYPE=release \
-    -DCMAKE_INSTALL_PREFIX=$PREFIX \
-    -DCMAKE_INSTALL_LIBDIR=$PREFIX/lib \
-    -DARROW_BOOST_USE_SHARED=ON \
-    -DARROW_BUILD_BENCHMARKS=OFF \
-    -DARROW_BUILD_UTILITIES=OFF \
-    -DARROW_BUILD_TESTS=OFF \
-    -DARROW_JEMALLOC=ON \
-    -DARROW_PLASMA=ON \
-    -DARROW_PYTHON=ON \
-    -DARROW_ORC=ON \
-    ..
-
-make -j${CPU_COUNT}
-make install
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
+    autoconf-archive \
+    build-essential \
+    cmake \
+    debhelper\
+    devscripts \
+    git \
+    gtk-doc-tools \
+    libboost-filesystem-dev \
+    libboost-regex-dev \
+    libboost-system-dev \
+    libgirepository1.0-dev \
+    libglib2.0-doc \
+    libjemalloc-dev \
+    lsb-release \
+    nvidia-cuda-toolkit \
+    pkg-config \
+    python3-dev \
+    python3-numpy && \
+  apt clean && \
+  rm -rf /var/lib/apt/lists/*

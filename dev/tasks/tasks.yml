@@ -17,38 +17,132 @@
 
 tasks:
   # arbitrary_task_name:
-  #   branch: defaults to name
   #   platform: osx|linux|win
   #   template: path of jinja2 templated yml
   #   params: optional extra parameters
+  #   artifacts: list of expected release asset filenames,
+  #     version and date variables can be used in the artifact's name, e.g.
+  #     - pyarrow-{version}-{date}-py36_0-linux-64.tar.bz2
 
   # conda packages
   conda-linux:
     platform: linux
     template: conda-recipes/travis.linux.yml
+    artifacts:
+      - arrow-cpp-{version}-py27_0-linux-64.tar.bz2
+      - arrow-cpp-{version}-py35_0-linux-64.tar.bz2
+      - arrow-cpp-{version}-py36_0-linux-64.tar.bz2
+      - pyarrow-{version}-py27_0-linux-64.tar.bz2
+      - pyarrow-{version}-py35_0-linux-64.tar.bz2
+      - pyarrow-{version}-py36_0-linux-64.tar.bz2
+      - parquet-cpp-1.4.0-0-linux-64.tar.bz2
 
   conda-osx:
     platform: osx
     template: conda-recipes/travis.osx.yml
+    artifacts:
+      - arrow-cpp-{version}-py27_0-osx-64.tar.bz2
+      - arrow-cpp-{version}-py35_0-osx-64.tar.bz2
+      - arrow-cpp-{version}-py36_0-osx-64.tar.bz2
+      - pyarrow-{version}-py27_0-osx-64.tar.bz2
+      - pyarrow-{version}-py35_0-osx-64.tar.bz2
+      - pyarrow-{version}-py36_0-osx-64.tar.bz2
+      - parquet-cpp-1.4.0-0-osx-64.tar.bz2
 
   conda-win:
     platform: win
     template: conda-recipes/appveyor.yml
+    artifacts:
+      - arrow-cpp-{version}-py35_vc14_0.tar.bz2
+      - arrow-cpp-{version}-py36_vc14_0.tar.bz2
+      - pyarrow-{version}-py35_vc14_0.tar.bz2
+      - pyarrow-{version}-py36_vc14_0.tar.bz2
+      - parquet-cpp-1.4.0-vc14_0.tar.bz2
 
   # python wheels
   wheel-linux:
     platform: linux
     template: python-wheels/travis.linux.yml
+    artifacts:
+      - pyarrow-{version}-cp27-cp27m-manylinux1_x86_64.whl
+      - pyarrow-{version}-cp27-cp27mu-manylinux1_x86_64.whl
+      - pyarrow-{version}-cp35-cp35m-manylinux1_x86_64.whl
+      - pyarrow-{version}-cp36-cp36m-manylinux1_x86_64.whl
 
   wheel-osx:
     platform: osx
     template: python-wheels/travis.osx.yml
+    artifacts:
+      - pyarrow-{version}-cp27-cp27m-macosx_10_6_intel.whl
+      - pyarrow-{version}-cp35-cp35m-macosx_10_6_intel.whl
+      - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
 
   wheel-win:
     platform: win
     template: python-wheels/appveyor.yml
+    artifacts:
+      - pyarrow-{version}-cp35-cp35m-win_amd64.whl
+      - pyarrow-{version}-cp36-cp36m-win_amd64.whl
 
   # linux packages
   linux-packages:
     platform: linux
     template: linux-packages/travis.linux.yml
+    artifacts:
+      # DEB: debian-stretch, ubuntu-trusty
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0-dbgsym_{version}-1_amd64.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow-gpu-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib0-dbgsym_{version}-1_amd64.deb
+      - libarrow-gpu-glib0_{version}-1_amd64.deb
+      - libarrow-gpu0-dbgsym_{version}-1_amd64.deb
+      - libarrow-gpu0_{version}-1_amd64.deb
+      - libarrow-python-dev_{version}-1_amd64.deb
+      - libarrow-python0-dbgsym_{version}-1_amd64.deb
+      - libarrow-python0_{version}-1_amd64.deb
+      - libarrow0-dbgsym_{version}-1_amd64.deb
+      - libarrow0_{version}-1_amd64.deb
+
+      # TODO(kszucs) resolve naming conflict with other deb pkgs
+      # DEB: ubuntu-xenial,ubuntu-artful
+      # - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      # - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
+      # - libarrow-dev_{version}-1_amd64.deb
+      # - libarrow-glib-dev_{version}-1_amd64.deb
+      # - libarrow-glib-doc_{version}-1_all.deb
+      # - libarrow-glib0-dbgsym_{version}-1_amd64.deb
+      # - libarrow-glib0_{version}-1_amd64.deb
+      # - libarrow-gpu-dev_{version}-1_amd64.deb
+      # - libarrow-gpu-glib-dev_{version}-1_amd64.deb
+      # - libarrow-gpu-glib0-dbgsym_{version}-1_amd64.deb
+      # - libarrow-gpu-glib0_{version}-1_amd64.deb
+      # - libarrow-gpu0-dbgsym_{version}-1_amd64.deb
+      # - libarrow-gpu0_{version}-1_amd64.deb
+      # - libarrow-python-dev_{version}-1_amd64.deb
+      # - libarrow-python0-dbgsym_{version}-1_amd64.deb
+      # - libarrow-python0_{version}-1_amd64.deb
+      # - libarrow0-dbgsym_{version}-1_amd64.deb
+      # - libarrow0_{version}-1_amd64.deb
+
+      # YUM
+      - arrow-{version}-1.el6.src.rpm
+      - arrow-{version}-1.el7.src.rpm
+      - arrow-debuginfo-{version}-1.el6.x86_64.rpm
+      - arrow-debuginfo-{version}-1.el7.x86_64.rpm
+      - arrow-devel-{version}-1.el6.x86_64.rpm
+      - arrow-devel-{version}-1.el7.x86_64.rpm
+      - arrow-glib-devel-{version}-1.el7.x86_64.rpm
+      - arrow-glib-doc-{version}-1.el7.x86_64.rpm
+      - arrow-glib-libs-{version}-1.el7.x86_64.rpm
+      - arrow-libs-{version}-1.el6.x86_64.rpm
+      - arrow-libs-{version}-1.el7.x86_64.rpm
+      - arrow-python-devel-{version}-1.el6.x86_64.rpm
+      - arrow-python-devel-{version}-1.el7.x86_64.rpm
+      - arrow-python-libs-{version}-1.el6.x86_64.rpm
+      - arrow-python-libs-{version}-1.el7.x86_64.rpm

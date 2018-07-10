@@ -16,10 +16,10 @@
 
 env:
   global:
-    - TRAVIS_TAG={{ BUILD_TAG }}
-    - PLAT={{ PLAT }}
-    - BUILD_REF={{ BUILD_REF }}
-    - PYARROW_VERSION={{ PYARROW_VERSION }}
+    - PLAT=x86_64
+    - TRAVIS_TAG={{ job.branch }}
+    - BUILD_REF={{ arrow.head }}
+    - PYARROW_VERSION={{ arrow.version }}
 
 os: linux
 dist: trusty
@@ -32,8 +32,8 @@ before_script:
   - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
 
 script:
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - git -C arrow checkout {{ ARROW_SHA }}
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
   - mkdir -p dist
 
   - pushd arrow/python/manylinux1
@@ -57,4 +57,4 @@ deploy:
 
 notifications:
   email:
-    - {{ EMAIL }}
+    - {{ job.email }}

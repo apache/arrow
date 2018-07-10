@@ -31,27 +31,28 @@ build:
 
 requirements:
   build:
-    - toolchain
     - cmake
-    - boost-cpp 1.66.0
+    - autoconf  # [unix]
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+  host:
+    - boost-cpp
     - flatbuffers
     - rapidjson
-    - zlib 1.2.*
+    - zlib
     - snappy
     - brotli
     - zstd
     - lz4-c
-    - jemalloc 4.4.0  # [unix]
     - python
-    - numpy 1.10.*  # [not (win and py>=36)]
-    - numpy 1.12.*  # [win and py>=36]
+    - numpy 1.10.*   # [not (win and py>=36)]
+    - numpy 1.12.*   # [win and py>=36]
 
   run:
-    - boost-cpp 1.66.0
+    - boost-cpp
     - python
-    - numpy >=1.10  # [not (win and py>=36)]
-    - numpy >=1.12  # [win and py>=36]
-    - vc 14.*  # [win and py>=35]
+    - {{ pin_compatible('numpy', lower_bound='1.10') }}   # [not (win and py>=36)]
+    - {{ pin_compatible('numpy', lower_bound='1.12') }}   # [win and py>=36]
     - snappy  # [win and py>=35]
 
 test:
