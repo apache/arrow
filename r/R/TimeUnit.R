@@ -15,26 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
-
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
-
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-.Rproj.user
+#' @export
+TimeUnit <- structure(
+  list( SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L),
+  class = c( "arrow::TimeUnit::type", "arrow-enum" )
+)

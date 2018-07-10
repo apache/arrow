@@ -15,26 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @export
+`$.arrow-enum` <- function(x, y){
+  structure( unclass(x)[[y]], class = class(x) )
+}
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
-
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-.Rproj.user
+#' @export
+`print.arrow-enum` <- function(x, ...){
+  NextMethod()
+}

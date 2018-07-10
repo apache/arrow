@@ -1,0 +1,4 @@
+CXXFLAGS=-Wno-unused-result
+CXX11FLAGS=-Wno-unused-result
+PKG_CXXFLAGS=-I/usr/local/include
+PKG_LIBS=-L/usr/local/lib -larrow -Wl,-rpath,/usr/local/lib

@@ -15,26 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @export
+timestamp <- function(unit, timezone){
+  if( missing(timezone)){
+    timestamp1(unit)
+  } else {
+    timestamp2(unit, timezone)
+  }
+}
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+#' @importFrom glue glue
+#' @export
+`print.arrow::DataType` <- function(x, ...){
+  cat( glue( "DataType({s})", s = DataType_ToString(x)))
+  invisible(x)
+}
 
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-.Rproj.user
+#' @export
+`print.arrow::StructType` <- function(x, ...){
+  cat( glue( "StructType({s})", s = DataType_ToString(x)))
+  invisible(x)
+}
+
+#' @export
+`print.arrow::ListType` <- function(x, ...){
+  cat( glue( "ListType({s})", s = DataType_ToString(x)))
+  invisible(x)
+}
+
+#' @export
+`print.arrow::Schema` <- function(x, ...){
+  cat( glue( "{s}", s = Schema_ToString(x)))
+  invisible(x)
+}

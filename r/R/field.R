@@ -15,26 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+#' @importFrom purrr map2
+#' @importFrom assertthat assert_that
+.fields <- function(.list){
+  assert_that( !is.null(nms <- names(.list)) )
+  map2(.list, nms, ~field(.y, .x))
+}
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+#' @export
+struct <- function(..., .list = list(...)){
+  struct_( .fields(.list) )
+}
 
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-.Rproj.user
+#' @export
+schema <- function(..., .list = list(...)){
+  schema_( .fields(.list) )
+}

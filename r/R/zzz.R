@@ -15,26 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
-
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
-
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-.Rproj.user
+#' @useDynLib arrow, .registration = TRUE
+#' @importFrom Rcpp sourceCpp
+#' @exportPattern "^.*$"
+NULL
