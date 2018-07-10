@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <limits>
 #include <numeric>
 #include <sstream>
@@ -42,6 +43,24 @@
 namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
+
+namespace {
+
+Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
+  if (buffer) {
+    if (bytes_filled < buffer->size()) {
+      // Trim buffer
+      RETURN_NOT_OK(buffer->Resize(bytes_filled));
+    }
+    // zero the padding
+    buffer->ZeroPadding();
+  } else {
+    DCHECK_EQ(bytes_filled, 0);
+  }
+  return Status::OK();
+}
+
+}  // namespace
 
 ArrayBuilder::~ArrayBuilder() {
 #ifndef NDEBUG
@@ -235,10 +254,13 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
 // Null builder
 
 Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  *out = ArrayData::Make(null(), length_, {nullptr}, length_);
-  length_ = null_count_ = 0;
-
+  if (null_count_) {
+    RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
+  }
+  
+  *out = ArrayData::Make(null(), length_, {null_bitmap_}, length_);
   is_finished_ = true;
+  length_ = null_count_ = 0;
   return Status::OK();
 }
 
@@ -339,24 +361,6 @@ template <typename T>
 Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values) {
   return AppendValues(values);
 }
-
-namespace {
-
-Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
-  if (buffer) {
-    if (bytes_filled < buffer->size()) {
-      // Trim buffer
-      RETURN_NOT_OK(buffer->Resize(bytes_filled));
-    }
-    // zero the padding
-    buffer->ZeroPadding();
-  } else {
-    DCHECK_EQ(bytes_filled, 0);
-  }
-  return Status::OK();
-}
-
-}  // namespace
 
 template <typename T>
 Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {

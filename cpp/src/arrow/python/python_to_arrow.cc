@@ -280,10 +280,13 @@ class SequenceBuilder {
     RETURN_NOT_OK(offsets_.Finish(&offsets_array));
     const auto& offsets = checked_cast<const Int32Array&>(*offsets_array);
 
+    std::shared_ptr<Array> nones_array;
+    RETURN_NOT_OK(nones_.Finish(&nones_array));
+    const auto& nones = checked_cast<const NullArray&>(*nones_array);
+
     auto type = ::arrow::union_(fields_, type_ids_, UnionMode::DENSE);
     out->reset(new UnionArray(type, types.length(), children_, types.values(),
-                              offsets.values(), nones_.null_bitmap(),
-                              nones_.null_count()));
+                              offsets.values(), nones.null_bitmap(), nones.null_count()));
     return Status::OK();
   }
 
