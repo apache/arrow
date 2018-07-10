@@ -66,9 +66,10 @@ class ARROW_EXPORT ArrayBuilder {
         null_count_(0),
         null_bitmap_data_(NULLPTR),
         length_(0),
-        capacity_(0) {}
+        capacity_(0),
+        is_finished_(true) {}
 
-  virtual ~ArrayBuilder() = default;
+  virtual ~ArrayBuilder();
 
   /// For nested types. Since the objects are owned by this class instance, we
   /// skip shared pointers and just return a raw pointer
@@ -157,6 +158,10 @@ class ARROW_EXPORT ArrayBuilder {
   // Child value array builders. These are owned by this class
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
 
+  // Indicates if the FinishInternal method was called on the builder after the last
+  // append
+  bool is_finished_;
+
   void Reset();
 
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
@@ -180,6 +185,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status AppendNull() {
     ++null_count_;
     ++length_;
+    is_finished_ = false;
     return Status::OK();
   }
 
@@ -204,6 +210,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     memset(raw_data_ + length_, 0,
            static_cast<size_t>(TypeTraits<Type>::bytes_required(length)));
     UnsafeAppendToBitmap(valid_bytes, length);
+    is_finished_ = false;
     return Status::OK();
   }
 
@@ -211,6 +218,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(1));
     memset(raw_data_ + length_, 0, sizeof(value_type));
     UnsafeAppendToBitmap(false);
+    is_finished_ = false;
     return Status::OK();
   }
 
@@ -347,6 +355,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(length));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
     UnsafeAppendToBitmap(valid_bytes, length);
+    is_finished_ = false;
     return Status::OK();
   }
 
@@ -354,6 +363,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(1));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_);
     UnsafeAppendToBitmap(false);
+    is_finished_ = false;
     return Status::OK();
   }
 
@@ -560,12 +570,15 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
 
+    is_finished_ = false;
     return Status::OK();
   }
 
   Status AppendNull() {
     RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
+
+    is_finished_ = false;
     return Status::OK();
   }
 
@@ -968,7 +981,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
   using Scalar = typename internal::DictionaryScalar<T>::type;
 
-  ~DictionaryBuilder() override {}
+  ~DictionaryBuilder() override;
 
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 

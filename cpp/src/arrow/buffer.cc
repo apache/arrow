@@ -123,7 +123,7 @@ Status PoolBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
     }
   }
   size_ = new_size;
-  
+
   return Status::OK();
 }
 

@@ -102,10 +102,10 @@ class ARROW_EXPORT Buffer {
               std::shared_ptr<Buffer>* out) const;
 
   /// Zero bytes between padding, i.e. bytes between size_ and capacity_.
-  void ZeroPadding() { 
-    #ifndef NDEBUG
+  void ZeroPadding() {
+#ifndef NDEBUG
     CheckMutable();
-    #endif
+#endif
     memset(mutable_data_ + size_, 0, static_cast<size_t>(capacity_ - size_));
   }
 
@@ -195,7 +195,8 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
  public:
   /// Change buffer reported size to indicated size, allocating memory if
   /// necessary.  This will ensure that the capacity of the buffer is a multiple
-  /// of 64 bytes as defined in Layout.md. The padding should be zeroed.
+  /// of 64 bytes as defined in Layout.md.
+  /// Consider using ZeroPadding afterwards, in case you return buffer to a reader.
   ///
   /// @param shrink_to_fit On deactivating this option, the capacity of the Buffer won't
   /// decrease.

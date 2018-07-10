@@ -85,7 +85,7 @@ std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
   const int byte_width = 10;
   std::shared_ptr<Buffer> null_bitmap = MakeRandomNullBitmap(length, null_count);
   std::shared_ptr<Buffer> data;
-  
+
   EXPECT_OK(AllocateBuffer(pool_, byte_width * length, &data));
 
   ::arrow::test::random_bytes(data->size(), 0, data->mutable_data());
