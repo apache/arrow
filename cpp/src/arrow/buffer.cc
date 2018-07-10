@@ -32,8 +32,8 @@ Status Buffer::Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
   DCHECK_LT(start, size_);
   DCHECK_LE(nbytes, size_ - start);
 
-  auto new_buffer = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(new_buffer->Resize(nbytes));
+  std::shared_ptr<ResizableBuffer> new_buffer;
+  RETURN_NOT_OK(AllocateResizableBuffer(pool, nbytes, &new_buffer));
 
   std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
 
@@ -123,6 +123,7 @@ Status PoolBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
     }
   }
   size_ = new_size;
+  
   return Status::OK();
 }
 
@@ -141,7 +142,8 @@ MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::shared_ptr<Buffer>* out) {
   auto buffer = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(buffer->Resize(size));
+  RETURN_NOT_OK(buffer->Resize(size, false));
+  buffer->ZeroPadding();
   *out = buffer;
   return Status::OK();
 }
@@ -153,7 +155,8 @@ Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out) {
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
   auto buffer = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(buffer->Resize(size));
+  RETURN_NOT_OK(buffer->Resize(size, false));
+  buffer->ZeroPadding();
   *out = buffer;
   return Status::OK();
 }
