@@ -143,6 +143,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
+      buffer->ZeroPadding();
     }
 
     *out = buffer;

@@ -124,8 +124,8 @@ inline Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* poo
                                    std::shared_ptr<Buffer>* result) {
   int64_t nbytes = static_cast<int>(values.size()) * sizeof(T);
 
-  auto buffer = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(buffer->Resize(nbytes));
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(AllocateBuffer(pool, nbytes, &buffer));
   auto immutable_data = reinterpret_cast<const uint8_t*>(values.data());
   std::copy(immutable_data, immutable_data + nbytes, buffer->mutable_data());
   memset(buffer->mutable_data() + nbytes, 0,
@@ -289,7 +289,8 @@ Status MakeRandomInt32PoolBuffer(int64_t length, MemoryPool* pool,
                                  uint32_t seed = 0) {
   DCHECK(pool);
   auto data = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(data->Resize(length * sizeof(int32_t)));
+  RETURN_NOT_OK(data->Resize(sizeof(int32_t) * length));
+  data->ZeroPadding();
   test::rand_uniform_int(length, seed, 0, std::numeric_limits<int32_t>::max(),
                          reinterpret_cast<int32_t*>(data->mutable_data()));
   *pool_buffer = data;
@@ -301,6 +302,7 @@ Status MakeRandomBytePoolBuffer(int64_t length, MemoryPool* pool,
                                 uint32_t seed = 0) {
   auto bytes = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(bytes->Resize(length));
+  bytes->ZeroPadding();
   test::random_bytes(length, seed, bytes->mutable_data());
   *pool_buffer = bytes;
   return Status::OK();

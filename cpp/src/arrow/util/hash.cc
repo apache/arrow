@@ -27,6 +27,7 @@ Status NewHashTable(int64_t size, MemoryPool* pool, std::shared_ptr<Buffer>* out
   auto hash_table = std::make_shared<PoolBuffer>(pool);
 
   RETURN_NOT_OK(hash_table->Resize(sizeof(hash_slot_t) * size));
+  hash_table->ZeroPadding();
   auto slots = reinterpret_cast<hash_slot_t*>(hash_table->mutable_data());
   std::fill(slots, slots + size, kHashSlotEmpty);
 

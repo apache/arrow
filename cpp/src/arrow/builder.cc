@@ -336,7 +336,7 @@ Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
       RETURN_NOT_OK(buffer->Resize(bytes_filled));
     }
     // zero the padding
-    memset(buffer->mutable_data() + bytes_filled, 0, buffer->capacity() - bytes_filled);
+    buffer->ZeroPadding();
   } else {
     DCHECK_EQ(bytes_filled, 0);
   }

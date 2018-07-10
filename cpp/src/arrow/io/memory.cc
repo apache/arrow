@@ -68,6 +68,7 @@ Status BufferOutputStream::Close() {
 
 Status BufferOutputStream::Finish(std::shared_ptr<Buffer>* result) {
   RETURN_NOT_OK(Close());
+  buffer_->ZeroPadding();
   *result = buffer_;
   buffer_ = nullptr;
   is_open_ = false;
