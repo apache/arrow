@@ -68,9 +68,10 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
 
 class Repo(object):
 
-    def __init__(self, path):
+    def __init__(self, path, github_token=None):
         self.path = Path(path)
         self.repo = pygit2.Repository(str(self.path))
+        self.github_token = github_token
         self._updated_refs = []
 
     def __str__(self):
@@ -92,8 +93,8 @@ class Repo(object):
         refspec = '+refs/heads/*:refs/remotes/origin/*'
         self.origin.fetch([refspec])
 
-    def push(self, token):
-        callbacks = GitRemoteCallbacks(token)
+    def push(self):
+        callbacks = GitRemoteCallbacks(self.github_token)
         self.origin.push(self._updated_refs, callbacks=callbacks)
         self.updated_refs = []
 
@@ -167,9 +168,9 @@ class Repo(object):
         user, repo = m.group(1), m.group(2)
         return user, repo
 
-    def as_github_repo(self, token=None):
+    def as_github_repo(self):
         username, reponame = self._parse_github_user_repo()
-        gh = github3.login(token=token)
+        gh = github3.login(token=self.github_token)
         return gh.repository(username, reponame)
 
 
@@ -186,7 +187,8 @@ class Queue(Repo):
         return '{}-{}'.format(prefix, latest + 1)
 
     def get(self, job_name):
-        branch = self.repo.branches[job_name]
+        branch_name = 'origin/{}'.format(job_name)
+        branch = self.repo.branches[branch_name]
         content = self.file_contents(branch.target, 'job.yml')
         buffer = StringIO(content.decode('utf-8'))
         return yaml.load(buffer)
@@ -211,13 +213,13 @@ class Queue(Repo):
 
         return branch
 
-    def github_statuses(self, job, token=None):
-        repo = self.as_github_repo(token=token)
+    def github_statuses(self, job):
+        repo = self.as_github_repo()
         return {name: repo.commit(task.commit).status()
                 for name, task in job.tasks.items()}
 
-    def github_assets(self, job, token=None):
-        repo = self.as_github_repo(token=token)
+    def github_assets(self, job):
+        repo = self.as_github_repo()
         try:
             release = repo.release_from_tag(job.branch)
         except github3.exceptions.NotFoundError:
@@ -225,8 +227,8 @@ class Queue(Repo):
         else:
             return {a.name: a for a in release.assets()}
 
-    def upload_assets(self, job, files, content_type, token=None):
-        repo = self.as_github_repo(token=token)
+    def upload_assets(self, job, files, content_type):
+        repo = self.as_github_repo()
         release = repo.release_from_tag(job.branch)
         assets = {a.name: a for a in release.assets()}
 
@@ -391,7 +393,7 @@ def config_path_validation_callback(ctx, param, value):
 @github_token
 def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
            queue_path, github_token):
-    queue = Queue(queue_path)
+    queue = Queue(queue_path, github_token=github_token)
     target = Target.from_repo(arrow_path)
 
     with Path(config_path).open() as fp:
@@ -425,7 +427,7 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
     else:
         queue.fetch()
         queue.put(job)
-        queue.push(token=github_token)
+        queue.push()
         yaml.dump(job, sys.stdout)
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
@@ -437,7 +439,7 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
                    'Defaults to crossbow directory placed next to arrow')
 @github_token
 def status(job_name, queue_path, github_token):
-    queue = Queue(queue_path)
+    queue = Queue(queue_path, github_token=github_token)
     queue.fetch()
 
     tpl = '[{:>7}] {:<24} {:>45}'
@@ -446,8 +448,8 @@ def status(job_name, queue_path, github_token):
     click.echo('-' * len(header))
 
     job = queue.get(job_name)
-    assets = queue.github_assets(job, token=github_token)
-    statuses = queue.github_statuses(job, token=github_token)
+    assets = queue.github_assets(job)
+    statuses = queue.github_statuses(job)
 
     for task_name, task in job.tasks.items():
         status = statuses[task_name]
@@ -490,12 +492,12 @@ def sign(job_name, gpg_homedir, target_dir, queue_path, github_token):
     gpg = gnupg.GPG(gnupghome=gpg_homedir)
 
     # initialize and fetch the queue repository
-    queue = Queue(queue_path)
+    queue = Queue(queue_path, github_token=github_token)
     queue.fetch()
 
     # query the job's artifacts
     job = queue.get(job_name)
-    assets = queue.github_assets(job, token=github_token)
+    assets = queue.github_assets(job)
 
     click.echo('Downloading and signing assets...')
     target_dir = Path(target_dir).absolute()
