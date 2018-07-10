@@ -32,7 +32,7 @@ matrix:
     - script:
         - pushd arrow/dev/tasks/linux-packages
         - |
-          rake version:update && travis_wait 40 rake apt:build \
+          rake version:update && travis_wait 60 rake apt:build \
               APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial \
               PARALLEL=yes \
               DEBUG=no
@@ -47,7 +47,7 @@ matrix:
     - script:
         - pushd arrow/dev/tasks/linux-packages
         - |
-          rake version:update && travis_wait 40 rake apt:build \
+          rake version:update && travis_wait 60 rake apt:build \
               APT_TARGETS=ubuntu-artful,ubuntu-bionic \
               PARALLEL=yes \
               DEBUG=no
