@@ -22,9 +22,9 @@ dist: trusty
 
 env:
   matrix:
-    - CONDA_PY=27
-    - CONDA_PY=35
-    - CONDA_PY=36
+    - CONFIG=variants/linux_python2.7.yml
+    - CONFIG=variants/linux_python3.5.yml
+    - CONFIG=variants/linux_python3.6.yml
   global:
     - TRAVIS_TAG={{ job.branch }}
     - ARROW_VERSION={{ arrow.version }}
@@ -56,7 +56,10 @@ script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
-  - conda build --output-folder . parquet-cpp arrow-cpp pyarrow
+  - |
+    conda build --output-folder . \
+                --variant-config-files ${CONFIG} \
+                parquet-cpp arrow-cpp pyarrow
   - |
     pushd linux-64
     for file in *.tar.bz2; do

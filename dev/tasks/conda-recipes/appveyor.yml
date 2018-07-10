@@ -16,14 +16,13 @@
 # under the License.
 
 environment:
-  matrix:
-    - TARGET_ARCH: x64
-      CONDA_PY: 35
-      CONDA_INSTALL_LOCN: C:\\Miniconda35-x64
-    - TARGET_ARCH: x64
-      CONDA_PY: 36
-      CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
   ARROW_VERSION: {{ arrow.version }}
+  matrix:
+    - CONFIG: win_c_compilervs2015cxx_compilervs2015python3.5
+      CONDA_INSTALL_LOCN: C:\\Miniconda35-x64
+
+    - CONFIG: win_c_compilervs2015cxx_compilervs2015python3.6
+      CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
 
 install:
     - cmd: rmdir C:\cygwin /s /q
@@ -47,9 +46,13 @@ test_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
   - git -C arrow checkout {{ arrow.head }} || exit /B
   - pushd arrow\dev\tasks\conda-recipes
-  - conda.exe build --output-folder . parquet-cpp arrow-cpp pyarrow
-  - pushd win-64
-  - for %%f in (*.tar.bz2) do (
+  - |
+    conda.exe build --output-folder . ^
+                    --variant-config-files %CONFIG% ^
+                    parquet-cpp arrow-cpp pyarrow
+  - |
+    pushd win-64
+    for %%f in (*.tar.bz2) do (
       set %%g=%%~nf
       ren "%%f" "%%~ng-win-64.tar.bz2"
     )

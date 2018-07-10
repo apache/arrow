@@ -35,19 +35,22 @@ source:
   sha256: {{ sha256sum }}
 
 build:
-  number: 0
-  features:
-    - vc14  # [win]
+  number: 2
+  skip: true  # [win32]
+  skip: true  # [win and py<35]
 
 requirements:
   build:
-    - toolchain
-    - boost-cpp 1.66.0
     - cmake
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+  host:
+    - boost-cpp
     - thrift-cpp >=0.11
     - arrow-cpp {{ ARROW_VERSION }}
 
   run:
+    - boost-cpp
     - arrow-cpp {{ ARROW_VERSION }}
 
 test:
