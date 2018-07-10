@@ -1040,7 +1040,8 @@ DictionaryBuilder<T>::~DictionaryBuilder() {
 #ifndef NDEBUG
   // explicitly finish overflow builder to avoid warnings
   std::shared_ptr<ArrayData> out;
-  overflow_dict_builder_.FinishInternal(&out);
+  // ignore status
+  Status s = overflow_dict_builder_.FinishInternal(&out);
 #endif
 }
 
