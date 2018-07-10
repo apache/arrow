@@ -67,6 +67,12 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
 
 
 class Repo(object):
+    """Base class for interaction with local git repositories
+
+    A high level wrapper used for both reading revision information from
+    arrow's repository and pushing continuous integration tasks to the queue
+    repository.
+    """
 
     def __init__(self, path, github_token=None):
         self.path = Path(path)
@@ -169,6 +175,7 @@ class Repo(object):
         return user, repo
 
     def as_github_repo(self):
+        """Converts it to a repository object which wraps the GitHub API"""
         username, reponame = self._parse_github_user_repo()
         gh = github3.login(token=self.github_token)
         return gh.repository(username, reponame)
@@ -242,6 +249,12 @@ class Queue(Repo):
 
 
 class Target(object):
+    """Describes target repository and revision the builds run against
+
+    This serializable data container holding information about arrow's
+    git remote, branch, sha and version number as well as some metadata
+    (currently only an email address where the notification should be sent).
+    """
 
     def __init__(self, head, branch, remote, version, email=None):
         self.head = head
@@ -262,6 +275,15 @@ class Target(object):
 
 
 class Task(object):
+    """Describes a build task and metadata required to render CI templates
+
+    A task is represented as a single git commit and branch containing jinja2
+    rendered files (currently appveyor.yml or .travis.yml configurations).
+
+    A task can't be directly submitted to a queue, must belong to a job.
+    Each task's unique identifier is its branch name, which is generated after
+    submitting the job to a queue.
+    """
 
     def __init__(self, platform, template, artifacts=None, params=None):
         assert platform in {'win', 'osx', 'linux'}
@@ -269,7 +291,7 @@ class Task(object):
         self.template = template
         self.artifacts = artifacts or []
         self.params = params or {}
-        self.branch = None
+        self.branch = None  # filled after adding to a queue
         self.commit = None
 
     def render_files(self, **extra_params):
@@ -294,13 +316,14 @@ class Task(object):
 
 
 class Job(object):
+    """Describes multiple tasks against a single target repository"""
 
     def __init__(self, target, tasks):
         assert isinstance(target, Target)
         assert all(isinstance(task, Task) for task in tasks.values())
         self.target = target
         self.tasks = tasks
-        self.branch = None
+        self.branch = None  # filled after adding to a queue
 
     def render_files(self):
         with StringIO() as buf:
