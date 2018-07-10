@@ -158,7 +158,7 @@ def test_pandas_parquet_2_0_rountrip(tmpdir, chunk_size):
 
 
 @parquet
-def test_chunked_table_write(tmpdir):
+def test_chunked_table_write():
     # ARROW-232
     df = alltypes_sample(size=10)
 
@@ -176,7 +176,7 @@ def test_chunked_table_write(tmpdir):
 
 
 @parquet
-def test_empty_table_roundtrip(tmpdir):
+def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
     # The nanosecond->us conversion is a nuisance, so we just avoid it here
     del df['datetime']
@@ -190,6 +190,14 @@ def test_empty_table_roundtrip(tmpdir):
     assert table.schema.field_by_name('null').type == pa.null()
     assert table.schema.field_by_name('null_list').type == pa.list_(pa.null())
     _check_roundtrip(table, version='2.0')
+
+
+@parquet
+def test_empty_lists_table_roundtrip():
+    # ARROW-2744: Shouldn't crash when writing an array of empty lists
+    arr = pa.array([[], []], type=pa.list_(pa.int32()))
+    table = pa.Table.from_arrays([arr], ["A"])
+    _check_roundtrip(table)
 
 
 @parquet

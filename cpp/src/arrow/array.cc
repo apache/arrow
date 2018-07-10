@@ -664,12 +664,30 @@ namespace internal {
 struct ValidateVisitor {
   Status Visit(const NullArray&) { return Status::OK(); }
 
-  Status Visit(const PrimitiveArray&) { return Status::OK(); }
+  Status Visit(const PrimitiveArray& array) {
+    if (array.data()->buffers.size() != 2) {
+      return Status::Invalid("number of buffers was != 2");
+    }
+    if (array.values() == nullptr) {
+      return Status::Invalid("values was null");
+    }
+    return Status::OK();
+  }
 
-  Status Visit(const Decimal128Array&) { return Status::OK(); }
+  Status Visit(const Decimal128Array& array) {
+    if (array.data()->buffers.size() != 2) {
+      return Status::Invalid("number of buffers was != 2");
+    }
+    if (array.values() == nullptr) {
+      return Status::Invalid("values was null");
+    }
+    return Status::OK();
+  }
 
-  Status Visit(const BinaryArray&) {
-    // TODO(wesm): what to do here?
+  Status Visit(const BinaryArray& array) {
+    if (array.data()->buffers.size() != 3) {
+      return Status::Invalid("number of buffers was != 3");
+    }
     return Status::OK();
   }
 
@@ -688,24 +706,24 @@ struct ValidateVisitor {
          << " isn't large enough for length: " << array.length();
       return Status::Invalid(ss.str());
     }
-    const int32_t last_offset = array.value_offset(array.length());
-    if (last_offset > 0) {
-      if (!array.values()) {
-        return Status::Invalid("last offset was non-zero and values was null");
-      }
-      if (array.values()->length() != last_offset) {
-        std::stringstream ss;
-        ss << "Final offset invariant not equal to values length: " << last_offset
-           << "!=" << array.values()->length();
-        return Status::Invalid(ss.str());
-      }
 
-      const Status child_valid = ValidateArray(*array.values());
-      if (!child_valid.ok()) {
-        std::stringstream ss;
-        ss << "Child array invalid: " << child_valid.ToString();
-        return Status::Invalid(ss.str());
-      }
+    if (!array.values()) {
+      return Status::Invalid("values was null");
+    }
+
+    const int32_t last_offset = array.value_offset(array.length());
+    if (array.values()->length() != last_offset) {
+      std::stringstream ss;
+      ss << "Final offset invariant not equal to values length: " << last_offset
+         << "!=" << array.values()->length();
+      return Status::Invalid(ss.str());
+    }
+
+    const Status child_valid = ValidateArray(*array.values());
+    if (!child_valid.ok()) {
+      std::stringstream ss;
+      ss << "Child array invalid: " << child_valid.ToString();
+      return Status::Invalid(ss.str());
     }
 
     int32_t prev_offset = array.value_offset(0);
