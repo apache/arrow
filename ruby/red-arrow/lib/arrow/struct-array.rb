@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,9 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
-    brew update
-    brew upgrade python
-    brew upgrade hg
-    brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
-fi
+module Arrow
+  class StructArray
+    def [](i)
+      get_field(i)
+    end
+  end
+end

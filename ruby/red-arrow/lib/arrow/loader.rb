@@ -46,6 +46,7 @@ module Arrow
       require "arrow/record-batch"
       require "arrow/rolling-window"
       require "arrow/slicer"
+      require "arrow/struct-array"
       require "arrow/table"
       require "arrow/table-formatter"
       require "arrow/table-list-formatter"

@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,9 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
-    brew update
-    brew upgrade python
-    brew upgrade hg
-    brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
-fi
+class StructArrayTest < Test::Unit::TestCase
+  test("#[]") do
+    type = Arrow::StructDataType.new([
+      Arrow::Field.new("field1", :boolean),
+      Arrow::Field.new("field2", :uint64),
+    ])
+    builder = Arrow::StructArrayBuilder.new(type)
+    builder.append
+    builder.get_field_builder(0).append(true)
+    builder.get_field_builder(1).append(1)
+    builder.append
+    builder.get_field_builder(0).append(false)
+    builder.get_field_builder(1).append(2)
+    array = builder.finish
+
+    assert_equal([[true, false], [1, 2]],
+                 [array[0].to_a, array[1].to_a])
+  end
+end
