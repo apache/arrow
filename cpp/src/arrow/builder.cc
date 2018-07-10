@@ -257,7 +257,7 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   if (null_count_) {
     RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
   }
-  
+
   *out = ArrayData::Make(null(), length_, {null_bitmap_}, length_);
   is_finished_ = true;
   length_ = null_count_ = 0;
