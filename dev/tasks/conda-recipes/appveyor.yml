@@ -36,8 +36,7 @@ install:
     - cmd: conda.exe config --add channels defaults
     - cmd: conda.exe config --add channels conda-forge
     # Configure the VM.
-    - cmd: conda.exe install -n root --quiet --yes conda-forge-build-setup
-    - cmd: run_conda_forge_build_setup
+    - cmd: conda.exe install -n root --quiet --yes conda-build
 
 # Skip .NET project specific build phase.
 build: off
@@ -46,12 +45,8 @@ test_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
   - git -C arrow checkout {{ arrow.head }} || exit /B
   - pushd arrow\dev\tasks\conda-recipes
-  - |
-    conda.exe build --output-folder . ^
-                    --variant-config-files %CONFIG% ^
-                    parquet-cpp arrow-cpp pyarrow
-  - |
-    pushd win-64
+  - conda.exe build --output-folder . -m %CONFIG% parquet-cpp arrow-cpp pyarrow
+  - pushd win-64
     for %%f in (*.tar.bz2) do (
       set %%g=%%~nf
       ren "%%f" "%%~ng-win-64.tar.bz2"
