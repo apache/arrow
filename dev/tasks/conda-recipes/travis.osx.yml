@@ -28,6 +28,7 @@ env:
   global:
     - TRAVIS_TAG={{ job.branch }}
     - ARROW_VERSION={{ arrow.version }}
+    - PYTHONUNBUFFERED=1
 
 before_install:
     # Remove homebrew.
@@ -58,7 +59,10 @@ install:
       conda config --add channels defaults
       conda config --add channels conda-forge
       conda config --set show_channel_urls true
-      conda install --yes --quiet conda-build
+      conda install --yes --quiet conda-forge-ci-setup=1
+      source run_conda_forge_build_setup
+
+# conda install --yes --quiet conda-build
 
 script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
