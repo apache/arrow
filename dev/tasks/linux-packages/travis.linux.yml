@@ -30,7 +30,7 @@ env:
 matrix:
   include:
     - script:
-        - (cd arrow/dev/tasks/linux-packages && rake version:update && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty PARALLEL=yes DEBUG=no)
+        - (cd arrow/dev/tasks/linux-packages && rake version:update && travis_wait 40 rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
       deploy:
         provider: releases
         api_key: $CROSSBOW_GITHUB_TOKEN
@@ -40,7 +40,7 @@ matrix:
         on:
           tags: true
     - script:
-        - (cd arrow/dev/tasks/linux-packages && rake version:update && travis_wait 40 rake apt:build APT_TARGETS=ubuntu-xenial,ubuntu-artful PARALLEL=yes DEBUG=no)
+        - (cd arrow/dev/tasks/linux-packages && rake version:update && travis_wait 40 rake apt:build APT_TARGETS=ubuntu-artful,ubuntu-bionic PARALLEL=yes DEBUG=no)
       # TODO(kszucs) resolve artifact naming conflict with other debian pkgs
       # deploy:
       #   provider: releases
