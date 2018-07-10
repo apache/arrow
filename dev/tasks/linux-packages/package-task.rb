@@ -211,6 +211,7 @@ VERSION=#{@version}
               "ubuntu-trusty",
               "ubuntu-xenial",
               "ubuntu-artful",
+              "ubuntu-bionic",
             ]
           end
           targets.each do |target|

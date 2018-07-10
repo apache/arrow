@@ -23,10 +23,10 @@ sudo: required
 
 env:
   global:
-    - TRAVIS_TAG={{ BUILD_TAG }}
-    - PLAT={{ PLAT }}
-    - BUILD_REF={{ BUILD_REF }}
-    - PYARROW_VERSION={{ PYARROW_VERSION }}
+    - PLAT=x86_64
+    - TRAVIS_TAG={{ job.branch }}
+    - BUILD_REF={{ arrow.head }}
+    - PYARROW_VERSION={{ arrow.version }}
 
 matrix:
   exclude:
@@ -50,7 +50,8 @@ matrix:
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}  
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal
@@ -84,4 +85,4 @@ deploy:
 
 notifications:
   email:
-    - {{ EMAIL }}
+    - {{ job.email }}

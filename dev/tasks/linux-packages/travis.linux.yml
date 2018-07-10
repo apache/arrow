@@ -22,19 +22,55 @@ language: ruby
 
 env:
   global:
-    - TRAVIS_TAG={{ BUILD_TAG }}
-    - PLAT={{ PLAT }}
-    - BUILD_REF={{ BUILD_REF }}
-    - PYARROW_VERSION={{ PYARROW_VERSION }}
+    - PLAT=x86_64
+    - TRAVIS_TAG={{ job.branch }}
+    - BUILD_REF={{ arrow.head }}
+    - ARROW_VERSION={{ arrow.version }}
 
 matrix:
   include:
     - script:
-        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 && rake version:update && rake apt:build APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial PARALLEL=yes DEBUG=no)
+        - pushd arrow/dev/tasks/linux-packages
+        - |
+          rake version:update && travis_wait 60 rake apt:build \
+              APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial \
+              PARALLEL=yes \
+              DEBUG=no
+      deploy:
+        provider: releases
+        api_key: $CROSSBOW_GITHUB_TOKEN
+        file_glob: true
+        file: "**/*.deb"
+        skip_cleanup: true
+        on:
+          tags: true
     - script:
-        - (cd arrow/dev/tasks/linux-packages && travis_wait 40 && rake version:update && rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=yes DEBUG=no)
+        - pushd arrow/dev/tasks/linux-packages
+        - |
+          rake version:update && travis_wait 60 rake apt:build \
+              APT_TARGETS=ubuntu-artful,ubuntu-bionic \
+              PARALLEL=yes \
+              DEBUG=no
+      # TODO(kszucs) resolve artifact naming conflict with other debian pkgs
+      # deploy:
+      #   provider: releases
+      #   api_key: $CROSSBOW_GITHUB_TOKEN
+      #   file_glob: true
+      #   file: "**/*.deb"
+      #   skip_cleanup: true
+      #   on:
+      #     tags: true
     - script:
-        - (cd arrow/dev/tasks/linux-packages && rake version:update && rake yum:build PARALLEL=yes DEBUG=no)
+        - pushd arrow/dev/tasks/linux-packages
+        - rake version:update && rake yum:build PARALLEL=yes DEBUG=no
+      deploy:
+        provider: releases
+        api_key: $CROSSBOW_GITHUB_TOKEN
+        file_glob: true
+        file: "**/*.rpm"
+        skip_cleanup: true
+        on:
+          tags: true
 
 before_install:
   - sudo apt update -y -qq
@@ -60,18 +96,9 @@ before_install:
         python3-numpy
 
 before_script:
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - git -C arrow checkout {{ ARROW_SHA }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file: /path/to/pachages/*.tar.gz  # FIXME(kszucs) after the builds pass
-  skip_cleanup: true
-  on:
-    tags: true
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
 
 notifications:
   email:
-    - {{ EMAIL }}
+    - {{ job.email }}

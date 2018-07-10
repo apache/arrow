@@ -6,10 +6,12 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
+export DEB_BUILD_MAINT_OPTIONS=reproducible=-timeless
+
 BUILD_TYPE=release
 
 %:
-	dh $@ --with gir,autoreconf
+	dh $@ --with gir,autoreconf --no-parallel
 
 override_dh_autoreconf:
 	dh_autoreconf \

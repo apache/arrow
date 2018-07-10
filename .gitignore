@@ -37,3 +37,4 @@ python/.eggs/
 .vscode
 .idea/
 .pytest_cache/
+pkgs

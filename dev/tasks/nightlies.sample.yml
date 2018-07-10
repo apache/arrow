@@ -15,22 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-language: generic
+# this travis configuration can be used to submit cron scheduled tasks
+# 1. copy this file to one of crossbow's branch (master for example) with
+#    filename .travis.yml
+# 2. setup daily cron jobs for that particular branch, see travis'
+#    documentation https://docs.travis-ci.com/user/cron-jobs/
+
+branches:
+  # don't attempt to build branches intented for windows builds
+  except:
+    - /.*win.*/
 
 os: linux
 dist: trusty
+language: generic
 
-env:
-  matrix:
-    - CONFIG=variants/linux_python2.7.yaml
-    - CONFIG=variants/linux_python3.5.yaml
-    - CONFIG=variants/linux_python3.6.yaml
-  global:
-    - TRAVIS_TAG={{ job.branch }}
-    - ARROW_VERSION={{ arrow.version }}
-    - PYTHONUNBUFFERED=1
-
-install:
+before_install:
     # Install Miniconda.
     - echo `pwd`
     - |
@@ -50,29 +50,42 @@ install:
       conda config --add channels defaults
       conda config --add channels conda-forge
       conda config --set show_channel_urls true
-      conda install --yes --quiet conda-build
+
+install:
+  - |
+    conda install -y \
+      jinja2 \
+      pygit2 \
+      click \
+      ruamel.yaml \
+      setuptools_scm \
+      github3.py \
+      python-gnupg
 
 script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}
-  - pushd arrow/dev/tasks/conda-recipes
-  - conda build --output-folder . -m $CONFIG parquet-cpp arrow-cpp pyarrow
-  - pushd linux-64
+  # to build against a specific branch of a fork
+  # git clone -b <branch> https://github.com/<user>/arrow
+  - pushd ..
+  - git clone -b master https://github.com/apache/arrow
+
+  # submit packaging tasks
   - |
-    for file in *.tar.bz2; do
-      mv "$file" "$(basename "$file" .tar.bz2)-linux-64.tar.bz2"
-    done
-    popd
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file: $TRAVIS_BUILD_DIR/arrow/dev/tasks/conda-recipes/linux-64/*.tar.bz2
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+    if [ $TRAVIS_EVENT_TYPE = "cron" ]; then
+      python arrow/dev/tasks/crossbow.py submit \
+        conda-linux \
+        conda-win \
+        conda-osx \
+        wheel-linux \
+        wheel-win \
+        wheel-osx \
+        linux-packages
+    else
+      python arrow/dev/tasks/crossbow.py submit --dry-run \
+        conda-linux \
+        conda-win \
+        conda-osx \
+        wheel-linux \
+        wheel-win \
+        wheel-osx \
+        linux-packages
+    fi
