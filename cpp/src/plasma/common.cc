@@ -26,6 +26,8 @@
 namespace plasma {
 
 using arrow::Status;
+using flatbuf::ObjectStatus;
+using flatbuf::PlasmaError;
 
 UniqueID UniqueID::from_random() {
   UniqueID id;
@@ -123,7 +125,7 @@ bool UniqueID::operator==(const UniqueID& rhs) const {
   return std::memcmp(data(), rhs.data(), kUniqueIDSize) == 0;
 }
 
-Status plasma_error_status(PlasmaError plasma_error) {
+Status PlasmaErrorStatus(PlasmaError plasma_error) {
   switch (plasma_error) {
     case PlasmaError::OK:
       return Status::OK();

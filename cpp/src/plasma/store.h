@@ -33,6 +33,9 @@
 
 namespace plasma {
 
+using flatbuf::ObjectInfoT;
+using flatbuf::PlasmaError;
+
 struct GetRequest;
 
 struct NotificationQueue {
@@ -67,7 +70,7 @@ class PlasmaStore {
   ~PlasmaStore();
 
   /// Get a const pointer to the internal PlasmaStoreInfo object.
-  const PlasmaStoreInfo* get_plasma_store_info();
+  const PlasmaStoreInfo* GetPlasmaStoreInfo();
 
   /// Create a new object. The client must do a call to release_object to tell
   /// the store when it is done with the object.
@@ -90,9 +93,9 @@ class PlasmaStore {
   ///  - PlasmaError::OutOfMemory, if the store is out of memory and
   ///    cannot create the object. In this case, the client should not call
   ///    plasma_release.
-  PlasmaError create_object(const ObjectID& object_id, int64_t data_size,
-                            int64_t metadata_size, int device_num, Client* client,
-                            PlasmaObject* result);
+  PlasmaError CreateObject(const ObjectID& object_id, int64_t data_size,
+                           int64_t metadata_size, int device_num, Client* client,
+                           PlasmaObject* result);
 
   /// Abort a created but unsealed object. If the client is not the
   /// creator, then the abort will fail.
@@ -101,7 +104,7 @@ class PlasmaStore {
   /// @param client The client who created the object. If this does not
   ///   match the creator of the object, then the abort will fail.
   /// @return 1 if the abort succeeds, else 0.
-  int abort_object(const ObjectID& object_id, Client* client);
+  int AbortObject(const ObjectID& object_id, Client* client);
 
   /// Delete an specific object by object_id that have been created in the hash table.
   ///
@@ -110,13 +113,13 @@ class PlasmaStore {
   ///  - PlasmaError::OK, if the object was delete successfully.
   ///  - PlasmaError::ObjectNonexistent, if ths object isn't existed.
   ///  - PlasmaError::ObjectInUse, if the object is in use.
-  PlasmaError delete_object(ObjectID& object_id);
+  PlasmaError DeleteObject(ObjectID& object_id);
 
   /// Delete objects that have been created in the hash table. This should only
   /// be called on objects that are returned by the eviction policy to evict.
   ///
   /// @param object_ids Object IDs of the objects to be deleted.
-  void delete_objects(const std::vector<ObjectID>& object_ids);
+  void DeleteObjects(const std::vector<ObjectID>& object_ids);
 
   /// Process a get request from a client. This method assumes that we will
   /// eventually have these objects sealed. If one of the objects has not yet
@@ -129,8 +132,8 @@ class PlasmaStore {
   /// @param client The client making this request.
   /// @param object_ids Object IDs of the objects to be gotten.
   /// @param timeout_ms The timeout for the get request in milliseconds.
-  void process_get_request(Client* client, const std::vector<ObjectID>& object_ids,
-                           int64_t timeout_ms);
+  void ProcessGetRequest(Client* client, const std::vector<ObjectID>& object_ids,
+                         int64_t timeout_ms);
 
   /// Seal an object. The object is now immutable and can be accessed with get.
   ///
@@ -138,52 +141,52 @@ class PlasmaStore {
   /// @param digest The digest of the object. This is used to tell if two
   /// objects
   ///        with the same object ID are the same.
-  void seal_object(const ObjectID& object_id, unsigned char digest[]);
+  void SealObject(const ObjectID& object_id, unsigned char digest[]);
 
   /// Check if the plasma store contains an object:
   ///
   /// @param object_id Object ID that will be checked.
   /// @return OBJECT_FOUND if the object is in the store, OBJECT_NOT_FOUND if
   /// not
-  object_status contains_object(const ObjectID& object_id);
+  ObjectStatus ContainsObject(const ObjectID& object_id);
 
   /// Record the fact that a particular client is no longer using an object.
   ///
   /// @param object_id The object ID of the object that is being released.
   /// @param client The client making this request.
-  void release_object(const ObjectID& object_id, Client* client);
+  void ReleaseObject(const ObjectID& object_id, Client* client);
 
   /// Subscribe a file descriptor to updates about new sealed objects.
   ///
   /// @param client The client making this request.
-  void subscribe_to_updates(Client* client);
+  void SubscribeToUpdates(Client* client);
 
   /// Connect a new client to the PlasmaStore.
   ///
   /// @param listener_sock The socket that is listening to incoming connections.
-  void connect_client(int listener_sock);
+  void ConnectClient(int listener_sock);
 
   /// Disconnect a client from the PlasmaStore.
   ///
   /// @param client_fd The client file descriptor that is disconnected.
-  void disconnect_client(int client_fd);
+  void DisconnectClient(int client_fd);
 
-  NotificationMap::iterator send_notifications(NotificationMap::iterator it);
+  NotificationMap::iterator SendNotifications(NotificationMap::iterator it);
 
-  Status process_message(Client* client);
+  Status ProcessMessage(Client* client);
 
  private:
-  void push_notification(ObjectInfoT* object_notification);
+  void PushNotification(ObjectInfoT* object_notification);
 
-  void push_notification(ObjectInfoT* object_notification, int client_fd);
+  void PushNotification(ObjectInfoT* object_notification, int client_fd);
 
-  void add_to_client_object_ids(ObjectTableEntry* entry, Client* client);
+  void AddToClientObjectIds(ObjectTableEntry* entry, Client* client);
 
-  void return_from_get(GetRequest* get_req);
+  void ReturnFromGet(GetRequest* get_req);
 
-  void update_object_get_requests(const ObjectID& object_id);
+  void UpdateObjectGetRequests(const ObjectID& object_id);
 
-  int remove_from_client_object_ids(ObjectTableEntry* entry, Client* client);
+  int RemoveFromClientObjectIds(ObjectTableEntry* entry, Client* client);
 
   /// Event loop of the plasma store.
   EventLoop* loop_;
