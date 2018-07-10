@@ -170,6 +170,7 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
     null_bitmap_data_[byte_offset] = bitset;
   }
   length_ += length;
+  is_finished_ = false;
 }
 
 void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
@@ -200,6 +201,7 @@ void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
   if (bit_offset != 0) {
     null_bitmap_data_[byte_offset] = bitset;
   }
+  is_finished_ = false;
   length_ += length;
 }
 
@@ -235,6 +237,7 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
 Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   *out = ArrayData::Make(null(), length_, {nullptr}, length_);
   length_ = null_count_ = 0;
+
   is_finished_ = true;
   return Status::OK();
 }
@@ -284,8 +287,6 @@ Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t lengt
 
   // length_ is update by these
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
-
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -308,8 +309,6 @@ Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t lengt
 
   // length_ is update by these
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
-
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -369,6 +368,7 @@ Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
   is_finished_ = true;
+
   return Status::OK();
 }
 
@@ -506,8 +506,6 @@ Status AdaptiveIntBuilder::AppendValues(const int64_t* values, int64_t length,
 
   // length_ is update by these
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
-
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -611,6 +609,7 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
   is_finished_ = true;
+
   return Status::OK();
 }
 
@@ -667,8 +666,6 @@ Status AdaptiveUIntBuilder::AppendValues(const uint64_t* values, int64_t length,
 
   // length_ is update by these
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
-
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -809,6 +806,7 @@ Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
   is_finished_ = true;
+
   return Status::OK();
 }
 
@@ -822,7 +820,6 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -842,7 +839,6 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -879,9 +875,8 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
   internal::GenerateBitsUnrolled(raw_data_, length_, length,
                                  [values, &i]() -> bool { return values[i++]; });
 
-  // this updates length_
+  // this updates length_ and sets unfinished
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -898,9 +893,8 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   internal::GenerateBitsUnrolled(raw_data_, length_, length,
                                  [values, &i]() -> bool { return values[i++]; });
 
-  // this updates length_
+  // this updates length_ and sets unfinished
   ArrayBuilder::UnsafeSetNotNull(length);
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -1356,8 +1350,6 @@ Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   offsets_builder_.UnsafeAppend(offsets, length);
-
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -1380,8 +1372,6 @@ Status ListBuilder::AppendNextOffset() {
 Status ListBuilder::Append(bool is_valid) {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendToBitmap(is_valid);
-
-  is_finished_ = false;
   return AppendNextOffset();
 }
 
@@ -1478,18 +1468,16 @@ Status BinaryBuilder::Append(const uint8_t* value, int32_t length) {
   RETURN_NOT_OK(Reserve(1));
   RETURN_NOT_OK(AppendNextOffset());
   RETURN_NOT_OK(value_data_builder_.Append(value, length));
-  UnsafeAppendToBitmap(true);
 
-  is_finished_ = false;
+  UnsafeAppendToBitmap(true);
   return Status::OK();
 }
 
 Status BinaryBuilder::AppendNull() {
   RETURN_NOT_OK(AppendNextOffset());
   RETURN_NOT_OK(Reserve(1));
-  UnsafeAppendToBitmap(false);
 
-  is_finished_ = false;
+  UnsafeAppendToBitmap(false);
   return Status::OK();
 }
 
@@ -1552,8 +1540,8 @@ Status StringBuilder::AppendValues(const std::vector<std::string>& values,
           reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
     }
   }
+
   UnsafeAppendToBitmap(valid_bytes, values.size());
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -1617,8 +1605,6 @@ Status StringBuilder::AppendValues(const char** values, int64_t length,
       UnsafeAppendToBitmap(nullptr, length);
     }
   }
-
-  is_finished_ = false;
   return Status::OK();
 }
 
@@ -1640,8 +1626,6 @@ Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
                                             const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
-
-  is_finished_ = false;
   return byte_builder_.Append(data, length * byte_width_);
 }
 
@@ -1657,8 +1641,6 @@ Status FixedSizeBinaryBuilder::Append(const std::string& value) {
 Status FixedSizeBinaryBuilder::AppendNull() {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendToBitmap(false);
-
-  is_finished_ = false;
   return byte_builder_.Advance(byte_width_);
 }
 

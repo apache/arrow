@@ -130,7 +130,7 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Unsafe operations (don't check capacity/don't resize)
 
-  // Append to null bitmap.
+  // Append to null bitmap, update the length and set finished state to false
   void UnsafeAppendToBitmap(bool is_valid) {
     if (is_valid) {
       BitUtil::SetBit(null_bitmap_data_, length_);
@@ -138,6 +138,7 @@ class ARROW_EXPORT ArrayBuilder {
       ++null_count_;
     }
     ++length_;
+    is_finished_ = false;
   }
 
  protected:
