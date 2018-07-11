@@ -18,4 +18,8 @@
 # under the License.
 #
 export CFLAGS="${CFLAGS} -O3 -fPIC"
-make -j4
+if [ -z "$MAKELEVEL" ]; then
+  make -j4
+else
+  make
+fi
