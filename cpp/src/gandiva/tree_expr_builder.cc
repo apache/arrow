@@ -112,9 +112,15 @@ NodePtr TreeExprBuilder::MakeOr(const NodeVector &children) {
   return std::make_shared<BooleanNode>(BooleanNode::OR, children);
 }
 
+// set this to true to print expressions for debugging purposes
+static bool print_expr = false;
+
 ExpressionPtr TreeExprBuilder::MakeExpression(NodePtr root_node, FieldPtr result_field) {
   if (result_field == nullptr) {
     return nullptr;
+  }
+  if (print_expr) {
+    std::cout << "Expression: " << root_node->ToString() << "\n";
   }
   return ExpressionPtr(new Expression(root_node, result_field));
 }

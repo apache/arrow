@@ -30,6 +30,8 @@ class Expression {
 
   const FieldPtr &result() const { return result_; }
 
+  std::string ToString();
+
  private:
   const NodePtr root_;
   const FieldPtr result_;

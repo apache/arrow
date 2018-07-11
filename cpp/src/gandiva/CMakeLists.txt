@@ -33,6 +33,7 @@ set(SRC_FILES annotator.cc
       llvm_types.cc
       projector.cc
       status.cc
+      expression.cc
       tree_expr_builder.cc
       ${BC_FILE_PATH_CC})
 
