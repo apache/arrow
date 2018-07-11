@@ -34,7 +34,7 @@ class ApacheArrowPackageTask < PackageTask
   def detect_version(release_time)
     pom_xml_path = File.join(arrow_source_dir, "java", "pom.xml")
     version = File.read(pom_xml_path).scan(/^  <version>(.+?)<\/version>/)[0][0]
-    version = ENV['ARROW_VERSION'] or version  #try to read from env
+    version = ENV['ARROW_VERSION'] || version  #try to read from env
     formatted_release_time = release_time.strftime("%Y%m%d")
     version.gsub(/-SNAPSHOT\z/) {".#{formatted_release_time}"}
   end
