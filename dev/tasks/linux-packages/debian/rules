@@ -11,7 +11,7 @@ export DEB_BUILD_MAINT_OPTIONS=reproducible=-timeless
 BUILD_TYPE=release
 
 %:
-	dh $@ --with gir,autoreconf --no-parallel
+	dh $@ --with gir,autoreconf
 
 override_dh_autoreconf:
 	dh_autoreconf \
