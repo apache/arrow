@@ -170,6 +170,15 @@ def test_recordbatch_basics():
         batch[2]
 
 
+def test_recordbatch_from_arrays_validate_lengths():
+    # ARROW-2820
+    data = [pa.array([1]), pa.array(["tokyo", "like", "happy"]),
+            pa.array(["derek"])]
+
+    with pytest.raises(ValueError):
+        pa.RecordBatch.from_arrays(data, ['id', 'tags', 'name'])
+
+
 def test_recordbatch_no_fields():
     batch = pa.RecordBatch.from_arrays([], [])
 
