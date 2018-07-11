@@ -70,7 +70,9 @@ Let's look at a simple table:
                       'two': ['foo', 'bar', 'baz'],
                       'three': [True, False, True]},
                       index=list('abc'))
-   table = pa.Table.from_pandas(df)
+   table = pa.Table.from_pandas(df, preserve_index=False)
+
+We remove the dataframe index as we don't need it in the Parquet output file. If we left it in, we would end up with a column in our Parquet file called `__index_level_0__`, and it would inflate our output size.
 
 We write this to Parquet format with ``write_table``:
 
