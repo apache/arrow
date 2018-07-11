@@ -82,6 +82,11 @@ libarrow_glib_la_headers +=			\
 libarrow_glib_la_headers +=			\
 	compute.h
 
+if HAVE_ARROW_ORC
+libarrow_glib_la_headers +=			\
+	orc-file-reader.h
+endif
+
 libarrow_glib_la_generated_headers =		\
 	enums.h					\
 	version.h
@@ -128,6 +133,11 @@ libarrow_glib_la_sources +=			\
 libarrow_glib_la_sources +=			\
 	compute.cpp
 
+if HAVE_ARROW_ORC
+libarrow_glib_la_sources +=			\
+	orc-file-reader.cpp
+endif
+
 libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
 	array-builder.hpp			\
@@ -164,6 +174,11 @@ libarrow_glib_la_cpp_headers +=			\
 
 libarrow_glib_la_cpp_headers +=			\
 	compute.hpp
+
+if HAVE_ARROW_ORC
+libarrow_glib_la_cpp_headers +=			\
+	orc-file-reader.hpp
+endif
 
 libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_sources)		\
@@ -216,6 +231,11 @@ arrow_glib_include_HEADERS =			\
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA =				\
 	arrow-glib.pc
+
+if HAVE_ARROW_ORC
+pkgconfig_DATA +=				\
+	arrow-glib-orc.pc
+endif
 
 if HAVE_INTROSPECTION
 -include $(INTROSPECTION_MAKEFILE)
