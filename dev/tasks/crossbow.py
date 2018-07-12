@@ -428,8 +428,8 @@ def submit(ctx, task, group, job_prefix, config_path, dry_run):
     task_configs = load_tasks_from_config(config_path, task, group)
     for name, task in task_configs.items():
         # replace version number and create task instance from configuration
-        artifacts = [filename.format(version=target.version)
-                     for filename in task.pop('artifacts', [])]
+        artifacts = task.pop('artifacts', None) or []  # because of yaml
+        artifacts = [fn.format(version=target.version) for fn in artifacts]
         tasks[name] = Task(**task, artifacts=artifacts)
 
     # create job instance, doesn't mutate git data yet

@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 groups:
   conda:
     - conda-linux-py27
@@ -31,9 +30,14 @@ groups:
     - wheel-linux-cp27mu
     - wheel-linux-cp35m
     - wheel-linux-cp36m
-  apt:
-  rpm:
-
+  linux:
+    - debian-stretch
+    - ubuntu-trusty
+    - ubuntu-xenial
+    - ubuntu-artful
+    - ubuntu-bionic
+    - centos-6
+    - centos-7
 
 tasks:
   # arbitrary_task_name:
@@ -220,12 +224,12 @@ tasks:
 
   ############################## Linux PKGS ####################################
 
-  # linux packages
-  linux-packages:
+  debian-stretch:
     platform: linux
     template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=debian-stretch
     artifacts:
-      # DEB: debian-stretch, ubuntu-trusty
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
@@ -245,28 +249,40 @@ tasks:
       - libarrow0-dbgsym_{version}-1_amd64.deb
       - libarrow0_{version}-1_amd64.deb
 
-      # TODO(kszucs) resolve naming conflict with other deb pkgs
-      # DEB: ubuntu-xenial,ubuntu-artful
-      # - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      # - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      # - libarrow-dev_{version}-1_amd64.deb
-      # - libarrow-glib-dev_{version}-1_amd64.deb
-      # - libarrow-glib-doc_{version}-1_all.deb
-      # - libarrow-glib0-dbgsym_{version}-1_amd64.deb
-      # - libarrow-glib0_{version}-1_amd64.deb
-      # - libarrow-gpu-dev_{version}-1_amd64.deb
-      # - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      # - libarrow-gpu-glib0-dbgsym_{version}-1_amd64.deb
-      # - libarrow-gpu-glib0_{version}-1_amd64.deb
-      # - libarrow-gpu0-dbgsym_{version}-1_amd64.deb
-      # - libarrow-gpu0_{version}-1_amd64.deb
-      # - libarrow-python-dev_{version}-1_amd64.deb
-      # - libarrow-python0-dbgsym_{version}-1_amd64.deb
-      # - libarrow-python0_{version}-1_amd64.deb
-      # - libarrow0-dbgsym_{version}-1_amd64.deb
-      # - libarrow0_{version}-1_amd64.deb
+  ubuntu-trusty:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-trusty PARALLEL=no DEBUG=no
+    artifacts: #TODO
 
-      # YUM
+  ubuntu-xenial:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-xenial PARALLEL=no DEBUG=no
+    artifacts: #TODO
+
+  ubuntu-artful:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=no DEBUG=no
+    artifacts: #TODO
+
+  ubuntu-bionic:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-bionic PARALLEL=no DEBUG=no
+    artifacts: #TODO
+
+  centos-6:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake yum:build CENTOS_VERSIONS=6 PARALLEL=no DEBUG=no
+    artifacts:
       - arrow-{version}-1.el6.src.rpm
       - arrow-{version}-1.el7.src.rpm
       - arrow-debuginfo-{version}-1.el6.x86_64.rpm
@@ -282,3 +298,9 @@ tasks:
       - arrow-python-devel-{version}-1.el7.x86_64.rpm
       - arrow-python-libs-{version}-1.el6.x86_64.rpm
       - arrow-python-libs-{version}-1.el7.x86_64.rpm
+
+  centos-7:
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake yum:build CENTOS_VERSIONS=7 PARALLEL=no DEBUG=no
