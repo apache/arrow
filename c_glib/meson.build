@@ -55,7 +55,7 @@ if arrow_gpu_dependency.found()
 endif
 subdir('example')
 
-if get_option('enable_gtk_doc')
+if get_option('gtk_doc')
   subdir('doc/reference')
 endif
 
