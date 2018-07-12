@@ -56,17 +56,15 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowORCFileReader,
                            garrow_orc_file_reader,
                            G_TYPE_OBJECT);
 
-#define GARROW_ORC_FILE_READER_GET_PRIVATE(obj)                 \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
-                               GARROW_TYPE_ORC_FILE_READER,     \
-                               GArrowORCFileReaderPrivate))
+#define GARROW_ORC_FILE_READER_GET_PRIVATE(obj)         \
+  static_cast<GArrowORCFileReaderPrivate *>(            \
+     garrow_orc_file_reader_get_instance_private(       \
+       GARROW_ORC_FILE_READER(obj)))
 
 static void
 garrow_orc_file_reader_dispose(GObject *object)
 {
-  GArrowORCFileReaderPrivate *priv;
-
-  priv = GARROW_ORC_FILE_READER_GET_PRIVATE(object);
+  auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(object);
 
   if (priv->input) {
     g_object_unref(priv->input);
@@ -79,9 +77,7 @@ garrow_orc_file_reader_dispose(GObject *object)
 static void
 garrow_orc_file_reader_finalize(GObject *object)
 {
-  GArrowORCFileReaderPrivate *priv;
-
-  priv = GARROW_ORC_FILE_READER_GET_PRIVATE(object);
+  auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(object);
 
   delete priv->orc_file_reader;
 
@@ -140,16 +136,14 @@ garrow_orc_file_reader_init(GArrowORCFileReader *object)
 static void
 garrow_orc_file_reader_class_init(GArrowORCFileReaderClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_orc_file_reader_dispose;
   gobject_class->finalize     = garrow_orc_file_reader_finalize;
   gobject_class->set_property = garrow_orc_file_reader_set_property;
   gobject_class->get_property = garrow_orc_file_reader_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_object("input",
                              "Input",
                              "The input stream",
@@ -408,8 +402,6 @@ garrow_orc_file_reader_new_raw(GArrowSeekableInputStream *input,
 arrow::adapters::orc::ORCFileReader *
 garrow_orc_file_reader_get_raw(GArrowORCFileReader *reader)
 {
-  GArrowORCFileReaderPrivate *priv;
-
-  priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
+  auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
   return priv->orc_file_reader;
 }
