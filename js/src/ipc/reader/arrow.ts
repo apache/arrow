@@ -20,10 +20,10 @@ import { fromReadableStream } from './node';
 import { RecordBatch } from '../../recordbatch';
 import { readBuffers, readBuffersAsync } from './binary';
 import { readRecordBatches, readRecordBatchesAsync, TypeDataLoader } from './vector';
-import { Schema, DataType } from '../../type';
+import { Schema } from '../../type';
 import { Message } from '../metadata';
 
-export { readJSON, RecordBatch, DataType };
+export { readJSON, RecordBatch };
 export { readBuffers, readBuffersAsync };
 export { readRecordBatches, readRecordBatchesAsync };
 

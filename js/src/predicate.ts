@@ -18,9 +18,6 @@
 import { RecordBatch } from './recordbatch';
 import { Vector, DictionaryVector } from './vector';
 
-import { DataType } from './type';
-export { DataType };
-
 export type ValueFunc<T> = (idx: number, cols: RecordBatch) => T | null;
 export type PredicateFunc = (idx: number, cols: RecordBatch) => boolean;
 
