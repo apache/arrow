@@ -25,8 +25,11 @@ env:
     - TRAVIS_TAG={{ task.tag }}
     - BUILD_REF={{ arrow.head }}
     - PYARROW_VERSION={{ arrow.version }}
-    - MB_PYTHON_VERSION={{ python_version }}
     - MACOSX_DEPLOYMENT_TARGET="10.9"
+    - MB_PYTHON_VERSION={{ python_version }}
+    - NP_BUILD_DEP="{{ numpy_version }}"
+    - NP_TEST_DEP="{{ numpy_version }}"
+    - PANDAS_DEP="{{ pandas_version }}"
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
@@ -46,8 +49,8 @@ before_install:
   - before_install
 
 install:
-  - BUILD_DEPENDS="numpy=={{ numpy_version }} six cython"
-  - TEST_DEPENDS="numpy=={{ numpy_version }} six pandas=={{ pandas_version }}"
+  - BUILD_DEPENDS="numpy==$NP_BUILD_DEP six cython"
+  - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
 
   - mkdir -p dist
   - clean_code arrow $BUILD_REF
