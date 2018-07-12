@@ -35,7 +35,6 @@ before_install:
       fi
   - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
 
-
 matrix:
   fast_finish: true
   allow_failures:
@@ -47,37 +46,37 @@ matrix:
     os: linux
     jdk: openjdk8
     env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_VALGRIND=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_CLANG_FORMAT=1
-    - ARROW_TRAVIS_COVERAGE=1
-    - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
-    - ARROW_TRAVIS_PYTHON_DOCS=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_TRAVIS_PYTHON_JVM=1
-    - CC="clang-6.0"
-    - CXX="clang++-6.0"
+      - ARROW_TRAVIS_USE_TOOLCHAIN=1
+      - ARROW_TRAVIS_VALGRIND=1
+      - ARROW_TRAVIS_PLASMA=1
+      - ARROW_TRAVIS_ORC=1
+      - ARROW_TRAVIS_CLANG_FORMAT=1
+      - ARROW_TRAVIS_COVERAGE=1
+      - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
+      - ARROW_TRAVIS_PYTHON_DOCS=1
+      - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+      - ARROW_TRAVIS_PYTHON_JVM=1
+      - CC="clang-6.0"
+      - CXX="clang++-6.0"
     before_script:
-    # Always run RAT checks, in case another build in matrix breaks RAT
-    - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
-    # (ARROW_CI_CPP_AFFECTED implies ARROW_CI_PYTHON_AFFECTED)
-    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-    # If either C++ or Python changed, we must install the C++ libraries
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+      # Always run RAT checks, in case another build in matrix breaks RAT
+      - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
+      # (ARROW_CI_CPP_AFFECTED implies ARROW_CI_PYTHON_AFFECTED)
+      - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
+      # If either C++ or Python changed, we must install the C++ libraries
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
-    # All test steps are required for accurate C++ coverage info
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
-    # Build Arrow Java to test the pyarrow<->JVM in-process bridge
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
-    - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
+      # All test steps are required for accurate C++ coverage info
+      - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
+      # Build Arrow Java to test the pyarrow<->JVM in-process bridge
+      - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
+      - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
+      - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
   # [OS X] C++ & Python w/ XCode 6.4
   - compiler: clang
     language: cpp
@@ -86,43 +85,43 @@ matrix:
     cache:
     addons:
     env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+      - ARROW_TRAVIS_USE_TOOLCHAIN=1
+      - ARROW_TRAVIS_PLASMA=1
+      - ARROW_TRAVIS_ORC=1
+      - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     before_script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
-    # If either C++ or Python changed, we must install the C++ libraries
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+      - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
+      # If either C++ or Python changed, we must install the C++ libraries
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
-    - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
+      - if [ $ARROW_CI_CPP_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
+      - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   # [manylinux1] Python
   - language: cpp
     before_script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest; fi
+      - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest; fi
     script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
+      - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
   # Java w/ OpenJDK 8
   - language: java
     os: linux
     jdk: openjdk8
     before_script:
-    - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+      - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_javadoc.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_javadoc.sh
   # Java w/ Oracle JDK 9
   - language: java
     os: linux
     jdk: oraclejdk9
     before_script:
-    - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
+      - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
     addons:
       apt:
         packages:
@@ -133,48 +132,48 @@ matrix:
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk8
     env:
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
-    - CC="clang-6.0"
-    - CXX="clang++-6.0"
+      - ARROW_TRAVIS_PLASMA=1
+      - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
+      - CC="clang-6.0"
+      - CXX="clang++-6.0"
     before_script:
-    - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - nvm install 10.1
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+      - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+      - nvm install 10.1
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
   # NodeJS
   - language: node_js
     os: linux
     node_js:
-    - '10.1'
+      - '10.1'
     before_script:
-    - if [ $ARROW_CI_JS_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
+      - if [ $ARROW_CI_JS_AFFECTED != "1" ]; then exit; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
   # C++ & GLib & Ruby w/ gcc 4.9
   - compiler: gcc
     language: cpp
     os: linux
     env:
-    - BUILD_TORCH_EXAMPLE=no
-    - CC="gcc-4.9"
-    - CXX="g++-4.9"
+      - BUILD_TORCH_EXAMPLE=no
+      - CC="gcc-4.9"
+      - CXX="g++-4.9"
     before_script:
-    - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
+      - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
     script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
+      - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
   # [OS X] C++ & GLib & Ruby w/ XCode 8.3 & homebrew
   - compiler: clang
     osx_image: xcode8.3
@@ -183,14 +182,14 @@ matrix:
     addons:
     rvm: 2.2
     before_script:
-    - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library --homebrew
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
+      - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library --homebrew
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
     script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
+      - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
   # Rust
   - language: rust
     cache: cargo
@@ -204,40 +203,40 @@ matrix:
           - binutils-dev
           - cmake
     before_script:
-    - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
-    - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
-    - export CARGO_TARGET_DIR=$TRAVIS_BUILD_DIR/target
-    - cargo install cargo-travis || echo "Skipping cargo-travis installation as it already exists in cache"
-    - export PATH=$HOME/.cargo/bin:$PATH
+      - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
+      - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
+      - export CARGO_TARGET_DIR=$TRAVIS_BUILD_DIR/target
+      - cargo install cargo-travis || echo "Skipping cargo-travis installation as it already exists in cache"
+      - export PATH=$HOME/.cargo/bin:$PATH
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
     after_success:
-    - pushd ${TRAVIS_BUILD_DIR}/rust
-    # Run coverage for codecov.io
-    - mkdir -p target/kcov
-    - RUST_BACKTRACE=1 cargo coverage --verbose
-    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+      - pushd ${TRAVIS_BUILD_DIR}/rust
+      # Run coverage for codecov.io
+      - mkdir -p target/kcov
+      - RUST_BACKTRACE=1 cargo coverage --verbose
+      - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   # Go
   - language: go
     os: linux
     go:
-    - 1.10.x
+      - 1.10.x
     script:
-    - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
-    - go get -d -t -v ./go/arrow/...
-    - go install -v ./go/arrow/...
-    - go test -v ./go/arrow/...
+      - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
+      - go get -d -t -v ./go/arrow/...
+      - go install -v ./go/arrow/...
+      - go test -v ./go/arrow/...
 
 after_failure:
-- COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
-- if [[ -f "$COREFILE" ]]; then gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch; fi
+  - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
+  - if [[ -f "$COREFILE" ]]; then gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch; fi
 
 env:
   global:
-  - secure: "GcrPtsKUCgNY7HKYjWlHQo8SiFrShDvdZSU8t1m1FJrE+UfK0Dgh9zXmAausM8GmhqSwkF0q4UbLQf2uCnSITWKeEPAL8Mo9eu4ib+ikJx/b3Sk81frgW5ADoHfW1Eyqd8xJNIMwMegJOtRLSDqiXh1CvMlKnY8PyTOGM2DgN9ona/v6p9OFH9Qs0JhBRVXAn0S4ztjumck8E56+01hqRfxbZ88pTfpKghBxYp9PJaMjtGdomjVWlqPaWaWJj+KptT8inV9NK+TVYKx0dXWD+S1Vgr1PytQnLdILOYV23gsOBYqn33ByF/yADl4m3hUjU/qeT0Fi7aWxmVpj+oTJISOSH5N8nIsuNH8mQk2ZzzXHfV7btFvP+cOPRczadoKkT6D6cHA8nQ7b0dphC6bl6SAeSfc/cbhRT+fYnIjg8jFXC8jlyWBr7LR6GXVpc0bND7i300ITo0FuRJhy2OxqPtGo3dKLE7eAcv78tuO0OYJ/kol1PEqFdFkbYbNVbg/cFpbGqiCXDsOtPDbAGBv69YnXdVowSxxs8cRGjSkDydv6ZSytb/Zd4lH/KAomcFNk8adx12O1Lk4sbmVav1cGig5P6OcQKS0jC5IiRb4THcQzVzAkXXbaafKm5sru/NoYxhzmkyhkOc11nTYHKVng+XKWzLCNn7pTTSLitp5+xa4="
+    - secure: "GcrPtsKUCgNY7HKYjWlHQo8SiFrShDvdZSU8t1m1FJrE+UfK0Dgh9zXmAausM8GmhqSwkF0q4UbLQf2uCnSITWKeEPAL8Mo9eu4ib+ikJx/b3Sk81frgW5ADoHfW1Eyqd8xJNIMwMegJOtRLSDqiXh1CvMlKnY8PyTOGM2DgN9ona/v6p9OFH9Qs0JhBRVXAn0S4ztjumck8E56+01hqRfxbZ88pTfpKghBxYp9PJaMjtGdomjVWlqPaWaWJj+KptT8inV9NK+TVYKx0dXWD+S1Vgr1PytQnLdILOYV23gsOBYqn33ByF/yADl4m3hUjU/qeT0Fi7aWxmVpj+oTJISOSH5N8nIsuNH8mQk2ZzzXHfV7btFvP+cOPRczadoKkT6D6cHA8nQ7b0dphC6bl6SAeSfc/cbhRT+fYnIjg8jFXC8jlyWBr7LR6GXVpc0bND7i300ITo0FuRJhy2OxqPtGo3dKLE7eAcv78tuO0OYJ/kol1PEqFdFkbYbNVbg/cFpbGqiCXDsOtPDbAGBv69YnXdVowSxxs8cRGjSkDydv6ZSytb/Zd4lH/KAomcFNk8adx12O1Lk4sbmVav1cGig5P6OcQKS0jC5IiRb4THcQzVzAkXXbaafKm5sru/NoYxhzmkyhkOc11nTYHKVng+XKWzLCNn7pTTSLitp5+xa4="
 notifications:
   slack:
     on_success: change
     on_failure: always
     rooms:
-     - secure: "pjolv9Jg9c1XYIauRK1/SvfkWXxRxuDs2K3Vho8HapKTcQcB1FGsKUX+Ov/5uE4goOQiJuf8S8SzqpALZaNsn1d4nIo8qRKtcp+1cbL6vRBgaKDPIq8P/iv2Z1xf45uEpEYs9Ve7JHtqhOv320CrLK046F51Wym60D1ZybCrO8+kvEcfH6pmjsKsOhpvg8OS4Gc3jv84tN0Y1H1jI5VbWxgHh0pU1a9YdOlOLWa4K7HYrc/fgWzeevVPe3dzflP0z+8N/I39xjBK0DWHz+L3EAzaPSbWuGzo8+VydDnXC6FGtPjvVJbVxhFKKT4luFuWIW57FkwnPDLueAeNtVCB3uJl6sHRHwhKIQ2IqZAoFwEUbX79Hgti+uBg7RfkyAnUjg5rcuQmrRyvqThgaSbXp+Y7CvZOalUvM9yJy8LE6yDBgDLCrMo+vFGUDaMdT1351L4rPDNRnvJL7DbD7SzLIW33Iu4l0MZbiQvPs//Q+TaIo0NU+ZX41qMXBmnyBXG5DJMYw65mN9ftzixUe/ykGCtC5c6qr6b/pk+qpWUqHKa9VJbj+hzXut2WtQr95Pmacn87RZSzohfiELIL8ibYVJSmmmQq0GfyFI0ImXXkH4GxF+hFO9bGB1zxJlxjraKdgEDmmrS0npPx/AWktVRDgOrt/1B3fB+i+GQJkmlsVLY="
+      - secure: "pjolv9Jg9c1XYIauRK1/SvfkWXxRxuDs2K3Vho8HapKTcQcB1FGsKUX+Ov/5uE4goOQiJuf8S8SzqpALZaNsn1d4nIo8qRKtcp+1cbL6vRBgaKDPIq8P/iv2Z1xf45uEpEYs9Ve7JHtqhOv320CrLK046F51Wym60D1ZybCrO8+kvEcfH6pmjsKsOhpvg8OS4Gc3jv84tN0Y1H1jI5VbWxgHh0pU1a9YdOlOLWa4K7HYrc/fgWzeevVPe3dzflP0z+8N/I39xjBK0DWHz+L3EAzaPSbWuGzo8+VydDnXC6FGtPjvVJbVxhFKKT4luFuWIW57FkwnPDLueAeNtVCB3uJl6sHRHwhKIQ2IqZAoFwEUbX79Hgti+uBg7RfkyAnUjg5rcuQmrRyvqThgaSbXp+Y7CvZOalUvM9yJy8LE6yDBgDLCrMo+vFGUDaMdT1351L4rPDNRnvJL7DbD7SzLIW33Iu4l0MZbiQvPs//Q+TaIo0NU+ZX41qMXBmnyBXG5DJMYw65mN9ftzixUe/ykGCtC5c6qr6b/pk+qpWUqHKa9VJbj+hzXut2WtQr95Pmacn87RZSzohfiELIL8ibYVJSmmmQq0GfyFI0ImXXkH4GxF+hFO9bGB1zxJlxjraKdgEDmmrS0npPx/AWktVRDgOrt/1B3fB+i+GQJkmlsVLY="

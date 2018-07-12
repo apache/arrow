@@ -37,7 +37,6 @@ ps aux --sort=-%mem | awk 'NR<=10{print $0}'
 
 cat /proc/meminfo | head -n2
 
-
 echo "current_hugepagesize="$HUGEPAGESIZE
 echo "nb_reserved_pages="$NBPAGETORESERVE
 
