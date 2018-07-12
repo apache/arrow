@@ -47,7 +47,7 @@ artifacts:
   - path: wheels\*.whl
 
 deploy:
-  release: {{ job.branch }}
+  release: {{ task.tag }}
   provider: GitHub
   auth_token: "%CROSSBOW_GITHUB_TOKEN%"
   artifact: /.*\.whl/

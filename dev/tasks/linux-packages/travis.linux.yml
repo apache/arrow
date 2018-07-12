@@ -23,7 +23,7 @@ language: ruby
 env:
   global:
     - PLAT=x86_64
-    - TRAVIS_TAG={{ job.branch }}
+    - TRAVIS_TAG={{ task.tag }}
     - BUILD_REF={{ arrow.head }}
     - ARROW_VERSION={{ arrow.version }}
 
