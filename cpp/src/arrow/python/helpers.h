@@ -74,7 +74,7 @@ inline bool IsPyInteger(PyObject* obj) {
 // \brief Use pandas missing value semantics to check if a value is null
 bool PandasObjectIsNull(PyObject* obj);
 
-// \brief Check whether obj is nan
+// \brief Check whether obj is a floating-point NaN
 bool PyFloat_IsNaN(PyObject* obj);
 
 inline bool IsPyBinary(PyObject* obj) {
