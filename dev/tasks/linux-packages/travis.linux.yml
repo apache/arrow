@@ -62,7 +62,7 @@ deploy:
   provider: releases
   api_key: $CROSSBOW_GITHUB_TOKEN
   file_glob: true
-  file: "**/*.rpm"  # TODO(kszucs) or deb depending on context
+  file: "**/*.{{ package_format }}"
   skip_cleanup: true
   on:
     tags: true

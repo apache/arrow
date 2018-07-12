@@ -254,6 +254,7 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-trusty PARALLEL=no DEBUG=no
+      package_format: deb
     artifacts: #TODO
 
   ubuntu-xenial:
@@ -261,6 +262,7 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-xenial PARALLEL=no DEBUG=no
+      package_format: deb
     artifacts: #TODO
 
   ubuntu-artful:
@@ -268,6 +270,7 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-artful PARALLEL=no DEBUG=no
+      package_format: deb
     artifacts: #TODO
 
   ubuntu-bionic:
@@ -275,6 +278,7 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-bionic PARALLEL=no DEBUG=no
+      package_format: deb
     artifacts: #TODO
 
   centos-6:
@@ -282,6 +286,7 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake yum:build CENTOS_VERSIONS=6 PARALLEL=no DEBUG=no
+      package_format: rpm
     artifacts:
       - arrow-{version}-1.el6.src.rpm
       - arrow-{version}-1.el7.src.rpm
@@ -304,3 +309,4 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake yum:build CENTOS_VERSIONS=7 PARALLEL=no DEBUG=no
+      package_format: rpm
