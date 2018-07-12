@@ -37,19 +37,22 @@ struct _GArrowORCFileReaderClass
 GArrowORCFileReader *
 garrow_orc_file_reader_new(GArrowSeekableInputStream *file,
                            GError **error);
+void
+garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,
+                                         const gint *field_indexes,
+                                         guint n_field_indexes);
+const gint *
+garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
+                                         guint *n_field_indexes);
 GArrowSchema *
 garrow_orc_file_reader_read_schema(GArrowORCFileReader *reader,
                                    GError **error);
 GArrowTable *
 garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
-                                    const gint *field_indexes,
-                                    guint n_field_indexes,
                                     GError **error);
 GArrowRecordBatch *
 garrow_orc_file_reader_read_stripe(GArrowORCFileReader *reader,
                                    gint64 i,
-                                   const gint *field_indexes,
-                                   guint n_field_indexes,
                                    GError **error);
 gint64 garrow_orc_file_reader_get_n_stripes(GArrowORCFileReader *reader);
 gint64 garrow_orc_file_reader_get_n_rows(GArrowORCFileReader *reader);

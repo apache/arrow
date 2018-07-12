@@ -43,6 +43,7 @@ G_BEGIN_DECLS
 typedef struct GArrowORCFileReaderPrivate_ {
   GArrowSeekableInputStream *input;
   arrow::adapters::orc::ORCFileReader *orc_file_reader;
+  GArray *field_indexes;
 } GArrowORCFileReaderPrivate;
 
 enum {
@@ -83,6 +84,10 @@ garrow_orc_file_reader_finalize(GObject *object)
   priv = GARROW_ORC_FILE_READER_GET_PRIVATE(object);
 
   delete priv->orc_file_reader;
+
+  if (priv->field_indexes) {
+    g_array_free(priv->field_indexes, TRUE);
+  }
 
   G_OBJECT_CLASS(garrow_orc_file_reader_parent_class)->finalize(object);
 }
@@ -191,6 +196,59 @@ garrow_orc_file_reader_new(GArrowSeekableInputStream *input,
 }
 
 /**
+ * garrow_orc_file_reader_set_field_indexes:
+ * @reader: A #GArrowORCFileReader.
+ * @field_indexes: (nullable) (array length=n_field_indexes):
+ *   The field indexes to be read.
+ * @n_field_indexes: The number of the specified indexes.
+ *
+ * Since: 0.10.0
+ */
+void
+garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,
+                                         const gint *field_indexes,
+                                         guint n_field_indexes)
+{
+  auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
+  if (priv->field_indexes) {
+    g_array_free(priv->field_indexes, TRUE);
+  }
+  if (n_field_indexes == 0) {
+    priv->field_indexes = NULL;
+  } else {
+    priv->field_indexes = g_array_sized_new(FALSE,
+                                            FALSE,
+                                            sizeof(gint),
+                                            n_field_indexes);
+    g_array_append_vals(priv->field_indexes, field_indexes, n_field_indexes);
+  }
+}
+
+/**
+ * garrow_orc_file_reader_get_field_indexes:
+ * @reader: A #GArrowORCFileReader.
+ * @n_field_indexes: The number of the specified indexes.
+ *
+ * Returns: (nullable) (array length=n_field_indexes) (transfer none):
+ *  The field indexes to be read.
+ *
+ * Since: 0.10.0
+ */
+const gint *
+garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
+                                         guint *n_field_indexes)
+{
+  auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
+  if (priv->field_indexes) {
+    *n_field_indexes = priv->field_indexes->len;
+    return reinterpret_cast<gint *>(priv->field_indexes->data);
+  } else {
+    *n_field_indexes = 0;
+    return NULL;
+  }
+}
+
+/**
  * garrow_orc_file_reader_read_schema:
  * @reader: A #GArrowORCFileReader.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
@@ -217,9 +275,6 @@ garrow_orc_file_reader_read_schema(GArrowORCFileReader *reader,
 /**
  * garrow_orc_file_reader_read_stripes:
  * @reader: A #GArrowORCFileReader.
- * @field_indexes: (nullable) (array length=n_field_indexes):
- *   The field indexes to be read.
- * @n_field_indexes: The number of the specified indexes.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): A newly read stripes as
@@ -229,26 +284,26 @@ garrow_orc_file_reader_read_schema(GArrowORCFileReader *reader,
  */
 GArrowTable *
 garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
-                                    const gint *field_indexes,
-                                    guint n_field_indexes,
                                     GError **error)
 {
   auto arrow_reader = garrow_orc_file_reader_get_raw(reader);
-  if (n_field_indexes == 0) {
+  auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
+  if (priv->field_indexes) {
+    std::vector<int> arrow_field_indexes;
+    auto field_indexes = priv->field_indexes;
+    for (guint i = 0; i < field_indexes->len; ++i) {
+      arrow_field_indexes.push_back(g_array_index(field_indexes, gint, i));
+    }
     std::shared_ptr<arrow::Table> arrow_table;
-    auto status = arrow_reader->Read(&arrow_table);
+    auto status = arrow_reader->Read(arrow_field_indexes, &arrow_table);
     if (garrow_error_check(error, status, "[orc-file-reader][read-stripes]")) {
       return garrow_table_new_raw(&arrow_table);
     } else {
       return NULL;
     }
   } else {
-    std::vector<int> arrow_field_indexes;
-    for (guint i = 0; i < n_field_indexes; ++i) {
-      arrow_field_indexes.push_back(field_indexes[i]);
-    }
     std::shared_ptr<arrow::Table> arrow_table;
-    auto status = arrow_reader->Read(arrow_field_indexes, &arrow_table);
+    auto status = arrow_reader->Read(&arrow_table);
     if (garrow_error_check(error, status, "[orc-file-reader][read-stripes]")) {
       return garrow_table_new_raw(&arrow_table);
     } else {
@@ -261,9 +316,6 @@ garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
  * garrow_orc_file_reader_read_stripe:
  * @reader: A #GArrowORCFileReader.
  * @i: The stripe index to be read.
- * @field_indexes: (nullable) (array length=n_field_indexes):
- *   The field indexes to be read.
- * @n_field_indexes: The number of the specified indexes.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): A newly read stripe as
@@ -274,31 +326,31 @@ garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
 GArrowRecordBatch *
 garrow_orc_file_reader_read_stripe(GArrowORCFileReader *reader,
                                    gint64 i,
-                                   const gint *field_indexes,
-                                   guint n_field_indexes,
                                    GError **error)
 {
   auto arrow_reader = garrow_orc_file_reader_get_raw(reader);
   if (i < 0) {
     i += arrow_reader->NumberOfStripes();
   }
-  if (n_field_indexes == 0) {
+  auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
+  if (priv->field_indexes) {
+    std::vector<int> arrow_field_indexes;
+    auto field_indexes = priv->field_indexes;
+    for (guint j = 0; j < field_indexes->len; ++j) {
+      arrow_field_indexes.push_back(g_array_index(field_indexes, gint, j));
+    }
     std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-    auto status = arrow_reader->ReadStripe(i, &arrow_record_batch);
+    auto status = arrow_reader->ReadStripe(i,
+                                           arrow_field_indexes,
+                                           &arrow_record_batch);
     if (garrow_error_check(error, status, "[orc-file-reader][read-stripe]")) {
       return garrow_record_batch_new_raw(&arrow_record_batch);
     } else {
       return NULL;
     }
   } else {
-    std::vector<int> arrow_field_indexes;
-    for (guint j = 0; j < n_field_indexes; ++j) {
-      arrow_field_indexes.push_back(field_indexes[j]);
-    }
     std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-    auto status = arrow_reader->ReadStripe(i,
-                                           arrow_field_indexes,
-                                           &arrow_record_batch);
+    auto status = arrow_reader->ReadStripe(i, &arrow_record_batch);
     if (garrow_error_check(error, status, "[orc-file-reader][read-stripe]")) {
       return garrow_record_batch_new_raw(&arrow_record_batch);
     } else {
