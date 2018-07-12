@@ -65,7 +65,7 @@ Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
 ArrayBuilder::~ArrayBuilder() {
 #ifndef NDEBUG
   if (ARROW_PREDICT_FALSE(!is_finished_)) {
-    ARROW_LOG(WARNING) << "The builder at " << this
+    ARROW_LOG(DEBUG) << "The builder at " << this
                        << " was destroyed before being finished.";
   }
 #endif
