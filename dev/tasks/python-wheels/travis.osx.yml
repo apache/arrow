@@ -19,39 +19,19 @@ language: generic
 os: osx
 osx_image: xcode8.3
 
-sudo: required
-
 env:
   global:
     - PLAT=x86_64
-    - TRAVIS_TAG={{ job.branch }}
+    - TRAVIS_TAG={{ task.tag }}
     - BUILD_REF={{ arrow.head }}
     - PYARROW_VERSION={{ arrow.version }}
-
-matrix:
-  exclude:
-    - python: 3.5
-  include:
-    - env:
-        - MB_PYTHON_VERSION=2.7
-        - NP_BUILD_DEP="1.10.1"
-        - NP_TEST_DEP="1.10.1"
-        - PANDAS_DEP="0.20.3"
-    - env:
-        - MB_PYTHON_VERSION=3.5
-        - NP_BUILD_DEP="1.10.1"
-        - NP_TEST_DEP="1.10.1"
-        - PANDAS_DEP="0.20.3"
-    - env:
-        - MB_PYTHON_VERSION=3.6
-        - NP_BUILD_DEP="1.11.3"
-        - NP_TEST_DEP="1.11.3"
-        - PANDAS_DEP="0.20.3"
+    - MB_PYTHON_VERSION={{ python_version }}
+    - MACOSX_DEPLOYMENT_TARGET="10.9"
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}  
+  - git -C arrow checkout {{ arrow.head }}
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal
@@ -66,8 +46,8 @@ before_install:
   - before_install
 
 install:
-  - BUILD_DEPENDS="numpy==$NP_BUILD_DEP six cython"
-  - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
+  - BUILD_DEPENDS="numpy=={{ numpy_version }} six cython"
+  - TEST_DEPENDS="numpy=={{ numpy_version }} six pandas=={{ pandas_version }}"
 
   - mkdir -p dist
   - clean_code arrow $BUILD_REF

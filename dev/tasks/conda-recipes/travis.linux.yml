@@ -21,48 +21,38 @@ os: linux
 dist: trusty
 
 env:
-  matrix:
-    - CONFIG=variants/linux_python2.7.yaml
-    - CONFIG=variants/linux_python3.5.yaml
-    - CONFIG=variants/linux_python3.6.yaml
   global:
-    - TRAVIS_TAG={{ job.branch }}
+    - TRAVIS_TAG={{ task.tag }}
     - ARROW_VERSION={{ arrow.version }}
     - PYTHONUNBUFFERED=1
 
 install:
-    # Install Miniconda.
-    - echo `pwd`
-    - |
-      echo ""
-      echo "Installing a fresh version of Miniconda."
-      MINICONDA_URL="https://repo.continuum.io/miniconda"
-      MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
-      curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
-      bash $MINICONDA_FILE -b
+  # Install Miniconda.
+  - echo `pwd`
+  - |
+    echo ""
+    echo "Installing a fresh version of Miniconda."
+    MINICONDA_URL="https://repo.continuum.io/miniconda"
+    MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
+    curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
+    bash $MINICONDA_FILE -b
 
-    # Configure conda.
-    - |
-      echo ""
-      echo "Configuring conda."
-      source /home/travis/miniconda3/bin/activate root
-      conda config --remove channels defaults
-      conda config --add channels defaults
-      conda config --add channels conda-forge
-      conda config --set show_channel_urls true
-      conda install --yes --quiet conda-build
+  # Configure conda.
+  - |
+    echo ""
+    echo "Configuring conda."
+    source /home/travis/miniconda3/bin/activate root
+    conda config --remove channels defaults
+    conda config --add channels defaults
+    conda config --add channels conda-forge
+    conda config --set show_channel_urls true
+    conda install --yes --quiet conda-build
 
 script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
-  - conda build --output-folder . -m $CONFIG parquet-cpp arrow-cpp pyarrow
-  - pushd linux-64
-  - |
-    for file in *.tar.bz2; do
-      mv "$file" "$(basename "$file" .tar.bz2)-linux-64.tar.bz2"
-    done
-    popd
+  - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
 
 deploy:
   provider: releases
