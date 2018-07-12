@@ -394,6 +394,33 @@ Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
   return Status::OK();
 }
 
+// Make an array containing only empty lists, with a null values array
+Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
+  // Allocate an offsets buffer containing only zeroes
+  std::shared_ptr<Buffer> offsets_buffer;
+  const int64_t offsets_nbytes = (size + 1) * sizeof(int32_t);
+  RETURN_NOT_OK(::arrow::AllocateBuffer(::arrow::default_memory_pool(), offsets_nbytes,
+                                        &offsets_buffer));
+  memset(offsets_buffer->mutable_data(), 0, offsets_nbytes);
+
+  auto value_field = ::arrow::field("item", ::arrow::float64(),
+                                    false /* nullable_values */);
+  auto list_type = ::arrow::list(value_field);
+
+  std::vector<std::shared_ptr<Buffer>> child_buffers = {nullptr /* null bitmap */,
+                                                        nullptr /* values */ };
+  auto child_data = ::arrow::ArrayData::Make(value_field->type(), 0,
+                                             std::move(child_buffers));
+
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr /* bitmap */,
+                                                  offsets_buffer };
+  auto array_data = ::arrow::ArrayData::Make(list_type, size, std::move(buffers));
+  array_data->child_data.push_back(child_data);
+
+  *out_array = ::arrow::MakeArray(array_data);
+  return Status::OK();
+}
+
 static std::shared_ptr<::arrow::Column> MakeColumn(const std::string& name,
                                                    const std::shared_ptr<Array>& array,
                                                    bool nullable) {

@@ -411,8 +411,13 @@ Status ArrowColumnWriter::TypedWriteBatch(const Array& array, int64_t num_levels
   using ArrowCType = typename ArrowType::c_type;
 
   const auto& data = static_cast<const PrimitiveArray&>(array);
-  auto values =
-      reinterpret_cast<const ArrowCType*>(data.values()->data()) + data.offset();
+  const ArrowCType* values = nullptr;
+  // The values buffer may be null if the array is empty (ARROW-2744)
+  if (data.values() != nullptr) {
+    values = reinterpret_cast<const ArrowCType*>(data.values()->data()) + data.offset();
+  } else {
+    DCHECK_EQ(data.length(), 0);
+  }
 
   if (writer_->descr()->schema_node()->is_required() || (data.null_count() == 0)) {
     // no nulls, just dump the data
@@ -706,7 +711,13 @@ Status ArrowColumnWriter::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
   RETURN_NOT_OK(ctx_->GetScratchData<bool>(array.length(), &buffer));
 
   const auto& data = static_cast<const BooleanArray&>(array);
-  auto values = reinterpret_cast<const uint8_t*>(data.values()->data());
+  const uint8_t* values = nullptr;
+  // The values buffer may be null if the array is empty (ARROW-2744)
+  if (data.values() != nullptr) {
+    values = reinterpret_cast<const uint8_t*>(data.values()->data());
+  } else {
+    DCHECK_EQ(data.length(), 0);
+  }
 
   int buffer_idx = 0;
   int64_t offset = array.offset();

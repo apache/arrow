@@ -536,6 +536,13 @@ class TestParquetIO : public ::testing::Test {
     *out = MakeSimpleTable(lists->Slice(3, size - 6), nullable_lists);
   }
 
+  // Prepare table of empty lists, with null values array (ARROW-2744)
+  void PrepareEmptyListsTable(int64_t size, std::shared_ptr<Table>* out) {
+    std::shared_ptr<Array> lists;
+    ASSERT_OK(MakeEmptyListsArray(size, &lists));
+    *out = MakeSimpleTable(lists, true /* nullable_lists */);
+  }
+
   void PrepareListOfListTable(int64_t size, bool nullable_parent_lists,
                               bool nullable_lists, bool nullable_elements,
                               int64_t null_count, std::shared_ptr<Table>* out) {
@@ -710,6 +717,12 @@ TYPED_TEST(TestParquetIO, SingleColumnTableOptionalReadWrite) {
 
   ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
+  ASSERT_NO_FATAL_FAILURE(this->CheckRoundTrip(table));
+}
+
+TYPED_TEST(TestParquetIO, SingleEmptyListsColumnReadWrite) {
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(this->PrepareEmptyListsTable(SMALL_SIZE, &table));
   ASSERT_NO_FATAL_FAILURE(this->CheckRoundTrip(table));
 }
 
@@ -1524,8 +1537,6 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
 
 void MakeListArray(int num_rows, std::shared_ptr<::DataType>* out_type,
                    std::shared_ptr<Array>* out_array) {
-  ::arrow::Int32Builder offset_builder;
-
   std::vector<int32_t> length_draws;
   randint(num_rows, 0, 100, &length_draws);
 
