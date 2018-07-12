@@ -2156,9 +2156,30 @@ garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_decimal128_array =
-    static_cast<arrow::Decimal128Array *>(arrow_array.get());
+    std::static_pointer_cast<arrow::Decimal128Array>(arrow_array);
   auto value = arrow_decimal128_array->FormatValue(i);
   return g_strndup(value.data(), value.size());
+}
+
+/**
+ * garrow_decimal128_array_get_value:
+ * @array: A #GArrowDecimal128Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The i-th value.
+ *
+ * Since: 0.10.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
+                                  gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal128_array =
+    std::static_pointer_cast<arrow::Decimal128Array>(arrow_array);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(arrow_decimal128_array->GetValue(i));
+  return garrow_decimal128_new_raw(&arrow_decimal);
 }
 
 G_END_DECLS
