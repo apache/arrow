@@ -79,7 +79,7 @@ rm -rf build
 
 # Build with Meson
 MESON_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL_MESON"
-MESON_OPTIONS="$MESON_OPTIONS -Denable_gtk_doc=true"
+MESON_OPTIONS="$MESON_OPTIONS -Dgtk_doc=true"
 mkdir -p build
 env \
   CFLAGS="-DARROW_NO_DEPRECATED_API" \
