@@ -111,37 +111,39 @@ export abstract class ComparisonPredicate<T= any> extends Predicate {
 }
 
 export abstract class CombinationPredicate extends Predicate {
-    readonly predicates: Predicate[]
-    constructor(...predicates: Predicate[]) {
+    readonly children: Predicate[]
+    constructor(...children: Predicate[]) {
         super();
-        this.predicates = predicates;
+        this.children = children;
     }
 }
+// add children to protoype so it doesn't get mangled in es2015/umd
+(<any> CombinationPredicate.prototype).children = Object.freeze([]); // freeze for safety
 
 export class And extends CombinationPredicate {
-    constructor(...predicates: Predicate[]) {
+    constructor(...children: Predicate[]) {
         // Flatten any Ands
-        predicates = predicates.reduce((accum: Predicate[], p: Predicate): Predicate[] => {
-            return accum.concat(p instanceof And ? p.predicates : p)
+        children = children.reduce((accum: Predicate[], p: Predicate): Predicate[] => {
+            return accum.concat(p instanceof And ? p.children : p)
         }, [])
-        super(...predicates);
+        super(...children);
     }
     bind(batch: RecordBatch) {
-        const bound = this.predicates.map((p) => p.bind(batch));
+        const bound = this.children.map((p) => p.bind(batch));
         return (idx: number, batch: RecordBatch) => bound.every((p) => p(idx, batch));
     }
 }
 
 export class Or extends CombinationPredicate {
-    constructor(...predicates: Predicate[]) {
+    constructor(...children: Predicate[]) {
         // Flatten any Ors
-        predicates = predicates.reduce((accum: Predicate[], p: Predicate): Predicate[] => {
-            return accum.concat(p instanceof Or ? p.predicates : p)
+        children = children.reduce((accum: Predicate[], p: Predicate): Predicate[] => {
+            return accum.concat(p instanceof Or ? p.children : p)
         }, [])
-        super(...predicates);
+        super(...children);
     }
     bind(batch: RecordBatch) {
-        const bound = this.predicates.map((p) => p.bind(batch));
+        const bound = this.children.map((p) => p.bind(batch));
         return (idx: number, batch: RecordBatch) => bound.some((p) => p(idx, batch));
     }
 }

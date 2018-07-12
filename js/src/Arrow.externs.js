@@ -97,7 +97,7 @@ var Col = function() {};
 Col.prototype.bind;
 var CombinationPredicate = function () {};
 /** @type {?} */
-CombinationPredicate.prototype.predicates;
+CombinationPredicate.prototype.children;
 var Or = function() {};
 var And = function() {};
 var Not = function() {};
