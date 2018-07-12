@@ -17,8 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arrow_orc_dependency = dependency('arrow-orc', required: false)
-
 sources = files(
   'array-builder.cpp',
   'basic-array.cpp',
