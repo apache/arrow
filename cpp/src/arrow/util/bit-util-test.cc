@@ -434,7 +434,7 @@ TEST(BitUtilTests, TestCopyBitmap) {
   const int kBufferSize = 1000;
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), kBufferSize, &buffer));
+  ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
   memset(buffer->mutable_data(), 0, kBufferSize);
   test::random_bytes(kBufferSize, 0, buffer->mutable_data());
 
