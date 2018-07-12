@@ -45,8 +45,8 @@ tasks:
   #   template: path of jinja2 templated yml
   #   params: optional extra parameters
   #   artifacts: list of expected release asset filenames,
-  #     version and date variables can be used in the artifact's name, e.g.
-  #     - pyarrow-{version}-{date}-py36_0-linux-64.tar.bz2
+  #     version variable can be used in the artifact's name, e.g.
+  #     - pyarrow-{version}-py36_0-linux-64.tar.bz2
 
   ############################## Conda Linux ##################################
 
@@ -229,6 +229,7 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-stretch
+      package_format: deb
     artifacts:
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
@@ -255,7 +256,13 @@ tasks:
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-trusty PARALLEL=no DEBUG=no
       package_format: deb
-    artifacts: #TODO
+    artifacts:
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow0_{version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -263,7 +270,20 @@ tasks:
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-xenial PARALLEL=no DEBUG=no
       package_format: deb
-    artifacts: #TODO
+    artifacts:
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow-gpu-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib0_{version}-1_amd64.deb
+      - libarrow-gpu0_{version}-1_amd64.deb
+      - libarrow-python-dev_{version}-1_amd64.deb
+      - libarrow-python0_{version}-1_amd64.deb
+      - libarrow0_{version}-1_amd64.deb
 
   ubuntu-artful:
     platform: linux
@@ -289,20 +309,11 @@ tasks:
       package_format: rpm
     artifacts:
       - arrow-{version}-1.el6.src.rpm
-      - arrow-{version}-1.el7.src.rpm
       - arrow-debuginfo-{version}-1.el6.x86_64.rpm
-      - arrow-debuginfo-{version}-1.el7.x86_64.rpm
       - arrow-devel-{version}-1.el6.x86_64.rpm
-      - arrow-devel-{version}-1.el7.x86_64.rpm
-      - arrow-glib-devel-{version}-1.el7.x86_64.rpm
-      - arrow-glib-doc-{version}-1.el7.x86_64.rpm
-      - arrow-glib-libs-{version}-1.el7.x86_64.rpm
       - arrow-libs-{version}-1.el6.x86_64.rpm
-      - arrow-libs-{version}-1.el7.x86_64.rpm
       - arrow-python-devel-{version}-1.el6.x86_64.rpm
-      - arrow-python-devel-{version}-1.el7.x86_64.rpm
       - arrow-python-libs-{version}-1.el6.x86_64.rpm
-      - arrow-python-libs-{version}-1.el7.x86_64.rpm
 
   centos-7:
     platform: linux
@@ -310,3 +321,13 @@ tasks:
     params:
       build_command: rake yum:build CENTOS_VERSIONS=7 PARALLEL=no DEBUG=no
       package_format: rpm
+    artifacts:
+      - arrow-{version}-1.el7.src.rpm
+      - arrow-debuginfo-{version}-1.el7.x86_64.rpm
+      - arrow-devel-{version}-1.el7.x86_64.rpm
+      - arrow-glib-devel-{version}-1.el7.x86_64.rpm
+      - arrow-glib-doc-{version}-1.el7.x86_64.rpm
+      - arrow-glib-libs-{version}-1.el7.x86_64.rpm
+      - arrow-libs-{version}-1.el7.x86_64.rpm
+      - arrow-python-devel-{version}-1.el7.x86_64.rpm
+      - arrow-python-libs-{version}-1.el7.x86_64.rpm
