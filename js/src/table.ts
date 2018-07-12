@@ -17,7 +17,7 @@
 
 import { RecordBatch } from './recordbatch';
 import { Col, Predicate } from './predicate';
-import { Schema, Field, Struct, StructData } from './type';
+import { DataType, Schema, Field, Struct, StructData, StructValue, Int } from './type';
 import { read, readAsync } from './ipc/reader/arrow';
 import { writeTableBinary } from './ipc/writer/arrow';
 import { PipeIterator } from './util/node';
@@ -28,29 +28,29 @@ import { ChunkedView } from './vector/chunked';
 export type NextFunc = (idx: number, batch: RecordBatch) => void;
 export type BindFunc = (batch: RecordBatch) => void;
 
-export interface DataFrame {
+export interface DataFrame<T extends StructData = StructData> {
     count(): number;
-    filter(predicate: Predicate): DataFrame;
+    filter(predicate: Predicate): DataFrame<T>;
     scan(next: NextFunc, bind?: BindFunc): void;
     countBy(col: (Col|string)): CountByResult;
-    [Symbol.iterator](): IterableIterator<Struct['TValue']>;
+    [Symbol.iterator](): IterableIterator<StructValue<T>>;
 }
 
 export class Table<T extends StructData = StructData> implements DataFrame {
-    static empty() { return new Table(new Schema([]), []); }
-    static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
+    static empty<R extends StructData = StructData>() { return new Table<R>(new Schema([]), []); }
+    static from<R extends StructData = StructData>(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
         if (sources) {
             let schema: Schema | undefined;
-            let recordBatches: RecordBatch[] = [];
+            let recordBatches: RecordBatch<R>[] = [];
             for (let recordBatch of read(sources)) {
                 schema = schema || recordBatch.schema;
-                recordBatches.push(recordBatch);
+                recordBatches.push(recordBatch as RecordBatch<R>);
             }
-            return new Table(schema || new Schema([]), recordBatches);
+            return new Table<R>(schema || new Schema([]), recordBatches);
         }
-        return Table.empty();
+        return Table.empty<R>();
     }
-    static async fromAsync(sources?: AsyncIterable<Uint8Array | Buffer | string>) {
+    static async fromAsync<R extends StructData = StructData>(sources?: AsyncIterable<Uint8Array | Buffer | string>) {
         if (isAsyncIterable(sources)) {
             let schema: Schema | undefined;
             let recordBatches: RecordBatch[] = [];
@@ -64,14 +64,14 @@ export class Table<T extends StructData = StructData> implements DataFrame {
         } else if (sources) {
             return Table.from(sources);
         }
-        return Table.empty();
+        return Table.empty<R>();
     }
-    static fromStruct(struct: StructVector) {
+    static fromStruct<R extends StructData = StructData>(struct: StructVector<R>) {
         const schema = new Schema(struct.type.children);
         const chunks = struct.view instanceof ChunkedView ?
-                            (struct.view.chunkVectors as StructVector[]) :
+                            (struct.view.chunkVectors as StructVector<R>[]) :
                             [struct];
-        return new Table(chunks.map((chunk) => new RecordBatch(schema, chunk.length, chunk.view.childData)));
+        return new Table<R>(chunks.map((chunk) => new RecordBatch(schema, chunk.length, chunk.view.childData)));
     }
 
     public readonly schema: Schema;
@@ -199,10 +199,10 @@ export class Table<T extends StructData = StructData> implements DataFrame {
     }
 }
 
-class FilteredDataFrame implements DataFrame {
+class FilteredDataFrame<T extends StructData = StructData> implements DataFrame<T> {
     private predicate: Predicate;
-    private batches: RecordBatch[];
-    constructor (batches: RecordBatch[], predicate: Predicate) {
+    private batches: RecordBatch<T>[];
+    constructor (batches: RecordBatch<T>[], predicate: Predicate) {
         this.batches = batches;
         this.predicate = predicate;
     }
@@ -248,7 +248,7 @@ class FilteredDataFrame implements DataFrame {
         }
         return sum;
     }
-    public *[Symbol.iterator](): IterableIterator<Struct['TValue']> {
+    public *[Symbol.iterator](): IterableIterator<StructValue<T>> {
         // inlined version of this:
         // this.parent.scan((idx, columns) => {
         //     if (this.predicate(idx, columns)) next(idx, columns);
@@ -268,8 +268,8 @@ class FilteredDataFrame implements DataFrame {
             }
         }
     }
-    public filter(predicate: Predicate): DataFrame {
-        return new FilteredDataFrame(
+    public filter(predicate: Predicate): DataFrame<T> {
+        return new FilteredDataFrame<T>(
             this.batches,
             this.predicate.and(predicate)
         );
@@ -304,10 +304,10 @@ class FilteredDataFrame implements DataFrame {
     }
 }
 
-export class CountByResult extends Table implements DataFrame {
-    constructor(values: Vector, counts: IntVector<any>) {
+export class CountByResult<T extends DataType = DataType> extends Table<{'values': T, 'counts': Int}> {
+    constructor(values: Vector, counts: IntVector) {
         super(
-            new RecordBatch(new Schema([
+            new RecordBatch<{'values': T, 'counts': Int}>(new Schema([
                 new Field('values', values.type),
                 new Field('counts', counts.type)
             ]),
