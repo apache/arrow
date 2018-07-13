@@ -66,8 +66,7 @@ class ARROW_EXPORT ArrayBuilder {
         null_count_(0),
         null_bitmap_data_(NULLPTR),
         length_(0),
-        capacity_(0),
-        is_finished_(true) {}
+        capacity_(0) {}
 
   virtual ~ArrayBuilder() {}
 
@@ -113,8 +112,6 @@ class ARROW_EXPORT ArrayBuilder {
   /// this function responsibly.
   Status Advance(int64_t elements);
 
-  std::shared_ptr<PoolBuffer> null_bitmap() const;
-
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
   ///
@@ -141,7 +138,6 @@ class ARROW_EXPORT ArrayBuilder {
       ++null_count_;
     }
     ++length_;
-    is_finished_ = false;
   }
 
  protected:
@@ -162,10 +158,6 @@ class ARROW_EXPORT ArrayBuilder {
   // Child value array builders. These are owned by this class
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
 
-  // Indicates if the FinishInternal method was called on the builder after the last
-  // append
-  bool is_finished_;
-
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
   void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
@@ -174,9 +166,6 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Set the next length bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
-
-  // Checks if the buffer is finished and prints a warning otherwise
-  void CheckFinished() const;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
@@ -213,7 +202,6 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     memset(raw_data_ + length_, 0,
            static_cast<size_t>(TypeTraits<Type>::bytes_required(length)));
     UnsafeAppendToBitmap(valid_bytes, length);
-    is_finished_ = false;
     return Status::OK();
   }
 
@@ -221,12 +209,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(1));
     memset(raw_data_ + length_, 0, sizeof(value_type));
     UnsafeAppendToBitmap(false);
-    is_finished_ = false;
     return Status::OK();
   }
-
-  // Return a pointer to the underlying data. Checks if the buffer was finished first.
-  std::shared_ptr<Buffer> data() const;
 
   const value_type GetValue(int64_t index) const {
     return reinterpret_cast<const value_type*>(data_->data())[index];
@@ -324,7 +308,6 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   void UnsafeAppend(const value_type val) {
     BitUtil::SetBit(null_bitmap_data_, length_);
     raw_data_[length_++] = val;
-    this->is_finished_ = false;
   }
 
  protected:
@@ -365,7 +348,6 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(length));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
     UnsafeAppendToBitmap(valid_bytes, length);
-    is_finished_ = false;
     return Status::OK();
   }
 
@@ -373,12 +355,8 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(1));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_);
     UnsafeAppendToBitmap(false);
-    is_finished_ = false;
     return Status::OK();
   }
-
-  // Return a pointer to the underlying data. Checks if the buffer was finished first.
-  std::shared_ptr<Buffer> data() const;
 
   Status Init(int64_t capacity) override;
   void Reset() override;
@@ -584,7 +562,6 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
 
-    is_finished_ = false;
     return Status::OK();
   }
 
@@ -592,12 +569,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
 
-    is_finished_ = false;
     return Status::OK();
   }
-
-  // Return a pointer to the underlying data. Checks if the buffer was finished first.
-  std::shared_ptr<Buffer> data() const;
 
   /// Scalar append
   Status Append(const bool val) {
@@ -1001,7 +974,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
   using Scalar = typename internal::DictionaryScalar<T>::type;
 
-  ~DictionaryBuilder() override;
+  ~DictionaryBuilder() override{};
 
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
@@ -1069,7 +1042,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 template <>
 class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
  public:
-  ~DictionaryBuilder() override;
+  ~DictionaryBuilder() override {}
 
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
   explicit DictionaryBuilder(MemoryPool* pool);

@@ -331,7 +331,6 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder->length());
     ASSERT_EQ(0, builder->capacity());
     ASSERT_EQ(0, builder->null_count());
-    ASSERT_EQ(nullptr, builder->data());
 
     ASSERT_EQ(ex_null_count, result->null_count());
     ASSERT_TRUE(result->Equals(*expected));
@@ -471,7 +470,6 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   ASSERT_EQ(0, builder->length());
   ASSERT_EQ(0, builder->capacity());
   ASSERT_EQ(0, builder->null_count());
-  ASSERT_EQ(nullptr, builder->data());
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,

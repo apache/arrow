@@ -92,8 +92,6 @@ Status ArrayBuilder::Init(int64_t capacity) {
   null_bitmap_data_ = null_bitmap_->mutable_data();
   memset(null_bitmap_data_, 0, static_cast<size_t>(byte_capacity));
 
-  is_finished_ = false;
-
   return Status::OK();
 }
 
@@ -142,7 +140,6 @@ Status ArrayBuilder::Reserve(int64_t elements) {
 void ArrayBuilder::Reset() {
   capacity_ = length_ = null_count_ = 0;
   null_bitmap_ = nullptr;
-  is_finished_ = true;
 }
 
 Status ArrayBuilder::SetNotNull(int64_t length) {
@@ -183,7 +180,6 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
     null_bitmap_data_[byte_offset] = bitset;
   }
   length_ += length;
-  is_finished_ = false;
 }
 
 void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
@@ -214,7 +210,6 @@ void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
   if (bit_offset != 0) {
     null_bitmap_data_[byte_offset] = bitset;
   }
-  is_finished_ = false;
   length_ += length;
 }
 
@@ -244,22 +239,6 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   length_ = new_length;
 }
 
-std::shared_ptr<PoolBuffer> ArrayBuilder::null_bitmap() const {
-#ifndef NDEBUG
-  CheckFinished();
-#endif
-
-  return null_bitmap_;
-}
-
-void ArrayBuilder::CheckFinished() const {
-  if (ARROW_PREDICT_FALSE(!is_finished_)) {
-    ARROW_LOG(WARNING)
-        << "An internal method of a builder (i.e. data or null_map) was called without "
-           "it being finished first. It can lead to uninitialized memory errors";
-  }
-}
-
 // ----------------------------------------------------------------------
 // Null builder
 
@@ -269,7 +248,6 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   *out = ArrayData::Make(null(), length_, {null_bitmap_}, length_);
-  is_finished_ = true;
   length_ = null_count_ = 0;
   return Status::OK();
 }
@@ -387,17 +365,8 @@ Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
-  is_finished_ = true;
 
   return Status::OK();
-}
-
-template <typename T>
-std::shared_ptr<Buffer> PrimitiveBuilder<T>::data() const {
-#ifndef NDEBUG
-  CheckFinished();
-#endif
-  return data_;
 }
 
 template class PrimitiveBuilder<UInt8Type>;
@@ -454,14 +423,6 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
   return Status::OK();
 }
 
-std::shared_ptr<Buffer> AdaptiveIntBuilderBase::data() const {
-#ifndef NDEBUG
-  CheckFinished();
-#endif
-
-  return data_;
-}
-
 AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
@@ -491,7 +452,6 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
-  is_finished_ = true;
   return Status::OK();
 }
 
@@ -650,8 +610,6 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
-  is_finished_ = true;
-
   return Status::OK();
 }
 
@@ -853,8 +811,6 @@ Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
-  is_finished_ = true;
-
   return Status::OK();
 }
 
@@ -948,14 +904,6 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
 
 Status BooleanBuilder::Append(const std::vector<bool>& values) {
   return AppendValues(values);
-}
-
-std::shared_ptr<Buffer> BooleanBuilder::data() const {
-#ifndef NDEBUG
-  CheckFinished();
-#endif
-
-  return data_;
 }
 
 // ----------------------------------------------------------------------
@@ -1092,9 +1040,6 @@ DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
   }
 }
 
-template <typename T>
-DictionaryBuilder<T>::~DictionaryBuilder() { }
-
 DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
                                                MemoryPool* pool)
     : ArrayBuilder(type, pool), values_builder_(pool) {
@@ -1102,8 +1047,6 @@ DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& 
     ::arrow::CpuInfo::Init();
   }
 }
-
-DictionaryBuilder<NullType>::~DictionaryBuilder() {}
 
 template <>
 DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
@@ -1234,20 +1177,15 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
 
   RETURN_NOT_OK(values_builder_.Append(index));
 
-  is_finished_ = false;
   return Status::OK();
 }
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendNull() {
-  is_finished_ = false;
   return values_builder_.AppendNull();
 }
 
-Status DictionaryBuilder<NullType>::AppendNull() {
-  is_finished_ = false;
-  return values_builder_.AppendNull();
-}
+Status DictionaryBuilder<NullType>::AppendNull() { return values_builder_.AppendNull(); }
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendArray(const Array& array) {
@@ -1313,7 +1251,6 @@ Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   dict_builder_.Reset();
   values_builder_.Reset();
 
-  is_finished_ = true;
   return Status::OK();
 }
 
@@ -1323,7 +1260,6 @@ Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* o
   RETURN_NOT_OK(values_builder_.FinishInternal(out));
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
 
-  is_finished_ = true;
   return Status::OK();
 }
 
@@ -1388,7 +1324,6 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
 
-  is_finished_ = true;
   return Status::OK();
 }
 
@@ -1465,7 +1400,6 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets}, null_count_);
   (*out)->child_data.emplace_back(std::move(items));
   Reset();
-  is_finished_ = true;
   return Status::OK();
 }
 
@@ -1554,7 +1488,6 @@ Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets, value_data}, null_count_,
                          0);
   Reset();
-  is_finished_ = true;
   return Status::OK();
 }
 
@@ -1728,7 +1661,6 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
-  is_finished_ = true;
   return Status::OK();
 }
 
@@ -1763,7 +1695,6 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
-  is_finished_ = true;
   return Status::OK();
 }
 
