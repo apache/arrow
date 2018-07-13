@@ -241,14 +241,17 @@ TEST_F(TestArray, TestIsNullIsValidNoNulls) {
 }
 
 TEST_F(TestArray, BuildLargeInMemoryArray) {
+#ifdef NDEBUG
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+#else
+  // use a smaller size since the insert function isn't optimized properly on debug and
+  // the test takes a long time to complete
+  const int64_t length = 2 << 24;
+#endif
 
   BooleanBuilder builder;
-  ASSERT_OK(builder.Reserve(length));
-
-  // Advance does not write to data, see docstring
-  ASSERT_OK(builder.Advance(length));
-  memset(builder.data()->mutable_data(), 0, BitUtil::BytesForBits(length));
+  std::vector<bool> zeros(length);
+  builder.AppendValues(zeros);
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(&builder, &result);
@@ -265,10 +268,10 @@ TEST_F(TestBuilder, TestReserve) {
   UInt8Builder builder(pool_);
 
   ASSERT_OK(builder.Init(10));
-  ASSERT_EQ(2, builder.null_bitmap()->size());
+  ASSERT_EQ(10, builder.capacity());
 
   ASSERT_OK(builder.Reserve(30));
-  ASSERT_EQ(4, builder.null_bitmap()->size());
+  ASSERT_EQ(BitUtil::NextPower2(30), builder.capacity());
 }
 
 template <typename Attrs>
@@ -478,13 +481,9 @@ typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PIn
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
-  DECL_TYPE();
-
   int64_t n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
   ASSERT_EQ(BitUtil::NextPower2(n), this->builder_->capacity());
-  ASSERT_EQ(BitUtil::NextPower2(TypeTraits<Type>::bytes_required(n)),
-            this->builder_->data()->size());
 
   // unsure if this should go in all builder classes
   ASSERT_EQ(0, this->builder_->num_children());
@@ -789,15 +788,10 @@ TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
-  DECL_TYPE();
-
   int64_t cap = kMinBuilderCapacity * 2;
 
   ASSERT_OK(this->builder_->Reserve(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
-
-  ASSERT_EQ(TypeTraits<Type>::bytes_required(cap), this->builder_->data()->size());
-  ASSERT_EQ(BitUtil::BytesForBits(cap), this->builder_->null_bitmap()->size());
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestReserve) {

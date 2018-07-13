@@ -69,7 +69,7 @@ class ARROW_EXPORT ArrayBuilder {
         capacity_(0),
         is_finished_(true) {}
 
-  virtual ~ArrayBuilder() { }
+  virtual ~ArrayBuilder() {}
 
   /// For nested types. Since the objects are owned by this class instance, we
   /// skip shared pointers and just return a raw pointer
@@ -100,6 +100,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// cases subclasses should override and call their parent class's
   /// method as well.
   virtual Status Resize(int64_t new_bits);
+
+  /// Reset the builder.
+  virtual void Reset();
 
   /// Ensures there is enough space for adding the number of elements by checking
   /// capacity and calling Resize if necessary.
@@ -162,8 +165,6 @@ class ARROW_EXPORT ArrayBuilder {
   // Indicates if the FinishInternal method was called on the builder after the last
   // append
   bool is_finished_;
-
-  void Reset();
 
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
@@ -278,6 +279,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status Init(int64_t capacity) override;
+  void Reset() override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
   /// number of elements
@@ -379,6 +381,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   std::shared_ptr<Buffer> data() const;
 
   Status Init(int64_t capacity) override;
+  void Reset() override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
   /// number of elements
@@ -439,6 +442,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   explicit AdaptiveUIntBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   using ArrayBuilder::Advance;
+  using internal::AdaptiveIntBuilderBase::Reset;
 
   /// Scalar append
   Status Append(const uint64_t val) {
@@ -505,6 +509,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   explicit AdaptiveIntBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   using ArrayBuilder::Advance;
+  using internal::AdaptiveIntBuilderBase::Reset;
 
   /// Scalar append
   Status Append(const int64_t val) {
@@ -673,6 +678,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status Init(int64_t capacity) override;
+  void Reset() override;
 
   /// Increase the capacity of the builder to accommodate at least the indicated
   /// number of elements
@@ -708,6 +714,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
+  void Reset() override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \brief Vector append
@@ -737,8 +744,6 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   std::shared_ptr<Array> values_;
 
   Status AppendNextOffset();
-
-  void Reset();
 };
 
 // ----------------------------------------------------------------------
@@ -765,6 +770,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   Status AppendNull();
 
   Status Init(int64_t elements) override;
+  void Reset() override;
   Status Resize(int64_t capacity) override;
   /// \brief Ensures there is enough allocated capacity to append the indicated
   /// number of bytes to the value data buffer without additional allocations
@@ -786,7 +792,6 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
   Status AppendNextOffset();
-  void Reset();
 };
 
 /// \class StringBuilder
@@ -797,6 +802,7 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   explicit StringBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   using BinaryBuilder::Append;
+  using BinaryBuilder::Reset;
 
   /// \brief Append a sequence of strings in one shot.
   ///
@@ -862,6 +868,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status AppendNull();
 
   Status Init(int64_t elements) override;
+  void Reset() override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -887,6 +894,7 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
 
   using FixedSizeBinaryBuilder::Append;
   using FixedSizeBinaryBuilder::AppendValues;
+  using FixedSizeBinaryBuilder::Reset;
 
   Status Append(const Decimal128& val);
 
@@ -934,6 +942,8 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   }
 
   Status AppendNull() { return Append(false); }
+
+  void Reset() override;
 
   ArrayBuilder* field_builder(int i) const { return field_builders_[i].get(); }
 
@@ -1010,6 +1020,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status AppendArray(const Array& array);
 
   Status Init(int64_t elements) override;
+  void Reset() override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 

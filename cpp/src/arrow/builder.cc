@@ -92,6 +92,8 @@ Status ArrayBuilder::Init(int64_t capacity) {
   null_bitmap_data_ = null_bitmap_->mutable_data();
   memset(null_bitmap_data_, 0, static_cast<size_t>(byte_capacity));
 
+  is_finished_ = false;
+
   return Status::OK();
 }
 
@@ -140,6 +142,7 @@ Status ArrayBuilder::Reserve(int64_t elements) {
 void ArrayBuilder::Reset() {
   capacity_ = length_ = null_count_ = 0;
   null_bitmap_ = nullptr;
+  is_finished_ = true;
 }
 
 Status ArrayBuilder::SetNotNull(int64_t length) {
@@ -241,17 +244,19 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   length_ = new_length;
 }
 
-std::shared_ptr<PoolBuffer> ArrayBuilder::null_bitmap() const { 
-  #ifndef NDEBUG
-    CheckFinished();
-  #endif
+std::shared_ptr<PoolBuffer> ArrayBuilder::null_bitmap() const {
+#ifndef NDEBUG
+  CheckFinished();
+#endif
 
-  return null_bitmap_; 
+  return null_bitmap_;
 }
 
 void ArrayBuilder::CheckFinished() const {
   if (ARROW_PREDICT_FALSE(!is_finished_)) {
-    ARROW_LOG(WARNING) << "An internal method of a builder (i.e. data or null_map) was called without it being finished first. It can lead to uninitialized memory errors";
+    ARROW_LOG(WARNING)
+        << "An internal method of a builder (i.e. data or null_map) was called without "
+           "it being finished first. It can lead to uninitialized memory errors";
   }
 }
 
@@ -282,6 +287,12 @@ Status PrimitiveBuilder<T>::Init(int64_t capacity) {
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
 
   return Status::OK();
+}
+
+template <typename T>
+void PrimitiveBuilder<T>::Reset() {
+  data_.reset();
+  raw_data_ = nullptr;
 }
 
 template <typename T>
@@ -382,12 +393,12 @@ Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 template <typename T>
-std::shared_ptr<Buffer> PrimitiveBuilder<T>::data() const  { 
-  #ifndef NDEBUG
-    CheckFinished();
-  #endif
-  return data_; 
-  }
+std::shared_ptr<Buffer> PrimitiveBuilder<T>::data() const {
+#ifndef NDEBUG
+  CheckFinished();
+#endif
+  return data_;
+}
 
 template class PrimitiveBuilder<UInt8Type>;
 template class PrimitiveBuilder<UInt16Type>;
@@ -420,6 +431,12 @@ Status AdaptiveIntBuilderBase::Init(int64_t capacity) {
   return Status::OK();
 }
 
+void AdaptiveIntBuilderBase::Reset() {
+  ArrayBuilder::Reset();
+  data_.reset();
+  raw_data_ = nullptr;
+}
+
 Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
   // XXX: Set floor size for now
   if (capacity < kMinBuilderCapacity) {
@@ -438,9 +455,9 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 }
 
 std::shared_ptr<Buffer> AdaptiveIntBuilderBase::data() const {
-  #ifndef NDEBUG
-    CheckFinished();
-  #endif
+#ifndef NDEBUG
+  CheckFinished();
+#endif
 
   return data_;
 }
@@ -791,6 +808,12 @@ Status BooleanBuilder::Init(int64_t capacity) {
   return Status::OK();
 }
 
+void BooleanBuilder::Reset() {
+  ArrayBuilder::Reset();
+  data_.reset();
+  raw_data_ = nullptr;
+}
+
 Status BooleanBuilder::Resize(int64_t capacity) {
   // XXX: Set floor size for now
   if (capacity < kMinBuilderCapacity) {
@@ -928,9 +951,9 @@ Status BooleanBuilder::Append(const std::vector<bool>& values) {
 }
 
 std::shared_ptr<Buffer> BooleanBuilder::data() const {
-  #ifndef NDEBUG
+#ifndef NDEBUG
   CheckFinished();
-  #endif
+#endif
 
   return data_;
 }
@@ -976,9 +999,8 @@ struct DictionaryHashHelper<T, enable_if_has_c_type<T>> {
   // Append another builder's contents to the builder
   static Status AppendArray(Builder& builder, const Array& in_array) {
     const auto& array = checked_cast<const PrimitiveArray&>(in_array);
-    return builder.AppendValues(
-        reinterpret_cast<const Scalar*>(array.values()->data()),
-        array.length(), nullptr);
+    return builder.AppendValues(reinterpret_cast<const Scalar*>(array.values()->data()),
+                                array.length(), nullptr);
   }
 };
 
@@ -1071,14 +1093,7 @@ DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
 }
 
 template <typename T>
-DictionaryBuilder<T>::~DictionaryBuilder() {
-#ifndef NDEBUG
-  // explicitly finish overflow builder to avoid warnings
-  std::shared_ptr<ArrayData> out;
-  // ignore status
-  Status s = overflow_dict_builder_.FinishInternal(&out);
-#endif
-}
+DictionaryBuilder<T>::~DictionaryBuilder() { }
 
 DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
                                                MemoryPool* pool)
@@ -1123,6 +1138,13 @@ Status DictionaryBuilder<T>::Init(int64_t elements) {
 Status DictionaryBuilder<NullType>::Init(int64_t elements) {
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   return values_builder_.Init(elements);
+}
+
+template <typename T>
+void DictionaryBuilder<T>::Reset() {
+  dict_builder_.Reset();
+  overflow_dict_builder_.Reset();
+  values_builder_.Reset();
 }
 
 template <typename T>
@@ -1288,8 +1310,8 @@ Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(values_builder_.FinishInternal(out));
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
 
-  RETURN_NOT_OK(dict_builder_.Init(capacity_));
-  RETURN_NOT_OK(values_builder_.Init(capacity_));
+  dict_builder_.Reset();
+  values_builder_.Reset();
 
   is_finished_ = true;
   return Status::OK();
@@ -1449,7 +1471,9 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
 void ListBuilder::Reset() {
   ArrayBuilder::Reset();
-  values_ = nullptr;
+  values_.reset();
+  offsets_builder_.Reset();
+  value_builder_->Reset();
 }
 
 ArrayBuilder* ListBuilder::value_builder() const {
@@ -1686,6 +1710,11 @@ Status FixedSizeBinaryBuilder::Init(int64_t elements) {
   return byte_builder_.Resize(elements * byte_width_);
 }
 
+void FixedSizeBinaryBuilder::Reset() {
+  ArrayBuilder::Reset();
+  byte_builder_.Reset();
+}
+
 Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
   return ArrayBuilder::Resize(capacity);
@@ -1717,6 +1746,12 @@ StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* 
   field_builders_ = std::move(field_builders);
 }
 
+void StructBuilder::Reset() {
+  ArrayBuilder::Reset();
+  for (const auto& field_builder : field_builders_) {
+    field_builder->Reset();
+  }
+}
 Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
   *out = ArrayData::Make(type_, length_, {null_bitmap_}, null_count_);
