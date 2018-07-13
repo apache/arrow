@@ -91,7 +91,6 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
       tf::mutex_lock lock(d2h_stream_mu);
       if (d2h_stream != nullptr) {
         delete d2h_stream;
-        d2h_stream = nullptr;
       }
     }
   }
@@ -259,7 +258,6 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
       tf::mutex_lock lock(h2d_stream_mu);
       if (h2d_stream != nullptr) {
         delete h2d_stream;
-        h2d_stream = nullptr;
       }
     }
   }
