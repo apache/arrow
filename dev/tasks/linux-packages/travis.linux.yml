@@ -56,7 +56,9 @@ before_script:
 
 script:
   - pushd arrow/dev/tasks/linux-packages
-  - rake version:update && travis_wait 40 {{ build_command }}
+  - rake version:update
+  - rake dist
+  - {{ build_command }}
 
 deploy:
   provider: releases
