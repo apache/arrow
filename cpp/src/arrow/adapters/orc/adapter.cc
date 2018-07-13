@@ -521,18 +521,15 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
-    RETURN_NOT_OK(builder->AppendNulls(valid_bytes, length));
-
     const source_type* source = batch->data.data() + offset;
-    target_type* target = reinterpret_cast<target_type*>(builder->data()->mutable_data());
+    std::vector<target_type> converted(source, source + length);
 
-    std::copy(source, source + length, target + start);
+    RETURN_NOT_OK(builder->AppendValues(converted.data(), converted.size(), valid_bytes));
 
     return Status::OK();
   }
@@ -545,24 +542,16 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
-    RETURN_NOT_OK(builder->AppendNulls(valid_bytes, length));
-
     const int64_t* source = batch->data.data() + offset;
-    uint8_t* target = reinterpret_cast<uint8_t*>(builder->data()->mutable_data());
+    std::vector<uint8_t> converted(source, source + length);
 
-    for (int64_t i = 0; i < length; i++) {
-      if (source[i]) {
-        BitUtil::SetBit(target, start + i);
-      } else {
-        BitUtil::ClearBit(target, start + i);
-      }
-    }
+    RETURN_NOT_OK(builder->AppendValues(converted.data(), length, valid_bytes));
+
     return Status::OK();
   }
 
@@ -580,17 +569,18 @@ class ORCFileReader::Impl {
     if (batch->hasNulls) {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
-    RETURN_NOT_OK(builder->AppendNulls(valid_bytes, length));
 
     const int64_t* seconds = batch->data.data() + offset;
     const int64_t* nanos = batch->nanoseconds.data() + offset;
-    int64_t* target = reinterpret_cast<int64_t*>(builder->data()->mutable_data());
 
+    std::vector<int64_t> values(length);
     for (int64_t i = 0; i < length; i++) {
       // TODO: boundscheck this, as ORC supports higher resolution timestamps
       // than arrow for nanosecond resolution
-      target[start + i] = seconds[i] * kOneSecondNanos + nanos[i];
+      values[start + i] = seconds[i] * kOneSecondNanos + nanos[i];
     }
+
+    RETURN_NOT_OK(builder->AppendValues(values.data(), values.size(), valid_bytes));
     return Status::OK();
   }
 
