@@ -69,7 +69,7 @@ class ARROW_EXPORT ArrayBuilder {
         capacity_(0),
         is_finished_(true) {}
 
-  virtual ~ArrayBuilder();
+  virtual ~ArrayBuilder() { }
 
   /// For nested types. Since the objects are owned by this class instance, we
   /// skip shared pointers and just return a raw pointer
@@ -110,7 +110,7 @@ class ARROW_EXPORT ArrayBuilder {
   /// this function responsibly.
   Status Advance(int64_t elements);
 
-  std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
+  std::shared_ptr<PoolBuffer> null_bitmap() const;
 
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
@@ -174,6 +174,9 @@ class ARROW_EXPORT ArrayBuilder {
   // Set the next length bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
 
+  // Checks if the buffer is finished and prints a warning otherwise
+  void CheckFinished() const;
+
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
@@ -221,7 +224,12 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  std::shared_ptr<Buffer> data() const { return data_; }
+  // Return a pointer to the underlying data. Checks if the buffer was finished first.
+  std::shared_ptr<Buffer> data() const;
+
+  const value_type GetValue(int64_t index) const {
+    return reinterpret_cast<const value_type*>(data_->data())[index];
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
@@ -314,6 +322,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   void UnsafeAppend(const value_type val) {
     BitUtil::SetBit(null_bitmap_data_, length_);
     raw_data_[length_++] = val;
+    this->is_finished_ = false;
   }
 
  protected:
@@ -366,7 +375,8 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     return Status::OK();
   }
 
-  std::shared_ptr<Buffer> data() const { return data_; }
+  // Return a pointer to the underlying data. Checks if the buffer was finished first.
+  std::shared_ptr<Buffer> data() const;
 
   Status Init(int64_t capacity) override;
 
@@ -581,7 +591,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  std::shared_ptr<Buffer> data() const { return data_; }
+  // Return a pointer to the underlying data. Checks if the buffer was finished first.
+  std::shared_ptr<Buffer> data() const;
 
   /// Scalar append
   Status Append(const bool val) {

@@ -62,15 +62,6 @@ Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
 
 }  // namespace
 
-ArrayBuilder::~ArrayBuilder() {
-#ifndef NDEBUG
-  if (ARROW_PREDICT_FALSE(!is_finished_)) {
-    ARROW_LOG(DEBUG) << "The builder at " << this
-                       << " was destroyed before being finished.";
-  }
-#endif
-}
-
 Status ArrayBuilder::AppendToBitmap(bool is_valid) {
   if (length_ == capacity_) {
     // If the capacity was not already a multiple of 2, do so here
@@ -250,6 +241,20 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   length_ = new_length;
 }
 
+std::shared_ptr<PoolBuffer> ArrayBuilder::null_bitmap() const { 
+  #ifndef NDEBUG
+    CheckFinished();
+  #endif
+
+  return null_bitmap_; 
+}
+
+void ArrayBuilder::CheckFinished() const {
+  if (ARROW_PREDICT_FALSE(!is_finished_)) {
+    ARROW_LOG(WARNING) << "An internal method of a builder (i.e. data or null_map) was called without it being finished first. It can lead to uninitialized memory errors";
+  }
+}
+
 // ----------------------------------------------------------------------
 // Null builder
 
@@ -376,6 +381,14 @@ Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
+template <typename T>
+std::shared_ptr<Buffer> PrimitiveBuilder<T>::data() const  { 
+  #ifndef NDEBUG
+    CheckFinished();
+  #endif
+  return data_; 
+  }
+
 template class PrimitiveBuilder<UInt8Type>;
 template class PrimitiveBuilder<UInt16Type>;
 template class PrimitiveBuilder<UInt32Type>;
@@ -422,6 +435,14 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
     raw_data_ = data_->mutable_data();
   }
   return Status::OK();
+}
+
+std::shared_ptr<Buffer> AdaptiveIntBuilderBase::data() const {
+  #ifndef NDEBUG
+    CheckFinished();
+  #endif
+
+  return data_;
 }
 
 AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
@@ -906,6 +927,14 @@ Status BooleanBuilder::Append(const std::vector<bool>& values) {
   return AppendValues(values);
 }
 
+std::shared_ptr<Buffer> BooleanBuilder::data() const {
+  #ifndef NDEBUG
+  CheckFinished();
+  #endif
+
+  return data_;
+}
+
 // ----------------------------------------------------------------------
 // DictionaryBuilder
 
@@ -926,8 +955,7 @@ struct DictionaryHashHelper<T, enable_if_has_c_type<T>> {
 
   // Get the dictionary value at the given builder index
   static Scalar GetDictionaryValue(const Builder& builder, int64_t index) {
-    const Scalar* data = reinterpret_cast<const Scalar*>(builder.data()->data());
-    return data[index];
+    return builder.GetValue(index);
   }
 
   // Compute the hash of a scalar value
@@ -946,10 +974,11 @@ struct DictionaryHashHelper<T, enable_if_has_c_type<T>> {
   }
 
   // Append another builder's contents to the builder
-  static Status AppendBuilder(Builder& builder, const Builder& source_builder) {
+  static Status AppendArray(Builder& builder, const Array& in_array) {
+    const auto& array = checked_cast<const PrimitiveArray&>(in_array);
     return builder.AppendValues(
-        reinterpret_cast<const Scalar*>(source_builder.data()->data()),
-        source_builder.length(), nullptr);
+        reinterpret_cast<const Scalar*>(array.values()->data()),
+        array.length(), nullptr);
   }
 };
 
@@ -980,10 +1009,11 @@ struct DictionaryHashHelper<T, enable_if_binary<T>> {
     return builder.Append(value.ptr_, value.length_);
   }
 
-  static Status AppendBuilder(Builder& builder, const Builder& source_builder) {
-    for (uint64_t index = 0, limit = source_builder.length(); index < limit; ++index) {
+  static Status AppendArray(Builder& builder, const Array& in_array) {
+    const auto& array = checked_cast<const BinaryArray&>(in_array);
+    for (uint64_t index = 0, limit = array.length(); index < limit; ++index) {
       int32_t length;
-      const uint8_t* ptr = source_builder.GetValue(index, &length);
+      const uint8_t* ptr = array.GetValue(index, &length);
       RETURN_NOT_OK(builder.Append(ptr, length));
     }
     return Status::OK();
@@ -1014,9 +1044,10 @@ struct DictionaryHashHelper<T, enable_if_fixed_size_binary<T>> {
     return builder.Append(value);
   }
 
-  static Status AppendBuilder(Builder& builder, const Builder& source_builder) {
-    for (uint64_t index = 0, limit = source_builder.length(); index < limit; ++index) {
-      const Scalar value = GetDictionaryValue(source_builder, index);
+  static Status AppendArray(Builder& builder, const Array& in_array) {
+    const auto& array = checked_cast<const FixedSizeBinaryArray&>(in_array);
+    for (uint64_t index = 0, limit = array.length(); index < limit; ++index) {
+      const Scalar value = array.GetValue(index);
       RETURN_NOT_OK(builder.Append(value));
     }
     return Status::OK();
@@ -1245,14 +1276,15 @@ Status DictionaryBuilder<T>::DoubleTableSize() {
 
 template <typename T>
 Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  std::shared_ptr<Array> dictionary;
   entry_id_offset_ += dict_builder_.length();
+  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
+
   // Store current dict entries for further uses of this DictionaryBuilder
   RETURN_NOT_OK(
-      DictionaryHashHelper<T>::AppendBuilder(overflow_dict_builder_, dict_builder_));
+      DictionaryHashHelper<T>::AppendArray(overflow_dict_builder_, *dictionary));
   DCHECK_EQ(entry_id_offset_, overflow_dict_builder_.length());
 
-  std::shared_ptr<Array> dictionary;
-  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
   RETURN_NOT_OK(values_builder_.FinishInternal(out));
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
 
