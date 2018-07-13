@@ -101,7 +101,7 @@ class ARROW_EXPORT Buffer {
   Status Copy(const int64_t start, const int64_t nbytes,
               std::shared_ptr<Buffer>* out) const;
 
-  /// Zero bytes between padding, i.e. bytes between size_ and capacity_.
+  /// Zero bytes in padding, i.e. bytes between size_ and capacity_.
   void ZeroPadding() {
 #ifndef NDEBUG
     CheckMutable();
