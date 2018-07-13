@@ -224,10 +224,10 @@ class Queue(Repo):
         return {name: repo.commit(task.commit).status()
                 for name, task in job.tasks.items()}
 
-    def github_assets(self, job):
+    def github_assets(self, task):
         repo = self.as_github_repo()
         try:
-            release = repo.release_from_tag(job.branch)
+            release = repo.release_from_tag(task.tag)
         except github3.exceptions.NotFoundError:
             return {}
         else:
@@ -461,17 +461,17 @@ def status(ctx, job_name):
     queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
     queue.fetch()
 
-    tpl = '[{:>7}] {:<24} {:>45}'
+    tpl = '[{:>7}] {:<49} {:>20}'
     header = tpl.format('status', 'branch', 'artifacts')
     click.echo(header)
     click.echo('-' * len(header))
 
     job = queue.get(job_name)
-    assets = queue.github_assets(job)
     statuses = queue.github_statuses(job)
 
     for task_name, task in job.tasks.items():
         status = statuses[task_name]
+        assets = queue.github_assets(task)
 
         uploaded = 'uploaded {} / {}'.format(
             sum(a in assets for a in task.artifacts),
