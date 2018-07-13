@@ -16,6 +16,8 @@
 # under the License.
 
 groups:
+  # these groups are just for convenience
+  # makes it easier to submit related tasks
   conda:
     - conda-linux-py27
     - conda-linux-py35

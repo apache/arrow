@@ -166,14 +166,14 @@ Just render without applying or committing the changes:
 $ python crossbow.py submit --dry-run task_name
 ```
 
-Run only `conda` package builds but on all platforms:
+Run only `conda` package builds and a linux one:
 
 ```bash
-$ python crossbow.py submit conda-win conda-osx conda-linux
+$ python crossbow.py submit -g conda centos-7
 ```
 
 Run `wheel` builds:
 
 ```bash
-$ python crossbow.py submit wheel-osx wheel-linux wheel-win
+$ python crossbow.py submit --group wheel
 ```
