@@ -498,7 +498,7 @@ def status(ctx, job_name):
 @click.option('--gpg-homedir', default=None,
               help=('Full pathname to directory containing the public and '
                     'private keyrings. Default is whatever GnuPG defaults to'))
-@click.option('--target-dir', default=DEFAULT_ARROW_PATH / 'pkgs',
+@click.option('--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
               help='Directory to download the build artifacts')
 @click.pass_context
 def sign(ctx, job_name, gpg_homedir, target_dir):
@@ -512,32 +512,40 @@ def sign(ctx, job_name, gpg_homedir, target_dir):
 
     # query the job's artifacts
     job = queue.get(job_name)
-    assets = queue.github_assets(job)
 
-    click.echo('Downloading and signing assets...')
-    target_dir = Path(target_dir).absolute()
-    target_dir.mkdir(exist_ok=True)
+    target_dir = Path(target_dir).absolute() / job_name
+    target_dir.mkdir(parents=True, exist_ok=True)
+    click.echo('Download {}\'s artifacts to {}'.format(job_name, target_dir))
 
-    tpl = '[{:>8}] '
+    tpl = '{:<10} {:>68}'
     for task_name, task in job.tasks.items():
+        assets = queue.github_assets(task)
+        artifact_dir = target_dir / task_name
+        artifact_dir.mkdir(exist_ok=True)
+
+        click.echo('\nDownloading and signing assets for task {}'
+                    .format(task_name))
+        click.echo('-' * 79)
+
         for artifact in task.artifacts:
             if artifact not in assets:
-                msg = click.style(tpl.format('MISSING'), fg=COLORS['missing'])
-                click.echo(msg + artifact)
+                msg = click.style('[{:>8}]'.format('MISSING'),
+                                  fg=COLORS['missing'])
+                click.echo(tpl.format(msg, artifact))
                 continue
 
             # download artifact
-            target_path = target_dir / artifact
-            assets[artifact].download(target_path)
+            artifact_path = artifact_dir / artifact
+            assets[artifact].download(artifact_path)
 
             # sign the artifact
-            with target_path.open('rb') as fp:
-                signature_path = Path(str(target_path) + '.sig')
+            with artifact_path.open('rb') as fp:
+                signature_path = Path(str(artifact_path) + '.sig')
                 gpg.sign_file(fp, detach=True, clearsign=False,
                               output=str(signature_path))
 
-            msg = click.style(tpl.format('SIGNED'), fg=COLORS['ok'])
-            click.echo(msg + artifact)
+            msg = click.style('[{:>8}]'.format('SIGNED'), fg=COLORS['ok'])
+            click.echo(tpl.format(msg, artifact))
 
 
 if __name__ == '__main__':
