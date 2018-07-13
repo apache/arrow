@@ -291,7 +291,20 @@ tasks:
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-artful
       package_format: deb
-    artifacts: #TODO
+    artifacts:
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow-gpu-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib0_{version}-1_amd64.deb
+      - libarrow-gpu0_{version}-1_amd64.deb
+      - libarrow-python-dev_{version}-1_amd64.deb
+      - libarrow-python0_{version}-1_amd64.deb
+      - libarrow0_{version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -299,7 +312,20 @@ tasks:
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-bionic
       package_format: deb
-    artifacts: #TODO
+    artifacts:
+      - gir1.2-arrow-1.0_{version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
+      - libarrow-dev_{version}-1_amd64.deb
+      - libarrow-glib-dev_{version}-1_amd64.deb
+      - libarrow-glib-doc_{version}-1_all.deb
+      - libarrow-glib0_{version}-1_amd64.deb
+      - libarrow-gpu-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
+      - libarrow-gpu-glib0_{version}-1_amd64.deb
+      - libarrow-gpu0_{version}-1_amd64.deb
+      - libarrow-python-dev_{version}-1_amd64.deb
+      - libarrow-python0_{version}-1_amd64.deb
+      - libarrow0_{version}-1_amd64.deb
 
   centos-6:
     platform: linux
