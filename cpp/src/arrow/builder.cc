@@ -243,11 +243,7 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
 // Null builder
 
 Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  if (null_count_) {
-    RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
-  }
-
-  *out = ArrayData::Make(null(), length_, {null_bitmap_}, length_);
+  *out = ArrayData::Make(null(), length_, {nullptr}, length_);
   length_ = null_count_ = 0;
   return Status::OK();
 }

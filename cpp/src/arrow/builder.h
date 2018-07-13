@@ -177,7 +177,8 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
       : ArrayBuilder(null(), pool) {}
 
   Status AppendNull() {
-    RETURN_NOT_OK(AppendToBitmap(false));
+    ++null_count_;
+    ++length_;
     return Status::OK();
   }
 
