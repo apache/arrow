@@ -16,6 +16,7 @@
 # under the License.
 
 class TestORCFileReader < Test::Unit::TestCase
+  include Helper::Omittable
   include Helper::Fixture
 
   def setup
@@ -43,6 +44,7 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
   end
 
   def test_field_indexes
+    require_gi(1, 42, 0)
     assert_nil(@reader.field_indexes)
     @reader.set_field_indexes([1, 3])
     assert_equal([1, 3], @reader.field_indexes)
