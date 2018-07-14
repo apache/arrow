@@ -29,8 +29,19 @@ extern "C" {
   INNER(NAME, float32, OP)             \
   INNER(NAME, float64, OP)
 
-#define NUMERIC_AND_BOOL_TYPES(INNER, NAME, OP) \
-  NUMERIC_TYPES(INNER, NAME, OP)                \
+// Expand inner macros for all date/time types.
+#define DATE_TYPES(INNER, NAME, OP) \
+  INNER(NAME, date64, OP)           \
+  INNER(NAME, timestamp, OP)        \
+  INNER(NAME, time32, OP)
+
+#define NUMERIC_DATE_TYPES(INNER, NAME, OP) \
+  NUMERIC_TYPES(INNER, NAME, OP)            \
+  DATE_TYPES(INNER, NAME, OP)
+
+#define NUMERIC_BOOL_DATE_TYPES(INNER, NAME, OP) \
+  NUMERIC_TYPES(INNER, NAME, OP)                 \
+  DATE_TYPES(INNER, NAME, OP)                    \
   INNER(NAME, boolean, OP)
 
 #define BINARY_GENERIC_OP(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE, OP)          \
@@ -57,12 +68,12 @@ BINARY_GENERIC_OP(mod, int64, int64, int64, %)
   FORCE_INLINE                            \
   bool NAME##_##TYPE##_##TYPE(TYPE left, TYPE right) { return left OP right; }
 
-NUMERIC_AND_BOOL_TYPES(BINARY_RELATIONAL, equal, ==)
-NUMERIC_AND_BOOL_TYPES(BINARY_RELATIONAL, not_equal, !=)
-NUMERIC_TYPES(BINARY_RELATIONAL, less_than, <)
-NUMERIC_TYPES(BINARY_RELATIONAL, less_than_or_equal_to, <=)
-NUMERIC_TYPES(BINARY_RELATIONAL, greater_than, >)
-NUMERIC_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
+NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL, equal, ==)
+NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL, not_equal, !=)
+NUMERIC_DATE_TYPES(BINARY_RELATIONAL, less_than, <)
+NUMERIC_DATE_TYPES(BINARY_RELATIONAL, less_than_or_equal_to, <=)
+NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than, >)
+NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 
 // cast fns : takes one param type, returns another type.
 #define CAST_UNARY(NAME, IN_TYPE, OUT_TYPE) \
@@ -81,8 +92,8 @@ CAST_UNARY(castFLOAT8, float32, float64)
   FORCE_INLINE                      \
   bool NAME##_##TYPE(TYPE in, boolean is_valid) { return OP is_valid; }
 
-NUMERIC_AND_BOOL_TYPES(VALIDITY_OP, isnull, !)
-NUMERIC_AND_BOOL_TYPES(VALIDITY_OP, isnotnull, +)
+NUMERIC_BOOL_DATE_TYPES(VALIDITY_OP, isnull, !)
+NUMERIC_BOOL_DATE_TYPES(VALIDITY_OP, isnotnull, +)
 NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
 }  // extern "C"

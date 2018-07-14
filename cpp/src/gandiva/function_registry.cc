@@ -96,13 +96,19 @@ using std::vector;
       INNER(NAME, uint8), INNER(NAME, uint16), INNER(NAME, uint32), INNER(NAME, uint64), \
       INNER(NAME, float32), INNER(NAME, float64)
 
-// Iterate the inner macro over all numeric types and bool type
-#define NUMERIC_AND_BOOL_TYPES(INNER, NAME) \
-  NUMERIC_TYPES(INNER, NAME), INNER(NAME, boolean)
+// Iterate the inner macro over numeric and date/time types
+#define NUMERIC_DATE_TYPES(INNER, NAME) \
+  NUMERIC_TYPES(INNER, NAME), DATE_TYPES(INNER, NAME), TIME_TYPES(INNER, NAME)
 
-// Iterate the inner macro over all data types
+// Iterate the inner macro over all numeric types and bool type
+#define NUMERIC_BOOL_DATE_TYPES(INNER, NAME)                                    \
+  NUMERIC_TYPES(INNER, NAME), DATE_TYPES(INNER, NAME), TIME_TYPES(INNER, NAME), \
+      INNER(NAME, boolean)
+
+// Iterate the inner macro over all date types
 #define DATE_TYPES(INNER, NAME) INNER(NAME, date64), INNER(NAME, timestamp)
 
+// Iterate the inner macro over all time types
 #define TIME_TYPES(INNER, NAME) INNER(NAME, time32)
 
 // Iterate the inner macro over all data types
@@ -117,12 +123,12 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NUMERIC_TYPES(BINARY_SYMMETRIC_SAFE_NULL_IF_NULL, divide),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int32, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
-    NUMERIC_AND_BOOL_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
-    NUMERIC_AND_BOOL_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
-    NUMERIC_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
+    NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, equal),
+    NUMERIC_BOOL_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, not_equal),
+    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than),
+    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, less_than_or_equal_to),
+    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
+    NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
 
     // cast operations
     UNARY_SAFE_NULL_IF_NULL(castBIGINT, int32, int64),
@@ -133,20 +139,30 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     UNARY_SAFE_NULL_IF_NULL(castFLOAT8, float32, float64),
 
     // nullable never operations
-    NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
-    NUMERIC_AND_BOOL_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
+    NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnull),
+    NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
     NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
 
     // date/timestamp operations
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMillennium),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractCentury),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDecade),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractYear),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractQuarter),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMonth),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractWeek),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDay),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch),
 
     // time operations
     TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
     TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
+    TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
 
     // timestamp diff operations
     BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffSecond, timestamp, timestamp, int32),

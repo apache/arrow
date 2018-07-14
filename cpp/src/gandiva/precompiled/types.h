@@ -50,11 +50,19 @@ bool bitMapGetBit(const unsigned char *bmap, int position);
 void bitMapSetBit(unsigned char *bmap, int position, bool value);
 void bitMapClearBitIfFalse(unsigned char *bmap, int position, bool value);
 
+int64 extractMillennium_timestamp(timestamp millis);
+int64 extractCentury_timestamp(timestamp millis);
+int64 extractDecade_timestamp(timestamp millis);
 int64 extractYear_timestamp(timestamp millis);
+int64 extractDoy_timestamp(timestamp millis);
+int64 extractQuarter_timestamp(timestamp millis);
 int64 extractMonth_timestamp(timestamp millis);
+int64 extractWeek_timestamp(timestamp millis);
+int64 extractDow_timestamp(timestamp millis);
 int64 extractDay_timestamp(timestamp millis);
 int64 extractHour_timestamp(timestamp millis);
 int64 extractMinute_timestamp(timestamp millis);
+int64 extractSecond_timestamp(timestamp millis);
 
 int32 mem_compare(const char *left, int32 left_len, const char *right, int32 right_len);
 
