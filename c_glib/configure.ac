@@ -115,6 +115,10 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
   USE_ARROW_BUILD_DIR=no
 
   PKG_CHECK_MODULES([ARROW], [arrow arrow-compute])
+  PKG_CHECK_MODULES([ARROW_ORC],
+                    [arrow-orc],
+                    [HAVE_ARROW_ORC=yes],
+                    [HAVE_ARROW_ORC=no])
   PKG_CHECK_MODULES([ARROW_GPU],
                     [arrow-gpu],
                     [HAVE_ARROW_GPU=yes],
@@ -135,6 +139,12 @@ else
   AC_SUBST(ARROW_CFLAGS)
   AC_SUBST(ARROW_LIBS)
 
+  if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/adapters/orc/arrow-orc.pc"; then
+    HAVE_ARROW_ORC=yes
+  else
+    HAVE_ARROW_ORC=no
+  fi
+
   ARROW_GPU_CFLAGS=""
   if test -f "${GARROW_ARROW_CPP_BUILD_DIR}/src/arrow/gpu/arrow-gpu.pc"; then
     HAVE_ARROW_GPU=yes
@@ -150,6 +160,11 @@ fi
 AM_CONDITIONAL([USE_ARROW_BUILD_DIR],
                [test "$USE_ARROW_BUILD_DIR" = "yes"])
 
+AM_CONDITIONAL([HAVE_ARROW_ORC], [test "$HAVE_ARROW_ORC" = "yes"])
+if test "$HAVE_ARROW_ORC" = "yes"; then
+  AC_DEFINE(HAVE_ARROW_ORC, [1], [Define to 1 if Apache Arrow supports ORC.])
+fi
+
 AM_CONDITIONAL([HAVE_ARROW_GPU], [test "$HAVE_ARROW_GPU" = "yes"])
 if test "$HAVE_ARROW_GPU" = "yes"; then
   AC_DEFINE(HAVE_ARROW_GPU, [1], [Define to 1 if Apache Arrow supports GPU.])
@@ -162,6 +177,7 @@ AC_CONFIG_FILES([
   Makefile
   arrow-glib/Makefile
   arrow-glib/arrow-glib.pc
+  arrow-glib/arrow-glib-orc.pc
   arrow-glib/version.h
   arrow-gpu-glib/Makefile
   arrow-gpu-glib/arrow-gpu-glib.pc

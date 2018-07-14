@@ -36,6 +36,11 @@ HFILE_GLOB =					\
 
 IGNORE_HFILES =
 
+if !HAVE_ARROW_ORC
+IGNORE_HFILES +=					\
+	$(top_srcdir)/arrow-glib/orc-file-reader.h
+endif
+
 CFILE_GLOB =					\
 	$(top_srcdir)/arrow-glib/*.cpp
 

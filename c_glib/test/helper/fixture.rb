@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,35 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "pathname"
-require "test-unit"
-
-base_dir = Pathname(__dir__).parent
-test_dir = base_dir + "test"
-
-require "gi"
-
-Gio = GI.load("Gio")
-Arrow = GI.load("Arrow")
-module Arrow
-  class Buffer
-    alias_method :initialize_raw, :initialize
-    def initialize(data)
-      initialize_raw(data)
-      @data = data
+module Helper
+  module Fixture
+    def fixture_path(*components)
+      File.join(__dir__, "..", "fixture", *components)
     end
   end
 end
-
-begin
-  ArrowGPU = GI.load("ArrowGPU")
-rescue GObjectIntrospection::RepositoryError::TypelibNotFound
-end
-
-require "rbconfig"
-require "tempfile"
-require_relative "helper/buildable"
-require_relative "helper/fixture"
-require_relative "helper/omittable"
-
-exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))
