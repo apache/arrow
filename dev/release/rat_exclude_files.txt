@@ -48,8 +48,8 @@ dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-glib-doc.doc-base
 dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-glib-doc.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-glib-doc.links
 dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-glib0.install
-dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-python0.install
-dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow0.install
+dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow-python10.install
+dev/tasks/linux-packages/debian.ubuntu-trusty/libarrow10.install
 dev/tasks/linux-packages/debian.ubuntu-trusty/patches/series
 dev/tasks/linux-packages/debian.ubuntu-trusty/rules
 dev/tasks/linux-packages/debian.ubuntu-trusty/source/format
@@ -67,10 +67,10 @@ dev/tasks/linux-packages/debian/libarrow-glib0.install
 dev/tasks/linux-packages/debian/libarrow-gpu-dev.install
 dev/tasks/linux-packages/debian/libarrow-gpu-glib-dev.install
 dev/tasks/linux-packages/debian/libarrow-gpu-glib0.install
-dev/tasks/linux-packages/debian/libarrow-gpu0.install
+dev/tasks/linux-packages/debian/libarrow-gpu10.install
 dev/tasks/linux-packages/debian/libarrow-python-dev.install
-dev/tasks/linux-packages/debian/libarrow-python0.install
-dev/tasks/linux-packages/debian/libarrow0.install
+dev/tasks/linux-packages/debian/libarrow-python10.install
+dev/tasks/linux-packages/debian/libarrow10.install
 dev/tasks/linux-packages/debian/patches/series
 dev/tasks/linux-packages/debian/rules
 dev/tasks/linux-packages/debian/source/format
