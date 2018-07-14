@@ -365,7 +365,7 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
   int64_t capacity() const { return capacity_ / sizeof(T); }
 };
 
-/// \brief Allocate a fixed size mutable buffer from a memory pool
+/// \brief Allocate a fixed-size mutable buffer from a memory pool
 ///
 /// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
@@ -375,7 +375,16 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
 ARROW_EXPORT
 Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buffer>* out);
 
-/// Allocate resizeable buffer from a memory pool
+/// \brief Allocate a fixed-size mutable buffer from the default memory pool
+///
+/// \param[in] size size of buffer to allocate
+/// \param[out] out the allocated buffer (contains padding)
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out);
+
+/// \brief Allocate a resizeable buffer from a memory pool
 ///
 /// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
@@ -385,6 +394,15 @@ Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buff
 ARROW_EXPORT
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out);
+
+/// \brief Allocate a resizeable buffer from the default memory pool
+///
+/// \param[in] size size of buffer to allocate
+/// \param[out] out the allocated buffer
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateResizableBuffer(const int64_t size, std::shared_ptr<ResizableBuffer>* out);
 
 }  // namespace arrow
 

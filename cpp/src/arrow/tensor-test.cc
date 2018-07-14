@@ -39,7 +39,7 @@ TEST(TestTensor, ZeroDim) {
   using T = int64_t;
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), values * sizeof(T), &buffer));
+  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
 
   Tensor t0(int64(), buffer, shape);
 
@@ -55,7 +55,7 @@ TEST(TestTensor, BasicCtors) {
   using T = int64_t;
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), values * sizeof(T), &buffer));
+  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
 
   Tensor t1(int64(), buffer, shape);
   Tensor t2(int64(), buffer, shape, strides);
@@ -81,7 +81,7 @@ TEST(TestTensor, IsContiguous) {
   using T = int64_t;
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), values * sizeof(T), &buffer));
+  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
 
   std::vector<int64_t> c_strides = {48, 8};
   std::vector<int64_t> f_strides = {8, 32};
@@ -99,7 +99,7 @@ TEST(TestTensor, ZeroDimensionalTensor) {
   std::vector<int64_t> shape = {0};
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), 0, &buffer));
+  ASSERT_OK(AllocateBuffer(0, &buffer));
 
   Tensor t(int64(), buffer, shape);
   ASSERT_EQ(t.strides().size(), 1);
