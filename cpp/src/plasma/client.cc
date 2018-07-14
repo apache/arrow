@@ -40,6 +40,7 @@
 #include <deque>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -269,6 +270,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// information to make sure that it does not delay in releasing so much
   /// memory that the store is unable to evict enough objects to free up space.
   int64_t store_capacity_;
+  /// A hash set to record the ids that users want to delete but still in use.
+  std::unordered_set<ObjectID> deletion_cache_;
 
 #ifdef PLASMA_GPU
   /// Cuda Device Manager.
@@ -630,11 +633,22 @@ Status PlasmaClient::Impl::PerformRelease(const ObjectID& object_id) {
     // Tell the store that the client no longer needs the object.
     RETURN_NOT_OK(UnmapObject(object_id));
     RETURN_NOT_OK(SendReleaseRequest(store_conn_, object_id));
+    auto iter = deletion_cache_.find(object_id);
+    if (iter != deletion_cache_.end()) {
+      deletion_cache_.erase(object_id);
+      RETURN_NOT_OK(Delete({object_id}));
+    }
   }
   return Status::OK();
 }
 
 Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
+  // If an object is in the deletion cache, handle it directly without waiting.
+  auto iter = deletion_cache_.find(object_id);
+  if (iter != deletion_cache_.end()) {
+    RETURN_NOT_OK(PerformRelease(object_id));
+    return Status::OK();
+  }
   // If the client is already disconnected, ignore release requests.
   if (store_conn_ < 0) {
     return Status::OK();
@@ -820,6 +834,8 @@ Status PlasmaClient::Impl::Delete(const std::vector<ObjectID>& object_ids) {
     // If the object is in used, skip it.
     if (objects_in_use_.count(object_id) == 0) {
       not_in_use_ids.push_back(object_id);
+    } else {
+      deletion_cache_.emplace(object_id);
     }
   }
   if (not_in_use_ids.size() > 0) {

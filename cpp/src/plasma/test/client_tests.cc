@@ -177,11 +177,16 @@ TEST_F(TestPlasmaStore, DeleteTest) {
   ARROW_CHECK_OK(client_.Seal(object_id));
 
   result = client_.Delete(object_id);
-  // TODO: Guarantee that the in-use object will be deleted when it is released.
   ARROW_CHECK_OK(result);
+  bool has_object = false;
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_TRUE(has_object);
 
   // Avoid race condition of Plasma Manager waiting for notification.
   ARROW_CHECK_OK(client_.Release(object_id));
+  // object_id is marked as to-be-deleted, when it is not in use, it will be deleted.
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_FALSE(has_object);
   ARROW_CHECK_OK(client_.Delete(object_id));
 }
 
@@ -202,14 +207,28 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   ARROW_CHECK_OK(client_.Seal(object_id1));
   ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id2));
-  // Objects are in use.
-  result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
-  // TODO: Guarantee that the in-use object will be deleted when it is released.
-  ARROW_CHECK_OK(result);
-  // Avoid race condition of Plasma Manager waiting for notification.
+  // Release the ref count of Create function.
   ARROW_CHECK_OK(client_.Release(object_id1));
   ARROW_CHECK_OK(client_.Release(object_id2));
-  ARROW_CHECK_OK(client_.Delete(std::vector<ObjectID>{object_id1, object_id2}));
+  // Increase the ref count by calling Get.
+  std::vector<ObjectBuffer> object_buffers;
+  ARROW_CHECK_OK(client_.Get({object_id1, object_id2}, 0, &object_buffers));
+  // Objects are still in use.
+  result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  ARROW_CHECK_OK(result);
+  // The object is occupies and it should not be deleted right now.
+  bool has_object = false;
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_TRUE(has_object);
+  // Decrease the ref count by deleting the ObjectBuffer.
+  object_buffers.clear();
+  // The two objects will not be deleted since Get function increased the ref count.
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_FALSE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_FALSE(has_object);
 }
 
 TEST_F(TestPlasmaStore, ContainsTest) {
