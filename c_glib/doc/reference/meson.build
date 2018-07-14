@@ -59,10 +59,17 @@ if arrow_gpu_dependency.found()
     libarrow_gpu_glib_dependency,
   ]
 endif
+ignore_headers = []
+if not arrow_orc_dependency.found()
+  ignore_headers += [
+    join_paths(meson.source_root(), 'arrow-glib', 'orc-file-reader.h'),
+  ]
+endif
 gnome.gtkdoc(meson.project_name(),
              main_xml: meson.project_name() + '-docs.xml',
              src_dir: source_directories,
              dependencies: dependencies,
+             ignore_headers: ignore_headers,
              gobject_typesfile: meson.project_name() + '.types',
              scan_args: [
                '--rebuild-types',

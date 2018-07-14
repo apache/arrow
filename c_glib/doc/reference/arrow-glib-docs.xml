@@ -123,6 +123,7 @@
     <chapter id="reader">
       <title>Reader</title>
       <xi:include href="xml/reader.xml"/>
+      <xi:include href="xml/orc-file-reader.xml"><xi:fallback /></xi:include>
     </chapter>
     <chapter id="writer">
       <title>Writer</title>
