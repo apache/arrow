@@ -26,6 +26,7 @@ SUBDIRS =					\
 
 EXTRA_DIST =					\
 	README.md				\
+	autogen.sh				\
 	meson.build				\
 	meson_options.txt			\
 	test
