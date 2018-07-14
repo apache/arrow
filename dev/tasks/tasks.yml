@@ -244,13 +244,13 @@ tasks:
       - libarrow-gpu-glib-dev_{version}-1_amd64.deb
       - libarrow-gpu-glib0-dbgsym_{version}-1_amd64.deb
       - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu0-dbgsym_{version}-1_amd64.deb
-      - libarrow-gpu0_{version}-1_amd64.deb
+      - libarrow-gpu10-dbgsym_{version}-1_amd64.deb
+      - libarrow-gpu10_{version}-1_amd64.deb
       - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python0-dbgsym_{version}-1_amd64.deb
-      - libarrow-python0_{version}-1_amd64.deb
-      - libarrow0-dbgsym_{version}-1_amd64.deb
-      - libarrow0_{version}-1_amd64.deb
+      - libarrow-python10-dbgsym_{version}-1_amd64.deb
+      - libarrow-python10_{version}-1_amd64.deb
+      - libarrow10-dbgsym_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
 
   ubuntu-trusty:
     platform: linux
@@ -264,7 +264,7 @@ tasks:
       - libarrow-glib-dev_{version}-1_amd64.deb
       - libarrow-glib-doc_{version}-1_all.deb
       - libarrow-glib0_{version}-1_amd64.deb
-      - libarrow0_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -282,10 +282,10 @@ tasks:
       - libarrow-gpu-dev_{version}-1_amd64.deb
       - libarrow-gpu-glib-dev_{version}-1_amd64.deb
       - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu0_{version}-1_amd64.deb
+      - libarrow-gpu10_{version}-1_amd64.deb
       - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python0_{version}-1_amd64.deb
-      - libarrow0_{version}-1_amd64.deb
+      - libarrow-python10_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
 
   ubuntu-artful:
     platform: linux
@@ -303,10 +303,10 @@ tasks:
       - libarrow-gpu-dev_{version}-1_amd64.deb
       - libarrow-gpu-glib-dev_{version}-1_amd64.deb
       - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu0_{version}-1_amd64.deb
+      - libarrow-gpu10_{version}-1_amd64.deb
       - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python0_{version}-1_amd64.deb
-      - libarrow0_{version}-1_amd64.deb
+      - libarrow-python10_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -324,10 +324,10 @@ tasks:
       - libarrow-gpu-dev_{version}-1_amd64.deb
       - libarrow-gpu-glib-dev_{version}-1_amd64.deb
       - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu0_{version}-1_amd64.deb
+      - libarrow-gpu10_{version}-1_amd64.deb
       - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python0_{version}-1_amd64.deb
-      - libarrow0_{version}-1_amd64.deb
+      - libarrow-python10_{version}-1_amd64.deb
+      - libarrow10_{version}-1_amd64.deb
 
   centos-6:
     platform: linux
