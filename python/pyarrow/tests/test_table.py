@@ -120,6 +120,16 @@ def test_column_to_pandas():
     assert series.iloc[0] == -10
 
 
+def test_chunked_array_to_pandas():
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+    array = table.column(0).data.to_pandas()
+    assert array.shape == (5,)
+    assert array[0] == -10
+
+
 def test_column_flatten():
     ty = pa.struct([pa.field('x', pa.int16()),
                     pa.field('y', pa.float32())])
@@ -158,6 +168,15 @@ def test_recordbatch_basics():
     with pytest.raises(IndexError):
         # bounds checking
         batch[2]
+
+
+def test_recordbatch_from_arrays_validate_lengths():
+    # ARROW-2820
+    data = [pa.array([1]), pa.array(["tokyo", "like", "happy"]),
+            pa.array(["derek"])]
+
+    with pytest.raises(ValueError):
+        pa.RecordBatch.from_arrays(data, ['id', 'tags', 'name'])
 
 
 def test_recordbatch_no_fields():
@@ -302,6 +321,9 @@ def test_table_to_batches():
     assert_frame_equal(pa.Table.from_batches(batches).to_pandas(),
                        expected_df)
 
+    table_from_iter = pa.Table.from_batches(iter([batch1, batch2, batch1]))
+    assert table.equals(table_from_iter)
+
 
 def test_table_basics():
     data = [
@@ -380,6 +402,24 @@ def test_table_add_column():
     expected = pa.Table.from_arrays([data[1]] + data,
                                     names=('d', 'a', 'b', 'c'))
     assert t4.equals(expected)
+
+
+def test_table_set_column():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+
+    col = pa.Column.from_array('d', data[1])
+    t2 = table.set_column(0, col)
+
+    expected_data = list(data)
+    expected_data[0] = data[1]
+    expected = pa.Table.from_arrays(expected_data,
+                                    names=('d', 'b', 'c'))
+    assert t2.equals(expected)
 
 
 def test_table_drop():

@@ -761,16 +761,17 @@ def test_object_id_equality_operators():
     assert oid1 != 'foo'
 
 
+@pytest.mark.xfail(reason="often fails on travis")
 @pytest.mark.skipif(not os.path.exists("/mnt/hugepages"),
                     reason="requires hugepage support")
 def test_use_huge_pages():
     import pyarrow.plasma as plasma
     with plasma.start_plasma_store(
-            plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
+            plasma_store_memory=2*10**9,
             plasma_directory="/mnt/hugepages",
             use_hugepages=True) as (plasma_store_name, p):
         plasma_client = plasma.connect(plasma_store_name, "", 64)
-        create_object(plasma_client, 100000000)
+        create_object(plasma_client, 10**8)
 
 
 # This is checking to make sure plasma_clients cannot be destroyed

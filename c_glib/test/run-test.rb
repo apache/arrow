@@ -45,6 +45,7 @@ end
 require "rbconfig"
 require "tempfile"
 require_relative "helper/buildable"
+require_relative "helper/fixture"
 require_relative "helper/omittable"
 
 exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))

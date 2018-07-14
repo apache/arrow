@@ -263,6 +263,8 @@ struct arrow_traits<Type::BINARY> {
 };
 
 static inline int NumPyTypeSize(int npy_type) {
+  npy_type = fix_numpy_type_num(npy_type);
+
   switch (npy_type) {
     case NPY_BOOL:
     case NPY_INT8:
@@ -277,16 +279,6 @@ static inline int NumPyTypeSize(int npy_type) {
     case NPY_INT64:
     case NPY_UINT64:
       return 8;
-#if !NPY_INT32_IS_INT
-    case NPY_INT:
-    case NPY_UINT:
-      return NPY_BITSOF_INT / 8;
-#endif
-#if !NPY_INT64_IS_LONG_LONG
-    case NPY_LONGLONG:
-    case NPY_ULONGLONG:
-      return NPY_BITSOF_LONGLONG / 8;
-#endif
     case NPY_FLOAT16:
       return 2;
     case NPY_FLOAT32:

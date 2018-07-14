@@ -243,6 +243,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "If off, output from ExternalProjects will be logged to files rather than shown"
     OFF)
 
+  option(ARROW_VERBOSE_LINT
+    "If off, 'quiet' flags will be passed to linting tools"
+    OFF)
+
   if (MSVC)
     option(ARROW_USE_CLCACHE
       "Use clcache if available"
@@ -351,6 +355,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
+
+# Remove --std=c++11 to avoid errors from C compilers
+string(REPLACE "-std=c++11" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 
 # Add C++-only flags, like -std=c++11
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
@@ -476,6 +483,10 @@ endif (UNIX)
 ############################################################
 # "make lint" target
 ############################################################
+if (NOT ARROW_VERBOSE_LINT)
+  set(ARROW_LINT_QUIET "--quiet")
+endif()
+
 if (UNIX)
 
   file(GLOB_RECURSE LINT_FILES
@@ -504,7 +515,7 @@ if (UNIX)
   # so process 12 files per invocation, while still ensuring parallelism
   add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
   ${CPPLINT_BIN}
-  --verbose=2
+  --verbose=2 ${ARROW_LINT_QUIET}
   --linelength=90
   --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
   )
@@ -519,15 +530,13 @@ endif (UNIX)
 add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
   ${CLANG_FORMAT_BIN}
   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix ${ARROW_LINT_QUIET})
 
 # runs clang format and exits with a non-zero exit code if any files need to be reformatted
-
-# TODO(wesm): Make this work in run_clang_format.py
 add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
    ${CLANG_FORMAT_BIN}
    ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-   ${CMAKE_CURRENT_SOURCE_DIR}/src)
+   ${CMAKE_CURRENT_SOURCE_DIR}/src ${ARROW_LINT_QUIET})
 
 ############################################################
 # "make clang-tidy" and "make check-clang-tidy" targets
@@ -602,9 +611,6 @@ if (ARROW_WITH_GRPC)
 endif()
 
 if (ARROW_ORC)
-  SET(ARROW_STATIC_LINK_LIBS
-    orc
-    ${ARROW_STATIC_LINK_LIBS})
   if (ARROW_PROTOBUF_USE_SHARED)
     SET(ARROW_LINK_LIBS
       protobuf
@@ -614,6 +620,9 @@ if (ARROW_ORC)
       protobuf
       ${ARROW_STATIC_LINK_LIBS})
   endif()
+  SET(ARROW_STATIC_LINK_LIBS
+    orc
+    ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)

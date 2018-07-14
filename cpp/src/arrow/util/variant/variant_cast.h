@@ -29,6 +29,8 @@
 
 #include <type_traits>
 
+#include "arrow/util/macros.h"
+
 namespace arrow {
 namespace util {
 
@@ -51,12 +53,12 @@ class dynamic_caster
 public:
     using result_type = T&;
     template <class V>
-    T& operator()(V& v, typename std::enable_if<!std::is_polymorphic<V>::value>::type* = nullptr) const
+    T& operator()(V& v, typename std::enable_if<!std::is_polymorphic<V>::value>::type* = NULLPTR) const
     {
         throw std::bad_cast();
     }
     template <class V>
-    T& operator()(V& v, typename std::enable_if<std::is_polymorphic<V>::value>::type* = nullptr) const
+    T& operator()(V& v, typename std::enable_if<std::is_polymorphic<V>::value>::type* = NULLPTR) const
     {
         return dynamic_cast<T&>(v);
     }
@@ -68,12 +70,12 @@ class dynamic_caster<T*>
 public:
     using result_type = T*;
     template <class V>
-    T* operator()(V& v, typename std::enable_if<!std::is_polymorphic<V>::value>::type* = nullptr) const
+    T* operator()(V& v, typename std::enable_if<!std::is_polymorphic<V>::value>::type* = NULLPTR) const
     {
-        return nullptr;
+        return NULLPTR;
     }
     template <class V>
-    T* operator()(V& v, typename std::enable_if<std::is_polymorphic<V>::value>::type* = nullptr) const
+    T* operator()(V& v, typename std::enable_if<std::is_polymorphic<V>::value>::type* = NULLPTR) const
     {
         return dynamic_cast<T*>(&v);
     }

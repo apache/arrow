@@ -160,6 +160,68 @@ def encode_file_path(path):
     # will convert utf8 to utf16
     return encoded_path
 
+def import_tensorflow_extension():
+    """
+    Load the TensorFlow extension if it exists.
+
+    This is used to load the TensorFlow extension before
+    pyarrow.lib. If we don't do this there are symbol clashes
+    between TensorFlow's use of threading and our global
+    thread pool, see also
+    https://issues.apache.org/jira/browse/ARROW-2657 and
+    https://github.com/apache/arrow/pull/2096.
+    """
+    import os
+    tensorflow_loaded = False
+
+    # Try to load the tensorflow extension directly
+    # This is a performance optimization, tensorflow will always be
+    # loaded via the "import tensorflow" statement below if this
+    # doesn't succeed.
+    #
+    # This uses the official way of loading modules from
+    # https://docs.python.org/3/library/importlib.html#approximating-importlib-import-module
+
+    try:
+        import importlib
+        absolute_name = importlib.util.resolve_name("tensorflow", None)
+    except (ImportError, AttributeError):
+        # Sometimes, importlib is not available (e.g. Python 2)
+        # or importlib.util is not available (e.g. Python 2.7)
+        spec = None
+    else:
+        import sys
+        for finder in sys.meta_path:
+            try:
+                spec = finder.find_spec(absolute_name, None)
+            except AttributeError:
+                # On Travis (Python 3.5) the above produced:
+                # AttributeError: 'VendorImporter' object has no
+                # attribute 'find_spec'
+                spec = None
+            if spec is not None:
+                break
+
+    if spec:
+        module = importlib.util.module_from_spec(spec)
+        for path in module.__path__:
+            ext = os.path.join(path, "libtensorflow_framework.so")
+            if os.path.exists(ext):
+                import ctypes
+                ctypes.CDLL(ext)
+                tensorflow_loaded = True
+                break
+
+
+    # If the above failed, try to load tensorflow the normal way
+    # (this is more expensive)
+
+    if not tensorflow_loaded:
+        try:
+            import tensorflow
+        except ImportError:
+            pass
+
 
 integer_types = six.integer_types + (np.integer,)
 

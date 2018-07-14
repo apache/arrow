@@ -202,6 +202,21 @@ garrow_decimal128_negate(GArrowDecimal128 *decimal)
   arrow_decimal->Negate();
 }
 
+/**
+ * garrow_decimal128_to_integer:
+ * @decimal: A #GArrowDecimal128.
+ *
+ * Returns: The 64-bit integer representation of the decimal.
+ *
+ * Since: 0.10.0
+ */
+gint64
+garrow_decimal128_to_integer(GArrowDecimal128 *decimal)
+{
+  auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  return static_cast<int64_t>(*arrow_decimal);
+}
+
 G_END_DECLS
 
 GArrowDecimal128 *

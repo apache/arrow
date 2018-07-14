@@ -48,6 +48,8 @@ pkgconfig = import('pkgconfig')
 
 root_inc = include_directories('.')
 
+arrow_orc_dependency = dependency('arrow-orc', required: false)
+
 subdir('arrow-glib')
 arrow_gpu_dependency = dependency('arrow-gpu', required: false)
 if arrow_gpu_dependency.found()
@@ -55,7 +57,7 @@ if arrow_gpu_dependency.found()
 endif
 subdir('example')
 
-if get_option('enable_gtk_doc')
+if get_option('gtk_doc')
   subdir('doc/reference')
 endif
 

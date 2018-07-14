@@ -19,11 +19,15 @@
 
 set -ex
 
+# Disable toolchain variables in this script
+export ARROW_TRAVIS_USE_TOOLCHAIN=0
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 # Fail fast for code linting issues
 
 if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
-  mkdir $TRAVIS_BUILD_DIR/cpp/lint
-  pushd $TRAVIS_BUILD_DIR/cpp/lint
+  mkdir $ARROW_CPP_DIR/lint
+  pushd $ARROW_CPP_DIR/lint
 
   cmake ..
   make lint
@@ -31,6 +35,8 @@ if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
   if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
     make check-format
   fi
+
+  python $ARROW_CPP_DIR/build-support/lint_cpp_cli.py $ARROW_CPP_DIR/src
 
   popd
 fi
@@ -41,11 +47,9 @@ fi
 if [ "$ARROW_CI_PYTHON_AFFECTED" != "0" ]; then
   sudo pip install -q flake8
 
-  PYTHON_DIR=$TRAVIS_BUILD_DIR/python
-
-  flake8 --count $PYTHON_DIR
+  flake8 --count $ARROW_PYTHON_DIR
 
   # Check Cython files with some checks turned off
-  flake8 --count --config=$PYTHON_DIR/.flake8.cython \
-         $PYTHON_DIR
+  flake8 --count --config=$ARROW_PYTHON_DIR/.flake8.cython \
+         $ARROW_PYTHON_DIR
 fi

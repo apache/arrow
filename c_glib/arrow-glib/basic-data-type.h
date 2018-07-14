@@ -21,6 +21,7 @@
 
 #include <arrow-glib/gobject-type.h>
 #include <arrow-glib/type.h>
+#include <arrow-glib/decimal.h>
 
 G_BEGIN_DECLS
 
@@ -647,5 +648,22 @@ struct _GArrowTime64DataTypeClass
 GType                 garrow_time64_data_type_get_type (void) G_GNUC_CONST;
 GArrowTime64DataType *garrow_time64_data_type_new      (GArrowTimeUnit unit,
                                                         GError **error);
+
+
+#define GARROW_TYPE_DECIMAL_DATA_TYPE (garrow_decimal_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimalDataType,
+                         garrow_decimal_data_type,
+                         GARROW,
+                         DECIMAL_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowDecimalDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GArrowDecimalDataType   *garrow_decimal_data_type_new     (gint32 precision,
+                                                           gint32 scale);
+gint32 garrow_decimal_data_type_get_precision(GArrowDecimalDataType *decimal_data_type);
+gint32 garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type);
 
 G_END_DECLS

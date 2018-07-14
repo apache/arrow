@@ -19,7 +19,7 @@
 BOOST_VERSION=1.66.0
 BOOST_VERSION_UNDERSCORE=${BOOST_VERSION//\./_}
 
-wget --no-check-certificate https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz -O /boost_${BOOST_VERSION_UNDERSCORE}.tar.gz
+curl -sL https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz -o /boost_${BOOST_VERSION_UNDERSCORE}.tar.gz
 tar xf boost_${BOOST_VERSION_UNDERSCORE}.tar.gz
 mkdir /arrow_boost
 pushd /boost_${BOOST_VERSION_UNDERSCORE}

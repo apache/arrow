@@ -76,6 +76,7 @@ function flattenDataSources(xs: any[]): any[][] {
         ...buffers,
         ...(column['VALIDITY'] && [column['VALIDITY']] || []),
         ...(column['OFFSET'] && [column['OFFSET']] || []),
+        ...(column['TYPE'] && [column['TYPE']] || []),
         ...(column['DATA'] && [column['DATA']] || []),
         ...flattenDataSources(column['children'])
     ], [] as any[][]);
@@ -156,6 +157,7 @@ import * as Schema_ from '../../fb/Schema';
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 import DateUnit = Schema_.org.apache.arrow.flatbuf.DateUnit;
 import TimeUnit = Schema_.org.apache.arrow.flatbuf.TimeUnit;
+import UnionMode = Schema_.org.apache.arrow.flatbuf.UnionMode;
 import Precision = Schema_.org.apache.arrow.flatbuf.Precision;
 import IntervalUnit = Schema_.org.apache.arrow.flatbuf.IntervalUnit;
 import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion;
@@ -209,6 +211,7 @@ function buffersFromJSON(xs: any[], buffers: BufferMetadata[] = []): BufferMetad
         const column = xs[i];
         column['VALIDITY'] && buffers.push(new BufferMetadata(new Long(buffers.length, 0), new Long(column['VALIDITY'].length, 0)));
         column['OFFSET'] && buffers.push(new BufferMetadata(new Long(buffers.length, 0), new Long(column['OFFSET'].length, 0)));
+        column['TYPE'] && buffers.push(new BufferMetadata(new Long(buffers.length, 0), new Long(column['TYPE'].length, 0)));
         column['DATA'] && buffers.push(new BufferMetadata(new Long(buffers.length, 0), new Long(column['DATA'].length, 0)));
         buffers = buffersFromJSON(column['children'], buffers);
     }
@@ -293,31 +296,31 @@ function typeFromJSON(t: any, children?: Field[]) {
     throw new Error(`Unrecognized type ${t['name']}`);
 }
 
-function nullFromJSON           (_type: any)                    { return new Null();                                                                  }
+function nullFromJSON           (_type: any)                    { return new Null();                                                                               }
 function intFromJSON            (_type: any)                    { switch (_type['bitWidth']) {
                                                                       case  8: return _type['isSigned'] ? new  Int8() : new  Uint8();
                                                                       case 16: return _type['isSigned'] ? new Int16() : new Uint16();
                                                                       case 32: return _type['isSigned'] ? new Int32() : new Uint32();
                                                                       case 64: return _type['isSigned'] ? new Int64() : new Uint64();
                                                                   }
-                                                                  return null;                                                                        }
+                                                                  return null;                                                                                     }
 function floatingPointFromJSON  (_type: any)                    { switch (Precision[_type['precision']] as any) {
                                                                       case Precision.HALF: return new Float16();
                                                                       case Precision.SINGLE: return new Float32();
                                                                       case Precision.DOUBLE: return new Float64();
                                                                   }
-                                                                  return null;                                                                        }
-function binaryFromJSON         (_type: any)                    { return new Binary();                                                                }
-function utf8FromJSON           (_type: any)                    { return new Utf8();                                                                  }
-function boolFromJSON           (_type: any)                    { return new Bool();                                                                  }
-function decimalFromJSON        (_type: any)                    { return new Decimal(_type['scale'], _type['precision']);                             }
-function dateFromJSON           (_type: any)                    { return new Date_(DateUnit[_type['unit']] as any);                                   }
-function timeFromJSON           (_type: any)                    { return new Time(TimeUnit[_type['unit']] as any, _type['bitWidth'] as TimeBitWidth); }
-function timestampFromJSON      (_type: any)                    { return new Timestamp(TimeUnit[_type['unit']] as any, _type['timezone']);            }
-function intervalFromJSON       (_type: any)                    { return new Interval(IntervalUnit[_type['unit']] as any);                            }
-function listFromJSON           (_type: any, children: Field[]) { return new List(children);                                                          }
-function structFromJSON         (_type: any, children: Field[]) { return new Struct(children);                                                        }
-function unionFromJSON          (_type: any, children: Field[]) { return new Union(_type['mode'], (_type['typeIdsArray'] || []) as Type[], children); }
-function fixedSizeBinaryFromJSON(_type: any)                    { return new FixedSizeBinary(_type['byteWidth']);                                     }
-function fixedSizeListFromJSON  (_type: any, children: Field[]) { return new FixedSizeList(_type['listSize'], children);                              }
-function mapFromJSON            (_type: any, children: Field[]) { return new Map_(_type['keysSorted'], children);                                     }
+                                                                  return null;                                                                                     }
+function binaryFromJSON         (_type: any)                    { return new Binary();                                                                             }
+function utf8FromJSON           (_type: any)                    { return new Utf8();                                                                               }
+function boolFromJSON           (_type: any)                    { return new Bool();                                                                               }
+function decimalFromJSON        (_type: any)                    { return new Decimal(_type['scale'], _type['precision']);                                          }
+function dateFromJSON           (_type: any)                    { return new Date_(DateUnit[_type['unit']] as any);                                                }
+function timeFromJSON           (_type: any)                    { return new Time(TimeUnit[_type['unit']] as any, _type['bitWidth'] as TimeBitWidth);              }
+function timestampFromJSON      (_type: any)                    { return new Timestamp(TimeUnit[_type['unit']] as any, _type['timezone']);                         }
+function intervalFromJSON       (_type: any)                    { return new Interval(IntervalUnit[_type['unit']] as any);                                         }
+function listFromJSON           (_type: any, children: Field[]) { return new List(children);                                                                       }
+function structFromJSON         (_type: any, children: Field[]) { return new Struct(children);                                                                     }
+function unionFromJSON          (_type: any, children: Field[]) { return new Union(UnionMode[_type['mode']] as any, (_type['typeIds'] || []) as Type[], children); }
+function fixedSizeBinaryFromJSON(_type: any)                    { return new FixedSizeBinary(_type['byteWidth']);                                                  }
+function fixedSizeListFromJSON  (_type: any, children: Field[]) { return new FixedSizeList(_type['listSize'], children);                                           }
+function mapFromJSON            (_type: any, children: Field[]) { return new Map_(_type['keysSorted'], children);                                                  }

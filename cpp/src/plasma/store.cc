@@ -144,14 +144,14 @@ void PlasmaStore::add_to_client_object_ids(ObjectTableEntry* entry, Client* clie
 }
 
 // Create a new object buffer in the hash table.
-int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
-                               int64_t metadata_size, int device_num, Client* client,
-                               PlasmaObject* result) {
+PlasmaError PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
+                                       int64_t metadata_size, int device_num,
+                                       Client* client, PlasmaObject* result) {
   ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
   if (store_info_.objects.count(object_id) != 0) {
     // There is already an object with the same ID in the Plasma Store, so
     // ignore this requst.
-    return PlasmaError_ObjectExists;
+    return PlasmaError::ObjectExists;
   }
   // Try to evict objects until there is enough space.
   uint8_t* pointer;
@@ -182,7 +182,7 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
         // Return an error to the client if not enough space could be freed to
         // create the object.
         if (!success) {
-          return PlasmaError_OutOfMemory;
+          return PlasmaError::OutOfMemory;
         }
       } else {
         break;
@@ -211,7 +211,7 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
   entry->fd = fd;
   entry->map_size = map_size;
   entry->offset = offset;
-  entry->state = PLASMA_CREATED;
+  entry->state = object_state::PLASMA_CREATED;
   entry->device_num = device_num;
 #ifdef PLASMA_GPU
   if (device_num != 0) {
@@ -232,13 +232,13 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
   eviction_policy_.object_created(object_id);
   // Record that this client is using this object.
   add_to_client_object_ids(store_info_.objects[object_id].get(), client);
-  return PlasmaError_OK;
+  return PlasmaError::OK;
 }
 
 void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(object != NULL);
   DCHECK(entry != NULL);
-  DCHECK(entry->state == PLASMA_SEALED);
+  DCHECK(entry->state == object_state::PLASMA_SEALED);
 #ifdef PLASMA_GPU
   if (entry->device_num != 0) {
     object->ipc_handle = entry->ipc_handle;
@@ -357,7 +357,7 @@ void PlasmaStore::process_get_request(Client* client,
     // Check if this object is already present locally. If so, record that the
     // object is being used and mark it as accounted for.
     auto entry = get_object_table_entry(&store_info_, object_id);
-    if (entry && entry->state == PLASMA_SEALED) {
+    if (entry && entry->state == object_state::PLASMA_SEALED) {
       // Update the get request to take into account the present object.
       PlasmaObject_init(&get_req->objects[object_id], entry);
       get_req->num_satisfied += 1;
@@ -419,9 +419,11 @@ void PlasmaStore::release_object(const ObjectID& object_id, Client* client) {
 }
 
 // Check if an object is present.
-int PlasmaStore::contains_object(const ObjectID& object_id) {
+object_status PlasmaStore::contains_object(const ObjectID& object_id) {
   auto entry = get_object_table_entry(&store_info_, object_id);
-  return entry && (entry->state == PLASMA_SEALED) ? OBJECT_FOUND : OBJECT_NOT_FOUND;
+  return entry && (entry->state == object_state::PLASMA_SEALED)
+             ? object_status::OBJECT_FOUND
+             : object_status::OBJECT_NOT_FOUND;
 }
 
 // Seal an object that has been created in the hash table.
@@ -429,9 +431,9 @@ void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[])
   ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();
   auto entry = get_object_table_entry(&store_info_, object_id);
   ARROW_CHECK(entry != NULL);
-  ARROW_CHECK(entry->state == PLASMA_CREATED);
+  ARROW_CHECK(entry->state == object_state::PLASMA_CREATED);
   // Set the state of object to SEALED.
-  entry->state = PLASMA_SEALED;
+  entry->state = object_state::PLASMA_SEALED;
   // Set the object digest.
   entry->info.digest = std::string(reinterpret_cast<char*>(&digest[0]), kDigestSize);
   // Inform all subscribers that a new object has been sealed.
@@ -444,7 +446,7 @@ void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[])
 int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
   auto entry = get_object_table_entry(&store_info_, object_id);
   ARROW_CHECK(entry != NULL) << "To abort an object it must be in the object table.";
-  ARROW_CHECK(entry->state != PLASMA_SEALED)
+  ARROW_CHECK(entry->state != object_state::PLASMA_SEALED)
       << "To abort an object it must not have been sealed.";
   auto it = client->object_ids.find(object_id);
   if (it == client->object_ids.end()) {
@@ -458,24 +460,24 @@ int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
   }
 }
 
-int PlasmaStore::delete_object(ObjectID& object_id) {
+PlasmaError PlasmaStore::delete_object(ObjectID& object_id) {
   auto entry = get_object_table_entry(&store_info_, object_id);
   // TODO(rkn): This should probably not fail, but should instead throw an
   // error. Maybe we should also support deleting objects that have been
   // created but not sealed.
   if (entry == NULL) {
     // To delete an object it must be in the object table.
-    return PlasmaError_ObjectNonexistent;
+    return PlasmaError::ObjectNonexistent;
   }
 
-  if (entry->state != PLASMA_SEALED) {
+  if (entry->state != object_state::PLASMA_SEALED) {
     // To delete an object it must have been sealed.
-    return PlasmaError_ObjectNotSealed;
+    return PlasmaError::ObjectNotSealed;
   }
 
   if (entry->ref_count != 0) {
     // To delete an object, there must be no clients currently using it.
-    return PlasmaError_ObjectInUse;
+    return PlasmaError::ObjectInUse;
   }
 
   eviction_policy_.remove_object(object_id);
@@ -487,7 +489,7 @@ int PlasmaStore::delete_object(ObjectID& object_id) {
   notification.is_deletion = true;
   push_notification(&notification);
 
-  return PlasmaError_OK;
+  return PlasmaError::OK;
 }
 
 void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
@@ -498,7 +500,7 @@ void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
     // error. Maybe we should also support deleting objects that have been
     // created but not sealed.
     ARROW_CHECK(entry != NULL) << "To delete an object it must be in the object table.";
-    ARROW_CHECK(entry->state == PLASMA_SEALED)
+    ARROW_CHECK(entry->state == object_state::PLASMA_SEALED)
         << "To delete an object it must have been sealed.";
     ARROW_CHECK(entry->ref_count == 0)
         << "To delete an object, there must be no clients currently using it.";
@@ -545,7 +547,7 @@ void PlasmaStore::disconnect_client(int client_fd) {
       continue;
     }
 
-    if (it->second->state == PLASMA_SEALED) {
+    if (it->second->state == object_state::PLASMA_SEALED) {
       // Add sealed objects to a temporary list of object IDs. Do not perform
       // the remove here, since it potentially modifies the object_ids table.
       sealed_objects.push_back(it->second.get());
@@ -683,14 +685,14 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 
   // Push notifications to the new subscriber about existing sealed objects.
   for (const auto& entry : store_info_.objects) {
-    if (entry.second->state == PLASMA_SEALED) {
+    if (entry.second->state == object_state::PLASMA_SEALED) {
       push_notification(&entry.second->info, fd);
     }
   }
 }
 
 Status PlasmaStore::process_message(Client* client) {
-  int64_t type;
+  MessageType type;
   Status s = ReadMessage(client->fd, &type, &input_buffer_);
   ARROW_CHECK(s.ok() || s.IsIOError());
 
@@ -703,61 +705,66 @@ Status PlasmaStore::process_message(Client* client) {
 
   // Process the different types of requests.
   switch (type) {
-    case MessageType_PlasmaCreateRequest: {
+    case MessageType::PlasmaCreateRequest: {
       int64_t data_size;
       int64_t metadata_size;
       int device_num;
       RETURN_NOT_OK(ReadCreateRequest(input, input_size, &object_id, &data_size,
                                       &metadata_size, &device_num));
-      int error_code =
+      PlasmaError error_code =
           create_object(object_id, data_size, metadata_size, device_num, client, &object);
       int64_t mmap_size = 0;
-      if (error_code == PlasmaError_OK && device_num == 0) {
+      if (error_code == PlasmaError::OK && device_num == 0) {
         mmap_size = get_mmap_size(object.store_fd);
       }
       HANDLE_SIGPIPE(
           SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
           client->fd);
-      if (error_code == PlasmaError_OK && device_num == 0) {
+      if (error_code == PlasmaError::OK && device_num == 0) {
         warn_if_sigpipe(send_fd(client->fd, object.store_fd), client->fd);
       }
     } break;
-    case MessageType_PlasmaAbortRequest: {
+    case MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
       ARROW_CHECK(abort_object(object_id, client) == 1) << "To abort an object, the only "
                                                            "client currently using it "
                                                            "must be the creator.";
       HANDLE_SIGPIPE(SendAbortReply(client->fd, object_id), client->fd);
     } break;
-    case MessageType_PlasmaGetRequest: {
+    case MessageType::PlasmaGetRequest: {
       std::vector<ObjectID> object_ids_to_get;
       int64_t timeout_ms;
       RETURN_NOT_OK(ReadGetRequest(input, input_size, object_ids_to_get, &timeout_ms));
       process_get_request(client, object_ids_to_get, timeout_ms);
     } break;
-    case MessageType_PlasmaReleaseRequest: {
+    case MessageType::PlasmaReleaseRequest: {
       RETURN_NOT_OK(ReadReleaseRequest(input, input_size, &object_id));
       release_object(object_id, client);
     } break;
-    case MessageType_PlasmaDeleteRequest: {
-      RETURN_NOT_OK(ReadDeleteRequest(input, input_size, &object_id));
-      int error_code = delete_object(object_id);
-      HANDLE_SIGPIPE(SendDeleteReply(client->fd, object_id, error_code), client->fd);
+    case MessageType::PlasmaDeleteRequest: {
+      std::vector<ObjectID> object_ids;
+      std::vector<PlasmaError> error_codes;
+      RETURN_NOT_OK(ReadDeleteRequest(input, input_size, &object_ids));
+      error_codes.reserve(object_ids.size());
+      for (auto& object_id : object_ids) {
+        error_codes.push_back(delete_object(object_id));
+      }
+      HANDLE_SIGPIPE(SendDeleteReply(client->fd, object_ids, error_codes), client->fd);
     } break;
-    case MessageType_PlasmaContainsRequest: {
+    case MessageType::PlasmaContainsRequest: {
       RETURN_NOT_OK(ReadContainsRequest(input, input_size, &object_id));
-      if (contains_object(object_id) == OBJECT_FOUND) {
+      if (contains_object(object_id) == object_status::OBJECT_FOUND) {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 1), client->fd);
       } else {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 0), client->fd);
       }
     } break;
-    case MessageType_PlasmaSealRequest: {
+    case MessageType::PlasmaSealRequest: {
       unsigned char digest[kDigestSize];
       RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
       seal_object(object_id, &digest[0]);
     } break;
-    case MessageType_PlasmaEvictRequest: {
+    case MessageType::PlasmaEvictRequest: {
       // This code path should only be used for testing.
       int64_t num_bytes;
       RETURN_NOT_OK(ReadEvictRequest(input, input_size, &num_bytes));
@@ -767,14 +774,14 @@ Status PlasmaStore::process_message(Client* client) {
       delete_objects(objects_to_evict);
       HANDLE_SIGPIPE(SendEvictReply(client->fd, num_bytes_evicted), client->fd);
     } break;
-    case MessageType_PlasmaSubscribeRequest:
+    case MessageType::PlasmaSubscribeRequest:
       subscribe_to_updates(client);
       break;
-    case MessageType_PlasmaConnectRequest: {
+    case MessageType::PlasmaConnectRequest: {
       HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),
                      client->fd);
     } break;
-    case MessageType_PlasmaDisconnectClient:
+    case MessageType::PlasmaDisconnectClient:
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->fd;
       disconnect_client(client->fd);
       break;

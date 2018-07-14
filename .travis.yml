@@ -45,6 +45,7 @@ matrix:
   - compiler: gcc
     language: cpp
     os: linux
+    jdk: openjdk8
     env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_VALGRIND=1
@@ -55,6 +56,7 @@ matrix:
     - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - ARROW_TRAVIS_PYTHON_JVM=1
     - CC="clang-6.0"
     - CXX="clang++-6.0"
     before_script:
@@ -71,6 +73,8 @@ matrix:
     # All test steps are required for accurate C++ coverage info
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
+    # Build Arrow Java to test the pyarrow<->JVM in-process bridge
+    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
@@ -159,6 +163,7 @@ matrix:
     language: cpp
     os: linux
     env:
+    - ARROW_TRAVIS_ORC=1
     - BUILD_TORCH_EXAMPLE=no
     - CC="gcc-4.9"
     - CXX="g++-4.9"
@@ -175,6 +180,8 @@ matrix:
   - compiler: clang
     osx_image: xcode8.3
     os: osx
+    env:
+    - ARROW_TRAVIS_ORC=1
     cache:
     addons:
     rvm: 2.2
@@ -213,6 +220,19 @@ matrix:
     - mkdir -p target/kcov
     - RUST_BACKTRACE=1 cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+  # Go
+  - language: go
+    os: linux
+    go:
+    - 1.10.x
+    before_script:
+    - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_go.sh
+    after_success:
+    - pushd ${TRAVIS_BUILD_DIR}/go/arrow
+    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)

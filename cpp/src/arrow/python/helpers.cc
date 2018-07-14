@@ -325,13 +325,39 @@ template Status CIntFromPython(PyObject*, uint16_t*, const std::string&);
 template Status CIntFromPython(PyObject*, uint32_t*, const std::string&);
 template Status CIntFromPython(PyObject*, uint64_t*, const std::string&);
 
+inline bool MayHaveNaN(PyObject* obj) {
+  // Some core types can be very quickly type-checked and do not allow NaN values
+#if PYARROW_IS_PY2
+  const int64_t non_nan_tpflags = Py_TPFLAGS_INT_SUBCLASS | Py_TPFLAGS_LONG_SUBCLASS |
+                                  Py_TPFLAGS_LIST_SUBCLASS | Py_TPFLAGS_TUPLE_SUBCLASS |
+                                  Py_TPFLAGS_STRING_SUBCLASS |
+                                  Py_TPFLAGS_UNICODE_SUBCLASS | Py_TPFLAGS_DICT_SUBCLASS |
+                                  Py_TPFLAGS_BASE_EXC_SUBCLASS | Py_TPFLAGS_TYPE_SUBCLASS;
+#else
+  const int64_t non_nan_tpflags = Py_TPFLAGS_LONG_SUBCLASS | Py_TPFLAGS_LIST_SUBCLASS |
+                                  Py_TPFLAGS_TUPLE_SUBCLASS | Py_TPFLAGS_BYTES_SUBCLASS |
+                                  Py_TPFLAGS_UNICODE_SUBCLASS | Py_TPFLAGS_DICT_SUBCLASS |
+                                  Py_TPFLAGS_BASE_EXC_SUBCLASS | Py_TPFLAGS_TYPE_SUBCLASS;
+#endif
+  return !PyType_HasFeature(Py_TYPE(obj), non_nan_tpflags);
+}
+
 bool PyFloat_IsNaN(PyObject* obj) {
   return PyFloat_Check(obj) && std::isnan(PyFloat_AsDouble(obj));
 }
 
 bool PandasObjectIsNull(PyObject* obj) {
-  return obj == Py_None || obj == numpy_nan || PyFloat_IsNaN(obj) ||
-         (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj));
+  if (!MayHaveNaN(obj)) {
+    return false;
+  }
+  if (obj == Py_None) {
+    return true;
+  }
+  if (PyFloat_IsNaN(obj) ||
+      (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj))) {
+    return true;
+  }
+  return false;
 }
 
 }  // namespace internal

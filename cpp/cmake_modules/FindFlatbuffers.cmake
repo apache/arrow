@@ -45,7 +45,7 @@ if ( _flatbuffers_roots )
         PATH_SUFFIXES "include" )
     find_library( FLATBUFFERS_LIBRARIES NAMES flatbuffers
         PATHS "${_flatbuffers_roots}" NO_DEFAULT_PATH
-        PATH_SUFFIXES "lib" )
+        PATH_SUFFIXES "lib" "lib64")
 else ()
     find_path( FLATBUFFERS_INCLUDE_DIR NAMES flatbuffers/flatbuffers.h )
     find_library( FLATBUFFERS_LIBRARIES NAMES flatbuffers )

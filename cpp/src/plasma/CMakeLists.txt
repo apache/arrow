@@ -39,7 +39,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 # Compile flatbuffers
 
 set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs" "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
-set(OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/)
+set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/src/plasma)
 
 set(PLASMA_FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/common_generated.h"
@@ -57,7 +57,7 @@ add_custom_command(
   # flatbuffers message Message, which can be used to store deserialized
   # messages in data structures. This is currently used for ObjectInfo for
   # example.
-  COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${PLASMA_FBS_SRC} --gen-object-api
+  COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${PLASMA_FBS_SRC} --gen-object-api --scoped-enums
   DEPENDS ${PLASMA_FBS_SRC}
   COMMENT "Running flatc compiler on ${PLASMA_FBS_SRC}"
   VERBATIM)
@@ -140,12 +140,12 @@ endif()
 # Headers: top level
 install(FILES
   common.h
-  common_generated.h
+  "${OUTPUT_DIR}/common_generated.h"
   compat.h
   client.h
   events.h
   plasma.h
-  plasma_generated.h
+  "${OUTPUT_DIR}/plasma_generated.h"
   protocol.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 

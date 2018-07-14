@@ -50,7 +50,7 @@ export async function* fromReadableStream(stream: NodeJS.ReadableStream) {
             return yield bytes;
         }
 
-        if (messageLength <= 0) {
+        if (bytes.byteLength > 0 && messageLength <= 0) {
             messageLength = new DataView(bytes.buffer).getInt32(0, true);
         }
 
@@ -66,7 +66,7 @@ export async function* fromReadableStream(stream: NodeJS.ReadableStream) {
             bytesRead += messageLength + PADDING;
             yield bytes.subarray(0, messageLength + PADDING);
             bytes = bytes.subarray(messageLength + PADDING);
-            messageLength = bytes.byteLength <= 0 ? 0 :
+            messageLength = bytes.byteLength < 4 ? 0 :
                 new DataView(bytes.buffer).getInt32(bytes.byteOffset, true);
             message = null;
         }

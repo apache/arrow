@@ -179,6 +179,14 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Delete(const ObjectID& object_id);
 
+  /// Delete a list of objects from the object store. This currently assumes that the
+  /// object is present, has been sealed and not used by another client. Otherwise,
+  /// it is a no operation.
+  ///
+  /// \param object_ids The list of IDs of the objects to delete.
+  /// \return The return status. If all the objects are non-existent, return OK.
+  Status Delete(const std::vector<ObjectID>& object_ids);
+
   /// Delete objects until we have freed up num_bytes bytes or there are no more
   /// released objects that can be deleted.
   ///
@@ -259,15 +267,15 @@ class ARROW_EXPORT PlasmaClient {
   ///        "type" field.
   ///        - A PLASMA_QUERY_LOCAL request is satisfied when object_id becomes
   ///          available in the local Plasma Store. In this case, this function
-  ///          sets the "status" field to ObjectStatus_Local. Note, if the
+  ///          sets the "status" field to ObjectStatus::Local. Note, if the
   ///          status
-  ///          is not ObjectStatus_Local, it will be ObjectStatus_Nonexistent,
+  ///          is not ObjectStatus::Local, it will be ObjectStatus::Nonexistent,
   ///          but it may exist elsewhere in the system.
   ///        - A PLASMA_QUERY_ANYWHERE request is satisfied when object_id
   ///        becomes
   ///          available either at the local Plasma Store or on a remote Plasma
   ///          Store. In this case, the functions sets the "status" field to
-  ///          ObjectStatus_Local or ObjectStatus_Remote.
+  ///          ObjectStatus::Local or ObjectStatus::Remote.
   /// \param num_ready_objects The number of requests in object_requests array
   /// that
   ///        must be satisfied before the function returns, unless it timeouts.

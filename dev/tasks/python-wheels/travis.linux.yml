@@ -16,9 +16,11 @@
 
 env:
   global:
-    - PLAT={{ PLAT }}
-    - BUILD_REF={{ BUILD_REF }}
-    - PYARROW_VERSION={{ PYARROW_VERSION }}
+    - PLAT=x86_64
+    - TRAVIS_TAG={{ task.tag }}
+    - BUILD_REF={{ arrow.head }}
+    - PYTHON_VERSION={{ python_version }}
+    - PYARROW_VERSION={{ arrow.version }}
 
 os: linux
 dist: trusty
@@ -31,20 +33,31 @@ before_script:
   - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
 
 script:
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - git -C arrow checkout {{ ARROW_SHA }}
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
   - mkdir -p dist
 
   - pushd arrow/python/manylinux1
   - git clone ../../ arrow
   - docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
-  - docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3
-    -e SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
-    -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+  - docker run --shm-size=2g --rm
+      -e SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
+      -e PYTHON_VERSIONS=$PYTHON_VERSION
+      -v $PWD:/io arrow-base-x86_64
+      /io/build_arrow.sh
   - popd
 
   - sudo mv arrow/python/manylinux1/dist/* dist/
 
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: dist/*.whl
+  skip_cleanup: true
+  on:
+    tags: true
+
 notifications:
   email:
-    - {{ EMAIL }}
+    - {{ job.email }}

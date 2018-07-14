@@ -249,7 +249,7 @@ then, we must register these functions in a ``SerializationContext`` so that
                          custom_serializer=_serialize_MyData,
                          custom_deserializer=_deserialize_MyData)
 
-Lastly, we use this context as an additioanl argument to ``pyarrow.serialize``:
+Lastly, we use this context as an additional argument to ``pyarrow.serialize``:
 
 .. code-block:: python
 

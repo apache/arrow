@@ -1,0 +1,91 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# this travis configuration can be used to submit cron scheduled tasks
+# 1. copy this file to one of crossbow's branch (master for example) with
+#    filename .travis.yml
+# 2. setup daily cron jobs for that particular branch, see travis'
+#    documentation https://docs.travis-ci.com/user/cron-jobs/
+
+branches:
+  # don't attempt to build branches intented for windows builds
+  except:
+    - /.*win.*/
+
+os: linux
+dist: trusty
+language: generic
+
+before_install:
+    # Install Miniconda.
+    - echo `pwd`
+    - |
+      echo ""
+      echo "Installing a fresh version of Miniconda."
+      MINICONDA_URL="https://repo.continuum.io/miniconda"
+      MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
+      curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
+      bash $MINICONDA_FILE -b
+
+    # Configure conda.
+    - |
+      echo ""
+      echo "Configuring conda."
+      source /home/travis/miniconda3/bin/activate root
+      conda config --remove channels defaults
+      conda config --add channels defaults
+      conda config --add channels conda-forge
+      conda config --set show_channel_urls true
+
+install:
+  - |
+    conda install -y \
+      jinja2 \
+      pygit2 \
+      click \
+      ruamel.yaml \
+      setuptools_scm \
+      github3.py \
+      python-gnupg
+
+script:
+  # to build against a specific branch of a fork
+  # git clone -b <branch> https://github.com/<user>/arrow
+  - pushd ..
+  - git clone -b master https://github.com/apache/arrow
+
+  # submit packaging tasks
+  - |
+    if [ $TRAVIS_EVENT_TYPE = "cron" ]; then
+      python arrow/dev/tasks/crossbow.py submit \
+        conda-linux \
+        conda-win \
+        conda-osx \
+        wheel-linux \
+        wheel-win \
+        wheel-osx \
+        linux-packages
+    else
+      python arrow/dev/tasks/crossbow.py submit --dry-run \
+        conda-linux \
+        conda-win \
+        conda-osx \
+        wheel-linux \
+        wheel-win \
+        wheel-osx \
+        linux-packages
+    fi

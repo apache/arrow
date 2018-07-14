@@ -42,6 +42,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
+#include "orc/Exceptions.hh"
 #include "orc/OrcFile.hh"
 
 // alias to not interfere with nested orc namespace

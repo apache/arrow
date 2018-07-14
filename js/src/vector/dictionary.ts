@@ -26,7 +26,7 @@ export class DictionaryView<T extends DataType> implements View<T> {
         this.indices = indices;
         this.dictionary = dictionary;
     }
-    public clone(data: Data<Dictionary<T>>): this {
+    public clone(data: Data<Dictionary<T>> & Data<T>): this {
         return new DictionaryView(data.dictionary, this.indices.clone(data.indices)) as this;
     }
     public isValid(index: number): boolean {

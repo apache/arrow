@@ -614,6 +614,61 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
   }
 }
 
+TEST_F(TestMemoryMappedFile, WriteAt) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  ASSERT_OK(result->WriteAt(0, buffer.data(), buffer_size / 2));
+
+  ASSERT_OK(
+      result->WriteAt(buffer_size / 2, buffer.data() + buffer_size / 2, buffer_size / 2));
+
+  std::shared_ptr<Buffer> out_buffer;
+  ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
+
+  ASSERT_EQ(memcmp(out_buffer->data(), buffer.data(), buffer_size), 0);
+}
+
+TEST_F(TestMemoryMappedFile, WriteBeyondEnd) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  ASSERT_OK(result->Seek(1));
+  ASSERT_RAISES(Invalid, result->Write(buffer.data(), buffer_size));
+
+  // The position should remain unchanged afterwards
+  int64_t position;
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(position, 1);
+}
+
+TEST_F(TestMemoryMappedFile, WriteAtBeyondEnd) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  ASSERT_RAISES(Invalid, result->WriteAt(1, buffer.data(), buffer_size));
+
+  // The position should remain unchanged afterwards
+  int64_t position;
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(position, 0);
+}
+
 TEST_F(TestMemoryMappedFile, GetSize) {
   std::string path = "io-memory-map-get-size";
   std::shared_ptr<MemoryMappedFile> result;

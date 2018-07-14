@@ -6,6 +6,8 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
+export DEB_BUILD_MAINT_OPTIONS=reproducible=-timeless
+
 BUILD_TYPE=release
 
 %:

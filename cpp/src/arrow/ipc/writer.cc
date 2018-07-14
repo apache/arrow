@@ -599,11 +599,8 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
   const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
 
-  // TODO(wesm): Do we care enough about this temporary allocation to pass in
-  // a MemoryPool to this function?
   std::shared_ptr<Buffer> scratch_space;
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(),
-                               tensor.shape()[tensor.ndim() - 1] * elem_size,
+  RETURN_NOT_OK(AllocateBuffer(pool, tensor.shape()[tensor.ndim() - 1] * elem_size,
                                &scratch_space));
 
   std::shared_ptr<ResizableBuffer> contiguous_data;
@@ -651,9 +648,8 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     // TODO(wesm): Do we care enough about this temporary allocation to pass in
     // a MemoryPool to this function?
     std::shared_ptr<Buffer> scratch_space;
-    RETURN_NOT_OK(AllocateBuffer(default_memory_pool(),
-                                 tensor.shape()[tensor.ndim() - 1] * elem_size,
-                                 &scratch_space));
+    RETURN_NOT_OK(
+        AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size, &scratch_space));
 
     return WriteStridedTensorData(0, 0, elem_size, tensor, scratch_space->mutable_data(),
                                   dst);

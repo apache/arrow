@@ -35,7 +35,7 @@ pushd %ARROW_SRC%
 @rem fix up symlinks
 git config core.symlinks true
 git reset --hard || exit /B
-git checkout "%pyarrow_ref%" || exit /B
+git checkout "%PYARROW_REF%" || exit /B
 
 popd
 
@@ -68,7 +68,7 @@ popd
 @rem Build parquet-cpp
 git clone https://github.com/apache/parquet-cpp.git || exit /B
 pushd parquet-cpp
-git checkout "%parquet_cpp_ref%"
+git checkout "%PARQUET_CPP_REF%"
 popd
 
 mkdir parquet-cpp\build
@@ -87,7 +87,7 @@ set PYTHONPATH=
 
 pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
-set SETUPTOOLS_SCM_PRETEND_VERSION=%pyarrow_version%
+set SETUPTOOLS_SCM_PRETEND_VERSION=%PYARROW_VERSION%
 
 python setup.py build_ext ^
        --with-parquet ^

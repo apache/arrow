@@ -46,4 +46,10 @@ class TestDecimal128 < Test::Unit::TestCase
     decimal.negate
     assert_equal(positive_value, decimal.to_s)
   end
+
+  def test_to_integer
+    integer_data = 999999999999999999
+    decimal = Arrow::Decimal128.new(integer_data)
+    assert_equal(integer_data, decimal.to_i)
+  end
 end

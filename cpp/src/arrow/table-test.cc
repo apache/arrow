@@ -465,6 +465,25 @@ TEST_F(TestTable, RemoveColumn) {
   ASSERT_TRUE(result->Equals(*expected));
 }
 
+TEST_F(TestTable, SetColumn) {
+  const int64_t length = 10;
+  MakeExample1(length);
+
+  auto table_sp = Table::Make(schema_, columns_);
+  const Table& table = *table_sp;
+
+  std::shared_ptr<Table> result;
+  ASSERT_OK(table.SetColumn(0, table.column(1), &result));
+
+  auto ex_schema =
+      ::arrow::schema({schema_->field(1), schema_->field(1), schema_->field(2)});
+  std::vector<std::shared_ptr<Column>> ex_columns = {table.column(1), table.column(1),
+                                                     table.column(2)};
+
+  auto expected = Table::Make(ex_schema, ex_columns);
+  ASSERT_TRUE(result->Equals(*expected));
+}
+
 TEST_F(TestTable, RemoveColumnEmpty) {
   // ARROW-1865
   const int64_t length = 10;

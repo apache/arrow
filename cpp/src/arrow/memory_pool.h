@@ -18,9 +18,8 @@
 #ifndef ARROW_MEMORY_POOL_H
 #define ARROW_MEMORY_POOL_H
 
-#include <atomic>
 #include <cstdint>
-#include <mutex>
+#include <memory>
 
 #include "arrow/util/visibility.h"
 
@@ -94,6 +93,7 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
 class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
  public:
   explicit ProxyMemoryPool(MemoryPool* pool);
+  ~ProxyMemoryPool() override;
 
   Status Allocate(int64_t size, uint8_t** out) override;
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
@@ -105,10 +105,8 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   int64_t max_memory() const override;
 
  private:
-  mutable std::mutex lock_;
-  MemoryPool* pool_;
-  std::atomic<int64_t> bytes_allocated_{0};
-  std::atomic<int64_t> max_memory_{0};
+  class ProxyMemoryPoolImpl;
+  std::unique_ptr<ProxyMemoryPoolImpl> impl_;
 };
 
 ARROW_EXPORT MemoryPool* default_memory_pool();

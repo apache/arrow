@@ -17,7 +17,7 @@
 
 // Plasma protocol specification
 
-enum MessageType:int {
+enum MessageType:long {
   // Message that gets send when a client hangs up.
   PlasmaDisconnectClient = 0,
   // Create a new object.
@@ -200,15 +200,19 @@ table PlasmaReleaseReply {
 }
 
 table PlasmaDeleteRequest {
+  // The number of objects to delete.
+  count: int;
   // ID of the object to be deleted.
-  object_id: string;
+  object_ids: [string];
 }
 
 table PlasmaDeleteReply {
+  // The number of objects to delete.
+  count: int;
   // ID of the object that was deleted.
-  object_id: string;
+  object_ids: [string];
   // Error code.
-  error: PlasmaError;
+  errors: [PlasmaError];
 }
 
 table PlasmaStatusRequest {
@@ -301,7 +305,7 @@ table ObjectReply {
   // ID of the object.
   object_id: string;
   // The object status. This specifies where the object is stored.
-  status: int;
+  status: ObjectStatus;
 }
 
 table PlasmaWaitReply {

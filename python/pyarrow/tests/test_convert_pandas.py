@@ -119,8 +119,8 @@ def _check_array_roundtrip(values, expected=None, mask=None,
                                check_names=False)
 
 
-def _check_array_from_pandas_roundtrip(np_array):
-    arr = pa.array(np_array, from_pandas=True)
+def _check_array_from_pandas_roundtrip(np_array, type=None):
+    arr = pa.array(np_array, from_pandas=True, type=type)
     result = arr.to_pandas()
     npt.assert_array_equal(result, np_array)
 
@@ -568,6 +568,12 @@ class TestConvertPrimitiveTypes(object):
             data[dtype] = np.arange(12, dtype=dtype)
         df = pd.DataFrame(data)
         _check_pandas_roundtrip(df)
+
+        # Do the same with pa.array()
+        # (for some reason, it doesn't use the same code paths at all)
+        for np_arr in data.values():
+            arr = pa.array(np_arr)
+            assert arr.to_pylist() == np_arr.tolist()
 
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype
@@ -1114,14 +1120,15 @@ class TestConvertDateTimeLikeTypes(object):
                 dtype='datetime64[s]')
         _check_array_from_pandas_roundtrip(datetime64_s)
 
-    def test_numpy_datetime64_day_unit(self):
+    @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])
+    def test_numpy_datetime64_day_unit(self, dtype):
         datetime64_d = np.array([
                 '2007-07-13',
                 None,
                 '2006-01-15',
                 '2010-08-19'],
                 dtype='datetime64[D]')
-        _check_array_from_pandas_roundtrip(datetime64_d)
+        _check_array_from_pandas_roundtrip(datetime64_d, type=dtype)
 
     def test_array_from_pandas_date_with_mask(self):
         m = np.array([True, False, True])
@@ -2083,3 +2090,19 @@ def _pytime_to_micros(pytime):
             pytime.minute * 60000000 +
             pytime.second * 1000000 +
             pytime.microsecond)
+
+
+def test_convert_unsupported_type_error_message():
+    # ARROW-1454
+
+    df = pd.DataFrame({
+        't1': pd.date_range('2000-01-01', periods=20),
+        't2': pd.date_range('2000-05-01', periods=20)
+    })
+
+    # timedelta64 as yet unsupported
+    df['diff'] = df.t2 - df.t1
+
+    expected_msg = 'Conversion failed for column diff with type timedelta64'
+    with pytest.raises(pa.ArrowNotImplementedError, match=expected_msg):
+        pa.Table.from_pandas(df)

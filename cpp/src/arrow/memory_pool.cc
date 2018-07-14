@@ -18,10 +18,12 @@
 #include "arrow/memory_pool.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <sstream>  // IWYU pragma: keep
 
@@ -202,39 +204,70 @@ int64_t LoggingMemoryPool::max_memory() const {
   return mem;
 }
 
-ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) : pool_(pool) {}
+class ProxyMemoryPool::ProxyMemoryPoolImpl {
+ public:
+  explicit ProxyMemoryPoolImpl(MemoryPool* pool) : pool_(pool) {}
+
+  Status Allocate(int64_t size, uint8_t** out) {
+    RETURN_NOT_OK(pool_->Allocate(size, out));
+    bytes_allocated_ += size;
+    {
+      std::lock_guard<std::mutex> guard(lock_);
+      if (bytes_allocated_ > max_memory_) {
+        max_memory_ = bytes_allocated_.load();
+      }
+    }
+    return Status::OK();
+  }
+
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+    RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, ptr));
+    bytes_allocated_ += new_size - old_size;
+    {
+      std::lock_guard<std::mutex> guard(lock_);
+      if (bytes_allocated_ > max_memory_) {
+        max_memory_ = bytes_allocated_.load();
+      }
+    }
+    return Status::OK();
+  }
+
+  void Free(uint8_t* buffer, int64_t size) {
+    pool_->Free(buffer, size);
+    bytes_allocated_ -= size;
+  }
+
+  int64_t bytes_allocated() const { return bytes_allocated_.load(); }
+
+  int64_t max_memory() const { return max_memory_.load(); }
+
+ private:
+  mutable std::mutex lock_;
+  MemoryPool* pool_;
+  std::atomic<int64_t> bytes_allocated_{0};
+  std::atomic<int64_t> max_memory_{0};
+};
+
+ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) {
+  impl_.reset(new ProxyMemoryPoolImpl(pool));
+}
+
+ProxyMemoryPool::~ProxyMemoryPool() {}
 
 Status ProxyMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  RETURN_NOT_OK(pool_->Allocate(size, out));
-  bytes_allocated_ += size;
-  {
-    std::lock_guard<std::mutex> guard(lock_);
-    if (bytes_allocated_ > max_memory_) {
-      max_memory_ = bytes_allocated_.load();
-    }
-  }
-  return Status::OK();
+  return impl_->Allocate(size, out);
 }
 
 Status ProxyMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-  RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, ptr));
-  bytes_allocated_ += new_size - old_size;
-  {
-    std::lock_guard<std::mutex> guard(lock_);
-    if (bytes_allocated_ > max_memory_) {
-      max_memory_ = bytes_allocated_.load();
-    }
-  }
-  return Status::OK();
+  return impl_->Reallocate(old_size, new_size, ptr);
 }
 
 void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  pool_->Free(buffer, size);
-  bytes_allocated_ -= size;
+  return impl_->Free(buffer, size);
 }
 
-int64_t ProxyMemoryPool::bytes_allocated() const { return bytes_allocated_.load(); }
+int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated(); }
 
-int64_t ProxyMemoryPool::max_memory() const { return max_memory_.load(); }
+int64_t ProxyMemoryPool::max_memory() const { return impl_->max_memory(); }
 
 }  // namespace arrow

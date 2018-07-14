@@ -247,7 +247,7 @@ public class TestBaseAllocator {
     }
 
     @Override
-    public boolean onFailedAllocation(long size,  Accountant.AllocationOutcome outcome) {
+    public boolean onFailedAllocation(long size,  AllocationOutcome outcome) {
       if (expandOnFail) {
         expandAlloc.setLimit(expandLimit);
         return true;

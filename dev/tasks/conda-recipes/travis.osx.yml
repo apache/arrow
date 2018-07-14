@@ -21,51 +21,58 @@ os: osx
 osx_image: xcode6.4
 
 env:
-  matrix:
-    - CONDA_PY=27
-    - CONDA_PY=35
-    - CONDA_PY=36
   global:
-    - ARROW_VERSION={{ ARROW_VERSION }}
+    - TRAVIS_TAG={{ task.tag }}
+    - ARROW_VERSION={{ arrow.version }}
+    - PYTHONUNBUFFERED=1
 
 before_install:
-    # Remove homebrew.
-    - |
-      echo ""
-      echo "Removing homebrew from Travis CI to avoid conflicts."
-      curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
-      chmod +x ~/uninstall_homebrew
-      ~/uninstall_homebrew -fq
-      rm ~/uninstall_homebrew
+  # Remove homebrew.
+  - |
+    echo ""
+    echo "Removing homebrew from Travis CI to avoid conflicts."
+    curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
+    chmod +x ~/uninstall_homebrew
+    ~/uninstall_homebrew -fq
+    rm ~/uninstall_homebrew
 
 install:
-    # Install Miniconda.
-    - |
-      echo ""
-      echo "Installing a fresh version of Miniconda."
-      MINICONDA_URL="https://repo.continuum.io/miniconda"
-      MINICONDA_FILE="Miniconda3-latest-MacOSX-x86_64.sh"
-      curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
-      bash $MINICONDA_FILE -b
+  # Install Miniconda.
+  - |
+    echo ""
+    echo "Installing a fresh version of Miniconda."
+    MINICONDA_URL="https://repo.continuum.io/miniconda"
+    MINICONDA_FILE="Miniconda3-latest-MacOSX-x86_64.sh"
+    curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
+    bash $MINICONDA_FILE -b
 
-    # Configure conda.
-    - |
-      echo ""
-      echo "Configuring conda."
-      source /Users/travis/miniconda3/bin/activate root
-      conda config --remove channels defaults
-      conda config --add channels defaults
-      conda config --add channels conda-forge
-      conda config --set show_channel_urls true
-      conda install --yes --quiet conda-forge-build-setup
-      source run_conda_forge_build_setup
+  # Configure conda.
+  - |
+    echo ""
+    echo "Configuring conda."
+    source /Users/travis/miniconda3/bin/activate root
+    conda config --remove channels defaults
+    conda config --add channels defaults
+    conda config --add channels conda-forge
+    conda config --set show_channel_urls true
+    conda install --yes --quiet conda-forge-ci-setup=1
+    source run_conda_forge_build_setup
 
 script:
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
-  - git -C arrow checkout {{ ARROW_SHA }}
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
-  - conda build parquet-cpp arrow-cpp pyarrow
+  - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
+
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: $TRAVIS_BUILD_DIR/arrow/dev/tasks/conda-recipes/osx-64/*.tar.bz2
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:
-    - {{ EMAIL }}
+    - {{ job.email }}

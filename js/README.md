@@ -19,14 +19,15 @@
 
 # [Apache Arrow](https://github.com/apache/arrow) in JS
 
+[![npm version](https://img.shields.io/npm/v/apache-arrow.svg)](https://www.npmjs.com/package/apache-arrow)
 [![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
 [![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
 
 Arrow is a set of technologies that enable big data systems to process and transfer data quickly.
 
-## install [apache-arrow from npm](https://www.npmjs.com/package/apache-arrow)
+## Install `apache-arrow` from NPM
 
-`npm install apache-arrow`
+`npm install apache-arrow` or `yarn add apache-arrow`
 
 (read about how we [package apache-arrow](#packaging) below)
 
@@ -80,6 +81,19 @@ console.log(table.toString());
 29.533695220947266, -98.46977996826172
 29.533695220947266, -98.46977996826172
 */
+```
+
+## Load data with `fetch`
+
+```es6
+import { Table } from "apache-arrow";
+
+fetch(require("simple.arrow")).then(response => {
+  response.arrayBuffer().then(buffer => {
+    const table = Table.from(new Uint8Array(buffer));
+    console.log(table.toString());
+  });
+});
 ```
 
 ## Columns are what you'd expect

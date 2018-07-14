@@ -32,7 +32,7 @@ public interface AllocationListener {
     }
 
     @Override
-    public boolean onFailedAllocation(long size, Accountant.AllocationOutcome outcome) {
+    public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
       return false;
     }
   };
@@ -53,6 +53,6 @@ public interface AllocationListener {
    * @param outcome  the outcome of the failed allocation. Carries information of what failed
    * @return true, if the allocation can be retried; false if the allocation should fail
    */
-  boolean onFailedAllocation(long size, Accountant.AllocationOutcome outcome);
+  boolean onFailedAllocation(long size, AllocationOutcome outcome);
 
 }

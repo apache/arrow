@@ -111,6 +111,16 @@ module Arrow
       load_raw(input, reader)
     end
 
+    if Arrow.const_defined?(:ORCFileReader)
+      def load_as_orc(path)
+        input = MemoryMappedInputStream.new(path)
+        reader = ORCFileReader.new(input)
+        field_indexes = @options[:field_indexes]
+        reader.set_field_indexes(field_indexes) if field_indexes
+        reader.read_stripes
+      end
+    end
+
     def load_as_csv(path)
       options = @options.dup
       options.delete(:format)

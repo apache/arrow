@@ -14,39 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+language: generic
+
 os: osx
-sudo: required
-language: objective-c
+osx_image: xcode8.3
 
 env:
   global:
-    - PLAT={{ PLAT }}
-    - BUILD_REF={{ BUILD_REF }}
-    - PYARROW_VERSION={{ PYARROW_VERSION }}
-
-matrix:
-  exclude:
-    - python: 3.5
-  include:
-    - env:
-        - MB_PYTHON_VERSION=2.7
-        - NP_BUILD_DEP="1.10.1"
-        - NP_TEST_DEP="1.10.1"
-        - PANDAS_DEP="0.20.3"
-    - env:
-        - MB_PYTHON_VERSION=3.5
-        - NP_BUILD_DEP="1.10.1"
-        - NP_TEST_DEP="1.10.1"
-        - PANDAS_DEP="0.20.3"
-    - env:
-        - MB_PYTHON_VERSION=3.6
-        - NP_BUILD_DEP="1.11.3"
-        - NP_TEST_DEP="1.11.3"
-        - PANDAS_DEP="0.20.3"
+    - PLAT=x86_64
+    - TRAVIS_TAG={{ task.tag }}
+    - BUILD_REF={{ arrow.head }}
+    - PYARROW_VERSION={{ arrow.version }}
+    - MACOSX_DEPLOYMENT_TARGET="10.9"
+    - MB_PYTHON_VERSION={{ python_version }}
+    - NP_BUILD_DEP="{{ numpy_version }}"
+    - NP_TEST_DEP="{{ numpy_version }}"
+    - PANDAS_DEP="{{ pandas_version }}"
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
-  - git clone -b {{ ARROW_BRANCH }} {{ ARROW_REPO }} arrow
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal
@@ -69,14 +57,15 @@ install:
   - build_wheel arrow $PLAT
   - mv -v arrow/python/dist/* dist/
 
-script:
-  - echo "SCRIPT"
-  - pwd
-
-after_success:
-  - echo "After success"
-  - pwd
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: dist/*.whl
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:
-    - {{ EMAIL }}
+    - {{ job.email }}
