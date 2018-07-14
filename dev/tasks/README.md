@@ -85,7 +85,7 @@ submission. The tasks are defined in `tasks.yml`
 
    ```bash
    # pygit2 requires libgit2: http://www.pygit2.org/install.html
-   pip install -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
+   pip install jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
    ```
 
 7. Try running it:
