@@ -45,8 +45,8 @@ const gint *
 garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
                                          guint *n_field_indexes);
 GArrowSchema *
-garrow_orc_file_reader_read_schema(GArrowORCFileReader *reader,
-                                   GError **error);
+garrow_orc_file_reader_read_type(GArrowORCFileReader *reader,
+                                 GError **error);
 GArrowTable *
 garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
                                     GError **error);

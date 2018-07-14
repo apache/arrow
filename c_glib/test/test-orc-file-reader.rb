@@ -26,8 +26,8 @@ class TestORCFileReader < Test::Unit::TestCase
     @reader = Arrow::ORCFileReader.new(input)
   end
 
-  def test_read_schema
-    assert_equal(<<-SCHEMA.chomp, @reader.read_schema.to_s)
+  def test_read_type
+    assert_equal(<<-SCHEMA.chomp, @reader.read_type.to_s)
 boolean1: bool
 byte1: int8
 short1: int16

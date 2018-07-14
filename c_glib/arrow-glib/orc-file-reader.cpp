@@ -243,23 +243,23 @@ garrow_orc_file_reader_get_field_indexes(GArrowORCFileReader *reader,
 }
 
 /**
- * garrow_orc_file_reader_read_schema:
+ * garrow_orc_file_reader_read_type:
  * @reader: A #GArrowORCFileReader.
  * @error: (nullable): Return locatipcn for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): A newly read #GArrowSchema
- *   or %NULL on error.
+ * Returns: (nullable) (transfer full): A newly read type as
+ *   #GArrowSchema or %NULL on error.
  *
  * Since: 0.10.0
  */
 GArrowSchema *
-garrow_orc_file_reader_read_schema(GArrowORCFileReader *reader,
-                                   GError **error)
+garrow_orc_file_reader_read_type(GArrowORCFileReader *reader,
+                                 GError **error)
 {
   auto arrow_reader = garrow_orc_file_reader_get_raw(reader);
   std::shared_ptr<arrow::Schema> arrow_schema;
   auto status = arrow_reader->ReadSchema(&arrow_schema);
-  if (garrow_error_check(error, status, "[orc-file-reader][read-schema]")) {
+  if (garrow_error_check(error, status, "[orc-file-reader][read-type]")) {
     return garrow_schema_new_raw(&arrow_schema);
   } else {
     return NULL;
