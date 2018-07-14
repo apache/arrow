@@ -27,7 +27,6 @@ import github3
 
 from io import StringIO
 from pathlib import Path
-from datetime import date
 from textwrap import dedent
 from jinja2 import Template, StrictUndefined
 from setuptools_scm import get_version
@@ -201,8 +200,10 @@ class Queue(Repo):
         return yaml.load(buffer)
 
     def put(self, job, prefix='build'):
+        # TODO(kszucs): more verbose error handling
         assert isinstance(job, Job)
         assert job.branch is None
+        assert len(job.tasks) > 0
 
         # auto increment and set next job id, e.g. build-85
         job.branch = self._next_job_id(prefix)
@@ -212,23 +213,21 @@ class Queue(Repo):
             task.branch = '{}-{}'.format(job.branch, task_name)
             files = task.render_files(job=job, arrow=job.target)
             branch = self.create_branch(task.branch, files=files)
+            self.create_tag(task.tag, branch.target)
             task.commit = str(branch.target)
 
-        # create job's branch
-        branch = self.create_branch(job.branch, files=job.render_files())
-        self.create_tag(job.branch, branch.target)
-
-        return branch
+        # create job's branch with its description
+        return self.create_branch(job.branch, files=job.render_files())
 
     def github_statuses(self, job):
         repo = self.as_github_repo()
         return {name: repo.commit(task.commit).status()
                 for name, task in job.tasks.items()}
 
-    def github_assets(self, job):
+    def github_assets(self, task):
         repo = self.as_github_repo()
         try:
-            release = repo.release_from_tag(job.branch)
+            release = repo.release_from_tag(task.tag)
         except github3.exceptions.NotFoundError:
             return {}
         else:
@@ -264,8 +263,8 @@ class Target(object):
         self.version = version
 
     @classmethod
-    def from_repo(cls, repo_path):
-        repo = Repo(repo_path)
+    def from_repo(cls, repo):
+        assert isinstance(repo, Repo)
         version = get_version(repo.path, local_scheme=lambda v: '')
         return cls(head=str(repo.head.target),
                    email=repo.email,
@@ -297,8 +296,12 @@ class Task(object):
     def render_files(self, **extra_params):
         path = CWD / self.template
         template = Template(path.read_text(), undefined=StrictUndefined)
-        rendered = template.render(**self.params, **extra_params)
+        rendered = template.render(task=self, **self.params, **extra_params)
         return {self.filename: rendered}
+
+    @property
+    def tag(self):
+        return self.branch
 
     @property
     def ci(self):
@@ -357,81 +360,77 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 
 
 @click.group()
-def crossbow():
-    pass
-
-
-def github_token_validation_callback(ctx, param, value):
-    if value is None:
+@click.option('--github-token', '-t', default=None,
+              help='OAuth token for GitHub authentication')
+@click.option('--arrow-path', '-a',
+              type=click.Path(exists=True), default=DEFAULT_ARROW_PATH,
+              help='Arrow\'s repository path. Defaults to the repository of '
+                   'this script')
+@click.option('--queue-path', '-q',
+              type=click.Path(exists=True), default=DEFAULT_QUEUE_PATH,
+              help='The repository path used for scheduling the tasks. '
+                   'Defaults to crossbow directory placed next to arrow')
+@click.pass_context
+def crossbow(ctx, github_token, arrow_path, queue_path):
+    if github_token is None:
         raise click.ClickException(
             'Could not determine GitHub token. Please set the '
             'CROSSBOW_GITHUB_TOKEN environment variable to a '
-            'valid github access token or pass one to --github-token.'
+            'valid GitHub access token or pass one to --github-token.'
         )
-    return value
+
+    ctx.obj['arrow'] = Repo(Path(arrow_path))
+    ctx.obj['queue'] = Queue(Path(queue_path), github_token=github_token)
 
 
-github_token = click.option(
-    '--github-token',
-    default=None,
-    envvar='CROSSBOW_GITHUB_TOKEN',
-    help='OAuth token for Github authentication',
-    callback=github_token_validation_callback,
-)
-
-
-def config_path_validation_callback(ctx, param, value):
-    with Path(value).open() as fp:
+def load_tasks_from_config(config_path, task_names, group_names):
+    with Path(config_path).open() as fp:
         config = yaml.load(fp)
-    task_names = ctx.params['task_names']
+
+    valid_groups = set(config['groups'].keys())
+    requested_groups = set(group_names)
+    invalid_groups = requested_groups - valid_groups
+    if invalid_groups:
+        raise click.ClickException('Invalid group(s) {!r}. Must be one of {!r}'
+                                   .format(invalid_groups, valid_groups))
+
     valid_tasks = set(config['tasks'].keys())
-    invalid_tasks = {task for task in task_names if task not in valid_tasks}
+    requested_tasks = set(
+        sum([config['groups'][g] for g in group_names], list(task_names))
+    )
+    invalid_tasks = requested_tasks - valid_tasks
     if invalid_tasks:
-        raise click.ClickException(
-            'Invalid task(s) {!r}. Must be one of {!r}'.format(
-                invalid_tasks,
-                valid_tasks
-            )
-        )
-    return value
+        raise click.ClickException('Invalid task(s) {!r}. Must be one of {!r}'
+                                   .format(invalid_tasks, valid_tasks))
+
+    return {t: config['tasks'][t] for t in requested_tasks}
 
 
 @crossbow.command()
-@click.argument('task-names', nargs=-1, required=True)
+@click.argument('task', nargs=-1, required=False)
+@click.option('--group', '-g', multiple=True,
+              help='Submit task groups as defined in task.yml')
 @click.option('--job-prefix', default='build',
               help='Arbitrary prefix for branch names, e.g. nightly')
-@click.option('--config-path', default=DEFAULT_CONFIG_PATH,
-              type=click.Path(exists=True),
-              callback=config_path_validation_callback,
+@click.option('--config-path', '-c',
+              type=click.Path(exists=True), default=DEFAULT_CONFIG_PATH,
               help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
-@click.option('--arrow-path', default=DEFAULT_ARROW_PATH,
-              help='Arrow\'s repository path. Defaults to the repository of '
-                   'this script')
-@click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
-              help='The repository path used for scheduling the tasks. '
-                   'Defaults to crossbow directory placed next to arrow')
-@github_token
-def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
-           queue_path, github_token):
-    queue = Queue(queue_path, github_token=github_token)
-    target = Target.from_repo(arrow_path)
+@click.pass_context
+def submit(ctx, task, group, job_prefix, config_path, dry_run):
+    queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
+    target = Target.from_repo(arrow)
 
-    with Path(config_path).open() as fp:
-        config = yaml.load(fp)
-
-    today = date.today().strftime('%Y%m%d')
+    # task and group variables are lists, containing multiple values
     tasks = {}
-    for task_name in task_names:
-        task = config['tasks'][task_name]
-        # replace version number and current date in artifact names
-        artifacts = task.pop('artifacts', None) or []
-        artifacts = [fname.format(version=target.version, date=today)
-                     for fname in artifacts]
-        # create task instance from configuration
-        tasks[task_name] = Task(**task, artifacts=artifacts)
+    task_configs = load_tasks_from_config(config_path, task, group)
+    for name, task in task_configs.items():
+        # replace version number and create task instance from configuration
+        artifacts = task.pop('artifacts', None) or []  # because of yaml
+        artifacts = [fn.format(version=target.version) for fn in artifacts]
+        tasks[name] = Task(**task, artifacts=artifacts)
 
     # create job instance, doesn't mutate git data yet
     job = Job(target=target, tasks=tasks)
@@ -457,25 +456,22 @@ def submit(task_names, job_prefix, config_path, dry_run, arrow_path,
 
 @crossbow.command()
 @click.argument('job-name', required=True)
-@click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
-              help='The repository path used for scheduling the tasks. '
-                   'Defaults to crossbow directory placed next to arrow')
-@github_token
-def status(job_name, queue_path, github_token):
-    queue = Queue(queue_path, github_token=github_token)
+@click.pass_context
+def status(ctx, job_name):
+    queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
     queue.fetch()
 
-    tpl = '[{:>7}] {:<24} {:>45}'
+    tpl = '[{:>7}] {:<49} {:>20}'
     header = tpl.format('status', 'branch', 'artifacts')
     click.echo(header)
     click.echo('-' * len(header))
 
     job = queue.get(job_name)
-    assets = queue.github_assets(job)
     statuses = queue.github_statuses(job)
 
     for task_name, task in job.tasks.items():
         status = statuses[task_name]
+        assets = queue.github_assets(task)
 
         uploaded = 'uploaded {} / {}'.format(
             sum(a in assets for a in task.artifacts),
@@ -502,51 +498,55 @@ def status(job_name, queue_path, github_token):
 @click.option('--gpg-homedir', default=None,
               help=('Full pathname to directory containing the public and '
                     'private keyrings. Default is whatever GnuPG defaults to'))
-@click.option('--target-dir', default=DEFAULT_ARROW_PATH / 'pkgs',
+@click.option('--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
               help='Directory to download the build artifacts')
-@click.option('--queue-path', default=DEFAULT_QUEUE_PATH,
-              help='The repository path used for scheduling the tasks. '
-                   'Defaults to crossbow directory placed next to arrow')
-@github_token
-def sign(job_name, gpg_homedir, target_dir, queue_path, github_token):
+@click.pass_context
+def sign(ctx, job_name, gpg_homedir, target_dir):
     """Download and sign build artifacts from github releases"""
-
     import gnupg
     gpg = gnupg.GPG(gnupghome=gpg_homedir)
 
-    # initialize and fetch the queue repository
-    queue = Queue(queue_path, github_token=github_token)
+    # fetch the queue repository
+    queue = ctx.obj['queue']
     queue.fetch()
 
     # query the job's artifacts
     job = queue.get(job_name)
-    assets = queue.github_assets(job)
 
-    click.echo('Downloading and signing assets...')
-    target_dir = Path(target_dir).absolute()
-    target_dir.mkdir(exist_ok=True)
+    target_dir = Path(target_dir).absolute() / job_name
+    target_dir.mkdir(parents=True, exist_ok=True)
+    click.echo('Download {}\'s artifacts to {}'.format(job_name, target_dir))
 
-    tpl = '[{:>8}] '
+    tpl = '{:<10} {:>68}'
     for task_name, task in job.tasks.items():
+        assets = queue.github_assets(task)
+        artifact_dir = target_dir / task_name
+        artifact_dir.mkdir(exist_ok=True)
+
+        click.echo('\nDownloading and signing assets for task {}'
+                    .format(task_name))
+        click.echo('-' * 79)
+
         for artifact in task.artifacts:
             if artifact not in assets:
-                msg = click.style(tpl.format('MISSING'), fg=COLORS['missing'])
-                click.echo(msg + artifact)
+                msg = click.style('[{:>8}]'.format('MISSING'),
+                                  fg=COLORS['missing'])
+                click.echo(tpl.format(msg, artifact))
                 continue
 
             # download artifact
-            target_path = target_dir / artifact
-            assets[artifact].download(target_path)
+            artifact_path = artifact_dir / artifact
+            assets[artifact].download(artifact_path)
 
             # sign the artifact
-            with target_path.open('rb') as fp:
-                signature_path = Path(str(target_path) + '.sig')
+            with artifact_path.open('rb') as fp:
+                signature_path = Path(str(artifact_path) + '.sig')
                 gpg.sign_file(fp, detach=True, clearsign=False,
                               output=str(signature_path))
 
-            msg = click.style(tpl.format('SIGNED'), fg=COLORS['ok'])
-            click.echo(msg + artifact)
+            msg = click.style('[{:>8}]'.format('SIGNED'), fg=COLORS['ok'])
+            click.echo(tpl.format(msg, artifact))
 
 
 if __name__ == '__main__':
-    crossbow(auto_envvar_prefix='CROSSBOW')
+    crossbow(obj={}, auto_envvar_prefix='CROSSBOW')

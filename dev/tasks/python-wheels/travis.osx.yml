@@ -19,39 +19,22 @@ language: generic
 os: osx
 osx_image: xcode8.3
 
-sudo: required
-
 env:
   global:
     - PLAT=x86_64
-    - TRAVIS_TAG={{ job.branch }}
+    - TRAVIS_TAG={{ task.tag }}
     - BUILD_REF={{ arrow.head }}
     - PYARROW_VERSION={{ arrow.version }}
-
-matrix:
-  exclude:
-    - python: 3.5
-  include:
-    - env:
-        - MB_PYTHON_VERSION=2.7
-        - NP_BUILD_DEP="1.10.1"
-        - NP_TEST_DEP="1.10.1"
-        - PANDAS_DEP="0.20.3"
-    - env:
-        - MB_PYTHON_VERSION=3.5
-        - NP_BUILD_DEP="1.10.1"
-        - NP_TEST_DEP="1.10.1"
-        - PANDAS_DEP="0.20.3"
-    - env:
-        - MB_PYTHON_VERSION=3.6
-        - NP_BUILD_DEP="1.11.3"
-        - NP_TEST_DEP="1.11.3"
-        - PANDAS_DEP="0.20.3"
+    - MACOSX_DEPLOYMENT_TARGET="10.9"
+    - MB_PYTHON_VERSION={{ python_version }}
+    - NP_BUILD_DEP="{{ numpy_version }}"
+    - NP_TEST_DEP="{{ numpy_version }}"
+    - PANDAS_DEP="{{ pandas_version }}"
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}  
+  - git -C arrow checkout {{ arrow.head }}
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal

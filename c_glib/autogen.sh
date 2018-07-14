@@ -23,4 +23,4 @@ set -e
 mkdir -p m4
 
 gtkdocize --copy
-autoreconf --install
+autoreconf --install --force
