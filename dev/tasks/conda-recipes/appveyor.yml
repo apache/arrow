@@ -17,37 +17,31 @@
 
 environment:
   ARROW_VERSION: {{ arrow.version }}
-  matrix:
-    - CONFIG: variants\win_c_compilervs2015cxx_compilervs2015python3.5.yaml
-      CONDA_INSTALL_LOCN: C:\\Miniconda35-x64
-
-    - CONFIG: variants\win_c_compilervs2015cxx_compilervs2015python3.6.yaml
-      CONDA_INSTALL_LOCN: C:\\Miniconda36-x64
 
 # We always use a 64-bit machine, but can build x86 distributions
 # with the TARGET_ARCH variable.
 platform:
-    - x64
+  - x64
 
 install:
-    # Cywing's git breaks conda-build. (See https://github.com/conda-forge/conda-smithy-feedstock/pull/2.)
-    - cmd: rmdir C:\cygwin /s /q
+  # Cywing's git breaks conda-build. (See https://github.com/conda-forge/conda-smithy-feedstock/pull/2.)
+  - cmd: rmdir C:\cygwin /s /q
 
-    # Add path, activate `conda` and update conda.
-    - cmd: call %CONDA_INSTALL_LOCN%\Scripts\activate.bat
-    - cmd: conda.exe update --yes --quiet conda
+  # Add path, activate `conda` and update conda.
+  - cmd: call {{ conda_install_location }}\Scripts\activate.bat
+  - cmd: conda.exe update --yes --quiet conda
 
-    - cmd: set PYTHONUNBUFFERED=1
+  - cmd: set PYTHONUNBUFFERED=1
 
-    # Add our channels.
-    - cmd: conda.exe config --set show_channel_urls true
-    - cmd: conda.exe config --remove channels defaults
-    - cmd: conda.exe config --add channels defaults
-    - cmd: conda.exe config --add channels conda-forge
+  # Add our channels.
+  - cmd: conda.exe config --set show_channel_urls true
+  - cmd: conda.exe config --remove channels defaults
+  - cmd: conda.exe config --add channels defaults
+  - cmd: conda.exe config --add channels conda-forge
 
-    # Configure the VM.
-    - cmd: conda.exe install -n root --quiet --yes conda-forge-ci-setup=1
-    - cmd: run_conda_forge_build_setup
+  # Configure the VM.
+  - cmd: conda.exe install -n root --quiet --yes conda-forge-ci-setup=1
+  - cmd: run_conda_forge_build_setup
 
 # Skip .NET project specific build phase.
 build: off
@@ -56,7 +50,7 @@ test_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
   - git -C arrow checkout {{ arrow.head }} || exit /B
   - pushd arrow\dev\tasks\conda-recipes
-  - conda.exe build --output-folder . -m %CONFIG% parquet-cpp arrow-cpp pyarrow
+  - conda.exe build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
   - pushd win-64
   - for %%f in (*.tar.bz2) do (
       set %%g=%%~nf
@@ -68,7 +62,7 @@ artifacts:
   - path: arrow\dev\tasks\conda-recipes\win-64\*.tar.bz2
 
 deploy:
-  release: {{ job.branch }}
+  release: {{ task.tag }}
   provider: GitHub
   auth_token: "%CROSSBOW_GITHUB_TOKEN%"
   artifact: /.*\.tar\.bz2/

@@ -23,54 +23,9 @@ language: ruby
 env:
   global:
     - PLAT=x86_64
-    - TRAVIS_TAG={{ job.branch }}
+    - TRAVIS_TAG={{ task.tag }}
     - BUILD_REF={{ arrow.head }}
     - ARROW_VERSION={{ arrow.version }}
-
-matrix:
-  include:
-    - script:
-        - pushd arrow/dev/tasks/linux-packages
-        - |
-          rake version:update && travis_wait 60 rake apt:build \
-              APT_TARGETS=debian-stretch,ubuntu-trusty,ubuntu-xenial \
-              PARALLEL=yes \
-              DEBUG=no
-      deploy:
-        provider: releases
-        api_key: $CROSSBOW_GITHUB_TOKEN
-        file_glob: true
-        file: "**/*.deb"
-        skip_cleanup: true
-        on:
-          tags: true
-    - script:
-        - pushd arrow/dev/tasks/linux-packages
-        - |
-          rake version:update && travis_wait 60 rake apt:build \
-              APT_TARGETS=ubuntu-artful,ubuntu-bionic \
-              PARALLEL=yes \
-              DEBUG=no
-      # TODO(kszucs) resolve artifact naming conflict with other debian pkgs
-      # deploy:
-      #   provider: releases
-      #   api_key: $CROSSBOW_GITHUB_TOKEN
-      #   file_glob: true
-      #   file: "**/*.deb"
-      #   skip_cleanup: true
-      #   on:
-      #     tags: true
-    - script:
-        - pushd arrow/dev/tasks/linux-packages
-        - rake version:update && rake yum:build PARALLEL=yes DEBUG=no
-      deploy:
-        provider: releases
-        api_key: $CROSSBOW_GITHUB_TOKEN
-        file_glob: true
-        file: "**/*.rpm"
-        skip_cleanup: true
-        on:
-          tags: true
 
 before_install:
   - sudo apt update -y -qq
@@ -98,6 +53,21 @@ before_install:
 before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
+
+script:
+  - pushd arrow/dev/tasks/linux-packages
+  - rake version:update
+  - rake dist
+  - {{ build_command }}
+
+deploy:
+  provider: releases
+  api_key: $CROSSBOW_GITHUB_TOKEN
+  file_glob: true
+  file: "**/*.{{ package_format }}"
+  skip_cleanup: true
+  on:
+    tags: true
 
 notifications:
   email:

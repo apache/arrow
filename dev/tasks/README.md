@@ -85,7 +85,7 @@ submission. The tasks are defined in `tasks.yml`
 
    ```bash
    # pygit2 requires libgit2: http://www.pygit2.org/install.html
-   pip install -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
+   pip install jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
    ```
 
 7. Try running it:
@@ -127,7 +127,7 @@ The script does the following:
    to build conda recipes on linux it will create a new branch:
    `crossbow@build-<id>-conda-linux`.
 3. Pushes the modified branches to GitHub which triggers the builds.
-   For authentication it uses github oauth tokens described in the install
+   For authentication it uses GitHub OAuth tokens described in the install
    section.
 
 
@@ -150,14 +150,14 @@ The script accepts a pattern as a first argument to narrow the build scope:
 Run multiple builds:
 
 ```bash
-$ python crossbow.py submit linux-packages conda-linux wheel-win
+$ python crossbow.py submit debian-stretch conda-linux-py36 wheel-win-py36
 Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
- - linux-packages
- - conda-linux
- - wheel-win
+ - debian-stretch
+ - conda-linux-py36
+ - wheel-win-py36
 ```
 
 Just render without applying or committing the changes:
@@ -166,14 +166,14 @@ Just render without applying or committing the changes:
 $ python crossbow.py submit --dry-run task_name
 ```
 
-Run only `conda` package builds but on all platforms:
+Run only `conda` package builds and a Linux one:
 
 ```bash
-$ python crossbow.py submit conda-win conda-osx conda-linux
+$ python crossbow.py submit -g conda centos-7
 ```
 
 Run `wheel` builds:
 
 ```bash
-$ python crossbow.py submit wheel-osx wheel-linux wheel-win
+$ python crossbow.py submit --group wheel
 ```

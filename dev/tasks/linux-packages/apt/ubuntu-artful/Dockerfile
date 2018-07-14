@@ -38,9 +38,12 @@ RUN \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libjemalloc-dev \
+    libprotobuf-dev \
+    libprotoc-dev \
     lsb-release \
     nvidia-cuda-toolkit \
     pkg-config \
+    protobuf-compiler \
     python3-dev \
     python3-numpy && \
   apt clean && \
