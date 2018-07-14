@@ -127,7 +127,7 @@ The script does the following:
    to build conda recipes on linux it will create a new branch:
    `crossbow@build-<id>-conda-linux`.
 3. Pushes the modified branches to GitHub which triggers the builds.
-   For authentication it uses github oauth tokens described in the install
+   For authentication it uses GitHub OAuth tokens described in the install
    section.
 
 
@@ -166,7 +166,7 @@ Just render without applying or committing the changes:
 $ python crossbow.py submit --dry-run task_name
 ```
 
-Run only `conda` package builds and a linux one:
+Run only `conda` package builds and a Linux one:
 
 ```bash
 $ python crossbow.py submit -g conda centos-7
