@@ -361,7 +361,7 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 
 @click.group()
 @click.option('--github-token', '-t', default=None,
-              help='OAuth token for Github authentication')
+              help='OAuth token for GitHub authentication')
 @click.option('--arrow-path', '-a',
               type=click.Path(exists=True), default=DEFAULT_ARROW_PATH,
               help='Arrow\'s repository path. Defaults to the repository of '
