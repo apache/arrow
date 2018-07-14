@@ -150,12 +150,12 @@ The script accepts a pattern as a first argument to narrow the build scope:
 Run multiple builds:
 
 ```bash
-$ python crossbow.py submit linux-packages conda-linux wheel-win
+$ python crossbow.py submit debian-stretch conda-linux wheel-win
 Repository: https://github.com/kszucs/arrow@tasks
 Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
 Version: 0.9.1.dev48+g810a7188.d20180414
 Pushed branches:
- - linux-packages
+ - debian-stretch
  - conda-linux
  - wheel-win
 ```
