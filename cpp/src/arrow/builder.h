@@ -112,6 +112,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// this function responsibly.
   Status Advance(int64_t elements);
 
+  ARROW_DEPRECATED("Use Finish instead")
+  std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
+
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
   ///
@@ -212,6 +215,9 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }
+
+  ARROW_DEPRECATED("Use Finish instread")
+  std::shared_ptr<Buffer> data() const { return data_; }
 
   const value_type GetValue(int64_t index) const {
     return reinterpret_cast<const value_type*>(data_->data())[index];
@@ -358,6 +364,9 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }
+
+  ARROW_DEPRECATED("Use Finish instread")
+  std::shared_ptr<Buffer> data() const { return data_; }
 
   Status Init(int64_t capacity) override;
   void Reset() override;
@@ -572,6 +581,9 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
     return Status::OK();
   }
+
+  ARROW_DEPRECATED("Use Finish instread")
+  std::shared_ptr<Buffer> data() const { return data_; }
 
   /// Scalar append
   Status Append(const bool val) {
