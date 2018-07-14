@@ -376,7 +376,7 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
         raise click.ClickException(
             'Could not determine GitHub token. Please set the '
             'CROSSBOW_GITHUB_TOKEN environment variable to a '
-            'valid github access token or pass one to --github-token.'
+            'valid GitHub access token or pass one to --github-token.'
         )
 
     ctx.obj['arrow'] = Repo(Path(arrow_path))
