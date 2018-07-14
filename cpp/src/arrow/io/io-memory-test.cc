@@ -84,7 +84,7 @@ TEST_F(TestBufferOutputStream, WriteAfterFinish) {
 
 TEST(TestFixedSizeBufferWriter, Basics) {
   std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), 1024, &buffer));
+  ASSERT_OK(AllocateBuffer(1024, &buffer));
 
   FixedSizeBufferWriter writer(buffer);
 

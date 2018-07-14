@@ -703,7 +703,7 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Buffer> data, is_valid;
   std::vector<uint8_t> is_valid_bytes(length);
 
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), kDecimalSize * length, &data));
+  RETURN_NOT_OK(AllocateBuffer(kDecimalSize * length, &data));
 
   test::random_decimals(length, 1, kDecimalPrecision, data->mutable_data());
   test::random_null_bytes(length, 0.1, is_valid_bytes.data());
