@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-FROM quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+FROM quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-2850
 
 ADD arrow /arrow
 WORKDIR /arrow/cpp
@@ -29,5 +29,5 @@ RUN /check_arrow_visibility.sh
 WORKDIR /
 RUN git clone https://github.com/apache/parquet-cpp.git
 WORKDIR /parquet-cpp
-RUN ARROW_HOME=/arrow-dist cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DPARQUET_BUILD_TESTS=OFF -DPARQUET_BUILD_SHARED=ON -DPARQUET_BUILD_STATIC=OFF -DPARQUET_BOOST_USE_SHARED=ON -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist -GNinja .
+RUN ARROW_HOME=/arrow-dist cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DPARQUET_BUILD_TESTS=OFF -DPARQUET_BUILD_SHARED=ON -DPARQUET_BUILD_STATIC=OFF -DPARQUET_BOOST_USE_SHARED=ON -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist -DPARQUET_RPATH_ORIGIN=ON -GNinja .
 RUN ninja install
