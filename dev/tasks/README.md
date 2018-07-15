@@ -77,7 +77,12 @@ submission. The tasks are defined in `tasks.yml`
 
    > or pass as an argument to the CLI script `--github-token`
 
-6. Install the python dependencies for the script:
+6. Install Python 3.6:
+
+   Miniconda is preferred, see installation instructions:
+   https://conda.io/docs/user-guide/install/index.html
+
+7. Install the python dependencies for the script:
 
    ```bash
    conda install -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
@@ -88,7 +93,7 @@ submission. The tasks are defined in `tasks.yml`
    pip install jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
    ```
 
-7. Try running it:
+8. Try running it:
    ```bash
    $ python crossbow.py --help
    ```
