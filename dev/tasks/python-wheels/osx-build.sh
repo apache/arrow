@@ -195,28 +195,17 @@ function build_wheel {
     popd
 }
 
-function test_wheel {
-    # Do a test installation of the built wheel and change into another
-    # directory to ensure our import tests later on pick up the wheel and
-    # not the binaries from the build directory.
+function run_tests {
+    # Runs tests on installed distribution from an empty directory
+    python --version
 
-    pushd $1
-    echo `pwd`
-
-    pushd python
-
-    for wheel in dist/*.whl; do
-      pip install "$wheel"
-    done
-
-    mkdir -p tmp
-    pushd tmp
+    # Test optional dependencies
     python -c "import pyarrow"
     python -c "import pyarrow.orc"
     python -c "import pyarrow.parquet"
     python -c "import pyarrow.plasma"
 
-    pip install -r ../requirements.txt
+    pip install pytest
     py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow
 
     popd
