@@ -88,30 +88,21 @@ def test_long_array_format():
 
 
 def test_to_numpy_zero_copy():
-    import gc
-
     arr = pa.array(range(10))
+    old_refcount = sys.getrefcount(arr)
 
-    for i in range(10):
-        np_arr = arr.to_numpy()
-        assert sys.getrefcount(np_arr) == 2
-        np_arr = None  # noqa
+    np_arr = arr.to_numpy()
+    np_arr[0] = 1
+    assert arr[0] == 1
 
-    assert sys.getrefcount(arr) == 2
+    assert sys.getrefcount(arr) == old_refcount
 
-    for i in range(10):
-        arr = pa.array(range(10))
-        np_arr = arr.to_numpy()
-        arr = None
-        gc.collect()
+    arr = None
+    import gc
+    gc.collect()
 
-        # Ensure base is still valid
-
-        # Because of py.test's assert inspection magic, if you put getrefcount
-        # on the line being examined, it will be 1 higher than you expect
-        base_refcount = sys.getrefcount(np_arr.base)
-        assert base_refcount == 2
-        np_arr.sum()
+    # Ensure base is still valid
+    assert np_arr.base is not None
 
 
 def test_to_pandas_zero_copy():
@@ -655,10 +646,10 @@ def test_array_pickle(data, typ):
 def test_to_numpy_roundtrip(narr):
     arr = pa.array(narr)
     assert narr.dtype == arr.to_numpy().dtype
-    assert np.array_equal(narr, arr.to_numpy())
-    assert np.array_equal(narr[:6], arr[:6].to_numpy())
-    assert np.array_equal(narr[2:], arr[2:].to_numpy())
-    assert np.array_equal(narr[2:6], arr[2:6].to_numpy())
+    np.testing.assert_array_equal(narr, arr.to_numpy())
+    np.testing.assert_array_equal(narr[:6], arr[:6].to_numpy())
+    np.testing.assert_array_equal(narr[2:], arr[2:].to_numpy())
+    np.testing.assert_array_equal(narr[2:6], arr[2:6].to_numpy())
 
 
 @pytest.mark.parametrize(
