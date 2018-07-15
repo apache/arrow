@@ -164,6 +164,9 @@ impl From<Bytes> for Buffer<u8> {
     }
 }
 
+unsafe impl<T: ArrowPrimitiveType> Sync for Buffer<T> {}
+unsafe impl<T: ArrowPrimitiveType> Send for Buffer<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
