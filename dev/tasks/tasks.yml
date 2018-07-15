@@ -32,6 +32,11 @@ groups:
     - wheel-linux-cp27mu
     - wheel-linux-cp35m
     - wheel-linux-cp36m
+    - wheel-osx-cp27m
+    - wheel-osx-cp35m
+    - wheel-osx-cp36m
+    - wheel-win-cp35m
+    - wheel-win-cp36m
   linux:
     - debian-stretch
     - ubuntu-trusty

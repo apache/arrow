@@ -469,7 +469,7 @@ def status(ctx, job_name):
     job = queue.get(job_name)
     statuses = queue.github_statuses(job)
 
-    for task_name, task in job.tasks.items():
+    for task_name, task in sorted(job.tasks.items()):
         status = statuses[task_name]
         assets = queue.github_assets(task)
 
@@ -518,7 +518,7 @@ def sign(ctx, job_name, gpg_homedir, target_dir):
     click.echo('Download {}\'s artifacts to {}'.format(job_name, target_dir))
 
     tpl = '{:<10} {:>68}'
-    for task_name, task in job.tasks.items():
+    for task_name, task in sorted(job.tasks.items()):
         assets = queue.github_assets(task)
         artifact_dir = target_dir / task_name
         artifact_dir.mkdir(exist_ok=True)

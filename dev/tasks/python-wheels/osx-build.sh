@@ -191,18 +191,35 @@ function build_wheel {
            --bundle-arrow-cpp --bundle-boost --boost-namespace=arrow_boost \
            bdist_wheel
     ls -l dist/
+    popd
+    popd
+}
 
+function test_wheel {
     # Do a test installation of the built wheel and change into another
     # directory to ensure our import tests later on pick up the wheel and
     # not the binaries from the build directory.
+
+    pushd $1
+    echo `pwd`
+
+    pushd python
+
     for wheel in dist/*.whl; do
       pip install "$wheel"
     done
+
     mkdir -p tmp
     pushd tmp
     python -c "import pyarrow"
+    python -c "import pyarrow.orc"
     python -c "import pyarrow.parquet"
+    python -c "import pyarrow.plasma"
     popd
     popd
+
+    pip install -r requirements.txt
+    py.test -v -r sxX --durations=15 --parquet pyarrow
+
     popd
 }
