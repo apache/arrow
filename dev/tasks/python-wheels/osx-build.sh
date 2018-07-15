@@ -215,10 +215,10 @@ function test_wheel {
     python -c "import pyarrow.orc"
     python -c "import pyarrow.parquet"
     python -c "import pyarrow.plasma"
-    popd
 
     pip install -r requirements.txt
-    py.test -v -r sxX --durations=15 --parquet pyarrow
+    py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow
 
+    popd
     popd
 }
