@@ -216,7 +216,6 @@ function test_wheel {
     python -c "import pyarrow.parquet"
     python -c "import pyarrow.plasma"
     popd
-    popd
 
     pip install -r requirements.txt
     py.test -v -r sxX --durations=15 --parquet pyarrow
