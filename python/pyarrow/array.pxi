@@ -17,25 +17,29 @@
 
 
 cdef _sequence_to_array(object sequence, object size, DataType type,
-                        CMemoryPool* pool):
+                        CMemoryPool* pool, c_bool from_pandas):
     cdef shared_ptr[CArray] out
     cdef int64_t c_size
     if type is None:
         if size is None:
             with nogil:
-                check_status(ConvertPySequence(sequence, pool, &out))
+                check_status(
+                    ConvertPySequence(sequence, pool, from_pandas, &out)
+                )
         else:
             c_size = size
             with nogil:
                 check_status(
-                    ConvertPySequence(sequence, c_size, pool, &out)
+                    ConvertPySequence(
+                        sequence, c_size, pool, from_pandas, &out
+                    )
                 )
     else:
         if size is None:
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, type.sp_type, pool, &out,
+                        sequence, type.sp_type, pool, from_pandas, &out,
                     )
                 )
         else:
@@ -43,7 +47,8 @@ cdef _sequence_to_array(object sequence, object size, DataType type,
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, c_size, type.sp_type, pool, &out,
+                        sequence, c_size, type.sp_type, pool, from_pandas,
+                        &out,
                     )
                 )
 
@@ -178,7 +183,7 @@ def array(object obj, type=None, mask=None,
     else:
         if mask is not None:
             raise ValueError("Masks only supported with ndarray-like inputs")
-        return _sequence_to_array(obj, size, type, pool)
+        return _sequence_to_array(obj, size, type, pool, from_pandas)
 
 
 def asarray(values, type=None):

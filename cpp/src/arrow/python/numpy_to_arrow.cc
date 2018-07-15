@@ -1273,7 +1273,8 @@ inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>&
         ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
         return Status::TypeError(ss.str());
       }
-      return AppendPySequence(object, size, type, value_builder);
+      return AppendPySequence(object, size, type, value_builder,
+                              use_pandas_null_sentinels_);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -1368,7 +1369,8 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
         ss << inferred_type->ToString() << " cannot be converted to BINARY.";
         return Status::TypeError(ss.str());
       }
-      return AppendPySequence(object, size, type, value_builder);
+      return AppendPySequence(object, size, type, value_builder,
+                              use_pandas_null_sentinels_);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -1425,7 +1427,8 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
         return Status::TypeError(ss.str());
       }
-      return AppendPySequence(object, size, type, value_builder);
+      return AppendPySequence(object, size, type, value_builder,
+                              use_pandas_null_sentinels_);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }

@@ -198,6 +198,21 @@ Arrays can be sliced without copying:
 
    arr[1:3]
 
+None values and NAN handling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As mentioned in the above section, the Python object ``None`` is always
+converted to an Arrow null element on the conversion to ``pyarrow.Array``. For
+the float NaN value which is either represented by the Python object
+``float('nan')`` or ``numpy.nan`` we normally convert it to a *valid* float
+value during the conversion. If an integer input is supplied to
+``pyarrow.array`` that contains ``np.nan``, ``ValueError`` is raised.
+
+To handle better compability with Pandas, we support interpreting NaN values as
+null elements. This is enabled automatically on all ``from_pandas`` function and
+can be enable on the other conversion functions by passing ``from_pandas=True``
+as a function parameter.
+
 List arrays
 ~~~~~~~~~~~
 
