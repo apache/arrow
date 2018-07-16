@@ -199,7 +199,9 @@ function build_wheel {
 
 # overrides multibuild's default install_run
 function install_run {
-    pushd $1
+    multibuild_dir=`realpath $MULTIBUILD_DIR`
+
+    pushd $1  # enter arrow's directory
 
     wheelhouse="$PWD/python/dist"
 
@@ -209,7 +211,7 @@ function install_run {
     fi
     # Install compatible wheel
     pip install $(pip_opts) $@ \
-        $(python $MULTIBUILD_DIR/supported_wheels.py $wheelhouse/*.whl)
+        $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
 
     # Runs tests on installed distribution from an empty directory
     python --version
