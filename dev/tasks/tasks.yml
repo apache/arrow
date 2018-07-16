@@ -32,6 +32,11 @@ groups:
     - wheel-linux-cp27mu
     - wheel-linux-cp35m
     - wheel-linux-cp36m
+    - wheel-osx-cp27m
+    - wheel-osx-cp35m
+    - wheel-osx-cp36m
+    - wheel-win-cp35m
+    - wheel-win-cp36m
   linux:
     - debian-stretch
     - ubuntu-trusty
@@ -120,7 +125,6 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.yml
     params:
-      conda_install_location: C:\\Miniconda35-x64
       variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.5.yaml
     artifacts:
       - arrow-cpp-{version}-py35_vc14_0.tar.bz2
@@ -131,7 +135,6 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.yml
     params:
-      conda_install_location: C:\\Miniconda36-x64
       variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.6.yaml
     artifacts:
       - arrow-cpp-{version}-py36_vc14_0.tar.bz2
@@ -178,7 +181,8 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.10.1
+      numpy_build_version: 1.10.4
+      numpy_test_version: 1.14.0
       pandas_version: 0.20.3
       python_version: 2.7
     artifacts:
@@ -188,7 +192,8 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.10.1
+      numpy_build_version: 1.10.4
+      numpy_test_version: 1.14.0
       pandas_version: 0.20.3
       python_version: 3.5
     artifacts:
@@ -198,7 +203,8 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.11.3
+      numpy_build_version: 1.11.3
+      numpy_test_version: 1.14.0
       pandas_version: 0.20.3
       python_version: 3.6
     artifacts:

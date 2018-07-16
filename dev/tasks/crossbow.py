@@ -65,7 +65,7 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
             return None
 
 
-class Repo(object):
+class Repo:
     """Base class for interaction with local git repositories
 
     A high level wrapper used for both reading revision information from
@@ -247,7 +247,7 @@ class Queue(Repo):
                                      content_type=content_type)
 
 
-class Target(object):
+class Target:
     """Describes target repository and revision the builds run against
 
     This serializable data container holding information about arrow's
@@ -273,7 +273,7 @@ class Target(object):
                    version=version)
 
 
-class Task(object):
+class Task:
     """Describes a build task and metadata required to render CI templates
 
     A task is represented as a single git commit and branch containing jinja2
@@ -318,7 +318,7 @@ class Task(object):
             return '.travis.yml'
 
 
-class Job(object):
+class Job:
     """Describes multiple tasks against a single target repository"""
 
     def __init__(self, target, tasks):
@@ -469,7 +469,7 @@ def status(ctx, job_name):
     job = queue.get(job_name)
     statuses = queue.github_statuses(job)
 
-    for task_name, task in job.tasks.items():
+    for task_name, task in sorted(job.tasks.items()):
         status = statuses[task_name]
         assets = queue.github_assets(task)
 
@@ -518,7 +518,7 @@ def sign(ctx, job_name, gpg_homedir, target_dir):
     click.echo('Download {}\'s artifacts to {}'.format(job_name, target_dir))
 
     tpl = '{:<10} {:>68}'
-    for task_name, task in job.tasks.items():
+    for task_name, task in sorted(job.tasks.items()):
         assets = queue.github_assets(task)
         artifact_dir = target_dir / task_name
         artifact_dir.mkdir(exist_ok=True)
