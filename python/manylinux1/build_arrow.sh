@@ -96,7 +96,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     # The TensorFlow test will be skipped here, since TensorFlow is not
     # manylinux1 compatible; however, the wheels will support TensorFlow on
     # a TensorFlow compatible system
-    py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow -m "not use_tensorflow"
+    py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow
     deactivate
 
     mv repaired_wheels/*.whl /io/dist
