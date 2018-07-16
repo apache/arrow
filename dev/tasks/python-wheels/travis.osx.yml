@@ -27,8 +27,8 @@ env:
     - PYARROW_VERSION={{ arrow.version }}
     - MACOSX_DEPLOYMENT_TARGET="10.9"
     - MB_PYTHON_VERSION={{ python_version }}
-    - NP_BUILD_DEP="{{ numpy_version }}"
-    - NP_TEST_DEP="{{ numpy_version }}"
+    - NP_BUILD_DEP="{{ numpy_build_version }}"
+    - NP_TEST_DEP="{{ numpy_test_version }}"
     - PANDAS_DEP="{{ pandas_version }}"
 
 before_install:
@@ -53,8 +53,15 @@ install:
   - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
 
   - mkdir -p dist
+
+  # multibuild's default clean_code function
   - clean_code arrow $BUILD_REF
-  - build_wheel arrow $PLAT
+
+  # the following functions are defined in osx-build.sh
+  - build_wheel arrow
+  - install_run arrow
+
+  # move built wheels to a top level directory
   - mv -v arrow/python/dist/* dist/
 
 deploy:

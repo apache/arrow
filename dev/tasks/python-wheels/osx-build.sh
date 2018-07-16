@@ -19,6 +19,7 @@
 
 set -e
 
+# overrides multibuild's default build_wheel
 function build_wheel {
     pip install -U pip
     pip install setuptools_scm
@@ -191,18 +192,39 @@ function build_wheel {
            --bundle-arrow-cpp --bundle-boost --boost-namespace=arrow_boost \
            bdist_wheel
     ls -l dist/
+    popd
 
-    # Do a test installation of the built wheel and change into another
-    # directory to ensure our import tests later on pick up the wheel and
-    # not the binaries from the build directory.
-    for wheel in dist/*.whl; do
-      pip install "$wheel"
-    done
-    mkdir -p tmp
-    pushd tmp
+    popd
+}
+
+# overrides multibuild's default install_run
+function install_run {
+    multibuild_dir=`realpath $MULTIBUILD_DIR`
+
+    pushd $1  # enter arrow's directory
+
+    wheelhouse="$PWD/python/dist"
+
+    # Install test dependencies and built wheel
+    if [ -n "$TEST_DEPENDS" ]; then
+        pip install $(pip_opts) $TEST_DEPENDS
+    fi
+    # Install compatible wheel
+    pip install $(pip_opts) \
+        $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
+
+    # Runs tests on installed distribution from an empty directory
+    python --version
+
+    # Test optional dependencies
     python -c "import pyarrow"
+    python -c "import pyarrow.orc"
     python -c "import pyarrow.parquet"
-    popd
-    popd
+    python -c "import pyarrow.plasma"
+
+    # Run pyarrow tests
+    pip install pytest pytest-faulthandler
+    py.test --pyargs pyarrow
+
     popd
 }

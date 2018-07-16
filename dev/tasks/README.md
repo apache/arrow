@@ -60,6 +60,9 @@ submission. The tasks are defined in `tasks.yml`
    repository](https://help.github.com/articles/creating-a-new-repository)
 2. Enable [TravisCI](https://travis-ci.org/getting_started) and
    [Appveyor](https://www.appveyor.com/docs/) integrations on it
+
+   - turn off Travis' [auto cancellation](https://docs.travis-ci.com/user/customizing-the-build/#Building-only-the-latest-commit) feature on branches
+
 3. Clone the newly created, by default the scripts looks for `crossbow` next to
    arrow repository.
 
@@ -77,7 +80,12 @@ submission. The tasks are defined in `tasks.yml`
 
    > or pass as an argument to the CLI script `--github-token`
 
-6. Install the python dependencies for the script:
+6. Install Python 3.6:
+
+   Miniconda is preferred, see installation instructions:
+   https://conda.io/docs/user-guide/install/index.html
+
+7. Install the python dependencies for the script:
 
    ```bash
    conda install -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
@@ -88,7 +96,7 @@ submission. The tasks are defined in `tasks.yml`
    pip install jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
    ```
 
-7. Try running it:
+8. Try running it:
    ```bash
    $ python crossbow.py --help
    ```

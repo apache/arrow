@@ -17,6 +17,8 @@
 
 environment:
   ARROW_VERSION: {{ arrow.version }}
+  # regardless of the python version we build against
+  CONDA_INSTALL_LOCN: C:\Miniconda36-x64
 
 # We always use a 64-bit machine, but can build x86 distributions
 # with the TARGET_ARCH variable.
@@ -28,7 +30,7 @@ install:
   - cmd: rmdir C:\cygwin /s /q
 
   # Add path, activate `conda` and update conda.
-  - cmd: call {{ conda_install_location }}\Scripts\activate.bat
+  - cmd: call %CONDA_INSTALL_LOCN%\Scripts\activate.bat
   - cmd: conda.exe update --yes --quiet conda
 
   - cmd: set PYTHONUNBUFFERED=1
