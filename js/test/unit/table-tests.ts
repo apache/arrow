@@ -86,13 +86,20 @@ describe(`Table`, () => {
             });
             test(`gets expected values`, () => {
                 for (let i = -1; ++i < values.length;) {
-                    expect(table.get(i).toArray()).toEqual(values[i]);
+                    const row = table.get(i);
+                    const expected = values[i];
+                    expect(row.f32).toEqual(expected[F32]);
+                    expect(row.i32).toEqual(expected[I32]);
+                    expect(row.dictionary).toEqual(expected[DICT]);
                 }
             });
             test(`iterates expected values`, () => {
                 let i = 0;
                 for (let row of table) {
-                    expect(row.toArray()).toEqual(values[i++]);
+                    const expected = values[i++];
+                    expect(row.f32).toEqual(expected[F32]);
+                    expect(row.i32).toEqual(expected[I32]);
+                    expect(row.dictionary).toEqual(expected[DICT]);
                 }
             });
             describe(`scan()`, () => {
@@ -252,8 +259,8 @@ describe(`Table`, () => {
                 let idx = 0, expected_row;
                 for (let row of selected) {
                     expected_row = values[idx++];
-                    expect(row.get(0)).toEqual(expected_row[F32]);
-                    expect(row.get(1)).toEqual(expected_row[DICT]);
+                    expect(row.f32).toEqual(expected_row[F32]);
+                    expect(row.dictionary).toEqual(expected_row[DICT]);
                 }
             });
             test(`table.toString()`, () => {

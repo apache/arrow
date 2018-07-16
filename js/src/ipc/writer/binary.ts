@@ -82,7 +82,7 @@ export function* serializeFile(table: Table) {
     // Then yield the footer metadata (not aligned)
     ({ metadataLength, buffer } = serializeFooter(new Footer(dictionaryBatches, recordBatches, table.schema)));
     yield buffer;
-    
+
     // Last, yield the footer length + terminating magic arrow string (aligned)
     buffer = new Uint8Array(magicAndPadding);
     new DataView(buffer.buffer).setInt32(0, metadataLength, platformIsLittleEndian);
