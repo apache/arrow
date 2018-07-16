@@ -222,6 +222,7 @@ matrix:
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   # Go
   - language: go
+    go_import_path: github.com/apache/arrow
     os: linux
     go:
     - 1.10.x
