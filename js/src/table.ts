@@ -111,6 +111,7 @@ export class Table implements DataFrame {
         this.length = this.batchesUnion.length;
         this.numCols = this.batchesUnion.numCols;
     }
+
     public get(index: number): Struct['TValue'] {
         return this.batchesUnion.get(index)!;
     }
