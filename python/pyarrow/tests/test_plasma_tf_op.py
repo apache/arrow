@@ -82,6 +82,7 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
     assert np.array_equal(ones, result1), "Data not equal!"
 
 
+@pytest.mark.use_tensorflow
 @pytest.mark.plasma
 def test_plasma_tf_op(use_gpu=False):
     import pyarrow.plasma as plasma
