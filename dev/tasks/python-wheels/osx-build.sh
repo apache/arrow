@@ -224,7 +224,7 @@ function install_run {
 
     # Run pyarrow tests
     pip install pytest pytest-faulthandler
-    py.test --pyargs pyarrow --parquet
+    py.test --pyargs pyarrow
 
     popd
 }
