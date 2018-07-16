@@ -181,7 +181,8 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.10.1
+      numpy_build_version: 1.10.4
+      numpy_test_version: 1.14.0
       pandas_version: 0.20.3
       python_version: 2.7
     artifacts:
@@ -191,7 +192,8 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.10.1
+      numpy_build_version: 1.10.4
+      numpy_test_version: 1.14.0
       pandas_version: 0.20.3
       python_version: 3.5
     artifacts:
@@ -201,7 +203,8 @@ tasks:
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
-      numpy_version: 1.11.3
+      numpy_build_version: 1.11.3
+      numpy_test_version: 1.14.0
       pandas_version: 0.20.3
       python_version: 3.6
     artifacts:
