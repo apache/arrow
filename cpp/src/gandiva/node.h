@@ -33,6 +33,8 @@ class Node {
  public:
   explicit Node(DataTypePtr return_type) : return_type_(return_type) {}
 
+  virtual ~Node() = default;
+
   const DataTypePtr &return_type() const { return return_type_; }
 
   /// Derived classes should simply invoke the Visit api of the visitor.
