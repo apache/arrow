@@ -201,7 +201,7 @@ function build_wheel {
 function install_run {
     pushd $1
 
-    wheelhouse = "$PWD/python/dist"
+    wheelhouse="$PWD/python/dist"
 
     # Install test dependencies and built wheel
     if [ -n "$TEST_DEPENDS" ]; then

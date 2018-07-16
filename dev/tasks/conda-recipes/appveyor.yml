@@ -17,7 +17,7 @@
 
 environment:
   ARROW_VERSION: {{ arrow.version }}
-  # regardless the python version we build against
+  # regardless of the python version we build against
   CONDA_INSTALL_LOCN: C:\Miniconda36-x64
 
 # We always use a 64-bit machine, but can build x86 distributions
