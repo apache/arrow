@@ -40,9 +40,9 @@ public class ArrowStreamReader extends ArrowReader {
   private MessageChannelReader messageReader;
 
   /**
-   * Constructs a streaming reader using the MessageReader interface. Non-blocking.
+   * Constructs a streaming reader using a MessageChannelReader. Non-blocking.
    *
-   * @param messageReader interface to get read messages
+   * @param messageReader reader used to get messages from a ReadChannel
    * @param allocator to allocate new buffers
    */
   public ArrowStreamReader(MessageChannelReader messageReader, BufferAllocator allocator) {
