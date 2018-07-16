@@ -207,10 +207,10 @@ function install_run {
 
     # Install test dependencies and built wheel
     if [ -n "$TEST_DEPENDS" ]; then
-        pip install $(pip_opts) $@ $TEST_DEPENDS
+        pip install $(pip_opts) $TEST_DEPENDS
     fi
     # Install compatible wheel
-    pip install $(pip_opts) $@ \
+    pip install $(pip_opts) \
         $(python $multibuild_dir/supported_wheels.py $wheelhouse/*.whl)
 
     # Runs tests on installed distribution from an empty directory
