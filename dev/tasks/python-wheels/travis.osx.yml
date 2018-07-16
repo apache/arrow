@@ -54,8 +54,8 @@ install:
 
   - mkdir -p dist
   - clean_code arrow $BUILD_REF
-  - build_wheel arrow $PLAT
-  - install_run $PLAT
+  - build_wheel arrow
+  - install_run arrow
   - mv -v arrow/python/dist/* dist/
 
 deploy:

@@ -19,6 +19,7 @@
 
 set -e
 
+# overrides multibuild's default build_wheel
 function build_wheel {
     pip install -U pip
     pip install setuptools_scm
@@ -196,7 +197,20 @@ function build_wheel {
     popd
 }
 
-function run_tests {
+# overrides multibuild's default install_run
+function install_run {
+    pushd $1
+
+    wheelhouse = "$PWD/python/dist"
+
+    # Install test dependencies and built wheel
+    if [ -n "$TEST_DEPENDS" ]; then
+        pip install $(pip_opts) $@ $TEST_DEPENDS
+    fi
+    # Install compatible wheel
+    pip install $(pip_opts) $@ \
+        $(python $MULTIBUILD_DIR/supported_wheels.py $wheelhouse/*.whl)
+
     # Runs tests on installed distribution from an empty directory
     python --version
 
@@ -209,4 +223,6 @@ function run_tests {
     # Run pyarrow tests
     pip install pytest pytest-faulthandler
     py.test --pyargs pyarrow --parquet
+
+    popd
 }
