@@ -53,9 +53,15 @@ install:
   - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
 
   - mkdir -p dist
+
+  # multibuild's default clean_code function
   - clean_code arrow $BUILD_REF
+
+  # the following functions are defined in osx-build.sh
   - build_wheel arrow
   - install_run arrow
+
+  # move built wheels to a top level directory
   - mv -v arrow/python/dist/* dist/
 
 deploy:
