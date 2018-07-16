@@ -251,7 +251,7 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
 
   BooleanBuilder builder;
   std::vector<bool> zeros(length);
-  builder.AppendValues(zeros);
+  ASSERT_OK(builder.AppendValues(zeros));
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(&builder, &result);
