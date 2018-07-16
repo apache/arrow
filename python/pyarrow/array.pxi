@@ -601,15 +601,16 @@ cdef class Array:
 
     def to_numpy(self):
         """
-        Convert to a NumPy array
+        Construct a NumPy view of this array
         """
         if self.null_count:
-            raise NotImplementedError('NumPy array conversion is only '
-                                      'supported for arrays without nulls.')
+            raise NotImplementedError('NumPy array view is only supported '
+                                      'for arrays without nulls.')
         if not is_primitive(self.type.id):
-            raise NotImplementedError('NumPy array conversion is only '
-                                      'supported for primitive types.')
+            raise NotImplementedError('NumPy array view is only supported '
+                                      'for primitive types.')
         buflist = self.buffers()
+        assert len(buflist) > 0
         return np.frombuffer(buflist[-1], dtype=self.type.to_pandas_dtype())[
             self.offset:self.offset + len(self)]
 

@@ -103,6 +103,9 @@ def test_to_numpy_zero_copy():
 
     # Ensure base is still valid
     assert np_arr.base is not None
+    expected = np.arange(10)
+    expected[0] = 1
+    np.testing.assert_array_equal(np_arr, expected)
 
 
 def test_to_pandas_zero_copy():
