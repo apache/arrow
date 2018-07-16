@@ -51,8 +51,9 @@ tasks:
   #   platform: osx|linux|win
   #   template: path of jinja2 templated yml
   #   params: optional extra parameters
-  #   artifacts: list of regex patterns needs to match expected release asset
-  #     version variable is replaced in the pattern, e.g.:
+  #   artifacts: list of regex patterns, each needs to match a single github
+  #              release asset, version variable is replaced in the pattern
+  #              e.g.:
   #     - pyarrow-{version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
 
   ############################## Conda Linux ##################################
