@@ -61,7 +61,7 @@ submission. The tasks are defined in `tasks.yml`
 2. Enable [TravisCI](https://travis-ci.org/getting_started) and
    [Appveyor](https://www.appveyor.com/docs/) integrations on it
 
-   - turn off Travis' [auto cancellation](https://docs.travis-ci.com/user/customizing-the-build/#Building-only-the-latest-commit) feature on branches:
+   - turn off Travis' [auto cancellation](https://docs.travis-ci.com/user/customizing-the-build/#Building-only-the-latest-commit) feature on branches
 
 3. Clone the newly created, by default the scripts looks for `crossbow` next to
    arrow repository.

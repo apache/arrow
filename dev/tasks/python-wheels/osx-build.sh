@@ -192,6 +192,7 @@ function build_wheel {
            bdist_wheel
     ls -l dist/
     popd
+
     popd
 }
 
@@ -205,9 +206,7 @@ function run_tests {
     python -c "import pyarrow.parquet"
     python -c "import pyarrow.plasma"
 
-    pip install pytest
-    py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow
-
-    popd
-    popd
+    # Run pyarrow tests
+    pip install pytest pytest-faulthandler
+    py.test --pyargs pyarrow --parquet
 }
