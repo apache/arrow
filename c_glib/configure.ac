@@ -177,7 +177,7 @@ AC_CONFIG_FILES([
   Makefile
   arrow-glib/Makefile
   arrow-glib/arrow-glib.pc
-  arrow-glib/arrow-glib-orc.pc
+  arrow-glib/arrow-orc-glib.pc
   arrow-glib/version.h
   arrow-gpu-glib/Makefile
   arrow-gpu-glib/arrow-gpu-glib.pc

@@ -216,7 +216,7 @@ pkgconfig.generate(filebase: meson.project_name(),
                    requires: ['gio-2.0', 'arrow'],
                    libraries: [libarrow_glib])
 if arrow_orc_dependency.found()
-  pkgconfig.generate(filebase: meson.project_name(),
+  pkgconfig.generate(filebase: 'arrow-orc-glib',
                      name: 'Apache Arrow GLib ORC',
                      description: 'ORC modules for Apache Arrow GLib',
                      version: version,

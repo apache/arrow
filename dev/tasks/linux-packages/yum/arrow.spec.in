@@ -60,7 +60,6 @@ mkdir cpp/build
 cd cpp/build
 %cmake3 .. \
   -DCMAKE_BUILD_TYPE=$build_type \
-  -DARROW_ORC=ON \
 %if %{use_python}
   -DARROW_PYTHON=ON \
   -DPythonInterp_FIND_VERSION=ON \
@@ -205,6 +204,7 @@ Libraries and header files for Apache Arrow GLib.
 %{_libdir}/libarrow-glib.a
 %{_libdir}/libarrow-glib.so
 %{_libdir}/pkgconfig/arrow-glib.pc
+%{_libdir}/pkgconfig/arrow-orc-glib.pc
 %{_libdir}/girepository-1.0/*.typelib
 %{_datadir}/arrow-glib/example/
 
