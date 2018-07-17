@@ -123,7 +123,7 @@ tasks:
       variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.5.yaml
     artifacts:
       - arrow-cpp-{version}-py35_vc14(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py35_vc14(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py35(h[a-z0-9]+)_0.tar.bz2
 
   conda-win-py36:
     platform: win
@@ -132,7 +132,7 @@ tasks:
       variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.6.yaml
     artifacts:
       - arrow-cpp-{version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Wheel Linux ##################################
 
