@@ -208,7 +208,10 @@ def import_tensorflow_extension():
             ext = os.path.join(path, "libtensorflow_framework.so")
             if os.path.exists(ext):
                 import ctypes
-                ctypes.CDLL(ext)
+                try:
+                    ctypes.CDLL(ext)
+                except OSError:
+                    pass
                 tensorflow_loaded = True
                 break
 

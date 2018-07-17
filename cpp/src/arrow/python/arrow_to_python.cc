@@ -296,6 +296,14 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
                          obj, out);
 }
 
+Status DeserializeTensor(const SerializedPyObject& object, std::shared_ptr<Tensor>* out) {
+  if (object.tensors.size() != 1) {
+    return Status::Invalid("Object is not a Tensor");
+  }
+  *out = object.tensors[0];
+  return Status::OK();
+}
+
 Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* data,
                                    SerializedPyObject* out) {
   PyAcquireGIL gil;
@@ -348,6 +356,13 @@ Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* d
   }
 
   return Status::OK();
+}
+
+Status ReadTensor(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* out) {
+  io::BufferReader reader(src);
+  SerializedPyObject object;
+  RETURN_NOT_OK(ReadSerializedObject(&reader, &object));
+  return DeserializeTensor(object, out);
 }
 
 }  // namespace py

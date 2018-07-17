@@ -57,6 +57,10 @@ conda install -y -q pip \
 #   conda install -y -q pytorch torchvision -c soumith
 # fi
 
+if [ $TRAVIS_OS_NAME != "osx" ]; then
+  conda install -y -c conda-forge tensorflow
+fi
+
 # Re-build C++ libraries with the right Python setup
 mkdir -p $ARROW_CPP_BUILD_DIR
 pushd $ARROW_CPP_BUILD_DIR
@@ -76,6 +80,7 @@ cmake -GNinja \
       -DARROW_BUILD_TESTS=on \
       -DARROW_BUILD_UTILITIES=off \
       -DARROW_PLASMA=on \
+      -DARROW_TENSORFLOW=on \
       -DARROW_PYTHON=on \
       -DARROW_ORC=on \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
@@ -101,6 +106,8 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
     pip install -q coverage
 fi
+
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 
 export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 export PYARROW_WITH_PARQUET=1

@@ -102,6 +102,8 @@ class build_ext(_build_ext):
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
+                     ('with-tensorflow', None,
+                      'build pyarrow with TensorFlow support'),
                      ('with-orc', None, 'build the ORC extension'),
                      ('generate-coverage', None,
                       'enable Cython code coverage'),
@@ -138,6 +140,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
+        self.with_tensorflow = strtobool(
+            os.environ.get('PYARROW_WITH_TENSORFLOW', '0'))
         self.with_orc = strtobool(
             os.environ.get('PYARROW_WITH_ORC', '0'))
         self.generate_coverage = strtobool(
@@ -196,6 +200,9 @@ class build_ext(_build_ext):
 
             if self.with_plasma:
                 cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
+
+            if self.with_tensorflow:
+                cmake_options.append('-DPYARROW_USE_TENSORFLOW=on')
 
             if self.with_orc:
                 cmake_options.append('-DPYARROW_BUILD_ORC=on')
@@ -336,8 +343,8 @@ class build_ext(_build_ext):
                                 pjoin(os.path.dirname(ext_path),
                                       name + '_api.h'))
 
-            # Move the plasma store
             if self.with_plasma:
+                # Move the plasma store
                 source = os.path.join(self.build_type, "plasma_store")
                 target = os.path.join(build_lib,
                                       self._get_build_dir(),

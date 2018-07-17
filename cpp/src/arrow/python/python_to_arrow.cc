@@ -43,6 +43,7 @@
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/util/datetime.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
@@ -592,7 +593,7 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
         "This object exceeds the maximum recursion depth. It may contain itself "
         "recursively.");
   }
-  SequenceBuilder builder(nullptr);
+  SequenceBuilder builder;
   std::vector<PyObject*> sublists, subtuples, subdicts, subsets;
   for (const auto& sequence : sequences) {
     auto visit = [&](PyObject* obj) {
@@ -714,6 +715,26 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
   RETURN_NOT_OK(SerializeSequences(context, sequences, 0, &array, out));
   out->batch = MakeBatch(array);
   return Status::OK();
+}
+
+Status SerializeTensor(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) {
+  std::shared_ptr<Array> array;
+  SequenceBuilder builder;
+  RETURN_NOT_OK(builder.AppendTensor(static_cast<int32_t>(out->tensors.size())));
+  out->tensors.push_back(tensor);
+  RETURN_NOT_OK(builder.Finish(nullptr, nullptr, nullptr, nullptr, &array));
+  out->batch = MakeBatch(array);
+  return Status::OK();
+}
+
+Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
+                         const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
+                         io::OutputStream* dst) {
+  auto empty_tensor = std::make_shared<Tensor>(
+      dtype, std::make_shared<Buffer>(nullptr, tensor_num_bytes), shape);
+  SerializedPyObject serialized_tensor;
+  RETURN_NOT_OK(SerializeTensor(empty_tensor, &serialized_tensor));
+  return serialized_tensor.WriteTo(dst);
 }
 
 Status SerializedPyObject::WriteTo(io::OutputStream* dst) {

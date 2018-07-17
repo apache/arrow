@@ -147,6 +147,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow ORC adapter"
     OFF)
 
+  option(ARROW_TENSORFLOW
+    "Build Arrow with TensorFlow support enabled"
+    OFF)
+
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
     OFF)
@@ -301,6 +305,11 @@ if(ARROW_HDFS)
   set(ARROW_BOOST_HEADER_ONLY 0)
 else()
   set(ARROW_BOOST_HEADER_ONLY 1)
+endif()
+
+if (ARROW_TENSORFLOW)
+  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
 if (MSVC AND ARROW_USE_CLCACHE AND
