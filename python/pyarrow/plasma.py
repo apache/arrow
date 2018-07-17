@@ -27,6 +27,36 @@ from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
                              PlasmaBuffer, PlasmaClient, connect)
 
 
+# The Plasma TensorFlow Operator needs to be compiled on the end user's
+# machine since the TensorFlow ABI is not stable between versions.
+# The following code checks if the operator is already present. If not,
+# the function build_plasma_tensorflow_op can be used to compile it.
+
+
+TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], "tensorflow", "plasma_op.so")
+
+
+tf_plasma_op = None
+
+if os.path.exists(TF_PLASMA_OP_PATH):
+    import tensorflow as tf
+    tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
+
+
+def build_plasma_tensorflow_op():
+    global tf_plasma_op
+    try:
+        import tensorflow as tf
+        print("TensorFlow version: " + tf.__version__)
+    except ImportError:
+        pass
+    else:
+        print("Compiling Plasma TensorFlow Op...")
+        script_path = os.path.join(pa.__path__[0], "tensorflow", "build.sh")
+        subprocess.check_call(["bash", script_path])
+        tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
+
+
 @contextlib.contextmanager
 def start_plasma_store(plasma_store_memory,
                        use_valgrind=False, use_profiler=False,

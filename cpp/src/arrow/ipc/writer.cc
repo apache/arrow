@@ -628,7 +628,7 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     // is aligned.
     RETURN_NOT_OK(AlignStreamPosition(dst));
     auto data = tensor.data();
-    if (data) {
+    if (data && data->data()) {
       *body_length = data->size();
       return dst->Write(data->data(), *body_length);
     } else {

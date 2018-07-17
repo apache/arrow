@@ -18,18 +18,23 @@
 #ifndef ARROW_PYTHON_PYTHON_TO_ARROW_H
 #define ARROW_PYTHON_PYTHON_TO_ARROW_H
 
-#include "arrow/python/platform.h"
-
 #include <memory>
 #include <vector>
 
-#include "arrow/python/common.h"
-#include "arrow/python/pyarrow.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
+// Forward declaring PyObject, see
+// https://mail.python.org/pipermail/python-dev/2003-August/037601.html
+#ifndef PyObject_HEAD
+struct _object;
+typedef _object PyObject;
+#endif
+
 namespace arrow {
 
+class Buffer;
+class DataType;
 class MemoryPool;
 class RecordBatch;
 class Tensor;
@@ -68,22 +73,41 @@ struct ARROW_EXPORT SerializedPyObject {
   Status GetComponents(MemoryPool* pool, PyObject** out);
 };
 
-/// \brief Serialize Python sequence as a RecordBatch plus
+/// \brief Serialize Python sequence as a SerializedPyObject.
 /// \param[in] context Serialization context which contains custom serialization
 /// and deserialization callbacks. Can be any Python object with a
 /// _serialize_callback method for serialization and a _deserialize_callback
 /// method for deserialization. If context is None, no custom serialization
 /// will be attempted.
-/// \param[in] sequence a Python sequence object to serialize to Arrow data
+/// \param[in] sequence A Python sequence object to serialize to Arrow data
 /// structures
-/// \param[out] out the serialized representation
+/// \param[out] out The serialized representation
 /// \return Status
 ///
 /// Release GIL before calling
 ARROW_EXPORT
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out);
 
+/// \brief Serialize an Arrow Tensor as a SerializedPyObject.
+/// \param[in] tensor Tensor to be serialized
+/// \param[out] out The serialized representation
+/// \return Status
+ARROW_EXPORT
+Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* out);
+
+/// \brief Write the Tensor metadata header to an OutputStream.
+/// \param[in] dtype DataType of the Tensor
+/// \param[in] shape The shape of the tensor
+/// \param[in] tensor_num_bytes The lengh of the Tensor data in bytes
+/// \param[in] dst The OutputStream to write the Tensor header to
+/// \return Status
+ARROW_EXPORT
+Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
+                         const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
+                         io::OutputStream* dst);
+
 }  // namespace py
+
 }  // namespace arrow
 
 #endif  // ARROW_PYTHON_PYTHON_TO_ARROW_H

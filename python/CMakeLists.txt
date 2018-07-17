@@ -70,6 +70,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_PLASMA
     "Build the PyArrow Plasma integration"
     OFF)
+  option(PYARROW_USE_TENSORFLOW
+    "Build PyArrow with TensorFlow support"
+    OFF)
   option(PYARROW_BUILD_ORC
     "Build the PyArrow ORC integration"
     OFF)
@@ -177,6 +180,11 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+
+if (PYARROW_USE_TENSORFLOW)
+  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+endif()
 
 ## Python and libraries
 find_package(PythonLibsNew REQUIRED)

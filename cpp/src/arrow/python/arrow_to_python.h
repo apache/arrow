@@ -18,8 +18,6 @@
 #ifndef ARROW_PYTHON_ARROW_TO_PYTHON_H
 #define ARROW_PYTHON_ARROW_TO_PYTHON_H
 
-#include "arrow/python/platform.h"
-
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -67,15 +65,25 @@ Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* d
 /// _serialize_callback method for serialization and a _deserialize_callback
 /// method for deserialization. If context is None, no custom serialization
 /// will be attempted.
-/// \param[in] object object to deserialize
+/// \param[in] object Object to deserialize
 /// \param[in] base a Python object holding the underlying data that any NumPy
 /// arrays will reference, to avoid premature deallocation
-/// \param[out] out the returned object
+/// \param[out] out The returned object
 /// \return Status
 /// This acquires the GIL
 ARROW_EXPORT
 Status DeserializeObject(PyObject* context, const SerializedPyObject& object,
                          PyObject* base, PyObject** out);
+
+/// \brief Reconstruct Tensor from Arrow-serialized representation
+/// \param[in] object Object to deserialize
+/// \param[out] out The deserialized tensor
+/// \return Status
+ARROW_EXPORT
+Status DeserializeTensor(const SerializedPyObject& object, std::shared_ptr<Tensor>* out);
+
+ARROW_EXPORT
+Status ReadTensor(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* out);
 
 }  // namespace py
 }  // namespace arrow

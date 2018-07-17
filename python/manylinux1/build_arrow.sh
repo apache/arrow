@@ -58,11 +58,17 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PIP="${CPYTHON_PATH}/bin/pip"
     PATH="$PATH:${CPYTHON_PATH}"
 
+    # TensorFlow is not supported for Python 2.7 with unicode width 16
+    if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]
+    then
+      $PIP install --ignore-installed --upgrade tensorflow
+    fi
+
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
     ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"
     pushd "${ARROW_BUILD_DIR}"
-    PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON -DARROW_ORC=ON -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist -GNinja ..
+    PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON -DARROW_TENSORFLOW=ON -DARROW_ORC=ON -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist -GNinja ..
     ninja install
     popd
 
@@ -87,6 +93,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install repaired_wheels/*.whl
 
+    # The TensorFlow test will be skipped here, since TensorFlow is not
+    # manylinux1 compatible; however, the wheels will support TensorFlow on
+    # a TensorFlow compatible system
     py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow
     deactivate
 
