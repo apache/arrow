@@ -529,7 +529,7 @@ class ORCFileReader::Impl {
     const source_type* source = batch->data.data() + offset;
     std::vector<target_type> converted(source, source + length);
 
-    RETURN_NOT_OK(builder->AppendValues(converted.data(), converted.size(), valid_bytes));
+    RETURN_NOT_OK(builder->AppendValues(source, source + length, valid_bytes));
 
     return Status::OK();
   }
@@ -548,9 +548,8 @@ class ORCFileReader::Impl {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
     const int64_t* source = batch->data.data() + offset;
-    std::vector<uint8_t> converted(source, source + length);
 
-    RETURN_NOT_OK(builder->AppendValues(converted.data(), length, valid_bytes));
+    RETURN_NOT_OK(builder->AppendValues(source, source + length, valid_bytes));
 
     return Status::OK();
   }

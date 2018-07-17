@@ -18,6 +18,7 @@
 #ifndef ARROW_BUILDER_H
 #define ARROW_BUILDER_H
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -216,7 +217,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  ARROW_DEPRECATED("Use Finish instread")
+  ARROW_DEPRECATED("Use Finish instead")
   std::shared_ptr<Buffer> data() const { return data_; }
 
   const value_type GetValue(int64_t index) const {
@@ -264,6 +265,44 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \param[in] values a std::vector of values
   /// \return Status
   Status AppendValues(const std::vector<value_type>& values);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values_begin InputIterator to the beginning of the values
+  /// \param[in] values_end InputIterator pointing to the end of the values
+  /// \param[in] valid_begin InputIterator with elements indication valid(1)
+  ///  or null(0) values
+  /// \return Status
+  template <typename ValuesIter>
+  Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+    std::copy(values_begin, values_end, raw_data_ + length_);
+
+    // this updates the length_
+    UnsafeSetNotNull(length);
+    return Status::OK();
+  }
+
+  /// \brief Append a sequence of elements in one shot, with a specified nullmap
+  /// \param[in] values_begin InputIterator to the beginning of the values
+  /// \param[in] values_end InputIterator pointing to the end of the values
+  /// \param[in] valid_begin InputIterator with elements indication valid(1)
+  ///  or null(0) values
+  /// \return Status
+  template <typename ValuesIter, typename ValidIter>
+  Status AppendValues(ValuesIter values_begin, ValuesIter values_end,
+                      ValidIter valid_begin) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+    std::copy(values_begin, values_end, raw_data_ + length_);
+
+    // this updates the length_
+    for (auto iter = valid_begin, limit = valid_begin + length; iter != limit; ++iter) {
+      UnsafeAppendToBitmap(*iter);
+    }
+    return Status::OK();
+  }
+
   /// \deprecated Use AppendValues instead.
   ARROW_DEPRECATED("Use AppendValues instead")
   Status Append(const std::vector<value_type>& values);
@@ -365,7 +404,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     return Status::OK();
   }
 
-  ARROW_DEPRECATED("Use Finish instread")
+  ARROW_DEPRECATED("Use Finish instead")
   std::shared_ptr<Buffer> data() const { return data_; }
 
   Status Init(int64_t capacity) override;
@@ -582,7 +621,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  ARROW_DEPRECATED("Use Finish instread")
+  ARROW_DEPRECATED("Use Finish instead")
   std::shared_ptr<Buffer> data() const { return data_; }
 
   /// Scalar append
@@ -661,6 +700,49 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   /// \deprecated Use AppendValues instead.
   ARROW_DEPRECATED("Use AppendValues instead")
   Status Append(const std::vector<bool>& values);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values_begin InputIterator to the beginning of the values
+  /// \param[in] values_end InputIterator pointing to the end of the values
+  ///  or null(0) values
+  /// \return Status
+  template <typename ValuesIter>
+  Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+    auto iter = values_begin;
+    internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                   [&iter]() -> bool { return *(iter++); });
+
+    // this updates length_
+    UnsafeSetNotNull(length);
+    return Status::OK();
+  }
+
+  /// \brief Append a sequence of elements in one shot, with a specified nullmap
+  /// \param[in] values_begin InputIterator to the beginning of the values
+  /// \param[in] values_end InputIterator pointing to the end of the values
+  /// \param[in] valid_begin InputIterator with elements indication valid(1)
+  ///  or null(0) values
+  /// \return Status
+  template <typename ValuesIter, typename ValidIter>
+  Status AppendValues(ValuesIter values_begin, ValuesIter values_end,
+                      ValidIter valid_begin) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+
+    {
+      auto iter = values_begin;
+      internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                     [&iter]() -> bool { return *(iter++); });
+    }
+
+    // this updates length_
+    for (auto iter = valid_begin, limit = valid_begin + length; iter != limit; ++iter) {
+      ArrayBuilder::UnsafeAppendToBitmap(*iter);
+    }
+    return Status::OK();
+  }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
   Status Init(int64_t capacity) override;

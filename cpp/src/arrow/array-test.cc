@@ -708,6 +708,60 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   this->Check(this->builder_nn_, false);
 }
 
+// get type which can store generated values without losing precision
+template <typename S, typename Enable = void>
+struct ConversionType {
+  using type = int64_t;
+};
+template <typename S>
+struct ConversionType<S, typename std::enable_if<std::is_unsigned<S>::value>::type> {
+  using type = uint64_t;
+};
+template <typename S>
+struct ConversionType<S,
+                      typename std::enable_if<std::is_floating_point<S>::value>::type> {
+  using type = double;
+};
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
+  DECL_T();
+  using conversion_type = typename ConversionType<T>::type;
+
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  vector<T> draws(this->draws_.begin(), this->draws_.begin() + size / 2);
+  vector<uint8_t> valid_bytes(this->valid_bytes_.begin(),
+                              this->valid_bytes_.begin() + size / 2);
+
+  ASSERT_OK(
+      this->builder_->AppendValues(draws.begin(), draws.end(), valid_bytes.begin()));
+  ASSERT_OK(this->builder_nn_->AppendValues(draws.begin(), draws.end()));
+
+  ASSERT_EQ(size / 2, this->builder_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size / 2), this->builder_->capacity());
+
+  // append convertible values
+  vector<conversion_type> draws_converted(this->draws_.begin() + size / 2,
+                                          this->draws_.end());
+  vector<int32_t> valid_bytes_converted(this->valid_bytes_.begin() + size / 2,
+                                        this->valid_bytes_.end());
+
+  ASSERT_OK(this->builder_->AppendValues(draws_converted.begin(), draws_converted.end(),
+                                         valid_bytes_converted.begin()));
+  ASSERT_OK(
+      this->builder_nn_->AppendValues(draws_converted.begin(), draws_converted.end()));
+
+  ASSERT_EQ(size, this->builder_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
+  ASSERT_EQ(size, this->builder_nn_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_nn_->capacity());
+
+  this->Check(this->builder_, true);
+  this->Check(this->builder_nn_, false);
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
   DECL_T();
 
