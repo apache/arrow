@@ -66,10 +66,12 @@ using arrow::gpu::CudaDeviceManager;
 
 #define XXH64_DEFAULT_SEED 0
 
+namespace fb = plasma::flatbuf;
+
 namespace plasma {
 
-using flatbuf::MessageType;
-using flatbuf::PlasmaError;
+using fb::MessageType;
+using fb::PlasmaError;
 
 using arrow::MutableBuffer;
 
@@ -884,7 +886,7 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
   if (notification == NULL) {
     return Status::IOError("Failed to read object notification from Plasma socket");
   }
-  auto object_info = flatbuffers::GetRoot<flatbuf::ObjectInfo>(notification.get());
+  auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(notification.get());
   ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
   memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
   if (object_info->is_deletion()) {
@@ -980,19 +982,18 @@ Status PlasmaClient::Impl::Wait(int64_t num_object_requests,
   *num_objects_ready = 0;
   for (int i = 0; i < num_object_requests; ++i) {
     ObjectRequestType type = object_requests[i].type;
-    flatbuf::ObjectStatus status = object_requests[i].status;
+    fb::ObjectStatus status = object_requests[i].status;
     switch (type) {
       case ObjectRequestType::PLASMA_QUERY_LOCAL:
-        if (status == flatbuf::ObjectStatus::Local) {
+        if (status == fb::ObjectStatus::Local) {
           *num_objects_ready += 1;
         }
         break;
       case ObjectRequestType::PLASMA_QUERY_ANYWHERE:
-        if (status == flatbuf::ObjectStatus::Local ||
-            status == flatbuf::ObjectStatus::Remote) {
+        if (status == fb::ObjectStatus::Local || status == fb::ObjectStatus::Remote) {
           *num_objects_ready += 1;
         } else {
-          ARROW_CHECK(status == flatbuf::ObjectStatus::Nonexistent);
+          ARROW_CHECK(status == fb::ObjectStatus::Nonexistent);
         }
         break;
       default:

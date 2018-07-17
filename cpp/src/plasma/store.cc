@@ -65,9 +65,9 @@ using arrow::gpu::CudaContext;
 using arrow::gpu::CudaDeviceManager;
 #endif
 
-namespace plasma {
+namespace fb = plasma::flatbuf;
 
-using flatbuf::MessageType;
+namespace plasma {
 
 extern "C" {
 void* dlmalloc(size_t bytes);
@@ -486,7 +486,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 
   store_info_.objects.erase(object_id);
   // Inform all subscribers that the object has been deleted.
-  flatbuf::ObjectInfoT notification;
+  fb::ObjectInfoT notification;
   notification.object_id = object_id.binary();
   notification.is_deletion = true;
   PushNotification(&notification);
@@ -508,7 +508,7 @@ void PlasmaStore::DeleteObjects(const std::vector<ObjectID>& object_ids) {
         << "To delete an object, there must be no clients currently using it.";
     store_info_.objects.erase(object_id);
     // Inform all subscribers that the object has been deleted.
-    flatbuf::ObjectInfoT notification;
+    fb::ObjectInfoT notification;
     notification.object_id = object_id.binary();
     notification.is_deletion = true;
     PushNotification(&notification);
@@ -645,7 +645,7 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::SendNotifications(
   }
 }
 
-void PlasmaStore::PushNotification(flatbuf::ObjectInfoT* object_info) {
+void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info) {
   auto it = pending_notifications_.begin();
   while (it != pending_notifications_.end()) {
     auto notification = CreateObjectInfoBuffer(object_info);
@@ -654,7 +654,7 @@ void PlasmaStore::PushNotification(flatbuf::ObjectInfoT* object_info) {
   }
 }
 
-void PlasmaStore::PushNotification(flatbuf::ObjectInfoT* object_info, int client_fd) {
+void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info, int client_fd) {
   auto it = pending_notifications_.find(client_fd);
   if (it != pending_notifications_.end()) {
     auto notification = CreateObjectInfoBuffer(object_info);
@@ -694,7 +694,7 @@ void PlasmaStore::SubscribeToUpdates(Client* client) {
 }
 
 Status PlasmaStore::ProcessMessage(Client* client) {
-  MessageType type;
+  fb::MessageType type;
   Status s = ReadMessage(client->fd, &type, &input_buffer_);
   ARROW_CHECK(s.ok() || s.IsIOError());
 
@@ -707,7 +707,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
 
   // Process the different types of requests.
   switch (type) {
-    case MessageType::PlasmaCreateRequest: {
+    case fb::MessageType::PlasmaCreateRequest: {
       int64_t data_size;
       int64_t metadata_size;
       int device_num;
@@ -726,24 +726,24 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         WarnIfSigpipe(send_fd(client->fd, object.store_fd), client->fd);
       }
     } break;
-    case MessageType::PlasmaAbortRequest: {
+    case fb::MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
       ARROW_CHECK(AbortObject(object_id, client) == 1) << "To abort an object, the only "
                                                           "client currently using it "
                                                           "must be the creator.";
       HANDLE_SIGPIPE(SendAbortReply(client->fd, object_id), client->fd);
     } break;
-    case MessageType::PlasmaGetRequest: {
+    case fb::MessageType::PlasmaGetRequest: {
       std::vector<ObjectID> object_ids_to_get;
       int64_t timeout_ms;
       RETURN_NOT_OK(ReadGetRequest(input, input_size, object_ids_to_get, &timeout_ms));
       ProcessGetRequest(client, object_ids_to_get, timeout_ms);
     } break;
-    case MessageType::PlasmaReleaseRequest: {
+    case fb::MessageType::PlasmaReleaseRequest: {
       RETURN_NOT_OK(ReadReleaseRequest(input, input_size, &object_id));
       ReleaseObject(object_id, client);
     } break;
-    case MessageType::PlasmaDeleteRequest: {
+    case fb::MessageType::PlasmaDeleteRequest: {
       std::vector<ObjectID> object_ids;
       std::vector<PlasmaError> error_codes;
       RETURN_NOT_OK(ReadDeleteRequest(input, input_size, &object_ids));
@@ -753,7 +753,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       }
       HANDLE_SIGPIPE(SendDeleteReply(client->fd, object_ids, error_codes), client->fd);
     } break;
-    case MessageType::PlasmaContainsRequest: {
+    case fb::MessageType::PlasmaContainsRequest: {
       RETURN_NOT_OK(ReadContainsRequest(input, input_size, &object_id));
       if (ContainsObject(object_id) == ObjectStatus::OBJECT_FOUND) {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 1), client->fd);
@@ -761,12 +761,12 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 0), client->fd);
       }
     } break;
-    case MessageType::PlasmaSealRequest: {
+    case fb::MessageType::PlasmaSealRequest: {
       unsigned char digest[kDigestSize];
       RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
       SealObject(object_id, &digest[0]);
     } break;
-    case MessageType::PlasmaEvictRequest: {
+    case fb::MessageType::PlasmaEvictRequest: {
       // This code path should only be used for testing.
       int64_t num_bytes;
       RETURN_NOT_OK(ReadEvictRequest(input, input_size, &num_bytes));
@@ -776,14 +776,14 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       DeleteObjects(objects_to_evict);
       HANDLE_SIGPIPE(SendEvictReply(client->fd, num_bytes_evicted), client->fd);
     } break;
-    case MessageType::PlasmaSubscribeRequest:
+    case fb::MessageType::PlasmaSubscribeRequest:
       SubscribeToUpdates(client);
       break;
-    case MessageType::PlasmaConnectRequest: {
+    case fb::MessageType::PlasmaConnectRequest: {
       HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),
                      client->fd);
     } break;
-    case MessageType::PlasmaDisconnectClient:
+    case fb::MessageType::PlasmaDisconnectClient:
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->fd;
       DisconnectClient(client->fd);
       break;
