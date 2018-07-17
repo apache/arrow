@@ -610,7 +610,7 @@ cdef class Array:
             raise NotImplementedError('NumPy array view is only supported '
                                       'for primitive types.')
         buflist = self.buffers()
-        assert len(buflist) > 0
+        assert len(buflist) == 2
         return np.frombuffer(buflist[-1], dtype=self.type.to_pandas_dtype())[
             self.offset:self.offset + len(self)]
 
