@@ -17,7 +17,7 @@
 
 import { RecordBatch } from './recordbatch';
 import { Col, Predicate } from './predicate';
-import { DataType, Schema, Field, Struct, StructData, StructValue, Int } from './type';
+import { DataType, Schema, Field, Struct, StructData, Int } from './type';
 import { read, readAsync } from './ipc/reader/arrow';
 import { writeTableBinary } from './ipc/writer/arrow';
 import { PipeIterator } from './util/node';
@@ -33,7 +33,7 @@ export interface DataFrame<T extends StructData = StructData> {
     filter(predicate: Predicate): DataFrame<T>;
     scan(next: NextFunc, bind?: BindFunc): void;
     countBy(col: (Col|string)): CountByResult;
-    [Symbol.iterator](): IterableIterator<StructValue<T>>;
+    [Symbol.iterator](): IterableIterator<Struct<T>['TValue']>;
 }
 
 export class Table<T extends StructData = StructData> implements DataFrame {
@@ -132,7 +132,7 @@ export class Table<T extends StructData = StructData> implements DataFrame {
     public getColumnIndex<R extends keyof T>(name: R) {
         return this.schema.fields.findIndex((f) => f.name === name);
     }
-    public [Symbol.iterator](): IterableIterator<Struct['TValue']> {
+    public [Symbol.iterator](): IterableIterator<Struct<T>['TValue']> {
         return this.batchesUnion[Symbol.iterator]() as any;
     }
     public filter(predicate: Predicate): DataFrame {
@@ -248,7 +248,7 @@ class FilteredDataFrame<T extends StructData = StructData> implements DataFrame<
         }
         return sum;
     }
-    public *[Symbol.iterator](): IterableIterator<StructValue<T>> {
+    public *[Symbol.iterator](): IterableIterator<Struct<T>['TValue']> {
         // inlined version of this:
         // this.parent.scan((idx, columns) => {
         //     if (this.predicate(idx, columns)) next(idx, columns);
