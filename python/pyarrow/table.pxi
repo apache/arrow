@@ -124,6 +124,40 @@ cdef class ChunkedArray:
 
         return wrap_array_output(out)
 
+    def dictionary_encode(self):
+        """
+        Compute dictionary-encoded representation of array
+
+        Returns
+        -------
+        pyarrow.ChunkedArray
+            Same chunking as the input, all chunks share a common dictionary.
+        """
+        cdef CDatum out
+
+        with nogil:
+            check_status(
+                DictionaryEncode(_context(), CDatum(self.sp_chunked_array),
+                                 &out))
+
+        return wrap_datum(out)
+
+    def unique(self):
+        """
+        Compute distinct elements in array
+
+        Returns
+        -------
+        pyarrow.Array
+        """
+        cdef shared_ptr[CArray] result
+
+        with nogil:
+            check_status(
+                Unique(_context(), CDatum(self.sp_chunked_array), &result))
+
+        return pyarrow_wrap_array(result)
+
     def slice(self, offset=0, length=None):
         """
         Compute zero-copy slice of this ChunkedArray
@@ -363,6 +397,28 @@ cdef class Column:
 
         casted_data = pyarrow_wrap_chunked_array(out.chunked_array())
         return column(self.name, casted_data)
+
+    def dictionary_encode(self):
+        """
+        Compute dictionary-encoded representation of array
+
+        Returns
+        -------
+        pyarrow.Column
+            Same chunking as the input, all chunks share a common dictionary.
+        """
+        ca = self.data.dictionary_encode()
+        return column(self.name, ca)
+
+    def unique(self):
+        """
+        Compute distinct elements in array
+
+        Returns
+        -------
+        pyarrow.Array
+        """
+        return self.data.unique()
 
     def flatten(self, MemoryPool memory_pool=None):
         """
