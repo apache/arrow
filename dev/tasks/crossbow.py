@@ -230,8 +230,26 @@ class Queue(Repo):
             release = repo.release_from_tag(task.tag)
         except github3.exceptions.NotFoundError:
             return {}
-        else:
-            return {a.name: a for a in release.assets()}
+
+        assets = {a.name: a for a in release.assets()}
+
+        artifacts = {}
+        for artifact in task.artifacts:
+            # artifact can be a regex pattern
+            pattern = re.compile(artifact)
+            matches = list(filter(None, map(pattern.match, assets.keys())))
+            num_matches = len(matches)
+
+            # validate artifact pattern matches single asset
+            if num_matches > 1:
+                raise ValueError(
+                    'Only a single asset should match pattern `{}`, there are '
+                    'multiple ones: {}'.format(', '.join(matches))
+                )
+            elif num_matches == 1:
+                artifacts[artifact] = assets[matches[0].group(0)]
+
+        return artifacts
 
     def upload_assets(self, job, files, content_type):
         repo = self.as_github_repo()
@@ -458,7 +476,7 @@ def submit(ctx, task, group, job_prefix, config_path, dry_run):
 @click.argument('job-name', required=True)
 @click.pass_context
 def status(ctx, job_name):
-    queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
+    queue = ctx.obj['queue']
     queue.fetch()
 
     tpl = '[{:>7}] {:<49} {:>20}'
@@ -481,14 +499,15 @@ def status(ctx, job_name):
         click.echo(click.style(leadline, fg=COLORS[status.state]))
 
         for artifact in task.artifacts:
-            if artifact in assets:
-                state = 'ok'
-            elif status.state == 'pending':
-                state = 'pending'
+            try:
+                asset = assets[artifact]
+            except KeyError:
+                state = 'pending' if status.state == 'pending' else 'missing'
+                filename = '{:>70} '.format(artifact)
             else:
-                state = 'missing'
+                state = 'ok'
+                filename = '{:>70} '.format(asset.name)
 
-            filename = '{:>70} '.format(artifact)
             statemsg = '[{:>7}]'.format(state.upper())
             click.echo(filename + click.style(statemsg, fg=COLORS[state]))
 
@@ -528,15 +547,17 @@ def sign(ctx, job_name, gpg_homedir, target_dir):
         click.echo('-' * 79)
 
         for artifact in task.artifacts:
-            if artifact not in assets:
+            try:
+                asset = assets[artifact]
+            except KeyError:
                 msg = click.style('[{:>8}]'.format('MISSING'),
                                   fg=COLORS['missing'])
                 click.echo(tpl.format(msg, artifact))
                 continue
 
             # download artifact
-            artifact_path = artifact_dir / artifact
-            assets[artifact].download(artifact_path)
+            artifact_path = artifact_dir / asset.name
+            asset.download(artifact_path)
 
             # sign the artifact
             with artifact_path.open('rb') as fp:
@@ -545,7 +566,7 @@ def sign(ctx, job_name, gpg_homedir, target_dir):
                               output=str(signature_path))
 
             msg = click.style('[{:>8}]'.format('SIGNED'), fg=COLORS['ok'])
-            click.echo(tpl.format(msg, artifact))
+            click.echo(tpl.format(msg, asset.name))
 
 
 if __name__ == '__main__':
