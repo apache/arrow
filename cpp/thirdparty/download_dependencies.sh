@@ -34,6 +34,8 @@ _DST=$1
 # To change toolchain versions, edit versions.txt
 source $SOURCE_DIR/versions.txt
 
+mkdir -p $_DST
+
 BOOST_UNDERSCORE_VERSION=`echo $BOOST_VERSION | sed 's/\./_/g'`
 wget -c -O $_DST/boost.tar.gz https://dl.bintray.com/boostorg/release/$BOOST_VERSION/source/boost_$BOOST_UNDERSCORE_VERSION.tar.gz
 
