@@ -30,8 +30,11 @@ namespace plasma {
 
 using arrow::Status;
 
+using flatbuf::MessageType;
+using flatbuf::PlasmaError;
+
 template <class T>
-bool verify_flatbuffer(T* object, uint8_t* data, size_t size) {
+bool VerifyFlatbuffer(T* object, uint8_t* data, size_t size) {
   flatbuffers::Verifier verifier(data, size);
   return object->Verify(verifier);
 }

@@ -95,14 +95,14 @@ struct PlasmaObject {
   int device_num;
 };
 
-enum class object_state : int {
+enum class ObjectState : int {
   /// Object was created but not sealed in the local Plasma Store.
   PLASMA_CREATED = 1,
   /// Object is sealed and stored in the local Plasma Store.
   PLASMA_SEALED
 };
 
-enum class object_status : int {
+enum class ObjectStatus : int {
   /// The object was not found.
   OBJECT_NOT_FOUND = 0,
   /// The object was found.
@@ -119,7 +119,7 @@ struct ObjectTableEntry {
   /// Object id of this object.
   ObjectID object_id;
   /// Object info like size, creation time and owner.
-  ObjectInfoT info;
+  flatbuf::ObjectInfoT info;
   /// Memory mapped file containing the object.
   int fd;
   /// Device number.
@@ -138,7 +138,7 @@ struct ObjectTableEntry {
   int ref_count;
 
   /// The state of the object, e.g., whether it is open or sealed.
-  object_state state;
+  ObjectState state;
   /// The digest of the object. Used to see if two objects are the same.
   unsigned char digest[kDigestSize];
 };
@@ -166,8 +166,8 @@ struct PlasmaStoreInfo {
 /// @param object_id The object_id of the entry we are looking for.
 /// @return The entry associated with the object_id or NULL if the object_id
 ///         is not present.
-ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
-                                         const ObjectID& object_id);
+ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
+                                      const ObjectID& object_id);
 
 /// Print a warning if the status is less than zero. This should be used to check
 /// the success of messages sent to plasma clients. We print a warning instead of
@@ -183,9 +183,9 @@ ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
 /// @param client_sock The client socket. This is just used to print some extra
 ///        information.
 /// @return The errno set.
-int warn_if_sigpipe(int status, int client_sock);
+int WarnIfSigpipe(int status, int client_sock);
 
-std::unique_ptr<uint8_t[]> create_object_info_buffer(ObjectInfoT* object_info);
+std::unique_ptr<uint8_t[]> CreateObjectInfoBuffer(flatbuf::ObjectInfoT* object_info);
 
 }  // namespace plasma
 

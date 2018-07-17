@@ -182,7 +182,7 @@ int fake_munmap(void* addr, int64_t size) {
   return r;
 }
 
-void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_size, ptrdiff_t* offset) {
+void GetMallocMapinfo(void* addr, int* fd, int64_t* map_size, ptrdiff_t* offset) {
   // TODO(rshin): Implement a more efficient search through mmap_records.
   for (const auto& entry : mmap_records) {
     if (addr >= entry.first && addr < pointer_advance(entry.first, entry.second.size)) {
@@ -197,7 +197,7 @@ void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_size, ptrdiff_t* offse
   *offset = 0;
 }
 
-int64_t get_mmap_size(int fd) {
+int64_t GetMmapSize(int fd) {
   for (const auto& entry : mmap_records) {
     if (entry.second.fd == fd) {
       return entry.second.size;
@@ -207,4 +207,4 @@ int64_t get_mmap_size(int fd) {
   return -1;  // This code is never reached.
 }
 
-void set_malloc_granularity(int value) { change_mparam(M_GRANULARITY, value); }
+void SetMallocGranularity(int value) { change_mparam(M_GRANULARITY, value); }
