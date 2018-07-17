@@ -31,11 +31,15 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
+namespace plasma {
+
+namespace flatbuf {
+
 // Forward declaration outside the namespace, which is defined in plasma_generated.h.
 enum class PlasmaError : int32_t;
 enum class ObjectStatus : int32_t;
 
-namespace plasma {
+}  // namespace flatbuf
 
 constexpr int64_t kUniqueIDSize = 20;
 
@@ -58,7 +62,7 @@ static_assert(std::is_pod<UniqueID>::value, "UniqueID must be plain old data");
 
 typedef UniqueID ObjectID;
 
-arrow::Status plasma_error_status(PlasmaError plasma_error);
+arrow::Status PlasmaErrorStatus(flatbuf::PlasmaError plasma_error);
 
 /// Size of object hash digests.
 constexpr int64_t kDigestSize = sizeof(uint64_t);
@@ -87,11 +91,11 @@ struct ObjectRequest {
   ///  - ObjectStatus::Nonexistent: object does not exist in the system.
   ///  - PLASMA_CLIENT_IN_TRANSFER, if the object is currently being scheduled
   ///    for being transferred or it is transferring.
-  ObjectStatus status;
+  flatbuf::ObjectStatus status;
 };
 
-extern ObjectStatus ObjectStatusLocal;
-extern ObjectStatus ObjectStatusRemote;
+extern flatbuf::ObjectStatus ObjectStatusLocal;
+extern flatbuf::ObjectStatus ObjectStatusRemote;
 
 /// Globally accessible reference to plasma store configuration.
 /// TODO(pcm): This can be avoided with some refactoring of existing code

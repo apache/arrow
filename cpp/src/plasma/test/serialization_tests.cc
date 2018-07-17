@@ -25,6 +25,8 @@
 
 #include "gtest/gtest.h"
 
+namespace fb = plasma::flatbuf;
+
 namespace plasma {
 
 /**
@@ -330,9 +332,9 @@ TEST(PlasmaSerialization, WaitRequest) {
   const int num_objects_in = 2;
   ObjectRequest object_requests_in[num_objects_in] = {
       ObjectRequest({ObjectID::from_random(), ObjectRequestType::PLASMA_QUERY_ANYWHERE,
-                     ObjectStatus::Local}),
+                     fb::ObjectStatus::Local}),
       ObjectRequest({ObjectID::from_random(), ObjectRequestType::PLASMA_QUERY_LOCAL,
-                     ObjectStatus::Local})};
+                     fb::ObjectStatus::Local})};
   const int num_ready_objects_in = 1;
   int64_t timeout_ms = 1000;
 
@@ -364,11 +366,11 @@ TEST(PlasmaSerialization, WaitReply) {
   /* Create a map with two ObjectRequests in it. */
   ObjectRequestMap objects_in(num_objects_in);
   ObjectID id1 = ObjectID::from_random();
-  objects_in[id1] =
-      ObjectRequest({id1, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectStatus::Local});
+  objects_in[id1] = ObjectRequest(
+      {id1, ObjectRequestType::PLASMA_QUERY_LOCAL, fb::ObjectStatus::Local});
   ObjectID id2 = ObjectID::from_random();
   objects_in[id2] = ObjectRequest(
-      {id2, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectStatus::Nonexistent});
+      {id2, ObjectRequestType::PLASMA_QUERY_LOCAL, fb::ObjectStatus::Nonexistent});
 
   ARROW_CHECK_OK(SendWaitReply(fd, objects_in, num_objects_in));
   /* Read message back. */
