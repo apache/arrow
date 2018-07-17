@@ -35,9 +35,9 @@ def test_total_bytes_allocated():
     assert pa.total_allocated_bytes() == 0
 
 
-def test_getitem_NA():
+def test_getitem_NULL():
     arr = pa.array([1, None, 2])
-    assert arr[1] is pa.NA
+    assert arr[1] is pa.NULL
 
 
 def test_constructor_raises():
@@ -52,11 +52,15 @@ def test_list_format():
     result = fmt.array_format(arr)
     expected = """\
 [
-  [1],
-  NA,
-  [2,
-   3,
-   NA]
+  [
+    1
+  ],
+  null,
+  [
+    2,
+    3,
+    null
+  ]
 ]"""
     assert result == expected
 
@@ -66,9 +70,9 @@ def test_string_format():
     result = fmt.array_format(arr)
     expected = """\
 [
-  '',
-  NA,
-  'foo'
+  "",
+  null,
+  "foo"
 ]"""
     assert result == expected
 
@@ -274,7 +278,7 @@ def test_dictionary_from_numpy():
         assert d1[i].as_py() == dictionary[indices[i]]
 
         if mask[i]:
-            assert d2[i] is pa.NA
+            assert d2[i] is pa.NULL
         else:
             assert d2[i].as_py() == dictionary[indices[i]]
 

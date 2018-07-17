@@ -16,10 +16,10 @@
 # under the License.
 
 
-NA = None
+_NULL = NA = None
 
 
-cdef class NAType(Scalar):
+cdef class NullType(Scalar):
     """
     Null (NA) value singleton
     """
@@ -31,13 +31,13 @@ cdef class NAType(Scalar):
         self.type = null()
 
     def __repr__(self):
-        return 'NA'
+        return 'NULL'
 
     def as_py(self):
         return None
 
 
-NA = NAType()
+_NULL = NA = NullType()
 
 
 cdef class ArrayValue(Scalar):
@@ -466,9 +466,9 @@ cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
     cdef ArrayValue value
 
     if type.type.id() == _Type_NA:
-        return NA
+        return _NULL
     elif sp_array.get().IsNull(index):
-        return NA
+        return _NULL
     else:
         klass = _scalar_classes[type.type.id()]
         value = klass.__new__(klass)

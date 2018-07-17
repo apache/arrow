@@ -64,6 +64,28 @@ cdef class ChunkedArray:
     def __len__(self):
         return self.length()
 
+    def __repr__(self):
+        type_format = object.__repr__(self)
+        return '{0}\n{1}'.format(type_format, str(self))
+
+    def format(self, int indent=0, int window=10):
+        cdef:
+            c_string result
+
+        with nogil:
+            check_status(
+                PrettyPrint(
+                    deref(self.chunked_array),
+                    PrettyPrintOptions(indent, window),
+                    &result
+                )
+            )
+
+        return frombytes(result)
+
+    def __str__(self):
+        return self.format()
+
     @property
     def null_count(self):
         """
@@ -375,9 +397,7 @@ cdef class Column:
         result = StringIO()
         result.write('<Column name={0!r} type={1!r}>'
                      .format(self.name, self.type))
-        data = self.data
-        for i, chunk in enumerate(data.chunks):
-            result.write('\nchunk {0}: {1}'.format(i, repr(chunk)))
+        result.write('\n{}'.format(str(self.data)))
 
         return result.getvalue()
 

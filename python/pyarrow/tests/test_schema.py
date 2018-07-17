@@ -342,7 +342,12 @@ def test_schema_repr_with_dictionaries():
     expected = (
         """\
 one: dictionary<values=string, indices=int16, ordered=0>
-  dictionary: ["foo", "bar", "baz"]
+  dictionary:
+    [
+      "foo",
+      "bar",
+      "baz"
+    ]
 two: int32""")
 
     assert repr(sch) == expected

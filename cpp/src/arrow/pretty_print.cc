@@ -25,6 +25,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
@@ -36,7 +37,8 @@ namespace arrow {
 
 class PrettyPrinter {
  public:
-  PrettyPrinter(int indent, std::ostream* sink) : indent_(indent), sink_(sink) {}
+  PrettyPrinter(int indent, int indent_size, int window, std::ostream* sink)
+      : indent_(indent), indent_size_(indent_size), window_(window), sink_(sink) {}
 
   void Write(const char* data);
   void Write(const std::string& data);
@@ -44,19 +46,34 @@ class PrettyPrinter {
   void WriteIndented(const std::string& data);
   void Newline();
   void Indent();
-  void OpenArray();
-  void CloseArray();
+  void OpenArray(const Array& array);
+  void CloseArray(const Array& array);
 
   void Flush() { (*sink_) << std::flush; }
 
  protected:
   int indent_;
+  int indent_size_;
+  int window_;
   std::ostream* sink_;
 };
 
-void PrettyPrinter::OpenArray() { (*sink_) << "["; }
+void PrettyPrinter::OpenArray(const Array& array) {
+  Indent();
+  (*sink_) << "[";
+  if (array.length() > 0) {
+    (*sink_) << "\n";
+    indent_ += indent_size_;
+  }
+}
 
-void PrettyPrinter::CloseArray() { (*sink_) << "]"; }
+void PrettyPrinter::CloseArray(const Array& array) {
+  if (array.length() > 0) {
+    indent_ -= indent_size_;
+    Indent();
+  }
+  (*sink_) << "]";
+}
 
 void PrettyPrinter::Write(const char* data) { (*sink_) << data; }
 void PrettyPrinter::Write(const std::string& data) { (*sink_) << data; }
@@ -84,121 +101,125 @@ void PrettyPrinter::Indent() {
 
 class ArrayPrinter : public PrettyPrinter {
  public:
-  ArrayPrinter(const Array& array, int indent, std::ostream* sink)
-      : PrettyPrinter(indent, sink), array_(array) {}
+  ArrayPrinter(const Array& array, int indent, int indent_size, int window,
+               const std::string& null_rep, std::ostream* sink)
+      : PrettyPrinter(indent, indent_size, window, sink),
+        array_(array),
+        null_rep_(null_rep) {}
 
-  template <typename T>
-  inline typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
-      const T& array) {
-    const auto data = array.raw_values();
-    for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
-      if (array.IsNull(i)) {
-        (*sink_) << "null";
+  template <typename FormatFunction>
+  void WriteValues(const Array& array, FormatFunction&& func) {
+    bool skip_comma = true;
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (skip_comma) {
+        skip_comma = false;
       } else {
-        (*sink_) << static_cast<int64_t>(data[i]);
+        (*sink_) << ",\n";
+      }
+      Indent();
+      if ((i >= window_) && (i < (array.length() - window_))) {
+        (*sink_) << "...\n";
+        i = array.length() - window_ - 1;
+        skip_comma = true;
+      } else if (array.IsNull(i)) {
+        (*sink_) << null_rep_;
+      } else {
+        func(i);
       }
     }
+    (*sink_) << "\n";
   }
 
   template <typename T>
-  inline typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
+  inline typename std::enable_if<IsInteger<T>::value, Status>::type WriteDataValues(
       const T& array) {
     const auto data = array.raw_values();
-    for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
-      if (array.IsNull(i)) {
-        Write("null");
-      } else {
-        (*sink_) << data[i];
-      }
-    }
+    WriteValues(array, [&](int64_t i) { (*sink_) << static_cast<int64_t>(data[i]); });
+    return Status::OK();
+  }
+
+  template <typename T>
+  inline typename std::enable_if<IsFloatingPoint<T>::value, Status>::type WriteDataValues(
+      const T& array) {
+    const auto data = array.raw_values();
+    WriteValues(array, [&](int64_t i) { (*sink_) << data[i]; });
+    return Status::OK();
   }
 
   // String (Utf8)
   template <typename T>
-  inline typename std::enable_if<std::is_same<StringArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_same<StringArray, T>::value, Status>::type
   WriteDataValues(const T& array) {
-    int32_t length;
-    for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
-      if (array.IsNull(i)) {
-        Write("null");
-      } else {
-        const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
-        (*sink_) << "\"" << std::string(buf, length) << "\"";
-      }
-    }
+    WriteValues(array, [&](int64_t i) {
+      int32_t length;
+      const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
+      (*sink_) << "\"" << std::string(buf, length) << "\"";
+    });
+    return Status::OK();
   }
 
   // Binary
   template <typename T>
-  inline typename std::enable_if<std::is_same<BinaryArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_same<BinaryArray, T>::value, Status>::type
   WriteDataValues(const T& array) {
-    int32_t length;
-    for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
-      if (array.IsNull(i)) {
-        Write("null");
-      } else {
-        const uint8_t* buf = array.GetValue(i, &length);
-        (*sink_) << HexEncode(buf, length);
-      }
-    }
+    WriteValues(array, [&](int64_t i) {
+      int32_t length;
+      const uint8_t* buf = array.GetValue(i, &length);
+      (*sink_) << HexEncode(buf, length);
+    });
+    return Status::OK();
   }
 
   template <typename T>
-  inline typename std::enable_if<std::is_same<FixedSizeBinaryArray, T>::value, void>::type
-  WriteDataValues(const T& array) {
+  inline
+      typename std::enable_if<std::is_same<FixedSizeBinaryArray, T>::value, Status>::type
+      WriteDataValues(const T& array) {
     int32_t width = array.byte_width();
-    for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
-      if (array.IsNull(i)) {
-        Write("null");
-      } else {
-        (*sink_) << HexEncode(array.GetValue(i), width);
-      }
-    }
+    WriteValues(array,
+                [&](int64_t i) { (*sink_) << HexEncode(array.GetValue(i), width); });
+    return Status::OK();
   }
 
   template <typename T>
-  inline typename std::enable_if<std::is_same<Decimal128Array, T>::value, void>::type
+  inline typename std::enable_if<std::is_same<Decimal128Array, T>::value, Status>::type
   WriteDataValues(const T& array) {
-    for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
-      if (array.IsNull(i)) {
-        Write("null");
-      } else {
-        (*sink_) << array.FormatValue(i);
-      }
-    }
+    WriteValues(array, [&](int64_t i) { (*sink_) << array.FormatValue(i); });
+    return Status::OK();
   }
 
   template <typename T>
-  inline typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_base_of<BooleanArray, T>::value, Status>::type
   WriteDataValues(const T& array) {
-    for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) {
-        (*sink_) << ", ";
-      }
-      if (array.IsNull(i)) {
-        Write("null");
+    WriteValues(array, [&](int64_t i) { Write(array.Value(i) ? "true" : "false"); });
+    return Status::OK();
+  }
+
+  template <typename T>
+  inline typename std::enable_if<std::is_base_of<ListArray, T>::value, Status>::type
+  WriteDataValues(const T& array) {
+    bool skip_comma = true;
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (skip_comma) {
+        skip_comma = false;
       } else {
-        Write(array.Value(i) ? "true" : "false");
+        (*sink_) << ",\n";
+      }
+      if ((i >= window_) && (i < (array.length() - window_))) {
+        Indent();
+        (*sink_) << "...\n";
+        i = array.length() - window_ - 1;
+        skip_comma = true;
+      } else if (array.IsNull(i)) {
+        Indent();
+        (*sink_) << null_rep_;
+      } else {
+        std::shared_ptr<Array> slice =
+            array.values()->Slice(array.value_offset(i), array.value_length(i));
+        RETURN_NOT_OK(PrettyPrint(*slice, {indent_, window_}, sink_));
       }
     }
+    (*sink_) << "\n";
+    return Status::OK();
   }
 
   Status Visit(const NullArray& array) {
@@ -209,37 +230,21 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename T>
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
                               std::is_base_of<FixedSizeBinaryArray, T>::value ||
-                              std::is_base_of<BinaryArray, T>::value,
+                              std::is_base_of<BinaryArray, T>::value ||
+                              std::is_base_of<ListArray, T>::value,
                           Status>::type
   Visit(const T& array) {
-    OpenArray();
-    WriteDataValues(array);
-    CloseArray();
+    OpenArray(array);
+    if (array.length() > 0) {
+      RETURN_NOT_OK(WriteDataValues(array));
+    }
+    CloseArray(array);
     return Status::OK();
   }
 
   Status Visit(const IntervalArray&) { return Status::NotImplemented("interval"); }
 
   Status WriteValidityBitmap(const Array& array);
-
-  Status Visit(const ListArray& array) {
-    RETURN_NOT_OK(WriteValidityBitmap(array));
-
-    Newline();
-    Write("-- value_offsets: ");
-    Int32Array value_offsets(array.length() + 1, array.value_offsets(), nullptr, 0,
-                             array.offset());
-    RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
-
-    Newline();
-    Write("-- values: ");
-    auto values =
-        array.values()->Slice(array.value_offset(0),
-                              array.value_offset(array.length()) - array.value_offset(0));
-    RETURN_NOT_OK(PrettyPrint(*values, indent_ + 2, sink_));
-
-    return Status::OK();
-  }
 
   Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields, int64_t offset,
                        int64_t length) {
@@ -254,7 +259,7 @@ class ArrayPrinter : public PrettyPrinter {
         field = field->Slice(offset, length);
       }
 
-      RETURN_NOT_OK(PrettyPrint(*field, indent_ + 2, sink_));
+      RETURN_NOT_OK(PrettyPrint(*field, indent_ + indent_size_, sink_));
     }
     return Status::OK();
   }
@@ -275,14 +280,14 @@ class ArrayPrinter : public PrettyPrinter {
     Newline();
     Write("-- type_ids: ");
     UInt8Array type_ids(array.length(), array.type_ids(), nullptr, 0, array.offset());
-    RETURN_NOT_OK(PrettyPrint(type_ids, indent_ + 2, sink_));
+    RETURN_NOT_OK(PrettyPrint(type_ids, indent_ + indent_size_, sink_));
 
     if (array.mode() == UnionMode::DENSE) {
       Newline();
       Write("-- value_offsets: ");
       Int32Array value_offsets(array.length(), array.value_offsets(), nullptr, 0,
                                array.offset());
-      RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
+      RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + indent_size_, sink_));
     }
 
     // Print the children without any offset, because the type ids are absolute
@@ -295,15 +300,13 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   Status Visit(const DictionaryArray& array) {
-    RETURN_NOT_OK(WriteValidityBitmap(array));
+    Newline();
+    Write("-- dictionary:\n");
+    RETURN_NOT_OK(PrettyPrint(*array.dictionary(), indent_ + indent_size_, sink_));
 
     Newline();
-    Write("-- dictionary: ");
-    RETURN_NOT_OK(PrettyPrint(*array.dictionary(), indent_ + 2, sink_));
-
-    Newline();
-    Write("-- indices: ");
-    return PrettyPrint(*array.indices(), indent_ + 2, sink_);
+    Write("-- indices:\n");
+    return PrettyPrint(*array.indices(), indent_ + indent_size_, sink_);
   }
 
   Status Print() {
@@ -314,16 +317,17 @@ class ArrayPrinter : public PrettyPrinter {
 
  private:
   const Array& array_;
+  std::string null_rep_;
 };
 
 Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
   Newline();
-  Write("-- is_valid: ");
+  Write("-- is_valid:\n");
 
   if (array.null_count() > 0) {
     BooleanArray is_valid(array.length(), array.null_bitmap(), nullptr, 0,
                           array.offset());
-    return PrettyPrint(is_valid, indent_ + 2, sink_);
+    return PrettyPrint(is_valid, indent_ + indent_size_, sink_);
   } else {
     Write("all not null");
     return Status::OK();
@@ -331,8 +335,71 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
 }
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
-  ArrayPrinter printer(arr, indent, sink);
+  ArrayPrinter printer(arr, indent, 2, 10, "null", sink);
   return printer.Print();
+}
+
+Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  ArrayPrinter printer(arr, options.indent, options.indent_size, options.window,
+                       options.null_rep, sink);
+  return printer.Print();
+}
+
+Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
+                   std::string* result) {
+  std::ostringstream sink;
+  RETURN_NOT_OK(PrettyPrint(arr, options, &sink));
+  *result = sink.str();
+  return Status::OK();
+}
+
+Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  int num_chunks = chunked_arr.num_chunks();
+  int indent = options.indent;
+  int window = options.window;
+
+  for (int i = 0; i < indent; ++i) {
+    (*sink) << " ";
+  }
+  (*sink) << "[\n";
+  bool skip_comma = true;
+  for (int i = 0; i < num_chunks; ++i) {
+    if (skip_comma) {
+      skip_comma = false;
+    } else {
+      (*sink) << ",\n";
+    }
+    if ((i >= window) && (i < (num_chunks - window))) {
+      for (int i = 0; i < indent; ++i) {
+        (*sink) << " ";
+      }
+      (*sink) << "...\n";
+      i = num_chunks - window - 1;
+      skip_comma = true;
+    } else {
+      ArrayPrinter printer(*chunked_arr.chunk(i), indent + options.indent_size,
+                           options.indent_size, window, options.null_rep, sink);
+      RETURN_NOT_OK(printer.Print());
+    }
+  }
+  (*sink) << "\n";
+
+  for (int i = 0; i < indent; ++i) {
+    (*sink) << " ";
+  }
+  (*sink) << "]";
+
+  return Status::OK();
+}
+
+Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
+                   std::string* result) {
+  std::ostringstream sink;
+  RETURN_NOT_OK(PrettyPrint(chunked_arr, options, &sink));
+  *result = sink.str();
+  return Status::OK();
 }
 
 Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
@@ -352,8 +419,9 @@ Status DebugPrint(const Array& arr, int indent) {
 
 class SchemaPrinter : public PrettyPrinter {
  public:
-  SchemaPrinter(const Schema& schema, int indent, std::ostream* sink)
-      : PrettyPrinter(indent, sink), schema_(schema) {}
+  SchemaPrinter(const Schema& schema, int indent, int indent_size, int window,
+                std::ostream* sink)
+      : PrettyPrinter(indent, indent_size, window, sink), schema_(schema) {}
 
   Status PrintType(const DataType& type);
   Status PrintField(const Field& field);
@@ -376,13 +444,12 @@ class SchemaPrinter : public PrettyPrinter {
 Status SchemaPrinter::PrintType(const DataType& type) {
   Write(type.ToString());
   if (type.id() == Type::DICTIONARY) {
+    indent_ += indent_size_;
     Newline();
-
-    indent_ += 2;
-    WriteIndented("dictionary: ");
+    Write("dictionary:\n");
     const auto& dict_type = checked_cast<const DictionaryType&>(type);
-    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_, sink_));
-    indent_ -= 2;
+    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_ + indent_size_, sink_));
+    indent_ -= indent_size_;
   } else {
     for (int i = 0; i < type.num_children(); ++i) {
       Newline();
@@ -390,10 +457,10 @@ Status SchemaPrinter::PrintType(const DataType& type) {
       std::stringstream ss;
       ss << "child " << i << ", ";
 
-      indent_ += 2;
+      indent_ += indent_size_;
       WriteIndented(ss.str());
       RETURN_NOT_OK(PrintField(*type.child(i)));
-      indent_ -= 2;
+      indent_ -= indent_size_;
     }
   }
   return Status::OK();
@@ -407,7 +474,8 @@ Status SchemaPrinter::PrintField(const Field& field) {
 
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::ostream* sink) {
-  SchemaPrinter printer(schema, options.indent, sink);
+  SchemaPrinter printer(schema, options.indent, options.indent_size, options.window,
+                        sink);
   return printer.Print();
 }
 
