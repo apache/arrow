@@ -51,9 +51,10 @@ tasks:
   #   platform: osx|linux|win
   #   template: path of jinja2 templated yml
   #   params: optional extra parameters
-  #   artifacts: list of expected release asset filenames,
-  #     version variable can be used in the artifact's name, e.g.
-  #     - pyarrow-{version}-py36_0-linux-64.tar.bz2
+  #   artifacts: list of regex patterns, each needs to match a single github
+  #              release asset, version variable is replaced in the pattern
+  #              e.g.:
+  #     - pyarrow-{version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
 
   ############################## Conda Linux ##################################
 
@@ -63,9 +64,8 @@ tasks:
     params:
       variant_config_file: variants/linux_python2.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py27_0.tar.bz2
-      - pyarrow-{version}-py27_0.tar.bz2
-      - parquet-cpp-1.4.0-0.tar.bz2  # don't upload?
+      - arrow-cpp-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-py35:
     platform: linux
@@ -73,9 +73,8 @@ tasks:
     params:
       variant_config_file: variants/linux_python3.5.yaml
     artifacts:
-      - arrow-cpp-{version}-py35_0.tar.bz2
-      - pyarrow-{version}-py35_0.tar.bz2
-      - parquet-cpp-1.4.0-0.tar.bz2  # don't upload?
+      - arrow-cpp-{version}-py35(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py35(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-py36:
     platform: linux
@@ -83,9 +82,8 @@ tasks:
     params:
       variant_config_file: variants/linux_python3.6.yaml
     artifacts:
-      - arrow-cpp-{version}-py36_0.tar.bz2
-      - pyarrow-{version}-py36_0.tar.bz2
-      - parquet-cpp-1.4.0-0.tar.bz2  # don't upload?
+      - arrow-cpp-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Conda OSX ####################################
 
@@ -95,9 +93,8 @@ tasks:
     params:
       variant_config_file: variants/osx_python2.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py27_0-osx-64.tar.bz2
-      - pyarrow-{version}-py27_0-osx-64.tar.bz2
-      - parquet-cpp-1.4.0-0-osx-64.tar.bz2
+      - arrow-cpp-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-py35:
     platform: osx
@@ -105,9 +102,8 @@ tasks:
     params:
       variant_config_file: variants/osx_python3.5.yaml
     artifacts:
-      - arrow-cpp-{version}-py35_0.tar.bz2
-      - pyarrow-{version}-py35_0.tar.bz2
-      - parquet-cpp-1.4.0-0.tar.bz2
+      - arrow-cpp-{version}-py35(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py35(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-py36:
     platform: osx
@@ -115,9 +111,8 @@ tasks:
     params:
       variant_config_file: variants/osx_python3.6.yaml
     artifacts:
-      - arrow-cpp-{version}-py36_0.tar.bz2
-      - pyarrow-{version}-py36_0.tar.bz2
-      - parquet-cpp-1.4.0-0.tar.bz2
+      - arrow-cpp-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Conda Windows ################################
 
@@ -127,9 +122,8 @@ tasks:
     params:
       variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.5.yaml
     artifacts:
-      - arrow-cpp-{version}-py35_vc14_0.tar.bz2
-      - pyarrow-{version}-py35_vc14_0.tar.bz2
-      - parquet-cpp-1.4.0-vc14_0.tar.bz2
+      - arrow-cpp-{version}-py35_vc14(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py35(h[a-z0-9]+)_0.tar.bz2
 
   conda-win-py36:
     platform: win
@@ -137,9 +131,8 @@ tasks:
     params:
       variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.6.yaml
     artifacts:
-      - arrow-cpp-{version}-py36_vc14_0.tar.bz2
-      - pyarrow-{version}-py36_vc14_0.tar.bz2
-      - parquet-cpp-1.4.0-vc14_0.tar.bz2
+      - arrow-cpp-{version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Wheel Linux ##################################
 
@@ -226,7 +219,7 @@ tasks:
     template: python-wheels/appveyor.yml
     params:
       numpy_version: 1.13
-      python_version: 3.5
+      python_version: 3.6
     artifacts:
       - pyarrow-{version}-cp36-cp36m-win_amd64.whl
 
