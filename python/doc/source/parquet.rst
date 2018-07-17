@@ -112,6 +112,33 @@ In general, a Python file object will have the worst read performance, while a
 string file path or an instance of :class:`~.NativeFile` (especially memory
 maps) will perform the best.
 
+Omitting the DataFrame index
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When using ``pa.Table.from_pandas`` to convert to an Arrow table, by default
+one or more special columns are added to keep track of the index (row
+labels). Storing the index takes extra space, so if your index is not valuable,
+you may choose to omit it by passing ``preserve_index=False``
+
+.. ipython:: python
+
+   df = pd.DataFrame({'one': [-1, np.nan, 2.5],
+                      'two': ['foo', 'bar', 'baz'],
+                      'three': [True, False, True]},
+                      index=list('abc'))
+   df
+   table = pa.Table.from_pandas(df, preserve_index=False)
+
+Then we have:
+
+.. ipython:: python
+
+   pq.write_table(table, 'example_noindex.parquet')
+   t = pq.read_table('example_noindex.parquet')
+   t.to_pandas()
+
+Here you see the index did not survive the round trip.
+
 Finer-grained Reading and Writing
 ---------------------------------
 
@@ -159,6 +186,7 @@ Alternatively python ``with`` syntax can also be use:
    :suppress:
 
    !rm example.parquet
+   !rm example_noindex.parquet
    !rm example2.parquet
    !rm example3.parquet
 
@@ -337,4 +365,3 @@ Notes:
 * The ``account_key`` can be found under ``Settings -> Access keys`` in the Microsoft Azure portal for a given container
 * The code above works for a container with private access, Lease State = Available, Lease Status = Unlocked
 * The parquet file was Blob Type = Block blob
-
