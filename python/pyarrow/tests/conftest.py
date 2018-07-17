@@ -20,10 +20,11 @@ from pytest import skip, mark
 
 groups = [
     'hdfs',
+    'large_memory',
     'parquet',
     'plasma',
-    'large_memory',
     's3',
+    'tensorflow'
 ]
 
 
@@ -34,6 +35,7 @@ defaults = {
     'plasma': False,
     'large_memory': False,
     's3': False,
+    'tensorflow': False
 }
 
 try:

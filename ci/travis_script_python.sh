@@ -27,6 +27,8 @@ export PARQUET_HOME=$ARROW_PYTHON_PARQUET_HOME
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib:$LD_LIBRARY_PATH
 export PYARROW_CXXFLAGS="-Werror"
 
+PYARROW_PYTEST_FLAGS=" -r sxX --durations=15 --parquet"
+
 PYTHON_VERSION=$1
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
@@ -59,6 +61,7 @@ conda install -y -q pip \
 
 if [ $TRAVIS_OS_NAME != "osx" ]; then
   conda install -y -c conda-forge tensorflow
+  PYARROW_PYTEST_FLAGS="$PYARROW_PYTEST_FLAGS --tensorflow"
 fi
 
 # Re-build C++ libraries with the right Python setup
@@ -138,9 +141,9 @@ fi
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     # Output Python coverage data in a persistent place
     export COVERAGE_FILE=$ARROW_PYTHON_COVERAGE_FILE
-    coverage run --append -m pytest -r sxX --durations=15 --parquet pyarrow/tests
+    coverage run --append -m pytest $PYARROW_PYTEST_FLAGS pyarrow/tests
 else
-    python -m pytest -r sxX --durations=15 --parquet pyarrow/tests
+    python -m pytest $PYARROW_PYTEST_FLAGS pyarrow/tests
 fi
 
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
