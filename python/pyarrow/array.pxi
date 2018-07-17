@@ -604,6 +604,21 @@ cdef class Array:
                                               self, &out))
         return wrap_array_output(out)
 
+    def to_numpy(self):
+        """
+        Construct a NumPy view of this array
+        """
+        if self.null_count:
+            raise NotImplementedError('NumPy array view is only supported '
+                                      'for arrays without nulls.')
+        if not is_primitive(self.type.id):
+            raise NotImplementedError('NumPy array view is only supported '
+                                      'for primitive types.')
+        buflist = self.buffers()
+        assert len(buflist) == 2
+        return np.frombuffer(buflist[-1], dtype=self.type.to_pandas_dtype())[
+            self.offset:self.offset + len(self)]
+
     def to_pylist(self):
         """
         Convert to an list of native Python objects.
