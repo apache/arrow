@@ -938,14 +938,17 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     object PyHalf_FromHalf(npy_half value)
 
     CStatus ConvertPySequence(object obj, CMemoryPool* pool,
+                              c_bool from_pandas,
                               shared_ptr[CArray]* out)
     CStatus ConvertPySequence(object obj, const shared_ptr[CDataType]& type,
-                              CMemoryPool* pool, shared_ptr[CArray]* out)
-    CStatus ConvertPySequence(object obj, int64_t size, CMemoryPool* pool,
+                              CMemoryPool* pool, c_bool from_pandas,
                               shared_ptr[CArray]* out)
+    CStatus ConvertPySequence(object obj, int64_t size, CMemoryPool* pool,
+                              c_bool from_pandas, shared_ptr[CArray]* out)
     CStatus ConvertPySequence(object obj, int64_t size,
                               const shared_ptr[CDataType]& type,
                               CMemoryPool* pool,
+                              c_bool from_pandas,
                               shared_ptr[CArray]* out)
 
     CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)

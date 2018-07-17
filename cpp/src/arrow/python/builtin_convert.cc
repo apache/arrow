@@ -427,10 +427,27 @@ class BoolConverter : public TypedConverterVisitor<BooleanBuilder, BoolConverter
   }
 };
 
-template <typename IntType>
+template <typename IntType, bool from_pandas = true>
 class TypedIntConverter
     : public TypedConverterVisitor<NumericBuilder<IntType>, TypedIntConverter<IntType>> {
  public:
+  // Append a non-missing item
+  Status AppendItem(PyObject* obj) {
+    typename IntType::c_type value;
+    RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
+    return this->typed_builder_->Append(value);
+  }
+};
+
+template <typename IntType>
+class TypedIntConverter<IntType, false>
+    : public TypedConverterVisitor<NumericBuilder<IntType>,
+                                   TypedIntConverter<IntType, false>> {
+ public:
+  Status AppendSingle(PyObject* obj) {
+    return (obj == Py_None) ? this->AppendNull() : this->AppendItem(obj);
+  }
+
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     typename IntType::c_type value;
@@ -523,18 +540,37 @@ class TimestampConverter
   TimeUnit::type unit_;
 };
 
+template <bool from_pandas = true>
 class Float16Converter
-    : public TypedConverterVisitor<HalfFloatBuilder, Float16Converter> {
+    : public TypedConverterVisitor<HalfFloatBuilder, Float16Converter<from_pandas>> {
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     npy_half val;
     RETURN_NOT_OK(PyFloat_AsHalf(obj, &val));
-    return typed_builder_->Append(val);
+    return this->typed_builder_->Append(val);
   }
 };
 
-class Float32Converter : public TypedConverterVisitor<FloatBuilder, Float32Converter> {
+template <>
+class Float16Converter<false>
+    : public TypedConverterVisitor<HalfFloatBuilder, Float16Converter<false>> {
+ public:
+  Status AppendSingle(PyObject* obj) override {
+    return (obj == Py_None) ? this->AppendNull() : this->AppendItem(obj);
+  }
+
+  // Append a non-missing item
+  Status AppendItem(PyObject* obj) {
+    npy_half val;
+    RETURN_NOT_OK(PyFloat_AsHalf(obj, &val));
+    return this->typed_builder_->Append(val);
+  }
+};
+
+template <bool from_pandas = true>
+class Float32Converter
+    : public TypedConverterVisitor<FloatBuilder, Float32Converter<true>> {
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
@@ -544,13 +580,47 @@ class Float32Converter : public TypedConverterVisitor<FloatBuilder, Float32Conve
   }
 };
 
-class DoubleConverter : public TypedConverterVisitor<DoubleBuilder, DoubleConverter> {
+template <>
+class Float32Converter<false>
+    : public TypedConverterVisitor<FloatBuilder, Float32Converter<false>> {
+ public:
+  Status AppendSingle(PyObject* obj) override {
+    return (obj == Py_None) ? this->AppendNull() : this->AppendItem(obj);
+  }
+
+  // Append a non-missing item
+  Status AppendItem(PyObject* obj) {
+    float val = static_cast<float>(PyFloat_AsDouble(obj));
+    RETURN_IF_PYERROR();
+    return this->typed_builder_->Append(val);
+  }
+};
+
+template <bool from_pandas = true>
+class DoubleConverter
+    : public TypedConverterVisitor<DoubleBuilder, DoubleConverter<true>> {
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     double val = PyFloat_AsDouble(obj);
     RETURN_IF_PYERROR();
     return typed_builder_->Append(val);
+  }
+};
+
+template <>
+class DoubleConverter<false>
+    : public TypedConverterVisitor<DoubleBuilder, DoubleConverter<false>> {
+ public:
+  Status AppendSingle(PyObject* obj) override {
+    return (obj == Py_None) ? this->AppendNull() : this->AppendItem(obj);
+  }
+
+  // Append a non-missing item
+  Status AppendItem(PyObject* obj) {
+    double val = PyFloat_AsDouble(obj);
+    RETURN_IF_PYERROR();
+    return this->typed_builder_->Append(val);
   }
 };
 
@@ -581,6 +651,8 @@ class UTF8Converter : public TypedConverterVisitor<StringBuilder, UTF8Converter>
 
 class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
  public:
+  explicit ListConverter(bool from_pandas) : from_pandas_(from_pandas) {}
+
   Status Init(ArrayBuilder* builder) override;
 
   // Append a non-missing item
@@ -595,10 +667,13 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
 
  protected:
   std::unique_ptr<SeqConverter> value_converter_;
+  bool from_pandas_;
 };
 
 class StructConverter : public TypedConverterVisitor<StructBuilder, StructConverter> {
  public:
+  explicit StructConverter(bool from_pandas) : from_pandas_(from_pandas) {}
+
   Status Init(ArrayBuilder* builder) override;
 
   // Append a non-missing item
@@ -660,6 +735,7 @@ class StructConverter : public TypedConverterVisitor<StructBuilder, StructConver
   int num_fields_;
   // Whether we're converting from a sequence of dicts or tuples
   enum { UNKNOWN, DICTS, TUPLES } source_kind_ = UNKNOWN;
+  bool from_pandas_;
 };
 
 class DecimalConverter
@@ -674,29 +750,39 @@ class DecimalConverter
   }
 };
 
+#define INT_CONVERTER(ArrowType)                                                     \
+  {                                                                                  \
+    if (from_pandas) {                                                               \
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<ArrowType, true>);  \
+    } else {                                                                         \
+      return std::unique_ptr<SeqConverter>(new TypedIntConverter<ArrowType, false>); \
+    }                                                                                \
+  }
+
 // Dynamic constructor for sequence converters
-std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type) {
+std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type,
+                                           bool from_pandas) {
   switch (type->id()) {
     case Type::NA:
       return std::unique_ptr<SeqConverter>(new NullConverter);
     case Type::BOOL:
       return std::unique_ptr<SeqConverter>(new BoolConverter);
     case Type::INT8:
-      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int8Type>);
+      INT_CONVERTER(Int8Type)
     case Type::INT16:
-      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int16Type>);
+      INT_CONVERTER(Int16Type)
     case Type::INT32:
-      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int32Type>);
+      INT_CONVERTER(Int32Type)
     case Type::INT64:
-      return std::unique_ptr<SeqConverter>(new TypedIntConverter<Int64Type>);
+      INT_CONVERTER(Int64Type)
     case Type::UINT8:
-      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt8Type>);
+      INT_CONVERTER(UInt8Type)
     case Type::UINT16:
-      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt16Type>);
+      INT_CONVERTER(UInt16Type)
     case Type::UINT32:
-      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt32Type>);
+      INT_CONVERTER(UInt32Type)
     case Type::UINT64:
-      return std::unique_ptr<SeqConverter>(new TypedIntConverter<UInt64Type>);
+      INT_CONVERTER(UInt64Type)
     case Type::DATE32:
       return std::unique_ptr<SeqConverter>(new Date32Converter);
     case Type::DATE64:
@@ -704,12 +790,27 @@ std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
     case Type::TIMESTAMP:
       return std::unique_ptr<SeqConverter>(
           new TimestampConverter(checked_cast<const TimestampType&>(*type).unit()));
-    case Type::HALF_FLOAT:
-      return std::unique_ptr<SeqConverter>(new Float16Converter);
-    case Type::FLOAT:
-      return std::unique_ptr<SeqConverter>(new Float32Converter);
-    case Type::DOUBLE:
-      return std::unique_ptr<SeqConverter>(new DoubleConverter);
+    case Type::HALF_FLOAT: {
+      if (from_pandas) {
+        return std::unique_ptr<SeqConverter>(new Float16Converter<true>);
+      } else {
+        return std::unique_ptr<SeqConverter>(new Float16Converter<false>);
+      }
+    }
+    case Type::FLOAT: {
+      if (from_pandas) {
+        return std::unique_ptr<SeqConverter>(new Float32Converter<true>);
+      } else {
+        return std::unique_ptr<SeqConverter>(new Float32Converter<false>);
+      }
+    }
+    case Type::DOUBLE: {
+      if (from_pandas) {
+        return std::unique_ptr<SeqConverter>(new DoubleConverter<true>);
+      } else {
+        return std::unique_ptr<SeqConverter>(new DoubleConverter<false>);
+      }
+    }
     case Type::BINARY:
       return std::unique_ptr<SeqConverter>(new BytesConverter);
     case Type::FIXED_SIZE_BINARY:
@@ -717,9 +818,9 @@ std::unique_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
     case Type::STRING:
       return std::unique_ptr<SeqConverter>(new UTF8Converter);
     case Type::LIST:
-      return std::unique_ptr<SeqConverter>(new ListConverter);
+      return std::unique_ptr<SeqConverter>(new ListConverter(from_pandas));
     case Type::STRUCT:
-      return std::unique_ptr<SeqConverter>(new StructConverter);
+      return std::unique_ptr<SeqConverter>(new StructConverter(from_pandas));
     case Type::DECIMAL:
       return std::unique_ptr<SeqConverter>(new DecimalConverter);
     default:
@@ -731,8 +832,8 @@ Status ListConverter::Init(ArrayBuilder* builder) {
   builder_ = builder;
   typed_builder_ = checked_cast<ListBuilder*>(builder);
 
-  value_converter_ =
-      GetConverter(checked_cast<const ListType&>(*builder->type()).value_type());
+  value_converter_ = GetConverter(
+      checked_cast<const ListType&>(*builder->type()).value_type(), from_pandas_);
   if (value_converter_ == nullptr) {
     return Status::NotImplemented("value type not implemented");
   }
@@ -756,7 +857,7 @@ Status StructConverter::Init(ArrayBuilder* builder) {
     const std::string& field_name(struct_type.child(i)->name());
     std::shared_ptr<DataType> field_type(struct_type.child(i)->type());
 
-    auto value_converter = GetConverter(field_type);
+    auto value_converter = GetConverter(field_type, from_pandas_);
     if (value_converter == nullptr) {
       return Status::NotImplemented("value type not implemented");
     }
@@ -774,9 +875,10 @@ Status StructConverter::Init(ArrayBuilder* builder) {
 }
 
 Status AppendPySequence(PyObject* obj, int64_t size,
-                        const std::shared_ptr<DataType>& type, ArrayBuilder* builder) {
+                        const std::shared_ptr<DataType>& type, ArrayBuilder* builder,
+                        bool from_pandas) {
   PyDateTime_IMPORT;
-  auto converter = GetConverter(type);
+  auto converter = GetConverter(type, from_pandas);
   if (converter == nullptr) {
     std::stringstream ss;
     ss << "No type converter implemented for " << type->ToString();
@@ -788,7 +890,8 @@ Status AppendPySequence(PyObject* obj, int64_t size,
 
 static Status ConvertPySequenceReal(PyObject* obj, int64_t size,
                                     const std::shared_ptr<DataType>* type,
-                                    MemoryPool* pool, std::shared_ptr<Array>* out) {
+                                    MemoryPool* pool, bool from_pandas,
+                                    std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
 
   PyObject* seq;
@@ -814,28 +917,30 @@ static Status ConvertPySequenceReal(PyObject* obj, int64_t size,
   // Give the sequence converter an array builder
   std::unique_ptr<ArrayBuilder> builder;
   RETURN_NOT_OK(MakeBuilder(pool, real_type, &builder));
-  RETURN_NOT_OK(AppendPySequence(seq, size, real_type, builder.get()));
+  RETURN_NOT_OK(AppendPySequence(seq, size, real_type, builder.get(), from_pandas));
   return builder->Finish(out);
 }
 
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out) {
-  return ConvertPySequenceReal(obj, -1, nullptr, pool, out);
+Status ConvertPySequence(PyObject* obj, MemoryPool* pool, bool from_pandas,
+                         std::shared_ptr<Array>* out) {
+  return ConvertPySequenceReal(obj, -1, nullptr, pool, from_pandas, out);
 }
 
 Status ConvertPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
-                         MemoryPool* pool, std::shared_ptr<Array>* out) {
-  return ConvertPySequenceReal(obj, -1, &type, pool, out);
+                         MemoryPool* pool, bool from_pandas,
+                         std::shared_ptr<Array>* out) {
+  return ConvertPySequenceReal(obj, -1, &type, pool, from_pandas, out);
 }
 
-Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool,
+Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool, bool from_pandas,
                          std::shared_ptr<Array>* out) {
-  return ConvertPySequenceReal(obj, size, nullptr, pool, out);
+  return ConvertPySequenceReal(obj, size, nullptr, pool, from_pandas, out);
 }
 
 Status ConvertPySequence(PyObject* obj, int64_t size,
                          const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                         std::shared_ptr<Array>* out) {
-  return ConvertPySequenceReal(obj, size, &type, pool, out);
+                         bool from_pandas, std::shared_ptr<Array>* out) {
+  return ConvertPySequenceReal(obj, size, &type, pool, from_pandas, out);
 }
 
 }  // namespace py

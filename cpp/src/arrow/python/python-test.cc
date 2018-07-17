@@ -269,7 +269,7 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
   ASSERT_EQ(PyList_SetItem(list, 1, integer), 0);
   ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
 
-  ASSERT_RAISES(TypeError, ConvertPySequence(list, pool, &arr));
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, pool, false, &arr));
 }
 
 TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
@@ -349,7 +349,7 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
 
   MemoryPool* pool = default_memory_pool();
   std::shared_ptr<Array> arr;
-  ASSERT_OK(ConvertPySequence(list, pool, &arr));
+  ASSERT_OK(ConvertPySequence(list, pool, false, &arr));
   ASSERT_TRUE(arr->IsValid(0));
   ASSERT_TRUE(arr->IsNull(1));
   ASSERT_TRUE(arr->IsNull(2));
@@ -374,7 +374,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
 
   MemoryPool* pool = default_memory_pool();
   std::shared_ptr<Array> arr;
-  ASSERT_OK(ConvertPySequence(list, pool, &arr));
+  ASSERT_OK(ConvertPySequence(list, pool, false, &arr));
   const auto& type = checked_cast<const DecimalType&>(*arr->type());
 
   int32_t expected_precision = 9;
@@ -402,7 +402,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
   ASSERT_EQ(PyList_SetItem(list, 0, value1), 0);
   ASSERT_EQ(PyList_SetItem(list, 1, value2), 0);
 
-  ASSERT_OK(ConvertPySequence(list, pool, &arr));
+  ASSERT_OK(ConvertPySequence(list, pool, false, &arr));
 
   const auto& type = checked_cast<const Decimal128Type&>(*arr->type());
   ASSERT_EQ(3, type.precision());
@@ -438,7 +438,7 @@ TEST(PythonTest, ConstructStringArrayWithLeadingZeros) {
 
   std::shared_ptr<Array> out;
   auto pool = default_memory_pool();
-  ASSERT_OK(ConvertPySequence(list, pool, &out));
+  ASSERT_OK(ConvertPySequence(list, pool, false, &out));
 }
 
 }  // namespace py

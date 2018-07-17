@@ -226,6 +226,40 @@ def test_sequence_integer(seq, np_scalar_pa_type):
 
 
 @parametrize_with_iterable_types
+@pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
+def test_sequence_integer_np_nan(seq, np_scalar_pa_type):
+    # ARROW-2806: numpy.nan is a double value and thus should produce
+    # a double array.
+    _, pa_type = np_scalar_pa_type
+    with pytest.raises(ValueError):
+        pa.array(seq([np.nan]), type=pa_type, from_pandas=False)
+
+    arr = pa.array(seq([np.nan]), type=pa_type, from_pandas=True)
+    expected = [None]
+    assert len(arr) == 1
+    assert arr.null_count == 1
+    assert arr.type == pa_type
+    assert arr.to_pylist() == expected
+
+
+@parametrize_with_iterable_types
+@pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
+def test_sequence_integer_nested_np_nan(seq, np_scalar_pa_type):
+    # ARROW-2806: numpy.nan is a double value and thus should produce
+    # a double array.
+    _, pa_type = np_scalar_pa_type
+    with pytest.raises(ValueError):
+        pa.array(seq([[np.nan]]), type=pa.list_(pa_type), from_pandas=False)
+
+    arr = pa.array(seq([[np.nan]]), type=pa.list_(pa_type), from_pandas=True)
+    expected = [[None]]
+    assert len(arr) == 1
+    assert arr.null_count == 0
+    assert arr.type == pa.list_(pa_type)
+    assert arr.to_pylist() == expected
+
+
+@parametrize_with_iterable_types
 def test_sequence_integer_inferred(seq):
     expected = [1, None, 3, None]
     arr = pa.array(seq(expected))
@@ -310,13 +344,43 @@ def test_sequence_double():
 
 @parametrize_with_iterable_types
 @pytest.mark.parametrize("np_scalar", [np.float16, np.float32, np.float64])
-def test_sequence_numpy_double(seq, np_scalar):
-    data = [np_scalar(1.5), np_scalar(1), None, np_scalar(2.5), None, None]
-    arr = pa.array(seq(data))
+@pytest.mark.parametrize("from_pandas", [True, False])
+def test_sequence_numpy_double(seq, np_scalar, from_pandas):
+    data = [np_scalar(1.5), np_scalar(1), None, np_scalar(2.5), None, np.nan]
+    arr = pa.array(seq(data), from_pandas=from_pandas)
     assert len(arr) == 6
-    assert arr.null_count == 3
+    if from_pandas:
+        assert arr.null_count == 3
+    else:
+        assert arr.null_count == 2
     assert arr.type == pa.float64()
-    assert arr.to_pylist() == data
+
+    assert arr.to_pylist()[:4] == data[:4]
+    if from_pandas:
+        assert arr.to_pylist()[5] is None
+    else:
+        assert np.isnan(arr.to_pylist()[5])
+
+
+@pytest.mark.parametrize("from_pandas", [True, False])
+@pytest.mark.parametrize("inner_seq", [np.array, list])
+def test_ndarray_nested_numpy_double(from_pandas, inner_seq):
+    # ARROW-2806
+    data = np.array([
+        inner_seq([1., 2.]),
+        inner_seq([1., 2., 3.]),
+        inner_seq([np.nan]),
+        None
+    ])
+    arr = pa.array(data, from_pandas=from_pandas)
+    assert len(arr) == 4
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.float64())
+    if from_pandas:
+        assert arr.to_pylist() == [[1.0, 2.0], [1.0, 2.0, 3.0], [None], None]
+    else:
+        np.testing.assert_equal(arr.to_pylist(),
+                                [[1., 2.], [1., 2., 3.], [np.nan], None])
 
 
 def test_sequence_unicode():
