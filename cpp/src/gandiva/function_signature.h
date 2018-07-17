@@ -19,7 +19,6 @@
 #include <string>
 #include <vector>
 
-#include "boost/functional/hash.hpp"
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"
 
@@ -40,51 +39,19 @@ class FunctionSignature {
     DCHECK(ret_type);
   }
 
-  bool operator==(const FunctionSignature &other) const {
-    if (param_types_.size() != other.param_types_.size() ||
-        !DataTypeEquals(ret_type_, other.ret_type_) || base_name_ != other.base_name_) {
-      return false;
-    }
-
-    for (size_t idx = 0; idx < param_types_.size(); idx++) {
-      if (!DataTypeEquals(param_types_[idx], other.param_types_[idx])) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool operator==(const FunctionSignature &other) const;
 
   /// calculated based on base_name, datatpype id of parameters and datatype id
   /// of return type.
-  std::size_t Hash() const {
-    static const size_t kSeedValue = 17;
-    size_t result = kSeedValue;
-    boost::hash_combine(result, base_name_);
-    boost::hash_combine(result, ret_type_->id());
-    // not using hash_range since we only want to include the id from the data type
-    for (auto &param_type : param_types_) {
-      boost::hash_combine(result, param_type->id());
-    }
-    return result;
-  }
+  std::size_t Hash() const;
 
   DataTypePtr ret_type() const { return ret_type_; }
 
-  std::string ToString() const {
-    std::stringstream s;
+  const std::string &base_name() const { return base_name_; }
 
-    s << ret_type_->ToString() << " " << base_name_ << "(";
-    for (uint32_t i = 0; i < param_types_.size(); i++) {
-      if (i > 0) {
-        s << ", ";
-      }
+  DataTypeVector param_types() const { return param_types_; }
 
-      s << param_types_[i]->ToString();
-    }
-
-    s << ")";
-    return s.str();
-  }
+  std::string ToString() const;
 
  private:
   // TODO : for some of the types, this shouldn't match type specific data. eg. for

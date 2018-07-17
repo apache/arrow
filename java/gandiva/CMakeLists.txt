@@ -24,6 +24,7 @@ add_jar(
   gandiva_java
     src/main/java/org/apache/arrow/gandiva/evaluator/ConfigurationBuilder.java
     src/main/java/org/apache/arrow/gandiva/evaluator/NativeBuilder.java
+    src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
     src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java
   GENERATE_NATIVE_HEADERS gandivajni_headers
     DESTINATION ${JNI_HEADERS_DIR}/jni

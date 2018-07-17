@@ -23,17 +23,19 @@ set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
 configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
 
 set(SRC_FILES annotator.cc
-      engine.cc
       bitmap_accumulator.cc
       configuration.cc
+      engine.cc
       expr_decomposer.cc
       expr_validator.cc
+      expression.cc
+      expression_registry.cc
       function_registry.cc
+      function_signature.cc
       llvm_generator.cc
       llvm_types.cc
       projector.cc
       status.cc
-      expression.cc
       tree_expr_builder.cc
       ${BC_FILE_PATH_CC})
 
@@ -81,11 +83,13 @@ install(
 add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
 add_gandiva_unit_test(dex_llvm_test.cc)
 add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc status.cc configuration.cc ${BC_FILE_PATH_CC})
-add_gandiva_unit_test(function_signature_test.cc)
-add_gandiva_unit_test(function_registry_test.cc function_registry.cc)
+add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
+add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
 add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc status.cc bitmap_accumulator.cc configuration.cc  ${BC_FILE_PATH_CC})
-add_gandiva_unit_test(annotator_test.cc annotator.cc)
-add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc)
-add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc)
+add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc status.cc bitmap_accumulator.cc configuration.cc  function_signature.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
+add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc)
+add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc)
 add_gandiva_unit_test(status_test.cc status.cc)
+add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
+

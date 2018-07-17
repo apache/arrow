@@ -27,6 +27,14 @@ public class ConfigurationBuilder {
 
   private static volatile long defaultConfiguration = 0L;
 
+  /**
+   * Ctor - ensure that gandiva is loaded.
+   * @throws GandivaException - if library cannot be loaded.
+   */
+  public ConfigurationBuilder() throws GandivaException {
+    NativeBuilder.getInstance();
+  }
+
   public ConfigurationBuilder withByteCodeFilePath(final String byteCodeFilePath) {
     this.byteCodeFilePath = byteCodeFilePath;
     return this;

@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "codegen/function_signature.h"
+#include "gandiva/function_signature.h"
 
 namespace gandiva {
 

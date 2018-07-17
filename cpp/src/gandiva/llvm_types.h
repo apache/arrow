@@ -16,6 +16,7 @@
 #define GANDIVA_LLVM_TYPES_H
 
 #include <map>
+#include <vector>
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
@@ -99,6 +100,14 @@ class LLVMTypes {
   llvm::Type *IRType(arrow::Type::type arrow_type) {
     auto found = arrow_id_to_llvm_type_map_.find(arrow_type);
     return (found == arrow_id_to_llvm_type_map_.end()) ? NULL : found->second;
+  }
+
+  std::vector<arrow::Type::type> GetSupportedArrowTypes() {
+    std::vector<arrow::Type::type> retval;
+    for (auto const &element : arrow_id_to_llvm_type_map_) {
+      retval.push_back(element.first);
+    }
+    return retval;
   }
 
  private:

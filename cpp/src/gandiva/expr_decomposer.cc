@@ -22,8 +22,8 @@
 #include "codegen/annotator.h"
 #include "codegen/dex.h"
 #include "codegen/function_registry.h"
-#include "codegen/function_signature.h"
 #include "codegen/node.h"
+#include "gandiva/function_signature.h"
 
 namespace gandiva {
 

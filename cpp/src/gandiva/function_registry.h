@@ -18,6 +18,7 @@
 #include <unordered_map>
 
 #include "codegen/native_function.h"
+#include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 

@@ -49,6 +49,10 @@ using NodeVector = std::vector<std::shared_ptr<Node>>;
 class EvalBatch;
 using EvalBatchPtr = std::shared_ptr<EvalBatch>;
 
+class FunctionSignature;
+using FuncSignaturePtr = std::shared_ptr<FunctionSignature>;
+using FuncSignatureVector = std::vector<FuncSignaturePtr>;
+
 }  // namespace gandiva
 
 #endif  // GANDIVA_ALIASES_H
