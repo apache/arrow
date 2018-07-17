@@ -47,27 +47,29 @@ ARROW_EXPORT arrow::Status InferArrowTypeAndSize(
 
 ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj, int64_t size,
                                             const std::shared_ptr<arrow::DataType>& type,
-                                            arrow::ArrayBuilder* builder);
+                                            arrow::ArrayBuilder* builder,
+                                            bool from_pandas);
 
 // Type and size inference
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out);
+Status ConvertPySequence(PyObject* obj, MemoryPool* pool, bool from_pandas,
+                         std::shared_ptr<Array>* out);
 
 // Type inference only
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool,
+Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool, bool from_pandas,
                          std::shared_ptr<Array>* out);
 
 // Size inference only
 ARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
-                         MemoryPool* pool, std::shared_ptr<Array>* out);
+                         MemoryPool* pool, bool from_pandas, std::shared_ptr<Array>* out);
 
 // No inference
 ARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, int64_t size,
                          const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                         std::shared_ptr<Array>* out);
+                         bool from_pandas, std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
 Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,
