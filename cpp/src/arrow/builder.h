@@ -145,8 +145,9 @@ class ARROW_EXPORT ArrayBuilder {
   }
 
   template <typename IterType>
-  typename std::enable_if<!std::is_pointer<IterType>::value>::type UnsafeAppendToBitmap(
-      const IterType& begin, const IterType& end) {
+  typename std::enable_if<!std::is_null_pointer<IterType>::value &&
+                          !std::is_pointer<IterType>::value>::type
+  UnsafeAppendToBitmap(const IterType& begin, const IterType& end) {
     DoAppendToBitmap(begin, end);
   }
 
@@ -158,6 +159,12 @@ class ARROW_EXPORT ArrayBuilder {
     } else {
       DoAppendToBitmap(begin, end);
     }
+  }
+
+  template <typename IterType>
+  typename std::enable_if<std::is_null_pointer<IterType>::value>::type
+  UnsafeAppendToBitmap(const IterType& begin, const IterType& end) {
+    DoAppendToBitmap(begin, end);
   }
 
  protected:
@@ -339,20 +346,26 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \return Status
 
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<!std::is_same<ValidIter, std::nullptr_t>::value, Status>::type
+  // valid iter can be a nullptr so make an explicit specialization for pointers
+  typename std::enable_if<!std::is_null_pointer<ValidIter>::value &&
+                              !std::is_pointer<ValidIter>::value,
+                          Status>::type
   AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
-
-    std::copy(values_begin, values_end, raw_data_ + length_);
-
-    // this updates the length_
-    UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
-    return Status::OK();
+    return DoAppendValues(values_begin, values_end, valid_begin);
   }
 
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<std::is_same<ValidIter, std::nullptr_t>::value, Status>::type
+  typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
+      ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
+    if (valid_begin == NULLPTR) {
+      return AppendValues(values_begin, values_end);
+    } else {
+      return DoAppendValues(values_begin, values_end, valid_begin);
+    }
+  }
+
+  template <typename ValuesIter, typename ValidIter>
+  typename std::enable_if<std::is_null_pointer<ValidIter>::value, Status>::type
   AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     return AppendValues(values_begin, values_end);
   }
@@ -372,6 +385,19 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  protected:
   std::shared_ptr<PoolBuffer> data_;
   value_type* raw_data_;
+
+  template <typename ValuesIter, typename ValidIter>
+  Status DoAppendValues(ValuesIter values_begin, ValuesIter values_end,
+                        ValidIter valid_begin) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+
+    std::copy(values_begin, values_end, raw_data_ + length_);
+
+    // this updates the length_
+    UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+    return Status::OK();
+  }
 };
 
 /// Base class for all Builders that emit an Array of a scalar numerical type.
@@ -780,25 +806,25 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   ///  or null(0) values
   /// \return Status
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<!std::is_same<ValidIter, std::nullptr_t>::value, Status>::type
+  typename std::enable_if<!std::is_pointer<ValidIter>::value &&
+                              !std::is_null_pointer<ValidIter>::value,
+                          Status>::type
   AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
-
-    {
-      auto iter = values_begin;
-      internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                     [&iter]() -> bool { return *(iter++); });
-    }
-
-    // this updates length_
-    ArrayBuilder::UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
-    return Status::OK();
+    return DoAppendValues(values_begin, values_end, valid_begin);
   }
 
-  // specialization for nullptr being passed for valid_begin
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<std::is_same<ValidIter, std::nullptr_t>::value, Status>::type
+  typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
+      ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
+    if (valid_begin == NULLPTR) {
+      return AppendValues(values_begin, values_end);
+    } else {
+      return AppendValues(values_begin, values_end, valid_begin);
+    }
+  }
+
+  template <typename ValuesIter, typename ValidIter>
+  typename std::enable_if<std::is_null_pointer<ValidIter>::value, Status>::type
   AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     return AppendValues(values_begin, values_end);
   }
@@ -814,6 +840,24 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  protected:
   std::shared_ptr<PoolBuffer> data_;
   uint8_t* raw_data_;
+
+ private:
+  template <typename ValuesIter, typename ValidIter>
+  Status DoAppendValues(ValuesIter values_begin, ValuesIter values_end,
+                        ValidIter valid_begin) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+
+    {
+      auto iter = values_begin;
+      internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                     [&iter]() -> bool { return *(iter++); });
+    }
+
+    // this updates length_
+    ArrayBuilder::UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+    return Status::OK();
+  }
 };
 
 // ----------------------------------------------------------------------
