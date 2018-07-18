@@ -56,7 +56,7 @@ cdef extern from "plasma/common.h" nogil:
     cdef struct CObjectRequest" plasma::ObjectRequest":
         CUniqueID object_id
         int type
-        int status
+        int location
 
 
 cdef extern from "plasma/common.h":
@@ -66,8 +66,9 @@ cdef extern from "plasma/common.h":
         PLASMA_QUERY_LOCAL"plasma::ObjectRequestType::PLASMA_QUERY_LOCAL",
         PLASMA_QUERY_ANYWHERE"plasma::ObjectRequestType::PLASMA_QUERY_ANYWHERE"
 
-    cdef int ObjectStatusLocal"plasma::ObjectStatusLocal"
-    cdef int ObjectStatusRemote"plasma::ObjectStatusRemote"
+    cdef enum ObjectLocation:
+        ObjectStatusLocal"plasma::ObjectLocation::Local"
+        ObjectStatusRemote"plasma::ObjectLocation::Remote"
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -598,8 +599,8 @@ cdef class PlasmaClient:
         for i in range(len(object_ids)):
             if num_returned == num_to_return:
                 break
-            if (object_requests[i].status == ObjectStatusLocal or
-                    object_requests[i].status == ObjectStatusRemote):
+            if (object_requests[i].location == ObjectStatusLocal or
+                    object_requests[i].location == ObjectStatusRemote):
                 ready_ids.append(
                     ObjectID(object_requests[i].object_id.binary()))
                 waiting_ids.discard(
