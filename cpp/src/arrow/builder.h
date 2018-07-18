@@ -302,10 +302,6 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \param[in] values_begin InputIterator to the beginning of the values
   /// \param[in] values_end InputIterator pointing to the end of the values
   /// \return Status
-  template <typename ValuesIter>
-  Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
 
 #ifdef _MSC_VER
 // suppress msvc narrowing conversion warnings
@@ -313,14 +309,20 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 #pragma warning(disable : 4267)
 #pragma warning(disable : 4244)
 #endif
+  template <typename ValuesIter>
+  Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+
     std::copy(values_begin, values_end, raw_data_ + length_);
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+
     // this updates the length_
     UnsafeSetNotNull(length);
     return Status::OK();
   }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
   /// \brief Append a sequence of elements in one shot, with a specified nullmap
   /// \param[in] values_begin InputIterator to the beginning of the values
@@ -328,26 +330,28 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \param[in] valid_begin InputIterator with elements indication valid(1)
   ///  or null(0) values
   /// \return Status
-  template <typename ValuesIter, typename ValidIter>
-  Status AppendValues(ValuesIter values_begin, ValuesIter values_end,
-                      ValidIter valid_begin) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
-// suppress msvc narrowing conversion warnings
+
 #ifdef _MSC_VER
 // suppress msvc narrowing conversion warnings
 #pragma warning(push)
 #pragma warning(disable : 4267)
 #pragma warning(disable : 4244)
 #endif
+  template <typename ValuesIter, typename ValidIter>
+  Status AppendValues(ValuesIter values_begin, ValuesIter values_end,
+                      ValidIter valid_begin) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+
     std::copy(values_begin, values_end, raw_data_ + length_);
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+
     // this updates the length_
     UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
     return Status::OK();
   }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
   /// \deprecated Use AppendValues instead.
   ARROW_DEPRECATED("Use AppendValues instead")
