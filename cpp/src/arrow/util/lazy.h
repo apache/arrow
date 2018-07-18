@@ -60,7 +60,7 @@ class LazyRange {
 #if defined(_MSC_VER)
     // msvc complains about unchecked iterators,
     // see https://stackoverflow.com/questions/21655496/error-c4996-checked-iterators
-    using _Unchecked_type = RangeIter;
+    using _Unchecked_type = typename LazyRange<Generator>::RangeIter;
 #endif
 
     RangeIter(const LazyRange<Generator>& range, int64_t index)
