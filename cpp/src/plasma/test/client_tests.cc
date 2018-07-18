@@ -222,9 +222,9 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   ASSERT_TRUE(has_object);
   ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
   ASSERT_TRUE(has_object);
-  // Decrease the ref count by deleting the ObjectBuffer.
+  // Decrease the ref count by deleting the PlasmaBuffer (in ObjectBuffer).
   object_buffers.clear();
-  // The two objects will not be deleted since Get function increased the ref count.
+  // After decreasing the ref count, the objects are now deleted.
   ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
   ASSERT_FALSE(has_object);
   ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
