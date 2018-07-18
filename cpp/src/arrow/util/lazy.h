@@ -32,9 +32,18 @@ class LazyRange {
   const Generator gen_;
   // the length of the range
   int64_t length_;
+#if defined(_MSC_VER)
+  // workaround to VS2010 not supporting decltype properly
+  // see https://stackoverflow.com/questions/21782846/decltype-for-class-member-function
+  static Generator gen_static_;
+#endif
 
  public:
+#if defined(_MSC_VER)
+  using return_type = decltype(gen_static_(0));
+#else
   using return_type = decltype(gen_(0));
+#endif
 
   /// Construct a new range from a callable and length
   LazyRange(Generator gen, int64_t length) : gen_(gen), length_(length) {}
