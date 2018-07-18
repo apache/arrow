@@ -466,7 +466,7 @@ def submit(ctx, task, group, job_prefix, config_path, dry_run):
                 click.echo(content)
     else:
         queue.fetch()
-        queue.put(job)
+        queue.put(job, prefix=job_prefix)
         queue.push()
         yaml.dump(job, sys.stdout)
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
