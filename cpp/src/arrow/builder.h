@@ -310,7 +310,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 #ifdef _MSC_VER
 // suppress msvc narrowing conversion warnings
 #pragma warning(push)
-#pragma warning(disable : 4267 44)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4244)
 #endif
     std::copy(values_begin, values_end, raw_data_ + length_);
 #ifdef _MSC_VER
@@ -336,7 +337,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 #ifdef _MSC_VER
 // suppress msvc narrowing conversion warnings
 #pragma warning(push)
-#pragma warning(disable : 4267 44)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4244)
 #endif
     std::copy(values_begin, values_end, raw_data_ + length_);
 #ifdef _MSC_VER
