@@ -615,9 +615,9 @@ Status SendWaitReply(int sock, const ObjectRequestMap& object_requests,
   std::vector<flatbuffers::Offset<fb::ObjectReply>> object_replies;
   for (const auto& entry : object_requests) {
     const auto& object_request = entry.second;
-    object_replies.push_back(fb::CreateObjectReply(
-        fbb, fbb.CreateString(object_request.object_id.binary()),
-        static_cast<fb::ObjectStatus>(object_request.location)));
+    object_replies.push_back(
+        fb::CreateObjectReply(fbb, fbb.CreateString(object_request.object_id.binary()),
+                              static_cast<fb::ObjectStatus>(object_request.location)));
   }
 
   auto message = fb::CreatePlasmaWaitReply(

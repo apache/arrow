@@ -33,11 +33,7 @@
 
 namespace plasma {
 
-enum class ObjectLocation : int32_t {
-  Local,
-  Remote,
-  Nonexistent
-};
+enum class ObjectLocation : int32_t { Local, Remote, Nonexistent };
 
 constexpr int64_t kUniqueIDSize = 20;
 

@@ -366,8 +366,8 @@ TEST(PlasmaSerialization, WaitReply) {
   /* Create a map with two ObjectRequests in it. */
   ObjectRequestMap objects_in(num_objects_in);
   ObjectID id1 = ObjectID::from_random();
-  objects_in[id1] = ObjectRequest(
-      {id1, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectLocation::Local});
+  objects_in[id1] =
+      ObjectRequest({id1, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectLocation::Local});
   ObjectID id2 = ObjectID::from_random();
   objects_in[id2] = ObjectRequest(
       {id2, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectLocation::Nonexistent});
