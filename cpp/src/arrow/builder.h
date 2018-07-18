@@ -153,7 +153,7 @@ class ARROW_EXPORT ArrayBuilder {
   template <typename IterType>
   typename std::enable_if<std::is_pointer<IterType>::value>::type UnsafeAppendToBitmap(
       const IterType& begin, const IterType& end) {
-    if (begin == nullptr) {
+    if (begin == NULLPTR) {
       UnsafeSetNotNull(std::distance(begin, end));
     } else {
       DoAppendToBitmap(begin, end);
