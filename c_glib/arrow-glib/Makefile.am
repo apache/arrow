@@ -234,7 +234,7 @@ pkgconfig_DATA =				\
 
 if HAVE_ARROW_ORC
 pkgconfig_DATA +=				\
-	arrow-glib-orc.pc
+	arrow-orc-glib.pc
 endif
 
 if HAVE_INTROSPECTION

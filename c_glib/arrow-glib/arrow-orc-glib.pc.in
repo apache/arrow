@@ -20,7 +20,7 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: Apache Arrow GLib ORC
+Name: Apache Arrow ORC GLib
 Description: ORC modules for Apache Arrow GLib
 Version: @VERSION@
 Requires: arrow-glib
