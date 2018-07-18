@@ -54,6 +54,10 @@ class LazyRange {
 
     return_type operator*() { return range_.gen_(index_); }
 
+    RangeIter operator+(difference_type length) {
+      return RangeIter(range_, index_ + length);
+    }
+
     // pre-increment
     RangeIter& operator++() {
       ++index_;

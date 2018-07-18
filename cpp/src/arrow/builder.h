@@ -144,6 +144,38 @@ class ARROW_EXPORT ArrayBuilder {
     ++length_;
   }
 
+  template <typename IterType>
+  void UnsafeAppendToBitmap(IterType begin, IterType end) {
+    int64_t byte_offset = length_ / 8;
+    int64_t bit_offset = length_ % 8;
+    uint8_t bitset = null_bitmap_data_[byte_offset];
+
+    for (auto iter = begin; iter != end; ++iter) {
+      if (bit_offset == 8) {
+        bit_offset = 0;
+        null_bitmap_data_[byte_offset] = bitset;
+        byte_offset++;
+        // TODO: Except for the last byte, this shouldn't be needed
+        bitset = null_bitmap_data_[byte_offset];
+      }
+
+      if (*iter) {
+        bitset |= BitUtil::kBitmask[bit_offset];
+      } else {
+        bitset &= BitUtil::kFlippedBitmask[bit_offset];
+        ++null_count_;
+      }
+
+      bit_offset++;
+    }
+
+    if (bit_offset != 0) {
+      null_bitmap_data_[byte_offset] = bitset;
+    }
+
+    length_ += std::distance(begin, end);
+  }
+
  protected:
   ArrayBuilder() {}
 
@@ -272,9 +304,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \return Status
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
-    using std::distance;
-
-    int64_t length = static_cast<int64_t>(distance(values_begin, values_end));
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -292,16 +322,12 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   template <typename ValuesIter, typename ValidIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end,
                       ValidIter valid_begin) {
-    using std::distance;
-
-    int64_t length = static_cast<int64_t>(distance(values_begin, values_end));
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
     std::copy(values_begin, values_end, raw_data_ + length_);
 
     // this updates the length_
-    for (auto iter = valid_begin, limit = valid_begin + length; iter != limit; ++iter) {
-      UnsafeAppendToBitmap(*iter);
-    }
+    UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
     return Status::OK();
   }
 
@@ -710,9 +736,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   /// \return Status
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
-    using std::distance;
-
-    int64_t length = static_cast<int64_t>(distance(values_begin, values_end));
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
     auto iter = values_begin;
     internal::GenerateBitsUnrolled(raw_data_, length_, length,
@@ -732,9 +756,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   template <typename ValuesIter, typename ValidIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end,
                       ValidIter valid_begin) {
-    using std::distance;
-
-    int64_t length = static_cast<int64_t>(distance(values_begin, values_end));
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
 
     {
@@ -744,9 +766,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     }
 
     // this updates length_
-    for (auto iter = valid_begin, limit = valid_begin + length; iter != limit; ++iter) {
-      ArrayBuilder::UnsafeAppendToBitmap(*iter);
-    }
+    ArrayBuilder::UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
     return Status::OK();
   }
 

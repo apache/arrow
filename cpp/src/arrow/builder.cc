@@ -153,64 +153,11 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
     UnsafeSetNotNull(length);
     return;
   }
-
-  int64_t byte_offset = length_ / 8;
-  int64_t bit_offset = length_ % 8;
-  uint8_t bitset = null_bitmap_data_[byte_offset];
-
-  for (int64_t i = 0; i < length; ++i) {
-    if (bit_offset == 8) {
-      bit_offset = 0;
-      null_bitmap_data_[byte_offset] = bitset;
-      byte_offset++;
-      // TODO: Except for the last byte, this shouldn't be needed
-      bitset = null_bitmap_data_[byte_offset];
-    }
-
-    if (valid_bytes[i]) {
-      bitset |= BitUtil::kBitmask[bit_offset];
-    } else {
-      bitset &= BitUtil::kFlippedBitmask[bit_offset];
-      ++null_count_;
-    }
-
-    bit_offset++;
-  }
-  if (bit_offset != 0) {
-    null_bitmap_data_[byte_offset] = bitset;
-  }
-  length_ += length;
+  UnsafeAppendToBitmap(valid_bytes, valid_bytes + length);
 }
 
 void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
-  int64_t byte_offset = length_ / 8;
-  int64_t bit_offset = length_ % 8;
-  uint8_t bitset = null_bitmap_data_[byte_offset];
-
-  const int64_t length = static_cast<int64_t>(is_valid.size());
-
-  for (int64_t i = 0; i < length; ++i) {
-    if (bit_offset == 8) {
-      bit_offset = 0;
-      null_bitmap_data_[byte_offset] = bitset;
-      byte_offset++;
-      // TODO: Except for the last byte, this shouldn't be needed
-      bitset = null_bitmap_data_[byte_offset];
-    }
-
-    if (is_valid[i]) {
-      bitset |= BitUtil::kBitmask[bit_offset];
-    } else {
-      bitset &= BitUtil::kFlippedBitmask[bit_offset];
-      ++null_count_;
-    }
-
-    bit_offset++;
-  }
-  if (bit_offset != 0) {
-    null_bitmap_data_[byte_offset] = bitset;
-  }
-  length_ += length;
+  UnsafeAppendToBitmap(is_valid.begin(), is_valid.end());
 }
 
 void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
