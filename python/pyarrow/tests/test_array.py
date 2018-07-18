@@ -108,6 +108,19 @@ def test_to_numpy_zero_copy():
     np.testing.assert_array_equal(np_arr, expected)
 
 
+def test_to_numpy_unsupported_types():
+    # ARROW-2871: Some primitive types are not yet supported in to_numpy
+    bool_arr = pa.array([True, False, True])
+
+    with pytest.raises(NotImplementedError):
+        bool_arr.to_numpy()
+
+    null_arr = pa.array([None, None, None])
+
+    with pytest.raises(NotImplementedError):
+        null_arr.to_numpy()
+
+
 def test_to_pandas_zero_copy():
     import gc
 
