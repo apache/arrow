@@ -95,7 +95,7 @@ class LazyRange {
   RangeIter end() { return RangeIter(*this, length_); }
 };
 
-/// Helper function to create a lazy range from a callable (i.e. labda) and length
+/// Helper function to create a lazy range from a callable (e.g. lambda) and length
 template <typename Generator>
 LazyRange<Generator> MakeLazyRange(Generator&& gen, int64_t length) {
   return LazyRange<Generator>(std::forward<Generator>(gen), length);
