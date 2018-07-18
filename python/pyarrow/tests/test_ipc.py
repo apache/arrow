@@ -77,9 +77,9 @@ class TestFile(MessagingTest, unittest.TestCase):
         return pa.RecordBatchFileWriter(sink, schema)
 
     def test_empty_file(self):
-        buf = io.BytesIO(b'')
+        buf = b''
         with pytest.raises(pa.ArrowInvalid):
-            pa.open_file(buf)
+            pa.open_file(pa.BufferReader(buf))
 
     def _check_roundtrip(self, as_table=False):
         _, batches = self.write_batches(as_table=as_table)
@@ -110,6 +110,22 @@ class TestFile(MessagingTest, unittest.TestCase):
         result = reader.read_all()
         expected = pa.Table.from_batches(batches)
         assert result.equals(expected)
+
+    def test_open_file_from_buffer(self):
+        # ARROW-2859; APIs accept the buffer protocol
+        _, batches = self.write_batches()
+        source = self._get_source()
+
+        reader1 = pa.open_file(source)
+        reader2 = pa.open_file(pa.BufferReader(source))
+        reader3 = pa.RecordBatchFileReader(source)
+
+        result1 = reader1.read_all()
+        result2 = reader2.read_all()
+        result3 = reader3.read_all()
+
+        assert result1.equals(result2)
+        assert result1.equals(result3)
 
     def test_read_pandas(self):
         frames, _ = self.write_batches()

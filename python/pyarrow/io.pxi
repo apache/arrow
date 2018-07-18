@@ -994,7 +994,14 @@ def foreign_buffer(address, size, base):
     return pyarrow_wrap_buffer(buf)
 
 
-cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
+def as_buffer(object o):
+    if isinstance(o, Buffer):
+        return o
+    return py_buffer(o)
+
+
+cdef get_reader(object source, c_bool use_memory_map,
+                shared_ptr[RandomAccessFile]* reader):
     cdef NativeFile nf
 
     try:
@@ -1006,7 +1013,10 @@ cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
             # Optimistically hope this is file-like
             source = PythonFile(source, mode='r')
     else:
-        source = memory_map(source_path, mode='r')
+        if use_memory_map:
+            source = memory_map(source_path, mode='r')
+        else:
+            source = OSFile(source_path, mode='r')
 
     if isinstance(source, NativeFile):
         nf = source

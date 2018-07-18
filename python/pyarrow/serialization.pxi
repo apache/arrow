@@ -372,7 +372,7 @@ def read_serialized(source, base=None):
     serialized : the serialized data
     """
     cdef shared_ptr[RandomAccessFile] stream
-    get_reader(source, &stream)
+    get_reader(source, True, &stream)
 
     cdef SerializedPyObject serialized = SerializedPyObject()
     serialized.base = base

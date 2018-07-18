@@ -41,13 +41,13 @@ cdef class ORCReader:
     def __cinit__(self, MemoryPool memory_pool=None):
         self.allocator = maybe_unbox_memory_pool(memory_pool)
 
-    def open(self, object source):
+    def open(self, object source, c_bool use_memory_map=True):
         cdef:
             shared_ptr[RandomAccessFile] rd_handle
 
         self.source = source
 
-        get_reader(source, &rd_handle)
+        get_reader(source, use_memory_map, &rd_handle)
         with nogil:
             check_status(ORCFileReader.Open(rd_handle, self.allocator,
                                             &self.reader))
