@@ -22,6 +22,7 @@
 #include <benchmark/benchmark.h>
 
 #include "arrow/util/lazy.h"
+#include "arrow/test-util.h"
 
 namespace arrow {
 
@@ -29,9 +30,7 @@ static constexpr int64_t kSize = 100000000;
 
 std::vector<int> generate_junk(int64_t size) {
   std::vector<int> v(size);
-  for (unsigned index = 0; index < size; ++index) {
-    v[index] = index ^ 4311 % size;
-  }
+  test::randint(size, 0, 100000, &v);
   return v;
 }
 
@@ -41,7 +40,7 @@ void BM_for_loop(benchmark::State& state) {
   std::vector<int> target(kSize);
 
   for (auto _ : state) {
-    for (unsigned index = 0, limit = source.size(); index != limit; ++index)
+    for (int64_t index = 0; index < kSize; ++index)
       target[index] = source[index] + 1;
   }
 }

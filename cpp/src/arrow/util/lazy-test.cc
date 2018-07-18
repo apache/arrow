@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/test-util.h"
 #include "arrow/util/lazy.h"
 
 namespace arrow {
@@ -27,18 +28,11 @@ class TestLazyIter : public ::testing::Test {
  public:
   int64_t kSize = 1000;
   void SetUp() {
-    source_ = generate_junk(kSize);
+    test::randint(kSize, 0, 1000000, &source_);
     target_.resize(kSize);
   }
 
  protected:
-  std::vector<int> generate_junk(int64_t size) {
-    std::vector<int> v(size);
-    for (unsigned index = 0; index < size; ++index) {
-      v[index] = index ^ 4311 % size;
-    }
-    return v;
-  }
 
   std::vector<int> source_;
   std::vector<int> target_;
@@ -49,7 +43,7 @@ TEST_F(TestLazyIter, TestIncrementCopy) {
   auto lazy_range = internal::MakeLazyRange(add_one, kSize);
   std::copy(lazy_range.begin(), lazy_range.end(), target_.begin());
 
-  for (unsigned index = 0, limit = source_.size(); index != limit; ++index) {
+  for (int64_t index = 0; index < kSize; ++index) {
     ASSERT_EQ(source_[index] + 1, target_[index]);
   }
 }
@@ -65,7 +59,7 @@ TEST_F(TestLazyIter, TestPostIncrementCopy) {
     *(target_iter++) = *(iter++);
   }
 
-  for (unsigned index = 0, limit = source_.size(); index != limit; ++index) {
+  for (size_t index = 0, limit = source_.size(); index != limit; ++index) {
     ASSERT_EQ(source_[index] + 1, target_[index]);
   }
 }
