@@ -45,14 +45,14 @@ class LazyRange {
    public:
     using difference_type = int64_t;
     using value_type = return_type;
-    using reference = value_type&;
-    using pointer = value_type*;
+    using reference = const value_type&;
+    using pointer = const value_type*;
     using iterator_category = std::forward_iterator_tag;
 
     RangeIter(const LazyRange<Generator>& range, int64_t index)
         : range_(range), index_(index) {}
 
-    return_type operator*() { return range_.gen_(index_); }
+    const return_type operator*() { return range_.gen_(index_); }
 
     RangeIter operator+(difference_type length) {
       return RangeIter(range_, index_ + length);
@@ -92,10 +92,10 @@ class LazyRange {
 
   friend class RangeIter;
 
-  // Create a new begin iterator
+  // Create a new begin const iterator
   RangeIter begin() { return RangeIter(*this, 0); }
 
-  // Create a new end iterator
+  // Create a new end const iterator
   RangeIter end() { return RangeIter(*this, length_); }
 };
 
