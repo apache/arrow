@@ -34,8 +34,7 @@ class LazyRange {
   int64_t length_;
 
  public:
-  // the return type of the container
-  using return_type = decltype(gen_(length_ - 1));
+  using return_type = decltype(gen_(0));
 
   /// Construct a new range from a callable and length
   LazyRange(Generator gen, int64_t length) : gen_(gen), length_(length) {}
