@@ -982,7 +982,7 @@ Status PlasmaClient::Impl::Wait(int64_t num_object_requests,
   *num_objects_ready = 0;
   for (int i = 0; i < num_object_requests; ++i) {
     ObjectRequestType type = object_requests[i].type;
-    fb::ObjectStatus status = object_requests[i].status;
+    auto status = static_cast<fb::ObjectStatus>(object_requests[i].location);
     switch (type) {
       case ObjectRequestType::PLASMA_QUERY_LOCAL:
         if (status == fb::ObjectStatus::Local) {
