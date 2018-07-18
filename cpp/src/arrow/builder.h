@@ -274,7 +274,9 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \return Status
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    using std::distance;
+
+    int64_t length = static_cast<int64_t>(distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -292,7 +294,9 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   template <typename ValuesIter, typename ValidIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end,
                       ValidIter valid_begin) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    using std::distance;
+
+    int64_t length = static_cast<int64_t>(distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
     std::copy(values_begin, values_end, raw_data_ + length_);
 
@@ -708,7 +712,9 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   /// \return Status
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    using std::distance;
+
+    int64_t length = static_cast<int64_t>(distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
     auto iter = values_begin;
     internal::GenerateBitsUnrolled(raw_data_, length_, length,
@@ -728,7 +734,9 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   template <typename ValuesIter, typename ValidIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end,
                       ValidIter valid_begin) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    using std::distance;
+
+    int64_t length = static_cast<int64_t>(distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
 
     {

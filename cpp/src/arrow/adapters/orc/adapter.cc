@@ -23,8 +23,11 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/iterator/zip_iterator.hpp>
 
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
@@ -39,6 +42,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/lazy.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -562,7 +566,6 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
@@ -572,14 +575,13 @@ class ORCFileReader::Impl {
     const int64_t* seconds = batch->data.data() + offset;
     const int64_t* nanos = batch->nanoseconds.data() + offset;
 
-    std::vector<int64_t> values(length);
-    for (int64_t i = 0; i < length; i++) {
-      // TODO: boundscheck this, as ORC supports higher resolution timestamps
-      // than arrow for nanosecond resolution
-      values[start + i] = seconds[i] * kOneSecondNanos + nanos[i];
-    }
+    auto transform_timestamp = [seconds, nanos] (int64_t index) { 
+      return seconds[index] * kOneSecondNanos + nanos[index];
+    };
 
-    RETURN_NOT_OK(builder->AppendValues(values.data(), values.size(), valid_bytes));
+    auto transform_iter = internal::makeLazyIter(transform_timestamp, length);
+
+    RETURN_NOT_OK(builder->AppendValues(transform_iter, transform_iter.make_end(), valid_bytes));
     return Status::OK();
   }
 

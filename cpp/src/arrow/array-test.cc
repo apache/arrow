@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cmath>
 #include <memory>
 #include <numeric>
 #include <vector>
@@ -34,6 +35,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/lazy.h"
 #include "arrow/util/decimal.h"
 
 namespace arrow {
@@ -760,6 +762,33 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
 
   this->Check(this->builder_, true);
   this->Check(this->builder_nn_, false);
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
+  DECL_T();
+
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  auto& draws = this->draws_;
+  auto& valid_bytes = this->valid_bytes_;
+
+  auto doubler = [&draws] (int64_t index) { return draws[index] * 2; };
+  auto lazy_iter = internal::makeLazyIter(doubler, size);
+
+  ASSERT_OK(this->builder_->AppendValues(lazy_iter, lazy_iter.make_end(), valid_bytes.begin()));
+
+  std::vector<T> doubled;
+  transform(draws.begin(), draws.end(), back_inserter(doubled), [](T in) { return in * 2; });
+
+  std::shared_ptr<Array> result;
+  FinishAndCheckPadding(this->builder_.get(), &result);
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(this->builder_->AppendValues(doubled.data(), doubled.size(), valid_bytes.data()));
+  FinishAndCheckPadding(this->builder_.get(), &expected);
+
+  ASSERT_TRUE(expected->Equals(result));
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {

@@ -393,7 +393,7 @@ Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buff
 ARROW_EXPORT
 Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out);
 
-/// \brief Allocate resizeable buffer from a memory pool, zero its padding.
+/// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
 ///
 /// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
