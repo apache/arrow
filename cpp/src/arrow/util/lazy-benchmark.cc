@@ -82,7 +82,6 @@ void BM_lazy_postinc(benchmark::State& state) {
       [&source](int64_t index) { return source[index]; }, source.size());
 
   for (auto _ : state) {
-    int index = 0;
     auto lazy_iter = lazy_range.begin();
     auto lazy_end = lazy_range.end();
     auto target_iter = target.begin();

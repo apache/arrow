@@ -47,7 +47,7 @@ class LazyRange {
     using value_type = return_type;
     using reference = value_type&;
     using pointer = value_type*;
-    using iterator_category = std::input_iterator_tag;
+    using iterator_category = std::forward_iterator_tag;
 
     RangeIter(const LazyRange<Generator>& range, int64_t index)
         : range_(range), index_(index) {}
