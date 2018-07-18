@@ -306,6 +306,10 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
+// suppress msvc narrowing conversion warnings
+#ifdef _MSC_VER
+#pragma warning(suppress : 4267 44)
+#endif
     std::copy(values_begin, values_end, raw_data_ + length_);
 
     // this updates the length_
@@ -324,6 +328,10 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
                       ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
+// suppress msvc narrowing conversion warnings
+#ifdef _MSC_VER
+#pragma warning(suppress : 4267 44)
+#endif
     std::copy(values_begin, values_end, raw_data_ + length_);
 
     // this updates the length_
