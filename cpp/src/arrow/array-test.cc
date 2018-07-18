@@ -794,7 +794,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
       size);
   auto cast_valid = internal::MakeLazyRange(
       [&valid_bytes_converted](int64_t index) {
-        return static_cast<T>(valid_bytes_converted[index]);
+        return static_cast<bool>(valid_bytes_converted[index]);
       },
       size);
 
