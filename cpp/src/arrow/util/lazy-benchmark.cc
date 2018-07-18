@@ -90,6 +90,4 @@ void BM_lazy_postinc(benchmark::State& state) {
 
 BENCHMARK(BM_lazy_postinc)->Repetitions(3)->Unit(benchmark::kMillisecond);
 
-BENCHMARK_MAIN();
-
 }  // namespace arrow
