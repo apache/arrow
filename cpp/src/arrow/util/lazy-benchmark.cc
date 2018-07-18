@@ -21,8 +21,8 @@
 
 #include <benchmark/benchmark.h>
 
-#include "arrow/util/lazy.h"
 #include "arrow/test-util.h"
+#include "arrow/util/lazy.h"
 
 namespace arrow {
 
@@ -40,8 +40,7 @@ void BM_for_loop(benchmark::State& state) {
   std::vector<int> target(kSize);
 
   for (auto _ : state) {
-    for (int64_t index = 0; index < kSize; ++index)
-      target[index] = source[index] + 1;
+    for (int64_t index = 0; index < kSize; ++index) target[index] = source[index] + 1;
   }
 }
 

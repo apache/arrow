@@ -33,7 +33,6 @@ class TestLazyIter : public ::testing::Test {
   }
 
  protected:
-
   std::vector<int> source_;
   std::vector<int> target_;
 };
