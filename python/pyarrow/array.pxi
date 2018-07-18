@@ -606,12 +606,19 @@ cdef class Array:
 
     def to_numpy(self):
         """
-        Construct a NumPy view of this array
+        EXPERIMENTAL: Construct a NumPy view of this array. Only supports
+        primitive arrays with the same memory layout as NumPy (i.e. integers,
+        floating point) without any nulls.
+
+        Returns
+        -------
+        arr : numpy.ndarray
+
         """
         if self.null_count:
             raise NotImplementedError('NumPy array view is only supported '
                                       'for arrays without nulls.')
-        if not is_primitive(self.type.id):
+        if not is_primitive(self.type.id) or self.type.id == _Type_BOOL:
             raise NotImplementedError('NumPy array view is only supported '
                                       'for primitive types.')
         buflist = self.buffers()
