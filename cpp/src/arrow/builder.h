@@ -145,12 +145,14 @@ class ARROW_EXPORT ArrayBuilder {
   }
 
   template <typename IterType>
-  typename std::enable_if<!std::is_pointer<IterType>::value>::type UnsafeAppendToBitmap(const IterType& begin, const IterType& end) {
+  typename std::enable_if<!std::is_pointer<IterType>::value>::type UnsafeAppendToBitmap(
+      const IterType& begin, const IterType& end) {
     DoAppendToBitmap(begin, end);
   }
 
   template <typename IterType>
-  typename std::enable_if<std::is_pointer<IterType>::value>::type UnsafeAppendToBitmap(const IterType& begin, const IterType& end) {
+  typename std::enable_if<std::is_pointer<IterType>::value>::type UnsafeAppendToBitmap(
+      const IterType& begin, const IterType& end) {
     if (begin == nullptr) {
       UnsafeSetNotNull(std::distance(begin, end));
     } else {
@@ -337,7 +339,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \return Status
 
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<!std::is_same<ValidIter, std::nullptr_t>::value, Status>::type AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
+  typename std::enable_if<!std::is_same<ValidIter, std::nullptr_t>::value, Status>::type
+  AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
 
@@ -349,8 +352,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   }
 
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<std::is_same<ValidIter, std::nullptr_t>::value, Status>::type AppendValues(ValuesIter values_begin, ValuesIter values_end,
-                       ValidIter valid_begin) {
+  typename std::enable_if<std::is_same<ValidIter, std::nullptr_t>::value, Status>::type
+  AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     return AppendValues(values_begin, values_end);
   }
 
@@ -777,8 +780,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   ///  or null(0) values
   /// \return Status
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<!std::is_same<ValidIter, std::nullptr_t>::value, Status>::type AppendValues(ValuesIter values_begin, ValuesIter values_end,
-                      ValidIter valid_begin) {
+  typename std::enable_if<!std::is_same<ValidIter, std::nullptr_t>::value, Status>::type
+  AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     RETURN_NOT_OK(Reserve(length));
 
@@ -795,8 +798,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   // specialization for nullptr being passed for valid_begin
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<std::is_same<ValidIter, std::nullptr_t>::value, Status>::type AppendValues(ValuesIter values_begin, ValuesIter values_end,
-                      ValidIter valid_begin) {
+  typename std::enable_if<std::is_same<ValidIter, std::nullptr_t>::value, Status>::type
+  AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     return AppendValues(values_begin, values_end);
   }
 

@@ -529,9 +529,9 @@ class ORCFileReader::Impl {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
     const source_type* source = batch->data.data() + offset;
-    auto cast_iter = internal::MakeLazyRange([&source](int64_t index) {
-      return static_cast<target_type>(source[index]);
-    }, length);
+    auto cast_iter = internal::MakeLazyRange(
+        [&source](int64_t index) { return static_cast<target_type>(source[index]); },
+        length);
 
     RETURN_NOT_OK(builder->AppendValues(cast_iter.begin(), cast_iter.end(), valid_bytes));
 
@@ -553,9 +553,8 @@ class ORCFileReader::Impl {
     }
     const int64_t* source = batch->data.data() + offset;
 
-    auto cast_iter = internal::MakeLazyRange([&source](int64_t index) { 
-      return static_cast<bool>(source[index]); }
-    , length);
+    auto cast_iter = internal::MakeLazyRange(
+        [&source](int64_t index) { return static_cast<bool>(source[index]); }, length);
 
     RETURN_NOT_OK(builder->AppendValues(cast_iter.begin(), cast_iter.end(), valid_bytes));
 

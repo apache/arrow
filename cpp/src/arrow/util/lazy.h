@@ -14,6 +14,10 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
+#ifndef ARROW_UTIL_LAZY_H
+#define ARROW_UTIL_LAZY_H
+
 #include <iterator>
 #include <utility>
 
@@ -121,3 +125,4 @@ LazyRange<Generator> MakeLazyRange(Generator&& gen, int64_t length) {
 
 }  // namespace internal
 }  // namespace arrow
+#endif

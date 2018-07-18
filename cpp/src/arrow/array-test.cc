@@ -714,8 +714,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
   int64_t size = 10000;
   this->RandomData(size);
 
-  ASSERT_OK(
-      this->builder_->AppendValues(this->draws_.begin(), this->draws_.end(), this->valid_bytes_.begin()));
+  ASSERT_OK(this->builder_->AppendValues(this->draws_.begin(), this->draws_.end(),
+                                         this->valid_bytes_.begin()));
   ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(), this->draws_.end()));
 
   ASSERT_EQ(size, this->builder_->length());
@@ -729,11 +729,14 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
   int64_t size = 10000;
   this->RandomData(size);
 
-  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(), this->draws_.begin() + size / 2, static_cast<char*>(nullptr)));
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(),
+                                            this->draws_.begin() + size / 2,
+                                            static_cast<char*>(nullptr)));
 
   ASSERT_EQ(BitUtil::NextPower2(size / 2), this->builder_nn_->capacity());
 
-  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin() + size / 2, this->draws_.end(), nullptr));
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin() + size / 2,
+                                            this->draws_.end(), nullptr));
 
   this->Check(this->builder_nn_, false);
 }
@@ -780,20 +783,23 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
   this->RandomData(size);
 
   // append convertible values
-  vector<conversion_type> draws_converted(this->draws_.begin(),
-                                          this->draws_.end());
+  vector<conversion_type> draws_converted(this->draws_.begin(), this->draws_.end());
   vector<int32_t> valid_bytes_converted(this->valid_bytes_.begin(),
                                         this->valid_bytes_.end());
 
-  auto cast_values = internal::MakeLazyRange([&draws_converted](int64_t index) {
-    return static_cast<T>(draws_converted[index]);
-  }, size);
-  auto cast_valid = internal::MakeLazyRange([&valid_bytes_converted](int64_t index) {
-    return static_cast<T>(valid_bytes_converted[index]);
-  }, size);                                        
+  auto cast_values = internal::MakeLazyRange(
+      [&draws_converted](int64_t index) {
+        return static_cast<T>(draws_converted[index]);
+      },
+      size);
+  auto cast_valid = internal::MakeLazyRange(
+      [&valid_bytes_converted](int64_t index) {
+        return static_cast<T>(valid_bytes_converted[index]);
+      },
+      size);
 
-  ASSERT_OK(
-      this->builder_->AppendValues(cast_values.begin(), cast_values.end(), cast_valid.begin()));
+  ASSERT_OK(this->builder_->AppendValues(cast_values.begin(), cast_values.end(),
+                                         cast_valid.begin()));
   ASSERT_OK(this->builder_nn_->AppendValues(cast_values.begin(), cast_values.end()));
 
   ASSERT_EQ(size, this->builder_->length());
