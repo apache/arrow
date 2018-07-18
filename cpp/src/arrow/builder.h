@@ -269,8 +269,6 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values_begin InputIterator to the beginning of the values
   /// \param[in] values_end InputIterator pointing to the end of the values
-  /// \param[in] valid_begin InputIterator with elements indication valid(1)
-  ///  or null(0) values
   /// \return Status
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
