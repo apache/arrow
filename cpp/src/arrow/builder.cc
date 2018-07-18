@@ -153,11 +153,11 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
     UnsafeSetNotNull(length);
     return;
   }
-  UnsafeAppendToBitmap(valid_bytes, valid_bytes + length);
+  DoAppendToBitmap(valid_bytes, valid_bytes + length);
 }
 
 void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
-  UnsafeAppendToBitmap(is_valid.begin(), is_valid.end());
+  DoAppendToBitmap(is_valid.begin(), is_valid.end());
 }
 
 void ArrayBuilder::UnsafeSetNotNull(int64_t length) {

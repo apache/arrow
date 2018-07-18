@@ -711,45 +711,30 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
-  DECL_T();
-  // find type we can safely convert the tested values to and from
-  using conversion_type =
-      typename std::conditional<std::is_floating_point<T>::value, double,
-                                typename std::conditional<std::is_unsigned<T>::value,
-                                                          uint64_t, int64_t>::type>::type;
-
   int64_t size = 10000;
   this->RandomData(size);
 
-  vector<T> draws(this->draws_.begin(), this->draws_.begin() + size / 2);
-  vector<uint8_t> valid_bytes(this->valid_bytes_.begin(),
-                              this->valid_bytes_.begin() + size / 2);
-
   ASSERT_OK(
-      this->builder_->AppendValues(draws.begin(), draws.end(), valid_bytes.begin()));
-  ASSERT_OK(this->builder_nn_->AppendValues(draws.begin(), draws.end()));
-
-  ASSERT_EQ(size / 2, this->builder_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size / 2), this->builder_->capacity());
-
-  // append convertible values
-  vector<conversion_type> draws_converted(this->draws_.begin() + size / 2,
-                                          this->draws_.end());
-  vector<int32_t> valid_bytes_converted(this->valid_bytes_.begin() + size / 2,
-                                        this->valid_bytes_.end());
-
-  ASSERT_OK(this->builder_->AppendValues(draws_converted.begin(), draws_converted.end(),
-                                         valid_bytes_converted.begin()));
-  ASSERT_OK(
-      this->builder_nn_->AppendValues(draws_converted.begin(), draws_converted.end()));
+      this->builder_->AppendValues(this->draws_.begin(), this->draws_.end(), this->valid_bytes_.begin()));
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(), this->draws_.end()));
 
   ASSERT_EQ(size, this->builder_->length());
   ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
 
-  ASSERT_EQ(size, this->builder_nn_->length());
-  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_nn_->capacity());
-
   this->Check(this->builder_, true);
+  this->Check(this->builder_nn_, false);
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(), this->draws_.begin() + size / 2, static_cast<char*>(nullptr)));
+
+  ASSERT_EQ(BitUtil::NextPower2(size / 2), this->builder_nn_->capacity());
+
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin() + size / 2, this->draws_.end(), nullptr));
+
   this->Check(this->builder_nn_, false);
 }
 
@@ -781,6 +766,44 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   FinishAndCheckPadding(this->builder_.get(), &expected);
 
   ASSERT_TRUE(expected->Equals(result));
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
+  DECL_T();
+  // find type we can safely convert the tested values to and from
+  using conversion_type =
+      typename std::conditional<std::is_floating_point<T>::value, double,
+                                typename std::conditional<std::is_unsigned<T>::value,
+                                                          uint64_t, int64_t>::type>::type;
+
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  // append convertible values
+  vector<conversion_type> draws_converted(this->draws_.begin(),
+                                          this->draws_.end());
+  vector<int32_t> valid_bytes_converted(this->valid_bytes_.begin(),
+                                        this->valid_bytes_.end());
+
+  auto cast_values = internal::MakeLazyRange([&draws_converted](int64_t index) {
+    return static_cast<T>(draws_converted[index]);
+  }, size);
+  auto cast_valid = internal::MakeLazyRange([&valid_bytes_converted](int64_t index) {
+    return static_cast<T>(valid_bytes_converted[index]);
+  }, size);                                        
+
+  ASSERT_OK(
+      this->builder_->AppendValues(cast_values.begin(), cast_values.end(), cast_valid.begin()));
+  ASSERT_OK(this->builder_nn_->AppendValues(cast_values.begin(), cast_values.end()));
+
+  ASSERT_EQ(size, this->builder_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
+  ASSERT_EQ(size, this->builder_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
+  this->Check(this->builder_, true);
+  this->Check(this->builder_nn_, false);
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
