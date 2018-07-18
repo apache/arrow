@@ -30,6 +30,7 @@ env:
     - NP_BUILD_DEP="{{ numpy_build_version }}"
     - NP_TEST_DEP="{{ numpy_test_version }}"
     - PANDAS_DEP="{{ pandas_version }}"
+    - PYARROW_BUILD_VERBOSE=1
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
