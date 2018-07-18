@@ -16,86 +16,89 @@
 // under the License.
 #include <iterator>
 
-namespace arrow { namespace internal {
+namespace arrow {
+namespace internal {
 
-template<typename Generator>
-class LazyIter {
+/// Create a range from a callable which takes a single index parameter
+/// and returns the value of iterator on each call and a length.
+/// Only iterators obtained from the same range should be compared, the
+/// behaviour generally similar to other STL containers.
+template <typename Generator>
+class LazyRange {
+ private:
+  // callable which generates the values
+  // has to be defined at the beginning of the class for type deduction
+  const Generator gen_;
+  // the length of the range
+  int64_t length_;
 
-    private:
-        const Generator& gen_;
-        int64_t index_;
-        int64_t length_;
-        const LazyIter<Generator>* parent_;
-    public:
-    
+ public:
+  // the return type of the container
+  using return_type = decltype(gen_(length_ - 1));
 
+  /// Construct a new range from a callable and length
+  LazyRange(Generator gen, int64_t length) : gen_(gen), length_(length) {}
+
+  // Class of the dependent iterator, created implicitly by begin and end
+  class RangeIter {
+   public:
     using difference_type = int64_t;
-    using value_type = decltype(gen_(index_));
+    using value_type = return_type;
     using reference = value_type&;
     using pointer = value_type*;
     using iterator_category = std::input_iterator_tag;
-    static constexpr int64_t* end_reached = nullptr;
 
-    LazyIter(const Generator& gen, int64_t length) : gen_(gen), index_(0), length_(length), parent_(nullptr) { }
-    LazyIter(const LazyIter<Generator>& other) : gen_(other.gen_), index_(other.index_), length_(other.length_), parent_(other.parent_) { }
-    LazyIter& operator=(const LazyIter<Generator>& other) {
-        this->gen_ = other.gen_;
-        this->index_ = other.index_;
-        this->length_ = other.length_;
-        this->parent_ = other.parent_;
-        return *this;
+    RangeIter(const LazyRange<Generator>& range, int64_t index)
+        : range_(range), index_(index) {}
+
+    return_type operator*() { return range_.gen_(index_); }
+
+    // pre-increment
+    RangeIter& operator++() {
+      ++index_;
+      return *this;
     }
-    
-    decltype(gen_(index_)) operator* () { return gen_(index_); }
 
-    void operator++ () { ++index_; }
-
-    LazyIter<Generator> operator++(int) {
-      auto copy = LazyIter<Generator>(*this);
+    // post-increment
+    RangeIter operator++(int) {
+      auto copy = RangeIter(*this);
       ++index_;
       return copy;
     }
 
-    bool operator==(const LazyIter<Generator>& other) const {
-      return at_end() && other.at_end();
+    bool operator==(const typename LazyRange<Generator>::RangeIter& other) const {
+      return this->index_ == other.index_ && &this->range_ == &other.range_;
     }
 
-    bool operator!=(const LazyIter<Generator>& other) const {
-      return !at_end() || !other.at_end();
+    bool operator!=(const typename LazyRange<Generator>::RangeIter& other) const {
+      return this->index_ != other.index_ || &this->range_ != &other.range_;
     }
 
-    int64_t operator-(const LazyIter<Generator> other) {
-        if (at_end()) {
-            return other.remaining();
-        }
-        if (other.at_end()) {
-            return 0;
-        }
-        return length_ - other.index();
+    int64_t operator-(const typename LazyRange<Generator>::RangeIter& other) {
+      return this->index_ - other.index_;
     }
-    const int64_t index() const { return index_; }
-    const int64_t length() const { return length_; }
-    const int64_t remaining() const { return index_ == -1 ? 0 : length_ - index_; }
-    const Generator& gen() const { return gen_; }
-    LazyIter<Generator> make_end() const { return LazyIter<Generator>(this); }
-    bool end_of(const LazyIter<Generator>* parent) const {
-        return parent_ != nullptr && parent_ == parent;
-    }
-    bool at_end() const { return parent_ != nullptr || index_ == length_; }
 
-    private:
-        LazyIter(const LazyIter<Generator>* parent) : gen_(parent->gen_), index_(parent->length_), length_(parent->length_), parent_(parent) { }
+   private:
+    // parent range reference
+    const LazyRange& range_;
+    // current index
+    int64_t index_;
+  };
+
+  friend class RangeIter;
+
+  // Create a new begin iterator
+  RangeIter begin() { return RangeIter(*this, 0); }
+
+  // Create a new end iterator
+  RangeIter end() { return RangeIter(*this, length_); }
 };
 
-template<typename Generator>
-int64_t distance(LazyIter<Generator> first, LazyIter<Generator> last)
-{
-    return last - first;
+/// Helper function to create a lazy range from a callable (i.e. labda) and length
+template <typename Generator>
+LazyRange<Generator> MakeLazyRange(Generator&& gen, int64_t length) {
+  return LazyRange<Generator>(std::forward<Generator>(gen), length);
 }
 
-template<typename Generator>
-LazyIter<Generator> makeLazyIter(const Generator& gen, int64_t length)
-{
-    return LazyIter<Generator>(gen, length);
-}
-}}
+}  // namespace internal
+}  // namespace arrow

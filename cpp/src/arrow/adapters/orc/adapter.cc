@@ -18,6 +18,8 @@
 #include "arrow/adapters/orc/adapter.h"
 
 #include <algorithm>
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/iterator/zip_iterator.hpp>
 #include <cstdint>
 #include <list>
 #include <memory>
@@ -26,8 +28,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/iterator/zip_iterator.hpp>
 
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
@@ -575,13 +575,14 @@ class ORCFileReader::Impl {
     const int64_t* seconds = batch->data.data() + offset;
     const int64_t* nanos = batch->nanoseconds.data() + offset;
 
-    auto transform_timestamp = [seconds, nanos] (int64_t index) { 
+    auto transform_timestamp = [seconds, nanos](int64_t index) {
       return seconds[index] * kOneSecondNanos + nanos[index];
     };
 
-    auto transform_iter = internal::makeLazyIter(transform_timestamp, length);
+    auto transform_range = internal::MakeLazyRange(transform_timestamp, length);
 
-    RETURN_NOT_OK(builder->AppendValues(transform_iter, transform_iter.make_end(), valid_bytes));
+    RETURN_NOT_OK(builder->AppendValues(transform_range.begin(), transform_range.end(),
+                                        valid_bytes));
     return Status::OK();
   }
 

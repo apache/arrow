@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <cmath>
 #include <memory>
 #include <numeric>
 #include <vector>
@@ -35,8 +35,8 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/lazy.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/lazy.h"
 
 namespace arrow {
 
@@ -710,24 +710,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   this->Check(this->builder_nn_, false);
 }
 
-// get type which can store generated values without losing precision
-template <typename S, typename Enable = void>
-struct ConversionType {
-  using type = int64_t;
-};
-template <typename S>
-struct ConversionType<S, typename std::enable_if<std::is_unsigned<S>::value>::type> {
-  using type = uint64_t;
-};
-template <typename S>
-struct ConversionType<S,
-                      typename std::enable_if<std::is_floating_point<S>::value>::type> {
-  using type = double;
-};
-
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
   DECL_T();
-  using conversion_type = typename ConversionType<T>::type;
+  // find type we can safely convert the tested values to and from
+  using conversion_type =
+      typename std::conditional<std::is_floating_point<T>::value, double,
+                                typename std::conditional<std::is_unsigned<T>::value,
+                                                          uint64_t, int64_t>::type>::type;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -773,19 +762,22 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   auto& draws = this->draws_;
   auto& valid_bytes = this->valid_bytes_;
 
-  auto doubler = [&draws] (int64_t index) { return draws[index] * 2; };
-  auto lazy_iter = internal::makeLazyIter(doubler, size);
+  auto doubler = [&draws](int64_t index) { return draws[index] * 2; };
+  auto lazy_iter = internal::MakeLazyRange(doubler, size);
 
-  ASSERT_OK(this->builder_->AppendValues(lazy_iter, lazy_iter.make_end(), valid_bytes.begin()));
+  ASSERT_OK(this->builder_->AppendValues(lazy_iter.begin(), lazy_iter.end(),
+                                         valid_bytes.begin()));
 
   std::vector<T> doubled;
-  transform(draws.begin(), draws.end(), back_inserter(doubled), [](T in) { return in * 2; });
+  transform(draws.begin(), draws.end(), back_inserter(doubled),
+            [](T in) { return in * 2; });
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
 
   std::shared_ptr<Array> expected;
-  ASSERT_OK(this->builder_->AppendValues(doubled.data(), doubled.size(), valid_bytes.data()));
+  ASSERT_OK(
+      this->builder_->AppendValues(doubled.data(), doubled.size(), valid_bytes.data()));
   FinishAndCheckPadding(this->builder_.get(), &expected);
 
   ASSERT_TRUE(expected->Equals(result));
