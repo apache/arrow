@@ -41,14 +41,15 @@ class ApacheArrowPackageTask < PackageTask
 
   def define_archive_task
     file @archive_name do
-      case @version
-      when /\A\d+\.\d+\.\d+-rc\d+\z/
-        download_rc_archive
-      when /\A\d+\.\d+\.\d+\z/
-        download_released_archive
-      else
-        build_archive
-      end
+      # case @version
+      # when /\A\d+\.\d+\.\d+-rc\d+\z/
+      #   download_rc_archive
+      # when /\A\d+\.\d+\.\d+\z/
+      #   download_released_archive
+      # else
+      #   build_archive
+      # end
+      build_archive
     end
   end
 
