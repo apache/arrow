@@ -69,7 +69,7 @@ class ARROW_EXPORT ArrayBuilder {
         length_(0),
         capacity_(0) {}
 
-  virtual ~ArrayBuilder() {}
+  virtual ~ArrayBuilder() = default;
 
   /// For nested types. Since the objects are owned by this class instance, we
   /// skip shared pointers and just return a raw pointer
@@ -1076,8 +1076,6 @@ template <typename T>
 class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
   using Scalar = typename internal::DictionaryScalar<T>::type;
-
-  ~DictionaryBuilder() override {}
 
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 

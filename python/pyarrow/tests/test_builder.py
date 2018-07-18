@@ -55,5 +55,3 @@ def test_string_builder_append_after_finish():
     sbuilder.append("No effect")
     expected = [None, None, "text", None, "other text"]
     assert arr.to_pylist() == expected
-    # prevent warning about unfinished builder
-    sbuilder.finish()
