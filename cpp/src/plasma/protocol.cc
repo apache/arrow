@@ -37,6 +37,13 @@ using fb::PlasmaObjectSpec;
 
 using flatbuffers::uoffset_t;
 
+#define PLASMA_CHECK_ENUM(x, y) \
+  static_assert(static_cast<int>(x) == static_cast<int>(y), "protocol mismatch")
+
+PLASMA_CHECK_ENUM(ObjectLocation::Local, fb::ObjectStatus::Local);
+PLASMA_CHECK_ENUM(ObjectLocation::Remote, fb::ObjectStatus::Remote);
+PLASMA_CHECK_ENUM(ObjectLocation::Nonexistent, fb::ObjectStatus::Nonexistent);
+
 flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
 ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const ObjectID* object_ids,
              int64_t num_objects) {
@@ -73,6 +80,22 @@ Status PlasmaSend(int sock, MessageType message_type, flatbuffers::FlatBufferBui
                   const Message& message) {
   fbb->Finish(message);
   return WriteMessage(sock, message_type, fbb->GetSize(), fbb->GetBufferPointer());
+}
+
+Status PlasmaErrorStatus(fb::PlasmaError plasma_error) {
+  switch (plasma_error) {
+    case fb::PlasmaError::OK:
+      return Status::OK();
+    case fb::PlasmaError::ObjectExists:
+      return Status::PlasmaObjectExists("object already exists in the plasma store");
+    case fb::PlasmaError::ObjectNonexistent:
+      return Status::PlasmaObjectNonexistent("object does not exist in the plasma store");
+    case fb::PlasmaError::OutOfMemory:
+      return Status::PlasmaStoreFull("object does not fit in the plasma store");
+    default:
+      ARROW_LOG(FATAL) << "unknown plasma error code " << static_cast<int>(plasma_error);
+  }
+  return Status::OK();
 }
 
 // Create messages.
@@ -579,7 +602,7 @@ Status ReadWaitRequest(uint8_t* data, size_t size, ObjectRequestMap& object_requ
     ObjectRequest object_request(
         {object_id,
          static_cast<ObjectRequestType>(message->object_requests()->Get(i)->type()),
-         fb::ObjectStatus::Nonexistent});
+         ObjectLocation::Nonexistent});
     object_requests[object_id] = object_request;
   }
   return Status::OK();
@@ -592,8 +615,9 @@ Status SendWaitReply(int sock, const ObjectRequestMap& object_requests,
   std::vector<flatbuffers::Offset<fb::ObjectReply>> object_replies;
   for (const auto& entry : object_requests) {
     const auto& object_request = entry.second;
-    object_replies.push_back(fb::CreateObjectReply(
-        fbb, fbb.CreateString(object_request.object_id.binary()), object_request.status));
+    object_replies.push_back(
+        fb::CreateObjectReply(fbb, fbb.CreateString(object_request.object_id.binary()),
+                              static_cast<fb::ObjectStatus>(object_request.location)));
   }
 
   auto message = fb::CreatePlasmaWaitReply(
@@ -611,7 +635,8 @@ Status ReadWaitReply(uint8_t* data, size_t size, ObjectRequest object_requests[]
   for (int i = 0; i < *num_ready_objects; i++) {
     object_requests[i].object_id =
         ObjectID::from_binary(message->object_requests()->Get(i)->object_id()->str());
-    object_requests[i].status = message->object_requests()->Get(i)->status();
+    object_requests[i].location =
+        static_cast<ObjectLocation>(message->object_requests()->Get(i)->status());
   }
   return Status::OK();
 }
