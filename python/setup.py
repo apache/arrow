@@ -242,7 +242,7 @@ class build_ext(_build_ext):
             else:
                 build_tool_args.append('--')
                 if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
-                    build_tool_args.append('VERBOSE=1')
+                    cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
                 if os.environ.get('PYARROW_PARALLEL'):
                     build_tool_args.append(
                         '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
