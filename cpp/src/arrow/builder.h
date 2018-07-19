@@ -145,26 +145,35 @@ class ARROW_EXPORT ArrayBuilder {
   }
 
   template <typename IterType>
-  typename std::enable_if<!std::is_null_pointer<IterType>::value &&
-                          !std::is_pointer<IterType>::value>::type
-  UnsafeAppendToBitmap(const IterType& begin, const IterType& end) {
-    DoAppendToBitmap(begin, end);
-  }
+  void UnsafeAppendToBitmap(const IterType& begin, const IterType& end) {
+    int64_t byte_offset = length_ / 8;
+    int64_t bit_offset = length_ % 8;
+    uint8_t bitset = null_bitmap_data_[byte_offset];
 
-  template <typename IterType>
-  typename std::enable_if<std::is_pointer<IterType>::value>::type UnsafeAppendToBitmap(
-      const IterType& begin, const IterType& end) {
-    if (begin == NULLPTR) {
-      UnsafeSetNotNull(std::distance(begin, end));
-    } else {
-      DoAppendToBitmap(begin, end);
+    for (auto iter = begin; iter != end; ++iter) {
+      if (bit_offset == 8) {
+        bit_offset = 0;
+        null_bitmap_data_[byte_offset] = bitset;
+        byte_offset++;
+        // TODO: Except for the last byte, this shouldn't be needed
+        bitset = null_bitmap_data_[byte_offset];
+      }
+
+      if (*iter) {
+        bitset |= BitUtil::kBitmask[bit_offset];
+      } else {
+        bitset &= BitUtil::kFlippedBitmask[bit_offset];
+        ++null_count_;
+      }
+
+      bit_offset++;
     }
-  }
 
-  template <typename IterType>
-  typename std::enable_if<std::is_null_pointer<IterType>::value>::type
-  UnsafeAppendToBitmap(const IterType& begin, const IterType& end) {
-    DoAppendToBitmap(begin, end);
+    if (bit_offset != 0) {
+      null_bitmap_data_[byte_offset] = bitset;
+    }
+
+    length_ += std::distance(begin, end);
   }
 
  protected:
@@ -196,38 +205,6 @@ class ARROW_EXPORT ArrayBuilder {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
-
-  template <typename IterType>
-  void DoAppendToBitmap(const IterType& begin, const IterType& end) {
-    int64_t byte_offset = length_ / 8;
-    int64_t bit_offset = length_ % 8;
-    uint8_t bitset = null_bitmap_data_[byte_offset];
-
-    for (auto iter = begin; iter != end; ++iter) {
-      if (bit_offset == 8) {
-        bit_offset = 0;
-        null_bitmap_data_[byte_offset] = bitset;
-        byte_offset++;
-        // TODO: Except for the last byte, this shouldn't be needed
-        bitset = null_bitmap_data_[byte_offset];
-      }
-
-      if (*iter) {
-        bitset |= BitUtil::kBitmask[bit_offset];
-      } else {
-        bitset &= BitUtil::kFlippedBitmask[bit_offset];
-        ++null_count_;
-      }
-
-      bit_offset++;
-    }
-
-    if (bit_offset != 0) {
-      null_bitmap_data_[byte_offset] = bitset;
-    }
-
-    length_ += std::distance(begin, end);
-  }
 };
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
@@ -342,32 +319,46 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \param[in] values_begin InputIterator to the beginning of the values
   /// \param[in] values_end InputIterator pointing to the end of the values
   /// \param[in] valid_begin InputIterator with elements indication valid(1)
-  ///  or null(0) values
+  ///  or null(0) values.
   /// \return Status
-
   template <typename ValuesIter, typename ValidIter>
-  // valid iter can be a nullptr so make an explicit specialization for pointers
-  typename std::enable_if<!std::is_null_pointer<ValidIter>::value &&
-                              !std::is_pointer<ValidIter>::value,
-                          Status>::type
-  AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    return DoAppendValues(values_begin, values_end, valid_begin);
+  typename std::enable_if<!std::is_pointer<ValidIter>::value, Status>::type AppendValues(
+      ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
+    static_assert(!is_null_pointer<ValidIter>::value,
+                  "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
+                  "version instead");
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+
+    std::copy(values_begin, values_end, raw_data_ + length_);
+
+    // this updates the length_
+    UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+    return Status::OK();
   }
 
+  /// \brief Append a sequence of elements in one shot, with a specified nullmap
+  /// \param[in] values_begin InputIterator to the beginning of the values
+  /// \param[in] values_end InputIterator pointing to the end of the values
+  /// \param[in] valid_begin uint8_t* indication valid(1) or null(0) values.
+  ///  nullptr indicates all values are valid.
+  /// \return Status
   template <typename ValuesIter, typename ValidIter>
   typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    if (valid_begin == NULLPTR) {
-      return AppendValues(values_begin, values_end);
-    } else {
-      return DoAppendValues(values_begin, values_end, valid_begin);
-    }
-  }
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
 
-  template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<std::is_null_pointer<ValidIter>::value, Status>::type
-  AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    return AppendValues(values_begin, values_end);
+    std::copy(values_begin, values_end, raw_data_ + length_);
+
+    // this updates the length_
+    if (valid_begin == NULLPTR) {
+      UnsafeSetNotNull(length);
+    } else {
+      UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+    }
+
+    return Status::OK();
   }
 
   /// \deprecated Use AppendValues instead.
@@ -385,19 +376,6 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  protected:
   std::shared_ptr<PoolBuffer> data_;
   value_type* raw_data_;
-
-  template <typename ValuesIter, typename ValidIter>
-  Status DoAppendValues(ValuesIter values_begin, ValuesIter values_end,
-                        ValidIter valid_begin) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
-
-    std::copy(values_begin, values_end, raw_data_ + length_);
-
-    // this updates the length_
-    UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
-    return Status::OK();
-  }
 };
 
 /// Base class for all Builders that emit an Array of a scalar numerical type.
@@ -806,27 +784,47 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   ///  or null(0) values
   /// \return Status
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<!std::is_pointer<ValidIter>::value &&
-                              !std::is_null_pointer<ValidIter>::value,
-                          Status>::type
-  AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    return DoAppendValues(values_begin, values_end, valid_begin);
+  typename std::enable_if<!std::is_pointer<ValidIter>::value, Status>::type AppendValues(
+      ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
+    static_assert(!is_null_pointer<ValidIter>::value,
+                  "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
+                  "version instead");
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
+
+    auto iter = values_begin;
+    internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                   [&iter]() -> bool { return *(iter++); });
+
+    // this updates length_
+    ArrayBuilder::UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+    return Status::OK();
   }
 
+  /// \brief Append a sequence of elements in one shot, with a specified nullmap
+  /// \param[in] values_begin InputIterator to the beginning of the values
+  /// \param[in] values_end InputIterator pointing to the end of the values
+  /// \param[in] valid_begin uint8_t* indication valid(1) or null(0) values.
+  ///  nullptr indicates all values are valid.
+  /// \return Status
   template <typename ValuesIter, typename ValidIter>
   typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    if (valid_begin == NULLPTR) {
-      return AppendValues(values_begin, values_end);
-    } else {
-      return AppendValues(values_begin, values_end, valid_begin);
-    }
-  }
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    RETURN_NOT_OK(Reserve(length));
 
-  template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<std::is_null_pointer<ValidIter>::value, Status>::type
-  AppendValues(ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
-    return AppendValues(values_begin, values_end);
+    auto iter = values_begin;
+    internal::GenerateBitsUnrolled(raw_data_, length_, length,
+                                   [&iter]() -> bool { return *(iter++); });
+
+    // this updates the length_
+    if (valid_begin == NULLPTR) {
+      UnsafeSetNotNull(length);
+    } else {
+      UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+    }
+
+    return Status::OK();
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -840,24 +838,6 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  protected:
   std::shared_ptr<PoolBuffer> data_;
   uint8_t* raw_data_;
-
- private:
-  template <typename ValuesIter, typename ValidIter>
-  Status DoAppendValues(ValuesIter values_begin, ValuesIter values_end,
-                        ValidIter valid_begin) {
-    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
-    RETURN_NOT_OK(Reserve(length));
-
-    {
-      auto iter = values_begin;
-      internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                     [&iter]() -> bool { return *(iter++); });
-    }
-
-    // this updates length_
-    ArrayBuilder::UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
-    return Status::OK();
-  }
 };
 
 // ----------------------------------------------------------------------

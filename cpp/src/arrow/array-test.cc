@@ -731,12 +731,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
 
   ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(),
                                             this->draws_.begin() + size / 2,
-                                            static_cast<char*>(nullptr)));
+                                            static_cast<uint8_t*>(nullptr)));
 
   ASSERT_EQ(BitUtil::NextPower2(size / 2), this->builder_nn_->capacity());
 
   ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin() + size / 2,
-                                            this->draws_.end(), nullptr));
+                                            this->draws_.end(),
+                                            static_cast<uint64_t*>(nullptr)));
 
   this->Check(this->builder_nn_, false);
 }
