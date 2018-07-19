@@ -50,6 +50,9 @@ cdef class ChunkedArray:
         self.sp_chunked_array = chunked_array
         self.chunked_array = chunked_array.get()
 
+    def __reduce__(self):
+        return chunked_array, (self.chunks, self.type)
+
     property type:
 
         def __get__(self):
@@ -94,6 +97,28 @@ cdef class ChunkedArray:
                 return self.chunk(j)[index]
             else:
                 index -= self.chunked_array.chunk(j).get().length()
+
+    def equals(self, ChunkedArray other):
+        """
+        Return whether the contents of two chunked arrays are equal
+
+        Parameters
+        ----------
+        other : pyarrow.ChunkedArray
+
+        Returns
+        -------
+        are_equal : boolean
+        """
+        cdef:
+            CChunkedArray* this_arr = self.chunked_array
+            CChunkedArray* other_arr = other.chunked_array
+            c_bool result
+
+        with nogil:
+            result = this_arr.Equals(deref(other_arr))
+
+        return result
 
     def to_pandas(self,
                   c_bool strings_to_categorical=False,
@@ -341,6 +366,9 @@ cdef class Column:
     cdef void init(self, const shared_ptr[CColumn]& column):
         self.sp_column = column
         self.column = column.get()
+
+    def __reduce__(self):
+        return column, (self.field, self.data)
 
     def __repr__(self):
         from pyarrow.compat import StringIO
@@ -638,6 +666,9 @@ cdef class RecordBatch:
         self.sp_batch = batch
         self.batch = batch.get()
 
+    def __reduce__(self):
+        return _reconstruct_record_batch, (self.columns, self.schema)
+
     def __len__(self):
         return self.batch.num_rows()
 
@@ -703,6 +734,17 @@ cdef class RecordBatch:
             self._schema = pyarrow_wrap_schema(self.batch.schema())
 
         return self._schema
+
+    @property
+    def columns(self):
+        """
+        List of all columns in numerical order
+
+        Returns
+        -------
+        list of pa.Column
+        """
+        return [self.column(i) for i in range(self.num_columns)]
 
     def column(self, i):
         """
@@ -842,7 +884,7 @@ cdef class RecordBatch:
         return cls.from_arrays(arrays, names, metadata)
 
     @staticmethod
-    def from_arrays(list arrays, list names, dict metadata=None):
+    def from_arrays(list arrays, names, dict metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -850,8 +892,8 @@ cdef class RecordBatch:
         ----------
         arrays: list of pyarrow.Array
             column-wise data vectors
-        names: list of str
-            Labels for the columns
+        names: pyarrow.Schema or list of str
+            schema or list of labels for the columns
 
         Returns
         -------
@@ -860,7 +902,7 @@ cdef class RecordBatch:
         cdef:
             Array arr
             c_string c_name
-            shared_ptr[CSchema] schema
+            shared_ptr[CSchema] c_schema
             vector[shared_ptr[CArray]] c_arrays
             int64_t num_rows
             int64_t i
@@ -870,7 +912,10 @@ cdef class RecordBatch:
             num_rows = len(arrays[0])
         else:
             num_rows = 0
-        _schema_from_arrays(arrays, names, metadata, &schema)
+        if isinstance(names, Schema):
+            c_schema = (<Schema> names).sp_schema
+        else:
+            _schema_from_arrays(arrays, names, metadata, &c_schema)
 
         c_arrays.reserve(len(arrays))
         for arr in arrays:
@@ -880,7 +925,14 @@ cdef class RecordBatch:
             c_arrays.push_back(arr.sp_array)
 
         return pyarrow_wrap_batch(
-            CRecordBatch.Make(schema, num_rows, c_arrays))
+            CRecordBatch.Make(c_schema, num_rows, c_arrays))
+
+
+def _reconstruct_record_batch(columns, schema):
+    """
+    Internal: reconstruct RecordBatch from pickled components.
+    """
+    return RecordBatch.from_arrays(columns, schema)
 
 
 def table_to_blocks(PandasOptions options, Table table,
@@ -934,6 +986,12 @@ cdef class Table:
         """
         with nogil:
             check_status(self.table.Validate())
+
+    def __reduce__(self):
+        # Reduce the columns as ChunkedArrays to avoid serializing schema
+        # data twice
+        columns = [col.data for col in self.columns]
+        return _reconstruct_table, (columns, self.schema)
 
     def replace_schema_metadata(self, dict metadata=None):
         """
@@ -1341,6 +1399,17 @@ cdef class Table:
             yield self.column(i)
 
     @property
+    def columns(self):
+        """
+        List of all columns in numerical order
+
+        Returns
+        -------
+        list of pa.Column
+        """
+        return [self._column(i) for i in range(self.num_columns)]
+
+    @property
     def num_columns(self):
         """
         Number of columns in this table
@@ -1441,6 +1510,13 @@ cdef class Table:
             table = table.remove_column(idx)
 
         return table
+
+
+def _reconstruct_table(arrays, schema):
+    """
+    Internal: reconstruct pa.Table from pickled components.
+    """
+    return Table.from_arrays(arrays, schema=schema)
 
 
 def concat_tables(tables):

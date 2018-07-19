@@ -16,6 +16,8 @@
 # under the License.
 
 from collections import OrderedDict, Iterable
+import pickle
+
 import numpy as np
 from pandas.util.testing import assert_frame_equal
 import pandas as pd
@@ -72,6 +74,72 @@ def test_chunked_array_iter():
     assert isinstance(arr, Iterable)
 
 
+def test_chunked_array_equals():
+    def eq(xarrs, yarrs):
+        if isinstance(xarrs, pa.ChunkedArray):
+            x = xarrs
+        else:
+            x = pa.chunked_array(xarrs)
+        if isinstance(yarrs, pa.ChunkedArray):
+            y = yarrs
+        else:
+            y = pa.chunked_array(yarrs)
+        assert x.equals(y)
+        assert y.equals(x)
+
+    def ne(xarrs, yarrs):
+        if isinstance(xarrs, pa.ChunkedArray):
+            x = xarrs
+        else:
+            x = pa.chunked_array(xarrs)
+        if isinstance(yarrs, pa.ChunkedArray):
+            y = yarrs
+        else:
+            y = pa.chunked_array(yarrs)
+        assert not x.equals(y)
+        assert not y.equals(x)
+
+    eq(pa.chunked_array([], type=pa.int32()),
+       pa.chunked_array([], type=pa.int32()))
+    ne(pa.chunked_array([], type=pa.int32()),
+       pa.chunked_array([], type=pa.int64()))
+
+    a = pa.array([0, 2], type=pa.int32())
+    b = pa.array([0, 2], type=pa.int64())
+    c = pa.array([0, 3], type=pa.int32())
+    d = pa.array([0, 2, 0, 3], type=pa.int32())
+
+    eq([a], [a])
+    ne([a], [b])
+    eq([a, c], [a, c])
+    eq([a, c], [d])
+    ne([c, a], [a, c])
+
+
+@pytest.mark.parametrize(
+    ('data', 'typ'),
+    [
+        ([True, False, True, True], pa.bool_()),
+        ([1, 2, 4, 6], pa.int64()),
+        ([1.0, 2.5, None], pa.float64()),
+        (['a', None, 'b'], pa.string()),
+        ([], pa.list_(pa.uint8())),
+        ([[1, 2], [3]], pa.list_(pa.int64())),
+        ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
+        ([(1, 'a'), (2, 'c'), None],
+            pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
+    ]
+)
+def test_chunked_array_pickle(data, typ):
+    arrays = []
+    while data:
+        arrays.append(pa.array(data[:2], type=typ))
+        data = data[2:]
+    array = pa.chunked_array(arrays, type=typ)
+    result = pickle.loads(pickle.dumps(array))
+    assert result.equals(array)
+
+
 def test_column_basics():
     data = [
         pa.array([-10, -5, 0, 5, 10])
@@ -106,6 +174,17 @@ def test_column_factory_function():
     # Type mismatch
     with pytest.raises(ValueError):
         pa.Column.from_array(pa.field('foo', pa.string()), arr)
+
+
+def test_column_pickle():
+    arr = pa.chunked_array([[1, 2], [5, 6, 7]], type=pa.int16())
+    field = pa.field("ints", pa.int16()).add_metadata({b"foo": b"bar"})
+    col = pa.column(field, arr)
+
+    result = pickle.loads(pickle.dumps(col))
+    assert result.equals(col)
+    assert result.data.num_chunks == 2
+    assert result.field == field
 
 
 def test_column_to_pandas():
@@ -154,8 +233,7 @@ def test_recordbatch_basics():
     ]
 
     batch = pa.RecordBatch.from_arrays(data, ['c0', 'c1'])
-
-    batch.schema.metadata
+    assert not batch.schema.metadata
 
     assert len(batch) == 5
     assert batch.num_rows == 5
@@ -168,6 +246,13 @@ def test_recordbatch_basics():
     with pytest.raises(IndexError):
         # bounds checking
         batch[2]
+
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16()),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+    batch = pa.RecordBatch.from_arrays(data, schema)
+    assert batch.schema == schema
 
 
 def test_recordbatch_from_arrays_validate_lengths():
@@ -207,6 +292,21 @@ def test_recordbatch_empty_metadata():
 
     batch = pa.RecordBatch.from_arrays(data, ['c0', 'c1'])
     assert batch.schema.metadata is None
+
+
+def test_recordbatch_pickle():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    schema = pa.schema([pa.field('ints', pa.int8()),
+                        pa.field('floats', pa.float32()),
+                        ]).add_metadata({b'foo': b'bar'})
+    batch = pa.RecordBatch.from_arrays(data, schema)
+
+    result = pickle.loads(pickle.dumps(batch))
+    assert result.equals(batch)
+    assert result.schema == schema
 
 
 def test_recordbatch_slice_getitem():
@@ -341,7 +441,9 @@ def test_table_basics():
         ('b', [-10, -5, 0, 5, 10])
     ])
 
+    columns = []
     for col in table.itercolumns():
+        columns.append(col)
         for chunk in col.data.iterchunks():
             assert chunk is not None
 
@@ -350,6 +452,8 @@ def test_table_basics():
 
         with pytest.raises(IndexError):
             col.data.chunk(col.data.num_chunks)
+
+    assert table.columns == columns
 
 
 def test_table_from_arrays_invalid_names():
@@ -362,6 +466,21 @@ def test_table_from_arrays_invalid_names():
 
     with pytest.raises(ValueError):
         pa.Table.from_arrays(data, names=['a'])
+
+
+def test_table_pickle():
+    data = [
+        pa.chunked_array([[1, 2], [3, 4]], type=pa.uint32()),
+        pa.chunked_array([["some", "strings", None, ""]], type=pa.string()),
+    ]
+    schema = pa.schema([pa.field('ints', pa.uint32()),
+                        pa.field('strs', pa.string())],
+                       metadata={b'foo': b'bar'})
+    table = pa.Table.from_arrays(data, schema=schema)
+
+    result = pickle.loads(pickle.dumps(table))
+    result._validate()
+    assert result.equals(table)
 
 
 def test_table_select_column():

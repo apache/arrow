@@ -435,6 +435,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t length()
         int64_t null_count()
         int num_chunks()
+        c_bool Equals(const CChunkedArray& other)
+
         shared_ptr[CArray] chunk(int i)
         shared_ptr[CDataType] type()
         shared_ptr[CChunkedArray] Slice(int64_t offset, int64_t length) const
