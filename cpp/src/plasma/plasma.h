@@ -38,10 +38,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "plasma/common.h"
-
-#ifdef FLATBUFFERS_H_
-#error "flatbuffers/flatbuffers.h is being transitively included"
-#endif
+#include "plasma/common_generated.h"
 
 #ifdef PLASMA_GPU
 #include "arrow/gpu/cuda_api.h"
