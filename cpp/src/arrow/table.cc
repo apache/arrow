@@ -66,6 +66,9 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
   if (null_count_ != other.null_count()) {
     return false;
   }
+  if (length_ == 0) {
+    return type_->Equals(other.type_);
+  }
 
   // Check contents of the underlying arrays. This checks for equality of
   // the underlying data independently of the chunk size.
