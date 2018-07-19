@@ -252,7 +252,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   ARROW_DEPRECATED("Use Finish instead")
   std::shared_ptr<Buffer> data() const { return data_; }
 
-  const value_type GetValue(int64_t index) const {
+  value_type GetValue(int64_t index) const {
     return reinterpret_cast<const value_type*>(data_->data())[index];
   }
 
