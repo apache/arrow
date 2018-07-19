@@ -289,6 +289,7 @@ class HashTableKernel<
     // TODO(wesm): handle null being in the dictionary
     auto dict_data = dict_.buffer;
     RETURN_NOT_OK(dict_data->Resize(dict_.size * sizeof(T), false));
+    dict_data->ZeroPadding();
 
     *out = ArrayData::Make(type_, dict_.size, {nullptr, dict_data}, 0);
     return Status::OK();

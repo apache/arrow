@@ -101,6 +101,14 @@ class ARROW_EXPORT Buffer {
   Status Copy(const int64_t start, const int64_t nbytes,
               std::shared_ptr<Buffer>* out) const;
 
+  /// Zero bytes in padding, i.e. bytes between size_ and capacity_.
+  void ZeroPadding() {
+#ifndef NDEBUG
+    CheckMutable();
+#endif
+    memset(mutable_data_ + size_, 0, static_cast<size_t>(capacity_ - size_));
+  }
+
   /// \brief Construct a new buffer that owns its memory from a std::string
   ///
   /// \param[in] data a std::string object
@@ -188,6 +196,7 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   /// Change buffer reported size to indicated size, allocating memory if
   /// necessary.  This will ensure that the capacity of the buffer is a multiple
   /// of 64 bytes as defined in Layout.md.
+  /// Consider using ZeroPadding afterwards, in case you return buffer to a reader.
   ///
   /// @param shrink_to_fit On deactivating this option, the capacity of the Buffer won't
   /// decrease.
@@ -195,7 +204,7 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 
   /// Ensure that buffer has enough memory allocated to fit the indicated
   /// capacity (and meets the 64 byte padding requirement in Layout.md).
-  /// It does not change buffer's reported size.
+  /// It does not change buffer's reported size and doesn't zero the padding.
   virtual Status Reserve(const int64_t new_capacity) = 0;
 
   template <class T>
@@ -365,7 +374,7 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
   int64_t capacity() const { return capacity_ / sizeof(T); }
 };
 
-/// \brief Allocate a fixed-size mutable buffer from a memory pool
+/// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
 ///
 /// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
@@ -384,7 +393,7 @@ Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buff
 ARROW_EXPORT
 Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out);
 
-/// \brief Allocate a resizeable buffer from a memory pool
+/// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
 ///
 /// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate

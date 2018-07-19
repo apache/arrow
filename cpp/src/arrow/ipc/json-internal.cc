@@ -1017,7 +1017,6 @@ class ArrayReader {
 
     DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
 
-    auto byte_buffer = std::make_shared<PoolBuffer>(pool_);
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
         RETURN_NOT_OK(builder.AppendNull());
@@ -1034,9 +1033,8 @@ class ArrayReader {
         DCHECK(hex_string.size() % 2 == 0) << "Expected base16 hex string";
         int32_t length = static_cast<int>(hex_string.size()) / 2;
 
-        if (byte_buffer->size() < length) {
-          RETURN_NOT_OK(byte_buffer->Resize(length));
-        }
+        std::shared_ptr<Buffer> byte_buffer;
+        RETURN_NOT_OK(AllocateBuffer(pool_, length, &byte_buffer));
 
         const char* hex_data = hex_string.c_str();
         uint8_t* byte_buffer_data = byte_buffer->mutable_data();

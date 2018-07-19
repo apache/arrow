@@ -31,6 +31,8 @@ Status MakePrimitive(int64_t length, int64_t null_count, std::shared_ptr<Array>*
   auto null_bitmap = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(data->Resize(length * sizeof(typename ArrayType::value_type)));
   RETURN_NOT_OK(null_bitmap->Resize(BitUtil::BytesForBits(length)));
+  data->ZeroPadding();
+  null_bitmap->ZeroPadding();
   *out = std::make_shared<ArrayType>(length, data, null_bitmap, null_count);
   return Status::OK();
 }

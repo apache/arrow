@@ -39,6 +39,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/lazy.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -521,18 +522,17 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
-    RETURN_NOT_OK(builder->AppendNulls(valid_bytes, length));
-
     const source_type* source = batch->data.data() + offset;
-    target_type* target = reinterpret_cast<target_type*>(builder->data()->mutable_data());
+    auto cast_iter = internal::MakeLazyRange(
+        [&source](int64_t index) { return static_cast<target_type>(source[index]); },
+        length);
 
-    std::copy(source, source + length, target + start);
+    RETURN_NOT_OK(builder->AppendValues(cast_iter.begin(), cast_iter.end(), valid_bytes));
 
     return Status::OK();
   }
@@ -545,24 +545,18 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
-    RETURN_NOT_OK(builder->AppendNulls(valid_bytes, length));
-
     const int64_t* source = batch->data.data() + offset;
-    uint8_t* target = reinterpret_cast<uint8_t*>(builder->data()->mutable_data());
 
-    for (int64_t i = 0; i < length; i++) {
-      if (source[i]) {
-        BitUtil::SetBit(target, start + i);
-      } else {
-        BitUtil::ClearBit(target, start + i);
-      }
-    }
+    auto cast_iter = internal::MakeLazyRange(
+        [&source](int64_t index) { return static_cast<bool>(source[index]); }, length);
+
+    RETURN_NOT_OK(builder->AppendValues(cast_iter.begin(), cast_iter.end(), valid_bytes));
+
     return Status::OK();
   }
 
@@ -574,23 +568,23 @@ class ORCFileReader::Impl {
     if (length == 0) {
       return Status::OK();
     }
-    int64_t start = builder->length();
 
     const uint8_t* valid_bytes = nullptr;
     if (batch->hasNulls) {
       valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
     }
-    RETURN_NOT_OK(builder->AppendNulls(valid_bytes, length));
 
     const int64_t* seconds = batch->data.data() + offset;
     const int64_t* nanos = batch->nanoseconds.data() + offset;
-    int64_t* target = reinterpret_cast<int64_t*>(builder->data()->mutable_data());
 
-    for (int64_t i = 0; i < length; i++) {
-      // TODO: boundscheck this, as ORC supports higher resolution timestamps
-      // than arrow for nanosecond resolution
-      target[start + i] = seconds[i] * kOneSecondNanos + nanos[i];
-    }
+    auto transform_timestamp = [seconds, nanos](int64_t index) {
+      return seconds[index] * kOneSecondNanos + nanos[index];
+    };
+
+    auto transform_range = internal::MakeLazyRange(transform_timestamp, length);
+
+    RETURN_NOT_OK(builder->AppendValues(transform_range.begin(), transform_range.end(),
+                                        valid_bytes));
     return Status::OK();
   }
 

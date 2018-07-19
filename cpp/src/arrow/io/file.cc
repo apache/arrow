@@ -199,6 +199,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
+      buffer->ZeroPadding();
     }
     *out = buffer;
     return Status::OK();
@@ -212,6 +213,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
     RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buffer->mutable_data()));
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
+      buffer->ZeroPadding();
     }
     *out = buffer;
     return Status::OK();

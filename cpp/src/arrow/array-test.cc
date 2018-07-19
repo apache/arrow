@@ -35,6 +35,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/lazy.h"
 
 namespace arrow {
 
@@ -241,14 +242,17 @@ TEST_F(TestArray, TestIsNullIsValidNoNulls) {
 }
 
 TEST_F(TestArray, BuildLargeInMemoryArray) {
+#ifdef NDEBUG
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+#else
+  // use a smaller size since the insert function isn't optimized properly on debug and
+  // the test takes a long time to complete
+  const int64_t length = 2 << 24;
+#endif
 
   BooleanBuilder builder;
-  ASSERT_OK(builder.Reserve(length));
-
-  // Advance does not write to data, see docstring
-  ASSERT_OK(builder.Advance(length));
-  memset(builder.data()->mutable_data(), 0, BitUtil::BytesForBits(length));
+  std::vector<bool> zeros(length);
+  ASSERT_OK(builder.AppendValues(zeros));
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(&builder, &result);
@@ -265,10 +269,10 @@ TEST_F(TestBuilder, TestReserve) {
   UInt8Builder builder(pool_);
 
   ASSERT_OK(builder.Init(10));
-  ASSERT_EQ(2, builder.null_bitmap()->size());
+  ASSERT_EQ(10, builder.capacity());
 
   ASSERT_OK(builder.Reserve(30));
-  ASSERT_EQ(4, builder.null_bitmap()->size());
+  ASSERT_EQ(BitUtil::NextPower2(30), builder.capacity());
 }
 
 template <typename Attrs>
@@ -328,7 +332,6 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_EQ(0, builder->length());
     ASSERT_EQ(0, builder->capacity());
     ASSERT_EQ(0, builder->null_count());
-    ASSERT_EQ(nullptr, builder->data());
 
     ASSERT_EQ(ex_null_count, result->null_count());
     ASSERT_TRUE(result->Equals(*expected));
@@ -468,7 +471,6 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   ASSERT_EQ(0, builder->length());
   ASSERT_EQ(0, builder->capacity());
   ASSERT_EQ(0, builder->null_count());
-  ASSERT_EQ(nullptr, builder->data());
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
@@ -478,13 +480,9 @@ typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PIn
 TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
-  DECL_TYPE();
-
   int64_t n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
   ASSERT_EQ(BitUtil::NextPower2(n), this->builder_->capacity());
-  ASSERT_EQ(BitUtil::NextPower2(TypeTraits<Type>::bytes_required(n)),
-            this->builder_->data()->size());
 
   // unsure if this should go in all builder classes
   ASSERT_EQ(0, this->builder_->num_children());
@@ -711,6 +709,109 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   this->Check(this->builder_nn_, false);
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  ASSERT_OK(this->builder_->AppendValues(this->draws_.begin(), this->draws_.end(),
+                                         this->valid_bytes_.begin()));
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(), this->draws_.end()));
+
+  ASSERT_EQ(size, this->builder_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
+  this->Check(this->builder_, true);
+  this->Check(this->builder_nn_, false);
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(),
+                                            this->draws_.begin() + size / 2,
+                                            static_cast<uint8_t*>(nullptr)));
+
+  ASSERT_EQ(BitUtil::NextPower2(size / 2), this->builder_nn_->capacity());
+
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin() + size / 2,
+                                            this->draws_.end(),
+                                            static_cast<uint64_t*>(nullptr)));
+
+  this->Check(this->builder_nn_, false);
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
+  DECL_T();
+
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  auto& draws = this->draws_;
+  auto& valid_bytes = this->valid_bytes_;
+
+  auto doubler = [&draws](int64_t index) { return draws[index] * 2; };
+  auto lazy_iter = internal::MakeLazyRange(doubler, size);
+
+  ASSERT_OK(this->builder_->AppendValues(lazy_iter.begin(), lazy_iter.end(),
+                                         valid_bytes.begin()));
+
+  std::vector<T> doubled;
+  transform(draws.begin(), draws.end(), back_inserter(doubled),
+            [](T in) { return in * 2; });
+
+  std::shared_ptr<Array> result;
+  FinishAndCheckPadding(this->builder_.get(), &result);
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(
+      this->builder_->AppendValues(doubled.data(), doubled.size(), valid_bytes.data()));
+  FinishAndCheckPadding(this->builder_.get(), &expected);
+
+  ASSERT_TRUE(expected->Equals(result));
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
+  DECL_T();
+  // find type we can safely convert the tested values to and from
+  using conversion_type =
+      typename std::conditional<std::is_floating_point<T>::value, double,
+                                typename std::conditional<std::is_unsigned<T>::value,
+                                                          uint64_t, int64_t>::type>::type;
+
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  // append convertible values
+  vector<conversion_type> draws_converted(this->draws_.begin(), this->draws_.end());
+  vector<int32_t> valid_bytes_converted(this->valid_bytes_.begin(),
+                                        this->valid_bytes_.end());
+
+  auto cast_values = internal::MakeLazyRange(
+      [&draws_converted](int64_t index) {
+        return static_cast<T>(draws_converted[index]);
+      },
+      size);
+  auto cast_valid = internal::MakeLazyRange(
+      [&valid_bytes_converted](int64_t index) {
+        return static_cast<bool>(valid_bytes_converted[index]);
+      },
+      size);
+
+  ASSERT_OK(this->builder_->AppendValues(cast_values.begin(), cast_values.end(),
+                                         cast_valid.begin()));
+  ASSERT_OK(this->builder_nn_->AppendValues(cast_values.begin(), cast_values.end()));
+
+  ASSERT_EQ(size, this->builder_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
+  ASSERT_EQ(size, this->builder_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
+  this->Check(this->builder_, true);
+  this->Check(this->builder_nn_, false);
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
   DECL_T();
 
@@ -789,15 +890,10 @@ TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
-  DECL_TYPE();
-
   int64_t cap = kMinBuilderCapacity * 2;
 
   ASSERT_OK(this->builder_->Reserve(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
-
-  ASSERT_EQ(TypeTraits<Type>::bytes_required(cap), this->builder_->data()->size());
-  ASSERT_EQ(BitUtil::BytesForBits(cap), this->builder_->null_bitmap()->size());
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestReserve) {

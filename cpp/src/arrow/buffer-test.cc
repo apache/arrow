@@ -178,6 +178,9 @@ TEST(TestBuffer, Copy) {
 
   Buffer expected(data + 5, 4);
   ASSERT_TRUE(out->Equals(expected));
+  // assert the padding is zeroed
+  std::vector<uint8_t> zeros(out->capacity() - out->size());
+  ASSERT_EQ(0, memcmp(out->data() + out->size(), zeros.data(), zeros.size()));
 }
 
 TEST(TestBuffer, SliceBuffer) {
