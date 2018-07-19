@@ -23,6 +23,7 @@ extern "C" {
 #define MILLIS_TO_MINS(millis) ((millis) / (60 * 1000))
 #define MILLIS_TO_HOUR(millis) ((millis) / (60 * 60 * 1000))
 #define MINS_IN_HOUR 60
+#define SECONDS_IN_MINUTE 60
 
 // Expand inner macro for all date types.
 #define DATE_TYPES(INNER) \
@@ -375,9 +376,13 @@ DATE_TYPES(EXTRACT_SECOND)
 DATE_TYPES(EXTRACT_EPOCH)
 
 // Functions that work on millis in a day
-#define EXTRACT_SECOND_TIME(TYPE) \
-  FORCE_INLINE                    \
-  int64 extractSecond##_##TYPE(TYPE millis) { return MILLIS_TO_SEC(millis); }
+#define EXTRACT_SECOND_TIME(TYPE)                   \
+  FORCE_INLINE                                      \
+  int64 extractSecond##_##TYPE(TYPE millis) {       \
+    int64 seconds_of_day = MILLIS_TO_SEC(millis);   \
+    int64 sec = seconds_of_day % SECONDS_IN_MINUTE; \
+    return sec;                                     \
+  }
 
 EXTRACT_SECOND_TIME(time32)
 

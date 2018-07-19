@@ -25,6 +25,15 @@ timestamp StringToTimestamp(const char *buf) {
   return timegm(&tm) * 1000;  // to millis
 }
 
+TEST(TestTime, TestExtractTime) {
+  // 10:20:33
+  int32 time_as_millis_in_day = 37233000;
+
+  EXPECT_EQ(extractHour_time32(time_as_millis_in_day), 10);
+  EXPECT_EQ(extractMinute_time32(time_as_millis_in_day), 20);
+  EXPECT_EQ(extractSecond_time32(time_as_millis_in_day), 33);
+}
+
 TEST(TestTime, TestExtractTimestamp) {
   timestamp ts = StringToTimestamp("1970-05-02 10:20:33");
 

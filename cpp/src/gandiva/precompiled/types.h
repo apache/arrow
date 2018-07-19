@@ -64,6 +64,10 @@ int64 extractHour_timestamp(timestamp millis);
 int64 extractMinute_timestamp(timestamp millis);
 int64 extractSecond_timestamp(timestamp millis);
 
+int64 extractHour_time32(int32 millis_in_day);
+int64 extractMinute_time32(int32 millis_in_day);
+int64 extractSecond_time32(int32 millis_in_day);
+
 int32 mem_compare(const char *left, int32 left_len, const char *right, int32 right_len);
 
 }  // extern "C"
