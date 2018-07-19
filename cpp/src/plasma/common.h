@@ -33,13 +33,7 @@
 
 namespace plasma {
 
-namespace flatbuf {
-
-// Forward declaration outside the namespace, which is defined in plasma_generated.h.
-enum class PlasmaError : int32_t;
-enum class ObjectStatus : int32_t;
-
-}  // namespace flatbuf
+enum class ObjectLocation : int32_t { Local, Remote, Nonexistent };
 
 constexpr int64_t kUniqueIDSize = 20;
 
@@ -62,8 +56,6 @@ static_assert(std::is_pod<UniqueID>::value, "UniqueID must be plain old data");
 
 typedef UniqueID ObjectID;
 
-arrow::Status PlasmaErrorStatus(flatbuf::PlasmaError plasma_error);
-
 /// Size of object hash digests.
 constexpr int64_t kDigestSize = sizeof(uint64_t);
 
@@ -84,18 +76,12 @@ struct ObjectRequest {
   ///  - PLASMA_QUERY_ANYWHERE: return if or when the object is available in
   ///    the system (i.e., either in the local or a remote Plasma Store).
   ObjectRequestType type;
-  /// Object status. Same as the status returned by plasma_status() function
-  /// call. This is filled in by plasma_wait_for_objects1():
-  ///  - ObjectStatus::Local: object is ready at the local Plasma Store.
-  ///  - ObjectStatus::Remote: object is ready at a remote Plasma Store.
-  ///  - ObjectStatus::Nonexistent: object does not exist in the system.
-  ///  - PLASMA_CLIENT_IN_TRANSFER, if the object is currently being scheduled
-  ///    for being transferred or it is transferring.
-  flatbuf::ObjectStatus status;
+  /// Object location. This can be
+  ///  - ObjectLocation::Local: object is ready at the local Plasma Store.
+  ///  - ObjectLocation::Remote: object is ready at a remote Plasma Store.
+  ///  - ObjectLocation::Nonexistent: object does not exist in the system.
+  ObjectLocation location;
 };
-
-extern flatbuf::ObjectStatus ObjectStatusLocal;
-extern flatbuf::ObjectStatus ObjectStatusRemote;
 
 /// Globally accessible reference to plasma store configuration.
 /// TODO(pcm): This can be avoided with some refactoring of existing code

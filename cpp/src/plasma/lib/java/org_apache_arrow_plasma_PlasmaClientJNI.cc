@@ -271,8 +271,8 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait
       break;
     }
 
-    if (oreqs[i].status == plasma::ObjectStatusLocal ||
-        oreqs[i].status == plasma::ObjectStatusRemote) {
+    if (oreqs[i].location == plasma::ObjectLocation::Local ||
+        oreqs[i].location == plasma::ObjectLocation::Remote) {
       oid = env->NewByteArray(OBJECT_ID_SIZE);
       object_id_to_jbyteArray(env, oid, &oreqs[i].object_id);
       env->SetObjectArrayElement(ret, num_returned, oid);
