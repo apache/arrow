@@ -186,8 +186,8 @@ Index,   origin_city
 
 # Tutorials and examples
 
-* [JavaScript Introduction to Arrow][6]
-* [Manipulating flat arrays arrow-style][7]
+* [JavaScript Introduction to Arrow][5]
+* [Manipulating flat arrays arrow-style][6]
 * [/js/test/unit](https://github.com/apache/arrow/tree/master/js/test/unit) - Unit tests for Table and Vector
 
 # Getting involved
@@ -197,7 +197,6 @@ See [develop.md](https://github.com/apache/arrow/blob/master/develop.md)
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
 
-* [Join the Slack channel][5]: Channels `#general` and `#javascript`
 * Join the mailing list: send an email to
   [dev-subscribe@arrow.apache.org][1]. Share your ideas and use cases for the
   project.
@@ -275,6 +274,5 @@ Full list of broader Apache Arrow [projects & organizations](https://github.com/
 [2]: https://github.com/apache/arrow/tree/master/format
 [3]: https://issues.apache.org/jira/browse/ARROW
 [4]: https://github.com/apache/arrow
-[5]: https://apachearrow.slack.com
-[6]: https://beta.observablehq.com/@theneuralbit/introduction-to-apache-arrow
-[7]: https://beta.observablehq.com/@lmeyerov/manipulating-flat-arrays-arrow-style
+[5]: https://beta.observablehq.com/@theneuralbit/introduction-to-apache-arrow
+[6]: https://beta.observablehq.com/@lmeyerov/manipulating-flat-arrays-arrow-style
