@@ -210,10 +210,10 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   // Release the ref count of Create function.
   ARROW_CHECK_OK(client_.Release(object_id1));
   ARROW_CHECK_OK(client_.Release(object_id2));
-  // Increase the ref count by calling Get.
+  // Increase the ref count by calling Get using client2_.
   std::vector<ObjectBuffer> object_buffers;
-  ARROW_CHECK_OK(client_.Get({object_id1, object_id2}, 0, &object_buffers));
-  // Objects are still in use.
+  ARROW_CHECK_OK(client2_.Get({object_id1, object_id2}, 0, &object_buffers));
+  // Objects are still used by client2_.
   result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ARROW_CHECK_OK(result);
   // The object is occupies and it should not be deleted right now.
@@ -223,8 +223,16 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
   ASSERT_TRUE(has_object);
   // Decrease the ref count by deleting the PlasmaBuffer (in ObjectBuffer).
+  // client2_ won't send the release request immediately because the trigger
+  // condition is not reached. The release is only added to release cache.
   object_buffers.clear();
   // After decreasing the ref count, the objects are now deleted.
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_TRUE(has_object);
+  // The Delete call will flush release cache and send the Delete request.
+  result = client2_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
   ASSERT_FALSE(has_object);
   ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
