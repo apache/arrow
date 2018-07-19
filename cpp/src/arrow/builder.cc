@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <limits>
 #include <numeric>
 #include <sstream>

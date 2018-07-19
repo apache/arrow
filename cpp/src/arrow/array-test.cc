@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <memory>

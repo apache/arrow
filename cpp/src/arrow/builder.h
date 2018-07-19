@@ -134,7 +134,7 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Unsafe operations (don't check capacity/don't resize)
 
-  // Append to null bitmap, update the length and set finished state to false
+  // Append to null bitmap, update the length
   void UnsafeAppendToBitmap(bool is_valid) {
     if (is_valid) {
       BitUtil::SetBit(null_bitmap_data_, length_);
@@ -1218,8 +1218,6 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 template <>
 class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
  public:
-  ~DictionaryBuilder() override {}
-
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
   explicit DictionaryBuilder(MemoryPool* pool);
 

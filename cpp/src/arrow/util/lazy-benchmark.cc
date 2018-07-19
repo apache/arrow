@@ -28,8 +28,9 @@ namespace arrow {
 
 static constexpr int64_t kSize = 100000000;
 
-std::vector<int> generate_junk(int64_t size) {
-  std::vector<int> v(size);
+template <typename T = int32_t>
+std::vector<T> generate_junk(int64_t size) {
+  std::vector<T> v(size);
   test::randint(size, 0, 100000, &v);
   return v;
 }
@@ -58,6 +59,19 @@ void BM_std_copy(benchmark::State& state) {
 
 BENCHMARK(BM_std_copy)->Repetitions(3)->Unit(benchmark::kMillisecond);
 
+// for comparison: pure copy without any changes
+void BM_std_copy_converting(benchmark::State& state) {
+  auto source = generate_junk<int32_t>(kSize);
+  // bigger type to avoid warnings
+  std::vector<int64_t> target(kSize);
+
+  for (auto _ : state) {
+    std::copy(source.begin(), source.end(), target.begin());
+  }
+}
+
+BENCHMARK(BM_std_copy_converting)->Repetitions(3)->Unit(benchmark::kMillisecond);
+
 // std::copy with a lazy iterator
 void BM_lazy_copy(benchmark::State& state) {
   auto source = generate_junk(kSize);
@@ -71,6 +85,22 @@ void BM_lazy_copy(benchmark::State& state) {
 }
 
 BENCHMARK(BM_lazy_copy)->Repetitions(3)->Unit(benchmark::kMillisecond);
+
+// std::copy with a lazy iterator which does static cast
+// should be the same performance as std::copy with differtly typed iterators
+void BM_lazy_copy_converting(benchmark::State& state) {
+  auto source = generate_junk<int64_t>(kSize);
+  std::vector<int32_t> target(kSize);
+  auto lazy_range = internal::MakeLazyRange(
+      [&source](int64_t index) { return static_cast<int32_t>(source[index]); },
+      source.size());
+
+  for (auto _ : state) {
+    std::copy(lazy_range.begin(), lazy_range.end(), target.begin());
+  }
+}
+
+BENCHMARK(BM_lazy_copy_converting)->Repetitions(3)->Unit(benchmark::kMillisecond);
 
 // for loop with a post-increment of a lazy operator
 void BM_lazy_postinc(benchmark::State& state) {
