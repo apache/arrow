@@ -253,7 +253,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   std::shared_ptr<Buffer> data() const { return data_; }
 
   value_type GetValue(int64_t index) const {
-    return reinterpret_cast<const value_type*>(data_->data())[index];
+    return reinterpret_cast<value_type*>(data_->data())[index];
   }
 
   /// \brief Append a sequence of elements in one shot
