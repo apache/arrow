@@ -28,6 +28,7 @@ arguments = parser.parse_args()
 
 
 _STRIP_COMMENT_REGEX = re.compile('(.+)?(?=//)')
+_NULLPTR_REGEX = re.compile(r'.*\bnullptr\b.*')
 
 
 def _strip_comments(line):
@@ -41,7 +42,7 @@ def _strip_comments(line):
 def lint_file(path):
     fail_rules = [
         (lambda x: '<mutex>' in x, 'Uses <mutex>'),
-        (lambda x: 'nullptr' in x, 'Uses nullptr')
+        (lambda x: re.match(_NULLPTR_REGEX, x), 'Uses nullptr')
     ]
 
     with open(path) as f:

@@ -109,6 +109,7 @@ class StdinStream : public InputStream {
     int64_t bytes_read;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
     RETURN_NOT_OK(buffer->Resize(bytes_read, false));
+    buffer->ZeroPadding();
     *out = buffer;
     return Status::OK();
   }

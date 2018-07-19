@@ -685,8 +685,8 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
 static Status WriteFlatbufferBuilder(FBB& fbb, std::shared_ptr<Buffer>* out) {
   int32_t size = fbb.GetSize();
 
-  auto result = std::make_shared<PoolBuffer>();
-  RETURN_NOT_OK(result->Resize(size));
+  std::shared_ptr<Buffer> result;
+  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), size, &result));
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
