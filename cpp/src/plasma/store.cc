@@ -114,7 +114,7 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
 #ifdef PLASMA_GPU
-  CudaDeviceManager::GetInstance(&manager_);
+  DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
 }
 
@@ -156,12 +156,12 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     return PlasmaError::ObjectExists;
   }
   // Try to evict objects until there is enough space.
-  uint8_t* pointer;
+  uint8_t* pointer = nullptr;
 #ifdef PLASMA_GPU
   std::shared_ptr<CudaBuffer> gpu_handle;
   std::shared_ptr<CudaContext> context_;
   if (device_num != 0) {
-    manager_->GetContext(device_num - 1, &context_);
+    DCHECK_OK(manager_->GetContext(device_num - 1, &context_));
   }
 #endif
   while (true) {
@@ -175,7 +175,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     if (device_num == 0) {
       pointer =
           reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
-      if (pointer == NULL) {
+      if (pointer == nullptr) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
         bool success =
@@ -191,7 +191,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
       }
     } else {
 #ifdef PLASMA_GPU
-      context_->Allocate(data_size + metadata_size, &gpu_handle);
+      DCHECK_OK(context_->Allocate(data_size + metadata_size, &gpu_handle));
       break;
 #endif
     }
@@ -217,7 +217,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
 #ifdef PLASMA_GPU
   if (device_num != 0) {
-    gpu_handle->ExportForIpc(&entry->ipc_handle);
+    DCHECK_OK(gpu_handle->ExportForIpc(&entry->ipc_handle));
     result->ipc_handle = entry->ipc_handle;
   }
 #endif
@@ -238,8 +238,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
 }
 
 void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
-  DCHECK(object != NULL);
-  DCHECK(entry != NULL);
+  DCHECK(object != nullptr);
+  DCHECK(entry != nullptr);
   DCHECK(entry->state == ObjectState::PLASMA_SEALED);
 #ifdef PLASMA_GPU
   if (entry->device_num != 0) {
@@ -325,7 +325,7 @@ void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
   for (size_t i = 0; i < num_requests; ++i) {
     auto get_req = get_requests[index];
     auto entry = GetObjectTableEntry(&store_info_, object_id);
-    ARROW_CHECK(entry != NULL);
+    ARROW_CHECK(entry != nullptr);
 
     PlasmaObject_init(&get_req->objects[object_id], entry);
     get_req->num_satisfied += 1;
@@ -415,7 +415,7 @@ int PlasmaStore::RemoveFromClientObjectIds(ObjectTableEntry* entry, Client* clie
 
 void PlasmaStore::ReleaseObject(const ObjectID& object_id, Client* client) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
-  ARROW_CHECK(entry != NULL);
+  ARROW_CHECK(entry != nullptr);
   // Remove the client from the object's array of clients.
   ARROW_CHECK(RemoveFromClientObjectIds(entry, client) == 1);
 }
@@ -432,7 +432,7 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
 void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) {
   ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();
   auto entry = GetObjectTableEntry(&store_info_, object_id);
-  ARROW_CHECK(entry != NULL);
+  ARROW_CHECK(entry != nullptr);
   ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
   // Set the state of object to SEALED.
   entry->state = ObjectState::PLASMA_SEALED;
@@ -447,7 +447,7 @@ void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) 
 
 int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
-  ARROW_CHECK(entry != NULL) << "To abort an object it must be in the object table.";
+  ARROW_CHECK(entry != nullptr) << "To abort an object it must be in the object table.";
   ARROW_CHECK(entry->state != ObjectState::PLASMA_SEALED)
       << "To abort an object it must not have been sealed.";
   auto it = client->object_ids.find(object_id);
@@ -467,7 +467,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
   // TODO(rkn): This should probably not fail, but should instead throw an
   // error. Maybe we should also support deleting objects that have been
   // created but not sealed.
-  if (entry == NULL) {
+  if (entry == nullptr) {
     // To delete an object it must be in the object table.
     return PlasmaError::ObjectNonexistent;
   }
@@ -501,7 +501,8 @@ void PlasmaStore::DeleteObjects(const std::vector<ObjectID>& object_ids) {
     // TODO(rkn): This should probably not fail, but should instead throw an
     // error. Maybe we should also support deleting objects that have been
     // created but not sealed.
-    ARROW_CHECK(entry != NULL) << "To delete an object it must be in the object table.";
+    ARROW_CHECK(entry != nullptr)
+        << "To delete an object it must be in the object table.";
     ARROW_CHECK(entry->state == ObjectState::PLASMA_SEALED)
         << "To delete an object it must have been sealed.";
     ARROW_CHECK(entry->ref_count == 0)
@@ -811,7 +812,7 @@ class PlasmaStoreRunner {
     // that maximum allowed size up front.
     if (use_one_memory_mapped_file) {
       void* pointer = plasma::dlmemalign(kBlockSize, system_memory);
-      ARROW_CHECK(pointer != NULL);
+      ARROW_CHECK(pointer != nullptr);
       plasma::dlfree(pointer);
     }
 
@@ -863,7 +864,7 @@ void StartServer(char* socket_name, int64_t system_memory, std::string plasma_di
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
-  char* socket_name = NULL;
+  char* socket_name = nullptr;
   // Directory where plasma memory mapped files are stored.
   std::string plasma_directory;
   bool hugepages_enabled = false;
