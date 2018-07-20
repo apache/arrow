@@ -280,7 +280,7 @@ PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
 PlasmaClient::Impl::Impl() {
 #ifdef PLASMA_GPU
-  CudaDeviceManager::GetInstance(&manager_);
+  DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
 }
 
@@ -408,7 +408,7 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
     if (metadata != NULL) {
       // Copy the metadata to the buffer.
       CudaBufferWriter writer(std::dynamic_pointer_cast<CudaBuffer>(*data));
-      writer.WriteAt(object.data_size, metadata, metadata_size);
+      RETURN_NOT_OK(writer.WriteAt(object.data_size, metadata, metadata_size));
     }
 #else
     ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";

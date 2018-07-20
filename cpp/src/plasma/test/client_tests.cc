@@ -480,9 +480,9 @@ void AssertCudaRead(const std::shared_ptr<Buffer>& buffer,
   ASSERT_EQ(gpu_buffer->size(), data_size);
 
   CudaBufferReader reader(gpu_buffer);
-  uint8_t read_data[data_size];
+  std::vector<uint8_t> read_data(data_size);
   int64_t read_data_size;
-  ARROW_CHECK_OK(reader.Read(data_size, &read_data_size, read_data));
+  ARROW_CHECK_OK(reader.Read(data_size, &read_data_size, read_data.data()));
   ASSERT_EQ(read_data_size, data_size);
 
   for (size_t i = 0; i < data_size; i++) {
