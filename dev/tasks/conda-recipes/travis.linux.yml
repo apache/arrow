@@ -15,10 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-language: generic
-
 os: linux
 dist: trusty
+language: generic
+
+# don't build twice
+if: tag IS blank
 
 env:
   global:

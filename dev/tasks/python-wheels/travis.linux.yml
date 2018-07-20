@@ -14,6 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+os: linux
+dist: trusty
+sudo: required
+language: cpp
+services:
+  - docker
+
+# don't build twice
+if: tag IS blank
+
 env:
   global:
     - PLAT=x86_64
@@ -21,13 +31,6 @@ env:
     - BUILD_REF={{ arrow.head }}
     - PYTHON_VERSION={{ python_version }}
     - PYARROW_VERSION={{ arrow.version }}
-
-os: linux
-dist: trusty
-sudo: required
-language: cpp
-services:
-  - docker
 
 before_script:
   - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
