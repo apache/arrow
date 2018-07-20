@@ -648,7 +648,7 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get().Disconnect())
 
-    cdef delete(self, object_ids):
+    def delete(self, object_ids):
         """
         Delete the objects with the given IDs from other object store.
 
