@@ -664,6 +664,7 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get().Delete(ids))
 
+
 def connect(store_socket_name, manager_socket_name, int release_delay,
             int num_retries=-1):
     """
