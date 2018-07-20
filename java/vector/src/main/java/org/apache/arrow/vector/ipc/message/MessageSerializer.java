@@ -472,7 +472,7 @@ public class MessageSerializer {
    * @return The deserialized record batch
    * @throws IOException if the message is not an ArrowDictionaryBatch or ArrowRecordBatch
    */
-  public static ArrowMessage deserializeMessageBatch(MessageReader reader) throws IOException {
+  public static ArrowMessage deserializeMessageBatch(MessageChannelReader reader) throws IOException {
     ArrowBufReadHolder holder = new ArrowBufReadHolder();
     if (!reader.readNext(holder)) {
       return null;

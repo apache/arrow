@@ -26,7 +26,7 @@ import org.apache.arrow.vector.ipc.ReadChannel;
 /**
  * Reads a sequence of messages using a ReadChannel.
  */
-public class MessageChannelReader extends MessageReader<ArrowBufReadHolder> {
+public class MessageChannelReader extends MessageReader<ArrowBufReadHolder, IOException> {
 
   protected ReadChannel in;
   protected BufferAllocator allocator;
@@ -56,6 +56,7 @@ public class MessageChannelReader extends MessageReader<ArrowBufReadHolder> {
    *
    * @throws IOException
    */
+  @Override
   public void close() throws IOException {
     in.close();
   }

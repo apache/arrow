@@ -18,12 +18,10 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-import java.io.IOException;
-
 /**
  * Abstract base class for reading a sequence of messages.
  */
-public abstract class MessageReader<T extends MessageReadHolder> {
+public abstract class MessageReader<T extends MessageReadHolder, U extends Exception> implements AutoCloseable {
 
   /**
    * Read the next message in the sequence and message body, if message has a defined
@@ -31,9 +29,8 @@ public abstract class MessageReader<T extends MessageReadHolder> {
    *
    * @param holder Data structure to hold message information read.
    * @return true if a Message was read or false if no more messages.
-   * @throws IOException
    */
-  public boolean readNext(T holder) throws IOException {
+  public boolean readNext(T holder) throws U {
 
     // Read message and body if bodyLength is specified
     readMessage(holder);
@@ -47,13 +44,19 @@ public abstract class MessageReader<T extends MessageReadHolder> {
   }
 
   /**
+   * Close any opened resources.
+   */
+  @Override
+  public void close() throws U {
+  }
+
+  /**
    * Attempt to read a message. If no new message is available, set holder.message to null to
    * indicate no further messages in the sequence.
    *
    * @param holder Message and message information that is populated when read by implementation.
-   * @throws IOException
    */
-  protected abstract void readMessage(T holder) throws IOException;
+  protected abstract void readMessage(T holder) throws U;
 
   /**
    * Read the body of a message, implementation should populate holder accordingly.
@@ -61,7 +64,6 @@ public abstract class MessageReader<T extends MessageReadHolder> {
    *
    * @param holder Contains message information from readMessage, message body is populated when
    *               read by implementation.
-   * @throws IOException
    */
-  protected abstract void readMessageBody(T holder) throws IOException;
+  protected abstract void readMessageBody(T holder) throws U;
 }
