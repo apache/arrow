@@ -90,6 +90,38 @@ using std::vector;
   NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), true, RESULT_NULL_IF_NULL, \
                  STRINGIFY(NAME##_##TYPE))
 
+// Hash32 functions that :
+// - NULL handling is of type NULL_NEVER
+//
+// The pre-compiled fn name includes the base name & input type name. hash32_int8
+#define HASH32_SAFE_NULL_NEVER(NAME, TYPE)                                        \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, int32(), true, RESULT_NULL_NEVER, \
+                 STRINGIFY(NAME##_##TYPE))
+
+// Hash32 functions that :
+// - NULL handling is of type NULL_NEVER
+//
+// The pre-compiled fn name includes the base name & input type name. hash32_int8
+#define HASH64_SAFE_NULL_NEVER(NAME, TYPE)                                        \
+  NativeFunction(#NAME, DataTypeVector{TYPE()}, int64(), true, RESULT_NULL_NEVER, \
+                 STRINGIFY(NAME##_##TYPE))
+
+// Hash32 functions with seed that :
+// - NULL handling is of type NULL_NEVER
+//
+// The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
+#define HASH32_SEED_SAFE_NULL_NEVER(NAME, TYPE)                         \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), int32()}, int32(), true, \
+                 RESULT_NULL_NEVER, STRINGIFY(NAME##WithSeed_##TYPE))
+
+// Hash64 functions with seed that :
+// - NULL handling is of type NULL_NEVER
+//
+// The pre-compiled fn name includes the base name & input type name. hash32WithSeed_int8
+#define HASH64_SEED_SAFE_NULL_NEVER(NAME, TYPE)                         \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), int64()}, int64(), true, \
+                 RESULT_NULL_NEVER, STRINGIFY(NAME##WithSeed_##TYPE))
+
 // Iterate the inner macro over all numeric types
 #define NUMERIC_TYPES(INNER, NAME)                                                       \
   INNER(NAME, int8), INNER(NAME, int16), INNER(NAME, int32), INNER(NAME, int64),         \
@@ -100,11 +132,6 @@ using std::vector;
 #define NUMERIC_DATE_TYPES(INNER, NAME) \
   NUMERIC_TYPES(INNER, NAME), DATE_TYPES(INNER, NAME), TIME_TYPES(INNER, NAME)
 
-// Iterate the inner macro over all numeric types and bool type
-#define NUMERIC_BOOL_DATE_TYPES(INNER, NAME)                                    \
-  NUMERIC_TYPES(INNER, NAME), DATE_TYPES(INNER, NAME), TIME_TYPES(INNER, NAME), \
-      INNER(NAME, boolean)
-
 // Iterate the inner macro over all date types
 #define DATE_TYPES(INNER, NAME) INNER(NAME, date64), INNER(NAME, timestamp)
 
@@ -113,6 +140,14 @@ using std::vector;
 
 // Iterate the inner macro over all data types
 #define VAR_LEN_TYPES(INNER, NAME) INNER(NAME, utf8), INNER(NAME, binary)
+
+// Iterate the inner macro over all numeric types, date types and bool type
+#define NUMERIC_BOOL_DATE_TYPES(INNER, NAME) \
+  NUMERIC_DATE_TYPES(INNER, NAME), INNER(NAME, boolean)
+
+// Iterate the inner macro over all numeric types, date types, bool and varlen types
+#define NUMERIC_BOOL_DATE_VAR_LEN_TYPES(INNER, NAME) \
+  NUMERIC_BOOL_DATE_TYPES(INNER, NAME), VAR_LEN_TYPES(INNER, NAME)
 
 // list of registered native functions.
 NativeFunction FunctionRegistry::pc_registry_[] = {
@@ -173,6 +208,18 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffMonth, timestamp, timestamp, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffQuarter, timestamp, timestamp, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffYear, timestamp, timestamp, int32),
+
+    // hash functions
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash32),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash32AsDouble),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SEED_SAFE_NULL_NEVER, hash32),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SEED_SAFE_NULL_NEVER, hash32AsDouble),
+
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SAFE_NULL_NEVER, hash64),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SAFE_NULL_NEVER, hash64AsDouble),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, hash64),
+    NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, hash64AsDouble),
 
     // utf8/binary operations
     UNARY_SAFE_NULL_IF_NULL(octet_length, utf8, int32),

@@ -14,12 +14,10 @@
 
 project(gandiva)
 
-set(CLANG_EXECUTABLE ${LLVM_TOOLS_BINARY_DIR}/clang)
-set(LINK_EXECUTABLE ${LLVM_TOOLS_BINARY_DIR}/llvm-link)
-
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
+    hash.cc
     print.cc
     sample.cc
     string_ops.cc
@@ -51,6 +49,7 @@ add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 
 # testing
 add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
+add_precompiled_unit_test(hash_test.cc hash.cc)
 add_precompiled_unit_test(time_test.cc time.cc)
 add_precompiled_unit_test(sample_test.cc sample.cc)
 add_precompiled_unit_test(string_ops_test.cc string_ops.cc)
