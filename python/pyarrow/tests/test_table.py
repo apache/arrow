@@ -34,6 +34,26 @@ def test_chunked_array_basics():
         pa.chunked_array([])
 
 
+def test_chunked_array_str():
+    data = [
+        pa.array([1, 2, 3]),
+        pa.array([4, 5, 6])
+    ]
+    data = pa.chunked_array(data)
+    assert str(data) == """[
+  [
+    1,
+    2,
+    3
+  ],
+  [
+    4,
+    5,
+    6
+  ]
+]"""
+
+
 def test_chunked_array_getitem():
     data = [
         pa.array([1, 2, 3]),

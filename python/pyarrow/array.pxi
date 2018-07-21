@@ -153,7 +153,7 @@ def array(object obj, type=None, mask=None,
     <pyarrow.array.Int64Array object at 0x7f9019e11208>
     [
       1,
-      NA
+      null
     ]
 
     Returns
@@ -510,10 +510,26 @@ cdef class Array:
             yield self.getitem(i)
 
     def __repr__(self):
-        from pyarrow.formatting import array_format
         type_format = object.__repr__(self)
-        values = array_format(self, window=10)
-        return '{0}\n{1}'.format(type_format, values)
+        return '{0}\n{1}'.format(type_format, str(self))
+
+    def format(self, int indent=0, int window=10):
+        cdef:
+            c_string result
+
+        with nogil:
+            check_status(
+                PrettyPrint(
+                    deref(self.ap),
+                    PrettyPrintOptions(indent, window),
+                    &result
+                )
+            )
+
+        return frombytes(result)
+
+    def __str__(self):
+        return self.format()
 
     def equals(Array self, Array other):
         return self.ap.Equals(deref(other.ap))

@@ -311,8 +311,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CSchema] RemoveMetadata()
 
     cdef cppclass PrettyPrintOptions:
+        PrettyPrintOptions(int indent_arg)
+        PrettyPrintOptions(int indent_arg, int window_arg)
         int indent
+        int window
 
+    CStatus PrettyPrint(const CArray& schema,
+                        const PrettyPrintOptions& options,
+                        c_string* result)
+    CStatus PrettyPrint(const CChunkedArray& schema,
+                        const PrettyPrintOptions& options,
+                        c_string* result)
     CStatus PrettyPrint(const CSchema& schema,
                         const PrettyPrintOptions& options,
                         c_string* result)
