@@ -20,6 +20,9 @@ dist: trusty
 sudo: required
 language: ruby
 
+# don't build twice
+if: tag IS blank
+
 env:
   global:
     - PLAT=x86_64

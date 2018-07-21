@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-language: generic
-
 os: osx
 osx_image: xcode8.3
+language: generic
+
+# don't build twice
+if: tag IS blank
 
 env:
   global:
