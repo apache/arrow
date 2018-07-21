@@ -26,6 +26,8 @@ endif()
 find_package(CUDA REQUIRED)
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
 
+message(STATUS "CUDA Libraries: ${CUDA_LIBRARIES}")
+
 set(ARROW_GPU_SRCS
   cuda_arrow_ipc.cc
   cuda_context.cc

@@ -133,7 +133,7 @@ class ARROW_EXPORT CudaIpcMemHandle {
 class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
  public:
   explicit CudaBufferReader(const std::shared_ptr<Buffer>& buffer);
-  ~CudaBufferReader();
+  ~CudaBufferReader() override;
 
   /// \brief Read bytes into pre-allocated host memory
   /// \param[in] nbytes number of bytes to read
@@ -157,7 +157,7 @@ class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
 class ARROW_EXPORT CudaBufferWriter : public io::WriteableFile {
  public:
   explicit CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer);
-  ~CudaBufferWriter();
+  ~CudaBufferWriter() override;
 
   /// \brief Close writer and flush buffered bytes to GPU
   Status Close() override;
