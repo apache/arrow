@@ -718,12 +718,16 @@ cdef class Schema:
 
     def __str__(self):
         cdef:
-            PrettyPrintOptions options
             c_string result
 
-        options.indent = 0
         with nogil:
-            check_status(PrettyPrint(deref(self.schema), options, &result))
+            check_status(
+                PrettyPrint(
+                    deref(self.schema),
+                    PrettyPrintOptions(0),
+                    &result
+                )
+            )
 
         printed = frombytes(result)
         if self.metadata is not None:
