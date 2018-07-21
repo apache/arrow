@@ -66,7 +66,7 @@ def test_list_format():
 
 
 def test_string_format():
-    arr = pa.array(['', None, 'foo'])
+    arr = pa.array([u'', None, u'foo'])
     result = fmt.array_format(arr)
     expected = """\
 [
