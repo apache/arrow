@@ -219,7 +219,7 @@ cdef class PlasmaBuffer(Buffer):
 
         If the plasma client has been shut down, then don't do anything.
         """
-        self.client.release(self.object_id)
+        self.client._release(self.object_id)
 
 
 cdef class PlasmaClient:
@@ -455,7 +455,7 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get().Seal(object_id.data))
 
-    def release(self, ObjectID object_id):
+    def _release(self, ObjectID object_id):
         """
         Notify Plasma that the object is no longer needed.
 
