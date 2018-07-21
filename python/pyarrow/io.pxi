@@ -19,7 +19,6 @@
 # arrow::ipc
 
 from libc.stdlib cimport malloc, free
-from libc.string cimport memchr
 from pyarrow.compat import frombytes, tobytes, encode_file_path
 from io import BufferedIOBase, UnsupportedOperation
 
@@ -290,11 +289,13 @@ cdef class NativeFile:
         cdef:
             int64_t bytes_read
             uint8_t* buf
+            Buffer py_buf
+            int64_t buf_len
 
         self._assert_readable()
 
-        cdef Buffer py_buf = py_buffer(b)
-        cdef int64_t buf_len = py_buf.size
+        py_buf = py_buffer(b)
+        buf_len = py_buf.size
 
         buf = py_buf.buffer.get().mutable_data()
 

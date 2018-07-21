@@ -638,8 +638,6 @@ def test_mock_output_stream():
 def sample_disk_data(request, tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    # add up to 32 newlines
-    arr[np.random.randint(0, SIZE, 32)] = ord(b'\n')
     data = arr.tobytes()[:SIZE]
 
     path = os.path.join(str(tmpdir), guid())
