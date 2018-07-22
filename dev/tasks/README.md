@@ -86,7 +86,7 @@ submission. The tasks are defined in `tasks.yml`
    at the following URLs, where `ghuser` is the GitHub username and `ghrepo` is
    the GitHub repository name (typically `crossbow`):
 
-   - Travis: `https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment`
+   - TravisCI: `https://travis-ci.org/<ghuser>/<ghrepo>/settings`
    - Appveyor: `https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment`
 
 7. Install Python 3.6:
