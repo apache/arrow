@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from copy import copy
 from os.path import join as pjoin
 
 import datetime
