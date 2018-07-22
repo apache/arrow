@@ -33,9 +33,20 @@ class TestDictionaryArray < Test::Unit::TestCase
       dictionary_array = Arrow::DictionaryArray.new(@data_type, indices)
       assert_equal(<<-STRING.chomp, dictionary_array.to_s)
 
--- is_valid: all not null
--- dictionary: ["C", "C++", "Ruby"]
--- indices: [0, 2, 2, 1, 0]
+-- dictionary:
+  [
+    "C",
+    "C++",
+    "Ruby"
+  ]
+-- indices:
+  [
+    0,
+    2,
+    2,
+    1,
+    0
+  ]
       STRING
     end
   end

@@ -107,7 +107,7 @@ class TestArray < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("[true, false, true]",
+    assert_equal("[\n  true,\n  false,\n  true\n]",
                  build_boolean_array([true, false, true]).to_s)
   end
 end
