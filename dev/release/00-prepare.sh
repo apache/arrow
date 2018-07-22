@@ -31,7 +31,7 @@ if [ "$#" -eq 2 ]; then
   # Update changelog
   $SOURCE_DIR/update-changelog.sh $version
 
-  echo "prepare release ${version} rc ${rcnum} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}"
+  echo "prepare release ${version} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}"
 
   cd "${SOURCE_DIR}/../../java"
 
