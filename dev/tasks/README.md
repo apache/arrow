@@ -72,7 +72,7 @@ submission. The tasks are defined in `tasks.yml`
 
 4. [Create a Personal Access
    Token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
-5. Export the token as an environment variable:
+5. Locally export the token as an environment variable:
 
    ```bash
    export CROSSBOW_GITHUB_TOKEN=<token>
@@ -80,12 +80,21 @@ submission. The tasks are defined in `tasks.yml`
 
    > or pass as an argument to the CLI script `--github-token`
 
-6. Install Python 3.6:
+6. Export the previously created GitHub token on both CI services:
+
+   Use `CROSSBOW_GITHUB_TOKEN` encrypted environment variable. You can set them
+   at the following URLs, where `ghuser` is the GitHub username and `ghrepo` is
+   the GitHub repository name (typically `crossbow`):
+
+   - TravisCI: `https://travis-ci.org/<ghuser>/<ghrepo>/settings`
+   - Appveyor: `https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment`
+
+7. Install Python 3.6:
 
    Miniconda is preferred, see installation instructions:
    https://conda.io/docs/user-guide/install/index.html
 
-7. Install the python dependencies for the script:
+8. Install the python dependencies for the script:
 
    ```bash
    conda install -y jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
@@ -96,7 +105,7 @@ submission. The tasks are defined in `tasks.yml`
    pip install jinja2 pygit2 click ruamel.yaml setuptools_scm github3.py python-gnupg
    ```
 
-8. Try running it:
+9. Try running it:
    ```bash
    $ python crossbow.py --help
    ```
