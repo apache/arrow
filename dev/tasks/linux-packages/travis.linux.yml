@@ -67,7 +67,10 @@ deploy:
   provider: releases
   api_key: $CROSSBOW_GITHUB_TOKEN
   file_glob: true
-  file: "**/*.{{ package_format }}"
+  file:
+  {% for extension in upload_extensions -%}
+    - "**/*{{ extension }}"
+  {% endfor -%}
   skip_cleanup: true
   on:
     tags: true
