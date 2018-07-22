@@ -24,13 +24,13 @@
 
 Name:		@PACKAGE@
 Version:	@VERSION@
-Release:	1%{?dist}
+Release:	@RELEASE@%{?dist}
 Summary:	Apache Arrow is a data processing library for analysis
 
 Group:		Development/Libraries
 License:	Apache-2.0
 URL:		https://arrow.apache.org/
-Source0:	https://dist.apache.org/repos/dist/release/arrow/arrow-%{version}/apache-@PACKAGE@-%{version}.tar.gz
+Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-%(%{__id_u} -n)
 BuildRequires:	pkgconfig

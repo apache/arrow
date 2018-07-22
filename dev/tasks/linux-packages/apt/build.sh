@@ -48,6 +48,12 @@ run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
   build/${PACKAGE}_${VERSION}.orig.tar.gz
 run cd build
 run tar xfz ${PACKAGE}_${VERSION}.orig.tar.gz
+case "${VERSION}" in
+  *~rc*)
+    mv ${PACKAGE}-$(echo $VERSION | sed -r -e 's/~rc[0-9]+//') \
+       ${PACKAGE}-${VERSION}
+    ;;
+esac
 run cd ${PACKAGE}-${VERSION}/
 if [ -d "/host/tmp/${specific_debian_dir}" ]; then
   run cp -rp "/host/tmp/${specific_debian_dir}" debian
