@@ -236,6 +236,9 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
@@ -266,6 +269,9 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
       - libarrow-glib-dev_{version}-1_amd64.deb
@@ -284,6 +290,9 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
@@ -309,6 +318,9 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
@@ -334,6 +346,9 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
