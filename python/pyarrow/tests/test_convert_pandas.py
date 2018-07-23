@@ -1537,6 +1537,14 @@ class TestListTypes(object):
         assert arr.equals(expected)
         assert arr.type == pa.list_(pa.null())
 
+    def test_nested_list_first_empty(self):
+        # ARROW-2711
+        data = pd.Series([[], [u"a"]])
+        arr = pa.array(data)
+        expected = pa.array(list(data))
+        assert arr.equals(expected)
+        assert arr.type == pa.list_(pa.string())
+
     def test_nested_smaller_ints(self):
         # ARROW-1345, ARROW-2008, there were some type inference bugs happening
         # before
