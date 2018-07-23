@@ -136,7 +136,7 @@ def get_affected_topics(affected_files):
             break
         elif p in ('cpp', 'format'):
             # Test C++ and bindings to the C++ library
-            for k in ('cpp', 'python', 'c_glib', 'integration'):
+            for k in ('cpp', 'python', 'c_glib', 'ruby', 'integration'):
                 affected[k] = True
         elif p in ('java', 'js'):
             affected[p] = True
