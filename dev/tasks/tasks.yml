@@ -230,8 +230,15 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-stretch
-      package_format: deb
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
@@ -256,8 +263,15 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-trusty
-      package_format: deb
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
       - libarrow-glib-dev_{version}-1_amd64.deb
@@ -270,8 +284,15 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-xenial
-      package_format: deb
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
@@ -291,8 +312,15 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-artful
-      package_format: deb
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
@@ -312,8 +340,15 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-bionic
-      package_format: deb
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
     artifacts:
+      - apache-arrow_{version}-1.debian.tar.xz
+      - apache-arrow_{version}-1.dsc
+      - apache-arrow_{version}.orig.tar.gz
       - gir1.2-arrow-1.0_{version}-1_amd64.deb
       - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
       - libarrow-dev_{version}-1_amd64.deb
@@ -333,7 +368,8 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake yum:build CENTOS_VERSIONS=6
-      package_format: rpm
+      upload_extensions:
+        - .rpm
     artifacts:
       - arrow-{version}-1.el6.src.rpm
       - arrow-debuginfo-{version}-1.el6.x86_64.rpm
@@ -347,7 +383,8 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake yum:build CENTOS_VERSIONS=7
-      package_format: rpm
+      upload_extensions:
+        - .rpm
     artifacts:
       - arrow-{version}-1.el7.src.rpm
       - arrow-debuginfo-{version}-1.el7.x86_64.rpm
