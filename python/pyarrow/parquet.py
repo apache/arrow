@@ -1137,6 +1137,12 @@ def write_to_dataset(table, root_path, partition_cols=None,
         data_cols = df.columns.drop(partition_cols)
         if len(data_cols) == 0:
             raise ValueError("No data left to save outside partition columns")
+        subschema = table.schema
+        # ARROW-2891: Ensure the output_schema is preserved when writing a
+        # partitioned dataset
+        for partition_col in partition_cols:
+            subschema = subschema.remove(
+                subschema.get_field_index(partition_col))
         for keys, subgroup in data_df.groupby(partition_keys):
             if not isinstance(keys, tuple):
                 keys = (keys,)
@@ -1144,7 +1150,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
                 ["{colname}={value}".format(colname=name, value=val)
                  for name, val in zip(partition_cols, keys)])
             subtable = Table.from_pandas(subgroup,
-                                         preserve_index=preserve_index)
+                                         preserve_index=preserve_index,
+                                         schema=subschema)
             prefix = "/".join([root_path, subdir])
             _mkdir_if_not_exists(fs, prefix)
             outfile = compat.guid() + ".parquet"

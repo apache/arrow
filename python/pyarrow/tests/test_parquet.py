@@ -1731,18 +1731,21 @@ def test_read_table_doesnt_warn():
     assert len(record) == 0
 
 
-def _test_write_to_dataset_with_partitions(base_path, filesystem=None):
+def _test_write_to_dataset_with_partitions(base_path,
+                                           filesystem=None,
+                                           schema=None):
     # ARROW-1400
     import pyarrow.parquet as pq
 
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
                               'num': list(range(10)),
+                              'nan': [pd.np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
-    output_table = pa.Table.from_pandas(output_df)
+    output_table = pa.Table.from_pandas(output_df, schema=schema)
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
 
@@ -1754,7 +1757,11 @@ def _test_write_to_dataset_with_partitions(base_path, filesystem=None):
     else:
         pq.write_metadata(output_table.schema, metadata_path)
 
-    dataset = pq.ParquetDataset(base_path, filesystem=filesystem)
+    # ARROW-2891: Ensure the output_schema is preserved when writing a
+    # partitioned dataset
+    dataset = pq.ParquetDataset(base_path,
+                                filesystem=filesystem,
+                                validate_schema=True)
     # ARROW-2209: Ensure the dataset schema also includes the partition columns
     dataset_cols = set(dataset.schema.to_arrow_schema().names)
     assert dataset_cols == set(output_table.schema.names)
@@ -1811,6 +1818,16 @@ def _test_write_to_dataset_no_partitions(base_path, filesystem=None):
 @parquet
 def test_write_to_dataset_with_partitions(tmpdir):
     _test_write_to_dataset_with_partitions(str(tmpdir))
+
+
+@parquet
+def test_write_to_dataset_with_partitions_and_schema(tmpdir):
+    schema = pa.schema([pa.field('group1', type=pa.string()),
+                        pa.field('group2', type=pa.string()),
+                        pa.field('num', type=pa.int64()),
+                        pa.field('nan', type=pa.int32()),
+                        pa.field('date', type=pa.timestamp(unit='us'))])
+    _test_write_to_dataset_with_partitions(str(tmpdir), schema=schema)
 
 
 @parquet
