@@ -1539,7 +1539,7 @@ class TestListTypes(object):
 
     def test_nested_list_first_empty(self):
         # ARROW-2711
-        data = pd.Series([[], ["a"]])
+        data = pd.Series([[], [u"a"]])
         arr = pa.array(data)
         expected = pa.array(list(data))
         assert arr.equals(expected)
