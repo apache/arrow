@@ -16,7 +16,6 @@
 # under the License.
 
 from collections import defaultdict
-from copy import copy
 import os
 import inspect
 import json
@@ -1138,7 +1137,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         data_cols = df.columns.drop(partition_cols)
         if len(data_cols) == 0:
             raise ValueError("No data left to save outside partition columns")
-        subschema = copy(table.schema)
+        subschema = table.schema
         # ARROW-2891: Ensure the output_schema is preserved when writing a
         # partitioned dataset
         for partition_col in partition_cols:
