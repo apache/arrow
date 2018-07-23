@@ -1128,6 +1128,10 @@ Status NumPyConverter::ConvertObjectsInfer() {
     } else if (PyObject_IsInstance(obj, decimal_type_.obj()) == 1) {
       return ConvertDecimals();
     } else if (PyList_Check(obj)) {
+      if (PyList_Size(obj) == 0 && i < length_ - 1) {
+        // Iterate until we find a non-empty list or the enclosing sequence is empty
+        continue;
+      }
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
       return ConvertLists(inferred_type);
