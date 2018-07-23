@@ -580,6 +580,46 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
   }
 
   @Test
+  public void testTimeNull() throws GandivaException, Exception {
+
+    ArrowType time64 = new ArrowType.Time(TimeUnit.MICROSECOND, 64);
+
+    Field x = Field.nullable("x", time64);
+    TreeNode x_node = TreeBuilder.makeNull(time64);
+
+    ExpressionTree expr = TreeBuilder.makeExpression(x_node, x);
+    Schema schema = new Schema(Lists.newArrayList(x));
+    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+
+    int numRows = 2;
+    byte[] validity = new byte[]{(byte) 255};
+    int[] values_x = new int[]{5, 32};
+
+    ArrowBuf validity_buf = buf(validity);
+    ArrowBuf data_x = intBuf(values_x);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode),
+            Lists.newArrayList(validity_buf, data_x));
+
+    BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, allocator);
+    bigIntVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bigIntVector);
+    eval.evaluate(batch, output);
+
+    assertTrue(bigIntVector.isNull(0));
+    assertTrue(bigIntVector.isNull(1));
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
   public void testIsNull() throws GandivaException, Exception {
     Field x = Field.nullable("x", float64);
 

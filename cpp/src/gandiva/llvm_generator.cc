@@ -523,6 +523,22 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex &dex) {
       break;
     }
 
+    case arrow::Type::DATE64:
+      value = types->i64_constant(boost::get<int64_t>(dex.holder()));
+      break;
+
+    case arrow::Type::TIME32:
+      value = types->i32_constant(boost::get<int32_t>(dex.holder()));
+      break;
+
+    case arrow::Type::TIME64:
+      value = types->i64_constant(boost::get<int64_t>(dex.holder()));
+      break;
+
+    case arrow::Type::TIMESTAMP:
+      value = types->i64_constant(boost::get<int64_t>(dex.holder()));
+      break;
+
     default:
       DCHECK(0);
   }
