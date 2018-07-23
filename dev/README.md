@@ -121,3 +121,10 @@ For JavaScript-specific releases, use a different verification script:
 ```shell
 bash dev/release/js-verify-release-candidate.sh 0.7.0 0
 ```
+# Integration testing
+
+## HDFS C++ / Python support
+
+```shell
+run_docker_compose.sh hdfs_integration
+```

@@ -19,12 +19,6 @@
 
 # Testing tools for odds and ends
 
-## Testing HDFS file interface
-
-```shell
-./test_hdfs.sh
-```
-
 ## Testing Dask integration
 
 Initial integration testing with Dask has been Dockerized.
