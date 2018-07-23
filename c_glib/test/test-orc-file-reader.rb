@@ -60,19 +60,19 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
           column.data.chunks.collect(&:to_s),
         ]
       end
-      assert_equal([
-                     ["boolean1: bool", ["[false, true]"]],
-                     ["byte1: int8", ["[1, 100]"]],
-                     ["short1: int16", ["[1024, 2048]"]],
-                     ["int1: int32", ["[65536, 65536]"]],
+      expected = [
+                     ["boolean1: bool", ["[\n  false,\n  true\n]"]],
+                     ["byte1: int8", ["[\n  1,\n  100\n]"]],
+                     ["short1: int16", ["[\n  1024,\n  2048\n]"]],
+                     ["int1: int32", ["[\n  65536,\n  65536\n]"]],
                      [
                        "long1: int64",
-                       ["[9223372036854775807, 9223372036854775807]"],
+                       ["[\n  9223372036854775807,\n  9223372036854775807\n]"],
                      ],
-                     ["float1: float", ["[1, 2]"]],
-                     ["double1: double", ["[-15, -5]"]],
-                     ["bytes1: binary", ["[0001020304, ]"]],
-                     ["string1: string", ["[\"hi\", \"bye\"]"]],
+                     ["float1: float", ["[\n  1,\n  2\n]"]],
+                     ["double1: double", ["[\n  -15,\n  -5\n]"]],
+                     ["bytes1: binary", ["[\n  0001020304,\n  \n]"]],
+                     ["string1: string", ["[\n  \"hi\",\n  \"bye\"\n]"]],
                      [
                        "middle: " +
                        "struct<list: " +
@@ -80,14 +80,32 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
                        [
                          <<-STRUCT.chomp
 
--- is_valid: all not null
--- child 0 type: list<item: struct<int1: int32, string1: string>> values: 
-  -- is_valid: all not null
-  -- value_offsets: [0, 2, 4]
-  -- values: 
-    -- is_valid: all not null
-    -- child 0 type: int32 values: [1, 2, 1, 2]
-    -- child 1 type: string values: ["bye", "sigh", "bye", "sigh"]
+-- is_valid:
+all not null
+-- child 0 type: list<item: struct<int1: int32, string1: string>> values:   [
+
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        1,
+        2
+      ]
+    -- child 1 type: string values:       [
+        "bye",
+        "sigh"
+      ],
+
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        1,
+        2
+      ]
+    -- child 1 type: string values:       [
+        "bye",
+        "sigh"
+      ]
+  ]
                           STRUCT
                        ]
                      ],
@@ -95,13 +113,32 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
                        "list: list<item: struct<int1: int32, string1: string>>",
                        [
                          <<-LIST.chomp
+[
 
--- is_valid: all not null
--- value_offsets: [0, 2, 5]
--- values: 
-  -- is_valid: all not null
-  -- child 0 type: int32 values: [3, 4, 100000000, -100000, 1234]
-  -- child 1 type: string values: ["good", "bad", "cat", "in", "hat"]
+  -- is_valid:
+all not null
+  -- child 0 type: int32 values:     [
+      3,
+      4
+    ]
+  -- child 1 type: string values:     [
+      "good",
+      "bad"
+    ],
+
+  -- is_valid:
+all not null
+  -- child 0 type: int32 values:     [
+      100000000,
+      -100000,
+      1234
+    ]
+  -- child 1 type: string values:     [
+      "cat",
+      "in",
+      "hat"
+    ]
+]
                          LIST
                        ]
                      ],
@@ -111,21 +148,42 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
                        "struct<int1: int32, string1: string>>>",
                        [
                          <<-MAP.chomp
+[
 
--- is_valid: all not null
--- value_offsets: [0, 0, 2]
--- values: 
-  -- is_valid: all not null
-  -- child 0 type: string values: ["chani", "mauddib"]
+  -- is_valid:
+all not null
+  -- child 0 type: string values:     []
   -- child 1 type: struct<int1: int32, string1: string> values: 
-    -- is_valid: all not null
-    -- child 0 type: int32 values: [5, 1]
-    -- child 1 type: string values: ["chani", "mauddib"]
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       []
+    -- child 1 type: string values:       [],
+
+  -- is_valid:
+all not null
+  -- child 0 type: string values:     [
+      "chani",
+      "mauddib"
+    ]
+  -- child 1 type: struct<int1: int32, string1: string> values: 
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        5,
+        1
+      ]
+    -- child 1 type: string values:       [
+        "chani",
+        "mauddib"
+      ]
+]
                          MAP
                        ],
                      ],
-                   ],
-                   dump)
+                   ]
+      expected.zip(dump).each do |ex, actual|
+        assert_equal(ex, actual)
+      end
     end
 
     test("select fields") do
@@ -139,8 +197,8 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
         ]
       end
       assert_equal([
-                     ["boolean1: bool", ["[false, true]"]],
-                     ["short1: int16", ["[1024, 2048]"]],
+                     ["boolean1: bool", ["[\n  false,\n  true\n]"]],
+                     ["short1: int16", ["[\n  1024,\n  2048\n]"]],
                    ],
                    dump)
     end
@@ -155,45 +213,82 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
           record_batch.get_column(i).to_s,
         ]
       end
-      assert_equal([
-                     ["boolean1: bool", "[false, true]"],
-                     ["byte1: int8", "[1, 100]"],
-                     ["short1: int16", "[1024, 2048]"],
-                     ["int1: int32", "[65536, 65536]"],
+      expected = [
+                     ["boolean1: bool", "[\n  false,\n  true\n]"],
+                     ["byte1: int8", "[\n  1,\n  100\n]"],
+                     ["short1: int16", "[\n  1024,\n  2048\n]"],
+                     ["int1: int32", "[\n  65536,\n  65536\n]"],
                      [
                        "long1: int64",
-                       "[9223372036854775807, 9223372036854775807]",
+                       "[\n  9223372036854775807,\n  9223372036854775807\n]",
                      ],
-                     ["float1: float", "[1, 2]"],
-                     ["double1: double", "[-15, -5]"],
-                     ["bytes1: binary", "[0001020304, ]"],
-                     ["string1: string", "[\"hi\", \"bye\"]"],
+                     ["float1: float", "[\n  1,\n  2\n]"],
+                     ["double1: double", "[\n  -15,\n  -5\n]"],
+                     ["bytes1: binary", "[\n  0001020304,\n  \n]"],
+                     ["string1: string", "[\n  \"hi\",\n  \"bye\"\n]"],
                      [
                        "middle: " +
                        "struct<list: " +
                        "list<item: struct<int1: int32, string1: string>>>",
                        <<-STRUCT.chomp
 
--- is_valid: all not null
--- child 0 type: list<item: struct<int1: int32, string1: string>> values: 
-  -- is_valid: all not null
-  -- value_offsets: [0, 2, 4]
-  -- values: 
-    -- is_valid: all not null
-    -- child 0 type: int32 values: [1, 2, 1, 2]
-    -- child 1 type: string values: ["bye", "sigh", "bye", "sigh"]
+-- is_valid:
+all not null
+-- child 0 type: list<item: struct<int1: int32, string1: string>> values:   [
+
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        1,
+        2
+      ]
+    -- child 1 type: string values:       [
+        "bye",
+        "sigh"
+      ],
+
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        1,
+        2
+      ]
+    -- child 1 type: string values:       [
+        "bye",
+        "sigh"
+      ]
+  ]
                         STRUCT
                      ],
                      [
                        "list: list<item: struct<int1: int32, string1: string>>",
                        <<-LIST.chomp
+[
 
--- is_valid: all not null
--- value_offsets: [0, 2, 5]
--- values: 
-  -- is_valid: all not null
-  -- child 0 type: int32 values: [3, 4, 100000000, -100000, 1234]
-  -- child 1 type: string values: ["good", "bad", "cat", "in", "hat"]
+  -- is_valid:
+all not null
+  -- child 0 type: int32 values:     [
+      3,
+      4
+    ]
+  -- child 1 type: string values:     [
+      "good",
+      "bad"
+    ],
+
+  -- is_valid:
+all not null
+  -- child 0 type: int32 values:     [
+      100000000,
+      -100000,
+      1234
+    ]
+  -- child 1 type: string values:     [
+      "cat",
+      "in",
+      "hat"
+    ]
+]
                        LIST
                      ],
                      [
@@ -201,20 +296,41 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
                        "struct<key: string, value: " +
                        "struct<int1: int32, string1: string>>>",
                        <<-MAP.chomp
+[
 
--- is_valid: all not null
--- value_offsets: [0, 0, 2]
--- values: 
-  -- is_valid: all not null
-  -- child 0 type: string values: ["chani", "mauddib"]
+  -- is_valid:
+all not null
+  -- child 0 type: string values:     []
   -- child 1 type: struct<int1: int32, string1: string> values: 
-    -- is_valid: all not null
-    -- child 0 type: int32 values: [5, 1]
-    -- child 1 type: string values: ["chani", "mauddib"]
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       []
+    -- child 1 type: string values:       [],
+
+  -- is_valid:
+all not null
+  -- child 0 type: string values:     [
+      "chani",
+      "mauddib"
+    ]
+  -- child 1 type: struct<int1: int32, string1: string> values: 
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        5,
+        1
+      ]
+    -- child 1 type: string values:       [
+        "chani",
+        "mauddib"
+      ]
+]
                        MAP
                      ],
-                   ],
-                   dump)
+                   ]
+      expected.zip(dump).each do |ex, actual|
+        assert_equal(ex, actual)
+      end
     end
 
     test("select fields") do
@@ -227,8 +343,8 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
         ]
       end
       assert_equal([
-                     ["boolean1: bool", "[false, true]"],
-                     ["short1: int16", "[1024, 2048]"],
+                     ["boolean1: bool", "[\n  false,\n  true\n]"],
+                     ["short1: int16", "[\n  1024,\n  2048\n]"],
                    ],
                    dump)
     end

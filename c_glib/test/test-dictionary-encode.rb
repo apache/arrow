@@ -23,9 +23,22 @@ class TestDictionaryEncode < Test::Unit::TestCase
     array = build_int32_array([1, 3, 1, -1, -3, -1])
     assert_equal(<<-STRING.chomp, array.dictionary_encode.to_s)
 
--- is_valid: all not null
--- dictionary: [1, 3, -1, -3]
--- indices: [0, 1, 0, 2, 3, 2]
+-- dictionary:
+  [
+    1,
+    3,
+    -1,
+    -3
+  ]
+-- indices:
+  [
+    0,
+    1,
+    0,
+    2,
+    3,
+    2
+  ]
     STRING
   end
 
@@ -33,9 +46,17 @@ class TestDictionaryEncode < Test::Unit::TestCase
     array = build_string_array(["Ruby", "Python", "Ruby"])
     assert_equal(<<-STRING.chomp, array.dictionary_encode.to_s)
 
--- is_valid: all not null
--- dictionary: ["Ruby", "Python"]
--- indices: [0, 1, 0]
+-- dictionary:
+  [
+    "Ruby",
+    "Python"
+  ]
+-- indices:
+  [
+    0,
+    1,
+    0
+  ]
     STRING
   end
 end

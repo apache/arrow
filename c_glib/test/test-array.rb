@@ -107,7 +107,12 @@ class TestArray < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("[true, false, true]",
-                 build_boolean_array([true, false, true]).to_s)
+    assert_equal(<<-CONTENT.chomp, build_boolean_array([true, false, true]).to_s)
+[
+  true,
+  false,
+  true
+]
+    CONTENT
   end
 end
