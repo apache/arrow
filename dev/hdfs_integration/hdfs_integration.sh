@@ -25,12 +25,16 @@ set -e
 # Activate conda environment
 source activate pyarrow-dev
 
-# Set environment variable
+# Arrow build variables
 export ARROW_BUILD_TYPE=debug
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 export PARQUET_HOME=$CONDA_PREFIX
+
+# Hadoop variables
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_HOME/lib/native/
+export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 
 # For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
@@ -84,11 +88,10 @@ python setup.py build_ext \
 popd
 
 # Run tests
-export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 export LIBHDFS3_CONF=arrow/dev/hdfs_integration/libhdfs3-client-config.xml
-
-# C++
-arrow/cpp/build/debug/io-hdfs-test
 
 # Python
 python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs
+
+# C++
+arrow/cpp/build/debug/io-hdfs-test

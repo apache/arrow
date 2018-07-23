@@ -434,16 +434,17 @@ class HadoopFileSystem::HadoopFileSystemImpl {
       // If the directory is empty, entries is NULL but errno is 0. Non-zero
       // errno indicates error
       //
-      // Note: errno is thread-locala
+      // Note: errno is thread-local
       if (errno == 0) {
         num_entries = 0;
       } else {
-        return Status::IOError("HDFS: list directory failed");
+        std::stringstream ss;
+        ss << "HDFS list directory failed, errno: " << errno;
+        return Status::IOError(ss.str());
       }
     }
 
     // Allocate additional space for elements
-
     int vec_offset = static_cast<int>(listing->size());
     listing->resize(vec_offset + num_entries);
 

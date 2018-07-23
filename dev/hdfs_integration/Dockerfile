@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-# FROM ubuntu:18.04
 FROM gelog/hadoop
 
 ENV CC=gcc \
@@ -24,11 +23,12 @@ ENV CC=gcc \
 
 RUN apt-get update -y \
  && apt-get install -y \
-		  gcc \
-		  g++ \
-		  git \
-		  wget \
-		  ninja-build
+	  gcc \
+	  g++ \
+	  git \
+	  wget \
+	  pkg-config \
+	  ninja-build
 
 # Miniconda - Python 3.6, 64-bit, x86, latest
 RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh \
