@@ -27,7 +27,14 @@ class RollingWindowTest < Test::Unit::TestCase
 
   test("#lag") do
     assert_equal(<<-ARRAY.chomp, @table.window.lag(:number).to_s)
-[null, -3, null, null, 2, -3]
+[
+  null,
+  -3,
+  null,
+  null,
+  2,
+  -3
+]
     ARRAY
   end
 end

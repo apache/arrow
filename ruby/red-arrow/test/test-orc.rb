@@ -23,6 +23,10 @@ class ORCTest < Test::Unit::TestCase
     @orc_path = fixture_path("TestOrcFile.test1.orc")
   end
 
+  def pp_values(values)
+    "[\n  " + values.collect(&:inspect).join(",\n  ") + "\n]"
+  end
+
   sub_test_case("load") do
     test("default") do
       table = Arrow::Table.load(@orc_path)
@@ -33,18 +37,18 @@ class ORCTest < Test::Unit::TestCase
         ]
       end
       assert_equal([
-                     ["boolean1: bool", ["[false, true]"]],
-                     ["byte1: int8", ["[1, 100]"]],
-                     ["short1: int16", ["[1024, 2048]"]],
-                     ["int1: int32", ["[65536, 65536]"]],
+                     ["boolean1: bool", [pp_values([false, true])]],
+                     ["byte1: int8", [pp_values([1, 100])]],
+                     ["short1: int16", [pp_values([1024, 2048])]],
+                     ["int1: int32", [pp_values([65536, 65536])]],
                      [
                        "long1: int64",
-                       ["[9223372036854775807, 9223372036854775807]"],
+                       [pp_values([9223372036854775807, 9223372036854775807])],
                      ],
-                     ["float1: float", ["[1, 2]"]],
-                     ["double1: double", ["[-15, -5]"]],
-                     ["bytes1: binary", ["[0001020304, ]"]],
-                     ["string1: string", ["[\"hi\", \"bye\"]"]],
+                     ["float1: float", [pp_values([1, 2])]],
+                     ["double1: double", [pp_values([-15, -5])]],
+                     ["bytes1: binary", ["[\n  0001020304,\n  \n]"]],
+                     ["string1: string", [pp_values(["hi", "bye"])]],
                      [
                        "middle: " +
                        "struct<list: " +
@@ -52,14 +56,32 @@ class ORCTest < Test::Unit::TestCase
                        [
                          <<-STRUCT.chomp
 
--- is_valid: all not null
--- child 0 type: list<item: struct<int1: int32, string1: string>> values: 
-  -- is_valid: all not null
-  -- value_offsets: [0, 2, 4]
-  -- values: 
-    -- is_valid: all not null
-    -- child 0 type: int32 values: [1, 2, 1, 2]
-    -- child 1 type: string values: ["bye", "sigh", "bye", "sigh"]
+-- is_valid:
+all not null
+-- child 0 type: list<item: struct<int1: int32, string1: string>> values:   [
+
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        1,
+        2
+      ]
+    -- child 1 type: string values:       [
+        "bye",
+        "sigh"
+      ],
+
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        1,
+        2
+      ]
+    -- child 1 type: string values:       [
+        "bye",
+        "sigh"
+      ]
+  ]
                           STRUCT
                        ]
                      ],
@@ -67,13 +89,32 @@ class ORCTest < Test::Unit::TestCase
                        "list: list<item: struct<int1: int32, string1: string>>",
                        [
                          <<-LIST.chomp
+[
 
--- is_valid: all not null
--- value_offsets: [0, 2, 5]
--- values: 
-  -- is_valid: all not null
-  -- child 0 type: int32 values: [3, 4, 100000000, -100000, 1234]
-  -- child 1 type: string values: ["good", "bad", "cat", "in", "hat"]
+  -- is_valid:
+all not null
+  -- child 0 type: int32 values:     [
+      3,
+      4
+    ]
+  -- child 1 type: string values:     [
+      "good",
+      "bad"
+    ],
+
+  -- is_valid:
+all not null
+  -- child 0 type: int32 values:     [
+      100000000,
+      -100000,
+      1234
+    ]
+  -- child 1 type: string values:     [
+      "cat",
+      "in",
+      "hat"
+    ]
+]
                          LIST
                        ]
                      ],
@@ -83,16 +124,35 @@ class ORCTest < Test::Unit::TestCase
                        "struct<int1: int32, string1: string>>>",
                        [
                          <<-MAP.chomp
+[
 
--- is_valid: all not null
--- value_offsets: [0, 0, 2]
--- values: 
-  -- is_valid: all not null
-  -- child 0 type: string values: ["chani", "mauddib"]
+  -- is_valid:
+all not null
+  -- child 0 type: string values:     []
   -- child 1 type: struct<int1: int32, string1: string> values: 
-    -- is_valid: all not null
-    -- child 0 type: int32 values: [5, 1]
-    -- child 1 type: string values: ["chani", "mauddib"]
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       []
+    -- child 1 type: string values:       [],
+
+  -- is_valid:
+all not null
+  -- child 0 type: string values:     [
+      "chani",
+      "mauddib"
+    ]
+  -- child 1 type: struct<int1: int32, string1: string> values: 
+    -- is_valid:
+all not null
+    -- child 0 type: int32 values:       [
+        5,
+        1
+      ]
+    -- child 1 type: string values:       [
+        "chani",
+        "mauddib"
+      ]
+]
                          MAP
                        ],
                      ],
@@ -109,8 +169,8 @@ class ORCTest < Test::Unit::TestCase
         ]
       end
       assert_equal([
-                     ["boolean1: bool", ["[false, true]"]],
-                     ["short1: int16", ["[1024, 2048]"]],
+                     ["boolean1: bool", [pp_values([false, true])]],
+                     ["short1: int16", [pp_values([1024, 2048])]],
                    ],
                    dump)
     end
