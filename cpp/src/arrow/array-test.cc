@@ -2919,6 +2919,8 @@ TEST_F(TestListArray, TestAppendNull) {
 
   auto values = result_->values();
   ASSERT_EQ(0, values->length());
+  // Values buffer should be non-null
+  ASSERT_NE(nullptr, values->data()->buffers[1]);
 }
 
 void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& values,
