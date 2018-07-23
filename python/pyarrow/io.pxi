@@ -20,6 +20,7 @@
 
 from libc.stdlib cimport malloc, free
 from pyarrow.compat import frombytes, tobytes, encode_file_path
+from io import BufferedIOBase, UnsupportedOperation
 
 import re
 import six
@@ -99,6 +100,13 @@ cdef class NativeFile:
     def seekable(self):
         self._assert_open()
         return self.is_readable
+
+    def isatty(self):
+        self._assert_open()
+        return False
+
+    def fileno(self):
+        raise UnsupportedOperation()
 
     def close(self):
         if not self.closed:
@@ -262,6 +270,72 @@ cdef class NativeFile:
         Alias for read, needed to match the IOBase interface."""
         return self.read(nbytes=None)
 
+    def readall(self):
+        return self.read()
+
+    def readinto(self, b):
+        """
+        Read into the supplied buffer
+
+        Parameters
+        -----------
+        b: any python object supporting buffer interface
+
+        Returns
+        --------
+        number of bytes written
+        """
+
+        cdef:
+            int64_t bytes_read
+            uint8_t* buf
+            Buffer py_buf
+            int64_t buf_len
+
+        self._assert_readable()
+
+        py_buf = py_buffer(b)
+        buf_len = py_buf.size
+
+        buf = py_buf.buffer.get().mutable_data()
+
+        with nogil:
+            check_status(self.rd_file.get().Read(buf_len, &bytes_read, buf))
+
+        return bytes_read
+
+    def readline(self, size=None):
+        """Read and return a line of bytes from the file.
+
+        If size is specified, read at most size bytes.
+
+        Line terminator is always b"\\n".
+        """
+
+        raise UnsupportedOperation()
+
+    def readlines(self, hint=None):
+        """
+        Read lines of the file
+
+        Parameters
+        -----------
+
+        hint: int maximum number of bytes read until we stop
+        """
+
+        raise UnsupportedOperation()
+
+    def __iter__(self):
+        self._assert_readable()
+        return self
+
+    def __next__(self):
+        line = self.readline()
+        if not line:
+            raise StopIteration
+        return line
+
     def read_buffer(self, nbytes=None):
         cdef:
             int64_t c_nbytes
@@ -278,6 +352,15 @@ cdef class NativeFile:
             check_status(self.rd_file.get().ReadB(c_nbytes, &output))
 
         return pyarrow_wrap_buffer(output)
+
+    def truncate(self):
+        raise UnsupportedOperation()
+
+    def writelines(self, lines):
+        self._assert_writable()
+
+        for line in lines:
+            self.write(line)
 
     def download(self, stream_or_path, buffer_size=None):
         """
@@ -414,6 +497,7 @@ cdef class NativeFile:
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
 
+BufferedIOBase.register(NativeFile)
 
 # ----------------------------------------------------------------------
 # Python file-like objects
@@ -448,6 +532,15 @@ cdef class PythonFile(NativeFile):
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
         self.closed = False
+
+    def truncate(self, pos=None):
+        self.handle.truncate(pos)
+
+    def readline(self, size=None):
+        return self.handle.readline(size)
+
+    def readlines(self, hint=None):
+        return self.handle.readlines(hint)
 
 
 cdef class MemoryMappedFile(NativeFile):
@@ -504,6 +597,10 @@ cdef class MemoryMappedFile(NativeFile):
         self.wr_file = <shared_ptr[OutputStream]> handle
         self.rd_file = <shared_ptr[RandomAccessFile]> handle
         self.closed = False
+
+    def fileno(self):
+        self._assert_open()
+        return self.handle.get().file_descriptor()
 
 
 def memory_map(path, mode='r'):
@@ -578,6 +675,10 @@ cdef class OSFile(NativeFile):
         with nogil:
             check_status(FileOutputStream.Open(path, &self.wr_file))
         self.is_writable = True
+
+    def fileno(self):
+        self._assert_open()
+        return self.handle.file_descriptor()
 
 
 cdef class FixedSizeBufferWriter(NativeFile):

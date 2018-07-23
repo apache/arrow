@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from io import BytesIO, TextIOWrapper
+from io import (BytesIO, TextIOWrapper, BufferedIOBase, IOBase)
 import gc
 import os
 import pickle
@@ -105,6 +105,47 @@ def test_python_file_read():
     f.close()
 
 
+def test_python_file_readall():
+    data = b'some sample data'
+
+    buf = BytesIO(data)
+    with pa.PythonFile(buf, mode='r') as f:
+        assert f.readall() == data
+
+
+def test_python_file_readinto():
+    length = 10
+    data = b'some sample data longer than 10'
+    dst_buf = bytearray(length)
+    src_buf = BytesIO(data)
+
+    with pa.PythonFile(src_buf, mode='r') as f:
+        assert f.readinto(dst_buf) == 10
+
+        assert dst_buf[:length] == data[:length]
+        assert len(dst_buf) == length
+
+
+def test_python_file_correct_abc():
+    with pa.PythonFile(BytesIO(b''), mode='r') as f:
+        assert isinstance(f, BufferedIOBase)
+        assert isinstance(f, IOBase)
+
+
+def test_python_file_iterable():
+    data = b'''line1
+    line2
+    line3
+    '''
+
+    buf = BytesIO(data)
+    buf2 = BytesIO(data)
+
+    with pa.PythonFile(buf, mode='r') as f:
+        for read, expected in zip(f, buf2):
+            assert read == expected
+
+
 def test_python_file_large_seeks():
     def factory(filename):
         return pa.PythonFile(open(filename, 'rb'))
@@ -178,6 +219,26 @@ def test_python_file_implicit_mode(tmpdir):
     assert not pf.seekable()
     pf.write(b'foobar\n')
     assert bio.getvalue() == b'foobar\n'
+
+
+def test_python_file_writelines(tmpdir):
+    lines = [b'line1\n', b'line2\n' b'line3']
+    path = os.path.join(str(tmpdir), 'foo.txt')
+    with open(path, 'wb') as f:
+        try:
+            f = pa.PythonFile(f, mode='w')
+            assert f.writable()
+            f.writelines(lines)
+        finally:
+            f.close()
+
+    with open(path, 'rb') as f:
+        try:
+            f = pa.PythonFile(f, mode='r')
+            assert f.readable()
+            assert f.read() == b''.join(lines)
+        finally:
+            f.close()
 
 
 def test_python_file_closing():
@@ -586,6 +647,7 @@ def sample_disk_data(request, tmpdir):
 
     def teardown():
         _try_delete(path)
+
     request.addfinalizer(teardown)
     return path, data
 

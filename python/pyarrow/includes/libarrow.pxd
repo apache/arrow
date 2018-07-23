@@ -597,6 +597,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         FileMode mode()
 
     cdef cppclass Readable:
+        # put overload under a different name to avoid cython bug with multiple
+        # layers of inheritance
         CStatus ReadB" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
         CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
 
@@ -618,7 +620,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus ReadAt(int64_t position, int64_t nbytes,
                        int64_t* bytes_read, uint8_t* buffer)
         CStatus ReadAt(int64_t position, int64_t nbytes,
-                       int64_t* bytes_read, shared_ptr[CBuffer]* out)
+                       shared_ptr[CBuffer]* out)
+        c_bool supports_zero_copy()
 
     cdef cppclass WriteableFile(OutputStream, Seekable):
         CStatus WriteAt(int64_t position, const uint8_t* data,
