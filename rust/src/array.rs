@@ -355,6 +355,7 @@ impl From<Vec<Arc<Array>>> for StructArray {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
 
     #[test]
     fn array_data_from_list_u8() {
@@ -448,4 +449,16 @@ mod tests {
         assert_eq!(9, a.max().unwrap());
     }
 
+    #[test]
+    fn test_access_array_concurrently() {
+        let a = PrimitiveArray::from(Buffer::from(vec![5, 6, 7, 8, 9]));
+
+        let ret = thread::spawn(move || {
+            a.iter().collect::<Vec<i32>>()
+        }).join();
+
+        assert!(ret.is_ok());
+        assert_eq!(vec![5, 6, 7, 8, 9], ret.ok().unwrap());
+    }
 }
+
