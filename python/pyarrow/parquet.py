@@ -944,7 +944,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/'):
     common_metadata_path = None
     metadata_path = None
 
-    if len(path_or_paths) == 1:
+    if isinstance(path_or_paths, list) and len(path_or_paths) == 1:
         # Dask passes a directory as a list of length 1
         path_or_paths = path_or_paths[0]
 
