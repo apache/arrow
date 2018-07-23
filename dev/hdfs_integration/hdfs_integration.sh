@@ -42,8 +42,8 @@ export PYARROW_CXXFLAGS=$CXXFLAGS
 export PYARROW_CMAKE_GENERATOR=Ninja
 
 # Install arrow-cpp
-mkdir -p arrow/cpp/build
-pushd arrow/cpp/build
+mkdir -p arrow/cpp/hdfs-integration-build
+pushd arrow/cpp/hdfs-integration-build
 
 cmake -GNinja \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
@@ -60,8 +60,8 @@ ninja install
 popd
 
 # Install parquet-cpp
-mkdir -p parquet-cpp/build
-pushd parquet-cpp/build
+mkdir -p parquet-cpp/hdfs-integration-build
+pushd parquet-cpp/hdfs-integration-build
 
 cmake -GNinja \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
@@ -94,4 +94,4 @@ export LIBHDFS3_CONF=arrow/dev/hdfs_integration/libhdfs3-client-config.xml
 python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs
 
 # C++
-arrow/cpp/build/debug/io-hdfs-test
+arrow/cpp/hdfs-integration-build/debug/io-hdfs-test

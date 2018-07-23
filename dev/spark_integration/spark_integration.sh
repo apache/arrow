@@ -87,6 +87,5 @@ build/mvn -Dtest=none -DwildcardSuites="$SPARK_SCALA_TESTS" test
 # Run pyarrow related Python tests only
 SPARK_PYTHON_TESTS="ArrowTests PandasUDFTests ScalarPandasUDFTests GroupedMapPandasUDFTests GroupedAggPandasUDFTests"
 echo "Testing PySpark: $SPARK_PYTHON_TESTS"
-SPARK_TESTING=1 bin/pyspark pyspark.sql.tests $SPARK_PYTHON_TESTS 
+SPARK_TESTING=1 bin/pyspark pyspark.sql.tests $SPARK_PYTHON_TESTS
 popd
-
