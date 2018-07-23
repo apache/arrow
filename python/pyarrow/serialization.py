@@ -136,7 +136,7 @@ def register_torch_serialization_handlers(serialization_context):
         import torch
 
         def _serialize_torch_tensor(obj):
-            return obj.numpy()
+            return obj.detach().numpy()
 
         def _deserialize_torch_tensor(data):
             return torch.from_numpy(data)
