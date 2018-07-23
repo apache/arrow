@@ -33,6 +33,7 @@ for module in ${modules}; do
     fi
   fi
 done
+export LD_LIBRARY_PATH
 
 if [ -f "Makefile" -a "${NO_MAKE}" != "yes" ]; then
   make -j8 > /dev/null || exit $?
@@ -49,5 +50,6 @@ for module in ${modules}; do
     GI_TYPELIB_PATH="${module_typelib_dir}:${GI_TYPELIB_PATH}"
   fi
 done
+export GI_TYPELIB_PATH
 
 ${GDB} ruby ${test_dir}/run-test.rb "$@"
