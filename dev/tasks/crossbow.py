@@ -85,7 +85,7 @@ class Repo:
             Commit: {head}
         ''')
         return tpl.format(
-            remote=self.remote.url,
+            remote=self.remote_url,
             branch=self.branch.branch_name,
             head=self.head
         )
@@ -117,6 +117,16 @@ class Repo:
     def remote(self):
         """Currently checked out branch's remote counterpart"""
         return self.repo.remotes[self.branch.upstream.remote_name]
+
+    @property
+    def remote_url(self):
+        """
+        Currently checked out branch's remote counterpart URL
+
+        If an SSH github url is set, it will be replaced by the https
+        equivalent.
+        """
+        return self.remote.url.replace('git@github.com:', 'https://github.com/')
 
     @property
     def email(self):
@@ -169,7 +179,7 @@ class Repo:
         return blob.data
 
     def _parse_github_user_repo(self):
-        m = re.match('.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote.url)
+        m = re.match('.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -287,7 +297,7 @@ class Target:
         return cls(head=str(repo.head.target),
                    email=repo.email,
                    branch=repo.branch.branch_name,
-                   remote=repo.remote.url,
+                   remote=repo.remote_url,
                    version=version)
 
 
