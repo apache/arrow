@@ -54,6 +54,7 @@ Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
     // zero the padding
     buffer->ZeroPadding();
   } else {
+    // Null buffers are allowed in place of 0-byte buffers
     DCHECK_EQ(bytes_filled, 0);
   }
   return Status::OK();
@@ -1336,6 +1337,10 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   if (values_) {
     items = values_->data();
   } else {
+    if (value_builder_->length() == 0) {
+      // Try to make sure we get a non-null values buffer (ARROW-2744)
+      RETURN_NOT_OK(value_builder_->Resize(0));
+    }
     RETURN_NOT_OK(value_builder_->FinishInternal(&items));
   }
 
@@ -1632,6 +1637,10 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   (*out)->child_data.resize(field_builders_.size());
   for (size_t i = 0; i < field_builders_.size(); ++i) {
+    if (length_ == 0) {
+      // Try to make sure the child buffers are initialized
+      RETURN_NOT_OK(field_builders_[i]->Resize(0));
+    }
     RETURN_NOT_OK(field_builders_[i]->FinishInternal(&(*out)->child_data[i]));
   }
 

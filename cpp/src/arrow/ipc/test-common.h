@@ -100,6 +100,7 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
   std::shared_ptr<PoolBuffer> data;
   RETURN_NOT_OK(test::MakeRandomInt32PoolBuffer(length, pool, &data));
   Int32Builder builder(int32(), pool);
+  RETURN_NOT_OK(builder.Init(length));
   if (include_nulls) {
     std::shared_ptr<PoolBuffer> valid_bytes;
     RETURN_NOT_OK(test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes));
@@ -127,6 +128,7 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   std::vector<int32_t> offsets(
       num_lists + 1, 0);  // +1 so we can shift for nulls. See partial sum below.
   const uint32_t seed = static_cast<uint32_t>(child_array->length());
+
   if (num_lists > 0) {
     test::rand_uniform_int(num_lists, seed, 0, max_list_size, list_sizes.data());
     // make sure sizes are consistent with null
