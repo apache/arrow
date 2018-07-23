@@ -19,6 +19,7 @@ services:
 
   hdfs-namenode:
     image: gelog/hadoop
+    shm_size: 2G
     ports:
       - "9000:9000"
       - "50070:50070"

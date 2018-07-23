@@ -79,6 +79,9 @@ popd
 # Install pyarrow
 pushd arrow/python
 
+# Clear the build directory so we are guaranteed a fresh set of extensions
+rm -rf build/
+
 python setup.py build_ext \
     --build-type=$ARROW_BUILD_TYPE \
     --with-parquet \
@@ -91,7 +94,8 @@ popd
 export LIBHDFS3_CONF=arrow/dev/hdfs_integration/libhdfs3-client-config.xml
 
 # Python
-python -m pytest -vv -r sxX -s arrow/python/pyarrow --parquet --hdfs
+python -m pytest -vv -r sxX -s arrow/python/pyarrow \
+       --only-parquet --only-hdfs
 
 # C++
 arrow/cpp/hdfs-integration-build/debug/io-hdfs-test
