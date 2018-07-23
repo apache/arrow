@@ -16,25 +16,61 @@
 
 version: '3'
 services:
+
+  hdfs-namenode:
+    image: gelog/hadoop
+    shm_size: 2G
+    ports:
+      - "9000:9000"
+      - "50070:50070"
+    command: hdfs namenode
+    hostname: hdfs-namenode
+
+  hdfs-datanode:
+    image: gelog/hadoop
+    command: hdfs datanode
+    ports:
+      # The host port is randomly assigned by Docker, to allow scaling
+      # to multiple DataNodes on the same host
+      - "50075"
+    links:
+      - hdfs-namenode:hdfs-namenode
+
+  hdfs_integration:
+    links:
+      - hdfs-namenode:hdfs-namenode
+      - hdfs-datanode:hdfs-datanode
+    environment:
+      - ARROW_HDFS_TEST_HOST=hdfs-namenode
+      - ARROW_HDFS_TEST_PORT=9000
+      - ARROW_HDFS_TEST_USER=root
+    build:
+      context: hdfs_integration
+    volumes:
+     - ../..:/apache-arrow
+
+  spark_integration:
+    build:
+      context: spark_integration
+    volumes:
+      - ../..:/apache-arrow
+
+  dask_integration:
+    build:
+      context: dask_integration
+    volumes:
+      - ../..:/apache-arrow
+
   gen_apidocs:
     build:
       context: gen_apidocs
     volumes:
      - ../..:/apache-arrow
+
   run_site:
     build:
       context: run_site
     ports:
-    - "4000:4000"
+      - "4000:4000"
     volumes:
-     - ../..:/apache-arrow
-  dask_integration:
-    build:
-      context: dask_integration
-    volumes:
-     - ../..:/apache-arrow
-  spark_integration:
-    build: 
-      context: spark_integration
-    volumes:
-     - ../..:/apache-arrow
+      - ../..:/apache-arrow
