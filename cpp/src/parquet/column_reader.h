@@ -488,12 +488,12 @@ int64_t TypedColumnReader<DType>::Skip(int64_t num_rows_to_skip) {
       int64_t batch_size = 1024;  // ReadBatch with a smaller memory footprint
       int64_t values_read = 0;
 
-      std::shared_ptr<PoolBuffer> vals = AllocateBuffer(
+      std::shared_ptr<ResizableBuffer> vals = AllocateBuffer(
           this->pool_, batch_size * type_traits<DType::type_num>::value_byte_size);
-      std::shared_ptr<PoolBuffer> def_levels =
+      std::shared_ptr<ResizableBuffer> def_levels =
           AllocateBuffer(this->pool_, batch_size * sizeof(int16_t));
 
-      std::shared_ptr<PoolBuffer> rep_levels =
+      std::shared_ptr<ResizableBuffer> rep_levels =
           AllocateBuffer(this->pool_, batch_size * sizeof(int16_t));
 
       do {

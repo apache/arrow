@@ -292,7 +292,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
 
  protected:
   USING_BASE_MEMBERS();
-  std::shared_ptr<PoolBuffer> dict_buffer_;
+  std::shared_ptr<ResizableBuffer> dict_buffer_;
 };
 
 TYPED_TEST_CASE(TestDictionaryEncoding, DictEncodedTypes);

@@ -262,7 +262,7 @@ class DictionaryPageBuilder {
   }
 
   shared_ptr<Buffer> WriteDict() {
-    std::shared_ptr<PoolBuffer> dict_buffer =
+    std::shared_ptr<ResizableBuffer> dict_buffer =
         AllocateBuffer(::arrow::default_memory_pool(), encoder_->dict_encoded_size());
     encoder_->WriteDict(dict_buffer->mutable_data());
     return dict_buffer;

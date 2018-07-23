@@ -363,12 +363,11 @@ Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
   int64_t non_null_entries = size - null_count - 1;
   int64_t length_per_entry = values->length() / non_null_entries;
 
-  auto offsets = std::make_shared<::arrow::PoolBuffer>(::arrow::default_memory_pool());
+  auto offsets = AllocateBuffer();
   RETURN_NOT_OK(offsets->Resize((size + 1) * sizeof(int32_t)));
   int32_t* offsets_ptr = reinterpret_cast<int32_t*>(offsets->mutable_data());
 
-  auto null_bitmap =
-      std::make_shared<::arrow::PoolBuffer>(::arrow::default_memory_pool());
+  auto null_bitmap = AllocateBuffer();
   int64_t bitmap_size = ::arrow::BitUtil::CeilByte(size) / 8;
   RETURN_NOT_OK(null_bitmap->Resize(bitmap_size));
   uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();

@@ -113,10 +113,10 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
     encoder.Put(values[i]);
   }
 
-  std::shared_ptr<PoolBuffer> dict_buffer =
+  std::shared_ptr<ResizableBuffer> dict_buffer =
       AllocateBuffer(allocator, encoder.dict_encoded_size());
 
-  std::shared_ptr<PoolBuffer> indices =
+  std::shared_ptr<ResizableBuffer> indices =
       AllocateBuffer(allocator, encoder.EstimatedDataEncodedSize());
 
   encoder.WriteDict(dict_buffer->mutable_data());

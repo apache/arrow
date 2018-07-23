@@ -255,7 +255,8 @@ TEST(TestBufferedInputStream, Basics) {
   int64_t stream_offset = 10;
   int64_t stream_size = source_size - stream_offset;
   int64_t chunk_size = 50;
-  std::shared_ptr<PoolBuffer> buf = AllocateBuffer(default_memory_pool(), source_size);
+  std::shared_ptr<ResizableBuffer> buf = AllocateBuffer(default_memory_pool(),
+                                                        source_size);
   ASSERT_EQ(source_size, buf->size());
   for (int i = 0; i < source_size; i++) {
     buf->mutable_data()[i] = static_cast<uint8_t>(i);

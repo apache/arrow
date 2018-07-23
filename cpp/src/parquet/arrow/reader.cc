@@ -46,7 +46,7 @@ using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
 using arrow::MemoryPool;
-using arrow::PoolBuffer;
+using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
@@ -303,8 +303,7 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
                       int16_t struct_def_level, MemoryPool* pool, const Node* node)
       : children_(children),
         struct_def_level_(struct_def_level),
-        pool_(pool),
-        def_levels_buffer_(pool) {
+        pool_(pool) {
     InitField(node, children);
   }
 
@@ -318,7 +317,7 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
   int16_t struct_def_level_;
   MemoryPool* pool_;
   std::shared_ptr<Field> field_;
-  PoolBuffer def_levels_buffer_;
+  std::shared_ptr<ResizableBuffer> def_levels_buffer_;
 
   Status DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap, int64_t* null_count);
   void InitField(const Node* node,
@@ -849,7 +848,7 @@ struct TransferFunctor {
     std::copy(values, values + length, out_ptr);
 
     if (reader->nullable_values()) {
-      std::shared_ptr<PoolBuffer> is_valid = reader->ReleaseIsValid();
+      std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
       *out = std::make_shared<ArrayType<ArrowType>>(type, length, data, is_valid,
                                                     reader->null_count());
     } else {
@@ -866,10 +865,10 @@ struct TransferFunctor<ArrowType, ParquetType,
                     const std::shared_ptr<::arrow::DataType>& type,
                     std::shared_ptr<Array>* out) {
     int64_t length = reader->values_written();
-    std::shared_ptr<PoolBuffer> values = reader->ReleaseValues();
+    std::shared_ptr<ResizableBuffer> values = reader->ReleaseValues();
 
     if (reader->nullable_values()) {
-      std::shared_ptr<PoolBuffer> is_valid = reader->ReleaseIsValid();
+      std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
       *out = std::make_shared<ArrayType<ArrowType>>(type, length, values, is_valid,
                                                     reader->null_count());
     } else {
@@ -902,7 +901,7 @@ struct TransferFunctor<::arrow::BooleanType, BooleanType> {
     }
 
     if (reader->nullable_values()) {
-      std::shared_ptr<PoolBuffer> is_valid = reader->ReleaseIsValid();
+      std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
       RETURN_NOT_OK(is_valid->Resize(BytesForBits(length), false));
       *out = std::make_shared<BooleanArray>(type, length, data, is_valid,
                                             reader->null_count());
@@ -930,7 +929,7 @@ struct TransferFunctor<::arrow::TimestampType, Int96Type> {
     }
 
     if (reader->nullable_values()) {
-      std::shared_ptr<PoolBuffer> is_valid = reader->ReleaseIsValid();
+      std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
       *out = std::make_shared<TimestampArray>(type, length, data, is_valid,
                                               reader->null_count());
     } else {
@@ -958,7 +957,7 @@ struct TransferFunctor<::arrow::Date64Type, Int32Type> {
     }
 
     if (reader->nullable_values()) {
-      std::shared_ptr<PoolBuffer> is_valid = reader->ReleaseIsValid();
+      std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
       *out = std::make_shared<::arrow::Date64Array>(type, length, data, is_valid,
                                                     reader->null_count());
     } else {
@@ -1197,7 +1196,7 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
   }
 
   if (reader->nullable_values()) {
-    std::shared_ptr<PoolBuffer> is_valid = reader->ReleaseIsValid();
+    std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
     *out = std::make_shared<::arrow::Decimal128Array>(type, length, data, is_valid,
                                                       reader->null_count());
   } else {
@@ -1385,10 +1384,10 @@ Status StructImpl::GetDefLevels(const int16_t** data, size_t* length) {
   size_t child_length;
   RETURN_NOT_OK(children_[0]->GetDefLevels(&child_def_levels, &child_length));
   auto size = child_length * sizeof(int16_t);
-  RETURN_NOT_OK(def_levels_buffer_.Resize(size));
+  RETURN_NOT_OK(AllocateResizableBuffer(pool_, size, &def_levels_buffer_));
   // Initialize with the minimal def level
-  std::memset(def_levels_buffer_.mutable_data(), -1, size);
-  auto result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());
+  std::memset(def_levels_buffer_->mutable_data(), -1, size);
+  auto result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
 
   // When a struct is defined, all of its children def levels are at least at
   // nesting level, and def level equals nesting level.
@@ -1408,7 +1407,7 @@ Status StructImpl::GetDefLevels(const int16_t** data, size_t* length) {
           std::max(result_levels[i], std::min(child_def_levels[i], struct_def_level_));
     }
   }
-  *data = reinterpret_cast<const int16_t*>(def_levels_buffer_.data());
+  *data = reinterpret_cast<const int16_t*>(def_levels_buffer_->data());
   *length = child_length;
   return Status::OK();
 }

@@ -181,19 +181,19 @@ class TypedRowGroupStatistics : public RowGroupStatistics {
 
   void PlainEncode(const T& src, std::string* dst);
   void PlainDecode(const std::string& src, T* dst);
-  void Copy(const T& src, T* dst, PoolBuffer* buffer);
+  void Copy(const T& src, T* dst, ResizableBuffer* buffer);
 
-  std::shared_ptr<PoolBuffer> min_buffer_, max_buffer_;
+  std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
 };
 
 template <typename DType>
-inline void TypedRowGroupStatistics<DType>::Copy(const T& src, T* dst, PoolBuffer*) {
+inline void TypedRowGroupStatistics<DType>::Copy(const T& src, T* dst, ResizableBuffer*) {
   *dst = src;
 }
 
 template <>
 inline void TypedRowGroupStatistics<FLBAType>::Copy(const FLBA& src, FLBA* dst,
-                                                    PoolBuffer* buffer) {
+                                                    ResizableBuffer* buffer) {
   if (dst->ptr == src.ptr) return;
   uint32_t len = descr_->type_length();
   PARQUET_THROW_NOT_OK(buffer->Resize(len, false));
@@ -204,7 +204,7 @@ inline void TypedRowGroupStatistics<FLBAType>::Copy(const FLBA& src, FLBA* dst,
 template <>
 inline void TypedRowGroupStatistics<ByteArrayType>::Copy(const ByteArray& src,
                                                          ByteArray* dst,
-                                                         PoolBuffer* buffer) {
+                                                         ResizableBuffer* buffer) {
   if (dst->ptr == src.ptr) return;
   PARQUET_THROW_NOT_OK(buffer->Resize(src.len, false));
   std::memcpy(buffer->mutable_data(), src.ptr, src.len);

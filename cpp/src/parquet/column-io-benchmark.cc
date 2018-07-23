@@ -188,7 +188,7 @@ static void BM_RleEncoding(::benchmark::State& state) {
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level,
                                                  static_cast<int>(levels.size()));
-  auto buffer_rle = std::make_shared<PoolBuffer>();
+  auto buffer_rle = AllocateBuffer();
   PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size));
 
   while (state.KeepRunning()) {
@@ -212,7 +212,7 @@ static void BM_RleDecoding(::benchmark::State& state) {
   int16_t max_level = 1;
   int rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level,
                                              static_cast<int>(levels.size()));
-  auto buffer_rle = std::make_shared<PoolBuffer>();
+  auto buffer_rle = AllocateBuffer();
   PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size + sizeof(int32_t)));
   level_encoder.Init(Encoding::RLE, max_level, static_cast<int>(levels.size()),
                      buffer_rle->mutable_data() + sizeof(int32_t), rle_size);

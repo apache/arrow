@@ -510,7 +510,7 @@ void TypedColumnWriter<Type>::CheckDictionarySizeLimit() {
 template <typename Type>
 void TypedColumnWriter<Type>::WriteDictionaryPage() {
   auto dict_encoder = static_cast<DictEncoder<Type>*>(current_encoder_.get());
-  std::shared_ptr<PoolBuffer> buffer =
+  std::shared_ptr<ResizableBuffer> buffer =
       AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
   dict_encoder->WriteDict(buffer->mutable_data());
   // TODO Get rid of this deep call

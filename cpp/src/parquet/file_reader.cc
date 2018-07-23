@@ -194,7 +194,7 @@ class SerializedFile : public ParquetFileReader::Contents {
           "file metadata size.");
     }
 
-    std::shared_ptr<PoolBuffer> metadata_buffer =
+    std::shared_ptr<ResizableBuffer> metadata_buffer =
         AllocateBuffer(properties_.memory_pool(), metadata_len);
 
     // Check if the footer_buffer contains the entire metadata

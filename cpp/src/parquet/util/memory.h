@@ -74,7 +74,7 @@ static constexpr int64_t kInMemoryDefaultCapacity = 1024;
 using Buffer = ::arrow::Buffer;
 using MutableBuffer = ::arrow::MutableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;
-using PoolBuffer = ::arrow::PoolBuffer;
+using ResizableBuffer = ::arrow::ResizableBuffer;
 
 template <class T>
 class PARQUET_EXPORT Vector {
@@ -89,7 +89,7 @@ class PARQUET_EXPORT Vector {
   const T* data() const { return data_; }
 
  private:
-  std::unique_ptr<PoolBuffer> buffer_;
+  std::shared_ptr<ResizableBuffer> buffer_;
   int64_t size_;
   int64_t capacity_;
   T* data_;
@@ -429,7 +429,7 @@ class PARQUET_EXPORT BufferedInputStream : public InputStream {
   virtual void Advance(int64_t num_bytes);
 
  private:
-  std::shared_ptr<PoolBuffer> buffer_;
+  std::shared_ptr<ResizableBuffer> buffer_;
   RandomAccessSource* source_;
   int64_t stream_offset_;
   int64_t stream_end_;
@@ -437,11 +437,8 @@ class PARQUET_EXPORT BufferedInputStream : public InputStream {
   int64_t buffer_size_;
 };
 
-std::shared_ptr<PoolBuffer> PARQUET_EXPORT AllocateBuffer(::arrow::MemoryPool* pool,
-                                                          int64_t size = 0);
-
-std::unique_ptr<PoolBuffer> PARQUET_EXPORT AllocateUniqueBuffer(::arrow::MemoryPool* pool,
-                                                                int64_t size = 0);
+std::shared_ptr<ResizableBuffer> PARQUET_EXPORT AllocateBuffer(
+  ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
 
 }  // namespace parquet
 

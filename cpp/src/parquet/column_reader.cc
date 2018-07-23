@@ -124,7 +124,7 @@ class SerializedPageReader : public PageReader {
 
   // Compression codec to use.
   std::unique_ptr<::arrow::Codec> decompressor_;
-  std::shared_ptr<PoolBuffer> decompression_buffer_;
+  std::shared_ptr<ResizableBuffer> decompression_buffer_;
 
   // Maximum allowed page size
   uint32_t max_page_header_size_;

@@ -271,7 +271,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
  protected:
   int bits_available_;
   std::unique_ptr<::arrow::BitWriter> bit_writer_;
-  std::shared_ptr<PoolBuffer> bits_buffer_;
+  std::shared_ptr<ResizableBuffer> bits_buffer_;
   std::unique_ptr<InMemoryOutputStream> values_sink_;
 };
 
@@ -370,7 +370,7 @@ class DictionaryDecoder : public Decoder<Type> {
 
   // Data that contains the byte array data (byte_array_dictionary_ just has the
   // pointers).
-  std::shared_ptr<PoolBuffer> byte_array_data_;
+  std::shared_ptr<ResizableBuffer> byte_array_data_;
 
   ::arrow::RleDecoder idx_decoder_;
 };
@@ -514,7 +514,7 @@ class DictEncoder : public Encoder<DType> {
   void Put(const T& value);
 
   std::shared_ptr<Buffer> FlushValues() override {
-    std::shared_ptr<PoolBuffer> buffer =
+    std::shared_ptr<ResizableBuffer> buffer =
         AllocateBuffer(this->allocator_, EstimatedDataEncodedSize());
     int result_size = WriteIndices(buffer->mutable_data(),
                                    static_cast<int>(EstimatedDataEncodedSize()));
@@ -784,8 +784,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
 
   explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
                                ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
-      : Decoder<DType>(descr, Encoding::DELTA_BINARY_PACKED),
-        delta_bit_widths_(new PoolBuffer(pool)) {
+      : Decoder<DType>(descr, Encoding::DELTA_BINARY_PACKED), pool_(pool) {
     if (DType::type_num != Type::INT32 && DType::type_num != Type::INT64) {
       throw ParquetException("Delta bit pack encoding should only be for integer data.");
     }
@@ -813,8 +812,8 @@ class DeltaBitPackDecoder : public Decoder<DType> {
       ParquetException::EofException();
     }
     if (!decoder_.GetZigZagVlqInt(&last_value_)) ParquetException::EofException();
-    PARQUET_THROW_NOT_OK(delta_bit_widths_->Resize(num_mini_blocks_, false));
 
+    delta_bit_widths_ = AllocateBuffer(pool_, num_mini_blocks_);
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
 
     if (!decoder_.GetZigZagVlqInt(&min_delta_)) ParquetException::EofException();
@@ -858,6 +857,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
     return max_values;
   }
 
+  ::arrow::MemoryPool* pool_;
   ::arrow::BitReader decoder_;
   int32_t values_current_block_;
   int32_t num_mini_blocks_;
@@ -866,7 +866,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
 
   int32_t min_delta_;
   size_t mini_block_idx_;
-  std::unique_ptr<PoolBuffer> delta_bit_widths_;
+  std::shared_ptr<ResizableBuffer> delta_bit_widths_;
   int delta_bit_width_;
 
   int32_t last_value_;

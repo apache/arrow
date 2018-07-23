@@ -44,7 +44,7 @@ class PARQUET_EXPORT Scanner {
       : batch_size_(batch_size),
         level_offset_(0),
         levels_buffered_(0),
-        value_buffer_(std::make_shared<PoolBuffer>(pool)),
+        value_buffer_(AllocateBuffer(pool)),
         value_offset_(0),
         values_buffered_(0),
         reader_(reader) {
@@ -77,7 +77,7 @@ class PARQUET_EXPORT Scanner {
   int level_offset_;
   int levels_buffered_;
 
-  std::shared_ptr<PoolBuffer> value_buffer_;
+  std::shared_ptr<ResizableBuffer> value_buffer_;
   int value_offset_;
   int64_t values_buffered_;
 

@@ -50,18 +50,19 @@ class Encoder {
   virtual void Put(const T* src, int num_values) = 0;
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                          int64_t valid_bits_offset) {
-    PoolBuffer buffer(pool_);
-    ::arrow::Status status = buffer.Resize(num_values * sizeof(T));
+    std::shared_ptr<ResizableBuffer> buffer;
+    auto status = ::arrow::AllocateResizableBuffer(pool_, num_values * sizeof(T),
+                                                   &buffer);
     if (!status.ok()) {
       std::ostringstream ss;
-      ss << "buffer.Resize failed in Encoder.PutSpaced in " << __FILE__ << ", on line "
-         << __LINE__;
+      ss << "AllocateResizableBuffer failed in Encoder.PutSpaced in "
+         << __FILE__ << ", on line " << __LINE__;
       throw ParquetException(ss.str());
     }
     int32_t num_valid_values = 0;
     ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                       num_values);
-    T* data = reinterpret_cast<T*>(buffer.mutable_data());
+    T* data = reinterpret_cast<T*>(buffer->mutable_data());
     for (int32_t i = 0; i < num_values; i++) {
       if (valid_bits_reader.IsSet()) {
         data[num_valid_values++] = src[i];

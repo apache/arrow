@@ -73,8 +73,8 @@ class RecordReader {
   /// result of calling ReadRecords
   void Reset();
 
-  std::shared_ptr<PoolBuffer> ReleaseValues();
-  std::shared_ptr<PoolBuffer> ReleaseIsValid();
+  std::shared_ptr<ResizableBuffer> ReleaseValues();
+  std::shared_ptr<ResizableBuffer> ReleaseIsValid();
   ::arrow::ArrayBuilder* builder();
 
   /// \brief Number of values written including nulls (if any)

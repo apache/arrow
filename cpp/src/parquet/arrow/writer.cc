@@ -41,7 +41,7 @@ using arrow::Int16Builder;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
-using arrow::PoolBuffer;
+using arrow::ResizableBuffer;
 using arrow::PrimitiveArray;
 using arrow::Status;
 using arrow::Table;
@@ -109,7 +109,7 @@ class LevelBuilder {
 
   Status GenerateLevels(const Array& array, const std::shared_ptr<Field>& field,
                         int64_t* values_offset, int64_t* num_values, int64_t* num_levels,
-                        const std::shared_ptr<PoolBuffer>& def_levels_scratch,
+                        const std::shared_ptr<ResizableBuffer>& def_levels_scratch,
                         std::shared_ptr<Buffer>* def_levels_out,
                         std::shared_ptr<Buffer>* rep_levels_out,
                         std::shared_ptr<Array>* values_array) {
@@ -266,8 +266,8 @@ Status LevelBuilder::VisitInline(const Array& array) {
 struct ColumnWriterContext {
   ColumnWriterContext(MemoryPool* memory_pool, ArrowWriterProperties* properties)
       : memory_pool(memory_pool), properties(properties) {
-    this->data_buffer = std::make_shared<PoolBuffer>(memory_pool);
-    this->def_levels_buffer = std::make_shared<PoolBuffer>(memory_pool);
+    this->data_buffer = AllocateBuffer(memory_pool);
+    this->def_levels_buffer = AllocateBuffer(memory_pool);
   }
 
   template <typename T>
@@ -282,10 +282,10 @@ struct ColumnWriterContext {
 
   // Buffer used for storing the data of an array converted to the physical type
   // as expected by parquet-cpp.
-  std::shared_ptr<PoolBuffer> data_buffer;
+  std::shared_ptr<ResizableBuffer> data_buffer;
 
   // We use the shared ownership of this buffer
-  std::shared_ptr<PoolBuffer> def_levels_buffer;
+  std::shared_ptr<ResizableBuffer> def_levels_buffer;
 };
 
 Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type) {

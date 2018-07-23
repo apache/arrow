@@ -53,7 +53,7 @@ using arrow::ChunkedArray;
 using arrow::Column;
 using arrow::DataType;
 using arrow::ListArray;
-using arrow::PoolBuffer;
+using arrow::ResizableBuffer;
 using arrow::PrimitiveArray;
 using arrow::Status;
 using arrow::Table;
@@ -791,7 +791,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
   ASSERT_OK(NonNullArray<TypeParam>(LARGE_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
-  auto buffer = std::make_shared<::arrow::PoolBuffer>();
+  auto buffer = AllocateBuffer();
 
   {
     // BufferOutputStream closed on gc
@@ -946,8 +946,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
   ASSERT_OK_NO_THROW(
       WriteTable(*table, ::arrow::default_memory_pool(), this->sink_, 512, properties));
 
-  std::shared_ptr<PoolBuffer> int64_data =
-      std::make_shared<PoolBuffer>(::arrow::default_memory_pool());
+  std::shared_ptr<ResizableBuffer> int64_data = AllocateBuffer();
   {
     ASSERT_OK(int64_data->Resize(sizeof(int64_t) * values->length()));
     auto int64_data_ptr = reinterpret_cast<int64_t*>(int64_data->mutable_data());

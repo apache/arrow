@@ -68,10 +68,10 @@ class RecordReader::RecordReaderImpl {
         levels_position_(0),
         levels_capacity_(0) {
     nullable_values_ = internal::HasSpacedValues(descr);
-    values_ = std::make_shared<PoolBuffer>(pool);
-    valid_bits_ = std::make_shared<PoolBuffer>(pool);
-    def_levels_ = std::make_shared<PoolBuffer>(pool);
-    rep_levels_ = std::make_shared<PoolBuffer>(pool);
+    values_ = AllocateBuffer(pool);
+    valid_bits_ = AllocateBuffer(pool);
+    def_levels_ = AllocateBuffer(pool);
+    rep_levels_ = AllocateBuffer(pool);
 
     if (descr->physical_type() == Type::BYTE_ARRAY) {
       builder_.reset(new ::arrow::BinaryBuilder(pool));
@@ -121,15 +121,15 @@ class RecordReader::RecordReaderImpl {
 
   bool nullable_values() const { return nullable_values_; }
 
-  std::shared_ptr<PoolBuffer> ReleaseValues() {
+  std::shared_ptr<ResizableBuffer> ReleaseValues() {
     auto result = values_;
-    values_ = std::make_shared<PoolBuffer>(pool_);
+    values_ = AllocateBuffer(pool_);
     return result;
   }
 
-  std::shared_ptr<PoolBuffer> ReleaseIsValid() {
+  std::shared_ptr<ResizableBuffer> ReleaseIsValid() {
     auto result = valid_bits_;
-    valid_bits_ = std::make_shared<PoolBuffer>(pool_);
+    valid_bits_ = AllocateBuffer(pool_);
     return result;
   }
 
@@ -328,16 +328,16 @@ class RecordReader::RecordReaderImpl {
   // TODO(wesm): ByteArray / FixedLenByteArray types
   std::unique_ptr<::arrow::ArrayBuilder> builder_;
 
-  std::shared_ptr<::arrow::PoolBuffer> values_;
+  std::shared_ptr<::arrow::ResizableBuffer> values_;
 
   template <typename T>
   T* ValuesHead() {
     return reinterpret_cast<T*>(values_->mutable_data()) + values_written_;
   }
 
-  std::shared_ptr<::arrow::PoolBuffer> valid_bits_;
-  std::shared_ptr<::arrow::PoolBuffer> def_levels_;
-  std::shared_ptr<::arrow::PoolBuffer> rep_levels_;
+  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
+  std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
+  std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
 };
 
 // The minimum number of repetition/definition levels to decode at a time, for
@@ -775,11 +775,11 @@ const int16_t* RecordReader::rep_levels() const { return impl_->rep_levels(); }
 
 const uint8_t* RecordReader::values() const { return impl_->values(); }
 
-std::shared_ptr<PoolBuffer> RecordReader::ReleaseValues() {
+std::shared_ptr<ResizableBuffer> RecordReader::ReleaseValues() {
   return impl_->ReleaseValues();
 }
 
-std::shared_ptr<PoolBuffer> RecordReader::ReleaseIsValid() {
+std::shared_ptr<ResizableBuffer> RecordReader::ReleaseIsValid() {
   return impl_->ReleaseIsValid();
 }
 
