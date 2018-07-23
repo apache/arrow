@@ -103,35 +103,11 @@ class TypeInferrer {
     } else if (PyUnicode_Check(obj)) {
       ++unicode_count_;
     } else if (PyArray_CheckAnyScalarExact(obj)) {
-      std::shared_ptr<DataType> type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
-      if (is_integer(type->id())) {
-        ++int_count_;
-      } else if (is_floating(type->id())) {
-        ++float_count_;
-      } else if (type->id() == Type::TIMESTAMP) {
-        const auto& type2 = checked_cast<TimestampType&>(*type);
-        if (type2.unit() == TimeUnit::NANO) {
-          ++timestamp_nano_count_;
-        } else if (type2.unit() == TimeUnit::MICRO) {
-          ++timestamp_micro_count_;
-        } else if (type2.unit() == TimeUnit::MILLI) {
-          ++timestamp_milli_count_;
-        } else if (type2.unit() == TimeUnit::SECOND) {
-          ++timestamp_second_count_;
-        } else {
-          throw std::runtime_error("Unknown unit of TimestampType");
-        }
-      } else {
-        std::ostringstream ss;
-        ss << "Found a NumPy scalar with Arrow dtype that we cannot handle: ";
-        ss << type->ToString();
-        return Status::Invalid(ss.str());
-      }
-    } else if (PyList_Check(obj) || PyArray_Check(obj)) {
-      // TODO(ARROW-2514): This code path is used for non-object arrays, which
-      // leads to wasteful creation and inspection of temporary Python objects.
+      return VisitDType(PyArray_DescrFromScalar(obj));
+    } else if (PyList_Check(obj)) {
       return VisitList(obj);
+    } else if (PyArray_Check(obj)) {
+      return VisitNdarray(obj);
     } else if (PyDict_Check(obj)) {
       return VisitDict(obj);
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
@@ -204,12 +180,56 @@ class TypeInferrer {
   int64_t total_count() const { return total_count_; }
 
  protected:
+  Status VisitDType(PyArray_Descr* dtype) {
+    // This is a bit silly.  NumPyDtypeToArrow() infers a Arrow datatype
+    // for us, but we go back to counting abstract type kinds.
+    std::shared_ptr<DataType> type;
+    RETURN_NOT_OK(NumPyDtypeToArrow(dtype, &type));
+    if (is_integer(type->id())) {
+      ++int_count_;
+    } else if (is_floating(type->id())) {
+      ++float_count_;
+    } else if (type->id() == Type::TIMESTAMP) {
+      const auto& type2 = checked_cast<TimestampType&>(*type);
+      if (type2.unit() == TimeUnit::NANO) {
+        ++timestamp_nano_count_;
+      } else if (type2.unit() == TimeUnit::MICRO) {
+        ++timestamp_micro_count_;
+      } else if (type2.unit() == TimeUnit::MILLI) {
+        ++timestamp_milli_count_;
+      } else if (type2.unit() == TimeUnit::SECOND) {
+        ++timestamp_second_count_;
+      } else {
+        return Status::Invalid("Unknown unit of TimestampType");
+      }
+    } else {
+      std::ostringstream ss;
+      ss << "Unsupported Numpy dtype: ";
+      ss << type->ToString();
+      return Status::Invalid(ss.str());
+    }
+    return Status::OK();
+  }
+
   Status VisitList(PyObject* obj) {
     if (!list_inferrer_) {
       list_inferrer_.reset(new TypeInferrer);
     }
     ++list_count_;
     return list_inferrer_->VisitSequence(obj);
+  }
+
+  Status VisitNdarray(PyObject* obj) {
+    PyArray_Descr* dtype = PyArray_DESCR(reinterpret_cast<PyArrayObject*>(obj));
+    if (dtype->type_num == NPY_OBJECT) {
+      return VisitList(obj);
+    }
+    // Not an object array: infer child Arrow type from dtype
+    if (!list_inferrer_) {
+      list_inferrer_.reset(new TypeInferrer);
+    }
+    ++list_count_;
+    return list_inferrer_->VisitDType(dtype);
   }
 
   Status VisitDict(PyObject* obj) {
