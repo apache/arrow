@@ -400,10 +400,17 @@ int PlasmaStore::RemoveFromClientObjectIds(ObjectTableEntry* entry, Client* clie
     // If no more clients are using this object, notify the eviction policy
     // that the object is no longer being used.
     if (entry->ref_count == 0) {
-      // Tell the eviction policy that this object is no longer being used.
-      std::vector<ObjectID> objects_to_evict;
-      eviction_policy_.EndObjectAccess(entry->object_id, &objects_to_evict);
-      DeleteObjects(objects_to_evict);
+      if (deletion_cache_.count(entry->object_id) == 0) {
+        // Tell the eviction policy that this object is no longer being used.
+        std::vector<ObjectID> objects_to_evict;
+        eviction_policy_.EndObjectAccess(entry->object_id, &objects_to_evict);
+        DeleteObjects(objects_to_evict);
+      } else {
+        // Above code does not really delete an object. Instead, it just put an
+        // object to LRU cache which will be cleaned when the memory is not enough.
+        deletion_cache_.erase(entry->object_id);
+        DeleteObjects({entry->object_id});
+      }
     }
     // Return 1 to indicate that the client was removed.
     return 1;
@@ -474,11 +481,15 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 
   if (entry->state != ObjectState::PLASMA_SEALED) {
     // To delete an object it must have been sealed.
+    // Put it into deletion cache, it will be deleted later.
+    deletion_cache_.emplace(object_id);
     return PlasmaError::ObjectNotSealed;
   }
 
   if (entry->ref_count != 0) {
     // To delete an object, there must be no clients currently using it.
+    // Put it into deletion cache, it will be deleted later.
+    deletion_cache_.emplace(object_id);
     return PlasmaError::ObjectInUse;
   }
 

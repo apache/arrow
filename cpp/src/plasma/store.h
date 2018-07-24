@@ -209,6 +209,8 @@ class PlasmaStore {
   NotificationMap pending_notifications_;
 
   std::unordered_map<int, std::unique_ptr<Client>> connected_clients_;
+
+  std::unordered_set<ObjectID> deletion_cache_;
 #ifdef PLASMA_GPU
   arrow::gpu::CudaDeviceManager* manager_;
 #endif
