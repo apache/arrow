@@ -658,6 +658,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
+  using value_type = bool;
   explicit BooleanBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
@@ -860,7 +861,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
  public:
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
-  ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
+  ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
               const std::shared_ptr<DataType>& type = NULLPTR);
 
   Status Init(int64_t elements) override;
@@ -891,7 +892,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 
  protected:
   TypedBufferBuilder<int32_t> offsets_builder_;
-  std::unique_ptr<ArrayBuilder> value_builder_;
+  std::shared_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Array> values_;
 
   Status AppendNextOffset();
@@ -1065,7 +1066,7 @@ using DecimalBuilder = Decimal128Builder;
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
   StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders);
+                std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -1101,7 +1102,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   int num_fields() const { return static_cast<int>(field_builders_.size()); }
 
  protected:
-  std::vector<std::unique_ptr<ArrayBuilder>> field_builders_;
+  std::vector<std::shared_ptr<ArrayBuilder>> field_builders_;
 };
 
 // ----------------------------------------------------------------------
