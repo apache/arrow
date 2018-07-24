@@ -15,14 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required (VERSION 3.2)
-set (CMAKE_CXX_STANDARD 11)
+cmake_minimum_required(VERSION 3.2)
+set(CMAKE_CXX_STANDARD 11)
 
 project(mlarrow)
 
 # Grab CMAKE Modules from the CPP interface
 set(CPP_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
-if (EXISTS "${CPP_CMAKE_MODULES}")
+if(EXISTS "${CPP_CMAKE_MODULES}")
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
 endif()
 
@@ -30,11 +30,13 @@ endif()
 find_package(Arrow REQUIRED)
 
 ## MATLAB is required to be installed to build MEX interfaces 
-set(MATLAB_ADDITIONAL_VERSIONS
-    "R2018a=9.4")
+set(MATLAB_ADDITIONAL_VERSIONS "R2018a=9.4")
 find_package(Matlab REQUIRED MX_LIBRARY)
 
 # Build featherread mex file based on the arrow shared library
-matlab_add_mex(NAME featherreadmex SRC featherreadmex.cpp FeatherReader.cpp LINK_TO ${ARROW_SHARED_LIB})
+matlab_add_mex(NAME featherreadmex
+               SRC src/featherreadmex.cc
+                   src/feather_reader.cc
+                   src/util/handle_status.cc
+               LINK_TO ${ARROW_SHARED_LIB})
 target_include_directories(featherreadmex PRIVATE ${ARROW_INCLUDE_DIR})
-

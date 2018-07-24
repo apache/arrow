@@ -29,7 +29,7 @@ classdef tfeatherread < matlab.unittest.TestCase
     methods(Test)
 
         function NumericDatatypesNoNulls(testCase)
-            filename = 'numericDatatypesWithNoNulls.feather';
+            filename = 'numeric_datatypes_with_no_nulls.feather';
             actualTable = featherread(filename);
 
             variableNames = {'single', ...
@@ -63,7 +63,7 @@ classdef tfeatherread < matlab.unittest.TestCase
         end
 
         function NumericDatatypesWithEmptyVariableName(testCase)
-            filename = 'numericDatatypes6thVariableNameIsEmpty.feather';
+            filename = 'numeric_datatypes_6th_variable_name_is_empty.feather';
             t = featherread(filename);
 
             actualVariableName = t.Properties.VariableNames(6);
@@ -72,7 +72,7 @@ classdef tfeatherread < matlab.unittest.TestCase
         end
 
         function NumericDatatypesWithNaNRow(testCase)
-            filename = 'numericDatatypesWithNaNRow.feather';
+            filename = 'numeric_datatypes_with_nan_row.feather';
             t = featherread(filename);
 
             actualVariableData = t{3, {'single'}};
@@ -86,7 +86,7 @@ classdef tfeatherread < matlab.unittest.TestCase
         end
 
         function NumericDatatypesWithNaNColumn(testCase)
-            filename = 'numericDatatypesWithNaNColumn.feather';
+            filename = 'numeric_datatypes_with_nan_column.feather';
             t = featherread(filename);
 
             actualVariable6 = t.int64;
@@ -102,31 +102,31 @@ classdef tfeatherread < matlab.unittest.TestCase
         % Negative test cases
         % %%%%%%%%%%%%%%%%%%%
         function ErrorIfNotAFeatherFile(testCase)
-            filename='notAFeatherFile.feather';
+            filename = 'not_a_feather_file.feather';
 
-            testCase.verifyError(@() featherread(filename), 'MATLAB:feather:read:arrow:status:Invalid');
+            testCase.verifyError(@() featherread(filename), 'MATLAB:arrow:status:Invalid');
         end
 
         function ErrorIfUnableToOpenFile(testCase)
             filename = 'nonexistent.feather';
 
-            testCase.verifyError(@() featherread(filename), 'MATLAB:feather:read:UnableToOpenFile');
+            testCase.verifyError(@() featherread(filename), 'MATLAB:arrow:UnableToOpenFile');
         end
 
         function ErrorIfCorruptedFeatherFile(testCase)
-            filename = 'corruptedFeatherFile.feather';
+            filename = 'corrupted_feather_file.feather';
 
-            testCase.verifyError(@() featherread(filename), 'MATLAB:feather:read:arrow:status:Invalid');
+            testCase.verifyError(@() featherread(filename), 'MATLAB:arrow:status:Invalid');
         end
 
         function ErrorIfInvalidFilenameDatatype(testCase)
-            filename = {'numericDatatypesWithNoNulls.feather'};
+            filename = {'numeric_datatypes_with_no_nulls.feather'};
 
-            testCase.verifyError(@() featherread(filename), 'MATLAB:feather:read:InvalidFilenameDatatype');
+            testCase.verifyError(@() featherread(filename), 'MATLAB:arrow:InvalidFilenameDatatype');
         end
 
         function ErroriIfTooManyInputs(testCase)
-            filename = 'numericDatatypesWithNaNColumn.feather';
+            filename = 'numeric_datatypes_with_nan_column.feather';
 
             testCase.verifyError(@() featherread(filename, 'SomeValue'), 'MATLAB:TooManyInputs');
         end

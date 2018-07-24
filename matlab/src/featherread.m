@@ -27,7 +27,7 @@ function t = featherread(filename)
 narginchk(1, 1);
 filename = convertStringsToChars(filename);
 if ~ischar(filename)
-    error('MATLAB:feather:read:InvalidFilenameDatatype', ...
+    error('MATLAB:arrow:InvalidFilenameDatatype', ...
         'Filename must be a character vector or string scalar.');
 end
 
@@ -38,7 +38,7 @@ if fid ~= -1
     filename = fopen(fid);
     fclose(fid);
 else
-    error('MATLAB:feather:read:UnableToOpenFile', ...
+    error('MATLAB:arrow:UnableToOpenFile', ...
         'Unable to open file %s.', filename);
 end
 

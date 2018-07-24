@@ -15,105 +15,89 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MATLAB_ARROW_IPC_FEATHER_FEATHER_TYPE_H
-#define MATLAB_ARROW_IPC_FEATHER_FEATHER_TYPE_H
+#ifndef MLARROW_MATLAB_TRAITS_H
+#define MLARROW_MATLAB_TRAITS_H
 
 #include <arrow/type.h>
 
 #include <matrix.h>
 
-namespace matlab {
-namespace arrow {
-namespace ipc {
-namespace feather {
+namespace mlarrow {
 
 /// \brief A type traits class mapping Arrow types to MATLAB types.
-template <::arrow::Type::type ArrowTypeID>
-struct FeatherType;
+template <typename ArrowDataType>
+struct MatlabTraits;
 
 template <>
-struct FeatherType<::arrow::Type::FLOAT> {
+struct MatlabTraits<arrow::FloatType> {
   static constexpr mxClassID matlab_class_id = mxSINGLE_CLASS;
   typedef mxSingle MatlabType;
-  typedef ::arrow::FloatArray ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetSingles(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::DOUBLE> {
+struct MatlabTraits<arrow::DoubleType> {
   static constexpr mxClassID matlab_class_id = mxDOUBLE_CLASS;
   typedef mxDouble MatlabType;
-  typedef ::arrow::DoubleArray ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetDoubles(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::UINT8> {
+struct MatlabTraits<arrow::UInt8Type> {
   static constexpr mxClassID matlab_class_id = mxUINT8_CLASS;
   typedef mxUint8 MatlabType;
-  typedef ::arrow::UInt8Array ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetUint8s(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::UINT16> {
+struct MatlabTraits<arrow::UInt16Type> {
   static constexpr mxClassID matlab_class_id = mxUINT16_CLASS;
   typedef mxUint16 MatlabType;
-  typedef ::arrow::UInt16Array ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetUint16s(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::UINT32> {
+struct MatlabTraits<arrow::UInt32Type> {
   static constexpr mxClassID matlab_class_id = mxUINT32_CLASS;
   typedef mxUint32 MatlabType;
-  typedef ::arrow::UInt32Array ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetUint32s(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::UINT64> {
+struct MatlabTraits<arrow::UInt64Type> {
   static constexpr mxClassID matlab_class_id = mxUINT64_CLASS;
   typedef mxUint64 MatlabType;
-  typedef ::arrow::UInt64Array ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetUint64s(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::INT8> {
+struct MatlabTraits<arrow::Int8Type> {
   static constexpr mxClassID matlab_class_id = mxINT8_CLASS;
   typedef mxInt8 MatlabType;
-  typedef ::arrow::Int8Array ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetInt8s(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::INT16> {
+struct MatlabTraits<arrow::Int16Type> {
   static constexpr mxClassID matlab_class_id = mxINT16_CLASS;
   typedef mxInt16 MatlabType;
-  typedef ::arrow::Int16Array ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetInt16s(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::INT32> {
+struct MatlabTraits<arrow::Int32Type> {
   static constexpr mxClassID matlab_class_id = mxINT32_CLASS;
   typedef mxInt32 MatlabType;
-  typedef ::arrow::Int32Array ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetInt32s(pa); }
 };
 
 template <>
-struct FeatherType<::arrow::Type::INT64> {
+struct MatlabTraits<arrow::Int64Type> {
   static constexpr mxClassID matlab_class_id = mxINT64_CLASS;
   typedef mxInt64 MatlabType;
-  typedef ::arrow::Int64Array ArrowArrayType;
   static MatlabType* GetData(mxArray* pa) { return mxGetInt64s(pa); }
 };
 
-}  // namespace feather
-}  // namespace ipc
-}  // namespace arrow
-}  // namespace matlab
+}  // namespace mlarrow
 
-#endif  // MATLAB_ARROW_IPC_FEATHER_FEATHER_TYPE_H
+#endif  // MLARROW_MATLAB_TRAITS_H

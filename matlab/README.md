@@ -21,7 +21,7 @@
 
 ## Status
 
-This is a very early stage MATLAB interface to Apache Arrow.
+This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
 The current code only supports reading numeric types from Feather files.
 
@@ -51,11 +51,12 @@ To specify a non-standard Arrow install location, use the ARROW_HOME CMake flag:
 
 ## Try it out
 
-### Add the arrow/matlab and arrow/matlab/build directories to your MATLAB path
+### Add the src and build directories to your MATLAB path
 
 ``` matlab
->> addpath(fullfile('arrow', 'matlab'));
->> addpath(fullfile('arrow', 'matlab', 'build'));
+>> cd(fullfile('arrow', 'matlab'));
+>> addpath src;
+>> addpath build;
 ```
 
 ### Read a Feather file into MATLAB as a table
@@ -66,3 +67,13 @@ To specify a non-standard Arrow install location, use the ARROW_HOME CMake flag:
 ```
 
 This should return a MATLAB table datatype containing the Feather file contents.
+
+## Running the tests
+
+``` matlab
+>> cd(fullfile('arrow', 'matlab'));
+>> addpath src;
+>> addpath build;
+>> cd test;
+>> runtests .;
+```

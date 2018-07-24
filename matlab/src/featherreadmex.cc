@@ -19,16 +19,18 @@
 
 #include <mex.h>
 
-#include "FeatherReader.h"
+#include "feather_reader.h"
+#include "util/handle_status.h"
 
 // MEX gateway function. This is the entry point for featherreadmex.cpp.
 void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
   const std::string filename{mxArrayToUTF8String(prhs[0])};
 
   // Read the given Feather file into memory.
-  matlab::arrow::ipc::feather::FeatherReader feather_reader{filename};
+  std::shared_ptr<mlarrow::FeatherReader> feather_reader{nullptr};
+  mlarrow::util::HandleStatus(mlarrow::FeatherReader::Open(filename, &feather_reader));
 
   // Return the Feather file table variables and table metadata to MATLAB.
-  plhs[0] = feather_reader.ReadVariables();
-  plhs[1] = feather_reader.ReadMetadata();
+  plhs[0] = feather_reader->ReadVariables();
+  plhs[1] = feather_reader->ReadMetadata();
 }

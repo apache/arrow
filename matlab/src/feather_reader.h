@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MATLAB_ARROW_IPC_FEATHER_FEATHER_READER_H
-#define MATLAB_ARROW_IPC_FEATHER_FEATHER_READER_H
+#ifndef MLARROW_FEATHER_READER_H
+#define MLARROW_FEATHER_READER_H
 
 #include <memory>
 #include <string>
@@ -27,14 +27,10 @@
 
 #include <matrix.h>
 
-namespace matlab {
-namespace arrow {
-namespace ipc {
-namespace feather {
+namespace mlarrow {
 
 class FeatherReader {
  public:
-  FeatherReader(const std::string& filename);
   ~FeatherReader() = default;
 
   /// \brief Read the table metadata as a mxArray* struct from the given Feather file.
@@ -55,29 +51,21 @@ class FeatherReader {
   /// \return variables mxArray* struct array containing table variable data
   mxArray* ReadVariables() const;
 
+  /// \brief Initialize a FeatherReader object from a given Feather file.
+  /// \param[in] filename path to a Feather file
+  /// \param[out] feather_reader uninitialized FeatherReader object
+  static arrow::Status Open(const std::string& filename,
+                            std::shared_ptr<FeatherReader>* feather_reader);
+
  private:
-  void Open();
-  void HandleStatus(const ::arrow::Status& status) const;
-
-  mxArray* ReadVariableName(const std::shared_ptr<::arrow::Column>& column) const;
-  mxArray* ReadVariableData(const std::shared_ptr<::arrow::Column>& column) const;
-  mxArray* ReadVariableNulls(const std::shared_ptr<::arrow::Column>& column) const;
-  mxArray* ReadVariableType(const std::shared_ptr<::arrow::Column>& column) const;
-
-  template <::arrow::Type::type ArrowTypeID>
-  mxArray* ReadNumericVariableData(const std::shared_ptr<::arrow::Column>& column) const;
-
-  std::unique_ptr<::arrow::ipc::feather::TableReader> table_reader_;
-  std::string filename_;
+  FeatherReader() = default;
+  std::unique_ptr<arrow::ipc::feather::TableReader> table_reader_;
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;
   int version_;
 };
 
-}  // namespace feather
-}  // namespace ipc
-}  // namespace arrow
-}  // namespace matlab
+}  // namespace mlarrow
 
-#endif  // MATLAB_ARROW_IPC_FEATHER_FEATHER_READER_H
+#endif  // MLARROW_FEATHER_READER_H
