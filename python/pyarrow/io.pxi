@@ -935,6 +935,14 @@ cdef class BufferOutputStream(NativeFile):
         self.closed = True
         return pyarrow_wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
 
+    def getvalue(self):
+        """
+        Alias for get_result.
+
+        TODO(wesm): Should get_result be deprecated?
+        """
+        return self.get_result()
+
 
 cdef class MockOutputStream(NativeFile):
 
