@@ -368,6 +368,7 @@
           <version>2.20</version>
           <configuration>
             <enableAssertions>true</enableAssertions>
+            <childDelegation>true</childDelegation>
             <forkCount>${forkCount}</forkCount>
             <reuseForks>true</reuseForks>
             <systemPropertyVariables>
