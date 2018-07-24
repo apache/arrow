@@ -82,25 +82,28 @@ Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int64_t length) 
 }
 
 Status ArrayBuilder::Resize(int64_t capacity) {
-  if (!null_bitmap_) {
-    int64_t to_alloc = BitUtil::BytesForBits(capacity);
-    null_bitmap_ = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(null_bitmap_->Resize(to_alloc));
+  // Target size of validity (null) bitmap data
+  const int64_t new_bitmap_size = BitUtil::BytesForBits(capacity);
 
-    // Buffers might allocate more then necessary to satisfy padding requirements
-    const int64_t byte_capacity = null_bitmap_->capacity();
+  if (capacity_ == 0) {
+    RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_bitmap_size, &null_bitmap_));
     null_bitmap_data_ = null_bitmap_->mutable_data();
-    memset(null_bitmap_data_, 0, static_cast<size_t>(byte_capacity));
+
+    // Padding is zeroed by AllocateResizableBuffer
+    memset(null_bitmap_data_, 0, static_cast<size_t>(new_bitmap_size));
   } else {
-    int64_t new_bytes = BitUtil::BytesForBits(capacity);
-    int64_t old_bytes = null_bitmap_->size();
-    RETURN_NOT_OK(null_bitmap_->Resize(new_bytes));
+    const int64_t old_bitmap_capacity = null_bitmap_->capacity();
+    RETURN_NOT_OK(null_bitmap_->Resize(new_bitmap_size));
+
+    const int64_t new_bitmap_capacity = null_bitmap_->capacity();
     null_bitmap_data_ = null_bitmap_->mutable_data();
-    // The buffer might be overpadded to deal with padding according to the spec
-    const int64_t byte_capacity = null_bitmap_->capacity();
-    if (old_bytes < new_bytes) {
-      memset(null_bitmap_data_ + old_bytes, 0,
-             static_cast<size_t>(byte_capacity - old_bytes));
+
+    // Zero the region between the original capacity and the new capacity,
+    // including padding, which has not been zeroed, unlike
+    // AllocateResizableBuffer
+    if (old_bitmap_capacity < new_bitmap_capacity) {
+      memset(null_bitmap_data_ + old_bitmap_capacity, 0,
+             static_cast<size_t>(new_bitmap_capacity - old_bitmap_capacity));
     }
   }
   capacity_ = capacity;
@@ -122,11 +125,11 @@ Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-Status ArrayBuilder::Reserve(int64_t elements) {
-  if (length_ + elements > capacity_) {
+Status ArrayBuilder::Reserve(int64_t additional_elements) {
+  if (length_ + additional_elements > capacity_) {
     // TODO(emkornfield) power of 2 growth is potentially suboptimal
-    int64_t new_capacity = BitUtil::NextPower2(length_ + elements);
-    return Resize(new_capacity);
+    int64_t new_size = BitUtil::NextPower2(length_ + additional_elements);
+    return Resize(new_size);
   }
   return Status::OK();
 }
@@ -671,9 +674,9 @@ Status BooleanBuilder::Resize(int64_t capacity) {
     capacity = kMinBuilderCapacity;
   }
 
-  const int64_t nbytes = BitUtil::BytesForBits(capacity);
+  const int64_t new_bitmap_size = BitUtil::BytesForBits(capacity);
   if (capacity_ == 0) {
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
+    RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_bitmap_size, &data_));
     raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
 
     // We zero the memory for booleans to keep things simple; for some reason if
@@ -682,18 +685,19 @@ Status BooleanBuilder::Resize(int64_t capacity) {
     // will have to be careful to zero them in AppendNull and AppendNulls. Also,
     // zeroing the bits results in deterministic bits when each byte may have a
     // mix of nulls and not nulls.
-    memset(raw_data_, 0, static_cast<size_t>(nbytes));
+    //
+    // We only zero up to new_bitmap_size because the padding was zeroed by
+    // AllocateResizableBuffer
+    memset(raw_data_, 0, static_cast<size_t>(new_bitmap_size));
   } else {
-    const int64_t old_bytes = data_->size();
-    const int64_t new_bytes = BitUtil::BytesForBits(capacity);
+    const int64_t old_bitmap_capacity = data_->capacity();
+    RETURN_NOT_OK(data_->Resize(new_bitmap_size));
+    const int64_t new_bitmap_capacity = data_->capacity();
+    raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
 
-    if (new_bytes > old_bytes) {
-      RETURN_NOT_OK(data_->Resize(new_bytes));
-      raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-
-      // See comment above about why we zero memory for booleans
-      memset(raw_data_ + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
-    }
+    // See comment above about why we zero memory for booleans
+    memset(raw_data_ + old_bitmap_capacity, 0,
+           static_cast<size_t>(new_bitmap_capacity - old_bitmap_capacity));
   }
 
   return ArrayBuilder::Resize(capacity);

@@ -104,8 +104,8 @@ class StdinStream : public InputStream {
   }
 
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
-    auto buffer = std::make_shared<PoolBuffer>(NULLPTR);
-    RETURN_NOT_OK(buffer->Resize(nbytes));
+    std::shared_ptr<ResizableBuffer> buffer;
+    RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
     int64_t bytes_read;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
     RETURN_NOT_OK(buffer->Resize(bytes_read, false));

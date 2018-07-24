@@ -91,15 +91,19 @@ class ARROW_EXPORT ArrayBuilder {
   /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int64_t length);
 
-  /// \brief Ensure that at least the indicated number of elements can be appended to
-  /// the builder without a reallocation. Does not account for reallocations
-  /// that may be due to variable size data, like binary values.
+  /// \brief Ensure that enough memory has been allocated to fit the indicated
+  /// number of total elements in the builder, including any that have already
+  /// been appended. Does not account for reallocations that may be due to
+  /// variable size data, like binary values. To make space for incremental
+  /// appends, use Reserve instead.
   /// \param[in] capacity the minimum number of additional array values
   /// \return Status
   virtual Status Resize(int64_t capacity);
 
   /// \brief Ensure that there is enough space allocated to add the indicated
-  /// number of elements without any further calls to Resize
+  /// number of elements without any further calls to Resize. The memory
+  /// allocated is rounded up to the next highest power of 2 similar to memory
+  /// allocations in STL containers like std::vector
   /// \param[in] additional_capacity the number of additional array values
   /// \return Status
   Status Reserve(int64_t additional_capacity);
@@ -113,9 +117,7 @@ class ARROW_EXPORT ArrayBuilder {
   Status Advance(int64_t elements);
 
   ARROW_DEPRECATED("Use Finish instead")
-  std::shared_ptr<PoolBuffer> null_bitmap() const {
-    return std::dynamic_pointer_cast<PoolBuffer>(null_bitmap_);
-  }
+  std::shared_ptr<ResizableBuffer> null_bitmap() const { return null_bitmap_; }
 
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder

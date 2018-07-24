@@ -87,8 +87,9 @@ class TestArray : public ::testing::Test {
 };
 
 TEST_F(TestArray, TestNullCount) {
-  auto data = std::make_shared<PoolBuffer>(pool_);
-  auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
+  // These are placeholders
+  auto data = std::make_shared<Buffer>(nullptr, 0);
+  auto null_bitmap = std::make_shared<Buffer>(nullptr, 0);
 
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data, null_bitmap, 10));
   ASSERT_EQ(10, arr->null_count());
@@ -98,7 +99,9 @@ TEST_F(TestArray, TestNullCount) {
 }
 
 TEST_F(TestArray, TestLength) {
-  auto data = std::make_shared<PoolBuffer>(pool_);
+  // Placeholder buffer
+  auto data = std::make_shared<Buffer>(nullptr, 0);
+
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
   ASSERT_EQ(arr->length(), 100);
 }
