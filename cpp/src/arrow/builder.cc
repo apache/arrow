@@ -89,11 +89,8 @@ Status ArrayBuilder::Resize(int64_t capacity) {
 
     // Buffers might allocate more then necessary to satisfy padding requirements
     const int64_t byte_capacity = null_bitmap_->capacity();
-    capacity_ = capacity;
     null_bitmap_data_ = null_bitmap_->mutable_data();
     memset(null_bitmap_data_, 0, static_cast<size_t>(byte_capacity));
-
-    return Status::OK();
   } else {
     int64_t new_bytes = BitUtil::BytesForBits(capacity);
     int64_t old_bytes = null_bitmap_->size();
@@ -101,13 +98,13 @@ Status ArrayBuilder::Resize(int64_t capacity) {
     null_bitmap_data_ = null_bitmap_->mutable_data();
     // The buffer might be overpadded to deal with padding according to the spec
     const int64_t byte_capacity = null_bitmap_->capacity();
-    capacity_ = capacity;
     if (old_bytes < new_bytes) {
       memset(null_bitmap_data_ + old_bytes, 0,
              static_cast<size_t>(byte_capacity - old_bytes));
     }
-    return Status::OK();
   }
+  capacity_ = capacity;
+  return Status::OK();
 }
 
 Status ArrayBuilder::Advance(int64_t elements) {
@@ -207,7 +204,6 @@ Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
     capacity = kMinBuilderCapacity;
   }
 
-  RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
   int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
   if (capacity_ == 0) {
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
@@ -216,7 +212,7 @@ Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
   }
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
-  return Status::OK();
+  return ArrayBuilder::Resize(capacity);
 }
 
 template <typename T>
@@ -329,7 +325,6 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
     capacity = kMinBuilderCapacity;
   }
 
-  RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
   int64_t nbytes = capacity * int_size_;
   if (capacity_ == 0) {
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
@@ -337,7 +332,8 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
     RETURN_NOT_OK(data_->Resize(nbytes));
   }
   raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-  return Status::OK();
+
+  return ArrayBuilder::Resize(capacity);
 }
 
 AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
@@ -675,7 +671,6 @@ Status BooleanBuilder::Resize(int64_t capacity) {
     capacity = kMinBuilderCapacity;
   }
 
-  RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
   const int64_t nbytes = BitUtil::BytesForBits(capacity);
   if (capacity_ == 0) {
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
@@ -700,7 +695,8 @@ Status BooleanBuilder::Resize(int64_t capacity) {
       memset(raw_data_ + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
     }
   }
-  return Status::OK();
+
+  return ArrayBuilder::Resize(capacity);
 }
 
 Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
@@ -981,8 +977,6 @@ Status DictionaryBuilder<T>::Resize(int64_t capacity) {
     capacity = kMinBuilderCapacity;
   }
 
-  RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
-
   if (capacity_ == 0) {
     // Fill the initial hash table
     RETURN_NOT_OK(internal::NewHashTable(kInitialHashTableSize, pool_, &hash_table_));
@@ -992,23 +986,17 @@ Status DictionaryBuilder<T>::Resize(int64_t capacity) {
     mod_bitmask_ = kInitialHashTableSize - 1;
     hash_table_load_threshold_ =
         static_cast<int64_t>(static_cast<double>(capacity) * kMaxHashTableLoad);
-    return values_builder_.Resize(capacity);
-  } else {
-    return Status::OK();
   }
+  RETURN_NOT_OK(values_builder_.Resize(capacity));
+  return ArrayBuilder::Resize(capacity);
 }
 
 Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
   if (capacity < kMinBuilderCapacity) {
     capacity = kMinBuilderCapacity;
   }
-
-  RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
-  if (capacity_ == 0) {
-    return values_builder_.Resize(capacity);
-  } else {
-    return Status::OK();
-  }
+  RETURN_NOT_OK(values_builder_.Resize(capacity));
+  return ArrayBuilder::Resize(capacity);
 }
 
 template <typename T>
