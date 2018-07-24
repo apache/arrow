@@ -1683,10 +1683,10 @@ def test_ignore_hidden_files(tmpdir):
                                             file_nrows=5)
 
     with open(pjoin(dirpath, '.DS_Store'), 'wb') as f:
-        f.write('gibberish')
+        f.write(b'gibberish')
 
     with open(pjoin(dirpath, '.private'), 'wb') as f:
-        f.write('gibberish')
+        f.write(b'gibberish')
 
     dataset = pq.ParquetDataset(dirpath)
     assert set(paths) == set(x.path for x in dataset.pieces)
