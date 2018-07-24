@@ -41,9 +41,26 @@ export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export PYARROW_CXXFLAGS=$CXXFLAGS
 export PYARROW_CMAKE_GENERATOR=Ninja
 
+_PWD=`pwd`
+ARROW_CPP_BUILD_DIR=$_PWD/arrow/cpp/hdfs-integration-build
+PARQUET_CPP_BUILD_DIR=$_PWD/parquet-cpp/hdfs-integration-build
+
+# Run tests
+export LIBHDFS3_CONF=$_PWD/arrow/dev/hdfs_integration/libhdfs3-client-config.xml
+
+function cleanup {
+    rm -rf $ARROW_CPP_BUILD_DIR
+    rm -rf $PARQUET_CPP_BUILD_DIR
+    pushd $_PWD/arrow/python
+    git clean -fdx .
+    popd
+}
+
+trap cleanup EXIT
+
 # Install arrow-cpp
-mkdir -p arrow/cpp/hdfs-integration-build
-pushd arrow/cpp/hdfs-integration-build
+mkdir -p $ARROW_CPP_BUILD_DIR
+pushd $ARROW_CPP_BUILD_DIR
 
 cmake -GNinja \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
@@ -57,18 +74,21 @@ cmake -GNinja \
 ninja
 ninja install
 
+# Run C++ unit tests
+debug/io-hdfs-test
+
 popd
 
 # Install parquet-cpp
-mkdir -p parquet-cpp/hdfs-integration-build
-pushd parquet-cpp/hdfs-integration-build
+mkdir -p $PARQUET_CPP_BUILD_DIR
+pushd $PARQUET_CPP_BUILD_DIR
 
 cmake -GNinja \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
       -DPARQUET_BUILD_BENCHMARKS=OFF \
       -DPARQUET_BUILD_EXECUTABLES=OFF \
-      -DPARQUET_BUILD_TESTS=ON \
+      -DPARQUET_BUILD_TESTS=OFF \
       -DCMAKE_CXX_FLAGS=$CXXFLAGS \
       ..
 ninja
@@ -88,14 +108,8 @@ python setup.py build_ext \
     --with-plasma \
     --inplace
 
-popd
-
-# Run tests
-export LIBHDFS3_CONF=arrow/dev/hdfs_integration/libhdfs3-client-config.xml
-
 # Python
-python -m pytest -vv -r sxX -s arrow/python/pyarrow \
+python -m pytest -vv -r sxX -s pyarrow \
        --only-parquet --only-hdfs
 
-# C++
-arrow/cpp/hdfs-integration-build/debug/io-hdfs-test
+popd
