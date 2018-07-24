@@ -79,7 +79,7 @@ particular stream. Now we can do:
       writer.write_batch(batch)
    writer.close()
 
-   buf = sink.get_result()
+   buf = sink.getvalue()
    buf.size
 
 Now ``buf`` contains the complete stream as an in-memory byte buffer. We can
@@ -119,7 +119,7 @@ The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
       writer.write_batch(batch)
    writer.close()
 
-   buf = sink.get_result()
+   buf = sink.getvalue()
    buf.size
 
 The difference between :class:`~pyarrow.RecordBatchFileReader` and

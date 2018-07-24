@@ -18,6 +18,7 @@
 import io
 import pytest
 import socket
+import sys
 import threading
 
 import numpy as np
@@ -26,19 +27,19 @@ from pandas.util.testing import (assert_frame_equal,
                                  assert_series_equal)
 import pandas as pd
 
-from pyarrow.compat import unittest
 import pyarrow as pa
 
 
-class MessagingTest(object):
+class IpcFixture(object):
 
-    def setUp(self):
-        self.sink = self._get_sink()
+    def __init__(self, sink_factory=lambda: io.BytesIO()):
+        self._sink_factory = sink_factory
+        self.sink = self.get_sink()
 
-    def _get_sink(self):
-        return io.BytesIO()
+    def get_sink(self):
+        return self._sink_factory()
 
-    def _get_source(self):
+    def get_source(self):
         return self.sink.getvalue()
 
     def write_batches(self, num_batches=5, as_table=False):
@@ -70,20 +71,14 @@ class MessagingTest(object):
         return frames, batches
 
 
-class TestFile(MessagingTest, unittest.TestCase):
-    # Also tests writing zero-copy NumPy array with additional padding
+class FileFormatFixture(IpcFixture):
 
     def _get_writer(self, sink, schema):
         return pa.RecordBatchFileWriter(sink, schema)
 
-    def test_empty_file(self):
-        buf = io.BytesIO(b'')
-        with pytest.raises(pa.ArrowInvalid):
-            pa.open_file(buf)
-
     def _check_roundtrip(self, as_table=False):
         _, batches = self.write_batches(as_table=as_table)
-        file_contents = pa.BufferReader(self._get_source())
+        file_contents = pa.BufferReader(self.get_source())
 
         reader = pa.open_file(file_contents)
 
@@ -95,231 +90,333 @@ class TestFile(MessagingTest, unittest.TestCase):
             assert batches[i].equals(batch)
             assert reader.schema.equals(batches[0].schema)
 
-    def test_simple_roundtrip(self):
-        self._check_roundtrip(as_table=False)
 
-    def test_write_table(self):
-        self._check_roundtrip(as_table=True)
-
-    def test_read_all(self):
-        _, batches = self.write_batches()
-        file_contents = pa.BufferReader(self._get_source())
-
-        reader = pa.open_file(file_contents)
-
-        result = reader.read_all()
-        expected = pa.Table.from_batches(batches)
-        assert result.equals(expected)
-
-    def test_read_pandas(self):
-        frames, _ = self.write_batches()
-
-        file_contents = pa.BufferReader(self._get_source())
-        reader = pa.open_file(file_contents)
-        result = reader.read_pandas()
-
-        expected = pd.concat(frames)
-        assert_frame_equal(result, expected)
-
-
-class TestStream(MessagingTest, unittest.TestCase):
+class StreamFormatFixture(IpcFixture):
 
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
 
-    def test_empty_stream(self):
-        buf = io.BytesIO(b'')
-        with pytest.raises(pa.ArrowInvalid):
-            pa.open_stream(buf)
 
-    def test_categorical_roundtrip(self):
-        df = pd.DataFrame({
-            'one': np.random.randn(5),
-            'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
-                                  categories=['foo', 'bar'],
-                                  ordered=True)
-        })
-        batch = pa.RecordBatch.from_pandas(df)
-        writer = self._get_writer(self.sink, batch.schema)
-        writer.write_batch(pa.RecordBatch.from_pandas(df))
-        writer.close()
-
-        table = (pa.open_stream(pa.BufferReader(self._get_source()))
-                 .read_all())
-        assert_frame_equal(table.to_pandas(), df)
-
-    def test_stream_write_dispatch(self):
-        # ARROW-1616
-        df = pd.DataFrame({
-            'one': np.random.randn(5),
-            'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
-                                  categories=['foo', 'bar'],
-                                  ordered=True)
-        })
-        table = pa.Table.from_pandas(df, preserve_index=False)
-        batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
-        writer = self._get_writer(self.sink, table.schema)
-        writer.write(table)
-        writer.write(batch)
-        writer.close()
-
-        table = (pa.open_stream(pa.BufferReader(self._get_source()))
-                 .read_all())
-        assert_frame_equal(table.to_pandas(),
-                           pd.concat([df, df], ignore_index=True))
-
-    def test_stream_write_table_batches(self):
-        # ARROW-504
-        df = pd.DataFrame({
-            'one': np.random.randn(20),
-        })
-
-        b1 = pa.RecordBatch.from_pandas(df[:10], preserve_index=False)
-        b2 = pa.RecordBatch.from_pandas(df, preserve_index=False)
-
-        table = pa.Table.from_batches([b1, b2, b1])
-
-        writer = self._get_writer(self.sink, table.schema)
-        writer.write_table(table, chunksize=15)
-        writer.close()
-
-        batches = list(pa.open_stream(pa.BufferReader(self._get_source())))
-
-        assert list(map(len, batches)) == [10, 15, 5, 10]
-        result_table = pa.Table.from_batches(batches)
-        assert_frame_equal(result_table.to_pandas(),
-                           pd.concat([df[:10], df, df[:10]],
-                                     ignore_index=True))
-
-    def test_simple_roundtrip(self):
-        _, batches = self.write_batches()
-        file_contents = pa.BufferReader(self._get_source())
-        reader = pa.open_stream(file_contents)
-
-        assert reader.schema.equals(batches[0].schema)
-
-        total = 0
-        for i, next_batch in enumerate(reader):
-            assert next_batch.equals(batches[i])
-            total += 1
-
-        assert total == len(batches)
-
-        with pytest.raises(StopIteration):
-            reader.get_next_batch()
-
-    def test_read_all(self):
-        _, batches = self.write_batches()
-        file_contents = pa.BufferReader(self._get_source())
-        reader = pa.open_stream(file_contents)
-
-        result = reader.read_all()
-        expected = pa.Table.from_batches(batches)
-        assert result.equals(expected)
-
-
-class TestMessageReader(MessagingTest, unittest.TestCase):
-
-    def _get_example_messages(self):
-        _, batches = self.write_batches()
-        file_contents = self._get_source()
-        buf_reader = pa.BufferReader(file_contents)
-        reader = pa.MessageReader.open_stream(buf_reader)
-        return batches, list(reader)
+class MessageFixture(IpcFixture):
 
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
 
-    def test_ctors_no_segfault(self):
-        with pytest.raises(TypeError):
-            repr(pa.Message())
 
-        with pytest.raises(TypeError):
-            repr(pa.MessageReader())
-
-    def test_message_reader(self):
-        _, messages = self._get_example_messages()
-
-        assert len(messages) == 6
-        assert messages[0].type == 'schema'
-        for msg in messages[1:]:
-            assert msg.type == 'record batch'
-
-    def test_serialize_read_message(self):
-        _, messages = self._get_example_messages()
-
-        msg = messages[0]
-        buf = msg.serialize()
-
-        restored = pa.read_message(buf)
-        restored2 = pa.read_message(pa.BufferReader(buf))
-        restored3 = pa.read_message(buf.to_pybytes())
-
-        assert msg.equals(restored)
-        assert msg.equals(restored2)
-        assert msg.equals(restored3)
-
-    def test_read_record_batch(self):
-        batches, messages = self._get_example_messages()
-
-        for batch, message in zip(batches, messages[1:]):
-            read_batch = pa.read_record_batch(message, batch.schema)
-            assert read_batch.equals(batch)
-
-    def test_read_pandas(self):
-        frames, _ = self.write_batches()
-        file_contents = pa.BufferReader(self._get_source())
-        reader = pa.open_stream(file_contents)
-        result = reader.read_pandas()
-
-        expected = pd.concat(frames)
-        assert_frame_equal(result, expected)
+@pytest.fixture
+def ipc_fixture():
+    return IpcFixture()
 
 
-class TestSocket(MessagingTest, unittest.TestCase):
+@pytest.fixture
+def file_fixture():
+    return FileFormatFixture()
 
-    class StreamReaderServer(threading.Thread):
 
-        def init(self, do_read_all):
-            self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._sock.bind(('127.0.0.1', 0))
-            self._sock.listen(1)
-            host, port = self._sock.getsockname()
-            self._do_read_all = do_read_all
-            self._schema = None
-            self._batches = []
-            self._table = None
-            return port
+@pytest.fixture
+def stream_fixture():
+    return StreamFormatFixture()
 
-        def run(self):
-            connection, client_address = self._sock.accept()
-            try:
-                source = connection.makefile(mode='rb')
-                reader = pa.open_stream(source)
-                self._schema = reader.schema
-                if self._do_read_all:
-                    self._table = reader.read_all()
-                else:
-                    for i, batch in enumerate(reader):
-                        self._batches.append(batch)
-            finally:
-                connection.close()
 
-        def get_result(self):
-            return(self._schema, self._table if self._do_read_all
-                   else self._batches)
+def test_empty_file():
+    buf = b''
+    with pytest.raises(pa.ArrowInvalid):
+        pa.open_file(pa.BufferReader(buf))
 
-    def setUp(self):
-        # NOTE: must start and stop server in test
+
+def test_file_simple_roundtrip(file_fixture):
+    file_fixture._check_roundtrip(as_table=False)
+
+
+def test_file_write_table(file_fixture):
+    file_fixture._check_roundtrip(as_table=True)
+
+
+@pytest.mark.parametrize("sink_factory", [
+    lambda: io.BytesIO(),
+    lambda: pa.BufferOutputStream()
+])
+def test_file_read_all(sink_factory):
+    fixture = FileFormatFixture(sink_factory)
+
+    _, batches = fixture.write_batches()
+    file_contents = pa.BufferReader(fixture.get_source())
+
+    reader = pa.open_file(file_contents)
+
+    result = reader.read_all()
+    expected = pa.Table.from_batches(batches)
+    assert result.equals(expected)
+
+
+def test_open_file_from_buffer(file_fixture):
+    # ARROW-2859; APIs accept the buffer protocol
+    _, batches = file_fixture.write_batches()
+    source = file_fixture.get_source()
+
+    reader1 = pa.open_file(source)
+    reader2 = pa.open_file(pa.BufferReader(source))
+    reader3 = pa.RecordBatchFileReader(source)
+
+    result1 = reader1.read_all()
+    result2 = reader2.read_all()
+    result3 = reader3.read_all()
+
+    assert result1.equals(result2)
+    assert result1.equals(result3)
+
+
+def test_file_read_pandas(file_fixture):
+    frames, _ = file_fixture.write_batches()
+
+    file_contents = pa.BufferReader(file_fixture.get_source())
+    reader = pa.open_file(file_contents)
+    result = reader.read_pandas()
+
+    expected = pd.concat(frames)
+    assert_frame_equal(result, expected)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6),
+                    reason="need Python 3.6")
+def test_file_pathlib(file_fixture, tmpdir):
+    import pathlib
+
+    _, batches = file_fixture.write_batches()
+    source = file_fixture.get_source()
+
+    path = tmpdir.join('file.arrow').strpath
+    with open(path, 'wb') as f:
+        f.write(source)
+
+    t1 = pa.open_file(pathlib.Path(path)).read_all()
+    t2 = pa.open_file(pa.OSFile(path)).read_all()
+
+    assert t1.equals(t2)
+
+
+def test_empty_stream():
+    buf = io.BytesIO(b'')
+    with pytest.raises(pa.ArrowInvalid):
+        pa.open_stream(buf)
+
+
+def test_stream_categorical_roundtrip(stream_fixture):
+    df = pd.DataFrame({
+        'one': np.random.randn(5),
+        'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
+                              categories=['foo', 'bar'],
+                              ordered=True)
+    })
+    batch = pa.RecordBatch.from_pandas(df)
+    writer = stream_fixture._get_writer(stream_fixture.sink, batch.schema)
+    writer.write_batch(pa.RecordBatch.from_pandas(df))
+    writer.close()
+
+    table = (pa.open_stream(pa.BufferReader(stream_fixture.get_source()))
+             .read_all())
+    assert_frame_equal(table.to_pandas(), df)
+
+
+def test_open_stream_from_buffer(stream_fixture):
+    # ARROW-2859
+    _, batches = stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+
+    reader1 = pa.open_stream(source)
+    reader2 = pa.open_stream(pa.BufferReader(source))
+    reader3 = pa.RecordBatchStreamReader(source)
+
+    result1 = reader1.read_all()
+    result2 = reader2.read_all()
+    result3 = reader3.read_all()
+
+    assert result1.equals(result2)
+    assert result1.equals(result3)
+
+
+def test_stream_write_dispatch(stream_fixture):
+    # ARROW-1616
+    df = pd.DataFrame({
+        'one': np.random.randn(5),
+        'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
+                              categories=['foo', 'bar'],
+                              ordered=True)
+    })
+    table = pa.Table.from_pandas(df, preserve_index=False)
+    batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
+    writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
+    writer.write(table)
+    writer.write(batch)
+    writer.close()
+
+    table = (pa.open_stream(pa.BufferReader(stream_fixture.get_source()))
+             .read_all())
+    assert_frame_equal(table.to_pandas(),
+                       pd.concat([df, df], ignore_index=True))
+
+
+def test_stream_write_table_batches(stream_fixture):
+    # ARROW-504
+    df = pd.DataFrame({
+        'one': np.random.randn(20),
+    })
+
+    b1 = pa.RecordBatch.from_pandas(df[:10], preserve_index=False)
+    b2 = pa.RecordBatch.from_pandas(df, preserve_index=False)
+
+    table = pa.Table.from_batches([b1, b2, b1])
+
+    writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
+    writer.write_table(table, chunksize=15)
+    writer.close()
+
+    batches = list(pa.open_stream(stream_fixture.get_source()))
+
+    assert list(map(len, batches)) == [10, 15, 5, 10]
+    result_table = pa.Table.from_batches(batches)
+    assert_frame_equal(result_table.to_pandas(),
+                       pd.concat([df[:10], df, df[:10]],
+                                 ignore_index=True))
+
+
+def test_stream_simple_roundtrip(stream_fixture):
+    _, batches = stream_fixture.write_batches()
+    file_contents = pa.BufferReader(stream_fixture.get_source())
+    reader = pa.open_stream(file_contents)
+
+    assert reader.schema.equals(batches[0].schema)
+
+    total = 0
+    for i, next_batch in enumerate(reader):
+        assert next_batch.equals(batches[i])
+        total += 1
+
+    assert total == len(batches)
+
+    with pytest.raises(StopIteration):
+        reader.get_next_batch()
+
+
+def test_stream_read_all(stream_fixture):
+    _, batches = stream_fixture.write_batches()
+    file_contents = pa.BufferReader(stream_fixture.get_source())
+    reader = pa.open_stream(file_contents)
+
+    result = reader.read_all()
+    expected = pa.Table.from_batches(batches)
+    assert result.equals(expected)
+
+
+def test_stream_read_pandas(stream_fixture):
+    frames, _ = stream_fixture.write_batches()
+    file_contents = stream_fixture.get_source()
+    reader = pa.open_stream(file_contents)
+    result = reader.read_pandas()
+
+    expected = pd.concat(frames)
+    assert_frame_equal(result, expected)
+
+
+@pytest.fixture
+def example_messages(stream_fixture):
+    _, batches = stream_fixture.write_batches()
+    file_contents = stream_fixture.get_source()
+    buf_reader = pa.BufferReader(file_contents)
+    reader = pa.MessageReader.open_stream(buf_reader)
+    return batches, list(reader)
+
+
+def test_message_ctors_no_segfault():
+    with pytest.raises(TypeError):
+        repr(pa.Message())
+
+    with pytest.raises(TypeError):
+        repr(pa.MessageReader())
+
+
+def test_message_reader(example_messages):
+    _, messages = example_messages
+
+    assert len(messages) == 6
+    assert messages[0].type == 'schema'
+    for msg in messages[1:]:
+        assert msg.type == 'record batch'
+
+
+def test_message_serialize_read_message(example_messages):
+    _, messages = example_messages
+
+    msg = messages[0]
+    buf = msg.serialize()
+
+    restored = pa.read_message(buf)
+    restored2 = pa.read_message(pa.BufferReader(buf))
+    restored3 = pa.read_message(buf.to_pybytes())
+
+    assert msg.equals(restored)
+    assert msg.equals(restored2)
+    assert msg.equals(restored3)
+
+
+def test_message_read_record_batch(example_messages):
+    batches, messages = example_messages
+
+    for batch, message in zip(batches, messages[1:]):
+        read_batch = pa.read_record_batch(message, batch.schema)
+        assert read_batch.equals(batch)
+
+
+# ----------------------------------------------------------------------
+# Socket streaming testa
+
+
+class StreamReaderServer(threading.Thread):
+
+    def init(self, do_read_all):
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.bind(('127.0.0.1', 0))
+        self._sock.listen(1)
+        host, port = self._sock.getsockname()
+        self._do_read_all = do_read_all
+        self._schema = None
+        self._batches = []
+        self._table = None
+        return port
+
+    def run(self):
+        connection, client_address = self._sock.accept()
+        try:
+            source = connection.makefile(mode='rb')
+            reader = pa.open_stream(source)
+            self._schema = reader.schema
+            if self._do_read_all:
+                self._table = reader.read_all()
+            else:
+                for i, batch in enumerate(reader):
+                    self._batches.append(batch)
+        finally:
+            connection.close()
+
+    def get_result(self):
+        return(self._schema, self._table if self._do_read_all
+               else self._batches)
+
+
+class SocketStreamFixture(IpcFixture):
+
+    def __init__(self):
+        # XXX(wesm): test will decide when to start socket server. This should
+        # probably be refactored
         pass
 
     def start_server(self, do_read_all):
-        self._server = TestSocket.StreamReaderServer()
+        self._server = StreamReaderServer()
         port = self._server.init(do_read_all)
         self._server.start()
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.connect(('127.0.0.1', port))
-        self.sink = self._get_sink()
+        self.sink = self.get_sink()
 
     def stop_and_get_result(self):
         import struct
@@ -329,38 +426,40 @@ class TestSocket(MessagingTest, unittest.TestCase):
         self._server.join()
         return self._server.get_result()
 
-    def _get_sink(self):
+    def get_sink(self):
         return self._sock.makefile(mode='wb')
 
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
 
-    def test_simple_roundtrip(self):
-        self.start_server(do_read_all=False)
-        _, writer_batches = self.write_batches()
-        reader_schema, reader_batches = self.stop_and_get_result()
 
-        assert reader_schema.equals(writer_batches[0].schema)
-        assert len(reader_batches) == len(writer_batches)
-        for i, batch in enumerate(writer_batches):
-            assert reader_batches[i].equals(batch)
-
-    def test_read_all(self):
-        self.start_server(do_read_all=True)
-        _, writer_batches = self.write_batches()
-        _, result = self.stop_and_get_result()
-
-        expected = pa.Table.from_batches(writer_batches)
-        assert result.equals(expected)
+@pytest.fixture
+def socket_fixture():
+    return SocketStreamFixture()
 
 
-class TestInMemoryFile(TestFile):
+def test_socket_simple_roundtrip(socket_fixture):
+    socket_fixture.start_server(do_read_all=False)
+    _, writer_batches = socket_fixture.write_batches()
+    reader_schema, reader_batches = socket_fixture.stop_and_get_result()
 
-    def _get_sink(self):
-        return pa.BufferOutputStream()
+    assert reader_schema.equals(writer_batches[0].schema)
+    assert len(reader_batches) == len(writer_batches)
+    for i, batch in enumerate(writer_batches):
+        assert reader_batches[i].equals(batch)
 
-    def _get_source(self):
-        return self.sink.get_result()
+
+def test_socket_read_all(socket_fixture):
+    socket_fixture.start_server(do_read_all=True)
+    _, writer_batches = socket_fixture.write_batches()
+    _, result = socket_fixture.stop_and_get_result()
+
+    expected = pa.Table.from_batches(writer_batches)
+    assert result.equals(expected)
+
+
+# ----------------------------------------------------------------------
+# Miscellaneous IPC tests
 
 
 def test_ipc_zero_copy_numpy():
@@ -369,7 +468,7 @@ def test_ipc_zero_copy_numpy():
     batch = pa.RecordBatch.from_pandas(df)
     sink = pa.BufferOutputStream()
     write_file(batch, sink)
-    buffer = sink.get_result()
+    buffer = sink.getvalue()
     reader = pa.BufferReader(buffer)
 
     batches = read_file(reader)
@@ -389,7 +488,7 @@ def test_ipc_stream_no_batches():
     writer = pa.RecordBatchStreamWriter(sink, table.schema)
     writer.close()
 
-    source = sink.get_result()
+    source = sink.getvalue()
     reader = pa.open_stream(source)
     result = reader.read_all()
 

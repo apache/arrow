@@ -636,7 +636,8 @@ cdef class ParquetReader:
         self.allocator = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source, FileMetaData metadata=None):
+    def open(self, object source, c_bool use_memory_map=True,
+             FileMetaData metadata=None):
         cdef:
             shared_ptr[RandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -648,7 +649,7 @@ cdef class ParquetReader:
 
         self.source = source
 
-        get_reader(source, &rd_handle)
+        get_reader(source, use_memory_map, &rd_handle)
         with nogil:
             check_status(OpenFile(rd_handle, self.allocator, properties,
                                   c_metadata, &self.reader))

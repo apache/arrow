@@ -239,7 +239,13 @@ cdef get_input_stream(object source, shared_ptr[InputStream]* out):
     cdef:
         shared_ptr[RandomAccessFile] file_handle
 
-    get_reader(source, &file_handle)
+    try:
+        source = as_buffer(source)
+    except TypeError:
+        # Non-buffer-like
+        pass
+
+    get_reader(source, True, &file_handle)
     out[0] = <shared_ptr[InputStream]> file_handle
 
 
@@ -334,7 +340,12 @@ cdef class _RecordBatchFileReader:
         pass
 
     def _open(self, source, footer_offset=None):
-        get_reader(source, &self.file)
+        try:
+            source = as_buffer(source)
+        except TypeError:
+            pass
+
+        get_reader(source, True, &self.file)
 
         cdef int64_t offset = 0
         if footer_offset is not None:
@@ -522,7 +533,7 @@ def read_schema(obj):
     if isinstance(obj, Message):
         raise NotImplementedError(type(obj))
 
-    get_reader(obj, &cpp_file)
+    get_reader(obj, True, &cpp_file)
 
     with nogil:
         check_status(ReadSchema(cpp_file.get(), &result))
