@@ -357,7 +357,8 @@ cdef class NativeFile:
     cdef read_handle(self, shared_ptr[RandomAccessFile]* file)
     cdef write_handle(self, shared_ptr[OutputStream]* file)
 
-cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader)
+cdef get_reader(object source, c_bool use_memory_map,
+                shared_ptr[RandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[OutputStream]* writer)
 
 cdef dict box_metadata(const CKeyValueMetadata* sp_metadata)

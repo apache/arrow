@@ -75,9 +75,9 @@ cdef class FeatherReader:
     def __cinit__(self):
         pass
 
-    def open(self, source):
+    def open(self, source, c_bool use_memory_map=True):
         cdef shared_ptr[RandomAccessFile] reader
-        get_reader(source, &reader)
+        get_reader(source, use_memory_map, &reader)
 
         with nogil:
             check_status(CFeatherReader.Open(reader, &self.reader))

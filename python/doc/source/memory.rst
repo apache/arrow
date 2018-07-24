@@ -206,7 +206,7 @@ file interfaces that can read and write to Arrow Buffers.
    writer = pa.BufferOutputStream()
    writer.write(b'hello, friends')
 
-   buf = writer.get_result()
+   buf = writer.getvalue()
    buf
    buf.size
    reader = pa.BufferReader(buf)

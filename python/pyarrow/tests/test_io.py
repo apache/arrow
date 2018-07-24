@@ -545,7 +545,7 @@ def test_memory_output_stream():
     for i in range(K):
         f.write(val)
 
-    buf = f.get_result()
+    buf = f.getvalue()
 
     assert len(buf) == len(val) * K
     assert buf.to_pybytes() == val * K
@@ -554,7 +554,7 @@ def test_memory_output_stream():
 def test_inmemory_write_after_closed():
     f = pa.BufferOutputStream()
     f.write(b'ok')
-    f.get_result()
+    f.getvalue()
 
     with pytest.raises(ValueError):
         f.write(b'not ok')
@@ -586,7 +586,7 @@ def test_nativefile_write_memoryview():
     f.write(arr)
     f.write(bytearray(data))
 
-    buf = f.get_result()
+    buf = f.getvalue()
 
     assert buf.to_pybytes() == data * 2
 
@@ -610,7 +610,7 @@ def test_mock_output_stream():
         f1.write(val)
         f2.write(val)
 
-    assert f1.size() == len(f2.get_result())
+    assert f1.size() == len(f2.getvalue())
 
     # Do the same test with a pandas DataFrame
     val = pd.DataFrame({'a': [1, 2, 3]})
@@ -627,7 +627,7 @@ def test_mock_output_stream():
     stream_writer1.close()
     stream_writer2.close()
 
-    assert f1.size() == len(f2.get_result())
+    assert f1.size() == len(f2.getvalue())
 
 
 # ----------------------------------------------------------------------
