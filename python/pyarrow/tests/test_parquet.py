@@ -1724,6 +1724,8 @@ def test_read_table_doesnt_warn():
 def _test_write_to_dataset_with_partitions(base_path,
                                            filesystem=None,
                                            schema=None):
+    import pyarrow.parquet as pq
+
     # ARROW-1400
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
