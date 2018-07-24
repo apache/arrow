@@ -154,7 +154,6 @@ def test_pandas_parquet_2_0_rountrip(tmpdir, chunk_size):
     tm.assert_frame_equal(df, df_read, check_categorical=False)
 
 
-@parquet
 def test_chunked_table_write():
     # ARROW-232
     df = alltypes_sample(size=10)
@@ -172,7 +171,6 @@ def test_chunked_table_write():
     _check_roundtrip(table, version='2.0')
 
 
-@parquet
 def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
     # The nanosecond->us conversion is a nuisance, so we just avoid it here
@@ -189,7 +187,6 @@ def test_empty_table_roundtrip():
     _check_roundtrip(table, version='2.0')
 
 
-@parquet
 def test_empty_lists_table_roundtrip():
     # ARROW-2744: Shouldn't crash when writing an array of empty lists
     arr = pa.array([[], []], type=pa.list_(pa.int32()))
@@ -197,7 +194,6 @@ def test_empty_lists_table_roundtrip():
     _check_roundtrip(table)
 
 
-@parquet
 def test_pandas_parquet_datetime_tz():
     import pyarrow.parquet as pq
 
@@ -996,14 +992,13 @@ def test_read_partitioned_directory(tmpdir):
     _partition_test_for_filesystem(fs, base_path)
 
 
-@parquet
 def test_create_parquet_dataset_multi_threaded(tmpdir):
+    import pyarrow.parquet as pq
+
     fs = LocalFileSystem.get_instance()
     base_path = str(tmpdir)
 
     _partition_test_for_filesystem(fs, base_path)
-
-    import pyarrow.parquet as pq
 
     manifest = pq.ParquetManifest(base_path, filesystem=fs,
                                   metadata_nthreads=1)
@@ -1015,7 +1010,6 @@ def test_create_parquet_dataset_multi_threaded(tmpdir):
     assert len(partitions.levels) == len(manifest.partitions.levels)
 
 
-@parquet
 def test_equivalency(tmpdir):
     import pyarrow.parquet as pq
 
@@ -1626,7 +1620,6 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
     return paths
 
 
-@parquet
 def test_ignore_private_directories(tmpdir):
     import pyarrow.parquet as pq
 
@@ -1643,7 +1636,6 @@ def test_ignore_private_directories(tmpdir):
     assert set(paths) == set(x.path for x in dataset.pieces)
 
 
-@parquet
 def test_ignore_hidden_files(tmpdir):
     import pyarrow.parquet as pq
 
@@ -1663,7 +1655,6 @@ def test_ignore_hidden_files(tmpdir):
     assert set(paths) == set(x.path for x in dataset.pieces)
 
 
-@parquet
 def test_multiindex_duplicate_values(tmpdir):
     num_rows = 3
     numbers = list(range(num_rows))
@@ -1816,7 +1807,6 @@ def test_write_to_dataset_with_partitions(tmpdir):
     _test_write_to_dataset_with_partitions(str(tmpdir))
 
 
-@parquet
 def test_write_to_dataset_with_partitions_and_schema(tmpdir):
     schema = pa.schema([pa.field('group1', type=pa.string()),
                         pa.field('group2', type=pa.string()),
@@ -1826,7 +1816,6 @@ def test_write_to_dataset_with_partitions_and_schema(tmpdir):
     _test_write_to_dataset_with_partitions(str(tmpdir), schema=schema)
 
 
-@parquet
 def test_write_to_dataset_no_partitions(tmpdir):
     _test_write_to_dataset_no_partitions(str(tmpdir))
 
