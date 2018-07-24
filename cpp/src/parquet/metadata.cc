@@ -66,7 +66,7 @@ static std::shared_ptr<RowGroupStatistics> MakeTypedColumnStats(
 
 std::shared_ptr<RowGroupStatistics> MakeColumnStats(
     const format::ColumnMetaData& meta_data, const ColumnDescriptor* descr) {
-  switch (meta_data.type) {
+  switch (static_cast<Type::type>(meta_data.type)) {
     case Type::BOOLEAN:
       return MakeTypedColumnStats<BooleanType>(meta_data, descr);
     case Type::INT32:

@@ -369,11 +369,6 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   int16_t max_definition_level_;
   int16_t max_repetition_level_;
-
-  // When this descriptor is part of a real schema (and not being used for
-  // testing purposes), maintain a link back to the parent SchemaDescriptor to
-  // enable reverse graph traversals
-  const SchemaDescriptor* schema_descr_;
 };
 
 // Container for the converted Parquet schema with a computed information from

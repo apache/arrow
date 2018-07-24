@@ -690,8 +690,7 @@ ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,
                                    const SchemaDescriptor* schema_descr)
     : node_(node),
       max_definition_level_(max_definition_level),
-      max_repetition_level_(max_repetition_level),
-      schema_descr_(schema_descr) {
+      max_repetition_level_(max_repetition_level) {
   if (!node_->is_primitive()) {
     throw ParquetException("Must be a primitive type");
   }

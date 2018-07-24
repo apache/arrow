@@ -165,7 +165,7 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
         file_reader_(reader),
         next_row_group_(0) {}
 
-  ~RowGroupRecordBatchReader() {}
+  ~RowGroupRecordBatchReader() override {}
 
   std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
 
