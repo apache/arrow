@@ -1033,6 +1033,25 @@ def test_read_partitioned_directory(tmpdir):
 
 
 @parquet
+def test_create_parquet_dataset_multi_threaded(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    _partition_test_for_filesystem(fs, base_path)
+
+    import pyarrow.parquet as pq
+
+    manifest = pq.ParquetManifest(base_path, filesystem=fs,
+                                  metadata_nthreads=1)
+    dataset = pq.ParquetDataset(base_path, filesystem=fs, metadata_nthreads=16)
+    assert len(dataset.pieces) > 0
+    partitions = dataset.partitions
+    assert len(partitions.partition_names) > 0
+    assert partitions.partition_names == manifest.partitions.partition_names
+    assert len(partitions.levels) == len(manifest.partitions.levels)
+
+
+@parquet
 def test_equivalency(tmpdir):
     fs = LocalFileSystem.get_instance()
     base_path = str(tmpdir)
