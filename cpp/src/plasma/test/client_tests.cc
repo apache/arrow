@@ -216,7 +216,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   // Objects are still used by client2_.
   result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
   ARROW_CHECK_OK(result);
-  // The object is occupies and it should not be deleted right now.
+  // The object is used and it should not be deleted right now.
   bool has_object = false;
   ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
   ASSERT_TRUE(has_object);
@@ -226,7 +226,8 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
   // client2_ won't send the release request immediately because the trigger
   // condition is not reached. The release is only added to release cache.
   object_buffers.clear();
-  // After decreasing the ref count, the objects are now deleted.
+  // The reference count went to zero, but the objects are still in the release
+  // cache.
   ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
   ASSERT_TRUE(has_object);
   ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
