@@ -16,6 +16,7 @@
 # under the License.
 
 from collections import defaultdict
+from concurrent import futures
 import os
 import inspect
 import json
@@ -634,22 +635,31 @@ class ParquetManifest(object):
 
     """
     def __init__(self, dirpath, filesystem=None, pathsep='/',
-                 partition_scheme='hive'):
+                 partition_scheme='hive', metadata_nthreads=1):
         self.filesystem = filesystem or _get_fs_from_path(dirpath)
         self.pathsep = pathsep
         self.dirpath = dirpath
         self.partition_scheme = partition_scheme
         self.partitions = ParquetPartitions()
         self.pieces = []
+        self._metadata_nthreads = metadata_nthreads
+        self._thread_pool = futures.ThreadPoolExecutor(
+            max_workers=metadata_nthreads)
 
         self.common_metadata_path = None
         self.metadata_path = None
 
         self._visit_level(0, self.dirpath, [])
 
+        # Due to concurrency, pieces will potentially by out of order if the
+        # dataset is partitioned so we sort them to yield stable results
+        self.pieces.sort(key=lambda piece: piece.path)
+
         if self.common_metadata_path is None:
             # _common_metadata is a subset of _metadata
             self.common_metadata_path = self.metadata_path
+
+        self._thread_pool.shutdown()
 
     def _visit_level(self, level, base_path, part_keys):
         fs = self.filesystem
@@ -690,13 +700,25 @@ class ParquetManifest(object):
                 file_name in EXCLUDED_PARQUET_PATHS)
 
     def _visit_directories(self, level, directories, part_keys):
+        futures_list = []
         for path in directories:
             head, tail = _path_split(path, self.pathsep)
             name, key = _parse_hive_partition(tail)
 
             index = self.partitions.get_index(level, name, key)
             dir_part_keys = part_keys + [(name, index)]
-            self._visit_level(level + 1, path, dir_part_keys)
+            # If you have less threads than levels, the wait call will block
+            # indefinitely due to multiple waits within a thread.
+            if level < self._metadata_nthreads:
+                future = self._thread_pool.submit(self._visit_level,
+                                                  level + 1,
+                                                  path,
+                                                  dir_part_keys)
+                futures_list.append(future)
+            else:
+                self._visit_level(level + 1, path, dir_part_keys)
+        if futures_list:
+            futures.wait(futures_list)
 
     def _parse_partition(self, dirname):
         if self.partition_scheme == 'hive':
@@ -759,10 +781,14 @@ class ParquetDataset(object):
         List of filters to apply, like ``[('x', '=', 0), ...]``. This
         implements partition-level (hive) filtering only, i.e., to prevent the
         loading of some files of the dataset.
+    metadata_nthreads: int, default 1
+        How many threads to allow the thread pool which is used to read the
+        dataset metadata. Increasing this is helpful to read partitioned
+        datasets.
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
-                 filters=None):
+                 filters=None, metadata_nthreads=1):
         if filesystem is None:
             a_path = path_or_paths
             if isinstance(a_path, list):
@@ -776,7 +802,8 @@ class ParquetDataset(object):
         (self.pieces,
          self.partitions,
          self.common_metadata_path,
-         self.metadata_path) = _make_manifest(path_or_paths, self.fs)
+         self.metadata_path) = _make_manifest(
+            path_or_paths, self.fs, metadata_nthreads=metadata_nthreads)
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
@@ -940,7 +967,7 @@ def _ensure_filesystem(fs):
         return fs
 
 
-def _make_manifest(path_or_paths, fs, pathsep='/'):
+def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
     partitions = None
     common_metadata_path = None
     metadata_path = None
@@ -951,7 +978,8 @@ def _make_manifest(path_or_paths, fs, pathsep='/'):
 
     if is_path(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
-                                   pathsep=fs.pathsep)
+                                   pathsep=fs.pathsep,
+                                   metadata_nthreads=metadata_nthreads)
         common_metadata_path = manifest.common_metadata_path
         metadata_path = manifest.metadata_path
         pieces = manifest.pieces
