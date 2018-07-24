@@ -114,6 +114,7 @@ cdef extern from "plasma/client.h" nogil:
         CStatus Transfer(const char* addr, int port,
                          const CUniqueID& object_id)
 
+        CStatus Delete(const c_vector[CUniqueID] object_ids)
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -646,6 +647,22 @@ cdef class PlasmaClient:
         """
         with nogil:
             check_status(self.client.get().Disconnect())
+
+    def delete(self, object_ids):
+        """
+        Delete the objects with the given IDs from other object store.
+
+        Parameters
+        ----------
+        object_ids : list
+            A list of strings used to identify the objects.
+        """
+        cdef c_vector[CUniqueID] ids
+        cdef ObjectID object_id
+        for object_id in object_ids:
+            ids.push_back(object_id.data)
+        with nogil:
+            check_status(self.client.get().Delete(ids))
 
 
 def connect(store_socket_name, manager_socket_name, int release_delay,
