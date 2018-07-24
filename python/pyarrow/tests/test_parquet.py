@@ -1643,27 +1643,50 @@ def test_dataset_read_pandas_common_metadata(tmpdir, preserve_index):
     tm.assert_frame_equal(result, expected)
 
 
+def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
+    test_data = []
+    paths = []
+    for i in range(nfiles):
+        df = _test_dataframe(file_nrows, seed=i)
+        path = pjoin(base_path, '{0}.parquet'.format(i))
+
+        test_data.append(_write_table(df, path))
+        paths.append(path)
+    return paths
+
+
 @parquet
 def test_ignore_private_directories(tmpdir):
     import pyarrow.parquet as pq
 
-    nfiles = 10
-    size = 5
+    dirpath = tmpdir.join(guid()).strpath
+    os.mkdir(dirpath)
+
+    paths = _make_example_multifile_dataset(dirpath, nfiles=10,
+                                            file_nrows=5)
+
+    # private directory
+    os.mkdir(pjoin(dirpath, '_impala_staging'))
+
+    dataset = pq.ParquetDataset(dirpath)
+    assert set(paths) == set(x.path for x in dataset.pieces)
+
+
+@parquet
+def test_ignore_hidden_files(tmpdir):
+    import pyarrow.parquet as pq
 
     dirpath = tmpdir.join(guid()).strpath
     os.mkdir(dirpath)
 
-    test_data = []
-    paths = []
-    for i in range(nfiles):
-        df = _test_dataframe(size, seed=i)
-        path = pjoin(dirpath, '{0}.parquet'.format(i))
+    paths = _make_example_multifile_dataset(dirpath, nfiles=10,
+                                            file_nrows=5)
 
-        test_data.append(_write_table(df, path))
-        paths.append(path)
+    with open(pjoin(dirpath, '.DS_Store'), 'wb') as f:
+        f.write(b'gibberish')
 
-    # private directory
-    os.mkdir(pjoin(dirpath, '_impala_staging'))
+    with open(pjoin(dirpath, '.private'), 'wb') as f:
+        f.write(b'gibberish')
 
     dataset = pq.ParquetDataset(dirpath)
     assert set(paths) == set(x.path for x in dataset.pieces)
