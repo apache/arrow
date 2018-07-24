@@ -164,6 +164,22 @@ class TestStream(MessagingTest, unittest.TestCase):
                  .read_all())
         assert_frame_equal(table.to_pandas(), df)
 
+    def test_open_stream_from_buffer(self):
+        # ARROW-2859
+        _, batches = self.write_batches()
+        source = self._get_source()
+
+        reader1 = pa.open_stream(source)
+        reader2 = pa.open_stream(pa.BufferReader(source))
+        reader3 = pa.RecordBatchStreamReader(source)
+
+        result1 = reader1.read_all()
+        result2 = reader2.read_all()
+        result3 = reader3.read_all()
+
+        assert result1.equals(result2)
+        assert result1.equals(result3)
+
     def test_stream_write_dispatch(self):
         # ARROW-1616
         df = pd.DataFrame({
