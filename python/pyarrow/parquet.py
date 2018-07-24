@@ -580,6 +580,49 @@ class ParquetPartitions(object):
 
         return self.levels[level].get_index(key)
 
+    def filter_accepts_partition(self, part_key, filter, level):
+        p_column, p_value_index = part_key
+        f_column, op, f_value = filter
+        if p_column != f_column:
+            return True
+
+        f_type = type(f_value)
+
+        if isinstance(f_value, set):
+            if not f_value:
+                raise ValueError("Cannot use empty set as filter value")
+            if op not in {'in', 'not in'}:
+                raise ValueError("Op '%s' not supported with set value",
+                                 op)
+            if len(set([type(item) for item in f_value])) != 1:
+                raise ValueError("All elements of set '%s' must be of"
+                                 " same type", f_value)
+            f_type = type(next(iter(f_value)))
+
+        p_value = f_type((self.levels[level]
+                          .dictionary[p_value_index]
+                          .as_py()))
+
+        if op == "=" or op == "==":
+            return p_value == f_value
+        elif op == "!=":
+            return p_value != f_value
+        elif op == '<':
+            return p_value < f_value
+        elif op == '>':
+            return p_value > f_value
+        elif op == '<=':
+            return p_value <= f_value
+        elif op == '>=':
+            return p_value >= f_value
+        elif op == 'in':
+            return p_value in f_value
+        elif op == 'not in':
+            return p_value not in f_value
+        else:
+            raise ValueError("'%s' is not a valid operator in predicates.",
+                             filter[1])
+
 
 def is_path(x):
     return (isinstance(x, six.string_types)
@@ -642,7 +685,8 @@ class ParquetManifest(object):
             self._push_pieces(filtered_files, part_keys)
 
     def _should_silently_exclude(self, file_name):
-        return (file_name.endswith('.crc') or
+        return (file_name.endswith('.crc') or  # Checksums
+                file_name.startswith('.') or  # Hidden files
                 file_name in EXCLUDED_PARQUET_PATHS)
 
     def _visit_directories(self, level, directories, part_keys):
@@ -865,53 +909,10 @@ class ParquetDataset(object):
         return open_file
 
     def _filter(self, filters):
-        def filter_accepts_partition(part_key, filter, level):
-
-            p_column, p_value_index = part_key
-            f_column, op, f_value = filter
-            if p_column != f_column:
-                return True
-
-            f_type = type(f_value)
-
-            if isinstance(f_value, set):
-                if not f_value:
-                    raise ValueError("Cannot use empty set as filter value")
-                if op not in {'in', 'not in'}:
-                    raise ValueError("Op '%s' not supported with set value",
-                                     op)
-                if len(set([type(item) for item in f_value])) != 1:
-                    raise ValueError("All elements of set '%s' must be of"
-                                     " same type", f_value)
-                f_type = type(next(iter(f_value)))
-
-            p_value = f_type((self.partitions
-                                  .levels[level]
-                                  .dictionary[p_value_index]
-                                  .as_py()))
-
-            if op == "=" or op == "==":
-                return p_value == f_value
-            elif op == "!=":
-                return p_value != f_value
-            elif op == '<':
-                return p_value < f_value
-            elif op == '>':
-                return p_value > f_value
-            elif op == '<=':
-                return p_value <= f_value
-            elif op == '>=':
-                return p_value >= f_value
-            elif op == 'in':
-                return p_value in f_value
-            elif op == 'not in':
-                return p_value not in f_value
-            else:
-                raise ValueError("'%s' is not a valid operator in predicates.",
-                                 filter[1])
+        accepts_filter = self.partitions.filter_accepts_partition
 
         def one_filter_accepts(piece, filter):
-            return all(filter_accepts_partition(part_key, filter, level)
+            return all(accepts_filter(part_key, filter, level)
                        for level, part_key in enumerate(piece.partition_keys))
 
         def all_filters_accept(piece):
