@@ -95,7 +95,7 @@ Status RecordBatchBuilder::CreateBuilders() {
 
 Status RecordBatchBuilder::InitBuilders() {
   for (int i = 0; i < this->num_fields(); ++i) {
-    RETURN_NOT_OK(raw_field_builders_[i]->Init(initial_capacity_));
+    RETURN_NOT_OK(raw_field_builders_[i]->Reserve(initial_capacity_));
   }
   return Status::OK();
 }

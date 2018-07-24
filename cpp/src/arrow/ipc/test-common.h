@@ -100,7 +100,7 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
   std::shared_ptr<PoolBuffer> data;
   RETURN_NOT_OK(test::MakeRandomInt32PoolBuffer(length, pool, &data));
   Int32Builder builder(int32(), pool);
-  RETURN_NOT_OK(builder.Init(length));
+  RETURN_NOT_OK(builder.Resize(length));
   if (include_nulls) {
     std::shared_ptr<PoolBuffer> valid_bytes;
     RETURN_NOT_OK(test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes));

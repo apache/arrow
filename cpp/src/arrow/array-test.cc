@@ -268,7 +268,7 @@ TEST_F(TestArray, TestCopy) {}
 TEST_F(TestBuilder, TestReserve) {
   UInt8Builder builder(pool_);
 
-  ASSERT_OK(builder.Init(10));
+  ASSERT_OK(builder.Resize(10));
   ASSERT_EQ(10, builder.capacity());
 
   ASSERT_OK(builder.Reserve(30));

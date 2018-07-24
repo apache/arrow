@@ -91,22 +91,21 @@ class ARROW_EXPORT ArrayBuilder {
   /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int64_t length);
 
-  /// Allocates initial capacity requirements for the builder.  In most
-  /// cases subclasses should override and call their parent class's
-  /// method as well.
-  virtual Status Init(int64_t capacity);
+  /// \brief Ensure that at least the indicated number of elements can be appended to
+  /// the builder without a reallocation. Does not account for reallocations
+  /// that may be due to variable size data, like binary values.
+  /// \param[in] capacity the minimum number of additional array values
+  /// \return Status
+  virtual Status Resize(int64_t capacity);
 
-  /// Resizes the null_bitmap array.  In most
-  /// cases subclasses should override and call their parent class's
-  /// method as well.
-  virtual Status Resize(int64_t new_bits);
+  /// \brief Ensure that there is enough space allocated to add the indicated
+  /// number of elements without any further calls to Resize
+  /// \param[in] additional_capacity the number of additional array values
+  /// \return Status
+  Status Reserve(int64_t additional_capacity);
 
   /// Reset the builder.
   virtual void Reset();
-
-  /// Ensures there is enough space for adding the number of elements by checking
-  /// capacity and calling Resize if necessary.
-  Status Reserve(int64_t elements);
 
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
@@ -114,7 +113,9 @@ class ARROW_EXPORT ArrayBuilder {
   Status Advance(int64_t elements);
 
   ARROW_DEPRECATED("Use Finish instead")
-  std::shared_ptr<PoolBuffer> null_bitmap() const { return null_bitmap_; }
+  std::shared_ptr<PoolBuffer> null_bitmap() const {
+    return std::dynamic_pointer_cast<PoolBuffer>(null_bitmap_);
+  }
 
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
@@ -183,7 +184,7 @@ class ARROW_EXPORT ArrayBuilder {
   MemoryPool* pool_;
 
   // When null_bitmap are first appended to the builder, the null bitmap is allocated
-  std::shared_ptr<PoolBuffer> null_bitmap_;
+  std::shared_ptr<ResizableBuffer> null_bitmap_;
   int64_t null_count_;
   uint8_t* null_bitmap_data_;
 
@@ -366,15 +367,12 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   Status Append(const std::vector<value_type>& values);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
-  Status Init(int64_t capacity) override;
   void Reset() override;
 
-  /// Increase the capacity of the builder to accommodate at least the indicated
-  /// number of elements
   Status Resize(int64_t capacity) override;
 
  protected:
-  std::shared_ptr<PoolBuffer> data_;
+  std::shared_ptr<ResizableBuffer> data_;
   value_type* raw_data_;
 };
 
@@ -393,7 +391,6 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
 
   using PrimitiveBuilder<T>::Append;
   using PrimitiveBuilder<T>::AppendValues;
-  using PrimitiveBuilder<T>::Init;
   using PrimitiveBuilder<T>::Resize;
   using PrimitiveBuilder<T>::Reserve;
 
@@ -465,15 +462,11 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   ARROW_DEPRECATED("Use Finish instead")
   std::shared_ptr<Buffer> data() const { return data_; }
 
-  Status Init(int64_t capacity) override;
   void Reset() override;
-
-  /// Increase the capacity of the builder to accommodate at least the indicated
-  /// number of elements
   Status Resize(int64_t capacity) override;
 
  protected:
-  std::shared_ptr<PoolBuffer> data_;
+  std::shared_ptr<ResizableBuffer> data_;
   uint8_t* raw_data_;
 
   uint8_t int_size_;
@@ -829,15 +822,11 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
-  Status Init(int64_t capacity) override;
   void Reset() override;
-
-  /// Increase the capacity of the builder to accommodate at least the indicated
-  /// number of elements
   Status Resize(int64_t capacity) override;
 
  protected:
-  std::shared_ptr<PoolBuffer> data_;
+  std::shared_ptr<ResizableBuffer> data_;
   uint8_t* raw_data_;
 };
 
@@ -864,7 +853,6 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
               const std::shared_ptr<DataType>& type = NULLPTR);
 
-  Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
   void Reset() override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -921,12 +909,13 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 
   Status AppendNull();
 
-  Status Init(int64_t elements) override;
   void Reset() override;
   Status Resize(int64_t capacity) override;
+
   /// \brief Ensures there is enough allocated capacity to append the indicated
   /// number of bytes to the value data buffer without additional allocations
   Status ReserveData(int64_t elements);
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \return size of values buffer so far
@@ -1019,7 +1008,6 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status Append(const std::string& value);
   Status AppendNull();
 
-  Status Init(int64_t elements) override;
   void Reset() override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -1169,7 +1157,6 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   /// \brief Append a whole dense array to the builder
   Status AppendArray(const Array& array);
 
-  Status Init(int64_t elements) override;
   void Reset() override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -1228,7 +1215,6 @@ class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
   /// \brief Append a whole dense array to the builder
   Status AppendArray(const Array& array);
 
-  Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
