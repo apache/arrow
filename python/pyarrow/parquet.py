@@ -643,7 +643,8 @@ class ParquetManifest(object):
 
     def _should_silently_exclude(self, file_name):
         return (file_name.endswith('.crc') or
-                file_name in EXCLUDED_PARQUET_PATHS)
+                file_name in EXCLUDED_PARQUET_PATHS or
+                file_name.startswith('.'))
 
     def _visit_directories(self, level, directories, part_keys):
         for path in directories:
