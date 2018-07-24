@@ -396,7 +396,7 @@ def test_pandas_parquet_native_file_roundtrip(tmpdir):
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
     _write_table(arrow_table, imos, version="2.0")
-    buf = imos.get_result()
+    buf = imos.getvalue()
     reader = pa.BufferReader(buf)
     df_read = _read_table(reader).to_pandas()
     tm.assert_frame_equal(df, df_read)
@@ -424,7 +424,7 @@ def test_parquet_incremental_file_build(tmpdir):
 
     writer.close()
 
-    buf = out.get_result()
+    buf = out.getvalue()
     result = _read_table(pa.BufferReader(buf))
 
     expected = pd.concat(frames, ignore_index=True)
@@ -439,7 +439,7 @@ def test_read_pandas_column_subset(tmpdir):
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
     _write_table(arrow_table, imos, version="2.0")
-    buf = imos.get_result()
+    buf = imos.getvalue()
     reader = pa.BufferReader(buf)
     df_read = pq.read_pandas(reader, columns=['strings', 'uint8']).to_pandas()
     tm.assert_frame_equal(df[['strings', 'uint8']], df_read)
@@ -451,7 +451,7 @@ def test_pandas_parquet_empty_roundtrip(tmpdir):
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
     _write_table(arrow_table, imos, version="2.0")
-    buf = imos.get_result()
+    buf = imos.getvalue()
     reader = pa.BufferReader(buf)
     df_read = _read_table(reader).to_pandas()
     tm.assert_frame_equal(df, df_read)
@@ -2108,7 +2108,7 @@ def test_parquet_writer_context_obj(tmpdir):
 
             frames.append(df.copy())
 
-    buf = out.get_result()
+    buf = out.getvalue()
     result = _read_table(pa.BufferReader(buf))
 
     expected = pd.concat(frames, ignore_index=True)
@@ -2143,7 +2143,7 @@ def test_parquet_writer_context_obj_with_exception(tmpdir):
     except Exception as e:
         assert str(e) == error_text
 
-    buf = out.get_result()
+    buf = out.getvalue()
     result = _read_table(pa.BufferReader(buf))
 
     expected = pd.concat(frames, ignore_index=True)

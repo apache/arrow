@@ -468,7 +468,7 @@ def test_ipc_zero_copy_numpy():
     batch = pa.RecordBatch.from_pandas(df)
     sink = pa.BufferOutputStream()
     write_file(batch, sink)
-    buffer = sink.get_result()
+    buffer = sink.getvalue()
     reader = pa.BufferReader(buffer)
 
     batches = read_file(reader)
@@ -488,7 +488,7 @@ def test_ipc_stream_no_batches():
     writer = pa.RecordBatchStreamWriter(sink, table.schema)
     writer.close()
 
-    source = sink.get_result()
+    source = sink.getvalue()
     reader = pa.open_stream(source)
     result = reader.read_all()
 
