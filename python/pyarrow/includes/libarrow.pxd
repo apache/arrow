@@ -221,10 +221,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CStatus AllocateResizableBuffer(CMemoryPool* pool, const int64_t size,
                                     shared_ptr[CResizableBuffer]* out)
 
-    cdef cppclass PoolBuffer(CResizableBuffer):
-        PoolBuffer()
-        PoolBuffer(CMemoryPool*)
-
     cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
