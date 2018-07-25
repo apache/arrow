@@ -654,12 +654,17 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
 
 
 def test_compare_schemas():
+    import pyarrow.parquet as pq
+    import pyarrow._parquet as _pq
+
     df = alltypes_sample(size=10000)
 
     fileh = make_sample_file(df)
     fileh2 = make_sample_file(df)
     fileh3 = make_sample_file(df[df.columns[::2]])
 
+    # ParquetSchema
+    assert isinstance(fileh.schema, pq.ParquetSchema)
     assert fileh.schema.equals(fileh.schema)
     assert fileh.schema == fileh.schema
     assert fileh.schema.equals(fileh2.schema)
@@ -668,6 +673,8 @@ def test_compare_schemas():
     assert not fileh.schema.equals(fileh3.schema)
     assert fileh.schema != fileh3.schema
 
+    # ColumnSchema
+    assert isinstance(fileh.schema[0], _pq.ColumnSchema)
     assert fileh.schema[0].equals(fileh.schema[0])
     assert fileh.schema[0] == fileh.schema[0]
     assert not fileh.schema[0].equals(fileh.schema[1])
