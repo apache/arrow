@@ -17,6 +17,8 @@
 
 os: Visual Studio 2015
 
+skip_tags: true
+
 environment:
   ARCH: "64"
   GENERATOR: Visual Studio 14 2015 Win64
@@ -26,16 +28,31 @@ environment:
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.version }}
   PYARROW_REF: {{ arrow.head }}
-  PARQUET_CPP_REF: master
+  PARQUET_CPP_REF: apache-parquet-cpp-1.4.0
 
 init:
   - set MINICONDA=C:\Miniconda35-x64
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
-build_script:
-  - mkdir wheels
+before_build:
+{%- if arrow.source == 'git' %}
+  # Clone git repository
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} %ARROW_SRC% || exit /B
   - git -C %ARROW_SRC% checkout {{ arrow.head }} || exit /B
+{%- elif arrow.source == 'dist' %}
+  # Download source archive
+  - curl -OL {{ arrow.archive_url }}
+  {%- if arrow.verify %}
+  # Verify the archive checksum
+  - curl -OL {{ arrow.checksum_url }}
+  - shasum -a 512 -c {{ arrow.checksum_filename }}
+  {%- endif %}
+  - mkdir %ARROW_SRC%
+  - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C %ARROW_SRC%
+{%- endif %}
+
+build_script:
+  - mkdir wheels
   - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
 
 after_build:

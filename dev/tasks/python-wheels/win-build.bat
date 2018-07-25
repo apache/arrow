@@ -30,14 +30,14 @@ conda install -n arrow -q -y -c conda-forge ^
 
 call activate arrow
 
-pushd %ARROW_SRC%
+@rem pushd %ARROW_SRC%
 
 @rem fix up symlinks
-git config core.symlinks true
-git reset --hard || exit /B
-git checkout "%PYARROW_REF%" || exit /B
+@rem git config core.symlinks true
+@rem git reset --hard || exit /B
+@rem git checkout "%PYARROW_REF%" || exit /B
 
-popd
+@rem popd
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
