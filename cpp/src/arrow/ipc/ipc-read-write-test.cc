@@ -507,7 +507,7 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
   void SetUp() {
     pool_ = default_memory_pool();
-    buffer_ = std::make_shared<PoolBuffer>(pool_);
+    ASSERT_OK(AllocateResizableBuffer(pool_, 0, &buffer_));
     sink_.reset(new io::BufferOutputStream(buffer_));
   }
   void TearDown() {}
@@ -549,7 +549,7 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
   MemoryPool* pool_;
 
   std::unique_ptr<io::BufferOutputStream> sink_;
-  std::shared_ptr<PoolBuffer> buffer_;
+  std::shared_ptr<ResizableBuffer> buffer_;
 };
 
 TEST_P(TestFileFormat, RoundTrip) {
@@ -573,7 +573,7 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
   void SetUp() {
     pool_ = default_memory_pool();
-    buffer_ = std::make_shared<PoolBuffer>(pool_);
+    ASSERT_OK(AllocateResizableBuffer(pool_, 0, &buffer_));
     sink_.reset(new io::BufferOutputStream(buffer_));
   }
   void TearDown() {}
@@ -611,7 +611,7 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
   MemoryPool* pool_;
 
   std::unique_ptr<io::BufferOutputStream> sink_;
-  std::shared_ptr<PoolBuffer> buffer_;
+  std::shared_ptr<ResizableBuffer> buffer_;
 };
 
 TEST_P(TestStreamFormat, RoundTrip) {

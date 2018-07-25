@@ -104,7 +104,7 @@ class PoolBuffer : public ResizableBuffer {
     return Status::OK();
   }
 
-  Status Resize(const int64_t new_size, bool shrink_to_fit) override {
+  Status Resize(const int64_t new_size, bool shrink_to_fit = true) override {
     if (!shrink_to_fit || (new_size > size_)) {
       RETURN_NOT_OK(Reserve(new_size));
     } else {
