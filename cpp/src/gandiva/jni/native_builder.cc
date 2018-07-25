@@ -29,6 +29,7 @@
 #include "gandiva/configuration.h"
 #include "gandiva/tree_expr_builder.h"
 #include "jni/config_holder.h"
+#include "jni/env_helper.h"
 #include "jni/module_holder.h"
 #include "jni/org_apache_arrow_gandiva_evaluator_NativeBuilder.h"
 
@@ -61,8 +62,46 @@ std::mutex g_mtx_;
 // atomic counter for projector module ids
 jlong projector_module_id_(INIT_MODULE_ID);
 
-// exception class
-static jclass gandiva_exception_ = nullptr;
+static jint JNI_VERSION = JNI_VERSION_1_6;
+
+// extern refs - initialized for other modules.
+jclass configuration_builder_class_;
+jmethodID byte_code_accessor_method_id_;
+
+// refs for self.
+static jclass gandiva_exception_;
+
+jint JNI_OnLoad(JavaVM *vm, void *reserved) {
+  JNIEnv *env;
+  if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION) != JNI_OK) {
+    return JNI_ERR;
+  }
+  jclass local_configuration_builder_class_ =
+      env->FindClass("org/apache/arrow/gandiva/evaluator/ConfigurationBuilder");
+  configuration_builder_class_ =
+      (jclass)env->NewGlobalRef(local_configuration_builder_class_);
+  env->DeleteLocalRef(local_configuration_builder_class_);
+
+  jclass localExceptionClass =
+      env->FindClass("org/apache/arrow/gandiva/exceptions/GandivaException");
+  gandiva_exception_ = (jclass)env->NewGlobalRef(localExceptionClass);
+  env->DeleteLocalRef(localExceptionClass);
+
+  const char method_name[] = "getByteCodeFilePath";
+  const char return_type[] = "()Ljava/lang/String;";
+  byte_code_accessor_method_id_ =
+      env->GetMethodID(configuration_builder_class_, method_name, return_type);
+  env->ExceptionDescribe();
+
+  return JNI_VERSION;
+}
+
+void JNI_OnUnload(JavaVM *vm, void *reserved) {
+  JNIEnv *env;
+  vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION);
+  env->DeleteGlobalRef(configuration_builder_class_);
+  env->DeleteGlobalRef(gandiva_exception_);
+}
 
 jlong MapInsert(std::shared_ptr<ProjectorHolder> holder) {
   g_mtx_.lock();
@@ -406,21 +445,6 @@ bool ParseProtobuf(uint8_t *buf, int bufLen, google::protobuf::Message *msg) {
   return msg->ParseFromCodedStream(&cis);
 }
 
-void ThrowException(JNIEnv *env, const std::string msg) {
-  if (gandiva_exception_ == nullptr) {
-    std::string className = "org/apache/arrow/gandiva/exceptions/GandivaException";
-    gandiva_exception_ = env->FindClass(className.c_str());
-  }
-
-  if (gandiva_exception_ == nullptr) {
-    // Cannot find GandivaException class
-    // Cannot throw exception
-    return;
-  }
-
-  env->ThrowNew(gandiva_exception_, msg.c_str());
-}
-
 void releaseInput(jbyteArray schema_arr, jbyte *schema_bytes, jbyteArray exprs_arr,
                   jbyte *exprs_bytes, JNIEnv *env) {
   env->ReleaseByteArrayElements(schema_arr, schema_bytes, JNI_ABORT);
@@ -449,28 +473,30 @@ Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_buildNativeCode(
   gandiva::Status status;
 
   std::shared_ptr<Configuration> config = ConfigHolder::MapLookup(configuration_id);
+  std::stringstream ss;
 
   if (config == nullptr) {
-    std::cerr << "configuration is mandatory.";
+    ss << "configuration is mandatory.";
     releaseInput(schema_arr, schema_bytes, exprs_arr, exprs_bytes, env);
+    goto err_out;
   }
 
   if (!ParseProtobuf(reinterpret_cast<uint8_t *>(schema_bytes), schema_len, &schema)) {
-    std::cerr << "Unable to parse schema protobuf\n";
+    ss << "Unable to parse schema protobuf\n";
     releaseInput(schema_arr, schema_bytes, exprs_arr, exprs_bytes, env);
     goto err_out;
   }
 
   if (!ParseProtobuf(reinterpret_cast<uint8_t *>(exprs_bytes), exprs_len, &exprs)) {
     releaseInput(schema_arr, schema_bytes, exprs_arr, exprs_bytes, env);
-    std::cerr << "Unable to parse expressions protobuf\n";
+    ss << "Unable to parse expressions protobuf\n";
     goto err_out;
   }
 
   // convert types::Schema to arrow::Schema
   schema_ptr = ProtoTypeToSchema(schema);
   if (schema_ptr == nullptr) {
-    std::cerr << "Unable to construct arrow schema object from schema protobuf\n";
+    ss << "Unable to construct arrow schema object from schema protobuf\n";
     releaseInput(schema_arr, schema_bytes, exprs_arr, exprs_bytes, env);
     goto err_out;
   }
@@ -480,7 +506,7 @@ Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_buildNativeCode(
     ExpressionPtr root = ProtoTypeToExpression(exprs.exprs(i));
 
     if (root == nullptr) {
-      std::cerr << "Unable to construct expression object from expression protobuf\n";
+      ss << "Unable to construct expression object from expression protobuf\n";
       releaseInput(schema_arr, schema_bytes, exprs_arr, exprs_bytes, env);
       goto err_out;
     }
@@ -493,7 +519,7 @@ Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_buildNativeCode(
   status = Projector::Make(schema_ptr, expr_vector, nullptr, config, &projector);
 
   if (!status.ok()) {
-    std::cerr << "Failed to make LLVM module due to " << status.message() << "\n";
+    ss << "Failed to make LLVM module due to " << status.message() << "\n";
     releaseInput(schema_arr, schema_bytes, exprs_arr, exprs_bytes, env);
     goto err_out;
   }
@@ -506,7 +532,7 @@ Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_buildNativeCode(
   return module_id;
 
 err_out:
-  ThrowException(env, "Unable to create native module for the given expressions");
+  env->ThrowNew(gandiva_exception_, ss.str().c_str());
   return module_id;
 }
 
@@ -528,20 +554,20 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_eva
   gandiva::Status status;
   std::shared_ptr<ProjectorHolder> holder = MapLookup(module_id);
   if (holder == nullptr) {
-    std::cerr << "Unknown module id\n";
-    ThrowException(env, "Unknown module id");
+    env->ThrowNew(gandiva_exception_, "Unknown module id\n");
     return;
   }
 
   int in_bufs_len = env->GetArrayLength(buf_addrs);
   if (in_bufs_len != env->GetArrayLength(buf_sizes)) {
-    ThrowException(env, "mismatch in arraylen of buf_addrs and buf_sizes");
+    env->ThrowNew(gandiva_exception_, "mismatch in arraylen of buf_addrs and buf_sizes");
     return;
   }
 
   int out_bufs_len = env->GetArrayLength(out_buf_addrs);
   if (out_bufs_len != env->GetArrayLength(out_buf_sizes)) {
-    ThrowException(env, "mismatch in arraylen of out_buf_addrs and out_buf_sizes");
+    env->ThrowNew(gandiva_exception_,
+                  "mismatch in arraylen of out_buf_addrs and out_buf_sizes");
     return;
   }
 
@@ -630,8 +656,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_NativeBuilder_eva
   env->ReleaseLongArrayElements(out_buf_sizes, out_sizes, JNI_ABORT);
 
   if (!status.ok()) {
-    std::cerr << "Evaluate returned " << status.message() << "\n";
-    ThrowException(env, status.message());
+    std::stringstream ss;
+    ss << "Evaluate returned " << status.message() << "\n";
+    env->ThrowNew(gandiva_exception_, status.message().c_str());
     return;
   }
 }

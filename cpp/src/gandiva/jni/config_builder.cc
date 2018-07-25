@@ -15,14 +15,12 @@
 
 #include "gandiva/configuration.h"
 #include "jni/config_holder.h"
+#include "jni/env_helper.h"
 #include "jni/org_apache_arrow_gandiva_evaluator_ConfigurationBuilder.h"
 
 using gandiva::ConfigHolder;
 using gandiva::Configuration;
 using gandiva::ConfigurationBuilder;
-
-jclass configuration_builder_class_;
-jmethodID byte_code_accessor_method_id_;
 
 /*
  * Class:     org_apache_arrow_gandiva_evaluator_ConfigBuilder
@@ -32,26 +30,16 @@ jmethodID byte_code_accessor_method_id_;
 JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance(
     JNIEnv *env, jobject configuration) {
-  if (configuration_builder_class_ == nullptr) {
-    const char class_name[] = "org/apache/arrow/gandiva/evaluator/ConfigurationBuilder";
-    configuration_builder_class_ = env->FindClass(class_name);
-  }
-
-  if (byte_code_accessor_method_id_ == nullptr) {
-    const char method_name[] = "getByteCodeFilePath";
-    const char return_type[] = "()Ljava/lang/String;";
-    byte_code_accessor_method_id_ =
-        env->GetMethodID(configuration_builder_class_, method_name, return_type);
-  }
-
   jstring byte_code_file_path =
       (jstring)env->CallObjectMethod(configuration, byte_code_accessor_method_id_, 0);
   ConfigurationBuilder configuration_builder;
   if (byte_code_file_path != nullptr) {
     const char *byte_code_file_path_cpp = env->GetStringUTFChars(byte_code_file_path, 0);
     configuration_builder.set_byte_code_file_path(byte_code_file_path_cpp);
+    env->ReleaseStringUTFChars(byte_code_file_path, byte_code_file_path_cpp);
   }
   std::shared_ptr<Configuration> config = configuration_builder.build();
+  env->DeleteLocalRef(byte_code_file_path);
   return ConfigHolder::MapInsert(config);
 }
 

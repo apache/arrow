@@ -110,6 +110,44 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
   }
 
   @Test
+  public void testMakeProjectorValidationError() throws InterruptedException {
+
+    Field a = Field.nullable("a", int64);
+    TreeNode aNode = TreeBuilder.makeField(a);
+    List<TreeNode> args = Lists.newArrayList(aNode);
+
+    List<Field> cols = Lists.newArrayList(a);
+    Schema schema = new Schema(cols);
+
+    TreeNode cond = TreeBuilder.makeFunction("non_existent_fn", args, boolType);
+
+    ExpressionTree expr = TreeBuilder.makeExpression(cond, Field.nullable("c", int64));
+    List<ExpressionTree> exprs = Lists.newArrayList(expr);
+
+    boolean exceptionThrown = false;
+    try {
+      NativeEvaluator evaluator1 = NativeEvaluator.makeProjector(schema, exprs);
+    } catch (GandivaException e) {
+      exceptionThrown = true;
+    }
+
+    Assert.assertTrue(exceptionThrown);
+
+    // allow GC to collect any temp resources.
+    Thread.sleep(1000);
+    
+    // try again to ensure no temporary resources.
+    exceptionThrown = false;
+    try {
+      NativeEvaluator evaluator1 = NativeEvaluator.makeProjector(schema, exprs);
+    } catch (GandivaException e) {
+      exceptionThrown = true;
+    }
+
+    Assert.assertTrue(exceptionThrown);
+  }
+
+  @Test
   public void testEvaluate() throws GandivaException, Exception {
     Field a = Field.nullable("a", int32);
     Field b = Field.nullable("b", int32);

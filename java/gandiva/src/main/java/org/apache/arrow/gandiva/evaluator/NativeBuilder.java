@@ -121,9 +121,10 @@ class NativeBuilder {
    *                    expression is created using TreeBuilder::MakeExpression
    * @param configId    Configuration to gandiva.
    * @return A moduleId that is passed to the evaluate() and close() methods
+   *
    */
   native long buildNativeCode(byte[] schemaBuf, byte[] exprListBuf,
-                              long configId);
+                              long configId) throws GandivaException;
 
   /**
    * Evaluate the expressions represented by the moduleId on a record batch
@@ -144,7 +145,7 @@ class NativeBuilder {
    */
   native void evaluate(long moduleId, int numRows,
                               long[] bufAddrs, long[] bufSizes,
-                              long[] outAddrs, long[] outSizes);
+                              long[] outAddrs, long[] outSizes) throws GandivaException;
 
   /**
    * Closes the LLVM module referenced by moduleId.
