@@ -37,7 +37,8 @@ to end up in JIRA, either before or after completing a pull request.
 ## How to contribute patches
 
 We prefer to receive contributions in the form of GitHub pull requests. Please
-send pull requests against the [github.com/apache/arrow][4] repository.
+send pull requests against the [github.com/apache/arrow][4] repository following
+the procedure below.
 
 If you are looking for some ideas on what to contribute, check out the [JIRA
 issues][3] for the Apache Arrow project. Comment on the issue and/or contact
