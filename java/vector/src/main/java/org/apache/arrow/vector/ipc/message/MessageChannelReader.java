@@ -26,7 +26,7 @@ import org.apache.arrow.vector.ipc.ReadChannel;
 /**
  * Reads a sequence of messages using a ReadChannel.
  */
-public class MessageChannelReader implements MessageReader<MessageBodyHolder, IOException> {
+public class MessageChannelReader implements AutoCloseable {
   protected ReadChannel in;
   protected BufferAllocator allocator;
 
@@ -48,8 +48,7 @@ public class MessageChannelReader implements MessageReader<MessageBodyHolder, IO
    * @return true if a valid Message was read, false if end-of-stream
    * @throws IOException
    */
-  @Override
-  public boolean readNext(MessageBodyHolder holder) throws IOException {
+  public boolean readNext(MessageHolder holder) throws IOException {
 
     // Read the flatbuf message and check for end-of-stream
     MessageChannelResult result = MessageSerializer.readMessage(in);

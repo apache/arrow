@@ -478,7 +478,7 @@ public class MessageSerializer {
    * @throws IOException if the message is not an ArrowDictionaryBatch or ArrowRecordBatch
    */
   public static ArrowMessage deserializeMessageBatch(MessageChannelReader reader) throws IOException {
-    MessageBodyHolder holder = new MessageBodyHolder();
+    MessageHolder holder = new MessageHolder();
     if (!reader.readNext(holder)) {
       return null;
     } else if (holder.message.bodyLength() > Integer.MAX_VALUE) {

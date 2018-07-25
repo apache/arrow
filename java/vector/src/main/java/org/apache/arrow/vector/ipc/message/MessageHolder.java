@@ -18,12 +18,13 @@
 
 package org.apache.arrow.vector.ipc.message;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.flatbuf.Message;
 
 /**
- * Class to hold a Message when reading messages through MessageReader. This class can be
- * extended to hold the message body or additional data from a MessageReader implementation.
+ * Class to hold a Message and body when reading messages through a MessageChannelReader.
  */
 public class MessageHolder {
   public Message message;
+  public ArrowBuf bodyBuffer;
 }
