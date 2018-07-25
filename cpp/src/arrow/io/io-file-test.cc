@@ -614,6 +614,199 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
   }
 }
 
+TEST_F(TestMemoryMappedFile, WriteResizeRead) {
+  const int64_t buffer_size = 1024;
+  const int reps = 5;
+  std::vector<std::vector<uint8_t>> buffers(reps);
+  for (auto& b : buffers) {
+    b.resize(buffer_size);
+    test::random_bytes(buffer_size, 0, b.data());
+  }
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  int64_t position = 0;
+  std::shared_ptr<Buffer> out_buffer;
+  for (int i = 0; i < reps; ++i) {
+    if (i != 0) {
+      ASSERT_OK(result->Resize(buffer_size * (i + 1)));
+    }
+    ASSERT_OK(result->Write(buffers[i].data(), buffer_size));
+    ASSERT_OK(result->ReadAt(position, buffer_size, &out_buffer));
+
+    ASSERT_EQ(out_buffer->size(), buffer_size);
+    ASSERT_EQ(0, memcmp(out_buffer->data(), buffers[i].data(), buffer_size));
+    out_buffer.reset();
+
+    position += buffer_size;
+  }
+}
+
+TEST_F(TestMemoryMappedFile, ResizeRaisesOnExported) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  std::shared_ptr<Buffer> out_buffer1, out_buffer2;
+  ASSERT_OK(result->Write(buffer.data(), buffer_size));
+  ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer1));
+  ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer2));
+  ASSERT_EQ(0, memcmp(out_buffer1->data(), buffer.data(), buffer_size));
+  ASSERT_EQ(0, memcmp(out_buffer2->data(), buffer.data(), buffer_size));
+
+  // attempt resize
+  ASSERT_RAISES(IOError, result->Resize(2 * buffer_size));
+
+  out_buffer1.reset();
+
+  ASSERT_RAISES(IOError, result->Resize(2 * buffer_size));
+
+  out_buffer2.reset();
+
+  ASSERT_OK(result->Resize(2 * buffer_size));
+
+  int64_t map_size;
+  ASSERT_OK(result->GetSize(&map_size));
+  ASSERT_EQ(map_size, 2 * buffer_size);
+
+  int64_t file_size;
+  ASSERT_OK(internal::FileGetSize(result->file_descriptor(), &file_size));
+  ASSERT_EQ(file_size, buffer_size * 2);
+}
+
+TEST_F(TestMemoryMappedFile, WriteReadZeroInitSize) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(0, path, &result));
+
+  std::shared_ptr<Buffer> out_buffer;
+  ASSERT_OK(result->Resize(buffer_size));
+  ASSERT_OK(result->Write(buffer.data(), buffer_size));
+  ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
+  ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+
+  int64_t map_size;
+  ASSERT_OK(result->GetSize(&map_size));
+  ASSERT_EQ(map_size, buffer_size);
+}
+
+TEST_F(TestMemoryMappedFile, WriteThenShrink) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size * 2, path, &result));
+
+  std::shared_ptr<Buffer> out_buffer;
+  ASSERT_OK(result->Resize(buffer_size));
+  ASSERT_OK(result->Write(buffer.data(), buffer_size));
+  ASSERT_OK(result->Resize(buffer_size / 2));
+
+  ASSERT_OK(result->ReadAt(0, buffer_size / 2, &out_buffer));
+  ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size / 2));
+
+  int64_t map_size;
+  ASSERT_OK(result->GetSize(&map_size));
+  ASSERT_EQ(map_size, buffer_size / 2);
+
+  int64_t file_size;
+  ASSERT_OK(internal::FileGetSize(result->file_descriptor(), &file_size));
+  ASSERT_EQ(file_size, buffer_size / 2);
+}
+
+TEST_F(TestMemoryMappedFile, WriteThenShrinkToHalfThenWrite) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  std::shared_ptr<Buffer> out_buffer;
+  ASSERT_OK(result->Write(buffer.data(), buffer_size));
+  ASSERT_OK(result->Resize(buffer_size / 2));
+
+  int64_t position;
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(position, buffer_size / 2);
+
+  ASSERT_OK(result->ReadAt(0, buffer_size / 2, &out_buffer));
+  ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size / 2));
+  out_buffer.reset();
+
+  // should resume writing directly at the seam
+  ASSERT_OK(result->Resize(buffer_size));
+  ASSERT_OK(result->Write(buffer.data() + buffer_size / 2, buffer_size / 2));
+
+  ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
+  ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+
+  int64_t map_size;
+  ASSERT_OK(result->GetSize(&map_size));
+  ASSERT_EQ(map_size, buffer_size);
+
+  int64_t file_size;
+  ASSERT_OK(internal::FileGetSize(result->file_descriptor(), &file_size));
+  ASSERT_EQ(file_size, buffer_size);
+}
+
+TEST_F(TestMemoryMappedFile, ResizeToZeroThanWrite) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  std::string path = "io-memory-map-write-read-test";
+  std::shared_ptr<MemoryMappedFile> result;
+  ASSERT_OK(InitMemoryMap(buffer_size, path, &result));
+
+  std::shared_ptr<Buffer> out_buffer;
+  // just a sanity check that writing works ook
+  ASSERT_OK(result->Write(buffer.data(), buffer_size));
+  ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
+  ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+  out_buffer.reset();
+
+  ASSERT_OK(result->Resize(0));
+  int64_t mapped_size;
+  ASSERT_OK(result->GetSize(&mapped_size));
+  ASSERT_EQ(mapped_size, 0);
+
+  int64_t position;
+  ASSERT_OK(result->Tell(&position));
+  ASSERT_EQ(position, 0);
+
+  int64_t file_size;
+  ASSERT_OK(internal::FileGetSize(result->file_descriptor(), &file_size));
+  ASSERT_EQ(file_size, 0);
+
+  // provision a vector to the buffer size in case ReadAt decides
+  // to read even though it shouldn't
+  std::vector<uint8_t> should_remain_empty(buffer_size);
+  int64_t bytes_read;
+  ASSERT_OK(result->ReadAt(0, 1, &bytes_read,
+                           reinterpret_cast<void*>(should_remain_empty.data())));
+  ASSERT_EQ(bytes_read, 0);
+
+  // just a sanity check that writing works ook
+  ASSERT_OK(result->Resize(buffer_size));
+  ASSERT_OK(result->Write(buffer.data(), buffer_size));
+  ASSERT_OK(result->ReadAt(0, buffer_size, &out_buffer));
+  ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+}
+
 TEST_F(TestMemoryMappedFile, WriteAt) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);

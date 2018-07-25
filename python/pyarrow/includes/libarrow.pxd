@@ -661,6 +661,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Open(const c_string& path, FileMode mode,
                      shared_ptr[CMemoryMappedFile]* file)
 
+        CStatus Resize(int64_t size)
+
         int file_descriptor()
 
     # ----------------------------------------------------------------------
