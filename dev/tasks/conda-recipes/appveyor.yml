@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_tags: true
+
 environment:
   ARROW_VERSION: {{ arrow.version }}
   # regardless of the python version we build against
@@ -24,6 +26,23 @@ environment:
 # with the TARGET_ARCH variable.
 platform:
   - x64
+
+init:
+{%- if arrow.source == 'git' %}
+  # Clone git repository
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
+  - git -C arrow checkout {{ arrow.head }} || exit /B
+{%- elif arrow.source == 'dist' %}
+  # Download source archive
+  - curl -OL {{ arrow.archive_url }}
+  {%- if arrow.verify %}
+  # Verify the archive checksum
+  - curl -OL {{ arrow.checksum_url }}
+  - shasum -a 512 -c {{ arrow.checksum_filename }}
+  {%- endif %}
+  - mkdir arrow
+  - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
+{%- endif %}
 
 install:
   # Cywing's git breaks conda-build. (See https://github.com/conda-forge/conda-smithy-feedstock/pull/2.)
@@ -48,9 +67,7 @@ install:
 # Skip .NET project specific build phase.
 build: off
 
-test_script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
-  - git -C arrow checkout {{ arrow.head }} || exit /B
+build_script:
   - pushd arrow\dev\tasks\conda-recipes
   - conda.exe build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
   - pushd win-64
