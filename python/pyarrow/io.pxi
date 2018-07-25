@@ -548,6 +548,7 @@ cdef class MemoryMappedFile(NativeFile):
     Supports 'r', 'r+w', 'w' modes
     """
     cdef:
+        shared_ptr[CMemoryMappedFile] handle
         object path
 
     @staticmethod
@@ -566,6 +567,7 @@ cdef class MemoryMappedFile(NativeFile):
         result.is_writable = True
         result.wr_file = <shared_ptr[OutputStream]> handle
         result.rd_file = <shared_ptr[RandomAccessFile]> handle
+        result.handle = handle
         result.closed = False
 
         return result
@@ -596,7 +598,18 @@ cdef class MemoryMappedFile(NativeFile):
 
         self.wr_file = <shared_ptr[OutputStream]> handle
         self.rd_file = <shared_ptr[RandomAccessFile]> handle
+        self.handle = handle
         self.closed = False
+
+    def resize(self, new_size):
+        """
+        Resize the map and underlying file.
+
+        Parameters
+        ----------
+        new_size : new size in bytes
+        """
+        check_status(self.handle.get().Resize(new_size))
 
     def fileno(self):
         self._assert_open()

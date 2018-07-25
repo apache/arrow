@@ -164,6 +164,9 @@ Status FileClose(int fd);
 
 Status CreatePipe(int fd[2]);
 
+Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
+                      void** new_addr);
+
 Status GetEnvVar(const char* name, std::string* out);
 Status GetEnvVar(const std::string& name, std::string* out);
 Status SetEnvVar(const char* name, const char* value);
