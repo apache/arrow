@@ -35,9 +35,24 @@ env:
     - PYARROW_BUILD_VERBOSE=1
 
 before_install:
-  - git clone https://github.com/matthew-brett/multibuild # TODO pin it
+{%- if arrow.source == 'git' %}
+  # Clone git repository
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
+{%- elif arrow.source == 'dist' %}
+  # Download source archive
+  - curl -OL {{ arrow.archive_url }}
+  {%- if arrow.verify %}
+  # Verify the archive checksum
+  - curl -OL {{ arrow.checksum_url }}
+  - shasum -a 512 -c {{ arrow.checksum_filename }}
+  {%- endif %}
+  - mkdir arrow
+  - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
+{%- endif %}
+
+install:
+  - git clone https://github.com/matthew-brett/multibuild # TODO pin it
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal
@@ -51,7 +66,7 @@ before_install:
 
   - before_install
 
-install:
+script:
   - BUILD_DEPENDS="numpy==$NP_BUILD_DEP six cython"
   - TEST_DEPENDS="numpy==$NP_TEST_DEP six pandas==$PANDAS_DEP"
 

@@ -29,6 +29,23 @@ env:
     - PYTHONUNBUFFERED=1
 
 before_install:
+{%- if arrow.source == 'git' %}
+  # Clone git repository
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
+{%- elif arrow.source == 'dist' %}
+  # Download source archive
+  - curl -OL {{ arrow.archive_url }}
+  {%- if arrow.verify %}
+  # Verify the archive checksum
+  - curl -OL {{ arrow.checksum_url }}
+  - shasum -a 512 -c {{ arrow.checksum_filename }}
+  {%- endif %}
+  - mkdir arrow
+  - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
+{%- endif %}
+
+install:
   # Remove homebrew.
   - |
     echo ""
@@ -38,7 +55,6 @@ before_install:
     ~/uninstall_homebrew -fq
     rm ~/uninstall_homebrew
 
-install:
   # Install Miniconda.
   - |
     echo ""
@@ -61,18 +77,6 @@ install:
     source run_conda_forge_build_setup
 
 script:
-{%- if arrow.source == 'git' %}
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}
-{%- elif arrow.source == 'dist' %}
-  - curl -OL {{ arrow.archive_url }}
-  {%- if arrow.verify %}
-  - curl -OL {{ arrow.checksum_url }}
-  - shasum -a 512 -c {{ arrow.checksum_filename }}
-  {%- endif %}
-  - mkdir arrow
-  - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
-{%- endif %}
   - pushd arrow/dev/tasks/conda-recipes
   - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
 

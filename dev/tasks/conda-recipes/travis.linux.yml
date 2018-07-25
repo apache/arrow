@@ -28,6 +28,23 @@ env:
     - ARROW_VERSION={{ arrow.version }}
     - PYTHONUNBUFFERED=1
 
+before_install:
+{%- if arrow.source == 'git' %}
+  # Clone git repository
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
+{%- elif arrow.source == 'dist' %}
+  # Download source archive
+  - curl -OL {{ arrow.archive_url }}
+  {%- if arrow.verify %}
+  # Verify the archive checksum
+  - curl -OL {{ arrow.checksum_url }}
+  - shasum -a 512 -c {{ arrow.checksum_filename }}
+  {%- endif %}
+  - mkdir arrow
+  - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
+{%- endif %}
+
 install:
   # Install Miniconda.
   - echo `pwd`
@@ -51,8 +68,6 @@ install:
     conda install --yes --quiet conda-build
 
 script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
   - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
 
