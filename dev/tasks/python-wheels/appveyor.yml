@@ -34,6 +34,7 @@ init:
   - set MINICONDA=C:\Miniconda35-x64
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
+install:
 {%- if arrow.source == 'git' %}
   # Clone git repository
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} %ARROW_SRC% || exit /B

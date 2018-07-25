@@ -27,10 +27,10 @@ environment:
 platform:
   - x64
 
-init:
+install:
 {%- if arrow.source == 'git' %}
   # Clone git repository
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} || exit /B
   - git -C arrow checkout {{ arrow.head }} || exit /B
 {%- elif arrow.source == 'dist' %}
   # Download source archive
@@ -44,7 +44,7 @@ init:
   - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
 {%- endif %}
 
-install:
+before_build:
   # Cywing's git breaks conda-build. (See https://github.com/conda-forge/conda-smithy-feedstock/pull/2.)
   - cmd: rmdir C:\cygwin /s /q
 
