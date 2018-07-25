@@ -72,6 +72,49 @@ int32 hash32_buf(const uint8 *buf, int len, int32 seed);
 int64 hash64(double val, int64 seed);
 int64 hash64_buf(const uint8 *buf, int len, int64 seed);
 
+int64 timestampaddSecond_timestamp_int32(timestamp, int32);
+int64 timestampaddMinute_timestamp_int32(timestamp, int32);
+int64 timestampaddHour_timestamp_int32(timestamp, int32);
+int64 timestampaddDay_timestamp_int32(timestamp, int32);
+int64 timestampaddWeek_timestamp_int32(timestamp, int32);
+int64 timestampaddMonth_timestamp_int32(timestamp, int32);
+int64 timestampaddQuarter_timestamp_int32(timestamp, int32);
+int64 timestampaddYear_timestamp_int32(timestamp, int32);
+
+int64 timestampaddSecond_timestamp_int64(timestamp, int64);
+int64 timestampaddMinute_timestamp_int64(timestamp, int64);
+int64 timestampaddHour_timestamp_int64(timestamp, int64);
+int64 timestampaddDay_timestamp_int64(timestamp, int64);
+int64 timestampaddWeek_timestamp_int64(timestamp, int64);
+int64 timestampaddMonth_timestamp_int64(timestamp, int64);
+int64 timestampaddQuarter_timestamp_int64(timestamp, int64);
+int64 timestampaddYear_timestamp_int64(timestamp, int64);
+
+int64 date_add_timestamp_int32(timestamp, int32);
+int64 add_timestamp_int64(timestamp, int64);
+int64 add_int32_timestamp(int32, timestamp);
+int64 date_add_int64_timestamp(int64, timestamp);
+
+int64 date_sub_timestamp_int32(timestamp, int32);
+int64 subtract_timestamp_int32(timestamp, int32);
+int64 date_diff_timestamp_int64(timestamp, int64);
+
+bool is_distinct_from_timestamp_timestamp(int64, bool, int64, bool);
+bool is_not_distinct_from_int32_int32(int32, bool, int32, bool);
+
+int64 date_trunc_Second_date64(date64);
+int64 date_trunc_Minute_date64(date64);
+int64 date_trunc_Hour_date64(date64);
+int64 date_trunc_Day_date64(date64);
+int64 date_trunc_Month_date64(date64);
+int64 date_trunc_Quarter_date64(date64);
+int64 date_trunc_Year_date64(date64);
+int64 date_trunc_Decade_date64(date64);
+int64 date_trunc_Century_date64(date64);
+int64 date_trunc_Millennium_date64(date64);
+
+int64 date_trunc_Week_timestamp(timestamp);
+
 int32 mem_compare(const char *left, int32 left_len, const char *right, int32 right_len);
 
 }  // extern "C"

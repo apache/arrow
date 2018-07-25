@@ -96,4 +96,57 @@ NUMERIC_BOOL_DATE_TYPES(VALIDITY_OP, isnull, !)
 NUMERIC_BOOL_DATE_TYPES(VALIDITY_OP, isnotnull, +)
 NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
+#define NUMERIC_FUNCTION(INNER) \
+  INNER(int8)                   \
+  INNER(int16)                  \
+  INNER(int32)                  \
+  INNER(int64)                  \
+  INNER(uint8)                  \
+  INNER(uint16)                 \
+  INNER(uint32)                 \
+  INNER(uint64)                 \
+  INNER(float32)                \
+  INNER(float64)
+
+#define DATE_FUNCTION(INNER) \
+  INNER(date64)              \
+  INNER(timestamp)           \
+  INNER(time32)
+
+#define NUMERIC_BOOL_DATE_FUNCTION(INNER) \
+  NUMERIC_FUNCTION(INNER)                 \
+  DATE_FUNCTION(INNER)                    \
+  INNER(boolean)
+
+// is_distinct_from
+#define IS_DISTINCT_FROM(TYPE)                                                 \
+  FORCE_INLINE                                                                 \
+  bool is_distinct_from_##TYPE##_##TYPE(TYPE in1, boolean is_valid1, TYPE in2, \
+                                        boolean is_valid2) {                   \
+    if (is_valid1 != is_valid2) {                                              \
+      return true;                                                             \
+    }                                                                          \
+    if (!is_valid1) {                                                          \
+      return false;                                                            \
+    }                                                                          \
+    return in1 != in2;                                                         \
+  }
+
+// is_not_distinct_from
+#define IS_NOT_DISTINCT_FROM(TYPE)                                                 \
+  FORCE_INLINE                                                                     \
+  bool is_not_distinct_from_##TYPE##_##TYPE(TYPE in1, boolean is_valid1, TYPE in2, \
+                                            boolean is_valid2) {                   \
+    if (is_valid1 != is_valid2) {                                                  \
+      return false;                                                                \
+    }                                                                              \
+    if (!is_valid1) {                                                              \
+      return true;                                                                 \
+    }                                                                              \
+    return in1 == in2;                                                             \
+  }
+
+NUMERIC_BOOL_DATE_FUNCTION(IS_DISTINCT_FROM)
+NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
+
 }  // extern "C"

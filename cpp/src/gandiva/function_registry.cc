@@ -82,6 +82,15 @@ using std::vector;
   NativeFunction(#NAME, DataTypeVector{TYPE()}, boolean(), true, RESULT_NULL_NEVER, \
                  STRINGIFY(NAME##_##TYPE))
 
+// Binary functions that :
+// - NULL handling is of type NULL_NEVER
+//
+// The pre-compiled fn name includes the base name & input type names,
+// eg. is_distinct_from_int32_int32
+#define BINARY_SAFE_NULL_NEVER_BOOL(NAME, TYPE)                          \
+  NativeFunction(#NAME, DataTypeVector{TYPE(), TYPE()}, boolean(), true, \
+                 RESULT_NULL_NEVER, STRINGIFY(NAME##_##TYPE##_##TYPE))
+
 // Extract functions (used with data/time types) that :
 // - NULL handling is of type NULL_IF_NULL
 //
@@ -178,6 +187,10 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     NUMERIC_BOOL_DATE_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnotnull),
     NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric),
 
+    // nullable never binary operations
+    NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_distinct_from),
+    NUMERIC_BOOL_DATE_TYPES(BINARY_SAFE_NULL_NEVER_BOOL, is_not_distinct_from),
+
     // date/timestamp operations
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMillennium),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractCentury),
@@ -194,6 +207,19 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractSecond),
     DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch),
 
+    // date_trunc operations on date/timestamp
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Millennium),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Century),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Decade),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Year),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Quarter),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Month),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Week),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Day),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Hour),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Minute),
+    DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, date_trunc_Second),
+
     // time operations
     TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractHour),
     TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractMinute),
@@ -208,6 +234,86 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffMonth, timestamp, timestamp, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffQuarter, timestamp, timestamp, int32),
     BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampdiffYear, timestamp, timestamp, int32),
+
+    // timestamp add int32 operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, timestamp, int32, timestamp),
+    // date add int32 operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, date64, int32, date64),
+
+    // timestamp add int64 operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, timestamp, int64, timestamp),
+    // date add int64 operations
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddSecond, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMinute, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddHour, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddDay, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddWeek, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddMonth, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddQuarter, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(timestampaddYear, date64, int64, date64),
+
+    // date_add(date64, int32), date_add(timestamp, int32)
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, timestamp, int32, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, timestamp, int32, timestamp),
+
+    // date_add(date64, int64), date_add(timestamp, int64)
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, timestamp, int64, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, timestamp, int64, timestamp),
+
+    // date_add(int32, date64), date_add(int32, timestamp)
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int32, date64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int32, date64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int32, timestamp, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int32, timestamp, timestamp),
+
+    // date_add(int64, date64), date_add(int64, timestamp)
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int64, date64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int64, date64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_add, int64, timestamp, timestamp),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(add, int64, timestamp, timestamp),
+
+    // date_sub(date64, int32), subtract and date_diff
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, date64, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, date64, int32, date64),
+    // date_sub(timestamp, int32), subtract and date_diff
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, timestamp, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, timestamp, int32, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, timestamp, int32, date64),
+
+    // date_sub(date64, int64), subtract and date_diff
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, date64, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, date64, int64, date64),
+    // date_sub(timestamp, int64), subtract and date_diff
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_sub, timestamp, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(subtract, timestamp, int64, date64),
+    BINARY_GENERIC_SAFE_NULL_IF_NULL(date_diff, timestamp, int64, date64),
 
     // hash functions
     NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH32_SAFE_NULL_NEVER, hash),
@@ -236,7 +342,7 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     // Null internal (sample)
     NativeFunction("half_or_null", DataTypeVector{int32()}, int32(), true,
                    RESULT_NULL_INTERNAL, "half_or_null_int32"),
-};
+};  // namespace gandiva
 
 FunctionRegistry::iterator FunctionRegistry::begin() const {
   return std::begin(pc_registry_);

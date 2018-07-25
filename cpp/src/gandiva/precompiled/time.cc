@@ -17,11 +17,9 @@ extern "C" {
 #include <stdlib.h>
 #include <time.h>
 
+#include "./time_constants.h"
 #include "./types.h"
 
-#define MILLIS_TO_SEC(millis) (millis / 1000)
-#define MILLIS_TO_MINS(millis) ((millis) / (60 * 1000))
-#define MILLIS_TO_HOUR(millis) ((millis) / (60 * 60 * 1000))
 #define MINS_IN_HOUR 60
 #define SECONDS_IN_MINUTE 60
 
@@ -290,7 +288,7 @@ int getDecWeekOfYear(struct tm *ptm) {
 // If day is Dec 29-21, see getDecWeekOfYear
 //
 int64 weekOfYear(struct tm *ptm) {
-  if ((ptm->tm_mon == 0) && (ptm->tm_mday <= 3)) {
+  if (ptm->tm_yday < 3) {
     // Jan 1-3
     return getJanWeekOfYear(ptm);
   }
@@ -400,5 +398,77 @@ EXTRACT_MINUTE_TIME(time32)
   int64 extractHour##_##TYPE(TYPE millis) { return MILLIS_TO_HOUR(millis); }
 
 EXTRACT_HOUR_TIME(time32)
+
+#define DATE_TRUNC_FIXED_UNIT(NAME, TYPE, NMILLIS_IN_UNIT) \
+  FORCE_INLINE                                             \
+  TYPE NAME##_##TYPE(TYPE millis) {                        \
+    return ((millis / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT); \
+  }
+
+#define DATE_TRUNC_WEEK(TYPE)                    \
+  FORCE_INLINE                                   \
+  TYPE date_trunc_Week_##TYPE(TYPE millis) {     \
+    time_t tsec = (time_t)MILLIS_TO_SEC(millis); \
+    struct tm tm;                                \
+    gmtime_r(&tsec, &tm);                        \
+    tm.tm_sec = 0;                               \
+    tm.tm_min = 0;                               \
+    tm.tm_hour = 0;                              \
+    if (tm.tm_wday == 0) {                       \
+      /* Sunday */                               \
+      tm.tm_mday -= 6;                           \
+    } else {                                     \
+      /* All other days */                       \
+      tm.tm_mday -= (tm.tm_wday - 1);            \
+    }                                            \
+    return (TYPE)timegm(&tm) * MILLIS_IN_SEC;    \
+  }
+
+#define DATE_TRUNC_MONTH_UNITS(NAME, TYPE, NMONTHS_IN_UNIT)      \
+  FORCE_INLINE                                                   \
+  TYPE NAME##_##TYPE(TYPE millis) {                              \
+    time_t tsec = (time_t)MILLIS_TO_SEC(millis);                 \
+    struct tm tm;                                                \
+    gmtime_r(&tsec, &tm);                                        \
+    tm.tm_sec = 0;                                               \
+    tm.tm_min = 0;                                               \
+    tm.tm_hour = 0;                                              \
+    tm.tm_mday = 1;                                              \
+    tm.tm_mon = (tm.tm_mon / NMONTHS_IN_UNIT) * NMONTHS_IN_UNIT; \
+    return (TYPE)timegm(&tm) * MILLIS_IN_SEC;                    \
+  }
+
+#define DATE_TRUNC_YEAR_UNITS(NAME, TYPE, NYEARS_IN_UNIT, OFF_BY)        \
+  FORCE_INLINE                                                           \
+  TYPE NAME##_##TYPE(TYPE millis) {                                      \
+    time_t tsec = (time_t)MILLIS_TO_SEC(millis);                         \
+    struct tm tm;                                                        \
+    gmtime_r(&tsec, &tm);                                                \
+    tm.tm_sec = 0;                                                       \
+    tm.tm_min = 0;                                                       \
+    tm.tm_hour = 0;                                                      \
+    tm.tm_mday = 1;                                                      \
+    tm.tm_mon = 0;                                                       \
+    int year = 1900 + tm.tm_year;                                        \
+    year = ((year - OFF_BY) / NYEARS_IN_UNIT) * NYEARS_IN_UNIT + OFF_BY; \
+    tm.tm_year = year - 1900;                                            \
+    return (TYPE)timegm(&tm) * MILLIS_IN_SEC;                            \
+  }
+
+#define DATE_TRUNC_FUNCTIONS(TYPE)                              \
+  DATE_TRUNC_FIXED_UNIT(date_trunc_Second, TYPE, MILLIS_IN_SEC) \
+  DATE_TRUNC_FIXED_UNIT(date_trunc_Minute, TYPE, MILLIS_IN_MIN) \
+  DATE_TRUNC_FIXED_UNIT(date_trunc_Hour, TYPE, MILLIS_IN_HOUR)  \
+  DATE_TRUNC_FIXED_UNIT(date_trunc_Day, TYPE, MILLIS_IN_DAY)    \
+  DATE_TRUNC_WEEK(TYPE)                                         \
+  DATE_TRUNC_MONTH_UNITS(date_trunc_Month, TYPE, 1)             \
+  DATE_TRUNC_MONTH_UNITS(date_trunc_Quarter, TYPE, 3)           \
+  DATE_TRUNC_MONTH_UNITS(date_trunc_Year, TYPE, 12)             \
+  DATE_TRUNC_YEAR_UNITS(date_trunc_Decade, TYPE, 10, 0)         \
+  DATE_TRUNC_YEAR_UNITS(date_trunc_Century, TYPE, 100, 1)       \
+  DATE_TRUNC_YEAR_UNITS(date_trunc_Millennium, TYPE, 1000, 1)
+
+DATE_TRUNC_FUNCTIONS(date64)
+DATE_TRUNC_FUNCTIONS(timestamp)
 
 }  // extern "C"
