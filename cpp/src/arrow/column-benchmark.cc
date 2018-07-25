@@ -26,13 +26,11 @@ namespace arrow {
 namespace {
 template <typename ArrayType>
 Status MakePrimitive(int64_t length, int64_t null_count, std::shared_ptr<Array>* out) {
-  auto pool = default_memory_pool();
-  auto data = std::make_shared<PoolBuffer>(pool);
-  auto null_bitmap = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(data->Resize(length * sizeof(typename ArrayType::value_type)));
-  RETURN_NOT_OK(null_bitmap->Resize(BitUtil::BytesForBits(length)));
-  data->ZeroPadding();
-  null_bitmap->ZeroPadding();
+  std::shared_ptr<Buffer> data, null_bitmap;
+
+  RETURN_NOT_OK(AllocateBuffer(length * sizeof(typename ArrayType::value_type), &data));
+  RETURN_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(length), &null_bitmap));
+
   *out = std::make_shared<ArrayType>(length, data, null_bitmap, null_count);
   return Status::OK();
 }

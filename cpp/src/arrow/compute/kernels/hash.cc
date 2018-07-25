@@ -176,11 +176,11 @@ template <typename Type>
 struct HashDictionary<Type, enable_if_has_c_type<Type>> {
   using T = typename Type::c_type;
 
-  explicit HashDictionary(MemoryPool* pool)
-      : pool(pool), buffer(std::make_shared<PoolBuffer>(pool)), size(0), capacity(0) {}
+  explicit HashDictionary(MemoryPool* pool) : pool(pool), size(0), capacity(0) {}
 
   Status Init() {
     this->size = 0;
+    RETURN_NOT_OK(AllocateResizableBuffer(this->pool, 0, &this->buffer));
     return Resize(kInitialHashTableSize);
   }
 

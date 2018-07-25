@@ -17,7 +17,7 @@
 
 class TestBufferOutputStream < Test::Unit::TestCase
   def test_new
-    buffer = Arrow::PoolBuffer.new
+    buffer = Arrow::ResizableBuffer.new(0)
     output_stream = Arrow::BufferOutputStream.new(buffer)
     output_stream.write("Hello")
     output_stream.close

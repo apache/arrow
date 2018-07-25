@@ -94,10 +94,9 @@ Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
                           std::shared_ptr<ResizableBuffer>* out) {
   int64_t null_bytes = BitUtil::BytesForBits(length);
   std::shared_ptr<ResizableBuffer> null_bitmap;
+  RETURN_NOT_OK(AllocateResizableBuffer(pool, null_bytes, &null_bitmap));
 
-  null_bitmap = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(null_bitmap->Resize(null_bytes));
-
+  // Padding zeroed by AllocateResizableBuffer
   memset(null_bitmap->mutable_data(), 0, static_cast<size_t>(null_bytes));
   *out = null_bitmap;
   return Status::OK();

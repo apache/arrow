@@ -87,8 +87,9 @@ class TestArray : public ::testing::Test {
 };
 
 TEST_F(TestArray, TestNullCount) {
-  auto data = std::make_shared<PoolBuffer>(pool_);
-  auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
+  // These are placeholders
+  auto data = std::make_shared<Buffer>(nullptr, 0);
+  auto null_bitmap = std::make_shared<Buffer>(nullptr, 0);
 
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data, null_bitmap, 10));
   ASSERT_EQ(10, arr->null_count());
@@ -98,7 +99,9 @@ TEST_F(TestArray, TestNullCount) {
 }
 
 TEST_F(TestArray, TestLength) {
-  auto data = std::make_shared<PoolBuffer>(pool_);
+  // Placeholder buffer
+  auto data = std::make_shared<Buffer>(nullptr, 0);
+
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
   ASSERT_EQ(arr->length(), 100);
 }
@@ -268,11 +271,13 @@ TEST_F(TestArray, TestCopy) {}
 TEST_F(TestBuilder, TestReserve) {
   UInt8Builder builder(pool_);
 
-  ASSERT_OK(builder.Init(10));
-  ASSERT_EQ(10, builder.capacity());
+  ASSERT_OK(builder.Resize(1000));
+  ASSERT_EQ(1000, builder.capacity());
 
-  ASSERT_OK(builder.Reserve(30));
-  ASSERT_EQ(BitUtil::NextPower2(30), builder.capacity());
+  // Builder only contains 0 elements, but calling Reserve will result in a round
+  // up to next power of 2
+  ASSERT_OK(builder.Reserve(1030));
+  ASSERT_EQ(BitUtil::NextPower2(1030), builder.capacity());
 }
 
 template <typename Attrs>
