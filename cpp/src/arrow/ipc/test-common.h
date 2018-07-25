@@ -97,13 +97,13 @@ const auto kListListInt32 = list(kListInt32);
 
 Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
                             std::shared_ptr<Array>* out) {
-  std::shared_ptr<PoolBuffer> data;
-  RETURN_NOT_OK(test::MakeRandomInt32PoolBuffer(length, pool, &data));
+  std::shared_ptr<ResizableBuffer> data;
+  RETURN_NOT_OK(test::MakeRandomInt32Buffer(length, pool, &data));
   Int32Builder builder(int32(), pool);
-  RETURN_NOT_OK(builder.Init(length));
+  RETURN_NOT_OK(builder.Resize(length));
   if (include_nulls) {
-    std::shared_ptr<PoolBuffer> valid_bytes;
-    RETURN_NOT_OK(test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes));
+    std::shared_ptr<ResizableBuffer> valid_bytes;
+    RETURN_NOT_OK(test::MakeRandomByteBuffer(length, pool, &valid_bytes));
     RETURN_NOT_OK(builder.AppendValues(reinterpret_cast<const int32_t*>(data->data()),
                                        length, valid_bytes->data()));
     return builder.Finish(out);

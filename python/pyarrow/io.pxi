@@ -892,9 +892,10 @@ cdef class ResizableBuffer(Buffer):
                          .Resize(new_size, c_shrink_to_fit))
 
 
-cdef shared_ptr[PoolBuffer] _allocate_buffer(CMemoryPool* pool):
-    cdef shared_ptr[PoolBuffer] result
-    result.reset(new PoolBuffer(pool))
+cdef shared_ptr[CResizableBuffer] _allocate_buffer(CMemoryPool* pool):
+    cdef shared_ptr[CResizableBuffer] result
+    with nogil:
+        check_status(AllocateResizableBuffer(pool, 0, &result))
     return result
 
 
@@ -933,7 +934,7 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
 cdef class BufferOutputStream(NativeFile):
 
     cdef:
-        shared_ptr[PoolBuffer] buffer
+        shared_ptr[CResizableBuffer] buffer
 
     def __cinit__(self, MemoryPool memory_pool=None):
         self.buffer = _allocate_buffer(maybe_unbox_memory_pool(memory_pool))

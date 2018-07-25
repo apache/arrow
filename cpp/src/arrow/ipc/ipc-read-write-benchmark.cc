@@ -70,8 +70,8 @@ static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const 
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
 
-  auto buffer = std::make_shared<PoolBuffer>(default_memory_pool());
-  ABORT_NOT_OK(buffer->Resize(kTotalSize & 2));
+  std::shared_ptr<ResizableBuffer> buffer;
+  ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));
   auto record_batch = MakeRecordBatch<Int64Type>(kTotalSize, state.range(0));
 
   while (state.KeepRunning()) {
@@ -91,8 +91,8 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
 
-  auto buffer = std::make_shared<PoolBuffer>(default_memory_pool());
-  ABORT_NOT_OK(buffer->Resize(kTotalSize & 2));
+  std::shared_ptr<ResizableBuffer> buffer;
+  ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));
   auto record_batch = MakeRecordBatch<Int64Type>(kTotalSize, state.range(0));
 
   io::BufferOutputStream stream(buffer);

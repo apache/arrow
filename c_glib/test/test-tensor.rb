@@ -116,7 +116,7 @@ class TestTensor < Test::Unit::TestCase
   end
 
   def test_io
-    buffer = Arrow::PoolBuffer.new
+    buffer = Arrow::ResizableBuffer.new(0)
     output = Arrow::BufferOutputStream.new(buffer)
     output.write_tensor(@tensor)
     input = Arrow::BufferInputStream.new(buffer)

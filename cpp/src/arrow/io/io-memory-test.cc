@@ -37,12 +37,12 @@ namespace io {
 class TestBufferOutputStream : public ::testing::Test {
  public:
   void SetUp() {
-    buffer_.reset(new PoolBuffer(default_memory_pool()));
+    ASSERT_OK(AllocateResizableBuffer(0, &buffer_));
     stream_.reset(new BufferOutputStream(buffer_));
   }
 
  protected:
-  std::shared_ptr<PoolBuffer> buffer_;
+  std::shared_ptr<ResizableBuffer> buffer_;
   std::unique_ptr<OutputStream> stream_;
 };
 
@@ -135,11 +135,11 @@ TEST(TestMemcopy, ParallelMemcopy) {
     // randomize size so the memcopy alignment is tested
     int64_t total_size = 3 * 1024 * 1024 + std::rand() % 100;
 
-    auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
-    ASSERT_OK(buffer1->Resize(total_size));
+    std::shared_ptr<Buffer> buffer1, buffer2;
 
-    auto buffer2 = std::make_shared<PoolBuffer>(default_memory_pool());
-    ASSERT_OK(buffer2->Resize(total_size));
+    ASSERT_OK(AllocateBuffer(total_size, &buffer1));
+    ASSERT_OK(AllocateBuffer(total_size, &buffer2));
+
     test::random_bytes(total_size, 0, buffer2->mutable_data());
 
     io::FixedSizeBufferWriter writer(buffer1);

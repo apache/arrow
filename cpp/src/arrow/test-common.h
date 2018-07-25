@@ -42,9 +42,10 @@ class TestBase : public ::testing::Test {
   }
 
   std::shared_ptr<Buffer> MakeRandomNullBitmap(int64_t length, int64_t null_count) {
-    auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
     const int64_t null_nbytes = BitUtil::BytesForBits(length);
-    EXPECT_OK(null_bitmap->Resize(null_nbytes));
+
+    std::shared_ptr<Buffer> null_bitmap;
+    EXPECT_OK(AllocateBuffer(pool_, null_nbytes, &null_bitmap));
     memset(null_bitmap->mutable_data(), 255, null_nbytes);
     for (int64_t i = 0; i < null_count; i++) {
       BitUtil::ClearBit(null_bitmap->mutable_data(), i * (length / null_count));

@@ -28,11 +28,9 @@ namespace arrow {
 static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const reference
   constexpr int64_t kTotalSize = 100 * 1024 * 1024;      // 100MB
 
-  auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
-  ABORT_NOT_OK(buffer1->Resize(kTotalSize));
-
-  auto buffer2 = std::make_shared<PoolBuffer>(default_memory_pool());
-  ABORT_NOT_OK(buffer2->Resize(kTotalSize));
+  std::shared_ptr<Buffer> buffer1, buffer2;
+  ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer1));
+  ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer2));
   test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
   while (state.KeepRunning()) {
@@ -45,11 +43,10 @@ static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const ref
 static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const reference
   constexpr int64_t kTotalSize = 100 * 1024 * 1024;        // 100MB
 
-  auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
-  ABORT_NOT_OK(buffer1->Resize(kTotalSize));
+  std::shared_ptr<Buffer> buffer1, buffer2;
+  ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer1));
+  ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer2));
 
-  auto buffer2 = std::make_shared<PoolBuffer>(default_memory_pool());
-  ABORT_NOT_OK(buffer2->Resize(kTotalSize));
   test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
   while (state.KeepRunning()) {
