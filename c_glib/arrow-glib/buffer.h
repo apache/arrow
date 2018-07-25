@@ -77,102 +77,25 @@ GArrowMutableBuffer *garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
                                                  gint64 size);
 
 
-#define GARROW_TYPE_RESIZABLE_BUFFER            \
-  (garrow_resizable_buffer_get_type())
-#define GARROW_RESIZABLE_BUFFER(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_RESIZABLE_BUFFER,     \
-                              GArrowResizableBuffer))
-#define GARROW_RESIZABLE_BUFFER_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_RESIZABLE_BUFFER,        \
-                           GArrowResizableBufferClass))
-#define GARROW_IS_RESIZABLE_BUFFER(obj)                                 \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_RESIZABLE_BUFFER))
-#define GARROW_IS_RESIZABLE_BUFFER_CLASS(klass)                         \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_RESIZABLE_BUFFER))
-#define GARROW_RESIZABLE_BUFFER_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_RESIZABLE_BUFFER,      \
-                             GArrowResizableBufferClass))
-
-typedef struct _GArrowResizableBuffer         GArrowResizableBuffer;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowResizableBufferClass    GArrowResizableBufferClass;
-#endif
-
-/**
- * GArrowResizableBuffer:
- *
- * It wraps `arrow::ResizableBuffer`.
- */
-struct _GArrowResizableBuffer
-{
-  /*< private >*/
-  GArrowMutableBuffer parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
+#define GARROW_TYPE_RESIZABLE_BUFFER (garrow_resizable_buffer_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowResizableBuffer,
+                         garrow_resizable_buffer,
+                         GARROW,
+                         RESIZABLE_BUFFER,
+                         GArrowMutableBuffer)
 struct _GArrowResizableBufferClass
 {
   GArrowMutableBufferClass parent_class;
 };
-#endif
 
-GType garrow_resizable_buffer_get_type(void) G_GNUC_CONST;
 
+GArrowResizableBuffer *garrow_resizable_buffer_new(gint64 initial_size,
+                                                   GError **error);
 gboolean garrow_resizable_buffer_resize(GArrowResizableBuffer *buffer,
                                         gint64 new_size,
                                         GError **error);
 gboolean garrow_resizable_buffer_reserve(GArrowResizableBuffer *buffer,
                                          gint64 new_capacity,
                                          GError **error);
-
-
-#define GARROW_TYPE_POOL_BUFFER                 \
-  (garrow_pool_buffer_get_type())
-#define GARROW_POOL_BUFFER(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_POOL_BUFFER,  \
-                              GArrowPoolBuffer))
-#define GARROW_POOL_BUFFER_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_POOL_BUFFER,     \
-                           GArrowPoolBufferClass))
-#define GARROW_IS_POOL_BUFFER(obj)                              \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_POOL_BUFFER))
-#define GARROW_IS_POOL_BUFFER_CLASS(klass)                      \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_POOL_BUFFER))
-#define GARROW_POOL_BUFFER_GET_CLASS(obj)               \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_POOL_BUFFER,   \
-                             GArrowPoolBufferClass))
-
-typedef struct _GArrowPoolBuffer         GArrowPoolBuffer;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowPoolBufferClass    GArrowPoolBufferClass;
-#endif
-
-/**
- * GArrowPoolBuffer:
- *
- * It wraps `arrow::PoolBuffer`.
- */
-struct _GArrowPoolBuffer
-{
-  /*< private >*/
-  GArrowResizableBuffer parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
-struct _GArrowPoolBufferClass
-{
-  GArrowResizableBufferClass parent_class;
-};
-#endif
-
-GType garrow_pool_buffer_get_type(void) G_GNUC_CONST;
-
-GArrowPoolBuffer *garrow_pool_buffer_new(void);
 
 G_END_DECLS

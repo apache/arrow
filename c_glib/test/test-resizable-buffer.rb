@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestPoolBuffer < Test::Unit::TestCase
+class TestResizableBuffer < Test::Unit::TestCase
   def setup
-    @buffer = Arrow::PoolBuffer.new
+    @buffer = Arrow::ResizableBuffer.new(0)
   end
 
   def test_resize
