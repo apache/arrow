@@ -61,8 +61,18 @@ install:
     source run_conda_forge_build_setup
 
 script:
+{%- if arrow.source == 'git' %}
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
+{%- elif arrow.source == 'dist' %}
+  - curl -O {{ arrow.archive_url }}
+  {%- if arrow.verify %}
+  - curl -O {{ arrow.checksum_url }}
+  - shasum -a 512 -c {{ arrow.checksum_filename }}
+  {%- endif %}
+  - mkdir arrow
+  - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
+{%- endif %}
   - pushd arrow/dev/tasks/conda-recipes
   - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
 

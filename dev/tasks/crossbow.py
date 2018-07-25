@@ -22,6 +22,7 @@ import re
 import sys
 import time
 import click
+import urllib
 import pygit2
 import github3
 
@@ -276,6 +277,17 @@ class Queue(Repo):
 
 
 class Target:
+
+    def __init__(self, version, email=None):
+        self.email = email
+        self.version = version
+
+    @property
+    def source(self):
+        raise NotImplementedError
+
+
+class GitTarget(Target):
     """Describes target repository and revision the builds run against
 
     This serializable data container holding information about arrow's
@@ -283,12 +295,15 @@ class Target:
     (currently only an email address where the notification should be sent).
     """
 
-    def __init__(self, head, branch, remote, version, email=None):
+    def __init__(self, head, branch, remote, **kwargs):
         self.head = head
-        self.email = email
         self.branch = branch
         self.remote = remote
-        self.version = version
+        super().__init__(**kwargs)
+
+    @property
+    def source(self):
+        return 'git'
 
     @classmethod
     def from_repo(cls, repo):
@@ -299,6 +314,56 @@ class Target:
                    branch=repo.branch.branch_name,
                    remote=repo.remote_url,
                    version=version)
+
+
+def _filename_from_url(url):
+    parsed = urllib.parse.urlparse(url)
+    return Path(parsed.path).name
+
+
+class DistTarget(Target):
+    """Describes target source archive the builds run against
+
+    This serializable data container holding information about arrow's
+    source distribution, tipically an apache release.
+    """
+
+    def __init__(self, archive_url, verify=True, **kwargs):
+        assert archive_url.endswith('.tar.gz')
+        self.archive_url = archive_url
+        self.verify = verify
+        super().__init__(**kwargs)
+
+    @property
+    def source(self):
+        return 'dist'
+
+    @property
+    def signature_url(self):
+        return self.archive_url + '.asc'
+
+    @property
+    def checksum_url(self):
+        """SHA512 checksum"""
+        return self.archive_url + '.sha512'
+
+    @property
+    def archive_filename(self):
+        return _filename_from_url(self.archive_url)
+
+    @property
+    def checksum_filename(self):
+        return _filename_from_url(self.checksum_url)
+
+    @classmethod
+    def from_url(cls, url, verify=True):
+        filename = _filename_from_url(url)
+        pattern = 'apache-arrow-(\d+\.\d+\.\d+([-\.]?(dev|rc)\d+)?)\.tar\.gz'
+        m = re.match(pattern, filename)
+        if m is None:
+            raise ValueError('Cannot parse version number from url: `{}`'
+                             .format(url))
+        return cls(archive_url=url, verify=verify, version=m.group(1))
 
 
 class Task:
@@ -371,7 +436,8 @@ class Job:
 yaml = YAML()
 yaml.register_class(Job)
 yaml.register_class(Task)
-yaml.register_class(Target)
+yaml.register_class(GitTarget)
+yaml.register_class(DistTarget)
 
 # state color mapping to highlight console output
 COLORS = {'ok': 'green',
@@ -390,16 +456,16 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 @click.group()
 @click.option('--github-token', '-t', default=None,
               help='OAuth token for GitHub authentication')
-@click.option('--arrow-path', '-a',
+@click.option('--arrow-repo', '-a',
               type=click.Path(exists=True), default=DEFAULT_ARROW_PATH,
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
-@click.option('--queue-path', '-q',
+@click.option('--queue-repo', '-q',
               type=click.Path(exists=True), default=DEFAULT_QUEUE_PATH,
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @click.pass_context
-def crossbow(ctx, github_token, arrow_path, queue_path):
+def crossbow(ctx, github_token, arrow_repo, queue_repo):
     if github_token is None:
         raise click.ClickException(
             'Could not determine GitHub token. Please set the '
@@ -407,8 +473,8 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
             'valid GitHub access token or pass one to --github-token.'
         )
 
-    ctx.obj['arrow'] = Repo(Path(arrow_path))
-    ctx.obj['queue'] = Queue(Path(queue_path), github_token=github_token)
+    ctx.obj['arrow'] = Repo(Path(arrow_repo))
+    ctx.obj['queue'] = Queue(Path(queue_repo), github_token=github_token)
 
 
 def load_tasks_from_config(config_path, task_names, group_names):
@@ -443,13 +509,28 @@ def load_tasks_from_config(config_path, task_names, group_names):
 @click.option('--config-path', '-c',
               type=click.Path(exists=True), default=DEFAULT_CONFIG_PATH,
               help='Task configuration yml. Defaults to tasks.yml')
+@click.option('--arrow-dist', '-d', default=None,
+              help='Build from apache source archive')
+@click.option('--verify-dist/--no-verify', default=True)
+@click.option('--arrow-version', '-d', default=None,
+              help='Set target version explicitly')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
 @click.pass_context
-def submit(ctx, task, group, job_prefix, config_path, dry_run):
+def submit(ctx, task, group, job_prefix, config_path, dry_run,
+           arrow_dist, verify_dist, arrow_version):
     queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
-    target = Target.from_repo(arrow)
+
+    # instantiate build target
+    if arrow_dist:
+        target = DistTarget.from_url(arrow_dist, verify=verify_dist)
+    else:
+        target = GitTarget.from_repo(arrow)
+
+    # explicitly set arrow version
+    if arrow_version:
+        target.version = arrow_version
 
     # task and group variables are lists, containing multiple values
     tasks = {}
@@ -461,6 +542,8 @@ def submit(ctx, task, group, job_prefix, config_path, dry_run):
         tasks[name] = Task(**task, artifacts=artifacts)
 
     # create job instance, doesn't mutate git data yet
+    if len(tasks) == 0:
+        raise click.ClickException('No task has been specified')
     job = Job(target=target, tasks=tasks)
 
     if dry_run:
