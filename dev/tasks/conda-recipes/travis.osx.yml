@@ -65,9 +65,9 @@ script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
 {%- elif arrow.source == 'dist' %}
-  - curl -O {{ arrow.archive_url }}
+  - curl -OL {{ arrow.archive_url }}
   {%- if arrow.verify %}
-  - curl -O {{ arrow.checksum_url }}
+  - curl -OL {{ arrow.checksum_url }}
   - shasum -a 512 -c {{ arrow.checksum_filename }}
   {%- endif %}
   - mkdir arrow
