@@ -35,6 +35,7 @@ exclude:
   - asf-site
   - scripts
   - README.md
+  - vendor
 
 collections:
   docs:
