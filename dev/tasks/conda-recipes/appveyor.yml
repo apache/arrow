@@ -89,7 +89,9 @@ deploy:
   prerelease: false
   force_update: true
 
+{% if job.email %}
 notifications:
   - provider: Email
     to:
       - {{ job.email }}
+{% endif %}

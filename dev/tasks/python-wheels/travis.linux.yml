@@ -28,7 +28,6 @@ env:
   global:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
     - PYTHON_VERSION={{ python_version }}
     - PYARROW_VERSION={{ arrow.version }}
 
@@ -76,6 +75,8 @@ deploy:
   on:
     tags: true
 
+{% if job.email %}
 notifications:
   email:
     - {{ job.email }}
+{% endif %}

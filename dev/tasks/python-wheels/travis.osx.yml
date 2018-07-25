@@ -25,7 +25,6 @@ env:
   global:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
     - PYARROW_VERSION={{ arrow.version }}
     - MACOSX_DEPLOYMENT_TARGET="10.9"
     - MB_PYTHON_VERSION={{ python_version }}
@@ -72,9 +71,6 @@ script:
 
   - mkdir -p dist
 
-  # multibuild's default clean_code function
-  - clean_code arrow $BUILD_REF
-
   # the following functions are defined in osx-build.sh
   - build_wheel arrow
   - install_run arrow
@@ -91,6 +87,8 @@ deploy:
   on:
     tags: true
 
+{% if job.email %}
 notifications:
   email:
     - {{ job.email }}
+{% endif %}

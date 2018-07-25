@@ -69,7 +69,9 @@ deploy:
   draft: false
   prerelease: false
 
+{% if job.email %}
 notifications:
   - provider: Email
     to:
       - {{ job.email }}
+{% endif %}

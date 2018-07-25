@@ -89,6 +89,8 @@ deploy:
   on:
     tags: true
 
+{% if job.email %}
 notifications:
   email:
     - {{ job.email }}
+{% endif %}
