@@ -33,7 +33,7 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
- * This classes reads from an input stream and produces ArrowRecordBatches.
+ * This class reads from an input stream and produces ArrowRecordBatches.
  */
 public class ArrowStreamReader extends ArrowReader {
 

@@ -23,8 +23,7 @@ import java.nio.ByteBuffer;
 import org.apache.arrow.flatbuf.Message;
 
 /**
-* Class to hold resulting Message and message information when reading messages through
-* MessageReader.
+* Class to hold resulting Message and message information when reading messages from a ReadChannel.
 */
 public class MessageChannelResult {
 

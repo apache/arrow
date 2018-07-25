@@ -42,7 +42,7 @@ public class MessageChannelReader implements MessageReader<MessageBodyHolder, IO
   }
 
   /**
-   * Reads a Message from the ReadChannel and populate holder if a valid message was read.
+   * Read a Message from the ReadChannel and populate holder if a valid message was read.
    *
    * @param holder Message and message information that is populated when read by implementation
    * @return true if a valid Message was read, false if end-of-stream

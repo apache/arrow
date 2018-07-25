@@ -22,7 +22,7 @@ import org.apache.arrow.flatbuf.Message;
 
 /**
  * Class to hold a Message when reading messages through MessageReader. This class can be
- * extended to hold additional data from a MessageReader implementation.
+ * extended to hold the message body or additional data from a MessageReader implementation.
  */
 public class MessageHolder {
   public Message message;

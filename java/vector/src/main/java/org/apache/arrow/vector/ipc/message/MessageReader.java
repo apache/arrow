@@ -22,12 +22,12 @@ package org.apache.arrow.vector.ipc.message;
  * Interface for reading a sequence of messages.
  *
  * @param <T> Type of MessageHolder that will be set when a valid message is read
- * @param <U> Type of Exception that will be thrown when reading
+ * @param <U> Type of Exception that can be thrown when reading
  */
 public interface MessageReader<T extends MessageHolder, U extends Exception> extends AutoCloseable {
 
   /**
-   * Read the next message in the sequence and message body, if message has a defined
+   * Read the next message in the sequence and message body if message has a defined
    * body length.
    *
    * @param holder Data structure to hold message information read.
