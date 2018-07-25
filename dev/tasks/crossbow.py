@@ -512,7 +512,7 @@ def load_tasks_from_config(config_path, task_names, group_names):
 @click.option('--arrow-dist', '-d', default=None,
               help='Build from apache source archive')
 @click.option('--verify-dist/--no-verify', default=True)
-@click.option('--arrow-version', '-d', default=None,
+@click.option('--arrow-version', '-v', default=None,
               help='Set target version explicitly')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
