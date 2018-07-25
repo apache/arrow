@@ -210,15 +210,15 @@ cdef class ColumnChunkMetaData:
 
     @property
     def compression(self):
-        return self.metadata.compression()
+        return compression_name_from_enum(self.metadata.compression())
 
     @property
     def encodings(self):
-        return map(encoding_name_from_enum, self.metadata.encodings())
+        return tuple(map(encoding_name_from_enum, self.metadata.encodings()))
 
     @property
     def has_dictionary_page(self):
-        return self.metadata.has_dictionary_page()
+        return bool(self.metadata.has_dictionary_page())
 
     @property
     def dictionary_page_offset(self):
@@ -552,17 +552,54 @@ cdef logical_type_name_from_enum(ParquetLogicalType type_):
     }.get(type_, 'UNKNOWN')
 
 
-cdef encoding_name_from_enum (ParquetEncoding encoding_):
+cdef encoding_name_from_enum(ParquetEncoding encoding_):
     return {
-        ParquetEncoding_PLAIN: "PLAIN",
-        ParquetEncoding_PLAIN_DICTIONARY: "PLAIN_DICTIONARY",
-        ParquetEncoding_RLE: "RLE",
-        ParquetEncoding_BIT_PACKED: "BIT_PACKED",
-        ParquetEncoding_DELTA_BINARY_PACKED: "DELTA_BINARY_PACKED",
-        ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY: "DELTA_LENGTH_BYTE_ARRAY",
-        ParquetEncoding_DELTA_BYTE_ARRAY: "DELTA_BYTE_ARRAY",
-        ParquetEncoding_RLE_DICTIONARY: "RLE_DICTIONARY",
+        ParquetEncoding_PLAIN: 'PLAIN',
+        ParquetEncoding_PLAIN_DICTIONARY: 'PLAIN_DICTIONARY',
+        ParquetEncoding_RLE: 'RLE',
+        ParquetEncoding_BIT_PACKED: 'BIT_PACKED',
+        ParquetEncoding_DELTA_BINARY_PACKED: 'DELTA_BINARY_PACKED',
+        ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY: 'DELTA_LENGTH_BYTE_ARRAY',
+        ParquetEncoding_DELTA_BYTE_ARRAY: 'DELTA_BYTE_ARRAY',
+        ParquetEncoding_RLE_DICTIONARY: 'RLE_DICTIONARY',
     }.get(encoding_, 'UNKNOWN')
+
+
+cdef compression_name_from_enum(ParquetCompression compression_):
+    return {
+        ParquetCompression_UNCOMPRESSED: 'UNCOMPRESSED',
+        ParquetCompression_SNAPPY: 'SNAPPY',
+        ParquetCompression_GZIP: 'GZIP',
+        ParquetCompression_LZO: 'LZO',
+        ParquetCompression_BROTLI: 'BROTLI',
+        ParquetCompression_LZ4: 'LZ4',
+        ParquetCompression_ZSTD: 'ZSTD',
+    }.get(compression_, 'UNKNOWN')
+
+
+cdef int check_compression_name(name) except -1:
+    if name.upper() not in {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4',
+                            'ZSTD'}:
+        raise ArrowException("Unsupported compression: " + name)
+    return 0
+
+
+cdef ParquetCompression compression_from_name(str name):
+    name = name.upper()
+    if name == 'SNAPPY':
+        return ParquetCompression_SNAPPY
+    elif name == 'GZIP':
+        return ParquetCompression_GZIP
+    elif name == 'LZO':
+        return ParquetCompression_LZO
+    elif name == 'BROTLI':
+        return ParquetCompression_BROTLI
+    elif name == 'LZ4':
+        return ParquetCompression_LZ4
+    elif name == 'ZSTD':
+        return ParquetCompression_ZSTD
+    else:
+        return ParquetCompression_UNCOMPRESSED
 
 
 cdef class ParquetReader:
@@ -749,31 +786,6 @@ cdef class ParquetReader:
 
         array.init(carray)
         return array
-
-
-cdef int check_compression_name(name) except -1:
-    if name.upper() not in {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4',
-                            'ZSTD'}:
-        raise ArrowException("Unsupported compression: " + name)
-    return 0
-
-
-cdef ParquetCompression compression_from_name(str name):
-    name = name.upper()
-    if name == 'SNAPPY':
-        return ParquetCompression_SNAPPY
-    elif name == 'GZIP':
-        return ParquetCompression_GZIP
-    elif name == 'LZO':
-        return ParquetCompression_LZO
-    elif name == 'BROTLI':
-        return ParquetCompression_BROTLI
-    elif name == 'LZ4':
-        return ParquetCompression_LZ4
-    elif name == 'ZSTD':
-        return ParquetCompression_ZSTD
-    else:
-        return ParquetCompression_UNCOMPRESSED
 
 
 cdef class ParquetWriter:

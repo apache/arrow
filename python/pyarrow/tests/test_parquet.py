@@ -516,6 +516,9 @@ def make_sample_file(table_or_df):
 
 
 def test_parquet_metadata_api():
+    import pyarrow.parquet as pq
+    import pyarrow._parquet as _pq
+
     df = alltypes_sample(size=10000)
     df = df.reindex(columns=sorted(df.columns))
 
@@ -558,14 +561,35 @@ def test_parquet_metadata_api():
     # Row group
     for rg in range(meta.num_row_groups):
         rg_meta = meta.row_group(rg)
+        assert isinstance(rg_meta, _pq.RowGroupMetaData)
         repr(rg_meta)
 
         for col in range(rg_meta.num_columns):
             col_meta = rg_meta.column(col)
+            assert isinstance(col_meta, _pq.ColumnChunkMetaData)
             repr(col_meta)
 
+    rg_meta = meta.row_group(0)
     assert rg_meta.num_rows == len(df)
     assert rg_meta.num_columns == ncols + 1  # +1 for index
+    assert rg_meta.total_byte_size > 0
+
+    col_meta = rg_meta.column(0)
+    assert col_meta.file_offset > 0
+    assert col_meta.file_path == ''  # created from BytesIO
+    assert col_meta.physical_type == 'BOOLEAN'
+    assert col_meta.num_values == 10000
+    assert col_meta.path_in_schema == 'bool'
+    assert col_meta.is_stats_set is True
+    assert isinstance(col_meta.statistics, _pq.RowGroupStatistics)
+    assert col_meta.compression == 'SNAPPY'
+    assert col_meta.encodings == ('PLAIN', 'RLE')
+    assert col_meta.has_dictionary_page is False
+    assert col_meta.dictionary_page_offset == 0
+    assert col_meta.data_page_offset > 0
+    assert col_meta.index_page_offset == 0
+    assert col_meta.total_compressed_size > 0
+    assert col_meta.total_uncompressed_size > 0
 
 
 @pytest.mark.parametrize(
