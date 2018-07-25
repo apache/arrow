@@ -19,7 +19,7 @@
 use std::any::Any;
 use std::convert::From;
 use std::ops::Add;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::str;
 use std::string::String;
 
@@ -32,7 +32,7 @@ use super::list_builder::*;
 
 /// Trait for dealing with different types of Array at runtime when the type of the
 /// array is not known in advance
-pub trait Array {
+pub trait Array: Send + Sync {
     /// Returns the length of the array (number of items in the array)
     fn len(&self) -> usize;
     /// Returns the number of null values in the array
@@ -310,7 +310,7 @@ where
 /// An Array of structs
 pub struct StructArray {
     len: usize,
-    columns: Vec<Rc<Array>>,
+    columns: Vec<Arc<Array>>,
     null_count: usize,
     validity_bitmap: Option<Bitmap>,
 }
@@ -319,7 +319,7 @@ impl StructArray {
     pub fn num_columns(&self) -> usize {
         self.columns.len()
     }
-    pub fn column(&self, i: usize) -> &Rc<Array> {
+    pub fn column(&self, i: usize) -> &Arc<Array> {
         &self.columns[i]
     }
 }
@@ -341,8 +341,8 @@ impl Array for StructArray {
 
 /// Create a StructArray from a list of arrays representing the fields of the struct. The fields
 /// must be in the same order as the schema defining the struct.
-impl From<Vec<Rc<Array>>> for StructArray {
-    fn from(data: Vec<Rc<Array>>) -> Self {
+impl From<Vec<Arc<Array>>> for StructArray {
+    fn from(data: Vec<Arc<Array>>) -> Self {
         StructArray {
             len: data[0].len(),
             columns: data,
@@ -355,6 +355,7 @@ impl From<Vec<Rc<Array>>> for StructArray {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
 
     #[test]
     fn array_data_from_list_u8() {
@@ -424,8 +425,8 @@ mod tests {
 
     #[test]
     fn test_struct() {
-        let a: Rc<Array> = Rc::new(PrimitiveArray::from(Buffer::from(vec![1, 2, 3, 4, 5])));
-        let b: Rc<Array> = Rc::new(PrimitiveArray::from(Buffer::from(vec![
+        let a: Arc<Array> = Arc::new(PrimitiveArray::from(Buffer::from(vec![1, 2, 3, 4, 5])));
+        let b: Arc<Array> = Arc::new(PrimitiveArray::from(Buffer::from(vec![
             1.1, 2.2, 3.3, 4.4, 5.5,
         ])));
 
@@ -448,4 +449,16 @@ mod tests {
         assert_eq!(9, a.max().unwrap());
     }
 
+    #[test]
+    fn test_access_array_concurrently() {
+        let a = PrimitiveArray::from(Buffer::from(vec![5, 6, 7, 8, 9]));
+
+        let ret = thread::spawn(move || {
+            a.iter().collect::<Vec<i32>>()
+        }).join();
+
+        assert!(ret.is_ok());
+        assert_eq!(vec![5, 6, 7, 8, 9], ret.ok().unwrap());
+    }
 }
+

@@ -16,7 +16,7 @@
 // under the License.
 
 ///! This example demonstrates dealing with mixed types dynamically at runtime
-use std::rc::Rc;
+use std::sync::Arc;
 
 extern crate arrow;
 
@@ -43,13 +43,13 @@ fn main() {
     let id = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
 
     let nested = StructArray::from(vec![
-        Rc::new(ListArray::from(vec!["a", "b", "c", "d", "e"])) as Rc<Array>,
-        Rc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
-        Rc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
+        Arc::new(ListArray::from(vec!["a", "b", "c", "d", "e"])) as Arc<Array>,
+        Arc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
+        Arc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
     ]);
 
     // build a record batch
-    let batch = RecordBatch::new(Rc::new(schema), vec![Rc::new(id), Rc::new(nested)]);
+    let batch = RecordBatch::new(Arc::new(schema), vec![Arc::new(id), Arc::new(nested)]);
 
     process(&batch);
 }
@@ -80,10 +80,10 @@ fn process(batch: &RecordBatch) {
     ]);
 
     let _ = RecordBatch::new(
-        Rc::new(projected_schema),
+        Arc::new(projected_schema),
         vec![
-            id.clone(), //NOTE: this is cloning the Rc not the array data
-            Rc::new(nested_b.add(nested_c)),
+            id.clone(), //NOTE: this is cloning the Arc not the array data
+            Arc::new(nested_b.add(nested_c)),
         ],
     );
 }
