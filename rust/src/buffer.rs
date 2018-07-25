@@ -164,9 +164,13 @@ impl From<Bytes> for Buffer<u8> {
     }
 }
 
+unsafe impl<T: ArrowPrimitiveType> Sync for Buffer<T> {}
+unsafe impl<T: ArrowPrimitiveType> Send for Buffer<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
 
     #[test]
     fn test_buffer_i32() {
@@ -270,5 +274,19 @@ mod tests {
     fn slice_end_before_start() {
         let a = Buffer::from(vec![1, 2, 3, 4, 5]);
         a.slice(3, 2); // should panic
+    }
+
+    #[test]
+    fn test_access_buffer_concurrently() {
+        let buffer = Buffer::from(vec![1, 2, 3, 4, 5]);
+        assert_eq!(vec![1, 2, 3, 4, 5], buffer.iter().collect::<Vec<i32>>());
+
+        let collected_vec = thread::spawn(move || {
+            // access buffer in another thread.
+            buffer.iter().collect::<Vec<i32>>()
+        }).join();
+
+        assert!(collected_vec.is_ok());
+        assert_eq!(vec![1, 2, 3, 4, 5], collected_vec.ok().unwrap());
     }
 }

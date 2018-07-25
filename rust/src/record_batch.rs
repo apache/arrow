@@ -17,16 +17,16 @@
 
 use super::array::*;
 use super::datatypes::*;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// A batch of column-oriented data
 pub struct RecordBatch {
-    schema: Rc<Schema>,
-    columns: Vec<Rc<Array>>,
+    schema: Arc<Schema>,
+    columns: Vec<Arc<Array>>,
 }
 
 impl RecordBatch {
-    pub fn new(schema: Rc<Schema>, columns: Vec<Rc<Array>>) -> Self {
+    pub fn new(schema: Arc<Schema>, columns: Vec<Arc<Array>>) -> Self {
         // assert that there are some columns
         assert!(columns.len() > 0);
         // assert that all columns have the same row count
@@ -37,7 +37,7 @@ impl RecordBatch {
         RecordBatch { schema, columns }
     }
 
-    pub fn schema(&self) -> &Rc<Schema> {
+    pub fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
 
@@ -49,10 +49,13 @@ impl RecordBatch {
         self.columns[0].len()
     }
 
-    pub fn column(&self, i: usize) -> &Rc<Array> {
+    pub fn column(&self, i: usize) -> &Arc<Array> {
         &self.columns[i]
     }
 }
+
+unsafe impl Send for RecordBatch {}
+unsafe impl Sync for RecordBatch {}
 
 #[cfg(test)]
 mod tests {
@@ -68,7 +71,7 @@ mod tests {
         let a = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
         let b = ListArray::from(vec!["a", "b", "c", "d", "e"]);
 
-        let record_batch = RecordBatch::new(Rc::new(schema), vec![Rc::new(a), Rc::new(b)]);
+        let record_batch = RecordBatch::new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)]);
 
         assert_eq!(5, record_batch.num_rows());
         assert_eq!(2, record_batch.num_columns());
