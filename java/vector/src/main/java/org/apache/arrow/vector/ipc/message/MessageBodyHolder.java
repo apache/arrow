@@ -21,9 +21,9 @@ package org.apache.arrow.vector.ipc.message;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * Extend MessageReadHolderBase to contain a message body ArrowBuf used when reading messages
- * with MessageReader.
+ * Extend MessageHolder to contain an ArrowBuf message body used when reading messages
+ * with a MessageReader.
  */
-public class ArrowBufReadHolder extends MessageReadHolder {
+public class MessageBodyHolder extends MessageHolder {
   public ArrowBuf bodyBuffer;
 }

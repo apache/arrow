@@ -19,9 +19,12 @@
 package org.apache.arrow.vector.ipc.message;
 
 /**
- * Abstract base class for reading a sequence of messages.
+ * Interface for reading a sequence of messages.
+ *
+ * @param <T> Type of MessageHolder that will be set when a valid message is read
+ * @param <U> Type of Exception that will be thrown when reading
  */
-public abstract class MessageReader<T extends MessageReadHolder, U extends Exception> implements AutoCloseable {
+public interface MessageReader<T extends MessageHolder, U extends Exception> extends AutoCloseable {
 
   /**
    * Read the next message in the sequence and message body, if message has a defined
@@ -30,40 +33,11 @@ public abstract class MessageReader<T extends MessageReadHolder, U extends Excep
    * @param holder Data structure to hold message information read.
    * @return true if a Message was read or false if no more messages.
    */
-  public boolean readNext(T holder) throws U {
-
-    // Read message and body if bodyLength is specified
-    readMessage(holder);
-    if (holder.message == null) {
-      return false;
-    }
-    if (holder.message.bodyLength() > 0) {
-      readMessageBody(holder);
-    }
-    return true;
-  }
+  boolean readNext(T holder) throws U;
 
   /**
    * Close any opened resources.
    */
   @Override
-  public void close() throws U {
-  }
-
-  /**
-   * Attempt to read a message. If no new message is available, set holder.message to null to
-   * indicate no further messages in the sequence.
-   *
-   * @param holder Message and message information that is populated when read by implementation.
-   */
-  protected abstract void readMessage(T holder) throws U;
-
-  /**
-   * Read the body of a message, implementation should populate holder accordingly.
-   * Called when holder.message.bodyLength > 0.
-   *
-   * @param holder Contains message information from readMessage, message body is populated when
-   *               read by implementation.
-   */
-  protected abstract void readMessageBody(T holder) throws U;
+  void close() throws U;
 }

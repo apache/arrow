@@ -25,9 +25,9 @@ import java.nio.channels.ReadableByteChannel;
 
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.ipc.message.ArrowBufReadHolder;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.MessageBodyHolder;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -98,7 +98,7 @@ public class ArrowStreamReader extends ArrowReader {
    */
   public boolean loadNextBatch() throws IOException {
     prepareLoadNextBatch();
-    ArrowBufReadHolder holder = new ArrowBufReadHolder();
+    MessageBodyHolder holder = new MessageBodyHolder();
 
     // Reached EOS
     if (!messageReader.readNext(holder)) {
@@ -126,7 +126,7 @@ public class ArrowStreamReader extends ArrowReader {
    */
   @Override
   protected Schema readSchema() throws IOException {
-    ArrowBufReadHolder holder = new ArrowBufReadHolder();
+    MessageBodyHolder holder = new MessageBodyHolder();
 
     if (!messageReader.readNext(holder)) {
       throw new IOException("Unexpected end of input. Missing schema.");
@@ -148,7 +148,7 @@ public class ArrowStreamReader extends ArrowReader {
    */
   @Override
   protected ArrowDictionaryBatch readDictionary() throws IOException {
-    ArrowBufReadHolder holder = new ArrowBufReadHolder();
+    MessageBodyHolder holder = new MessageBodyHolder();
 
     if (!messageReader.readNext(holder)) {
       throw new IOException("Unexpected end of input. Expected DictionaryBatch");

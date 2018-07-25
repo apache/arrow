@@ -18,17 +18,12 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-import java.nio.ByteBuffer;
-
 import org.apache.arrow.flatbuf.Message;
 
 /**
- * Class to hold Message and message information when reading messages through MessageReader.
- * The variables are defined as follows: messageLength is the length of the message read,
- * messageBuffer contains the raw bytes of the message, message is the realized flatbuf Message.
+ * Class to hold a Message when reading messages through MessageReader. This class can be
+ * extended to hold additional data from a MessageReader implementation.
  */
-public class MessageReadHolder {
-  public int messageLength;
-  public ByteBuffer messageBuffer;
+public class MessageHolder {
   public Message message;
 }

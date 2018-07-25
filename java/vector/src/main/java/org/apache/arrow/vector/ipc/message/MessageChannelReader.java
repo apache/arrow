@@ -26,8 +26,7 @@ import org.apache.arrow.vector.ipc.ReadChannel;
 /**
  * Reads a sequence of messages using a ReadChannel.
  */
-public class MessageChannelReader extends MessageReader<ArrowBufReadHolder, IOException> {
-
+public class MessageChannelReader implements MessageReader<MessageBodyHolder, IOException> {
   protected ReadChannel in;
   protected BufferAllocator allocator;
 
@@ -40,6 +39,32 @@ public class MessageChannelReader extends MessageReader<ArrowBufReadHolder, IOEx
   public MessageChannelReader(ReadChannel in, BufferAllocator allocator) {
     this.in = in;
     this.allocator = allocator;
+  }
+
+  /**
+   * Reads a Message from the ReadChannel and populate holder if a valid message was read.
+   *
+   * @param holder Message and message information that is populated when read by implementation
+   * @return true if a valid Message was read, false if end-of-stream
+   * @throws IOException
+   */
+  @Override
+  public boolean readNext(MessageBodyHolder holder) throws IOException {
+
+    // Read the flatbuf message and check for end-of-stream
+    MessageChannelResult result = MessageSerializer.readMessage(in);
+    if (!result.hasMessage()) {
+      return false;
+    }
+    holder.message = result.getMessage();
+
+    // Read message body data if defined in message
+    if (result.messageHasBody()) {
+      int bodyLength = (int) result.getMessageBodyLength();
+      holder.bodyBuffer = MessageSerializer.readMessageBody(in, bodyLength, allocator);
+    }
+
+    return true;
   }
 
   /**
@@ -59,30 +84,5 @@ public class MessageChannelReader extends MessageReader<ArrowBufReadHolder, IOEx
   @Override
   public void close() throws IOException {
     in.close();
-  }
-
-  /**
-   * Read a Message from the ReadChannel and populate holder or set holder.message to null if
-   * no further messages.
-   *
-   * @param holder Message and message information that is populated when read by implementation.
-   * @throws IOException
-   */
-  @Override
-  protected void readMessage(ArrowBufReadHolder holder) throws IOException {
-    MessageSerializer.readMessage(holder, in);
-  }
-
-  /**
-   * When a message is followed by a body of data, read that data into an ArrowBuf. This will
-   * only be called when a Message has a body length > 0.
-   *
-   * @param holder Contains Message and message information, will set holder.bodyBuffer with
-   *               message body data read.
-   * @throws IOException
-   */
-  @Override
-  protected void readMessageBody(ArrowBufReadHolder holder) throws IOException {
-    MessageSerializer.readMessageBody(holder, in, allocator);
   }
 }
