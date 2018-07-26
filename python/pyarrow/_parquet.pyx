@@ -421,7 +421,7 @@ cdef class ParquetSchema:
         try:
             return self.equals(other)
         except TypeError:
-            return False
+            return NotImplemented
 
     def equals(self, ParquetSchema other):
         """
@@ -449,7 +449,7 @@ cdef class ColumnSchema:
         try:
             return self.equals(other)
         except TypeError:
-            return False
+            return NotImplemented
 
     def equals(self, ColumnSchema other):
         """
