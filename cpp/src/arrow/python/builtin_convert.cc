@@ -54,10 +54,17 @@ Status InvalidConversion(PyObject* obj, const std::string& expected_types,
 
 class TypeInferrer {
   // A type inference visitor for Python values
-
  public:
-  TypeInferrer()
-      : total_count_(0),
+  // \param validate_interval the number of elements to observe before checking
+  // whether the data is mixed type or has other problems. This helps avoid
+  // excess computation for each element while also making sure we "bail out"
+  // early with long sequences that may have problems up front
+  // \param make_unions permit mixed-type data by creating union types (not yet
+  // implemented)
+  explicit TypeInferrer(int64_t validate_interval = 100, bool make_unions = false)
+      : validate_interval_(validate_interval),
+        make_unions_(make_unions),
+        total_count_(0),
         none_count_(0),
         bool_count_(0),
         int_count_(0),
@@ -79,37 +86,45 @@ class TypeInferrer {
     DCHECK_OK(status);
   }
 
-  // Infer value type from a sequence of values
-  Status VisitSequence(PyObject* obj) {
-    return internal::VisitSequence(obj, [this](PyObject* value) { return Visit(value); });
-  }
-
-  Status Visit(PyObject* obj) {
+  Status Visit(PyObject* obj, bool* keep_going) {
     ++total_count_;
+
+    if (total_count_ % validate_interval_ == 0) {
+      RETURN_NOT_OK(Validate());
+    }
+
     if (obj == Py_None || internal::PyFloat_IsNaN(obj)) {
       ++none_count_;
     } else if (PyBool_Check(obj)) {
       ++bool_count_;
+      *keep_going = make_unions_ && false;
     } else if (PyFloat_Check(obj)) {
       ++float_count_;
+      *keep_going = make_unions_ && false;
     } else if (internal::IsPyInteger(obj)) {
       ++int_count_;
+      *keep_going = make_unions_ && false;
     } else if (PyDate_CheckExact(obj)) {
       ++date_count_;
+      *keep_going = make_unions_ && false;
     } else if (PyDateTime_CheckExact(obj)) {
       ++timestamp_micro_count_;
+      *keep_going = make_unions_ && false;
     } else if (internal::IsPyBinary(obj)) {
       ++binary_count_;
+      *keep_going = make_unions_ && false;
     } else if (PyUnicode_Check(obj)) {
       ++unicode_count_;
+      *keep_going = make_unions_ && false;
     } else if (PyArray_CheckAnyScalarExact(obj)) {
-      return VisitDType(PyArray_DescrFromScalar(obj));
+      RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj)));
+      *keep_going = make_unions_ && false;
     } else if (PyList_Check(obj)) {
-      return VisitList(obj);
+      return VisitList(obj, keep_going);
     } else if (PyArray_Check(obj)) {
-      return VisitNdarray(obj);
+      return VisitNdarray(obj, keep_going);
     } else if (PyDict_Check(obj)) {
-      return VisitDict(obj);
+      return VisitDict(obj, keep_going);
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
       ++decimal_count_;
@@ -125,6 +140,58 @@ class TypeInferrer {
     return Status::OK();
   }
 
+  // Infer value type from a sequence of values
+  Status VisitSequence(PyObject* obj) {
+    return internal::VisitSequence(obj, [this](PyObject* value, bool* keep_going) {
+      return Visit(value, keep_going);
+    });
+  }
+
+  Status GetType(std::shared_ptr<DataType>* out) const {
+    // TODO(wesm): handling forming unions
+    if (make_unions_) {
+      return Status::NotImplemented("Creating union types not yet supported");
+    }
+
+    RETURN_NOT_OK(Validate());
+
+    if (list_count_) {
+      std::shared_ptr<DataType> value_type;
+      RETURN_NOT_OK(list_inferrer_->GetType(&value_type));
+      *out = list(value_type);
+    } else if (struct_count_) {
+      RETURN_NOT_OK(GetStructType(out));
+    } else if (decimal_count_) {
+      *out = decimal(max_decimal_metadata_.precision(), max_decimal_metadata_.scale());
+    } else if (float_count_) {
+      *out = float64();
+    } else if (int_count_) {
+      *out = int64();
+    } else if (date_count_) {
+      *out = date64();
+    } else if (timestamp_nano_count_) {
+      *out = timestamp(TimeUnit::NANO);
+    } else if (timestamp_micro_count_) {
+      *out = timestamp(TimeUnit::MICRO);
+    } else if (timestamp_milli_count_) {
+      *out = timestamp(TimeUnit::MILLI);
+    } else if (timestamp_second_count_) {
+      *out = timestamp(TimeUnit::SECOND);
+    } else if (bool_count_) {
+      *out = boolean();
+    } else if (binary_count_) {
+      *out = binary();
+    } else if (unicode_count_) {
+      *out = utf8();
+    } else {
+      *out = null();
+    }
+    return Status::OK();
+  }
+
+  int64_t total_count() const { return total_count_; }
+
+ protected:
   Status Validate() const {
     if (list_count_ > 0) {
       if (list_count_ + none_count_ != total_count_) {
@@ -142,44 +209,6 @@ class TypeInferrer {
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> GetType() const {
-    // TODO(wesm): handling mixed-type cases
-    if (list_count_) {
-      auto value_type = list_inferrer_->GetType();
-      DCHECK(value_type != nullptr);
-      return list(value_type);
-    } else if (struct_count_) {
-      return GetStructType();
-    } else if (decimal_count_) {
-      return decimal(max_decimal_metadata_.precision(), max_decimal_metadata_.scale());
-    } else if (float_count_) {
-      return float64();
-    } else if (int_count_) {
-      return int64();
-    } else if (date_count_) {
-      return date64();
-    } else if (timestamp_nano_count_) {
-      return timestamp(TimeUnit::NANO);
-    } else if (timestamp_micro_count_) {
-      return timestamp(TimeUnit::MICRO);
-    } else if (timestamp_milli_count_) {
-      return timestamp(TimeUnit::MILLI);
-    } else if (timestamp_second_count_) {
-      return timestamp(TimeUnit::SECOND);
-    } else if (bool_count_) {
-      return boolean();
-    } else if (binary_count_) {
-      return binary();
-    } else if (unicode_count_) {
-      return utf8();
-    } else {
-      return null();
-    }
-  }
-
-  int64_t total_count() const { return total_count_; }
-
- protected:
   Status VisitDType(PyArray_Descr* dtype) {
     // This is a bit silly.  NumPyDtypeToArrow() infers a Arrow datatype
     // for us, but we go back to counting abstract type kinds.
@@ -211,33 +240,36 @@ class TypeInferrer {
     return Status::OK();
   }
 
-  Status VisitList(PyObject* obj) {
+  Status VisitList(PyObject* obj, bool* keep_going /* unused */) {
     if (!list_inferrer_) {
-      list_inferrer_.reset(new TypeInferrer);
+      list_inferrer_.reset(new TypeInferrer(validate_interval_, make_unions_));
     }
     ++list_count_;
     return list_inferrer_->VisitSequence(obj);
   }
 
-  Status VisitNdarray(PyObject* obj) {
+  Status VisitNdarray(PyObject* obj, bool* keep_going) {
     PyArray_Descr* dtype = PyArray_DESCR(reinterpret_cast<PyArrayObject*>(obj));
     if (dtype->type_num == NPY_OBJECT) {
-      return VisitList(obj);
+      return VisitList(obj, keep_going);
     }
     // Not an object array: infer child Arrow type from dtype
     if (!list_inferrer_) {
-      list_inferrer_.reset(new TypeInferrer);
+      list_inferrer_.reset(new TypeInferrer(validate_interval_, make_unions_));
     }
     ++list_count_;
+
+    // Reached a concrete dype
+    *keep_going = make_unions_ && false;
     return list_inferrer_->VisitDType(dtype);
   }
 
-  Status VisitDict(PyObject* obj) {
+  Status VisitDict(PyObject* obj, bool* keep_going) {
     PyObject* key_obj;
     PyObject* value_obj;
     Py_ssize_t pos = 0;
 
-    while (PyDict_Next(obj, &pos, &key_obj, &value_obj)) {
+    while (*keep_going && PyDict_Next(obj, &pos, &key_obj, &value_obj)) {
       std::string key;
       if (PyUnicode_Check(key_obj)) {
         RETURN_NOT_OK(internal::PyUnicode_AsStdString(key_obj, &key));
@@ -252,25 +284,37 @@ class TypeInferrer {
       // Get or create visitor for this key
       auto it = struct_inferrers_.find(key);
       if (it == struct_inferrers_.end()) {
-        it = struct_inferrers_.insert(std::make_pair(key, TypeInferrer())).first;
+        it = struct_inferrers_
+                 .insert(
+                     std::make_pair(key, TypeInferrer(validate_interval_, make_unions_)))
+                 .first;
       }
       TypeInferrer* visitor = &it->second;
-      RETURN_NOT_OK(visitor->Visit(value_obj));
+
+      // If one of value types signals tp terminate, we terminate
+      RETURN_NOT_OK(visitor->Visit(value_obj, keep_going));
     }
+
+    // We do not terminate visiting dicts (unless one of the struct_inferrers_
+    // signaled to terminate) since we want the union of all observed keys
     ++struct_count_;
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> GetStructType() const {
+  Status GetStructType(std::shared_ptr<DataType>* out) const {
     std::vector<std::shared_ptr<Field>> fields;
     for (const auto& it : struct_inferrers_) {
-      const auto struct_field = field(it.first, it.second.GetType());
-      fields.emplace_back(struct_field);
+      std::shared_ptr<DataType> field_type;
+      RETURN_NOT_OK(it.second.GetType(&field_type));
+      fields.emplace_back(field(it.first, field_type));
     }
-    return struct_(fields);
+    *out = struct_(fields);
+    return Status::OK();
   }
 
  private:
+  int64_t validate_interval_;
+  bool make_unions_;
   int64_t total_count_;
   int64_t none_count_;
   int64_t bool_count_;
@@ -344,9 +388,7 @@ Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
   PyDateTime_IMPORT;
   TypeInferrer inferrer;
   RETURN_NOT_OK(inferrer.VisitSequence(obj));
-  RETURN_NOT_OK(inferrer.Validate());
-
-  *out_type = inferrer.GetType();
+  RETURN_NOT_OK(inferrer.GetType(out_type));
   if (*out_type == nullptr) {
     return Status::TypeError("Unable to determine data type");
   }
@@ -421,8 +463,10 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
     // Iterate over the items adding each one
     auto self = checked_cast<Derived*>(this);
-    auto visit = [self](PyObject* item) { return self->AppendSingle(item); };
-    return internal::VisitSequence(obj, visit);
+    return internal::VisitSequence(obj,
+                                   [self](PyObject* item, bool* keep_going /* unused */) {
+                                     return self->AppendSingle(item);
+                                   });
   }
 
   // Append a missing item (default implementation)

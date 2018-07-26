@@ -1229,11 +1229,14 @@ Status LoopPySequenceWithMasks(PyObject* sequence,
                                bool have_mask, BinaryFunction&& func) {
   if (have_mask) {
     int64_t i = 0;
-    auto visit = [&](PyObject* obj) { return func(obj, mask_values[i++] != 0); };
-    return internal::VisitIterable(sequence, visit);
+    return internal::VisitIterable(sequence,
+                                   [&](PyObject* obj, bool* keep_going /* unused */) {
+                                     return func(obj, mask_values[i++] != 0);
+                                   });
   } else {
-    auto visit = [&](PyObject* obj) { return func(obj, false); };
-    return internal::VisitIterable(sequence, visit);
+    return internal::VisitIterable(
+        sequence,
+        [&](PyObject* obj, bool* keep_going /* unused */) { return func(obj, false); });
   }
 }
 
@@ -1467,16 +1470,16 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
       const auto& list_type = checked_cast<const ListType&>(*type);
       auto value_builder = checked_cast<ListBuilder*>(builder->value_builder());
 
-      auto foreach_item = [this, &builder, &value_builder, &list_type](PyObject* object) {
-        if (internal::PandasObjectIsNull(object)) {
-          return builder->AppendNull();
-        } else {
-          RETURN_NOT_OK(builder->Append(true));
-          return ConvertLists(list_type.value_type(), value_builder, object);
-        }
-      };
-
-      return internal::VisitIterable(list, foreach_item);
+      return internal::VisitIterable(
+          list, [this, &builder, &value_builder, &list_type](
+                    PyObject* object, bool* keep_going /* unused */) {
+            if (internal::PandasObjectIsNull(object)) {
+              return builder->AppendNull();
+            } else {
+              RETURN_NOT_OK(builder->Append(true));
+              return ConvertLists(list_type.value_type(), value_builder, object);
+            }
+          });
     }
     default: {
       std::stringstream ss;
