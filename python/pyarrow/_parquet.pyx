@@ -222,7 +222,10 @@ cdef class ColumnChunkMetaData:
 
     @property
     def dictionary_page_offset(self):
-        return self.metadata.dictionary_page_offset()
+        if self.has_dictionary_page:
+            return self.metadata.dictionary_page_offset()
+        else:
+            return None
 
     @property
     def data_page_offset(self):

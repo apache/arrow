@@ -584,7 +584,7 @@ def test_parquet_metadata_api():
     assert col_meta.compression == 'SNAPPY'
     assert col_meta.encodings == ('PLAIN', 'RLE')
     assert col_meta.has_dictionary_page is False
-    assert col_meta.dictionary_page_offset == 0
+    assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
     assert col_meta.index_page_offset == 0
     assert col_meta.total_compressed_size > 0
@@ -603,29 +603,29 @@ def test_parquet_metadata_api():
         'distinct_count'
     ),
     [
-        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, None),
-        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, None),
-        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, None),
-        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, None),
-        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, None),
-        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, None),
-        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, None),
-        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, 0),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
-            'FLOAT', -1.1, 4.4, 1, 4, None
+            'FLOAT', -1.1, 4.4, 1, 4, 0
         ),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
-            'DOUBLE', -1.1, 4.4, 1, 4, None
+            'DOUBLE', -1.1, 4.4, 1, 4, 0
         ),
         (
             [u'', u'b', unichar(1000), None, u'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'', unichar(1000).encode('utf-8'), 1, 4, None
+            'BYTE_ARRAY', b'', unichar(1000).encode('utf-8'), 1, 4, 0
         ),
         (
             [True, False, False, True, True], pa.bool_(),
-            'BOOLEAN', False, True, 0, 5, None
+            'BOOLEAN', False, True, 0, 5, 0
         ),
     ]
 )
@@ -648,6 +648,8 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
     assert stat.max == max_value
     assert stat.null_count == null_count
     assert stat.num_values == num_values
+    # TODO(kszucs) until parquet-cpp API doesn't expose HasDistinctCount
+    # method, missing distinct_count is represented as zero instead of None
     assert stat.distinct_count == distinct_count
     assert stat.physical_type == physical_type
 
