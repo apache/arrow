@@ -33,9 +33,10 @@ except ImportError:
 import numpy as np
 
 from pyarrow.filesystem import FileSystem, LocalFileSystem, S3FSWrapper
-from pyarrow._parquet import (ParquetReader, FileMetaData, RowGroupMetaData,
-                              ColumnChunkMetaData, ParquetSchema, ColumnSchema,
-                              RowGroupStatistics)  # noqa
+from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
+                              FileMetaData, RowGroupMetaData,
+                              ColumnChunkMetaData,
+                              ParquetSchema, ColumnSchema)
 import pyarrow._parquet as _parquet
 import pyarrow.lib as lib
 import pyarrow as pa
