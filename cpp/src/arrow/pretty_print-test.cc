@@ -85,30 +85,159 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   std::vector<bool> is_valid = {true, true, false, true, false};
 
   std::vector<int32_t> values = {0, 1, 2, 3, 4};
-  static const char* expected = "[\n  0,\n  1,\n  null,\n  3,\n  null\n]";
+  static const char* expected = R"expected([
+  0,
+  1,
+  null,
+  3,
+  null
+])expected";
   CheckPrimitive<Int32Type, int32_t>({0, 10}, is_valid, values, expected);
 
-  static const char* expected_na = "[\n  0,\n  1,\n  NA,\n  3,\n  NA\n]";
+  static const char* expected_na = R"expected([
+  0,
+  1,
+  NA,
+  3,
+  NA
+])expected";
   CheckPrimitive<Int32Type, int32_t>({0, 10, 2, "NA"}, is_valid, values, expected_na,
                                      false);
 
-  static const char* ex_in2 = "  [\n    0,\n    1,\n    null,\n    3,\n    null\n  ]";
+  static const char* ex_in2 = R"expected(  [
+    0,
+    1,
+    null,
+    3,
+    null
+  ])expected";
   CheckPrimitive<Int32Type, int32_t>({2, 10}, is_valid, values, ex_in2);
-  static const char* ex_in2_w2 = "  [\n    0,\n    1,\n    ...\n    3,\n    null\n  ]";
+  static const char* ex_in2_w2 = R"expected(  [
+    0,
+    1,
+    ...
+    3,
+    null
+  ])expected";
   CheckPrimitive<Int32Type, int32_t>({2, 2}, is_valid, values, ex_in2_w2);
 
   std::vector<double> values2 = {0., 1., 2., 3., 4.};
-  static const char* ex2 = "[\n  0,\n  1,\n  null,\n  3,\n  null\n]";
+  static const char* ex2 = R"expected([
+  0,
+  1,
+  null,
+  3,
+  null
+])expected";
   CheckPrimitive<DoubleType, double>({0, 10}, is_valid, values2, ex2);
-  static const char* ex2_in2 = "  [\n    0,\n    1,\n    null,\n    3,\n    null\n  ]";
+  static const char* ex2_in2 = R"expected(  [
+    0,
+    1,
+    null,
+    3,
+    null
+  ])expected";
   CheckPrimitive<DoubleType, double>({2, 10}, is_valid, values2, ex2_in2);
 
   std::vector<std::string> values3 = {"foo", "bar", "", "baz", ""};
-  static const char* ex3 = "[\n  \"foo\",\n  \"bar\",\n  null,\n  \"baz\",\n  null\n]";
+  static const char* ex3 = R"expected([
+  "foo",
+  "bar",
+  null,
+  "baz",
+  null
+])expected";
   CheckPrimitive<StringType, std::string>({0, 10}, is_valid, values3, ex3);
-  static const char* ex3_in2 =
-      "  [\n    \"foo\",\n    \"bar\",\n    null,\n    \"baz\",\n    null\n  ]";
+  static const char* ex3_in2 = R"expected(  [
+    "foo",
+    "bar",
+    null,
+    "baz",
+    null
+  ])expected";
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
+}
+
+TEST_F(TestPrettyPrint, StructTypeBasic) {
+  auto simple_1 = field("one", int32());
+  auto simple_2 = field("two", int32());
+  auto simple_struct = struct_({simple_1, simple_2});
+
+  auto int_builder_1 = std::make_shared<Int32Builder>();
+  auto int_builder_2 = std::make_shared<Int32Builder>();
+  StructBuilder builder(simple_struct, default_memory_pool(),
+                        {int_builder_1, int_builder_2});
+  ASSERT_OK(builder.Append());
+  ASSERT_OK(int_builder_1->Append(11));
+  ASSERT_OK(int_builder_2->Append(22));
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  static const char* ex = R"expected(-- is_valid: all not null
+-- child 0 type: int32
+  [
+    11
+  ]
+-- child 1 type: int32
+  [
+    22
+  ])expected";
+  CheckStream(*array, {0, 10}, ex);
+
+  static const char* ex_2 = R"expected(  -- is_valid: all not null
+  -- child 0 type: int32
+    [
+      11
+    ]
+  -- child 1 type: int32
+    [
+      22
+    ])expected";
+  CheckStream(*array, {2, 10}, ex_2);
+}
+
+TEST_F(TestPrettyPrint, StructTypeAdvanced) {
+  auto simple_1 = field("one", int32());
+  auto simple_2 = field("two", int32());
+  auto simple_struct = struct_({simple_1, simple_2});
+
+  auto int_builder_1 = std::make_shared<Int32Builder>();
+  auto int_builder_2 = std::make_shared<Int32Builder>();
+  StructBuilder builder(simple_struct, default_memory_pool(),
+                        {int_builder_1, int_builder_2});
+  ASSERT_OK(builder.Append());
+  ASSERT_OK(int_builder_1->Append(11));
+  ASSERT_OK(int_builder_2->Append(22));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(int_builder_1->AppendNull());
+  ASSERT_OK(int_builder_2->AppendNull());
+  ASSERT_OK(builder.Append());
+  ASSERT_OK(int_builder_1->AppendNull());
+  ASSERT_OK(int_builder_2->Append(33));
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  static const char* ex = R"expected(-- is_valid:
+  [
+    true,
+    false,
+    true
+  ]
+-- child 0 type: int32
+  [
+    11,
+    null,
+    null
+  ]
+-- child 1 type: int32
+  [
+    22,
+    null,
+    33
+  ])expected";
+  CheckStream(*array, {0, 10}, ex);
 }
 
 TEST_F(TestPrettyPrint, BinaryType) {
@@ -140,17 +269,50 @@ TEST_F(TestPrettyPrint, ListType) {
 
   std::shared_ptr<Array> array;
   ASSERT_OK(list_builder.Finish(&array));
-  static const char* ex =
-      "[\n  [\n    null\n  ],\n  [],\n  null,\n  [\n    4,\n    6,\n    7\n  ],\n  [\n   "
-      " "
-      "2,\n    3\n  ]\n]";
+  static const char* ex = R"expected([
+  [
+    null
+  ],
+  [],
+  null,
+  [
+    4,
+    6,
+    7
+  ],
+  [
+    2,
+    3
+  ]
+])expected";
   CheckArray(*array, {0, 10}, ex);
-  static const char* ex_2 =
-      "  [\n    [\n      null\n    ],\n    [],\n    null,\n    [\n      4,\n      6,\n   "
-      "   "
-      "7\n    ],\n    [\n      2,\n      3\n    ]\n  ]";
+  static const char* ex_2 = R"expected(  [
+    [
+      null
+    ],
+    [],
+    null,
+    [
+      4,
+      6,
+      7
+    ],
+    [
+      2,
+      3
+    ]
+  ])expected";
   CheckArray(*array, {2, 10}, ex_2);
-  static const char* ex_3 = "[\n  [\n    null\n  ],\n  ...\n  [\n    2,\n    3\n  ]\n]";
+  static const char* ex_3 = R"expected([
+  [
+    null
+  ],
+  ...
+  [
+    2,
+    3
+  ]
+])expected";
   CheckStream(*array, {0, 1}, ex_3);
 }
 
