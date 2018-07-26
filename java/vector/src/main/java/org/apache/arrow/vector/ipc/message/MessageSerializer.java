@@ -83,21 +83,6 @@ public class MessageSerializer {
   }
 
   /**
-   * Writes the message length prefix and message buffer to the Channel.
-   *
-   * @param out Output Channel
-   * @param messageLength Number of bytes in the message buffer, written as little Endian prefix
-   * @param messageBuffer Message buffer to be written
-   * @return Number of bytes written
-   * @throws IOException
-   */
-  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer) throws IOException {
-    out.writeIntLittleEndian(messageLength);
-    out.write(messageBuffer);
-    return messageLength + 4;
-  }
-
-  /**
    * Aligns the message to 8 byte boundary and adjusts messageLength accordingly, then writes
    * the message length prefix and message buffer to the Channel.
    *
@@ -114,10 +99,12 @@ public class MessageSerializer {
     if ((messageLength + 4) % 8 != 0) {
       messageLength += 8 - (messageLength + 4) % 8;
     }
-    int bytesWritten = writeMessageBuffer(out, messageLength, messageBuffer);
-    out.align(); // any bytes written are already captured by our size modification above
+    out.writeIntLittleEndian(messageLength);
+    out.write(messageBuffer);
+    out.align();
 
-    return bytesWritten;
+    // any bytes written are already captured by our size modification above
+    return messageLength + 4;
   }
 
   /**
