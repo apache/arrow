@@ -517,7 +517,6 @@ def make_sample_file(table_or_df):
 
 def test_parquet_metadata_api():
     import pyarrow.parquet as pq
-    import pyarrow._parquet as _pq
 
     df = alltypes_sample(size=10000)
     df = df.reindex(columns=sorted(df.columns))
@@ -561,12 +560,12 @@ def test_parquet_metadata_api():
     # Row group
     for rg in range(meta.num_row_groups):
         rg_meta = meta.row_group(rg)
-        assert isinstance(rg_meta, _pq.RowGroupMetaData)
+        assert isinstance(rg_meta, pq.RowGroupMetaData)
         repr(rg_meta)
 
         for col in range(rg_meta.num_columns):
             col_meta = rg_meta.column(col)
-            assert isinstance(col_meta, _pq.ColumnChunkMetaData)
+            assert isinstance(col_meta, pq.ColumnChunkMetaData)
             repr(col_meta)
 
     rg_meta = meta.row_group(0)
@@ -581,7 +580,7 @@ def test_parquet_metadata_api():
     assert col_meta.num_values == 10000
     assert col_meta.path_in_schema == 'bool'
     assert col_meta.is_stats_set is True
-    assert isinstance(col_meta.statistics, _pq.RowGroupStatistics)
+    assert isinstance(col_meta.statistics, pq.RowGroupStatistics)
     assert col_meta.compression == 'SNAPPY'
     assert col_meta.encodings == ('PLAIN', 'RLE')
     assert col_meta.has_dictionary_page is False
@@ -655,7 +654,6 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
 
 def test_compare_schemas():
     import pyarrow.parquet as pq
-    import pyarrow._parquet as _pq
 
     df = alltypes_sample(size=10000)
 
@@ -674,7 +672,7 @@ def test_compare_schemas():
     assert fileh.schema != fileh3.schema
 
     # ColumnSchema
-    assert isinstance(fileh.schema[0], _pq.ColumnSchema)
+    assert isinstance(fileh.schema[0], pq.ColumnSchema)
     assert fileh.schema[0].equals(fileh.schema[0])
     assert fileh.schema[0] == fileh.schema[0]
     assert not fileh.schema[0].equals(fileh.schema[1])
