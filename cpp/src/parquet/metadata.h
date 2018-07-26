@@ -111,6 +111,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   bool has_dictionary_page() const;
   int64_t dictionary_page_offset() const;
   int64_t data_page_offset() const;
+  bool has_index_page() const;
   int64_t index_page_offset() const;
   int64_t total_compressed_size() const;
   int64_t total_uncompressed_size() const;

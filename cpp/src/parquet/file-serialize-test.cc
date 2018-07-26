@@ -98,6 +98,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
       int64_t values_read;
 
       for (int i = 0; i < num_columns_; ++i) {
+        ASSERT_FALSE(rg_reader->metadata()->ColumnChunk(i)->has_index_page());
         std::vector<int16_t> def_levels_out(rows_per_rowgroup_);
         std::vector<int16_t> rep_levels_out(rows_per_rowgroup_);
         auto col_reader =

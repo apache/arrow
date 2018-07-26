@@ -151,6 +151,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline int64_t data_page_offset() const { return column_->meta_data.data_page_offset; }
 
+  inline bool has_index_page() const {
+    return column_->meta_data.__isset.index_page_offset;
+  }
+
   inline int64_t index_page_offset() const {
     return column_->meta_data.index_page_offset;
   }
@@ -216,6 +220,10 @@ int64_t ColumnChunkMetaData::dictionary_page_offset() const {
 
 int64_t ColumnChunkMetaData::data_page_offset() const {
   return impl_->data_page_offset();
+}
+
+bool ColumnChunkMetaData::has_index_page() const {
+  return impl_->has_index_page();
 }
 
 int64_t ColumnChunkMetaData::index_page_offset() const {
@@ -607,7 +615,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     }
     column_chunk_->__isset.meta_data = true;
     column_chunk_->meta_data.__set_num_values(num_values);
-    column_chunk_->meta_data.__set_index_page_offset(index_page_offset);
+    if (index_page_offset >= 0) {
+      column_chunk_->meta_data.__set_index_page_offset(index_page_offset);
+    }
     column_chunk_->meta_data.__set_data_page_offset(data_page_offset);
     column_chunk_->meta_data.__set_total_uncompressed_size(uncompressed_size);
     column_chunk_->meta_data.__set_total_compressed_size(compressed_size);
