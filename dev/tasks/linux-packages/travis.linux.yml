@@ -69,7 +69,9 @@ install:
 script:
   - pushd arrow/dev/tasks/linux-packages
   - rake version:update
+{%- if arrow.source == 'git' %}
   - rake dist
+{%- endif %}
   - {{ build_command }}
 
 deploy:
