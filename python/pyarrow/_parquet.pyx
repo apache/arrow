@@ -156,9 +156,8 @@ cdef class ColumnChunkMetaData:
   has_dictionary_page: {10}
   dictionary_page_offset: {11}
   data_page_offset: {12}
-  index_page_offset: {13}
-  total_compressed_size: {14}
-  total_uncompressed_size: {15}""".format(object.__repr__(self),
+  total_compressed_size: {13}
+  total_uncompressed_size: {14}""".format(object.__repr__(self),
                                           self.file_offset,
                                           self.file_path,
                                           self.physical_type,
@@ -171,7 +170,6 @@ cdef class ColumnChunkMetaData:
                                           self.has_dictionary_page,
                                           self.dictionary_page_offset,
                                           self.data_page_offset,
-                                          self.index_page_offset,
                                           self.total_compressed_size,
                                           self.total_uncompressed_size)
 
@@ -232,8 +230,12 @@ cdef class ColumnChunkMetaData:
         return self.metadata.data_page_offset()
 
     @property
+    def has_index_page(self):
+        raise NotImplementedError('not supported in parquet-cpp')
+
+    @property
     def index_page_offset(self):
-        return self.metadata.index_page_offset()
+        raise NotImplementedError("parquet-cpp doesn't return valid values")
 
     @property
     def total_compressed_size(self):

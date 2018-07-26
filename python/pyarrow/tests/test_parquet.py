@@ -586,9 +586,12 @@ def test_parquet_metadata_api():
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
-    assert col_meta.index_page_offset == 0
     assert col_meta.total_compressed_size > 0
     assert col_meta.total_uncompressed_size > 0
+    with pytest.raises(NotImplementedError):
+        col_meta.has_index_page
+    with pytest.raises(NotImplementedError):
+        col_meta.index_page_offset
 
 
 @pytest.mark.parametrize(
