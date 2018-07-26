@@ -266,7 +266,7 @@ tasks:
       upload_extensions:
         - .deb
         - .dsc
-        - .debian.tar.xz
+        - .debian.tar.gz
         - .orig.tar.gz
     artifacts:
       - apache-arrow_{version}-1.debian.tar.gz
