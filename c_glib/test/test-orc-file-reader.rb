@@ -79,29 +79,28 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
                        "list<item: struct<int1: int32, string1: string>>>",
                        [
                          <<-STRUCT.chomp
-
--- is_valid:
-all not null
--- child 0 type: list<item: struct<int1: int32, string1: string>> values:   [
-
-    -- is_valid:
-all not null
-    -- child 0 type: int32 values:       [
+-- is_valid: all not null
+-- child 0 type: list<item: struct<int1: int32, string1: string>>
+  [
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
         1,
         2
       ]
-    -- child 1 type: string values:       [
+    -- child 1 type: string
+      [
         "bye",
         "sigh"
       ],
-
-    -- is_valid:
-all not null
-    -- child 0 type: int32 values:       [
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
         1,
         2
       ]
-    -- child 1 type: string values:       [
+    -- child 1 type: string
+      [
         "bye",
         "sigh"
       ]
@@ -114,26 +113,26 @@ all not null
                        [
                          <<-LIST.chomp
 [
-
-  -- is_valid:
-all not null
-  -- child 0 type: int32 values:     [
+  -- is_valid: all not null
+  -- child 0 type: int32
+    [
       3,
       4
     ]
-  -- child 1 type: string values:     [
+  -- child 1 type: string
+    [
       "good",
       "bad"
     ],
-
-  -- is_valid:
-all not null
-  -- child 0 type: int32 values:     [
+  -- is_valid: all not null
+  -- child 0 type: int32
+    [
       100000000,
       -100000,
       1234
     ]
-  -- child 1 type: string values:     [
+  -- child 1 type: string
+    [
       "cat",
       "in",
       "hat"
@@ -149,30 +148,30 @@ all not null
                        [
                          <<-MAP.chomp
 [
-
-  -- is_valid:
-all not null
-  -- child 0 type: string values:     []
-  -- child 1 type: struct<int1: int32, string1: string> values: 
-    -- is_valid:
-all not null
-    -- child 0 type: int32 values:       []
-    -- child 1 type: string values:       [],
-
-  -- is_valid:
-all not null
-  -- child 0 type: string values:     [
+  -- is_valid: all not null
+  -- child 0 type: string
+    []
+  -- child 1 type: struct<int1: int32, string1: string>
+    -- is_valid: all not null
+    -- child 0 type: int32
+      []
+    -- child 1 type: string
+      [],
+  -- is_valid: all not null
+  -- child 0 type: string
+    [
       "chani",
       "mauddib"
     ]
-  -- child 1 type: struct<int1: int32, string1: string> values: 
-    -- is_valid:
-all not null
-    -- child 0 type: int32 values:       [
+  -- child 1 type: struct<int1: int32, string1: string>
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
         5,
         1
       ]
-    -- child 1 type: string values:       [
+    -- child 1 type: string
+      [
         "chani",
         "mauddib"
       ]
@@ -231,29 +230,28 @@ all not null
                        "struct<list: " +
                        "list<item: struct<int1: int32, string1: string>>>",
                        <<-STRUCT.chomp
-
--- is_valid:
-all not null
--- child 0 type: list<item: struct<int1: int32, string1: string>> values:   [
-
-    -- is_valid:
-all not null
-    -- child 0 type: int32 values:       [
+-- is_valid: all not null
+-- child 0 type: list<item: struct<int1: int32, string1: string>>
+  [
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
         1,
         2
       ]
-    -- child 1 type: string values:       [
+    -- child 1 type: string
+      [
         "bye",
         "sigh"
       ],
-
-    -- is_valid:
-all not null
-    -- child 0 type: int32 values:       [
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
         1,
         2
       ]
-    -- child 1 type: string values:       [
+    -- child 1 type: string
+      [
         "bye",
         "sigh"
       ]
@@ -264,26 +262,26 @@ all not null
                        "list: list<item: struct<int1: int32, string1: string>>",
                        <<-LIST.chomp
 [
-
-  -- is_valid:
-all not null
-  -- child 0 type: int32 values:     [
+  -- is_valid: all not null
+  -- child 0 type: int32
+    [
       3,
       4
     ]
-  -- child 1 type: string values:     [
+  -- child 1 type: string
+    [
       "good",
       "bad"
     ],
-
-  -- is_valid:
-all not null
-  -- child 0 type: int32 values:     [
+  -- is_valid: all not null
+  -- child 0 type: int32
+    [
       100000000,
       -100000,
       1234
     ]
-  -- child 1 type: string values:     [
+  -- child 1 type: string
+    [
       "cat",
       "in",
       "hat"
@@ -297,30 +295,30 @@ all not null
                        "struct<int1: int32, string1: string>>>",
                        <<-MAP.chomp
 [
-
-  -- is_valid:
-all not null
-  -- child 0 type: string values:     []
-  -- child 1 type: struct<int1: int32, string1: string> values: 
-    -- is_valid:
-all not null
-    -- child 0 type: int32 values:       []
-    -- child 1 type: string values:       [],
-
-  -- is_valid:
-all not null
-  -- child 0 type: string values:     [
+  -- is_valid: all not null
+  -- child 0 type: string
+    []
+  -- child 1 type: struct<int1: int32, string1: string>
+    -- is_valid: all not null
+    -- child 0 type: int32
+      []
+    -- child 1 type: string
+      [],
+  -- is_valid: all not null
+  -- child 0 type: string
+    [
       "chani",
       "mauddib"
     ]
-  -- child 1 type: struct<int1: int32, string1: string> values: 
-    -- is_valid:
-all not null
-    -- child 0 type: int32 values:       [
+  -- child 1 type: struct<int1: int32, string1: string>
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
         5,
         1
       ]
-    -- child 1 type: string values:       [
+    -- child 1 type: string
+      [
         "chani",
         "mauddib"
       ]
