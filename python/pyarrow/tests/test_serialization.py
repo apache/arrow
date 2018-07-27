@@ -364,6 +364,10 @@ def test_torch_serialization(large_buffer):
         serialization_roundtrip(obj, large_buffer,
                                 context=serialization_context)
 
+    tensor_requiring_grad = torch.randn(10, 10, requires_grad=True)
+    serialization_roundtrip(tensor_requiring_grad, large_buffer,
+                            context=serialization_context)
+
 
 def test_numpy_immutable(large_buffer):
     obj = np.zeros([10])
