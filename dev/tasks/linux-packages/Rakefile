@@ -21,8 +21,15 @@ require_relative "package-task"
 
 class ApacheArrowPackageTask < PackageTask
   def initialize
-    release_time = latest_commit_time(arrow_source_dir)
-    super("apache-arrow", detect_version(release_time), release_time)
+    release_time = ENV["ARROW_RELEASE_TIME"]
+    if release_time
+      release_time = Time.parse(release_time).utc
+    else
+      release_time = latest_commit_time(arrow_source_dir) || Time.now.utc
+    end
+    version = ENV["ARROW_VERSION"]
+    version ||= detect_version(release_time)
+    super("apache-arrow", version, release_time)
     @rpm_package = "arrow"
   end
 
@@ -34,22 +41,20 @@ class ApacheArrowPackageTask < PackageTask
   def detect_version(release_time)
     pom_xml_path = File.join(arrow_source_dir, "java", "pom.xml")
     version = File.read(pom_xml_path).scan(/^  <version>(.+?)<\/version>/)[0][0]
-    version = ENV['ARROW_VERSION'] || version  #try to read from env
     formatted_release_time = release_time.strftime("%Y%m%d")
     version.gsub(/-SNAPSHOT\z/) {".#{formatted_release_time}"}
   end
 
   def define_archive_task
     file @archive_name do
-      build_archive
-      # case @version
-      # when /\A\d+\.\d+\.\d+-rc\d+\z/
-      #   download_rc_archive
-      # when /\A\d+\.\d+\.\d+\z/
-      #   download_released_archive
-      # else
-      #   build_archive
-      # end
+      case @version
+      when /\A\d+\.\d+\.\d+-rc\d+\z/
+        download_rc_archive
+      when /\A\d+\.\d+\.\d+\z/
+        download_released_archive
+      else
+        build_archive
+      end
     end
   end
 

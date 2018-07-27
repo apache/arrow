@@ -41,6 +41,7 @@ before_install:
   {%- endif %}
   - mkdir arrow
   - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
+  - mv {{ arrow.archive_filename }} arrow/dev/tasks/linux-packages/
 {%- endif %}
 
 install:
