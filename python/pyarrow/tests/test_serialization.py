@@ -365,7 +365,7 @@ def test_torch_serialization(large_buffer):
                                 context=serialization_context)
 
 
-@pytest.mark.skipif(torch and not torch.cuda.is_available(),
+@pytest.mark.skipif(not torch or not torch.cuda.is_available(),
                     reason="requires pytorch with CUDA")
 def test_torch_cuda():
     # ARROW-2920: This used to segfault if torch is not imported
