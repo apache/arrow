@@ -128,3 +128,30 @@ bash dev/release/js-verify-release-candidate.sh 0.7.0 0
 ```shell
 run_docker_compose.sh hdfs_integration
 ```
+
+## Apache Spark Integration Tests
+
+Tests can be run to ensure that the current snapshot of Java and Python Arrow
+works with Spark. This will run a docker image to build Arrow C++
+and Python in a Conda environment, build and install Arrow Java to the local
+Maven repositiory, build Spark with the new Arrow artifact, and run Arrow
+related unit tests in Spark for Java and Python. Any errors will exit with a
+non-zero value. To run, use the following command:
+
+```shell
+./run_docker_compose.sh spark_integration
+
+```
+
+Alternatively, you can build and run the Docker images seperately. If you
+already are building Spark, these commands will map your local Maven repo
+to the image and save time by not having to download all dependencies. These
+should be run in a directory one level up from your Arrow repository:
+
+```shell
+docker build -f arrow/dev/spark_integration/Dockerfile -t spark-arrow .
+docker run -v $HOME/.m2:/root/.m2 spark-arrow
+```
+
+NOTE: If the Java API has breaking changes, a patched version of Spark might
+need to be used to successfully build.
