@@ -365,6 +365,17 @@ def test_torch_serialization(large_buffer):
                                 context=serialization_context)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(),
+                    reason="requires pytorch with CUDA")
+def test_torch_cuda():
+    pytest.importorskip("torch")
+
+    # ARROW-2920: This used to segfault if torch is not imported
+    # before pyarrow
+    torch.nn.Conv2d(64, 2, kernel_size=3, stride=1,
+                    padding=1, bias=False).cuda()
+
+
 def test_numpy_immutable(large_buffer):
     obj = np.zeros([10])
 
