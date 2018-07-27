@@ -124,7 +124,7 @@ class TypeInferrer {
     } else if (PyArray_Check(obj)) {
       return VisitNdarray(obj, keep_going);
     } else if (PyDict_Check(obj)) {
-      return VisitDict(obj, keep_going);
+      return VisitDict(obj);
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
       ++decimal_count_;
@@ -264,12 +264,12 @@ class TypeInferrer {
     return list_inferrer_->VisitDType(dtype);
   }
 
-  Status VisitDict(PyObject* obj, bool* keep_going) {
+  Status VisitDict(PyObject* obj) {
     PyObject* key_obj;
     PyObject* value_obj;
     Py_ssize_t pos = 0;
 
-    while (*keep_going && PyDict_Next(obj, &pos, &key_obj, &value_obj)) {
+    while (PyDict_Next(obj, &pos, &key_obj, &value_obj)) {
       std::string key;
       if (PyUnicode_Check(key_obj)) {
         RETURN_NOT_OK(internal::PyUnicode_AsStdString(key_obj, &key));
@@ -291,8 +291,9 @@ class TypeInferrer {
       }
       TypeInferrer* visitor = &it->second;
 
-      // If one of value types signals tp terminate, we terminate
-      RETURN_NOT_OK(visitor->Visit(value_obj, keep_going));
+      // We ignore termination signals from child visitors
+      bool keep_going = true;
+      RETURN_NOT_OK(visitor->Visit(value_obj, &keep_going));
     }
 
     // We do not terminate visiting dicts (unless one of the struct_inferrers_

@@ -859,7 +859,7 @@ def test_struct_from_dicts_inference():
     assert arr.to_pylist() == [{}]
 
     # Mixing structs and scalars is rejected
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises((pa.ArrowInvalid, pa.ArrowTypeError)):
         pa.array([1, {'a': 2}])
 
 
