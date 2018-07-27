@@ -245,7 +245,7 @@ def import_pytorch_extension():
     import ctypes
 
     for path in _iterate_python_module_paths("torch"):
-        ctypes.CDLL(os.path.join(path, "lib/libcaffe2.so")
+        ctypes.CDLL(os.path.join(path, "lib/libcaffe2.so"))
 
 
 integer_types = six.integer_types + (np.integer,)
