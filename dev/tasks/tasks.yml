@@ -236,27 +236,27 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.xz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib0-dbgsym_{version}-1_amd64.deb
-      - libarrow-glib0_{version}-1_amd64.deb
-      - libarrow-gpu-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib0-dbgsym_{version}-1_amd64.deb
-      - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu10-dbgsym_{version}-1_amd64.deb
-      - libarrow-gpu10_{version}-1_amd64.deb
-      - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python10-dbgsym_{version}-1_amd64.deb
-      - libarrow-python10_{version}-1_amd64.deb
-      - libarrow10-dbgsym_{version}-1_amd64.deb
-      - libarrow10_{version}-1_amd64.deb
+      - apache-arrow_{deb_version}-1.debian.tar.xz
+      - apache-arrow_{deb_version}-1.dsc
+      - apache-arrow_{deb_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{deb_version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{deb_version}-1_amd64.deb
+      - libarrow-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-doc_{deb_version}-1_all.deb
+      - libarrow-glib0-dbgsym_{deb_version}-1_amd64.deb
+      - libarrow-glib0_{deb_version}-1_amd64.deb
+      - libarrow-gpu-dev_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib0-dbgsym_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib0_{deb_version}-1_amd64.deb
+      - libarrow-gpu10-dbgsym_{deb_version}-1_amd64.deb
+      - libarrow-gpu10_{deb_version}-1_amd64.deb
+      - libarrow-python-dev_{deb_version}-1_amd64.deb
+      - libarrow-python10-dbgsym_{deb_version}-1_amd64.deb
+      - libarrow-python10_{deb_version}-1_amd64.deb
+      - libarrow10-dbgsym_{deb_version}-1_amd64.deb
+      - libarrow10_{deb_version}-1_amd64.deb
 
   ubuntu-trusty:
     platform: linux
@@ -269,15 +269,15 @@ tasks:
         - .debian.tar.gz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.gz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib0_{version}-1_amd64.deb
-      - libarrow10_{version}-1_amd64.deb
+      - apache-arrow_{deb_version}-1.debian.tar.gz
+      - apache-arrow_{deb_version}-1.dsc
+      - apache-arrow_{deb_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{deb_version}-1_amd64.deb
+      - libarrow-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-doc_{deb_version}-1_all.deb
+      - libarrow-glib0_{deb_version}-1_amd64.deb
+      - libarrow10_{deb_version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -290,22 +290,22 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.xz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib0_{version}-1_amd64.deb
-      - libarrow-gpu-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu10_{version}-1_amd64.deb
-      - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python10_{version}-1_amd64.deb
-      - libarrow10_{version}-1_amd64.deb
+      - apache-arrow_{deb_version}-1.debian.tar.xz
+      - apache-arrow_{deb_version}-1.dsc
+      - apache-arrow_{deb_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{deb_version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{deb_version}-1_amd64.deb
+      - libarrow-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-doc_{deb_version}-1_all.deb
+      - libarrow-glib0_{deb_version}-1_amd64.deb
+      - libarrow-gpu-dev_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib0_{deb_version}-1_amd64.deb
+      - libarrow-gpu10_{deb_version}-1_amd64.deb
+      - libarrow-python-dev_{deb_version}-1_amd64.deb
+      - libarrow-python10_{deb_version}-1_amd64.deb
+      - libarrow10_{deb_version}-1_amd64.deb
 
   ubuntu-artful:
     platform: linux
@@ -318,22 +318,22 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.xz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib0_{version}-1_amd64.deb
-      - libarrow-gpu-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu10_{version}-1_amd64.deb
-      - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python10_{version}-1_amd64.deb
-      - libarrow10_{version}-1_amd64.deb
+      - apache-arrow_{deb_version}-1.debian.tar.xz
+      - apache-arrow_{deb_version}-1.dsc
+      - apache-arrow_{deb_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{deb_version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{deb_version}-1_amd64.deb
+      - libarrow-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-doc_{deb_version}-1_all.deb
+      - libarrow-glib0_{deb_version}-1_amd64.deb
+      - libarrow-gpu-dev_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib0_{deb_version}-1_amd64.deb
+      - libarrow-gpu10_{deb_version}-1_amd64.deb
+      - libarrow-python-dev_{deb_version}-1_amd64.deb
+      - libarrow-python10_{deb_version}-1_amd64.deb
+      - libarrow10_{deb_version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -346,22 +346,22 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{version}-1.debian.tar.xz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib0_{version}-1_amd64.deb
-      - libarrow-gpu-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu10_{version}-1_amd64.deb
-      - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python10_{version}-1_amd64.deb
-      - libarrow10_{version}-1_amd64.deb
+      - apache-arrow_{deb_version}-1.debian.tar.xz
+      - apache-arrow_{deb_version}-1.dsc
+      - apache-arrow_{deb_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{deb_version}-1_amd64.deb
+      - gir1.2-arrow-gpu-1.0_{deb_version}-1_amd64.deb
+      - libarrow-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-glib-doc_{deb_version}-1_all.deb
+      - libarrow-glib0_{deb_version}-1_amd64.deb
+      - libarrow-gpu-dev_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib-dev_{deb_version}-1_amd64.deb
+      - libarrow-gpu-glib0_{deb_version}-1_amd64.deb
+      - libarrow-gpu10_{deb_version}-1_amd64.deb
+      - libarrow-python-dev_{deb_version}-1_amd64.deb
+      - libarrow-python10_{deb_version}-1_amd64.deb
+      - libarrow10_{deb_version}-1_amd64.deb
 
   centos-6:
     platform: linux
@@ -371,12 +371,12 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
-      - arrow-{version}-1.el6.src.rpm
-      - arrow-debuginfo-{version}-1.el6.x86_64.rpm
-      - arrow-devel-{version}-1.el6.x86_64.rpm
-      - arrow-libs-{version}-1.el6.x86_64.rpm
-      - arrow-python-devel-{version}-1.el6.x86_64.rpm
-      - arrow-python-libs-{version}-1.el6.x86_64.rpm
+      - arrow-{rpm_version}.el6.src.rpm
+      - arrow-debuginfo-{rpm_version}.el6.x86_64.rpm
+      - arrow-devel-{rpm_version}.el6.x86_64.rpm
+      - arrow-libs-{rpm_version}.el6.x86_64.rpm
+      - arrow-python-devel-{rpm_version}.el6.x86_64.rpm
+      - arrow-python-libs-{rpm_version}.el6.x86_64.rpm
 
   centos-7:
     platform: linux
@@ -386,12 +386,12 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
-      - arrow-{version}-1.el7.src.rpm
-      - arrow-debuginfo-{version}-1.el7.x86_64.rpm
-      - arrow-devel-{version}-1.el7.x86_64.rpm
-      - arrow-glib-devel-{version}-1.el7.x86_64.rpm
-      - arrow-glib-doc-{version}-1.el7.x86_64.rpm
-      - arrow-glib-libs-{version}-1.el7.x86_64.rpm
-      - arrow-libs-{version}-1.el7.x86_64.rpm
-      - arrow-python-devel-{version}-1.el7.x86_64.rpm
-      - arrow-python-libs-{version}-1.el7.x86_64.rpm
+      - arrow-{rpm_version}.el7.src.rpm
+      - arrow-debuginfo-{rpm_version}.el7.x86_64.rpm
+      - arrow-devel-{rpm_version}.el7.x86_64.rpm
+      - arrow-glib-devel-{rpm_version}.el7.x86_64.rpm
+      - arrow-glib-doc-{rpm_version}.el7.x86_64.rpm
+      - arrow-glib-libs-{rpm_version}.el7.x86_64.rpm
+      - arrow-libs-{rpm_version}.el7.x86_64.rpm
+      - arrow-python-devel-{rpm_version}.el7.x86_64.rpm
+      - arrow-python-libs-{rpm_version}.el7.x86_64.rpm

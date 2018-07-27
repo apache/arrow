@@ -286,6 +286,28 @@ class Target:
     def source(self):
         raise NotImplementedError
 
+    @property
+    def deb_version(self):
+        match = re.match(r'(.+)-(rc\d+)\Z', self.version)
+        if match is None:
+            return '{}-1'.format(self.version)
+        else:
+            base_version = match[1]
+            rc = match[2]
+            # Real version is {base_version}~{rc}-1 but GitHub release
+            # replaces "~" with "."...
+            return '{}.{}-1'.format(base_version, rc)
+
+    @property
+    def rpm_version(self):
+        match = re.match(r'(.+)-(rc\d+)\Z', self.version)
+        if match is None:
+            return '{}.1'.format(self.version)
+        else:
+            base_version = match[1]
+            rc = match[2]
+            return '{}.0.{}'.format(base_version, rc)
+
 
 class GitTarget(Target):
     """Describes target repository and revision the builds run against
@@ -537,8 +559,13 @@ def submit(ctx, task, group, job_prefix, config_path, dry_run,
     task_configs = load_tasks_from_config(config_path, task, group)
     for name, task in task_configs.items():
         # replace version number and create task instance from configuration
+        variables = {
+            'version': target.version,
+            'deb_version': target.deb_version,
+            'rpm_version': target.rpm_version,
+        }
         artifacts = task.pop('artifacts', None) or []  # because of yaml
-        artifacts = [fn.format(version=target.version) for fn in artifacts]
+        artifacts = [fn.format(**variables) for fn in artifacts]
         tasks[name] = Task(**task, artifacts=artifacts)
 
     # create job instance, doesn't mutate git data yet
