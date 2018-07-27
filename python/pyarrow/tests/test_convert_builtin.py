@@ -651,14 +651,16 @@ def test_sequence_nesting_levels():
     assert arr.type == pa.list_(pa.list_(pa.int64()))
     assert arr.to_pylist() == data
 
+    exceptions = (pa.ArrowInvalid, pa.ArrowTypeError)
+
     # Mixed nesting levels are rejected
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(exceptions):
         pa.array([1, 2, [1]])
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(exceptions):
         pa.array([1, 2, []])
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(exceptions):
         pa.array([[1], [2], [None, [1]]])
 
 

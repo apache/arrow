@@ -952,10 +952,8 @@ Status AppendPySequence(PyObject* obj, int64_t size,
   return converter->AppendMultiple(obj, size);
 }
 
-static Status ConvertPySequenceReal(PyObject* obj, int64_t size,
-                                    const std::shared_ptr<DataType>* type,
-                                    MemoryPool* pool, bool from_pandas,
-                                    std::shared_ptr<Array>* out) {
+Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
+                         std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
 
   PyObject* seq;
@@ -963,12 +961,13 @@ static Status ConvertPySequenceReal(PyObject* obj, int64_t size,
 
   std::shared_ptr<DataType> real_type;
 
+  int64_t size = options.size;
   RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));
   tmp_seq_nanny.reset(seq);
-  if (type == nullptr) {
+  if (options.type == nullptr) {
     RETURN_NOT_OK(InferArrowType(seq, &real_type));
   } else {
-    real_type = *type;
+    real_type = options.type;
   }
   DCHECK_GE(size, 0);
 
@@ -980,31 +979,10 @@ static Status ConvertPySequenceReal(PyObject* obj, int64_t size,
 
   // Give the sequence converter an array builder
   std::unique_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(MakeBuilder(pool, real_type, &builder));
-  RETURN_NOT_OK(AppendPySequence(seq, size, real_type, builder.get(), from_pandas));
+  RETURN_NOT_OK(MakeBuilder(options.pool, real_type, &builder));
+  RETURN_NOT_OK(
+      AppendPySequence(seq, size, real_type, builder.get(), options.from_pandas));
   return builder->Finish(out);
-}
-
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, bool from_pandas,
-                         std::shared_ptr<Array>* out) {
-  return ConvertPySequenceReal(obj, -1, nullptr, pool, from_pandas, out);
-}
-
-Status ConvertPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
-                         MemoryPool* pool, bool from_pandas,
-                         std::shared_ptr<Array>* out) {
-  return ConvertPySequenceReal(obj, -1, &type, pool, from_pandas, out);
-}
-
-Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool, bool from_pandas,
-                         std::shared_ptr<Array>* out) {
-  return ConvertPySequenceReal(obj, size, nullptr, pool, from_pandas, out);
-}
-
-Status ConvertPySequence(PyObject* obj, int64_t size,
-                         const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                         bool from_pandas, std::shared_ptr<Array>* out) {
-  return ConvertPySequenceReal(obj, size, &type, pool, from_pandas, out);
 }
 
 }  // namespace py

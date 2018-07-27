@@ -20,37 +20,19 @@ cdef _sequence_to_array(object sequence, object size, DataType type,
                         CMemoryPool* pool, c_bool from_pandas):
     cdef shared_ptr[CArray] out
     cdef int64_t c_size
-    if type is None:
-        if size is None:
-            with nogil:
-                check_status(
-                    ConvertPySequence(sequence, pool, from_pandas, &out)
-                )
-        else:
-            c_size = size
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, c_size, pool, from_pandas, &out
-                    )
-                )
-    else:
-        if size is None:
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, type.sp_type, pool, from_pandas, &out,
-                    )
-                )
-        else:
-            c_size = size
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, c_size, type.sp_type, pool, from_pandas,
-                        &out,
-                    )
-                )
+    cdef PyConversionOptions options
+
+    if type is not None:
+        options.type = type.sp_type
+
+    if size is not None:
+        options.size = size
+
+    options.pool = pool
+    options.from_pandas = from_pandas
+
+    with nogil:
+        check_status(ConvertPySequence(sequence, options, &out))
 
     return pyarrow_wrap_array(out)
 
