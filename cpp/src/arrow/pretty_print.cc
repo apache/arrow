@@ -251,7 +251,7 @@ class ArrayPrinter : public PrettyPrinter {
     for (size_t i = 0; i < fields.size(); ++i) {
       Newline();
       std::stringstream ss;
-      ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << " values: ";
+      ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << "\n";
       Write(ss.str());
 
       std::shared_ptr<Array> field = fields[i];
@@ -321,15 +321,16 @@ class ArrayPrinter : public PrettyPrinter {
 };
 
 Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
-  Newline();
-  Write("-- is_valid:\n");
+  Indent();
+  Write("-- is_valid:");
 
   if (array.null_count() > 0) {
+    Newline();
     BooleanArray is_valid(array.length(), array.null_bitmap(), nullptr, 0,
                           array.offset());
     return PrettyPrint(is_valid, indent_ + indent_size_, sink_);
   } else {
-    Write("all not null");
+    Write(" all not null");
     return Status::OK();
   }
 }
