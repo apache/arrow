@@ -499,10 +499,13 @@ def test_pandas_parquet_configuration_options(tmpdir):
         tm.assert_frame_equal(df, df_read)
 
 
-def make_sample_file(df):
+def make_sample_file(table_or_df):
     import pyarrow.parquet as pq
 
-    a_table = pa.Table.from_pandas(df)
+    if isinstance(table_or_df, pa.Table):
+        a_table = table_or_df
+    else:
+        a_table = pa.Table.from_pandas(table_or_df)
 
     buf = io.BytesIO()
     _write_table(a_table, buf, compression='SNAPPY', version='2.0',
@@ -513,6 +516,8 @@ def make_sample_file(df):
 
 
 def test_parquet_metadata_api():
+    import pyarrow.parquet as pq
+
     df = alltypes_sample(size=10000)
     df = df.reindex(columns=sorted(df.columns))
 
@@ -527,6 +532,8 @@ def test_parquet_metadata_api():
     assert meta.num_row_groups == 1
     assert meta.format_version == '2.0'
     assert 'parquet-cpp' in meta.created_by
+    assert isinstance(meta.serialized_size, int)
+    assert isinstance(meta.metadata, dict)
 
     # Schema
     schema = fileh.schema
@@ -553,45 +560,85 @@ def test_parquet_metadata_api():
     # Row group
     for rg in range(meta.num_row_groups):
         rg_meta = meta.row_group(rg)
+        assert isinstance(rg_meta, pq.RowGroupMetaData)
         repr(rg_meta)
 
         for col in range(rg_meta.num_columns):
             col_meta = rg_meta.column(col)
+            assert isinstance(col_meta, pq.ColumnChunkMetaData)
             repr(col_meta)
 
+    rg_meta = meta.row_group(0)
     assert rg_meta.num_rows == len(df)
     assert rg_meta.num_columns == ncols + 1  # +1 for index
+    assert rg_meta.total_byte_size > 0
+
+    col_meta = rg_meta.column(0)
+    assert col_meta.file_offset > 0
+    assert col_meta.file_path == ''  # created from BytesIO
+    assert col_meta.physical_type == 'BOOLEAN'
+    assert col_meta.num_values == 10000
+    assert col_meta.path_in_schema == 'bool'
+    assert col_meta.is_stats_set is True
+    assert isinstance(col_meta.statistics, pq.RowGroupStatistics)
+    assert col_meta.compression == 'SNAPPY'
+    assert col_meta.encodings == ('PLAIN', 'RLE')
+    assert col_meta.has_dictionary_page is False
+    assert col_meta.dictionary_page_offset is None
+    assert col_meta.data_page_offset > 0
+    assert col_meta.total_compressed_size > 0
+    assert col_meta.total_uncompressed_size > 0
+    with pytest.raises(NotImplementedError):
+        col_meta.has_index_page
+    with pytest.raises(NotImplementedError):
+        col_meta.index_page_offset
 
 
 @pytest.mark.parametrize(
-    'data, dtype, min_value, max_value, null_count, num_values',
+    (
+        'data',
+        'type',
+        'physical_type',
+        'min_value',
+        'max_value',
+        'null_count',
+        'num_values',
+        'distinct_count'
+    ),
     [
-        ([1, 2, 2, None, 4], np.uint8, 1, 4, 1, 4),
-        ([1, 2, 2, None, 4], np.uint16, 1, 4, 1, 4),
-        ([1, 2, 2, None, 4], np.uint32, 1, 4, 1, 4),
-        ([1, 2, 2, None, 4], np.uint64, 1, 4, 1, 4),
-        ([-1, 2, 2, None, 4], np.int16, -1, 4, 1, 4),
-        ([-1, 2, 2, None, 4], np.int32, -1, 4, 1, 4),
-        ([-1, 2, 2, None, 4], np.int64, -1, 4, 1, 4),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, -1.1, 4.4, 1, 4),
-        ([-1.1, 2.2, 2.3, None, 4.4], np.float64, -1.1, 4.4, 1, 4),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, 0),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, 0),
         (
-            [u'', u'b', unichar(1000), None, u'aaa'],
-            object, b'', unichar(1000).encode('utf-8'), 1, 4
+            [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
+            'FLOAT', -1.1, 4.4, 1, 4, 0
         ),
-        ([True, False, False, True, True], np.bool, False, True, 0, 5),
+        (
+            [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
+            'DOUBLE', -1.1, 4.4, 1, 4, 0
+        ),
+        (
+            [u'', u'b', unichar(1000), None, u'aaa'], pa.binary(),
+            'BYTE_ARRAY', b'', unichar(1000).encode('utf-8'), 1, 4, 0
+        ),
+        (
+            [True, False, False, True, True], pa.bool_(),
+            'BOOLEAN', False, True, 0, 5, 0
+        ),
     ]
 )
-def test_parquet_column_statistics_api(
-        data,
-        dtype,
-        min_value,
-        max_value,
-        null_count,
-        num_values):
-    df = pd.DataFrame({'data': data}, dtype=dtype)
-
-    fileh = make_sample_file(df)
+def test_parquet_column_statistics_api(data, type, physical_type, min_value,
+                                       max_value, null_count, num_values,
+                                       distinct_count):
+    df = pd.DataFrame({'data': data})
+    schema = pa.schema([pa.field('data', type)])
+    table = pa.Table.from_pandas(df, schema=schema)
+    fileh = make_sample_file(table)
 
     meta = fileh.metadata
 
@@ -599,26 +646,43 @@ def test_parquet_column_statistics_api(
     col_meta = rg_meta.column(0)
 
     stat = col_meta.statistics
+    assert stat.has_min_max
     assert stat.min == min_value
     assert stat.max == max_value
     assert stat.null_count == null_count
     assert stat.num_values == num_values
+    # TODO(kszucs) until parquet-cpp API doesn't expose HasDistinctCount
+    # method, missing distinct_count is represented as zero instead of None
+    assert stat.distinct_count == distinct_count
+    assert stat.physical_type == physical_type
 
 
 def test_compare_schemas():
+    import pyarrow.parquet as pq
+
     df = alltypes_sample(size=10000)
 
     fileh = make_sample_file(df)
     fileh2 = make_sample_file(df)
     fileh3 = make_sample_file(df[df.columns[::2]])
 
+    # ParquetSchema
+    assert isinstance(fileh.schema, pq.ParquetSchema)
     assert fileh.schema.equals(fileh.schema)
+    assert fileh.schema == fileh.schema
     assert fileh.schema.equals(fileh2.schema)
-
+    assert fileh.schema == fileh2.schema
+    assert fileh.schema != 'arbitrary object'
     assert not fileh.schema.equals(fileh3.schema)
+    assert fileh.schema != fileh3.schema
 
+    # ColumnSchema
+    assert isinstance(fileh.schema[0], pq.ColumnSchema)
     assert fileh.schema[0].equals(fileh.schema[0])
+    assert fileh.schema[0] == fileh.schema[0]
     assert not fileh.schema[0].equals(fileh.schema[1])
+    assert fileh.schema[0] != fileh.schema[1]
+    assert fileh.schema[0] != 'arbitrary object'
 
 
 def test_column_of_arrays(tmpdir):
