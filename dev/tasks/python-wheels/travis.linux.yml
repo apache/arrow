@@ -58,8 +58,7 @@ script:
       -e SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
       -e PYTHON_VERSIONS=$PYTHON_VERSION
       -v $PWD:/io arrow-base-x86_64
-      /io/build_arrow.sh
-  - sudo mv arrow/python/manylinux1/dist/* dist/
+      /arrow/python/manylinux1/build_arrow.sh
 
 deploy:
   provider: releases
