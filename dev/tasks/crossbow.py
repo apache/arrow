@@ -288,25 +288,30 @@ class Target:
 
     @property
     def deb_version(self):
-        match = re.match(r'(.+)-(rc\d+)\Z', self.version)
-        if match is None:
-            return '{}-1'.format(self.version)
+        base_version, rc = self._split_version()
+        if rc is None:
+            return '{}-1'.format(base_version)
         else:
-            base_version = match[1]
-            rc = match[2]
             # Real version is {base_version}~{rc}-1 but GitHub release
             # replaces "~" with "."...
             return '{}.{}-1'.format(base_version, rc)
 
     @property
     def rpm_version(self):
+        base_version, rc = self._split_version()
+        if rc is None:
+            return '{}.1'.format(base_version)
+        else:
+            return '{}.0.{}'.format(base_version, rc)
+
+    def _split_version(self):
         match = re.match(r'(.+)-(rc\d+)\Z', self.version)
         if match is None:
-            return '{}.1'.format(self.version)
+            return [self.version, None]
         else:
             base_version = match[1]
             rc = match[2]
-            return '{}.0.{}'.format(base_version, rc)
+            return [base_version, rc]
 
 
 class GitTarget(Target):
