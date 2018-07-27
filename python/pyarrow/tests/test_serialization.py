@@ -370,6 +370,8 @@ def test_torch_serialization(large_buffer):
 def test_torch_cuda():
     # ARROW-2920: This used to segfault if torch is not imported
     # before pyarrow
+    # Note that this test will only catch the issue if it is run
+    # with a pyarrow that has been built in the manylinux1 environment
     torch.nn.Conv2d(64, 2, kernel_size=3, stride=1,
                     padding=1, bias=False).cuda()
 
