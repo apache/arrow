@@ -243,6 +243,7 @@ def import_pytorch_extension():
     https://issues.apache.org/jira/browse/ARROW-2920
     """
     import ctypes
+    import os
 
     for path in _iterate_python_module_paths("torch"):
         ctypes.CDLL(os.path.join(path, "lib/libcaffe2.so"))
