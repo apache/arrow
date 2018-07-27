@@ -25,7 +25,7 @@ version=$1
 
 CHANGELOG=$SOURCE_DIR/../../CHANGELOG.md
 
-python $SOURCE_DIR/changelog.py $version 0 $CHANGELOG
+${PYTHON:-python} $SOURCE_DIR/changelog.py $version 0 $CHANGELOG
 
 git add $CHANGELOG
 git commit -m "[Release] Update CHANGELOG.md for $version"
