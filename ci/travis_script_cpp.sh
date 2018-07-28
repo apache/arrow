@@ -17,13 +17,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 pushd $CPP_BUILD_DIR
 
 ctest -j2 --output-on-failure -L unittest
+
+if [ "$ARROW_TRAVIS_CHECK_ABI" == "1" ]; then
+  # Update this between major releases
+  export REFERENCE_ABI_VERSION=9
+  export ABI_VERSION=10
+  wget "https://bintray.com/xhochy/arrow/download_file?file_path=abi-dumps%2FABI-${REFERENCE_ABI_VERSION}.dump.gz" -O ABI-${REFERENCE_ABI_VERSION}.dump.gz
+  gunzip ABI-${REFERENCE_ABI_VERSION}.dump.gz
+  abi-dumper -lver ${ABI_VERSION} debug/libarrow.so -o ABI-${ABI_VERSION}.dump
+
+  function report_abi_conflicts() {
+     echo "============= ABI problems ============="
+     cat compat_reports/libarrow/${REFERENCE_ABI_VERSION}_to_${ABI_VERSION}/abi_affected.txt | c++filt
+     echo "============= SRC problems ============="
+     cat compat_reports/libarrow/${REFERENCE_ABI_VERSION}_to_${ABI_VERSION}/src_affected.txt | c++filt
+     exit 1
+  }
+
+  abi-compliance-checker -l libarrow -d1 ABI-${REFERENCE_ABI_VERSION}.dump -d2 ABI-${ABI_VERSION}.dump -list-affected || report_abi_conflicts
+
+  gzip -9 ABI-${ABI_VERSION}.dump
+  export CURRENT_REVISION=`git rev-parse HEAD`
+  mv ABI-${ABI_VERSION}.dump.gz ABI-${CURRENT_REVISION}.dump.gz
+fi
 
 popd
 

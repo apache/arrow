@@ -1,0 +1,20 @@
+{
+    "package": {
+        "name": "arrow-cpp-abi-reports",
+        "repo": "arrow",
+        "subject": "xhochy"
+    },
+    "version": {
+        "name": "0.9.0"
+    },
+    "files": [
+        {
+            "includePattern": "cpp-build/(.*\\.dump.gz)",
+            "uploadPattern": "abi-dumps/$1",
+            "matrixParams": {
+                "override": 1
+            }
+        }
+    ],
+    "publish": true
+}

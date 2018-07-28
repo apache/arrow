@@ -57,6 +57,7 @@ matrix:
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_PYTHON_JVM=1
+    - ARROW_TRAVIS_CHECK_ABI=1
     - CC="clang-6.0"
     - CXX="clang++-6.0"
     before_script:
@@ -78,6 +79,13 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
+    deploy:
+      provider: bintray
+      file: ci/abi_descriptor.json
+      user: xhochy
+      skip_cleanup: true
+      key:
+        secure: "x5rxA57L1Nm0jUrh+u42G4MiM0CesZAhLD1GZPctdiuPNkH2O+DzTxvEhE3Lr+sUzWkGjNTO4XwRHhaBPj7oOpQNFabLa9QuGHyYvodnaz/VgRhfHq/FpesJSY0scuaP2/MHL9sjiwcjmjLLbpofVcazk/TO4wSq6b5pijfzbNkLYWW8ILPeJx5tuTd8uayLe+qdg+G80S2aDg4sOHjv6nb+ZQwmv96Uug+K6QtFSydBIB3ezSzfxGl/hvxUOlgrpONmxmn86UdD0YHSCstDrlZ92l8ZryP+2TdcTOB/OEqd5UUF1vM4cZ9uk74PiiuzGMchSOWsV2V0RU2xYNS11NG4rs/Xp9RBpN9yN9kPvfTvdfQZdrkRJ4biEoJ5/8S8c7wuhRiyrQ5o9EOjgQCjGoXrvV2Txr29IQtOgACCAPck0twowSSdB25b6wDvdvDD/0hlwau6dlvZPkAq9PYBwb80gxR6msoOfdQl+rquYqgYV40WlGmfeUJWQx3gXi8qUdF3g7yg8KzlSiGDWsnsAf/B9zwB8WNFvEUlTjFO1wG7tF58a+AJgQaK3Swiv3dTcV2nyYE//ODeCr5lw6SU5g1kiYlXQmxP3Ql31E25r2XIneIC8qxvxVyHcSQaXUbHJ6kQLIVyfmvjrVJV4IuCPquSIi723kQ+jjkW7nGma6c="
   # [OS X] C++ & Python w/ XCode 6.4
   - compiler: clang
     language: cpp
