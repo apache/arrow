@@ -133,6 +133,14 @@ class PARQUET_EXPORT ParquetFileWriter {
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr);
 
+  static void WriteMetaData(
+          const std::shared_ptr<::arrow::io::OutputStream> &sink,
+          const std::unique_ptr<FileMetaData> &fileMetaData);
+
+  static void WriteMetaData(
+          const std::shared_ptr<OutputStream> &sink,
+          const std::unique_ptr<FileMetaData> &fileMetaData);
+
   void Open(std::unique_ptr<Contents> contents);
   void Close();
 

@@ -1092,6 +1092,19 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   return Open(schema, pool, wrapper, properties, arrow_properties, writer);
 }
 
+Status FileWriter::WriteMetaData(const std::unique_ptr<FileMetaData>& fileMetaData,
+                                 const std::shared_ptr<OutputStream>& sink) {
+  ParquetFileWriter::WriteMetaData(sink, fileMetaData);
+  return Status::OK();
+}
+
+Status FileWriter::WriteMetaData(const std::unique_ptr<FileMetaData>& fileMetaData,
+                                 const std::shared_ptr<::arrow::io::OutputStream>& sink) {
+  auto wrapper = std::make_shared<ArrowOutputStream>(sink);
+  return WriteMetaData(fileMetaData, wrapper);
+}
+
+
 namespace {}  // namespace
 
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {

@@ -851,6 +851,38 @@ TYPED_TEST(TestParquetIO, SingleColumnTableOptionalChunkedWrite) {
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnTable(values));
 }
 
+TYPED_TEST(TestParquetIO, FileMetaDataWrite) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
+  std::shared_ptr<Table> table = MakeSimpleTable(values, false);
+  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
+                                values->length(), default_writer_properties()));
+
+  std::unique_ptr<FileReader> reader;
+  ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
+  const std::shared_ptr<FileMetaData> fileMetaData = reader->parquet_reader()->metadata();
+  ASSERT_EQ(1, fileMetaData->num_columns());
+  ASSERT_EQ(100, fileMetaData->num_rows());
+
+  this->sink_ = std::make_shared<InMemoryOutputStream>();
+
+  std::unique_ptr<FileMetaData> uniqueFileMetaData(fileMetaData.get());
+
+  ASSERT_OK_NO_THROW(FileWriter::WriteMetaData(uniqueFileMetaData, this->sink_));
+
+  ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
+  const std::shared_ptr<FileMetaData> fileMetaDataWritten =
+          reader->parquet_reader()->metadata();
+  ASSERT_EQ(fileMetaData->size(), fileMetaDataWritten->size());
+  ASSERT_EQ(fileMetaData->num_row_groups(), fileMetaDataWritten->num_row_groups());
+  ASSERT_EQ(fileMetaData->num_rows(), fileMetaDataWritten->num_rows());
+  ASSERT_EQ(fileMetaData->num_columns(), fileMetaDataWritten->num_columns());
+  ASSERT_EQ(fileMetaData->RowGroup(0)->num_rows(),
+            fileMetaDataWritten->RowGroup(0)->num_rows());
+  uniqueFileMetaData.release();
+}
+
 using TestInt96ParquetIO = TestParquetIO<::arrow::TimestampType>;
 
 TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {

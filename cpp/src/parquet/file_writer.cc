@@ -160,6 +160,20 @@ class FileSerializer : public ParquetFileWriter::Contents {
     return result;
   }
 
+  static void WriteMetaData(
+      const std::shared_ptr<OutputStream>& sink,
+      const std::unique_ptr<FileMetaData>& fileMetaData) {
+    // Write MetaData
+    uint32_t metadata_len = static_cast<uint32_t>(sink->Tell());
+
+    fileMetaData->WriteTo(sink.get());
+    metadata_len = static_cast<uint32_t>(sink->Tell()) - metadata_len;
+
+    // Write Footer
+    sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4);
+    sink->Write(PARQUET_MAGIC, 4);
+  }
+
   void Close() override {
     if (is_open_) {
       if (row_group_writer_) {
@@ -234,17 +248,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
   }
 
   void WriteMetaData() {
-    // Write MetaData
-    uint32_t metadata_len = static_cast<uint32_t>(sink_->Tell());
-
-    // Get a FileMetaData
     auto metadata = metadata_->Finish();
-    metadata->WriteTo(sink_.get());
-    metadata_len = static_cast<uint32_t>(sink_->Tell()) - metadata_len;
-
-    // Write Footer
-    sink_->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4);
-    sink_->Write(PARQUET_MAGIC, 4);
+    WriteMetaData(sink_, metadata);
   }
 };
 
@@ -278,6 +283,18 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
   std::unique_ptr<ParquetFileWriter> result(new ParquetFileWriter());
   result->Open(std::move(contents));
   return result;
+}
+
+void ParquetFileWriter::WriteMetaData(
+        const std::shared_ptr<::arrow::io::OutputStream> &sink,
+        const std::unique_ptr<FileMetaData> &fileMetaData) {
+    WriteMetaData(std::make_shared<ArrowOutputStream>(sink), fileMetaData);
+}
+
+void ParquetFileWriter::WriteMetaData(
+        const std::shared_ptr<OutputStream> &sink,
+        const std::unique_ptr<FileMetaData> &fileMetaData) {
+  FileSerializer::WriteMetaData(sink, fileMetaData);
 }
 
 const SchemaDescriptor* ParquetFileWriter::schema() const { return contents_->schema(); }
