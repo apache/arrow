@@ -66,8 +66,7 @@ artifacts:
 deploy:
   release: {{ task.tag }}
   provider: GitHub
-  auth_token:
-    secure: "%CROSSBOW_GITHUB_TOKEN%"
+  auth_token: "%CROSSBOW_GITHUB_TOKEN%"
   artifact: /.*\.tar\.bz2/
   draft: false
   prerelease: false
