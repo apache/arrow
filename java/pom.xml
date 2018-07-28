@@ -636,6 +636,7 @@
       </activation>
       <properties>
 	<doclint>none</doclint>
+	<additionalparam>-Xdoclint:none</additionalparam>
       </properties>
     </profile>
   </profiles>
