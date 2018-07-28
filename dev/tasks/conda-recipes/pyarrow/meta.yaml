@@ -41,7 +41,7 @@ requirements:
     - numpy 1.12.*   # [win and py>=36]
     - six
     - arrow-cpp {{ ARROW_VERSION }}
-    - parquet-cpp 1.4.0
+    - parquet-cpp 1.4.0.post0
 
   run:
     - python
@@ -51,7 +51,7 @@ requirements:
     - pandas
     - six
     - arrow-cpp {{ ARROW_VERSION }}
-    - parquet-cpp 1.4.0
+    - parquet-cpp 1.4.0.post0
     - futures  # [py27]
 
 test:
