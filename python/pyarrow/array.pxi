@@ -372,7 +372,39 @@ cdef class Array:
 
     def cast(self, object target_type, safe=True):
         """
-        Cast array values to another data type
+        Cast array values to another data type.
+
+        Example
+        -------
+
+        >>> from datetime import datetime
+        >>> import pyarrow as pa
+        >>> arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
+        >>> arr.type
+        TimestampType(timestamp[us])
+
+        You can use ``pyarrow.DataType`` objects to specify the target type:
+
+        >>> arr.cast(pa.timestamp('ms'))
+        <pyarrow.lib.TimestampArray object at 0x10420eb88>
+        [
+          1262304000000,
+          1420070400000
+        ]
+        >>> arr.cast(pa.timestamp('ms')).type
+        TimestampType(timestamp[ms])
+
+        Alternatively, it is also supported to use the string aliases for these
+        types:
+
+        >>> arr.cast('timestamp[ms]')
+        <pyarrow.lib.TimestampArray object at 0x10420eb88>
+        [
+          1262304000000,
+          1420070400000
+        ]
+        >>> arr.cast('timestamp[ms]').type
+        TimestampType(timestamp[ms])
 
         Parameters
         ----------
