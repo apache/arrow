@@ -18,79 +18,52 @@
 
 package org.apache.arrow.vector.ipc.message;
 
+import java.io.IOException;
 
-import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
 
 /**
  * Reads a sequence of messages using a ReadChannel.
  */
-public class MessageChannelReader implements MessageReader {
-
-  private ReadChannel in;
+public class MessageChannelReader implements AutoCloseable {
+  protected ReadChannel in;
+  protected BufferAllocator allocator;
 
   /**
-   * Construct from an existing ReadChannel.
+   * Construct a MessageReader to read streaming messages from an existing ReadChannel.
    *
    * @param in Channel to read messages from
+   * @param allocator BufferAllocator used to read Message body into an ArrowBuf.
    */
-  public MessageChannelReader(ReadChannel in) {
+  public MessageChannelReader(ReadChannel in, BufferAllocator allocator) {
     this.in = in;
+    this.allocator = allocator;
   }
 
   /**
-   * Read the next message from the ReadChannel.
+   * Read a Message from the ReadChannel and populate holder if a valid message was read.
    *
-   * @return A Message or null if ReadChannel has no more messages, indicated by message length of 0
+   * @param holder Message and message information that is populated when read by implementation
+   * @return true if a valid Message was read, false if end-of-stream
    * @throws IOException
    */
-  @Override
-  public Message readNextMessage() throws IOException {
-    // Read the message size. There is an i32 little endian prefix.
-    ByteBuffer buffer = ByteBuffer.allocate(4);
-    if (in.readFully(buffer) != 4) {
-      return null;
+  public boolean readNext(MessageHolder holder) throws IOException {
+
+    // Read the flatbuf message and check for end-of-stream
+    MessageChannelResult result = MessageSerializer.readMessage(in);
+    if (!result.hasMessage()) {
+      return false;
     }
-    int messageLength = MessageSerializer.bytesToInt(buffer.array());
-    if (messageLength == 0) {
-      return null;
-    }
+    holder.message = result.getMessage();
 
-    buffer = ByteBuffer.allocate(messageLength);
-    if (in.readFully(buffer) != messageLength) {
-      throw new IOException(
-          "Unexpected end of stream trying to read message.");
-    }
-    buffer.rewind();
-
-    return Message.getRootAsMessage(buffer);
-  }
-
-  /**
-   * Read a message body from the ReadChannel.
-   *
-   * @param message Read message that is followed by a body of data
-   * @param allocator BufferAllocator to allocate memory for body data
-   * @return ArrowBuf containing the message body data
-   * @throws IOException
-   */
-  @Override
-  public ArrowBuf readMessageBody(Message message, BufferAllocator allocator) throws IOException {
-
-    int bodyLength = (int) message.bodyLength();
-
-    // Now read the record batch body
-    ArrowBuf buffer = allocator.buffer(bodyLength);
-    if (in.readFully(buffer, bodyLength) != bodyLength) {
-      throw new IOException("Unexpected end of input trying to read batch.");
+    // Read message body data if defined in message
+    if (result.messageHasBody()) {
+      int bodyLength = (int) result.getMessageBodyLength();
+      holder.bodyBuffer = MessageSerializer.readMessageBody(in, bodyLength, allocator);
     }
 
-    return buffer;
+    return true;
   }
 
   /**
@@ -98,7 +71,6 @@ public class MessageChannelReader implements MessageReader {
    *
    * @return number of bytes
    */
-  @Override
   public long bytesRead() {
     return in.bytesRead();
   }

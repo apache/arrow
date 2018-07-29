@@ -26,6 +26,8 @@ import static org.junit.Assert.assertTrue;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.List;
@@ -59,6 +61,57 @@ public class MessageSerializerTest {
     byte[] bytes = new byte[buf.readableBytes()];
     buf.readBytes(bytes);
     return bytes;
+  }
+
+  private int intToByteRoundtrip(int v, byte[] bytes) {
+    MessageSerializer.intToBytes(v, bytes);
+    return MessageSerializer.bytesToInt(bytes);
+  }
+
+  @Test
+  public void testIntToBytes() {
+    byte[] bytes = new byte[4];
+    int[] values = new int[] {1, 15, 1 << 8, 1 << 16, 1 << 32, Integer.MAX_VALUE};
+    for (int v: values) {
+      assertEquals(intToByteRoundtrip(v, bytes), v);
+    }
+  }
+
+  @Test
+  public void testWriteMessageBufferAligned() throws IOException {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    WriteChannel out = new WriteChannel(Channels.newChannel(outputStream));
+
+    // This is not a valid Arrow Message, only to test writing and alignment
+    ByteBuffer buffer = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN);
+    buffer.putInt(1);
+    buffer.putInt(2);
+    buffer.flip();
+
+    int bytesWritten = MessageSerializer.writeMessageBufferAligned(out, 8, buffer);
+    assertEquals(16, bytesWritten);
+
+    buffer.rewind();
+    buffer.putInt(3);
+    buffer.flip();
+    bytesWritten = MessageSerializer.writeMessageBufferAligned(out, 4, buffer);
+    assertEquals(8, bytesWritten);
+
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
+    ReadChannel in = new ReadChannel(Channels.newChannel(inputStream));
+    ByteBuffer result = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN);
+    in.readFully(result);
+    result.rewind();
+
+    // First message size, 2 int values, 4 bytes of zero padding
+    assertEquals(12, result.getInt());
+    assertEquals(1, result.getInt());
+    assertEquals(2, result.getInt());
+    assertEquals(0, result.getInt());
+
+    // Second message size and 1 int value
+    assertEquals(4, result.getInt());
+    assertEquals(3, result.getInt());
   }
 
   @Test
