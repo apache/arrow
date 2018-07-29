@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-{% set version = "1.4.0" %}
-{% set commit = "b62c22e52d37fa9580d85c5a2a2d73bd8e268364" %}
-{% set sha256sum = "2fa5704fc1164f68508e3050d30a6436dd56434e1a592d8ddf4afd68f62a7c01" %}
+{% set version = "1.4.0.post0" %}
+{% set commit = "master" %}
 
 # NOTE(wesm): When updating the build, please remember also to update the
 # pinned Arrow version. We are letting parquet-cpp build its own Apache Arrow
@@ -30,12 +29,11 @@ package:
   version: {{ version }}
 
 source:
-  fn: apache-parquet-cpp-{{ version }}.tar.gz
+  fn: {{ commit }}.tar.gz
   url: https://github.com/apache/parquet-cpp/archive/{{ commit }}.tar.gz
-  sha256: {{ sha256sum }}
 
 build:
-  number: 2
+  number: 0
   skip: true  # [win32]
   skip: true  # [win and py<35]
 

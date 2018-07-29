@@ -23,12 +23,10 @@ environment:
   NUMPY: "{{ numpy_version }}"
   PYTHON: "{{ python_version }}"
   MSVC_DEFAULT_OPTIONS: ON
-  BOOST_ROOT: C:\Libraries\boost_1_63_0
-  BOOST_LIBRARYDIR: C:\Libraries\boost_1_63_0\lib64-msvc-14.0
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.version }}
   PYARROW_REF: {{ arrow.head }}
-  PARQUET_CPP_REF: apache-parquet-cpp-1.4.0
+  PARQUET_CPP_REF: master
 
 init:
   - set MINICONDA=C:\Miniconda35-x64
