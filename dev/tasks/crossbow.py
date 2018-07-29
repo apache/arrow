@@ -574,7 +574,7 @@ def submit(ctx, task, group, job_prefix, config_path, dry_run,
         tasks[name] = Task(**task, artifacts=artifacts)
 
     # create job instance, doesn't mutate git data yet
-    if not tasks == 0:
+    if not tasks:
         raise click.ClickException('No task has been specified')
     job = Job(target=target, tasks=tasks)
 
