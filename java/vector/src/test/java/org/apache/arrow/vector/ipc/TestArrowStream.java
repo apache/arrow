@@ -60,6 +60,32 @@ public class TestArrowStream extends BaseFileTest {
   }
 
   @Test
+  public void testStreamZeroLengthBatch() throws IOException {
+    ByteArrayOutputStream os = new ByteArrayOutputStream();
+
+    try (IntVector vector = new IntVector("foo", allocator);) {
+      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
+           ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
+        vector.setValueCount(0);
+        root.setRowCount(0);
+        writer.writeBatch();
+        writer.end();
+      }
+    }
+
+    ByteArrayInputStream in = new ByteArrayInputStream(os.toByteArray());
+
+    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator);) {
+      VectorSchemaRoot root = reader.getVectorSchemaRoot();
+      IntVector vector = (IntVector) root.getFieldVectors().get(0);
+      reader.loadNextBatch();
+      assertEquals(vector.getValueCount(), 0);
+      assertEquals(root.getRowCount(), 0);
+    }
+  }
+
+  @Test
   public void testReadWrite() throws IOException {
     Schema schema = MessageSerializerTest.testSchema();
     try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {

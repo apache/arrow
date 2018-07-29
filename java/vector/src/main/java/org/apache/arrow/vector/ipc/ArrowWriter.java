@@ -42,6 +42,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 
+/**
+ * Abstract base class for implementing Arrow writers for IPC over a WriteChannel
+ */
 public abstract class ArrowWriter implements AutoCloseable {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
@@ -149,9 +152,11 @@ public abstract class ArrowWriter implements AutoCloseable {
     }
   }
 
-  protected abstract void startInternal(WriteChannel out) throws IOException;
+  protected void startInternal(WriteChannel out) throws IOException {
+  }
 
-  protected abstract void endInternal(WriteChannel out) throws IOException;
+  protected void endInternal(WriteChannel out) throws IOException {
+  }
 
   @Override
   public void close() {
