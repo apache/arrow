@@ -45,9 +45,9 @@ public class MessageChannelReader implements AutoCloseable {
 
   /**
    * Read a message from the ReadChannel and return a MessageResult containing the Message
-   * metadata and optional message body data. Once the end-of-stream has been reached, a value
-   * of null be be returned. If the message has no body, then MessageResult.getBodyBuffer()
-   * will return null.
+   * metadata and optional message body data. Once the end-of-stream has been reached, a null
+   * value will be returned. If the message has no body, then MessageResult.getBodyBuffer()
+   * returns null.
    *
    * @return MessageResult or null if reached end-of-stream
    * @throws IOException

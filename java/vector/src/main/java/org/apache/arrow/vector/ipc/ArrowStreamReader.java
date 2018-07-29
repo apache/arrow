@@ -98,7 +98,6 @@ public class ArrowStreamReader extends ArrowReader {
    */
   public boolean loadNextBatch() throws IOException {
     prepareLoadNextBatch();
-
     MessageResult result = messageReader.readNext();
 
     // Reached EOS
