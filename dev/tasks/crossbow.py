@@ -616,9 +616,10 @@ def sign(ctx, job_name, gpg_homedir, target_dir, algorithm):
                 asset.download(artifact_path)
 
                 # sign the artifact
-                signature_path = Path(str(artifact_path) + '.sig')
+                signature_path = Path(str(artifact_path) + '.asc')
                 with artifact_path.open('rb') as fp:
                     gpg.sign_file(fp, detach=True, clearsign=False,
+                                  binary=False,
                                   output=str(signature_path))
 
                 # compute checksums for the artifact
