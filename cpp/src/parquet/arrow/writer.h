@@ -132,14 +132,6 @@ class PARQUET_EXPORT FileWriter {
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
       std::unique_ptr<FileWriter>* writer);
 
-  static ::arrow::Status WriteMetaData(
-      const std::unique_ptr<FileMetaData>& fileMetaData,
-      const std::shared_ptr<OutputStream>& sink);
-
-  static ::arrow::Status WriteMetaData(
-      const std::unique_ptr<FileMetaData>& fileMetaData,
-      const std::shared_ptr<::arrow::io::OutputStream>& sink);
-
   /// \brief Write a Table to Parquet.
   ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size);
 
@@ -160,6 +152,15 @@ class PARQUET_EXPORT FileWriter {
   class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
 };
+
+/// \brief Write Parquet file metadata only to indicated OutputStream
+PARQUET_EXPORT
+::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
+
+/// \brief Write Parquet file metadata only to indicated Arrow OutputStream
+PARQUET_EXPORT
+::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata,
+                                  const std::shared_ptr<::arrow::io::OutputStream>& sink);
 
 /**
  * Write a Table to Parquet.

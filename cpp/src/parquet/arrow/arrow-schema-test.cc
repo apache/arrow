@@ -62,8 +62,8 @@ class TestConvertParquetSchema : public ::testing::Test {
     for (int i = 0; i < expected_schema->num_fields(); ++i) {
       auto lhs = result_schema_->field(i);
       auto rhs = expected_schema->field(i);
-      EXPECT_TRUE(lhs->Equals(rhs)) << i << " " << lhs->ToString()
-                                    << " != " << rhs->ToString();
+      EXPECT_TRUE(lhs->Equals(rhs))
+          << i << " " << lhs->ToString() << " != " << rhs->ToString();
     }
   }
 
@@ -607,9 +607,10 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
     auto inner_group_type = std::make_shared<::arrow::StructType>(inner_group_fields);
     auto outer_group_fields = {
         std::make_shared<Field>("leaf2", INT32, true),
-        std::make_shared<Field>("innerGroup", ::arrow::list(std::make_shared<Field>(
-                                                  "innerGroup", inner_group_type, false)),
-                                false)};
+        std::make_shared<Field>(
+            "innerGroup",
+            ::arrow::list(std::make_shared<Field>("innerGroup", inner_group_type, false)),
+            false)};
     auto outer_group_type = std::make_shared<::arrow::StructType>(outer_group_fields);
 
     arrow_fields.push_back(std::make_shared<Field>("leaf1", INT32, true));

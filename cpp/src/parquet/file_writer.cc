@@ -160,20 +160,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
     return result;
   }
 
-  static void WriteMetaData(
-      const std::shared_ptr<OutputStream>& sink,
-      const std::unique_ptr<FileMetaData>& fileMetaData) {
-    // Write MetaData
-    uint32_t metadata_len = static_cast<uint32_t>(sink->Tell());
-
-    fileMetaData->WriteTo(sink.get());
-    metadata_len = static_cast<uint32_t>(sink->Tell()) - metadata_len;
-
-    // Write Footer
-    sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4);
-    sink->Write(PARQUET_MAGIC, 4);
-  }
-
   void Close() override {
     if (is_open_) {
       if (row_group_writer_) {
@@ -183,7 +169,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       row_group_writer_.reset();
 
       // Write magic bytes and metadata
-      WriteMetaData();
+      auto metadata = metadata_->Finish();
+      WriteFileMetaData(*metadata, sink_.get());
 
       sink_->Close();
       is_open_ = false;
@@ -246,11 +233,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
     // Parquet files always start with PAR1
     sink_->Write(PARQUET_MAGIC, 4);
   }
-
-  void WriteMetaData() {
-    auto metadata = metadata_->Finish();
-    WriteMetaData(sink_, metadata);
-  }
 };
 
 // ----------------------------------------------------------------------
@@ -285,16 +267,16 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
   return result;
 }
 
-void ParquetFileWriter::WriteMetaData(
-        const std::shared_ptr<::arrow::io::OutputStream> &sink,
-        const std::unique_ptr<FileMetaData> &fileMetaData) {
-    WriteMetaData(std::make_shared<ArrowOutputStream>(sink), fileMetaData);
-}
+void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
+  // Write MetaData
+  uint32_t metadata_len = static_cast<uint32_t>(sink->Tell());
 
-void ParquetFileWriter::WriteMetaData(
-        const std::shared_ptr<OutputStream> &sink,
-        const std::unique_ptr<FileMetaData> &fileMetaData) {
-  FileSerializer::WriteMetaData(sink, fileMetaData);
+  file_metadata.WriteTo(sink);
+  metadata_len = static_cast<uint32_t>(sink->Tell()) - metadata_len;
+
+  // Write Footer
+  sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4);
+  sink->Write(PARQUET_MAGIC, 4);
 }
 
 const SchemaDescriptor* ParquetFileWriter::schema() const { return contents_->schema(); }

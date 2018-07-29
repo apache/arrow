@@ -36,9 +36,7 @@ namespace parquet {
 
 template <class T>
 Vector<T>::Vector(int64_t size, MemoryPool* pool)
-    : buffer_(AllocateBuffer(pool, size * sizeof(T))),
-      size_(size),
-      capacity_(size) {
+    : buffer_(AllocateBuffer(pool, size * sizeof(T))), size_(size), capacity_(size) {
   if (size > 0) {
     data_ = reinterpret_cast<T*>(buffer_->mutable_data());
   } else {
@@ -497,8 +495,7 @@ void BufferedInputStream::Advance(int64_t num_bytes) {
 
 std::shared_ptr<ResizableBuffer> AllocateBuffer(MemoryPool* pool, int64_t size) {
   std::shared_ptr<ResizableBuffer> result;
-  PARQUET_THROW_NOT_OK(arrow::AllocateResizableBuffer(pool, size,
-                                                      &result));
+  PARQUET_THROW_NOT_OK(arrow::AllocateResizableBuffer(pool, size, &result));
   return result;
 }
 

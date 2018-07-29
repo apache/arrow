@@ -41,8 +41,8 @@ using arrow::Int16Builder;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
-using arrow::ResizableBuffer;
 using arrow::PrimitiveArray;
+using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
@@ -216,9 +216,11 @@ class LevelBuilder {
         if (level_null_count && level_valid_bitmap == nullptr) {
           // Special case: this is a null array (all elements are null)
           RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
-        } else if (nullable_level && ((level_null_count == 0) ||
-            BitUtil::GetBit(level_valid_bitmap,
-                            inner_offset + i + array_offsets_[recursion_level]))) {
+        } else if (nullable_level &&
+                   ((level_null_count == 0) ||
+                    BitUtil::GetBit(
+                        level_valid_bitmap,
+                        inner_offset + i + array_offsets_[recursion_level]))) {
           // Non-null element in a null level
           RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
         } else {
@@ -1092,18 +1094,16 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   return Open(schema, pool, wrapper, properties, arrow_properties, writer);
 }
 
-Status FileWriter::WriteMetaData(const std::unique_ptr<FileMetaData>& fileMetaData,
-                                 const std::shared_ptr<OutputStream>& sink) {
-  ParquetFileWriter::WriteMetaData(sink, fileMetaData);
+Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
+  PARQUET_CATCH_NOT_OK(::parquet::WriteFileMetaData(file_metadata, sink));
   return Status::OK();
 }
 
-Status FileWriter::WriteMetaData(const std::unique_ptr<FileMetaData>& fileMetaData,
-                                 const std::shared_ptr<::arrow::io::OutputStream>& sink) {
-  auto wrapper = std::make_shared<ArrowOutputStream>(sink);
-  return WriteMetaData(fileMetaData, wrapper);
+Status WriteFileMetaData(const FileMetaData& file_metadata,
+                         const std::shared_ptr<::arrow::io::OutputStream>& sink) {
+  ArrowOutputStream wrapper(sink);
+  return ::parquet::arrow::WriteFileMetaData(file_metadata, &wrapper);
 }
-
 
 namespace {}  // namespace
 

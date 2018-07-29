@@ -438,7 +438,7 @@ class PARQUET_EXPORT BufferedInputStream : public InputStream {
 };
 
 std::shared_ptr<ResizableBuffer> PARQUET_EXPORT AllocateBuffer(
-  ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
 
 }  // namespace parquet
 

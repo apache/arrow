@@ -79,6 +79,9 @@ class PARQUET_EXPORT RowGroupWriter {
   std::unique_ptr<Contents> contents_;
 };
 
+PARQUET_EXPORT
+void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
+
 class PARQUET_EXPORT ParquetFileWriter {
  public:
   // Forward declare a virtual class 'Contents' to aid dependency injection and more
@@ -132,14 +135,6 @@ class PARQUET_EXPORT ParquetFileWriter {
       const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr);
-
-  static void WriteMetaData(
-          const std::shared_ptr<::arrow::io::OutputStream> &sink,
-          const std::unique_ptr<FileMetaData> &fileMetaData);
-
-  static void WriteMetaData(
-          const std::shared_ptr<OutputStream> &sink,
-          const std::unique_ptr<FileMetaData> &fileMetaData);
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();

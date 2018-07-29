@@ -222,9 +222,7 @@ int64_t ColumnChunkMetaData::data_page_offset() const {
   return impl_->data_page_offset();
 }
 
-bool ColumnChunkMetaData::has_index_page() const {
-  return impl_->has_index_page();
-}
+bool ColumnChunkMetaData::has_index_page() const { return impl_->has_index_page(); }
 
 int64_t ColumnChunkMetaData::index_page_offset() const {
   return impl_->index_page_offset();
@@ -345,7 +343,9 @@ class FileMetaData::FileMetaDataImpl {
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
-  void WriteTo(OutputStream* dst) { SerializeThriftMsg(metadata_.get(), 1024, dst); }
+  void WriteTo(OutputStream* dst) const {
+    SerializeThriftMsg(metadata_.get(), 1024, dst);
+  }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
     if (!(i < num_row_groups())) {
@@ -462,7 +462,7 @@ std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const
   return impl_->key_value_metadata();
 }
 
-void FileMetaData::WriteTo(OutputStream* dst) { return impl_->WriteTo(dst); }
+void FileMetaData::WriteTo(OutputStream* dst) const { return impl_->WriteTo(dst); }
 
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)

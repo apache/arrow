@@ -52,16 +52,16 @@ using arrow::Buffer;
 using arrow::ChunkedArray;
 using arrow::Column;
 using arrow::DataType;
+using arrow::default_memory_pool;
 using arrow::ListArray;
-using arrow::ResizableBuffer;
 using arrow::PrimitiveArray;
+using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
 using arrow::compute::Datum;
 using arrow::compute::DictionaryEncode;
 using arrow::compute::FunctionContext;
-using arrow::default_memory_pool;
 using arrow::io::BufferReader;
 
 using arrow::test::randint;
@@ -861,26 +861,21 @@ TYPED_TEST(TestParquetIO, FileMetaDataWrite) {
 
   std::unique_ptr<FileReader> reader;
   ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
-  const std::shared_ptr<FileMetaData> fileMetaData = reader->parquet_reader()->metadata();
-  ASSERT_EQ(1, fileMetaData->num_columns());
-  ASSERT_EQ(100, fileMetaData->num_rows());
+  auto metadata = reader->parquet_reader()->metadata();
+  ASSERT_EQ(1, metadata->num_columns());
+  ASSERT_EQ(100, metadata->num_rows());
 
   this->sink_ = std::make_shared<InMemoryOutputStream>();
 
-  std::unique_ptr<FileMetaData> uniqueFileMetaData(fileMetaData.get());
-
-  ASSERT_OK_NO_THROW(FileWriter::WriteMetaData(uniqueFileMetaData, this->sink_));
+  ASSERT_OK_NO_THROW(::parquet::arrow::WriteFileMetaData(*metadata, this->sink_.get()));
 
   ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
-  const std::shared_ptr<FileMetaData> fileMetaDataWritten =
-          reader->parquet_reader()->metadata();
-  ASSERT_EQ(fileMetaData->size(), fileMetaDataWritten->size());
-  ASSERT_EQ(fileMetaData->num_row_groups(), fileMetaDataWritten->num_row_groups());
-  ASSERT_EQ(fileMetaData->num_rows(), fileMetaDataWritten->num_rows());
-  ASSERT_EQ(fileMetaData->num_columns(), fileMetaDataWritten->num_columns());
-  ASSERT_EQ(fileMetaData->RowGroup(0)->num_rows(),
-            fileMetaDataWritten->RowGroup(0)->num_rows());
-  uniqueFileMetaData.release();
+  auto metadata_written = reader->parquet_reader()->metadata();
+  ASSERT_EQ(metadata->size(), metadata_written->size());
+  ASSERT_EQ(metadata->num_row_groups(), metadata_written->num_row_groups());
+  ASSERT_EQ(metadata->num_rows(), metadata_written->num_rows());
+  ASSERT_EQ(metadata->num_columns(), metadata_written->num_columns());
+  ASSERT_EQ(metadata->RowGroup(0)->num_rows(), metadata_written->RowGroup(0)->num_rows());
 }
 
 using TestInt96ParquetIO = TestParquetIO<::arrow::TimestampType>;
@@ -1485,13 +1480,13 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
 // Regression for ARROW-2802
 TEST(TestArrowReadWrite, CoerceTimestampsAndSupportDeprecatedInt96) {
   using ::arrow::Column;
+  using ::arrow::default_memory_pool;
   using ::arrow::Field;
   using ::arrow::Schema;
   using ::arrow::Table;
-  using ::arrow::TimeUnit;
   using ::arrow::TimestampBuilder;
   using ::arrow::TimestampType;
-  using ::arrow::default_memory_pool;
+  using ::arrow::TimeUnit;
 
   auto timestamp_type = std::make_shared<TimestampType>(TimeUnit::NANO);
 

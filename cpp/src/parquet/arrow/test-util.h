@@ -402,17 +402,16 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
                                         &offsets_buffer));
   memset(offsets_buffer->mutable_data(), 0, offsets_nbytes);
 
-  auto value_field = ::arrow::field("item", ::arrow::float64(),
-                                    false /* nullable_values */);
+  auto value_field =
+      ::arrow::field("item", ::arrow::float64(), false /* nullable_values */);
   auto list_type = ::arrow::list(value_field);
 
   std::vector<std::shared_ptr<Buffer>> child_buffers = {nullptr /* null bitmap */,
-                                                        nullptr /* values */ };
-  auto child_data = ::arrow::ArrayData::Make(value_field->type(), 0,
-                                             std::move(child_buffers));
+                                                        nullptr /* values */};
+  auto child_data =
+      ::arrow::ArrayData::Make(value_field->type(), 0, std::move(child_buffers));
 
-  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr /* bitmap */,
-                                                  offsets_buffer };
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr /* bitmap */, offsets_buffer};
   auto array_data = ::arrow::ArrayData::Make(list_type, size, std::move(buffers));
   array_data->child_data.push_back(child_data);
 

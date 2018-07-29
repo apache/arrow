@@ -301,9 +301,7 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
  public:
   explicit StructImpl(const std::vector<std::shared_ptr<ColumnReaderImpl>>& children,
                       int16_t struct_def_level, MemoryPool* pool, const Node* node)
-      : children_(children),
-        struct_def_level_(struct_def_level),
-        pool_(pool) {
+      : children_(children), struct_def_level_(struct_def_level), pool_(pool) {
     InitField(node, children);
   }
 

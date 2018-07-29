@@ -171,7 +171,7 @@ class PARQUET_EXPORT FileMetaData {
 
   const ApplicationVersion& writer_version() const;
 
-  void WriteTo(OutputStream* dst);
+  void WriteTo(OutputStream* dst) const;
 
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;

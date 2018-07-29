@@ -51,12 +51,12 @@ class Encoder {
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                          int64_t valid_bits_offset) {
     std::shared_ptr<ResizableBuffer> buffer;
-    auto status = ::arrow::AllocateResizableBuffer(pool_, num_values * sizeof(T),
-                                                   &buffer);
+    auto status =
+        ::arrow::AllocateResizableBuffer(pool_, num_values * sizeof(T), &buffer);
     if (!status.ok()) {
       std::ostringstream ss;
-      ss << "AllocateResizableBuffer failed in Encoder.PutSpaced in "
-         << __FILE__ << ", on line " << __LINE__;
+      ss << "AllocateResizableBuffer failed in Encoder.PutSpaced in " << __FILE__
+         << ", on line " << __LINE__;
       throw ParquetException(ss.str());
     }
     int32_t num_valid_values = 0;
