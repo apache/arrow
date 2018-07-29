@@ -27,7 +27,6 @@ environment:
   MSVC_DEFAULT_OPTIONS: ON
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.version }}
-  PYARROW_REF: {{ arrow.head }}
   PARQUET_CPP_REF: apache-parquet-cpp-1.4.0
 
 init:
