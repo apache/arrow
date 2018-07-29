@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import hashlib
 import os
 import re
 import sys
@@ -126,7 +127,8 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent.
         """
-        return self.remote.url.replace('git@github.com:', 'https://github.com/')
+        return self.remote.url.replace(
+            'git@github.com:', 'https://github.com/')
 
     @property
     def email(self):
@@ -522,6 +524,27 @@ def status(ctx, job_name):
             click.echo(filename + click.style(statemsg, fg=COLORS[state]))
 
 
+def hashbytes(bytes, algoname):
+    """Hash `bytes` using the algorithm named `algoname`.
+
+    Parameters
+    ----------
+    bytes : bytes
+        The bytes to hash
+    algoname : str
+        The name of class in the hashlib standard library module
+
+    Returns
+    -------
+    str
+        Hexadecimal digest of `bytes` hashed using `algoname`
+    """
+    algo = getattr(hashlib, algoname)()
+    algo.update(bytes)
+    result = algo.hexdigest()
+    return result
+
+
 @crossbow.command()
 @click.argument('job-name', required=True)
 @click.option('--gpg-homedir', default=None,
@@ -529,8 +552,10 @@ def status(ctx, job_name):
                     'private keyrings. Default is whatever GnuPG defaults to'))
 @click.option('--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
               help='Directory to download the build artifacts')
+@click.option('--hashes', default=('sha1', 'sha256', 'sha512'),
+              help='Hashing algorithms to use to generate checksums')
 @click.pass_context
-def sign(ctx, job_name, gpg_homedir, target_dir):
+def sign(ctx, job_name, gpg_homedir, target_dir, hashes):
     """Download and sign build artifacts from github releases"""
     import gnupg
     gpg = gnupg.GPG(gnupghome=gpg_homedir)
@@ -546,24 +571,27 @@ def sign(ctx, job_name, gpg_homedir, target_dir):
     target_dir.mkdir(parents=True, exist_ok=True)
     click.echo('Download {}\'s artifacts to {}'.format(job_name, target_dir))
 
-    tpl = '{:<10} {:>68}'
+    tpl = '{:<10} {:>73}'
     for task_name, task in sorted(job.tasks.items()):
         assets = queue.github_assets(task)
         artifact_dir = target_dir / task_name
         artifact_dir.mkdir(exist_ok=True)
 
-        click.echo('\nDownloading and signing assets for task {}'
-                    .format(task_name))
-        click.echo('-' * 79)
+        click.echo(
+            '\nDownloading and signing assets for task {}' .format(task_name))
+        click.echo('-' * 89)
 
         for artifact in task.artifacts:
             try:
                 asset = assets[artifact]
             except KeyError:
-                msg = click.style('[{:>8}]'.format('MISSING'),
+                msg = click.style('[{:>13}]'.format('MISSING'),
                                   fg=COLORS['missing'])
                 click.echo(tpl.format(msg, artifact))
                 continue
+            else:
+                string = click.style('{:<10}'.format(artifact), bold=True)
+                click.echo(string)
 
             # download artifact
             artifact_path = artifact_dir / asset.name
@@ -575,8 +603,21 @@ def sign(ctx, job_name, gpg_homedir, target_dir):
                 gpg.sign_file(fp, detach=True, clearsign=False,
                               output=str(signature_path))
 
-            msg = click.style('[{:>8}]'.format('SIGNED'), fg=COLORS['ok'])
-            click.echo(tpl.format(msg, asset.name))
+            artifact_bytes = artifact_path.read_bytes()
+            for hashkind, suffix in zip(hashes, map('.{}'.format, hashes)):
+                checksum_path = Path(str(artifact_path) + suffix)
+                checksum = '{}  {}'.format(
+                    hashbytes(artifact_bytes, hashkind), artifact_path.name
+                )
+                checksum_path.write_text(checksum)
+                msg = click.style(
+                    '[{:>13}]'.format('{} HASHED'.format(hashkind)),
+                    fg='blue'
+                )
+                click.echo(tpl.format(msg, checksum_path.name))
+
+            msg = click.style('[{:>13}]'.format('SIGNED'), fg=COLORS['ok'])
+            click.echo(tpl.format(msg, str(signature_path.name)))
 
 
 if __name__ == '__main__':
