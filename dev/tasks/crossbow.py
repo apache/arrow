@@ -552,10 +552,12 @@ def hashbytes(bytes, algoname):
                     'private keyrings. Default is whatever GnuPG defaults to'))
 @click.option('--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
               help='Directory to download the build artifacts')
-@click.option('--hashes', default=('sha1', 'sha256', 'sha512'),
-              help='Hashing algorithms to use to generate checksums')
+@click.option('--checksum',
+              default=['sha1', 'sha256', 'sha512'],
+              multiple=True,
+              help='Algorithm used to generate checksums')
 @click.pass_context
-def sign(ctx, job_name, gpg_homedir, target_dir, hashes):
+def sign(ctx, job_name, gpg_homedir, target_dir, checksum):
     """Download and sign build artifacts from github releases"""
     import gnupg
     gpg = gnupg.GPG(gnupghome=gpg_homedir)
@@ -604,7 +606,7 @@ def sign(ctx, job_name, gpg_homedir, target_dir, hashes):
                               output=str(signature_path))
 
             artifact_bytes = artifact_path.read_bytes()
-            for hashkind, suffix in zip(hashes, map('.{}'.format, hashes)):
+            for hashkind, suffix in zip(checksum, map('.{}'.format, checksum)):
                 checksum_path = Path(str(artifact_path) + suffix)
                 checksum = '{}  {}'.format(
                     hashbytes(artifact_bytes, hashkind), artifact_path.name
