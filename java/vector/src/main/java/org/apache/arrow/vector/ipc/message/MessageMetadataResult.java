@@ -23,46 +23,49 @@ import java.nio.ByteBuffer;
 import org.apache.arrow.flatbuf.Message;
 
 /**
-* Class to hold resulting Message and message information when reading messages from a ReadChannel.
-*/
-public class MessageChannelResult {
+ * Class to hold resulting Message metadata and buffer containing the serialized Flatbuffer
+ * message when reading messages from a ReadChannel. This handles Message metadata only and
+ * does not include the message body data, which should be subsequently read into an ArrowBuf.
+ */
+public class MessageMetadataResult {
 
   /**
-  * Construct a container to hold a message result.
-  *
-  * @param messageLength the length of the message read in bytes
-  * @param messageBuffer contains the raw bytes of the message
-  * @param message the realized flatbuf Message
-  */
-  public MessageChannelResult(int messageLength, ByteBuffer messageBuffer, Message message) {
+   * Construct a container to hold a deserialized Message metadata, and buffer
+   * with the serialized Message as read from a ReadChannel.
+   *
+   * @param messageLength the length of the serialized Flatbuffer message in bytes
+   * @param messageBuffer contains the serialized Flatbuffer Message metadata
+   * @param message the deserialized Flatbuffer Message metadata description
+   */
+  MessageMetadataResult(int messageLength, ByteBuffer messageBuffer, Message message) {
       this.messageLength = messageLength;
       this.messageBuffer = messageBuffer;
       this.message = message;
     }
 
   /**
-  * Returns status indicating if the MessageResult has a valid message.
-  *
-  * @return true if the result contains a valid message
-  */
+   * Returns status indicating if the MessageResult has a valid message.
+   *
+   * @return true if the result contains a valid message
+   */
   public boolean hasMessage() {
     return message != null;
   }
 
   /**
-  * Get the length of the message in bytes.
-  *
-  * @return number of bytes in the message buffer.
-  */
+   * Get the length of the message in bytes.
+   *
+   * @return number of bytes in the message buffer.
+   */
   public int getMessageLength() {
     return messageLength;
   }
 
   /**
-  * Get the buffer containing the raw message bytes.
-  *
-  * @return buffer containing the message
-  */
+   * Get the buffer containing the raw message bytes.
+   *
+   * @return buffer containing the message
+   */
   public ByteBuffer getMessageBuffer() {
     return messageBuffer;
   }
@@ -90,10 +93,10 @@ public class MessageChannelResult {
   }
 
   /**
-  * Get the realized flatbuf Message.
-  *
-  * @return Message
-  */
+   * Get the realized flatbuf Message.
+   *
+   * @return Message
+   */
   public Message getMessage() {
     return message;
   }

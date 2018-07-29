@@ -88,13 +88,13 @@ public class MessageSerializerTest {
     buffer.putInt(2);
     buffer.flip();
 
-    int bytesWritten = MessageSerializer.writeMessageBufferAligned(out, 8, buffer);
+    int bytesWritten = MessageSerializer.writeMessageBuffer(out, 8, buffer);
     assertEquals(16, bytesWritten);
 
     buffer.rewind();
     buffer.putInt(3);
     buffer.flip();
-    bytesWritten = MessageSerializer.writeMessageBufferAligned(out, 4, buffer);
+    bytesWritten = MessageSerializer.writeMessageBuffer(out, 4, buffer);
     assertEquals(8, bytesWritten);
 
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
