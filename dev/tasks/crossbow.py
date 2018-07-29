@@ -638,7 +638,6 @@ def sign(ctx, job_name, gpg_homedir, target_dir, algorithm):
 
                 msg = click.style('[{:>13}]'.format('SIGNED'), fg=COLORS['ok'])
                 click.echo(tpl.format(msg, str(signature_path.name)))
-                # click.echo(tpl.format(msg, str(signature_path.name)))
 
 
 if __name__ == '__main__':
