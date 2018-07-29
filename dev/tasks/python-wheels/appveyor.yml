@@ -27,7 +27,7 @@ environment:
   MSVC_DEFAULT_OPTIONS: ON
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.version }}
-  PARQUET_CPP_REF: apache-parquet-cpp-1.4.0
+  PARQUET_CPP_REF: master
 
 init:
   - set MINICONDA=C:\Miniconda35-x64
