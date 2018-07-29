@@ -580,13 +580,25 @@ def sign(ctx, job_name, gpg_homedir, target_dir, algorithm):
 
     tpl = '{:<10} {:>73}'
 
-    for task_name, task in sorted(job.tasks.items()):
+    task_items = sorted(job.tasks.items())
+    ntasks = len(task_items)
+
+    for i, (task_name, task) in enumerate(task_items, start=1):
         assets = queue.github_assets(task)
         artifact_dir = target_dir / task_name
         artifact_dir.mkdir(exist_ok=True)
 
+        basemsg = 'Downloading and signing assets for task {}'.format(
+            click.style(task_name, bold=True)
+        )
         click.echo(
-            '\nDownloading and signing assets for task {}' .format(task_name))
+            '\n{} {:>{size}}' .format(
+                basemsg,
+                click.style('{}/{}'.format(i, ntasks), bold=True),
+                size=89 - (len(basemsg) + 1) + 2 * len(
+                    click.style('', bold=True))
+            )
+        )
         click.echo('-' * 89)
 
         for artifact in task.artifacts:
