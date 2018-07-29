@@ -556,7 +556,7 @@ def hashbytes(bytes, algoname):
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
 @click.option('-a', '--algorithm',
-              default=['sha1', 'sha256', 'sha512'],
+              default=['sha1', 'sha256'],
               show_default=True,
               type=click.Choice(sorted(hashlib.algorithms_guaranteed)),
               multiple=True,
