@@ -371,8 +371,8 @@ class DistTarget(Target):
 
     @property
     def checksum_url(self):
-        """SHA512 checksum"""
-        return self.archive_url + '.sha512'
+        """SHA256 checksum"""
+        return self.archive_url + '.sha256'
 
     @property
     def archive_filename(self):

@@ -39,7 +39,7 @@ before_install:
   {%- if arrow.verify %}
   # Verify the archive checksum
   - curl -OL {{ arrow.checksum_url }}
-  - shasum -a 512 -c {{ arrow.checksum_filename }}
+  - shasum -a 256 -c {{ arrow.checksum_filename }}
   {%- endif %}
   - mkdir arrow
   - tar -xzvf {{ arrow.archive_filename }} --strip-components=1 -C arrow
