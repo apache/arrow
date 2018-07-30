@@ -19,7 +19,7 @@
 # arrow::ipc
 
 from libc.stdlib cimport malloc, free
-from pyarrow.compat import frombytes, tobytes, encode_file_path
+from pyarrow.compat import builtin_pickle, frombytes, tobytes, encode_file_path
 from io import BufferedIOBase, UnsupportedOperation
 
 import re
@@ -823,8 +823,11 @@ cdef class Buffer:
         else:
             return NotImplemented
 
-    def __reduce__(self):
-        return py_buffer, (self.to_pybytes(),)
+    def __reduce_ex__(self, protocol):
+        if protocol >= 5:
+            return py_buffer, (builtin_pickle.PickleBuffer(self),)
+        else:
+            return py_buffer, (self.to_pybytes(),)
 
     def to_pybytes(self):
         return cp.PyBytes_FromStringAndSize(
