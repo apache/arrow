@@ -419,18 +419,20 @@ Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
 // Marshal Python sequence (list, tuple, etc.) to Arrow array
 class SeqConverter {
  public:
+  virtual ~SeqConverter() = default;
+
   virtual Status Init(ArrayBuilder* builder) {
     builder_ = builder;
     return Status::OK();
   }
 
-  // Append a single (non-sequence) Python datum to the underlying builder
-  virtual Status AppendSingle(PyObject* obj) = 0;
+  // Append a single (non-sequence) Python datum to the underlying builder,
+  // virtual function
+  virtual Status AppendSingleV(PyObject* obj) = 0;
 
-  // Append the contents of a Python sequence to the underlying builder
-  virtual Status AppendMultiple(PyObject* seq, int64_t size) = 0;
-
-  virtual ~SeqConverter() = default;
+  // Append the contents of a Python sequence to the underlying builder,
+  // virtual version
+  virtual Status AppendMultipleV(PyObject* seq, int64_t size) = 0;
 
  protected:
   ArrayBuilder* builder_;
@@ -451,17 +453,44 @@ class TypedConverter : public SeqConverter {
   BuilderType* typed_builder_;
 };
 
-// We use the CRTP trick here to devirtualize the AppendItem(), AppendNull(), and IsNull()
-// method calls.
-template <typename BuilderType, class Derived>
+enum class NullConventionTypes : char {
+  NONE_ONLY,
+  PANDAS_SENTINELS
+};
+
+template <int Kind>
+struct NullConvention {};
+
+template <>
+struct NullConvention<NullConventionTypes::NONE_ONLY> {
+  static inline bool IsNull(PyObject* obj) const {
+    return obj == Py_None;
+  }
+};
+
+template <>
+struct NullConvention<NullConventionTypes::PANDAS_SENTINELS> {
+  static inline bool IsNull(PyObject* obj) const {
+    return internal::PandasObjectIsNull(obj);
+  }
+};
+
+// We use CRTP to avoid virtual calls to the AppendItem(), AppendNull(), and
+// IsNull() on the hot path
+template <typename BuilderType, class Derived,
+          int NullConventionType = NullConventionTypes::PANDAS_SENTINELS>
 class TypedConverterVisitor : public TypedConverter<BuilderType> {
  public:
-  Status AppendSingle(PyObject* obj) override {
-    auto self = checked_cast<Derived*>(this);
-    return self->IsNull(obj) ? self->AppendNull() : self->AppendItem(obj);
+  bool CheckNull(PyObject* obj) const {
+    return NullConvention<NullConventionType>::IsNull(obj);
   }
 
-  Status AppendMultiple(PyObject* obj, int64_t size) override {
+  Status AppendSingle(PyObject* obj) {
+    auto self = checked_cast<Derived*>(this);
+    return CheckNull(obj) ? self->AppendNull() : self->AppendItem(obj);
+  }
+
+  Status AppendMultiple(PyObject* obj, int64_t size) {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
     // Iterate over the items adding each one
@@ -472,10 +501,16 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
                                    });
   }
 
+  Status AppendSingleV(PyObject* obj) override {
+    return AppendSingle(obj);
+  }
+
+  Status AppendMultipleV(PyObject* obj, int64_t size) override {
+    return AppendMultiple(obj, size);
+  }
+
   // Append a missing item (default implementation)
   Status AppendNull() { return this->typed_builder_->AppendNull(); }
-
-  bool IsNull(PyObject* obj) const { return internal::PandasObjectIsNull(obj); }
 };
 
 class NullConverter : public TypedConverterVisitor<NullBuilder, NullConverter> {
@@ -509,12 +544,9 @@ class TypedIntConverter
 template <typename IntType>
 class TypedIntConverter<IntType, false>
     : public TypedConverterVisitor<NumericBuilder<IntType>,
-                                   TypedIntConverter<IntType, false>> {
+                                   TypedIntConverter<IntType, false>,
+                                   NullConventionType::NONE_ONLY> {
  public:
-  Status AppendSingle(PyObject* obj) {
-    return (obj == Py_None) ? this->AppendNull() : this->AppendItem(obj);
-  }
-
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     typename IntType::c_type value;
@@ -621,12 +653,9 @@ class Float16Converter
 
 template <>
 class Float16Converter<false>
-    : public TypedConverterVisitor<HalfFloatBuilder, Float16Converter<false>> {
+    : public TypedConverterVisitor<HalfFloatBuilder, Float16Converter<false>,
+                                   NullConventionTypes::NONE_ONLY> {
  public:
-  Status AppendSingle(PyObject* obj) override {
-    return (obj == Py_None) ? this->AppendNull() : this->AppendItem(obj);
-  }
-
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     npy_half val;
@@ -649,12 +678,9 @@ class Float32Converter
 
 template <>
 class Float32Converter<false>
-    : public TypedConverterVisitor<FloatBuilder, Float32Converter<false>> {
+    : public TypedConverterVisitor<FloatBuilder, Float32Converter<false>,
+                                   NullConventionTypes::NONE_ONLY> {
  public:
-  Status AppendSingle(PyObject* obj) override {
-    return (obj == Py_None) ? this->AppendNull() : this->AppendItem(obj);
-  }
-
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     float val = static_cast<float>(PyFloat_AsDouble(obj));
@@ -677,12 +703,9 @@ class DoubleConverter
 
 template <>
 class DoubleConverter<false>
-    : public TypedConverterVisitor<DoubleBuilder, DoubleConverter<false>> {
+    : public TypedConverterVisitor<DoubleBuilder, DoubleConverter<false>,
+                                   NullConventionTypes::NONE_ONLY> {
  public:
-  Status AppendSingle(PyObject* obj) override {
-    return (obj == Py_None) ? this->AppendNull() : this->AppendItem(obj);
-  }
-
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     double val = PyFloat_AsDouble(obj);
@@ -729,7 +752,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
     if (ARROW_PREDICT_FALSE(list_size == -1)) {
       RETURN_IF_PYERROR();
     }
-    return value_converter_->AppendMultiple(obj, list_size);
+    return value_converter_->AppendMultipleV(obj, list_size);
   }
 
  protected:
@@ -769,7 +792,7 @@ class StructConverter : public TypedConverterVisitor<StructBuilder, StructConver
     // Need to also insert a missing item on all child builders
     // (compare with ListConverter)
     for (int i = 0; i < num_fields_; i++) {
-      RETURN_NOT_OK(value_converters_[i]->AppendSingle(Py_None));
+      RETURN_NOT_OK(value_converters_[i]->AppendSingleV(Py_None));
     }
     return Status::OK();
   }
@@ -781,7 +804,7 @@ class StructConverter : public TypedConverterVisitor<StructBuilder, StructConver
       PyObject* nameobj = PyList_GET_ITEM(field_name_list_.obj(), i);
       PyObject* valueobj = PyDict_GetItem(obj, nameobj);  // borrowed
       RETURN_IF_PYERROR();
-      RETURN_NOT_OK(value_converters_[i]->AppendSingle(valueobj ? valueobj : Py_None));
+      RETURN_NOT_OK(value_converters_[i]->AppendSingleV(valueobj ? valueobj : Py_None));
     }
     return Status::OK();
   }
@@ -792,7 +815,7 @@ class StructConverter : public TypedConverterVisitor<StructBuilder, StructConver
     }
     for (int i = 0; i < num_fields_; i++) {
       PyObject* valueobj = PyTuple_GET_ITEM(obj, i);
-      RETURN_NOT_OK(value_converters_[i]->AppendSingle(valueobj));
+      RETURN_NOT_OK(value_converters_[i]->AppendSingleV(valueobj));
     }
     return Status::OK();
   }
@@ -944,16 +967,6 @@ Status StructConverter::Init(ArrayBuilder* builder) {
   }
 
   return Status::OK();
-}
-
-Status AppendPySequence(PyObject* obj, int64_t size,
-                        const std::shared_ptr<DataType>& type, ArrayBuilder* builder,
-                        bool from_pandas) {
-  PyDateTime_IMPORT;
-  std::unique_ptr<SeqConverter> converter;
-  RETURN_NOT_OK(GetConverter(type, from_pandas, &converter));
-  RETURN_NOT_OK(converter->Init(builder));
-  return converter->AppendMultiple(obj, size);
 }
 
 // ----------------------------------------------------------------------
@@ -1532,18 +1545,6 @@ Status NumPyConverter::ConvertObjectsInferAndCast() {
 }
 
 Status NumPyConverter::ConvertObjects() {
-  // Python object arrays are annoying, since we could have one of:
-  //
-  // * Strings
-  // * Booleans with nulls
-  // * decimal.Decimals
-  // * Mixed type (not supported at the moment by arrow format)
-  //
-  // Additionally, nulls may be encoded either as np.nan or None. So we have to
-  // do some type inference and conversion
-
-  RETURN_NOT_OK(InitNullBitmap());
-
   // This means we received an explicit type from the user
   if (type_) {
     switch (type_->id()) {
@@ -1877,6 +1878,8 @@ Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
                          std::shared_ptr<Array>* out) {
   PyAcquireGIL lock;
 
+  PyDateTime_IMPORT;
+
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
 
@@ -1898,12 +1901,12 @@ Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
     return Status::OK();
   }
 
-  // Give the sequence converter an array builder
-  std::unique_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(MakeBuilder(options.pool, real_type, &builder));
-  RETURN_NOT_OK(
-      AppendPySequence(seq, size, real_type, builder.get(), options.from_pandas));
-  return builder->Finish(out);
+  std::unique_ptr<SeqConverter> converter;
+  RETURN_NOT_OK(GetConverter(real_type, options.pool, from_pandas,
+                             &converter));
+  RETURN_NOT_OK(converter->AppendMultipleV(seq, size));
+
+  return converter->GetResult();
 }
 
 }  // namespace arrow
