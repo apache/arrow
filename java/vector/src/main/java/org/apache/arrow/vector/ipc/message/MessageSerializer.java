@@ -83,17 +83,18 @@ public class MessageSerializer {
   }
 
   /**
-   * Aligns the message to 8 byte boundary and adjusts messageLength accordingly, then writes
-   * the message length prefix and message buffer to the Channel.
+   * Write the serialized Message metadata, prefixed by the length, to the output Channel. This
+   * ensures that it aligns to an 8 byte boundary and will adjust the message length to include
+   * any padding used for alignment.
    *
    * @param out Output Channel
    * @param messageLength Number of bytes in the message buffer, written as little Endian prefix
-   * @param messageBuffer Message buffer to be written
+   * @param messageBuffer Message metadata buffer to be written, this does not include any
+   *                      message body data which should be subsequently written to the Channel
    * @return Number of bytes written
-   * @return
    * @throws IOException
    */
-  public static int writeMessageBufferAligned(WriteChannel out, int messageLength, ByteBuffer messageBuffer) throws IOException {
+  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer) throws IOException {
 
     // ensure that message aligns to 8 byte padding - 4 bytes for size, then message body
     if ((messageLength + 4) % 8 != 0) {
@@ -125,7 +126,7 @@ public class MessageSerializer {
 
     int messageLength = serializedMessage.remaining();
 
-    int bytesWritten = writeMessageBufferAligned(out, messageLength, serializedMessage);
+    int bytesWritten = writeMessageBuffer(out, messageLength, serializedMessage);
     assert bytesWritten % 8 == 0;
     return bytesWritten;
   }
@@ -149,8 +150,8 @@ public class MessageSerializer {
    * @throws IOException if something went wrong
    */
   public static Schema deserializeSchema(ReadChannel in) throws IOException {
-    MessageChannelResult result = readMessage(in);
-    if (!result.hasMessage()) {
+    MessageMetadataResult result = readMessage(in);
+    if (result == null) {
       throw new IOException("Unexpected end of input when reading Schema");
     }
     if (result.getMessage().headerType() != MessageHeader.Schema) {
@@ -255,8 +256,8 @@ public class MessageSerializer {
    * @throws IOException
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
-    MessageChannelResult result = readMessage(in);
-    if (!result.hasMessage()) {
+    MessageMetadataResult result = readMessage(in);
+    if (result == null) {
       throw new IOException("Unexpected end of input when reading a RecordBatch");
     }
     if (result.getMessage().headerType() != MessageHeader.RecordBatch) {
@@ -406,8 +407,8 @@ public class MessageSerializer {
    * @throws IOException
    */
   public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
-    MessageChannelResult result = readMessage(in);
-    if (!result.hasMessage()) {
+    MessageMetadataResult result = readMessage(in);
+    if (result == null) {
       throw new IOException("Unexpected end of input when reading a DictionaryBatch");
     }
     if (result.getMessage().headerType() != MessageHeader.DictionaryBatch) {
@@ -465,24 +466,24 @@ public class MessageSerializer {
    * @throws IOException if the message is not an ArrowDictionaryBatch or ArrowRecordBatch
    */
   public static ArrowMessage deserializeMessageBatch(MessageChannelReader reader) throws IOException {
-    MessageHolder holder = new MessageHolder();
-    if (!reader.readNext(holder)) {
+    MessageResult result = reader.readNext();
+    if (result == null) {
       return null;
-    } else if (holder.message.bodyLength() > Integer.MAX_VALUE) {
+    } else if (result.getMessage().bodyLength() > Integer.MAX_VALUE) {
       throw new IOException("Cannot currently deserialize record batches over 2GB");
     }
 
-    if (holder.message.version() != MetadataVersion.V4) {
+    if (result.getMessage().version() != MetadataVersion.V4) {
       throw new IOException("Received metadata with an incompatible version number");
     }
 
-    switch (holder.message.headerType()) {
+    switch (result.getMessage().headerType()) {
       case MessageHeader.RecordBatch:
-        return deserializeRecordBatch(holder.message, holder.bodyBuffer);
+        return deserializeRecordBatch(result.getMessage(), result.getBodyBuffer());
       case MessageHeader.DictionaryBatch:
-        return deserializeDictionaryBatch(holder.message, holder.bodyBuffer);
+        return deserializeDictionaryBatch(result.getMessage(), result.getBodyBuffer());
       default:
-        throw new IOException("Unexpected message header type " + holder.message.headerType());
+        throw new IOException("Unexpected message header type " + result.getMessage().headerType());
     }
   }
 
@@ -519,29 +520,27 @@ public class MessageSerializer {
   }
 
   /**
-   * Read a Message from the in channel and return a MessageResult object that contains the
-   * Message, raw buffer containing the read Message, and length of the Message in bytes. If
-   * the end-of-stream has been reached, MessageResult.hasMessage() will return false.
+   * Read a Message from the input channel and return a MessageMetadataResult that contains the
+   * Message metadata, buffer containing the serialized Message metadata as read, and length of the
+   * Message in bytes. Returns null if the end-of-stream has been reached.
    *
    * @param in ReadChannel to read messages from
-   * @return MessageResult with Message and message information
+   * @return MessageMetadataResult with deserialized Message metadata and message information if
+   * a valid Message was read, or null if end-of-stream
    * @throws IOException
    */
-  public static MessageChannelResult readMessage(ReadChannel in) throws IOException {
-    int messageLength = 0;
-    ByteBuffer messageBuffer = null;
-    Message message = null;
+  public static MessageMetadataResult readMessage(ReadChannel in) throws IOException {
 
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
     if (in.readFully(buffer) == 4) {
-      messageLength = MessageSerializer.bytesToInt(buffer.array());
+      int messageLength = MessageSerializer.bytesToInt(buffer.array());
 
       // Length of 0 indicates end of stream
       if (messageLength != 0) {
 
         // Read the message into the buffer.
-        messageBuffer = ByteBuffer.allocate(messageLength);
+        ByteBuffer messageBuffer = ByteBuffer.allocate(messageLength);
         if (in.readFully(messageBuffer) != messageLength) {
           throw new IOException(
             "Unexpected end of stream trying to read message.");
@@ -549,11 +548,12 @@ public class MessageSerializer {
         messageBuffer.rewind();
 
         // Load the message.
-        message = Message.getRootAsMessage(messageBuffer);
+        Message message = Message.getRootAsMessage(messageBuffer);
+
+        return new MessageMetadataResult(messageLength, messageBuffer, message);
       }
     }
-
-    return new MessageChannelResult(messageLength, messageBuffer, message);
+    return null;
   }
 
   /**
