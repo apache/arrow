@@ -139,7 +139,7 @@ class ARROW_EXPORT OwnedRefNoGIL : public OwnedRef {
 };
 
 // A temporary conversion of a Python object to a bytes area.
-struct ARROW_EXPORT PyBytesView {
+struct PyBytesView {
   const char* bytes;
   Py_ssize_t size;
 
