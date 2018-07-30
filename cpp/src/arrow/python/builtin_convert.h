@@ -41,15 +41,12 @@ class Status;
 namespace py {
 
 // These three functions take a sequence input, not arbitrary iterables
-ARROW_EXPORT arrow::Status InferArrowType(PyObject* obj,
-                                          std::shared_ptr<arrow::DataType>* out_type);
-ARROW_EXPORT arrow::Status InferArrowTypeAndSize(
-    PyObject* obj, int64_t* size, std::shared_ptr<arrow::DataType>* out_type);
+ARROW_EXPORT
+arrow::Status InferArrowType(PyObject* obj, std::shared_ptr<arrow::DataType>* out_type);
 
-ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj, int64_t size,
-                                            const std::shared_ptr<arrow::DataType>& type,
-                                            arrow::ArrayBuilder* builder,
-                                            bool from_pandas);
+ARROW_EXPORT
+arrow::Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
+                                    std::shared_ptr<arrow::DataType>* out_type);
 
 struct PyConversionOptions {
   PyConversionOptions() : type(NULLPTR), size(-1), pool(NULLPTR), from_pandas(false) {}
@@ -71,9 +68,19 @@ struct PyConversionOptions {
   bool from_pandas;
 };
 
+/// \brief Convert sequence (list, generator, NumPy array with dtype object) of
+/// Python objects.
+/// \param[in] obj the sequence to convert
+/// \param[in] mask a NumPy array of true/false values to indicate whether
+/// values in the sequence are null (true) or not null (false). This parameter
+/// may be null
+/// \param[in] options various conversion options
+/// \param[out] out a ChunkedArray containing one or more chunks
+/// \return Status
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
-                         std::shared_ptr<Array>* out);
+Status ConvertPySequence(PyObject* obj, PyObject* mask,
+                         const PyConversionOptions& options,
+                         std::shared_ptr<ChunkedArray>* out);
 
 ARROW_EXPORT
 Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,
