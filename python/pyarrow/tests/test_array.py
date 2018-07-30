@@ -17,6 +17,7 @@
 
 import collections
 import datetime
+import pickle
 import pytest
 import struct
 import sys
@@ -24,7 +25,10 @@ import sys
 import numpy as np
 import pandas as pd
 import pandas.util.testing as tm
-import pickle
+try:
+    import pickle5
+except ImportError:
+    pickle5 = None
 
 import pyarrow as pa
 from pyarrow.pandas_compat import get_logical_type
@@ -633,7 +637,7 @@ def test_cast_date64_to_int():
     assert result.equals(expected)
 
 
-@pytest.mark.parametrize(
+pickle_test_parametrize = pytest.mark.parametrize(
     ('data', 'typ'),
     [
         ([True, False, True, True], pa.bool_()),
@@ -647,12 +651,38 @@ def test_cast_date64_to_int():
             pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
     ]
 )
+
+
+@pickle_test_parametrize
 def test_array_pickle(data, typ):
     # Allocate here so that we don't have any Arrow data allocated.
     # This is needed to ensure that allocator tests can be reliable.
     array = pa.array(data, type=typ)
-    result = pickle.loads(pickle.dumps(array))
-    assert array.equals(result)
+    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+        result = pickle.loads(pickle.dumps(array, proto))
+        assert array.equals(result)
+
+
+@pickle_test_parametrize
+def test_array_pickle5(data, typ):
+    # Test zero-copy pickling with protocol 5 (PEP 574)
+    picklemod = pickle5 or pickle
+    if pickle5 is None and picklemod.HIGHEST_PROTOCOL < 5:
+        pytest.skip("need pickle5 package or Python 3.8+")
+
+    array = pa.array(data, type=typ)
+    addresses = [buf.address if buf is not None else 0
+                 for buf in array.buffers()]
+
+    for proto in range(5, pickle.HIGHEST_PROTOCOL + 1):
+        buffers = []
+        pickled = picklemod.dumps(array, proto, buffer_callback=buffers.append)
+        result = picklemod.loads(pickled, buffers=buffers)
+        assert array.equals(result)
+
+        result_addresses = [buf.address if buf is not None else 0
+                            for buf in result.buffers()]
+        assert result_addresses == addresses
 
 
 @pytest.mark.parametrize(
