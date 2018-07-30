@@ -148,14 +148,15 @@ Status Projector::AllocArrayData(const DataTypePtr &type, int num_records,
   }
 
   arrow::Status astatus;
-  auto null_bitmap = std::make_shared<arrow::PoolBuffer>(pool_);
-  astatus = null_bitmap->Resize(arrow::BitUtil::BytesForBits(num_records));
+  std::shared_ptr<arrow::ResizableBuffer> null_bitmap;
+  int64_t size = arrow::BitUtil::BytesForBits(num_records);
+  astatus = arrow::AllocateResizableBuffer(pool_, size, &null_bitmap);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
-  auto data = std::make_shared<arrow::PoolBuffer>(pool_);
+  std::shared_ptr<arrow::ResizableBuffer> data;
   const auto &fw_type = dynamic_cast<const arrow::FixedWidthType &>(*type);
   int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
-  astatus = data->Resize(data_len);
+  astatus = arrow::AllocateResizableBuffer(pool_, data_len, &data);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
   *array_data = arrow::ArrayData::Make(type, num_records, {null_bitmap, data});

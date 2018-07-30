@@ -44,10 +44,10 @@ extern "C" {
   DATE_TYPES(INNER, NAME, OP)                    \
   INNER(NAME, boolean, OP)
 
-#define BINARY_GENERIC_OP(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE, OP)          \
+#define MOD_OP(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE)                         \
   FORCE_INLINE                                                             \
   OUT_TYPE NAME##_##IN_TYPE1##_##IN_TYPE2(IN_TYPE1 left, IN_TYPE2 right) { \
-    return left OP right;                                                  \
+    return (right == 0 ? left : left % right);                             \
   }
 
 // Symmetric binary fns : left, right params and return type are same.
@@ -60,8 +60,8 @@ NUMERIC_TYPES(BINARY_SYMMETRIC, subtract, -)
 NUMERIC_TYPES(BINARY_SYMMETRIC, multiply, *)
 NUMERIC_TYPES(BINARY_SYMMETRIC, divide, /)
 
-BINARY_GENERIC_OP(mod, int64, int32, int32, %)
-BINARY_GENERIC_OP(mod, int64, int64, int64, %)
+MOD_OP(mod, int64, int32, int32)
+MOD_OP(mod, int64, int64, int64)
 
 // Relational binary fns : left, right params are same, return is bool.
 #define BINARY_RELATIONAL(NAME, TYPE, OP) \
