@@ -36,10 +36,28 @@ static BIT_TABLE: [u8; 256] = [
     4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
 ];
 
+/// Returns the nearest number that is `>=` than `num` and is a multiple of 64.
+#[inline]
+pub fn round_upto_multiple_of_64(num: i64) -> i64 {
+    let force_carry_addend = 63;
+    let truncate_bitmask = !63;
+    let max_roundable_num = ::std::i64::MAX - 64;
+    if num < max_roundable_num {
+        return (num + force_carry_addend) & truncate_bitmask
+    }
+    num
+}
+
 /// Returns whether bit at position `i` in `data` is set or not.
 #[inline]
 pub fn get_bit(data: &[u8], i: usize) -> bool {
     (data[i / 8] & BIT_MASK[i % 8]) != 0
+}
+
+/// Sets bit at position `i` for `data`.
+#[inline]
+pub fn set_bit(data: &mut [u8], i: usize) {
+    data[i / 8] |= BIT_MASK[i % 8]
 }
 
 /// Returns the number of 1-bits in `data`.
@@ -54,7 +72,20 @@ pub fn count_set_bits(data: &[u8]) -> i64 {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+    use rand::{Rng, thread_rng};
+
     use super::*;
+
+    #[test]
+    fn test_round_upto_multiple_of_64() {
+        assert_eq!(0, round_upto_multiple_of_64(0));
+        assert_eq!(64, round_upto_multiple_of_64(1));
+        assert_eq!(64, round_upto_multiple_of_64(63));
+        assert_eq!(64, round_upto_multiple_of_64(64));
+        assert_eq!(128, round_upto_multiple_of_64(65));
+        assert_eq!(::std::i64::MAX-64, round_upto_multiple_of_64(::std::i64::MAX-64));
+    }
 
     #[test]
     fn test_get_bit() {
@@ -81,6 +112,39 @@ mod tests {
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 13));
         assert_eq!(true,  get_bit(&[0b01001001, 0b01010010], 14));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 15));
+    }
+
+    #[test]
+    fn test_set_bit() {
+        let mut b = [0b00000000];
+        set_bit(&mut b, 0);
+        assert_eq!([0b00000001], b);
+        set_bit(&mut b, 2);
+        assert_eq!([0b00000101], b);
+        set_bit(&mut b, 5);
+        assert_eq!([0b00100101], b);
+    }
+
+    #[test]
+    fn test_get_set_bit_roundtrip() {
+        const NUM_BYTES: usize = 10;
+        const NUM_SETS: usize = 10;
+
+        let mut buffer: Vec<u8> = Vec::with_capacity(NUM_BYTES);
+        unsafe {
+            buffer.set_len(NUM_BYTES);
+        }
+        let mut v = HashSet::new();
+        let mut rng = thread_rng();
+        for _ in 0..NUM_SETS {
+            let offset = rng.gen_range(0, 8 * NUM_BYTES);
+            v.insert(offset);
+            set_bit(&mut buffer[..], offset);
+        }
+
+        for i in 0..NUM_BYTES * 8 {
+            assert_eq!(v.contains(&i), get_bit(&buffer[..], i));
+        }
     }
 
     #[test]

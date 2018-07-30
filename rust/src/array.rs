@@ -18,16 +18,11 @@
 ///! Array types
 use std::any::Any;
 use std::convert::From;
-<<<<<<< HEAD
-use std::ops::Add;
-use std::str;
-use std::string::String;
-=======
 use std::marker::PhantomData;
-use std::mem::{transmute};
->>>>>>> [WIP] ARROW-2583: [Rust] Buffer should be typeless
+use std::mem;
 use std::sync::Arc;
 
+use util::bit_util;
 use super::array_data::*;
 use super::buffer::*;
 use super::datatypes::*;
@@ -41,7 +36,7 @@ pub trait Array: Send + Sync {
     /// Returns a reference-counted pointer to the data of this array
     fn data(&self) -> ArrayDataRef;
 
-    /// Returns a reference-counted pointer to the data of this array
+    /// Returns a borrowed & reference-counted pointer to the data of this array
     fn data_ref(&self) -> &ArrayDataRef;
 }
 
@@ -124,7 +119,8 @@ macro_rules! def_primitive_array {
             /// Returns a raw pointer to the values of this array.
             pub fn raw_values(&self) -> *const $native_ty {
                 unsafe {
-                    transmute(self.raw_values.get().offset(self.data.offset() as isize))
+                    mem::transmute(
+                        self.raw_values.get().offset(self.data.offset() as isize))
                 }
             }
 
@@ -134,14 +130,76 @@ macro_rules! def_primitive_array {
                     *(self.raw_values().offset(i as isize))
                 }
             }
+
+            /// Determine the minimum value in the array
+            pub fn min(&self) -> Option<$native_ty> {
+                self.search(|a, b| a < b)
+            }
+
+            /// Determine the maximum value in the array
+            pub fn max(&self) -> Option<$native_ty> {
+                self.search(|a, b| a > b)
+            }
+
+            fn search<F>(&self, cmp: F) -> Option<$native_ty>
+              where F: Fn($native_ty, $native_ty) -> bool {
+                let mut n: Option<$native_ty> = None;
+                let data = self.data();
+                for i in 0..data.length() {
+                    if data.is_null(i) {
+                        continue
+                    }
+                    let mut m = self.value(i as i64);
+                    match n {
+                        None => n = Some(m),
+                        Some(nn) => if cmp(m, nn) {
+                            n = Some(m)
+                        },
+                    }
+                }
+                n
+            }
         }
 
         /// Construct a primitive array from a vector. Should only be used for testing.
         impl From<Vec<$native_ty>> for PrimitiveArray<$native_ty> {
-            fn from(v: Vec<$native_ty>) -> Self {
+            fn from(data: Vec<$native_ty>) -> Self {
                 let array_data = ArrayData::builder($data_ty)
-                    .length(v.len() as i64)
-                    .add_buffer(Buffer::from(v.to_bytes()))
+                    .length(data.len() as i64)
+                    .add_buffer(Buffer::from(data.to_bytes()))
+                    .build();
+                PrimitiveArray::from(array_data)
+            }
+        }
+
+        impl From<Vec<Option<$native_ty>>> for PrimitiveArray<$native_ty> {
+            fn from(data: Vec<Option<$native_ty>>) -> Self {
+                const TY_SIZE: usize = mem::size_of::<$native_ty>();
+                const NULL: [u8; TY_SIZE] = [0; TY_SIZE];
+
+                let data_len = data.len() as i64;
+                let size = bit_util::round_upto_multiple_of_64(data_len) as usize;
+                let mut null_buffer = Vec::with_capacity(size);
+                unsafe {
+                    null_buffer.set_len(size);
+                }
+                let mut value_buffer: Vec<u8> = Vec::with_capacity(size * TY_SIZE);
+
+                let mut i = 0;
+                for n in data {
+                    if let Some(v) = n {
+                        bit_util::set_bit(&mut null_buffer[..], i);
+                        value_buffer.extend_from_slice(&v.to_bytes());
+                    } else {
+                        value_buffer.extend_from_slice(&NULL);
+                    }
+                    i += 1;
+                }
+
+                let array_data = ArrayData::builder($data_ty)
+                    .length(data_len)
+                    .add_buffer(Buffer::from(Buffer::from(value_buffer)))
+                    .null_bit_buffer(Buffer::from(null_buffer))
                     .build();
                 PrimitiveArray::from(array_data)
             }
@@ -312,7 +370,7 @@ impl From<ArrayDataRef> for BinaryArray {
     fn from(data: ArrayDataRef) -> Self {
         assert!(data.buffers().len() == 2);
         let value_offsets = data.buffers()[0].raw_data() as *const u8 as *const i32;
-        let value_data = data.buffers()[1].raw_data(); 
+        let value_data = data.buffers()[1].raw_data();
         Self {
             data: data.clone(),
             value_offsets: RawPtrBox::new(value_offsets),
@@ -409,7 +467,7 @@ impl From<Vec<ArrayRef>> for StructArray {
             builder = builder.add_child_data(arr.data().clone());
         }
         StructArray::from(builder.build())
-    } 
+    }
 }
 
 
@@ -511,16 +569,24 @@ mod tests {
     }
 
     #[test]
+    fn test_buffer_array_min_max() {
+        let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
+        assert_eq!(5, a.min().unwrap());
+        assert_eq!(9, a.max().unwrap());
+    }
+
+    #[test]
+    fn test_buffer_array_min_max_with_nulls() {
+        let a = PrimitiveArray::<i32>::from(vec![Some(5), None, None, Some(8), Some(9)]);
+        assert_eq!(5, a.min().unwrap());
+        assert_eq!(9, a.max().unwrap());
+    }
+
+    #[test]
     fn test_access_array_concurrently() {
         let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
 
-<<<<<<< HEAD
-        let ret = thread::spawn(move || a.iter().collect::<Vec<i32>>()).join();
-=======
-        let ret = thread::spawn(move || {
-            a.value(3)
-        }).join();
->>>>>>> [WIP] ARROW-2583: [Rust] Buffer should be typeless
+        let ret = thread::spawn(move || { a.value(3) }).join();
 
         assert!(ret.is_ok());
         assert_eq!(8, ret.ok().unwrap());

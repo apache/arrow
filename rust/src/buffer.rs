@@ -18,7 +18,7 @@
 use std::mem;
 use std::rc::Rc;
 
-use memory::*;
+use memory;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
@@ -43,7 +43,7 @@ struct BufferData {
 impl PartialEq for BufferData {
     fn eq(&self, other: &BufferData) -> bool {
         unsafe {
-            memcmp(self.ptr, other.ptr, self.len) == 0
+            memory::memcmp(self.ptr, other.ptr, self.len as usize) == 0
         }
     }
 }
@@ -51,20 +51,20 @@ impl PartialEq for BufferData {
 /// Release the underlying memory when the current buffer goes out of scope
 impl Drop for BufferData {
     fn drop(&mut self) {
-        free_aligned(self.ptr);
+        memory::free_aligned(self.ptr);
     }
 }
 
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
-    pub unsafe fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
+    pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
         let buf_data = BufferData { ptr: ptr, len: len };
         Buffer { data: Rc::new(buf_data), offset: 0 }
     }
 
     /// Returns the number of bytes in the buffer
     pub fn len(&self) -> usize {
-        self.data.len
+        self.data.len as usize
     }
 
     /// Returns whether the buffer is empty.
@@ -94,9 +94,7 @@ impl Buffer {
 
     /// Returns an empty buffer.
     pub fn empty() -> Buffer {
-        unsafe {
-            Buffer::from_raw_parts(::std::ptr::null(), 0)
-        }
+        Buffer::from_raw_parts(::std::ptr::null(), 0)
     }
 }
 
@@ -107,8 +105,8 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         // allocate aligned memory buffer
         let slice = p.as_ref();
         let len = slice.len() * mem::size_of::<u8>();
-        let buffer = allocate_aligned((len) as i64).unwrap();
-        memcpy(buffer, slice.as_ptr(), len);
+        let buffer = memory::allocate_aligned((len) as i64).unwrap();
+        memory::memcpy(buffer, slice.as_ptr(), len);
         Buffer {
             data: {
                 let buf_data = BufferData {
@@ -146,9 +144,7 @@ mod tests {
 
     #[test]
     fn test_buffer_from_raw_parts() {
-        let buf = unsafe {
-            Buffer::from_raw_parts(null_mut(), 0)
-        };
+        let buf = Buffer::from_raw_parts(null_mut(), 0);
         assert_eq!(0, buf.len());
         assert_eq!(0, buf.data().len());
         assert!(buf.raw_data().is_null());
@@ -181,10 +177,8 @@ mod tests {
         let len = v.len();
         let dst = allocate_aligned(len as i64).expect("allocation failed");
         let src = v.as_ptr() as *const u8;
-        unsafe {
-            memcpy(dst, src, len);
-            Buffer::from_raw_parts(dst, len)
-        }
+        memcpy(dst, src, len);
+        Buffer::from_raw_parts(dst, len)
     }
 
     #[test]

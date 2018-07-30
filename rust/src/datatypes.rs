@@ -76,7 +76,16 @@ impl<T> ToByteArray for [T] where T: ArrowPrimitiveType {
     fn to_bytes(&self) -> &[u8] {
         let raw_ptr = self.as_ptr() as *const T as *const u8;
         unsafe {
-            from_raw_parts(raw_ptr, self.len() * size_of::<T>())    
+            from_raw_parts(raw_ptr, self.len() * size_of::<T>())
+        }
+    }
+}
+
+impl<T> ToByteArray for T where T: ArrowPrimitiveType {
+    fn to_bytes(&self) -> &[u8] {
+        let raw_ptr = self as *const T as *const u8;
+        unsafe {
+            from_raw_parts(raw_ptr, size_of::<T>())
         }
     }
 }

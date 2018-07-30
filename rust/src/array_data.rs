@@ -37,8 +37,8 @@ pub struct ArrayData {
     offset: i64,
 
     /// The buffers for this array data. Note that depending on the array types, this
-    /// could hold different types of buffers (e.g., null bit buffer, value buffer, value
-    /// offset buffer) at different positions.
+    /// could hold different types of buffers (e.g., value buffer, value offset buffer)
+    /// at different positions.
     buffers: Vec<Buffer>,
 
     /// The child(ren) of this array. Only non-empty for `ListArray` and `StructArray`.
@@ -94,15 +94,20 @@ impl ArrayData {
     /// Returns whether the element at index `i` is null.
     pub fn is_null(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return b.is_set(i)
+            return !b.is_set(i)
         }
         false
+    }
+
+    /// Returns a reference to the null bitmap of this array data.
+    pub fn null_bitmap(&self) -> &Option<Bitmap> {
+        &self.null_bitmap
     }
 
     /// Returns whether the element at index `i` is not null.
     pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return !b.is_set(i)
+            return b.is_set(i)
         }
         true
     }
@@ -123,6 +128,7 @@ impl ArrayData {
     }
 }
 
+/// Builder for `ArrayData` type.
 pub struct ArrayDataBuilder {
     data_type: DataType,
     length: i64,
