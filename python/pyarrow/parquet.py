@@ -327,6 +327,13 @@ schema : arrow Schema
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
         assert self.is_open
+
+        if not table.schema.equals(self.schema):
+            msg = ('Table schema does not match schema used to create file: '
+                   '\ntable:\n{0!s} vs. \nfile:\n{1!s}'.format(table.schema,
+                                                               self.schema))
+            raise ValueError(msg)
+
         self.writer.write_table(table, row_group_size=row_group_size)
 
     def close(self):

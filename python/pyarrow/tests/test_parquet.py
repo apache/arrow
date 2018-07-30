@@ -685,6 +685,30 @@ def test_compare_schemas():
     assert fileh.schema[0] != 'arbitrary object'
 
 
+def test_validate_schema_write_table(tmpdir):
+    # ARROW-2926
+    import pyarrow.parquet as pq
+
+    simple_fields = [
+        pa.field('POS', pa.uint32()),
+        pa.field('desc', pa.string())
+    ]
+
+    simple_schema = pa.schema(simple_fields)
+
+    # simple_table schema does not match simple_schema
+    simple_from_array = [pa.array([1]), pa.array(['bla'])]
+    simple_table = pa.Table.from_arrays(simple_from_array, ['POS', 'desc'])
+
+    path = tmpdir.join('simple_validate_schema.parquet').strpath
+
+    with pq.ParquetWriter(path, simple_schema,
+                          version='2.0',
+                          compression='snappy', flavor='spark') as w:
+        with pytest.raises(ValueError):
+            w.write_table(simple_table)
+
+
 def test_column_of_arrays(tmpdir):
     df, schema = dataframe_with_arrays()
 
