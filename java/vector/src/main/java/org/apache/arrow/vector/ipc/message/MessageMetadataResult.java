@@ -53,55 +53,53 @@ public class MessageMetadataResult {
   }
 
   /**
-   * Get the length of the message in bytes.
+   * Get the length of the message metadata in bytes, not including the body length.
    *
-   * @return number of bytes in the message buffer.
+   * @return number of bytes in the message metadata buffer.
    */
   public int getMessageLength() {
     return messageLength;
   }
 
   /**
-   * Get the buffer containing the raw message bytes.
+   * Get the buffer containing the raw message metadata bytes, not including the message body data.
    *
-   * @return buffer containing the message
+   * @return buffer containing the message metadata
    */
   public ByteBuffer getMessageBuffer() {
     return messageBuffer;
   }
 
   /**
-   * Check if the message is valid and is followed by a body.
+   * Check if the message is valid and is followed by a body. This will be true
+   * if the message has a body length > 0 and indicates that a message body needs to be read
+   * from the input source.
    *
-   * @return true if message has a body
+   * @return true if message has a defined body
    */
   public boolean messageHasBody() {
     return message != null && message.bodyLength() > 0;
   }
 
   /**
-   * Get the length of the message body.
+   * Get the length of the message body if there is a valid message.
    *
-   * @return number of bytes of the message body
+   * @return number of bytes of the message body or 0 if no valid message
    */
   public long getMessageBodyLength() {
-    long bodyLength = 0;
-    if (message != null) {
-      bodyLength = message.bodyLength();
-    }
-    return bodyLength;
+    return message == null ? 0 : message.bodyLength();
   }
 
   /**
-   * Get the realized flatbuf Message.
+   * Get the realized flatbuf Message metadata description.
    *
-   * @return Message
+   * @return Message metadata
    */
   public Message getMessage() {
     return message;
   }
 
-  private int messageLength;
-  private ByteBuffer messageBuffer;
-  private Message message;
+  private final int messageLength;
+  private final ByteBuffer messageBuffer;
+  private final Message message;
 }

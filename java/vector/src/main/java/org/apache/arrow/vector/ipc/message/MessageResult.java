@@ -57,6 +57,6 @@ public class MessageResult {
     return bodyBuffer;
   }
 
-  private Message message;
-  private ArrowBuf bodyBuffer;
+  private final Message message;
+  private final ArrowBuf bodyBuffer;
 }
