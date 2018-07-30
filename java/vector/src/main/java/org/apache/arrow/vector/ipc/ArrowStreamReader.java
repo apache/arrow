@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -109,12 +110,14 @@ public class ArrowStreamReader extends ArrowReader {
       throw new IOException("Expected RecordBatch but header was " + result.getMessage().headerType());
     }
 
+    ArrowBuf bodyBuffer = result.getBodyBuffer();
+
     // For zero-length batches, need an empty buffer to deserialize the batch
-    if (result.getBodyBuffer() == null) {
-      result = new MessageResult(result.getMessage(), allocator.getEmpty());
+    if (bodyBuffer == null) {
+      bodyBuffer = allocator.getEmpty();
     }
 
-    ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), result.getBodyBuffer());
+    ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
     loadRecordBatch(batch);
     return true;
   }
@@ -158,11 +161,13 @@ public class ArrowStreamReader extends ArrowReader {
       throw new IOException("Expected DictionaryBatch but header was " + result.getMessage().headerType());
     }
 
+    ArrowBuf bodyBuffer = result.getBodyBuffer();
+
     // For zero-length batches, need an empty buffer to deserialize the batch
-    if (result.getBodyBuffer() == null) {
-      result = new MessageResult(result.getMessage(), allocator.getEmpty());
+    if (bodyBuffer == null) {
+      bodyBuffer = allocator.getEmpty();
     }
 
-    return MessageSerializer.deserializeDictionaryBatch(result.getMessage(), result.getBodyBuffer());
+    return MessageSerializer.deserializeDictionaryBatch(result.getMessage(), bodyBuffer);
   }
 }

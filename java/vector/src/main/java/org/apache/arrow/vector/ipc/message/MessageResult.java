@@ -32,9 +32,9 @@ public class MessageResult {
    * data, if any.
    *
    * @param message Deserialized Flatbuffer Message metadata description
-   * @param bodyBuffer Optional ArrowBuf containing message body data
+   * @param bodyBuffer Optional ArrowBuf containing message body data, null if message has no body
    */
-  public MessageResult(Message message, ArrowBuf bodyBuffer) {
+  MessageResult(Message message, ArrowBuf bodyBuffer) {
     this.message = message;
     this.bodyBuffer = bodyBuffer;
   }
