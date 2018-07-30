@@ -246,7 +246,12 @@ def import_pytorch_extension():
     import os
 
     for path in _iterate_python_module_paths("torch"):
-        ctypes.CDLL(os.path.join(path, "lib/libcaffe2.so"))
+        try:
+            ctypes.CDLL(os.path.join(path, "lib/libcaffe2.so"))
+        except OSError:
+            # lib/libcaffe2.so only exists in pytorch starting from 0.4.0,
+            # in older versions of pytorch there are not symbol clashes
+            pass
 
 
 integer_types = six.integer_types + (np.integer,)
