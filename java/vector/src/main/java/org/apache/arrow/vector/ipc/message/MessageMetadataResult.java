@@ -43,14 +43,6 @@ public class MessageMetadataResult {
     this.message = message;
   }
 
-  /**
-   * Returns status indicating if the MessageResult has a valid message.
-   *
-   * @return true if the result contains a valid message
-   */
-  public boolean hasMessage() {
-    return message != null;
-  }
 
   /**
    * Get the length of the message metadata in bytes, not including the body length.
@@ -71,23 +63,22 @@ public class MessageMetadataResult {
   }
 
   /**
-   * Check if the message is valid and is followed by a body. This will be true
-   * if the message has a body length > 0 and indicates that a message body needs to be read
-   * from the input source.
+   * Check if the message is followed by a body. This will be true if the message has a body
+   * length > 0, which indicates that a message body needs to be read from the input source.
    *
    * @return true if message has a defined body
    */
   public boolean messageHasBody() {
-    return message != null && message.bodyLength() > 0;
+    return message.bodyLength() > 0;
   }
 
   /**
-   * Get the length of the message body if there is a valid message.
+   * Get the length of the message body.
    *
-   * @return number of bytes of the message body or 0 if no valid message
+   * @return number of bytes of the message body
    */
   public long getMessageBodyLength() {
-    return message == null ? 0 : message.bodyLength();
+    return message.bodyLength();
   }
 
   /**

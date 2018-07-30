@@ -56,7 +56,7 @@ public class MessageChannelReader implements AutoCloseable {
 
     // Read the flatbuf message and check for end-of-stream
     MessageMetadataResult result = MessageSerializer.readMessage(in);
-    if (!result.hasMessage()) {
+    if (result == null) {
       return null;
     }
     Message message = result.getMessage();

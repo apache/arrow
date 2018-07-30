@@ -151,7 +151,7 @@ public class MessageSerializer {
    */
   public static Schema deserializeSchema(ReadChannel in) throws IOException {
     MessageMetadataResult result = readMessage(in);
-    if (!result.hasMessage()) {
+    if (result == null) {
       throw new IOException("Unexpected end of input when reading Schema");
     }
     if (result.getMessage().headerType() != MessageHeader.Schema) {
@@ -257,7 +257,7 @@ public class MessageSerializer {
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
     MessageMetadataResult result = readMessage(in);
-    if (!result.hasMessage()) {
+    if (result == null) {
       throw new IOException("Unexpected end of input when reading a RecordBatch");
     }
     if (result.getMessage().headerType() != MessageHeader.RecordBatch) {
@@ -408,7 +408,7 @@ public class MessageSerializer {
    */
   public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in, BufferAllocator allocator) throws IOException {
     MessageMetadataResult result = readMessage(in);
-    if (!result.hasMessage()) {
+    if (result == null) {
       throw new IOException("Unexpected end of input when reading a DictionaryBatch");
     }
     if (result.getMessage().headerType() != MessageHeader.DictionaryBatch) {
@@ -522,28 +522,25 @@ public class MessageSerializer {
   /**
    * Read a Message from the input channel and return a MessageMetadataResult that contains the
    * Message metadata, buffer containing the serialized Message metadata as read, and length of the
-   * Message in bytes. If the end-of-stream has been reached, MessageMetadataResult.hasMessage()
-   * will return false.
+   * Message in bytes. Returns null if the end-of-stream has been reached.
    *
    * @param in ReadChannel to read messages from
-   * @return MessageMetadataResult with deserialized Message metadata and message information
+   * @return MessageMetadataResult with deserialized Message metadata and message information if
+   * a valid Message was read, or null if end-of-stream
    * @throws IOException
    */
   public static MessageMetadataResult readMessage(ReadChannel in) throws IOException {
-    int messageLength = 0;
-    ByteBuffer messageBuffer = null;
-    Message message = null;
 
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
     if (in.readFully(buffer) == 4) {
-      messageLength = MessageSerializer.bytesToInt(buffer.array());
+      int messageLength = MessageSerializer.bytesToInt(buffer.array());
 
       // Length of 0 indicates end of stream
       if (messageLength != 0) {
 
         // Read the message into the buffer.
-        messageBuffer = ByteBuffer.allocate(messageLength);
+        ByteBuffer messageBuffer = ByteBuffer.allocate(messageLength);
         if (in.readFully(messageBuffer) != messageLength) {
           throw new IOException(
             "Unexpected end of stream trying to read message.");
@@ -551,11 +548,12 @@ public class MessageSerializer {
         messageBuffer.rewind();
 
         // Load the message.
-        message = Message.getRootAsMessage(messageBuffer);
+        Message message = Message.getRootAsMessage(messageBuffer);
+
+        return new MessageMetadataResult(messageLength, messageBuffer, message);
       }
     }
-
-    return new MessageMetadataResult(messageLength, messageBuffer, message);
+    return null;
   }
 
   /**
