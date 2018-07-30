@@ -20,6 +20,8 @@ package org.apache.arrow.vector.ipc.message;
 
 import java.io.IOException;
 
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
 
@@ -42,28 +44,31 @@ public class MessageChannelReader implements AutoCloseable {
   }
 
   /**
-   * Read a Message from the ReadChannel and populate holder if a valid message was read.
+   * Read a message from the ReadChannel and return a MessageResult containing the Message
+   * metadata and optional message body data. Once the end-of-stream has been reached, a null
+   * value will be returned. If the message has no body, then MessageResult.getBodyBuffer()
+   * returns null.
    *
-   * @param holder Message and message information that is populated when read by implementation
-   * @return true if a valid Message was read, false if end-of-stream
+   * @return MessageResult or null if reached end-of-stream
    * @throws IOException
    */
-  public boolean readNext(MessageHolder holder) throws IOException {
+  public MessageResult readNext() throws IOException {
 
     // Read the flatbuf message and check for end-of-stream
-    MessageChannelResult result = MessageSerializer.readMessage(in);
-    if (!result.hasMessage()) {
-      return false;
+    MessageMetadataResult result = MessageSerializer.readMessage(in);
+    if (result == null) {
+      return null;
     }
-    holder.message = result.getMessage();
+    Message message = result.getMessage();
+    ArrowBuf bodyBuffer = null;
 
     // Read message body data if defined in message
     if (result.messageHasBody()) {
       int bodyLength = (int) result.getMessageBodyLength();
-      holder.bodyBuffer = MessageSerializer.readMessageBody(in, bodyLength, allocator);
+      bodyBuffer = MessageSerializer.readMessageBody(in, bodyLength, allocator);
     }
 
-    return true;
+    return new MessageResult(message, bodyBuffer);
   }
 
   /**

@@ -23,12 +23,13 @@ import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
-import org.apache.arrow.vector.ipc.message.MessageHolder;
+import org.apache.arrow.vector.ipc.message.MessageResult;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -98,23 +99,25 @@ public class ArrowStreamReader extends ArrowReader {
    */
   public boolean loadNextBatch() throws IOException {
     prepareLoadNextBatch();
-    MessageHolder holder = new MessageHolder();
+    MessageResult result = messageReader.readNext();
 
     // Reached EOS
-    if (!messageReader.readNext(holder)) {
+    if (result == null) {
       return false;
     }
 
-    if (holder.message.headerType() != MessageHeader.RecordBatch) {
-      throw new IOException("Expected RecordBatch but header was " + holder.message.headerType());
+    if (result.getMessage().headerType() != MessageHeader.RecordBatch) {
+      throw new IOException("Expected RecordBatch but header was " + result.getMessage().headerType());
     }
+
+    ArrowBuf bodyBuffer = result.getBodyBuffer();
 
     // For zero-length batches, need an empty buffer to deserialize the batch
-    if (holder.bodyBuffer == null) {
-      holder.bodyBuffer = allocator.getEmpty();
+    if (bodyBuffer == null) {
+      bodyBuffer = allocator.getEmpty();
     }
 
-    ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(holder.message, holder.bodyBuffer);
+    ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
     loadRecordBatch(batch);
     return true;
   }
@@ -126,17 +129,17 @@ public class ArrowStreamReader extends ArrowReader {
    */
   @Override
   protected Schema readSchema() throws IOException {
-    MessageHolder holder = new MessageHolder();
+    MessageResult result = messageReader.readNext();
 
-    if (!messageReader.readNext(holder)) {
+    if (result == null) {
       throw new IOException("Unexpected end of input. Missing schema.");
     }
 
-    if (holder.message.headerType() != MessageHeader.Schema) {
-      throw new IOException("Expected schema but header was " + holder.message.headerType());
+    if (result.getMessage().headerType() != MessageHeader.Schema) {
+      throw new IOException("Expected schema but header was " + result.getMessage().headerType());
     }
 
-    return MessageSerializer.deserializeSchema(holder.message);
+    return MessageSerializer.deserializeSchema(result.getMessage());
   }
 
   /**
@@ -148,21 +151,23 @@ public class ArrowStreamReader extends ArrowReader {
    */
   @Override
   protected ArrowDictionaryBatch readDictionary() throws IOException {
-    MessageHolder holder = new MessageHolder();
+    MessageResult result = messageReader.readNext();
 
-    if (!messageReader.readNext(holder)) {
+    if (result == null) {
       throw new IOException("Unexpected end of input. Expected DictionaryBatch");
     }
 
-    if (holder.message.headerType() != MessageHeader.DictionaryBatch) {
-      throw new IOException("Expected DictionaryBatch but header was " + holder.message.headerType());
+    if (result.getMessage().headerType() != MessageHeader.DictionaryBatch) {
+      throw new IOException("Expected DictionaryBatch but header was " + result.getMessage().headerType());
     }
+
+    ArrowBuf bodyBuffer = result.getBodyBuffer();
 
     // For zero-length batches, need an empty buffer to deserialize the batch
-    if (holder.bodyBuffer == null) {
-      holder.bodyBuffer = allocator.getEmpty();
+    if (bodyBuffer == null) {
+      bodyBuffer = allocator.getEmpty();
     }
 
-    return MessageSerializer.deserializeDictionaryBatch(holder.message, holder.bodyBuffer);
+    return MessageSerializer.deserializeDictionaryBatch(result.getMessage(), bodyBuffer);
   }
 }
