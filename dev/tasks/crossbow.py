@@ -23,19 +23,120 @@ import re
 import sys
 import time
 import click
+import gnupg
+import toolz
+import urllib
 import pygit2
 import github3
-import gnupg
+import jira.client
 
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
+from datetime import datetime
 from jinja2 import Template, StrictUndefined
 from setuptools_scm import get_version
 from ruamel.yaml import YAML
 
 
 CWD = Path(__file__).parent.absolute()
+
+
+NEW_FEATURE = 'New Features and Improvements'
+BUGFIX = 'Bug Fixes'
+
+
+class JiraChangelog:
+
+    def __init__(self, version, username, password,
+                 server='https://issues.apache.org/jira'):
+        self.server = server
+        # clean version to the first numbers
+        self.version = '.'.join(version.split('.')[:3])
+        query = ("project=ARROW "
+                 "AND fixVersion='{0}' "
+                 "AND status = Resolved "
+                 "AND resolution in (Fixed, Done) "
+                 "ORDER BY issuetype DESC").format(self.version)
+        self.client = jira.client.JIRA({'server': server},
+                                       basic_auth=(username, password))
+        self.issues = self.client.search_issues(query, maxResults=9999)
+
+    def format_markdown(self):
+        out = StringIO()
+
+        issues_by_type = toolz.groupby(lambda i: i.fields.issuetype.name,
+                                       self.issues)
+        for typename, issues in sorted(issues_by_type.items()):
+            issues.sort(key=lambda x: x.key)
+
+            out.write('## {0}\n\n'.format(typename))
+            for issue in issues:
+                out.write('* {0} - {1}\n'.format(issue.key,
+                                                 issue.fields.summary))
+            out.write('\n')
+
+        return out.getvalue()
+
+    def format_website(self):
+        # jira category => website category mapping
+        categories = {
+            'New Feature': 'feature',
+            'Improvement': 'feature',
+            'Wish': 'feature',
+            'Task': 'feature',
+            'Test': 'bug',
+            'Bug': 'bug',
+            'Sub-task': 'feature'
+        }
+        titles = {
+            'feature': 'New Features and Improvements',
+            'bugfix': 'Bug Fixes'
+        }
+
+        issues_by_category = toolz.groupby(
+            lambda i: self.categories[issue.fields.issuetype.name],
+            self.issues
+        )
+
+        out = StringIO()
+
+        for category in ('feature', 'bug'):
+            title = titles[category]
+            issues = issues_by_category[category]
+            issues.sort(key=lambda x: x.key)
+
+            out.write('## {0}\n\n'.format(title))
+            for issue in issues:
+                link = '[{0}]({1}/browse/{0})'.format(issue.key, self.server)
+                out.write('* {0} - {1}\n'.format(link, issue.fields.summary))
+            out.write('\n')
+
+        return out.getvalue()
+
+    def render(self, old_changelog, website=False):
+        old_changelog = old_changelog.splitlines()
+        if website:
+            new_changelog = self.format_website()
+        else:
+            new_changelog = self.format_markdown()
+
+        out = StringIO()
+
+        # Apache license header
+        out.write('\n'.join(old_changelog[:18]))
+
+        # Newly generated changelog
+        today = datetime.today().strftime('%d %B %Y')
+        out.write('# Apache Arrow {0} ({1})\n'.format(self.version, today))
+
+        new_changelog = new_changelog.replace('_', '\_')
+        out.write(new_changelog)
+
+        # Prior versions
+        out.write('\n'.join(old_changelog[19:]))
+
+        return out.getvalue().strip()
 
 
 class GitRemoteCallbacks(pygit2.RemoteCallbacks):
@@ -412,6 +513,36 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
 
     ctx.obj['arrow'] = Repo(Path(arrow_path))
     ctx.obj['queue'] = Queue(Path(queue_path), github_token=github_token)
+
+
+@crossbow.command()
+@click.option('--changelog-path', '-c', type=click.Path(exists=True),
+              default=DEFAULT_ARROW_PATH / 'CHANGELOG.md',
+              help='Path of changelog to update')
+@click.option('--arrow-version', '-v', default=None,
+              help='Set target version explicitly')
+@click.option('--is-website', '-w', default=False)
+@click.option('--jira-username', '-u', default=None, help='JIRA username')
+@click.option('--jira-password', '-P', default=None, help='JIRA password')
+@click.option('--dry-run/--write', default=False,
+              help='Just display the new changelog, don\'t write it')
+@click.pass_context
+def changelog(ctx, changelog_path, arrow_version, is_website, jira_username,
+              jira_password, dry_run):
+    changelog_path = Path(changelog_path)
+    target = Target.from_repo(ctx.obj['arrow'])
+    version = arrow_version or target.version
+
+    changelog = JiraChangelog(version, username=jira_username,
+                              password=jira_password)
+    new_content = changelog.render(changelog_path.read_text())
+
+    if dry_run:
+        click.echo(new_content)
+    else:
+        changelog_path.write_text(new_content)
+        click.echo('New changelog successfully generated, see git diff for the'
+                   'changes')
 
 
 def load_tasks_from_config(config_path, task_names, group_names):
