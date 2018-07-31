@@ -188,6 +188,20 @@ TEST_F(TestBufferedOutputStream, LargeWrites) {
   AssertFileContents(path_, data);
 }
 
+TEST_F(TestBufferedOutputStream, Flush) {
+  OpenBuffered();
+
+  const std::string datastr = "1234568790";
+  const char* data = datastr.data();
+
+  ASSERT_OK(stream_->Write(data, datastr.size()));
+  ASSERT_OK(stream_->Flush());
+
+  AssertFileContents(path_, datastr);
+
+  ASSERT_OK(stream_->Close());
+}
+
 TEST_F(TestBufferedOutputStream, Tell) {
   OpenBuffered();
 
