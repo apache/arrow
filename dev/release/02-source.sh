@@ -36,18 +36,18 @@ if [ -d tmp/ ]; then
 fi
 
 if [ -z "$artifact_dir" ]; then
-    echo "artifact_dir is empty"
-    exit 1
+  echo "artifact_dir is empty"
+  exit 1
 fi
 
 if [ ! -e "$artifact_dir" ]; then
-    echo "$artifact_dir does not exist"
-    exit 1
+  echo "$artifact_dir does not exist"
+  exit 1
 fi
 
 if [ ! -d "$artifact_dir" ]; then
-    echo "$artifact_dir is not a directory"
-    exit 1
+  echo "$artifact_dir is not a directory"
+  exit 1
 fi
 
 tag=apache-arrow-${version}
@@ -126,7 +126,7 @@ mkdir -p tmp/${tagrc}/binaries
 cp ${tarball}* tmp/${tagrc}
 
 # copy binary artifacts into a subdirectory of the rc dir
-cp -rf "$artifact_dir"/* tmp/${tagrc}/binaries/*
+cp -rf "$artifact_dir"/* tmp/${tagrc}/binaries/
 
 # commit to svn
 svn add tmp/${tagrc}
