@@ -138,10 +138,6 @@ struct FieldNode {
 }
 
 struct Buffer {
-  /// The shared memory page id where this buffer is located. Currently this is
-  /// not used
-  page: int;
-
   /// The relative offset into the shared memory page where the bytes for this
   /// buffer starts
   offset: long;
