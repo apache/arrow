@@ -46,7 +46,7 @@ if (! which conda > /dev/null ); then
       CONDA_RETRIES=$[$CONDA_RETRIES - 1]
       sleep 5
   done
-  if [ $CONDA_RETRIES -eq 0 ]
+  if [ $CONDA_RETRIES -eq 0 ]; then
      # If we failed to download, try again so the error message will be visible
      # in Travis CI logs
      download_miniconda
