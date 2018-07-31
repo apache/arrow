@@ -21,8 +21,8 @@ set -e
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <version> <rc-num>"
+if [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <version> <rc-num> <artifact_dir>"
   exit
 fi
 
