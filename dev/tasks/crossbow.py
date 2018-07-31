@@ -446,13 +446,19 @@ def load_tasks_from_config(config_path, task_names, group_names):
 @click.option('--config-path', '-c',
               type=click.Path(exists=True), default=DEFAULT_CONFIG_PATH,
               help='Task configuration yml. Defaults to tasks.yml')
+@click.option('--arrow-version', '-v', default=None,
+              help='Set target version explicitly')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
 @click.pass_context
-def submit(ctx, task, group, job_prefix, config_path, dry_run):
+def submit(ctx, task, group, job_prefix, config_path, arrow_version, dry_run):
     queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
     target = Target.from_repo(arrow)
+
+    # explicitly set arrow version
+    if arrow_version:
+        target.version = arrow_version
 
     # task and group variables are lists, containing multiple values
     tasks = {}
