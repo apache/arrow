@@ -39,16 +39,6 @@
                 "deb_architecture": "amd64",
                 "override": 1
             }
-        },
-        {
-            "includePattern": "dev/tasks/linux-packages/apt/repositories/([^/]+)/pool/artful/universe/a/apache-arrow/([^/]+\\.deb)\\z",
-            "uploadPattern": "pool/artful/universe/$2",
-            "matrixParams": {
-                "deb_distribution": "artful",
-                "deb_component": "universe",
-                "deb_architecture": "amd64",
-                "override": 1
-            }
         }
     ],
     "publish": true
