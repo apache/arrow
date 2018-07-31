@@ -37,7 +37,7 @@ override_dh_auto_configure:
 	  --sourcedirectory=c_glib \
 	  --builddirectory=c_glib_build \
 	  -- \
-	  --with-arrow-cpp-build-dir=$${PWD}/cpp_build \
+	  --with-arrow-cpp-build-dir=$(CURDIR)/cpp_build \
 	  --with-arrow-cpp-build-type=$(BUILD_TYPE) \
 	  --enable-gtk-doc \
 	  --with-html-dir=\$${prefix}/share/doc/libarrow-glib-doc
@@ -47,7 +47,7 @@ override_dh_auto_build:
 	  --sourcedirectory=cpp			\
 	  --builddirectory=cpp_build
 	env							\
-	  LD_LIBRARY_PATH=$${PWD}/cpp_build/$(BUILD_TYPE)	\
+	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\
 	    dh_auto_build					\
 	      --sourcedirectory=c_glib				\
 	      --builddirectory=c_glib_build
