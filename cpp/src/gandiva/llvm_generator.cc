@@ -93,13 +93,12 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch &record_batch,
   DCHECK_GT(record_batch.num_rows(), 0);
 
   auto eval_batch = annotator_.PrepareEvalBatch(record_batch, output_vector);
-  DCHECK_GT(eval_batch->num_buffers(), 0);
+  DCHECK_GT(eval_batch->GetNumBuffers(), 0);
 
-  // generate bitmap vectors, by doing an intersection.
   for (auto &compiled_expr : compiled_exprs_) {
     // generate data/offset vectors.
     EvalFunc jit_function = compiled_expr->jit_function();
-    jit_function(eval_batch->buffers(), eval_batch->local_bitmaps(),
+    jit_function(eval_batch->GetBufferArray(), eval_batch->GetLocalBitMapArray(),
                  record_batch.num_rows());
 
     // generate validity vectors.

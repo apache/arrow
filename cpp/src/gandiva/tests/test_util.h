@@ -37,6 +37,13 @@ static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values, std::vector<bool> val
 }
 
 template <typename TYPE, typename C_TYPE>
+static ArrayPtr MakeArrowArray(std::vector<C_TYPE> values) {
+  ArrayPtr out;
+  arrow::ArrayFromVector<TYPE, C_TYPE>(values, &out);
+  return out;
+}
+
+template <typename TYPE, typename C_TYPE>
 static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType> &type,
                                    const std::vector<C_TYPE> &values,
                                    const std::vector<bool> &validity) {

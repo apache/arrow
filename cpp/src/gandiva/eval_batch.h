@@ -18,6 +18,7 @@
 #include <arrow/util/logging.h>
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
+#include "local_bitmaps_holder.h"
 
 namespace gandiva {
 
@@ -26,89 +27,56 @@ namespace gandiva {
 class EvalBatch {
  public:
   explicit EvalBatch(int num_records, int num_buffers, int num_local_bitmaps)
-      : num_records_(num_records),
-        num_buffers_(num_buffers),
-        num_local_bitmaps_(num_local_bitmaps) {
-    buffers_ = new uint8_t *[num_buffers];
-    AllocLocalBitMaps();
-  }
-
-  ~EvalBatch() {
-    FreeLocalBitMaps();
-    delete[] buffers_;
+      : num_records_(num_records), num_buffers_(num_buffers) {
+    if (num_buffers > 0) {
+      buffers_array_.reset(new uint8_t *[num_buffers]);
+    }
+    local_bitmaps_holder_.reset(new LocalBitMapsHolder(num_records, num_local_bitmaps));
   }
 
   int num_records() const { return num_records_; }
 
-  uint8_t **buffers() const { return buffers_; }
+  uint8_t **GetBufferArray() const { return buffers_array_.get(); }
 
-  int num_buffers() const { return num_buffers_; }
+  int GetNumBuffers() const { return num_buffers_; }
 
   uint8_t *GetBuffer(int idx) const {
     DCHECK(idx <= num_buffers_);
-    return buffers_[idx];
+    return (buffers_array_.get())[idx];
   }
 
   void SetBuffer(int idx, uint8_t *buffer) {
     DCHECK(idx <= num_buffers_);
-    buffers_[idx] = buffer;
+    (buffers_array_.get())[idx] = buffer;
   }
 
-  uint8_t **local_bitmaps() const { return local_bitmaps_; }
+  int GetNumLocalBitMaps() const { return local_bitmaps_holder_->GetNumLocalBitMaps(); }
 
-  int num_local_bitmaps() const { return num_local_bitmaps_; }
+  int GetLocalBitmapSize() const { return local_bitmaps_holder_->GetLocalBitMapSize(); }
 
   uint8_t *GetLocalBitMap(int idx) const {
-    DCHECK(idx <= num_local_bitmaps_);
-    return local_bitmaps_[idx];
+    DCHECK(idx <= GetNumLocalBitMaps());
+    return local_bitmaps_holder_->GetLocalBitMap(idx);
+  }
+
+  uint8_t **GetLocalBitMapArray() const {
+    return local_bitmaps_holder_->GetLocalBitMapArray();
   }
 
  private:
-  /// Alloc 'num_local_bitmaps_' number of bitmaps, each of capacity 'num_records_'.
-  void AllocLocalBitMaps();
-
-  /// Free up local bitmaps, if any.
-  void FreeLocalBitMaps();
-
   /// number of records in the current batch.
   int num_records_;
+
+  // number of buffers.
+  int num_buffers_;
 
   /// An array of 'num_buffers_', each containing a buffer. The buffer
   /// sizes depends on the data type, but all of them have the same
   /// number of slots (equal to num_records_).
-  uint8_t **buffers_;
-  int num_buffers_;
+  std::unique_ptr<uint8_t *> buffers_array_;
 
-  /// An array of 'local_bitmaps_', each sized to accomodate 'num_records'.
-  uint8_t **local_bitmaps_;
-  int num_local_bitmaps_;
+  std::unique_ptr<LocalBitMapsHolder> local_bitmaps_holder_;
 };
-
-inline void EvalBatch::AllocLocalBitMaps() {
-  if (num_local_bitmaps_ == 0) {
-    local_bitmaps_ = nullptr;
-    return;
-  }
-
-  // 64-bit aligned bitmaps.
-  int bitmap_sz = arrow::BitUtil::RoundUpNumi64(num_records_) * 8;
-
-  local_bitmaps_ = new uint8_t *[num_local_bitmaps_];
-  for (int i = 0; i < num_local_bitmaps_; ++i) {
-    // TODO : round-up to a slab friendly multiple.
-    local_bitmaps_[i] = new uint8_t[bitmap_sz];
-
-    // pre-fill with 1s (assuming that the probability of is_valid is higher).
-    memset(local_bitmaps_[i], 0xff, bitmap_sz);
-  }
-}
-
-inline void EvalBatch::FreeLocalBitMaps() {
-  for (int i = 0; i < num_local_bitmaps_; ++i) {
-    delete[] local_bitmaps_[i];
-  }
-  delete[] local_bitmaps_;
-}
 
 }  // namespace gandiva
 

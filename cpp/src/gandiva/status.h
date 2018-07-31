@@ -35,7 +35,7 @@
 
 #define GANDIVA_RETURN_FAILURE_IF_FALSE(condition, status)                               \
   do {                                                                                   \
-    if (!condition) {                                                                    \
+    if (!(condition)) {                                                                  \
       Status _status = (status);                                                         \
       std::stringstream ss;                                                              \
       ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString() << " \n " \

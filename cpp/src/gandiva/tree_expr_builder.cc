@@ -140,12 +140,35 @@ ExpressionPtr TreeExprBuilder::MakeExpression(const std::string &function,
     return nullptr;
   }
   std::vector<NodePtr> field_nodes;
-  for (auto it = in_fields.begin(); it != in_fields.end(); ++it) {
-    auto node = MakeField(*it);
+  for (auto &field : in_fields) {
+    auto node = MakeField(field);
     field_nodes.push_back(node);
   }
   auto func_node = FunctionNode::MakeFunction(function, field_nodes, out_field->type());
   return MakeExpression(func_node, out_field);
+}
+
+ConditionPtr TreeExprBuilder::MakeCondition(NodePtr root_node) {
+  if (root_node == nullptr) {
+    return nullptr;
+  }
+  if (print_expr) {
+    std::cout << "Condition: " << root_node->ToString() << "\n";
+  }
+
+  return ConditionPtr(new Condition(root_node));
+}
+
+ConditionPtr TreeExprBuilder::MakeCondition(const std::string &function,
+                                            const FieldVector &in_fields) {
+  std::vector<NodePtr> field_nodes;
+  for (auto &field : in_fields) {
+    auto node = MakeField(field);
+    field_nodes.push_back(node);
+  }
+
+  auto func_node = FunctionNode::MakeFunction(function, field_nodes, arrow::boolean());
+  return ConditionPtr(new Condition(func_node));
 }
 
 }  // namespace gandiva

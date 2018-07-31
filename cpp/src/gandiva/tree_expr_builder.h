@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "gandiva/condition.h"
 #include "gandiva/expression.h"
 
 namespace gandiva {
@@ -74,6 +75,13 @@ class TreeExprBuilder {
   /// returns null if the out_field is null.
   static ExpressionPtr MakeExpression(const std::string &function,
                                       const FieldVector &in_fields, FieldPtr out_field);
+
+  /// \brief create a condition with the specified root_node
+  static ConditionPtr MakeCondition(NodePtr root_node);
+
+  /// \brief convenience function for simple function conditions.
+  static ConditionPtr MakeCondition(const std::string &function,
+                                    const FieldVector &in_fields);
 };
 
 }  // namespace gandiva

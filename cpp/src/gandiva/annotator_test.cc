@@ -82,15 +82,18 @@ TEST_F(TestAnnotator, TestAdd) {
 
   auto arrow_sum = MakeInt32Array(num_records);
   EvalBatchPtr batch = annotator.PrepareEvalBatch(*record_batch, {arrow_sum->data()});
-  EXPECT_EQ(batch->num_buffers(), 6);
+  EXPECT_EQ(batch->GetNumBuffers(), 6);
 
-  auto buffers = batch->buffers();
+  auto buffers = batch->GetBufferArray();
   EXPECT_EQ(buffers[desc_a->validity_idx()], arrow_v0->data()->buffers.at(0)->data());
   EXPECT_EQ(buffers[desc_a->data_idx()], arrow_v0->data()->buffers.at(1)->data());
   EXPECT_EQ(buffers[desc_b->validity_idx()], arrow_v1->data()->buffers.at(0)->data());
   EXPECT_EQ(buffers[desc_b->data_idx()], arrow_v1->data()->buffers.at(1)->data());
   EXPECT_EQ(buffers[desc_sum->validity_idx()], arrow_sum->data()->buffers.at(0)->data());
   EXPECT_EQ(buffers[desc_sum->data_idx()], arrow_sum->data()->buffers.at(1)->data());
+
+  auto bitmaps = batch->GetLocalBitMapArray();
+  EXPECT_EQ(bitmaps, nullptr);
 }
 
 }  // namespace gandiva

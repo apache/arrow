@@ -42,6 +42,9 @@ class Expression;
 using ExpressionPtr = std::shared_ptr<Expression>;
 using ExpressionVector = std::vector<ExpressionPtr>;
 
+class Condition;
+using ConditionPtr = std::shared_ptr<Condition>;
+
 class Node;
 using NodePtr = std::shared_ptr<Node>;
 using NodeVector = std::vector<std::shared_ptr<Node>>;

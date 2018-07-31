@@ -43,11 +43,11 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
                        arrow::MemoryPool *pool,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector> *projector) {
-  GANDIVA_RETURN_FAILURE_IF_FALSE((schema != nullptr),
+  GANDIVA_RETURN_FAILURE_IF_FALSE(schema != nullptr,
                                   Status::Invalid("schema cannot be null"));
   GANDIVA_RETURN_FAILURE_IF_FALSE(!exprs.empty(),
                                   Status::Invalid("expressions need to be non-empty"));
-  GANDIVA_RETURN_FAILURE_IF_FALSE((configuration != nullptr),
+  GANDIVA_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
                                   Status::Invalid("configuration cannot be null"));
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
@@ -63,7 +63,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
     GANDIVA_RETURN_NOT_OK(status);
   }
 
-  llvm_gen->Build(exprs);
+  status = llvm_gen->Build(exprs);
+  GANDIVA_RETURN_NOT_OK(status);
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
@@ -148,15 +149,15 @@ Status Projector::AllocArrayData(const DataTypePtr &type, int num_records,
   }
 
   arrow::Status astatus;
-  std::shared_ptr<arrow::ResizableBuffer> null_bitmap;
+  std::shared_ptr<arrow::Buffer> null_bitmap;
   int64_t size = arrow::BitUtil::BytesForBits(num_records);
-  astatus = arrow::AllocateResizableBuffer(pool_, size, &null_bitmap);
+  astatus = arrow::AllocateBuffer(pool_, size, &null_bitmap);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
-  std::shared_ptr<arrow::ResizableBuffer> data;
+  std::shared_ptr<arrow::Buffer> data;
   const auto &fw_type = dynamic_cast<const arrow::FixedWidthType &>(*type);
   int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
-  astatus = arrow::AllocateResizableBuffer(pool_, data_len, &data);
+  astatus = arrow::AllocateBuffer(pool_, data_len, &data);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
   *array_data = arrow::ArrayData::Make(type, num_records, {null_bitmap, data});

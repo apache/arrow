@@ -13,32 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef GANDIVA_EXPR_EXPRESSION_H
-#define GANDIVA_EXPR_EXPRESSION_H
+#ifndef GANDIVA_CONDITION_H
+#define GANDIVA_CONDITION_H
 
 #include "gandiva/arrow.h"
+#include "gandiva/expression.h"
 #include "gandiva/gandiva_aliases.h"
 
 namespace gandiva {
 
-/// \brief An expression tree with a root node, and a result field.
-class Expression {
+/// \brief A condition expression.
+class Condition : public Expression {
  public:
-  Expression(const NodePtr root, const FieldPtr result) : root_(root), result_(result) {}
+  Condition(const NodePtr root)
+      : Expression(root, std::make_shared<arrow::Field>("cond", arrow::boolean())) {}
 
-  virtual ~Expression() = default;
-
-  const NodePtr &root() const { return root_; }
-
-  const FieldPtr &result() const { return result_; }
-
-  std::string ToString();
-
- private:
-  const NodePtr root_;
-  const FieldPtr result_;
+  virtual ~Condition() = default;
 };
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_EXPR_EXPRESSION_H
+#endif  // GANDIVA_CONDITION_H
