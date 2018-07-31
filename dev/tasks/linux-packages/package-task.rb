@@ -234,11 +234,11 @@ VERSION=#{@deb_upstream_version}
               "debian-stretch",
               "ubuntu-trusty",
               "ubuntu-xenial",
-              "ubuntu-artful",
               "ubuntu-bionic",
             ]
           end
           targets.each do |target|
+            next unless Dir.exist?(target)
             id = target
             if parallel_build?
               threads << Thread.new(id) do |local_id|

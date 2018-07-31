@@ -41,7 +41,6 @@ groups:
     - debian-stretch
     - ubuntu-trusty
     - ubuntu-xenial
-    - ubuntu-artful
     - ubuntu-bionic
     - centos-6
     - centos-7
@@ -284,34 +283,6 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-xenial
-      upload_extensions:
-        - .deb
-        - .dsc
-        - .debian.tar.xz
-        - .orig.tar.gz
-    artifacts:
-      - apache-arrow_{version}-1.debian.tar.xz
-      - apache-arrow_{version}-1.dsc
-      - apache-arrow_{version}.orig.tar.gz
-      - gir1.2-arrow-1.0_{version}-1_amd64.deb
-      - gir1.2-arrow-gpu-1.0_{version}-1_amd64.deb
-      - libarrow-dev_{version}-1_amd64.deb
-      - libarrow-glib-dev_{version}-1_amd64.deb
-      - libarrow-glib-doc_{version}-1_all.deb
-      - libarrow-glib0_{version}-1_amd64.deb
-      - libarrow-gpu-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib-dev_{version}-1_amd64.deb
-      - libarrow-gpu-glib0_{version}-1_amd64.deb
-      - libarrow-gpu10_{version}-1_amd64.deb
-      - libarrow-python-dev_{version}-1_amd64.deb
-      - libarrow-python10_{version}-1_amd64.deb
-      - libarrow10_{version}-1_amd64.deb
-
-  ubuntu-artful:
-    platform: linux
-    template: linux-packages/travis.linux.yml
-    params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-artful
       upload_extensions:
         - .deb
         - .dsc
