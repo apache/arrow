@@ -567,38 +567,15 @@ class BoolConverter : public TypedConverter<BooleanType, BoolConverter> {
 };
 
 // ----------------------------------------------------------------------
-// Sequence converter template for integer and floating point types
+// Sequence converter template for numeric (integer and floating point) types
 
-template <typename IntType, bool from_pandas = true>
-class TypedIntConverter : public TypedConverter<IntType, TypedIntConverter<IntType>> {};
+template <typename Type, bool from_pandas = true>
+class NumericConverter : public TypedConverter<Type, NumericConverter<from_pandas>> {};
 
-template <typename IntType>
-class TypedIntConverter<IntType, false>
-    : public TypedConverter<IntType, TypedIntConverter<IntType, false>,
-                            NullConventionType::NONE_ONLY> {};
-
-template <bool from_pandas = true>
-class Float16Converter
-    : public TypedConverter<HalfFloatType, Float16Converter<from_pandas>> {};
-
-template <>
-class Float16Converter<false>
-    : public TypedConverter<HalfFloatType, Float16Converter<false>,
+template <typename Type>
+class NumericConverter<Type, false>
+    : public TypedConverter<Type, NumericConverter<Type, false>,
                             NullConventionTypes::NONE_ONLY> {};
-
-template <bool from_pandas = true>
-class Float32Converter : public TypedConverter<FloatType, Float32Converter<true>> {};
-
-template <>
-class Float32Converter<false> : public TypedConverter<FloatType, Float32Converter<false>,
-                                                      NullConventionTypes::NONE_ONLY> {};
-
-template <bool from_pandas = true>
-class DoubleConverter : public TypedConverter<DoubleType, DoubleConverter<true>> {};
-
-template <>
-class DoubleConverter<false> : public TypedConverter<DoubleType, DoubleConverter<false>,
-                                                     NullConventionTypes::NONE_ONLY> {};
 
 // ----------------------------------------------------------------------
 // Sequence converters for temporal types
@@ -689,12 +666,11 @@ class TimestampConverter : public TypedConverter<TimestampType, TimestampConvert
 // ----------------------------------------------------------------------
 // Sequence converters for Binary, FixedSizeBinary, String
 
-namespace {
+namespace detail {
 
-Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
-  PyBytesView view;
-  // XXX For some reason, we must accept unicode objects here
-  RETURN_NOT_OK(view.FromString(obj));
+template <typename BuilderType, typename AppendFunc>
+Status AppendPyString(BuilderType* builder, const PyBytesView& view,
+                      bool* is_full, AppendFunc&& append_func) {
   int32_t length;
   RETURN_NOT_OK(CastSize(view.size, &length));
   // Did we reach the builder size limit?
@@ -706,11 +682,32 @@ Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
       return Status::CapacityError("Maximum array size reached (2GB)");
     }
   }
-  RETURN_NOT_OK(builder->Append(view.bytes, length));
+
+  RETURN_NOT_OK(append_func(builder, view.bytes, length));
   if (is_full) {
     *is_full = false;
   }
   return Status::OK();
+}
+
+Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
+  PyBytesView view;
+  // XXX For some reason, we must accept unicode objects here
+  RETURN_NOT_OK(view.FromString(obj));
+  return AppendPyString(builder, view, is_full,
+                        [&builder](const char* bytes, int32_t length) {
+                          return builder->Append(bytes, length);
+                        });
+}
+
+Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool* is_full) {
+  PyBytesView view;
+  // XXX For some reason, we must accept unicode objects here
+  RETURN_NOT_OK(view.FromString(obj, true));
+  return AppendPyString(builder, view, is_full,
+                        [&builder](const char* bytes, int32_t length) {
+                          return builder->Append(bytes, length);
+                        });
 }
 
 Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_full) {
@@ -725,52 +722,29 @@ Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_fu
        << ")";
     return Status::Invalid(ss.str());
   }
-  // Did we reach the builder size limit?
-  if (ARROW_PREDICT_FALSE(builder->value_data_length() + view.size >
-                          kBinaryMemoryLimit)) {
-    if (is_full) {
-      *is_full = true;
-      return Status::OK();
-    } else {
-      return Status::CapacityError("Maximum array size reached (2GB)");
-    }
-  }
-  RETURN_NOT_OK(builder->Append(view.bytes));
-  if (is_full) {
-    *is_full = false;
-  }
-  return Status::OK();
+
+  return AppendPyBytes(builder, view, is_full,
+                       [&builder](const char* bytes, int32_t length) {
+                         return builder->Append(view.bytes);
+                       });
 }
 
-Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid,
-                     bool* is_full) {
-  PyBytesView view;
-  RETURN_NOT_OK(view.FromString(obj, check_valid));
-  int32_t length;
-  RETURN_NOT_OK(CastSize(view.size, &length));
-  // Did we reach the builder size limit?
-  if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
-    if (is_full) {
-      *is_full = true;
-      return Status::OK();
-    } else {
-      return Status::CapacityError("Maximum array size reached (2GB)");
-    }
-  }
-  RETURN_NOT_OK(builder->Append(view.bytes, length));
-  if (is_full) {
-    *is_full = false;
-  }
-  return Status::OK();
-}
+}  // namespace detail
 
-}  // namespace
-
-class BytesConverter : public TypedConverter<BinaryTpe, BytesConverter> {
+class BytesConverter : public TypedConverter<BinaryType, BytesConverter> {
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    return internal::BuilderAppend(typed_builder_, obj);
+    PyBytesView view;
+    // XXX For some reason, we must accept unicode objects here
+    RETURN_NOT_OK(view.FromString(obj));
+
+    return AppendPyString(typed_builder, obj, false /* check_valid */ ,
+                          is_full,
+                          [](BinaryBuilder* builder, const char* bytes,
+                             int32_t length) {
+                            return builder->Append(bytes, length);
+                          });
   }
 };
 
@@ -779,7 +753,7 @@ class FixedWidthBytesConverter
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    return internal::BuilderAppend(typed_builder_, obj);
+    return detail::BuilderAppend(typed_builder_, obj);
   }
 };
 
@@ -787,7 +761,15 @@ class UTF8Converter : public TypedConverter<StringType, UTF8Converter> {
  public:
   // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    return internal::BuilderAppend(typed_builder_, obj, true /* check_valid */);
+    PyBytesView view;
+    // XXX For some reason, we must accept unicode objects here
+    RETURN_NOT_OK(view.FromString(obj, true));
+
+    return AppendPyString(typed_builder_, obj, is_full,
+                          [](StringBuilder* builder, const char* bytes,
+                             int32_t length) {
+                            return builder->Append(bytes, length);
+                          });
   }
 };
 
@@ -928,24 +910,14 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalCon
   }
 };
 
-#define INT_CONVERTER(ArrowType)                                                     \
-  {                                                                                  \
-    if (from_pandas) {                                                               \
-      *out = std::unique_ptr<SeqConverter>(new TypedIntConverter<ArrowType, true>);  \
-    } else {                                                                         \
-      *out = std::unique_ptr<SeqConverter>(new TypedIntConverter<ArrowType, false>); \
-    }                                                                                \
-    break;                                                                           \
-  }
-
-#define MAYBE_PANDAS_CONVERTER(KLASS, FROM_PANDAS)            \
-  {                                                           \
-    if (from_pandas) {                                        \
-      *out = std::unique_ptr<SeqConverter>(new KLASS<true>);  \
-    } else {                                                  \
-      *out = std::unique_ptr<SeqConverter>(new KLASS<false>); \
-    }                                                         \
-    break;                                                    \
+#define NUMERIC_CONVERTER(TYPE)                                         \
+  {                                                                     \
+    if (from_pandas) {                                                  \
+      *out = std::unique_ptr<SeqConverter>(new NumericConverter<TYPE, true>); \
+    } else {                                                            \
+      *out = std::unique_ptr<SeqConverter>(new NumericConverter<TYPE, false>); \
+    }                                                                   \
+    break;                                                              \
   }
 
 // Dynamic constructor for sequence converters
@@ -958,21 +930,21 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
     case Type::BOOL:
       *out = std::unique_ptr<SeqConverter>(new BoolConverter);
     case Type::INT8:
-      INT_CONVERTER(Int8Type)
+      NUMERIC_CONVERTER(Int8Type)
     case Type::INT16:
-      INT_CONVERTER(Int16Type)
+      NUMERIC_CONVERTER(Int16Type)
     case Type::INT32:
-      INT_CONVERTER(Int32Type)
+      NUMERIC_CONVERTER(Int32Type)
     case Type::INT64:
-      INT_CONVERTER(Int64Type)
+      NUMERIC_CONVERTER(Int64Type)
     case Type::UINT8:
-      INT_CONVERTER(UInt8Type)
+      NUMERIC_CONVERTER(UInt8Type)
     case Type::UINT16:
-      INT_CONVERTER(UInt16Type)
+      NUMERIC_CONVERTER(UInt16Type)
     case Type::UINT32:
-      INT_CONVERTER(UInt32Type)
+      NUMERIC_CONVERTER(UInt32Type)
     case Type::UINT64:
-      INT_CONVERTER(UInt64Type)
+      NUMERIC_CONVERTER(UInt64Type)
     case Type::DATE32:
       *out = std::unique_ptr<SeqConverter>(new Date32Converter);
       break;
@@ -984,11 +956,11 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
           new TimestampConverter(checked_cast<const TimestampType&>(*type).unit()));
       break;
     case Type::HALF_FLOAT:
-      MAYBE_PANDAS_CONVERTER(from_pandas, Float16Converter);
+      NUMERIC_CONVERTER(HalfFloatType);
     case Type::FLOAT:
-      MAYBE_PANDAS_CONVERTER(from_pandas, Float32Converter);
+      NUMERIC_CONVERTER(FloatType);
     case Type::DOUBLE:
-      MAYBE_PANDAS_CONVERTER(from_pandas, DoubleConverter);
+      NUMERIC_CONVERTER(DoubleType);
     case Type::BINARY:
       *out = std::unique_ptr<SeqConverter>(new BytesConverter);
       break;
@@ -1043,7 +1015,7 @@ Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask, int64_t off
       continue;
     }
     bool is_full;
-    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, &is_full));
+    RETURN_NOT_OK(detail::BuilderAppend(builder, obj, &is_full));
     if (is_full) {
       break;
     }
@@ -1089,7 +1061,7 @@ Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offs
       *have_bytes = true;
     }
     bool is_full;
-    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, check_valid, &is_full));
+    RETURN_NOT_OK(detail::BuilderAppend(builder, obj, check_valid, &is_full));
     if (is_full) {
       break;
     }
@@ -1122,7 +1094,7 @@ Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mask,
       continue;
     }
     bool is_full;
-    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, &is_full));
+    RETURN_NOT_OK(detail::BuilderAppend(builder, obj, &is_full));
     if (is_full) {
       break;
     }
