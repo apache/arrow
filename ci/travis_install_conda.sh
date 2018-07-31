@@ -19,17 +19,39 @@
 
 set -e
 
+if [ $TRAVIS_OS_NAME == "linux" ]; then
+  MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+else
+  MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh"
+fi
+
+function download_miniconda() {
+  wget --no-verbose -O miniconda.sh $MINICONDA_URL
+}
+
+
 if (! which conda > /dev/null ); then
-  if [ $TRAVIS_OS_NAME == "linux" ]; then
-    MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-  else
-    MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh"
-  fi
 
   source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
   mkdir -p $CONDA_PKGS_DIRS
 
-  wget --no-verbose -O miniconda.sh $MINICONDA_URL
+  CONDA_RETRIES=5
+  until [ $CONDA_RETRIES -eq 0 ]
+  do
+      # If wget fails to resolve the repo.continuum.io host in the DNS, it will
+      # exit rather than retrying with backoff like other kinds of failures. We
+      # sleep for a few seconds and retry a number of times to reduce flakiness
+      download_miniconda && break
+      echo "Unable to connect to repo.continuum.io, waiting and then retrying"
+      CONDA_RETRIES=$[$CONDA_RETRIES - 1]
+      sleep 5
+  done
+  if [ $CONDA_RETRIES -eq 0 ]; then
+     # If we failed to download, try again so the error message will be visible
+     # in Travis CI logs
+     download_miniconda
+  fi
+
   bash miniconda.sh -b -p $MINICONDA
   export PATH="$MINICONDA/bin:$PATH"
 
