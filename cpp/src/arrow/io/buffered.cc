@@ -131,6 +131,8 @@ Status BufferedOutputStream::Write(const void* data, int64_t nbytes) {
   return impl_->Write(data, nbytes);
 }
 
+Status BufferedOutputStream::Flush() { return impl_->Flush(); }
+
 std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->raw(); }
 
 }  // namespace io
