@@ -63,15 +63,28 @@ fetch_archive() {
   download_rc_file ${dist_name}.tar.gz
   download_rc_file ${dist_name}.tar.gz.asc
   download_rc_file ${dist_name}.tar.gz.sha1
-  download_rc_file ${dist_name}.tar.gz.sha512
+  download_rc_file ${dist_name}.tar.gz.sha256
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
-  if [ "$(uname)" == "Darwin" ]; then
-    shasum -a 1 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha1
-    shasum -a 512 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
-  else
-    sha1sum ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha1
-    sha512sum ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
-  fi
+  shasum -a 1 -c ${dist_name}.tar.gz.sha1
+  shasum -a 256 -c ${dist_name}.tar.gz.sha256
+}
+
+verify_binary_artifacts() {
+  # download the binaries folder for the current RC
+  download_rc_file binaries
+
+  # verify the signature and the checksums of each artifact
+  find binaries -name '*.asc' | while read sigfile; do
+    artifact=${sigfile/.asc/}
+    gpg --verify $sigfile $artifact
+
+    # go into the directory because the checksum files contain only the
+    # basename of the artifact
+    pushd $(dirname $artifact)
+    shasum -a 1 -c $artifact.sha1
+    shasum -a 256 -c $artifact.sha256
+    popd
+  done
 }
 
 setup_tempdir() {
@@ -243,6 +256,7 @@ RC_NUMBER=$2
 TARBALL=apache-arrow-$1.tar.gz
 
 import_gpg_keys
+verify_binary_artifacts
 
 DIST_NAME="apache-arrow-${VERSION}"
 fetch_archive $DIST_NAME
