@@ -205,6 +205,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     assert(fd != -1);
   }
   auto entry = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
+  entry->data_size = data_size;
+  entry->metadata_size = metadata_size;
   entry->pointer = pointer;
   // TODO(pcm): Set the other fields.
   entry->fd = fd;
