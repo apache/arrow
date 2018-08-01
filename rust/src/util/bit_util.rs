@@ -125,10 +125,7 @@ mod tests {
         const NUM_BYTES: usize = 10;
         const NUM_SETS: usize = 10;
 
-        let mut buffer: Vec<u8> = Vec::with_capacity(NUM_BYTES);
-        unsafe {
-            buffer.set_len(NUM_BYTES);
-        }
+        let mut buffer: [u8; NUM_BYTES * 8] = [0; NUM_BYTES * 8];
         let mut v = HashSet::new();
         let mut rng = thread_rng();
         for _ in 0..NUM_SETS {
@@ -136,7 +133,6 @@ mod tests {
             v.insert(offset);
             set_bit(&mut buffer[..], offset);
         }
-
         for i in 0..NUM_BYTES * 8 {
             assert_eq!(v.contains(&i), get_bit(&buffer[..], i));
         }

@@ -160,7 +160,7 @@ macro_rules! def_primitive_array {
             fn from(data: Vec<$native_ty>) -> Self {
                 let array_data = ArrayData::builder($data_ty)
                     .length(data.len() as i64)
-                    .add_buffer(Buffer::from(data.to_bytes()))
+                    .add_buffer(Buffer::from(data.to_byte_slice()))
                     .build();
                 PrimitiveArray::from(array_data)
             }
@@ -183,7 +183,7 @@ macro_rules! def_primitive_array {
                 for n in data {
                     if let Some(v) = n {
                         bit_util::set_bit(&mut null_buffer[..], i);
-                        value_buffer.extend_from_slice(&v.to_bytes());
+                        value_buffer.extend_from_slice(&v.to_byte_slice());
                     } else {
                         value_buffer.extend_from_slice(&NULL);
                     }
@@ -378,7 +378,7 @@ impl<'a> From<Vec<&'a str>> for BinaryArray {
         }
         let array_data = ArrayData::builder(DataType::Utf8)
             .length(v.len() as i64)
-            .add_buffer(Buffer::from(offsets.to_bytes()))
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .build();
         BinaryArray::from(array_data)
@@ -462,12 +462,12 @@ mod tests {
     use super::{BinaryArray, ListArray, PrimitiveArray, StructArray};
     use array_data::ArrayData;
     use buffer::Buffer;
-    use datatypes::{DataType, Field, ToByteArray};
+    use datatypes::{DataType, Field, ToByteSlice};
 
     #[test]
     fn test_primitive_array() {
         let values: Vec<i32> = vec![0, 1, 2, 3, 4];
-        let buf = Buffer::from(&values[..].to_bytes());
+        let buf = Buffer::from(&values[..].to_byte_slice());
         let buf2 = buf.copy();
         let pa = PrimitiveArray::<i32>::new(buf.len() as i64, buf, 0, 0);
         assert_eq!(buf2, pa.values());
@@ -483,12 +483,12 @@ mod tests {
         let values: Vec<i32> = vec![0, 1, 2, 3, 4, 5, 6, 7];
         let value_data = ArrayData::builder(DataType::Int32)
             .length(7)
-            .add_buffer(Buffer::from(&values[..].to_bytes()))
+            .add_buffer(Buffer::from(&values[..].to_byte_slice()))
             .build();
 
         // Then, build the list array.
         let value_offset_slice: Vec<i32> = vec![0, 2, 5, 7];
-        let value_offsets = Buffer::from(value_offset_slice.to_bytes());
+        let value_offsets = Buffer::from(value_offset_slice.to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type)
             .length(4)
@@ -513,7 +513,7 @@ mod tests {
 
         let array_data = ArrayData::builder(DataType::Utf8)
             .length(4)
-            .add_buffer(Buffer::from(offsets.to_bytes()))
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .build();
         let binary_array = BinaryArray::from(array_data);
@@ -534,11 +534,11 @@ mod tests {
     fn test_struct_array() {
         let boolean_data = ArrayData::builder(DataType::Boolean)
             .length(4)
-            .add_buffer(Buffer::from([false, false, true, true].to_bytes()))
+            .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
             .build();
         let int_data = ArrayData::builder(DataType::Int64)
             .length(4)
-            .add_buffer(Buffer::from([42, 28, 19, 31].to_bytes()))
+            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
             .build();
         let mut field_types = vec![];
         field_types.push(Field::new("a", DataType::Boolean, false));

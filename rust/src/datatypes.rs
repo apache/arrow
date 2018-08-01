@@ -65,26 +65,26 @@ impl ArrowPrimitiveType for i64 {}
 impl ArrowPrimitiveType for f32 {}
 impl ArrowPrimitiveType for f64 {}
 
-pub trait ToByteArray {
+pub trait ToByteSlice {
     /// Converts this instance into a byte slice.
-    fn to_bytes(&self) -> &[u8];
+    fn to_byte_slice(&self) -> &[u8];
 }
 
-impl<T> ToByteArray for [T]
+impl<T> ToByteSlice for [T]
 where
     T: ArrowPrimitiveType,
 {
-    fn to_bytes(&self) -> &[u8] {
+    fn to_byte_slice(&self) -> &[u8] {
         let raw_ptr = self.as_ptr() as *const T as *const u8;
         unsafe { from_raw_parts(raw_ptr, self.len() * size_of::<T>()) }
     }
 }
 
-impl<T> ToByteArray for T
+impl<T> ToByteSlice for T
 where
     T: ArrowPrimitiveType,
 {
-    fn to_bytes(&self) -> &[u8] {
+    fn to_byte_slice(&self) -> &[u8] {
         let raw_ptr = self as *const T as *const u8;
         unsafe { from_raw_parts(raw_ptr, size_of::<T>()) }
     }
