@@ -436,7 +436,7 @@ TEST(Decimal128Test, TestFromBigEndianBadLength) {
   ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, 17, &out));
 }
 
-TEST(Decimal128Test, TestTo) {
+TEST(Decimal128Test, TestToInteger) {
   Decimal128 value1("1234");
   int32_t out1;
 

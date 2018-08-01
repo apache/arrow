@@ -26,6 +26,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -135,6 +136,7 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Convert Decimal128 from one scale to another
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;
 
+  /// \brief Convert to a signed integer
   template <typename T, typename = EnableIfIsOneOf<T, int32_t, int64_t>>
   Status ToInteger(T* out) const {
     constexpr auto min_value = std::numeric_limits<T>::min();
