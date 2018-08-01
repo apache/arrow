@@ -27,8 +27,7 @@ NumPy to Arrow
 --------------
 
 To convert a NumPy array to Arrow, one can simply call the :func:`pyarrow.array`
-factory function.  This function will always make a copy of the input data,
-as Arrow has stricter alignment requirements than NumPy.
+factory function.
 
 .. code-block:: pycon
 
@@ -57,10 +56,10 @@ structured dtypes or strings.
 Arrow to NumPy
 --------------
 
-In the reverse direction, it is possible to produce a no-copy view of
-a Arrow Array for use with NumPy using the :meth:`~pyarrow.Array.to_numpy`
-method.  This is limited to primitive types for which NumPy has the same
-physical representation as Arrow, and assuming the Arrow data has no nulls.
+In the reverse direction, it is possible to produce a view of an Arrow Array
+for use with NumPy using the :meth:`~pyarrow.Array.to_numpy` method.
+This is limited to primitive types for which NumPy has the same physical
+representation as Arrow, and assuming the Arrow data has no nulls.
 
 .. code-block:: pycon
 
@@ -71,7 +70,6 @@ physical representation as Arrow, and assuming the Arrow data has no nulls.
    >>> view
    array([4, 5, 6], dtype=int32)
 
-For more complex data types, you will have to request a copy.  This is
-currently done using the :meth:`~pyarrow.Array.to_pandas` method (which
-will produce a Numpy array with Pandas semantics for, e.g., representation
-of null values).
+For more complex data types, you have to use the :meth:`~pyarrow.Array.to_pandas`
+method (which will construct a Numpy array with Pandas semantics for, e.g.,
+representation of null values).
