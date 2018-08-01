@@ -67,8 +67,8 @@ int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
 
 void EvictionPolicy::ObjectCreated(const ObjectID& object_id) {
   auto entry = store_info_->objects[object_id].get();
-  cache_.Add(object_id, entry->info.data_size + entry->info.metadata_size);
-  int64_t size = entry->info.data_size + entry->info.metadata_size;
+  cache_.Add(object_id, entry->data_size + entry->metadata_size);
+  int64_t size = entry->data_size + entry->metadata_size;
   memory_used_ += size;
   ARROW_CHECK(memory_used_ <= store_info_->memory_capacity);
 }
@@ -98,7 +98,7 @@ void EvictionPolicy::EndObjectAccess(const ObjectID& object_id,
                                      std::vector<ObjectID>* objects_to_evict) {
   auto entry = store_info_->objects[object_id].get();
   /* Add the object to the LRU cache.*/
-  cache_.Add(object_id, entry->info.data_size + entry->info.metadata_size);
+  cache_.Add(object_id, entry->data_size + entry->metadata_size);
 }
 
 void EvictionPolicy::RemoveObject(const ObjectID& object_id) {
@@ -106,7 +106,7 @@ void EvictionPolicy::RemoveObject(const ObjectID& object_id) {
   cache_.Remove(object_id);
 
   auto entry = store_info_->objects[object_id].get();
-  int64_t size = entry->info.data_size + entry->info.metadata_size;
+  int64_t size = entry->data_size + entry->metadata_size;
   ARROW_CHECK(memory_used_ >= size);
   memory_used_ -= size;
 }
