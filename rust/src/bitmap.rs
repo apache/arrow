@@ -52,9 +52,7 @@ impl Bitmap {
 
 impl From<Buffer> for Bitmap {
     fn from(buf: Buffer) -> Self {
-        Self {
-            bits: buf
-        }
+        Self { bits: buf }
     }
 }
 
@@ -73,12 +71,12 @@ mod tests {
     fn test_bitmap_is_set() {
         let bitmap = Bitmap::from(Buffer::from([0b01001010]));
         assert_eq!(false, bitmap.is_set(0));
-        assert_eq!(true,  bitmap.is_set(1));
+        assert_eq!(true, bitmap.is_set(1));
         assert_eq!(false, bitmap.is_set(2));
-        assert_eq!(true,  bitmap.is_set(3));
+        assert_eq!(true, bitmap.is_set(3));
         assert_eq!(false, bitmap.is_set(4));
         assert_eq!(false, bitmap.is_set(5));
-        assert_eq!(true,  bitmap.is_set(6));
+        assert_eq!(true, bitmap.is_set(6));
         assert_eq!(false, bitmap.is_set(7));
     }
 

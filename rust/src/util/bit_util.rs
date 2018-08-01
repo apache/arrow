@@ -18,22 +18,14 @@
 static BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
 
 static BIT_TABLE: [u8; 256] = [
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
+    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
 ];
 
 /// Returns the nearest number that is `>=` than `num` and is a multiple of 64.
@@ -43,7 +35,7 @@ pub fn round_upto_multiple_of_64(num: i64) -> i64 {
     let truncate_bitmask = !63;
     let max_roundable_num = ::std::i64::MAX - 64;
     if num < max_roundable_num {
-        return (num + force_carry_addend) & truncate_bitmask
+        return (num + force_carry_addend) & truncate_bitmask;
     }
     num
 }
@@ -72,8 +64,8 @@ pub fn count_set_bits(data: &[u8]) -> i64 {
 
 #[cfg(test)]
 mod tests {
+    use rand::{thread_rng, Rng};
     use std::collections::HashSet;
-    use rand::{Rng, thread_rng};
 
     use super::*;
 
@@ -84,33 +76,36 @@ mod tests {
         assert_eq!(64, round_upto_multiple_of_64(63));
         assert_eq!(64, round_upto_multiple_of_64(64));
         assert_eq!(128, round_upto_multiple_of_64(65));
-        assert_eq!(::std::i64::MAX-64, round_upto_multiple_of_64(::std::i64::MAX-64));
+        assert_eq!(
+            ::std::i64::MAX - 64,
+            round_upto_multiple_of_64(::std::i64::MAX - 64)
+        );
     }
 
     #[test]
     fn test_get_bit() {
         // 00001101
-        assert_eq!(true,  get_bit(&[0b00001101], 0));
+        assert_eq!(true, get_bit(&[0b00001101], 0));
         assert_eq!(false, get_bit(&[0b00001101], 1));
-        assert_eq!(true,  get_bit(&[0b00001101], 2));
-        assert_eq!(true,  get_bit(&[0b00001101], 3));
+        assert_eq!(true, get_bit(&[0b00001101], 2));
+        assert_eq!(true, get_bit(&[0b00001101], 3));
 
         // 01001001 01010010
-        assert_eq!(true,  get_bit(&[0b01001001, 0b01010010], 0));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 0));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 1));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 2));
-        assert_eq!(true,  get_bit(&[0b01001001, 0b01010010], 3));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 3));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 4));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 5));
-        assert_eq!(true,  get_bit(&[0b01001001, 0b01010010], 6));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 6));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 7));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 8));
-        assert_eq!(true,  get_bit(&[0b01001001, 0b01010010], 9));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 9));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 10));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 11));
-        assert_eq!(true,  get_bit(&[0b01001001, 0b01010010], 12));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 12));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 13));
-        assert_eq!(true,  get_bit(&[0b01001001, 0b01010010], 14));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 14));
         assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 15));
     }
 

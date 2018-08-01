@@ -76,7 +76,7 @@ pub fn memcpy(dst: *const u8, src: *const u8, len: usize) {
     }
 }
 
-extern {
+extern "C" {
     #[inline]
     pub fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> i32;
 }

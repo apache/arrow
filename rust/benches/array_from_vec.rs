@@ -24,10 +24,10 @@ extern crate arrow;
 
 use std::rc::Rc;
 
-use arrow::array_data::ArrayDataBuilder;
 use arrow::array::*;
-use arrow::datatypes::*;
+use arrow::array_data::ArrayDataBuilder;
 use arrow::buffer::Buffer;
+use arrow::datatypes::*;
 
 fn array_from_vec(n: usize) {
     let mut v: Vec<u8> = Vec::with_capacity(n);

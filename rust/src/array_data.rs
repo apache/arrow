@@ -54,8 +54,12 @@ pub const UNKNOWN_NULL_COUNT: i64 = -1;
 
 impl ArrayData {
     pub fn new(
-        data_type: DataType, length: i64, mut null_count: i64,
-        null_bit_buffer: Option<Buffer>, offset: i64, buffers: Vec<Buffer>,
+        data_type: DataType,
+        length: i64,
+        mut null_count: i64,
+        null_bit_buffer: Option<Buffer>,
+        offset: i64,
+        buffers: Vec<Buffer>,
         child_data: Vec<ArrayDataRef>,
     ) -> Self {
         if null_count < 0 {
@@ -67,7 +71,13 @@ impl ArrayData {
         }
         let null_bitmap = null_bit_buffer.map(Bitmap::from);
         Self {
-            data_type, length, null_count, offset, buffers, child_data, null_bitmap
+            data_type,
+            length,
+            null_count,
+            offset,
+            buffers,
+            child_data,
+            null_bitmap,
         }
     }
 
@@ -94,7 +104,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is null.
     pub fn is_null(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return !b.is_set(i)
+            return !b.is_set(i);
         }
         false
     }
@@ -107,7 +117,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is not null.
     pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return b.is_set(i)
+            return b.is_set(i);
         }
         true
     }
@@ -194,17 +204,23 @@ impl ArrayDataBuilder {
 
     pub fn build(self) -> ArrayDataRef {
         let data = ArrayData::new(
-            self.data_type, self.length, self.null_count, self.null_bit_buffer,
-            self.offset, self.buffers, self.child_data);
+            self.data_type,
+            self.length,
+            self.null_count,
+            self.null_bit_buffer,
+            self.offset,
+            self.buffers,
+            self.child_data,
+        );
         Arc::new(data)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use buffer::Buffer;
     use super::{ArrayData, DataType};
+    use buffer::Buffer;
+    use std::sync::Arc;
 
     #[test]
     fn test_new() {
@@ -219,8 +235,15 @@ mod tests {
     #[test]
     fn test_builder() {
         let v = vec![0, 1, 2, 3];
-        let child_arr_data = Arc::new(
-            ArrayData::new(DataType::Int32, 10, 0, None, 0, vec![], vec![]));
+        let child_arr_data = Arc::new(ArrayData::new(
+            DataType::Int32,
+            10,
+            0,
+            None,
+            0,
+            vec![],
+            vec![],
+        ));
         let b1 = Buffer::from(&v[..]);
         let arr_data = ArrayData::builder(DataType::Int32)
             .length(20)

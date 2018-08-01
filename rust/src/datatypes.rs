@@ -22,7 +22,6 @@ use std::slice::from_raw_parts;
 use error::ArrowError;
 use serde_json::Value;
 
-
 /// Arrow data type
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataType {
@@ -66,27 +65,28 @@ impl ArrowPrimitiveType for i64 {}
 impl ArrowPrimitiveType for f32 {}
 impl ArrowPrimitiveType for f64 {}
 
-
 pub trait ToByteArray {
     /// Converts this instance into a byte slice.
     fn to_bytes(&self) -> &[u8];
 }
 
-impl<T> ToByteArray for [T] where T: ArrowPrimitiveType {
+impl<T> ToByteArray for [T]
+where
+    T: ArrowPrimitiveType,
+{
     fn to_bytes(&self) -> &[u8] {
         let raw_ptr = self.as_ptr() as *const T as *const u8;
-        unsafe {
-            from_raw_parts(raw_ptr, self.len() * size_of::<T>())
-        }
+        unsafe { from_raw_parts(raw_ptr, self.len() * size_of::<T>()) }
     }
 }
 
-impl<T> ToByteArray for T where T: ArrowPrimitiveType {
+impl<T> ToByteArray for T
+where
+    T: ArrowPrimitiveType,
+{
     fn to_bytes(&self) -> &[u8] {
         let raw_ptr = self as *const T as *const u8;
-        unsafe {
-            from_raw_parts(raw_ptr, size_of::<T>())
-        }
+        unsafe { from_raw_parts(raw_ptr, size_of::<T>()) }
     }
 }
 

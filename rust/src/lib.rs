@@ -23,9 +23,8 @@ extern crate serde_json;
 
 extern crate rand;
 
-pub mod util;
-pub mod array_data;
 pub mod array;
+pub mod array_data;
 pub mod bitmap;
 pub mod buffer;
 pub mod builder;
@@ -34,3 +33,4 @@ pub mod error;
 pub mod memory;
 pub mod memory_pool;
 pub mod record_batch;
+pub mod util;

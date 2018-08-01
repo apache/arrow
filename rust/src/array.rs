@@ -22,10 +22,10 @@ use std::marker::PhantomData;
 use std::mem;
 use std::sync::Arc;
 
-use util::bit_util;
 use super::array_data::*;
 use super::buffer::*;
 use super::datatypes::*;
+use util::bit_util;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance
@@ -61,10 +61,9 @@ fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Utf8 => Arc::new(BinaryArray::from(data)) as ArrayRef,
         DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
-        dt => panic!("Unexpected data type {:?}", dt)
+        dt => panic!("Unexpected data type {:?}", dt),
     }
 }
-
 
 /// ----------------------------------------------------------------------------
 /// Implementations of different array types
@@ -99,9 +98,7 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
 macro_rules! def_primitive_array {
     ($data_ty:path, $native_ty:ident) => {
         impl PrimitiveArray<$native_ty> {
-            pub fn new(
-                length: i64, values: Buffer, null_count: i64, offset: i64
-            ) -> Self {
+            pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
                 let array_data = ArrayData::builder($data_ty)
                     .length(length)
                     .add_buffer(values)
@@ -118,17 +115,12 @@ macro_rules! def_primitive_array {
 
             /// Returns a raw pointer to the values of this array.
             pub fn raw_values(&self) -> *const $native_ty {
-                unsafe {
-                    mem::transmute(
-                        self.raw_values.get().offset(self.data.offset() as isize))
-                }
+                unsafe { mem::transmute(self.raw_values.get().offset(self.data.offset() as isize)) }
             }
 
             /// Returns the primitive value at index `i`.
             pub fn value(&self, i: i64) -> $native_ty {
-                unsafe {
-                    *(self.raw_values().offset(i as isize))
-                }
+                unsafe { *(self.raw_values().offset(i as isize)) }
             }
 
             /// Determine the minimum value in the array
@@ -142,12 +134,14 @@ macro_rules! def_primitive_array {
             }
 
             fn search<F>(&self, cmp: F) -> Option<$native_ty>
-              where F: Fn($native_ty, $native_ty) -> bool {
+            where
+                F: Fn($native_ty, $native_ty) -> bool,
+            {
                 let mut n: Option<$native_ty> = None;
                 let data = self.data();
                 for i in 0..data.length() {
                     if data.is_null(i) {
-                        continue
+                        continue;
                     }
                     let mut m = self.value(i as i64);
                     match n {
@@ -204,7 +198,7 @@ macro_rules! def_primitive_array {
                 PrimitiveArray::from(array_data)
             }
         }
-    }
+    };
 }
 
 /// Constructs a `PrimitiveArray` from an array data reference.
@@ -246,7 +240,6 @@ def_primitive_array!(DataType::Int64, i64);
 def_primitive_array!(DataType::Float32, f32);
 def_primitive_array!(DataType::Float64, f64);
 
-
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
 pub struct ListArray {
@@ -281,9 +274,7 @@ impl ListArray {
 
     #[inline]
     fn value_offset_at(&self, i: i64) -> i32 {
-        unsafe {
-            *self.value_offsets.get().offset(i as isize)
-        }
+        unsafe { *self.value_offsets.get().offset(i as isize) }
     }
 }
 
@@ -316,7 +307,6 @@ impl Array for ListArray {
     }
 }
 
-
 /// A special type of `ListArray` whose elements are binaries.
 pub struct BinaryArray {
     data: ArrayDataRef,
@@ -332,16 +322,15 @@ impl BinaryArray {
             let pos = self.value_offset_at(i);
             ::std::slice::from_raw_parts(
                 self.value_data.get().offset(pos as isize),
-                (self.value_offset_at(i + 1) - pos) as usize)
+                (self.value_offset_at(i + 1) - pos) as usize,
+            )
         }
     }
 
     /// Returns the element at index `i` as a string.
     pub fn get_string(&self, i: i64) -> String {
         let slice = self.get_value(i);
-        unsafe {
-            String::from_utf8_unchecked(Vec::from(slice))
-        }
+        unsafe { String::from_utf8_unchecked(Vec::from(slice)) }
     }
 
     /// Returns the offset for the element at index `i`.
@@ -359,11 +348,8 @@ impl BinaryArray {
 
     #[inline]
     fn value_offset_at(&self, i: i64) -> i32 {
-        unsafe {
-            *self.value_offsets.get().offset(i as isize)
-        }
+        unsafe { *self.value_offsets.get().offset(i as isize) }
     }
-
 }
 
 impl From<ArrayDataRef> for BinaryArray {
@@ -412,7 +398,6 @@ impl Array for BinaryArray {
         &self.data
     }
 }
-
 
 pub struct StructArray {
     data: ArrayDataRef,
@@ -470,15 +455,14 @@ impl From<Vec<ArrayRef>> for StructArray {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::thread;
 
+    use super::{BinaryArray, ListArray, PrimitiveArray, StructArray};
     use array_data::ArrayData;
     use buffer::Buffer;
     use datatypes::{DataType, Field, ToByteArray};
-    use super::{PrimitiveArray, ListArray, BinaryArray, StructArray};
 
     #[test]
     fn test_primitive_array() {
@@ -489,9 +473,7 @@ mod tests {
         assert_eq!(buf2, pa.values());
         assert_eq!(2, pa.value(2));
         let raw_values = pa.raw_values();
-        let slice = unsafe {
-            ::std::slice::from_raw_parts(raw_values, 5)
-        };
+        let slice = unsafe { ::std::slice::from_raw_parts(raw_values, 5) };
         assert_eq!(&[0, 1, 2, 3, 4], slice);
     }
 
@@ -525,7 +507,7 @@ mod tests {
     #[test]
     fn test_binary_array() {
         let values: [u8; 12] = [
-            b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't'
+            b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
         ];
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
@@ -539,7 +521,10 @@ mod tests {
         assert_eq!("hello", binary_array.get_string(0));
         assert_eq!([] as [u8; 0], binary_array.get_value(1));
         assert_eq!("", binary_array.get_string(1));
-        assert_eq!([b'p', b'a', b'r', b'q', b'u', b'e', b't'], binary_array.get_value(2));
+        assert_eq!(
+            [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
+            binary_array.get_value(2)
+        );
         assert_eq!("parquet", binary_array.get_string(2));
         assert_eq!(5, binary_array.value_offset(2));
         assert_eq!(7, binary_array.value_length(2));
@@ -586,7 +571,7 @@ mod tests {
     fn test_access_array_concurrently() {
         let a = PrimitiveArray::<i32>::from(vec![5, 6, 7, 8, 9]);
 
-        let ret = thread::spawn(move || { a.value(3) }).join();
+        let ret = thread::spawn(move || a.value(3)).join();
 
         assert!(ret.is_ok());
         assert_eq!(8, ret.ok().unwrap());

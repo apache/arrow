@@ -42,9 +42,7 @@ struct BufferData {
 
 impl PartialEq for BufferData {
     fn eq(&self, other: &BufferData) -> bool {
-        unsafe {
-            memory::memcmp(self.ptr, other.ptr, self.len as usize) == 0
-        }
+        unsafe { memory::memcmp(self.ptr, other.ptr, self.len as usize) == 0 }
     }
 }
 
@@ -59,7 +57,10 @@ impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
         let buf_data = BufferData { ptr: ptr, len: len };
-        Buffer { data: Rc::new(buf_data), offset: 0 }
+        Buffer {
+            data: Rc::new(buf_data),
+            offset: 0,
+        }
     }
 
     /// Returns the number of bytes in the buffer
@@ -74,9 +75,7 @@ impl Buffer {
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        unsafe {
-            ::std::slice::from_raw_parts(self.data.ptr, self.data.len)
-        }
+        unsafe { ::std::slice::from_raw_parts(self.data.ptr, self.data.len) }
     }
 
     /// Returns a raw pointer for this buffer.
@@ -89,7 +88,10 @@ impl Buffer {
 
     /// Returns a copy for this buffer.
     pub fn copy(&self) -> Buffer {
-        Buffer { data: self.data.clone(), offset: self.offset }
+        Buffer {
+            data: self.data.clone(),
+            offset: self.offset,
+        }
     }
 
     /// Returns an empty buffer.
@@ -120,7 +122,6 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     }
 }
 
-
 unsafe impl Sync for Buffer {}
 unsafe impl Send for Buffer {}
 
@@ -129,8 +130,8 @@ mod tests {
     use std::ptr::null_mut;
     use std::thread;
 
-    use memory::{allocate_aligned, memcpy};
     use super::Buffer;
+    use memory::{allocate_aligned, memcpy};
 
     #[test]
     fn test_buffer_data_equality() {
