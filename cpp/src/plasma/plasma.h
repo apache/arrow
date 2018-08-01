@@ -116,8 +116,6 @@ struct ObjectTableEntry {
 
   ~ObjectTableEntry();
 
-  /// Object id of this object.
-  ObjectID object_id;
   /// Object info like size, creation time and owner.
   flatbuf::ObjectInfoT info;
   /// Memory mapped file containing the object.
