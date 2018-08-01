@@ -448,7 +448,6 @@ struct Unbox {};
 template <typename Type>
 struct Unbox<Type, std::enable_if<std::is_base_of<Type, Integer>::value>::type> {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
-  // Append a non-missing item
   Status Append(BuilderType* builder, PyObject* obj) {
     typename IntType::c_type value;
     RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
@@ -562,7 +561,6 @@ class TypedConverter : public SeqConverter {
 
 class NullConverter : public TypedConverter<NullType, NullConverter> {
  public:
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     return Status::Invalid("NullConverter: passed non-None value");
   }
@@ -573,7 +571,6 @@ class NullConverter : public TypedConverter<NullType, NullConverter> {
 
 class BoolConverter : public TypedConverter<BooleanType, BoolConverter> {
  public:
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     if (obj == Py_True) {
       return typed_builder_->Append(true);
@@ -604,7 +601,6 @@ class NumericConverter<Type, false>
 
 class Date32Converter : public TypedConverter<Date32Type, Date32Converter> {
  public:
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     int32_t t;
     if (PyDate_Check(obj)) {
@@ -619,7 +615,6 @@ class Date32Converter : public TypedConverter<Date32Type, Date32Converter> {
 
 class Date64Converter : public TypedConverter<Date64Type, Date64Converter> {
  public:
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     int64_t t;
     if (PyDate_Check(obj)) {
@@ -634,12 +629,9 @@ class Date64Converter : public TypedConverter<Date64Type, Date64Converter> {
 
 class PyTimeConverter : public TypedConverter<Time64Type, PyTimeConverter> {
  public:
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
-    // datetime.time stores microsecond resolution
-    // Time64Builder builder(::arrow::time64(TimeUnit::MICRO), pool_);
-
     if (PyTime_Check(obj)) {
+      // datetime.time stores microsecond resolution
       RETURN_NOT_OK(builder.Append(PyTime_to_us(obj)));
     } else {
       std::stringstream ss;
@@ -654,7 +646,6 @@ class TimestampConverter : public TypedConverter<TimestampType, TimestampConvert
  public:
   explicit TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
 
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     int64_t t;
     if (PyDateTime_Check(obj)) {
@@ -868,7 +859,6 @@ class ListConverter : public TypedConverter<ListType, ListConverter> {
 
   Status VisitNdarray(PyObject* obj) {}
 
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     RETURN_NOT_OK(typed_builder_->Append());
     const auto list_size = static_cast<int64_t>(PySequence_Size(obj));
@@ -924,7 +914,6 @@ class StructConverter : public TypedConverter<StructType, StructConverter> {
     return Status::OK();
   }
 
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     RETURN_NOT_OK(typed_builder_->Append());
     // Note heterogenous sequences are not allowed
@@ -997,7 +986,6 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalCon
     return internal::ImportDecimalType(&pydecimal_type_);
   }
 
-  // Append a non-missing item
   Status AppendItem(PyObject* obj) {
     if (PyObject_IsInstance(obj, pydecimal_type_.obj()) == 1) {
       Decimal128 value;
