@@ -709,7 +709,8 @@ void PlasmaStore::SubscribeToUpdates(Client* client) {
       info.object_id = entry.first.binary();
       info.data_size = entry.second->data_size;
       info.metadata_size = entry.second->metadata_size;
-      info.digest = std::string(reinterpret_cast<char*>(&entry.second->digest[0]), kDigestSize);
+      info.digest = std::string(reinterpret_cast<char*>(&entry.second->digest[0]),
+                                kDigestSize);
       PushNotification(&info, fd);
     }
   }
