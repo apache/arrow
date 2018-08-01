@@ -154,6 +154,18 @@ function(ADD_ARROW_LIB LIB_NAME)
             INSTALL_RPATH ${_lib_install_rpath})
     endif()
 
+    if (APPLE)
+      if (ARROW_INSTALL_NAME_RPATH)
+        set(_lib_install_name "@rpath")
+      else()
+        set(_lib_install_name "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+      endif()
+      set_target_properties(${LIB_NAME}_shared
+        PROPERTIES
+        BUILD_WITH_INSTALL_RPATH ON
+        INSTALL_NAME_DIR "${_lib_install_name}")
+    endif()
+
     install(TARGETS ${LIB_NAME}_shared
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -186,18 +198,6 @@ function(ADD_ARROW_LIB LIB_NAME)
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-  endif()
-
-  if (APPLE)
-    if (ARROW_INSTALL_NAME_RPATH)
-      set(_lib_install_name "@rpath")
-    else()
-      set(_lib_install_name "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
-    endif()
-    set_target_properties(${LIB_NAME}_shared
-      PROPERTIES
-      BUILD_WITH_INSTALL_RPATH ON
-      INSTALL_NAME_DIR "${_lib_install_name}")
   endif()
 
 endfunction()
