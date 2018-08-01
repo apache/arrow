@@ -126,9 +126,9 @@ struct ObjectTableEntry {
   ptrdiff_t offset;
   /// Pointer to the object data. Needed to free the object.
   uint8_t* pointer;
-  ///
+  /// Size of the object in bytes.
   int64_t data_size;
-  ///
+  /// Size of the object metadata in bytes.
   int64_t metadata_size;
 #ifdef PLASMA_GPU
   /// IPC GPU handle to share with clients.
