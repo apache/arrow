@@ -134,7 +134,6 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         c_bool Equals(const SchemaDescriptor& other)
         int num_columns()
 
-    cdef c_string FormatStatValue(ParquetType parquet_type, const char* val)
     cdef c_string FormatStatValue(ParquetType parquet_type, c_string val)
 
 
