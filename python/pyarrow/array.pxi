@@ -50,7 +50,7 @@ cdef _is_array_like(obj):
 
 
 cdef _ndarray_to_array(object values, object mask, DataType type,
-                       c_bool use_pandas_null_sentinels,
+                       c_bool from_pandas,
                        CMemoryPool* pool):
     cdef shared_ptr[CChunkedArray] chunked_out
     cdef shared_ptr[CDataType] c_type
@@ -65,8 +65,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         c_type = type.sp_type
 
     with nogil:
-        check_status(NdarrayToArrow(pool, values, mask,
-                                    use_pandas_null_sentinels,
+        check_status(NdarrayToArrow(pool, values, mask, from_pandas,
                                     c_type, &chunked_out))
 
     if chunked_out.get().num_chunks() > 1:

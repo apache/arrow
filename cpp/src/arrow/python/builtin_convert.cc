@@ -107,13 +107,13 @@ class TypeInferrer {
     } else if (internal::IsPyInteger(obj)) {
       ++int_count_;
       *keep_going = make_unions_ && false;
-    } else if (PyDate_CheckExact(obj)) {
+    } else if (PyDate_Check(obj)) {
       ++date_count_;
       *keep_going = make_unions_ && false;
-    } else if (PyTime_CheckExact(obj)) {
+    } else if (PyTime_Check(obj)) {
       ++time_count_;
       *keep_going = make_unions_ && false;
-    } else if (PyDateTime_CheckExact(obj)) {
+    } else if (PyDateTime_Check(obj)) {
       ++timestamp_micro_count_;
       *keep_going = make_unions_ && false;
     } else if (internal::IsPyBinary(obj)) {
@@ -161,7 +161,9 @@ class TypeInferrer {
 
     RETURN_NOT_OK(Validate());
 
-    if (list_count_) {
+    if (concrete_type_) {
+      *out = concrete_type_;
+    } else if (list_count_) {
       std::shared_ptr<DataType> value_type;
       RETURN_NOT_OK(list_inferrer_->GetType(&value_type));
       *out = list(value_type);
@@ -218,27 +220,11 @@ class TypeInferrer {
   }
 
   Status VisitDType(PyArray_Descr* dtype) {
-    // This is a bit silly.  NumPyDtypeToArrow() infers a Arrow datatype
-    // for us, but we go back to counting abstract type kinds.
     std::shared_ptr<DataType> type;
     RETURN_NOT_OK(NumPyDtypeToArrow(dtype, &type));
-    if (is_integer(type->id())) {
-      ++int_count_;
-    } else if (is_floating(type->id())) {
-      ++float_count_;
-    } else if (type->id() == Type::TIMESTAMP) {
-      const auto& type2 = checked_cast<TimestampType&>(*type);
-      if (type2.unit() == TimeUnit::NANO) {
-        ++timestamp_nano_count_;
-      } else if (type2.unit() == TimeUnit::MICRO) {
-        ++timestamp_micro_count_;
-      } else if (type2.unit() == TimeUnit::MILLI) {
-        ++timestamp_milli_count_;
-      } else if (type2.unit() == TimeUnit::SECOND) {
-        ++timestamp_second_count_;
-      } else {
-        return Status::Invalid("Unknown unit of TimestampType");
-      }
+    if (is_integer(type->id()) || is_floating(type->id()) ||
+        type->id() == Type::TIMESTAMP) {
+      concrete_type_ = type;
     } else {
       std::ostringstream ss;
       ss << "Unsupported Numpy dtype: ";
@@ -343,6 +329,10 @@ class TypeInferrer {
   int64_t struct_count_;
   std::map<std::string, TypeInferrer> struct_inferrers_;
 
+  // If we observe a strongly-typed value in e.g. a NumPy array, we can store
+  // it here to skip the type counting logic above
+  std::shared_ptr<DataType> concrete_type_;
+
   internal::DecimalMetadata max_decimal_metadata_;
 
   // Place to accumulate errors
@@ -416,8 +406,10 @@ class SeqConverter {
   virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
     *chunks = chunks_;
 
-    // Still some accumulated data in the builder
-    if (builder_->length() > 0) {
+    // Still some accumulated data in the builder. If there are no chunks, we
+    // always call Finish to deal with the edge case where a size-0 sequence
+    // was converted with a specific output type, like array([], type=t)
+    if (chunks_.size() == 0 || builder_->length() > 0) {
       std::shared_ptr<Array> last_chunk;
       RETURN_NOT_OK(builder_->Finish(&last_chunk));
       chunks->emplace_back(std::move(last_chunk));
@@ -429,6 +421,7 @@ class SeqConverter {
 
  protected:
   ArrayBuilder* builder_;
+  bool unfinished_builder_;
   std::vector<std::shared_ptr<Array>> chunks_;
 };
 

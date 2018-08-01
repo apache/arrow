@@ -104,11 +104,10 @@ class NumPyNullsConverter {
  public:
   /// Convert the given array's null values to a null bitmap.
   /// The null bitmap is only allocated if null values are ever possible.
-  static Status Convert(MemoryPool* pool, PyArrayObject* arr,
-                        bool use_pandas_null_sentinels,
+  static Status Convert(MemoryPool* pool, PyArrayObject* arr, bool from_pandas,
                         std::shared_ptr<ResizableBuffer>* out_null_bitmap_,
                         int64_t* out_null_count) {
-    NumPyNullsConverter converter(pool, arr, use_pandas_null_sentinels);
+    NumPyNullsConverter converter(pool, arr, from_pandas);
     RETURN_NOT_OK(VisitNumpyArrayInline(arr, &converter));
     *out_null_bitmap_ = converter.null_bitmap_;
     *out_null_count = converter.null_count_;
@@ -123,7 +122,7 @@ class NumPyNullsConverter {
         // Always treat Numpy's NaT as null
         TYPE == NPY_DATETIME ||
         // Observing pandas's null sentinels
-        (use_pandas_null_sentinels_ && traits::supports_nulls);
+        (from_pandas_ && traits::supports_nulls);
 
     if (null_sentinels_possible) {
       RETURN_NOT_OK(AllocateNullBitmap(pool_, PyArray_SIZE(arr), &null_bitmap_));
@@ -133,17 +132,16 @@ class NumPyNullsConverter {
   }
 
  protected:
-  NumPyNullsConverter(MemoryPool* pool, PyArrayObject* arr,
-                      bool use_pandas_null_sentinels)
+  NumPyNullsConverter(MemoryPool* pool, PyArrayObject* arr, bool from_pandas)
       : pool_(pool),
         arr_(arr),
-        use_pandas_null_sentinels_(use_pandas_null_sentinels),
+        from_pandas_(from_pandas),
         null_bitmap_data_(nullptr),
         null_count_(0) {}
 
   MemoryPool* pool_;
   PyArrayObject* arr_;
-  bool use_pandas_null_sentinels_;
+  bool from_pandas_;
   std::shared_ptr<ResizableBuffer> null_bitmap_;
   uint8_t* null_bitmap_data_;
   int64_t null_count_;
@@ -175,13 +173,13 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
 class NumPyConverter {
  public:
   NumPyConverter(MemoryPool* pool, PyObject* arr, PyObject* mo,
-                 const std::shared_ptr<DataType>& type, bool use_pandas_null_sentinels)
+                 const std::shared_ptr<DataType>& type, bool from_pandas)
       : pool_(pool),
         type_(type),
         arr_(reinterpret_cast<PyArrayObject*>(arr)),
         dtype_(PyArray_DESCR(arr_)),
         mask_(nullptr),
-        use_pandas_null_sentinels_(use_pandas_null_sentinels),
+        from_pandas_(from_pandas),
         null_bitmap_data_(nullptr),
         null_count_(0) {
     if (mo != nullptr && mo != Py_None) {
@@ -264,8 +262,8 @@ class NumPyConverter {
       RETURN_NOT_OK(InitNullBitmap());
       null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
     } else {
-      RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, use_pandas_null_sentinels_,
-                                                 &null_bitmap_, &null_count_));
+      RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
+                                                 &null_count_));
     }
 
     std::shared_ptr<Buffer> data;
@@ -290,7 +288,7 @@ class NumPyConverter {
   int64_t stride_;
   int itemsize_;
 
-  bool use_pandas_null_sentinels_;
+  bool from_pandas_;
 
   // Used in visitor pattern
   ArrayVector out_arrays_;
@@ -692,7 +690,7 @@ Status NumPyConverter::Visit(const StructType& type) {
       RETURN_IF_PYERROR();
       sub_arrays.emplace_back(sub_array);
       sub_converters.emplace_back(pool_, sub_array, nullptr /* mask */, field->type(),
-                                  use_pandas_null_sentinels_);
+                                  from_pandas_);
     }
   }
 
@@ -770,8 +768,7 @@ Status NumPyConverter::Visit(const StructType& type) {
   return Status::OK();
 }
 
-Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
-                      bool use_pandas_null_sentinels,
+Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
@@ -783,10 +780,11 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
   if (PyArray_DESCR(arr)->type_num == NPY_OBJECT) {
     PyConversionOptions py_options;
     py_options.type = type;
+    py_options.from_pandas = from_pandas;
     return ConvertPySequence(ao, mo, py_options, out);
   }
 
-  NumPyConverter converter(pool, ao, mo, type, use_pandas_null_sentinels);
+  NumPyConverter converter(pool, ao, mo, type, from_pandas);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();
   DCHECK_GT(output_arrays.size(), 0);
