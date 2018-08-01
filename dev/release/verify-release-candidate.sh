@@ -40,13 +40,19 @@ case $# in
 esac
 
 set -ex
+set -o pipefail
 
 HERE=$(cd `dirname "${BASH_SOURCE[0]:-$0}"` && pwd)
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
 download_dist_file() {
-  curl -f -O $ARROW_DIST_URL/$1
+  curl \
+    --silent \
+    --show-error \
+    --fail \
+    --location \
+    --remote-name $ARROW_DIST_URL/$1
 }
 
 download_rc_file() {
@@ -71,18 +77,27 @@ fetch_archive() {
 
 verify_binary_artifacts() {
   # download the binaries folder for the current RC
-  download_rc_file binaries
+  rcname=apache-arrow-${VERSION}-rc${RC_NUMBER}
+  wget -P "$rcname" \
+    --quiet \
+    --no-host-directories \
+    --cut-dirs=5 \
+    --show-progress \
+    --no-parent \
+    --reject 'index.html*' \
+    --recursive "$ARROW_DIST_URL/$rcname/binaries/"
 
   # verify the signature and the checksums of each artifact
-  find binaries -name '*.asc' | while read sigfile; do
+  find $rcname/binaries -name '*.asc' | while read sigfile; do
     artifact=${sigfile/.asc/}
-    gpg --verify $sigfile $artifact
+    gpg --verify $sigfile $artifact || exit 1
 
     # go into the directory because the checksum files contain only the
     # basename of the artifact
     pushd $(dirname $artifact)
-    shasum -a 1 -c $artifact.sha1
-    shasum -a 256 -c $artifact.sha256
+    base_artifact=$(basename $artifact)
+    shasum -a 1 -c $base_artifact.sha1 || exit 1
+    shasum -a 256 -c $base_artifact.sha256 || exit 1
     popd
   done
 }
