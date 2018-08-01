@@ -36,7 +36,7 @@ namespace internal {
 //
 // The Visitor function  signal that iteration should terminate
 template <class VisitorFunc>
-inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
+inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
   // VisitorFunc may set to false to terminate iteration
   bool keep_going = true;
 
@@ -50,7 +50,7 @@ inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
       // It's an array object, we can fetch object pointers directly
       const Ndarray1DIndexer<PyObject*> objects(arr_obj);
       for (int64_t i = 0; keep_going && i < objects.size(); ++i) {
-        RETURN_NOT_OK(func(objects[i], &keep_going));
+        RETURN_NOT_OK(func(objects[i], i, &keep_going));
       }
       return Status::OK();
     }
@@ -66,7 +66,7 @@ inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
       const Py_ssize_t size = PySequence_Fast_GET_SIZE(obj);
       for (Py_ssize_t i = 0; keep_going && i < size; ++i) {
         PyObject* value = PySequence_Fast_GET_ITEM(obj, i);
-        RETURN_NOT_OK(func(value, &keep_going));
+        RETURN_NOT_OK(func(value, static_cast<int64_t>(i), &keep_going));
       }
     } else {
       // Regular sequence: avoid making a potentially large copy
@@ -75,13 +75,46 @@ inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
       for (Py_ssize_t i = 0; keep_going && i < size; ++i) {
         OwnedRef value_ref(PySequence_ITEM(obj, i));
         RETURN_IF_PYERROR();
-        RETURN_NOT_OK(func(value_ref.obj(), &keep_going));
+        RETURN_NOT_OK(func(value_ref.obj(),
+                           static_cast<int64_t>(i), &keep_going));
       }
     }
   } else {
     return Status::TypeError("Object is not a sequence");
   }
   return Status::OK();
+}
+
+// Visit sequence with no null mask
+template <class VisitorFunc>
+inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
+  return VisitSequenceGeneric(obj, [](PyObject* value,
+                                      int64_t i /* unused */,
+                                      bool* keep_going) {
+                                return func(value, &keep_going);
+                              });
+}
+
+/// Visit sequence with null mask
+template <class VisitorFunc>
+inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo,
+                                  VisitorFunc&& func) {
+  if (mo == nullptr || !PyArray_Check(mo)) {
+    return Status::Invalid("Null mask must be NumPy array");
+  }
+
+  PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
+  if (!(PyArray_NDIM(arr_obj) == 1 &&
+        PyArray_DESCR(arr_obj)->type_num == NPY_BOOL)) {
+    return Status::Invalid("Mask must be 1D array with bool dtype");
+  }
+
+  Ndarray1DIndexer<uint8_t> mask_values(mask);
+
+  return VisitSequenceGeneric(obj, [&mask_values](PyObject* value, int64_t i,
+                                                  bool* keep_going) {
+                                return func(value, mask_values[i], &keep_going);
+                              });
 }
 
 // Like IterateSequence, but accepts any generic iterable (including
