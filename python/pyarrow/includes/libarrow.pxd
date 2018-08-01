@@ -957,8 +957,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         CMemoryPool* pool
         c_bool from_pandas
 
-    CStatus ConvertPySequence(object obj, const PyConversionOptions& options,
-                              shared_ptr[CArray]* out)
+    CStatus ConvertPySequence(object obj, object mask,
+                              const PyConversionOptions& options,
+                              shared_ptr[CChunkedArray]* out)
 
     CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 

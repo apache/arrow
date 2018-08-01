@@ -88,8 +88,8 @@ inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
 template <class VisitorFunc>
 inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
   return VisitSequenceGeneric(
-      obj, [](PyObject* value, int64_t i /* unused */, bool* keep_going) {
-        return func(value, &keep_going);
+      obj, [&func](PyObject* value, int64_t i /* unused */, bool* keep_going) {
+        return func(value, keep_going);
       });
 }
 
@@ -101,15 +101,15 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, VisitorFunc&& fun
   }
 
   PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
-  if (!(PyArray_NDIM(arr_obj) == 1 && PyArray_DESCR(arr_obj)->type_num == NPY_BOOL)) {
+  if (!(PyArray_NDIM(mask) == 1 && PyArray_DESCR(mask)->type_num == NPY_BOOL)) {
     return Status::Invalid("Mask must be 1D array with bool dtype");
   }
 
   Ndarray1DIndexer<uint8_t> mask_values(mask);
 
   return VisitSequenceGeneric(
-      obj, [&mask_values](PyObject* value, int64_t i, bool* keep_going) {
-        return func(value, mask_values[i], &keep_going);
+      obj, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
+        return func(value, mask_values[i], keep_going);
       });
 }
 

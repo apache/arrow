@@ -178,7 +178,7 @@ class NumPyConverter {
                  const std::shared_ptr<DataType>& type, bool use_pandas_null_sentinels)
       : pool_(pool),
         type_(type),
-        arr_(arr),
+        arr_(reinterpret_cast<PyArrayObject*>(arr)),
         dtype_(PyArray_DESCR(arr_)),
         mask_(nullptr),
         use_pandas_null_sentinels_(use_pandas_null_sentinels),
@@ -782,11 +782,11 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
 
   if (PyArray_DESCR(arr)->type_num == NPY_OBJECT) {
     PyConversionOptions py_options;
-    py_options = type;
-    return ConvertPySequence(ao, mo, py_objects, out);
+    py_options.type = type;
+    return ConvertPySequence(ao, mo, py_options, out);
   }
 
-  NumPyConverter converter(pool, arr, mo, type, use_pandas_null_sentinels);
+  NumPyConverter converter(pool, ao, mo, type, use_pandas_null_sentinels);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();
   DCHECK_GT(output_arrays.size(), 0);

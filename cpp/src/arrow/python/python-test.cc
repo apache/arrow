@@ -269,7 +269,7 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
   ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
 
   PyConversionOptions options;
-  ASSERT_RAISES(TypeError, ConvertPySequence(list, options, &arr));
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, &arr));
 }
 
 TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
@@ -348,7 +348,7 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
   ASSERT_EQ(0, PyList_SetItem(list, 3, missing_value3));
 
   std::shared_ptr<Array> arr;
-  ASSERT_OK(ConvertPySequence(list, PyConversionOptions(), &arr));
+  ASSERT_OK(ConvertPySequence(list, &arr));
   ASSERT_TRUE(arr->IsValid(0));
   ASSERT_TRUE(arr->IsNull(1));
   ASSERT_TRUE(arr->IsNull(2));
@@ -373,7 +373,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
 
   std::shared_ptr<Array> arr;
 
-  ASSERT_OK(ConvertPySequence(list, PyConversionOptions(), &arr));
+  ASSERT_OK(ConvertPySequence(list, &arr));
   const auto& type = checked_cast<const DecimalType&>(*arr->type());
 
   int32_t expected_precision = 9;
@@ -400,7 +400,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
   ASSERT_EQ(PyList_SetItem(list, 0, value1), 0);
   ASSERT_EQ(PyList_SetItem(list, 1, value2), 0);
 
-  ASSERT_OK(ConvertPySequence(list, PyConversionOptions(), &arr));
+  ASSERT_OK(ConvertPySequence(list, &arr));
 
   const auto& type = checked_cast<const Decimal128Type&>(*arr->type());
   ASSERT_EQ(3, type.precision());
@@ -435,7 +435,7 @@ TEST(PythonTest, ConstructStringArrayWithLeadingZeros) {
   ASSERT_EQ(0, PyList_SetItem(list, 1, PyUnicode_FromString(str.c_str())));
 
   std::shared_ptr<Array> out;
-  ASSERT_OK(ConvertPySequence(list, PyConversionOptions(), &out));
+  ASSERT_OK(ConvertPySequence(list, &out));
 }
 
 }  // namespace py

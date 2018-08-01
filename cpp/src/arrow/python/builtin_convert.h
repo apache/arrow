@@ -83,6 +83,14 @@ Status ConvertPySequence(PyObject* obj, PyObject* mask,
                          std::shared_ptr<ChunkedArray>* out);
 
 ARROW_EXPORT
+Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
+                         std::shared_ptr<ChunkedArray>* out);
+
+// Errors if multiple chunks
+ARROW_EXPORT
+Status ConvertPySequence(PyObject* obj, std::shared_ptr<Array>* out);
+
+ARROW_EXPORT
 Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,
                          std::ostream* out);
 

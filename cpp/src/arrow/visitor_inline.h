@@ -30,10 +30,10 @@ namespace arrow {
 
 #define TYPE_VISIT_INLINE(TYPE_CLASS) \
   case TYPE_CLASS::type_id:           \
-    return visitor(checked_cast<const TYPE_CLASS&>(type));
+    return visitor->Visit(checked_cast<const TYPE_CLASS&>(type));
 
 template <typename VISITOR>
-inline Status VisitTypeInlineFunc(const DataType& type, VISITOR&& visitor) {
+inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   switch (type.id()) {
     TYPE_VISIT_INLINE(NullType);
     TYPE_VISIT_INLINE(BooleanType);
@@ -65,12 +65,6 @@ inline Status VisitTypeInlineFunc(const DataType& type, VISITOR&& visitor) {
       break;
   }
   return Status::NotImplemented("Type not implemented");
-}
-
-template <typename VISITOR>
-inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
-  return VisitTypeInlineFunc(type,
-                             [visitor](const DataType& type) { visitor->Visit(type); });
 }
 
 #undef TYPE_VISIT_INLINE
