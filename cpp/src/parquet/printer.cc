@@ -84,8 +84,8 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
         std::string min = stats->EncodeMin(), max = stats->EncodeMax();
         stream << ", Null Values: " << stats->null_count()
                << ", Distinct Values: " << stats->distinct_count() << std::endl
-               << "  Max: " << FormatStatValue(descr->physical_type(), max.c_str())
-               << ", Min: " << FormatStatValue(descr->physical_type(), min.c_str());
+               << "  Max: " << FormatStatValue(descr->physical_type(), max)
+               << ", Min: " << FormatStatValue(descr->physical_type(), min);
       } else {
         stream << "  Statistics Not Set";
       }
@@ -207,9 +207,8 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
         std::string min = stats->EncodeMin(), max = stats->EncodeMax();
         stream << "\"NumNulls\": \"" << stats->null_count() << "\", "
                << "\"DistinctValues\": \"" << stats->distinct_count() << "\", "
-               << "\"Max\": \"" << FormatStatValue(descr->physical_type(), max.c_str())
-               << "\", "
-               << "\"Min\": \"" << FormatStatValue(descr->physical_type(), min.c_str())
+               << "\"Max\": \"" << FormatStatValue(descr->physical_type(), max) << "\", "
+               << "\"Min\": \"" << FormatStatValue(descr->physical_type(), min)
                << "\" },";
       } else {
         stream << "\"False\",";

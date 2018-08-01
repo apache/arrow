@@ -27,6 +27,7 @@
 
 #include "arrow/util/macros.h"
 
+#include "parquet/util/macros.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
@@ -292,6 +293,11 @@ PARQUET_EXPORT std::string LogicalTypeToString(LogicalType::type t);
 
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
+PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
+                                           const std::string& val);
+
+/// \deprecated Since 1.5.0
+PARQUET_DEPRECATED("Use std::string instead of char* as input")
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type, const char* val);
 
 PARQUET_EXPORT int GetTypeByteSize(Type::type t);

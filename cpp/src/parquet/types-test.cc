@@ -62,54 +62,81 @@ TEST(TestLogicalTypeToString, LogicalTypes) {
 }
 
 TEST(TypePrinter, StatisticsTypes) {
+#if !(defined(_WIN32) || defined(__CYGWIN__))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
   std::string smin;
   std::string smax;
   int32_t int_min = 1024;
   int32_t int_max = 2048;
   smin = std::string(reinterpret_cast<char*>(&int_min), sizeof(int32_t));
   smax = std::string(reinterpret_cast<char*>(&int_max), sizeof(int32_t));
+  ASSERT_STREQ("1024", FormatStatValue(Type::INT32, smin).c_str());
   ASSERT_STREQ("1024", FormatStatValue(Type::INT32, smin.c_str()).c_str());
+  ASSERT_STREQ("2048", FormatStatValue(Type::INT32, smax).c_str());
   ASSERT_STREQ("2048", FormatStatValue(Type::INT32, smax.c_str()).c_str());
 
   int64_t int64_min = 10240000000000;
   int64_t int64_max = 20480000000000;
   smin = std::string(reinterpret_cast<char*>(&int64_min), sizeof(int64_t));
   smax = std::string(reinterpret_cast<char*>(&int64_max), sizeof(int64_t));
+  ASSERT_STREQ("10240000000000", FormatStatValue(Type::INT64, smin).c_str());
   ASSERT_STREQ("10240000000000", FormatStatValue(Type::INT64, smin.c_str()).c_str());
+  ASSERT_STREQ("20480000000000", FormatStatValue(Type::INT64, smax).c_str());
   ASSERT_STREQ("20480000000000", FormatStatValue(Type::INT64, smax.c_str()).c_str());
 
   float float_min = 1.024f;
   float float_max = 2.048f;
   smin = std::string(reinterpret_cast<char*>(&float_min), sizeof(float));
   smax = std::string(reinterpret_cast<char*>(&float_max), sizeof(float));
+  ASSERT_STREQ("1.024", FormatStatValue(Type::FLOAT, smin).c_str());
   ASSERT_STREQ("1.024", FormatStatValue(Type::FLOAT, smin.c_str()).c_str());
+  ASSERT_STREQ("2.048", FormatStatValue(Type::FLOAT, smax).c_str());
   ASSERT_STREQ("2.048", FormatStatValue(Type::FLOAT, smax.c_str()).c_str());
 
   double double_min = 1.0245;
   double double_max = 2.0489;
   smin = std::string(reinterpret_cast<char*>(&double_min), sizeof(double));
   smax = std::string(reinterpret_cast<char*>(&double_max), sizeof(double));
+  ASSERT_STREQ("1.0245", FormatStatValue(Type::DOUBLE, smin).c_str());
   ASSERT_STREQ("1.0245", FormatStatValue(Type::DOUBLE, smin.c_str()).c_str());
+  ASSERT_STREQ("2.0489", FormatStatValue(Type::DOUBLE, smax).c_str());
   ASSERT_STREQ("2.0489", FormatStatValue(Type::DOUBLE, smax.c_str()).c_str());
 
   Int96 Int96_min = {{1024, 2048, 4096}};
   Int96 Int96_max = {{2048, 4096, 8192}};
   smin = std::string(reinterpret_cast<char*>(&Int96_min), sizeof(Int96));
   smax = std::string(reinterpret_cast<char*>(&Int96_max), sizeof(Int96));
+  ASSERT_STREQ("1024 2048 4096", FormatStatValue(Type::INT96, smin).c_str());
   ASSERT_STREQ("1024 2048 4096", FormatStatValue(Type::INT96, smin.c_str()).c_str());
+  ASSERT_STREQ("2048 4096 8192", FormatStatValue(Type::INT96, smax).c_str());
   ASSERT_STREQ("2048 4096 8192", FormatStatValue(Type::INT96, smax.c_str()).c_str());
 
   smin = std::string("abcdef");
   smax = std::string("ijklmnop");
+  ASSERT_STREQ("abcdef", FormatStatValue(Type::BYTE_ARRAY, smin).c_str());
   ASSERT_STREQ("abcdef", FormatStatValue(Type::BYTE_ARRAY, smin.c_str()).c_str());
+  ASSERT_STREQ("ijklmnop", FormatStatValue(Type::BYTE_ARRAY, smax).c_str());
   ASSERT_STREQ("ijklmnop", FormatStatValue(Type::BYTE_ARRAY, smax.c_str()).c_str());
+
+  // PARQUET-1357: FormatStatValue truncates binary statistics on zero character
+  smax.push_back('\0');
+  ASSERT_EQ(smax, FormatStatValue(Type::BYTE_ARRAY, smax));
+  // This fails, thus the call to FormatStatValue(.., const char*) was deprecated.
+  // ASSERT_EQ(smax, FormatStatValue(Type::BYTE_ARRAY, smax.c_str()));
 
   smin = std::string("abcdefgh");
   smax = std::string("ijklmnop");
+  ASSERT_STREQ("abcdefgh", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin).c_str());
   ASSERT_STREQ("abcdefgh",
                FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin.c_str()).c_str());
+  ASSERT_STREQ("ijklmnop", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax).c_str());
   ASSERT_STREQ("ijklmnop",
                FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax.c_str()).c_str());
+#if !(defined(_WIN32) || defined(__CYGWIN__))
+#pragma GCC diagnostic pop
+#endif
 }
 
 }  // namespace parquet

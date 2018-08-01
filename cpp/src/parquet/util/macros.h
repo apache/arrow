@@ -68,4 +68,19 @@
 #define FRIEND_TEST(test_case_name, test_name) \
   friend class test_case_name##_##test_name##_Test
 
+// clang-format off
+// [[deprecated]] is only available in C++14, use this for the time being
+// This macro takes an optional deprecation message
+#if __cplusplus <= 201103L
+# ifdef __GNUC__
+#  define PARQUET_DEPRECATED(...) __attribute__((deprecated(__VA_ARGS__)))
+# elif defined(_MSC_VER)
+#  define PARQUET_DEPRECATED(...) __declspec(deprecated(__VA_ARGS__))
+# else
+#  define PARQUET_DEPRECATED(...)
+# endif
+#else
+#  define PARQUET_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
+#endif
+
 #endif  // PARQUET_UTIL_MACROS_H
