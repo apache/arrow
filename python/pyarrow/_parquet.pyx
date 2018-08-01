@@ -99,7 +99,7 @@ cdef class RowGroupStatistics:
         raw_physical_type = self.statistics.get().physical_type()
         encode_min = self.statistics.get().EncodeMin()
 
-        min_value = FormatStatValue(raw_physical_type, encode_min.c_str())
+        min_value = FormatStatValue(raw_physical_type, encode_min)
         return self._cast_statistic(min_value)
 
     @property
@@ -107,7 +107,7 @@ cdef class RowGroupStatistics:
         raw_physical_type = self.statistics.get().physical_type()
         encode_max = self.statistics.get().EncodeMax()
 
-        max_value = FormatStatValue(raw_physical_type, encode_max.c_str())
+        max_value = FormatStatValue(raw_physical_type, encode_max)
         return self._cast_statistic(max_value)
 
     @property

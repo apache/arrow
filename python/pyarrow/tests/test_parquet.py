@@ -630,6 +630,10 @@ def test_parquet_metadata_api():
             [True, False, False, True, True], pa.bool_(),
             'BOOLEAN', False, True, 0, 5, 0
         ),
+        (
+            [b'\x00', b'b', b'12', None, b'aaa'], pa.binary(),
+            'BYTE_ARRAY', b'\x00', b'b', 1, 4, 0
+        ),
     ]
 )
 def test_parquet_column_statistics_api(data, type, physical_type, min_value,
