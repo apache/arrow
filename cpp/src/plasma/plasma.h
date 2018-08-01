@@ -116,8 +116,6 @@ struct ObjectTableEntry {
 
   ~ObjectTableEntry();
 
-  /// Object info like size, creation time and owner.
-  flatbuf::ObjectInfoT info;
   /// Memory mapped file containing the object.
   int fd;
   /// Device number.
@@ -128,6 +126,10 @@ struct ObjectTableEntry {
   ptrdiff_t offset;
   /// Pointer to the object data. Needed to free the object.
   uint8_t* pointer;
+  /// Size of the object in bytes.
+  int64_t data_size;
+  /// Size of the object metadata in bytes.
+  int64_t metadata_size;
 #ifdef PLASMA_GPU
   /// IPC GPU handle to share with clients.
   std::shared_ptr<CudaIpcMemHandle> ipc_handle;
