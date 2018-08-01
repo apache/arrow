@@ -79,6 +79,7 @@ cpp_install_dir=${PWD}/${extract_dir}/cpp/install
 cd ${extract_dir}/cpp/build
 cmake .. \
   -DCMAKE_INSTALL_PREFIX=${cpp_install_dir} \
+  -DCMAKE_INSTALL_LIBDIR=${cpp_install_dir}/lib \
   -DARROW_BUILD_TESTS=no
 make -j8
 make install
