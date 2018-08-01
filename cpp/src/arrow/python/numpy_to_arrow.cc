@@ -253,32 +253,6 @@ class NumPyConverter {
     return Status::OK();
   }
 
-  template <int TYPE, typename BuilderType>
-  Status AppendNdarrayToBuilder(PyArrayObject* array, BuilderType* builder) {
-    typedef internal::npy_traits<TYPE> traits;
-    typedef typename traits::value_type T;
-
-    const bool null_sentinels_possible =
-        (use_pandas_null_sentinels_ && traits::supports_nulls);
-
-    // TODO(wesm): Vector append when not strided
-    Ndarray1DIndexer<T> values(array);
-    if (null_sentinels_possible) {
-      for (int64_t i = 0; i < values.size(); ++i) {
-        if (traits::isnull(values[i])) {
-          RETURN_NOT_OK(builder->AppendNull());
-        } else {
-          RETURN_NOT_OK(builder->Append(values[i]));
-        }
-      }
-    } else {
-      for (int64_t i = 0; i < values.size(); ++i) {
-        RETURN_NOT_OK(builder->Append(values[i]));
-      }
-    }
-    return Status::OK();
-  }
-
   Status PushArray(const std::shared_ptr<ArrayData>& data) {
     out_arrays_.emplace_back(MakeArray(data));
     return Status::OK();
