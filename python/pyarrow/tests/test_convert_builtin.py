@@ -334,7 +334,7 @@ def test_garbage_collection():
 
 
 def test_sequence_double():
-    data = [1.5, 1, None, 2.5, None, None]
+    data = [1.5, 1., None, 2.5, None, None]
     arr = pa.array(data)
     assert len(arr) == 6
     assert arr.null_count == 3

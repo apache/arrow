@@ -151,6 +151,14 @@ inline Status VisitNumpyArrayInline(PyArrayObject* arr, VISITOR* visitor) {
 
 #undef TYPE_VISIT_INLINE
 
+namespace internal {
+
+inline bool PyFloatScalar_Check(PyObject* obj) {
+  return PyFloat_Check(obj) || PyArray_IsScalar(obj, Floating);
+}
+
+}  // namespace internal
+
 }  // namespace py
 }  // namespace arrow
 

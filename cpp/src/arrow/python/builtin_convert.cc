@@ -101,7 +101,7 @@ class TypeInferrer {
     } else if (PyBool_Check(obj)) {
       ++bool_count_;
       *keep_going = make_unions_ && false;
-    } else if (PyFloat_Check(obj)) {
+    } else if (internal::PyFloatScalar_Check(obj)) {
       ++float_count_;
       *keep_going = make_unions_ && false;
     } else if (internal::IsPyInteger(obj)) {
@@ -485,7 +485,7 @@ struct Unbox<FloatType> {
 template <>
 struct Unbox<DoubleType> {
   static inline Status Append(DoubleBuilder* builder, PyObject* obj) {
-    if (PyFloat_Check(obj)) {
+    if (internal::PyFloatScalar_Check(obj)) {
       double val = PyFloat_AsDouble(obj);
       RETURN_IF_PYERROR();
       return builder->Append(val);
@@ -1207,7 +1207,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   RETURN_NOT_OK(converter->Init(type_builder.get()));
 
   // Convert values
-  if (mask != nullptr) {
+  if (mask != nullptr && mask != Py_None) {
     RETURN_NOT_OK(converter->AppendMultipleMasked(seq, mask, size));
   } else {
     RETURN_NOT_OK(converter->AppendMultiple(seq, size));
