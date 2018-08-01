@@ -35,7 +35,9 @@
 
 namespace arrow {
 
-void BitUtil::FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
+namespace BitUtil {
+
+static void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
     if (bytes[i] > 0) {
       SetBit(bits, i);
@@ -43,9 +45,9 @@ void BitUtil::FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits
   }
 }
 
-Status BitUtil::BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
-                            std::shared_ptr<Buffer>* out) {
-  int64_t bit_length = BitUtil::BytesForBits(bytes.size());
+Status BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
+                   std::shared_ptr<Buffer>* out) {
+  int64_t bit_length = BytesForBits(bytes.size());
 
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateBuffer(pool, bit_length, &buffer));
@@ -56,6 +58,8 @@ Status BitUtil::BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
   *out = buffer;
   return Status::OK();
 }
+
+}  // namespace BitUtil
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;
@@ -137,7 +141,7 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t
 
   for (int64_t i = length; i < length + bits_to_zero; ++i) {
     // Both branches may copy extra bits - unsetting to match specification.
-    BitUtil::SetBitTo(dest, i, false);
+    BitUtil::ClearBit(dest, i);
   }
 
   *out = buffer;
