@@ -17,23 +17,23 @@
 
 .. _pandas_interop:
 
-Using PyArrow with Pandas
+Using PyArrow with pandas
 =========================
 
-To interface with `Pandas <https://pandas.pydata.org/>`_, PyArrow provides
-various conversion routines to consume Pandas structures and convert back
+To interface with `pandas <https://pandas.pydata.org/>`_, PyArrow provides
+various conversion routines to consume pandas structures and convert back
 to them.
 
 .. note::
-   While Pandas uses NumPy as a backend, it has enough peculiarities
+   While pandas uses NumPy as a backend, it has enough peculiarities
    (such as a different type system, and support for null values) that this
    is a separate topic from :ref:`numpy_interop`.
 
 DataFrames
 ----------
 
-The equivalent to a Pandas DataFrame in Arrow is a :ref:`Table <data.table>`.
-Both consist of a set of named columns of equal length. While Pandas only
+The equivalent to a pandas DataFrame in Arrow is a :ref:`Table <data.table>`.
+Both consist of a set of named columns of equal length. While pandas only
 supports flat columns, the Table also provides nested columns, thus it can
 represent more data than a DataFrame, so a full conversion is not always possible.
 
@@ -56,26 +56,26 @@ Conversion from a Table to a DataFrame is done by calling
 Series
 ------
 
-In Arrow, the most similar structure to a Pandas Series is an Array.
+In Arrow, the most similar structure to a pandas Series is an Array.
 It is a vector that contains data of the same type as linear memory. You can
-convert a Pandas Series to an Arrow Array using :meth:`pyarrow.Array.from_pandas`.
+convert a pandas Series to an Arrow Array using :meth:`pyarrow.Array.from_pandas`.
 As Arrow Arrays are always nullable, you can supply an optional mask using
 the ``mask`` parameter to mark all null-entries.
 
 Type differences
 ----------------
 
-With the current design of Pandas and Arrow, it is not possible to convert all
-column types unmodified. One of the main issues here is that Pandas has no
+With the current design of pandas and Arrow, it is not possible to convert all
+column types unmodified. One of the main issues here is that pandas has no
 support for nullable columns of arbitrary type. Also ``datetime64`` is currently
 fixed to nanosecond resolution. On the other side, Arrow might be still missing
 support for some types.
 
-Pandas -> Arrow Conversion
+pandas -> Arrow Conversion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 +------------------------+--------------------------+
-| Source Type (Pandas)   | Destination Type (Arrow) |
+| Source Type (pandas)   | Destination Type (Arrow) |
 +========================+==========================+
 | ``bool``               | ``BOOL``                 |
 +------------------------+--------------------------+
@@ -94,11 +94,11 @@ Pandas -> Arrow Conversion
 | ``datetime.date``      | ``DATE``                 |
 +------------------------+--------------------------+
 
-Arrow -> Pandas Conversion
+Arrow -> pandas Conversion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 +-------------------------------------+--------------------------------------------------------+
-| Source Type (Arrow)                 | Destination Type (Pandas)                              |
+| Source Type (Arrow)                 | Destination Type (pandas)                              |
 +=====================================+========================================================+
 | ``BOOL``                            | ``bool``                                               |
 +-------------------------------------+--------------------------------------------------------+
