@@ -189,9 +189,6 @@ mod tests {
         }
         let a = b.finish();
         assert_eq!(5, a.len());
-        // for i in 0..5 {
-        //     assert_eq!(&i, a.get(i as usize));
-        // }
     }
 
     #[test]
@@ -202,9 +199,6 @@ mod tests {
         }
         let a = b.finish();
         assert_eq!(5, a.len());
-        // for i in 0..5 {
-        //     assert_eq!(&i, a.get(i as usize));
-        // }
     }
 
     #[test]
