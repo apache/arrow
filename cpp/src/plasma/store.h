@@ -180,13 +180,15 @@ class PlasmaStore {
 
   void PushNotification(ObjectInfoT* object_notification, int client_fd);
 
-  void AddToClientObjectIds(ObjectTableEntry* entry, Client* client);
+  void AddToClientObjectIds(const ObjectID& object_id, ObjectTableEntry* entry,
+                            Client* client);
 
   void ReturnFromGet(GetRequest* get_req);
 
   void UpdateObjectGetRequests(const ObjectID& object_id);
 
-  int RemoveFromClientObjectIds(ObjectTableEntry* entry, Client* client);
+  int RemoveFromClientObjectIds(const ObjectID& object_id, ObjectTableEntry* entry,
+                                Client* client);
 
   /// Event loop of the plasma store.
   EventLoop* loop_;
