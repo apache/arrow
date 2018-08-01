@@ -43,7 +43,7 @@ namespace test {
 TEST(VectorBooleanTest, TestEncodeDecode) {
   // PARQUET-454
   int nvalues = 10000;
-  int nbytes = static_cast<int>(BitUtil::Ceil(nvalues, 8));
+  int nbytes = static_cast<int>(BitUtil::BytesForBits(nvalues));
 
   // seed the prng so failure is deterministic
   vector<bool> draws = flip_coins_seed(nvalues, 0.5, 0);
@@ -252,7 +252,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    std::vector<uint8_t> valid_bits(BitUtil::RoundUpNumBytes(num_values_) + 1, 255);
+    std::vector<uint8_t> valid_bits(BitUtil::BytesForBits(num_values_) + 1, 255);
     DictEncoder<Type> encoder(descr_.get(), &pool_);
 
     ASSERT_NO_THROW(encoder.Put(draws_, num_values_));

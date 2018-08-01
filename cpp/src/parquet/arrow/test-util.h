@@ -368,7 +368,7 @@ Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
   int32_t* offsets_ptr = reinterpret_cast<int32_t*>(offsets->mutable_data());
 
   auto null_bitmap = AllocateBuffer();
-  int64_t bitmap_size = ::arrow::BitUtil::CeilByte(size) / 8;
+  int64_t bitmap_size = ::arrow::BitUtil::BytesForBits(size);
   RETURN_NOT_OK(null_bitmap->Resize(bitmap_size));
   uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();
   memset(null_bitmap_ptr, 0, bitmap_size);

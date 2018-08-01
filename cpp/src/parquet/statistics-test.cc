@@ -72,7 +72,7 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
 
     TypedStats statistics3(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
-        BitUtil::RoundUpNumBytes(static_cast<uint32_t>(this->values_.size())) + 1, 255);
+        BitUtil::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     statistics3.UpdateSpaced(this->values_ptr_, valid_bits.data(), 0,
                              this->values_.size(), 0);
     std::string encoded_min_spaced = statistics3.EncodeMin();
@@ -722,7 +722,7 @@ TEST(TestStatisticsFloatNaN, NaNValuesSpaced) {
   for (int i = 0; i < NUM_VALUES; i++) {
     nan_values[i] = std::nanf("");
   }
-  std::vector<uint8_t> valid_bits(BitUtil::RoundUpNumBytes(NUM_VALUES) + 1, 255);
+  std::vector<uint8_t> valid_bits(BitUtil::BytesForBits(NUM_VALUES) + 1, 255);
 
   // Test values
   TypedRowGroupStatistics<FloatType> nan_stats(&descr);

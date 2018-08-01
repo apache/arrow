@@ -137,7 +137,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                        bool enable_dictionary, bool enable_statistics,
                                        int64_t num_rows) {
     std::vector<uint8_t> valid_bits(
-        BitUtil::RoundUpNumBytes(static_cast<uint32_t>(this->values_.size())) + 1, 255);
+        BitUtil::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
