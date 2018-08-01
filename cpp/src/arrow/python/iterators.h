@@ -75,8 +75,7 @@ inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
       for (Py_ssize_t i = 0; keep_going && i < size; ++i) {
         OwnedRef value_ref(PySequence_ITEM(obj, i));
         RETURN_IF_PYERROR();
-        RETURN_NOT_OK(func(value_ref.obj(),
-                           static_cast<int64_t>(i), &keep_going));
+        RETURN_NOT_OK(func(value_ref.obj(), static_cast<int64_t>(i), &keep_going));
       }
     }
   } else {
@@ -88,33 +87,30 @@ inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
 // Visit sequence with no null mask
 template <class VisitorFunc>
 inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
-  return VisitSequenceGeneric(obj, [](PyObject* value,
-                                      int64_t i /* unused */,
-                                      bool* keep_going) {
-                                return func(value, &keep_going);
-                              });
+  return VisitSequenceGeneric(
+      obj, [](PyObject* value, int64_t i /* unused */, bool* keep_going) {
+        return func(value, &keep_going);
+      });
 }
 
 /// Visit sequence with null mask
 template <class VisitorFunc>
-inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo,
-                                  VisitorFunc&& func) {
+inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, VisitorFunc&& func) {
   if (mo == nullptr || !PyArray_Check(mo)) {
     return Status::Invalid("Null mask must be NumPy array");
   }
 
   PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
-  if (!(PyArray_NDIM(arr_obj) == 1 &&
-        PyArray_DESCR(arr_obj)->type_num == NPY_BOOL)) {
+  if (!(PyArray_NDIM(arr_obj) == 1 && PyArray_DESCR(arr_obj)->type_num == NPY_BOOL)) {
     return Status::Invalid("Mask must be 1D array with bool dtype");
   }
 
   Ndarray1DIndexer<uint8_t> mask_values(mask);
 
-  return VisitSequenceGeneric(obj, [&mask_values](PyObject* value, int64_t i,
-                                                  bool* keep_going) {
-                                return func(value, mask_values[i], &keep_going);
-                              });
+  return VisitSequenceGeneric(
+      obj, [&mask_values](PyObject* value, int64_t i, bool* keep_going) {
+        return func(value, mask_values[i], &keep_going);
+      });
 }
 
 // Like IterateSequence, but accepts any generic iterable (including
