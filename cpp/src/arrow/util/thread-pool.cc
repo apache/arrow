@@ -51,7 +51,11 @@ struct ThreadPool::State {
 ThreadPool::ThreadPool()
     : sp_state_(std::make_shared<ThreadPool::State>()),
       state_(sp_state_.get()),
-      shutdown_on_destroy_(true) {}
+      shutdown_on_destroy_(true) {
+#ifndef _WIN32
+  pid_ = getpid();
+#endif
+}
 
 ThreadPool::~ThreadPool() {
   if (shutdown_on_destroy_) {
@@ -59,7 +63,34 @@ ThreadPool::~ThreadPool() {
   }
 }
 
+void ThreadPool::ProtectAgainstFork() {
+#ifndef _WIN32
+  pid_t current_pid = getpid();
+  if (pid_ != current_pid) {
+    // Reinitialize internal state in child process after fork()
+    // Ideally we would use pthread_at_fork(), but that doesn't allow
+    // storing an argument, hence we'd need to maintain a list of all
+    // existing ThreadPools.
+    int capacity = state_->desired_capacity_;
+
+    auto new_state = std::make_shared<ThreadPool::State>();
+    new_state->please_shutdown_ = state_->please_shutdown_;
+    new_state->quick_shutdown_ = state_->quick_shutdown_;
+
+    pid_ = current_pid;
+    sp_state_ = new_state;
+    state_ = sp_state_.get();
+
+    // Launch worker threads anew
+    if (!state_->please_shutdown_) {
+      ARROW_UNUSED(SetCapacity(capacity));
+    }
+  }
+#endif
+}
+
 Status ThreadPool::SetCapacity(int threads) {
+  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   if (state_->please_shutdown_) {
     return Status::Invalid("operation forbidden during or after shutdown");
@@ -81,16 +112,19 @@ Status ThreadPool::SetCapacity(int threads) {
 }
 
 int ThreadPool::GetCapacity() {
+  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return state_->desired_capacity_;
 }
 
 int ThreadPool::GetActualCapacity() {
+  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return static_cast<int>(state_->workers_.size());
 }
 
 Status ThreadPool::Shutdown(bool wait) {
+  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
 
   if (state_->please_shutdown_) {
@@ -186,6 +220,7 @@ void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
 
 Status ThreadPool::SpawnReal(std::function<void()> task) {
   {
+    ProtectAgainstFork();
     std::lock_guard<std::mutex> lock(state_->mutex_);
     if (state_->please_shutdown_) {
       return Status::Invalid("operation forbidden during or after shutdown");
