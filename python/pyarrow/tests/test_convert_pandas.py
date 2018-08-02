@@ -17,6 +17,7 @@
 # under the License.
 import decimal
 import json
+import multiprocessing as mp
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
 
@@ -1865,10 +1866,23 @@ class TestConvertMisc(object):
             arr = np.array([], dtype=dtype)
             _check_array_roundtrip(arr, type=pa_type)
 
-    def test_threaded_conversion(self):
+    @classmethod
+    def _threaded_conversion(cls):
         df = _alltypes_example()
         _check_pandas_roundtrip(df, use_threads=True)
         _check_pandas_roundtrip(df, use_threads=True, as_batch=True)
+
+    def test_threaded_conversion(self):
+        self._threaded_conversion()
+
+    def test_threaded_conversion_multiprocess(self):
+        # Parallel conversion should work from child processes too (ARROW-2963)
+        pool = mp.Pool(2)
+        try:
+            pool.apply(self._threaded_conversion)
+        finally:
+            pool.close()
+            pool.join()
 
     def test_category(self):
         repeats = 5

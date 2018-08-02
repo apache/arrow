@@ -63,7 +63,7 @@ ThreadPool::~ThreadPool() {
   }
 }
 
-void ThreadPool::FixIfBroken() {
+void ThreadPool::ProtectAgainstFork() {
 #ifndef _WIN32
   pid_t current_pid = getpid();
   if (pid_ != current_pid) {
@@ -90,7 +90,7 @@ void ThreadPool::FixIfBroken() {
 }
 
 Status ThreadPool::SetCapacity(int threads) {
-  FixIfBroken();
+  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   if (state_->please_shutdown_) {
     return Status::Invalid("operation forbidden during or after shutdown");
@@ -112,19 +112,19 @@ Status ThreadPool::SetCapacity(int threads) {
 }
 
 int ThreadPool::GetCapacity() {
-  FixIfBroken();
+  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return state_->desired_capacity_;
 }
 
 int ThreadPool::GetActualCapacity() {
-  FixIfBroken();
+  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return static_cast<int>(state_->workers_.size());
 }
 
 Status ThreadPool::Shutdown(bool wait) {
-  FixIfBroken();
+  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
 
   if (state_->please_shutdown_) {
@@ -220,7 +220,7 @@ void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
 
 Status ThreadPool::SpawnReal(std::function<void()> task) {
   {
-    FixIfBroken();
+    ProtectAgainstFork();
     std::lock_guard<std::mutex> lock(state_->mutex_);
     if (state_->please_shutdown_) {
       return Status::Invalid("operation forbidden during or after shutdown");

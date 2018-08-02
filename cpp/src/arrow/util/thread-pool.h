@@ -140,8 +140,8 @@ class ARROW_EXPORT ThreadPool {
   void LaunchWorkersUnlocked(int threads);
   // Get the current actual capacity
   int GetActualCapacity();
-  // Protect against fork()
-  void FixIfBroken();
+  // Reinitialize the thread pool if the pid changed
+  void ProtectAgainstFork();
 
   // The worker loop is a static method so that it can keep running
   // after the ThreadPool is destroyed
