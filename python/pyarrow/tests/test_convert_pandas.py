@@ -1827,6 +1827,13 @@ class TestZeroCopyConversion(object):
         self.check_zero_copy_failure(pa.array(arr))
 
 
+# This function must be at the top-level for Python 2.7's multiprocessing
+def _threaded_conversion():
+    df = _alltypes_example()
+    _check_pandas_roundtrip(df, use_threads=True)
+    _check_pandas_roundtrip(df, use_threads=True, as_batch=True)
+
+
 class TestConvertMisc(object):
     """
     Miscellaneous conversion tests.
@@ -1866,20 +1873,14 @@ class TestConvertMisc(object):
             arr = np.array([], dtype=dtype)
             _check_array_roundtrip(arr, type=pa_type)
 
-    @classmethod
-    def _threaded_conversion(cls):
-        df = _alltypes_example()
-        _check_pandas_roundtrip(df, use_threads=True)
-        _check_pandas_roundtrip(df, use_threads=True, as_batch=True)
-
     def test_threaded_conversion(self):
-        self._threaded_conversion()
+        _threaded_conversion()
 
     def test_threaded_conversion_multiprocess(self):
         # Parallel conversion should work from child processes too (ARROW-2963)
         pool = mp.Pool(2)
         try:
-            pool.apply(self._threaded_conversion)
+            pool.apply(_threaded_conversion)
         finally:
             pool.close()
             pool.join()
