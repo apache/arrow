@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/platform.h"
+#include "arrow/python/builtin_convert.h"
+#include "arrow/python/numpy_interop.h"
 
 #include <datetime.h>
 
@@ -26,8 +27,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "arrow/python/builtin_convert.h"
 
 #include "arrow/api.h"
 #include "arrow/status.h"
@@ -103,18 +102,16 @@ class TypeInferrer {
       *keep_going = make_unions_ && false;
     } else if (internal::PyFloatScalar_Check(obj)) {
       ++float_count_;
-      *keep_going = make_unions_ && false;
     } else if (internal::IsPyInteger(obj)) {
       ++int_count_;
+    } else if (PyDateTime_Check(obj)) {
+      ++timestamp_micro_count_;
       *keep_going = make_unions_ && false;
     } else if (PyDate_Check(obj)) {
       ++date_count_;
       *keep_going = make_unions_ && false;
     } else if (PyTime_Check(obj)) {
       ++time_count_;
-      *keep_going = make_unions_ && false;
-    } else if (PyDateTime_Check(obj)) {
-      ++timestamp_micro_count_;
       *keep_going = make_unions_ && false;
     } else if (internal::IsPyBinary(obj)) {
       ++binary_count_;
@@ -123,8 +120,7 @@ class TypeInferrer {
       ++unicode_count_;
       *keep_going = make_unions_ && false;
     } else if (PyArray_CheckAnyScalarExact(obj)) {
-      RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj)));
-      *keep_going = make_unions_ && false;
+      RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
     } else if (PyList_Check(obj)) {
       return VisitList(obj, keep_going);
     } else if (PyArray_Check(obj)) {
@@ -161,8 +157,10 @@ class TypeInferrer {
 
     RETURN_NOT_OK(Validate());
 
-    if (concrete_type_) {
-      *out = concrete_type_;
+    if (numpy_unifier_.current_dtype() != nullptr) {
+      std::shared_ptr<DataType> type;
+      RETURN_NOT_OK(NumPyDtypeToArrow(numpy_unifier_.current_dtype(), &type));
+      *out = type;
     } else if (list_count_) {
       std::shared_ptr<DataType> value_type;
       RETURN_NOT_OK(list_inferrer_->GetType(&value_type));
@@ -172,6 +170,7 @@ class TypeInferrer {
     } else if (decimal_count_) {
       *out = decimal(max_decimal_metadata_.precision(), max_decimal_metadata_.scale());
     } else if (float_count_) {
+      // Prioritize floats before integers
       *out = float64();
     } else if (int_count_) {
       *out = int64();
@@ -219,19 +218,11 @@ class TypeInferrer {
     return Status::OK();
   }
 
-  Status VisitDType(PyArray_Descr* dtype) {
-    std::shared_ptr<DataType> type;
-    RETURN_NOT_OK(NumPyDtypeToArrow(dtype, &type));
-    if (is_integer(type->id()) || is_floating(type->id()) ||
-        type->id() == Type::TIMESTAMP) {
-      concrete_type_ = type;
-    } else {
-      std::ostringstream ss;
-      ss << "Unsupported Numpy dtype: ";
-      ss << type->ToString();
-      return Status::Invalid(ss.str());
-    }
-    return Status::OK();
+  Status VisitDType(PyArray_Descr* dtype, bool* keep_going) {
+    // Continue visiting dtypes for now.
+    // TODO(wesm): devise approach for unions
+    *keep_going = true;
+    return numpy_unifier_.Observe(dtype);
   }
 
   Status VisitList(PyObject* obj, bool* keep_going /* unused */) {
@@ -252,10 +243,7 @@ class TypeInferrer {
       list_inferrer_.reset(new TypeInferrer(validate_interval_, make_unions_));
     }
     ++list_count_;
-
-    // Reached a concrete dype
-    *keep_going = make_unions_ && false;
-    return list_inferrer_->VisitDType(dtype);
+    return list_inferrer_->VisitDType(dtype, keep_going);
   }
 
   Status VisitDict(PyObject* obj) {
@@ -331,7 +319,7 @@ class TypeInferrer {
 
   // If we observe a strongly-typed value in e.g. a NumPy array, we can store
   // it here to skip the type counting logic above
-  std::shared_ptr<DataType> concrete_type_;
+  NumPyDtypeUnifier numpy_unifier_;
 
   internal::DecimalMetadata max_decimal_metadata_;
 

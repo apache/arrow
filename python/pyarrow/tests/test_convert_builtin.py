@@ -342,6 +342,25 @@ def test_sequence_double():
     assert arr.to_pylist() == data
 
 
+def test_double_auto_coerce_from_integer():
+    # Done as part of ARROW-2814
+    data = [1.5, 1., None, 2.5, None, None]
+    arr = pa.array(data)
+
+    data2 = [1.5, 1, None, 2.5, None, None]
+    arr2 = pa.array(data2)
+
+    assert arr.equals(arr2)
+
+    data3 = [1, 1.5, None, 2.5, None, None]
+    arr3 = pa.array(data3)
+
+    data4 = [4, 1.5, None, 2.5, None, None]
+    arr4 = pa.array(data4)
+
+    assert arr3.equals(arr4)
+
+
 @parametrize_with_iterable_types
 @pytest.mark.parametrize("np_scalar", [np.float16, np.float32, np.float64])
 @pytest.mark.parametrize("from_pandas", [True, False])
