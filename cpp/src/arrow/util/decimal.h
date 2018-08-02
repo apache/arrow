@@ -21,6 +21,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <sstream>
 #include <string>
 #include <type_traits>
 
