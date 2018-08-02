@@ -45,7 +45,8 @@ pub type ArrayRef = Arc<Array>;
 /// Constructs an array using the input `data`. Returns a reference-counted `Array`
 /// instance.
 fn make_array(data: ArrayDataRef) -> ArrayRef {
-    // TODO: refactor the DataType enum and remove the clone here.
+    // TODO: here data_type() needs to clone the type - maybe add a type tag enum to
+    // avoid the cloning.
     match data.data_type() {
         DataType::Boolean => Arc::new(PrimitiveArray::<bool>::from(data)) as ArrayRef,
         DataType::Int8 => Arc::new(PrimitiveArray::<i8>::from(data)) as ArrayRef,
@@ -91,6 +92,7 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
     raw_values: RawPtrBox<u8>,
+    /// Marker to let the compiler know that `T` is used.
     _phantom: PhantomData<T>,
 }
 
@@ -143,7 +145,7 @@ macro_rules! def_primitive_array {
                     if data.is_null(i) {
                         continue;
                     }
-                    let mut m = self.value(i as i64);
+                    let m = self.value(i as i64);
                     match n {
                         None => n = Some(m),
                         Some(nn) => if cmp(m, nn) {
@@ -284,7 +286,12 @@ impl From<ArrayDataRef> for ListArray {
         debug_assert!(data.buffers().len() == 1);
         debug_assert!(data.child_data().len() == 1);
         let values = make_array(data.child_data()[0].clone());
-        let value_offsets = data.buffers()[0].raw_data() as *const u8 as *const i32;
+        let value_offsets = data.buffers()[0].raw_data() as *const i32;
+        unsafe {
+            debug_assert!(*value_offsets.offset(0) == 0);
+            debug_assert!(*value_offsets.offset(data.length() as isize)
+                          == values.data().length() as i32);
+        }
         Self {
             data: data.clone(),
             values: values,
@@ -438,20 +445,13 @@ impl Array for StructArray {
     }
 }
 
-impl From<Vec<ArrayRef>> for StructArray {
-    fn from(v: Vec<ArrayRef>) -> Self {
-        let mut field_types = vec![];
-        let mut count = 0;
-        for arr in &v {
-            let idx = count.to_string();
-            count += 1;
-            field_types.push(Field::new(&idx, arr.data().data_type(), false));
-        }
-        let mut builder = ArrayData::builder(DataType::Struct(field_types));
-        for arr in v {
-            builder = builder.add_child_data(arr.data().clone());
-        }
-        StructArray::from(builder.build())
+impl From<Vec<(Field, ArrayRef)>> for StructArray {
+    fn from(v: Vec<(Field, ArrayRef)>) -> Self {
+        let (field_types, field_values): (Vec<_>, Vec<_>) = v.into_iter().unzip();
+        let data = ArrayData::builder(DataType::Struct(field_types))
+            .child_data(field_values.into_iter().map(|a| a.data()).collect())
+            .build();
+        StructArray::from(data)
     }
 }
 
@@ -491,7 +491,7 @@ mod tests {
         let value_offsets = Buffer::from(value_offset_slice.to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type)
-            .length(4)
+            .length(3)
             .add_buffer(value_offsets)
             .add_child_data(value_data.clone())
             .build();

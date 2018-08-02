@@ -16,7 +16,7 @@
 // under the License.
 
 use std::mem;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use memory;
 
@@ -25,7 +25,7 @@ use memory;
 #[derive(PartialEq, Debug)]
 pub struct Buffer {
     /// Reference-counted pointer to the internal byte buffer.
-    data: Rc<BufferData>,
+    data: Arc<BufferData>,
 
     /// The offset into the buffer.
     offset: usize,
@@ -58,7 +58,7 @@ impl Buffer {
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
         let buf_data = BufferData { ptr: ptr, len: len };
         Buffer {
-            data: Rc::new(buf_data),
+            data: Arc::new(buf_data),
             offset: 0,
         }
     }
@@ -86,7 +86,8 @@ impl Buffer {
         self.data.ptr
     }
 
-    /// Returns a copy for this buffer.
+    /// Returns a shallow copy for this buffer, i.e., a new buffer that points to the
+    /// same memory location of this buffer.
     pub fn copy(&self) -> Buffer {
         Buffer {
             data: self.data.clone(),
@@ -109,16 +110,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let len = slice.len() * mem::size_of::<u8>();
         let buffer = memory::allocate_aligned((len) as i64).unwrap();
         memory::memcpy(buffer, slice.as_ptr(), len);
-        Buffer {
-            data: {
-                let buf_data = BufferData {
-                    ptr: buffer,
-                    len: len,
-                };
-                Rc::new(buf_data)
-            },
-            offset: 0,
-        }
+        Buffer::from_raw_parts(buffer, len)
     }
 }
 
@@ -131,15 +123,17 @@ mod tests {
     use std::thread;
 
     use super::Buffer;
-    use memory::{allocate_aligned, memcpy};
 
     #[test]
     fn test_buffer_data_equality() {
-        let buf1 = vec_to_buffer(&[0, 1, 2, 3, 4]);
-        let mut buf2 = vec_to_buffer(&[0, 1, 2, 3, 4]);
+        let buf1 = Buffer::from(&[0, 1, 2, 3, 4]);
+        let mut buf2 = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(buf1, buf2);
 
-        buf2 = vec_to_buffer(&[0, 0, 2, 3, 4]);
+        buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
+        assert!(buf1 != buf2);
+
+        buf2 = Buffer::from(&[0, 1, 2, 3]);
         assert!(buf1 != buf2);
     }
 
@@ -150,7 +144,7 @@ mod tests {
         assert_eq!(0, buf.data().len());
         assert!(buf.raw_data().is_null());
 
-        let buf = vec_to_buffer(&[0, 1, 2, 3, 4]);
+        let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
         assert!(!buf.raw_data().is_null());
         assert_eq!(&[0, 1, 2, 3, 4], buf.data());
@@ -171,15 +165,6 @@ mod tests {
         assert_eq!(5, buf2.len());
         assert!(!buf2.raw_data().is_null());
         assert_eq!(&[0, 1, 2, 3, 4], buf2.data());
-    }
-
-    // Utility function to convert a byte vector into a `Buffer`.
-    fn vec_to_buffer(v: &[u8]) -> Buffer {
-        let len = v.len();
-        let dst = allocate_aligned(len as i64).expect("allocation failed");
-        let src = v.as_ptr() as *const u8;
-        memcpy(dst, src, len);
-        Buffer::from_raw_parts(dst, len)
     }
 
     #[test]

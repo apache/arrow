@@ -17,7 +17,7 @@
 
 static BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
 
-static BIT_TABLE: [u8; 256] = [
+static POPCOUNT_TABLE: [u8; 256] = [
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
     1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
     1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
@@ -28,16 +28,17 @@ static BIT_TABLE: [u8; 256] = [
     3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
 ];
 
+/// Returns the nearest multiple of `factor` that is `>=` than `num`. Here `factor` must
+/// be a power of 2.
+pub fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
+    debug_assert!(factor > 0 && (factor & (factor - 1)) == 0);
+    (num + (factor - 1)) & !(factor - 1)
+}
+
 /// Returns the nearest number that is `>=` than `num` and is a multiple of 64.
 #[inline]
 pub fn round_upto_multiple_of_64(num: i64) -> i64 {
-    let force_carry_addend = 63;
-    let truncate_bitmask = !63;
-    let max_roundable_num = ::std::i64::MAX - 64;
-    if num < max_roundable_num {
-        return (num + force_carry_addend) & truncate_bitmask;
-    }
-    num
+    round_upto_power_of_2(num, 64)
 }
 
 /// Returns whether bit at position `i` in `data` is set or not.
@@ -57,7 +58,7 @@ pub fn set_bit(data: &mut [u8], i: usize) {
 pub fn count_set_bits(data: &[u8]) -> i64 {
     let mut count: i64 = 0;
     for u in data {
-        count += BIT_TABLE[*u as usize] as i64;
+        count += POPCOUNT_TABLE[*u as usize] as i64;
     }
     count
 }
@@ -76,10 +77,7 @@ mod tests {
         assert_eq!(64, round_upto_multiple_of_64(63));
         assert_eq!(64, round_upto_multiple_of_64(64));
         assert_eq!(128, round_upto_multiple_of_64(65));
-        assert_eq!(
-            ::std::i64::MAX - 64,
-            round_upto_multiple_of_64(::std::i64::MAX - 64)
-        );
+        assert_eq!(192, round_upto_multiple_of_64(129));
     }
 
     #[test]

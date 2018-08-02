@@ -37,14 +37,15 @@ pub struct ArrayData {
     offset: i64,
 
     /// The buffers for this array data. Note that depending on the array types, this
-    /// could hold different types of buffers (e.g., value buffer, value offset buffer)
+    /// could hold different kinds of buffers (e.g., value buffer, value offset buffer)
     /// at different positions.
     buffers: Vec<Buffer>,
 
-    /// The child(ren) of this array. Only non-empty for `ListArray` and `StructArray`.
+    /// The child(ren) of this array. Only non-empty for nested types, currently
+    /// `ListArray` and `StructArray`.
     child_data: Vec<ArrayDataRef>,
 
-    /// The null bit map. A `None` value for this indicates all values are non-null in
+    /// The null bitmap. A `None` value for this indicates all values are non-null in
     /// this array.
     null_bitmap: Option<Bitmap>,
 }
@@ -89,6 +90,11 @@ impl ArrayData {
     /// Returns a copy of the data type for this array data.
     pub fn data_type(&self) -> DataType {
         self.data_type.clone()
+    }
+
+    /// Returns a reference to the data type of this array data.
+    pub fn data_type_ref(&self) -> &DataType {
+        &self.data_type
     }
 
     /// Returns a slice of buffers for this array data.

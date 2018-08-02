@@ -30,23 +30,23 @@ extern "C" {
 }
 
 #[cfg(windows)]
-pub fn allocate_aligned(size: i64) -> Result<*const u8, ArrowError> {
+pub fn allocate_aligned(size: i64) -> Result<*mut u8, ArrowError> {
     let page = unsafe { _aligned_malloc(size as libc::size_t, ALIGNMENT as libc::size_t) };
     match page {
         0 => Err(ArrowError::MemoryError(
             "Failed to allocate memory".to_string(),
         )),
-        _ => Ok(unsafe { mem::transmute::<libc::size_t, *const u8>(page) }),
+        _ => Ok(unsafe { mem::transmute::<libc::size_t, *mut u8>(page) }),
     }
 }
 
 #[cfg(not(windows))]
-pub fn allocate_aligned(size: i64) -> Result<*const u8, ArrowError> {
+pub fn allocate_aligned(size: i64) -> Result<*mut u8, ArrowError> {
     unsafe {
         let mut page: *mut libc::c_void = mem::uninitialized();
         let result = libc::posix_memalign(&mut page, ALIGNMENT, size as usize);
         match result {
-            0 => Ok(mem::transmute::<*mut libc::c_void, *const u8>(page)),
+            0 => Ok(mem::transmute::<*mut libc::c_void, *mut u8>(page)),
             _ => Err(ArrowError::MemoryError(
                 "Failed to allocate memory".to_string(),
             )),
@@ -68,10 +68,10 @@ pub fn free_aligned(p: *const u8) {
     }
 }
 
-pub fn memcpy(dst: *const u8, src: *const u8, len: usize) {
+pub fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
     unsafe {
         let src = mem::transmute::<*const u8, *const libc::c_void>(src);
-        let dst = mem::transmute::<*const u8, *mut libc::c_void>(dst);
+        let dst = mem::transmute::<*mut u8, *mut libc::c_void>(dst);
         libc::memcpy(dst, src, len);
     }
 }
