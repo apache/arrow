@@ -290,7 +290,7 @@ TEST_F(TestThreadPool, Submit) {
 
 // Test fork safety on Unix
 
-#ifndef _WIN32
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND))
 TEST_F(TestThreadPool, ForkSafety) {
   pid_t child_pid;
   int child_status;
