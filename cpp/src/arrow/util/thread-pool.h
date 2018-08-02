@@ -18,6 +18,10 @@
 #ifndef ARROW_UTIL_THREAD_POOL_H
 #define ARROW_UTIL_THREAD_POOL_H
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include <exception>
 #include <functional>
 #include <future>
@@ -136,6 +140,8 @@ class ARROW_EXPORT ThreadPool {
   void LaunchWorkersUnlocked(int threads);
   // Get the current actual capacity
   int GetActualCapacity();
+  // Reinitialize the thread pool if the pid changed
+  void ProtectAgainstFork();
 
   // The worker loop is a static method so that it can keep running
   // after the ThreadPool is destroyed
@@ -144,9 +150,12 @@ class ARROW_EXPORT ThreadPool {
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
-  const std::shared_ptr<State> sp_state_;
-  State* const state_;
+  std::shared_ptr<State> sp_state_;
+  State* state_;
   bool shutdown_on_destroy_;
+#ifndef _WIN32
+  pid_t pid_;
+#endif
 };
 
 // Return the process-global thread pool for CPU-bound tasks.

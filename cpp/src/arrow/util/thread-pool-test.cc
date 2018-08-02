@@ -15,8 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef _WIN32
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <functional>
 #include <thread>
 #include <vector>
@@ -281,6 +287,65 @@ TEST_F(TestThreadPool, Submit) {
     fut.get();
   }
 }
+
+// Test fork safety on Unix
+
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND))
+TEST_F(TestThreadPool, ForkSafety) {
+  pid_t child_pid;
+  int child_status;
+
+  {
+    // Fork after task submission
+    auto pool = this->MakeThreadPool(3);
+    auto fut = pool->Submit(add<int>, 4, 5);
+    ASSERT_EQ(fut.get(), 9);
+
+    child_pid = fork();
+    if (child_pid == 0) {
+      // Child: thread pool should be usable
+      fut = pool->Submit(add<int>, 3, 4);
+      if (fut.get() != 7) {
+        std::exit(1);
+      }
+      // Shutting down shouldn't hang or fail
+      Status st = pool->Shutdown();
+      std::exit(st.ok() ? 0 : 2);
+    } else {
+      // Parent
+      ASSERT_GT(child_pid, 0);
+      ASSERT_GT(waitpid(child_pid, &child_status, 0), 0);
+      ASSERT_TRUE(WIFEXITED(child_status));
+      ASSERT_EQ(WEXITSTATUS(child_status), 0);
+      ASSERT_OK(pool->Shutdown());
+    }
+  }
+  {
+    // Fork after shutdown
+    auto pool = this->MakeThreadPool(3);
+    ASSERT_OK(pool->Shutdown());
+
+    child_pid = fork();
+    if (child_pid == 0) {
+      // Child
+      // Spawning a task should return with error (pool was shutdown)
+      Status st = pool->Spawn([] {});
+      if (!st.IsInvalid()) {
+        std::exit(1);
+      }
+      // Trigger destructor
+      pool.reset();
+      std::exit(0);
+    } else {
+      // Parent
+      ASSERT_GT(child_pid, 0);
+      ASSERT_GT(waitpid(child_pid, &child_status, 0), 0);
+      ASSERT_TRUE(WIFEXITED(child_status));
+      ASSERT_EQ(WEXITSTATUS(child_status), 0);
+    }
+  }
+}
+#endif
 
 TEST(TestGlobalThreadPool, Capacity) {
   // Sanity check

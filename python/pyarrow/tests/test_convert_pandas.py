@@ -17,6 +17,7 @@
 # under the License.
 import decimal
 import json
+import multiprocessing as mp
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
 
@@ -1826,6 +1827,13 @@ class TestZeroCopyConversion(object):
         self.check_zero_copy_failure(pa.array(arr))
 
 
+# This function must be at the top-level for Python 2.7's multiprocessing
+def _threaded_conversion():
+    df = _alltypes_example()
+    _check_pandas_roundtrip(df, use_threads=True)
+    _check_pandas_roundtrip(df, use_threads=True, as_batch=True)
+
+
 class TestConvertMisc(object):
     """
     Miscellaneous conversion tests.
@@ -1866,9 +1874,16 @@ class TestConvertMisc(object):
             _check_array_roundtrip(arr, type=pa_type)
 
     def test_threaded_conversion(self):
-        df = _alltypes_example()
-        _check_pandas_roundtrip(df, use_threads=True)
-        _check_pandas_roundtrip(df, use_threads=True, as_batch=True)
+        _threaded_conversion()
+
+    def test_threaded_conversion_multiprocess(self):
+        # Parallel conversion should work from child processes too (ARROW-2963)
+        pool = mp.Pool(2)
+        try:
+            pool.apply(_threaded_conversion)
+        finally:
+            pool.close()
+            pool.join()
 
     def test_category(self):
         repeats = 5
