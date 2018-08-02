@@ -205,9 +205,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     assert(fd != -1);
   }
   auto entry = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
-  entry->info.object_id = object_id.binary();
-  entry->info.data_size = data_size;
-  entry->info.metadata_size = metadata_size;
+  entry->data_size = data_size;
+  entry->metadata_size = metadata_size;
   entry->pointer = pointer;
   // TODO(pcm): Set the other fields.
   entry->fd = fd;
@@ -248,9 +247,9 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
 #endif
   object->store_fd = entry->fd;
   object->data_offset = entry->offset;
-  object->metadata_offset = entry->offset + entry->info.data_size;
-  object->data_size = entry->info.data_size;
-  object->metadata_size = entry->info.metadata_size;
+  object->metadata_offset = entry->offset + entry->data_size;
+  object->data_size = entry->data_size;
+  object->metadata_size = entry->metadata_size;
   object->device_num = entry->device_num;
 }
 
@@ -445,9 +444,14 @@ void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) 
   // Set the state of object to SEALED.
   entry->state = ObjectState::PLASMA_SEALED;
   // Set the object digest.
-  entry->info.digest = std::string(reinterpret_cast<char*>(&digest[0]), kDigestSize);
+  std::memcpy(&entry->digest[0], &digest[0], kDigestSize);
   // Inform all subscribers that a new object has been sealed.
-  PushNotification(&entry->info);
+  ObjectInfoT info;
+  info.object_id = object_id.binary();
+  info.data_size = entry->data_size;
+  info.metadata_size = entry->metadata_size;
+  info.digest = std::string(reinterpret_cast<char*>(&digest[0]), kDigestSize);
+  PushNotification(&info);
 
   // Update all get requests that involve this object.
   UpdateObjectGetRequests(object_id);
@@ -701,7 +705,13 @@ void PlasmaStore::SubscribeToUpdates(Client* client) {
   // Push notifications to the new subscriber about existing sealed objects.
   for (const auto& entry : store_info_.objects) {
     if (entry.second->state == ObjectState::PLASMA_SEALED) {
-      PushNotification(&entry.second->info, fd);
+      ObjectInfoT info;
+      info.object_id = entry.first.binary();
+      info.data_size = entry.second->data_size;
+      info.metadata_size = entry.second->metadata_size;
+      info.digest =
+          std::string(reinterpret_cast<char*>(&entry.second->digest[0]), kDigestSize);
+      PushNotification(&info, fd);
     }
   }
 }
