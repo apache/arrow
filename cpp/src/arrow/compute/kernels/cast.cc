@@ -19,10 +19,10 @@
 
 #include <cerrno>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <locale>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -732,83 +732,70 @@ struct CastFunctor<T, DictionaryType,
 // ----------------------------------------------------------------------
 // String to Number
 
-// Polymorphic wrapper around strtof() and friends
-static void StringToFloat(const char* str, char** str_end, float* out) {
-  *out = strtof(str, str_end);
-}
-
-static void StringToFloat(const char* str, char** str_end, double* out) {
-  *out = strtod(str, str_end);
-}
-
-// Function to cast a C string to a number.  Returns true on success,
-// false on error.
+// Cast a string to a number.  Returns true on success, false on error.
+// We rely on C++ istringstream for locale-independent parsing, which might
+// not be the fastest option.
 
 template <typename T>
 typename std::enable_if<std::is_floating_point<T>::value,
-                        bool>::type static CastStringToNumber(const char* str,
-                                                              size_t length, T* out) {
-  // Need a null-terminated copy to pass to the C library converters
-  std::string null_terminated(str, length);
-  str = null_terminated.data();
-  char* str_end;
-  StringToFloat(str, &str_end, out);
-  return (errno == 0 && static_cast<size_t>(str_end - str) == length);
+                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
+                                                              T* out) {
+  ibuf >> *out;
+  return !ibuf.fail() && ibuf.eof();
 }
+
+// For integers, not all integer widths are handled by the C++ stdlib, so
+// we check for limits outselves.
 
 template <typename T>
 typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value,
-                        bool>::type static CastStringToNumber(const char* str,
-                                                              size_t length, T* out) {
+                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
+                                                              T* out) {
   static constexpr bool need_long_long = sizeof(T) > sizeof(long);  // NOLINT
   static constexpr T min_value = std::numeric_limits<T>::min();
   static constexpr T max_value = std::numeric_limits<T>::max();
 
-  // Need a null-terminated copy to pass to the C library converters
-  std::string null_terminated(str, length);
-  str = null_terminated.data();
-  char* str_end;
   if (need_long_long) {
-    auto res = std::strtoll(str, &str_end, 10);
+    long long res;  // NOLINT
+    ibuf >> res;
     *out = static_cast<T>(res);  // may downcast
     if (res < min_value || res > max_value) {
       return false;
     }
   } else {
-    auto res = std::strtol(str, &str_end, 10);
+    long res;  // NOLINT
+    ibuf >> res;
     *out = static_cast<T>(res);  // may downcast
     if (res < min_value || res > max_value) {
       return false;
     }
   }
-  return (errno == 0 && static_cast<size_t>(str_end - str) == length);
+  return !ibuf.fail() && ibuf.eof();
 }
 
 template <typename T>
 typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value,
-                        bool>::type static CastStringToNumber(const char* str,
-                                                              size_t length, T* out) {
+                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
+                                                              T* out) {
   static constexpr bool need_long_long = sizeof(T) > sizeof(unsigned long);  // NOLINT
   static constexpr T max_value = std::numeric_limits<T>::max();
 
-  // Need a null-terminated copy to pass to the C library converters
-  std::string null_terminated(str, length);
-  str = null_terminated.data();
-  char* str_end;
   if (need_long_long) {
-    auto res = std::strtoull(str, &str_end, 10);
+    unsigned long long res;  // NOLINT
+    ibuf >> res;
     *out = static_cast<T>(res);  // may downcast
     if (res > max_value) {
       return false;
     }
   } else {
-    auto res = std::strtoul(str, &str_end, 10);
+    unsigned long res;  // NOLINT
+    ibuf >> res;
     *out = static_cast<T>(res);  // may downcast
     if (res > max_value) {
       return false;
     }
   }
-  return (errno == 0 && static_cast<size_t>(str_end - str) == length);
+  return !ibuf.fail() && ibuf.eof();
 }
 
 template <typename O>
@@ -820,23 +807,23 @@ struct CastFunctor<O, StringType, typename std::enable_if<is_number<O>::value>::
     StringArray input_array(input.Copy());
     auto out_data = GetMutableValues<out_type>(output, 1);
     errno = 0;
+    // Instantiate the stringstream outside of the loop
+    std::istringstream ibuf;
+    ibuf.imbue(std::locale::classic());
 
-    for (int64_t i = 0; i < input.length; ++i) {
+    for (int64_t i = 0; i < input.length; ++i, ++out_data) {
       if (input_array.IsNull(i)) {
-        out_data++;
         continue;
       }
-      int32_t length = -1;
-      auto str = input_array.GetValue(i, &length);
-      if (!CastStringToNumber(reinterpret_cast<const char*>(str),
-                              static_cast<size_t>(length), out_data)) {
+      auto str = input_array.GetString(i);
+      ibuf.clear();
+      ibuf.str(str);
+      if (!CastStringToNumber(ibuf, out_data)) {
         std::stringstream ss;
-        ss << "Failed to cast String '" << input_array.GetString(i) << "' into "
-           << output->type->ToString();
+        ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
         ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
         return;
       }
-      ++out_data;
     }
   }
 };

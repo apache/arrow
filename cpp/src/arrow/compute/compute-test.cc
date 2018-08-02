@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <locale>
 #include <memory>
 #include <numeric>
 #include <sstream>
@@ -853,6 +854,20 @@ TEST_F(TestCast, StringToNumber) {
                                                        float32(), e_float, options);
   CheckCase<StringType, std::string, DoubleType, double>(utf8(), v_float, is_valid,
                                                          float64(), e_double, options);
+
+  // Test that casting is locale-independent
+  auto global_locale = std::locale();
+  try {
+    // French locale uses the comma as decimal point
+    std::locale::global(std::locale("fr_FR.UTF-8"));
+  } catch (std::runtime_error) {
+    // Locale unavailable, ignore
+  }
+  CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
+                                                       float32(), e_float, options);
+  CheckCase<StringType, std::string, DoubleType, double>(utf8(), v_float, is_valid,
+                                                         float64(), e_double, options);
+  std::locale::global(global_locale);
 }
 
 TEST_F(TestCast, StringToNumberErrors) {
