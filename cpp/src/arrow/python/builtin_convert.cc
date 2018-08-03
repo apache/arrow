@@ -477,10 +477,13 @@ struct Unbox<FloatType> {
 template <>
 struct Unbox<DoubleType> {
   static inline Status Append(DoubleBuilder* builder, PyObject* obj) {
-    if (internal::PyFloatScalar_Check(obj)) {
+    if (PyFloat_Check(obj)) {
+      double val = PyFloat_AS_DOUBLE(obj);
+      return builder->Append(val);
+    } else if (internal::PyFloatScalar_Check(obj)) {
+      // Other kinds of float-y things
       double val = PyFloat_AsDouble(obj);
       RETURN_IF_PYERROR();
-      return builder->Append(val);
     } else if (internal::PyIntScalar_Check(obj)) {
       double val = 0;
       RETURN_NOT_OK(IntegerScalarToDoubleSafe(obj, &val));
@@ -693,24 +696,17 @@ class TimestampConverter : public TypedConverter<TimestampType, TimestampConvert
 namespace detail {
 
 template <typename BuilderType, typename AppendFunc>
-Status AppendPyString(BuilderType* builder, const PyBytesView& view, bool* is_full,
-                      AppendFunc&& append_func) {
+inline Status AppendPyString(BuilderType* builder, const PyBytesView& view, bool* is_full,
+                             AppendFunc&& append_func) {
   int32_t length;
   RETURN_NOT_OK(internal::CastSize(view.size, &length));
   // Did we reach the builder size limit?
   if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
-    if (is_full) {
-      *is_full = true;
-      return Status::OK();
-    } else {
-      return Status::CapacityError("Maximum array size reached (2GB)");
-    }
+    *is_full = true;
+    return Status::OK();
   }
-
   RETURN_NOT_OK(append_func(view.bytes, length));
-  if (is_full) {
-    *is_full = false;
-  }
+  *is_full = false;
   return Status::OK();
 }
 
@@ -718,7 +714,7 @@ Status AppendPyString(BuilderType* builder, const PyBytesView& view, bool* is_fu
 //   *have_bytes = true;
 // }
 
-Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
+inline Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
   PyBytesView view;
   // XXX For some reason, we must accept unicode objects here
   RETURN_NOT_OK(view.FromString(obj));
@@ -728,7 +724,8 @@ Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
                         });
 }
 
-Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_full) {
+inline Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
+                            bool* is_full) {
   PyBytesView view;
   // XXX For some reason, we must accept unicode objects here
   RETURN_NOT_OK(view.FromString(obj));
@@ -758,7 +755,7 @@ class BinaryLikeConverter : public TypedConverter<Type, BinaryLikeConverter<Type
     RETURN_NOT_OK(detail::BuilderAppend(this->typed_builder_, obj, &is_full));
 
     // Exceeded capacity of builder
-    if (is_full) {
+    if (ARROW_PREDICT_FALSE(is_full)) {
       std::shared_ptr<Array> chunk;
       RETURN_NOT_OK(this->typed_builder_->Finish(&chunk));
       this->chunks_.emplace_back(std::move(chunk));
@@ -776,36 +773,33 @@ class FixedWidthBytesConverter : public BinaryLikeConverter<FixedSizeBinaryType>
 
 // For String/UTF8, if strict_conversions enabled, we reject any non-UTF8,
 // otherwise we allow but return results as BinaryArray
-class StringConverter : public TypedConverter<StringType, StringConverter> {
+template <bool STRICT>
+class StringConverter : public TypedConverter<StringType, StringConverter<STRICT>> {
  public:
-  explicit StringConverter(bool strict_conversions)
-      : unicode_count_(0), binary_count_(0), strict_conversions_(strict_conversions) {}
+  StringConverter() : binary_count_(0) {}
 
   Status Append(PyObject* obj, bool* is_full) {
-    PyBytesView view;
-
-    if (strict_conversions_) {
+    if (STRICT) {
       // Force output to be unicode / utf8 and validate that any binary values
       // are utf8
       bool is_utf8 = false;
-      RETURN_NOT_OK(view.FromString(obj, &is_utf8));
+      RETURN_NOT_OK(string_view_.FromString(obj, &is_utf8));
       if (!is_utf8) {
         return InvalidValue(obj, "was not a utf8 string");
       }
-      ++unicode_count_;
     } else {
       // Non-strict conversion; keep track of whether values are unicode or
       // bytes; if any bytes are observe, the result will be bytes
-      if (internal::IsPyBinary(obj)) {
-        RETURN_NOT_OK(view.FromBinary(obj));
-        ++binary_count_;
+      if (PyUnicode_Check(obj)) {
+        RETURN_NOT_OK(string_view_.FromUnicode(obj));
       } else {
-        RETURN_NOT_OK(view.FromString(obj));
-        ++unicode_count_;
+        // If not unicode or bytes, FromBinary will error
+        RETURN_NOT_OK(string_view_.FromBinary(obj));
+        ++binary_count_;
       }
     }
 
-    return detail::AppendPyString(typed_builder_, view, is_full,
+    return detail::AppendPyString(this->typed_builder_, string_view_, is_full,
                                   [this](const char* bytes, int32_t length) {
                                     return this->typed_builder_->Append(bytes, length);
                                   });
@@ -816,7 +810,7 @@ class StringConverter : public TypedConverter<StringType, StringConverter> {
     RETURN_NOT_OK(Append(obj, &is_full));
 
     // Exceeded capacity of builder
-    if (is_full) {
+    if (ARROW_PREDICT_FALSE(is_full)) {
       std::shared_ptr<Array> chunk;
       RETURN_NOT_OK(this->typed_builder_->Finish(&chunk));
       this->chunks_.emplace_back(std::move(chunk));
@@ -833,7 +827,7 @@ class StringConverter : public TypedConverter<StringType, StringConverter> {
     // If we saw any non-unicode, cast results to BinaryArray
     if (binary_count_) {
       // We should have bailed out earlier
-      DCHECK(!strict_conversions_);
+      DCHECK(!STRICT);
 
       for (size_t i = 0; i < out->size(); ++i) {
         auto binary_data = (*out)[i]->data()->Copy();
@@ -845,9 +839,11 @@ class StringConverter : public TypedConverter<StringType, StringConverter> {
   }
 
  private:
-  int64_t unicode_count_;
+  // Create a single instance of PyBytesView here to prevent unnecessary object
+  // creation/destruction
+  PyBytesView string_view_;
+
   int64_t binary_count_;
-  bool strict_conversions_;
 };
 
 // ----------------------------------------------------------------------
@@ -1143,9 +1139,15 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
     NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
     NUMERIC_CONVERTER(FLOAT, FloatType);
     NUMERIC_CONVERTER(DOUBLE, DoubleType);
-    SIMPLE_CONVERTER_CASE(STRING, StringConverter(strict_conversions));
-    SIMPLE_CONVERTER_CASE(BINARY, BytesConverter);
-    SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedWidthBytesConverter);
+    case Type::STRING:
+      if (strict_conversions) {
+        *out = std::unique_ptr<SeqConverter>(new StringConverter<true>());
+      } else {
+        *out = std::unique_ptr<SeqConverter>(new StringConverter<false>());
+      }
+      break;
+      SIMPLE_CONVERTER_CASE(BINARY, BytesConverter);
+      SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedWidthBytesConverter);
     case Type::TIMESTAMP: {
       *out = std::unique_ptr<SeqConverter>(
           new TimestampConverter(checked_cast<const TimestampType&>(*type).unit()));

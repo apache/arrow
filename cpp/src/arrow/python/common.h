@@ -157,6 +157,25 @@ struct PyBytesView {
     return FromString(obj, true, is_utf8);
   }
 
+  Status FromUnicode(PyObject* obj) {
+#if PY_MAJOR_VERSION >= 3
+    Py_ssize_t size;
+    // The utf-8 representation is cached on the unicode object
+    const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
+    RETURN_IF_PYERROR();
+    this->bytes = data;
+    this->size = size;
+    this->ref.reset();
+#else
+    PyObject* converted = PyUnicode_AsUTF8String(obj);
+    RETURN_IF_PYERROR();
+    this->bytes = PyBytes_AS_STRING(converted);
+    this->size = PyBytes_GET_SIZE(converted);
+    this->ref.reset(converted);
+#endif
+    return Status::OK();
+  }
+
  protected:
   PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = NULLPTR)
       : bytes(b), size(s), ref(obj) {}
@@ -165,22 +184,7 @@ struct PyBytesView {
   Status FromString(PyObject* obj, bool check_utf8, bool* is_utf8) {
     if (PyUnicode_Check(obj)) {
       *is_utf8 = true;
-#if PY_MAJOR_VERSION >= 3
-      Py_ssize_t size;
-      // The utf-8 representation is cached on the unicode object
-      const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
-      RETURN_IF_PYERROR();
-      this->bytes = data;
-      this->size = size;
-      this->ref.reset();
-#else
-      PyObject* converted = PyUnicode_AsUTF8String(obj);
-      RETURN_IF_PYERROR();
-      this->bytes = PyBytes_AS_STRING(converted);
-      this->size = PyBytes_GET_SIZE(converted);
-      this->ref.reset(converted);
-#endif
-      return Status::OK();
+      return FromUnicode(obj);
     } else {
       RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
       if (check_utf8) {
