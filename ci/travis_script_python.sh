@@ -155,7 +155,8 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     coverage xml -i -o $TRAVIS_BUILD_DIR/coverage.xml
     # Capture C++ coverage info and combine with previous coverage file
     pushd $TRAVIS_BUILD_DIR
-    lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info
+    lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info \
+        2>&1 | grep -v "WARNING: no data found for /usr/include"
     lcov --add-tracefile coverage-python-tests.info \
         --add-tracefile $ARROW_CPP_COVERAGE_FILE \
         --output-file $ARROW_CPP_COVERAGE_FILE
