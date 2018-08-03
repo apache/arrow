@@ -17,8 +17,10 @@
 package array
 
 import (
+	"fmt"
 	"sync/atomic"
 
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/internal/bitutil"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -27,12 +29,33 @@ const (
 	minBuilderCapacity = 1 << 5
 )
 
+// Builder provides an interface to build arrow arrays.
+type Builder interface {
+	// Release decreases the reference count by 1.
+	Release()
+
+	// Len returns the number of elements in the array builder.
+	Len() int
+
+	// Cap returns the total number of elements that can be stored
+	// without allocating additional memory.
+	Cap() int
+
+	// NullN returns the number of null values in the array builder.
+	NullN() int
+
+	// NewArray creates a new array from the memory buffers used
+	// by the builder and resets the Builder so it can be used to build
+	// a new array.
+	NewArray() Interface
+}
+
 // builder provides common functionality for managing the validity bitmap (nulls) when building arrays.
 type builder struct {
 	refCount   int64
 	mem        memory.Allocator
 	nullBitmap *memory.Buffer
-	nullN      int
+	nulls      int
 	length     int
 	capacity   int
 }
@@ -50,7 +73,7 @@ func (b *builder) Len() int { return b.length }
 func (b *builder) Cap() int { return b.capacity }
 
 // NullN returns the number of null values in the array builder.
-func (b *builder) NullN() int { return b.nullN }
+func (b *builder) NullN() int { return b.nulls }
 
 func (b *builder) init(capacity int) {
 	toAlloc := bitutil.CeilByte(capacity) / 8
@@ -66,7 +89,7 @@ func (b *builder) reset() {
 		b.nullBitmap = nil
 	}
 
-	b.nullN = 0
+	b.nulls = 0
 	b.length = 0
 	b.capacity = 0
 }
@@ -119,7 +142,7 @@ func (b *builder) unsafeAppendBoolsToBitmap(valid []bool, length int) {
 			bitSet |= bitutil.BitMask[bitOffset]
 		} else {
 			bitSet &= bitutil.FlippedBitMask[bitOffset]
-			b.nullN++
+			b.nulls++
 		}
 		bitOffset++
 	}
@@ -158,7 +181,55 @@ func (b *builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
+}
+
+func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
+	// FIXME(sbinet): use a type switch on dtype instead?
+	switch dtype.ID() {
+	case arrow.NULL:
+	case arrow.BOOL:
+		return NewBooleanBuilder(mem)
+	case arrow.UINT8:
+		return NewUint8Builder(mem)
+	case arrow.INT8:
+		return NewInt8Builder(mem)
+	case arrow.UINT16:
+		return NewUint16Builder(mem)
+	case arrow.INT16:
+		return NewInt16Builder(mem)
+	case arrow.UINT32:
+		return NewUint32Builder(mem)
+	case arrow.INT32:
+		return NewInt32Builder(mem)
+	case arrow.UINT64:
+		return NewUint64Builder(mem)
+	case arrow.INT64:
+		return NewInt64Builder(mem)
+	case arrow.HALF_FLOAT:
+	case arrow.FLOAT32:
+		return NewFloat32Builder(mem)
+	case arrow.FLOAT64:
+		return NewFloat64Builder(mem)
+	case arrow.STRING:
+	case arrow.BINARY:
+	case arrow.FIXED_SIZE_BINARY:
+	case arrow.DATE32:
+	case arrow.DATE64:
+	case arrow.TIMESTAMP:
+	case arrow.TIME32:
+	case arrow.TIME64:
+	case arrow.INTERVAL:
+	case arrow.DECIMAL:
+	case arrow.LIST:
+		typ := dtype.(*arrow.ListType)
+		return NewListBuilder(mem, typ.Elem())
+	case arrow.STRUCT:
+	case arrow.UNION:
+	case arrow.DICTIONARY:
+	case arrow.MAP:
+	}
+	panic(fmt.Errorf("arrow/array: unsupported builder for %T", dtype))
 }

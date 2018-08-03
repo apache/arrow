@@ -88,14 +88,14 @@ func (a *array) Release() {
 }
 
 // DataType returns the type metadata for this instance.
-func (a *array) DataType() arrow.DataType { return a.data.typE }
+func (a *array) DataType() arrow.DataType { return a.data.dtype }
 
 // NullN returns the number of null values in the array.
 func (a *array) NullN() int {
-	if a.data.nullN < 0 {
-		a.data.nullN = a.data.length - bitutil.CountSetBits(a.nullBitmapBytes, a.data.length)
+	if a.data.nulls < 0 {
+		a.data.nulls = a.data.length - bitutil.CountSetBits(a.nullBitmapBytes, a.data.length)
 	}
-	return a.data.nullN
+	return a.data.nulls
 }
 
 // NullBitmapBytes returns a byte slice of the validity bitmap.
@@ -172,14 +172,18 @@ var (
 )
 
 func unsupportedArrayType(data *Data) Interface {
-	panic("unsupported data type: " + data.typE.ID().String())
+	panic("unsupported data type: " + data.dtype.ID().String())
 }
 
 func invalidDataType(data *Data) Interface {
-	panic("invalid data type: " + data.typE.ID().String())
+	panic("invalid data type: " + data.dtype.ID().String())
 }
 
 // MakeFromData constructs a strongly-typed array instance from generic Data.
 func MakeFromData(data *Data) Interface {
-	return makeArrayFn[byte(data.typE.ID()&0x1f)](data)
+	return makeArrayFn[byte(data.dtype.ID()&0x1f)](data)
+}
+
+func init() {
+	makeArrayFn[arrow.LIST] = func(data *Data) Interface { return NewListData(data) }
 }

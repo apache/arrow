@@ -122,6 +122,12 @@ func (b *BooleanBuilder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Boolean array from the memory buffers used by the builder and resets the BooleanBuilder
+// so it can be used to build a new array.
+func (b *BooleanBuilder) NewArray() Interface {
+	return b.NewBooleanArray()
+}
+
 // NewBooleanArray creates a Boolean array from the memory buffers used by the builder and resets the BooleanBuilder
 // so it can be used to build a new array.
 func (b *BooleanBuilder) NewBooleanArray() (a *Boolean) {
@@ -137,7 +143,7 @@ func (b *BooleanBuilder) newData() *Data {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	res := NewData(arrow.FixedWidthTypes.Boolean, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	res := NewData(arrow.FixedWidthTypes.Boolean, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -148,3 +154,7 @@ func (b *BooleanBuilder) newData() *Data {
 
 	return res
 }
+
+var (
+	_ Builder = (*BooleanBuilder)(nil)
+)
