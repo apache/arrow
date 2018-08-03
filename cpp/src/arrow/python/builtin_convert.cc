@@ -1269,20 +1269,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   std::vector<std::shared_ptr<Array>> chunks;
   RETURN_NOT_OK(converter->GetResult(&chunks));
 
-  // If the converted type does not match the user-supplied type, attempt to
-  // cast
-
-  // TODO TODO TODO
-  //   // Perform cast
-  //   compute::FunctionContext context(pool_);
-  //   compute::CastOptions options;
-  //   options.allow_int_overflow = false;
-
-  //   std::shared_ptr<Array> casted;
-  //   RETURN_NOT_OK(compute::Cast(&context, *arr, type_, options, &casted));
-
-  //   // Replace with casted values
-  //   out_arrays_[position] = casted;
+  // TODO(wesm): ARROW-2814 comment. Is further casting ever necessary?
 
   *out = std::make_shared<ChunkedArray>(chunks);
   return Status::OK();
