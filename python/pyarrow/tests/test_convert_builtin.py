@@ -301,6 +301,19 @@ def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
+@pytest.mark.xfail(reason="Type inference for uint64 not implemented",
+                   raises=pa.ArrowException)
+def test_uint64_max_convert():
+    data = [0, np.iinfo(np.uint64).max]
+
+    arr = pa.array(data, type=pa.uint64())
+    expected = pa.array(np.array(data, dtype='uint64'))
+    assert arr.equals(expected)
+
+    arr_inferred = pa.array(data)
+    assert arr_inferred.equals(expected)
+
+
 @pytest.mark.parametrize("bits", [8, 16, 32, 64])
 def test_signed_integer_overflow(bits):
     ty = getattr(pa, "int%d" % bits)()
@@ -319,6 +332,20 @@ def test_unsigned_integer_overflow(bits):
         pa.array([2 ** bits], ty)
     with pytest.raises((ValueError, pa.ArrowException)):
         pa.array([-1], ty)
+
+
+def test_convert_with_mask():
+    data = [1, 2, 3, 4, 5]
+    mask = np.array([False, True, False, False, True])
+
+    result = pa.array(data, mask=mask)
+    expected = pa.array([1, None, 3, 4, None])
+
+    assert result.equals(expected)
+
+    # Mask wrong length
+    with pytest.raises(ValueError):
+        pa.array(data, mask=mask[1:])
 
 
 def test_garbage_collection():
@@ -377,6 +404,34 @@ def test_double_integer_coerce_representable_range():
         pa.array(invalid_values2)
 
 
+def test_float32_integer_coerce_representable_range():
+    f32 = np.float32
+    valid_values = [f32(1.5), 1 << 24, -(1 << 24)]
+    invalid_values = [f32(1.5), 1 << 24 + 1]
+    invalid_values2 = [f32(1.5), -(1 << 24 + 1)]
+
+    # it works
+    pa.array(valid_values, type=pa.float32())
+
+    # it fails
+    with pytest.raises(ValueError):
+        pa.array(invalid_values, type=pa.float32())
+
+    with pytest.raises(ValueError):
+        pa.array(invalid_values2, type=pa.float32())
+
+
+def test_mixed_sequence_errors():
+    with pytest.raises(ValueError, match="tried to convert to boolean"):
+        pa.array([True, 'foo'], type=pa.bool_())
+
+    with pytest.raises(ValueError, match="tried to convert to float32"):
+        pa.array([1.5, 'foo'], type=pa.float32())
+
+    with pytest.raises(ValueError, match="tried to convert to double"):
+        pa.array([1.5, 'foo'])
+
+
 @parametrize_with_iterable_types
 @pytest.mark.parametrize("np_scalar", [np.float16, np.float32, np.float64])
 @pytest.mark.parametrize("from_pandas", [True, False])
@@ -418,6 +473,24 @@ def test_ndarray_nested_numpy_double(from_pandas, inner_seq):
                                 [[1., 2.], [1., 2., 3.], [np.nan], None])
 
 
+def test_nested_ndarray_different_dtypes():
+    data = [
+        np.array([1, 2, 3], dtype='int64'),
+        None,
+        np.array([4, 5, 6], dtype='uint32')
+    ]
+
+    arr = pa.array(data)
+    expected = pa.array([[1, 2, 3], None, [4, 5, 6]],
+                        type=pa.list_(pa.int64()))
+    arr.equals(expected)
+
+    t2 = pa.list_(pa.uint32())
+    arr2 = pa.array(data, type=t2)
+    expected2 = expected.cast(t2)
+    arr2.equals(expected2)
+
+
 def test_sequence_unicode():
     data = [u'foo', u'bar', None, u'mañana']
     arr = pa.array(data)
@@ -425,6 +498,22 @@ def test_sequence_unicode():
     assert arr.null_count == 1
     assert arr.type == pa.string()
     assert arr.to_pylist() == data
+
+
+def test_array_mixed_unicode_bytes():
+    values = [u'qux', b'foo', bytearray(b'barz')]
+    b_values = [b'qux', b'foo', b'barz']
+    u_values = [u'qux', u'foo', u'barz']
+
+    arr = pa.array(values)
+    expected = pa.array(b_values, type=pa.binary())
+    assert arr.type == pa.binary()
+    assert arr.equals(expected)
+
+    arr = pa.array(values, type=pa.string())
+    expected = pa.array(u_values, type=pa.string())
+    assert arr.type == pa.string()
+    assert arr.equals(expected)
 
 
 def test_sequence_bytes():
@@ -829,7 +918,13 @@ def test_struct_from_tuples():
     expected = [{'a': 5, 'b': 'foo', 'c': True},
                 {'a': 6, 'b': 'bar', 'c': False}]
     arr = pa.array(data, type=ty)
+
+    data_as_ndarray = np.empty(len(data), dtype=object)
+    data_as_ndarray[:] = data
+    arr2 = pa.array(data_as_ndarray, type=ty)
     assert arr.to_pylist() == expected
+
+    assert arr.equals(arr2)
 
     # With omitted values
     data = [(5, 'foo', None),
@@ -878,8 +973,13 @@ def test_struct_from_dicts_inference():
                 {'a': None, 'b': None, 'c': None},
                 {'a': None, 'b': u'bar', 'c': None}]
     arr = pa.array(data)
+    data_as_ndarray = np.empty(len(data), dtype=object)
+    data_as_ndarray[:] = data
+    arr2 = pa.array(data)
+
     check_struct_type(arr.type, expected_type)
     assert arr.to_pylist() == expected
+    assert arr.equals(arr2)
 
     # Nested
     expected_type = pa.struct([

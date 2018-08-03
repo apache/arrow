@@ -105,9 +105,15 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, VisitorFunc&& fun
     return Status::Invalid("Mask must be 1D array");
   }
 
+  const Py_ssize_t obj_size = PySequence_Size(obj);
+  if (PyArray_SIZE(mask) != static_cast<int64_t>(obj_size)) {
+    return Status::Invalid("Mask was a different length from sequence being converted");
+  }
+
   const int dtype = fix_numpy_type_num(PyArray_DESCR(mask)->type_num);
   if (dtype == NPY_BOOL) {
     Ndarray1DIndexer<uint8_t> mask_values(mask);
+
     return VisitSequenceGeneric(
         obj, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
           return func(value, mask_values[i], keep_going);

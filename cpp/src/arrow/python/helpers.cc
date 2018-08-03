@@ -155,9 +155,13 @@ Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRe
 
 namespace {
 
-Status IntegerOverflowStatus(const std::string& overflow_message) {
+Status IntegerOverflowStatus(PyObject* obj, const std::string& overflow_message) {
   if (overflow_message.empty()) {
-    return Status::Invalid("Value too large to fit in C integer type");
+    std::stringstream ss;
+    std::string obj_as_stdstring;
+    RETURN_NOT_OK(PyObject_StdStringStr(obj, &obj_as_stdstring));
+    ss << "Value " << obj_as_stdstring << " too large to fit in C integer type";
+    return Status::Invalid(ss.str());
   } else {
     return Status::Invalid(overflow_message);
   }
@@ -177,7 +181,7 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
     }
     if (ARROW_PREDICT_FALSE(value < std::numeric_limits<Int>::min() ||
                             value > std::numeric_limits<Int>::max())) {
-      return IntegerOverflowStatus(overflow_message);
+      return IntegerOverflowStatus(obj, overflow_message);
     }
     *out = static_cast<Int>(value);
   } else {
@@ -187,7 +191,7 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
     }
     if (ARROW_PREDICT_FALSE(value < std::numeric_limits<Int>::min() ||
                             value > std::numeric_limits<Int>::max())) {
-      return IntegerOverflowStatus(overflow_message);
+      return IntegerOverflowStatus(obj, overflow_message);
     }
     *out = static_cast<Int>(value);
   }
@@ -217,7 +221,7 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
       RETURN_IF_PYERROR();
     }
     if (ARROW_PREDICT_FALSE(value > std::numeric_limits<Int>::max())) {
-      return IntegerOverflowStatus(overflow_message);
+      return IntegerOverflowStatus(obj, overflow_message);
     }
     *out = static_cast<Int>(value);
   } else {
@@ -226,7 +230,7 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
       RETURN_IF_PYERROR();
     }
     if (ARROW_PREDICT_FALSE(value > std::numeric_limits<Int>::max())) {
-      return IntegerOverflowStatus(overflow_message);
+      return IntegerOverflowStatus(obj, overflow_message);
     }
     *out = static_cast<Int>(value);
   }

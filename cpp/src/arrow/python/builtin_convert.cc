@@ -460,9 +460,17 @@ struct Unbox<HalfFloatType> {
 template <>
 struct Unbox<FloatType> {
   static inline Status Append(FloatBuilder* builder, PyObject* obj) {
-    float val = static_cast<float>(PyFloat_AsDouble(obj));
-    RETURN_IF_PYERROR();
-    return builder->Append(val);
+    if (internal::PyFloatScalar_Check(obj)) {
+      float val = static_cast<float>(PyFloat_AsDouble(obj));
+      RETURN_IF_PYERROR();
+      return builder->Append(val);
+    } else if (internal::PyIntScalar_Check(obj)) {
+      float val = 0;
+      RETURN_NOT_OK(IntegerScalarToFloat32Safe(obj, &val));
+      return builder->Append(val);
+    } else {
+      return InvalidValue(obj, "tried to convert to float32");
+    }
   }
 };
 
@@ -567,7 +575,7 @@ class BoolConverter : public TypedConverter<BooleanType, BoolConverter> {
     } else if (obj == Py_False) {
       return typed_builder_->Append(false);
     } else {
-      return InvalidValue(obj, "converting to boolean");
+      return InvalidValue(obj, "tried to convert to boolean");
     }
   }
 };
@@ -770,7 +778,7 @@ class FixedWidthBytesConverter : public BinaryLikeConverter<FixedSizeBinaryType>
 // otherwise we allow but return results as BinaryArray
 class StringConverter : public TypedConverter<StringType, StringConverter> {
  public:
-  StringConverter(bool strict_conversions)
+  explicit StringConverter(bool strict_conversions)
       : unicode_count_(0), binary_count_(0), strict_conversions_(strict_conversions) {}
 
   Status Append(PyObject* obj, bool* is_full) {

@@ -276,43 +276,48 @@ Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
   return Status::OK();
 }
 
-Status IntegerScalarToDoubleSafe(PyObject* obj, double* out) {
-  int64_t value = 0;
+Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {
   if (PyLong_Check(obj)) {
     int overflow = 0;
-    value = PyLong_AsLongLongAndOverflow(obj, &overflow);
+    *out = PyLong_AsLongLongAndOverflow(obj, &overflow);
     if (overflow) {
       return Status::Invalid("PyLong is too large to fit int64");
     }
 #if PY_MAJOR_VERSION < 3
   } else if (PyInt_Check(obj)) {
-    value = static_cast<int64_t>(PyInt_AS_LONG(obj));
+    *out = static_cast<int64_t>(PyInt_AS_LONG(obj));
 #endif
   } else if (PyArray_IsScalar(obj, UByte)) {
-    value = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Short)) {
-    value = reinterpret_cast<PyShortScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyShortScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UShort)) {
-    value = reinterpret_cast<PyUShortScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyUShortScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Int)) {
-    value = reinterpret_cast<PyIntScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyIntScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UInt)) {
-    value = reinterpret_cast<PyUIntScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyUIntScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Long)) {
-    value = reinterpret_cast<PyLongScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyLongScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, ULong)) {
-    value = reinterpret_cast<PyULongScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyULongScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, LongLong)) {
-    value = reinterpret_cast<PyLongLongScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyLongLongScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Int64)) {
-    value = reinterpret_cast<PyInt64ScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyInt64ScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, ULongLong)) {
-    value = reinterpret_cast<PyULongLongScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyULongLongScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UInt64)) {
-    value = reinterpret_cast<PyUInt64ScalarObject*>(obj)->obval;
+    *out = reinterpret_cast<PyUInt64ScalarObject*>(obj)->obval;
   } else {
     return Status::Invalid("Integer scalar type not recognized");
   }
+  return Status::OK();
+}
+
+Status IntegerScalarToDoubleSafe(PyObject* obj, double* out) {
+  int64_t value = 0;
+  RETURN_NOT_OK(UnboxIntegerAsInt64(obj, &value));
 
   constexpr int64_t kDoubleMax = 1LL << 53;
   constexpr int64_t kDoubleMin = -(1LL << 53);
@@ -324,6 +329,23 @@ Status IntegerScalarToDoubleSafe(PyObject* obj, double* out) {
     return Status::Invalid(ss.str());
   }
   *out = static_cast<double>(value);
+  return Status::OK();
+}
+
+Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
+  int64_t value = 0;
+  RETURN_NOT_OK(UnboxIntegerAsInt64(obj, &value));
+
+  constexpr int64_t kFloatMax = 1LL << 24;
+  constexpr int64_t kFloatMin = -(1LL << 24);
+
+  if (value < kFloatMin || value > kFloatMax) {
+    std::stringstream ss;
+    ss << "Integer value " << value << " is outside of the range exactly"
+       << " representable by a IEEE 754 single precision value";
+    return Status::Invalid(ss.str());
+  }
+  *out = static_cast<float>(value);
   return Status::OK();
 }
 

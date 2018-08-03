@@ -69,6 +69,7 @@ ARROW_EXPORT Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObj
                                     PyObject** out);
 
 Status IntegerScalarToDoubleSafe(PyObject* obj, double* result);
+Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
 
 }  // namespace py
 }  // namespace arrow
