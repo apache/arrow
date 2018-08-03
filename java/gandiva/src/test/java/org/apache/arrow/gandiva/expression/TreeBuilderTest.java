@@ -253,5 +253,40 @@ public class TreeBuilderTest {
     assertEquals("c", root.getResultType().getName());
     assertEquals(GandivaTypes.GandivaType.BOOL_VALUE, root.getResultType().getType().getType().getNumber());
   }
+
+  @Test
+  public void testCondition() throws GandivaException {
+    Field a = Field.nullable("a", new ArrowType.Int(64, false));
+    Field b = Field.nullable("b", new ArrowType.Int(64, false));
+
+    TreeNode aNode = TreeBuilder.makeField(a);
+    TreeNode bNode = TreeBuilder.makeField(b);
+    List<TreeNode> args = new ArrayList<TreeNode>(2);
+    args.add(aNode);
+    args.add(bNode);
+
+    TreeNode root = TreeBuilder.makeFunction("greater_than", args, new ArrowType.Bool());
+    Condition condition = TreeBuilder.makeCondition(root);
+
+    GandivaTypes.Condition conditionProto = condition.toProtobuf();
+    assertTrue(conditionProto.getRoot().hasFnNode());
+    assertEquals("greater_than", conditionProto.getRoot().getFnNode().getFunctionName());
+    assertEquals("a", conditionProto.getRoot().getFnNode().getInArgsList().get(0).getFieldNode().getField().getName());
+    assertEquals("b", conditionProto.getRoot().getFnNode().getInArgsList().get(1).getFieldNode().getField().getName());
+  }
+
+  @Test
+  public void testCondition2() throws GandivaException {
+    Field a = Field.nullable("a", new ArrowType.Int(64, false));
+    Field b = Field.nullable("b", new ArrowType.Int(64, false));
+
+    Condition condition = TreeBuilder.makeCondition("greater_than", Arrays.asList(a, b));
+
+    GandivaTypes.Condition conditionProto = condition.toProtobuf();
+    assertTrue(conditionProto.getRoot().hasFnNode());
+    assertEquals("greater_than", conditionProto.getRoot().getFnNode().getFunctionName());
+    assertEquals("a", conditionProto.getRoot().getFnNode().getInArgsList().get(0).getFieldNode().getField().getName());
+    assertEquals("b", conditionProto.getRoot().getFnNode().getInArgsList().get(1).getFieldNode().getField().getName());
+  }
 }
 

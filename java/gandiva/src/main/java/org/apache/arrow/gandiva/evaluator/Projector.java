@@ -34,21 +34,21 @@ import java.util.List;
 /**
  * This class provides a mechanism to evaluate a set of expressions against a RecordBatch.
  * Follow these steps to use this class:
- * 1) Use the static method makeProjector() to create an instance of this class that evaluates a
+ * 1) Use the static method make() to create an instance of this class that evaluates a
  *    set of expressions
  * 2) Invoke the method evaluate() to evaluate these expressions against a RecordBatch
  * 3) Invoke close() to release resources
  */
-public class NativeEvaluator {
+public class Projector {
   private static final org.slf4j.Logger logger =
-          org.slf4j.LoggerFactory.getLogger(NativeEvaluator.class);
+          org.slf4j.LoggerFactory.getLogger(Projector.class);
 
   private final long moduleId;
   private final Schema schema;
   private final int numExprs;
   private boolean closed;
 
-  private NativeEvaluator(long moduleId, Schema schema, int numExprs) {
+  private Projector(long moduleId, Schema schema, int numExprs) {
     this.moduleId = moduleId;
     this.schema = schema;
     this.numExprs = numExprs;
@@ -57,7 +57,7 @@ public class NativeEvaluator {
 
   /**
    * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke NativeEvaluator::Evalute() against a RecordBatch to evaluate the record batch
+   * Invoke Projector::Evalute() against a RecordBatch to evaluate the record batch
    * against these projections.
    *
    * @param schema Table schema. The field names in the schema should match the fields used
@@ -66,14 +66,14 @@ public class NativeEvaluator {
    *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
-  public static NativeEvaluator makeProjector(Schema schema, List<ExpressionTree> exprs)
+  public static Projector make(Schema schema, List<ExpressionTree> exprs)
           throws GandivaException {
-    return makeProjector(schema, exprs, ConfigurationBuilder.getDefaultConfiguration());
+    return make(schema, exprs, ConfigurationBuilder.getDefaultConfiguration());
   }
 
   /**
    * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke NativeEvaluator::Evalute() against a RecordBatch to evaluate the record batch
+   * Invoke Projector::Evalute() against a RecordBatch to evaluate the record batch
    * against these projections.
    *
    * @param schema Table schema. The field names in the schema should match the fields used
@@ -83,7 +83,7 @@ public class NativeEvaluator {
    *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
-  public static NativeEvaluator makeProjector(Schema schema, List<ExpressionTree> exprs, long
+  public static Projector make(Schema schema, List<ExpressionTree> exprs, long
           configurationId) throws GandivaException {
     // serialize the schema and the list of expressions as a protobuf
     GandivaTypes.ExpressionList.Builder builder = GandivaTypes.ExpressionList.newBuilder();
@@ -93,10 +93,10 @@ public class NativeEvaluator {
 
     // Invoke the JNI layer to create the LLVM module representing the expressions
     GandivaTypes.Schema schemaBuf = ArrowTypeHelper.arrowSchemaToProtobuf(schema);
-    NativeBuilder gandivaBridge = NativeBuilder.getInstance();
-    long moduleId = gandivaBridge.buildNativeCode(schemaBuf.toByteArray(), builder.build()
+    JniWrapper gandivaBridge = JniWrapper.getInstance();
+    long moduleId = gandivaBridge.buildProjector(schemaBuf.toByteArray(), builder.build()
             .toByteArray(), configurationId);
-    return new NativeEvaluator(moduleId, schema, exprs.size());
+    return new Projector(moduleId, schema, exprs.size());
   }
 
   /**
@@ -149,7 +149,7 @@ public class NativeEvaluator {
       valueVector.setValueCount(numRows);
     }
 
-    NativeBuilder.getInstance().evaluate(this.moduleId, numRows,
+    JniWrapper.getInstance().evaluateProjector(this.moduleId, numRows,
             bufAddrs, bufSizes,
             outAddrs, outSizes);
   }
@@ -162,7 +162,7 @@ public class NativeEvaluator {
       return;
     }
 
-    NativeBuilder.getInstance().close(this.moduleId);
+    JniWrapper.getInstance().closeProjector(this.moduleId);
     this.closed = true;
   }
 }

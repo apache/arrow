@@ -48,111 +48,45 @@ class SelectionVector {
   /// Convert to arrow-array.
   virtual ArrayPtr ToArray() const = 0;
 
-  /// populate selection vector for all the set bits in the bitmap.
+  /// \brief populate selection vector for all the set bits in the bitmap.
   ///
   /// \param[in] : bitmap the bitmap
   /// \param[in] : bitmap_size size of the bitmap in bytes
   /// \param[in] : max_bitmap_index max valid index in bitmap (can be lesser than
   ///              capacity in the bitmap, due to alignment/padding).
   Status PopulateFromBitMap(const uint8_t *bitmap, int bitmap_size, int max_bitmap_index);
-};
 
-/// \brief template implementation of selection vector with a specific ctype and arrow
-/// type.
-template <typename C_TYPE, typename A_TYPE>
-class SelectionVectorImpl : public SelectionVector {
- public:
-  SelectionVectorImpl(int max_slots, std::shared_ptr<arrow::Buffer> buffer)
-      : max_slots_(max_slots), num_slots_(0), buffer_(buffer) {
-    raw_data_ = reinterpret_cast<C_TYPE *>(buffer->mutable_data());
-  }
-
-  int GetIndex(int index) const override {
-    DCHECK_LE(index, max_slots_);
-    return raw_data_[index];
-  }
-
-  void SetIndex(int index, int value) override {
-    DCHECK_LE(index, max_slots_);
-    DCHECK_LE(value, GetMaxSupportedValue());
-
-    raw_data_[index] = value;
-  }
-
-  ArrayPtr ToArray() const override;
-
-  int GetMaxSlots() const override { return max_slots_; }
-
-  int GetNumSlots() const override { return num_slots_; }
-
-  void SetNumSlots(int num_slots) override {
-    DCHECK_LE(num_slots, max_slots_);
-    num_slots_ = num_slots;
-  }
-
- protected:
-  static Status AllocateBuffer(int max_slots, arrow::MemoryPool *pool,
-                               std::shared_ptr<arrow::Buffer> *buffer);
-
-  static Status ValidateBuffer(int max_slots, std::shared_ptr<arrow::Buffer> buffer);
-
-  /// maximum slots in the vector
-  int max_slots_;
-
-  /// number of slots in the vector
-  int num_slots_;
-
-  std::shared_ptr<arrow::Buffer> buffer_;
-  C_TYPE *raw_data_;
-};
-
-template <typename C_TYPE, typename A_TYPE>
-ArrayPtr SelectionVectorImpl<C_TYPE, A_TYPE>::ToArray() const {
-  auto data_type = arrow::TypeTraits<A_TYPE>::type_singleton();
-  auto array_data = arrow::ArrayData::Make(data_type, num_slots_, {nullptr, buffer_});
-  return arrow::MakeArray(array_data);
-}
-
-class SelectionVectorInt16 : public SelectionVectorImpl<int16_t, arrow::Int16Type> {
- public:
-  SelectionVectorInt16(int max_slots, std::shared_ptr<arrow::Buffer> buffer)
-      : SelectionVectorImpl(max_slots, buffer) {}
-
-  int GetMaxSupportedValue() const override { return INT16_MAX; }
-
+  /// \brief make selection vector with int16 type records.
+  ///
   /// \param[in] : max_slots max number of slots
   /// \param[in] : buffer buffer sized to accomodate max_slots
   /// \param[out]: selection_vector selection vector backed by 'buffer'
-  static Status Make(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
-                     std::shared_ptr<SelectionVectorInt16> *selection_vector);
+  static Status MakeInt16(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
+                          std::shared_ptr<SelectionVector> *selection_vector);
 
   /// \param[in] : max_slots max number of slots
   /// \param[in] : pool memory pool to allocate buffer
   /// \param[out]: selection_vector selection vector backed by a buffer allocated from the
   ///              pool.
-  static Status Make(int max_slots, arrow::MemoryPool *pool,
-                     std::shared_ptr<SelectionVectorInt16> *selection_vector);
-};
+  static Status MakeInt16(int max_slots, arrow::MemoryPool *pool,
+                          std::shared_ptr<SelectionVector> *selection_vector);
 
-class SelectionVectorInt32 : public SelectionVectorImpl<int32_t, arrow::Int32Type> {
- public:
-  SelectionVectorInt32(int max_slots, std::shared_ptr<arrow::Buffer> buffer)
-      : SelectionVectorImpl(max_slots, buffer) {}
-
-  int GetMaxSupportedValue() const override { return INT32_MAX; }
-
+  /// \brief make selection vector with int32 type records.
+  ///
   /// \param[in] : max_slots max number of slots
   /// \param[in] : buffer buffer sized to accomodate max_slots
   /// \param[out]: selection_vector selection vector backed by 'buffer'
-  static Status Make(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
-                     std::shared_ptr<SelectionVectorInt32> *selection_vector);
+  static Status MakeInt32(int max_slots, std::shared_ptr<arrow::Buffer> buffer,
+                          std::shared_ptr<SelectionVector> *selection_vector);
 
+  /// \brief make selection vector with int32 type records.
+  ///
   /// \param[in] : max_slots max number of slots
   /// \param[in] : pool memory pool to allocate buffer
   /// \param[out]: selection_vector selection vector backed by a buffer allocated from the
   ///              pool.
-  static Status Make(int max_slots, arrow::MemoryPool *pool,
-                     std::shared_ptr<SelectionVectorInt32> *selection_vector);
+  static Status MakeInt32(int max_slots, arrow::MemoryPool *pool,
+                          std::shared_ptr<SelectionVector> *selection_vector);
 };
 
 }  // namespace gandiva

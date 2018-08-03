@@ -32,7 +32,7 @@ public class ConfigurationBuilder {
    * @throws GandivaException - if library cannot be loaded.
    */
   public ConfigurationBuilder() throws GandivaException {
-    NativeBuilder.getInstance();
+    JniWrapper.getInstance();
   }
 
   public ConfigurationBuilder withByteCodeFilePath(final String byteCodeFilePath) {
@@ -54,7 +54,7 @@ public class ConfigurationBuilder {
       synchronized (ConfigurationBuilder.class) {
         if (defaultConfiguration == 0L) {
           ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
-          String defaultFilePath = NativeBuilder.getInstance().getByteCodeFilePath();
+          String defaultFilePath = JniWrapper.getInstance().getByteCodeFilePath();
           configurationBuilder.withByteCodeFilePath(defaultFilePath);
           defaultConfiguration = configurationBuilder.buildConfigInstance();
         }

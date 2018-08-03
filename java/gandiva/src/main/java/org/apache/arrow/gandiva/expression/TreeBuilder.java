@@ -139,6 +139,7 @@ public class TreeBuilder {
    * @param function    Name of the function, e.g. add()
    * @param inFields   In arguments to the function
    * @param resultField represents the return value of the expression
+   * @return ExpressionTree referring to the root of an expression tree
    */
   public static ExpressionTree makeExpression(String function,
                                               List<Field> inFields,
@@ -150,5 +151,33 @@ public class TreeBuilder {
 
     TreeNode root = makeFunction(function, children, resultField.getType());
     return makeExpression(root, resultField);
+  }
+
+  /**
+   * Invoke this function to create a condition.
+   *
+   * @param root        is returned by a call to MakeField, MakeFunction, MakeIf, ..
+   * @return condition  referring to the root of an expression tree
+   */
+  public static Condition makeCondition(TreeNode root) {
+    return new Condition(root);
+  }
+
+  /**
+   * Short cut to create an expression tree involving a single function, e.g. a+b+c.
+   *
+   * @param function    Name of the function, e.g. add()
+   * @param inFields    In arguments to the function
+   * @return condition  referring to the root of an expression tree
+   */
+  public static Condition makeCondition(String function,
+                                        List<Field> inFields) {
+    List<TreeNode> children = new ArrayList<>(inFields.size());
+    for (Field field : inFields) {
+      children.add(makeField(field));
+    }
+
+    TreeNode root = makeFunction(function, children, new ArrowType.Bool());
+    return makeCondition(root);
   }
 }

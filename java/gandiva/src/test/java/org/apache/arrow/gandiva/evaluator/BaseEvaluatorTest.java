@@ -57,7 +57,7 @@ class Int32DataAndVectorGenerator implements DataAndVectorGenerator {
 
   @Override
   public ValueVector generateOutputVector(int numRowsInBatch) {
-    IntVector intVector = new IntVector(BaseNativeEvaluatorTest.EMPTY_SCHEMA_PATH, allocator);
+    IntVector intVector = new IntVector(BaseEvaluatorTest.EMPTY_SCHEMA_PATH, allocator);
     intVector.allocateNew(numRowsInBatch);
     return intVector;
   }
@@ -77,7 +77,7 @@ class BoundedInt32DataAndVectorGenerator extends Int32DataAndVectorGenerator {
   }
 }
 
-class BaseNativeEvaluatorTest {
+class BaseEvaluatorTest {
   protected final static int THOUSAND = 1000;
   protected final static int MILLION = THOUSAND * THOUSAND;
 
@@ -103,6 +103,11 @@ class BaseNativeEvaluatorTest {
   @After
   public void tearDown() {
     allocator.close();
+  }
+
+  ArrowBuf buf(int length) {
+    ArrowBuf buffer = allocator.buffer(length);
+    return buffer;
   }
 
   ArrowBuf buf(byte[] bytes) {
@@ -180,7 +185,7 @@ class BaseNativeEvaluatorTest {
   }
 
   private long generateDataAndEvaluate(DataAndVectorGenerator generator,
-                                       NativeEvaluator evaluator,
+                                       Projector evaluator,
                                        int numFields, int numExprs,
                                        int numRows, int maxRowsInBatch,
                                        int inputFieldSize)
@@ -247,7 +252,7 @@ class BaseNativeEvaluatorTest {
                      int numRows, int maxRowsInBatch,
                      int inputFieldSize)
   throws GandivaException, Exception {
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, exprs);
+    Projector eval = Projector.make(schema, exprs);
 
     try {
       return generateDataAndEvaluate(generator, eval,

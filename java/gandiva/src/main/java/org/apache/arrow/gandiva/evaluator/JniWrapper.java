@@ -30,21 +30,21 @@ import java.nio.file.StandardCopyOption;
  * This class is implemented in JNI. This provides the Java interface
  * to invoke functions in JNI
  */
-class NativeBuilder {
+class JniWrapper {
   private static final String LIBRARY_NAME = "gandiva_jni";
   private static final String IRHELPERS_BC = "irhelpers.bc";
 
-  private static volatile NativeBuilder INSTANCE;
+  private static volatile JniWrapper INSTANCE;
 
   private final String byteCodeFilePath;
 
-  private NativeBuilder(String byteCodeFilePath) {
+  private JniWrapper(String byteCodeFilePath) {
     this.byteCodeFilePath = byteCodeFilePath;
   }
 
-  static NativeBuilder getInstance() throws GandivaException {
+  static JniWrapper getInstance() throws GandivaException {
     if (INSTANCE == null) {
-      synchronized (NativeBuilder.class) {
+      synchronized (JniWrapper.class) {
         if (INSTANCE == null) {
           INSTANCE = setupInstance();
         }
@@ -53,12 +53,12 @@ class NativeBuilder {
     return INSTANCE;
   }
 
-  private static NativeBuilder setupInstance() throws GandivaException {
+  private static JniWrapper setupInstance() throws GandivaException {
     try {
       String tempDir = System.getProperty("java.io.tmpdir");
       loadGandivaLibraryFromJar(tempDir);
       File byteCodeFile = moveFileFromJarToTemp(tempDir, IRHELPERS_BC);
-      return new NativeBuilder(byteCodeFile.getAbsolutePath());
+      return new JniWrapper(byteCodeFile.getAbsolutePath());
     } catch (IOException ioException) {
       throw new GandivaException("unable to create native instance", ioException);
     }
@@ -75,7 +75,7 @@ class NativeBuilder {
   private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad)
           throws IOException, GandivaException {
     final File temp = setupFile(tmpDir, libraryToLoad);
-    try (final InputStream is = NativeBuilder.class.getClassLoader()
+    try (final InputStream is = JniWrapper.class.getClassLoader()
             .getResourceAsStream(libraryToLoad)) {
       if (is == null) {
         throw new GandivaException(libraryToLoad + " was not found inside JAR.");
@@ -112,7 +112,7 @@ class NativeBuilder {
   }
 
   /**
-   * Generates the LLVM module to evaluate the expressions with
+   * Generates the projector module to evaluate the expressions with
    * custom configuration.
    *
    * @param schemaBuf   The schema serialized as a protobuf. See Types.proto
@@ -120,11 +120,11 @@ class NativeBuilder {
    * @param exprListBuf The serialized protobuf of the expression vector. Each
    *                    expression is created using TreeBuilder::MakeExpression
    * @param configId    Configuration to gandiva.
-   * @return A moduleId that is passed to the evaluate() and close() methods
+   * @return A moduleId that is passed to the evaluateProjector() and closeProjector() methods
    *
    */
-  native long buildNativeCode(byte[] schemaBuf, byte[] exprListBuf,
-                              long configId) throws GandivaException;
+  native long buildProjector(byte[] schemaBuf, byte[] exprListBuf,
+                             long configId) throws GandivaException;
 
   /**
    * Evaluate the expressions represented by the moduleId on a record batch
@@ -143,14 +143,57 @@ class NativeBuilder {
    * @param outSizes The allocated size of the output buffers. On successful evaluation,
    *                 the result is stored in the output buffers
    */
-  native void evaluate(long moduleId, int numRows,
-                              long[] bufAddrs, long[] bufSizes,
-                              long[] outAddrs, long[] outSizes) throws GandivaException;
+  native void evaluateProjector(long moduleId, int numRows,
+                                long[] bufAddrs, long[] bufSizes,
+                                long[] outAddrs, long[] outSizes) throws GandivaException;
 
   /**
-   * Closes the LLVM module referenced by moduleId.
+   * Closes the projector referenced by moduleId.
    *
    * @param moduleId moduleId that needs to be closed
    */
-  native void close(long moduleId);
+  native void closeProjector(long moduleId);
+
+  /**
+   * Generates the filter module to evaluate the condition expression with
+   * custom configuration.
+   *
+   * @param schemaBuf    The schema serialized as a protobuf. See Types.proto
+   *                     to see the protobuf specification
+   * @param conditionBuf The serialized protobuf of the condition expression. Each
+   *                     expression is created using TreeBuilder::MakeCondition
+   * @param configId     Configuration to gandiva.
+   * @return A moduleId that is passed to the evaluateFilter() and closeFilter() methods
+   *
+   */
+  native long buildFilter(byte[] schemaBuf, byte[] conditionBuf,
+                          long configId) throws GandivaException;
+
+  /**
+   * Evaluate the filter represented by the moduleId on a record batch
+   * and store the output in buffer 'outAddr'. Throws an exception in case of errors
+   *
+   * @param moduleId moduleId representing expressions. Created using a call to
+   *                 buildNativeCode
+   * @param numRows Number of rows in the record batch
+   * @param bufAddrs An array of memory addresses. Each memory address points to
+   *                 a validity vector or a data vector (will add support for offset
+   *                 vectors later).
+   * @param bufSizes An array of buffer sizes. For each memory address in bufAddrs,
+   *                 the size of the buffer is present in bufSizes
+   * @param selectionVectorType type of selection vector
+   * @param outAddr  output buffer, whose type is represented by selectionVectorType
+   * @param outSize The allocated size of the output buffer. On successful evaluation,
+   *                the result is stored in the output buffer
+   */
+  native int evaluateFilter(long moduleId, int numRows, long[] bufAddrs, long[] bufSizes,
+                            int selectionVectorType,
+                            long outAddr, long outSize) throws GandivaException;
+
+  /**
+   * Closes the filter referenced by moduleId.
+   *
+   * @param moduleId moduleId that needs to be closed
+   */
+  native void closeFilter(long moduleId);
 }

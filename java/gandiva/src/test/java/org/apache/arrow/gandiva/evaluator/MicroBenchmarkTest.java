@@ -17,7 +17,7 @@
 package org.apache.arrow.gandiva.evaluator;
 
 import com.google.common.collect.Lists;
-import org.apache.arrow.gandiva.exceptions.GandivaException;
+
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
 import org.apache.arrow.gandiva.expression.TreeNode;
@@ -27,7 +27,7 @@ import org.junit.Test;
 
 import java.util.List;
 
-public class MicroBenchmarkTest extends BaseNativeEvaluatorTest {
+public class MicroBenchmarkTest extends BaseEvaluatorTest {
   @Test
   public void testAdd3() throws Exception {
     Field x = Field.nullable("x", int32);

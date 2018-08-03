@@ -22,9 +22,6 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
 import org.apache.arrow.gandiva.expression.TreeNode;
-import org.apache.arrow.gandiva.ipc.GandivaTypes;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.IntVector;
@@ -32,15 +29,12 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.DateUnit;
-import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import org.joda.time.Instant;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -53,7 +47,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
+public class ProjectorTest extends BaseEvaluatorTest {
   private Charset utf8Charset = Charset.forName("UTF-8");
   private Charset utf16Charset = Charset.forName("UTF-16");
 
@@ -100,9 +94,9 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     ExpressionTree expr = TreeBuilder.makeExpression(ifNode, Field.nullable("c", int64));
     List<ExpressionTree> exprs = Lists.newArrayList(expr);
 
-    NativeEvaluator evaluator1 = NativeEvaluator.makeProjector(schema, exprs);
-    NativeEvaluator evaluator2 = NativeEvaluator.makeProjector(schema, exprs);
-    NativeEvaluator evaluator3 = NativeEvaluator.makeProjector(schema, exprs);
+    Projector evaluator1 = Projector.make(schema, exprs);
+    Projector evaluator2 = Projector.make(schema, exprs);
+    Projector evaluator3 = Projector.make(schema, exprs);
 
     evaluator1.close();
     evaluator2.close();
@@ -126,7 +120,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
 
     boolean exceptionThrown = false;
     try {
-      NativeEvaluator evaluator1 = NativeEvaluator.makeProjector(schema, exprs);
+      Projector evaluator1 = Projector.make(schema, exprs);
     } catch (GandivaException e) {
       exceptionThrown = true;
     }
@@ -139,7 +133,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     // try again to ensure no temporary resources.
     exceptionThrown = false;
     try {
-      NativeEvaluator evaluator1 = NativeEvaluator.makeProjector(schema, exprs);
+      Projector evaluator1 = Projector.make(schema, exprs);
     } catch (GandivaException e) {
       exceptionThrown = true;
     }
@@ -159,7 +153,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     List<ExpressionTree> exprs = Lists.newArrayList(root);
 
     Schema schema = new Schema(args);
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, exprs);
+    Projector eval = Projector.make(schema, exprs);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -213,7 +207,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     List<Field> cols = Lists.newArrayList(x, N2x, N3x);
     Schema schema = new Schema(cols);
 
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -287,7 +281,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifHello, Field.nullable("res", retType));
     Schema schema = new Schema(Lists.newArrayList(a, x, b));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -337,7 +331,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
       Field.nullable("res", retType));
 
     Schema schema = new Schema(Lists.newArrayList(args));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -433,7 +427,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifLess10, x);
     Schema schema = new Schema(Lists.newArrayList(x));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, (byte) 255};
@@ -483,7 +477,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(and, res);
     Schema schema = new Schema(Lists.newArrayList(x));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
@@ -533,7 +527,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(or, res);
     Schema schema = new Schema(Lists.newArrayList(x));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
@@ -582,7 +576,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifLess10, x);
     Schema schema = new Schema(Lists.newArrayList(x));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 255};
@@ -627,7 +621,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(x_node, x);
     Schema schema = new Schema(Lists.newArrayList(x));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 255};
@@ -665,7 +659,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     TreeNode isNull = TreeBuilder.makeFunction("isnull", Lists.newArrayList(x_node), boolType);
     ExpressionTree expr = TreeBuilder.makeExpression(isNull, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(x));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -709,7 +703,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     TreeNode equals = TreeBuilder.makeFunction("equal", Lists.newArrayList(c1_Node, c2_Node), boolType);
     ExpressionTree expr = TreeBuilder.makeExpression(equals, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1, c2));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -761,7 +755,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     List<ExpressionTree> exprs = Lists.newArrayList(root);
 
     Schema schema = new Schema(args);
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, exprs);
+    Projector eval = Projector.make(schema, exprs);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -844,7 +838,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     );
 
     Schema schema = new Schema(Lists.newArrayList(dateField, tsField));
-    NativeEvaluator eval = NativeEvaluator.makeProjector(schema, exprs);
+    Projector eval = Projector.make(schema, exprs);
 
     int numRows = 8;
     byte[] validity = new byte[]{(byte) 255};
@@ -921,7 +915,7 @@ public class NativeEvaluatorTest extends BaseNativeEvaluatorTest {
     Schema schema = new Schema(Lists.newArrayList(c1, c2));
     boolean caughtException = false;
     try {
-      NativeEvaluator eval = NativeEvaluator.makeProjector(schema, Lists.newArrayList(expr));
+      Projector eval = Projector.make(schema, Lists.newArrayList(expr));
     } catch (GandivaException ge) {
       caughtException = true;
     }

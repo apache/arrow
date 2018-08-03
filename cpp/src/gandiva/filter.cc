@@ -21,6 +21,7 @@
 #include "codegen/bitmap_accumulator.h"
 #include "codegen/expr_validator.h"
 #include "codegen/llvm_generator.h"
+#include "codegen/selection_vector_impl.h"
 #include "gandiva/condition.h"
 #include "gandiva/status.h"
 

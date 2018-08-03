@@ -22,9 +22,11 @@
 #include <utility>
 
 #include "gandiva/arrow.h"
-#include "gandiva/projector.h"
 
 namespace gandiva {
+
+class Projector;
+class Filter;
 
 class ProjectorHolder {
  public:
@@ -40,6 +42,19 @@ class ProjectorHolder {
   SchemaPtr schema_;
   FieldVector ret_types_;
   std::shared_ptr<Projector> projector_;
+};
+
+class FilterHolder {
+ public:
+  FilterHolder(SchemaPtr schema, std::shared_ptr<Filter> filter)
+      : schema_(schema), filter_(std::move(filter)) {}
+
+  SchemaPtr schema() { return schema_; }
+  std::shared_ptr<Filter> filter() { return filter_; }
+
+ private:
+  SchemaPtr schema_;
+  std::shared_ptr<Filter> filter_;
 };
 
 }  // namespace gandiva
