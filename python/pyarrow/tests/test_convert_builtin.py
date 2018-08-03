@@ -32,11 +32,11 @@ import pytz
 
 int_type_pairs = [
     (np.int8, pa.int8()),
-    (np.int16, pa.int64()),
+    (np.int16, pa.int16()),
     (np.int32, pa.int32()),
     (np.int64, pa.int64()),
     (np.uint8, pa.uint8()),
-    (np.uint16, pa.uint64()),
+    (np.uint16, pa.uint16()),
     (np.uint32, pa.uint32()),
     (np.uint64, pa.uint64())]
 
@@ -297,7 +297,7 @@ def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     arr = pa.array(seq(expected))
     assert len(arr) == 6
     assert arr.null_count == 2
-    assert arr.type == pa.int64()
+    assert arr.type == pa_type
     assert arr.to_pylist() == expected
 
 
@@ -355,10 +355,26 @@ def test_double_auto_coerce_from_integer():
     data3 = [1, 1.5, None, 2.5, None, None]
     arr3 = pa.array(data3)
 
-    data4 = [4, 1.5, None, 2.5, None, None]
+    data4 = [1., 1.5, None, 2.5, None, None]
     arr4 = pa.array(data4)
 
     assert arr3.equals(arr4)
+
+
+def test_double_integer_coerce_representable_range():
+    valid_values = [1.5, 1, 2, None, 1 << 53, -(1 << 53)]
+    invalid_values = [1.5, 1, 2, None, 1 << 53 + 1]
+    invalid_values2 = [1.5, 1, 2, None, -(1 << 53 + 1)]
+
+    # it works
+    pa.array(valid_values)
+
+    # it fails
+    with pytest.raises(ValueError):
+        pa.array(invalid_values)
+
+    with pytest.raises(ValueError):
+        pa.array(invalid_values2)
 
 
 @parametrize_with_iterable_types
@@ -457,7 +473,7 @@ def test_sequence_date():
             datetime.date(2040, 2, 26)]
     arr = pa.array(data)
     assert len(arr) == 4
-    assert arr.type == pa.date64()
+    assert arr.type == pa.date32()
     assert arr.null_count == 1
     assert arr[0].as_py() == datetime.date(2000, 1, 1)
     assert arr[1].as_py() is None
@@ -465,20 +481,24 @@ def test_sequence_date():
     assert arr[3].as_py() == datetime.date(2040, 2, 26)
 
 
-def test_sequence_date32():
+@pytest.mark.parametrize('input',
+                         [(pa.date32(), [10957, None]),
+                          (pa.date64(), [10957 * 86400000, None])])
+def test_sequence_explicit_types(input):
+    t, ex_values = input
     data = [datetime.date(2000, 1, 1), None]
-    arr = pa.array(data, type=pa.date32())
-
-    data2 = [10957, None]
-    arr2 = pa.array(data2, type=pa.date32())
+    arr = pa.array(data, type=t)
+    arr2 = pa.array(ex_values, type=t)
 
     for x in [arr, arr2]:
         assert len(x) == 2
-        assert x.type == pa.date32()
+        assert x.type == t
         assert x.null_count == 1
         assert x[0].as_py() == datetime.date(2000, 1, 1)
         assert x[1] is pa.NA
 
+
+def test_date32_overflow():
     # Overflow
     data3 = [2**32, None]
     with pytest.raises(pa.ArrowException):

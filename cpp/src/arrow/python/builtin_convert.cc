@@ -175,7 +175,7 @@ class TypeInferrer {
     } else if (int_count_) {
       *out = int64();
     } else if (date_count_) {
-      *out = date64();
+      *out = date32();
     } else if (time_count_) {
       *out = time64(TimeUnit::MICRO);
     } else if (timestamp_nano_count_) {
@@ -469,6 +469,10 @@ struct Unbox<DoubleType> {
     if (internal::PyFloatScalar_Check(obj)) {
       double val = PyFloat_AsDouble(obj);
       RETURN_IF_PYERROR();
+      return builder->Append(val);
+    } else if (internal::PyIntScalar_Check(obj)) {
+      double val = 0;
+      RETURN_NOT_OK(IntegerScalarToDoubleSafe(obj, &val));
       return builder->Append(val);
     } else {
       std::stringstream ss;

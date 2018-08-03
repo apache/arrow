@@ -159,6 +159,15 @@ inline bool PyFloatScalar_Check(PyObject* obj) {
   return PyFloat_Check(obj) || PyArray_IsScalar(obj, Floating);
 }
 
+inline bool PyIntScalar_Check(PyObject* obj) {
+#if PY_MAJOR_VERSION < 3
+  if (PyInt_Check(obj)) {
+    return true;
+  }
+#endif
+  return PyLong_Check(obj) || PyArray_IsScalar(obj, Integer);
+}
+
 }  // namespace internal
 
 // Form a consensus dtype to use for Arrow conversion for a collection of dtype

@@ -101,16 +101,20 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, VisitorFunc&& fun
   }
 
   PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
-  if (!(PyArray_NDIM(mask) == 1 && PyArray_DESCR(mask)->type_num == NPY_BOOL)) {
-    return Status::Invalid("Mask must be 1D array with bool dtype");
+  if (PyArray_NDIM(mask) != 1) {
+    return Status::Invalid("Mask must be 1D array");
   }
 
-  Ndarray1DIndexer<uint8_t> mask_values(mask);
-
-  return VisitSequenceGeneric(
-      obj, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
-        return func(value, mask_values[i], keep_going);
-      });
+  const int dtype = fix_numpy_type_num(PyArray_DESCR(mask)->type_num);
+  if (dtype == NPY_BOOL) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask);
+    return VisitSequenceGeneric(
+        obj, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
+          return func(value, mask_values[i], keep_going);
+        });
+  } else {
+    return Status::Invalid("Mask must be boolean dtype");
+  }
 }
 
 // Like IterateSequence, but accepts any generic iterable (including

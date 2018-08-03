@@ -872,7 +872,6 @@ class TestConvertDateTimeLikeTypes(object):
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.ones(3),
         np.array([True, False, False]),
     ])
     def test_pandas_datetime_to_date64(self, mask):
@@ -894,7 +893,6 @@ class TestConvertDateTimeLikeTypes(object):
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.ones(3),
         np.array([True, False, False])
     ])
     def test_pandas_datetime_to_date64_failures(self, mask):
