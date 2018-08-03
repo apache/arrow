@@ -90,10 +90,6 @@ Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
 ARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, std::shared_ptr<Array>* out);
 
-ARROW_EXPORT
-Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,
-                         std::ostream* out);
-
 }  // namespace py
 }  // namespace arrow
 

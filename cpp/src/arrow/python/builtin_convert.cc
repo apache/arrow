@@ -45,13 +45,19 @@
 namespace arrow {
 namespace py {
 
-Status InvalidConversion(PyObject* obj, const std::string& expected_types,
-                         std::ostream* out) {
-  (*out) << "Got Python object of type " << Py_TYPE(obj)->tp_name
-         << " but can only handle these types: " << expected_types;
-  // XXX streamline this?
-  return Status::OK();
+namespace {
+
+Status InvalidValue(PyObject* obj, const std::string& why) {
+  std::stringstream ss;
+
+  std::string obj_as_str;
+  RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
+  ss << "Could not convert " << obj_as_str << " with type " << Py_TYPE(obj)->tp_name
+     << ": " << why;
+  return Status::Invalid(ss.str());
 }
+
+}  // namespace
 
 class TypeInferrer {
   // A type inference visitor for Python values
@@ -131,13 +137,9 @@ class TypeInferrer {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
       ++decimal_count_;
     } else {
-      // TODO(wesm): accumulate error information somewhere
-      static std::string supported_types =
-          "bool, float, integer, date, datetime, bytes, unicode, decimal";
-      std::stringstream ss;
-      ss << "Error inferring Arrow data type for collection of Python objects. ";
-      RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
-      return Status::Invalid(ss.str());
+      return InvalidValue(obj,
+                          "did not recognize Python value type when inferring "
+                          "an Arrow data type");
     }
     return Status::OK();
   }
@@ -365,7 +367,7 @@ class SeqConverter;
 
 // Forward-declare converter factory
 Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
-                    std::unique_ptr<SeqConverter>* out);
+                    bool strict_conversions, std::unique_ptr<SeqConverter>* out);
 
 // Marshal Python sequence (list, tuple, etc.) to Arrow array
 class SeqConverter {
@@ -475,10 +477,7 @@ struct Unbox<DoubleType> {
       RETURN_NOT_OK(IntegerScalarToDoubleSafe(obj, &val));
       return builder->Append(val);
     } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Double: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "float", &ss));
-      return Status::Invalid(ss.str());
+      return InvalidValue(obj, "tried to convert to double");
     }
   }
 };
@@ -552,8 +551,7 @@ class TypedConverter : public SeqConverter {
 class NullConverter : public TypedConverter<NullType, NullConverter> {
  public:
   Status AppendItem(PyObject* obj) {
-    // TODO(wesm): show the item type?
-    return Status::Invalid("NullConverter passed non-null value");
+    return InvalidValue(obj, "converting to null type");
   }
 };
 
@@ -568,10 +566,7 @@ class BoolConverter : public TypedConverter<BooleanType, BoolConverter> {
     } else if (obj == Py_False) {
       return typed_builder_->Append(false);
     } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Boolean: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "bool", &ss));
-      return Status::Invalid(ss.str());
+      return InvalidValue(obj, "converting to boolean");
     }
   }
 };
@@ -626,10 +621,7 @@ class TimeConverter : public TypedConverter<Time64Type, TimeConverter> {
       // datetime.time stores microsecond resolution
       return typed_builder_->Append(PyTime_to_us(obj));
     } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Time: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "datetime.time", &ss));
-      return Status::Invalid(ss.str());
+      return InvalidValue(obj, "converting to time64");
     }
   }
 };
@@ -727,16 +719,6 @@ Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
                         });
 }
 
-Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool* is_full) {
-  PyBytesView view;
-  // XXX For some reason, we must accept unicode objects here
-  RETURN_NOT_OK(view.FromString(obj, true /* check_valid */));
-  return AppendPyString(builder, view, is_full,
-                        [&builder](const char* bytes, int32_t length) {
-                          return builder->Append(bytes, length);
-                        });
-}
-
 Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_full) {
   PyBytesView view;
   // XXX For some reason, we must accept unicode objects here
@@ -745,9 +727,8 @@ Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj, bool* is_fu
       checked_cast<const FixedSizeBinaryType&>(*builder->type()).byte_width();
   if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
     std::stringstream ss;
-    ss << "Got bytestring of length " << view.size << " (expected " << expected_length
-       << ")";
-    return Status::Invalid(ss.str());
+    ss << "expected to be length " << expected_length << " was " << view.size;
+    return InvalidValue(obj, ss.str());
   }
 
   return AppendPyString(
@@ -784,23 +765,97 @@ class BytesConverter : public BinaryLikeConverter<BinaryType> {};
 
 class FixedWidthBytesConverter : public BinaryLikeConverter<FixedSizeBinaryType> {};
 
-// TODO(wesm): account for bytes vs. unicode, convert results to Binary if any
-// bytes / non-UTF8 encountered
-class UTF8Converter : public BinaryLikeConverter<StringType> {};
+// For String/UTF8, if strict_conversions enabled, we reject any non-UTF8,
+// otherwise we allow but return results as BinaryArray
+class StringConverter : public TypedConverter<StringType, StringConverter> {
+ public:
+  StringConverter(bool strict_conversions)
+      : unicode_count_(0), binary_count_(0), strict_conversions_(strict_conversions) {}
+
+  Status Append(PyObject* obj, bool* is_full) {
+    PyBytesView view;
+
+    if (strict_conversions_) {
+      // Force output to be unicode / utf8 and validate that any binary values
+      // are utf8
+      bool is_utf8 = false;
+      RETURN_NOT_OK(view.FromString(obj, &is_utf8));
+      if (!is_utf8) {
+        return InvalidValue(obj, "was not a utf8 string");
+      }
+      ++unicode_count_;
+    } else {
+      // Non-strict conversion; keep track of whether values are unicode or
+      // bytes; if any bytes are observe, the result will be bytes
+      if (internal::IsPyBinary(obj)) {
+        RETURN_NOT_OK(view.FromBinary(obj));
+        ++binary_count_;
+      } else {
+        RETURN_NOT_OK(view.FromString(obj));
+        ++unicode_count_;
+      }
+    }
+
+    return detail::AppendPyString(typed_builder_, view, is_full,
+                                  [this](const char* bytes, int32_t length) {
+                                    return this->typed_builder_->Append(bytes, length);
+                                  });
+  }
+
+  Status AppendItem(PyObject* obj) {
+    bool is_full = false;
+    RETURN_NOT_OK(Append(obj, &is_full));
+
+    // Exceeded capacity of builder
+    if (is_full) {
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(this->typed_builder_->Finish(&chunk));
+      this->chunks_.emplace_back(std::move(chunk));
+
+      // Append the item now that the builder has been reset
+      RETURN_NOT_OK(Append(obj, &is_full));
+    }
+    return Status::OK();
+  }
+
+  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* out) {
+    RETURN_NOT_OK(SeqConverter::GetResult(out));
+
+    // If we saw any non-unicode, cast results to BinaryArray
+    if (binary_count_) {
+      // We should have bailed out earlier
+      DCHECK(!strict_conversions_);
+
+      for (size_t i = 0; i < chunks_.size(); ++i) {
+        auto binary_data = chunks_[i]->data()->Copy();
+        binary_data->type = ::arrow::binary();
+        (*out)[i] = std::make_shared<BinaryArray>(binary_data);
+      }
+    }
+    return Status::OK();
+  }
+
+ private:
+  int64_t unicode_count_;
+  int64_t binary_count_;
+  bool strict_conversions_;
+};
 
 // ----------------------------------------------------------------------
 // Convert lists (NumPy arrays containing lists or ndarrays as values)
 
 class ListConverter : public TypedConverter<ListType, ListConverter> {
  public:
-  explicit ListConverter(bool from_pandas) : from_pandas_(from_pandas) {}
+  explicit ListConverter(bool from_pandas, bool strict_conversions)
+      : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
 
   Status Init(ArrayBuilder* builder) {
     builder_ = builder;
     typed_builder_ = checked_cast<ListBuilder*>(builder);
 
     value_type_ = checked_cast<const ListType&>(*builder->type()).value_type();
-    RETURN_NOT_OK(GetConverter(value_type_, from_pandas_, &value_converter_));
+    RETURN_NOT_OK(
+        GetConverter(value_type_, from_pandas_, strict_conversions_, &value_converter_));
     return value_converter_->Init(typed_builder_->value_builder());
   }
 
@@ -829,6 +884,7 @@ class ListConverter : public TypedConverter<ListType, ListConverter> {
   std::shared_ptr<DataType> value_type_;
   std::unique_ptr<SeqConverter> value_converter_;
   bool from_pandas_;
+  bool strict_conversions_;
 };
 
 template <int NUMPY_TYPE, typename Type>
@@ -921,7 +977,8 @@ Status ListConverter::AppendNdarrayItem(PyObject* obj) {
 
 class StructConverter : public TypedConverter<StructType, StructConverter> {
  public:
-  explicit StructConverter(bool from_pandas) : from_pandas_(from_pandas) {}
+  explicit StructConverter(bool from_pandas, bool strict_conversions)
+      : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
 
   Status Init(ArrayBuilder* builder) {
     builder_ = builder;
@@ -940,7 +997,8 @@ class StructConverter : public TypedConverter<StructType, StructConverter> {
       std::shared_ptr<DataType> field_type(struct_type.child(i)->type());
 
       std::unique_ptr<SeqConverter> value_converter;
-      RETURN_NOT_OK(GetConverter(field_type, from_pandas_, &value_converter));
+      RETURN_NOT_OK(
+          GetConverter(field_type, from_pandas_, strict_conversions_, &value_converter));
       RETURN_NOT_OK(value_converter->Init(typed_builder_->field_builder(i)));
       value_converters_.push_back(std::move(value_converter));
 
@@ -1014,6 +1072,7 @@ class StructConverter : public TypedConverter<StructType, StructConverter> {
   // Whether we're converting from a sequence of dicts or tuples
   enum { UNKNOWN, DICTS, TUPLES } source_kind_ = UNKNOWN;
   bool from_pandas_;
+  bool strict_conversions_;
 };
 
 class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalConverter> {
@@ -1033,10 +1092,7 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalCon
     } else {
       // PyObject_IsInstance could error and set an exception
       RETURN_IF_PYERROR();
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Decimal: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "decimal.Decimal", &ss));
-      return Status::Invalid(ss.str());
+      return InvalidValue(obj, "converting to Decimal128");
     }
   }
 
@@ -1061,7 +1117,7 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalCon
 
 // Dynamic constructor for sequence converters
 Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
-                    std::unique_ptr<SeqConverter>* out) {
+                    bool strict_conversions, std::unique_ptr<SeqConverter>* out) {
   switch (type->id()) {
     SIMPLE_CONVERTER_CASE(NA, NullConverter);
     SIMPLE_CONVERTER_CASE(BOOL, BoolConverter);
@@ -1078,7 +1134,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
     NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
     NUMERIC_CONVERTER(FLOAT, FloatType);
     NUMERIC_CONVERTER(DOUBLE, DoubleType);
-    SIMPLE_CONVERTER_CASE(STRING, UTF8Converter);
+    SIMPLE_CONVERTER_CASE(STRING, StringConverter(strict_conversions));
     SIMPLE_CONVERTER_CASE(BINARY, BytesConverter);
     SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedWidthBytesConverter);
     case Type::TIMESTAMP: {
@@ -1092,10 +1148,12 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
       SIMPLE_CONVERTER_CASE(TIME64, TimeConverter);
       SIMPLE_CONVERTER_CASE(DECIMAL, DecimalConverter);
     case Type::LIST:
-      *out = std::unique_ptr<SeqConverter>(new ListConverter(from_pandas));
+      *out = std::unique_ptr<SeqConverter>(
+          new ListConverter(from_pandas, strict_conversions));
       break;
     case Type::STRUCT:
-      *out = std::unique_ptr<SeqConverter>(new StructConverter(from_pandas));
+      *out = std::unique_ptr<SeqConverter>(
+          new StructConverter(from_pandas, strict_conversions));
       break;
     default:
       std::stringstream ss;
@@ -1165,10 +1223,17 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   int64_t size = options.size;
   RETURN_NOT_OK(ConvertToSequenceAndInferSize(sequence_source, &seq, &size));
   tmp_seq_nanny.reset(seq);
+
+  // In some cases, type inference may be "loose", like strings. If the user
+  // passed pa.string(), then we will error if we encounter any non-UTF8
+  // value. If not, then we will allow the result to be a BinaryArray
+  bool strict_conversions = false;
+
   if (options.type == nullptr) {
     RETURN_NOT_OK(InferArrowType(seq, &real_type));
   } else {
     real_type = options.type;
+    strict_conversions = true;
   }
   DCHECK_GE(size, 0);
 
@@ -1181,7 +1246,8 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
 
   // Create the sequence converter, initialize with the builder
   std::unique_ptr<SeqConverter> converter;
-  RETURN_NOT_OK(GetConverter(real_type, options.from_pandas, &converter));
+  RETURN_NOT_OK(
+      GetConverter(real_type, options.from_pandas, strict_conversions, &converter));
 
   // Create ArrayBuilder for type, then pass into the SeqConverter
   // instance. The reason this is created here rather than in GetConverter is
