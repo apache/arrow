@@ -97,10 +97,6 @@ class TypeInferrer {
   Status Visit(PyObject* obj, bool* keep_going) {
     ++total_count_;
 
-    if (total_count_ % validate_interval_ == 0) {
-      RETURN_NOT_OK(Validate());
-    }
-
     if (obj == Py_None || internal::PyFloat_IsNaN(obj)) {
       ++none_count_;
     } else if (PyBool_Check(obj)) {
@@ -128,11 +124,11 @@ class TypeInferrer {
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
     } else if (PyList_Check(obj)) {
-      return VisitList(obj, keep_going);
+      RETURN_NOT_OK(VisitList(obj, keep_going));
     } else if (PyArray_Check(obj)) {
-      return VisitNdarray(obj, keep_going);
+      RETURN_NOT_OK(VisitNdarray(obj, keep_going));
     } else if (PyDict_Check(obj)) {
-      return VisitDict(obj);
+      RETURN_NOT_OK(VisitDict(obj));
     } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
       RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
       ++decimal_count_;
@@ -141,6 +137,11 @@ class TypeInferrer {
                           "did not recognize Python value type when inferring "
                           "an Arrow data type");
     }
+
+    if (total_count_ % validate_interval_ == 0) {
+      RETURN_NOT_OK(Validate());
+    }
+
     return Status::OK();
   }
 
@@ -826,8 +827,8 @@ class StringConverter : public TypedConverter<StringType, StringConverter> {
       // We should have bailed out earlier
       DCHECK(!strict_conversions_);
 
-      for (size_t i = 0; i < chunks_.size(); ++i) {
-        auto binary_data = chunks_[i]->data()->Copy();
+      for (size_t i = 0; i < out->size(); ++i) {
+        auto binary_data = (*out)[i]->data()->Copy();
         binary_data->type = ::arrow::binary();
         (*out)[i] = std::make_shared<BinaryArray>(binary_data);
       }
