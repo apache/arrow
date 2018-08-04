@@ -652,6 +652,11 @@ cdef class Array:
                                               self, &out))
         return wrap_array_output(out)
 
+    def __array__(self, dtype=None):
+        if dtype is None:
+            return self.to_pandas()
+        return self.to_pandas().astype(dtype)
+
     def to_numpy(self):
         """
         EXPERIMENTAL: Construct a NumPy view of this array. Only supports
