@@ -160,6 +160,48 @@ def test_chunked_array_pickle(data, typ):
     assert result.equals(array)
 
 
+def test_chunked_array_to_pandas():
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+    chunked_arr = table.column(0).data
+    assert isinstance(chunked_arr, pa.ChunkedArray)
+    array = chunked_arr.to_pandas()
+    assert array.shape == (5,)
+    assert array[0] == -10
+
+
+def test_chunked_array_asarray():
+    data = [
+        pa.array([0]),
+        pa.array([1, 2, 3])
+    ]
+    chunked_arr = pa.chunked_array(data)
+
+    np_arr = np.asarray(chunked_arr)
+    assert np_arr.tolist() == [0, 1, 2, 3]
+    assert np_arr.dtype == np.dtype('int64')
+
+    # An optional type can be specified when calling np.asarray
+    np_arr = np.asarray(chunked_arr, dtype='str')
+    assert np_arr.tolist() == ['0', '1', '2', '3']
+
+    # Types are modified when there are nulls
+    data = [
+        pa.array([1, None]),
+        pa.array([1, 2, 3])
+    ]
+    chunked_arr = pa.chunked_array(data)
+
+    np_arr = np.asarray(chunked_arr)
+    elements = np_arr.tolist()
+    assert elements[0] == 1.
+    assert np.isnan(elements[1])
+    assert elements[2:] == [1., 2., 3.]
+    assert np_arr.dtype == np.dtype('float64')
+
+
 def test_column_basics():
     data = [
         pa.array([-10, -5, 0, 5, 10])
@@ -219,14 +261,20 @@ def test_column_to_pandas():
     assert series.iloc[0] == -10
 
 
-def test_chunked_array_to_pandas():
+def test_column_asarray():
     data = [
         pa.array([-10, -5, 0, 5, 10])
     ]
     table = pa.Table.from_arrays(data, names=['a'])
-    array = table.column(0).data.to_pandas()
-    assert array.shape == (5,)
-    assert array[0] == -10
+    column = table.column(0)
+
+    np_arr = np.asarray(column)
+    assert np_arr.tolist() == [-10, -5, 0, 5, 10]
+    assert np_arr.dtype == np.dtype('int64')
+
+    # An optional type can be specified when calling np.asarray
+    np_arr = np.asarray(column, dtype='str')
+    assert np_arr.tolist() == ['-10', '-5', '0', '5', '10']
 
 
 def test_column_flatten():

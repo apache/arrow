@@ -156,6 +156,35 @@ def test_to_pandas_zero_copy():
         np_arr.sum()
 
 
+def test_asarray():
+    arr = pa.array(range(4))
+
+    # The iterator interface gives back an array of Int64Value's
+    np_arr = np.asarray([_ for _ in arr])
+    assert np_arr.tolist() == [0, 1, 2, 3]
+    assert np_arr.dtype == np.dtype('O')
+    assert type(np_arr[0]) == pa.lib.Int64Value
+
+    # Calling with the arrow array gives back an array with 'int64' dtype
+    np_arr = np.asarray(arr)
+    assert np_arr.tolist() == [0, 1, 2, 3]
+    assert np_arr.dtype == np.dtype('int64')
+
+    # An optional type can be specified when calling np.asarray
+    np_arr = np.asarray(arr, dtype='str')
+    assert np_arr.tolist() == ['0', '1', '2', '3']
+
+    # If PyArrow array has null values, numpy type will be changed as needed
+    # to support nulls.
+    arr = pa.array([0, 1, 2, None])
+    assert arr.type == pa.int64()
+    np_arr = np.asarray(arr)
+    elements = np_arr.tolist()
+    assert elements[:3] == [0., 1., 2.]
+    assert np.isnan(elements[3])
+    assert np_arr.dtype == np.dtype('float64')
+
+
 def test_array_getitem():
     arr = pa.array(range(10, 15))
     lst = arr.to_pylist()
