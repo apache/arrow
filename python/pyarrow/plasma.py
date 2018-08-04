@@ -51,9 +51,11 @@ def build_plasma_tensorflow_op():
     except ImportError:
         pass
     else:
+        include_dir = pa.get_include()
+        lib_dirs = " ".join(["-L" + dir for dir in pa.get_library_dirs()])
         print("Compiling Plasma TensorFlow Op...")
         script_path = os.path.join(pa.__path__[0], "tensorflow", "build.sh")
-        subprocess.check_call(["bash", script_path])
+        subprocess.check_call(["bash", script_path, include_dir, lib_dirs])
         tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
 
 
