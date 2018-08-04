@@ -113,6 +113,14 @@ struct Compression {
   enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, LZ4, ZSTD };
 };
 
+struct Encryption {
+  enum type {
+    AES_GCM_V1 = 0,
+    AES_GCM_CTR_V1 = 1
+  };
+};
+
+
 // parquet::PageType
 struct PageType {
   enum type { DATA_PAGE, INDEX_PAGE, DICTIONARY_PAGE, DATA_PAGE_V2 };
