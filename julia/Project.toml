@@ -1,0 +1,7 @@
+name = "Arrow"
+uuid = "ee2b6064-90dd-11e8-25c1-332e0faace36"
+version = "0.1.2"
+
+[deps]
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
