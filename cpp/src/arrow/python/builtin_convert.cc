@@ -484,6 +484,7 @@ struct Unbox<DoubleType> {
       // Other kinds of float-y things
       double val = PyFloat_AsDouble(obj);
       RETURN_IF_PYERROR();
+      return builder->Append(val);
     } else if (internal::PyIntScalar_Check(obj)) {
       double val = 0;
       RETURN_NOT_OK(IntegerScalarToDoubleSafe(obj, &val));

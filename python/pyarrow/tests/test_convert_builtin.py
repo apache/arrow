@@ -196,7 +196,8 @@ def test_list_with_non_list(seq):
 
 @parametrize_with_iterable_types
 def test_nested_arrays(seq):
-    arr = pa.array(seq([np.array([], dtype=int), np.array([1, 2]), None]))
+    arr = pa.array(seq([np.array([], dtype=np.int64),
+                        np.array([1, 2], dtype=np.int64), None]))
     assert len(arr) == 3
     assert arr.null_count == 1
     assert arr.type == pa.list_(pa.int64())
