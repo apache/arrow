@@ -293,22 +293,22 @@ RC_NUMBER=$2
 
 TARBALL=apache-arrow-$1.tar.gz
 
-# import_gpg_keys
-# verify_binary_artifacts
+import_gpg_keys
+verify_binary_artifacts
 
 DIST_NAME="apache-arrow-${VERSION}"
 fetch_archive $DIST_NAME
 tar xvzf ${DIST_NAME}.tar.gz
 cd ${DIST_NAME}
 
-# test_package_java
-# setup_miniconda
-# test_and_install_cpp
-# test_js
-# test_integration
-# test_glib
-# install_parquet_cpp
-# test_python
+test_package_java
+setup_miniconda
+test_and_install_cpp
+test_js
+test_integration
+test_glib
+install_parquet_cpp
+test_python
 test_rust
 
 echo 'Release candidate looks good!'
