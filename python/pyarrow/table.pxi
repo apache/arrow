@@ -147,11 +147,12 @@ cdef class ChunkedArray:
                   c_bool zero_copy_only=False,
                   c_bool integer_object_nulls=False):
         """
-        Convert the arrow::Column to a pandas.Series
+        Convert the arrow::ChunkedArray to an array object suitable for use
+        in pandas
 
-        Returns
-        -------
-        pandas.Series
+        See also
+        --------
+        Column.to_pandas
         """
         cdef:
             PyObject* out
@@ -170,6 +171,11 @@ cdef class ChunkedArray:
                 self, &out))
 
         return wrap_array_output(out)
+
+    def __array__(self, dtype=None):
+        if dtype is None:
+            return self.to_pandas()
+        return self.to_pandas().astype(dtype)
 
     def dictionary_encode(self):
         """
@@ -516,6 +522,9 @@ cdef class Column:
                           .dt.tz_convert(tz))
 
         return result
+
+    def __array__(self, dtype=None):
+        return self.data.__array__(dtype=dtype)
 
     def equals(self, Column other):
         """
