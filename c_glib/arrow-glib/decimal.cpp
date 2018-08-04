@@ -217,6 +217,106 @@ garrow_decimal128_to_integer(GArrowDecimal128 *decimal)
   return static_cast<int64_t>(*arrow_decimal);
 }
 
+/**
+ * garrow_decimal128_plus:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The added value in the decimal.
+ *
+ * Since: 0.10.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_plus(GArrowDecimal128 *left,
+                       GArrowDecimal128 *right)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(*arrow_decimal_left + *arrow_decimal_right);
+  return garrow_decimal128_new_raw(&arrow_decimal);
+}
+
+/**
+ * garrow_decimal128_minus:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The subtracted value in the decimal.
+ *
+ * Since: 0.10.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_minus(GArrowDecimal128 *left,
+                        GArrowDecimal128 *right)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(*arrow_decimal_left - *arrow_decimal_right);
+  return garrow_decimal128_new_raw(&arrow_decimal);
+}
+
+/**
+ * garrow_decimal128_multiply:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The multiplied value in the decimal.
+ *
+ * Since: 0.10.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_multiply(GArrowDecimal128 *left,
+                           GArrowDecimal128 *right)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(*arrow_decimal_left * *arrow_decimal_right);
+  return garrow_decimal128_new_raw(&arrow_decimal);
+}
+
+/**
+ * garrow_decimal128_divide:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The divided value in the decimal.
+ *
+ * Since: 0.10.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_divide(GArrowDecimal128 *left,
+                         GArrowDecimal128 *right)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(*arrow_decimal_left / *arrow_decimal_right);
+  return garrow_decimal128_new_raw(&arrow_decimal);
+}
+
+/**
+ * garrow_decimal128_modulo:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The modulo value in the decimal.
+ *
+ * Since: 0.10.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_modulo(GArrowDecimal128 *left,
+                         GArrowDecimal128 *right)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(*arrow_decimal_left % *arrow_decimal_right);
+  return garrow_decimal128_new_raw(&arrow_decimal);
+}
+
 G_END_DECLS
 
 GArrowDecimal128 *

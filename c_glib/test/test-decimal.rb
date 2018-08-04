@@ -52,4 +52,44 @@ class TestDecimal128 < Test::Unit::TestCase
     decimal = Arrow::Decimal128.new(integer_data)
     assert_equal(integer_data, decimal.to_i)
   end
+
+  def test_plus
+    integer_data = 23423445
+    decimal1 = Arrow::Decimal128.new(integer_data)
+    decimal2 = Arrow::Decimal128.new(integer_data)
+    decimal3 = decimal1.plus(decimal2)
+    assert_equal(integer_data + integer_data, decimal3.to_i)
+  end
+
+  def test_minus
+    integer_data = 23423445
+    decimal1 = Arrow::Decimal128.new(integer_data)
+    decimal2 = Arrow::Decimal128.new(integer_data)
+    decimal3 = decimal1.minus(decimal2)
+    assert_equal(integer_data - integer_data, decimal3.to_i)
+  end
+
+  def test_multiply
+    integer_data = 23423445
+    decimal1 = Arrow::Decimal128.new(integer_data)
+    decimal2 = Arrow::Decimal128.new(integer_data)
+    decimal3 = decimal1.multiply(decimal2)
+    assert_equal(integer_data * integer_data, decimal3.to_i)
+  end
+
+  def test_divide
+    integer_data = 23423445
+    decimal1 = Arrow::Decimal128.new(integer_data)
+    decimal2 = Arrow::Decimal128.new(integer_data)
+    decimal3 = decimal1.divide(decimal2)
+    assert_equal(integer_data / integer_data, decimal3.to_i)
+  end
+
+  def test_modulo
+    integer_data = 23423445
+    decimal1 = Arrow::Decimal128.new(integer_data)
+    decimal2 = Arrow::Decimal128.new(integer_data)
+    decimal3 = decimal1.modulo(decimal2)
+    assert_equal(integer_data % integer_data, decimal3.to_i)
+  end
 end
