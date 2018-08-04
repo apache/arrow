@@ -225,6 +225,29 @@ test_js() {
   popd
 }
 
+test_rust() {
+  # install rust toolchain in a similar fashion like test-miniconda
+  export RUSTUP_HOME=`pwd`/test-rustup
+  export CARGO_HOME=`pwd`/test-rustup
+
+  curl https://sh.rustup.rs -sSf | sh -s -- -y
+  source $RUSTUP_HOME/env
+
+  # build and test rust
+  pushd rust
+
+  # raises on any formatting errors (disabled, because RC1 has a couple)
+  # rustup component add rustfmt-preview
+  # cargo fmt --all -- --check
+  # raises on any warnings
+  cargo rustc -- -D warnings
+
+  cargo build
+  cargo test
+
+  popd
+}
+
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
 
 test_package_java() {
@@ -270,22 +293,23 @@ RC_NUMBER=$2
 
 TARBALL=apache-arrow-$1.tar.gz
 
-import_gpg_keys
-verify_binary_artifacts
+# import_gpg_keys
+# verify_binary_artifacts
 
 DIST_NAME="apache-arrow-${VERSION}"
 fetch_archive $DIST_NAME
 tar xvzf ${DIST_NAME}.tar.gz
 cd ${DIST_NAME}
 
-test_package_java
-setup_miniconda
-test_and_install_cpp
-test_js
-test_integration
-test_glib
-install_parquet_cpp
-test_python
+# test_package_java
+# setup_miniconda
+# test_and_install_cpp
+# test_js
+# test_integration
+# test_glib
+# install_parquet_cpp
+# test_python
+test_rust
 
 echo 'Release candidate looks good!'
 exit 0
