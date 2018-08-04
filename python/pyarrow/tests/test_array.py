@@ -165,7 +165,7 @@ def test_asarray():
     assert np_arr.dtype == np.dtype('O')
     assert type(np_arr[0]) == pa.lib.Int64Value
 
-    # Using np.asarray gives back an array with 'int64' dtype
+    # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('int64')
