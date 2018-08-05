@@ -1,6 +1,6 @@
 name = "Arrow"
 uuid = "ee2b6064-90dd-11e8-25c1-332e0faace36"
-version = "0.1.2"
+version = "0.2.0"
 
 [deps]
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
