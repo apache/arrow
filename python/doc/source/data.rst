@@ -401,8 +401,8 @@ for one or more arrays of the same type.
    c.data.num_chunks
    c.data.chunk(0)
 
-As you'll see in the :ref:`pandas section <pandas>`, we can convert these
-objects to contiguous NumPy arrays for use in pandas:
+As you'll see in the :ref:`pandas section <pandas_interop>`, we can convert
+these objects to contiguous NumPy arrays for use in pandas:
 
 .. ipython:: python
 

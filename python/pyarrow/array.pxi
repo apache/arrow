@@ -620,7 +620,7 @@ cdef class Array:
                   c_bool zero_copy_only=False,
                   c_bool integer_object_nulls=False):
         """
-        Convert to an array object suitable for use in pandas
+        Convert to a NumPy array object suitable for use in pandas.
 
         Parameters
         ----------
@@ -659,14 +659,13 @@ cdef class Array:
 
     def to_numpy(self):
         """
-        EXPERIMENTAL: Construct a NumPy view of this array. Only supports
-        primitive arrays with the same memory layout as NumPy (i.e. integers,
-        floating point) without any nulls.
+        Experimental: return a NumPy view of this array. Only primitive
+        arrays with the same memory layout as NumPy (i.e. integers,
+        floating point), without any nulls, are supported.
 
         Returns
         -------
-        arr : numpy.ndarray
-
+        array : numpy.ndarray
         """
         if self.null_count:
             raise NotImplementedError('NumPy array view is only supported '
@@ -681,7 +680,11 @@ cdef class Array:
 
     def to_pylist(self):
         """
-        Convert to an list of native Python objects.
+        Convert to a list of native Python objects.
+
+        Returns
+        -------
+        lst : list
         """
         return [x.as_py() for x in self]
 
