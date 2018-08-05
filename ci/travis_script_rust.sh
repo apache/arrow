@@ -25,7 +25,7 @@ pushd $RUST_DIR
 
 # raises on any formatting errors
 rustup component add rustfmt-preview
-cargo fmt --all -- --write-mode=diff
+cargo fmt --all -- --check
 # raises on any warnings
 cargo rustc -- -D warnings
 
