@@ -139,7 +139,7 @@ Scalar Value Types
 
 .. _api.array:
 
-.. currentmodule:: pyarrow.lib
+.. currentmodule:: pyarrow
 
 Array Types
 -----------
@@ -299,7 +299,7 @@ Memory Pools
 
 .. _api.type_classes:
 
-.. currentmodule:: pyarrow.lib
+.. currentmodule:: pyarrow
 
 Type Classes
 ------------

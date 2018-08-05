@@ -15,24 +15,30 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _pandas:
+.. _pandas_interop:
 
 Using PyArrow with pandas
 =========================
 
-To interface with pandas, PyArrow provides various conversion routines to
-consume pandas structures and convert back to them.
+To interface with `pandas <https://pandas.pydata.org/>`_, PyArrow provides
+various conversion routines to consume pandas structures and convert back
+to them.
+
+.. note::
+   While pandas uses NumPy as a backend, it has enough peculiarities
+   (such as a different type system, and support for null values) that this
+   is a separate topic from :ref:`numpy_interop`.
 
 DataFrames
 ----------
 
-The equivalent to a pandas DataFrame in Arrow is a :class:`pyarrow.table.Table`.
+The equivalent to a pandas DataFrame in Arrow is a :ref:`Table <data.table>`.
 Both consist of a set of named columns of equal length. While pandas only
 supports flat columns, the Table also provides nested columns, thus it can
 represent more data than a DataFrame, so a full conversion is not always possible.
 
 Conversion from a Table to a DataFrame is done by calling
-:meth:`pyarrow.table.Table.to_pandas`. The inverse is then achieved by using
+:meth:`pyarrow.Table.to_pandas`. The inverse is then achieved by using
 :meth:`pyarrow.Table.from_pandas`.
 
 .. code-block:: python
