@@ -19,9 +19,9 @@
 use std::any::Any;
 use std::convert::From;
 use std::ops::Add;
-use std::sync::Arc;
 use std::str;
 use std::string::String;
+use std::sync::Arc;
 
 use super::bitmap::Bitmap;
 use super::buffer::*;
@@ -453,12 +453,9 @@ mod tests {
     fn test_access_array_concurrently() {
         let a = PrimitiveArray::from(Buffer::from(vec![5, 6, 7, 8, 9]));
 
-        let ret = thread::spawn(move || {
-            a.iter().collect::<Vec<i32>>()
-        }).join();
+        let ret = thread::spawn(move || a.iter().collect::<Vec<i32>>()).join();
 
         assert!(ret.is_ok());
         assert_eq!(vec![5, 6, 7, 8, 9], ret.ok().unwrap());
     }
 }
-
