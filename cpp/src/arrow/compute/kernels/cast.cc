@@ -17,10 +17,12 @@
 
 #include "arrow/compute/kernels/cast.h"
 
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <locale>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -728,6 +730,178 @@ struct CastFunctor<T, DictionaryType,
 };
 
 // ----------------------------------------------------------------------
+// String to Number
+
+// Cast a string to a number.  Returns true on success, false on error.
+// We rely on C++ istringstream for locale-independent parsing, which might
+// not be the fastest option.
+
+template <typename T>
+typename std::enable_if<std::is_floating_point<T>::value,
+                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
+                                                              T* out) {
+  ibuf >> *out;
+  return !ibuf.fail() && ibuf.eof();
+}
+
+// For integers, not all integer widths are handled by the C++ stdlib, so
+// we check for limits outselves.
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value,
+                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
+                                                              T* out) {
+  static constexpr bool need_long_long = sizeof(T) > sizeof(long);  // NOLINT
+  static constexpr T min_value = std::numeric_limits<T>::min();
+  static constexpr T max_value = std::numeric_limits<T>::max();
+
+  if (need_long_long) {
+    long long res;  // NOLINT
+    ibuf >> res;
+    *out = static_cast<T>(res);  // may downcast
+    if (res < min_value || res > max_value) {
+      return false;
+    }
+  } else {
+    long res;  // NOLINT
+    ibuf >> res;
+    *out = static_cast<T>(res);  // may downcast
+    if (res < min_value || res > max_value) {
+      return false;
+    }
+  }
+  return !ibuf.fail() && ibuf.eof();
+}
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value,
+                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
+                                                              T* out) {
+  static constexpr bool need_long_long = sizeof(T) > sizeof(unsigned long);  // NOLINT
+  static constexpr T max_value = std::numeric_limits<T>::max();
+
+  if (need_long_long) {
+    unsigned long long res;  // NOLINT
+    ibuf >> res;
+    *out = static_cast<T>(res);  // may downcast
+    if (res > max_value) {
+      return false;
+    }
+  } else {
+    unsigned long res;  // NOLINT
+    ibuf >> res;
+    *out = static_cast<T>(res);  // may downcast
+    if (res > max_value) {
+      return false;
+    }
+  }
+  return !ibuf.fail() && ibuf.eof();
+}
+
+template <typename O>
+struct CastFunctor<O, StringType, enable_if_number<O>> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    using out_type = typename O::c_type;
+
+    StringArray input_array(input.Copy());
+    auto out_data = GetMutableValues<out_type>(output, 1);
+    errno = 0;
+    // Instantiate the stringstream outside of the loop
+    std::istringstream ibuf;
+    ibuf.imbue(std::locale::classic());
+
+    for (int64_t i = 0; i < input.length; ++i, ++out_data) {
+      if (input_array.IsNull(i)) {
+        continue;
+      }
+      auto str = input_array.GetString(i);
+      ibuf.clear();
+      ibuf.str(str);
+      if (!CastStringToNumber(ibuf, out_data)) {
+        std::stringstream ss;
+        ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
+        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        return;
+      }
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
+// String to Boolean
+
+// Helper function to cast a C string to a boolean.  Returns true on success,
+// false on error.
+
+static bool CastStringtoBoolean(const char* s, size_t length, bool* out) {
+  if (length == 1) {
+    // "0" or "1"?
+    if (s[0] == '0') {
+      *out = false;
+      return true;
+    }
+    if (s[0] == '1') {
+      *out = true;
+      return true;
+    }
+    return false;
+  }
+  if (length == 4) {
+    // "true"?
+    *out = true;
+    return ((s[0] == 't' || s[0] == 'T') && (s[1] == 'r' || s[1] == 'R') &&
+            (s[2] == 'u' || s[2] == 'U') && (s[3] == 'e' || s[3] == 'E'));
+  }
+  if (length == 5) {
+    // "false"?
+    *out = false;
+    return ((s[0] == 'f' || s[0] == 'F') && (s[1] == 'a' || s[1] == 'A') &&
+            (s[2] == 'l' || s[2] == 'L') && (s[3] == 's' || s[3] == 'S') &&
+            (s[4] == 'e' || s[4] == 'E'));
+  }
+  return false;
+}
+
+template <typename O>
+struct CastFunctor<O, StringType,
+                   typename std::enable_if<std::is_same<BooleanType, O>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    StringArray input_array(input.Copy());
+    internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
+                                           output->offset, input.length);
+
+    for (int64_t i = 0; i < input.length; ++i) {
+      if (input_array.IsNull(i)) {
+        writer.Next();
+        continue;
+      }
+
+      int32_t length = -1;
+      auto str = input_array.GetValue(i, &length);
+      bool value;
+      if (!CastStringtoBoolean(reinterpret_cast<const char*>(str),
+                               static_cast<size_t>(length), &value)) {
+        std::stringstream ss;
+        ss << "Failed to cast String '" << input_array.GetString(i) << "' into "
+           << output->type->ToString();
+        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        return;
+      }
+
+      if (value) {
+        writer.Set();
+      } else {
+        writer.Clear();
+      }
+      writer.Next();
+    }
+    writer.Finish();
+  }
+};
+
+// ----------------------------------------------------------------------
 
 typedef std::function<void(FunctionContext*, const CastOptions& options, const ArrayData&,
                            ArrayData*)>
@@ -905,6 +1079,20 @@ class CastKernel : public UnaryKernel {
   FN(TimestampType, Date64Type);     \
   FN(TimestampType, Int64Type);
 
+#define STRING_CASES(FN, IN_TYPE) \
+  FN(StringType, StringType);     \
+  FN(StringType, BooleanType);    \
+  FN(StringType, UInt8Type);      \
+  FN(StringType, Int8Type);       \
+  FN(StringType, UInt16Type);     \
+  FN(StringType, Int16Type);      \
+  FN(StringType, UInt32Type);     \
+  FN(StringType, Int32Type);      \
+  FN(StringType, UInt64Type);     \
+  FN(StringType, Int64Type);      \
+  FN(StringType, FloatType);      \
+  FN(StringType, DoubleType);
+
 #define DICTIONARY_CASES(FN, IN_TYPE) \
   FN(IN_TYPE, NullType);              \
   FN(IN_TYPE, Time32Type);            \
@@ -962,6 +1150,7 @@ GET_CAST_FUNCTION(DATE64_CASES, Date64Type);
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type);
 GET_CAST_FUNCTION(TIME64_CASES, Time64Type);
 GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
+GET_CAST_FUNCTION(STRING_CASES, StringType);
 GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
 
 #define CAST_FUNCTION_CASE(InType)                      \
@@ -1009,6 +1198,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(Time32Type);
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
+    CAST_FUNCTION_CASE(StringType);
     CAST_FUNCTION_CASE(DictionaryType);
     case Type::LIST:
       RETURN_NOT_OK(GetListCastFunc(in_type, out_type, options, kernel));
