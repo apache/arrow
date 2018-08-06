@@ -40,6 +40,9 @@ try:
     JIRA_IMPORTED = True
 except ImportError:
     JIRA_IMPORTED = False
+    print("Could not find jira-python library. "
+          "Run 'sudo pip install jira-python' to install.")
+    print("Exiting without trying to close the associated JIRA.")
 
 # Location of your Arrow git clone
 SEP = os.path.sep
@@ -274,7 +277,7 @@ def resolve_jira(title, merge_branches, comment):
     print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
           % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
-    jira_fix_versions = _get_fix_version(ASF_JIRA, merge_branches)
+    jira_fix_versions = _get_fix_version(merge_branches)
 
     resolve = [x for x in ASF_JIRA.transitions(jira_id)
                if x['name'] == "Resolve Issue"][0]
@@ -372,12 +375,7 @@ merged_refs = [target_ref]
 
 merge_hash = merge_pr(pr_num, target_ref)
 
-if JIRA_IMPORTED:
-    continue_maybe("Would you like to update the associated JIRA?")
-    jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
-                    % (pr_num, GITHUB_BASE, pr_num))
-    resolve_jira(title, merged_refs, jira_comment)
-else:
-    print("Could not find jira-python library. "
-          "Run 'sudo pip install jira-python' to install.")
-    print("Exiting without trying to close the associated JIRA.")
+continue_maybe("Would you like to update the associated JIRA?")
+jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
+                % (pr_num, GITHUB_BASE, pr_num))
+resolve_jira(title, merged_refs, jira_comment)
