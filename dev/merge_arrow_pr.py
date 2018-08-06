@@ -66,6 +66,15 @@ BRANCH_PREFIX = "PR_TOOL"
 
 os.chdir(ARROW_HOME)
 
+if not JIRA_USERNAME:
+    JIRA_USERNAME = input("Env JIRA_USERNAME not set, "
+                          "please enter your JIRA username:")
+
+if not JIRA_PASSWORD:
+    JIRA_PASSWORD = getpass.getpass("Env JIRA_PASSWORD not set, please enter "
+                                    "your JIRA password:")
+
+
 ASF_JIRA = jira.client.JIRA({'server': JIRA_API_BASE},
                             basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
 
@@ -313,14 +322,6 @@ def _get_fix_version(merge_branches):
 
     return [get_version_json(v) for v in fix_versions]
 
-
-if not JIRA_USERNAME:
-    JIRA_USERNAME = input("Env JIRA_USERNAME not set, "
-                          "please enter your JIRA username:")
-
-if not JIRA_PASSWORD:
-    JIRA_PASSWORD = getpass.getpass("Env JIRA_PASSWORD not set, please enter "
-                                    "your JIRA password:")
 
 branches = get_json("%s/branches" % GITHUB_API_BASE)
 branch_names = [x['name'] for x in branches if x['name'].startswith('branch-')]
