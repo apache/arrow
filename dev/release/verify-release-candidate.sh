@@ -254,7 +254,9 @@ test_rust() {
   export RUSTUP_HOME=`pwd`/test-rustup
   export CARGO_HOME=`pwd`/test-rustup
 
-  curl https://sh.rustup.rs -sSf | sh -s -- -y
+  curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+
+  export PATH=$RUSTUP_HOME/bin:$PATH
   source $RUSTUP_HOME/env
 
   # build and test rust
