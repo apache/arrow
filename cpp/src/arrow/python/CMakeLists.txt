@@ -116,6 +116,8 @@ if (ARROW_BUILD_TESTS)
 
   target_link_libraries(arrow_python_test_main
     gtest)
+  target_include_directories(arrow_python_test_main SYSTEM PUBLIC
+    ${ARROW_PYTHON_INCLUDES})
 
   if (APPLE)
 	target_link_libraries(arrow_python_test_main
@@ -137,6 +139,7 @@ if (ARROW_BUILD_TESTS)
 
   ADD_ARROW_TEST(python-test
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}"
+    EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
     NO_VALGRIND)
   target_link_libraries(python-test
     ${PYTHON_LIBRARIES})
