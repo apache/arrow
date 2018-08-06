@@ -19,6 +19,9 @@
 # arrow_python
 #######################################
 
+find_package(PythonLibsNew REQUIRED)
+find_package(NumPy REQUIRED)
+
 set(ARROW_PYTHON_SRCS
   arrow_to_pandas.cc
   arrow_to_python.cc
@@ -55,11 +58,16 @@ if (MSVC)
     )
 endif()
 
+set(ARROW_PYTHON_INCLUDES
+  ${NUMPY_INCLUDE_DIRS}
+  ${PYTHON_INCLUDE_DIRS})
+
 ADD_ARROW_LIB(arrow_python
   SOURCES ${ARROW_PYTHON_SRCS}
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
   STATIC_LINK_LIBS "${PYTHON_OTHER_LIBS}"
+  EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")

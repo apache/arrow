@@ -92,7 +92,7 @@ endfunction()
 function(ADD_ARROW_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LINK_FLAGS)
-  set(multi_value_args SOURCES STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS DEPENDENCIES)
+  set(multi_value_args SOURCES STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS EXTRA_INCLUDES DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -115,8 +115,20 @@ function(ADD_ARROW_LIB LIB_NAME)
 
   set(RUNTIME_INSTALL_DIR bin)
 
+  if (ARG_EXTRA_INCLUDES)
+    target_include_directories(${LIB_NAME}_objlib PUBLIC BEFORE
+      ${ARG_EXTRA_INCLUDES}
+      )
+  endif()
+
+  # if (ARG_EXTRA_INCLUDES)
+  #   get_property(object_include_dirs TARGET ${LIB_NAME}_objlib
+  #     PROPERTY INCLUDE_DIRECTORIES)
+  # endif()
+
   if (ARROW_BUILD_SHARED)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
+    # target_include_directories(${LIB_NAME}_shared PUBLIC ${object_include_dirs})
     if (EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
     endif()
@@ -174,6 +186,7 @@ function(ADD_ARROW_LIB LIB_NAME)
 
   if (ARROW_BUILD_STATIC)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
+    # target_include_directories(${LIB_NAME}_static PUBLIC ${object_include_dirs})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
     endif()
