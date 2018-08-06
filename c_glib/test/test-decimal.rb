@@ -97,4 +97,14 @@ class TestDecimal128 < Test::Unit::TestCase
     decimal3 = decimal1.remainder(decimal2)
     assert_equal(integer_data1 % integer_data2, decimal3.to_i)
   end
+
+  def test_divide_zero
+    decimal1 = Arrow::Decimal128.new(23423445)
+    decimal2 = Arrow::Decimal128.new(0)
+    message =
+      "[decimal][divide]: Invalid: Division by 0 in Decimal128"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      decimal1.divide(decimal2)
+    end
+  end
 end
