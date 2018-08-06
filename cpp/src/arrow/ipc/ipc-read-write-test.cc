@@ -498,8 +498,11 @@ TEST_F(RecursionLimits, StressLimit) {
   CheckDepth(100, &it_works);
   ASSERT_TRUE(it_works);
 
+// Mitigate Valgrind's slowness
+#if !defined(ARROW_VALGRIND)
   CheckDepth(500, &it_works);
   ASSERT_TRUE(it_works);
+#endif
 }
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 
