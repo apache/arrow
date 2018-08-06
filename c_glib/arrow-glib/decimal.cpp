@@ -222,9 +222,9 @@ garrow_decimal128_to_integer(GArrowDecimal128 *decimal)
  * @left: A #GArrowDecimal128.
  * @right: A #GArrowDecimal128.
  *
- * Returns: (transfer full): The added value in the decimal.
+ * Returns: (transfer full): The added value of these decimals.
  *
- * Since: 0.10.0
+ * Since: 0.11.0
  */
 GArrowDecimal128 *
 garrow_decimal128_plus(GArrowDecimal128 *left,
@@ -242,9 +242,9 @@ garrow_decimal128_plus(GArrowDecimal128 *left,
  * @left: A #GArrowDecimal128.
  * @right: A #GArrowDecimal128.
  *
- * Returns: (transfer full): The subtracted value in the decimal.
+ * Returns: (transfer full): The subtracted value of these decimals.
  *
- * Since: 0.10.0
+ * Since: 0.11.0
  */
 GArrowDecimal128 *
 garrow_decimal128_minus(GArrowDecimal128 *left,
@@ -262,9 +262,9 @@ garrow_decimal128_minus(GArrowDecimal128 *left,
  * @left: A #GArrowDecimal128.
  * @right: A #GArrowDecimal128.
  *
- * Returns: (transfer full): The multiplied value in the decimal.
+ * Returns: (transfer full): The multiplied value of these decimals.
  *
- * Since: 0.10.0
+ * Since: 0.11.0
  */
 GArrowDecimal128 *
 garrow_decimal128_multiply(GArrowDecimal128 *left,
@@ -282,9 +282,9 @@ garrow_decimal128_multiply(GArrowDecimal128 *left,
  * @left: A #GArrowDecimal128.
  * @right: A #GArrowDecimal128.
  *
- * Returns: (transfer full): The divided value in the decimal.
+ * Returns: (transfer full): The divided value of these decimals.
  *
- * Since: 0.10.0
+ * Since: 0.11.0
  */
 GArrowDecimal128 *
 garrow_decimal128_divide(GArrowDecimal128 *left,
@@ -302,9 +302,9 @@ garrow_decimal128_divide(GArrowDecimal128 *left,
  * @left: A #GArrowDecimal128.
  * @right: A #GArrowDecimal128.
  *
- * Returns: (transfer full): The modulo value in the decimal.
+ * Returns: (transfer full): The modulo value of these decimals.
  *
- * Since: 0.10.0
+ * Since: 0.11.0
  */
 GArrowDecimal128 *
 garrow_decimal128_modulo(GArrowDecimal128 *left,
