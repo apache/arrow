@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,-clang-analyzer-alpha*,google-.*,modernize-.*,readablity-.*'
+Checks:          'clang-diagnostic-*,clang-analyzer-*,-clang-analyzer-alpha*,google-*,modernize-*,readability-*'
 HeaderFilterRegex: 'arrow/.*'
 AnalyzeTemporaryDtors: true
 CheckOptions:
