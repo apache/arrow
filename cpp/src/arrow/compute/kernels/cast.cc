@@ -799,7 +799,7 @@ typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value
 }
 
 template <typename O>
-struct CastFunctor<O, StringType, typename std::enable_if<is_number<O>::value>::type> {
+struct CastFunctor<O, StringType, enable_if_number<O>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using out_type = typename O::c_type;
