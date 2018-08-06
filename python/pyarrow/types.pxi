@@ -420,7 +420,7 @@ cdef class Field:
         return self.__str__()
 
     def __hash__(self):
-        return hash((self.field.name(), self.type.id))
+        return hash((self.field.name(), self.type, self.field.nullable()))
 
     property nullable:
 

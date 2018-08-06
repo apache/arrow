@@ -44,9 +44,14 @@ MANY_TYPES = [
     pa.struct([pa.field('a', pa.int32()),
                pa.field('b', pa.int8()),
                pa.field('c', pa.string())]),
+    pa.struct([pa.field('a', pa.int32(), nullable=False),
+               pa.field('b', pa.int8(), nullable=False),
+               pa.field('c', pa.string())]),
     pa.union([pa.field('a', pa.binary(10)),
               pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
     pa.union([pa.field('a', pa.binary(10)),
+              pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+    pa.union([pa.field('a', pa.binary(10), nullable=False),
               pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
     # XXX Needs array pickling
     # pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
@@ -231,9 +236,11 @@ def test_dictionary_type():
 
 def test_fields_hashable():
     in_dict = {}
-    fields = [pa.field('a', pa.int64()),
-              pa.field('a', pa.int32()),
-              pa.field('b', pa.int32())]
+    fields = [pa.field('a', pa.int32()),
+              pa.field('a', pa.int64()),
+              pa.field('a', pa.int64(), nullable=False),
+              pa.field('b', pa.int32()),
+              pa.field('b', pa.int32(), nullable=False)]
     for i, field in enumerate(fields):
         in_dict[field] = i
     assert len(in_dict) == len(fields)
