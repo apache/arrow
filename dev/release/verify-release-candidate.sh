@@ -225,6 +225,25 @@ test_js() {
   popd
 }
 
+test_ruby() {
+  export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
+
+  pushd ruby
+
+  pushd red-arrow
+  bundle install --path vendor/bundle
+  bundle exec ruby test/run-test.rb
+  popd
+
+  # TODO: Arrow GPU related tests
+  # pushd red-arrow-gpu
+  # bundle install --path vendor/bundle
+  # bundle exec ruby test/run-test.rb
+  # popd
+
+  popd
+}
+
 test_rust() {
   # install rust toolchain in a similar fashion like test-miniconda
   export RUSTUP_HOME=`pwd`/test-rustup
@@ -309,6 +328,7 @@ test_integration
 test_glib
 install_parquet_cpp
 test_python
+test_ruby
 test_rust
 
 echo 'Release candidate looks good!'
