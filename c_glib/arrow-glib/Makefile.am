@@ -242,14 +242,6 @@ if HAVE_INTROSPECTION
 INTROSPECTION_GIRS =
 INTROSPECTION_SCANNER_ARGS =
 INTROSPECTION_SCANNER_ENV =
-if USE_ARROW_BUILD_DIR
-INTROSPECTION_SCANNER_ENV +=			\
-	LD_LIBRARY_PATH=$(ARROW_LIB_DIR):$${LD_LIBRARY_PATH}
-endif
-if OS_MACOS
-INTROSPECTION_SCANNER_ENV +=			\
-	ARCHFLAGS=
-endif
 INTROSPECTION_COMPILER_ARGS =
 
 Arrow-1.0.gir: libarrow-glib.la
@@ -261,12 +253,21 @@ Arrow_1_0_gir_INCLUDES =			\
 	Gio-2.0
 Arrow_1_0_gir_CFLAGS =				\
 	$(AM_CPPFLAGS)
-Arrow_1_0_gir_LIBS = libarrow-glib.la
+Arrow_1_0_gir_LIBS =
 Arrow_1_0_gir_FILES = $(libarrow_glib_la_sources)
 Arrow_1_0_gir_SCANNERFLAGS =			\
+	--library-path=$(ARROW_LIB_DIR)		\
 	--warn-all				\
 	--identifier-prefix=GArrow		\
 	--symbol-prefix=garrow
+if OS_MACOS
+Arrow_1_0_gir_LIBS += arrow-glib
+Arrow_1_0_gir_SCANNERFLAGS +=			\
+	--no-libtool				\
+	--library-path=$(abs_builddir)/.libs
+else
+Arrow_1_0_gir_LIBS += libarrow-glib.la
+endif
 INTROSPECTION_GIRS += Arrow-1.0.gir
 
 girdir = $(datadir)/gir-1.0
