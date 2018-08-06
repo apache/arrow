@@ -78,10 +78,6 @@ else
 INTROSPECTION_SCANNER_ENV +=			\
 	PKG_CONFIG_PATH=${abs_builddir}/../arrow-glib:$${PKG_CONFIG_PATH}
 endif
-if OS_MACOS
-INTROSPECTION_SCANNER_ENV +=			\
-	ARCHFLAGS=
-endif
 INTROSPECTION_COMPILER_ARGS =			\
 	--includedir=$(abs_builddir)/../arrow-glib
 
@@ -95,20 +91,30 @@ ArrowGPU_1_0_gir_INCLUDES =			\
 ArrowGPU_1_0_gir_CFLAGS =			\
 	$(AM_CPPFLAGS)
 ArrowGPU_1_0_gir_LDFLAGS =
-if USE_ARROW_BUILD_DIR
-ArrowGPU_1_0_gir_LDFLAGS +=			\
-	-L$(ARROW_LIB_DIR)
-endif
-ArrowGPU_1_0_gir_LIBS =					\
-	$(abs_builddir)/../arrow-glib/libarrow-glib.la	\
-	libarrow-gpu-glib.la
+ArrowGPU_1_0_gir_LIBS =
 ArrowGPU_1_0_gir_FILES =			\
 	$(libarrow_gpu_glib_la_sources)
 ArrowGPU_1_0_gir_SCANNERFLAGS =					\
+	--library-path=$(ARROW_LIB_DIR)				\
 	--warn-all						\
 	--add-include-path=$(abs_builddir)/../arrow-glib	\
 	--identifier-prefix=GArrowGPU				\
 	--symbol-prefix=garrow_gpu
+if OS_MACOS
+ArrowGPU_1_0_gir_LIBS +=			\
+	 arrow-glib				\
+	 arrow-gpu-glib
+ArrowGPU_1_0_gir_SCANNERFLAGS +=				\
+	--no-libtool						\
+	--library-path=$(abs_builddir)/../arrow-glib/.libs	\
+	--library-path=$(abs_builddir)/.libs
+else
+ArrowGPU_1_0_gir_LIBS +=				\
+	$(abs_builddir)/../arrow-glib/libarrow-glib.la	\
+	libarrow-gpu-glib.la
+endif
+
+					\
 INTROSPECTION_GIRS += ArrowGPU-1.0.gir
 
 girdir = $(datadir)/gir-1.0
