@@ -76,13 +76,17 @@ fetch_archive() {
 }
 
 verify_binary_artifacts() {
+  # --show-progress not supported on wget < 1.16
+  wget --help | grep -q '\--show-progress' && \
+      _WGET_PROGRESS_OPT="-q --show-progress" || _WGET_PROGRESS_OPT=""
+
   # download the binaries folder for the current RC
   rcname=apache-arrow-${VERSION}-rc${RC_NUMBER}
   wget -P "$rcname" \
     --quiet \
     --no-host-directories \
     --cut-dirs=5 \
-    --show-progress \
+    $_WGET_PROGRESS_OPT \
     --no-parent \
     --reject 'index.html*' \
     --recursive "$ARROW_DIST_URL/$rcname/binaries/"
@@ -144,8 +148,9 @@ test_and_install_cpp() {
 
   cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
         -DCMAKE_INSTALL_LIBDIR=$ARROW_HOME/lib \
-        -DARROW_PLASMA=on \
-        -DARROW_PYTHON=on \
+        -DARROW_PLASMA=ON \
+        -DARROW_ORC=ON \
+        -DARROW_PYTHON=ON \
         -DARROW_BOOST_USE_SHARED=on \
         -DCMAKE_BUILD_TYPE=release \
         -DARROW_BUILD_BENCHMARKS=on \
@@ -323,12 +328,12 @@ cd ${DIST_NAME}
 test_package_java
 setup_miniconda
 test_and_install_cpp
-test_js
-test_integration
-test_glib
 install_parquet_cpp
 test_python
+test_glib
 test_ruby
+test_js
+test_integration
 test_rust
 
 echo 'Release candidate looks good!'
