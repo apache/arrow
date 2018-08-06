@@ -85,11 +85,11 @@ class TestDecimal128 < Test::Unit::TestCase
     assert_equal(integer_data / integer_data, decimal3.to_i)
   end
 
-  def test_modulo
+  def test_remainder
     integer_data = 23423445
     decimal1 = Arrow::Decimal128.new(integer_data)
     decimal2 = Arrow::Decimal128.new(integer_data)
-    decimal3 = decimal1.modulo(decimal2)
+    decimal3 = decimal1.remainder(decimal2)
     assert_equal(integer_data % integer_data, decimal3.to_i)
   end
 end
