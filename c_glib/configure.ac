@@ -115,6 +115,8 @@ if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
   USE_ARROW_BUILD_DIR=no
 
   PKG_CHECK_MODULES([ARROW], [arrow arrow-compute])
+  _PKG_CONFIG(ARROW_LIB_DIR, [variable=libdir], [arrow])
+  ARROW_LIB_DIR="$pkg_cv_ARROW_LIB_DIR"
   PKG_CHECK_MODULES([ARROW_ORC],
                     [arrow-orc],
                     [HAVE_ARROW_ORC=yes],
