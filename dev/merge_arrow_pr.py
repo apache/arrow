@@ -40,6 +40,9 @@ try:
     JIRA_IMPORTED = True
 except ImportError:
     JIRA_IMPORTED = False
+    print("Could not find jira-python library. "
+          "Run 'sudo pip install jira-python' to install.")
+    print("Exiting without trying to close the associated JIRA.")
 
 # Location of your Arrow git clone
 SEP = os.path.sep
@@ -65,6 +68,18 @@ JIRA_API_BASE = "https://issues.apache.org/jira"
 BRANCH_PREFIX = "PR_TOOL"
 
 os.chdir(ARROW_HOME)
+
+if not JIRA_USERNAME:
+    JIRA_USERNAME = input("Env JIRA_USERNAME not set, "
+                          "please enter your JIRA username:")
+
+if not JIRA_PASSWORD:
+    JIRA_PASSWORD = getpass.getpass("Env JIRA_PASSWORD not set, please enter "
+                                    "your JIRA password:")
+
+
+ASF_JIRA = jira.client.JIRA({'server': JIRA_API_BASE},
+                            basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
 
 
 def get_json(url):
@@ -213,7 +228,7 @@ def fix_version_from_branch(branch, versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
     if branch == "master":
-        return versions[0]
+        return versions[-1]
     else:
         branch_ver = branch.replace("branch-", "")
         return [x for x in versions if x.name.startswith(branch_ver)][-1]
@@ -230,18 +245,13 @@ def extract_jira_id(title):
 
 def check_jira(title):
     jira_id = extract_jira_id(title)
-    asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
-                                basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
     try:
-        asf_jira.issue(jira_id)
+        ASF_JIRA.issue(jira_id)
     except Exception as e:
         fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
 
 def resolve_jira(title, merge_branches, comment):
-    asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
-                                basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
-
     default_jira_id = extract_jira_id(title)
 
     jira_id = input("Enter a JIRA id [%s]: " % default_jira_id)
@@ -249,7 +259,7 @@ def resolve_jira(title, merge_branches, comment):
         jira_id = default_jira_id
 
     try:
-        issue = asf_jira.issue(jira_id)
+        issue = ASF_JIRA.issue(jira_id)
     except Exception as e:
         fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
@@ -267,23 +277,28 @@ def resolve_jira(title, merge_branches, comment):
     print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
           % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
-    jira_fix_versions = _get_fix_version(asf_jira, merge_branches)
+    jira_fix_versions = _get_fix_version(merge_branches)
 
-    resolve = [x for x in asf_jira.transitions(jira_id)
+    resolve = [x for x in ASF_JIRA.transitions(jira_id)
                if x['name'] == "Resolve Issue"][0]
-    asf_jira.transition_issue(jira_id, resolve["id"], comment=comment,
+    ASF_JIRA.transition_issue(jira_id, resolve["id"], comment=comment,
                               fixVersions=jira_fix_versions)
 
     print("Successfully resolved %s!" % (jira_id))
 
 
-def _get_fix_version(asf_jira, merge_branches):
-    versions = asf_jira.project_versions("ARROW")
+def _get_fix_version(merge_branches):
+    # Only suggest versions starting with a number, like 0.x but not JS-0.x
+    mainline_version_regex = re.compile('\d.*')
+    versions = [x for x in ASF_JIRA.project_versions("ARROW")
+                if not x.raw['released'] and
+                mainline_version_regex.match(x.name)]
+
     versions = sorted(versions, key=lambda x: x.name, reverse=True)
-    versions = [x for x in versions if not x.raw['released']]
 
     default_fix_versions = [fix_version_from_branch(x, versions).name
                             for x in merge_branches]
+
     for v in default_fix_versions:
         # Handles the case where we have forked a release branch but not yet
         # made the release.  In this case, if the PR is committed to the master
@@ -309,14 +324,6 @@ def _get_fix_version(asf_jira, merge_branches):
 
     return [get_version_json(v) for v in fix_versions]
 
-
-if not JIRA_USERNAME:
-    JIRA_USERNAME = input("Env JIRA_USERNAME not set, "
-                          "please enter your JIRA username:")
-
-if not JIRA_PASSWORD:
-    JIRA_PASSWORD = getpass.getpass("Env JIRA_PASSWORD not set, please enter "
-                                    "your JIRA password:")
 
 branches = get_json("%s/branches" % GITHUB_API_BASE)
 branch_names = [x['name'] for x in branches if x['name'].startswith('branch-')]
@@ -367,12 +374,7 @@ merged_refs = [target_ref]
 
 merge_hash = merge_pr(pr_num, target_ref)
 
-if JIRA_IMPORTED:
-    continue_maybe("Would you like to update the associated JIRA?")
-    jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
-                    % (pr_num, GITHUB_BASE, pr_num))
-    resolve_jira(title, merged_refs, jira_comment)
-else:
-    print("Could not find jira-python library. "
-          "Run 'sudo pip install jira-python' to install.")
-    print("Exiting without trying to close the associated JIRA.")
+continue_maybe("Would you like to update the associated JIRA?")
+jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
+                % (pr_num, GITHUB_BASE, pr_num))
+resolve_jira(title, merged_refs, jira_comment)
