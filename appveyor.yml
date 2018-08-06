@@ -24,6 +24,7 @@ only_commits:
     - appveyor.yml
     - ci/
     - cpp/
+    - format/
     - python/
     - rust/
 
