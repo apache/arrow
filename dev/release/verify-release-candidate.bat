@@ -15,24 +15,8 @@
 @rem specific language governing permissions and limitations
 @rem under the License.
 
-@rem To use this script, first create the following conda environment. Change
-@rem the Python version if so desired. You can also omit one or more of the
-@rem libray build rem dependencies if you want to build them from source as well
-@rem
-
-@rem set PYTHON=3.6
-@rem conda create -n arrow-verify-release -f -q -y python=%PYTHON%
-@rem conda install -y ^
-@rem       six pytest setuptools numpy pandas cython ^
-@rem       thrift-cpp flatbuffers rapidjson ^
-@rem       cmake ^
-@rem       git ^
-@rem       boost-cpp ^
-@rem       snappy zlib brotli gflags lz4-c zstd -c conda-forge || exit /B
-
-@rem Then run from the directory containing the RC tarball
-@rem
-@rem verify-release-candidate.bat apache-arrow-%VERSION%
+@rem To run the script:
+@rem verify-release-candidate.bat VERSION RC_NUM
 
 @echo on
 
@@ -40,16 +24,39 @@ if not exist "C:\tmp\" mkdir C:\tmp
 if exist "C:\tmp\arrow-verify-release" rd C:\tmp\arrow-verify-release /s /q
 if not exist "C:\tmp\arrow-verify-release" mkdir C:\tmp\arrow-verify-release
 
-tar xvf %1.tar.gz -C "C:/tmp/"
+set _VERIFICATION_DIR=C:\tmp\arrow-verify-release
+set _VERIFICATION_DIR_UNIX=C:/tmp/arrow-verify-release
+set _VERIFICATION_CONDA_ENV=%_VERIFICATION_DIR%\conda-env
+set _DIST_URL=https://dist.apache.org/repos/dist/dev/arrow
+set _TARBALL=apache-arrow-%1.tar.gz
+set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
+set INSTALL_DIR=%_VERIFICATION_DIR%\install
+
+@rem Requires GNU Wget for Windows
+wget -O %_TARBALL% %_DIST_URL%/apache-arrow-%1-rc%2/%_TARBALL%
+
+tar xvf %_TARBALL% -C %_VERIFICATION_DIR_UNIX%
+
+set PYTHON=3.6
+
+@rem Using call with conda.bat seems necessary to avoid terminating the batch
+@rem script execution
+call conda create -p %_VERIFICATION_CONDA_ENV% -f -q -y python=%PYTHON% || exit /B
+
+call activate %_VERIFICATION_CONDA_ENV%
+
+call conda install -y ^
+      six pytest setuptools numpy pandas cython ^
+      thrift-cpp flatbuffers rapidjson ^
+      cmake ^
+      git ^
+      boost-cpp ^
+      snappy zlib brotli gflags lz4-c zstd -c conda-forge
 
 set GENERATOR=Visual Studio 14 2015 Win64
 set CONFIGURATION=release
-set ARROW_SOURCE=C:\tmp\%1
-set INSTALL_DIR=C:\tmp\%1\install
 
 pushd %ARROW_SOURCE%
-
-call activate arrow-verify-release
 
 set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
@@ -59,14 +66,17 @@ set PARQUET_HOME=%INSTALL_DIR%
 set PATH=%INSTALL_DIR%\bin;%PATH%
 
 @rem Build and test Arrow C++ libraries
-mkdir cpp\build
-pushd cpp\build
+mkdir %ARROW_SOURCE%\cpp\build
+pushd %ARROW_SOURCE%\cpp\build
+
+@rem This is the path for Visual Studio Community 2017
+call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
-      -DARROW_CXXFLAGS="/WX /MP" ^
+      -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config %CONFIGURATION%  || exit /B
@@ -79,13 +89,13 @@ popd
 
 @rem Build parquet-cpp
 git clone https://github.com/apache/parquet-cpp.git || exit /B
-mkdir parquet-cpp\build
-pushd parquet-cpp\build
+mkdir %ARROW_SOURCE%\parquet-cpp\build
+pushd %ARROW_SOURCE%\parquet-cpp\build
 
 cmake -G "%GENERATOR%" ^
      -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
-     -DPARQUET_BOOST_USE_SHARED=OFF ^
+x     -DPARQUET_BOOST_USE_SHARED=OFF ^
      -DPARQUET_BUILD_TESTS=off .. || exit /B
 cmake --build . --target INSTALL --config %CONFIGURATION% || exit /B
 popd
@@ -93,10 +103,11 @@ popd
 @rem Build and import pyarrow
 @rem parquet-cpp has some additional runtime dependencies that we need to figure out
 @rem see PARQUET-1018
-pushd python
+pushd %ARROW_SOURCE%\python
 
-set PYARROW_CXXFLAGS=/WX
 python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
 py.test pyarrow -v -s --parquet || exit /B
 
 popd
+
+call deactivate
