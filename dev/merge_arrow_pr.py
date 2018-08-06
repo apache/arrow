@@ -66,6 +66,9 @@ BRANCH_PREFIX = "PR_TOOL"
 
 os.chdir(ARROW_HOME)
 
+ASF_JIRA = jira.client.JIRA({'server': JIRA_API_BASE},
+                            basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
+
 
 def get_json(url):
     req = requests.get(url)
@@ -230,18 +233,13 @@ def extract_jira_id(title):
 
 def check_jira(title):
     jira_id = extract_jira_id(title)
-    asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
-                                basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
     try:
-        asf_jira.issue(jira_id)
+        ASF_JIRA.issue(jira_id)
     except Exception as e:
         fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
 
 def resolve_jira(title, merge_branches, comment):
-    asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
-                                basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
-
     default_jira_id = extract_jira_id(title)
 
     jira_id = input("Enter a JIRA id [%s]: " % default_jira_id)
@@ -249,7 +247,7 @@ def resolve_jira(title, merge_branches, comment):
         jira_id = default_jira_id
 
     try:
-        issue = asf_jira.issue(jira_id)
+        issue = ASF_JIRA.issue(jira_id)
     except Exception as e:
         fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
@@ -267,23 +265,29 @@ def resolve_jira(title, merge_branches, comment):
     print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
           % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
-    jira_fix_versions = _get_fix_version(asf_jira, merge_branches)
+    jira_fix_versions = _get_fix_version(ASF_JIRA, merge_branches)
 
-    resolve = [x for x in asf_jira.transitions(jira_id)
+    resolve = [x for x in ASF_JIRA.transitions(jira_id)
                if x['name'] == "Resolve Issue"][0]
-    asf_jira.transition_issue(jira_id, resolve["id"], comment=comment,
+    ASF_JIRA.transition_issue(jira_id, resolve["id"], comment=comment,
                               fixVersions=jira_fix_versions)
 
     print("Successfully resolved %s!" % (jira_id))
 
 
-def _get_fix_version(asf_jira, merge_branches):
-    versions = asf_jira.project_versions("ARROW")
+def _get_fix_version(merge_branches):
+    versions = ASF_JIRA.project_versions("ARROW")
     versions = sorted(versions, key=lambda x: x.name, reverse=True)
     versions = [x for x in versions if not x.raw['released']]
 
     default_fix_versions = [fix_version_from_branch(x, versions).name
                             for x in merge_branches]
+
+    # Only suggest versions starting with a number, like 0.x but not JS-0.x
+    mainline_version_regex = re.compile('\d.*')
+    default_fix_versions = [name for name in default_fix_versions
+                            if mainline_version_regex.match(name)]
+
     for v in default_fix_versions:
         # Handles the case where we have forked a release branch but not yet
         # made the release.  In this case, if the PR is committed to the master
