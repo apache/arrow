@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <locale>
 #include <memory>
 #include <numeric>
 #include <sstream>
@@ -767,6 +768,123 @@ TEST_F(TestCast, OffsetOutputBuffer) {
   vector<int16_t> e3 = {0, 10000, 2000, 1000, 0};
   CheckOffsetOutputCase<Int32Type, int32_t, Int16Type, int16_t>(&this->ctx_, in_type, v1,
                                                                 int16(), e3);
+}
+
+TEST_F(TestCast, StringToBoolean) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  vector<std::string> v1 = {"False", "true", "true", "True", "false"};
+  vector<std::string> v2 = {"0", "1", "1", "1", "0"};
+  vector<bool> e = {false, true, true, true, false};
+  CheckCase<StringType, std::string, BooleanType, bool>(utf8(), v1, is_valid, boolean(),
+                                                        e, options);
+  CheckCase<StringType, std::string, BooleanType, bool>(utf8(), v2, is_valid, boolean(),
+                                                        e, options);
+}
+
+TEST_F(TestCast, StringToBooleanErrors) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true};
+
+  CheckFails<StringType, std::string>(utf8(), {"false "}, is_valid, boolean(), options);
+  CheckFails<StringType, std::string>(utf8(), {"T"}, is_valid, boolean(), options);
+}
+
+TEST_F(TestCast, StringToNumber) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  // string to int
+  vector<std::string> v_int = {"0", "1", "127", "-1", "0"};
+  vector<int8_t> e_int8 = {0, 1, 127, -1, 0};
+  vector<int16_t> e_int16 = {0, 1, 127, -1, 0};
+  vector<int32_t> e_int32 = {0, 1, 127, -1, 0};
+  vector<int64_t> e_int64 = {0, 1, 127, -1, 0};
+  CheckCase<StringType, std::string, Int8Type, int8_t>(utf8(), v_int, is_valid, int8(),
+                                                       e_int8, options);
+  CheckCase<StringType, std::string, Int16Type, int16_t>(utf8(), v_int, is_valid, int16(),
+                                                         e_int16, options);
+  CheckCase<StringType, std::string, Int32Type, int32_t>(utf8(), v_int, is_valid, int32(),
+                                                         e_int32, options);
+  CheckCase<StringType, std::string, Int64Type, int64_t>(utf8(), v_int, is_valid, int64(),
+                                                         e_int64, options);
+
+  v_int = {"2147483647", "0", "-2147483648", "0", "0"};
+  e_int32 = {2147483647, 0, -2147483648LL, 0, 0};
+  CheckCase<StringType, std::string, Int32Type, int32_t>(utf8(), v_int, is_valid, int32(),
+                                                         e_int32, options);
+  v_int = {"9223372036854775807", "0", "-9223372036854775808", "0", "0"};
+  e_int64 = {9223372036854775807LL, 0, (-9223372036854775807LL - 1), 0, 0};
+  CheckCase<StringType, std::string, Int64Type, int64_t>(utf8(), v_int, is_valid, int64(),
+                                                         e_int64, options);
+
+  // string to uint
+  vector<std::string> v_uint = {"0", "1", "127", "255", "0"};
+  vector<uint8_t> e_uint8 = {0, 1, 127, 255, 0};
+  vector<uint16_t> e_uint16 = {0, 1, 127, 255, 0};
+  vector<uint32_t> e_uint32 = {0, 1, 127, 255, 0};
+  vector<uint64_t> e_uint64 = {0, 1, 127, 255, 0};
+  CheckCase<StringType, std::string, UInt8Type, uint8_t>(utf8(), v_uint, is_valid,
+                                                         uint8(), e_uint8, options);
+  CheckCase<StringType, std::string, UInt16Type, uint16_t>(utf8(), v_uint, is_valid,
+                                                           uint16(), e_uint16, options);
+  CheckCase<StringType, std::string, UInt32Type, uint32_t>(utf8(), v_uint, is_valid,
+                                                           uint32(), e_uint32, options);
+  CheckCase<StringType, std::string, UInt64Type, uint64_t>(utf8(), v_uint, is_valid,
+                                                           uint64(), e_uint64, options);
+
+  v_uint = {"4294967295", "0", "0", "0", "0"};
+  e_uint32 = {4294967295, 0, 0, 0, 0};
+  CheckCase<StringType, std::string, UInt32Type, uint32_t>(utf8(), v_uint, is_valid,
+                                                           uint32(), e_uint32, options);
+  v_uint = {"18446744073709551615", "0", "0", "0", "0"};
+  e_uint64 = {18446744073709551615ULL, 0, 0, 0, 0};
+  CheckCase<StringType, std::string, UInt64Type, uint64_t>(utf8(), v_uint, is_valid,
+                                                           uint64(), e_uint64, options);
+
+  // string to float
+  vector<std::string> v_float = {"0.1", "1.2", "127.3", "200.4", "0.5"};
+  vector<float> e_float = {0.1f, 1.2f, 127.3f, 200.4f, 0.5f};
+  vector<double> e_double = {0.1, 1.2, 127.3, 200.4, 0.5};
+  CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
+                                                       float32(), e_float, options);
+  CheckCase<StringType, std::string, DoubleType, double>(utf8(), v_float, is_valid,
+                                                         float64(), e_double, options);
+
+  // Test that casting is locale-independent
+  auto global_locale = std::locale();
+  try {
+    // French locale uses the comma as decimal point
+    std::locale::global(std::locale("fr_FR.UTF-8"));
+  } catch (std::runtime_error) {
+    // Locale unavailable, ignore
+  }
+  CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
+                                                       float32(), e_float, options);
+  CheckCase<StringType, std::string, DoubleType, double>(utf8(), v_float, is_valid,
+                                                         float64(), e_double, options);
+  std::locale::global(global_locale);
+}
+
+TEST_F(TestCast, StringToNumberErrors) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true};
+
+  CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, int8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"12 z"}, is_valid, int8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"128"}, is_valid, int8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"-129"}, is_valid, int8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"0.5"}, is_valid, int8(), options);
+
+  CheckFails<StringType, std::string>(utf8(), {"256"}, is_valid, uint8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"-1"}, is_valid, uint8(), options);
+
+  CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, float32(), options);
 }
 
 template <typename TestType>
