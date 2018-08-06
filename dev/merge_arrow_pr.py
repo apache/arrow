@@ -228,7 +228,7 @@ def fix_version_from_branch(branch, versions):
     # Note: Assumes this is a sorted (newest->oldest) list of un-released
     # versions
     if branch == "master":
-        return versions[0]
+        return versions[-1]
     else:
         branch_ver = branch.replace("branch-", "")
         return [x for x in versions if x.name.startswith(branch_ver)][-1]
@@ -288,17 +288,16 @@ def resolve_jira(title, merge_branches, comment):
 
 
 def _get_fix_version(merge_branches):
-    versions = ASF_JIRA.project_versions("ARROW")
+    # Only suggest versions starting with a number, like 0.x but not JS-0.x
+    mainline_version_regex = re.compile('\d.*')
+    versions = [x for x in ASF_JIRA.project_versions("ARROW")
+                if not x.raw['released'] and
+                mainline_version_regex.match(x.name)]
+
     versions = sorted(versions, key=lambda x: x.name, reverse=True)
-    versions = [x for x in versions if not x.raw['released']]
 
     default_fix_versions = [fix_version_from_branch(x, versions).name
                             for x in merge_branches]
-
-    # Only suggest versions starting with a number, like 0.x but not JS-0.x
-    mainline_version_regex = re.compile('\d.*')
-    default_fix_versions = [name for name in default_fix_versions
-                            if mainline_version_regex.match(name)]
 
     for v in default_fix_versions:
         # Handles the case where we have forked a release branch but not yet
