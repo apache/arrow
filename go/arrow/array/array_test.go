@@ -37,6 +37,7 @@ func TestMakeFromData(t *testing.T) {
 	tests := []struct {
 		name     string
 		d        arrow.DataType
+		size     int
 		expPanic bool
 		expError string
 	}{
@@ -46,6 +47,18 @@ func TestMakeFromData(t *testing.T) {
 
 		// supported types
 		{name: "bool", d: &testDataType{arrow.BOOL}},
+		{name: "uint8", d: &testDataType{arrow.UINT8}},
+		{name: "uint16", d: &testDataType{arrow.UINT16}},
+		{name: "uint32", d: &testDataType{arrow.UINT32}},
+		{name: "uint64", d: &testDataType{arrow.UINT64}},
+		{name: "int8", d: &testDataType{arrow.INT8}},
+		{name: "int16", d: &testDataType{arrow.INT16}},
+		{name: "int32", d: &testDataType{arrow.INT32}},
+		{name: "int64", d: &testDataType{arrow.INT64}},
+		{name: "float32", d: &testDataType{arrow.FLOAT32}},
+		{name: "float64", d: &testDataType{arrow.FLOAT64}},
+		{name: "binary", d: &testDataType{arrow.BINARY}, size: 3},
+		{name: "timestamp", d: &testDataType{arrow.TIMESTAMP}},
 
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},
@@ -54,7 +67,11 @@ func TestMakeFromData(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var b [4]*memory.Buffer
-			data := array.NewData(test.d, 0, b[:], 0)
+			var n = 4
+			if test.size != 0 {
+				n = test.size
+			}
+			data := array.NewData(test.d, 0, b[:n], 0)
 
 			if test.expPanic {
 				assert.PanicsWithValue(t, test.expError, func() {
