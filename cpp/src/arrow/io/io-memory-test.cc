@@ -131,9 +131,16 @@ TEST(TestBufferReader, RetainParentReference) {
 }
 
 TEST(TestMemcopy, ParallelMemcopy) {
+#if defined(ARROW_VALGRIND)
+  // Compensate for Valgrind's slowness
+  constexpr int64_t THRESHOLD = 32 * 1024;
+#else
+  constexpr int64_t THRESHOLD = 1024 * 1024;
+#endif
+
   for (int i = 0; i < 5; ++i) {
     // randomize size so the memcopy alignment is tested
-    int64_t total_size = 3 * 1024 * 1024 + std::rand() % 100;
+    int64_t total_size = 3 * THRESHOLD + std::rand() % 100;
 
     std::shared_ptr<Buffer> buffer1, buffer2;
 
@@ -144,7 +151,7 @@ TEST(TestMemcopy, ParallelMemcopy) {
 
     io::FixedSizeBufferWriter writer(buffer1);
     writer.set_memcopy_threads(4);
-    writer.set_memcopy_threshold(1024 * 1024);
+    writer.set_memcopy_threshold(THRESHOLD);
     ASSERT_OK(writer.Write(buffer2->data(), buffer2->size()));
 
     ASSERT_EQ(0, memcmp(buffer1->data(), buffer2->data(), buffer1->size()));

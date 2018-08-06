@@ -247,10 +247,13 @@ TEST_F(TestArray, TestIsNullIsValidNoNulls) {
 TEST_F(TestArray, BuildLargeInMemoryArray) {
 #ifdef NDEBUG
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
-#else
+#elif !defined(ARROW_VALGRIND)
   // use a smaller size since the insert function isn't optimized properly on debug and
   // the test takes a long time to complete
   const int64_t length = 2 << 24;
+#else
+  // use an even smaller size with valgrind
+  const int64_t length = 2 << 20;
 #endif
 
   BooleanBuilder builder;

@@ -1034,24 +1034,29 @@ TEST_F(TestHashKernel, DictEncodeBinary) {
 }
 
 TEST_F(TestHashKernel, BinaryResizeTable) {
-  const int64_t kTotalValues = 10000;
-  const int64_t kRepeats = 10;
+  const int32_t kTotalValues = 10000;
+#if !defined(ARROW_VALGRIND)
+  const int32_t kRepeats = 10;
+#else
+  // Mitigate Valgrind's slowness
+  const int32_t kRepeats = 3;
+#endif
 
   vector<std::string> values;
   vector<std::string> uniques;
   vector<int32_t> indices;
-  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
-    int64_t index = i % kTotalValues;
-    std::stringstream ss;
-    ss << "test" << index;
-    std::string val = ss.str();
+  char buf[20] = "test";
 
-    values.push_back(val);
+  for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int32_t index = i % kTotalValues;
+
+    ASSERT_GE(snprintf(buf + 4, sizeof(buf) - 4, "%d", index), 0);
+    values.emplace_back(buf);
 
     if (i < kTotalValues) {
-      uniques.push_back(val);
+      uniques.push_back(values.back());
     }
-    indices.push_back(static_cast<int32_t>(i % kTotalValues));
+    indices.push_back(index);
   }
 
   CheckUnique<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {});
@@ -1076,24 +1081,30 @@ TEST_F(TestHashKernel, DictEncodeFixedSizeBinary) {
 }
 
 TEST_F(TestHashKernel, FixedSizeBinaryResizeTable) {
-  const int64_t kTotalValues = 10000;
-  const int64_t kRepeats = 10;
+  const int32_t kTotalValues = 10000;
+#if !defined(ARROW_VALGRIND)
+  const int32_t kRepeats = 10;
+#else
+  // Mitigate Valgrind's slowness
+  const int32_t kRepeats = 3;
+#endif
 
   vector<std::string> values;
   vector<std::string> uniques;
   vector<int32_t> indices;
-  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
-    int64_t index = i % kTotalValues;
-    std::stringstream ss;
-    ss << "test" << static_cast<char>(index / 128) << static_cast<char>(index % 128);
-    std::string val = ss.str();
+  char buf[7] = "test..";
 
-    values.push_back(val);
+  for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int32_t index = i % kTotalValues;
+
+    buf[4] = static_cast<char>(index / 128);
+    buf[5] = static_cast<char>(index % 128);
+    values.emplace_back(buf, 6);
 
     if (i < kTotalValues) {
-      uniques.push_back(val);
+      uniques.push_back(values.back());
     }
-    indices.push_back(static_cast<int32_t>(i % kTotalValues));
+    indices.push_back(index);
   }
 
   auto type = fixed_size_binary(6);
