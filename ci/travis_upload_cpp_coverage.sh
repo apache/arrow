@@ -25,7 +25,7 @@ pushd $TRAVIS_BUILD_DIR
 
 # Display C++ coverage summary
 lcov --list $ARROW_CPP_COVERAGE_FILE
-# Upload report to CodeCov
-bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+# Upload report to CodeCov, disabling gcov discovery to save time and avoid warnings
+bash <(curl -s https://codecov.io/bash) -X gcov || echo "Codecov did not collect coverage reports"
 
 popd
