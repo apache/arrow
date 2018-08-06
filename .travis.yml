@@ -56,11 +56,12 @@ matrix:
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_CLANG_FORMAT=1
     - ARROW_TRAVIS_COVERAGE=1
-    - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_PYTHON_JVM=1
     - ARROW_TRAVIS_JAVA_BUILD_ONLY=1
+    # ARROW-2999 Benchmarks are disabled in Travis CI for the time being
+    # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     - CC="clang-6.0"
     - CXX="clang++-6.0"
     before_script:
