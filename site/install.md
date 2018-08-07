@@ -28,18 +28,16 @@ See the [release notes][10] for more about what's new.
 
 ### Source release
 
-* **Source Release**: [apache-arrow-0.9.0.tar.gz][6]
+* **Source Release**: [{{site.data.versions['tarball_name']}}][6]
 * **Verification**: [sha512][3], [asc][7] ([verification instructions][12])
 * [Git tag {{site.data.versions['current'].git-tag}}][2]
-* [PGP keys for release signatures][11]
+* [GPG keys for release signatures][11]
 
 ### Java Packages
 
 [Java Artifacts on Maven Central][4]
 
 ## Binary Installers for C, C++, Python
-
-Binary packages may not be updated immediately after the source release is posted.
 
 ### C++ and Python Conda Packages (Unofficial)
 
@@ -53,19 +51,19 @@ Install them with:
 
 
 ```shell
-conda install arrow-cpp=0.9.* -c conda-forge
-conda install pyarrow=0.9.* -c conda-forge
+conda install arrow-cpp=0.10.* -c conda-forge
+conda install pyarrow=0.10.* -c conda-forge
 ```
 
-### Python Wheels on PyPI (Unofficial)
+### Python Wheels on PyPI
 
-We have provided binary wheels on PyPI for Linux, macOS, and Windows:
+We have provided official binary wheels on PyPI for Linux, macOS, and Windows:
 
 ```shell
-pip install pyarrow==0.9.*
+pip install pyarrow==0.10.*
 ```
 
-We recommend pinning `0.9.*` in `requirements.txt` to install the latest patch
+We recommend pinning `0.10.*` in `requirements.txt` to install the latest patch
 release.
 
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
