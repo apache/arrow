@@ -96,7 +96,7 @@ Status Filter::Evaluate(const arrow::RecordBatch &batch,
   // Compute the intersection of the value and validity.
   auto result = bitmaps.GetLocalBitMap(2);
   BitMapAccumulator::IntersectBitMaps(
-      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, bitmap_size);
+      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, batch.num_rows());
 
   return out_selection->PopulateFromBitMap(result, bitmap_size, batch.num_rows() - 1);
 }
