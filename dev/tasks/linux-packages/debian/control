@@ -33,8 +33,7 @@ Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
-  ${shlibs:Depends},
-  libjemalloc1
+  ${shlibs:Depends}
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides library files.
@@ -62,9 +61,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow10 (= ${binary:Version}),
-  libnvidia-fatbinaryloader,
-  libcuda1
+  libarrow10 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides library files for GPU support.
