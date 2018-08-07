@@ -26,6 +26,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status,
                           MemoryPool, maybe_unbox_memory_pool,
                           Schema, pyarrow_wrap_schema,
+                          pyarrow_wrap_batch,
                           RecordBatch,
                           pyarrow_wrap_table,
                           get_reader)
@@ -93,9 +94,7 @@ cdef class ORCReader:
                 (check_status(deref(self.reader)
                               .ReadStripe(stripe, indices, &sp_record_batch)))
 
-        batch = RecordBatch()
-        batch.init(sp_record_batch)
-        return batch
+        return pyarrow_wrap_batch(sp_record_batch)
 
     def read(self, include_indices=None):
         cdef:
