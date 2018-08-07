@@ -55,7 +55,7 @@ void BitmapFromVector(const std::vector<int>& values, int64_t bit_offset,
                       std::shared_ptr<Buffer>* out_buffer, int64_t* out_length) {
   const int64_t length = values.size();
   *out_length = length;
-  ASSERT_OK(GetEmptyBitmap(default_memory_pool(), length + bit_offset, out_buffer));
+  ASSERT_OK(AllocateEmptyBitmap(length + bit_offset, out_buffer));
   auto writer = internal::BitmapWriter((*out_buffer)->mutable_data(), bit_offset, length);
   WriteVectorToWriter(writer, values);
 }

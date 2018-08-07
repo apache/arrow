@@ -106,16 +106,10 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   return count;
 }
 
-Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* result) {
-  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), result));
-  memset((*result)->mutable_data(), 0, static_cast<size_t>((*result)->size()));
-  return Status::OK();
-}
-
 Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
                   std::shared_ptr<Buffer>* out) {
   std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(GetEmptyBitmap(pool, length, &buffer));
+  RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
 
   int64_t byte_offset = offset / 8;
@@ -222,12 +216,12 @@ Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
   if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
     // Fast case: can use bytewise AND
     const int64_t phys_bits = length + out_offset;
-    RETURN_NOT_OK(GetEmptyBitmap(pool, phys_bits, out_buffer));
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, out_buffer));
     AlignedBitmapAnd(left, left_offset, right, right_offset,
                      (*out_buffer)->mutable_data(), out_offset, length);
   } else {
     // Unaligned
-    RETURN_NOT_OK(GetEmptyBitmap(pool, length + out_offset, out_buffer));
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, length + out_offset, out_buffer));
     UnalignedBitmapAnd(left, left_offset, right, right_offset,
                        (*out_buffer)->mutable_data(), out_offset, length);
   }

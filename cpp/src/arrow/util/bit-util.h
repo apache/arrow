@@ -557,16 +557,6 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
 // ----------------------------------------------------------------------
 // Bitmap utilities
 
-/// Allocate a zero-initialized bitmap buffer
-///
-/// \param[in] pool memory pool to allocate memory from
-/// \param[in] length size in bits of bitmap to allocate
-/// \param[out] result the resulting buffer
-///
-/// \return Status message
-ARROW_EXPORT
-Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* result);
-
 /// Copy a bit range of an existing bitmap
 ///
 /// \param[in] pool memory pool to allocate memory from
