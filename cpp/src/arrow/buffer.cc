@@ -155,7 +155,20 @@ Status AllocateBuffer(MemoryPool* pool, const int64_t size,
   return Status::OK();
 }
 
+Status AllocateBuffer(MemoryPool* pool, const int64_t size,
+                      std::unique_ptr<Buffer>* out) {
+  auto buffer = std::unique_ptr<PoolBuffer>(new PoolBuffer(pool));
+  RETURN_NOT_OK(buffer->Resize(size));
+  buffer->ZeroPadding();
+  *out = std::move(buffer);
+  return Status::OK();
+}
+
 Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out) {
+  return AllocateBuffer(default_memory_pool(), size, out);
+}
+
+Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out) {
   return AllocateBuffer(default_memory_pool(), size, out);
 }
 
@@ -168,10 +181,25 @@ Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
   return Status::OK();
 }
 
+Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
+                               std::unique_ptr<ResizableBuffer>* out) {
+  auto buffer = std::unique_ptr<PoolBuffer>(new PoolBuffer(pool));
+  RETURN_NOT_OK(buffer->Resize(size));
+  buffer->ZeroPadding();
+  *out = std::move(buffer);
+  return Status::OK();
+}
+
 Status AllocateResizableBuffer(const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
   return AllocateResizableBuffer(default_memory_pool(), size, out);
 }
+
+Status AllocateResizableBuffer(const int64_t size,
+                               std::unique_ptr<ResizableBuffer>* out) {
+  return AllocateResizableBuffer(default_memory_pool(), size, out);
+}
+
 
 Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
                            std::shared_ptr<Buffer>* out) {
