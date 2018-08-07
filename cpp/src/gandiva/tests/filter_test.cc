@@ -57,7 +57,7 @@ TEST_F(TestFilter, TestSimple) {
   auto array0 = MakeArrowArrayInt32({1, 2, 3, 4, 6}, {true, true, true, false, true});
   auto array1 = MakeArrowArrayInt32({5, 9, 6, 17, 3}, {true, true, false, true, true});
   // expected output (indices for which condition matches)
-  auto exp = MakeArrowArrayInt16({0, 4});
+  auto exp = MakeArrowArrayUint16({0, 4});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -95,7 +95,7 @@ TEST_F(TestFilter, TestSimpleCustomConfig) {
   auto array0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, false});
   auto array1 = MakeArrowArrayInt32({11, 2, 3, 17}, {true, true, false, true});
   // expected output
-  auto exp = MakeArrowArrayInt16({0});
+  auto exp = MakeArrowArrayUint16({0});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
@@ -130,7 +130,7 @@ TEST_F(TestFilter, TestZeroCopy) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   // expected output
-  auto exp = MakeArrowArrayInt16({0, 1, 2});
+  auto exp = MakeArrowArrayUint16({0, 1, 2});
 
   // allocate selection buffers
   int64_t data_sz = sizeof(int16_t) * num_records;
@@ -226,7 +226,7 @@ TEST_F(TestFilter, TestSimpleSVInt32) {
   auto array0 = MakeArrowArrayInt32({1, 2, 3, 4, 6}, {true, true, true, false, true});
   auto array1 = MakeArrowArrayInt32({5, 9, 6, 17, 3}, {true, true, false, true, true});
   // expected output (indices for which condition matches)
-  auto exp = MakeArrowArrayInt32({0, 4});
+  auto exp = MakeArrowArrayUint32({0, 4});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});

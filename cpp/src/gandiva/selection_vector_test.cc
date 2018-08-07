@@ -83,7 +83,7 @@ TEST_F(TestSelectionVector, TestInt16Set) {
 
   // TopArray() should return an array with 100,200
   auto array_raw = selection->ToArray();
-  const auto &array = dynamic_cast<const arrow::Int16Array &>(*array_raw);
+  const auto &array = dynamic_cast<const arrow::UInt16Array &>(*array_raw);
   EXPECT_EQ(array.length(), 2) << array_raw->ToString();
   EXPECT_EQ(array.Value(0), 100) << array_raw->ToString();
   EXPECT_EQ(array.Value(1), 200) << array_raw->ToString();
@@ -155,7 +155,7 @@ TEST_F(TestSelectionVector, TestInt32Set) {
 
   // TopArray() should return an array with 100,200,100000
   auto array_raw = selection->ToArray();
-  const auto &array = dynamic_cast<const arrow::Int32Array &>(*array_raw);
+  const auto &array = dynamic_cast<const arrow::UInt32Array &>(*array_raw);
   EXPECT_EQ(array.length(), 3) << array_raw->ToString();
   EXPECT_EQ(array.Value(0), 100) << array_raw->ToString();
   EXPECT_EQ(array.Value(1), 200) << array_raw->ToString();

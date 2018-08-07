@@ -32,12 +32,12 @@ class SelectionVectorImpl : public SelectionVector {
     raw_data_ = reinterpret_cast<C_TYPE *>(buffer->mutable_data());
   }
 
-  int GetIndex(int index) const override {
+  uint GetIndex(int index) const override {
     DCHECK_LE(index, max_slots_);
     return raw_data_[index];
   }
 
-  void SetIndex(int index, int value) override {
+  void SetIndex(int index, uint value) override {
     DCHECK_LE(index, max_slots_);
     DCHECK_LE(value, GetMaxSupportedValue());
 
@@ -55,7 +55,9 @@ class SelectionVectorImpl : public SelectionVector {
     num_slots_ = num_slots;
   }
 
-  int GetMaxSupportedValue() const override { return std::numeric_limits<C_TYPE>::max(); }
+  uint GetMaxSupportedValue() const override {
+    return std::numeric_limits<C_TYPE>::max();
+  }
 
   static Status AllocateBuffer(int max_slots, arrow::MemoryPool *pool,
                                std::shared_ptr<arrow::Buffer> *buffer);
@@ -80,8 +82,8 @@ ArrayPtr SelectionVectorImpl<C_TYPE, A_TYPE>::ToArray() const {
   return arrow::MakeArray(array_data);
 }
 
-using SelectionVectorInt16 = SelectionVectorImpl<int16_t, arrow::Int16Type>;
-using SelectionVectorInt32 = SelectionVectorImpl<int32_t, arrow::Int32Type>;
+using SelectionVectorInt16 = SelectionVectorImpl<uint16_t, arrow::UInt16Type>;
+using SelectionVectorInt32 = SelectionVectorImpl<uint32_t, arrow::UInt32Type>;
 
 }  // namespace gandiva
 
