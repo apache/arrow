@@ -182,6 +182,9 @@ cdef class DictionaryType(DataType):
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
 
+    def __reduce__(self):
+        return dictionary, (self.index_type, self.dictionary, self.ordered)
+
     property ordered:
 
         def __get__(self):
@@ -420,7 +423,7 @@ cdef class Field:
         return self.__str__()
 
     def __hash__(self):
-        return hash((self.field.name(), self.type.id))
+        return hash((self.field.name(), self.type, self.field.nullable()))
 
     property nullable:
 
