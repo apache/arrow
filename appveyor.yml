@@ -49,24 +49,18 @@ environment:
       CONFIGURATION: "Release"
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       BOOST_ROOT: C:\Libraries\boost_1_64_0
-    - JOB: "Build_Debug"
-      GENERATOR: Ninja
-      CONFIGURATION: "Debug"
-    - JOB: "Build"
-      GENERATOR: Ninja
-      CONFIGURATION: "Release"
-    - JOB: "Static_Crt_Build"
-      GENERATOR: Ninja
     - JOB: "Toolchain"
       GENERATOR: Visual Studio 14 2015 Win64
       CONFIGURATION: "Release"
+    - JOB: "Static_Crt_Build"
+      GENERATOR: Ninja
+    - JOB: "Build_Debug"
+      GENERATOR: Ninja
+      CONFIGURATION: "Debug"
     - JOB: "Cmake_Script_Tests"
-      GENERATOR: NMake Makefiles
+      GENERATOR: Ninja
       CONFIGURATION: "Release"
       BUILD_SCRIPT: "CMake_Build_Script"
-    - JOB: "Build"
-      GENERATOR: NMake Makefiles
-      CONFIGURATION: "Release"
     - JOB: "Rust_Stable"
       RUST_VERSION: stable
       TARGET: x86_64-pc-windows-msvc
