@@ -52,7 +52,7 @@ def build_plasma_tensorflow_op():
         pass
     else:
         include_dir = pa.get_include()
-        lib_dirs = " ".join(["-L" + dir for dir in pa.get_library_dirs()])
+        lib_dirs = " ".join(['"-L' + d + '"' for d in pa.get_library_dirs()])
         print("Compiling Plasma TensorFlow Op...")
         script_path = os.path.join(pa.__path__[0], "tensorflow", "build.sh")
         subprocess.check_call(["bash", script_path, include_dir, lib_dirs])
