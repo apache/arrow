@@ -37,13 +37,17 @@ namespace arrow {
 
 namespace BitUtil {
 
-static void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
+namespace {
+
+void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
     if (bytes[i] > 0) {
       SetBit(bits, i);
     }
   }
 }
+
+}  // namespace
 
 Status BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
                    std::shared_ptr<Buffer>* out) {
