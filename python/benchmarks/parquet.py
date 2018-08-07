@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 import random
 import shutil
@@ -32,7 +31,7 @@ class ParquetManifestCreation(object):
     tmpdir = None
 
     param_names = ('num_partitions', 'num_threads')
-    params = [(10, 100, 1000), (1, 8, 'default')]
+    params = [(10, 100, 1000), (1, 8)]
 
     def setup(self, num_partitions, num_threads):
         self.tmpdir = tempfile.mkdtemp('benchmark_parquet')
@@ -47,8 +46,4 @@ class ParquetManifestCreation(object):
         shutil.rmtree(self.tmpdir)
 
     def time_manifest_creation(self, num_partitions, num_threads):
-        if num_threads != 'default':
-            thread_pool = ThreadPoolExecutor(num_threads)
-        else:
-            thread_pool = None
-        pq.ParquetManifest(self.tmpdir, thread_pool=thread_pool)
+        pq.ParquetManifest(self.tmpdir, metadata_nthreads=num_threads)
