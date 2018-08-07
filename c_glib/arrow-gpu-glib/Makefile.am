@@ -90,7 +90,6 @@ ArrowGPU_1_0_gir_INCLUDES =			\
 	Arrow-1.0
 ArrowGPU_1_0_gir_CFLAGS =			\
 	$(AM_CPPFLAGS)
-ArrowGPU_1_0_gir_LDFLAGS =
 ArrowGPU_1_0_gir_LIBS =
 ArrowGPU_1_0_gir_FILES =			\
 	$(libarrow_gpu_glib_la_sources)
@@ -114,7 +113,6 @@ ArrowGPU_1_0_gir_LIBS +=				\
 	libarrow-gpu-glib.la
 endif
 
-					\
 INTROSPECTION_GIRS += ArrowGPU-1.0.gir
 
 girdir = $(datadir)/gir-1.0
