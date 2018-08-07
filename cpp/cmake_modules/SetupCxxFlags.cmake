@@ -53,7 +53,9 @@ if (MSVC)
     string(REPLACE "/W3" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
     # Set desired warning level (e.g. set /W4 for more warnings)
-    set(CXX_COMMON_FLAGS "/W3")
+    #
+    # ARROW-2986: Without /EHsc we get C4530 warning
+    set(CXX_COMMON_FLAGS "/W3 /EHsc")
   endif()
 
   if (ARROW_USE_STATIC_CRT)
