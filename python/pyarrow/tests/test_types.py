@@ -53,8 +53,7 @@ MANY_TYPES = [
               pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
     pa.union([pa.field('a', pa.binary(10), nullable=False),
               pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-    # XXX Needs array pickling
-    # pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
+    pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
 ]
 
 

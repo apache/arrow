@@ -182,6 +182,9 @@ cdef class DictionaryType(DataType):
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
 
+    def __reduce__(self):
+        return dictionary, (self.index_type, self.dictionary, self.ordered)
+
     property ordered:
 
         def __get__(self):
