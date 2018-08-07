@@ -101,6 +101,10 @@ function(ADD_ARROW_LIB LIB_NAME)
   if(MSVC)
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
+
+    if (ARG_EXTRA_INCLUDES)
+      set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
+    endif()
   else()
     add_library(${LIB_NAME}_objlib OBJECT
       ${ARG_SOURCES})
@@ -110,21 +114,28 @@ function(ADD_ARROW_LIB LIB_NAME)
       add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
     endif()
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
+    set(LIB_INCLUDES)
     set(EXTRA_DEPS)
+
+    if (ARG_EXTRA_INCLUDES)
+      target_include_directories(${LIB_NAME}_objlib SYSTEM PUBLIC
+        ${ARG_EXTRA_INCLUDES}
+        )
+    endif()
   endif()
 
   set(RUNTIME_INSTALL_DIR bin)
-
-  if (ARG_EXTRA_INCLUDES)
-    target_include_directories(${LIB_NAME}_objlib SYSTEM PUBLIC
-      ${ARG_EXTRA_INCLUDES}
-      )
-  endif()
 
   if (ARROW_BUILD_SHARED)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if (EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
+    endif()
+
+    if (LIB_INCLUDES)
+      target_include_directories(${LIB_NAME}_shared SYSTEM PUBLIC
+        ${ARG_EXTRA_INCLUDES}
+        )
     endif()
 
     if(APPLE)
@@ -182,6 +193,12 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
+    endif()
+
+    if (LIB_INCLUDES)
+      target_include_directories(${LIB_NAME}_static SYSTEM PUBLIC
+        ${ARG_EXTRA_INCLUDES}
+        )
     endif()
 
     if (MSVC)
