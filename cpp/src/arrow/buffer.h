@@ -264,7 +264,7 @@ Status AllocateResizableBuffer(const int64_t size, std::shared_ptr<ResizableBuff
 ///
 /// \param[in] pool memory pool to allocate memory from
 /// \param[in] length size in bits of bitmap to allocate
-/// \param[out] result the resulting buffer
+/// \param[out] out the resulting buffer
 ///
 /// \return Status message
 ARROW_EXPORT
@@ -274,11 +274,16 @@ Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
 /// \brief Allocate a zero-initialized bitmap buffer from the default memory pool
 ///
 /// \param[in] length size in bits of bitmap to allocate
-/// \param[out] result the resulting buffer
+/// \param[out] out the resulting buffer
 ///
 /// \return Status message
 ARROW_EXPORT
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
+
+/// \deprecated Use AllocateEmptyBitmap instead.
+ARROW_DEPRECATED("Use AllocateEmptyBitmap instead")
+ARROW_EXPORT
+Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out);
 
 // ----------------------------------------------------------------------
 // Buffer builder classes
