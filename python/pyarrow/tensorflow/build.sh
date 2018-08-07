@@ -32,7 +32,7 @@ NDEBUG="-DNDEBUG"
 
 g++ -std=c++11 -g -shared $PYARROW_TENSORFLOW_DIR/plasma_op.cc -o $PYARROW_TENSORFLOW_DIR/plasma_op.so \
     ${NDEBUG} \
-    -I$1 $2 -lplasma -larrow_python -larrow \
+    -I"$1" "$2" -lplasma -larrow_python -larrow \
     -fPIC \
     ${TF_CFLAGS[@]} \
     ${TF_LFLAGS[@]} \
