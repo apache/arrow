@@ -46,6 +46,13 @@ HERE=$(cd `dirname "${BASH_SOURCE[0]:-$0}"` && pwd)
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
+: ${ARROW_HAVE_GPU:=}
+if [ -z "$ARROW_HAVE_GPU" ]; then
+  if nvidia-smi --list-gpus 2>&1 > /dev/null; then
+    ARROW_HAVE_GPU=yes
+  fi
+fi
+
 download_dist_file() {
   curl \
     --silent \
@@ -146,15 +153,20 @@ test_and_install_cpp() {
   mkdir cpp/build
   pushd cpp/build
 
-  cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-        -DCMAKE_INSTALL_LIBDIR=$ARROW_HOME/lib \
-        -DARROW_PLASMA=ON \
-        -DARROW_ORC=ON \
-        -DARROW_PYTHON=ON \
-        -DARROW_BOOST_USE_SHARED=on \
-        -DCMAKE_BUILD_TYPE=release \
-        -DARROW_BUILD_BENCHMARKS=on \
-        ..
+  ARROW_CMAKE_OPTIONS="
+-DCMAKE_INSTALL_PREFIX=$ARROW_HOME
+-DCMAKE_INSTALL_LIBDIR=$ARROW_HOME/lib
+-DARROW_PLASMA=ON
+-DARROW_ORC=ON
+-DARROW_PYTHON=ON
+-DARROW_BOOST_USE_SHARED=ON
+-DCMAKE_BUILD_TYPE=release
+-DARROW_BUILD_BENCHMARKS=ON
+"
+  if [ "$ARROW_HAVE_GPU" = "yes" ]; then
+    ARROW_CMAKE_OPTIONS="$ARROW_CMAKE_OPTIONS -DARROW_GPU=ON"
+  fi
+  cmake $ARROW_CMAKE_OPTIONS ..
 
   make -j$NPROC
   make install
@@ -240,11 +252,12 @@ test_ruby() {
   bundle exec ruby test/run-test.rb
   popd
 
-  # TODO: Arrow GPU related tests
-  # pushd red-arrow-gpu
-  # bundle install --path vendor/bundle
-  # bundle exec ruby test/run-test.rb
-  # popd
+  if [ "$ARROW_HAVE_GPU" = "yes" ]; then
+    pushd red-arrow-gpu
+    bundle install --path vendor/bundle
+    bundle exec ruby test/run-test.rb
+    popd
+  fi
 
   popd
 }
