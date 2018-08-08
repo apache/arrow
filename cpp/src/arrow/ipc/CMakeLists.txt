@@ -23,12 +23,11 @@ ADD_ARROW_TEST(ipc-read-write-test)
 ADD_ARROW_TEST(ipc-json-test)
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
-  ADD_ARROW_TEST(json-integration-test)
+  ADD_ARROW_TEST(json-integration-test
+    EXTRA_LINK_LIBS gflags)
 
-  if (ARROW_BUILD_TESTS)
-    target_link_libraries(json-integration-test
-      gflags)
-
+  # Test is being built
+  if (TARGET json-integration-test)
     if (UNIX)
       if (APPLE)
         set_target_properties(json-integration-test
