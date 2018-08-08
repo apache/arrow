@@ -31,7 +31,8 @@ namespace plasma {
 using arrow::Status;
 
 std::mt19937 RandomlySeededMersenneTwister() {
-  auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  auto seed = static_cast<std::mt19937::result_type>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
   std::mt19937 seeded_engine(seed);
   return seeded_engine;
 }
