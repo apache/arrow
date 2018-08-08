@@ -53,21 +53,18 @@ def build_plasma_tensorflow_op():
         pass
     else:
         print("Compiling Plasma TensorFlow Op...")
-        pa_include_flag = "-I" + pa.get_include()
-        pa_lib_flags = ["-L" + dir for dir in pa.get_library_dirs()]
         dir_path = os.path.dirname(os.path.realpath(__file__))
         cc_path = os.path.join(dir_path, "tensorflow", "plasma_op.cc")
         so_path = os.path.join(dir_path, "tensorflow", "plasma_op.so")
-        tf_cflags = tf.sysconfig.get_compile_flags()
+        tensorflow_cflags = tf.sysconfig.get_compile_flags()
         if sys.platform == 'darwin':
             tf_cflags = ["-undefined", "dynamic_lookup"] + tf_cflags
-        tf_lflags = tf.sysconfig.get_link_flags()
         cmd = ["g++", "-std=c++11", "-g", "-shared", cc_path,
-               "-o", so_path, "-DNDEBUG", pa_include_flag]
-        cmd += pa_lib_flags
+               "-o", so_path, "-DNDEBUG", "-I" + pa.get_include()]
+        cmd += ["-L" + dir for dir in pa.get_library_dirs()]
         cmd += ["-lplasma", "-larrow_python", "-larrow", "-fPIC"]
-        cmd += tf_cflags
-        cmd += tf_lflags
+        cmd += tensorflow_cflags
+        cmd += tf.sysconfig.get_link_flags()
         cmd += ["-O2"]
         if tf.test.is_built_with_cuda():
             cmd += ["-DGOOGLE_CUDA"]
