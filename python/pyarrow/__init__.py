@@ -208,6 +208,24 @@ def get_library_dirs():
 
     library_dirs = [package_cwd]
 
+    # Search library paths via pkg-config. This is necessary if the user
+    # installed libarrow and the other shared libraries manually and they
+    # are not shipped inside the pyarrow package (see also ARROW-2976).
+    from subprocess import call, PIPE, Popen
+    pkg_config_executable = _os.environ.get('PKG_CONFIG', None) or 'pkg-config'
+    for package in ["arrow", "plasma", "arrow_python"]:
+        cmd = '{0} --exists {1}'.format(pkg_config_executable, package).split()
+        try:
+            if call(cmd) == 0:
+                cmd = [pkg_config_executable, "--libs-only-L", package]
+                proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
+                out, err = proc.communicate()
+                library_dir = out.rstrip().decode('utf-8')[2:] # strip "-L"
+                if library_dir not in library_dirs:
+                    library_dirs.append(library_dir)
+        except FileNotFoundError:
+            pass
+
     if _sys.platform == 'win32':
         # TODO(wesm): Is this necessary, or does setuptools within a conda
         # installation add Library\lib to the linker path for MSVC?
