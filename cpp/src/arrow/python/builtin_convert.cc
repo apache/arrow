@@ -28,8 +28,11 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -37,6 +40,7 @@
 
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/inference.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
@@ -45,321 +49,7 @@
 namespace arrow {
 namespace py {
 
-namespace {
-
-Status InvalidValue(PyObject* obj, const std::string& why) {
-  std::stringstream ss;
-
-  std::string obj_as_str;
-  RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
-  ss << "Could not convert " << obj_as_str << " with type " << Py_TYPE(obj)->tp_name
-     << ": " << why;
-  return Status::Invalid(ss.str());
-}
-
-}  // namespace
-
-class TypeInferrer {
-  // A type inference visitor for Python values
- public:
-  // \param validate_interval the number of elements to observe before checking
-  // whether the data is mixed type or has other problems. This helps avoid
-  // excess computation for each element while also making sure we "bail out"
-  // early with long sequences that may have problems up front
-  // \param make_unions permit mixed-type data by creating union types (not yet
-  // implemented)
-  explicit TypeInferrer(int64_t validate_interval = 100, bool make_unions = false)
-      : validate_interval_(validate_interval),
-        make_unions_(make_unions),
-        total_count_(0),
-        none_count_(0),
-        bool_count_(0),
-        int_count_(0),
-        date_count_(0),
-        time_count_(0),
-        timestamp_second_count_(0),
-        timestamp_milli_count_(0),
-        timestamp_micro_count_(0),
-        timestamp_nano_count_(0),
-        float_count_(0),
-        binary_count_(0),
-        unicode_count_(0),
-        decimal_count_(0),
-        list_count_(0),
-        struct_count_(0),
-        max_decimal_metadata_(std::numeric_limits<int32_t>::min(),
-                              std::numeric_limits<int32_t>::min()),
-        decimal_type_() {
-    Status status = internal::ImportDecimalType(&decimal_type_);
-    DCHECK_OK(status);
-  }
-
-  Status Visit(PyObject* obj, bool* keep_going) {
-    ++total_count_;
-
-    if (obj == Py_None || internal::PyFloat_IsNaN(obj)) {
-      ++none_count_;
-    } else if (PyBool_Check(obj)) {
-      ++bool_count_;
-      *keep_going = make_unions_ && false;
-    } else if (internal::PyFloatScalar_Check(obj)) {
-      ++float_count_;
-    } else if (internal::IsPyInteger(obj)) {
-      ++int_count_;
-    } else if (PyDateTime_Check(obj)) {
-      ++timestamp_micro_count_;
-      *keep_going = make_unions_ && false;
-    } else if (PyDate_Check(obj)) {
-      ++date_count_;
-      *keep_going = make_unions_ && false;
-    } else if (PyTime_Check(obj)) {
-      ++time_count_;
-      *keep_going = make_unions_ && false;
-    } else if (internal::IsPyBinary(obj)) {
-      ++binary_count_;
-      *keep_going = make_unions_ && false;
-    } else if (PyUnicode_Check(obj)) {
-      ++unicode_count_;
-      *keep_going = make_unions_ && false;
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
-      RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
-    } else if (PyList_Check(obj)) {
-      RETURN_NOT_OK(VisitList(obj, keep_going));
-    } else if (PyArray_Check(obj)) {
-      RETURN_NOT_OK(VisitNdarray(obj, keep_going));
-    } else if (PyDict_Check(obj)) {
-      RETURN_NOT_OK(VisitDict(obj));
-    } else if (PyObject_IsInstance(obj, decimal_type_.obj())) {
-      RETURN_NOT_OK(max_decimal_metadata_.Update(obj));
-      ++decimal_count_;
-    } else {
-      return InvalidValue(obj,
-                          "did not recognize Python value type when inferring "
-                          "an Arrow data type");
-    }
-
-    if (total_count_ % validate_interval_ == 0) {
-      RETURN_NOT_OK(Validate());
-    }
-
-    return Status::OK();
-  }
-
-  // Infer value type from a sequence of values
-  Status VisitSequence(PyObject* obj) {
-    return internal::VisitSequence(obj, [this](PyObject* value, bool* keep_going) {
-      return Visit(value, keep_going);
-    });
-  }
-
-  Status GetType(std::shared_ptr<DataType>* out) const {
-    // TODO(wesm): handling forming unions
-    if (make_unions_) {
-      return Status::NotImplemented("Creating union types not yet supported");
-    }
-
-    RETURN_NOT_OK(Validate());
-
-    if (numpy_unifier_.current_dtype() != nullptr) {
-      std::shared_ptr<DataType> type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(numpy_unifier_.current_dtype(), &type));
-      *out = type;
-    } else if (list_count_) {
-      std::shared_ptr<DataType> value_type;
-      RETURN_NOT_OK(list_inferrer_->GetType(&value_type));
-      *out = list(value_type);
-    } else if (struct_count_) {
-      RETURN_NOT_OK(GetStructType(out));
-    } else if (decimal_count_) {
-      *out = decimal(max_decimal_metadata_.precision(), max_decimal_metadata_.scale());
-    } else if (float_count_) {
-      // Prioritize floats before integers
-      *out = float64();
-    } else if (int_count_) {
-      *out = int64();
-    } else if (date_count_) {
-      *out = date32();
-    } else if (time_count_) {
-      *out = time64(TimeUnit::MICRO);
-    } else if (timestamp_nano_count_) {
-      *out = timestamp(TimeUnit::NANO);
-    } else if (timestamp_micro_count_) {
-      *out = timestamp(TimeUnit::MICRO);
-    } else if (timestamp_milli_count_) {
-      *out = timestamp(TimeUnit::MILLI);
-    } else if (timestamp_second_count_) {
-      *out = timestamp(TimeUnit::SECOND);
-    } else if (bool_count_) {
-      *out = boolean();
-    } else if (binary_count_) {
-      *out = binary();
-    } else if (unicode_count_) {
-      *out = utf8();
-    } else {
-      *out = null();
-    }
-    return Status::OK();
-  }
-
-  int64_t total_count() const { return total_count_; }
-
- protected:
-  Status Validate() const {
-    if (list_count_ > 0) {
-      if (list_count_ + none_count_ != total_count_) {
-        return Status::Invalid("cannot mix list and non-list, non-null values");
-      }
-      RETURN_NOT_OK(list_inferrer_->Validate());
-    } else if (struct_count_ > 0) {
-      if (struct_count_ + none_count_ != total_count_) {
-        return Status::Invalid("cannot mix struct and non-struct, non-null values");
-      }
-      for (const auto& it : struct_inferrers_) {
-        RETURN_NOT_OK(it.second.Validate());
-      }
-    }
-    return Status::OK();
-  }
-
-  Status VisitDType(PyArray_Descr* dtype, bool* keep_going) {
-    // Continue visiting dtypes for now.
-    // TODO(wesm): devise approach for unions
-    *keep_going = true;
-    return numpy_unifier_.Observe(dtype);
-  }
-
-  Status VisitList(PyObject* obj, bool* keep_going /* unused */) {
-    if (!list_inferrer_) {
-      list_inferrer_.reset(new TypeInferrer(validate_interval_, make_unions_));
-    }
-    ++list_count_;
-    return list_inferrer_->VisitSequence(obj);
-  }
-
-  Status VisitNdarray(PyObject* obj, bool* keep_going) {
-    PyArray_Descr* dtype = PyArray_DESCR(reinterpret_cast<PyArrayObject*>(obj));
-    if (dtype->type_num == NPY_OBJECT) {
-      return VisitList(obj, keep_going);
-    }
-    // Not an object array: infer child Arrow type from dtype
-    if (!list_inferrer_) {
-      list_inferrer_.reset(new TypeInferrer(validate_interval_, make_unions_));
-    }
-    ++list_count_;
-    return list_inferrer_->VisitDType(dtype, keep_going);
-  }
-
-  Status VisitDict(PyObject* obj) {
-    PyObject* key_obj;
-    PyObject* value_obj;
-    Py_ssize_t pos = 0;
-
-    while (PyDict_Next(obj, &pos, &key_obj, &value_obj)) {
-      std::string key;
-      if (PyUnicode_Check(key_obj)) {
-        RETURN_NOT_OK(internal::PyUnicode_AsStdString(key_obj, &key));
-      } else if (PyBytes_Check(key_obj)) {
-        key = internal::PyBytes_AsStdString(key_obj);
-      } else {
-        std::stringstream ss;
-        ss << "Expected dict key of type str or bytes, got '" << Py_TYPE(key_obj)->tp_name
-           << "'";
-        return Status::TypeError(ss.str());
-      }
-      // Get or create visitor for this key
-      auto it = struct_inferrers_.find(key);
-      if (it == struct_inferrers_.end()) {
-        it = struct_inferrers_
-                 .insert(
-                     std::make_pair(key, TypeInferrer(validate_interval_, make_unions_)))
-                 .first;
-      }
-      TypeInferrer* visitor = &it->second;
-
-      // We ignore termination signals from child visitors
-      bool keep_going = true;
-      RETURN_NOT_OK(visitor->Visit(value_obj, &keep_going));
-    }
-
-    // We do not terminate visiting dicts (unless one of the struct_inferrers_
-    // signaled to terminate) since we want the union of all observed keys
-    ++struct_count_;
-    return Status::OK();
-  }
-
-  Status GetStructType(std::shared_ptr<DataType>* out) const {
-    std::vector<std::shared_ptr<Field>> fields;
-    for (const auto& it : struct_inferrers_) {
-      std::shared_ptr<DataType> field_type;
-      RETURN_NOT_OK(it.second.GetType(&field_type));
-      fields.emplace_back(field(it.first, field_type));
-    }
-    *out = struct_(fields);
-    return Status::OK();
-  }
-
- private:
-  int64_t validate_interval_;
-  bool make_unions_;
-  int64_t total_count_;
-  int64_t none_count_;
-  int64_t bool_count_;
-  int64_t int_count_;
-  int64_t date_count_;
-  int64_t time_count_;
-  int64_t timestamp_second_count_;
-  int64_t timestamp_milli_count_;
-  int64_t timestamp_micro_count_;
-  int64_t timestamp_nano_count_;
-  int64_t float_count_;
-  int64_t binary_count_;
-  int64_t unicode_count_;
-  int64_t decimal_count_;
-  int64_t list_count_;
-  std::unique_ptr<TypeInferrer> list_inferrer_;
-  int64_t struct_count_;
-  std::map<std::string, TypeInferrer> struct_inferrers_;
-
-  // If we observe a strongly-typed value in e.g. a NumPy array, we can store
-  // it here to skip the type counting logic above
-  NumPyDtypeUnifier numpy_unifier_;
-
-  internal::DecimalMetadata max_decimal_metadata_;
-
-  // Place to accumulate errors
-  // std::vector<Status> errors_;
-  OwnedRefNoGIL decimal_type_;
-};
-
-// Non-exhaustive type inference
-Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
-  PyDateTime_IMPORT;
-  TypeInferrer inferrer;
-  RETURN_NOT_OK(inferrer.VisitSequence(obj));
-  RETURN_NOT_OK(inferrer.GetType(out_type));
-  if (*out_type == nullptr) {
-    return Status::TypeError("Unable to determine data type");
-  }
-
-  return Status::OK();
-}
-
-Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
-                             std::shared_ptr<DataType>* out_type) {
-  if (!PySequence_Check(obj)) {
-    return Status::TypeError("Object is not a sequence");
-  }
-  *size = static_cast<int64_t>(PySequence_Size(obj));
-
-  // For 0-length sequences, refuse to guess
-  if (*size == 0) {
-    *out_type = null();
-    return Status::OK();
-  }
-  RETURN_NOT_OK(InferArrowType(obj, out_type));
-
-  return Status::OK();
-}
+namespace {}  // namespace
 
 // ----------------------------------------------------------------------
 // Sequence converter base and CRTP "middle" subclasses
@@ -466,10 +156,10 @@ struct Unbox<FloatType> {
       return builder->Append(val);
     } else if (internal::PyIntScalar_Check(obj)) {
       float val = 0;
-      RETURN_NOT_OK(IntegerScalarToFloat32Safe(obj, &val));
+      RETURN_NOT_OK(internal::IntegerScalarToFloat32Safe(obj, &val));
       return builder->Append(val);
     } else {
-      return InvalidValue(obj, "tried to convert to float32");
+      return internal::InvalidValue(obj, "tried to convert to float32");
     }
   }
 };
@@ -487,10 +177,10 @@ struct Unbox<DoubleType> {
       return builder->Append(val);
     } else if (internal::PyIntScalar_Check(obj)) {
       double val = 0;
-      RETURN_NOT_OK(IntegerScalarToDoubleSafe(obj, &val));
+      RETURN_NOT_OK(internal::IntegerScalarToDoubleSafe(obj, &val));
       return builder->Append(val);
     } else {
-      return InvalidValue(obj, "tried to convert to double");
+      return internal::InvalidValue(obj, "tried to convert to double");
     }
   }
 };
@@ -564,7 +254,7 @@ class TypedConverter : public SeqConverter {
 class NullConverter : public TypedConverter<NullType, NullConverter> {
  public:
   Status AppendItem(PyObject* obj) {
-    return InvalidValue(obj, "converting to null type");
+    return internal::InvalidValue(obj, "converting to null type");
   }
 };
 
@@ -579,7 +269,7 @@ class BoolConverter : public TypedConverter<BooleanType, BoolConverter> {
     } else if (obj == Py_False) {
       return typed_builder_->Append(false);
     } else {
-      return InvalidValue(obj, "tried to convert to boolean");
+      return internal::InvalidValue(obj, "tried to convert to boolean");
     }
   }
 };
@@ -587,14 +277,9 @@ class BoolConverter : public TypedConverter<BooleanType, BoolConverter> {
 // ----------------------------------------------------------------------
 // Sequence converter template for numeric (integer and floating point) types
 
-template <typename Type, bool from_pandas = true>
+template <typename Type, NullCoding null_coding>
 class NumericConverter
-    : public TypedConverter<Type, NumericConverter<Type, from_pandas>> {};
-
-template <typename Type>
-class NumericConverter<Type, false>
-    : public TypedConverter<Type, NumericConverter<Type, false>, NullCoding::NONE_ONLY> {
-};
+    : public TypedConverter<Type, NumericConverter<Type, null_coding>, null_coding> {};
 
 // ----------------------------------------------------------------------
 // Sequence converters for temporal types
@@ -634,7 +319,7 @@ class TimeConverter : public TypedConverter<Time64Type, TimeConverter> {
       // datetime.time stores microsecond resolution
       return typed_builder_->Append(PyTime_to_us(obj));
     } else {
-      return InvalidValue(obj, "converting to time64");
+      return internal::InvalidValue(obj, "converting to time64");
     }
   }
 };
@@ -711,13 +396,8 @@ inline Status AppendPyString(BuilderType* builder, const PyBytesView& view, bool
   return Status::OK();
 }
 
-// if (internal::IsPyBinary(obj)) {
-//   *have_bytes = true;
-// }
-
 inline Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
   PyBytesView view;
-  // XXX For some reason, we must accept unicode objects here
   RETURN_NOT_OK(view.FromString(obj));
   return AppendPyString(builder, view, is_full,
                         [&builder](const char* bytes, int32_t length) {
@@ -728,14 +408,13 @@ inline Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full
 inline Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
                             bool* is_full) {
   PyBytesView view;
-  // XXX For some reason, we must accept unicode objects here
   RETURN_NOT_OK(view.FromString(obj));
   const auto expected_length =
       checked_cast<const FixedSizeBinaryType&>(*builder->type()).byte_width();
   if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
     std::stringstream ss;
     ss << "expected to be length " << expected_length << " was " << view.size;
-    return InvalidValue(obj, ss.str());
+    return internal::InvalidValue(obj, ss.str());
   }
 
   return AppendPyString(
@@ -749,9 +428,7 @@ template <typename Type>
 class BinaryLikeConverter : public TypedConverter<Type, BinaryLikeConverter<Type>> {
  public:
   Status AppendItem(PyObject* obj) {
-    // XXX(wesm): for some reason accessing members of the templated base
-    // requires using this-> here, look up why that is
-
+    // Accessing members of the templated base requires using this-> here
     bool is_full = false;
     RETURN_NOT_OK(detail::BuilderAppend(this->typed_builder_, obj, &is_full));
 
@@ -786,7 +463,7 @@ class StringConverter : public TypedConverter<StringType, StringConverter<STRICT
       bool is_utf8 = false;
       RETURN_NOT_OK(string_view_.FromString(obj, &is_utf8));
       if (!is_utf8) {
-        return InvalidValue(obj, "was not a utf8 string");
+        return internal::InvalidValue(obj, "was not a utf8 string");
       }
     } else {
       // Non-strict conversion; keep track of whether values are unicode or
@@ -1084,36 +761,38 @@ class StructConverter : public TypedConverter<StructType, StructConverter> {
 class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalConverter> {
  public:
   using BASE = TypedConverter<arrow::Decimal128Type, DecimalConverter>;
+
   Status Init(ArrayBuilder* builder) override {
     RETURN_NOT_OK(BASE::Init(builder));
     decimal_type_ = checked_cast<const DecimalType*>(typed_builder_->type().get());
-    return internal::ImportDecimalType(&pydecimal_type_);
+    return Status::OK();
   }
 
   Status AppendItem(PyObject* obj) {
-    if (PyObject_IsInstance(obj, pydecimal_type_.obj()) == 1) {
+    if (internal::PyDecimal_Check(obj)) {
       Decimal128 value;
       RETURN_NOT_OK(internal::DecimalFromPythonDecimal(obj, *decimal_type_, &value));
       return typed_builder_->Append(value);
     } else {
       // PyObject_IsInstance could error and set an exception
       RETURN_IF_PYERROR();
-      return InvalidValue(obj, "converting to Decimal128");
+      return internal::InvalidValue(obj, "converting to Decimal128");
     }
   }
 
  private:
   const DecimalType* decimal_type_;
-  OwnedRefNoGIL pydecimal_type_;
 };
 
-#define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                     \
-  case Type::TYPE_ENUM:                                                        \
-    if (from_pandas) {                                                         \
-      *out = std::unique_ptr<SeqConverter>(new NumericConverter<TYPE, true>);  \
-    } else {                                                                   \
-      *out = std::unique_ptr<SeqConverter>(new NumericConverter<TYPE, false>); \
-    }                                                                          \
+#define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                           \
+  case Type::TYPE_ENUM:                                              \
+    if (from_pandas) {                                               \
+      *out = std::unique_ptr<SeqConverter>(                          \
+          new NumericConverter<TYPE, NullCoding::PANDAS_SENTINELS>); \
+    } else {                                                         \
+      *out = std::unique_ptr<SeqConverter>(                          \
+          new NumericConverter<TYPE, NullCoding::NONE_ONLY>);        \
+    }                                                                \
     break;
 
 #define SIMPLE_CONVERTER_CASE(TYPE_ENUM, TYPE_CLASS)      \
@@ -1280,8 +959,6 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   std::vector<std::shared_ptr<Array>> chunks;
   RETURN_NOT_OK(converter->GetResult(&chunks));
 
-  // TODO(wesm): ARROW-2814 comment. Is further casting ever necessary?
-
   *out = std::make_shared<ChunkedArray>(chunks);
   return Status::OK();
 }
@@ -1289,16 +966,6 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
 Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
                          std::shared_ptr<ChunkedArray>* out) {
   return ConvertPySequence(obj, nullptr, options, out);
-}
-
-Status ConvertPySequence(PyObject* obj, std::shared_ptr<Array>* out) {
-  std::shared_ptr<ChunkedArray> result;
-  RETURN_NOT_OK(ConvertPySequence(obj, nullptr, PyConversionOptions(), &result));
-  if (result->num_chunks() != 1) {
-    return Status::Invalid("Sequence conversion yielded multiple chunks");
-  }
-  *out = result->chunk(0);
-  return Status::OK();
 }
 
 }  // namespace py

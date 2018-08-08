@@ -23,9 +23,8 @@
 
 #include "arrow/python/platform.h"
 
+#include <cstdint>
 #include <memory>
-#include <ostream>
-#include <string>
 
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
@@ -39,14 +38,6 @@ class Array;
 class Status;
 
 namespace py {
-
-// These three functions take a sequence input, not arbitrary iterables
-ARROW_EXPORT
-arrow::Status InferArrowType(PyObject* obj, std::shared_ptr<arrow::DataType>* out_type);
-
-ARROW_EXPORT
-arrow::Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
-                                    std::shared_ptr<arrow::DataType>* out_type);
 
 struct PyConversionOptions {
   PyConversionOptions() : type(NULLPTR), size(-1), pool(NULLPTR), from_pandas(false) {}
@@ -85,10 +76,6 @@ Status ConvertPySequence(PyObject* obj, PyObject* mask,
 ARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
                          std::shared_ptr<ChunkedArray>* out);
-
-// Errors if multiple chunks
-ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, std::shared_ptr<Array>* out);
 
 }  // namespace py
 }  // namespace arrow

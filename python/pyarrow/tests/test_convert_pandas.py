@@ -1156,17 +1156,16 @@ class TestConvertDateTimeLikeTypes(object):
 # Conversion tests for string and binary types.
 
 
-def test_pandas_unicode():
-    repeats = 1000
-    values = [u'foo', None, u'bar', u'mañana', np.nan]
-    df = pd.DataFrame({'strings': values * repeats})
-    field = pa.field('strings', pa.string())
-    schema = pa.schema([field])
-
-    _check_pandas_roundtrip(df, expected_schema=schema)
-
-
 class TestConvertStringLikeTypes(object):
+
+    def test_pandas_unicode(self):
+        repeats = 1000
+        values = [u'foo', None, u'bar', u'mañana', np.nan]
+        df = pd.DataFrame({'strings': values * repeats})
+        field = pa.field('strings', pa.string())
+        schema = pa.schema([field])
+
+        _check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_bytes_to_binary(self):
         values = [u'qux', b'foo', None, bytearray(b'barz'), 'qux', np.nan]

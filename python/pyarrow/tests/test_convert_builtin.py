@@ -484,12 +484,12 @@ def test_nested_ndarray_different_dtypes():
     arr = pa.array(data)
     expected = pa.array([[1, 2, 3], None, [4, 5, 6]],
                         type=pa.list_(pa.int64()))
-    arr.equals(expected)
+    assert arr.equals(expected)
 
     t2 = pa.list_(pa.uint32())
     arr2 = pa.array(data, type=t2)
     expected2 = expected.cast(t2)
-    arr2.equals(expected2)
+    assert arr2.equals(expected2)
 
 
 def test_sequence_unicode():

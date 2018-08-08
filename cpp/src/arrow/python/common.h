@@ -196,6 +196,8 @@ struct PyBytesView {
           *is_utf8 = false;
           PyErr_Clear();
         }
+      } else {
+        *is_utf8 = false;
       }
       return Status::OK();
     }

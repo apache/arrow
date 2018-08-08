@@ -246,7 +246,6 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
 
 TEST(BuiltinConversionTest, TestMixedTypeFails) {
   PyAcquireGIL lock;
-  std::shared_ptr<Array> arr;
 
   OwnedRef list_ref(PyList_New(3));
   PyObject* list = list_ref.obj();
@@ -268,8 +267,8 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
   ASSERT_EQ(PyList_SetItem(list, 1, integer), 0);
   ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
 
-  PyConversionOptions options;
-  ASSERT_RAISES(TypeError, ConvertPySequence(list, &arr));
+  std::shared_ptr<ChunkedArray> arr;
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, {}, &arr));
 }
 
 TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
@@ -347,12 +346,14 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
   ASSERT_EQ(0, PyList_SetItem(list, 2, missing_value2));
   ASSERT_EQ(0, PyList_SetItem(list, 3, missing_value3));
 
-  std::shared_ptr<Array> arr;
-  ASSERT_OK(ConvertPySequence(list, &arr));
-  ASSERT_TRUE(arr->IsValid(0));
-  ASSERT_TRUE(arr->IsNull(1));
-  ASSERT_TRUE(arr->IsNull(2));
-  ASSERT_TRUE(arr->IsNull(3));
+  std::shared_ptr<ChunkedArray> arr;
+  ASSERT_OK(ConvertPySequence(list, {}, &arr));
+
+  auto c0 = arr->chunk(0);
+  ASSERT_TRUE(c0->IsValid(0));
+  ASSERT_TRUE(c0->IsNull(1));
+  ASSERT_TRUE(c0->IsNull(2));
+  ASSERT_TRUE(c0->IsNull(3));
 }
 
 TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
@@ -371,9 +372,8 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
     ASSERT_EQ(0, result);
   }
 
-  std::shared_ptr<Array> arr;
-
-  ASSERT_OK(ConvertPySequence(list, &arr));
+  std::shared_ptr<ChunkedArray> arr;
+  ASSERT_OK(ConvertPySequence(list, {}, &arr));
   const auto& type = checked_cast<const DecimalType&>(*arr->type());
 
   int32_t expected_precision = 9;
@@ -384,7 +384,6 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
 
 TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
   PyAcquireGIL lock;
-  std::shared_ptr<Array> arr;
 
   PyObject* value1 = this->CreatePythonDecimal("0.01").detach();
   ASSERT_NE(value1, nullptr);
@@ -400,7 +399,8 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
   ASSERT_EQ(PyList_SetItem(list, 0, value1), 0);
   ASSERT_EQ(PyList_SetItem(list, 1, value2), 0);
 
-  ASSERT_OK(ConvertPySequence(list, &arr));
+  std::shared_ptr<ChunkedArray> arr;
+  ASSERT_OK(ConvertPySequence(list, {}, &arr));
 
   const auto& type = checked_cast<const Decimal128Type&>(*arr->type());
   ASSERT_EQ(3, type.precision());
@@ -434,8 +434,8 @@ TEST(PythonTest, ConstructStringArrayWithLeadingZeros) {
   ASSERT_EQ(0, PyList_SetItem(list, 0, PyFloat_FromDouble(NAN)));
   ASSERT_EQ(0, PyList_SetItem(list, 1, PyUnicode_FromString(str.c_str())));
 
-  std::shared_ptr<Array> out;
-  ASSERT_OK(ConvertPySequence(list, &out));
+  std::shared_ptr<ChunkedArray> out;
+  ASSERT_OK(ConvertPySequence(list, {}, &out));
 }
 
 }  // namespace py

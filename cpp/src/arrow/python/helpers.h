@@ -111,6 +111,13 @@ inline Status CastSize(Py_ssize_t size, int32_t* out,
   return Status::OK();
 }
 
+// \brief Print the Python object's __str__ form along with the passed error
+// message
+Status InvalidValue(PyObject* obj, const std::string& why);
+
+Status IntegerScalarToDoubleSafe(PyObject* obj, double* result);
+Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
+
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow

@@ -31,10 +31,11 @@ namespace internal {
 // the callable returns a non-OK status, iteration stops and the status is
 // returned.
 //
-// The call signature for Visitor must be Visit(PyObject*, bool*
-// keep_going). If keep_going is set to false, the iteration terminates
+// The call signature for Visitor must be
 //
-// The Visitor function  signal that iteration should terminate
+// Visit(PyObject* obj, int64_t index, bool* keep_going)
+//
+// If keep_going is set to false, the iteration terminates
 template <class VisitorFunc>
 inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
   // VisitorFunc may set to false to terminate iteration

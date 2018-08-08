@@ -31,6 +31,7 @@ set(ARROW_PYTHON_SRCS
   config.cc
   decimal.cc
   helpers.cc
+  inference.cc
   init.cc
   io.cc
   numpy_convert.cc
@@ -88,6 +89,7 @@ install(FILES
   config.h
   decimal.h
   helpers.h
+  inference.h
   init.h
   io.h
   iterators.h
