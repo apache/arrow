@@ -33,15 +33,15 @@ const (
 type BinaryBuilder struct {
 	builder
 
-	typE    arrow.BinaryDataType
+	dtype   arrow.BinaryDataType
 	offsets *int32BufferBuilder
 	values  *byteBufferBuilder
 }
 
-func NewBinaryBuilder(mem memory.Allocator, typE arrow.BinaryDataType) *BinaryBuilder {
+func NewBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType) *BinaryBuilder {
 	b := &BinaryBuilder{
 		builder: builder{refCount: 1, mem: mem},
-		typE:    typE,
+		dtype:   dtype,
 		offsets: newInt32BufferBuilder(mem),
 		values:  newByteBufferBuilder(mem),
 	}
@@ -163,7 +163,7 @@ func (b *BinaryBuilder) NewBinaryArray() (a *Binary) {
 func (b *BinaryBuilder) newData() (data *Data) {
 	b.appendNextOffset()
 	offsets, values := b.offsets.Finish(), b.values.Finish()
-	data = NewData(b.typE, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, b.nullN)
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, nil, b.nulls)
 	if offsets != nil {
 		offsets.Release()
 	}

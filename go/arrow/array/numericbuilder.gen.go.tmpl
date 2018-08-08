@@ -28,15 +28,15 @@ type {{.Name}}Builder struct {
 	builder
 
 {{if .Opt.Parametric -}}
-	typE    *arrow.{{.Name}}Type
+	dtype    *arrow.{{.Name}}Type
 {{end -}}
 	data    *memory.Buffer
 	rawData []{{or .QualifiedType .Type}}
 }
 
 {{if .Opt.Parametric}}
-func New{{.Name}}Builder(mem memory.Allocator, typE *arrow.{{.Name}}Type) *{{.Name}}Builder {
-	return &{{.Name}}Builder{builder: builder{refCount:1, mem: mem}, typE: typE}
+func New{{.Name}}Builder(mem memory.Allocator, dtype *arrow.{{.Name}}Type) *{{.Name}}Builder {
+	return &{{.Name}}Builder{builder: builder{refCount:1, mem: mem}, dtype: dtype}
 }
 {{else}}
 func New{{.Name}}Builder(mem memory.Allocator) *{{.Name}}Builder {
@@ -81,7 +81,7 @@ func (b *{{.Name}}Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -132,6 +132,12 @@ func (b *{{.Name}}Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a {{.Name}} array from the memory buffers used by the builder and resets the {{.Name}}Builder
+// so it can be used to build a new array.
+func (b *{{.Name}}Builder) NewArray() Interface {
+	return b.New{{.Name}}Array()
+}
+
 // New{{.Name}}Array creates a {{.Name}} array from the memory buffers used by the builder and resets the {{.Name}}Builder
 // so it can be used to build a new array.
 func (b *{{.Name}}Builder) New{{.Name}}Array() (a *{{.Name}}) {
@@ -148,9 +154,9 @@ func (b *{{.Name}}Builder) newData() (data *Data) {
 		b.data.Resize(bytesRequired)
 	}
 {{if .Opt.Parametric -}}
-	data = NewData(b.typE, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 {{else -}}
-	data = NewData(arrow.PrimitiveTypes.{{.Name}}, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.{{.Name}}, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 {{end -}}
 	b.reset()
 
@@ -163,3 +169,9 @@ func (b *{{.Name}}Builder) newData() (data *Data) {
 	return
 }
 {{end}}
+
+var (
+{{- range .In}}
+	_ Builder = (*{{.Name}}Builder)(nil)
+{{- end}}
+)

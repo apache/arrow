@@ -14,23 +14,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package array_test
+package arrow
 
-import (
-	"testing"
-
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/stretchr/testify/assert"
-)
-
-func TestNewFloat64Data(t *testing.T) {
-	exp := []float64{1.0, 2.0, 4.0, 8.0, 16.0}
-
-	ad := array.NewData(arrow.PrimitiveTypes.Float64, len(exp), []*memory.Buffer{nil, memory.NewBufferBytes(arrow.Float64Traits.CastToBytes(exp))}, nil, 0)
-	fa := array.NewFloat64Data(ad)
-
-	assert.Equal(t, len(exp), fa.Len(), "unexpected Len()")
-	assert.Equal(t, exp, fa.Float64Values(), "unexpected Float64Values()")
+// ListType describes a nested type in which each array slot contains
+// a variable-size sequence of values, all having the same relative type.
+type ListType struct {
+	elem DataType // DataType of the list's elements
 }
+
+// ListOf returns the list type with element type t.
+// For example, if t represents int32, ListOf(t) represents []int32.
+//
+// ListOf panics if t is nil or invalid.
+func ListOf(t DataType) *ListType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &ListType{elem: t}
+}
+
+func (*ListType) ID() Type     { return LIST }
+func (*ListType) Name() string { return "list" }
+
+// Elem returns the ListType's element type.
+func (t *ListType) Elem() DataType { return t.elem }
+
+var (
+	_ DataType = (*ListType)(nil)
+)
