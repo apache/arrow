@@ -173,4 +173,19 @@ Status AllocateResizableBuffer(const int64_t size,
   return AllocateResizableBuffer(default_memory_pool(), size, out);
 }
 
+Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
+                           std::shared_ptr<Buffer>* out) {
+  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), out));
+  memset((*out)->mutable_data(), 0, static_cast<size_t>((*out)->size()));
+  return Status::OK();
+}
+
+Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
+  return AllocateEmptyBitmap(default_memory_pool(), length, out);
+}
+
+Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out) {
+  return AllocateEmptyBitmap(pool, length, out);
+}
+
 }  // namespace arrow

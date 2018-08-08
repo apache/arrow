@@ -69,6 +69,10 @@
 
 namespace arrow {
 
+class Buffer;
+class MemoryPool;
+class Status;
+
 namespace detail {
 
 template <typename Integer>
@@ -78,79 +82,24 @@ typename std::make_unsigned<Integer>::type as_unsigned(Integer x) {
 
 }  // namespace detail
 
-class Buffer;
-class MemoryPool;
-class MutableBuffer;
-class Status;
-
 namespace BitUtil {
 
 //
-// Utilities for reading and writing individual bits by their index
-// in a memory area.
+// Bit-related computations on integer values
 //
 
-// Bitmask selecting the k-th bit in a byte
-static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
-
-// the bitwise complement version of kBitmask
-static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191, 127};
-
-// Bitmask selecting the (k - 1) preceding bits in a byte
-static constexpr uint8_t kPrecedingBitmask[] = {0, 1, 3, 7, 15, 31, 63, 127};
-
-// the bitwise complement version of kPrecedingBitmask
-static constexpr uint8_t kTrailingBitmask[] = {255, 254, 252, 248, 240, 224, 192, 128};
-
-static inline int64_t CeilByte(int64_t size) { return (size + 7) & ~7; }
-
-static inline int64_t BytesForBits(int64_t size) { return CeilByte(size) / 8; }
-
-static inline int64_t Ceil2Bytes(int64_t size) { return (size + 15) & ~15; }
-
-static inline bool GetBit(const uint8_t* bits, int64_t i) {
-  return (bits[i / 8] & kBitmask[i % 8]) != 0;
+// Returns the ceil of value/divisor
+static inline int64_t CeilDiv(int64_t value, int64_t divisor) {
+  return value / divisor + (value % divisor != 0);
 }
 
-static inline bool BitNotSet(const uint8_t* bits, int64_t i) {
-  return (bits[i / 8] & kBitmask[i % 8]) == 0;
-}
+static inline int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
 
-static inline void ClearBit(uint8_t* bits, int64_t i) {
-  bits[i / 8] &= kFlippedBitmask[i % 8];
-}
-
-static inline void SetBit(uint8_t* bits, int64_t i) { bits[i / 8] |= kBitmask[i % 8]; }
-
-/// Set bit if is_set is true, but cannot clear bit
-static inline void SetArrayBit(uint8_t* bits, int i, bool is_set) {
-  if (is_set) {
-    SetBit(bits, i);
-  }
-}
-
-static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
-  // https://graphics.stanford.edu/~seander/bithacks.html
-  // "Conditionally set or clear bits without branching"
-  // NOTE: this seems to confuse Valgrind as it reads from potentially
-  // uninitialized memory
-  bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
-                 kBitmask[i % 8];
-}
-
-// Returns the minimum number of bits needed to represent the value of 'x'
-static inline int NumRequiredBits(uint64_t x) {
-  for (int i = 63; i >= 0; --i) {
-    if (x & (UINT64_C(1) << i)) return i + 1;
-  }
-  return 0;
-}
-
-/// Returns the smallest power of two that contains v. Taken from
-/// http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-/// TODO: Pick a better name, as it is not clear what happens when the input is
-/// already a power of two.
+// Returns the smallest power of two that contains v.  If v is already a
+// power of two, it is returned as is.
 static inline int64_t NextPower2(int64_t n) {
+  // Taken from
+  // http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
   n--;
   n |= n >> 1;
   n |= n >> 2;
@@ -166,105 +115,29 @@ static inline bool IsMultipleOf64(int64_t n) { return (n & 63) == 0; }
 
 static inline bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
-/// Returns the ceil of value/divisor
-static inline int64_t Ceil(int64_t value, int64_t divisor) {
-  return value / divisor + (value % divisor != 0);
-}
-
-/// Returns 'value' rounded up to the nearest multiple of 'factor'
-inline int64_t RoundUp(int64_t value, int64_t factor) {
+// Returns 'value' rounded up to the nearest multiple of 'factor'
+static inline int64_t RoundUp(int64_t value, int64_t factor) {
   return (value + (factor - 1)) / factor * factor;
 }
 
-/// Returns 'value' rounded down to the nearest multiple of 'factor'
-static inline int64_t RoundDown(int64_t value, int64_t factor) {
-  return (value / factor) * factor;
-}
-
-/// Returns 'value' rounded up to the nearest multiple of 'factor' when factor is
-/// a power of two
-static inline int RoundUpToPowerOf2(int value, int factor) {
+// Returns 'value' rounded up to the nearest multiple of 'factor' when factor
+// is a power of two.
+// The result is undefined on overflow, i.e. if `value > 2**64 - factor`,
+// since we cannot return the correct result which would be 2**64.
+static inline int64_t RoundUpToPowerOf2(int64_t value, int64_t factor) {
   // DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
   return (value + (factor - 1)) & ~(factor - 1);
 }
 
-static inline int RoundDownToPowerOf2(int value, int factor) {
-  // DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
-  return value & ~(factor - 1);
-}
-
-/// Specialized round up and down functions for frequently used factors,
-/// like 8 (bits->bytes), 32 (bits->i32), and 64 (bits->i64).
-/// Returns the rounded up number of bytes that fit the number of bits.
-static inline uint32_t RoundUpNumBytes(uint32_t bits) { return (bits + 7) >> 3; }
-
-/// Returns the rounded down number of bytes that fit the number of bits.
-static inline uint32_t RoundDownNumBytes(uint32_t bits) { return bits >> 3; }
-
-/// Returns the rounded up to 32 multiple. Used for conversions of bits to i32.
-static inline uint32_t RoundUpNumi32(uint32_t bits) { return (bits + 31) >> 5; }
-
-/// Returns the rounded up 32 multiple.
-static inline uint32_t RoundDownNumi32(uint32_t bits) { return bits >> 5; }
-
-/// Returns the rounded up to 64 multiple. Used for conversions of bits to i64.
-static inline uint32_t RoundUpNumi64(uint32_t bits) { return (bits + 63) >> 6; }
-
-/// Returns the rounded down to 64 multiple.
-static inline uint32_t RoundDownNumi64(uint32_t bits) { return bits >> 6; }
-
-template <int64_t ROUND_TO>
-static inline int64_t RoundToPowerOfTwo(int64_t num) {
-  // TODO(wesm): is this definitely needed?
-  // DCHECK_GE(num, 0);
-  constexpr int64_t force_carry_addend = ROUND_TO - 1;
-  constexpr int64_t truncate_bitmask = ~(ROUND_TO - 1);
-  constexpr int64_t max_roundable_num = std::numeric_limits<int64_t>::max() - ROUND_TO;
-  if (num <= max_roundable_num) {
-    return (num + force_carry_addend) & truncate_bitmask;
-  }
-  // handle overflow case.  This should result in a malloc error upstream
-  return num;
+static inline int64_t RoundUpToMultipleOf8(int64_t num) {
+  return RoundUpToPowerOf2(num, 8);
 }
 
 static inline int64_t RoundUpToMultipleOf64(int64_t num) {
-  return RoundToPowerOfTwo<64>(num);
+  return RoundUpToPowerOf2(num, 64);
 }
 
-static inline int64_t RoundUpToMultipleOf8(int64_t num) {
-  return RoundToPowerOfTwo<8>(num);
-}
-
-/// Non hw accelerated pop count.
-/// TODO: we don't use this in any perf sensitive code paths currently.  There
-/// might be a much faster way to implement this.
-static inline int PopcountNoHw(uint64_t x) {
-  int count = 0;
-  for (; x != 0; ++count) x &= x - 1;
-  return count;
-}
-
-/// Returns the number of set bits in x
-static inline int Popcount(uint64_t x) {
-#ifdef ARROW_USE_SSE
-  if (ARROW_PREDICT_TRUE(CpuInfo::IsSupported(CpuInfo::POPCNT))) {
-    return POPCNT_popcnt_u64(x);
-  } else {
-    return PopcountNoHw(x);
-  }
-#else
-  return PopcountNoHw(x);
-#endif
-}
-
-// Compute correct population count for various-width signed integers
-template <typename T>
-static inline int PopcountSigned(T v) {
-  // Converting to same-width unsigned then extending preserves the bit pattern.
-  return BitUtil::Popcount(detail::as_unsigned(v));
-}
-
-/// Returns the 'num_bits' least-significant bits of 'v'.
+// Returns the 'num_bits' least-significant bits of 'v'.
 static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   if (ARROW_PREDICT_FALSE(num_bits == 0)) return 0;
   if (ARROW_PREDICT_FALSE(num_bits >= 64)) return v;
@@ -272,42 +145,63 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   return (v << n) >> n;
 }
 
-/// Returns ceil(log2(x)).
-/// TODO: this could be faster if we use __builtin_clz.  Fix this if this ever shows up
-/// in a hot path.
-static inline int Log2(uint64_t x) {
-  // DCHECK_GT(x, 0);
-  if (x == 1) return 0;
-  // Compute result = ceil(log2(x))
-  //                = floor(log2(x - 1)) + 1, for x > 1
-  // by finding the position of the most significant bit (1-indexed) of x - 1
-  // (floor(log2(n)) = MSB(n) (0-indexed))
-  --x;
-  int result = 1;
-  while (x >>= 1) ++result;
-  return result;
-}
-
-/// \brief Count the number of leading zeros in a 32 bit integer.
-static inline int64_t CountLeadingZeros(uint32_t value) {
-// DCHECK_NE(value, 0);
+/// \brief Count the number of leading zeros in an unsigned integer.
+static inline int CountLeadingZeros(uint32_t value) {
 #if defined(__clang__) || defined(__GNUC__)
-  return static_cast<int64_t>(__builtin_clz(value));
+  if (value == 0) return 32;
+  return static_cast<int>(__builtin_clz(value));
 #elif defined(_MSC_VER)
-  unsigned long index;                                         // NOLINT
-  _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
-  return 31LL - static_cast<int64_t>(index);
+  unsigned long index;                                               // NOLINT
+  if (_BitScanReverse(&index, static_cast<unsigned long>(value))) {  // NOLINT
+    return 31 - static_cast<int>(index);
+  } else {
+    return 32;
+  }
 #else
-  int64_t bitpos = 0;
+  int bitpos = 0;
   while (value != 0) {
     value >>= 1;
     ++bitpos;
   }
-  return 32LL - bitpos;
+  return 32 - bitpos;
 #endif
 }
 
-/// Swaps the byte order (i.e. endianess)
+static inline int CountLeadingZeros(uint64_t value) {
+#if defined(__clang__) || defined(__GNUC__)
+  if (value == 0) return 64;
+  return static_cast<int>(__builtin_clzl(value));
+#elif defined(_MSC_VER)
+  unsigned long index;                     // NOLINT
+  if (_BitScanReverse64(&index, value)) {  // NOLINT
+    return 63 - static_cast<int>(index);
+  } else {
+    return 64;
+  }
+#else
+  int bitpos = 0;
+  while (value != 0) {
+    value >>= 1;
+    ++bitpos;
+  }
+  return 64 - bitpos;
+#endif
+}
+
+// Returns the minimum number of bits needed to represent an unsigned value
+static inline int NumRequiredBits(uint64_t x) { return 64 - CountLeadingZeros(x); }
+
+// Returns ceil(log2(x)).
+static inline int Log2(uint64_t x) {
+  // DCHECK_GT(x, 0);
+  return NumRequiredBits(x - 1);
+}
+
+//
+// Byte-swap 16-bit, 32-bit and 64-bit values
+//
+
+// Swap the byte order (i.e. endianess)
 static inline int64_t ByteSwap(int64_t value) { return ARROW_BYTE_SWAP64(value); }
 static inline uint64_t ByteSwap(uint64_t value) {
   return static_cast<uint64_t>(ARROW_BYTE_SWAP64(value));
@@ -324,7 +218,7 @@ static inline uint16_t ByteSwap(uint16_t value) {
   return static_cast<uint16_t>(ByteSwap(static_cast<int16_t>(value)));
 }
 
-/// Write the swapped bytes into dst. Src and st cannot overlap.
+// Write the swapped bytes into dst. Src and dst cannot overlap.
 static inline void ByteSwap(void* dst, const void* src, int len) {
   switch (len) {
     case 1:
@@ -350,8 +244,7 @@ static inline void ByteSwap(void* dst, const void* src, int len) {
   }
 }
 
-/// Converts to big endian format (if not already in big endian) from the
-/// machine's native endian format.
+// Convert to little/big endian format from the machine's native endian format.
 #if ARROW_LITTLE_ENDIAN
 template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
                                                  int16_t, uint16_t>>
@@ -370,9 +263,15 @@ template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, 
 static inline T ToBigEndian(T value) {
   return value;
 }
+
+template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                                 int16_t, uint16_t>>
+static inline T ToLittleEndian(T value) {
+  return ByteSwap(value);
+}
 #endif
 
-/// Converts from big endian format to the machine's native endian format.
+// Convert from big/little endian format to the machine's native endian format.
 #if ARROW_LITTLE_ENDIAN
 template <typename T, typename = EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
                                                  int16_t, uint16_t>>
@@ -399,16 +298,32 @@ static inline T FromLittleEndian(T value) {
 }
 #endif
 
-// Logical right shift for signed integer types
-// This is needed because the C >> operator does arithmetic right shift
-// Negative shift amounts lead to undefined behavior
-template <typename T>
-static T ShiftRightLogical(T v, int shift) {
-  // Conversion to unsigned ensures most significant bits always filled with 0's
-  return detail::as_unsigned(v) >> shift;
+//
+// Utilities for reading and writing individual bits by their index
+// in a memory area.
+//
+
+// Bitmask selecting the k-th bit in a byte
+static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
+
+// the bitwise complement version of kBitmask
+static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191, 127};
+
+// Bitmask selecting the (k - 1) preceding bits in a byte
+static constexpr uint8_t kPrecedingBitmask[] = {0, 1, 3, 7, 15, 31, 63, 127};
+
+// the bitwise complement version of kPrecedingBitmask
+static constexpr uint8_t kTrailingBitmask[] = {255, 254, 252, 248, 240, 224, 192, 128};
+
+static inline bool GetBit(const uint8_t* bits, int64_t i) {
+  return (bits[i / 8] & kBitmask[i % 8]) != 0;
 }
 
-void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits);
+static inline void ClearBit(uint8_t* bits, int64_t i) {
+  bits[i / 8] &= kFlippedBitmask[i % 8];
+}
+
+static inline void SetBit(uint8_t* bits, int64_t i) { bits[i / 8] |= kBitmask[i % 8]; }
 
 /// \brief Convert vector of bytes to bitmap buffer
 ARROW_EXPORT
@@ -430,12 +345,7 @@ class BitmapReader {
     }
   }
 
-#if defined(_MSC_VER)
-  // MSVC is finicky about this cast
   bool IsSet() const { return (current_byte_ & (1 << bit_offset_)) != 0; }
-#else
-  bool IsSet() const { return current_byte_ & (1 << bit_offset_); }
-#endif
 
   bool IsNotSet() const { return (current_byte_ & (1 << bit_offset_)) == 0; }
 
@@ -646,9 +556,6 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
 
 // ----------------------------------------------------------------------
 // Bitmap utilities
-
-ARROW_EXPORT
-Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* result);
 
 /// Copy a bit range of an existing bitmap
 ///

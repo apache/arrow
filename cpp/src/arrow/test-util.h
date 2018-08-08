@@ -141,7 +141,7 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
   size_t length = is_valid.size();
 
   std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(GetEmptyBitmap(default_memory_pool(), length, &buffer));
+  RETURN_NOT_OK(AllocateEmptyBitmap(length, &buffer));
 
   uint8_t* bitmap = buffer->mutable_data();
   for (size_t i = 0; i < static_cast<size_t>(length); ++i) {

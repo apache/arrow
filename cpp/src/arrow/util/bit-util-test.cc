@@ -38,12 +38,6 @@
 
 namespace arrow {
 
-static void EnsureCpuInfoInitialized() {
-  if (!CpuInfo::initialized()) {
-    CpuInfo::Init();
-  }
-}
-
 template <class BitmapWriter>
 void WriteVectorToWriter(BitmapWriter& writer, const std::vector<int> values) {
   for (const auto& value : values) {
@@ -61,7 +55,7 @@ void BitmapFromVector(const std::vector<int>& values, int64_t bit_offset,
                       std::shared_ptr<Buffer>* out_buffer, int64_t* out_length) {
   const int64_t length = values.size();
   *out_length = length;
-  ASSERT_OK(GetEmptyBitmap(default_memory_pool(), length + bit_offset, out_buffer));
+  ASSERT_OK(AllocateEmptyBitmap(length + bit_offset, out_buffer));
   auto writer = internal::BitmapWriter((*out_buffer)->mutable_data(), bit_offset, length);
   WriteVectorToWriter(writer, values);
 }
@@ -456,18 +450,18 @@ TEST(BitUtilTests, TestCopyBitmap) {
   }
 }
 
-TEST(BitUtil, Ceil) {
-  EXPECT_EQ(BitUtil::Ceil(0, 1), 0);
-  EXPECT_EQ(BitUtil::Ceil(1, 1), 1);
-  EXPECT_EQ(BitUtil::Ceil(1, 2), 1);
-  EXPECT_EQ(BitUtil::Ceil(1, 8), 1);
-  EXPECT_EQ(BitUtil::Ceil(7, 8), 1);
-  EXPECT_EQ(BitUtil::Ceil(8, 8), 1);
-  EXPECT_EQ(BitUtil::Ceil(9, 8), 2);
-  EXPECT_EQ(BitUtil::Ceil(9, 9), 1);
-  EXPECT_EQ(BitUtil::Ceil(10000000000, 10), 1000000000);
-  EXPECT_EQ(BitUtil::Ceil(10, 10000000000), 1);
-  EXPECT_EQ(BitUtil::Ceil(100000000000, 10000000000), 10);
+TEST(BitUtil, CeilDiv) {
+  EXPECT_EQ(BitUtil::CeilDiv(0, 1), 0);
+  EXPECT_EQ(BitUtil::CeilDiv(1, 1), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(1, 2), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(1, 8), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(7, 8), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(8, 8), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(9, 8), 2);
+  EXPECT_EQ(BitUtil::CeilDiv(9, 9), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(10000000000, 10), 1000000000);
+  EXPECT_EQ(BitUtil::CeilDiv(10, 10000000000), 1);
+  EXPECT_EQ(BitUtil::CeilDiv(100000000000, 10000000000), 10);
 }
 
 TEST(BitUtil, RoundUp) {
@@ -480,31 +474,6 @@ TEST(BitUtil, RoundUp) {
   EXPECT_EQ(BitUtil::RoundUp(10000000001, 10), 10000000010);
   EXPECT_EQ(BitUtil::RoundUp(10, 10000000000), 10000000000);
   EXPECT_EQ(BitUtil::RoundUp(100000000000, 10000000000), 100000000000);
-}
-
-TEST(BitUtil, RoundDown) {
-  EXPECT_EQ(BitUtil::RoundDown(0, 1), 0);
-  EXPECT_EQ(BitUtil::RoundDown(1, 1), 1);
-  EXPECT_EQ(BitUtil::RoundDown(1, 2), 0);
-  EXPECT_EQ(BitUtil::RoundDown(6, 2), 6);
-  EXPECT_EQ(BitUtil::RoundDown(7, 3), 6);
-  EXPECT_EQ(BitUtil::RoundDown(9, 9), 9);
-  EXPECT_EQ(BitUtil::RoundDown(10000000001, 10), 10000000000);
-  EXPECT_EQ(BitUtil::RoundDown(10, 10000000000), 0);
-  EXPECT_EQ(BitUtil::RoundDown(100000000000, 10000000000), 100000000000);
-}
-
-TEST(BitUtil, Popcount) {
-  EnsureCpuInfoInitialized();
-
-  EXPECT_EQ(BitUtil::Popcount(BOOST_BINARY(0 1 0 1 0 1 0 1)), 4);
-  EXPECT_EQ(BitUtil::PopcountNoHw(BOOST_BINARY(0 1 0 1 0 1 0 1)), 4);
-  EXPECT_EQ(BitUtil::Popcount(BOOST_BINARY(1 1 1 1 0 1 0 1)), 6);
-  EXPECT_EQ(BitUtil::PopcountNoHw(BOOST_BINARY(1 1 1 1 0 1 0 1)), 6);
-  EXPECT_EQ(BitUtil::Popcount(BOOST_BINARY(1 1 1 1 1 1 1 1)), 8);
-  EXPECT_EQ(BitUtil::PopcountNoHw(BOOST_BINARY(1 1 1 1 1 1 1 1)), 8);
-  EXPECT_EQ(BitUtil::Popcount(0), 0);
-  EXPECT_EQ(BitUtil::PopcountNoHw(0), 0);
 }
 
 TEST(BitUtil, TrailingBits) {
@@ -549,10 +518,63 @@ TEST(BitUtil, Log2) {
   EXPECT_EQ(BitUtil::Log2(3), 2);
   EXPECT_EQ(BitUtil::Log2(4), 2);
   EXPECT_EQ(BitUtil::Log2(5), 3);
+  EXPECT_EQ(BitUtil::Log2(8), 3);
+  EXPECT_EQ(BitUtil::Log2(9), 4);
   EXPECT_EQ(BitUtil::Log2(INT_MAX), 31);
   EXPECT_EQ(BitUtil::Log2(UINT_MAX), 32);
   EXPECT_EQ(BitUtil::Log2(ULLONG_MAX), 64);
 }
+
+TEST(BitUtil, NumRequiredBits) {
+  EXPECT_EQ(BitUtil::NumRequiredBits(0), 0);
+  EXPECT_EQ(BitUtil::NumRequiredBits(1), 1);
+  EXPECT_EQ(BitUtil::NumRequiredBits(2), 2);
+  EXPECT_EQ(BitUtil::NumRequiredBits(3), 2);
+  EXPECT_EQ(BitUtil::NumRequiredBits(4), 3);
+  EXPECT_EQ(BitUtil::NumRequiredBits(5), 3);
+  EXPECT_EQ(BitUtil::NumRequiredBits(7), 3);
+  EXPECT_EQ(BitUtil::NumRequiredBits(8), 4);
+  EXPECT_EQ(BitUtil::NumRequiredBits(9), 4);
+  EXPECT_EQ(BitUtil::NumRequiredBits(UINT_MAX - 1), 32);
+  EXPECT_EQ(BitUtil::NumRequiredBits(UINT_MAX), 32);
+  EXPECT_EQ(BitUtil::NumRequiredBits(static_cast<uint64_t>(UINT_MAX) + 1), 33);
+  EXPECT_EQ(BitUtil::NumRequiredBits(ULLONG_MAX / 2), 63);
+  EXPECT_EQ(BitUtil::NumRequiredBits(ULLONG_MAX / 2 + 1), 64);
+  EXPECT_EQ(BitUtil::NumRequiredBits(ULLONG_MAX - 1), 64);
+  EXPECT_EQ(BitUtil::NumRequiredBits(ULLONG_MAX), 64);
+}
+
+#define U32(x) static_cast<uint32_t>(x)
+#define U64(x) static_cast<uint64_t>(x)
+
+TEST(BitUtil, CountLeadingZeros) {
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(0)), 32);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(1)), 31);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(2)), 30);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(3)), 30);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(4)), 29);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(7)), 29);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(8)), 28);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(UINT_MAX / 2)), 1);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(UINT_MAX / 2 + 1)), 0);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U32(UINT_MAX)), 0);
+
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(0)), 64);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(1)), 63);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(2)), 62);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(3)), 62);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(4)), 61);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(7)), 61);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(8)), 60);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(UINT_MAX)), 32);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(UINT_MAX) + 1), 31);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(ULLONG_MAX / 2)), 1);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(ULLONG_MAX / 2 + 1)), 0);
+  EXPECT_EQ(BitUtil::CountLeadingZeros(U64(ULLONG_MAX)), 0);
+}
+
+#undef U32
+#undef U64
 
 TEST(BitUtil, RoundUpToPowerOf2) {
   EXPECT_EQ(BitUtil::RoundUpToPowerOf2(7, 8), 8);
@@ -560,36 +582,7 @@ TEST(BitUtil, RoundUpToPowerOf2) {
   EXPECT_EQ(BitUtil::RoundUpToPowerOf2(9, 8), 16);
 }
 
-TEST(BitUtil, RoundDownToPowerOf2) {
-  EXPECT_EQ(BitUtil::RoundDownToPowerOf2(7, 8), 0);
-  EXPECT_EQ(BitUtil::RoundDownToPowerOf2(8, 8), 8);
-  EXPECT_EQ(BitUtil::RoundDownToPowerOf2(9, 8), 8);
-}
-
-TEST(BitUtil, RoundUpDown) {
-  EXPECT_EQ(BitUtil::RoundUpNumBytes(7), 1);
-  EXPECT_EQ(BitUtil::RoundUpNumBytes(8), 1);
-  EXPECT_EQ(BitUtil::RoundUpNumBytes(9), 2);
-  EXPECT_EQ(BitUtil::RoundDownNumBytes(7), 0);
-  EXPECT_EQ(BitUtil::RoundDownNumBytes(8), 1);
-  EXPECT_EQ(BitUtil::RoundDownNumBytes(9), 1);
-
-  EXPECT_EQ(BitUtil::RoundUpNumi32(31), 1);
-  EXPECT_EQ(BitUtil::RoundUpNumi32(32), 1);
-  EXPECT_EQ(BitUtil::RoundUpNumi32(33), 2);
-  EXPECT_EQ(BitUtil::RoundDownNumi32(31), 0);
-  EXPECT_EQ(BitUtil::RoundDownNumi32(32), 1);
-  EXPECT_EQ(BitUtil::RoundDownNumi32(33), 1);
-
-  EXPECT_EQ(BitUtil::RoundUpNumi64(63), 1);
-  EXPECT_EQ(BitUtil::RoundUpNumi64(64), 1);
-  EXPECT_EQ(BitUtil::RoundUpNumi64(65), 2);
-  EXPECT_EQ(BitUtil::RoundDownNumi64(63), 0);
-  EXPECT_EQ(BitUtil::RoundDownNumi64(64), 1);
-  EXPECT_EQ(BitUtil::RoundDownNumi64(65), 1);
-}
-
-void TestZigZag(int32_t v) {
+static void TestZigZag(int32_t v) {
   uint8_t buffer[BitReader::MAX_VLQ_BYTE_LEN];
   BitWriter writer(buffer, sizeof(buffer));
   BitReader reader(buffer, sizeof(buffer));
