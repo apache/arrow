@@ -314,7 +314,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if (ARROW_TEST_INCLUDE_LABELS)
+  if (NOT "${ARROW_TEST_INCLUDE_LABELS}" STREQUAL "")
     set(_SKIP_TEST TRUE)
     foreach (_INCLUDED_LABEL ${ARG_LABELS})
       if ("${ARG_LABELS}" MATCHES "${_INCLUDED_LABEL}")
@@ -375,7 +375,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
 
   set_property(TEST ${TEST_NAME}
     APPEND PROPERTY
-    LABELS "unitest")
+    LABELS "unittest")
 
   if (ARG_LABELS)
     set_property(TEST ${TEST_NAME}
