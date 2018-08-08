@@ -52,7 +52,7 @@ TEST(stl_allocator, FreeLargeMemory) {
 
 #ifndef NDEBUG
   EXPECT_DEATH(alloc.deallocate(data, 120),
-               ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
+               ".*Check failed:.* allocation counter became negative");
 #endif
 
   alloc.deallocate(data, 100);
