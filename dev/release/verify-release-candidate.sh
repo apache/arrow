@@ -19,8 +19,7 @@
 #
 
 # Requirements
-# - Ruby 2.x
-#   - Plus gem dependencies, see c_glib/README
+# - Ruby >= 2.3
 # - Maven >= 3.3.9
 # - JDK >=7
 # - gcc >= 4.8
@@ -205,9 +204,14 @@ test_glib() {
   make -j$NPROC
   make install
 
-  GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0 \
-                 NO_MAKE=yes \
-                 test/run-test.sh
+  export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
+
+  if ! bundle --version; then
+    gem install bundler
+  fi
+
+  bundle install --path vendor/bundle
+  bundle exec ruby test/run-test.rb
 
   popd
 }
@@ -231,8 +235,6 @@ test_js() {
 }
 
 test_ruby() {
-  export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
-
   pushd ruby
 
   pushd red-arrow
