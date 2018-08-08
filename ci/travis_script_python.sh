@@ -81,6 +81,7 @@ fi
 cmake -GNinja \
       $CMAKE_COMMON_FLAGS \
       -DARROW_BUILD_TESTS=on \
+      -DARROW_TEST_INCLUDE_LABELS=python \
       -DARROW_BUILD_UTILITIES=off \
       -DARROW_PLASMA=on \
       -DARROW_TENSORFLOW=on \
