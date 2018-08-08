@@ -114,7 +114,7 @@ class NullLog {
 // Do not warn about destructor aborting
 #if defined(_MSC_VER)
 #pragma warning(push)
-#pragma warning(disable:4722)
+#pragma warning(disable : 4722)
 #endif
 
 class CerrLog {
