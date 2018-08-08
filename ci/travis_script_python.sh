@@ -124,7 +124,7 @@ python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 python -c "import pyarrow.orc"
 
-if [ "$ARROW_TRAVIS_PLASMA_VALGRIND" == "1" ]; then
+if [ "$TRAVIS_PLASMA_VALGRIND" == "1" ]; then
   export PLASMA_VALGRIND=1
 fi
 
