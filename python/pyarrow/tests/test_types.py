@@ -23,34 +23,42 @@ import pyarrow as pa
 import pyarrow.types as types
 
 
-MANY_TYPES = [
-    pa.null(),
-    pa.bool_(),
-    pa.int32(),
-    pa.time32('s'),
-    pa.time64('us'),
-    pa.date32(),
-    pa.timestamp('us'),
-    pa.timestamp('us', tz='UTC'),
-    pa.timestamp('us', tz='Europe/Paris'),
-    pa.float16(),
-    pa.float32(),
-    pa.float64(),
-    pa.decimal128(19, 4),
-    pa.string(),
-    pa.binary(),
-    pa.binary(10),
-    pa.list_(pa.int32()),
-    pa.struct([pa.field('a', pa.int32()),
-               pa.field('b', pa.int8()),
-               pa.field('c', pa.string())]),
-    pa.union([pa.field('a', pa.binary(10)),
-              pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
-    pa.union([pa.field('a', pa.binary(10)),
-              pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-    # XXX Needs array pickling
-    # pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
-]
+def get_many_types():
+    # returning them from a function is required because of pa.dictionary
+    # type holds a pyarrow array and test_array.py::test_toal_bytes_allocated
+    # checks that the default memory pool has zero allocated bytes
+    return (
+        pa.null(),
+        pa.bool_(),
+        pa.int32(),
+        pa.time32('s'),
+        pa.time64('us'),
+        pa.date32(),
+        pa.timestamp('us'),
+        pa.timestamp('us', tz='UTC'),
+        pa.timestamp('us', tz='Europe/Paris'),
+        pa.float16(),
+        pa.float32(),
+        pa.float64(),
+        pa.decimal128(19, 4),
+        pa.string(),
+        pa.binary(),
+        pa.binary(10),
+        pa.list_(pa.int32()),
+        pa.struct([pa.field('a', pa.int32()),
+                   pa.field('b', pa.int8()),
+                   pa.field('c', pa.string())]),
+        pa.struct([pa.field('a', pa.int32(), nullable=False),
+                   pa.field('b', pa.int8(), nullable=False),
+                   pa.field('c', pa.string())]),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+        pa.union([pa.field('a', pa.binary(10), nullable=False),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+        pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+    )
 
 
 def test_is_boolean():
@@ -208,19 +216,20 @@ def test_union_type():
 
 
 def test_types_hashable():
+    many_types = get_many_types()
     in_dict = {}
-    for i, type_ in enumerate(MANY_TYPES):
+    for i, type_ in enumerate(many_types):
         assert hash(type_) == hash(type_)
         in_dict[type_] = i
-    assert len(in_dict) == len(MANY_TYPES)
-    for i, type_ in enumerate(MANY_TYPES):
+    assert len(in_dict) == len(many_types)
+    for i, type_ in enumerate(many_types):
         assert in_dict[type_] == i
 
 
-@pytest.mark.parametrize('ty', MANY_TYPES, ids=str)
-def test_types_picklable(ty):
-    data = pickle.dumps(ty)
-    assert pickle.loads(data) == ty
+def test_types_picklable():
+    for ty in get_many_types():
+        data = pickle.dumps(ty)
+        assert pickle.loads(data) == ty
 
 
 def test_dictionary_type():
@@ -231,9 +240,11 @@ def test_dictionary_type():
 
 def test_fields_hashable():
     in_dict = {}
-    fields = [pa.field('a', pa.int64()),
-              pa.field('a', pa.int32()),
-              pa.field('b', pa.int32())]
+    fields = [pa.field('a', pa.int32()),
+              pa.field('a', pa.int64()),
+              pa.field('a', pa.int64(), nullable=False),
+              pa.field('b', pa.int32()),
+              pa.field('b', pa.int32(), nullable=False)]
     for i, field in enumerate(fields):
         in_dict[field] = i
     assert len(in_dict) == len(fields)
@@ -285,16 +296,18 @@ def test_decimal_byte_width():
     assert ty.byte_width == 16
 
 
-@pytest.mark.parametrize(('index', 'ty'), enumerate(MANY_TYPES), ids=str)
-def test_type_equality_operators(index, ty):
-    non_pyarrow = ['foo', 16, {'s', 'e', 't'}]
+def test_type_equality_operators():
+    many_types = get_many_types()
+    non_pyarrow = ('foo', 16, {'s', 'e', 't'})
 
-    # could use two parametrization levels, but that'd bloat pytest's output
-    for i, other in enumerate(MANY_TYPES + non_pyarrow):
-        if i == index:
-            assert ty == other
-        else:
-            assert ty != other
+    for index, ty in enumerate(many_types):
+        # could use two parametrization levels,
+        # but that'd bloat pytest's output
+        for i, other in enumerate(many_types + non_pyarrow):
+            if i == index:
+                assert ty == other
+            else:
+                assert ty != other
 
 
 def test_field_basic():
