@@ -143,8 +143,8 @@ them internally in the [ifql][] execution engine and storage layers of [InfluxDB
 - [ ] Time64 (microseconds or nanoseconds since midnight)
 - [ ] Decimal (128-bit)
 - [ ] Fixed-sized binary
-- [ ] List
-- [ ] Struct
+- [x] List
+- [x] Struct
 - [ ] Union
     - [ ] Dense
     - [ ] Sparse

@@ -34,6 +34,8 @@ func TestListOf(t *testing.T) {
 		PrimitiveTypes.Uint64,
 		PrimitiveTypes.Float32,
 		PrimitiveTypes.Float64,
+		ListOf(PrimitiveTypes.Int32),
+		StructOf(),
 	} {
 		t.Run(tc.Name(), func(t *testing.T) {
 			got := ListOf(tc)
@@ -53,6 +55,189 @@ func TestListOf(t *testing.T) {
 			if got, want := got.Elem(), tc; got != want {
 				t.Fatalf("got=%v, want=%v", got, want)
 			}
+		})
+	}
+
+	for _, dtype := range []DataType{
+		nil,
+		// (*Int32Type)(nil), // FIXME(sbinet): should we make sure this is actually caught?
+		// (*ListType)(nil), // FIXME(sbinet): should we make sure this is actually caught?
+		// (*StructType)(nil), // FIXME(sbinet): should we make sure this is actually caught?
+	} {
+		t.Run("invalid", func(t *testing.T) {
+			defer func() {
+				e := recover()
+				if e == nil {
+					t.Fatalf("test should have panicked but did not")
+				}
+			}()
+
+			_ = ListOf(dtype)
+		})
+	}
+}
+
+func TestStructOf(t *testing.T) {
+	for _, tc := range []struct {
+		fields []Field
+		want   DataType
+	}{
+		{
+			fields: nil,
+			want:   &StructType{fields: nil, index: nil},
+		},
+		{
+			fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32}},
+			want: &StructType{
+				fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32}},
+				index:  map[string]int{"f1": 0},
+			},
+		},
+		{
+			fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true}},
+			want: &StructType{
+				fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true}},
+				index:  map[string]int{"f1": 0},
+			},
+		},
+		{
+			fields: []Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "", Type: PrimitiveTypes.Int64},
+			},
+			want: &StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Int32},
+					{Name: "", Type: PrimitiveTypes.Int64},
+				},
+				index: map[string]int{"f1": 0, "": 1},
+			},
+		},
+		{
+			fields: []Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "f2", Type: PrimitiveTypes.Int64},
+			},
+			want: &StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Int32},
+					{Name: "f2", Type: PrimitiveTypes.Int64},
+				},
+				index: map[string]int{"f1": 0, "f2": 1},
+			},
+		},
+		{
+			fields: []Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "f2", Type: PrimitiveTypes.Int64},
+				{Name: "f3", Type: ListOf(PrimitiveTypes.Float64)},
+			},
+			want: &StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Int32},
+					{Name: "f2", Type: PrimitiveTypes.Int64},
+					{Name: "f3", Type: ListOf(PrimitiveTypes.Float64)},
+				},
+				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+			},
+		},
+		{
+			fields: []Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "f2", Type: PrimitiveTypes.Int64},
+				{Name: "f3", Type: ListOf(ListOf(PrimitiveTypes.Float64))},
+			},
+			want: &StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Int32},
+					{Name: "f2", Type: PrimitiveTypes.Int64},
+					{Name: "f3", Type: ListOf(ListOf(PrimitiveTypes.Float64))},
+				},
+				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+			},
+		},
+		{
+			fields: []Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "f2", Type: PrimitiveTypes.Int64},
+				{Name: "f3", Type: ListOf(ListOf(StructOf(Field{Name: "f1", Type: PrimitiveTypes.Float64})))},
+			},
+			want: &StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Int32},
+					{Name: "f2", Type: PrimitiveTypes.Int64},
+					{Name: "f3", Type: ListOf(ListOf(StructOf(Field{Name: "f1", Type: PrimitiveTypes.Float64})))},
+				},
+				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+			},
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			got := StructOf(tc.fields...)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("got=%#v, want=%#v", got, tc.want)
+			}
+
+			if got, want := got.ID(), STRUCT; got != want {
+				t.Fatalf("invalid ID. got=%v, want=%v", got, want)
+			}
+
+			if got, want := got.Name(), "struct"; got != want {
+				t.Fatalf("invalid name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := len(got.Fields()), len(tc.fields); got != want {
+				t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
+			}
+
+			_, ok := got.FieldByName("not-there")
+			if ok {
+				t.Fatalf("expected an error")
+			}
+
+			if len(tc.fields) > 0 {
+				f1, ok := got.FieldByName("f1")
+				if !ok {
+					t.Fatalf("could not retrieve field 'f1'")
+				}
+				if f1.HasMetadata() {
+					t.Fatalf("field 'f1' should not have metadata")
+				}
+
+				for i := range tc.fields {
+					f := got.Field(i)
+					if f.Name != tc.fields[i].Name {
+						t.Fatalf("incorrect named for field[%d]: got=%q, want=%q", i, f.Name, tc.fields[i].Name)
+					}
+				}
+			}
+		})
+	}
+
+	for _, tc := range []struct {
+		fields []Field
+	}{
+		{
+			fields: []Field{
+				{Name: "", Type: PrimitiveTypes.Int32},
+				{Name: "", Type: PrimitiveTypes.Int32},
+			},
+		},
+		{
+			fields: []Field{
+				{Name: "x", Type: PrimitiveTypes.Int32},
+				{Name: "x", Type: PrimitiveTypes.Int32},
+			},
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			defer func() {
+				e := recover()
+				if e == nil {
+					t.Fatalf("should have panicked")
+				}
+			}()
+			_ = StructOf(tc.fields...)
 		})
 	}
 }

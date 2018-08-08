@@ -186,4 +186,5 @@ func MakeFromData(data *Data) Interface {
 
 func init() {
 	makeArrayFn[arrow.LIST] = func(data *Data) Interface { return NewListData(data) }
+	makeArrayFn[arrow.STRUCT] = func(data *Data) Interface { return NewStructData(data) }
 }
