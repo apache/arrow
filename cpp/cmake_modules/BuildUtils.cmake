@@ -92,7 +92,7 @@ endfunction()
 function(ADD_ARROW_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LINK_FLAGS)
-  set(multi_value_args SOURCES STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS DEPENDENCIES)
+  set(multi_value_args SOURCES STATIC_LINK_LIBS STATIC_PRIVATE_LINK_LIBS SHARED_LINK_LIBS SHARED_PRIVATE_LINK_LIBS EXTRA_INCLUDES DEPENDENCIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -101,6 +101,10 @@ function(ADD_ARROW_LIB LIB_NAME)
   if(MSVC)
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
+
+    if (ARG_EXTRA_INCLUDES)
+      set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
+    endif()
   else()
     add_library(${LIB_NAME}_objlib OBJECT
       ${ARG_SOURCES})
@@ -110,7 +114,14 @@ function(ADD_ARROW_LIB LIB_NAME)
       add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
     endif()
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
+    set(LIB_INCLUDES)
     set(EXTRA_DEPS)
+
+    if (ARG_EXTRA_INCLUDES)
+      target_include_directories(${LIB_NAME}_objlib SYSTEM PUBLIC
+        ${ARG_EXTRA_INCLUDES}
+        )
+    endif()
   endif()
 
   set(RUNTIME_INSTALL_DIR bin)
@@ -119,6 +130,12 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if (EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
+    endif()
+
+    if (LIB_INCLUDES)
+      target_include_directories(${LIB_NAME}_shared SYSTEM PUBLIC
+        ${ARG_EXTRA_INCLUDES}
+        )
     endif()
 
     if(APPLE)
@@ -176,6 +193,12 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
+    endif()
+
+    if (LIB_INCLUDES)
+      target_include_directories(${LIB_NAME}_static SYSTEM PUBLIC
+        ${ARG_EXTRA_INCLUDES}
+        )
     endif()
 
     if (MSVC)
@@ -285,7 +308,7 @@ endfunction()
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options NO_VALGRIND)
   set(single_value_args)
-  set(multi_value_args STATIC_LINK_LIBS)
+  set(multi_value_args STATIC_LINK_LIBS EXTRA_INCLUDES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -306,6 +329,11 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
     else()
       target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
+    endif()
+    if (ARG_EXTRA_INCLUDES)
+      target_include_directories(${TEST_NAME} SYSTEM PUBLIC
+        ${ARG_EXTRA_INCLUDES}
+        )
     endif()
     add_dependencies(unittest ${TEST_NAME})
   else()
