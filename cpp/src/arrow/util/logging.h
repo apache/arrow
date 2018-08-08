@@ -111,6 +111,12 @@ class NullLog {
   }
 };
 
+// Do not warn about destructor aborting
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4722)
+#endif
+
 class CerrLog {
  public:
   CerrLog(int severity)  // NOLINT(runtime/explicit)
@@ -153,6 +159,10 @@ class FatalLog : public CerrLog {
     std::abort();
   }
 };
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 }  // namespace internal
 
