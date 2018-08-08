@@ -290,7 +290,6 @@ Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
 ARROW_EXPORT
 Status AllocateResizableBuffer(const int64_t size, std::shared_ptr<ResizableBuffer>* out);
 
-
 /// \brief Allocate a resizeable buffer from the default memory pool
 ///
 /// \param[in] size size of buffer to allocate
