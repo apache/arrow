@@ -75,7 +75,7 @@ func (b *Int64Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -126,6 +126,12 @@ func (b *Int64Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Int64 array from the memory buffers used by the builder and resets the Int64Builder
+// so it can be used to build a new array.
+func (b *Int64Builder) NewArray() Interface {
+	return b.NewInt64Array()
+}
+
 // NewInt64Array creates a Int64 array from the memory buffers used by the builder and resets the Int64Builder
 // so it can be used to build a new array.
 func (b *Int64Builder) NewInt64Array() (a *Int64) {
@@ -141,7 +147,7 @@ func (b *Int64Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Int64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Int64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -201,7 +207,7 @@ func (b *Uint64Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -252,6 +258,12 @@ func (b *Uint64Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Uint64 array from the memory buffers used by the builder and resets the Uint64Builder
+// so it can be used to build a new array.
+func (b *Uint64Builder) NewArray() Interface {
+	return b.NewUint64Array()
+}
+
 // NewUint64Array creates a Uint64 array from the memory buffers used by the builder and resets the Uint64Builder
 // so it can be used to build a new array.
 func (b *Uint64Builder) NewUint64Array() (a *Uint64) {
@@ -267,7 +279,7 @@ func (b *Uint64Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Uint64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Uint64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -327,7 +339,7 @@ func (b *Float64Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -378,6 +390,12 @@ func (b *Float64Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Float64 array from the memory buffers used by the builder and resets the Float64Builder
+// so it can be used to build a new array.
+func (b *Float64Builder) NewArray() Interface {
+	return b.NewFloat64Array()
+}
+
 // NewFloat64Array creates a Float64 array from the memory buffers used by the builder and resets the Float64Builder
 // so it can be used to build a new array.
 func (b *Float64Builder) NewFloat64Array() (a *Float64) {
@@ -393,7 +411,7 @@ func (b *Float64Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Float64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Float64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -453,7 +471,7 @@ func (b *Int32Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -504,6 +522,12 @@ func (b *Int32Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Int32 array from the memory buffers used by the builder and resets the Int32Builder
+// so it can be used to build a new array.
+func (b *Int32Builder) NewArray() Interface {
+	return b.NewInt32Array()
+}
+
 // NewInt32Array creates a Int32 array from the memory buffers used by the builder and resets the Int32Builder
 // so it can be used to build a new array.
 func (b *Int32Builder) NewInt32Array() (a *Int32) {
@@ -519,7 +543,7 @@ func (b *Int32Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Int32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Int32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -579,7 +603,7 @@ func (b *Uint32Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -630,6 +654,12 @@ func (b *Uint32Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Uint32 array from the memory buffers used by the builder and resets the Uint32Builder
+// so it can be used to build a new array.
+func (b *Uint32Builder) NewArray() Interface {
+	return b.NewUint32Array()
+}
+
 // NewUint32Array creates a Uint32 array from the memory buffers used by the builder and resets the Uint32Builder
 // so it can be used to build a new array.
 func (b *Uint32Builder) NewUint32Array() (a *Uint32) {
@@ -645,7 +675,7 @@ func (b *Uint32Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Uint32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Uint32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -705,7 +735,7 @@ func (b *Float32Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -756,6 +786,12 @@ func (b *Float32Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Float32 array from the memory buffers used by the builder and resets the Float32Builder
+// so it can be used to build a new array.
+func (b *Float32Builder) NewArray() Interface {
+	return b.NewFloat32Array()
+}
+
 // NewFloat32Array creates a Float32 array from the memory buffers used by the builder and resets the Float32Builder
 // so it can be used to build a new array.
 func (b *Float32Builder) NewFloat32Array() (a *Float32) {
@@ -771,7 +807,7 @@ func (b *Float32Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Float32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Float32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -831,7 +867,7 @@ func (b *Int16Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -882,6 +918,12 @@ func (b *Int16Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Int16 array from the memory buffers used by the builder and resets the Int16Builder
+// so it can be used to build a new array.
+func (b *Int16Builder) NewArray() Interface {
+	return b.NewInt16Array()
+}
+
 // NewInt16Array creates a Int16 array from the memory buffers used by the builder and resets the Int16Builder
 // so it can be used to build a new array.
 func (b *Int16Builder) NewInt16Array() (a *Int16) {
@@ -897,7 +939,7 @@ func (b *Int16Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Int16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Int16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -957,7 +999,7 @@ func (b *Uint16Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -1008,6 +1050,12 @@ func (b *Uint16Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Uint16 array from the memory buffers used by the builder and resets the Uint16Builder
+// so it can be used to build a new array.
+func (b *Uint16Builder) NewArray() Interface {
+	return b.NewUint16Array()
+}
+
 // NewUint16Array creates a Uint16 array from the memory buffers used by the builder and resets the Uint16Builder
 // so it can be used to build a new array.
 func (b *Uint16Builder) NewUint16Array() (a *Uint16) {
@@ -1023,7 +1071,7 @@ func (b *Uint16Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Uint16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Uint16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -1083,7 +1131,7 @@ func (b *Int8Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -1134,6 +1182,12 @@ func (b *Int8Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Int8 array from the memory buffers used by the builder and resets the Int8Builder
+// so it can be used to build a new array.
+func (b *Int8Builder) NewArray() Interface {
+	return b.NewInt8Array()
+}
+
 // NewInt8Array creates a Int8 array from the memory buffers used by the builder and resets the Int8Builder
 // so it can be used to build a new array.
 func (b *Int8Builder) NewInt8Array() (a *Int8) {
@@ -1149,7 +1203,7 @@ func (b *Int8Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Int8, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Int8, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -1209,7 +1263,7 @@ func (b *Uint8Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -1260,6 +1314,12 @@ func (b *Uint8Builder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Uint8 array from the memory buffers used by the builder and resets the Uint8Builder
+// so it can be used to build a new array.
+func (b *Uint8Builder) NewArray() Interface {
+	return b.NewUint8Array()
+}
+
 // NewUint8Array creates a Uint8 array from the memory buffers used by the builder and resets the Uint8Builder
 // so it can be used to build a new array.
 func (b *Uint8Builder) NewUint8Array() (a *Uint8) {
@@ -1275,7 +1335,7 @@ func (b *Uint8Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Uint8, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(arrow.PrimitiveTypes.Uint8, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -1290,13 +1350,13 @@ func (b *Uint8Builder) newData() (data *Data) {
 type TimestampBuilder struct {
 	builder
 
-	typE    *arrow.TimestampType
+	dtype   *arrow.TimestampType
 	data    *memory.Buffer
 	rawData []arrow.Timestamp
 }
 
-func NewTimestampBuilder(mem memory.Allocator, typE *arrow.TimestampType) *TimestampBuilder {
-	return &TimestampBuilder{builder: builder{refCount: 1, mem: mem}, typE: typE}
+func NewTimestampBuilder(mem memory.Allocator, dtype *arrow.TimestampType) *TimestampBuilder {
+	return &TimestampBuilder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
 }
 
 // Release decreases the reference count by 1.
@@ -1336,7 +1396,7 @@ func (b *TimestampBuilder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
-		b.nullN++
+		b.nulls++
 	}
 	b.length++
 }
@@ -1387,6 +1447,12 @@ func (b *TimestampBuilder) Resize(n int) {
 	}
 }
 
+// NewArray creates a Timestamp array from the memory buffers used by the builder and resets the TimestampBuilder
+// so it can be used to build a new array.
+func (b *TimestampBuilder) NewArray() Interface {
+	return b.NewTimestampArray()
+}
+
 // NewTimestampArray creates a Timestamp array from the memory buffers used by the builder and resets the TimestampBuilder
 // so it can be used to build a new array.
 func (b *TimestampBuilder) NewTimestampArray() (a *Timestamp) {
@@ -1402,7 +1468,7 @@ func (b *TimestampBuilder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(b.typE, b.length, []*memory.Buffer{b.nullBitmap, b.data}, b.nullN)
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
 	b.reset()
 
 	if b.data != nil {
@@ -1413,3 +1479,17 @@ func (b *TimestampBuilder) newData() (data *Data) {
 
 	return
 }
+
+var (
+	_ Builder = (*Int64Builder)(nil)
+	_ Builder = (*Uint64Builder)(nil)
+	_ Builder = (*Float64Builder)(nil)
+	_ Builder = (*Int32Builder)(nil)
+	_ Builder = (*Uint32Builder)(nil)
+	_ Builder = (*Float32Builder)(nil)
+	_ Builder = (*Int16Builder)(nil)
+	_ Builder = (*Uint16Builder)(nil)
+	_ Builder = (*Int8Builder)(nil)
+	_ Builder = (*Uint8Builder)(nil)
+	_ Builder = (*TimestampBuilder)(nil)
+)

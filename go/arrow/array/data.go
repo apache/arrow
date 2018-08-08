@@ -27,26 +27,33 @@ import (
 // A type which represents the memory and metadata for an Arrow array.
 type Data struct {
 	refCount  int64
-	typE      arrow.DataType
-	nullN     int
+	dtype     arrow.DataType
+	nulls     int
 	length    int
 	buffers   []*memory.Buffer // TODO(sgc): should this be an interface?
 	childData []*Data          // TODO(sgc): managed by ListArray, StructArray and UnionArray types
 }
 
-func NewData(typE arrow.DataType, length int, buffers []*memory.Buffer, nullN int) *Data {
+func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls int) *Data {
 	for _, b := range buffers {
 		if b != nil {
 			b.Retain()
 		}
 	}
 
+	for _, child := range childData {
+		if child != nil {
+			child.Retain()
+		}
+	}
+
 	return &Data{
-		refCount: 1,
-		typE:     typE,
-		nullN:    nullN,
-		length:   length,
-		buffers:  buffers,
+		refCount:  1,
+		dtype:     dtype,
+		nulls:     nulls,
+		length:    length,
+		buffers:   buffers,
+		childData: childData,
 	}
 }
 
@@ -76,6 +83,6 @@ func (d *Data) Release() {
 	}
 }
 
-func (d *Data) DataType() arrow.DataType { return d.typE }
-func (d *Data) NullN() int               { return d.nullN }
+func (d *Data) DataType() arrow.DataType { return d.dtype }
+func (d *Data) NullN() int               { return d.nulls }
 func (d *Data) Len() int                 { return d.length }

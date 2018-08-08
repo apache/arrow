@@ -18,36 +18,39 @@ package array
 
 import (
 	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/bitutil"
-	"github.com/apache/arrow/go/arrow/memory"
 )
 
-// A type which represents an immutable sequence of boolean values.
-type Boolean struct {
+// List represents an immutable sequence of array values.
+type List struct {
 	array
-	values []byte
+	values  Interface
+	offsets []int32
 }
 
-// NewBoolean creates a boolean array from the data memory.Buffer and contains length elements.
-// The nullBitmap buffer can be nil of there are no null values.
-// If nulls is not known, use UnknownNullCount to calculate the value of NullN at runtime from the nullBitmap buffer.
-func NewBoolean(length int, data *memory.Buffer, nullBitmap *memory.Buffer, nulls int) *Boolean {
-	return NewBooleanData(NewData(arrow.FixedWidthTypes.Boolean, length, []*memory.Buffer{nullBitmap, data}, nil, nulls))
-}
-
-func NewBooleanData(data *Data) *Boolean {
-	a := &Boolean{}
+// NewListData returns a new List array value, from data.
+func NewListData(data *Data) *List {
+	a := &List{}
 	a.refCount = 1
 	a.setData(data)
 	return a
 }
 
-func (a *Boolean) Value(i int) bool { return bitutil.BitIsSet(a.values, i) }
+func (a *List) ListValues() Interface { return a.values }
 
-func (a *Boolean) setData(data *Data) {
+func (a *List) setData(data *Data) {
 	a.array.setData(data)
 	vals := data.buffers[1]
 	if vals != nil {
-		a.values = vals.Bytes()
+		a.offsets = arrow.Int32Traits.CastFromBytes(vals.Bytes())
 	}
+	a.values = MakeFromData(data.childData[0])
 }
+
+// Len returns the number of elements in the array.
+func (a *List) Len() int { return a.array.Len() }
+
+func (a *List) Offsets() []int32 { return a.offsets }
+
+var (
+	_ Interface = (*List)(nil)
+)

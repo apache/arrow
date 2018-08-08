@@ -2,7 +2,7 @@
 
 package arrow
 
-import "fmt"
+import "strconv"
 
 const _Type_name = "NULLBOOLUINT8INT8UINT16INT16UINT32INT32UINT64INT64HALF_FLOATFLOAT32FLOAT64STRINGBINARYFIXED_SIZE_BINARYDATE32DATE64TIMESTAMPTIME32TIME64INTERVALDECIMALLISTSTRUCTUNIONDICTIONARYMAP"
 
@@ -10,7 +10,7 @@ var _Type_index = [...]uint8{0, 4, 8, 13, 17, 23, 28, 34, 39, 45, 50, 60, 67, 74
 
 func (i Type) String() string {
 	if i < 0 || i >= Type(len(_Type_index)-1) {
-		return fmt.Sprintf("Type(%d)", i)
+		return "Type(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _Type_name[_Type_index[i]:_Type_index[i+1]]
 }

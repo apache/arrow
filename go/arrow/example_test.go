@@ -19,6 +19,7 @@ package arrow_test
 import (
 	"fmt"
 
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -113,4 +114,80 @@ func Example_fromMemory() {
 	// bools[13] = true
 	// bools[14] = false
 	// bools[15] = (null)
+}
+
+// This example shows how to create a List array.
+// The resulting array should be:
+//  [[0, 1, 2], [], [3], [4, 5], [6, 7, 8], [], [9]]
+func Example_listArray() {
+	pool := memory.NewGoAllocator()
+
+	lb := array.NewListBuilder(pool, arrow.PrimitiveTypes.Int64)
+	defer lb.Release()
+
+	vb := lb.ValueBuilder().(*array.Int64Builder)
+	defer vb.Release()
+
+	vb.Reserve(10)
+
+	lb.Append(true)
+	vb.Append(0)
+	vb.Append(1)
+	vb.Append(2)
+
+	lb.AppendNull()
+
+	lb.Append(true)
+	vb.Append(3)
+
+	lb.Append(true)
+	vb.Append(4)
+	vb.Append(5)
+
+	lb.Append(true)
+	vb.Append(6)
+	vb.Append(7)
+	vb.Append(8)
+
+	lb.AppendNull()
+
+	lb.Append(true)
+	vb.Append(9)
+
+	arr := lb.NewArray().(*array.List)
+	fmt.Printf("NullN()   = %d\n", arr.NullN())
+	fmt.Printf("Len()     = %d\n", arr.Len())
+	fmt.Printf("Offsets() = %v\n", arr.Offsets())
+
+	offsets := arr.Offsets()[1:]
+
+	varr := arr.ListValues().(*array.Int64)
+	pos := 0
+	for i := 0; i < arr.Len(); i++ {
+		if !arr.IsValid(i) {
+			fmt.Printf("List[%d]   = (null)\n", i)
+			continue
+		}
+		fmt.Printf("List[%d]   = [", i)
+		for j := pos; j < int(offsets[i]); j++ {
+			if j != pos {
+				fmt.Printf(", ")
+			}
+			fmt.Printf("%v", varr.Value(j))
+		}
+		pos = int(offsets[i])
+		fmt.Printf("]\n")
+	}
+
+	// Output:
+	// NullN()   = 2
+	// Len()     = 7
+	// Offsets() = [0 3 3 4 6 9 9 10]
+	// List[0]   = [0, 1, 2]
+	// List[1]   = (null)
+	// List[2]   = [3]
+	// List[3]   = [4, 5]
+	// List[4]   = [6, 7, 8]
+	// List[5]   = (null)
+	// List[6]   = [9]
 }
