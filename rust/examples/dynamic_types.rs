@@ -43,13 +43,17 @@ fn main() {
     let id = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
 
     let nested = StructArray::from(vec![
-        (Field::new("a", DataType::Utf8, false),
-         Arc::new(BinaryArray::from(vec!["a", "b", "c", "d", "e"])) as Arc<Array>),
-        (Field::new("b", DataType::Float64, false),
-         Arc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
+        (
+            Field::new("a", DataType::Utf8, false),
+            Arc::new(BinaryArray::from(vec!["a", "b", "c", "d", "e"])) as Arc<Array>,
         ),
-        (Field::new("c", DataType::Float64, false),
-         Arc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
+        (
+            Field::new("b", DataType::Float64, false),
+            Arc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
+        ),
+        (
+            Field::new("c", DataType::Float64, false),
+            Arc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
         ),
     ]);
 

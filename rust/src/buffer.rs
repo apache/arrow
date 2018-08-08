@@ -42,6 +42,9 @@ struct BufferData {
 
 impl PartialEq for BufferData {
     fn eq(&self, other: &BufferData) -> bool {
+        if self.len != other.len {
+            return false;
+        }
         unsafe { memory::memcmp(self.ptr, other.ptr, self.len as usize) == 0 }
     }
 }
@@ -109,7 +112,9 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let slice = p.as_ref();
         let len = slice.len() * mem::size_of::<u8>();
         let buffer = memory::allocate_aligned((len) as i64).unwrap();
-        memory::memcpy(buffer, slice.as_ptr(), len);
+        unsafe {
+            memory::memcpy(buffer, slice.as_ptr(), len);
+        }
         Buffer::from_raw_parts(buffer, len)
     }
 }

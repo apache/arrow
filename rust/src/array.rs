@@ -20,6 +20,7 @@ use std::any::Any;
 use std::convert::From;
 use std::marker::PhantomData;
 use std::mem;
+use std::ptr;
 use std::sync::Arc;
 
 use super::array_data::*;
@@ -47,7 +48,7 @@ pub type ArrayRef = Arc<Array>;
 fn make_array(data: ArrayDataRef) -> ArrayRef {
     // TODO: here data_type() needs to clone the type - maybe add a type tag enum to
     // avoid the cloning.
-    match data.data_type() {
+    match data.data_type().clone() {
         DataType::Boolean => Arc::new(PrimitiveArray::<bool>::from(data)) as ArrayRef,
         DataType::Int8 => Arc::new(PrimitiveArray::<i8>::from(data)) as ArrayRef,
         DataType::Int16 => Arc::new(PrimitiveArray::<i16>::from(data)) as ArrayRef,
@@ -102,7 +103,7 @@ macro_rules! def_primitive_array {
         impl PrimitiveArray<$native_ty> {
             pub fn new(length: i64, values: Buffer, null_count: i64, offset: i64) -> Self {
                 let array_data = ArrayData::builder($data_ty)
-                    .length(length)
+                    .len(length)
                     .add_buffer(values)
                     .null_count(null_count)
                     .offset(offset)
@@ -127,21 +128,21 @@ macro_rules! def_primitive_array {
 
             /// Determine the minimum value in the array
             pub fn min(&self) -> Option<$native_ty> {
-                self.search(|a, b| a < b)
+                self.min_max_helper(|a, b| a < b)
             }
 
             /// Determine the maximum value in the array
             pub fn max(&self) -> Option<$native_ty> {
-                self.search(|a, b| a > b)
+                self.min_max_helper(|a, b| a > b)
             }
 
-            fn search<F>(&self, cmp: F) -> Option<$native_ty>
+            fn min_max_helper<F>(&self, cmp: F) -> Option<$native_ty>
             where
                 F: Fn($native_ty, $native_ty) -> bool,
             {
                 let mut n: Option<$native_ty> = None;
                 let data = self.data();
-                for i in 0..data.length() {
+                for i in 0..data.len() {
                     if data.is_null(i) {
                         continue;
                     }
@@ -161,7 +162,7 @@ macro_rules! def_primitive_array {
         impl From<Vec<$native_ty>> for PrimitiveArray<$native_ty> {
             fn from(data: Vec<$native_ty>) -> Self {
                 let array_data = ArrayData::builder($data_ty)
-                    .length(data.len() as i64)
+                    .len(data.len() as i64)
                     .add_buffer(Buffer::from(data.to_byte_slice()))
                     .build();
                 PrimitiveArray::from(array_data)
@@ -177,6 +178,7 @@ macro_rules! def_primitive_array {
                 let size = bit_util::round_upto_multiple_of_64(data_len) as usize;
                 let mut null_buffer = Vec::with_capacity(size);
                 unsafe {
+                    ptr::write_bytes(null_buffer.as_mut_ptr(), 0, size);
                     null_buffer.set_len(size);
                 }
                 let mut value_buffer: Vec<u8> = Vec::with_capacity(size * TY_SIZE);
@@ -193,7 +195,7 @@ macro_rules! def_primitive_array {
                 }
 
                 let array_data = ArrayData::builder($data_ty)
-                    .length(data_len)
+                    .len(data_len)
                     .add_buffer(Buffer::from(Buffer::from(value_buffer)))
                     .null_bit_buffer(Buffer::from(null_buffer))
                     .build();
@@ -258,7 +260,7 @@ impl ListArray {
 
     /// Returns the value type of this list.
     pub fn value_type(&self) -> DataType {
-        self.values.data().data_type()
+        self.values.data().data_type().clone()
     }
 
     /// Returns the offset for value at index `i`.
@@ -289,8 +291,7 @@ impl From<ArrayDataRef> for ListArray {
         let value_offsets = data.buffers()[0].raw_data() as *const i32;
         unsafe {
             debug_assert!(*value_offsets.offset(0) == 0);
-            debug_assert!(*value_offsets.offset(data.length() as isize)
-                          == values.data().length() as i32);
+            debug_assert!(*value_offsets.offset(data.len() as isize) == values.data().len() as i32);
         }
         Self {
             data: data.clone(),
@@ -323,13 +324,14 @@ pub struct BinaryArray {
 
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
-    pub fn get_value(&self, mut i: i64) -> &[u8] {
-        i += self.data.offset();
+    pub fn get_value(&self, i: i64) -> &[u8] {
+        assert!(i >= 0 && i <= self.data.len());
+        let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
-            let pos = self.value_offset_at(i);
+            let pos = self.value_offset_at(offset);
             ::std::slice::from_raw_parts(
                 self.value_data.get().offset(pos as isize),
-                (self.value_offset_at(i + 1) - pos) as usize,
+                (self.value_offset_at(offset + 1) - pos) as usize,
             )
         }
     }
@@ -384,7 +386,7 @@ impl<'a> From<Vec<&'a str>> for BinaryArray {
             values.extend_from_slice(s.as_bytes());
         }
         let array_data = ArrayData::builder(DataType::Utf8)
-            .length(v.len() as i64)
+            .len(v.len() as i64)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .build();
@@ -482,7 +484,7 @@ mod tests {
         // First, construct a value array.
         let values: Vec<i32> = vec![0, 1, 2, 3, 4, 5, 6, 7];
         let value_data = ArrayData::builder(DataType::Int32)
-            .length(7)
+            .len(7)
             .add_buffer(Buffer::from(&values[..].to_byte_slice()))
             .build();
 
@@ -491,7 +493,7 @@ mod tests {
         let value_offsets = Buffer::from(value_offset_slice.to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type)
-            .length(3)
+            .len(3)
             .add_buffer(value_offsets)
             .add_child_data(value_data.clone())
             .build();
@@ -512,7 +514,7 @@ mod tests {
         let offsets: [i32; 4] = [0, 5, 5, 12];
 
         let array_data = ArrayData::builder(DataType::Utf8)
-            .length(4)
+            .len(4)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .build();
@@ -533,11 +535,11 @@ mod tests {
     #[test]
     fn test_struct_array() {
         let boolean_data = ArrayData::builder(DataType::Boolean)
-            .length(4)
+            .len(4)
             .add_buffer(Buffer::from([false, false, true, true].to_byte_slice()))
             .build();
         let int_data = ArrayData::builder(DataType::Int64)
-            .length(4)
+            .len(4)
             .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
             .build();
         let mut field_types = vec![];

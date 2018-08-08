@@ -30,7 +30,7 @@ static POPCOUNT_TABLE: [u8; 256] = [
 
 /// Returns the nearest multiple of `factor` that is `>=` than `num`. Here `factor` must
 /// be a power of 2.
-pub fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
+fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
     debug_assert!(factor > 0 && (factor & (factor - 1)) == 0);
     (num + (factor - 1)) & !(factor - 1)
 }
@@ -43,14 +43,14 @@ pub fn round_upto_multiple_of_64(num: i64) -> i64 {
 
 /// Returns whether bit at position `i` in `data` is set or not.
 #[inline]
-pub fn get_bit(data: &[u8], i: usize) -> bool {
-    (data[i / 8] & BIT_MASK[i % 8]) != 0
+pub fn get_bit(data: &[u8], i: i64) -> bool {
+    (data[(i / 8) as usize] & BIT_MASK[(i % 8) as usize]) != 0
 }
 
 /// Sets bit at position `i` for `data`.
 #[inline]
-pub fn set_bit(data: &mut [u8], i: usize) {
-    data[i / 8] |= BIT_MASK[i % 8]
+pub fn set_bit(data: &mut [u8], i: i64) {
+    data[(i / 8) as usize] |= BIT_MASK[(i % 8) as usize]
 }
 
 /// Returns the number of 1-bits in `data`.
@@ -129,10 +129,10 @@ mod tests {
         for _ in 0..NUM_SETS {
             let offset = rng.gen_range(0, 8 * NUM_BYTES);
             v.insert(offset);
-            set_bit(&mut buffer[..], offset);
+            set_bit(&mut buffer[..], offset as i64);
         }
         for i in 0..NUM_BYTES * 8 {
-            assert_eq!(v.contains(&i), get_bit(&buffer[..], i));
+            assert_eq!(v.contains(&i), get_bit(&buffer[..], i as i64));
         }
     }
 

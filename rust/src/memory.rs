@@ -68,12 +68,10 @@ pub fn free_aligned(p: *const u8) {
     }
 }
 
-pub fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
-    unsafe {
-        let src = mem::transmute::<*const u8, *const libc::c_void>(src);
-        let dst = mem::transmute::<*mut u8, *mut libc::c_void>(dst);
-        libc::memcpy(dst, src, len);
-    }
+pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
+    let src = mem::transmute::<*const u8, *const libc::c_void>(src);
+    let dst = mem::transmute::<*mut u8, *mut libc::c_void>(dst);
+    libc::memcpy(dst, src, len);
 }
 
 extern "C" {

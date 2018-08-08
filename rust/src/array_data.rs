@@ -28,7 +28,7 @@ pub struct ArrayData {
     data_type: DataType,
 
     /// The number of elements in this array data
-    length: i64,
+    len: i64,
 
     /// The number of null elements in this array data
     null_count: i64,
@@ -56,7 +56,7 @@ pub const UNKNOWN_NULL_COUNT: i64 = -1;
 impl ArrayData {
     pub fn new(
         data_type: DataType,
-        length: i64,
+        len: i64,
         mut null_count: i64,
         null_bit_buffer: Option<Buffer>,
         offset: i64,
@@ -68,12 +68,12 @@ impl ArrayData {
                 count_set_bits(buf.data())
             } else {
                 0
-            }
+            };
         }
         let null_bitmap = null_bit_buffer.map(Bitmap::from);
         Self {
             data_type,
-            length,
+            len,
             null_count,
             offset,
             buffers,
@@ -87,13 +87,8 @@ impl ArrayData {
         ArrayDataBuilder::new(data_type)
     }
 
-    /// Returns a copy of the data type for this array data.
-    pub fn data_type(&self) -> DataType {
-        self.data_type.clone()
-    }
-
     /// Returns a reference to the data type of this array data.
-    pub fn data_type_ref(&self) -> &DataType {
+    pub fn data_type(&self) -> &DataType {
         &self.data_type
     }
 
@@ -108,7 +103,7 @@ impl ArrayData {
     }
 
     /// Returns whether the element at index `i` is null.
-    pub fn is_null(&self, i: usize) -> bool {
+    pub fn is_null(&self, i: i64) -> bool {
         if let Some(ref b) = self.null_bitmap {
             return !b.is_set(i);
         }
@@ -121,7 +116,7 @@ impl ArrayData {
     }
 
     /// Returns whether the element at index `i` is not null.
-    pub fn is_valid(&self, i: usize) -> bool {
+    pub fn is_valid(&self, i: i64) -> bool {
         if let Some(ref b) = self.null_bitmap {
             return b.is_set(i);
         }
@@ -129,8 +124,8 @@ impl ArrayData {
     }
 
     /// Returns the length (i.e., number of elements) of this array.
-    pub fn length(&self) -> usize {
-        self.length as usize
+    pub fn len(&self) -> i64 {
+        self.len
     }
 
     /// Returns the offset of this array.
@@ -147,7 +142,7 @@ impl ArrayData {
 /// Builder for `ArrayData` type.
 pub struct ArrayDataBuilder {
     data_type: DataType,
-    length: i64,
+    len: i64,
     null_count: i64,
     null_bit_buffer: Option<Buffer>,
     offset: i64,
@@ -159,7 +154,7 @@ impl ArrayDataBuilder {
     pub fn new(data_type: DataType) -> Self {
         Self {
             data_type: data_type,
-            length: 0,
+            len: 0,
             null_count: UNKNOWN_NULL_COUNT,
             null_bit_buffer: None,
             offset: 0,
@@ -168,8 +163,8 @@ impl ArrayDataBuilder {
         }
     }
 
-    pub fn length(mut self, n: i64) -> Self {
-        self.length = n;
+    pub fn len(mut self, n: i64) -> Self {
+        self.len = n;
         self
     }
 
@@ -211,7 +206,7 @@ impl ArrayDataBuilder {
     pub fn build(self) -> ArrayDataRef {
         let data = ArrayData::new(
             self.data_type,
-            self.length,
+            self.len,
             self.null_count,
             self.null_bit_buffer,
             self.offset,
@@ -231,7 +226,7 @@ mod tests {
     #[test]
     fn test_new() {
         let arr_data = ArrayData::new(DataType::Boolean, 10, 1, None, 2, vec![], vec![]);
-        assert_eq!(10, arr_data.length());
+        assert_eq!(10, arr_data.len());
         assert_eq!(1, arr_data.null_count());
         assert_eq!(2, arr_data.offset());
         assert_eq!(0, arr_data.buffers().len());
@@ -252,14 +247,14 @@ mod tests {
         ));
         let b1 = Buffer::from(&v[..]);
         let arr_data = ArrayData::builder(DataType::Int32)
-            .length(20)
+            .len(20)
             .null_count(10)
             .offset(5)
             .add_buffer(b1)
             .add_child_data(child_arr_data.clone())
             .build();
 
-        assert_eq!(20, arr_data.length());
+        assert_eq!(20, arr_data.len());
         assert_eq!(10, arr_data.null_count());
         assert_eq!(5, arr_data.offset());
         assert_eq!(1, arr_data.buffers().len());

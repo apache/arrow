@@ -45,7 +45,7 @@ impl Bitmap {
         self.bits.len()
     }
 
-    pub fn is_set(&self, i: usize) -> bool {
+    pub fn is_set(&self, i: i64) -> bool {
         bit_util::get_bit(self.bits.data(), i)
     }
 }

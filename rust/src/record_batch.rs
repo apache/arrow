@@ -30,9 +30,9 @@ impl RecordBatch {
         // assert that there are some columns
         assert!(columns.len() > 0);
         // assert that all columns have the same row count
-        let len = columns[0].data().length();
+        let len = columns[0].data().len();
         for i in 1..columns.len() {
-            assert_eq!(len, columns[i].data().length());
+            assert_eq!(len, columns[i].data().len());
         }
         RecordBatch { schema, columns }
     }
@@ -45,8 +45,8 @@ impl RecordBatch {
         self.columns.len()
     }
 
-    pub fn num_rows(&self) -> usize {
-        self.columns[0].data().length()
+    pub fn num_rows(&self) -> i64 {
+        self.columns[0].data().len()
     }
 
     pub fn column(&self, i: usize) -> &ArrayRef {
@@ -72,7 +72,7 @@ mod tests {
 
         let v = vec![1, 2, 3, 4, 5];
         let array_data = ArrayData::builder(DataType::Int32)
-            .length(5)
+            .len(5)
             .add_buffer(Buffer::from(v.to_byte_slice()))
             .build();
         let a = PrimitiveArray::<i32>::from(array_data);
@@ -80,7 +80,7 @@ mod tests {
         let v = vec![b'a', b'b', b'c', b'd', b'e'];
         let offset_data = vec![0, 1, 2, 3, 4, 5, 6];
         let array_data = ArrayData::builder(DataType::Utf8)
-            .length(5)
+            .len(5)
             .add_buffer(Buffer::from(v.to_byte_slice()))
             .add_buffer(Buffer::from(offset_data.to_byte_slice()))
             .build();
@@ -95,7 +95,7 @@ mod tests {
             record_batch.schema().column(0).data_type()
         );
         assert_eq!(&DataType::Utf8, record_batch.schema().column(1).data_type());
-        assert_eq!(5, record_batch.column(0).data().length());
-        assert_eq!(5, record_batch.column(1).data().length());
+        assert_eq!(5, record_batch.column(0).data().len());
+        assert_eq!(5, record_batch.column(1).data().len());
     }
 }
