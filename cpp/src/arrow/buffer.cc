@@ -18,6 +18,7 @@
 #include "arrow/buffer.h"
 
 #include <cstdint>
+#include <utility>
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -146,30 +147,55 @@ MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_
   parent_ = parent;
 }
 
-Status AllocateBuffer(MemoryPool* pool, const int64_t size,
-                      std::shared_ptr<Buffer>* out) {
-  auto buffer = std::make_shared<PoolBuffer>(pool);
+namespace {
+// A utility that does most of the work of the `AllocateBuffer` and
+// `AllocateResizableBuffer` methods. The argument `buffer` should be a smart pointer to a
+// PoolBuffer.
+template <typename PoolBufferPtr, typename BufferPtr>
+inline Status ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t size,
+                               BufferPtr* out) {
   RETURN_NOT_OK(buffer->Resize(size));
   buffer->ZeroPadding();
-  *out = buffer;
+  *out = std::move(buffer);
   return Status::OK();
+}
+}  // namespace
+
+Status AllocateBuffer(MemoryPool* pool, const int64_t size,
+                      std::shared_ptr<Buffer>* out) {
+  return ResizePoolBuffer(std::make_shared<PoolBuffer>(pool), size, out);
+}
+
+Status AllocateBuffer(MemoryPool* pool, const int64_t size,
+                      std::unique_ptr<Buffer>* out) {
+  return ResizePoolBuffer(std::unique_ptr<PoolBuffer>(new PoolBuffer(pool)), size, out);
 }
 
 Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out) {
   return AllocateBuffer(default_memory_pool(), size, out);
 }
 
+Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out) {
+  return AllocateBuffer(default_memory_pool(), size, out);
+}
+
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
-  auto buffer = std::make_shared<PoolBuffer>(pool);
-  RETURN_NOT_OK(buffer->Resize(size));
-  buffer->ZeroPadding();
-  *out = buffer;
-  return Status::OK();
+  return ResizePoolBuffer(std::make_shared<PoolBuffer>(pool), size, out);
+}
+
+Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
+                               std::unique_ptr<ResizableBuffer>* out) {
+  return ResizePoolBuffer(std::unique_ptr<PoolBuffer>(new PoolBuffer(pool)), size, out);
 }
 
 Status AllocateResizableBuffer(const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
+  return AllocateResizableBuffer(default_memory_pool(), size, out);
+}
+
+Status AllocateResizableBuffer(const int64_t size,
+                               std::unique_ptr<ResizableBuffer>* out) {
   return AllocateResizableBuffer(default_memory_pool(), size, out);
 }
 
