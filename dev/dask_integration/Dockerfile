@@ -85,4 +85,3 @@ RUN pip install -q \
     pycodestyle
 
 CMD arrow/dev/dask_integration/dask_integration.sh
-
