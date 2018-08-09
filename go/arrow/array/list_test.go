@@ -26,8 +26,10 @@ import (
 )
 
 func TestListArray(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
 	var (
-		pool    = memory.NewGoAllocator()
 		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
 		lengths = []int{3, 0, 4}
 		isValid = []bool{true, false, true}
@@ -36,6 +38,7 @@ func TestListArray(t *testing.T) {
 
 	lb := array.NewListBuilder(pool, arrow.PrimitiveTypes.Int32)
 	defer lb.Release()
+
 	for i := 0; i < 10; i++ {
 		vb := lb.ValueBuilder().(*array.Int32Builder)
 		vb.Reserve(len(vs))
@@ -50,6 +53,8 @@ func TestListArray(t *testing.T) {
 		}
 
 		arr := lb.NewArray().(*array.List)
+		defer arr.Release()
+
 		if got, want := arr.DataType().ID(), arrow.LIST; got != want {
 			t.Fatalf("got=%v, want=%v", got, want)
 		}
@@ -79,18 +84,23 @@ func TestListArray(t *testing.T) {
 }
 
 func TestListArrayEmpty(t *testing.T) {
-	pool := memory.NewGoAllocator()
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
 	lb := array.NewListBuilder(pool, arrow.PrimitiveTypes.Int32)
 	defer lb.Release()
 	arr := lb.NewArray().(*array.List)
+	defer arr.Release()
 	if got, want := arr.Len(), 0; got != want {
 		t.Fatalf("got=%d, want=%d", got, want)
 	}
 }
 
 func TestListArrayBulkAppend(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
 	var (
-		pool    = memory.NewGoAllocator()
 		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
 		lengths = []int{3, 0, 4}
 		isValid = []bool{true, false, true}
@@ -108,6 +118,8 @@ func TestListArrayBulkAppend(t *testing.T) {
 	}
 
 	arr := lb.NewArray().(*array.List)
+	defer arr.Release()
+
 	if got, want := arr.DataType().ID(), arrow.LIST; got != want {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}

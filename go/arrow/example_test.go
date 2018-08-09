@@ -32,6 +32,7 @@ func Example_minimal() {
 
 	// Create an int64 array builder.
 	builder := array.NewInt64Builder(pool)
+	defer builder.Release()
 
 	builder.Append(1)
 	builder.Append(2)
@@ -44,6 +45,7 @@ func Example_minimal() {
 
 	// Finish building the int64 array and reset the builder.
 	ints := builder.NewInt64Array()
+	defer ints.Release()
 
 	// Enumerate the values.
 	for i, v := range ints.Int64Values() {
@@ -81,6 +83,7 @@ func Example_fromMemory() {
 
 	// Create a boolean array and lazily determine NullN using UnknownNullCount
 	bools := array.NewBoolean(16, data, nullBitmap, array.UnknownNullCount)
+	defer bools.Release()
 
 	// Show the null count
 	fmt.Printf("NullN()  = %d\n", bools.NullN())
@@ -155,6 +158,8 @@ func Example_listArray() {
 	vb.Append(9)
 
 	arr := lb.NewArray().(*array.List)
+	defer arr.Release()
+
 	fmt.Printf("NullN()   = %d\n", arr.NullN())
 	fmt.Printf("Len()     = %d\n", arr.Len())
 	fmt.Printf("Offsets() = %v\n", arr.Offsets())
@@ -162,6 +167,7 @@ func Example_listArray() {
 	offsets := arr.Offsets()[1:]
 
 	varr := arr.ListValues().(*array.Int64)
+
 	pos := 0
 	for i := 0; i < arr.Len(); i++ {
 		if !arr.IsValid(i) {
@@ -197,6 +203,7 @@ func Example_listArray() {
 //  [{‘joe’, 1}, {null, 2}, null, {‘mark’, 4}]
 func Example_structArray() {
 	pool := memory.NewGoAllocator()
+
 	dtype := arrow.StructOf([]arrow.Field{
 		{Name: "f1", Type: arrow.ListOf(arrow.PrimitiveTypes.Uint8)},
 		{Name: "f2", Type: arrow.PrimitiveTypes.Int32},

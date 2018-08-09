@@ -26,10 +26,12 @@ import (
 )
 
 func TestStructArray(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
 	var (
-		pool = memory.NewGoAllocator()
-		f1s  = []byte{'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'}
-		f2s  = []int32{1, 2, 3, 4}
+		f1s = []byte{'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'}
+		f2s = []int32{1, 2, 3, 4}
 
 		f1Lengths = []int{3, 0, 3, 4}
 		f1Offsets = []int32{0, 3, 3, 6, 10}
@@ -129,7 +131,9 @@ func TestStructArray(t *testing.T) {
 }
 
 func TestStructArrayEmpty(t *testing.T) {
-	pool := memory.NewGoAllocator()
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
 	sb := array.NewStructBuilder(pool, arrow.StructOf())
 	defer sb.Release()
 
@@ -149,10 +153,12 @@ func TestStructArrayEmpty(t *testing.T) {
 }
 
 func TestStructArrayBulkAppend(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
 	var (
-		pool = memory.NewGoAllocator()
-		f1s  = []byte{'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'}
-		f2s  = []int32{1, 2, 3, 4}
+		f1s = []byte{'j', 'o', 'e', 'b', 'o', 'b', 'm', 'a', 'r', 'k'}
+		f2s = []int32{1, 2, 3, 4}
 
 		f1Lengths = []int{3, 0, 3, 4}
 		f1Offsets = []int32{0, 3, 3, 6, 10}
