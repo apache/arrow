@@ -24,31 +24,16 @@ from pkg_resources import get_distribution, DistributionNotFound
 try:
     __version__ = get_distribution(__name__).version
 except DistributionNotFound:
-   # package is not installed
+    # Package is not installed, parse git tag at runtime
     try:
-        # This code is duplicated from setup.py to avoid a dependency on each
-        # other.
-        def parse_version(root):
-            from setuptools_scm import version_from_scm
-            import setuptools_scm.git
-            describe = (setuptools_scm.git.DEFAULT_DESCRIBE +
-                        " --match 'apache-arrow-[0-9]*'")
-            # Strip catchall from the commandline
-            describe = describe.replace("--match *.*", "")
-            version = setuptools_scm.git.parse(root, describe)
-            if not version:
-                return version_from_scm(root)
-            else:
-                return version
-
         import setuptools_scm
-        __version__ = setuptools_scm.get_version('../', parse=parse_version)
-    except (ImportError, LookupError):
+        __version__ = setuptools_scm.get_version('../',
+                                                 tag_regex='^apache-arrow-([\.0-9]+)$')
+    except ImportError:
         __version__ = None
 
 
 import pyarrow.compat as compat
-
 
 # Workaround for https://issues.apache.org/jira/browse/ARROW-2657
 # and https://issues.apache.org/jira/browse/ARROW-2920
