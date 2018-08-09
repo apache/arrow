@@ -119,6 +119,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow googletest unit tests"
     ON)
 
+  set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
+    "Only build unit tests having the indicated label or labels. \
+Pass multiple labels by dividing with semicolons")
+
   option(ARROW_BUILD_BENCHMARKS
     "Build the Arrow micro benchmarks"
     OFF)

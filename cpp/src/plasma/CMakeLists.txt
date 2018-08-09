@@ -196,7 +196,7 @@ endif()
 # Unit tests
 #######################################
 
-ADD_ARROW_TEST(test/serialization_tests)
-ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static ${PLASMA_LINK_LIBS})
-ADD_ARROW_TEST(test/client_tests)
-ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static ${PLASMA_LINK_LIBS})
+ADD_ARROW_TEST(test/serialization_tests
+  EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS})
+ADD_ARROW_TEST(test/client_tests
+  EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS})
