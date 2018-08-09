@@ -124,9 +124,7 @@ python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 python -c "import pyarrow.orc"
 
-if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
-  export PLASMA_VALGRIND=1
-fi
+echo "PLASMA_VALGRIND: $PLASMA_VALGRIND"
 
 # Set up huge pages for plasma test
 if [ $TRAVIS_OS_NAME == "linux" ]; then
