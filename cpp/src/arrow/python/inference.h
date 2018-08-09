@@ -15,43 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Converting from pandas memory representation to Arrow data structures
+// Functions for converting between CPython built-in data structures and Arrow
+// data structures
 
-#ifndef ARROW_PYTHON_NUMPY_TO_ARROW_H
-#define ARROW_PYTHON_NUMPY_TO_ARROW_H
+#ifndef ARROW_PYTHON_INFERENCE_H
+#define ARROW_PYTHON_INFERENCE_H
 
 #include "arrow/python/platform.h"
 
 #include <memory>
+#include <ostream>
+#include <string>
 
+#include "arrow/type.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+
+#include "arrow/python/common.h"
 
 namespace arrow {
 
 class Array;
-class ChunkedArray;
-class DataType;
-class MemoryPool;
 class Status;
 
 namespace py {
 
-/// Convert NumPy arrays to Arrow. If target data type is not known, pass a
-/// type with null
-///
-/// \param[in] pool Memory pool for any memory allocations
-/// \param[in] ao an ndarray with the array data
-/// \param[in] mo an ndarray with a null mask (True is null), optional
-/// \param[in] from_pandas If true, use pandas's null sentinels to determine
-/// whether values are null
-/// \param[in] type a specific type to cast to, may be null
-/// \param[out] out a ChunkedArray, to accommodate chunked output
+// These three functions take a sequence input, not arbitrary iterables
 ARROW_EXPORT
-Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
-                      const std::shared_ptr<DataType>& type,
-                      std::shared_ptr<ChunkedArray>* out);
+arrow::Status InferArrowType(PyObject* obj, std::shared_ptr<arrow::DataType>* out_type);
+
+ARROW_EXPORT
+arrow::Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
+                                    std::shared_ptr<arrow::DataType>* out_type);
 
 }  // namespace py
 }  // namespace arrow
 
-#endif  // ARROW_PYTHON_NUMPY_TO_ARROW_H
+#endif  // ARROW_PYTHON_INFERENCE_H

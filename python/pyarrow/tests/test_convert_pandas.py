@@ -872,7 +872,6 @@ class TestConvertDateTimeLikeTypes(object):
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.ones(3),
         np.array([True, False, False]),
     ])
     def test_pandas_datetime_to_date64(self, mask):
@@ -894,7 +893,6 @@ class TestConvertDateTimeLikeTypes(object):
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.ones(3),
         np.array([True, False, False])
     ])
     def test_pandas_datetime_to_date64_failures(self, mask):
@@ -1154,13 +1152,13 @@ class TestConvertDateTimeLikeTypes(object):
         _check_pandas_roundtrip(df)
         _check_serialize_components_roundtrip(df)
 
+# ----------------------------------------------------------------------
+# Conversion tests for string and binary types.
+
 
 class TestConvertStringLikeTypes(object):
-    """
-    Conversion tests for string and binary types.
-    """
 
-    def test_unicode(self):
+    def test_pandas_unicode(self):
         repeats = 1000
         values = [u'foo', None, u'bar', u'mañana', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
@@ -1300,8 +1298,7 @@ class TestConvertStringLikeTypes(object):
     def test_array_of_bytes_to_strings_bad_data(self):
         with pytest.raises(
                 pa.lib.ArrowInvalid,
-                match=("'(utf8|utf-8)' codec can't decode byte 0x80 "
-                       "in position 0: invalid start byte")):
+                match="was not a utf8 string"):
             pa.array(np.array([b'\x80\x81'], dtype=object), pa.string())
 
     def test_numpy_string_array_to_fixed_size_binary(self):

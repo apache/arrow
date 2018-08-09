@@ -333,6 +333,14 @@ template <typename T>
 using enable_if_date = typename std::enable_if<std::is_base_of<DateType, T>::value>::type;
 
 template <typename T>
+using enable_if_integer =
+    typename std::enable_if<std::is_base_of<Integer, T>::value>::type;
+
+template <typename T>
+using enable_if_floating_point =
+    typename std::enable_if<std::is_base_of<FloatingPoint, T>::value>::type;
+
+template <typename T>
 using enable_if_time = typename std::enable_if<std::is_base_of<TimeType, T>::value>::type;
 
 template <typename T>

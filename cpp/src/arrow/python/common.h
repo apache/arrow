@@ -139,7 +139,7 @@ class ARROW_EXPORT OwnedRefNoGIL : public OwnedRef {
 };
 
 // A temporary conversion of a Python object to a bytes area.
-struct ARROW_EXPORT PyBytesView {
+struct PyBytesView {
   const char* bytes;
   Py_ssize_t size;
 
@@ -148,40 +148,60 @@ struct ARROW_EXPORT PyBytesView {
   // View the given Python object as binary-like, i.e. bytes
   Status FromBinary(PyObject* obj) { return FromBinary(obj, "a bytes object"); }
 
-  // View the given Python object as string-like, i.e. str or (utf8) bytes
-  Status FromString(PyObject* obj, bool check_valid = false) {
-    if (PyUnicode_Check(obj)) {
+  Status FromString(PyObject* obj) {
+    bool ignored = false;
+    return FromString(obj, false, &ignored);
+  }
+
+  Status FromString(PyObject* obj, bool* is_utf8) {
+    return FromString(obj, true, is_utf8);
+  }
+
+  Status FromUnicode(PyObject* obj) {
 #if PY_MAJOR_VERSION >= 3
-      Py_ssize_t size;
-      // The utf-8 representation is cached on the unicode object
-      const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
-      RETURN_IF_PYERROR();
-      this->bytes = data;
-      this->size = size;
-      this->ref.reset();
-      return Status::OK();
+    Py_ssize_t size;
+    // The utf-8 representation is cached on the unicode object
+    const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
+    RETURN_IF_PYERROR();
+    this->bytes = data;
+    this->size = size;
+    this->ref.reset();
 #else
-      PyObject* converted = PyUnicode_AsUTF8String(obj);
-      RETURN_IF_PYERROR();
-      this->bytes = PyBytes_AS_STRING(converted);
-      this->size = PyBytes_GET_SIZE(converted);
-      this->ref.reset(converted);
-      return Status::OK();
+    PyObject* converted = PyUnicode_AsUTF8String(obj);
+    RETURN_IF_PYERROR();
+    this->bytes = PyBytes_AS_STRING(converted);
+    this->size = PyBytes_GET_SIZE(converted);
+    this->ref.reset(converted);
 #endif
-    } else {
-      RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
-      if (check_valid) {
-        // Check the bytes are valid utf-8
-        OwnedRef decoded(PyUnicode_FromStringAndSize(bytes, size));
-        RETURN_IF_PYERROR();
-      }
-      return Status::OK();
-    }
+    return Status::OK();
   }
 
  protected:
   PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = NULLPTR)
       : bytes(b), size(s), ref(obj) {}
+
+  // View the given Python object as string-like, i.e. str or (utf8) bytes
+  Status FromString(PyObject* obj, bool check_utf8, bool* is_utf8) {
+    if (PyUnicode_Check(obj)) {
+      *is_utf8 = true;
+      return FromUnicode(obj);
+    } else {
+      RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
+      if (check_utf8) {
+        // Check the bytes are utf8 utf-8
+        OwnedRef decoded(PyUnicode_FromStringAndSize(bytes, size));
+        if (ARROW_PREDICT_TRUE(!PyErr_Occurred())) {
+          *is_utf8 = true;
+        } else {
+          *is_utf8 = false;
+          PyErr_Clear();
+        }
+      } else {
+        *is_utf8 = false;
+      }
+      return Status::OK();
+    }
+  }
 
   Status FromBinary(PyObject* obj, const char* expected_msg) {
     if (PyBytes_Check(obj)) {

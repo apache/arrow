@@ -57,6 +57,7 @@ def lint_file(path):
 
 EXCLUSIONS = [
     'arrow/util/macros.h',
+    'arrow/python/iterators.h',
     'arrow/util/parallel.h',
     'arrow/io/hdfs-internal.h'
 ]

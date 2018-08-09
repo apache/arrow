@@ -39,7 +39,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
@@ -50,7 +49,6 @@
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
-#include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy-internal.h"
@@ -67,28 +65,6 @@ using internal::NumPyTypeSize;
 // Conversion utilities
 
 namespace {
-
-constexpr int64_t kMillisecondsInDay = 86400000;
-
-inline bool PyObject_is_integer(PyObject* obj) {
-  return !PyBool_Check(obj) && PyArray_IsIntegerScalar(obj);
-}
-
-Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
-  if (PyArray_NDIM(numpy_array) != 1) {
-    return Status::Invalid("only handle 1-dimensional arrays");
-  }
-
-  const int received_type = PyArray_DESCR(numpy_array)->type_num;
-  if (received_type != np_type) {
-    std::stringstream ss;
-    ss << "trying to convert NumPy type " << GetNumPyTypeName(np_type) << " but got "
-       << GetNumPyTypeName(received_type);
-    return Status::Invalid(ss.str());
-  }
-
-  return Status::OK();
-}
 
 Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
                           std::shared_ptr<ResizableBuffer>* out) {
@@ -128,11 +104,10 @@ class NumPyNullsConverter {
  public:
   /// Convert the given array's null values to a null bitmap.
   /// The null bitmap is only allocated if null values are ever possible.
-  static Status Convert(MemoryPool* pool, PyArrayObject* arr,
-                        bool use_pandas_null_sentinels,
+  static Status Convert(MemoryPool* pool, PyArrayObject* arr, bool from_pandas,
                         std::shared_ptr<ResizableBuffer>* out_null_bitmap_,
                         int64_t* out_null_count) {
-    NumPyNullsConverter converter(pool, arr, use_pandas_null_sentinels);
+    NumPyNullsConverter converter(pool, arr, from_pandas);
     RETURN_NOT_OK(VisitNumpyArrayInline(arr, &converter));
     *out_null_bitmap_ = converter.null_bitmap_;
     *out_null_count = converter.null_count_;
@@ -147,7 +122,7 @@ class NumPyNullsConverter {
         // Always treat Numpy's NaT as null
         TYPE == NPY_DATETIME ||
         // Observing pandas's null sentinels
-        (use_pandas_null_sentinels_ && traits::supports_nulls);
+        (from_pandas_ && traits::supports_nulls);
 
     if (null_sentinels_possible) {
       RETURN_NOT_OK(AllocateNullBitmap(pool_, PyArray_SIZE(arr), &null_bitmap_));
@@ -157,17 +132,16 @@ class NumPyNullsConverter {
   }
 
  protected:
-  NumPyNullsConverter(MemoryPool* pool, PyArrayObject* arr,
-                      bool use_pandas_null_sentinels)
+  NumPyNullsConverter(MemoryPool* pool, PyArrayObject* arr, bool from_pandas)
       : pool_(pool),
         arr_(arr),
-        use_pandas_null_sentinels_(use_pandas_null_sentinels),
+        from_pandas_(from_pandas),
         null_bitmap_data_(nullptr),
         null_count_(0) {}
 
   MemoryPool* pool_;
   PyArrayObject* arr_;
-  bool use_pandas_null_sentinels_;
+  bool from_pandas_;
   std::shared_ptr<ResizableBuffer> null_bitmap_;
   uint8_t* null_bitmap_data_;
   int64_t null_count_;
@@ -191,136 +165,21 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
 
 }  // namespace
 
-/// Append as many string objects from NumPy arrays to a `BinaryBuilder` as we
-/// can fit
-///
-/// \param[in] offset starting offset for appending
-/// \param[out] end_offset ending offset where we stopped appending. Will
-/// be length of arr if fully consumed
-static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
-                                   int64_t offset, BinaryBuilder* builder,
-                                   int64_t* end_offset) {
-  Ndarray1DIndexer<PyObject*> objects(arr);
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask != nullptr) {
-    mask_values.Init(mask);
-    have_mask = true;
-  }
-
-  for (; offset < objects.size(); ++offset) {
-    PyObject* obj = objects[offset];
-    if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
-      RETURN_NOT_OK(builder->AppendNull());
-      continue;
-    }
-    bool is_full;
-    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, &is_full));
-    if (is_full) {
-      break;
-    }
-  }
-
-  // If we consumed the whole array, this will be the length of arr
-  *end_offset = offset;
-  return Status::OK();
-}
-
-/// Append as many string objects from NumPy arrays to a `StringBuilder` as we
-/// can fit
-///
-/// \param[in] offset starting offset for appending
-/// \param[in] check_valid if set to true and the input array
-/// contains values that cannot be converted to unicode, returns
-/// a Status code containing a Python exception message
-/// \param[out] end_offset ending offset where we stopped appending. Will
-/// be length of arr if fully consumed
-/// \param[out] have_bytes true if we encountered any PyBytes object
-static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offset,
-                                  bool check_valid, StringBuilder* builder,
-                                  int64_t* end_offset, bool* have_bytes) {
-  PyObject* obj;
-
-  Ndarray1DIndexer<PyObject*> objects(arr);
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask != nullptr) {
-    mask_values.Init(mask);
-    have_mask = true;
-  }
-
-  for (; offset < objects.size(); ++offset) {
-    OwnedRef tmp_obj;
-    obj = objects[offset];
-    if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
-      RETURN_NOT_OK(builder->AppendNull());
-      continue;
-    }
-    if (internal::IsPyBinary(obj)) {
-      *have_bytes = true;
-    }
-    bool is_full;
-    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, check_valid, &is_full));
-    if (is_full) {
-      break;
-    }
-  }
-
-  // If we consumed the whole array, this will be the length of arr
-  *end_offset = offset;
-  return Status::OK();
-}
-
-static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mask,
-                                          int byte_width, int64_t offset,
-                                          FixedSizeBinaryBuilder* builder,
-                                          int64_t* end_offset) {
-  PyObject* obj;
-
-  Ndarray1DIndexer<PyObject*> objects(arr);
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask != nullptr) {
-    mask_values.Init(mask);
-    have_mask = true;
-  }
-
-  for (; offset < objects.size(); ++offset) {
-    OwnedRef tmp_obj;
-    obj = objects[offset];
-    if ((have_mask && mask_values[offset]) || internal::PandasObjectIsNull(obj)) {
-      RETURN_NOT_OK(builder->AppendNull());
-      continue;
-    }
-    bool is_full;
-    RETURN_NOT_OK(internal::BuilderAppend(builder, obj, &is_full));
-    if (is_full) {
-      break;
-    }
-  }
-
-  // If we consumed the whole array, this will be the length of arr
-  *end_offset = offset;
-  return Status::OK();
-}
-
 // ----------------------------------------------------------------------
-// Conversion from NumPy-in-Pandas to Arrow
+// Conversion from NumPy arrays (possibly originating from pandas) to Arrow
+// format. Does not handle NPY_OBJECT dtype arrays; use ConvertPySequence for
+// that
 
 class NumPyConverter {
  public:
-  NumPyConverter(MemoryPool* pool, PyObject* ao, PyObject* mo,
-                 const std::shared_ptr<DataType>& type, bool use_pandas_null_sentinels)
+  NumPyConverter(MemoryPool* pool, PyObject* arr, PyObject* mo,
+                 const std::shared_ptr<DataType>& type, bool from_pandas)
       : pool_(pool),
         type_(type),
-        arr_(reinterpret_cast<PyArrayObject*>(ao)),
+        arr_(reinterpret_cast<PyArrayObject*>(arr)),
         dtype_(PyArray_DESCR(arr_)),
         mask_(nullptr),
-        use_pandas_null_sentinels_(use_pandas_null_sentinels),
-        decimal_type_(),
+        from_pandas_(from_pandas),
         null_bitmap_data_(nullptr),
         null_count_(0) {
     if (mo != nullptr && mo != Py_None) {
@@ -329,10 +188,6 @@ class NumPyConverter {
     length_ = static_cast<int64_t>(PyArray_SIZE(arr_));
     itemsize_ = static_cast<int>(PyArray_DESCR(arr_)->elsize);
     stride_ = static_cast<int64_t>(PyArray_STRIDES(arr_)[0]);
-
-    PyAcquireGIL lock;
-    Status status = internal::ImportDecimalType(&decimal_type_);
-    DCHECK_OK(status);
   }
 
   bool is_strided() const { return itemsize_ != stride_; }
@@ -396,32 +251,6 @@ class NumPyConverter {
     return Status::OK();
   }
 
-  template <int TYPE, typename BuilderType>
-  Status AppendNdarrayToBuilder(PyArrayObject* array, BuilderType* builder) {
-    typedef internal::npy_traits<TYPE> traits;
-    typedef typename traits::value_type T;
-
-    const bool null_sentinels_possible =
-        (use_pandas_null_sentinels_ && traits::supports_nulls);
-
-    // TODO(wesm): Vector append when not strided
-    Ndarray1DIndexer<T> values(array);
-    if (null_sentinels_possible) {
-      for (int64_t i = 0; i < values.size(); ++i) {
-        if (traits::isnull(values[i])) {
-          RETURN_NOT_OK(builder->AppendNull());
-        } else {
-          RETURN_NOT_OK(builder->Append(values[i]));
-        }
-      }
-    } else {
-      for (int64_t i = 0; i < values.size(); ++i) {
-        RETURN_NOT_OK(builder->Append(values[i]));
-      }
-    }
-    return Status::OK();
-  }
-
   Status PushArray(const std::shared_ptr<ArrayData>& data) {
     out_arrays_.emplace_back(MakeArray(data));
     return Status::OK();
@@ -433,8 +262,8 @@ class NumPyConverter {
       RETURN_NOT_OK(InitNullBitmap());
       null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
     } else {
-      RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, use_pandas_null_sentinels_,
-                                                 &null_bitmap_, &null_count_));
+      RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
+                                                 &null_count_));
     }
 
     std::shared_ptr<Buffer> data;
@@ -450,33 +279,6 @@ class NumPyConverter {
     return Status::NotImplemented(ss.str());
   }
 
-  // ----------------------------------------------------------------------
-  // Conversion logic for various object dtype arrays
-
-  Status ConvertObjects();
-
-  template <int ITEM_TYPE, typename ArrowType>
-  Status ConvertTypedLists(const std::shared_ptr<DataType>& type, ListBuilder* builder,
-                           PyObject* list);
-
-  template <typename ArrowType>
-  Status ConvertDates();
-
-  Status ConvertBooleans();
-  Status ConvertObjectStrings();
-  Status ConvertObjectFloats();
-  Status ConvertObjectBytes();
-  Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
-  Status ConvertObjectIntegers();
-  Status ConvertLists(const std::shared_ptr<DataType>& type);
-  Status ConvertLists(const std::shared_ptr<DataType>& type, ListBuilder* builder,
-                      PyObject* list);
-  Status ConvertDecimals();
-  Status ConvertDateTimes();
-  Status ConvertTimes();
-  Status ConvertObjectsInfer();
-  Status ConvertObjectsInferAndCast();
-
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
   PyArrayObject* arr_;
@@ -486,9 +288,7 @@ class NumPyConverter {
   int64_t stride_;
   int itemsize_;
 
-  bool use_pandas_null_sentinels_;
-
-  OwnedRefNoGIL decimal_type_;
+  bool from_pandas_;
 
   // Used in visitor pattern
   ArrayVector out_arrays_;
@@ -503,9 +303,8 @@ Status NumPyConverter::Convert() {
     return Status::Invalid("only handle 1-dimensional arrays");
   }
 
-  if (dtype_->type_num == NPY_OBJECT) {
-    return ConvertObjects();
-  }
+  DCHECK_NE(dtype_->type_num, NPY_OBJECT)
+      << "This class does not handle NPY_OBJECT arrays";
 
   if (type_ == nullptr) {
     return Status::Invalid("Must pass data type for non-object arrays");
@@ -689,6 +488,8 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
   }
 
+  constexpr int64_t kMillisecondsInDay = 86400000;
+
   std::shared_ptr<DataType> input_type;
 
   auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(dtype_->c_metadata);
@@ -723,776 +524,6 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
   }
 
   return Status::OK();
-}
-
-template <typename T>
-struct UnboxDate {};
-
-template <>
-struct UnboxDate<Date32Type> {
-  static int32_t Unbox(PyObject* obj) {
-    return PyDate_to_days(reinterpret_cast<PyDateTime_Date*>(obj));
-  }
-};
-
-template <>
-struct UnboxDate<Date64Type> {
-  static int64_t Unbox(PyObject* obj) {
-    return PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(obj));
-  }
-};
-
-template <typename ArrowType>
-Status NumPyConverter::ConvertDates() {
-  PyAcquireGIL lock;
-
-  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
-
-  Ndarray1DIndexer<PyObject*> objects(arr_);
-
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask_ != nullptr) {
-    mask_values.Init(mask_);
-    have_mask = true;
-  }
-
-  BuilderType builder(pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  /// We have to run this in this compilation unit, since we cannot use the
-  /// datetime API otherwise
-  PyDateTime_IMPORT;
-
-  PyObject* obj;
-  for (int64_t i = 0; i < length_; ++i) {
-    obj = objects[i];
-    if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else if (PyDate_Check(obj)) {
-      RETURN_NOT_OK(builder.Append(UnboxDate<ArrowType>::Unbox(obj)));
-    } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Date: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "datetime.date", &ss));
-      return Status::Invalid(ss.str());
-    }
-  }
-
-  return PushBuilderResult(&builder);
-}
-
-Status NumPyConverter::ConvertDecimals() {
-  PyAcquireGIL lock;
-
-  internal::DecimalMetadata max_decimal_metadata;
-  Ndarray1DIndexer<PyObject*> objects(arr_);
-
-  if (type_ == NULLPTR) {
-    for (PyObject* object : objects) {
-      if (!internal::PandasObjectIsNull(object)) {
-        RETURN_NOT_OK(max_decimal_metadata.Update(object));
-      }
-    }
-
-    type_ =
-        ::arrow::decimal(max_decimal_metadata.precision(), max_decimal_metadata.scale());
-  }
-
-  Decimal128Builder builder(type_, pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  const auto& decimal_type = checked_cast<const DecimalType&>(*type_);
-
-  for (PyObject* object : objects) {
-    const int is_decimal = PyObject_IsInstance(object, decimal_type_.obj());
-
-    if (is_decimal == 1) {
-      Decimal128 value;
-      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
-      RETURN_NOT_OK(builder.Append(value));
-    } else if (is_decimal == 0 && internal::PandasObjectIsNull(object)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else {
-      // PyObject_IsInstance could error and set an exception
-      RETURN_IF_PYERROR();
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Decimal: ";
-      RETURN_NOT_OK(InvalidConversion(object, "decimal.Decimal", &ss));
-      return Status::Invalid(ss.str());
-    }
-  }
-  return PushBuilderResult(&builder);
-}
-
-Status NumPyConverter::ConvertDateTimes() {
-  // Convert array of datetime.datetime objects to Arrow
-  PyAcquireGIL lock;
-  PyDateTime_IMPORT;
-
-  Ndarray1DIndexer<PyObject*> objects(arr_);
-
-  // datetime.datetime stores microsecond resolution
-  TimestampBuilder builder(::arrow::timestamp(TimeUnit::MICRO), pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  PyObject* obj = NULLPTR;
-  for (int64_t i = 0; i < length_; ++i) {
-    obj = objects[i];
-    if (PyDateTime_Check(obj)) {
-      RETURN_NOT_OK(
-          builder.Append(PyDateTime_to_us(reinterpret_cast<PyDateTime_DateTime*>(obj))));
-    } else if (internal::PandasObjectIsNull(obj)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Timestamp: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "datetime.datetime", &ss));
-      return Status::Invalid(ss.str());
-    }
-  }
-  return PushBuilderResult(&builder);
-}
-
-Status NumPyConverter::ConvertTimes() {
-  // Convert array of datetime.time objects to Arrow
-  PyAcquireGIL lock;
-  PyDateTime_IMPORT;
-
-  Ndarray1DIndexer<PyObject*> objects(arr_);
-
-  // datetime.time stores microsecond resolution
-  Time64Builder builder(::arrow::time64(TimeUnit::MICRO), pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  PyObject* obj = NULLPTR;
-  for (int64_t i = 0; i < length_; ++i) {
-    obj = objects[i];
-    if (PyTime_Check(obj)) {
-      RETURN_NOT_OK(builder.Append(PyTime_to_us(obj)));
-    } else if (internal::PandasObjectIsNull(obj)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Time: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "datetime.time", &ss));
-      return Status::Invalid(ss.str());
-    }
-  }
-  return PushBuilderResult(&builder);
-}
-
-Status NumPyConverter::ConvertObjectStrings() {
-  PyAcquireGIL lock;
-
-  // The output type at this point is inconclusive because there may be bytes
-  // and unicode mixed in the object array
-  StringBuilder builder(pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  // If the creator of this NumPyConverter specified a type,
-  // then we want to force the output type to be utf8. If
-  // the input data is PyBytes and not PyUnicode and
-  // not convertible to utf8, the call to AppendObjectStrings
-  // below will fail because we pass force_string as the
-  // value for check_valid.
-  bool force_string = type_ != nullptr && type_->Equals(utf8());
-  bool global_have_bytes = false;
-  if (length_ == 0) {
-    // Produce an empty chunk
-    std::shared_ptr<Array> chunk;
-    RETURN_NOT_OK(builder.Finish(&chunk));
-    out_arrays_.emplace_back(std::move(chunk));
-  } else {
-    int64_t offset = 0;
-    while (offset < length_) {
-      bool chunk_have_bytes = false;
-      // Always set check_valid to true when force_string is true
-      RETURN_NOT_OK(AppendObjectStrings(arr_, mask_, offset,
-                                        force_string /* check_valid */, &builder, &offset,
-                                        &chunk_have_bytes));
-
-      global_have_bytes = global_have_bytes | chunk_have_bytes;
-      std::shared_ptr<Array> chunk;
-      RETURN_NOT_OK(builder.Finish(&chunk));
-      out_arrays_.emplace_back(std::move(chunk));
-    }
-  }
-
-  // If we saw bytes, convert it to a binary array. If
-  // force_string was set to true, the input data could
-  // have been bytes but we've checked to make sure that
-  // it can be converted to utf-8 in the call to
-  // AppendObjectStrings. In that case, we can safely leave
-  // it as a utf8 type.
-  if (!force_string && global_have_bytes) {
-    for (size_t i = 0; i < out_arrays_.size(); ++i) {
-      auto binary_data = out_arrays_[i]->data()->Copy();
-      binary_data->type = ::arrow::binary();
-      out_arrays_[i] = std::make_shared<BinaryArray>(binary_data);
-    }
-  }
-  return Status::OK();
-}
-
-Status NumPyConverter::ConvertObjectFloats() {
-  PyAcquireGIL lock;
-
-  Ndarray1DIndexer<PyObject*> objects(arr_);
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask_ != nullptr) {
-    mask_values.Init(mask_);
-    have_mask = true;
-  }
-
-  DoubleBuilder builder(pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  PyObject* obj;
-  for (int64_t i = 0; i < objects.size(); ++i) {
-    obj = objects[i];
-    if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else if (PyFloat_Check(obj)) {
-      double val = PyFloat_AsDouble(obj);
-      RETURN_IF_PYERROR();
-      RETURN_NOT_OK(builder.Append(val));
-    } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Double: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "float", &ss));
-      return Status::Invalid(ss.str());
-    }
-  }
-
-  return PushBuilderResult(&builder);
-}
-
-Status NumPyConverter::ConvertObjectIntegers() {
-  PyAcquireGIL lock;
-
-  Int64Builder builder(pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  Ndarray1DIndexer<PyObject*> objects(arr_);
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask_ != nullptr) {
-    mask_values.Init(mask_);
-    have_mask = true;
-  }
-
-  PyObject* obj;
-  for (int64_t i = 0; i < objects.size(); ++i) {
-    obj = objects[i];
-    if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
-      RETURN_NOT_OK(builder.AppendNull());
-    } else {
-      int64_t val;
-      RETURN_NOT_OK(internal::CIntFromPython(obj, &val));
-      RETURN_NOT_OK(builder.Append(val));
-    }
-  }
-
-  return PushBuilderResult(&builder);
-}
-
-Status NumPyConverter::ConvertObjectBytes() {
-  PyAcquireGIL lock;
-
-  BinaryBuilder builder(binary(), pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  if (length_ == 0) {
-    // Produce an empty chunk
-    std::shared_ptr<Array> chunk;
-    RETURN_NOT_OK(builder.Finish(&chunk));
-    out_arrays_.emplace_back(std::move(chunk));
-  } else {
-    int64_t offset = 0;
-    while (offset < length_) {
-      RETURN_NOT_OK(AppendObjectBinaries(arr_, mask_, offset, &builder, &offset));
-      std::shared_ptr<Array> chunk;
-      RETURN_NOT_OK(builder.Finish(&chunk));
-      out_arrays_.emplace_back(std::move(chunk));
-    }
-  }
-  return Status::OK();
-}
-
-Status NumPyConverter::ConvertObjectFixedWidthBytes(
-    const std::shared_ptr<DataType>& type) {
-  PyAcquireGIL lock;
-
-  const int32_t byte_width = checked_cast<const FixedSizeBinaryType&>(*type).byte_width();
-
-  // The output type at this point is inconclusive because there may be bytes
-  // and unicode mixed in the object array
-  FixedSizeBinaryBuilder builder(type, pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
-  if (length_ == 0) {
-    // Produce an empty chunk
-    std::shared_ptr<Array> chunk;
-    RETURN_NOT_OK(builder.Finish(&chunk));
-    out_arrays_.emplace_back(std::move(chunk));
-  } else {
-    int64_t offset = 0;
-    while (offset < length_) {
-      RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, mask_, byte_width, offset, &builder,
-                                                &offset));
-
-      std::shared_ptr<Array> chunk;
-      RETURN_NOT_OK(builder.Finish(&chunk));
-      out_arrays_.emplace_back(std::move(chunk));
-    }
-  }
-  return Status::OK();
-}
-
-Status NumPyConverter::ConvertBooleans() {
-  PyAcquireGIL lock;
-
-  Ndarray1DIndexer<PyObject*> objects(arr_);
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask_ != nullptr) {
-    mask_values.Init(mask_);
-    have_mask = true;
-  }
-
-  int64_t nbytes = BitUtil::BytesForBits(length_);
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(AllocateBuffer(pool_, nbytes, &data));
-  uint8_t* bitmap = data->mutable_data();
-  memset(bitmap, 0, nbytes);
-
-  int64_t null_count = 0;
-  PyObject* obj;
-  for (int64_t i = 0; i < length_; ++i) {
-    obj = objects[i];
-    if ((have_mask && mask_values[i]) || internal::PandasObjectIsNull(obj)) {
-      ++null_count;
-    } else if (obj == Py_True) {
-      BitUtil::SetBit(bitmap, i);
-      BitUtil::SetBit(null_bitmap_data_, i);
-    } else if (obj == Py_False) {
-      BitUtil::SetBit(null_bitmap_data_, i);
-    } else {
-      std::stringstream ss;
-      ss << "Error converting from Python objects to Boolean: ";
-      RETURN_NOT_OK(InvalidConversion(obj, "bool", &ss));
-      return Status::Invalid(ss.str());
-    }
-  }
-
-  out_arrays_.push_back(
-      std::make_shared<BooleanArray>(length_, data, null_bitmap_, null_count));
-  return Status::OK();
-}
-
-Status NumPyConverter::ConvertObjectsInfer() {
-  Ndarray1DIndexer<PyObject*> objects;
-
-  PyAcquireGIL lock;
-  objects.Init(arr_);
-  PyDateTime_IMPORT;
-
-  for (int64_t i = 0; i < length_; ++i) {
-    PyObject* obj = objects[i];
-    if (internal::PandasObjectIsNull(obj)) {
-      continue;
-    } else if (PyUnicode_Check(obj) || internal::IsPyBinary(obj)) {
-      // The exact Arrow type (Binary or String) will be decided based on
-      // Python object types
-      return ConvertObjectStrings();
-    } else if (PyFloat_Check(obj)) {
-      return ConvertObjectFloats();
-    } else if (PyBool_Check(obj)) {
-      return ConvertBooleans();
-    } else if (PyObject_is_integer(obj)) {
-      return ConvertObjectIntegers();
-    } else if (PyDateTime_Check(obj)) {
-      return ConvertDateTimes();
-    } else if (PyDate_Check(obj)) {
-      // We could choose Date32 or Date64
-      return ConvertDates<Date32Type>();
-    } else if (PyTime_Check(obj)) {
-      return ConvertTimes();
-    } else if (PyObject_IsInstance(obj, decimal_type_.obj()) == 1) {
-      return ConvertDecimals();
-    } else if (PyList_Check(obj)) {
-      if (PyList_Size(obj) == 0 && i < length_ - 1) {
-        // Iterate until we find a non-empty list or the enclosing sequence is empty
-        continue;
-      }
-      std::shared_ptr<DataType> inferred_type;
-      RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
-      return ConvertLists(inferred_type);
-    } else if (PyArray_Check(obj)) {
-      std::shared_ptr<DataType> inferred_type;
-      PyArray_Descr* dtype = PyArray_DESCR(reinterpret_cast<PyArrayObject*>(obj));
-
-      if (dtype->type_num == NPY_OBJECT) {
-        RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
-      } else {
-        RETURN_NOT_OK(
-            NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype), &inferred_type));
-      }
-      return ConvertLists(inferred_type);
-    } else {
-      const std::string supported_types =
-          "string, bool, float, int, date, time, decimal, bytearray, list, array";
-      std::stringstream ss;
-      ss << "Error inferring Arrow type for Python object array. ";
-      RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
-      return Status::Invalid(ss.str());
-    }
-  }
-  out_arrays_.push_back(std::make_shared<NullArray>(length_));
-  return Status::OK();
-}
-
-Status NumPyConverter::ConvertObjectsInferAndCast() {
-  size_t position = out_arrays_.size();
-  RETURN_NOT_OK(ConvertObjectsInfer());
-  DCHECK_EQ(position + 1, out_arrays_.size());
-  std::shared_ptr<Array> arr = out_arrays_[position];
-
-  // Perform cast
-  compute::FunctionContext context(pool_);
-  compute::CastOptions options;
-  options.allow_int_overflow = false;
-
-  std::shared_ptr<Array> casted;
-  RETURN_NOT_OK(compute::Cast(&context, *arr, type_, options, &casted));
-
-  // Replace with casted values
-  out_arrays_[position] = casted;
-
-  return Status::OK();
-}
-
-Status NumPyConverter::ConvertObjects() {
-  // Python object arrays are annoying, since we could have one of:
-  //
-  // * Strings
-  // * Booleans with nulls
-  // * decimal.Decimals
-  // * Mixed type (not supported at the moment by arrow format)
-  //
-  // Additionally, nulls may be encoded either as np.nan or None. So we have to
-  // do some type inference and conversion
-
-  RETURN_NOT_OK(InitNullBitmap());
-
-  // This means we received an explicit type from the user
-  if (type_) {
-    switch (type_->id()) {
-      case Type::STRING:
-        return ConvertObjectStrings();
-      case Type::BINARY:
-        return ConvertObjectBytes();
-      case Type::FIXED_SIZE_BINARY:
-        return ConvertObjectFixedWidthBytes(type_);
-      case Type::BOOL:
-        return ConvertBooleans();
-      case Type::DATE32:
-        return ConvertDates<Date32Type>();
-      case Type::DATE64:
-        return ConvertDates<Date64Type>();
-      case Type::LIST: {
-        const auto& list_field = checked_cast<const ListType&>(*type_);
-        return ConvertLists(list_field.value_field()->type());
-      }
-      case Type::DECIMAL:
-        return ConvertDecimals();
-      default:
-        return ConvertObjectsInferAndCast();
-    }
-  } else {
-    // Re-acquire GIL
-    return ConvertObjectsInfer();
-  }
-}
-
-// Like VisitIterable, but the function takes a second boolean argument
-// deducted from `have_mask` and `mask_values`
-template <class BinaryFunction>
-Status LoopPySequenceWithMasks(PyObject* sequence,
-                               const Ndarray1DIndexer<uint8_t>& mask_values,
-                               bool have_mask, BinaryFunction&& func) {
-  if (have_mask) {
-    int64_t i = 0;
-    auto visit = [&](PyObject* obj) { return func(obj, mask_values[i++] != 0); };
-    return internal::VisitIterable(sequence, visit);
-  } else {
-    auto visit = [&](PyObject* obj) { return func(obj, false); };
-    return internal::VisitIterable(sequence, visit);
-  }
-}
-
-template <int ITEM_TYPE, typename ArrowType>
-inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>& type,
-                                                ListBuilder* builder, PyObject* list) {
-  typedef internal::npy_traits<ITEM_TYPE> traits;
-  typedef typename traits::BuilderClass BuilderT;
-
-  PyAcquireGIL lock;
-
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask_ != nullptr) {
-    mask_values.Init(mask_);
-    have_mask = true;
-  }
-
-  auto value_builder = checked_cast<BuilderT*>(builder->value_builder());
-
-  auto foreach_item = [&](PyObject* object, bool mask) {
-    if (mask || internal::PandasObjectIsNull(object)) {
-      return builder->AppendNull();
-    } else if (PyArray_Check(object)) {
-      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
-      RETURN_NOT_OK(builder->Append(true));
-
-      // TODO(uwe): Support more complex numpy array structures
-      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, ITEM_TYPE));
-
-      return AppendNdarrayToBuilder<ITEM_TYPE, BuilderT>(numpy_array, value_builder);
-    } else if (PyList_Check(object)) {
-      int64_t size;
-      std::shared_ptr<DataType> inferred_type;
-      RETURN_NOT_OK(builder->Append(true));
-      RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
-      if (inferred_type->id() != Type::NA && inferred_type->id() != type->id()) {
-        std::stringstream ss;
-        ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
-        return Status::TypeError(ss.str());
-      }
-      return AppendPySequence(object, size, type, value_builder,
-                              use_pandas_null_sentinels_);
-    } else {
-      return Status::TypeError("Unsupported Python type for list items");
-    }
-  };
-
-  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
-}
-
-template <>
-inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
-    const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
-  PyAcquireGIL lock;
-
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask_ != nullptr) {
-    mask_values.Init(mask_);
-    have_mask = true;
-  }
-
-  auto value_builder = checked_cast<NullBuilder*>(builder->value_builder());
-
-  auto foreach_item = [&](PyObject* object, bool mask) {
-    if (mask || internal::PandasObjectIsNull(object)) {
-      return builder->AppendNull();
-    } else if (PyArray_Check(object)) {
-      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
-      RETURN_NOT_OK(builder->Append(true));
-
-      // TODO(uwe): Support more complex numpy array structures
-      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
-
-      for (int64_t i = 0; i < static_cast<int64_t>(PyArray_SIZE(numpy_array)); ++i) {
-        RETURN_NOT_OK(value_builder->AppendNull());
-      }
-      return Status::OK();
-    } else if (PyList_Check(object)) {
-      RETURN_NOT_OK(builder->Append(true));
-      const Py_ssize_t size = PySequence_Size(object);
-      for (Py_ssize_t i = 0; i < size; ++i) {
-        RETURN_NOT_OK(value_builder->AppendNull());
-      }
-      return Status::OK();
-    } else {
-      return Status::TypeError("Unsupported Python type for list items");
-    }
-  };
-
-  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
-}
-
-template <>
-inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
-    const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
-  PyAcquireGIL lock;
-
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask_ != nullptr) {
-    mask_values.Init(mask_);
-    have_mask = true;
-  }
-
-  auto value_builder = checked_cast<BinaryBuilder*>(builder->value_builder());
-
-  auto foreach_item = [&](PyObject* object, bool mask) {
-    if (mask || internal::PandasObjectIsNull(object)) {
-      return builder->AppendNull();
-    } else if (PyArray_Check(object)) {
-      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
-      RETURN_NOT_OK(builder->Append(true));
-
-      // TODO(uwe): Support more complex numpy array structures
-      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
-
-      int64_t offset = 0;
-      RETURN_NOT_OK(
-          AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset));
-      if (offset < PyArray_SIZE(numpy_array)) {
-        return Status::CapacityError("Array cell value exceeded 2GB");
-      }
-      return Status::OK();
-    } else if (PyList_Check(object)) {
-      int64_t size;
-      std::shared_ptr<DataType> inferred_type;
-      RETURN_NOT_OK(builder->Append(true));
-      RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
-      if (inferred_type->id() != Type::NA && inferred_type->id() != Type::BINARY) {
-        std::stringstream ss;
-        ss << inferred_type->ToString() << " cannot be converted to BINARY.";
-        return Status::TypeError(ss.str());
-      }
-      return AppendPySequence(object, size, type, value_builder,
-                              use_pandas_null_sentinels_);
-    } else {
-      return Status::TypeError("Unsupported Python type for list items");
-    }
-  };
-
-  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
-}
-
-template <>
-inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
-    const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
-  PyAcquireGIL lock;
-  // TODO: If there are bytes involed, convert to Binary representation
-  bool have_bytes = false;
-
-  Ndarray1DIndexer<uint8_t> mask_values;
-
-  bool have_mask = false;
-  if (mask_ != nullptr) {
-    mask_values.Init(mask_);
-    have_mask = true;
-  }
-
-  auto value_builder = checked_cast<StringBuilder*>(builder->value_builder());
-
-  auto foreach_item = [&](PyObject* object, bool mask) {
-    if (mask || internal::PandasObjectIsNull(object)) {
-      return builder->AppendNull();
-    } else if (PyArray_Check(object)) {
-      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
-      RETURN_NOT_OK(builder->Append(true));
-
-      // TODO(uwe): Support more complex numpy array structures
-      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
-
-      int64_t offset = 0;
-      // If a type was specified and it was utf8, then we set
-      // check_valid to true. If any of the input cannot be
-      // converted, then we will exit early here.
-      bool check_valid = type_ != nullptr && type_->Equals(::arrow::utf8());
-      RETURN_NOT_OK(AppendObjectStrings(numpy_array, nullptr, 0, check_valid,
-                                        value_builder, &offset, &have_bytes));
-      if (offset < PyArray_SIZE(numpy_array)) {
-        return Status::CapacityError("Array cell value exceeded 2GB");
-      }
-      return Status::OK();
-    } else if (PyList_Check(object)) {
-      int64_t size;
-      std::shared_ptr<DataType> inferred_type;
-      RETURN_NOT_OK(builder->Append(true));
-      RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
-      if (inferred_type->id() != Type::NA && inferred_type->id() != Type::STRING) {
-        std::stringstream ss;
-        ss << inferred_type->ToString() << " cannot be converted to STRING.";
-        return Status::TypeError(ss.str());
-      }
-      return AppendPySequence(object, size, type, value_builder,
-                              use_pandas_null_sentinels_);
-    } else {
-      return Status::TypeError("Unsupported Python type for list items");
-    }
-  };
-
-  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
-}
-
-#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                            \
-  case Type::TYPE: {                                                      \
-    return ConvertTypedLists<NUMPY_TYPE, ArrowType>(type, builder, list); \
-  }
-
-Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
-                                    ListBuilder* builder, PyObject* list) {
-  switch (type->id()) {
-    LIST_CASE(NA, NPY_OBJECT, NullType)
-    LIST_CASE(UINT8, NPY_UINT8, UInt8Type)
-    LIST_CASE(INT8, NPY_INT8, Int8Type)
-    LIST_CASE(UINT16, NPY_UINT16, UInt16Type)
-    LIST_CASE(INT16, NPY_INT16, Int16Type)
-    LIST_CASE(UINT32, NPY_UINT32, UInt32Type)
-    LIST_CASE(INT32, NPY_INT32, Int32Type)
-    LIST_CASE(UINT64, NPY_UINT64, UInt64Type)
-    LIST_CASE(INT64, NPY_INT64, Int64Type)
-    LIST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
-    LIST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
-    LIST_CASE(FLOAT, NPY_FLOAT, FloatType)
-    LIST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
-    LIST_CASE(BINARY, NPY_OBJECT, BinaryType)
-    LIST_CASE(STRING, NPY_OBJECT, StringType)
-    case Type::LIST: {
-      const auto& list_type = checked_cast<const ListType&>(*type);
-      auto value_builder = checked_cast<ListBuilder*>(builder->value_builder());
-
-      auto foreach_item = [this, &builder, &value_builder, &list_type](PyObject* object) {
-        if (internal::PandasObjectIsNull(object)) {
-          return builder->AppendNull();
-        } else {
-          RETURN_NOT_OK(builder->Append(true));
-          return ConvertLists(list_type.value_type(), value_builder, object);
-        }
-      };
-
-      return internal::VisitIterable(list, foreach_item);
-    }
-    default: {
-      std::stringstream ss;
-      ss << "Unknown list item type: ";
-      ss << type->ToString();
-      return Status::TypeError(ss.str());
-    }
-  }
-}
-
-Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
-  std::unique_ptr<ArrayBuilder> array_builder;
-  RETURN_NOT_OK(MakeBuilder(pool_, arrow::list(type), &array_builder));
-  auto list_builder = checked_cast<ListBuilder*>(array_builder.get());
-  RETURN_NOT_OK(ConvertLists(type, list_builder, reinterpret_cast<PyObject*>(arr_)));
-  return PushBuilderResult(list_builder);
 }
 
 Status NumPyConverter::Visit(const BinaryType& type) {
@@ -1659,7 +690,7 @@ Status NumPyConverter::Visit(const StructType& type) {
       RETURN_IF_PYERROR();
       sub_arrays.emplace_back(sub_array);
       sub_converters.emplace_back(pool_, sub_array, nullptr /* mask */, field->type(),
-                                  use_pandas_null_sentinels_);
+                                  from_pandas_);
     }
   }
 
@@ -1737,14 +768,23 @@ Status NumPyConverter::Visit(const StructType& type) {
   return Status::OK();
 }
 
-Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
-                      bool use_pandas_null_sentinels,
+Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
     return Status::Invalid("Input object was not a NumPy array");
   }
-  NumPyConverter converter(pool, ao, mo, type, use_pandas_null_sentinels);
+
+  PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(ao);
+
+  if (PyArray_DESCR(arr)->type_num == NPY_OBJECT) {
+    PyConversionOptions py_options;
+    py_options.type = type;
+    py_options.from_pandas = from_pandas;
+    return ConvertPySequence(ao, mo, py_options, out);
+  }
+
+  NumPyConverter converter(pool, ao, mo, type, from_pandas);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();
   DCHECK_GT(output_arrays.size(), 0);
