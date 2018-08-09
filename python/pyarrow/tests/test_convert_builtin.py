@@ -391,8 +391,8 @@ def test_double_auto_coerce_from_integer():
 
 def test_double_integer_coerce_representable_range():
     valid_values = [1.5, 1, 2, None, 1 << 53, -(1 << 53)]
-    invalid_values = [1.5, 1, 2, None, 1 << 53 + 1]
-    invalid_values2 = [1.5, 1, 2, None, -(1 << 53 + 1)]
+    invalid_values = [1.5, 1, 2, None, (1 << 53) + 1]
+    invalid_values2 = [1.5, 1, 2, None, -((1 << 53) + 1)]
 
     # it works
     pa.array(valid_values)
@@ -408,8 +408,8 @@ def test_double_integer_coerce_representable_range():
 def test_float32_integer_coerce_representable_range():
     f32 = np.float32
     valid_values = [f32(1.5), 1 << 24, -(1 << 24)]
-    invalid_values = [f32(1.5), 1 << 24 + 1]
-    invalid_values2 = [f32(1.5), -(1 << 24 + 1)]
+    invalid_values = [f32(1.5), (1 << 24) + 1]
+    invalid_values2 = [f32(1.5), -((1 << 24) + 1)]
 
     # it works
     pa.array(valid_values, type=pa.float32())

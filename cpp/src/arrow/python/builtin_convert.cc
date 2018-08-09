@@ -49,8 +49,6 @@
 namespace arrow {
 namespace py {
 
-namespace {}  // namespace
-
 // ----------------------------------------------------------------------
 // Sequence converter base and CRTP "middle" subclasses
 

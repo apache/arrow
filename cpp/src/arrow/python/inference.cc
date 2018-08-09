@@ -319,27 +319,27 @@ class TypeInferrer {
       ++none_count_;
     } else if (PyBool_Check(obj)) {
       ++bool_count_;
-      *keep_going = make_unions_ && false;
+      *keep_going = make_unions_;
     } else if (internal::PyFloatScalar_Check(obj)) {
       ++float_count_;
-      *keep_going = make_unions_ && false;
+      *keep_going = make_unions_;
     } else if (internal::IsPyInteger(obj)) {
       ++int_count_;
     } else if (PyDateTime_Check(obj)) {
       ++timestamp_micro_count_;
-      *keep_going = make_unions_ && false;
+      *keep_going = make_unions_;
     } else if (PyDate_Check(obj)) {
       ++date_count_;
-      *keep_going = make_unions_ && false;
+      *keep_going = make_unions_;
     } else if (PyTime_Check(obj)) {
       ++time_count_;
-      *keep_going = make_unions_ && false;
+      *keep_going = make_unions_;
     } else if (internal::IsPyBinary(obj)) {
       ++binary_count_;
-      *keep_going = make_unions_ && false;
+      *keep_going = make_unions_;
     } else if (PyUnicode_Check(obj)) {
       ++unicode_count_;
-      *keep_going = make_unions_ && false;
+      *keep_going = make_unions_;
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
     } else if (PyList_Check(obj)) {
