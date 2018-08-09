@@ -15,13 +15,11 @@ Testing/
 # Generated sources
 *.c
 *.cpp
-pyarrow/version.py
 pyarrow/*_api.h
+pyarrow/_generated_version.py
 
 # Bundled headers
 pyarrow/include
-
-# Python files
 
 # setup.py working directory
 build
