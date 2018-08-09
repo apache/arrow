@@ -36,6 +36,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <sstream>
 

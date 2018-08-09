@@ -19,11 +19,19 @@
 # Set up environment and working directory
 CLANG_VERSION=6.0
 IWYU_BUILD_DIR=`pwd`/arrow/cpp/docker-iwyu
+IWYU_SH=`pwd`/arrow/cpp/build-support/iwyu/iwyu.sh
 IWYU_URL=https://github.com/include-what-you-use/include-what-you-use/archive/clang_$CLANG_VERSION.tar.gz
 
 rm -rf $IWYU_BUILD_DIR
 mkdir -p $IWYU_BUILD_DIR
 pushd $IWYU_BUILD_DIR
+
+function cleanup {
+    popd
+    rm -rf $IWYU_BUILD_DIR
+}
+
+trap cleanup EXIT
 
 # Build IWYU
 wget -O iwyu.tar.gz $IWYU_URL
@@ -32,8 +40,8 @@ rm -f iwyu.tar.gz
 
 IWYU_SRC=`pwd`/include-what-you-use-clang_$CLANG_VERSION
 
-CC=clang-6.0
-CXX=clang++-6.0
+export CC=clang-$CLANG_VERSION
+export CXX=clang++-$CLANG_VERSION
 
 mkdir -p iwyu-build
 pushd iwyu-build
@@ -42,7 +50,11 @@ make -j4
 popd
 
 # Add iwyu and iwyu_tool.py to path
-export PATH=$IWYU_BUILD_DIR/iwyu-build:$IWYU_SRC:$PATH
+export PATH=$IWYU_BUILD_DIR/iwyu-build:$PATH
 
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
-iwyu_tool.py -p .
+cmake -GNinja -DARROW_PYTHON=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+
+# Make so that vendored bits are built
+ninja
+
+$IWYU_SH all

@@ -19,7 +19,15 @@ ADD . /apache-arrow
 WORKDIR /apache-arrow
 
 RUN apt-get update -qq &&\
-    apt-get install -qq apt-utils wget gnupg software-properties-common
+    apt-get install -qq \
+            apt-utils \
+            wget \
+            gnupg \
+            build-essential \
+            ninja-build \
+            libboost-system-dev \
+            libboost-filesystem-dev \
+            software-properties-common
 
 RUN wget -O llvm-apt.gpg.key http://llvm.org/apt/llvm-snapshot.gpg.key &&\
     apt-key add llvm-apt.gpg.key &&\
