@@ -599,11 +599,11 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
   SequenceBuilder builder;
   std::vector<PyObject*> sublists, subtuples, subdicts, subsets;
   for (const auto& sequence : sequences) {
-    auto visit = [&](PyObject* obj) {
-      return Append(context, obj, &builder, &sublists, &subtuples, &subdicts, &subsets,
-                    blobs_out);
-    };
-    RETURN_NOT_OK(internal::VisitIterable(sequence, visit));
+    RETURN_NOT_OK(internal::VisitIterable(
+        sequence, [&](PyObject* obj, bool* keep_going /* unused */) {
+          return Append(context, obj, &builder, &sublists, &subtuples, &subdicts,
+                        &subsets, blobs_out);
+        }));
   }
   std::shared_ptr<Array> list;
   if (sublists.size() > 0) {

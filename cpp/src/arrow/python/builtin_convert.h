@@ -23,11 +23,11 @@
 
 #include "arrow/python/platform.h"
 
+#include <cstdint>
 #include <memory>
-#include <ostream>
-#include <string>
 
 #include "arrow/type.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 #include "arrow/python/common.h"
@@ -39,41 +39,43 @@ class Status;
 
 namespace py {
 
-// These three functions take a sequence input, not arbitrary iterables
-ARROW_EXPORT arrow::Status InferArrowType(PyObject* obj,
-                                          std::shared_ptr<arrow::DataType>* out_type);
-ARROW_EXPORT arrow::Status InferArrowTypeAndSize(
-    PyObject* obj, int64_t* size, std::shared_ptr<arrow::DataType>* out_type);
+struct PyConversionOptions {
+  PyConversionOptions() : type(NULLPTR), size(-1), pool(NULLPTR), from_pandas(false) {}
 
-ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj, int64_t size,
-                                            const std::shared_ptr<arrow::DataType>& type,
-                                            arrow::ArrayBuilder* builder,
-                                            bool from_pandas);
+  PyConversionOptions(const std::shared_ptr<DataType>& type, int64_t size,
+                      MemoryPool* pool, bool from_pandas)
+      : type(type), size(size), pool(default_memory_pool()), from_pandas(from_pandas) {}
 
-// Type and size inference
+  // Set to null if to be inferred
+  std::shared_ptr<DataType> type;
+
+  // Default is -1: infer from data
+  int64_t size;
+
+  // Memory pool to use for allocations
+  MemoryPool* pool;
+
+  // Default false
+  bool from_pandas;
+};
+
+/// \brief Convert sequence (list, generator, NumPy array with dtype object) of
+/// Python objects.
+/// \param[in] obj the sequence to convert
+/// \param[in] mask a NumPy array of true/false values to indicate whether
+/// values in the sequence are null (true) or not null (false). This parameter
+/// may be null
+/// \param[in] options various conversion options
+/// \param[out] out a ChunkedArray containing one or more chunks
+/// \return Status
 ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, MemoryPool* pool, bool from_pandas,
-                         std::shared_ptr<Array>* out);
-
-// Type inference only
-ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, int64_t size, MemoryPool* pool, bool from_pandas,
-                         std::shared_ptr<Array>* out);
-
-// Size inference only
-ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, const std::shared_ptr<DataType>& type,
-                         MemoryPool* pool, bool from_pandas, std::shared_ptr<Array>* out);
-
-// No inference
-ARROW_EXPORT
-Status ConvertPySequence(PyObject* obj, int64_t size,
-                         const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                         bool from_pandas, std::shared_ptr<Array>* out);
+Status ConvertPySequence(PyObject* obj, PyObject* mask,
+                         const PyConversionOptions& options,
+                         std::shared_ptr<ChunkedArray>* out);
 
 ARROW_EXPORT
-Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,
-                         std::ostream* out);
+Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
+                         std::shared_ptr<ChunkedArray>* out);
 
 }  // namespace py
 }  // namespace arrow

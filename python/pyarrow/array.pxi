@@ -16,43 +16,29 @@
 # under the License.
 
 
-cdef _sequence_to_array(object sequence, object size, DataType type,
+cdef _sequence_to_array(object sequence, object mask, object size,
+                        DataType type,
                         CMemoryPool* pool, c_bool from_pandas):
-    cdef shared_ptr[CArray] out
     cdef int64_t c_size
-    if type is None:
-        if size is None:
-            with nogil:
-                check_status(
-                    ConvertPySequence(sequence, pool, from_pandas, &out)
-                )
-        else:
-            c_size = size
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, c_size, pool, from_pandas, &out
-                    )
-                )
-    else:
-        if size is None:
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, type.sp_type, pool, from_pandas, &out,
-                    )
-                )
-        else:
-            c_size = size
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, c_size, type.sp_type, pool, from_pandas,
-                        &out,
-                    )
-                )
+    cdef PyConversionOptions options
 
-    return pyarrow_wrap_array(out)
+    if type is not None:
+        options.type = type.sp_type
+
+    if size is not None:
+        options.size = size
+
+    options.pool = pool
+    options.from_pandas = from_pandas
+
+    cdef shared_ptr[CChunkedArray] out
+    with nogil:
+        check_status(ConvertPySequence(sequence, mask, options, &out))
+
+    if out.get().num_chunks() == 1:
+        return pyarrow_wrap_array(out.get().chunk(0))
+    else:
+        return pyarrow_wrap_chunked_array(out)
 
 
 cdef _is_array_like(obj):
@@ -64,7 +50,7 @@ cdef _is_array_like(obj):
 
 
 cdef _ndarray_to_array(object values, object mask, DataType type,
-                       c_bool use_pandas_null_sentinels,
+                       c_bool from_pandas,
                        CMemoryPool* pool):
     cdef shared_ptr[CChunkedArray] chunked_out
     cdef shared_ptr[CDataType] c_type
@@ -79,8 +65,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         c_type = type.sp_type
 
     with nogil:
-        check_status(NdarrayToArrow(pool, values, mask,
-                                    use_pandas_null_sentinels,
+        check_status(NdarrayToArrow(pool, values, mask, from_pandas,
                                     c_type, &chunked_out))
 
     if chunked_out.get().num_chunks() > 1:
@@ -117,7 +102,6 @@ def array(object obj, type=None, mask=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
         memory pool
-
     size : int64, optional
         Size of the elements. If the imput is larger than size bail at this
         length. For iterators, if size is larger than the input iterator this
@@ -181,9 +165,7 @@ def array(object obj, type=None, mask=None,
                                                         type)
             return _ndarray_to_array(values, mask, type, from_pandas, pool)
     else:
-        if mask is not None:
-            raise ValueError("Masks only supported with ndarray-like inputs")
-        return _sequence_to_array(obj, size, type, pool, from_pandas)
+        return _sequence_to_array(obj, mask, size, type, pool, from_pandas)
 
 
 def asarray(values, type=None):
