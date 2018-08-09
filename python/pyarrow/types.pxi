@@ -855,7 +855,7 @@ def bool_():
 
 def uint8():
     """
-    Create instance of boolean type
+    Create instance of unsigned int8 type
     """
     return primitive_type(_Type_UINT8)
 
