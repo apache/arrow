@@ -21,6 +21,7 @@ CLANG_VERSION=6.0
 IWYU_BUILD_DIR=`pwd`/arrow/cpp/docker-iwyu
 IWYU_URL=https://github.com/include-what-you-use/include-what-you-use/archive/clang_$CLANG_VERSION.tar.gz
 
+rm -rf $IWYU_BUILD_DIR
 mkdir -p $IWYU_BUILD_DIR
 pushd $IWYU_BUILD_DIR
 
@@ -31,7 +32,10 @@ rm -f iwyu.tar.gz
 
 IWYU_SRC=`pwd`/include-what-you-use-clang_$CLANG_VERSION
 
-mkdir iwyu-build
+CC=clang-6.0
+CXX=clang++-6.0
+
+mkdir -p iwyu-build
 pushd iwyu-build
 cmake -G "Unix Makefiles" -DIWYU_LLVM_ROOT_PATH=/usr/lib/llvm-$CLANG_VERSION $IWYU_SRC
 make -j4
