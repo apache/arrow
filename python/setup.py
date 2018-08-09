@@ -494,6 +494,17 @@ if (not os.path.exists('../.git')
             """)
 
 
+def parse_git(root, **kwargs):
+    """
+    Parse function for setuptools_scm that ignores tags for non-C++
+    subprojects, e.g. apache-arrow-js-XXX tags.
+    """
+    from setuptools_scm.git import parse
+    kwargs['describe_command'] = \
+        "git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'"
+    return parse(root, **kwargs)
+
+
 with open('README.md') as f:
     long_description = f.read()
 
@@ -537,7 +548,7 @@ setup(
     },
     use_scm_version={"root": "..",
                      "relative_to": __file__,
-                     "tag_regex": '^apache-arrow-([\.0-9]+)$'},
+                     "parse": parse_git},
     setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas'],
