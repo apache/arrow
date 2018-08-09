@@ -66,6 +66,9 @@ extensions = [
 autodoc_default_flags = ['members', 'undoc-members', 'show-inheritance',
                          'inherited-members']
 
+# ipython directive options
+ipython_mplbackend = ''
+
 # numpydoc configuration
 napoleon_use_rtype = False
 
