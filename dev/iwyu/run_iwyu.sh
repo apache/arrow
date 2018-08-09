@@ -52,6 +52,8 @@ popd
 # Add iwyu and iwyu_tool.py to path
 export PATH=$IWYU_BUILD_DIR/iwyu-build:$PATH
 
+source activate pyarrow-dev
+
 cmake -GNinja -DARROW_PYTHON=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
 
 # Make so that vendored bits are built

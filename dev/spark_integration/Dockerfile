@@ -32,39 +32,12 @@ RUN apt-get update && \
     # Python dependencies
     apt-get install -y \
         pkg-config && \
-    # Create Conda environment
-    /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
-        # Python
-        python=2.7 \
-        numpy \
-        pandas \
-        pytest \
-        cython \
-        ipython \
-        matplotlib \
-        six \
-        setuptools \
-        setuptools_scm \
-        # C++
-        boost-cpp \
-        cmake \
-        flatbuffers \
-        rapidjson \
-        thrift-cpp \
-        snappy \
-        zlib \
-        gflags \
-        brotli \
-        jemalloc \
-        lz4-c \
-        zstd \
-        -c conda-forge && \
-    /home/ubuntu/miniconda/bin/conda clean --all
-
-ENV PATH="/home/ubuntu/miniconda/bin:${PATH}"
 
 ADD . /apache-arrow
 WORKDIR /apache-arrow
+
+RUN arrow/dev/docker_common/install_pyarrow_conda_toolchain.sh 2.7
+ENV PATH="/opt/conda/bin:${PATH}"
 
 CMD arrow/dev/spark_integration/spark_integration.sh
 

@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 FROM ubuntu:18.04
+
 ADD . /apache-arrow
 WORKDIR /apache-arrow
 
@@ -28,6 +29,9 @@ RUN apt-get update -qq &&\
             libboost-system-dev \
             libboost-filesystem-dev \
             software-properties-common
+
+CMD arrow/dev/docker_common/install_pyarrow_conda_toolchain.sh 3.6
+ENV PATH="/opt/conda/bin:${PATH}"
 
 RUN wget -O llvm-apt.gpg.key http://llvm.org/apt/llvm-snapshot.gpg.key &&\
     apt-key add llvm-apt.gpg.key &&\
