@@ -18,7 +18,7 @@
 # under the License.
 
 sudo apt-get install -y -q \
-    gdb ccache libboost-dev libboost-filesystem-dev \
+    gdb binutils ccache libboost-dev libboost-filesystem-dev \
     libboost-system-dev libboost-regex-dev libjemalloc-dev
 
 if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then

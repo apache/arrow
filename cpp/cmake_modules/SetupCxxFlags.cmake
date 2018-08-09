@@ -221,6 +221,95 @@ if (APPLE)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -stdlib=libc++")
 endif()
 
+# ----------------------------------------------------------------------
+# Setup Gold linker, if available. Code originally from Apache Kudu
+
+# Interrogates the linker version via the C++ compiler to determine whether
+# we're using the gold linker, and if so, extracts its version.
+#
+# If the gold linker is being used, sets GOLD_VERSION in the parent scope with
+# the extracted version.
+#
+# Any additional arguments are passed verbatim into the C++ compiler invocation.
+function(GET_GOLD_VERSION)
+  # The gold linker is only for ELF binaries, which macOS doesn't use.
+  execute_process(COMMAND ${CMAKE_CXX_COMPILER} "-Wl,--version" ${ARGN}
+    ERROR_QUIET
+    OUTPUT_VARIABLE LINKER_OUTPUT)
+  # We're expecting LINKER_OUTPUT to look like one of these:
+  #   GNU gold (version 2.24) 1.11
+  #   GNU gold (GNU Binutils for Ubuntu 2.30) 1.15
+  if (LINKER_OUTPUT MATCHES "GNU gold")
+    string(REGEX MATCH "GNU gold \\([^\\)]*\\) (([0-9]+\\.?)+)" _ "${LINKER_OUTPUT}")
+    if (NOT CMAKE_MATCH_1)
+      message(SEND_ERROR "Could not extract GNU gold version. "
+        "Linker version output: ${LINKER_OUTPUT}")
+    endif()
+    set(GOLD_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
+  endif()
+endfunction()
+
+# Is the compiler hard-wired to use the gold linker?
+if (NOT MSVC AND NOT APPLE)
+  GET_GOLD_VERSION()
+  if (GOLD_VERSION)
+    set(MUST_USE_GOLD 1)
+  else()
+    # Can the compiler optionally enable the gold linker?
+    GET_GOLD_VERSION("-fuse-ld=gold")
+
+    # We can't use the gold linker if it's inside devtoolset because the compiler
+    # won't find it when invoked directly from make/ninja (which is typically
+    # done outside devtoolset).
+    execute_process(COMMAND which ld.gold
+      OUTPUT_VARIABLE GOLD_LOCATION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET)
+    if ("${GOLD_LOCATION}" MATCHES "^/opt/rh/devtoolset")
+      message("Skipping optional gold linker (version ${GOLD_VERSION}) because "
+        "it's in devtoolset")
+      set(GOLD_VERSION)
+    endif()
+  endif()
+
+  if (GOLD_VERSION)
+    # Older versions of the gold linker are vulnerable to a bug [1] which
+    # prevents weak symbols from being overridden properly. This leads to
+    # omitting of dependencies like tcmalloc (used in Kudu, where this
+    # workaround was written originally)
+    #
+    # How we handle this situation depends on other factors:
+    # - If gold is optional, we won't use it.
+    # - If gold is required, we'll either:
+    #   - Raise an error in RELEASE builds (we shouldn't release such a product), or
+    #   - Drop tcmalloc in all other builds.
+    #
+    # 1. https://sourceware.org/bugzilla/show_bug.cgi?id=16979.
+    if ("${GOLD_VERSION}" VERSION_LESS "1.12")
+      set(ARROW_BUGGY_GOLD 1)
+    endif()
+    if (MUST_USE_GOLD)
+      message("Using hard-wired gold linker (version ${GOLD_VERSION})")
+      if (ARROW_BUGGY_GOLD)
+        if ("${ARROW_LINK}" STREQUAL "d" AND
+            "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+          message(SEND_ERROR "Configured to use buggy gold with dynamic linking "
+            "in a RELEASE build")
+        endif()
+      endif()
+    elseif (NOT ARROW_BUGGY_GOLD)
+      # The Gold linker must be manually enabled.
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=gold")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=gold")
+      message("Using optional gold linker (version ${GOLD_VERSION})")
+    else()
+      message("Optional gold linker is buggy, using ld linker instead")
+    endif()
+  else()
+    message("Using ld linker")
+  endif()
+endif()
+
 # compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
 # For all builds:
 # For CMAKE_BUILD_TYPE=Debug
