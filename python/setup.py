@@ -546,9 +546,11 @@ setup(
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
-    use_scm_version={"root": "..",
-                     "relative_to": __file__,
-                     "parse": parse_git},
+    use_scm_version={"root": os.path.dirname(setup_dir),
+                     "parse": parse_git,
+                     "write_to": os.path.join(setup_dir,
+                                              "pyarrow/_generated_version.py"),
+                     },
     setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas'],

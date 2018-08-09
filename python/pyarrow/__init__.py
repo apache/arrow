@@ -20,10 +20,9 @@
 import os as _os
 import sys as _sys
 
-from pkg_resources import get_distribution, DistributionNotFound
 try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
+    from ._generated_version import version as __version__
+except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
         import setuptools_scm
