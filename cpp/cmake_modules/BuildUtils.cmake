@@ -308,10 +308,22 @@ endfunction()
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options NO_VALGRIND)
   set(single_value_args)
-  set(multi_value_args STATIC_LINK_LIBS EXTRA_INCLUDES)
+  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
+  if (NOT "${ARROW_TEST_INCLUDE_LABELS}" STREQUAL "")
+    set(_SKIP_TEST TRUE)
+    foreach (_INCLUDED_LABEL ${ARG_LABELS})
+      if ("${ARG_LABELS}" MATCHES "${_INCLUDED_LABEL}")
+        set(_SKIP_TEST FALSE)
+      endif()
+    endforeach()
+    if (_SKIP_TEST)
+      return()
+    endif()
   endif()
 
   if(NO_TESTS OR NOT ARROW_BUILD_STATIC)
@@ -330,6 +342,11 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     else()
       target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
     endif()
+
+    if (ARG_EXTRA_LINK_LIBS)
+      target_link_libraries(${TEST_NAME} ${ARG_EXTRA_LINK_LIBS})
+    endif()
+
     if (ARG_EXTRA_INCLUDES)
       target_include_directories(${TEST_NAME} SYSTEM PUBLIC
         ${ARG_EXTRA_INCLUDES}
@@ -355,7 +372,16 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     add_test(${TEST_NAME}
       ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
   endif()
-  set_tests_properties(${TEST_NAME} PROPERTIES LABELS "unittest")
+
+  set_property(TEST ${TEST_NAME}
+    APPEND PROPERTY
+    LABELS "unittest")
+
+  if (ARG_LABELS)
+    set_property(TEST ${TEST_NAME}
+      APPEND PROPERTY
+      LABELS ${ARG_LABELS})
+  endif()
 endfunction()
 
 # A wrapper for add_dependencies() that is compatible with NO_TESTS.

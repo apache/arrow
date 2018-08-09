@@ -139,8 +139,8 @@ if (ARROW_BUILD_TESTS)
 
   ADD_ARROW_TEST(python-test
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}"
+    EXTRA_LINK_LIBS ${PYTHON_LIBRARIES}
     EXTRA_INCLUDES "${ARROW_PYTHON_INCLUDES}"
+    LABELS "python"
     NO_VALGRIND)
-  target_link_libraries(python-test
-    ${PYTHON_LIBRARIES})
 endif()
