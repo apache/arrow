@@ -457,18 +457,53 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
             os.symlink(lib_filename, link_name)
 
 
-# In the case of a git-archive, we don't have any version information
-# from the SCM to infer a version. The only source is the java/pom.xml.
-#
-# Note that this is only the case for git-archives. sdist tarballs have
-# all relevant information (but not the Java sources).
-if not os.path.exists('../.git') and os.path.exists('../java/pom.xml'):
-    import xml.etree.ElementTree as ET
-    tree = ET.parse('../java/pom.xml')
-    version_tag = list(tree.getroot().findall(
-        '{http://maven.apache.org/POM/4.0.0}version'))[0]
-    os.environ["SETUPTOOLS_SCM_PRETEND_VERSION"] = version_tag.text.replace(
-        "-SNAPSHOT", "a0")
+# If the event of not running from a git clone (e.g. from a git archive
+# or a Python sdist), see if we can set the version number ourselves
+if (not os.path.exists('../.git')
+        and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
+    if os.path.exists('PKG-INFO'):
+        # We're probably in a Python sdist, setuptools_scm will handle fine
+        pass
+    elif os.path.exists('../java/pom.xml'):
+        # We're probably in a git archive
+        import xml.etree.ElementTree as ET
+        tree = ET.parse('../java/pom.xml')
+        version_tag = list(tree.getroot().findall(
+            '{http://maven.apache.org/POM/4.0.0}version'))[0]
+        use_setuptools_scm = False
+        os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
+            version_tag.text.replace("-SNAPSHOT", "a0")
+    else:
+        raise RuntimeError("""\
+            No reliable source available to get Arrow version.
+
+            This is either because you copied the python/ directory yourself
+            outside of a git clone or source archive, or because you ran
+            `pip install` on the python/ directory.
+
+            * Recommended workaround: first run `python sdist`, then
+              `pip install` the resulting source distribution.
+
+            * If you're looking for an editable (in-place) install,
+              `python setup.py develop` should work fine in place of
+              `pip install -e .`.
+
+            * If you really want to `pip install` the python/ directory,
+              set the SETUPTOOLS_SCM_PRETEND_VERSION environment variable
+              to force the Arrow version to the given value.
+            """)
+
+
+def parse_git(root, **kwargs):
+    """
+    Parse function for setuptools_scm that ignores tags for non-C++
+    subprojects, e.g. apache-arrow-js-XXX tags.
+    """
+    from setuptools_scm.git import parse
+    kwargs['describe_command'] = \
+        "git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'"
+    return parse(root, **kwargs)
+
 
 with open('README.md') as f:
     long_description = f.read()
@@ -486,25 +521,12 @@ install_requires = (
 )
 
 
-def parse_version(root):
-    from setuptools_scm import version_from_scm
-    import setuptools_scm.git
-    describe = (setuptools_scm.git.DEFAULT_DESCRIBE +
-                " --match 'apache-arrow-[0-9]*'")
-    # Strip catchall from the commandline
-    describe = describe.replace("--match *.*", "")
-    version = setuptools_scm.git.parse(root, describe)
-    if not version:
-        return version_from_scm(root)
-    else:
-        return version
-
-
 # Only include pytest-runner in setup_requires if we're invoking tests
 if {'pytest', 'test', 'ptr'}.intersection(sys.argv):
     setup_requires = ['pytest-runner']
 else:
     setup_requires = []
+
 
 setup(
     name="pyarrow",
@@ -524,8 +546,9 @@ setup(
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
-    use_scm_version={"root": "..", "relative_to": __file__,
-                     "parse": parse_version},
+    use_scm_version={"root": "..",
+                     "relative_to": __file__,
+                     "parse": parse_git},
     setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas'],
