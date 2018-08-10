@@ -234,15 +234,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// DecimalType_initialize
-xptr_DataType DecimalType_initialize(int32_t precision, int32_t scale);
-RcppExport SEXP _arrow_DecimalType_initialize(SEXP precisionSEXP, SEXP scaleSEXP) {
+// Decimal128Type_initialize
+xptr_DataType Decimal128Type_initialize(int32_t precision, int32_t scale);
+RcppExport SEXP _arrow_Decimal128Type_initialize(SEXP precisionSEXP, SEXP scaleSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int32_t >::type precision(precisionSEXP);
     Rcpp::traits::input_parameter< int32_t >::type scale(scaleSEXP);
-    rcpp_result_gen = Rcpp::wrap(DecimalType_initialize(precision, scale));
+    rcpp_result_gen = Rcpp::wrap(Decimal128Type_initialize(precision, scale));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -435,6 +435,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// DecimalType_precision
+int32_t DecimalType_precision(xptr_DecimalType type);
+RcppExport SEXP _arrow_DecimalType_precision(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_DecimalType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DecimalType_precision(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DecimalType_scale
+int32_t DecimalType_scale(xptr_DecimalType type);
+RcppExport SEXP _arrow_DecimalType_scale(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_DecimalType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DecimalType_scale(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayBuilder", (DL_FUNC) &_arrow_ArrayBuilder, 1},
@@ -459,7 +481,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Date32_initialize", (DL_FUNC) &_arrow_Date32_initialize, 0},
     {"_arrow_Date64_initialize", (DL_FUNC) &_arrow_Date64_initialize, 0},
     {"_arrow_Null_initialize", (DL_FUNC) &_arrow_Null_initialize, 0},
-    {"_arrow_DecimalType_initialize", (DL_FUNC) &_arrow_DecimalType_initialize, 2},
+    {"_arrow_Decimal128Type_initialize", (DL_FUNC) &_arrow_Decimal128Type_initialize, 2},
     {"_arrow_FixedSizeBinary_initialize", (DL_FUNC) &_arrow_FixedSizeBinary_initialize, 1},
     {"_arrow_Timestamp_initialize1", (DL_FUNC) &_arrow_Timestamp_initialize1, 1},
     {"_arrow_Timestamp_initialize2", (DL_FUNC) &_arrow_Timestamp_initialize2, 2},
@@ -477,6 +499,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ListType_ToString", (DL_FUNC) &_arrow_ListType_ToString, 1},
     {"_arrow_FixedWidthType_bit_width", (DL_FUNC) &_arrow_FixedWidthType_bit_width, 1},
     {"_arrow_DateType_unit", (DL_FUNC) &_arrow_DateType_unit, 1},
+    {"_arrow_DecimalType_precision", (DL_FUNC) &_arrow_DecimalType_precision, 1},
+    {"_arrow_DecimalType_scale", (DL_FUNC) &_arrow_DecimalType_scale, 1},
     {NULL, NULL, 0}
 };
 

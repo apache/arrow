@@ -91,8 +91,8 @@ Null_initialize <- function() {
     .Call(`_arrow_Null_initialize`)
 }
 
-DecimalType_initialize <- function(precision, scale) {
-    .Call(`_arrow_DecimalType_initialize`, precision, scale)
+Decimal128Type_initialize <- function(precision, scale) {
+    .Call(`_arrow_Decimal128Type_initialize`, precision, scale)
 }
 
 FixedSizeBinary_initialize <- function(byte_width) {
@@ -161,5 +161,13 @@ FixedWidthType_bit_width <- function(type) {
 
 DateType_unit <- function(type) {
     .Call(`_arrow_DateType_unit`, type)
+}
+
+DecimalType_precision <- function(type) {
+    .Call(`_arrow_DecimalType_precision`, type)
+}
+
+DecimalType_scale <- function(type) {
+    .Call(`_arrow_DecimalType_scale`, type)
 }
 

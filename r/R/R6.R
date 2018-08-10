@@ -57,6 +57,14 @@ NAMESPACE <- environment()
   )
 )
 
+`arrow::DecimalType` <- R6Class("arrow:::DecimalType",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    precision = function() DecimalType_precision(private$xp),
+    scale = function() DecimalType_scale(private$xp)
+  )
+)
+
 datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
   initialize_methods <- map(grep( glue("^{name}_initialize"), ls(env = NAMESPACE), value = TRUE), get, env = NAMESPACE, mode = "function", inherits = FALSE)
 
@@ -118,6 +126,7 @@ delayedAssign("arrow::Date64", datatype_arrow_class("Date64", super = `arrow::Da
 )
 
 delayedAssign("arrow::Timestamp", datatype_arrow_class("Timestamp"))
+delayedAssign("arrow::Decimal128Type" , datatype_arrow_class("Decimal128Type", super = `arrow::DecimalType` ))
 
 #' @export
 int8 <- function() `arrow::Int8`$new()
@@ -169,6 +178,9 @@ null <- function() `arrow::Null`$new()
 
 #' @export
 timestamp <- function(...) `arrow::Timestamp`$new(...)
+
+#' @export
+decimal <- function(precision, scale) `arrow::Decimal128Type`$new(precision, scale)
 
 #------- field
 

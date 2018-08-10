@@ -102,8 +102,8 @@ xptr_DataType Null_initialize() {
 }
 
 // [[Rcpp::export]]
-xptr_DataType DecimalType_initialize(int32_t precision, int32_t scale) {
-  return metadata(arrow::decimal(precision, scale), "arrow::NullType", "arrow::DataType");
+xptr_DataType Decimal128Type_initialize(int32_t precision, int32_t scale) {
+  return metadata(arrow::decimal(precision, scale), "arrow::Decimal128Type", "arrow::DecimalType", "arrow::FixedSizeBinaryType", "arrow::FixedWidthType", "arrow::DataType");
 }
 
 // [[Rcpp::export]]
@@ -253,4 +253,14 @@ int FixedWidthType_bit_width(xptr_FixedWidthType type){
 // [[Rcpp::export]]
 arrow::DateUnit DateType_unit(xptr_DateType type){
   return std::shared_ptr<arrow::DateType>(*type)->unit();
+}
+
+// [[Rcpp::export]]
+int32_t DecimalType_precision(xptr_DecimalType type) {
+  return std::shared_ptr<arrow::DecimalType>(*type)->precision();
+}
+
+// [[Rcpp::export]]
+int32_t DecimalType_scale(xptr_DecimalType type) {
+  return std::shared_ptr<arrow::DecimalType>(*type)->scale();
 }
