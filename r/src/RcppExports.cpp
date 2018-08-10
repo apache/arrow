@@ -468,6 +468,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// TimestampType_timezone
+std::string TimestampType_timezone(xptr_TimestampType type);
+RcppExport SEXP _arrow_TimestampType_timezone(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_TimestampType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(TimestampType_timezone(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// TimestampType_unit
+arrow::TimeUnit::type TimestampType_unit(xptr_TimestampType type);
+RcppExport SEXP _arrow_TimestampType_unit(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_TimestampType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(TimestampType_unit(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayBuilder", (DL_FUNC) &_arrow_ArrayBuilder, 1},
@@ -513,6 +535,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_TimeType_unit", (DL_FUNC) &_arrow_TimeType_unit, 1},
     {"_arrow_DecimalType_precision", (DL_FUNC) &_arrow_DecimalType_precision, 1},
     {"_arrow_DecimalType_scale", (DL_FUNC) &_arrow_DecimalType_scale, 1},
+    {"_arrow_TimestampType_timezone", (DL_FUNC) &_arrow_TimestampType_timezone, 1},
+    {"_arrow_TimestampType_unit", (DL_FUNC) &_arrow_TimestampType_unit, 1},
     {NULL, NULL, 0}
 };
 

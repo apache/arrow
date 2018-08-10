@@ -28,6 +28,7 @@ using xptr_DateType = Rcpp::XPtr<std::shared_ptr<arrow::DateType>>;
 using xptr_TimeType = Rcpp::XPtr<std::shared_ptr<arrow::TimeType>>;
 using xptr_DecimalType = Rcpp::XPtr<std::shared_ptr<arrow::DecimalType>>;
 using xptr_Decimal128Type = Rcpp::XPtr<std::shared_ptr<arrow::Decimal128Type>>;
+using xptr_TimestampType = Rcpp::XPtr<std::shared_ptr<arrow::TimestampType>>;
 using xptr_Field = Rcpp::XPtr<std::shared_ptr<arrow::Field>>;
 using xptr_Schema = Rcpp::XPtr<std::shared_ptr<arrow::Schema>>;
 using xptr_ListType = Rcpp::XPtr<std::shared_ptr<arrow::ListType>>;

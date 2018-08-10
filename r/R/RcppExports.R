@@ -175,3 +175,11 @@ DecimalType_scale <- function(type) {
     .Call(`_arrow_DecimalType_scale`, type)
 }
 
+TimestampType_timezone <- function(type) {
+    .Call(`_arrow_TimestampType_timezone`, type)
+}
+
+TimestampType_unit <- function(type) {
+    .Call(`_arrow_TimestampType_unit`, type)
+}
+

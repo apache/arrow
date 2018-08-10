@@ -66,26 +66,13 @@ NAMESPACE <- environment()
 )
 
 datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
-  initialize_methods <- map(grep( glue("^{name}_initialize"), ls(env = NAMESPACE), value = TRUE), get, env = NAMESPACE, mode = "function", inherits = FALSE)
-
-  initialize <- if (length(initialize_methods) == 1L) {
-    fun <- initialize_methods[[1L]]
-    function(...) {
-      private$xp <- fun(...)
-    }
-  } else {
-    nargs <- map_int(initialize_methods, ~length(formals(.)))
-    function(...){
-      fun <- initialize_methods[[ which(nargs == dots_n(...)) ]]
-      private$xp <- fun(...)
-    }
-  }
+  init <- get(glue("{name}_initialize"), envir = NAMESPACE)
 
   R6::R6Class(
     glue("arrow::{name}"),
     inherit = super ,
     public = list(
-      initialize = initialize
+      initialize = function(...) private$xp <- init(...)
     )
   )
 }
@@ -134,7 +121,24 @@ delayedAssign("arrow::Time64", datatype_arrow_class("Time64", super = `arrow::Ti
   )
 )
 
-delayedAssign("arrow::Timestamp", datatype_arrow_class("Timestamp"))
+`arrow::Timestamp` <- R6::R6Class(
+  glue("arrow::Timestamp"),
+  inherit = `arrow::FixedWidthType` ,
+  public = list(
+    initialize = function(unit, timezone){
+      private$xp <- if (missing(timezone)) {
+        Timestamp_initialize1(unit)
+      } else {
+        Timestamp_initialize2(unit, timezone)
+      }
+    },
+
+    timezone = function()  TimestampType_timezone(private$xp),
+    unit = function() TimestampType_unit(private$xp)
+  )
+)
+
+
 delayedAssign("arrow::Decimal128Type" , datatype_arrow_class("Decimal128Type", super = `arrow::DecimalType` ))
 
 #' @export

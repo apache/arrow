@@ -277,3 +277,13 @@ int32_t DecimalType_precision(xptr_DecimalType type) {
 int32_t DecimalType_scale(xptr_DecimalType type) {
   return std::shared_ptr<arrow::DecimalType>(*type)->scale();
 }
+
+// [[Rcpp::export]]
+std::string TimestampType_timezone(xptr_TimestampType type) {
+  return std::shared_ptr<arrow::TimestampType>(*type)->timezone();
+}
+
+// [[Rcpp::export]]
+arrow::TimeUnit::type TimestampType_unit(xptr_TimestampType type) {
+  return std::shared_ptr<arrow::TimestampType>(*type)->unit();
+}
