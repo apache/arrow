@@ -103,8 +103,8 @@ Time64_initialize <- function(unit) {
     .Call(`_arrow_Time64_initialize`, unit)
 }
 
-list_ <- function(x) {
-    .Call(`_arrow_list_`, x)
+list__ <- function(x) {
+    .Call(`_arrow_list__`, x)
 }
 
 struct_ <- function(fields) {
@@ -121,5 +121,9 @@ schema_ <- function(fields) {
 
 Schema_ToString <- function(type) {
     .Call(`_arrow_Schema_ToString`, type)
+}
+
+ListType_ToString <- function(type) {
+    .Call(`_arrow_ListType_ToString`, type)
 }
 

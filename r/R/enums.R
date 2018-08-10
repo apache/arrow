@@ -17,10 +17,18 @@
 
 #' @export
 `$.arrow-enum` <- function(x, y){
-  structure( unclass(x)[[y]], class = class(x) )
+  structure(unclass(x)[[y]], class = class(x))
 }
 
 #' @export
 `print.arrow-enum` <- function(x, ...){
   NextMethod()
 }
+
+enum <- function(class, ...){
+  structure(list(...), class = c( class, "arrow-enum" ))
+}
+
+
+#' @export
+TimeUnit <- enum("arrow::TimeUnit::type", SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L)

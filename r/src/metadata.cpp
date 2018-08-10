@@ -145,7 +145,7 @@ xptr_DataType Time64_initialize(arrow::TimeUnit::type unit) {
 }
 
 // [[Rcpp::export]]
-SEXP list_(SEXP x) {
+SEXP list__(SEXP x) {
   if (Rf_inherits(x, "arrow::Field")) {
     return metadata(arrow::list(*xptr_Field(x)), "arrow::ListType", "arrow::NestedType",
                     "arrow::DataType");
@@ -194,5 +194,11 @@ xptr_Schema schema_(ListOf<xptr_Field> fields) {
 // [[Rcpp::export]]
 std::string Schema_ToString(xptr_Schema type) {
   std::shared_ptr<arrow::Schema> ptr(*type);
+  return ptr->ToString();
+}
+
+// [[Rcpp::export]]
+std::string ListType_ToString(xptr_ListType type) {
+  std::shared_ptr<arrow::ListType> ptr(*type);
   return ptr->ToString();
 }

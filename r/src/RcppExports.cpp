@@ -269,14 +269,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// list_
-SEXP list_(SEXP x);
-RcppExport SEXP _arrow_list_(SEXP xSEXP) {
+// list__
+SEXP list__(SEXP x);
+RcppExport SEXP _arrow_list__(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(list_(x));
+    rcpp_result_gen = Rcpp::wrap(list__(x));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -324,6 +324,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ListType_ToString
+std::string ListType_ToString(xptr_ListType type);
+RcppExport SEXP _arrow_ListType_ToString(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_ListType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(ListType_ToString(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayBuilder", (DL_FUNC) &_arrow_ArrayBuilder, 1},
@@ -351,11 +362,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Timestamp_initialize2", (DL_FUNC) &_arrow_Timestamp_initialize2, 2},
     {"_arrow_Time32_initialize", (DL_FUNC) &_arrow_Time32_initialize, 1},
     {"_arrow_Time64_initialize", (DL_FUNC) &_arrow_Time64_initialize, 1},
-    {"_arrow_list_", (DL_FUNC) &_arrow_list_, 1},
+    {"_arrow_list__", (DL_FUNC) &_arrow_list__, 1},
     {"_arrow_struct_", (DL_FUNC) &_arrow_struct_, 1},
     {"_arrow_DataType_ToString", (DL_FUNC) &_arrow_DataType_ToString, 1},
     {"_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1},
     {"_arrow_Schema_ToString", (DL_FUNC) &_arrow_Schema_ToString, 1},
+    {"_arrow_ListType_ToString", (DL_FUNC) &_arrow_ListType_ToString, 1},
     {NULL, NULL, 0}
 };
 
