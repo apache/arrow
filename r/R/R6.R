@@ -58,42 +58,95 @@ NAMESPACE <- environment()
   ! lhs == rhs
 }
 
-`arrow::DecimalType` <- R6Class("arrow:::DecimalType",
+"arrow::Int8"    <- R6Class("arrow::Int8",
   inherit = `arrow::FixedWidthType`,
   public = list(
-    precision = function() DecimalType_precision(private$xp),
-    scale = function() DecimalType_scale(private$xp)
+    initialize = function() private$xp <- Int8_initialize()
   )
 )
 
-datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
-  init <- get(glue("{name}_initialize"), envir = NAMESPACE)
-
-  R6::R6Class(
-    glue("arrow::{name}"),
-    inherit = super ,
-    public = list(
-      initialize = function(...) private$xp <- init(...)
-    )
+"arrow::Int16"    <- R6Class("arrow::Int16",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- Int16_initialize()
   )
-}
+)
 
-"arrow::Int8" <- datatype_arrow_class("Int8")
-"arrow::Int16" <- datatype_arrow_class("Int16")
-"arrow::Int32" <- datatype_arrow_class("Int32")
-"arrow::Int64" <- datatype_arrow_class("Int64")
+"arrow::Int32"    <- R6Class("arrow::Int32",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- Int32_initialize()
+  )
+)
 
-"arrow::UInt8" <- datatype_arrow_class("UInt8")
-"arrow::UInt16" <- datatype_arrow_class("UInt16")
-"arrow::UInt32" <- datatype_arrow_class("UInt32")
-"arrow::UInt64" <- datatype_arrow_class("UInt64")
+"arrow::Int64"    <- R6Class("arrow::Int64",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- Int64_initialize()
+  )
+)
 
-"arrow::Float16" <- datatype_arrow_class("Float16")
-"arrow::Float32" <- datatype_arrow_class("Float32")
-"arrow::Float64" <- datatype_arrow_class("Float64")
 
-"arrow::Boolean" <- datatype_arrow_class("Boolean")
-"arrow::Utf8" <- datatype_arrow_class("Utf8")
+"arrow::UInt8"    <- R6Class("arrow::UInt8",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- UInt8_initialize()
+  )
+)
+
+"arrow::UInt16"    <- R6Class("arrow::UInt16",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- UInt16_initialize()
+  )
+)
+
+"arrow::UInt32"    <- R6Class("arrow::UInt32",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- UInt32_initialize()
+  )
+)
+
+"arrow::UInt64"    <- R6Class("arrow::UInt64",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- UInt64_initialize()
+  )
+)
+
+"arrow::Float16"    <- R6Class("arrow::Float16",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- Float16_initialize()
+  )
+)
+"arrow::Float32"    <- R6Class("arrow::Float32",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- Float32_initialize()
+  )
+)
+"arrow::Float64"    <- R6Class("arrow::Float64",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- Float64_initialize()
+  )
+)
+
+"arrow::Boolean"    <- R6Class("arrow::Boolean",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- Boolean_initialize()
+  )
+)
+
+"arrow::Utf8"    <- R6Class("arrow::Utf8",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    initialize = function() private$xp <- Utf8_initialize()
+  )
+)
 
 `arrow::DateType` <- R6Class("arrow::DateType",
   inherit = `arrow::FixedWidthType`,
@@ -101,8 +154,19 @@ datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
     unit = function() DateType_unit(private$xp)
   )
 )
-"arrow::Date32" <- datatype_arrow_class("Date32", super = `arrow::DateType`)
-"arrow::Date64" <- datatype_arrow_class("Date64", super = `arrow::DateType`)
+
+"arrow::Date32"    <- R6Class("arrow::Date32",
+  inherit = `arrow::DateType`,
+  public = list(
+    initialize = function() private$xp <- Date32_initialize()
+  )
+)
+"arrow::Date64"    <- R6Class("arrow::Date64",
+  inherit = `arrow::DateType`,
+  public = list(
+    initialize = function() private$xp <- Date64_initialize()
+  )
+)
 
 `arrow::TimeType` <- R6Class("arrow::TimeType",
   inherit = `arrow::FixedWidthType`,
@@ -110,8 +174,18 @@ datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
     unit = function() TimeType_unit(private$xp)
   )
 )
-"arrow::Time32" <- datatype_arrow_class("Time32", super = `arrow::TimeType`)
-"arrow::Time64" <- datatype_arrow_class("Time64", super = `arrow::TimeType`)
+"arrow::Time32"    <- R6Class("arrow::Time32",
+  inherit = `arrow::TimeType`,
+  public = list(
+    initialize = function() private$xp <- Time32_initialize()
+  )
+)
+"arrow::Time64"    <- R6Class("arrow::Time64",
+  inherit = `arrow::TimeType`,
+  public = list(
+    initialize = function() private$xp <- Time64_initialize()
+  )
+)
 
 `arrow::Null` <- R6Class("arrow::Null",
   inherit = `arrow::DataType`,
@@ -122,7 +196,7 @@ datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
   )
 )
 
-`arrow::Timestamp` <- R6::R6Class(
+`arrow::Timestamp` <- R6Class(
   glue("arrow::Timestamp"),
   inherit = `arrow::FixedWidthType` ,
   public = list(
@@ -139,8 +213,20 @@ datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
   )
 )
 
+`arrow::DecimalType` <- R6Class("arrow:::DecimalType",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    precision = function() DecimalType_precision(private$xp),
+    scale = function() DecimalType_scale(private$xp)
+  )
+)
 
-"arrow::Decimal128Type" <- datatype_arrow_class("Decimal128Type", super = `arrow::DecimalType` )
+"arrow::Decimal128Type"    <- R6Class("arrow::Decimal128Type",
+  inherit = `arrow::DecimalType`,
+  public = list(
+    initialize = function(precision, scale) private$xp <- Decimal128Type_initialize(precision, scale)
+  )
+)
 
 #' @export
 int8 <- function() `arrow::Int8`$new()
