@@ -22,6 +22,9 @@ use buffer::Buffer;
 use datatypes::DataType;
 use util::bit_util::count_set_bits;
 
+/// An generic representation of Arrow array data which encapsulates common attributes and
+/// operations for Arrow array. Specific operations for different arrays types (e.g.,
+/// primitive, list, struct) are implemented in `Array`.
 #[derive(PartialEq, Debug)]
 pub struct ArrayData {
     /// The data type for this array data

@@ -117,7 +117,7 @@ macro_rules! def_primitive_array {
             ///
             /// Note this doesn't take account into the offset of this array.
             pub fn values(&self) -> Buffer {
-                self.data.buffers()[0].copy()
+                self.data.buffers()[0].clone()
             }
 
             /// Returns a raw pointer to the values of this array.
@@ -493,7 +493,7 @@ mod tests {
     fn test_primitive_array() {
         let values: Vec<i32> = vec![0, 1, 2, 3, 4];
         let buf = Buffer::from(&values[..].to_byte_slice());
-        let buf2 = buf.copy();
+        let buf2 = buf.clone();
         let pa = PrimitiveArray::<i32>::new(buf.len() as i64, buf, 0, 0);
         assert_eq!(buf2, pa.values());
         assert_eq!(2, pa.value(2));
@@ -503,7 +503,7 @@ mod tests {
 
         // Test building an primitive array with ArrayData builder and offset
         let buf = Buffer::from(&[2, 4, 6, 8, 10].to_byte_slice());
-        let buf2 = buf.copy();
+        let buf2 = buf.clone();
         let data = ArrayData::builder(DataType::Int32)
             .len(5)
             .offset(2)
@@ -532,7 +532,7 @@ mod tests {
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(3)
-            .add_buffer(value_offsets.copy())
+            .add_buffer(value_offsets.clone())
             .add_child_data(value_data.clone())
             .build();
         let list_array = ListArray::from(list_data);

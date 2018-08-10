@@ -22,8 +22,6 @@ use criterion::Criterion;
 
 extern crate arrow;
 
-use std::rc::Rc;
-
 use arrow::array::*;
 use arrow::array_data::ArrayDataBuilder;
 use arrow::buffer::Buffer;
@@ -37,7 +35,7 @@ fn array_from_vec(n: usize) {
     let arr_data = ArrayDataBuilder::new(DataType::Int32)
         .add_buffer(Buffer::from(v))
         .build();
-    let _: PrimitiveArray<i32> = PrimitiveArray::from(Rc::new(arr_data));
+    criterion::black_box(PrimitiveArray::<i32>::from(arr_data));
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

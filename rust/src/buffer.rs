@@ -89,20 +89,21 @@ impl Buffer {
         self.data.ptr
     }
 
-    /// Returns a shallow copy for this buffer, i.e., a new buffer that points to the
-    /// same memory location of this buffer.
-    pub fn copy(&self) -> Buffer {
-        Buffer {
-            data: self.data.clone(),
-            offset: self.offset,
-        }
-    }
-
     /// Returns an empty buffer.
     pub fn empty() -> Buffer {
         Buffer::from_raw_parts(::std::ptr::null(), 0)
     }
 }
+
+impl Clone for Buffer {
+    fn clone(&self) -> Buffer {
+        Buffer {
+            data: self.data.clone(),
+            offset: self.offset,
+        }
+    }
+}
+
 
 /// Creating a `Buffer` instance by copying the memory from a `Vec<u8>` into a newly
 /// allocated memory region.
@@ -166,7 +167,7 @@ mod tests {
     #[test]
     fn test_buffer_copy() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
-        let buf2 = buf.copy();
+        let buf2 = buf.clone();
         assert_eq!(5, buf2.len());
         assert!(!buf2.raw_data().is_null());
         assert_eq!(&[0, 1, 2, 3, 4], buf2.data());
@@ -175,12 +176,12 @@ mod tests {
     #[test]
     fn test_access_buffer_concurrently() {
         let buffer = Buffer::from(vec![1, 2, 3, 4, 5]);
-        let buffer2 = buffer.copy();
+        let buffer2 = buffer.clone();
         assert_eq!(&[1, 2, 3, 4, 5], buffer.data());
 
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.
-            buffer.copy()
+            buffer.clone()
         }).join();
 
         assert!(buffer_copy.is_ok());

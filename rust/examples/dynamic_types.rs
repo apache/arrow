@@ -91,7 +91,7 @@ fn process(batch: &RecordBatch) {
     let _ = RecordBatch::new(
         Arc::new(projected_schema),
         vec![
-            id.clone(), //NOTE: this is cloning the Rc not the array data
+            id.clone(), //NOTE: this is cloning the Arc not the array data
             Arc::new(PrimitiveArray::<f64>::from(nested_c.data())),
         ],
     );
