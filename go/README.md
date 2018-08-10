@@ -133,7 +133,7 @@ them internally in the [ifql][] execution engine and storage layers of [InfluxDB
 - [x] Variable-length binary
 - [ ] String (valid UTF-8)
 - [ ] Half-float (16-bit)
-- [ ] Null (no physical storage)
+- [x] Null (no physical storage)
 
 **Parametric types**
 

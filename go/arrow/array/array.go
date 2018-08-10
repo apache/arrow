@@ -134,7 +134,7 @@ type arrayConstructorFn func(*Data) Interface
 
 var (
 	makeArrayFn = [...]arrayConstructorFn{
-		arrow.NULL:              unsupportedArrayType,
+		arrow.NULL:              func(data *Data) Interface { return NewNullData(data) },
 		arrow.BOOL:              func(data *Data) Interface { return NewBooleanData(data) },
 		arrow.UINT8:             func(data *Data) Interface { return NewUint8Data(data) },
 		arrow.INT8:              func(data *Data) Interface { return NewInt8Data(data) },
