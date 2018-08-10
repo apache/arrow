@@ -16,8 +16,8 @@
 // under the License.
 
 #include <cstdint>
-#include <memory>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <type_traits>
