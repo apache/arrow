@@ -677,7 +677,7 @@ if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
 
-  if (CMAKE_COMPILER_IS_GNUCXX)
+  if (CMAKE_COMPILER_IS_GNUCXX AND PTHREAD_LIBRARY)
     set(ARROW_JEMALLOC_LINK_LIBS
       jemalloc_static
       # For glibc <2.17 we need to link to librt.
@@ -697,7 +697,7 @@ if (ARROW_JEMALLOC)
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
     ${ARROW_JEMALLOC_LINK_LIBS})
-elseif (NOT MSVC)
+elseif (PTHREAD_LIBRARY)
   # We need to separate this as otherwise CMake would mess with the library
   # linking order.
   set(ARROW_LINK_LIBS
