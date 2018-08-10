@@ -189,6 +189,24 @@ bool DataType_Equals(xptr_DataType lhs, xptr_DataType rhs) {
 }
 
 // [[Rcpp::export]]
+int DataType_num_children(xptr_DataType type) {
+  return std::shared_ptr<arrow::DataType>(*type)->num_children();
+}
+
+// [[Rcpp::export]]
+List DataType_children_pointer(xptr_DataType type) {
+  const std::vector<std::shared_ptr<arrow::Field>>& kids = std::shared_ptr<arrow::DataType>(*type)->children();
+
+  int n = kids.size();
+  List out(n);
+  for (int i=0; i<n; i++) {
+    out[i] = xptr_Field(new std::shared_ptr<arrow::Field>(kids[i])) ;
+  }
+  return out;
+}
+
+
+// [[Rcpp::export]]
 xptr_Schema schema_(ListOf<xptr_Field> fields) {
   int n = fields.size();
   std::vector<std::shared_ptr<arrow::Field>> vec_fields;
@@ -217,3 +235,4 @@ std::string ListType_ToString(xptr_ListType type) {
 int FixedWidthType_bit_width(xptr_FixedWidthType type){
   return std::shared_ptr<arrow::FixedWidthType>(*type)->bit_width();
 }
+

@@ -1,3 +1,9 @@
+#' @importFrom R6 R6Class
+#' @importFrom glue glue
+#' @importFrom purrr map map_int map2
+#' @importFrom rlang dots_n
+#' @importFrom assertthat assert_that
+
 NAMESPACE <- environment()
 
 `arrow::Object` <- R6Class("arrow::Object",
@@ -19,6 +25,12 @@ NAMESPACE <- environment()
     },
     Equals = function(rhs) {
       inherits(rhs, "arrow::DataType") && DataType_Equals(private$xp, rhs$pointer())
+    },
+    num_children = function() {
+      DataType_num_children(private$xp)
+    },
+    children = function() {
+      map(DataType_children_pointer(private$xp), field)
     }
   )
 )
@@ -42,10 +54,6 @@ NAMESPACE <- environment()
   )
 )
 
-#' @importFrom R6 R6Class
-#' @importFrom glue glue
-#' @importFrom purrr map map_int
-#' @importFrom rlang dots_n
 datatype_arrow_class <- function(name){
 
   initialize_methods <- map(grep( glue("^{name}_initialize"), ls(env = NAMESPACE), value = TRUE), get, env = NAMESPACE, mode = "function", inherits = FALSE)
@@ -145,17 +153,31 @@ null <- function() `arrow::Null`$new()
 #' @export
 timestamp <- function(...) `arrow::Timestamp`$new(...)
 
+#------- field
+
+`arrow::Field` <- R6Class("arrow::Field",
+  inherit = `arrow::Object`,
+  public = list(
+    initialize = function(xp){
+      private$xp <- xp
+    },
+    print = function(...) {
+      cat( glue( "Field<{s}>", s = Field_ToString(private$xp)))
+    }
+  )
+)
+
+field <- function(xp) `arrow::Field`$new(xp)
+
 #------- struct and schema
 
-#' @importFrom purrr map2
-#' @importFrom assertthat assert_that
 .fields <- function(.list){
   assert_that( !is.null(nms <- names(.list)) )
-  map2(.list, nms, ~field(.y, .x$pointer()))
+  map2(.list, nms, ~ field_pointer(.y, .x$pointer()))
 }
 
 `arrow::StructType` <- R6Class("arrow::StructType",
-  inherit = `arrow::Object`,
+  inherit = `arrow::DataType`,
   public = list(
     print = function(...) {
       cat( glue( "StructType({s})", s = DataType_ToString(private$xp)))

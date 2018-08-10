@@ -28,16 +28,27 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// field
-xptr_Field field(const std::string& name, xptr_DataType type, bool nullable);
-RcppExport SEXP _arrow_field(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
+// field_pointer
+xptr_Field field_pointer(const std::string& name, xptr_DataType type, bool nullable);
+RcppExport SEXP _arrow_field_pointer(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type name(nameSEXP);
     Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
     Rcpp::traits::input_parameter< bool >::type nullable(nullableSEXP);
-    rcpp_result_gen = Rcpp::wrap(field(name, type, nullable));
+    rcpp_result_gen = Rcpp::wrap(field_pointer(name, type, nullable));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Field_ToString
+std::string Field_ToString(xptr_Field type);
+RcppExport SEXP _arrow_Field_ToString(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Field >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field_ToString(type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -325,6 +336,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// DataType_num_children
+int DataType_num_children(xptr_DataType type);
+RcppExport SEXP _arrow_DataType_num_children(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType_num_children(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// DataType_children_pointer
+List DataType_children_pointer(xptr_DataType type);
+RcppExport SEXP _arrow_DataType_children_pointer(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType_children_pointer(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // schema_
 xptr_Schema schema_(ListOf<xptr_Field> fields);
 RcppExport SEXP _arrow_schema_(SEXP fieldsSEXP) {
@@ -373,7 +406,8 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayBuilder", (DL_FUNC) &_arrow_ArrayBuilder, 1},
     {"_arrow_ArrayBuilder__num_children", (DL_FUNC) &_arrow_ArrayBuilder__num_children, 1},
-    {"_arrow_field", (DL_FUNC) &_arrow_field, 3},
+    {"_arrow_field_pointer", (DL_FUNC) &_arrow_field_pointer, 3},
+    {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Int8_initialize", (DL_FUNC) &_arrow_Int8_initialize, 0},
     {"_arrow_Int16_initialize", (DL_FUNC) &_arrow_Int16_initialize, 0},
     {"_arrow_Int32_initialize", (DL_FUNC) &_arrow_Int32_initialize, 0},
@@ -401,6 +435,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_DataType_ToString", (DL_FUNC) &_arrow_DataType_ToString, 1},
     {"_arrow_DataType_name", (DL_FUNC) &_arrow_DataType_name, 1},
     {"_arrow_DataType_Equals", (DL_FUNC) &_arrow_DataType_Equals, 2},
+    {"_arrow_DataType_num_children", (DL_FUNC) &_arrow_DataType_num_children, 1},
+    {"_arrow_DataType_children_pointer", (DL_FUNC) &_arrow_DataType_children_pointer, 1},
     {"_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1},
     {"_arrow_Schema_ToString", (DL_FUNC) &_arrow_Schema_ToString, 1},
     {"_arrow_ListType_ToString", (DL_FUNC) &_arrow_ListType_ToString, 1},

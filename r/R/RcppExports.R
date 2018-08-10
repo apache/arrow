@@ -11,8 +11,12 @@ ArrayBuilder__num_children <- function(xptr_type) {
 }
 
 #' @export
-field <- function(name, type, nullable = TRUE) {
-    .Call(`_arrow_field`, name, type, nullable)
+field_pointer <- function(name, type, nullable = TRUE) {
+    .Call(`_arrow_field_pointer`, name, type, nullable)
+}
+
+Field_ToString <- function(type) {
+    .Call(`_arrow_Field_ToString`, type)
 }
 
 Int8_initialize <- function() {
@@ -121,6 +125,14 @@ DataType_name <- function(type) {
 
 DataType_Equals <- function(lhs, rhs) {
     .Call(`_arrow_DataType_Equals`, lhs, rhs)
+}
+
+DataType_num_children <- function(type) {
+    .Call(`_arrow_DataType_num_children`, type)
+}
+
+DataType_children_pointer <- function(type) {
+    .Call(`_arrow_DataType_children_pointer`, type)
 }
 
 schema_ <- function(fields) {
