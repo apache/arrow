@@ -34,7 +34,7 @@ The current code demonstrates arrays of primitive types and structs.
 // create a memory-aligned Arrow array from an existing Vec
 let array = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
 
-println!("array contents: {:?}", buffer.iter().collect::<Vec<i32>>());
+println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
 ```
 
 ## Creating an Array from a Builder
@@ -47,7 +47,7 @@ for i in 0..10 {
 let buffer = builder.finish();
 let array = PrimitiveArray::from(buffer);
 
-println!("array contents: {:?}", buffer.iter().collect::<Vec<i32>>());
+println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
 ```
 
 ## Run Examples
