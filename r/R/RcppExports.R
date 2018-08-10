@@ -159,3 +159,7 @@ FixedWidthType_bit_width <- function(type) {
     .Call(`_arrow_FixedWidthType_bit_width`, type)
 }
 
+DateType_unit <- function(type) {
+    .Call(`_arrow_DateType_unit`, type)
+}
+

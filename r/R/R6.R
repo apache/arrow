@@ -21,7 +21,7 @@ NAMESPACE <- environment()
       DataType_ToString(private$xp)
     },
     print = function(...) {
-      cat( glue( "DataType({s})", s = ToString() ))
+      cat( glue( "DataType({s})", s = DataType_ToString(private$xp) ))
     },
     name = function() {
       DataType_name(private$xp)
@@ -57,19 +57,27 @@ NAMESPACE <- environment()
   )
 )
 
-datatype_arrow_class <- function(name){
-
+datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
   initialize_methods <- map(grep( glue("^{name}_initialize"), ls(env = NAMESPACE), value = TRUE), get, env = NAMESPACE, mode = "function", inherits = FALSE)
-  nargs <- map_int(initialize_methods, ~length(formals(.)))
+
+  initialize <- if (length(initialize_methods) == 1L) {
+    fun <- initialize_methods[[1L]]
+    function(...) {
+      private$xp <- fun(...)
+    }
+  } else {
+    nargs <- map_int(initialize_methods, ~length(formals(.)))
+    function(...){
+      fun <- initialize_methods[[ which(nargs == dots_n(...)) ]]
+      private$xp <- fun(...)
+    }
+  }
 
   R6::R6Class(
     glue("arrow::{name}"),
-    inherit = `arrow::FixedWidthType`,
+    inherit = super ,
     public = list(
-      initialize = function(...){
-        fun <- initialize_methods[[ which(nargs == dots_n(...)) ]]
-        private$xp <- fun(...)
-      }
+      initialize = initialize
     )
   )
 }
@@ -91,8 +99,14 @@ delayedAssign("arrow::Float64", datatype_arrow_class("Float64"))
 delayedAssign("arrow::Boolean", datatype_arrow_class("Boolean"))
 delayedAssign("arrow::Utf8", datatype_arrow_class("Utf8"))
 
-delayedAssign("arrow::Date32", datatype_arrow_class("Date32"))
-delayedAssign("arrow::Date64", datatype_arrow_class("Date64"))
+`arrow::DateType` <- R6Class("arrow::DateType",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    unit = function() DateType_unit(private$xp)
+  )
+)
+delayedAssign("arrow::Date32", datatype_arrow_class("Date32", super = `arrow::DateType`))
+delayedAssign("arrow::Date64", datatype_arrow_class("Date64", super = `arrow::DateType`))
 
 `arrow::Null` <- R6Class("arrow::Null",
   inherit = `arrow::DataType`,
@@ -174,7 +188,7 @@ timestamp <- function(...) `arrow::Timestamp`$new(...)
       Field_nullable(private$xp)
     },
     print = function(...) {
-      cat( glue( "Field<{s}>", s = ToString()))
+      cat( glue( "Field<{s}>", s = Field_ToString(private$xp)))
     },
     Equals = function(other) {
       inherits(other, "arrow::Field") && Field_Equals(private$xp, other$pointer())

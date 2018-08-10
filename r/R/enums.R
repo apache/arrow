@@ -32,3 +32,6 @@ enum <- function(class, ...){
 
 #' @export
 TimeUnit <- enum("arrow::TimeUnit::type", SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L)
+
+#' @export
+DateUnit <- enum("arrow::DateUnit", DAY = 0L, MILLI = 1L)

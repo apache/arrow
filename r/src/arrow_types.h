@@ -24,6 +24,7 @@
 
 using xptr_DataType = Rcpp::XPtr<std::shared_ptr<arrow::DataType>>;
 using xptr_FixedWidthType = Rcpp::XPtr<std::shared_ptr<arrow::FixedWidthType>>;
+using xptr_DateType = Rcpp::XPtr<std::shared_ptr<arrow::DateType>>;
 using xptr_Field = Rcpp::XPtr<std::shared_ptr<arrow::Field>>;
 using xptr_Schema = Rcpp::XPtr<std::shared_ptr<arrow::Schema>>;
 using xptr_ListType = Rcpp::XPtr<std::shared_ptr<arrow::ListType>>;
@@ -32,4 +33,11 @@ using xptr_ArrayBuilder = Rcpp::XPtr<std::unique_ptr<arrow::ArrayBuilder>>;
 namespace Rcpp {
 template <>
 arrow::TimeUnit::type as<arrow::TimeUnit::type>(SEXP);
+
+template <>
+arrow::DateUnit as<arrow::DateUnit>(SEXP);
+
+template <>
+SEXP wrap<arrow::DateUnit>(const arrow::DateUnit&);
+
 }
