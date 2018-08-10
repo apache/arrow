@@ -115,6 +115,10 @@ DataType_ToString <- function(type) {
     .Call(`_arrow_DataType_ToString`, type)
 }
 
+DataType_name <- function(type) {
+    .Call(`_arrow_DataType_name`, type)
+}
+
 schema_ <- function(fields) {
     .Call(`_arrow_schema_`, fields)
 }

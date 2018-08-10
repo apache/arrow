@@ -179,6 +179,11 @@ std::string DataType_ToString(xptr_DataType type) {
 }
 
 // [[Rcpp::export]]
+std::string DataType_name(xptr_DataType type) {
+  return std::shared_ptr<arrow::DataType>(*type)->name();
+}
+
+// [[Rcpp::export]]
 xptr_Schema schema_(ListOf<xptr_Field> fields) {
   int n = fields.size();
   std::vector<std::shared_ptr<arrow::Field>> vec_fields;

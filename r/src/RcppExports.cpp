@@ -302,6 +302,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// DataType_name
+std::string DataType_name(xptr_DataType type);
+RcppExport SEXP _arrow_DataType_name(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DataType_name(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // schema_
 xptr_Schema schema_(ListOf<xptr_Field> fields);
 RcppExport SEXP _arrow_schema_(SEXP fieldsSEXP) {
@@ -365,6 +376,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_list__", (DL_FUNC) &_arrow_list__, 1},
     {"_arrow_struct_", (DL_FUNC) &_arrow_struct_, 1},
     {"_arrow_DataType_ToString", (DL_FUNC) &_arrow_DataType_ToString, 1},
+    {"_arrow_DataType_name", (DL_FUNC) &_arrow_DataType_name, 1},
     {"_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1},
     {"_arrow_Schema_ToString", (DL_FUNC) &_arrow_Schema_ToString, 1},
     {"_arrow_ListType_ToString", (DL_FUNC) &_arrow_ListType_ToString, 1},

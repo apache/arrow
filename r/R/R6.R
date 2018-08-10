@@ -13,6 +13,9 @@ NAMESPACE <- environment()
   public = list(
     print = function(...) {
       cat( glue( "DataType({s})", s = DataType_ToString(private$xp)))
+    },
+    name = function() {
+      DataType_name(private$xp)
     }
   )
 )
