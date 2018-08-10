@@ -335,8 +335,10 @@ field <- function(xp) `arrow::Field`$new(xp)
   map2(.list, nms, ~ field_pointer(.y, .x$pointer()))
 }
 
+`arrow::NestedType` <- R6Class("arrow::NestedType", inherit = `arrow::DataType`)
+
 `arrow::StructType` <- R6Class("arrow::StructType",
-  inherit = `arrow::DataType`,
+  inherit = `arrow::NestedType`,
   public = list(
     print = function(...) {
       cat( glue( "StructType({s})", s = DataType_ToString(private$xp)))
@@ -367,8 +369,8 @@ schema <- function(...) `arrow::Schema`$new(...)
 
 #--------- list
 
-`arrow::List` <- R6Class("arrow::List",
-  inherit = `arrow::Object`,
+`arrow::ListType` <- R6Class("arrow::ListType",
+  inherit = `arrow::NestedType`,
   public = list(
     print = function(...) {
       cat( glue( "ListType({s})", s = ListType_ToString(private$xp)))
@@ -380,4 +382,4 @@ schema <- function(...) `arrow::Schema`$new(...)
 )
 
 #' @export
-list_ <- function(x) `arrow::List`$new(x)
+list_ <- function(x) `arrow::ListType`$new(x)
