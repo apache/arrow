@@ -22,7 +22,6 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -30,6 +29,7 @@
 
 namespace arrow {
 
+class ArrayBuilder;
 class MemoryPool;
 class RecordBatch;
 
