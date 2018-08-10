@@ -216,7 +216,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     fn from(data: ArrayDataRef) -> Self {
         assert!(data.buffers().len() == 1);
         let raw_values = data.buffers()[0].raw_data();
-        debug_assert!(memory::is_aligned::<u8>(raw_values, mem::size_of::<T>()));
+        debug_assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()));
         Self {
             data: data,
             raw_values: RawPtrBox::new(raw_values as *const T),
@@ -300,7 +300,7 @@ impl From<ArrayDataRef> for ListArray {
         debug_assert!(data.child_data().len() == 1);
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
-        debug_assert!(memory::is_aligned(raw_value_offsets, mem::size_of::<i32>()));
+        debug_assert!(memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()));
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
             debug_assert!(*value_offsets.offset(0) == 0);
@@ -386,7 +386,7 @@ impl From<ArrayDataRef> for BinaryArray {
     fn from(data: ArrayDataRef) -> Self {
         assert!(data.buffers().len() == 2);
         let raw_value_offsets = data.buffers()[0].raw_data();
-        debug_assert!(memory::is_aligned(raw_value_offsets, mem::size_of::<i32>()));
+        debug_assert!(memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()));
         let value_data = data.buffers()[1].raw_data();
         Self {
             data: data.clone(),
