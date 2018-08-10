@@ -62,14 +62,14 @@ func TestMakeFromData(t *testing.T) {
 		{name: "timestamp", d: &testDataType{arrow.TIMESTAMP}},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 		}},
 
 		{name: "struct", d: &testDataType{arrow.STRUCT}},
 		{name: "struct", d: &testDataType{arrow.STRUCT}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 		}},
 
 		// invalid types
@@ -83,7 +83,7 @@ func TestMakeFromData(t *testing.T) {
 			if test.size != 0 {
 				n = test.size
 			}
-			data := array.NewData(test.d, 0, b[:n], test.child, 0)
+			data := array.NewData(test.d, 0, b[:n], test.child, 0, 0)
 
 			if test.expPanic {
 				assert.PanicsWithValue(t, test.expError, func() {
@@ -116,7 +116,7 @@ func TestArray_NullN(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := memory.NewBufferBytes(test.bm)
-			data := array.NewData(arrow.FixedWidthTypes.Boolean, test.l, []*memory.Buffer{buf, nil}, nil, test.n)
+			data := array.NewData(arrow.FixedWidthTypes.Boolean, test.l, []*memory.Buffer{buf, nil}, nil, test.n, 0)
 			buf.Release()
 			ar := array.MakeFromData(data)
 			data.Release()

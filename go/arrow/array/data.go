@@ -29,12 +29,13 @@ type Data struct {
 	refCount  int64
 	dtype     arrow.DataType
 	nulls     int
+	offset    int
 	length    int
 	buffers   []*memory.Buffer // TODO(sgc): should this be an interface?
 	childData []*Data          // TODO(sgc): managed by ListArray, StructArray and UnionArray types
 }
 
-func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls int) *Data {
+func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls, offset int) *Data {
 	for _, b := range buffers {
 		if b != nil {
 			b.Retain()
@@ -52,6 +53,7 @@ func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childDa
 		dtype:     dtype,
 		nulls:     nulls,
 		length:    length,
+		offset:    offset,
 		buffers:   buffers,
 		childData: childData,
 	}

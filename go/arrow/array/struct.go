@@ -189,6 +189,7 @@ func (b *StructBuilder) newData() (data *Data) {
 		},
 		fields,
 		b.nulls,
+		0,
 	)
 	b.reset()
 

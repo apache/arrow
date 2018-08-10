@@ -199,6 +199,7 @@ func (b *ListBuilder) newData() (data *Data) {
 		},
 		[]*Data{values.Data()},
 		b.nulls,
+		0,
 	)
 	b.reset()
 
