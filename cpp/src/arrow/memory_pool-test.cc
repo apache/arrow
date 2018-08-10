@@ -22,7 +22,6 @@
 #include "arrow/memory_pool-test.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
 
 namespace arrow {
 

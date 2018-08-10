@@ -28,6 +28,7 @@ namespace arrow {
 
 class Array;
 class DataType;
+class Status;
 class Tensor;
 
 /// Returns true if the arrays are exactly equal

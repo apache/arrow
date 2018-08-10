@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
 
-#include "arrow/builder.h"
+#include "arrow/array.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/table_builder.h"
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"

@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "arrow/status.h"
@@ -32,11 +33,12 @@ namespace arrow {
 class ArrayBuilder;
 class MemoryPool;
 class RecordBatch;
+class Schema;
 
 /// \class RecordBatchBuilder
 /// \brief Helper class for creating record batches iteratively given a known
 /// schema
-class ARROW_EXPORT RecordBatchBuilder {
+class RecordBatchBuilder {
  public:
   /// \brief Create an initialize a RecordBatchBuilder
   /// \param[in] schema The schema for the record batch

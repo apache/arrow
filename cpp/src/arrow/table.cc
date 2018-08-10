@@ -33,8 +33,6 @@
 
 namespace arrow {
 
-class MemoryPool;
-
 // ----------------------------------------------------------------------
 // ChunkedArray and Column methods
 

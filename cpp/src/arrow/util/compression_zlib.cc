@@ -28,7 +28,6 @@
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
 
 namespace arrow {
 

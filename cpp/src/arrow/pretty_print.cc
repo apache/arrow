@@ -15,12 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
-#include <iostream>
 #include <memory>
+#include <ostream>
 #include <sstream>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include "arrow/array.h"

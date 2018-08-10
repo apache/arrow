@@ -17,13 +17,17 @@
 
 #include "arrow/table_builder.h"
 
+#include <algorithm>
+#include <cstdlib>
 #include <memory>
+#include <sstream>
 #include <utility>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
