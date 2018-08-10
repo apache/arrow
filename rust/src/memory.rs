@@ -79,6 +79,13 @@ extern "C" {
     pub fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> i32;
 }
 
+/// Check if the pointer `p` is aligned to offset `a`.
+pub fn is_aligned<T>(p: *const T, a: usize) -> bool {
+    let a_minus_one = a.wrapping_sub(1);
+    let pmoda = p as usize & a_minus_one;
+    pmoda == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
