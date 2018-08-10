@@ -156,12 +156,13 @@ class TestScalars(unittest.TestCase):
 
         units = ['s', 'ms', 'us', 'ns']
 
-        for unit in units:
+        for i, unit in enumerate(units):
             dtype = 'datetime64[{0}]'.format(unit)
             arrow_arr = pa.Array.from_pandas(arr.astype(dtype))
             expected = pd.Timestamp('2000-01-01 12:34:56')
 
             assert arrow_arr[0].as_py() == expected
+            assert arrow_arr[0].value == int(expected.timestamp() * 1000 ** i)
 
             tz = 'America/New_York'
             arrow_type = pa.timestamp(unit, tz=tz)
@@ -174,6 +175,7 @@ class TestScalars(unittest.TestCase):
                         .tz_convert(tz))
 
             assert arrow_arr[0].as_py() == expected
+            assert arrow_arr[0].value == int(expected.timestamp() * 1000 ** i)
 
     def test_dictionary(self):
         colors = ['red', 'green', 'blue']

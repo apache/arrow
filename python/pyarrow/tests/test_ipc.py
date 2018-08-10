@@ -340,8 +340,13 @@ def test_message_reader(example_messages):
 
     assert len(messages) == 6
     assert messages[0].type == 'schema'
+    assert isinstance(messages[0].metadata, pa.lib.Buffer)
+    assert isinstance(messages[0].body, pa.lib.Buffer)
+
     for msg in messages[1:]:
         assert msg.type == 'record batch'
+        assert isinstance(msg.metadata, pa.lib.Buffer)
+        assert isinstance(msg.body, pa.lib.Buffer)
 
 
 def test_message_serialize_read_message(example_messages):

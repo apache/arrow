@@ -182,6 +182,45 @@ def test_is_primitive():
     assert not types.is_primitive(pa.list_(pa.int32()))
 
 
+def test_timestamp():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        for tz in (None, 'UTC', 'Europe/Paris'):
+            ty = pa.timestamp(unit, tz=tz)
+            assert ty.unit == unit
+            assert ty.tz == tz
+
+    for invalid_unit in ('m', 'arbit', 'rary'):
+        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+            pa.timestamp(invalid_unit)
+
+
+def test_time32_units():
+    for valid_unit in ('s', 'ms'):
+        ty = pa.time32(valid_unit)
+        assert ty.unit == valid_unit
+
+    for invalid_unit in ('m', 'us', 'ns'):
+        error_msg = 'Invalid TimeUnit for time32: {}'.format(invalid_unit)
+        with pytest.raises(ValueError, match=error_msg):
+            pa.time32(invalid_unit)
+
+
+def test_time64_units():
+    for valid_unit in ('us', 'ns'):
+        ty = pa.time64(valid_unit)
+        assert ty.unit == valid_unit
+
+    for invalid_unit in ('m', 's', 'ms'):
+        error_msg = 'Invalid TimeUnit for time64: {}'.format(invalid_unit)
+        with pytest.raises(ValueError, match=error_msg):
+            pa.time64(invalid_unit)
+
+
+def test_list_type():
+    ty = pa.list_(pa.int64())
+    assert ty.value_type == pa.int64()
+
+
 def test_struct_type():
     fields = [pa.field('a', pa.int64()),
               pa.field('a', pa.int32()),
@@ -215,6 +254,20 @@ def test_union_type():
             pa.union(fields, mode=mode)
 
 
+def test_dictionary_type():
+    ty0 = pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+    assert ty0.index_type == pa.int32()
+    assert isinstance(ty0.dictionary, pa.Array)
+    assert ty0.dictionary.to_pylist() == ['a', 'b', 'c']
+    assert ty0.ordered is False
+
+    ty1 = pa.dictionary(pa.float32(), pa.array([1.0, 2.0]), ordered=True)
+    assert ty1.index_type == pa.float32()
+    assert isinstance(ty0.dictionary, pa.Array)
+    assert ty1.dictionary.to_pylist() == [1.0, 2.0]
+    assert ty1.ordered is True
+
+
 def test_types_hashable():
     many_types = get_many_types()
     in_dict = {}
@@ -230,12 +283,6 @@ def test_types_picklable():
     for ty in get_many_types():
         data = pickle.dumps(ty)
         assert pickle.loads(data) == ty
-
-
-def test_dictionary_type():
-    ty = pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
-    assert ty.index_type == pa.int32()
-    assert ty.dictionary.to_pylist() == ['a', 'b', 'c']
 
 
 def test_fields_hashable():
@@ -273,6 +320,12 @@ def test_exact_primitive_types(t, check_func):
     assert check_func(t)
 
 
+def test_type_id():
+    # enum values are not exposed publicly
+    for ty in get_many_types():
+        assert isinstance(ty.id, int)
+
+
 def test_bit_width():
     for ty, expected in [(pa.bool_(), 1),
                          (pa.int8(), 8),
@@ -291,9 +344,11 @@ def test_fixed_size_binary_byte_width():
     assert ty.byte_width == 5
 
 
-def test_decimal_byte_width():
+def test_decimal_properties():
     ty = pa.decimal128(19, 4)
     assert ty.byte_width == 16
+    assert ty.precision == 19
+    assert ty.scale == 4
 
 
 def test_type_equality_operators():

@@ -102,29 +102,19 @@ cdef class DataType:
         self.type = type.get()
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
-    property id:
+    @property
+    def id(self):
+        return self.type.id()
 
-        def __get__(self):
-            return self.type.id()
-
-    property bit_width:
-
-        def __get__(self):
-            cdef _CFixedWidthTypePtr ty
-            ty = dynamic_cast[_CFixedWidthTypePtr](self.type)
-            if ty == nullptr:
-                raise ValueError("Non-fixed width type")
-            return ty.bit_width()
+    @property
+    def bit_width(self):
+        cdef _CFixedWidthTypePtr ty
+        ty = dynamic_cast[_CFixedWidthTypePtr](self.type)
+        if ty == nullptr:
+            raise ValueError("Non-fixed width type")
+        return ty.bit_width()
 
     def __str__(self):
-        if self.type is NULL:
-            raise TypeError(
-                '{} is incomplete. The correct way to construct types is '
-                'through public API functions named '
-                'pyarrow.int64, pyarrow.list_, etc.'.format(
-                    type(self).__name__
-                )
-            )
         return frombytes(self.type.ToString())
 
     def __hash__(self):
@@ -140,7 +130,7 @@ cdef class DataType:
         try:
             return self.equals(other)
         except (TypeError, ValueError):
-            return False
+            return NotImplemented
 
     def equals(self, other):
         """
@@ -185,20 +175,17 @@ cdef class DictionaryType(DataType):
     def __reduce__(self):
         return dictionary, (self.index_type, self.dictionary, self.ordered)
 
-    property ordered:
+    @property
+    def ordered(self):
+        return self.dict_type.ordered()
 
-        def __get__(self):
-            return self.dict_type.ordered()
+    @property
+    def index_type(self):
+        return pyarrow_wrap_data_type(self.dict_type.index_type())
 
-    property index_type:
-
-        def __get__(self):
-            return pyarrow_wrap_data_type(self.dict_type.index_type())
-
-    property dictionary:
-
-        def __get__(self):
-            return pyarrow_wrap_array(self.dict_type.dictionary())
+    @property
+    def dictionary(self):
+        return pyarrow_wrap_array(self.dict_type.dictionary())
 
 
 cdef class ListType(DataType):
@@ -210,10 +197,9 @@ cdef class ListType(DataType):
     def __reduce__(self):
         return list_, (self.value_type,)
 
-    property value_type:
-
-        def __get__(self):
-            return pyarrow_wrap_data_type(self.list_type.value_type())
+    @property
+    def value_type(self):
+        return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
 cdef class StructType(DataType):
@@ -232,13 +218,12 @@ cdef class StructType(DataType):
         cdef int index = <int> _normalize_index(i, self.num_children)
         return pyarrow_wrap_field(self.type.child(index))
 
-    property num_children:
-
-        def __get__(self):
-            return self.type.num_children()
-
     def __reduce__(self):
         return struct, (list(self),)
+
+    @property
+    def num_children(self):
+        return self.type.num_children()
 
 
 cdef class UnionType(DataType):
@@ -246,21 +231,19 @@ cdef class UnionType(DataType):
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
 
-    property num_children:
+    @property
+    def num_children(self):
+        return self.type.num_children()
 
-        def __get__(self):
-            return self.type.num_children()
-
-    property mode:
-
-        def __get__(self):
-            cdef CUnionType* type = <CUnionType*> self.sp_type.get()
-            cdef int mode = type.mode()
-            if mode == _UnionMode_DENSE:
-                return 'dense'
-            if mode == _UnionMode_SPARSE:
-                return 'sparse'
-            assert 0
+    @property
+    def mode(self):
+        cdef CUnionType* type = <CUnionType*> self.sp_type.get()
+        cdef int mode = type.mode()
+        if mode == _UnionMode_DENSE:
+            return 'dense'
+        if mode == _UnionMode_SPARSE:
+            return 'sparse'
+        assert 0
 
     def __len__(self):
         return self.type.num_children()
@@ -283,18 +266,16 @@ cdef class TimestampType(DataType):
         DataType.init(self, type)
         self.ts_type = <const CTimestampType*> type.get()
 
-    property unit:
+    @property
+    def unit(self):
+        return timeunit_to_string(self.ts_type.unit())
 
-        def __get__(self):
-            return timeunit_to_string(self.ts_type.unit())
-
-    property tz:
-
-        def __get__(self):
-            if self.ts_type.timezone().size() > 0:
-                return frombytes(self.ts_type.timezone())
-            else:
-                return None
+    @property
+    def tz(self):
+        if self.ts_type.timezone().size() > 0:
+            return frombytes(self.ts_type.timezone())
+        else:
+            return None
 
     def to_pandas_dtype(self):
         """
@@ -316,10 +297,9 @@ cdef class Time32Type(DataType):
         DataType.init(self, type)
         self.time_type = <const CTime32Type*> type.get()
 
-    property unit:
-
-        def __get__(self):
-            return timeunit_to_string(self.time_type.unit())
+    @property
+    def unit(self):
+        return timeunit_to_string(self.time_type.unit())
 
 
 cdef class Time64Type(DataType):
@@ -328,10 +308,9 @@ cdef class Time64Type(DataType):
         DataType.init(self, type)
         self.time_type = <const CTime64Type*> type.get()
 
-    property unit:
-
-        def __get__(self):
-            return timeunit_to_string(self.time_type.unit())
+    @property
+    def unit(self):
+        return timeunit_to_string(self.time_type.unit())
 
 
 cdef class FixedSizeBinaryType(DataType):
@@ -344,10 +323,9 @@ cdef class FixedSizeBinaryType(DataType):
     def __reduce__(self):
         return binary, (self.byte_width,)
 
-    property byte_width:
-
-        def __get__(self):
-            return self.fixed_size_binary_type.byte_width()
+    @property
+    def byte_width(self):
+        return self.fixed_size_binary_type.byte_width()
 
 
 cdef class Decimal128Type(FixedSizeBinaryType):
@@ -359,15 +337,13 @@ cdef class Decimal128Type(FixedSizeBinaryType):
     def __reduce__(self):
         return decimal128, (self.precision, self.scale)
 
-    property precision:
+    @property
+    def precision(self):
+        return self.decimal128_type.precision()
 
-        def __get__(self):
-            return self.decimal128_type.precision()
-
-    property scale:
-
-        def __get__(self):
-            return self.decimal128_type.scale()
+    @property
+    def scale(self):
+        return self.decimal128_type.scale()
 
 
 cdef class Field:
@@ -411,7 +387,7 @@ cdef class Field:
         try:
             return self.equals(other)
         except TypeError:
-            return False
+            return NotImplemented
 
     def __reduce__(self):
         return field, (self.name, self.type, self.nullable, self.metadata)
@@ -425,22 +401,19 @@ cdef class Field:
     def __hash__(self):
         return hash((self.field.name(), self.type, self.field.nullable()))
 
-    property nullable:
+    @property
+    def nullable(self):
+        return self.field.nullable()
 
-        def __get__(self):
-            return self.field.nullable()
+    @property
+    def name(self):
+        return frombytes(self.field.name())
 
-    property name:
-
-        def __get__(self):
-            return frombytes(self.field.name())
-
-    property metadata:
-
-        def __get__(self):
-            cdef shared_ptr[const CKeyValueMetadata] metadata = (
-                self.field.metadata())
-            return box_metadata(metadata.get())
+    @property
+    def metadata(self):
+        cdef shared_ptr[const CKeyValueMetadata] metadata = (
+            self.field.metadata())
+        return box_metadata(metadata.get())
 
     def add_metadata(self, dict metadata):
         """
@@ -523,28 +496,26 @@ cdef class Schema:
     def __reduce__(self):
         return schema, (list(self), self.metadata)
 
-    property names:
+    @property
+    def names(self):
+        cdef int i
+        result = []
+        for i in range(self.schema.num_fields()):
+            name = frombytes(self.schema.field(i).get().name())
+            result.append(name)
+        return result
 
-        def __get__(self):
-            cdef int i
-            result = []
-            for i in range(self.schema.num_fields()):
-                name = frombytes(self.schema.field(i).get().name())
-                result.append(name)
-            return result
-
-    property metadata:
-
-        def __get__(self):
-            cdef shared_ptr[const CKeyValueMetadata] metadata = (
-                self.schema.metadata())
-            return box_metadata(metadata.get())
+    @property
+    def metadata(self):
+        cdef shared_ptr[const CKeyValueMetadata] metadata = (
+            self.schema.metadata())
+        return box_metadata(metadata.get())
 
     def __eq__(self, other):
         try:
             return self.equals(other)
         except TypeError:
-            return False
+            return NotImplemented
 
     def equals(self, other, bint check_metadata=True):
         """
@@ -1056,7 +1027,7 @@ def time32(unit):
         TimeUnit unit_code
         c_string c_timezone
 
-    if unit == "s":
+    if unit == 's':
         unit_code = TimeUnit_SECOND
     elif unit == 'ms':
         unit_code = TimeUnit_MILLI
@@ -1094,7 +1065,7 @@ def time64(unit):
         TimeUnit unit_code
         c_string c_timezone
 
-    if unit == "us":
+    if unit == 'us':
         unit_code = TimeUnit_MICRO
     elif unit == 'ns':
         unit_code = TimeUnit_NANO
@@ -1229,6 +1200,7 @@ cpdef DictionaryType dictionary(DataType index_type, Array dict_values,
     ----------
     index_type : DataType
     dictionary : Array
+    ordered : boolean
 
     Returns
     -------
