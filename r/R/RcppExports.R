@@ -15,10 +15,6 @@ field <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_field`, name, type, nullable)
 }
 
-bla <- function() {
-    .Call(`_arrow_bla`)
-}
-
 Int8_initialize <- function() {
     .Call(`_arrow_Int8_initialize`)
 }

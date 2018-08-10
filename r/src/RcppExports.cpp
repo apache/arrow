@@ -41,16 +41,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// bla
-IntegerVector bla();
-RcppExport SEXP _arrow_bla() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(bla());
-    return rcpp_result_gen;
-END_RCPP
-}
 // Int8_initialize
 xptr_DataType Int8_initialize();
 RcppExport SEXP _arrow_Int8_initialize() {
@@ -339,7 +329,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayBuilder", (DL_FUNC) &_arrow_ArrayBuilder, 1},
     {"_arrow_ArrayBuilder__num_children", (DL_FUNC) &_arrow_ArrayBuilder__num_children, 1},
     {"_arrow_field", (DL_FUNC) &_arrow_field, 3},
-    {"_arrow_bla", (DL_FUNC) &_arrow_bla, 0},
     {"_arrow_Int8_initialize", (DL_FUNC) &_arrow_Int8_initialize, 0},
     {"_arrow_Int16_initialize", (DL_FUNC) &_arrow_Int16_initialize, 0},
     {"_arrow_Int32_initialize", (DL_FUNC) &_arrow_Int32_initialize, 0},
