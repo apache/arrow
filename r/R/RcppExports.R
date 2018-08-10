@@ -119,6 +119,10 @@ DataType_name <- function(type) {
     .Call(`_arrow_DataType_name`, type)
 }
 
+DataType_Equals <- function(lhs, rhs) {
+    .Call(`_arrow_DataType_Equals`, lhs, rhs)
+}
+
 schema_ <- function(fields) {
     .Call(`_arrow_schema_`, fields)
 }

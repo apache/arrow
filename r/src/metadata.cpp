@@ -184,6 +184,11 @@ std::string DataType_name(xptr_DataType type) {
 }
 
 // [[Rcpp::export]]
+bool DataType_Equals(xptr_DataType lhs, xptr_DataType rhs) {
+  return std::shared_ptr<arrow::DataType>(*lhs)->Equals(*rhs);
+}
+
+// [[Rcpp::export]]
 xptr_Schema schema_(ListOf<xptr_Field> fields) {
   int n = fields.size();
   std::vector<std::shared_ptr<arrow::Field>> vec_fields;

@@ -16,9 +16,22 @@ NAMESPACE <- environment()
     },
     name = function() {
       DataType_name(private$xp)
+    },
+    Equals = function(rhs) {
+      inherits(rhs, "arrow::DataType") && DataType_Equals(private$xp, rhs$pointer())
     }
   )
 )
+
+#' @export
+`==.arrow::DataType` <- function(lhs, rhs){
+  lhs$Equals(rhs)
+}
+
+#' @export
+`!=.arrow::DataType` <- function(lhs, rhs){
+  ! lhs == rhs
+}
 
 #----- metadata
 
