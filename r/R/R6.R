@@ -17,14 +17,17 @@ NAMESPACE <- environment()
 `arrow::DataType` <- R6Class("arrow::DataType",
   inherit = `arrow::Object`,
   public = list(
+    ToString = function() {
+      DataType_ToString(private$xp)
+    },
     print = function(...) {
-      cat( glue( "DataType({s})", s = DataType_ToString(private$xp)))
+      cat( glue( "DataType({s})", s = ToString() ))
     },
     name = function() {
       DataType_name(private$xp)
     },
-    Equals = function(rhs) {
-      inherits(rhs, "arrow::DataType") && DataType_Equals(private$xp, rhs$pointer())
+    Equals = function(other) {
+      inherits(other, "arrow::DataType") && DataType_Equals(private$xp, other$pointer())
     },
     num_children = function() {
       DataType_num_children(private$xp)
@@ -161,11 +164,33 @@ timestamp <- function(...) `arrow::Timestamp`$new(...)
     initialize = function(xp){
       private$xp <- xp
     },
+    ToString = function() {
+      Field_ToString(private$xp)
+    },
+    name = function() {
+      Field_name(private$xp)
+    },
+    nullable = function() {
+      Field_nullable(private$xp)
+    },
     print = function(...) {
-      cat( glue( "Field<{s}>", s = Field_ToString(private$xp)))
+      cat( glue( "Field<{s}>", s = ToString()))
+    },
+    Equals = function(other) {
+      inherits(other, "arrow::Field") && Field_Equals(private$xp, other$pointer())
     }
   )
 )
+
+#' @export
+`==.arrow::Field` <- function(lhs, rhs){
+  lhs$Equals(rhs)
+}
+
+#' @export
+`!=.arrow::Field` <- function(lhs, rhs){
+  ! lhs == rhs
+}
 
 field <- function(xp) `arrow::Field`$new(xp)
 

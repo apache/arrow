@@ -36,3 +36,13 @@ xptr_Field field_pointer(const std::string& name, xptr_DataType type, bool nulla
 std::string Field_ToString(xptr_Field type) {
   return std::shared_ptr<arrow::Field>(*type)->ToString();
 }
+
+// [[Rcpp::export]]
+std::string Field_name(xptr_Field type) {
+  return std::shared_ptr<arrow::Field>(*type)->name();
+}
+
+// [[Rcpp::export]]
+bool Field_nullable(xptr_Field type) {
+  return std::shared_ptr<arrow::Field>(*type)->nullable();
+}

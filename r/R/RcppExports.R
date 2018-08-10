@@ -19,6 +19,14 @@ Field_ToString <- function(type) {
     .Call(`_arrow_Field_ToString`, type)
 }
 
+Field_name <- function(type) {
+    .Call(`_arrow_Field_name`, type)
+}
+
+Field_nullable <- function(type) {
+    .Call(`_arrow_Field_nullable`, type)
+}
+
 Int8_initialize <- function() {
     .Call(`_arrow_Int8_initialize`)
 }

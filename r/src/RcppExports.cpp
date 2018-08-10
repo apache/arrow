@@ -52,6 +52,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Field_name
+std::string Field_name(xptr_Field type);
+RcppExport SEXP _arrow_Field_name(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Field >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field_name(type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Field_nullable
+bool Field_nullable(xptr_Field type);
+RcppExport SEXP _arrow_Field_nullable(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Field >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Field_nullable(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Int8_initialize
 xptr_DataType Int8_initialize();
 RcppExport SEXP _arrow_Int8_initialize() {
@@ -408,6 +430,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayBuilder__num_children", (DL_FUNC) &_arrow_ArrayBuilder__num_children, 1},
     {"_arrow_field_pointer", (DL_FUNC) &_arrow_field_pointer, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
+    {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},
+    {"_arrow_Field_nullable", (DL_FUNC) &_arrow_Field_nullable, 1},
     {"_arrow_Int8_initialize", (DL_FUNC) &_arrow_Int8_initialize, 0},
     {"_arrow_Int16_initialize", (DL_FUNC) &_arrow_Int16_initialize, 0},
     {"_arrow_Int32_initialize", (DL_FUNC) &_arrow_Int32_initialize, 0},
