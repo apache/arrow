@@ -346,6 +346,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// FixedWidthType_bit_width
+int FixedWidthType_bit_width(xptr_FixedWidthType type);
+RcppExport SEXP _arrow_FixedWidthType_bit_width(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_FixedWidthType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(FixedWidthType_bit_width(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayBuilder", (DL_FUNC) &_arrow_ArrayBuilder, 1},
@@ -380,6 +391,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1},
     {"_arrow_Schema_ToString", (DL_FUNC) &_arrow_Schema_ToString, 1},
     {"_arrow_ListType_ToString", (DL_FUNC) &_arrow_ListType_ToString, 1},
+    {"_arrow_FixedWidthType_bit_width", (DL_FUNC) &_arrow_FixedWidthType_bit_width, 1},
     {NULL, NULL, 0}
 };
 

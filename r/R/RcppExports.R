@@ -131,3 +131,7 @@ ListType_ToString <- function(type) {
     .Call(`_arrow_ListType_ToString`, type)
 }
 
+FixedWidthType_bit_width <- function(type) {
+    .Call(`_arrow_FixedWidthType_bit_width`, type)
+}
+

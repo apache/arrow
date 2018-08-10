@@ -207,3 +207,8 @@ std::string ListType_ToString(xptr_ListType type) {
   std::shared_ptr<arrow::ListType> ptr(*type);
   return ptr->ToString();
 }
+
+// [[Rcpp::export]]
+int FixedWidthType_bit_width(xptr_FixedWidthType type){
+  return std::shared_ptr<arrow::FixedWidthType>(*type)->bit_width();
+}

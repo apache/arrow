@@ -22,6 +22,13 @@ NAMESPACE <- environment()
 
 #----- metadata
 
+`arrow::FixedWidthType` <- R6Class("arrow::FixedWidthType",
+  inherit = `arrow::DataType`,
+  public = list(
+    bit_width = function() FixedWidthType_bit_width(private$xp)
+  )
+)
+
 #' @importFrom R6 R6Class
 #' @importFrom glue glue
 #' @importFrom purrr map map_int
@@ -33,7 +40,7 @@ datatype_arrow_class <- function(name){
 
   R6::R6Class(
     glue("arrow::{name}"),
-    inherit = `arrow::DataType`,
+    inherit = `arrow::FixedWidthType`,
     public = list(
       initialize = function(...){
         fun <- initialize_methods[[ which(nargs == dots_n(...)) ]]
@@ -63,7 +70,14 @@ delayedAssign("arrow::Utf8", datatype_arrow_class("Utf8"))
 delayedAssign("arrow::Date32", datatype_arrow_class("Date32"))
 delayedAssign("arrow::Date64", datatype_arrow_class("Date64"))
 
-delayedAssign("arrow::Null", datatype_arrow_class("Null"))
+`arrow::Null` <- R6Class("arrow::Null",
+  inherit = `arrow::DataType`,
+  public = list(
+    initialize = function() {
+      private$xp <- Null_initialize()
+    }
+  )
+)
 
 delayedAssign("arrow::Timestamp", datatype_arrow_class("Timestamp"))
 
