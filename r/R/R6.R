@@ -1,3 +1,4 @@
+#' @include RcppExports.R
 #' @importFrom R6 R6Class
 #' @importFrom glue glue
 #' @importFrom purrr map map_int map2
@@ -77,22 +78,22 @@ datatype_arrow_class <- function(name, super = `arrow::FixedWidthType`){
   )
 }
 
-delayedAssign("arrow::Int8" , datatype_arrow_class("Int8"))
-delayedAssign("arrow::Int16", datatype_arrow_class("Int16"))
-delayedAssign("arrow::Int32", datatype_arrow_class("Int32"))
-delayedAssign("arrow::Int64", datatype_arrow_class("Int64"))
+"arrow::Int8" <- datatype_arrow_class("Int8")
+"arrow::Int16" <- datatype_arrow_class("Int16")
+"arrow::Int32" <- datatype_arrow_class("Int32")
+"arrow::Int64" <- datatype_arrow_class("Int64")
 
-delayedAssign("arrow::UInt8" , datatype_arrow_class("UInt8"))
-delayedAssign("arrow::UInt16", datatype_arrow_class("UInt16"))
-delayedAssign("arrow::UInt32", datatype_arrow_class("UInt32"))
-delayedAssign("arrow::UInt64", datatype_arrow_class("UInt64"))
+"arrow::UInt8" <- datatype_arrow_class("UInt8")
+"arrow::UInt16" <- datatype_arrow_class("UInt16")
+"arrow::UInt32" <- datatype_arrow_class("UInt32")
+"arrow::UInt64" <- datatype_arrow_class("UInt64")
 
-delayedAssign("arrow::Float16", datatype_arrow_class("Float16"))
-delayedAssign("arrow::Float32", datatype_arrow_class("Float32"))
-delayedAssign("arrow::Float64", datatype_arrow_class("Float64"))
+"arrow::Float16" <- datatype_arrow_class("Float16")
+"arrow::Float32" <- datatype_arrow_class("Float32")
+"arrow::Float64" <- datatype_arrow_class("Float64")
 
-delayedAssign("arrow::Boolean", datatype_arrow_class("Boolean"))
-delayedAssign("arrow::Utf8", datatype_arrow_class("Utf8"))
+"arrow::Boolean" <- datatype_arrow_class("Boolean")
+"arrow::Utf8" <- datatype_arrow_class("Utf8")
 
 `arrow::DateType` <- R6Class("arrow::DateType",
   inherit = `arrow::FixedWidthType`,
@@ -100,8 +101,8 @@ delayedAssign("arrow::Utf8", datatype_arrow_class("Utf8"))
     unit = function() DateType_unit(private$xp)
   )
 )
-delayedAssign("arrow::Date32", datatype_arrow_class("Date32", super = `arrow::DateType`))
-delayedAssign("arrow::Date64", datatype_arrow_class("Date64", super = `arrow::DateType`))
+"arrow::Date32" <- datatype_arrow_class("Date32", super = `arrow::DateType`)
+"arrow::Date64" <- datatype_arrow_class("Date64", super = `arrow::DateType`)
 
 `arrow::TimeType` <- R6Class("arrow::TimeType",
   inherit = `arrow::FixedWidthType`,
@@ -109,8 +110,8 @@ delayedAssign("arrow::Date64", datatype_arrow_class("Date64", super = `arrow::Da
     unit = function() TimeType_unit(private$xp)
   )
 )
-delayedAssign("arrow::Time32", datatype_arrow_class("Time32", super = `arrow::TimeType`))
-delayedAssign("arrow::Time64", datatype_arrow_class("Time64", super = `arrow::TimeType`))
+"arrow::Time32" <- datatype_arrow_class("Time32", super = `arrow::TimeType`)
+"arrow::Time64" <- datatype_arrow_class("Time64", super = `arrow::TimeType`)
 
 `arrow::Null` <- R6Class("arrow::Null",
   inherit = `arrow::DataType`,
@@ -139,7 +140,7 @@ delayedAssign("arrow::Time64", datatype_arrow_class("Time64", super = `arrow::Ti
 )
 
 
-delayedAssign("arrow::Decimal128Type" , datatype_arrow_class("Decimal128Type", super = `arrow::DecimalType` ))
+"arrow::Decimal128Type" <- datatype_arrow_class("Decimal128Type", super = `arrow::DecimalType` )
 
 #' @export
 int8 <- function() `arrow::Int8`$new()

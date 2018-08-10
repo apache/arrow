@@ -22,3 +22,8 @@ Imports:
     R6
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.0.1.9000
+Collate: 
+    'RcppExports.R'
+    'R6.R'
+    'enums.R'
+    'zzz.R'
