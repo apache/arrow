@@ -27,17 +27,42 @@ RUN apt-get update && \
     # install conda in /home/ubuntu/miniconda
     wget -O /tmp/miniconda.sh \
     https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
+    bash /tmp/miniconda.sh -b -p /opt/conda && \
     rm /tmp/miniconda.sh && \
     # Python dependencies
     apt-get install -y \
         pkg-config && \
 
+ENV PATH="/opt/conda/bin:${PATH}"
+
+RUN conda create -y -q -c conda-forge -n pyarrow-dev \
+      python=2.7 \
+      ipython \
+      nomkl \
+      numpy \
+      six \
+      setuptools \
+      cython \
+      pandas \
+      pytest \
+      cmake \
+      flatbuffers \
+      rapidjson \
+      boost-cpp \
+      thrift-cpp \
+      snappy \
+      zlib \
+      gflags \
+      brotli \
+      jemalloc \
+      lz4-c \
+      zstd \
+      setuptools \
+      setuptools_scm \
+ && conda clean --all
+
 ADD . /apache-arrow
 WORKDIR /apache-arrow
-
-RUN arrow/dev/docker_common/install_pyarrow_conda_toolchain.sh 2.7
-ENV PATH="/opt/conda/bin:${PATH}"
 
 CMD arrow/dev/spark_integration/spark_integration.sh
 

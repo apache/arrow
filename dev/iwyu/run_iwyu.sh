@@ -45,6 +45,10 @@ export CXX=clang++-$CLANG_VERSION
 
 mkdir -p iwyu-build
 pushd iwyu-build
+
+# iwyu needs this
+apt-get install -y zlib1g-dev
+
 cmake -G "Unix Makefiles" -DIWYU_LLVM_ROOT_PATH=/usr/lib/llvm-$CLANG_VERSION $IWYU_SRC
 make -j4
 popd

@@ -20,9 +20,6 @@ FROM gelog/hadoop
 ENV CC=gcc \
     CXX=g++
 
-ADD . /apache-arrow
-WORKDIR /apache-arrow
-
 RUN apt-get update -y \
  && apt-get install -y \
 	  gcc \
@@ -32,7 +29,37 @@ RUN apt-get update -y \
 	  pkg-config \
 	  ninja-build
 
-RUN arrow/dev/docker_common/install_pyarrow_conda_toolchain.sh 3.6
+RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh \
+ && /bin/bash conda.sh -b -p /opt/conda \
+ && rm conda.sh
+
+RUN conda create -y -q -c conda-forge -n pyarrow-dev \
+      python=$1 \
+      ipython \
+      matplotlib \
+      nomkl \
+      numpy \
+      six \
+      setuptools \
+      cython \
+      pandas \
+      pytest \
+      cmake \
+      flatbuffers \
+      rapidjson \
+      boost-cpp \
+      thrift-cpp \
+      snappy \
+      zlib \
+      gflags \
+      brotli \
+      jemalloc \
+      lz4-c \
+      zstd \
+      setuptools \
+      setuptools_scm \
+ && conda clean --all
+
 ENV PATH="/opt/conda/bin:${PATH}"
 
 # installing in the previous step boost=1.60 and boost-cpp=1.67 gets installed,
@@ -44,5 +71,8 @@ RUN conda install -y -q -n pyarrow-dev -c conda-forge \
       hdfs3 \
       libhdfs3=2.2.31 \
  && conda clean --all
+
+ADD . /apache-arrow
+WORKDIR /apache-arrow
 
 CMD arrow/dev/hdfs_integration/hdfs_integration.sh
