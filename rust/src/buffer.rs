@@ -104,7 +104,6 @@ impl Clone for Buffer {
     }
 }
 
-
 /// Creating a `Buffer` instance by copying the memory from a `Vec<u8>` into a newly
 /// allocated memory region.
 impl<T: AsRef<[u8]>> From<T> for Buffer {
