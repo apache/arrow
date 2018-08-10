@@ -163,6 +163,10 @@ DateType_unit <- function(type) {
     .Call(`_arrow_DateType_unit`, type)
 }
 
+TimeType_unit <- function(type) {
+    .Call(`_arrow_TimeType_unit`, type)
+}
+
 DecimalType_precision <- function(type) {
     .Call(`_arrow_DecimalType_precision`, type)
 }

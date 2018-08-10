@@ -38,6 +38,15 @@ NAMESPACE <- environment()
   )
 )
 
+#----- metadata
+
+`arrow::FixedWidthType` <- R6Class("arrow::FixedWidthType",
+  inherit = `arrow::DataType`,
+  public = list(
+    bit_width = function() FixedWidthType_bit_width(private$xp)
+  )
+)
+
 #' @export
 `==.arrow::DataType` <- function(lhs, rhs){
   lhs$Equals(rhs)
@@ -47,15 +56,6 @@ NAMESPACE <- environment()
 `!=.arrow::DataType` <- function(lhs, rhs){
   ! lhs == rhs
 }
-
-#----- metadata
-
-`arrow::FixedWidthType` <- R6Class("arrow::FixedWidthType",
-  inherit = `arrow::DataType`,
-  public = list(
-    bit_width = function() FixedWidthType_bit_width(private$xp)
-  )
-)
 
 `arrow::DecimalType` <- R6Class("arrow:::DecimalType",
   inherit = `arrow::FixedWidthType`,
@@ -116,6 +116,15 @@ delayedAssign("arrow::Utf8", datatype_arrow_class("Utf8"))
 delayedAssign("arrow::Date32", datatype_arrow_class("Date32", super = `arrow::DateType`))
 delayedAssign("arrow::Date64", datatype_arrow_class("Date64", super = `arrow::DateType`))
 
+`arrow::TimeType` <- R6Class("arrow::TimeType",
+  inherit = `arrow::FixedWidthType`,
+  public = list(
+    unit = function() TimeType_unit(private$xp)
+  )
+)
+delayedAssign("arrow::Time32", datatype_arrow_class("Time32", super = `arrow::TimeType`))
+delayedAssign("arrow::Time64", datatype_arrow_class("Time64", super = `arrow::TimeType`))
+
 `arrow::Null` <- R6Class("arrow::Null",
   inherit = `arrow::DataType`,
   public = list(
@@ -172,6 +181,14 @@ date32 <- function() `arrow::Date32`$new()
 
 #' @export
 date64 <- function() `arrow::Date64`$new()
+
+#' @export
+time32 <- function(unit) {
+  `arrow::Time32`$new(unit)
+}
+
+#' @export
+time64 <- function(unit) `arrow::Time64`$new(unit)
 
 #' @export
 null <- function() `arrow::Null`$new()

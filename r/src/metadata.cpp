@@ -132,6 +132,13 @@ SEXP wrap<arrow::DateUnit>(const arrow::DateUnit& x) {
   return out;
 }
 
+template <>
+SEXP wrap<arrow::TimeUnit::type>(const arrow::TimeUnit::type& x) {
+  List out = List::create(static_cast<int>(x));
+  out.attr("class") = CharacterVector::create("arrow::TimeUnit::type", "arrow-enum");
+  return out;
+}
+
 }  // namespace Rcpp
 
 // [[Rcpp::export]]
@@ -254,6 +261,12 @@ int FixedWidthType_bit_width(xptr_FixedWidthType type){
 arrow::DateUnit DateType_unit(xptr_DateType type){
   return std::shared_ptr<arrow::DateType>(*type)->unit();
 }
+
+// [[Rcpp::export]]
+arrow::TimeUnit::type TimeType_unit(xptr_TimeType type){
+  return std::shared_ptr<arrow::TimeType>(*type)->unit();
+}
+
 
 // [[Rcpp::export]]
 int32_t DecimalType_precision(xptr_DecimalType type) {

@@ -25,6 +25,7 @@
 using xptr_DataType = Rcpp::XPtr<std::shared_ptr<arrow::DataType>>;
 using xptr_FixedWidthType = Rcpp::XPtr<std::shared_ptr<arrow::FixedWidthType>>;
 using xptr_DateType = Rcpp::XPtr<std::shared_ptr<arrow::DateType>>;
+using xptr_TimeType = Rcpp::XPtr<std::shared_ptr<arrow::TimeType>>;
 using xptr_DecimalType = Rcpp::XPtr<std::shared_ptr<arrow::DecimalType>>;
 using xptr_Decimal128Type = Rcpp::XPtr<std::shared_ptr<arrow::Decimal128Type>>;
 using xptr_Field = Rcpp::XPtr<std::shared_ptr<arrow::Field>>;
@@ -38,6 +39,9 @@ arrow::TimeUnit::type as<arrow::TimeUnit::type>(SEXP);
 
 template <>
 arrow::DateUnit as<arrow::DateUnit>(SEXP);
+
+template <>
+SEXP wrap<arrow::TimeUnit::type>(const arrow::TimeUnit::type&);
 
 template <>
 SEXP wrap<arrow::DateUnit>(const arrow::DateUnit&);

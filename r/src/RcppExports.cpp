@@ -435,6 +435,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// TimeType_unit
+arrow::TimeUnit::type TimeType_unit(xptr_TimeType type);
+RcppExport SEXP _arrow_TimeType_unit(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_TimeType >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(TimeType_unit(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // DecimalType_precision
 int32_t DecimalType_precision(xptr_DecimalType type);
 RcppExport SEXP _arrow_DecimalType_precision(SEXP typeSEXP) {
@@ -499,6 +510,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ListType_ToString", (DL_FUNC) &_arrow_ListType_ToString, 1},
     {"_arrow_FixedWidthType_bit_width", (DL_FUNC) &_arrow_FixedWidthType_bit_width, 1},
     {"_arrow_DateType_unit", (DL_FUNC) &_arrow_DateType_unit, 1},
+    {"_arrow_TimeType_unit", (DL_FUNC) &_arrow_TimeType_unit, 1},
     {"_arrow_DecimalType_precision", (DL_FUNC) &_arrow_DecimalType_precision, 1},
     {"_arrow_DecimalType_scale", (DL_FUNC) &_arrow_DecimalType_scale, 1},
     {NULL, NULL, 0}
