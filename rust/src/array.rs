@@ -18,7 +18,6 @@
 ///! Array types
 use std::any::Any;
 use std::convert::From;
-use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
 use std::sync::Arc;
@@ -94,8 +93,6 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
     raw_values: RawPtrBox<T>,
-    /// Marker to let the compiler know that `T` is used.
-    _phantom: PhantomData<T>,
 }
 
 /// Macro to define primitive arrays for different data types and native types.
@@ -215,11 +212,10 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     fn from(data: ArrayDataRef) -> Self {
         assert!(data.buffers().len() == 1);
         let raw_values = data.buffers()[0].raw_data();
-        debug_assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()));
+        assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()));
         Self {
             data: data,
             raw_values: RawPtrBox::new(raw_values as *const T),
-            _phantom: PhantomData,
         }
     }
 }
@@ -299,7 +295,7 @@ impl From<ArrayDataRef> for ListArray {
         debug_assert!(data.child_data().len() == 1);
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
-        debug_assert!(memory::is_aligned(
+        assert!(memory::is_aligned(
             raw_value_offsets,
             mem::align_of::<i32>()
         ));
@@ -388,7 +384,7 @@ impl From<ArrayDataRef> for BinaryArray {
     fn from(data: ArrayDataRef) -> Self {
         assert!(data.buffers().len() == 2);
         let raw_value_offsets = data.buffers()[0].raw_data();
-        debug_assert!(memory::is_aligned(
+        assert!(memory::is_aligned(
             raw_value_offsets,
             mem::align_of::<i32>()
         ));
