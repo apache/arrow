@@ -97,6 +97,7 @@ class TestDecimal128 < Test::Unit::TestCase
   end
 
   def test_divide_zero
+    require_gi_bindings(3, 3, 0)
     decimal1 = Arrow::Decimal128.new(23423445)
     decimal2 = Arrow::Decimal128.new(0)
     message =
