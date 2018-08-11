@@ -16,6 +16,8 @@
 # under the License.
 
 class TestDecimal128 < Test::Unit::TestCase
+  include Helper::Omittable
+
   def test_to_string_scale
     integer_data = 23423445
     string_data = "234.23445"
@@ -81,6 +83,7 @@ class TestDecimal128 < Test::Unit::TestCase
   end
 
   def test_divide
+    require_gi_bindings(3, 3, 0)
     integer_data1 = 23423445
     integer_data2 = 5443
     decimal1 = Arrow::Decimal128.new(integer_data1)
