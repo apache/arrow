@@ -85,13 +85,13 @@ class TestDecimal128 < Test::Unit::TestCase
   def test_divide
     require_gi_bindings(3, 3, 0)
     integer_data1 = 23423445
-    integer_data2 = 5443
+    integer_data2 = -5443
     decimal1 = Arrow::Decimal128.new(integer_data1)
     decimal2 = Arrow::Decimal128.new(integer_data2)
     result, remainder = decimal1.divide(decimal2)
     assert_equal([
-                   integer_data1 / integer_data2,
-                   integer_data1 % integer_data2,
+                   integer_data1.quo(integer_data2).truncate,
+                   integer_data1.remainder(integer_data2),
                  ],
                  [result.to_i, remainder.to_i])
   end
