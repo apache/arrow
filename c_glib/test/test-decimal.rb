@@ -89,8 +89,11 @@ class TestDecimal128 < Test::Unit::TestCase
     decimal1 = Arrow::Decimal128.new(integer_data1)
     decimal2 = Arrow::Decimal128.new(integer_data2)
     result, remainder = decimal1.divide(decimal2)
-    assert_equal(integer_data1 / integer_data2, result.to_i)
-    assert_equal(integer_data1 % integer_data2, remainder.to_i)
+    assert_equal([
+                   integer_data1 / integer_data2,
+                   integer_data1 % integer_data2,
+                 ],
+                 [result.to_i, remainder.to_i])
   end
 
   def test_divide_zero
