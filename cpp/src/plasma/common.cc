@@ -31,7 +31,7 @@ namespace plasma {
 using arrow::Status;
 
 std::mt19937 RandomlySeededMersenneTwister() {
-  // We use the "/dev/urandom" argument here. Without it,
+  // We use the "/dev/urandom" argument here. Without it, the libstdc++
   // std::random_device gets randomness using a special CPU instruction
   // (RDRND) which crashes the valgrind shipped with Ubuntu 16.04.
   std::random_device urandom("/dev/urandom");
