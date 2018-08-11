@@ -282,7 +282,9 @@ garrow_decimal128_multiply(GArrowDecimal128 *left,
  * garrow_decimal128_divide:
  * @left: A #GArrowDecimal128.
  * @right: A #GArrowDecimal128.
- * @remainder: (out) (transfer none): A #GArrowDecimal128.
+ * @remainder: (out): A return location for the remainder value of
+ *   these decimals. The returned #GArrowDecimal128 be unreferred with
+ *   g_object_unref() when no longer needed.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The divided value of
