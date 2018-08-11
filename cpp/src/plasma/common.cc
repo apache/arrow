@@ -31,10 +31,16 @@ namespace plasma {
 using arrow::Status;
 
 std::mt19937 RandomlySeededMersenneTwister() {
-  auto seed = static_cast<std::mt19937::result_type>(
-      std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  std::mt19937 seeded_engine(seed);
-  return seeded_engine;
+  // We use the "/dev/urandom" argument here. Without it,
+  // std::random_device gets randomness using a special CPU instruction
+  // (RDRND) which crashes the valgrind shipped with Ubuntu 16.04.
+  std::random_device urandom("/dev/urandom");
+  std::vector<std::mt19937::result_type> seeds;
+  for (int i = 0; i < std::mt19937::state_size; ++i) {
+    seeds.push_back(urandom());
+  }
+  std::seed_seq seq(seeds.begin(), seeds.end());
+  return std::mt19937(seq);
 }
 
 UniqueID UniqueID::from_random() {
