@@ -22,6 +22,7 @@
 #endif
 
 #include <arrow-glib/decimal.hpp>
+#include <arrow-glib/error.hpp>
 
 G_BEGIN_DECLS
 
@@ -215,6 +216,110 @@ garrow_decimal128_to_integer(GArrowDecimal128 *decimal)
 {
   auto arrow_decimal = garrow_decimal128_get_raw(decimal);
   return static_cast<int64_t>(*arrow_decimal);
+}
+
+/**
+ * garrow_decimal128_plus:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The added value of these decimals.
+ *
+ * Since: 0.11.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_plus(GArrowDecimal128 *left,
+                       GArrowDecimal128 *right)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(*arrow_decimal_left + *arrow_decimal_right);
+  return garrow_decimal128_new_raw(&arrow_decimal);
+}
+
+/**
+ * garrow_decimal128_minus:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The subtracted value of these decimals.
+ *
+ * Since: 0.11.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_minus(GArrowDecimal128 *left,
+                        GArrowDecimal128 *right)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(*arrow_decimal_left - *arrow_decimal_right);
+  return garrow_decimal128_new_raw(&arrow_decimal);
+}
+
+/**
+ * garrow_decimal128_multiply:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ *
+ * Returns: (transfer full): The multiplied value of these decimals.
+ *
+ * Since: 0.11.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_multiply(GArrowDecimal128 *left,
+                           GArrowDecimal128 *right)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  auto arrow_decimal =
+    std::make_shared<arrow::Decimal128>(*arrow_decimal_left * *arrow_decimal_right);
+  return garrow_decimal128_new_raw(&arrow_decimal);
+}
+
+/**
+ * garrow_decimal128_divide:
+ * @left: A #GArrowDecimal128.
+ * @right: A #GArrowDecimal128.
+ * @remainder: (out) (nullable): A return location for the remainder
+ *   value of these decimals. The returned #GArrowDecimal128 be
+ *   unreferred with g_object_unref() when no longer needed.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The divided value of
+ *   these decimals or %NULL on error.
+ *
+ * Since: 0.11.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_divide(GArrowDecimal128 *left,
+                         GArrowDecimal128 *right,
+                         GArrowDecimal128 **remainder,
+                         GError **error)
+{
+  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
+  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
+  arrow::Decimal128 arrow_result_raw;
+  arrow::Decimal128 arrow_remainder_raw;
+  auto status =
+    arrow_decimal_left->Divide(*arrow_decimal_right,
+                               &arrow_result_raw,
+                               &arrow_remainder_raw);
+  if (garrow_error_check(error, status, "[decimal][divide]")) {
+    if (remainder) {
+      auto arrow_remainder =
+        std::make_shared<arrow::Decimal128>(arrow_remainder_raw);
+      *remainder = garrow_decimal128_new_raw(&arrow_remainder);
+    }
+    auto arrow_result = std::make_shared<arrow::Decimal128>(arrow_result_raw);
+    return garrow_decimal128_new_raw(&arrow_result);
+  } else {
+    if (remainder) {
+      *remainder = NULL;
+    }
+    return NULL;
+  }
 }
 
 G_END_DECLS
