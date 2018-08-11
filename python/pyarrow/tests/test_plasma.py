@@ -23,6 +23,7 @@ import os
 import pytest
 import random
 import signal
+import subprocess
 import sys
 
 import numpy as np
@@ -790,3 +791,11 @@ def test_plasma_client_sharing():
         del plasma_client
         assert (buf == np.zeros(3)).all()
         del buf  # This segfaulted pre ARROW-2448.
+
+
+@pytest.mark.plasma
+def test_object_id_randomness():
+    cmd = "from pyarrow import plasma; print(plasma.ObjectID.from_random())"
+    first_object_id = subprocess.check_output(["python", "-c", cmd])
+    second_object_id = subprocess.check_output(["python", "-c", cmd])
+    assert first_object_id != second_object_id
