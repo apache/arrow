@@ -51,9 +51,7 @@ GArrowDecimal128 *garrow_decimal128_multiply(GArrowDecimal128 *left,
                                              GArrowDecimal128 *right);
 GArrowDecimal128 *garrow_decimal128_divide(GArrowDecimal128 *left,
                                            GArrowDecimal128 *right,
+                                           GArrowDecimal128 **remainder,
                                            GError **error);
-GArrowDecimal128 *garrow_decimal128_remainder(GArrowDecimal128 *left,
-                                              GArrowDecimal128 *right,
-                                              GError **error);
 
 G_END_DECLS

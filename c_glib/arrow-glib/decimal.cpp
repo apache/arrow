@@ -282,6 +282,7 @@ garrow_decimal128_multiply(GArrowDecimal128 *left,
  * garrow_decimal128_divide:
  * @left: A #GArrowDecimal128.
  * @right: A #GArrowDecimal128.
+ * @remainder: (out) (transfer none): A #GArrowDecimal128.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The divided value of
@@ -292,46 +293,21 @@ garrow_decimal128_multiply(GArrowDecimal128 *left,
 GArrowDecimal128 *
 garrow_decimal128_divide(GArrowDecimal128 *left,
                          GArrowDecimal128 *right,
+                         GArrowDecimal128 **remainder,
                          GError **error)
 {
   auto arrow_decimal_left = garrow_decimal128_get_raw(left);
   auto arrow_decimal_right = garrow_decimal128_get_raw(right);
-  arrow::Decimal128 result;
-  arrow::Decimal128 remainder;
+  arrow::Decimal128 arrow_result_raw;
+  arrow::Decimal128 arrow_remainder_raw;
   auto status =
-    arrow_decimal_left->Divide(*arrow_decimal_right, &result, &remainder);
+    arrow_decimal_left->Divide(*arrow_decimal_right, &arrow_result_raw, &arrow_remainder_raw);
   if (garrow_error_check(error, status, "[decimal][divide]")) {
-    auto arrow_result = std::make_shared<arrow::Decimal128>(result);
+    auto arrow_remainder =
+      std::make_shared<arrow::Decimal128>(arrow_remainder_raw);
+    *remainder = garrow_decimal128_new_raw(&arrow_remainder);
+    auto arrow_result = std::make_shared<arrow::Decimal128>(arrow_result_raw);
     return garrow_decimal128_new_raw(&arrow_result);
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * garrow_decimal128_remainder:
- * @left: A #GArrowDecimal128.
- * @right: A #GArrowDecimal128.
- *
- * Returns: (nullable) (transfer full): The remainder value of
- *   these decimals or %NULL on error.
- *
- * Since: 0.11.0
- */
-GArrowDecimal128 *
-garrow_decimal128_remainder(GArrowDecimal128 *left,
-                            GArrowDecimal128 *right,
-                            GError **error)
-{
-  auto arrow_decimal_left = garrow_decimal128_get_raw(left);
-  auto arrow_decimal_right = garrow_decimal128_get_raw(right);
-  arrow::Decimal128 result;
-  arrow::Decimal128 remainder;
-  auto status =
-    arrow_decimal_left->Divide(*arrow_decimal_right, &result, &remainder);
-  if (garrow_error_check(error, status, "[decimal][remainder]")) {
-    auto arrow_remainder = std::make_shared<arrow::Decimal128>(remainder);
-    return garrow_decimal128_new_raw(&arrow_remainder);
   } else {
     return NULL;
   }
