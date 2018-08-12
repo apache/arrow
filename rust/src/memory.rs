@@ -101,9 +101,14 @@ mod tests {
 
     #[test]
     fn test_is_aligned() {
-        let ptr: [u8; 5] = [1, 0, 1, 0, 1];
+        let ptr: [u8; 5] = [0; 5];
         assert_eq!(true, is_aligned::<u8>(ptr.as_ptr(), 1));
         assert_eq!(false, is_aligned::<u8>(ptr.as_ptr(), 2));
         assert_eq!(false, is_aligned::<u8>(ptr.as_ptr(), 3));
+
+        let ptr: [u8; 8] = [0; 8];
+        assert_eq!(true, is_aligned::<u8>(ptr.as_ptr(), 1));
+        assert_eq!(true, is_aligned::<u8>(ptr.as_ptr(), 2));
+        assert_eq!(true, is_aligned::<u8>(ptr.as_ptr(), 4));
     }
 }

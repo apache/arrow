@@ -489,6 +489,7 @@ mod tests {
     use array_data::ArrayData;
     use buffer::Buffer;
     use datatypes::{DataType, Field, ToByteSlice};
+    use memory;
 
     #[test]
     fn test_primitive_array() {
@@ -622,6 +623,54 @@ mod tests {
 
         assert_eq!(boolean_data, struct_array.column(0).data());
         assert_eq!(int_data, struct_array.column(1).data());
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_primitive_array_alignment() {
+        let ptr = memory::allocate_aligned(8).unwrap();
+        let buf = Buffer::from_raw_parts(ptr, 8);
+        let buf2 = buf.slice(1);
+        let array_data = ArrayData::builder(DataType::Int32)
+            .add_buffer(buf2)
+            .build();
+        PrimitiveArray::<i32>::from(array_data);
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_list_array_alignment() {
+        let ptr = memory::allocate_aligned(8).unwrap();
+        let buf = Buffer::from_raw_parts(ptr, 8);
+        let buf2 = buf.slice(1);
+
+        let values: [i32; 8] = [0; 8];
+        let value_data = ArrayData::builder(DataType::Int32)
+            .add_buffer(Buffer::from(values.to_byte_slice()))
+            .build();
+
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .add_buffer(buf2)
+            .add_child_data(value_data.clone())
+            .build();
+        ListArray::from(list_data);
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_binary_array_alignment() {
+        let ptr = memory::allocate_aligned(8).unwrap();
+        let buf = Buffer::from_raw_parts(ptr, 8);
+        let buf2 = buf.slice(1);
+
+        let values: [u8; 12] = [0; 12];
+
+        let array_data = ArrayData::builder(DataType::Utf8)
+            .add_buffer(buf2)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        BinaryArray::from(array_data);
     }
 
     #[test]

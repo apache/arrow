@@ -68,17 +68,26 @@ impl Buffer {
 
     /// Returns the number of bytes in the buffer
     pub fn len(&self) -> usize {
-        self.data.len as usize
+        self.data.len - self.offset as usize
     }
 
     /// Returns whether the buffer is empty.
     pub fn is_empty(&self) -> bool {
-        self.data.len == 0
+        self.data.len - self.offset == 0
     }
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.data.ptr, self.data.len) }
+        unsafe { ::std::slice::from_raw_parts(self.raw_data(), self.data.len - self.offset) }
+    }
+
+    /// Returns a slice of this buffer, starting from `offset`.
+    pub fn slice(&self, offset: usize) -> Buffer {
+        assert!(self.offset + offset <= self.len());
+        Buffer {
+            data: self.data.clone(),
+            offset: self.offset + offset,
+        }
     }
 
     /// Returns a raw pointer for this buffer.
@@ -86,7 +95,9 @@ impl Buffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     pub fn raw_data(&self) -> *const u8 {
-        self.data.ptr
+        unsafe {
+            self.data.ptr.offset(self.offset as isize)
+        }
     }
 
     /// Returns an empty buffer.
@@ -135,11 +146,17 @@ mod tests {
         let mut buf2 = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(buf1, buf2);
 
+        let buf3 = buf1.slice(2);
+        assert!(buf1 != buf3);
+        let buf4 = buf2.slice(2);
+        assert_eq!(buf3, buf4);
+
         buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
         assert!(buf1 != buf2);
 
         buf2 = Buffer::from(&[0, 1, 2, 3]);
         assert!(buf1 != buf2);
+
     }
 
     #[test]
@@ -170,6 +187,34 @@ mod tests {
         assert_eq!(5, buf2.len());
         assert!(!buf2.raw_data().is_null());
         assert_eq!(&[0, 1, 2, 3, 4], buf2.data());
+    }
+
+    #[test]
+    fn test_buffer_slice() {
+        let buf = Buffer::from(&[2, 4, 6, 8, 10]);
+        let buf2 = buf.slice(2);
+
+        assert_eq!(&[6, 8, 10], buf2.data());
+        assert_eq!(3, buf2.len());
+        assert_eq!(unsafe {buf.raw_data().offset(2)}, buf2.raw_data());
+
+        let buf3 = buf2.slice(1);
+        assert_eq!(&[8, 10], buf3.data());
+        assert_eq!(2, buf3.len());
+        assert_eq!(unsafe {buf.raw_data().offset(3)}, buf3.raw_data());
+
+        let buf4 = buf.slice(5);
+        let empty_slice: [u8; 0] = [];
+        assert_eq!(empty_slice, buf4.data());
+        assert_eq!(0, buf4.len());
+        assert!(buf4.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_buffer_slice_bad_offset() {
+        let buf = Buffer::from(&[2, 4, 6, 8, 10]);
+        buf.slice(6);
     }
 
     #[test]
