@@ -291,6 +291,5 @@ mod tests {
             .null_bit_buffer(Buffer::from(bit_v))
             .build();
         assert_eq!(14, arr_data.null_count());
-
     }
 }

@@ -40,7 +40,6 @@ pub trait Array: Send + Sync {
     /// Returns a borrowed & reference-counted pointer to the data of this array
     fn data_ref(&self) -> &ArrayDataRef;
 
-
     /// Returns a reference to the data type of this array
     fn data_type(&self) -> &DataType {
         self.data_ref().data_type()
