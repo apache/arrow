@@ -18,6 +18,7 @@
 from collections import OrderedDict
 import bz2
 import datetime
+import decimal
 import gzip
 import json
 import os
@@ -73,6 +74,14 @@ def fix_example_values(actual_cols, expected_cols):
             # date fields are represented as strings in JSON files
             expected = [datetime.datetime.strptime(v, '%Y-%m-%d').date()
                         for v in expected]
+        elif typ is decimal.Decimal:
+            # decimal fields are represented as reals in JSON files
+            for i, (d, v) in enumerate(zip(actual, expected)):
+                if v is not None:
+                    exp = d.as_tuple().exponent
+                    factor = 10 ** -exp
+                    expected[i] = decimal.Decimal(round(v * factor)
+                                                  ).scaleb(exp)
 
         expected_cols[name] = expected
 
@@ -175,3 +184,7 @@ def test_orcfile_test1_pickle():
 
 def test_orcfile_dates():
     check_example_using_pickle('TestOrcFile.testDate1900')
+
+
+def test_orcfile_decimals():
+    check_example_using_pickle('decimal')

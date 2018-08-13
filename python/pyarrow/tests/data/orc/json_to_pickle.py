@@ -59,12 +59,13 @@ def convert_example_file(orc_path, json_path, pickle_path):
     fix_example_values(orc_cols, json_cols)
 
     print("Saving '{}'...".format(pickle_path))
-    with bz2.open(pickle_path, 'wb', compresslevel=6) as f:
-        pickle.dump(json_cols, f, protocol=2)
+    with open(pickle_path, 'wb') as f:
+        f.write(bz2.compress(pickle.dumps(json_cols, protocol=2),
+                             compresslevel=6))
 
 
 if __name__ == "__main__":
-    for name in ['TestOrcFile.test1', 'TestOrcFile.testDate1900']:
+    for name in ['TestOrcFile.test1', 'TestOrcFile.testDate1900', 'decimal']:
         convert_example_file(path_for_orc_example(name),
                              path_for_json_example(name),
                              path_for_pickle_example(name))
