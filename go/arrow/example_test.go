@@ -191,3 +191,93 @@ func Example_listArray() {
 	// List[5]   = (null)
 	// List[6]   = [9]
 }
+
+// This example shows how to create a Struct array.
+// The resulting array should be:
+//  [{‘joe’, 1}, {null, 2}, null, {‘mark’, 4}]
+func Example_structArray() {
+	pool := memory.NewGoAllocator()
+	dtype := arrow.StructOf([]arrow.Field{
+		{Name: "f1", Type: arrow.ListOf(arrow.PrimitiveTypes.Uint8)},
+		{Name: "f2", Type: arrow.PrimitiveTypes.Int32},
+	}...)
+
+	sb := array.NewStructBuilder(pool, dtype)
+	defer sb.Release()
+
+	f1b := sb.FieldBuilder(0).(*array.ListBuilder)
+	defer f1b.Release()
+	f1vb := f1b.ValueBuilder().(*array.Uint8Builder)
+	defer f1vb.Release()
+
+	f2b := sb.FieldBuilder(1).(*array.Int32Builder)
+	defer f2b.Release()
+
+	sb.Reserve(4)
+	f1vb.Reserve(7)
+	f2b.Reserve(3)
+
+	sb.Append(true)
+	f1b.Append(true)
+	f1vb.AppendValues([]byte("joe"), nil)
+	f2b.Append(1)
+
+	sb.Append(true)
+	f1b.AppendNull()
+	f2b.Append(2)
+
+	sb.AppendNull()
+
+	sb.Append(true)
+	f1b.Append(true)
+	f1vb.AppendValues([]byte("mark"), nil)
+	f2b.Append(4)
+
+	arr := sb.NewArray().(*array.Struct)
+	defer arr.Release()
+
+	fmt.Printf("NullN() = %d\n", arr.NullN())
+	fmt.Printf("Len()   = %d\n", arr.Len())
+
+	list := arr.Field(0).(*array.List)
+	defer list.Release()
+
+	offsets := list.Offsets()
+
+	varr := list.ListValues().(*array.Uint8)
+	defer varr.Release()
+
+	ints := arr.Field(1).(*array.Int32)
+	defer ints.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		if !arr.IsValid(i) {
+			fmt.Printf("Struct[%d] = (null)\n", i)
+			continue
+		}
+		fmt.Printf("Struct[%d] = [", i)
+		pos := int(offsets[i])
+		switch {
+		case list.IsValid(pos):
+			fmt.Printf("[")
+			for j := offsets[i]; j < offsets[i+1]; j++ {
+				if j != offsets[i] {
+					fmt.Printf(", ")
+				}
+				fmt.Printf("%v", string(varr.Value(int(j))))
+			}
+			fmt.Printf("], ")
+		default:
+			fmt.Printf("(null), ")
+		}
+		fmt.Printf("%d]\n", ints.Value(i))
+	}
+
+	// Output:
+	// NullN() = 1
+	// Len()   = 4
+	// Struct[0] = [[j, o, e], 1]
+	// Struct[1] = [[], 2]
+	// Struct[2] = (null)
+	// Struct[3] = [[m, a, r, k], 4]
+}

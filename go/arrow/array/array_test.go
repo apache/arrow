@@ -66,6 +66,12 @@ func TestMakeFromData(t *testing.T) {
 			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
 		}},
 
+		{name: "struct", d: &testDataType{arrow.STRUCT}},
+		{name: "struct", d: &testDataType{arrow.STRUCT}, child: []*array.Data{
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
+		}},
+
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},
 		{name: "invalid(28)", d: &testDataType{arrow.Type(28)}, expPanic: true, expError: "invalid data type: Type(28)"},

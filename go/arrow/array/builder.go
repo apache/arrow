@@ -44,10 +44,16 @@ type Builder interface {
 	// NullN returns the number of null values in the array builder.
 	NullN() int
 
+	// AppendNull adds a new null value to the array being built.
+	AppendNull()
+
 	// NewArray creates a new array from the memory buffers used
 	// by the builder and resets the Builder so it can be used to build
 	// a new array.
 	NewArray() Interface
+
+	init(capacity int)
+	resize(newBits int, init func(int))
 }
 
 // builder provides common functionality for managing the validity bitmap (nulls) when building arrays.
@@ -227,6 +233,8 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		typ := dtype.(*arrow.ListType)
 		return NewListBuilder(mem, typ.Elem())
 	case arrow.STRUCT:
+		typ := dtype.(*arrow.StructType)
+		return NewStructBuilder(mem, typ)
 	case arrow.UNION:
 	case arrow.DICTIONARY:
 	case arrow.MAP:
