@@ -59,6 +59,7 @@ impl Drop for BufferData {
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
+        assert!(memory::is_aligned(ptr, 64));
         let buf_data = BufferData { ptr: ptr, len: len };
         Buffer {
             data: Arc::new(buf_data),
@@ -78,7 +79,7 @@ impl Buffer {
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.raw_data(), self.data.len - self.offset) }
+        unsafe { ::std::slice::from_raw_parts(self.raw_data(), self.len()) }
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
@@ -113,7 +114,7 @@ impl Clone for Buffer {
     }
 }
 
-/// Creating a `Buffer` instance by copying the memory from a `Vec<u8>` into a newly
+/// Creating a `Buffer` instance by copying the memory from a `AsRef<[u8]>` into a newly
 /// allocated memory region.
 impl<T: AsRef<[u8]>> From<T> for Buffer {
     fn from(p: T) -> Self {
@@ -144,20 +145,23 @@ mod tests {
         let mut buf2 = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(buf1, buf2);
 
+        // slice with same offset should still preserve equality
         let buf3 = buf1.slice(2);
         assert!(buf1 != buf3);
         let buf4 = buf2.slice(2);
         assert_eq!(buf3, buf4);
 
+        // unequal because of different elements
         buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
         assert!(buf1 != buf2);
 
+        // unequal because of different length
         buf2 = Buffer::from(&[0, 1, 2, 3]);
         assert!(buf1 != buf2);
     }
 
     #[test]
-    fn test_buffer_from_raw_parts() {
+    fn test_from_raw_parts() {
         let buf = Buffer::from_raw_parts(null_mut(), 0);
         assert_eq!(0, buf.len());
         assert_eq!(0, buf.data().len());
@@ -170,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn test_buffer_from_vec() {
+    fn test_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
         assert!(!buf.raw_data().is_null());
@@ -178,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn test_buffer_copy() {
+    fn test_copy() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         let buf2 = buf.clone();
         assert_eq!(5, buf2.len());
@@ -187,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn test_buffer_slice() {
+    fn test_slice() {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         let buf2 = buf.slice(2);
 
@@ -209,13 +213,13 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "")]
-    fn test_buffer_slice_bad_offset() {
+    fn test_slice_offset_out_of_bound() {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         buf.slice(6);
     }
 
     #[test]
-    fn test_access_buffer_concurrently() {
+    fn test_access_concurrently() {
         let buffer = Buffer::from(vec![1, 2, 3, 4, 5]);
         let buffer2 = buffer.clone();
         assert_eq!(&[1, 2, 3, 4, 5], buffer.data());
