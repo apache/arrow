@@ -20,7 +20,7 @@ use std::sync::Arc;
 use bitmap::Bitmap;
 use buffer::Buffer;
 use datatypes::DataType;
-use util::bit_util::count_set_bits;
+use util::bit_util;
 
 /// An generic representation of Arrow array data which encapsulates common attributes and
 /// operations for Arrow array. Specific operations for different arrays types (e.g.,
@@ -36,7 +36,7 @@ pub struct ArrayData {
     /// The number of null elements in this array data
     null_count: i64,
 
-    /// The offset into this array data.
+    /// The offset into this array data
     offset: i64,
 
     /// The buffers for this array data. Note that depending on the array types, this
@@ -68,7 +68,7 @@ impl ArrayData {
     ) -> Self {
         if null_count < 0 {
             null_count = if let Some(ref buf) = null_bit_buffer {
-                count_set_bits(buf.data())
+                len - bit_util::count_set_bits_offset(buf.data(), offset)
             } else {
                 0
             };
@@ -90,22 +90,22 @@ impl ArrayData {
         ArrayDataBuilder::new(data_type)
     }
 
-    /// Returns a reference to the data type of this array data.
+    /// Returns a reference to the data type of this array data
     pub fn data_type(&self) -> &DataType {
         &self.data_type
     }
 
-    /// Returns a slice of buffers for this array data.
+    /// Returns a slice of buffers for this array data
     pub fn buffers(&self) -> &[Buffer] {
         &self.buffers[..]
     }
 
-    /// Returns a slice of children data arrays.
+    /// Returns a slice of children data arrays
     pub fn child_data(&self) -> &[ArrayDataRef] {
         &self.child_data[..]
     }
 
-    /// Returns whether the element at index `i` is null.
+    /// Returns whether the element at index `i` is null
     pub fn is_null(&self, i: i64) -> bool {
         if let Some(ref b) = self.null_bitmap {
             return !b.is_set(i);
@@ -113,12 +113,12 @@ impl ArrayData {
         false
     }
 
-    /// Returns a reference to the null bitmap of this array data.
+    /// Returns a reference to the null bitmap of this array data
     pub fn null_bitmap(&self) -> &Option<Bitmap> {
         &self.null_bitmap
     }
 
-    /// Returns whether the element at index `i` is not null.
+    /// Returns whether the element at index `i` is not null
     pub fn is_valid(&self, i: i64) -> bool {
         if let Some(ref b) = self.null_bitmap {
             return b.is_set(i);
@@ -126,23 +126,23 @@ impl ArrayData {
         true
     }
 
-    /// Returns the length (i.e., number of elements) of this array.
+    /// Returns the length (i.e., number of elements) of this array
     pub fn len(&self) -> i64 {
         self.len
     }
 
-    /// Returns the offset of this array.
+    /// Returns the offset of this array
     pub fn offset(&self) -> i64 {
         self.offset
     }
 
-    /// Returns the total number of nulls in this array.
+    /// Returns the total number of nulls in this array
     pub fn null_count(&self) -> i64 {
         self.null_count
     }
 }
 
-/// Builder for `ArrayData` type.
+/// Builder for `ArrayData` type
 pub struct ArrayDataBuilder {
     data_type: DataType,
     len: i64,
@@ -222,9 +222,11 @@ impl ArrayDataBuilder {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::{ArrayData, DataType};
     use buffer::Buffer;
-    use std::sync::Arc;
+    use util::bit_util;
 
     #[test]
     fn test_new() {
@@ -264,5 +266,31 @@ mod tests {
         assert_eq!(&[0, 1, 2, 3], arr_data.buffers()[0].data());
         assert_eq!(1, arr_data.child_data().len());
         assert_eq!(child_arr_data, arr_data.child_data()[0]);
+    }
+
+    #[test]
+    fn test_null_count() {
+        let mut bit_v: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut bit_v, 0);
+        bit_util::set_bit(&mut bit_v, 3);
+        bit_util::set_bit(&mut bit_v, 10);
+        let arr_data = ArrayData::builder(DataType::Int32)
+            .len(16)
+            .null_bit_buffer(Buffer::from(bit_v))
+            .build();
+        assert_eq!(13, arr_data.null_count());
+
+        // Test with offset
+        let mut bit_v: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut bit_v, 0);
+        bit_util::set_bit(&mut bit_v, 3);
+        bit_util::set_bit(&mut bit_v, 10);
+        let arr_data = ArrayData::builder(DataType::Int32)
+            .len(16)
+            .offset(2)
+            .null_bit_buffer(Buffer::from(bit_v))
+            .build();
+        assert_eq!(14, arr_data.null_count());
+
     }
 }

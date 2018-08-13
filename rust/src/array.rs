@@ -39,6 +39,37 @@ pub trait Array: Send + Sync {
 
     /// Returns a borrowed & reference-counted pointer to the data of this array
     fn data_ref(&self) -> &ArrayDataRef;
+
+
+    /// Returns a reference to the data type of this array
+    fn data_type(&self) -> &DataType {
+        self.data_ref().data_type()
+    }
+
+    /// Returns the length (i.e., number of elements) of this array
+    fn len(&self) -> i64 {
+        self.data().len()
+    }
+
+    /// Returns the offset of this array
+    fn offset(&self) -> i64 {
+        self.data().offset()
+    }
+
+    /// Returns whether the element at index `i` is null
+    fn is_null(&self, i: i64) -> bool {
+        self.data().is_null(i)
+    }
+
+    /// Returns whether the element at index `i` is not null
+    fn is_valid(&self, i: i64) -> bool {
+        self.data().is_valid(i)
+    }
+
+    /// Returns the total number of nulls in this array
+    fn null_count(&self) -> i64 {
+        self.data().null_count()
+    }
 }
 
 pub type ArrayRef = Arc<Array>;
@@ -291,8 +322,8 @@ impl ListArray {
 /// Constructs a `ListArray` from an array data reference.
 impl From<ArrayDataRef> for ListArray {
     fn from(data: ArrayDataRef) -> Self {
-        debug_assert!(data.buffers().len() == 1);
-        debug_assert!(data.child_data().len() == 1);
+        assert!(data.buffers().len() == 1);
+        assert!(data.child_data().len() == 1);
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
         assert!(memory::is_aligned(
@@ -301,8 +332,8 @@ impl From<ArrayDataRef> for ListArray {
         ));
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
-            debug_assert!(*value_offsets.offset(0) == 0);
-            debug_assert!(*value_offsets.offset(data.len() as isize) == values.data().len() as i32);
+            assert!(*value_offsets.offset(0) == 0);
+            assert!(*value_offsets.offset(data.len() as isize) == values.data().len() as i32);
         }
         Self {
             data: data.clone(),
@@ -335,10 +366,8 @@ pub struct BinaryArray {
 
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
     pub fn get_value(&self, i: i64) -> &[u8] {
-        assert!(i >= 0 && i <= self.data.len());
+        assert!(i >= 0 && i < self.data.len());
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
@@ -485,26 +514,53 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
 mod tests {
     use std::thread;
 
-    use super::{BinaryArray, ListArray, PrimitiveArray, StructArray};
+    use super::{Array, BinaryArray, ListArray, PrimitiveArray, StructArray};
     use array_data::ArrayData;
     use buffer::Buffer;
     use datatypes::{DataType, Field, ToByteSlice};
     use memory;
 
     #[test]
-    fn test_primitive_array() {
-        let values: Vec<i32> = vec![0, 1, 2, 3, 4];
-        let buf = Buffer::from(&values[..].to_byte_slice());
+    fn test_primitive_array_from_vec() {
+        let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let buf2 = buf.clone();
-        let pa = PrimitiveArray::<i32>::new(buf.len() as i64, buf, 0, 0);
+        let pa = PrimitiveArray::<i32>::new(5, buf, 0, 0);
+        let slice = unsafe { ::std::slice::from_raw_parts(pa.raw_values(), 5) };
         assert_eq!(buf2, pa.values());
-        assert_eq!(2, pa.value(2));
-        let raw_values = pa.raw_values();
-        let slice = unsafe { ::std::slice::from_raw_parts(raw_values, 5) };
         assert_eq!(&[0, 1, 2, 3, 4], slice);
+        assert_eq!(5, pa.len());
+        assert_eq!(0, pa.offset());
+        assert_eq!(0, pa.null_count());
+        for i in 0..5 {
+            assert!(!pa.is_null(i));
+            assert!(pa.is_valid(i));
+            assert_eq!(i as i32, pa.value(i));
+        }
+    }
 
+    #[test]
+    fn test_primitive_array_from_vec_option() {
+        // Test building a primitive array with null values
+        let pa = PrimitiveArray::<i32>::from(vec![Some(0), None, Some(2), None, Some(4)]);
+        assert_eq!(5, pa.len());
+        assert_eq!(0, pa.offset());
+        assert_eq!(2, pa.null_count());
+        for i in 0..5 {
+            if i % 2 == 0 {
+                assert!(!pa.is_null(i));
+                assert!(pa.is_valid(i));
+                assert_eq!(i as i32, pa.value(i));
+            } else {
+                assert!(pa.is_null(i));
+                assert!(!pa.is_valid(i));
+            }
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder() {
         // Test building an primitive array with ArrayData builder and offset
-        let buf = Buffer::from(&[2, 4, 6, 8, 10].to_byte_slice());
+        let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let buf2 = buf.clone();
         let data = ArrayData::builder(DataType::Int32)
             .len(5)
@@ -513,22 +569,24 @@ mod tests {
             .build();
         let pa = PrimitiveArray::<i32>::from(data);
         assert_eq!(buf2, pa.values());
-        assert_eq!(6, pa.value(0));
+        assert_eq!(5, pa.len());
+        assert_eq!(0, pa.null_count());
+        for i in 0..3 {
+            assert_eq!((i + 2) as i32, pa.value(i));
+        }
     }
 
     #[test]
     fn test_list_array() {
         // Construct a value array
-        let values: Vec<i32> = vec![0, 1, 2, 3, 4, 5, 6, 7];
         let value_data = ArrayData::builder(DataType::Int32)
             .len(7)
-            .add_buffer(Buffer::from(&values[..].to_byte_slice()))
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
         //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        let value_offset_slice: Vec<i32> = vec![0, 2, 5, 7];
-        let value_offsets = Buffer::from(value_offset_slice.to_byte_slice());
+        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
 
         // Construct a list array from the above two
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -542,8 +600,14 @@ mod tests {
         let values = list_array.values();
         assert_eq!(value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
         assert_eq!(5, list_array.value_offset(2));
         assert_eq!(2, list_array.value_length(2));
+        for i in 0..3 {
+            assert!(list_array.is_valid(i as i64));
+            assert!(!list_array.is_null(i as i64));
+        }
 
         // Now test with a non-zero offset
         let list_data = ArrayData::builder(list_data_type)
@@ -557,8 +621,75 @@ mod tests {
         let values = list_array.values();
         assert_eq!(value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
         assert_eq!(5, list_array.value_offset(1));
         assert_eq!(2, list_array.value_length(1));
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_list_array_invalid_buffer_len() {
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(7)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type)
+            .len(3)
+            .add_child_data(value_data)
+            .build();
+        ListArray::from(list_data);
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_list_array_invalid_child_array_len() {
+        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type)
+            .len(3)
+            .add_buffer(value_offsets)
+            .build();
+        ListArray::from(list_data);
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_list_array_invalid_value_offset_start() {
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(7)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        let value_offsets = Buffer::from(&[2, 2, 5, 7].to_byte_slice());
+
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        ListArray::from(list_data);
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_list_array_invalid_value_offset_end() {
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(7)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        let value_offsets = Buffer::from(&[0, 2, 5, 8].to_byte_slice());
+
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        ListArray::from(list_data);
     }
 
     #[test]
@@ -570,11 +701,13 @@ mod tests {
 
         // Array data: ["hello", "", "parquet"]
         let array_data = ArrayData::builder(DataType::Utf8)
-            .len(4)
+            .len(3)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .build();
         let binary_array = BinaryArray::from(array_data);
+        assert_eq!(3, binary_array.len());
+        assert_eq!(0, binary_array.null_count());
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.get_value(0));
         assert_eq!("hello", binary_array.get_string(0));
         assert_eq!([] as [u8; 0], binary_array.get_value(1));
@@ -586,6 +719,10 @@ mod tests {
         assert_eq!("parquet", binary_array.get_string(2));
         assert_eq!(5, binary_array.value_offset(2));
         assert_eq!(7, binary_array.value_length(2));
+        for i in 0..3 {
+            assert!(binary_array.is_valid(i as i64));
+            assert!(!binary_array.is_null(i as i64));
+        }
 
         // Test binary array with offset
         let array_data = ArrayData::builder(DataType::Utf8)
@@ -600,6 +737,22 @@ mod tests {
             binary_array.get_value(1)
         );
         assert_eq!("parquet", binary_array.get_string(1));
+    }
+
+    #[test]
+    #[should_panic(expected = "")]
+    fn test_binary_array_get_value_index_out_of_bound() {
+        let values: [u8; 12] = [
+            b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
+        ];
+        let offsets: [i32; 4] = [0, 5, 5, 12];
+        let array_data = ArrayData::builder(DataType::Utf8)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let binary_array = BinaryArray::from(array_data);
+        binary_array.get_value(4);
     }
 
     #[test]

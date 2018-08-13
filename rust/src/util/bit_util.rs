@@ -28,6 +28,12 @@ static POPCOUNT_TABLE: [u8; 256] = [
     3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
 ];
 
+/// Returns the nearest number that is `>=` than `num` and is a multiple of 64
+#[inline]
+pub fn round_upto_multiple_of_64(num: i64) -> i64 {
+    round_upto_power_of_2(num, 64)
+}
+
 /// Returns the nearest multiple of `factor` that is `>=` than `num`. Here `factor` must
 /// be a power of 2.
 fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
@@ -35,25 +41,19 @@ fn round_upto_power_of_2(num: i64, factor: i64) -> i64 {
     (num + (factor - 1)) & !(factor - 1)
 }
 
-/// Returns the nearest number that is `>=` than `num` and is a multiple of 64.
-#[inline]
-pub fn round_upto_multiple_of_64(num: i64) -> i64 {
-    round_upto_power_of_2(num, 64)
-}
-
-/// Returns whether bit at position `i` in `data` is set or not.
+/// Returns whether bit at position `i` in `data` is set or not
 #[inline]
 pub fn get_bit(data: &[u8], i: i64) -> bool {
     (data[(i / 8) as usize] & BIT_MASK[(i % 8) as usize]) != 0
 }
 
-/// Sets bit at position `i` for `data`.
+/// Sets bit at position `i` for `data`
 #[inline]
 pub fn set_bit(data: &mut [u8], i: i64) {
     data[(i / 8) as usize] |= BIT_MASK[(i % 8) as usize]
 }
 
-/// Returns the number of 1-bits in `data`.
+/// Returns the number of 1-bits in `data`
 #[inline]
 pub fn count_set_bits(data: &[u8]) -> i64 {
     let mut count: i64 = 0;
@@ -61,6 +61,28 @@ pub fn count_set_bits(data: &[u8]) -> i64 {
         count += POPCOUNT_TABLE[*u as usize] as i64;
     }
     count
+}
+
+/// Returns the number of 1-bits in `data`, starting from `offset`.
+#[inline]
+pub fn count_set_bits_offset(data: &[u8], offset: i64) -> i64 {
+    debug_assert!(offset <= (data.len() * 8) as i64);
+
+    let start_byte_pos = (offset / 8) as usize;
+    let start_bit_pos = offset % 8;
+
+    if start_bit_pos == 0 {
+        count_set_bits(&data[start_byte_pos..])
+    } else {
+        let mut result = 0;
+        result += count_set_bits(&data[start_byte_pos + 1..]);
+        for i in start_bit_pos..8 {
+            if get_bit(&data[start_byte_pos..start_byte_pos + 1], i as i64) {
+                result += 1;
+            }
+        }
+        result
+    }
 }
 
 #[cfg(test)]
@@ -143,4 +165,17 @@ mod tests {
         assert_eq!(3, count_set_bits(&[0b00001101]));
         assert_eq!(6, count_set_bits(&[0b01001001, 0b01010010]));
     }
+
+    #[test]
+    fn test_count_bits_offset_slice() {
+        assert_eq!(8, count_set_bits_offset(&[0b11111111], 0));
+        assert_eq!(5, count_set_bits_offset(&[0b11111111], 3));
+        assert_eq!(0, count_set_bits_offset(&[0b11111111], 8));
+        assert_eq!(16, count_set_bits_offset(&[0b11111111, 0b11111111], 0));
+        assert_eq!(13, count_set_bits_offset(&[0b11111111, 0b11111111], 3));
+        assert_eq!(8, count_set_bits_offset(&[0b11111111, 0b11111111], 8));
+        assert_eq!(5, count_set_bits_offset(&[0b11111111, 0b11111111], 11));
+        assert_eq!(0, count_set_bits_offset(&[0b11111111, 0b11111111], 16));
+    }
+
 }
