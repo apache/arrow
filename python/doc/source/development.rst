@@ -65,7 +65,6 @@ First, let's clone the Arrow and Parquet git repositories:
 
 You should now see
 
-
 .. code-block:: shell
 
    $ ls -l
@@ -86,7 +85,6 @@ from conda-forge:
          cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
          gflags brotli jemalloc lz4-c zstd -c conda-forge
    source activate pyarrow-dev
-
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
@@ -141,8 +139,8 @@ folder as the repositories and a target installation folder:
    # development
    mkdir dist
 
-If your cmake version is too old on Linux, you could get a newer one via ``pip
-install cmake``.
+If your cmake version is too old on Linux, you could get a newer one via
+``pip install cmake``.
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
@@ -178,9 +176,6 @@ Now build and install the Arrow C++ libraries:
 If you don't want to build and install the Plasma in-memory object store,
 you can omit the ``-DARROW_PLASMA=on`` flag.
 
-To add support for the experimental Apache ORC integration, include
-``-DARROW_ORC=on`` in these flags.
-
 Now, optionally build and install the Apache Parquet libraries in your
 toolchain:
 
@@ -211,9 +206,6 @@ Now, build pyarrow:
 If you did not build parquet-cpp, you can omit ``--with-parquet`` and if
 you did not build with plasma, you can omit ``--with-plasma``.
 
-If you built with the experimental Apache ORC integration, include
-``--with-orc`` in these flags.
-
 You should be able to run the unit tests with:
 
 .. code-block:: shell
@@ -222,24 +214,19 @@ You should be able to run the unit tests with:
    ================================ test session starts ====================
    platform linux -- Python 3.6.1, pytest-3.0.7, py-1.4.33, pluggy-0.4.0
    rootdir: /home/wesm/arrow-clone/python, inifile:
-   collected 198 items
 
-   pyarrow/tests/test_array.py ...........
-   pyarrow/tests/test_convert_builtin.py .....................
-   pyarrow/tests/test_convert_pandas.py .............................
-   pyarrow/tests/test_feather.py ..........................
-   pyarrow/tests/test_hdfs.py sssssssssssssss
-   pyarrow/tests/test_io.py ..................
-   pyarrow/tests/test_ipc.py ........
-   pyarrow/tests/test_parquet.py ....................
-   pyarrow/tests/test_scalars.py ..........
-   pyarrow/tests/test_schema.py .........
-   pyarrow/tests/test_table.py .............
-   pyarrow/tests/test_tensor.py ................
+   collected 1061 items / 1 skipped
 
-   ====================== 181 passed, 17 skipped in 0.98 seconds ===========
+   [... test output not shown here ...]
 
-To build a self-contained wheel (include Arrow C++ and Parquet C++), one can set `--bundle-arrow-cpp`:
+   ============================== warnings summary ===============================
+
+   [... many warnings not shown here ...]
+
+   ====== 1000 passed, 56 skipped, 6 xfailed, 19 warnings in 26.52 seconds =======
+
+To build a self-contained wheel (including Arrow C++ and Parquet C++), one
+can set ``--bundle-arrow-cpp``:
 
 .. code-block:: shell
 
@@ -248,6 +235,30 @@ To build a self-contained wheel (include Arrow C++ and Parquet C++), one can set
 
 Again, if you did not build parquet-cpp, you should omit ``--with-parquet`` and
 if you did not build with plasma, you should omit ``--with-plasma``.
+
+Building with optional ORC integration
+--------------------------------------
+
+To build Arrow with support for the `Apache ORC file format <https://orc.apache.org/>`_,
+we recommend the following:
+
+#. Install the ORC C++ libraries and tools using ``conda``:
+
+   .. code-block:: shell
+
+      conda install -c conda-forge orc
+
+#. Set ``ORC_HOME`` and ``PROTOBUF_HOME`` to the location of the installed
+   Orc and protobuf C++ libraries, respectively (otherwise Arrow will try
+   to download source versions of those libraries and recompile them):
+
+   .. code-block:: shell
+
+      export ORC_HOME=$CONDA_PREFIX
+      export PROTOBUF_HOME=$CONDA_PREFIX
+
+#. Add ``-DARROW_ORC=on`` to the CMake flags.
+#. Add ``--with-orc`` to the ``setup.py`` flags.
 
 Known issues
 ------------
@@ -338,21 +349,20 @@ Then run the unit tests with:
 
    py.test pyarrow -v
 
-Running C++ unit tests with Python
-----------------------------------
+Running C++ unit tests for Python integration
+---------------------------------------------
 
 Getting ``python-test.exe`` to run is a bit tricky because your
-``%PYTHONPATH%`` must be configured given the active conda environment:
+``%PYTHONHOME%`` must be configured to point to the active conda environment:
 
 .. code-block:: shell
 
-   set CONDA_ENV=C:\Users\wesm\Miniconda\envs\arrow-test
-   set PYTHONPATH=%CONDA_ENV%\Lib;%CONDA_ENV%\Lib\site-packages;%CONDA_ENV%\python35.zip;%CONDA_ENV%\DLLs;%CONDA_ENV%
+   set PYTHONHOME=%CONDA_PREFIX%
 
 Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
 
-Nightly Builds of `arrow-cpp`, `parquet-cpp`, and `pyarrow` for Linux
----------------------------------------------------------------------
+Nightly Builds of ``arrow-cpp``, ``parquet-cpp``, and ``pyarrow`` for Linux
+---------------------------------------------------------------------------
 
 Nightly builds of Linux conda packages for ``arrow-cpp``, ``parquet-cpp``, and
 ``pyarrow`` can be automated using an open source tool called `scourge
@@ -370,8 +380,7 @@ To setup your own nightly builds:
 #. Run that script as a cronjob once per day
 
 First, clone and install scourge (you also need to `install docker
-<https://docs.docker.com/engine/installation>`):
-
+<https://docs.docker.com/engine/installation>`_):
 
 .. code:: sh
 
