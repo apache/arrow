@@ -108,12 +108,9 @@ mod tests {
         assert_eq!(true, is_aligned::<u8>(ptr, 4));
 
         // now make the memory aligned to 63-byte
-        ptr = unsafe {
-            ptr.offset(1)
-        };
+        ptr = unsafe { ptr.offset(1) };
         assert_eq!(true, is_aligned::<u8>(ptr, 1));
         assert_eq!(false, is_aligned::<u8>(ptr, 2));
         assert_eq!(false, is_aligned::<u8>(ptr, 4));
-
     }
 }

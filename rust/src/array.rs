@@ -631,9 +631,7 @@ mod tests {
         let ptr = memory::allocate_aligned(8).unwrap();
         let buf = Buffer::from_raw_parts(ptr, 8);
         let buf2 = buf.slice(1);
-        let array_data = ArrayData::builder(DataType::Int32)
-            .add_buffer(buf2)
-            .build();
+        let array_data = ArrayData::builder(DataType::Int32).add_buffer(buf2).build();
         PrimitiveArray::<i32>::from(array_data);
     }
 

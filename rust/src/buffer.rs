@@ -95,9 +95,7 @@ impl Buffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     pub fn raw_data(&self) -> *const u8 {
-        unsafe {
-            self.data.ptr.offset(self.offset as isize)
-        }
+        unsafe { self.data.ptr.offset(self.offset as isize) }
     }
 
     /// Returns an empty buffer.
@@ -156,7 +154,6 @@ mod tests {
 
         buf2 = Buffer::from(&[0, 1, 2, 3]);
         assert!(buf1 != buf2);
-
     }
 
     #[test]
@@ -196,12 +193,12 @@ mod tests {
 
         assert_eq!(&[6, 8, 10], buf2.data());
         assert_eq!(3, buf2.len());
-        assert_eq!(unsafe {buf.raw_data().offset(2)}, buf2.raw_data());
+        assert_eq!(unsafe { buf.raw_data().offset(2) }, buf2.raw_data());
 
         let buf3 = buf2.slice(1);
         assert_eq!(&[8, 10], buf3.data());
         assert_eq!(2, buf3.len());
-        assert_eq!(unsafe {buf.raw_data().offset(3)}, buf3.raw_data());
+        assert_eq!(unsafe { buf.raw_data().offset(3) }, buf3.raw_data());
 
         let buf4 = buf.slice(5);
         let empty_slice: [u8; 0] = [];
