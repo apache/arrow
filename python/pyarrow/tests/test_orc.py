@@ -153,8 +153,8 @@ def check_example_using_pickle(example_name):
     JSON files.
     """
     pickle_path = path_for_pickle_example(example_name)
-    with bz2.open(pickle_path, 'rb') as f:
-        expected_cols = pickle.load(f)
+    with open(pickle_path, 'rb') as f:
+        expected_cols = pickle.loads(bz2.decompress(f.read()))
 
     check_example_file(path_for_orc_example(example_name), expected_cols)
 
