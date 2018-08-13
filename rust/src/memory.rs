@@ -101,14 +101,19 @@ mod tests {
 
     #[test]
     fn test_is_aligned() {
-        let ptr: [u8; 5] = [0; 5];
-        assert_eq!(true, is_aligned::<u8>(ptr.as_ptr(), 1));
-        assert_eq!(false, is_aligned::<u8>(ptr.as_ptr(), 2));
-        assert_eq!(false, is_aligned::<u8>(ptr.as_ptr(), 3));
+        // allocate memory aligned to 64-byte
+        let mut ptr = allocate_aligned(10).unwrap();
+        assert_eq!(true, is_aligned::<u8>(ptr, 1));
+        assert_eq!(true, is_aligned::<u8>(ptr, 2));
+        assert_eq!(true, is_aligned::<u8>(ptr, 4));
 
-        let ptr: [u8; 8] = [0; 8];
-        assert_eq!(true, is_aligned::<u8>(ptr.as_ptr(), 1));
-        assert_eq!(true, is_aligned::<u8>(ptr.as_ptr(), 2));
-        assert_eq!(true, is_aligned::<u8>(ptr.as_ptr(), 4));
+        // now make the memory aligned to 63-byte
+        ptr = unsafe {
+            ptr.offset(1)
+        };
+        assert_eq!(true, is_aligned::<u8>(ptr, 1));
+        assert_eq!(false, is_aligned::<u8>(ptr, 2));
+        assert_eq!(false, is_aligned::<u8>(ptr, 4));
+
     }
 }
