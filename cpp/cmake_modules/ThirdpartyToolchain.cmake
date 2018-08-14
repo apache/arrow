@@ -228,7 +228,9 @@ endif()
 # ----------------------------------------------------------------------
 # Find pthreads
 
-if (NOT MSVC)
+if (WIN32)
+  set(PTHREAD_LIBRARY "PTHREAD_LIBRARY-NOTFOUND")
+else()
   find_library(PTHREAD_LIBRARY pthread)
   message(STATUS "Found pthread: ${PTHREAD_LIBRARY}")
 endif()
