@@ -163,7 +163,7 @@ func (b *BinaryBuilder) NewBinaryArray() (a *Binary) {
 func (b *BinaryBuilder) newData() (data *Data) {
 	b.appendNextOffset()
 	offsets, values := b.offsets.Finish(), b.values.Finish()
-	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, nil, b.nulls)
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, nil, b.nulls, 0)
 	if offsets != nil {
 		offsets.Release()
 	}

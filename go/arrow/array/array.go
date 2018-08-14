@@ -93,7 +93,7 @@ func (a *array) DataType() arrow.DataType { return a.data.dtype }
 // NullN returns the number of null values in the array.
 func (a *array) NullN() int {
 	if a.data.nulls < 0 {
-		a.data.nulls = a.data.length - bitutil.CountSetBits(a.nullBitmapBytes, a.data.length)
+		a.data.nulls = a.data.length - bitutil.CountSetBits(a.nullBitmapBytes, a.data.offset, a.data.length)
 	}
 	return a.data.nulls
 }
@@ -109,13 +109,13 @@ func (a *array) Len() int { return a.data.length }
 // IsNull returns true if value at index is null.
 // NOTE: IsNull will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
 func (a *array) IsNull(i int) bool {
-	return len(a.nullBitmapBytes) != 0 && bitutil.BitIsNotSet(a.nullBitmapBytes, i)
+	return len(a.nullBitmapBytes) != 0 && bitutil.BitIsNotSet(a.nullBitmapBytes, a.data.offset+i)
 }
 
 // IsValid returns true if value at index is not null.
 // NOTE: IsValid will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
 func (a *array) IsValid(i int) bool {
-	return len(a.nullBitmapBytes) == 0 || bitutil.BitIsSet(a.nullBitmapBytes, i)
+	return len(a.nullBitmapBytes) == 0 || bitutil.BitIsSet(a.nullBitmapBytes, a.data.offset+i)
 }
 
 func (a *array) setData(data *Data) {
@@ -182,6 +182,19 @@ func invalidDataType(data *Data) Interface {
 // MakeFromData constructs a strongly-typed array instance from generic Data.
 func MakeFromData(data *Data) Interface {
 	return makeArrayFn[byte(data.dtype.ID()&0x1f)](data)
+}
+
+// NewSlice constructs a zero-copy slice of the array with the indicated
+// indices i and j, corresponding to array[i:j].
+// The returned array must be Release()'d after use.
+//
+// NewSlice panics if the slice is outside the valid range of the input array.
+// NewSlice panics if j < i.
+func NewSlice(arr Interface, i, j int64) Interface {
+	data := NewSliceData(arr.Data(), i, j)
+	slice := MakeFromData(data)
+	data.Release()
+	return slice
 }
 
 func init() {

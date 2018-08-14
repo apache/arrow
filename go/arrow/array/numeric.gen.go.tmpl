@@ -43,6 +43,9 @@ func (a *{{.Name}}) setData(data *Data) {
 	vals := data.buffers[1]
 	if vals != nil {
 		a.values = arrow.{{.Name}}Traits.CastFromBytes(vals.Bytes())
+		beg := a.array.data.offset
+		end := beg + a.array.data.length
+		a.values = a.values[beg:end]
 	}
 }
 {{end}}

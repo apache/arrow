@@ -148,7 +148,7 @@ func (b *Int64Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Int64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Int64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -281,7 +281,7 @@ func (b *Uint64Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Uint64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Uint64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -414,7 +414,7 @@ func (b *Float64Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Float64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Float64, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -547,7 +547,7 @@ func (b *Int32Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Int32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Int32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -680,7 +680,7 @@ func (b *Uint32Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Uint32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Uint32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -813,7 +813,7 @@ func (b *Float32Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Float32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Float32, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -946,7 +946,7 @@ func (b *Int16Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Int16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Int16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -1079,7 +1079,7 @@ func (b *Uint16Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Uint16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Uint16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -1212,7 +1212,7 @@ func (b *Int8Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Int8, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Int8, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -1345,7 +1345,7 @@ func (b *Uint8Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.PrimitiveTypes.Uint8, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.Uint8, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {
@@ -1479,7 +1479,7 @@ func (b *TimestampBuilder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {

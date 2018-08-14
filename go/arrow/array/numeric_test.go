@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -28,9 +29,108 @@ import (
 func TestNewFloat64Data(t *testing.T) {
 	exp := []float64{1.0, 2.0, 4.0, 8.0, 16.0}
 
-	ad := array.NewData(arrow.PrimitiveTypes.Float64, len(exp), []*memory.Buffer{nil, memory.NewBufferBytes(arrow.Float64Traits.CastToBytes(exp))}, nil, 0)
+	ad := array.NewData(
+		arrow.PrimitiveTypes.Float64, len(exp),
+		[]*memory.Buffer{nil, memory.NewBufferBytes(arrow.Float64Traits.CastToBytes(exp))},
+		nil, 0, 0,
+	)
 	fa := array.NewFloat64Data(ad)
 
 	assert.Equal(t, len(exp), fa.Len(), "unexpected Len()")
 	assert.Equal(t, exp, fa.Float64Values(), "unexpected Float64Values()")
+}
+
+func TestFloat64SliceData(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 4
+	)
+
+	var (
+		vs  = []float64{1, 2, 3, 4, 5}
+		sub = vs[beg:end]
+	)
+
+	b := array.NewFloat64Builder(pool)
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Float64)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(vs); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Float64Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Float64)
+	defer slice.Release()
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Float64Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
+
+func TestFloat64SliceDataWithNull(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const (
+		beg = 2
+		end = 5
+	)
+
+	var (
+		valids = []bool{true, true, true, false, true, true}
+		vs     = []float64{1, 2, 3, 0, 4, 5}
+		sub    = vs[beg:end]
+	)
+
+	b := array.NewFloat64Builder(pool)
+	defer b.Release()
+
+	b.AppendValues(vs, valids)
+
+	arr := b.NewArray().(*array.Float64)
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(valids); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.NullN(), 1; got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.Float64Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	slice := array.NewSlice(arr, beg, end).(*array.Float64)
+	defer slice.Release()
+
+	if got, want := slice.NullN(), 1; got != want {
+		t.Errorf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Len(), len(sub); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	if got, want := slice.Float64Values(), sub; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
 }

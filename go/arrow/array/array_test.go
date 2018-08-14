@@ -62,14 +62,14 @@ func TestMakeFromData(t *testing.T) {
 		{name: "timestamp", d: &testDataType{arrow.TIMESTAMP}},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 		}},
 
 		{name: "struct", d: &testDataType{arrow.STRUCT}},
 		{name: "struct", d: &testDataType{arrow.STRUCT}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 		}},
 
 		// invalid types
@@ -83,7 +83,7 @@ func TestMakeFromData(t *testing.T) {
 			if test.size != 0 {
 				n = test.size
 			}
-			data := array.NewData(test.d, 0, b[:n], test.child, 0)
+			data := array.NewData(test.d, 0, b[:n], test.child, 0, 0)
 
 			if test.expPanic {
 				assert.PanicsWithValue(t, test.expError, func() {
@@ -116,13 +116,157 @@ func TestArray_NullN(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := memory.NewBufferBytes(test.bm)
-			data := array.NewData(arrow.FixedWidthTypes.Boolean, test.l, []*memory.Buffer{buf, nil}, nil, test.n)
+			data := array.NewData(arrow.FixedWidthTypes.Boolean, test.l, []*memory.Buffer{buf, nil}, nil, test.n, 0)
 			buf.Release()
 			ar := array.MakeFromData(data)
 			data.Release()
 			got := ar.NullN()
 			ar.Release()
 			assert.Equal(t, test.exp, got)
+		})
+	}
+}
+
+func TestArraySlice(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		valids = []bool{true, true, true, false, true, true}
+		vs     = []float64{1, 2, 3, 0, 4, 5}
+	)
+
+	b := array.NewFloat64Builder(pool)
+	defer b.Release()
+
+	for _, tc := range []struct {
+		i, j   int
+		panics bool
+		len    int
+	}{
+		{i: 0, j: len(valids), panics: false, len: len(valids)},
+		{i: len(valids), j: len(valids), panics: false, len: 0},
+		{i: 0, j: 1, panics: false, len: 1},
+		{i: 1, j: 1, panics: false, len: 0},
+		{i: 0, j: len(valids) + 1, panics: true},
+		{i: 2, j: 1, panics: true},
+		{i: len(valids) + 1, j: len(valids) + 1, panics: true},
+	} {
+		t.Run("", func(t *testing.T) {
+			b.AppendValues(vs, valids)
+
+			arr := b.NewFloat64Array()
+			defer arr.Release()
+
+			if got, want := arr.Len(), len(valids); got != want {
+				t.Fatalf("got=%d, want=%d", got, want)
+			}
+
+			if tc.panics {
+				defer func() {
+					e := recover()
+					if e == nil {
+						t.Fatalf("this should have panicked, but did not")
+					}
+				}()
+			}
+
+			slice := array.NewSlice(arr, int64(tc.i), int64(tc.j)).(*array.Float64)
+			defer slice.Release()
+
+			if got, want := slice.Len(), tc.len; got != want {
+				t.Fatalf("invalid slice length: got=%d, want=%d", got, want)
+			}
+		})
+	}
+}
+
+func TestArraySliceTypes(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	valids := []bool{true, true, true, false, true, true}
+
+	for _, tc := range []struct {
+		values  interface{}
+		builder array.Builder
+		append  func(b array.Builder, vs interface{})
+	}{
+		{
+			values:  []bool{true, false, true, false, true, false},
+			builder: array.NewBooleanBuilder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.BooleanBuilder).AppendValues(vs.([]bool), valids) },
+		},
+		{
+			values:  []uint8{1, 2, 3, 0, 4, 5},
+			builder: array.NewUint8Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Uint8Builder).AppendValues(vs.([]uint8), valids) },
+		},
+		{
+			values:  []uint16{1, 2, 3, 0, 4, 5},
+			builder: array.NewUint16Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Uint16Builder).AppendValues(vs.([]uint16), valids) },
+		},
+		{
+			values:  []uint32{1, 2, 3, 0, 4, 5},
+			builder: array.NewUint32Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Uint32Builder).AppendValues(vs.([]uint32), valids) },
+		},
+		{
+			values:  []uint64{1, 2, 3, 0, 4, 5},
+			builder: array.NewUint64Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Uint64Builder).AppendValues(vs.([]uint64), valids) },
+		},
+		{
+			values:  []int8{1, 2, 3, 0, 4, 5},
+			builder: array.NewInt8Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+		},
+		{
+			values:  []int16{1, 2, 3, 0, 4, 5},
+			builder: array.NewInt16Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
+		},
+		{
+			values:  []int32{1, 2, 3, 0, 4, 5},
+			builder: array.NewInt32Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+		},
+		{
+			values:  []int64{1, 2, 3, 0, 4, 5},
+			builder: array.NewInt64Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+		},
+		{
+			values:  []float32{1, 2, 3, 0, 4, 5},
+			builder: array.NewFloat32Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Float32Builder).AppendValues(vs.([]float32), valids) },
+		},
+		{
+			values:  []float64{1, 2, 3, 0, 4, 5},
+			builder: array.NewFloat64Builder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.Float64Builder).AppendValues(vs.([]float64), valids) },
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			defer tc.builder.Release()
+
+			b := tc.builder
+			tc.append(b, tc.values)
+
+			arr := b.NewArray()
+			defer arr.Release()
+
+			if got, want := arr.Len(), len(valids); got != want {
+				t.Fatalf("invalid length: got=%d, want=%d", got, want)
+			}
+
+			slice := array.NewSlice(arr, 2, 5)
+			defer slice.Release()
+
+			if got, want := slice.Len(), 3; got != want {
+				t.Fatalf("invalid slice length: got=%d, want=%d", got, want)
+			}
 		})
 	}
 }
