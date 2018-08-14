@@ -19,6 +19,55 @@
 # Set up environment and working directory
 cd /apache-arrow
 
+source activate pyarrow-dev
+
+# install pytables from defaults for now
+conda install -y pytables
+
+pip install -q git+https://github.com/dask/partd --upgrade --no-deps
+pip install -q git+https://github.com/dask/zict --upgrade --no-deps
+pip install -q git+https://github.com/dask/distributed --upgrade --no-deps
+pip install -q git+https://github.com/mrocklin/sparse --upgrade --no-deps
+pip install -q git+https://github.com/dask/s3fs --upgrade --no-deps
+
+conda install -y -q -c conda-forge numba cython \
+    bcolz \
+    blosc \
+    bokeh \
+    boto3 \
+    chest \
+    cloudpickle \
+    coverage \
+    cytoolz \
+    distributed \
+    graphviz \
+    h5py \
+    partd \
+    psutil \
+    "pytest<=3.1.1" \
+    scikit-image \
+    scikit-learn \
+    sqlalchemy \
+    toolz
+
+pip install -q git+https://github.com/dask/fastparquet
+
+pip install -q \
+    cachey \
+    graphviz \
+    moto \
+    pyarrow \
+    --upgrade --no-deps
+
+pip install -q \
+    cityhash \
+    flake8 \
+    mmh3 \
+    pandas_datareader \
+    pytest-xdist \
+    xxhash \
+    pycodestyle
+
 export ARROW_BUILD_TYPE=release
 export ARROW_HOME=$(pwd)/dist
 export PARQUET_HOME=$(pwd)/dist

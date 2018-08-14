@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 FROM arrow_integration_xenial_base
 
 ADD . /apache-arrow
 WORKDIR /apache-arrow
 
-CMD arrow/dev/dask_integration/dask_integration.sh
+CMD arrow/dev/iwyu/run_iwyu.sh

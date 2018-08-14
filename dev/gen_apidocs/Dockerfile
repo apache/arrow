@@ -39,47 +39,24 @@ RUN apt-get update && \
         autoconf-archive \
         npm
 
-# This will install conda in /home/ubuntu/miniconda
-RUN wget -O /tmp/miniconda.sh \
-    https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
-    rm /tmp/miniconda.sh
-
-# Python dependencies
-# Create Conda environment
-RUN /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
-        # Python
-        python=3.6 \
-        numpy \
-        pandas \
-        pytest \
-        cython \
-        ipython \
-        matplotlib \
-        numpydoc \
-        sphinx \
-        sphinx_bootstrap_theme \
-        six \
-        setuptools \
-        # C++
-        boost-cpp \
-        cmake \
-        flatbuffers \
-        rapidjson \
-        thrift-cpp \
-        snappy \
-        zlib \
-        brotli \
-        jemalloc \
-        lz4-c \
-        zstd \
-        doxygen \
-        maven \
-        -c conda-forge
 
 ENV CC=gcc-8
 ENV CXX=g++-8
 
 ADD . /apache-arrow
 WORKDIR /apache-arrow
+
+RUN arrow/dev/docker_common/install_pyarrow_conda_toolchain.sh 3.6
+ENV PATH="/opt/conda/bin:${PATH}"
+
+# Python dependencies
+# Create Conda environment
+RUN /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
+        numpydoc \
+        sphinx \
+        sphinx_bootstrap_theme \
+        doxygen \
+        maven \
+        -c conda-forge
+
 CMD arrow/dev/gen_apidocs/create_documents.sh

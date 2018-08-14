@@ -123,6 +123,12 @@ bash dev/release/js-verify-release-candidate.sh 0.7.0 0
 ```
 # Integration testing
 
+Build the following base image used by multiple tests:
+
+```shell
+docker build -t arrow_integration_xenial_base -f docker_common/Dockerfile.xenial.base .
+```
+
 ## HDFS C++ / Python support
 
 ```shell
