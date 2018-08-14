@@ -67,6 +67,12 @@ services:
     volumes:
      - ../..:/apache-arrow
 
+  iwyu:
+    build:
+      context: iwyu
+    volumes:
+     - ../..:/apache-arrow
+
   run_site:
     build:
       context: run_site

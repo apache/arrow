@@ -288,14 +288,16 @@ CC="clang-4.0" CXX="clang++-4.0" cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
 
 This presumes that `include-what-you-use` and `iwyu_tool.py` are in your
 `$PATH`. If you compiled IWYU using a different version of clang, then
-substitute the version number above accordingly. The results of this script are
-logged to a temporary file, whose location can be found by examining the shell
-output:
+substitute the version number above accordingly.
 
-```
-...
-Logging IWYU to /tmp/arrow-cpp-iwyu.gT7XXV
-...
+We have provided a Docker-based IWYU to make it easier to run these
+checks. This can be run using the docker-compose setup in the `dev/` directory
+
+```shell
+# If you have not built the base image already
+docker build -t arrow_integration_xenial_base -f dev/docker_common/Dockerfile.xenial.base .
+
+dev/run_docker_compose.sh iwyu
 ```
 
 ### Linting
