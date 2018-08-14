@@ -50,6 +50,7 @@ func (b *BooleanBuilder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
