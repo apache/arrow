@@ -43,10 +43,10 @@ func TestMakeFromData(t *testing.T) {
 		expError string
 	}{
 		// unsupported types
-		{name: "null", d: &testDataType{arrow.NULL}, expPanic: true, expError: "unsupported data type: NULL"},
 		{name: "map", d: &testDataType{arrow.MAP}, expPanic: true, expError: "unsupported data type: MAP"},
 
 		// supported types
+		{name: "null", d: &testDataType{arrow.NULL}},
 		{name: "bool", d: &testDataType{arrow.BOOL}},
 		{name: "uint8", d: &testDataType{arrow.UINT8}},
 		{name: "uint16", d: &testDataType{arrow.UINT16}},
