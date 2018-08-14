@@ -53,10 +53,9 @@ cdef class ChunkedArray:
     def __reduce__(self):
         return chunked_array, (self.chunks, self.type)
 
-    property type:
-
-        def __get__(self):
-            return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
+    @property
+    def type(self):
+        return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
 
     def length(self):
         return self.chunked_array.length()
@@ -267,14 +266,9 @@ cdef class ChunkedArray:
 
         return pyarrow_wrap_array(self.chunked_array.chunk(i))
 
-    property chunks:
-
-        def __get__(self):
-            cdef int i
-            chunks = []
-            for i in range(self.num_chunks):
-                chunks.append(self.chunk(i))
-            return chunks
+    @property
+    def chunks(self):
+        return list(self.iterchunks())
 
     def iterchunks(self):
         for i in range(self.num_chunks):

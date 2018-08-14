@@ -307,6 +307,11 @@ def test_dictionary_from_numpy():
     d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
     d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
+    assert d1.indices.to_pylist() == indices.tolist()
+    assert d1.indices.to_pylist() == indices.tolist()
+    assert d1.dictionary.to_pylist() == dictionary.tolist()
+    assert d2.dictionary.to_pylist() == dictionary.tolist()
+
     for i in range(len(indices)):
         assert d1[i].as_py() == dictionary[indices[i]]
 
@@ -324,6 +329,9 @@ def test_dictionary_from_boxed_arrays():
     darr = pa.array(dictionary)
 
     d1 = pa.DictionaryArray.from_arrays(iarr, darr)
+
+    assert d1.indices.to_pylist() == indices.tolist()
+    assert d1.dictionary.to_pylist() == dictionary.tolist()
 
     for i in range(len(indices)):
         assert d1[i].as_py() == dictionary[indices[i]]

@@ -82,15 +82,13 @@ cdef class FeatherReader:
         with nogil:
             check_status(CFeatherReader.Open(reader, &self.reader))
 
-    property num_rows:
+    @property
+    def num_rows(self):
+        return self.reader.get().num_rows()
 
-        def __get__(self):
-            return self.reader.get().num_rows()
-
-    property num_columns:
-
-        def __get__(self):
-            return self.reader.get().num_columns()
+    @property
+    def num_columns(self):
+        return self.reader.get().num_columns()
 
     def get_column_name(self, int i):
         cdef c_string name = self.reader.get().GetColumnName(i)

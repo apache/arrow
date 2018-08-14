@@ -53,6 +53,7 @@ def _stringify_path(path):
 
 
 cdef class NativeFile:
+
     def __cinit__(self):
         self.closed = True
         self.own_file = False
@@ -69,7 +70,8 @@ cdef class NativeFile:
     def __exit__(self, exc_type, exc_value, tb):
         self.close()
 
-    property mode:
+    @property
+    def mode(self):
         """
         The file mode. Currently instances of NativeFile may support:
 
@@ -77,17 +79,15 @@ cdef class NativeFile:
         * wb: binary write
         * rb+: binary read and write
         """
-
-        def __get__(self):
-            # Emulate built-in file modes
-            if self.is_readable and self.is_writable:
-                return 'rb+'
-            elif self.is_readable:
-                return 'rb'
-            elif self.is_writable:
-                return 'wb'
-            else:
-                raise ValueError('File object is malformed, has no mode')
+        # Emulate built-in file modes
+        if self.is_readable and self.is_writable:
+            return 'rb+'
+        elif self.is_readable:
+            return 'rb'
+        elif self.is_writable:
+            return 'wb'
+        else:
+            raise ValueError('File object is malformed, has no mode')
 
     def readable(self):
         self._assert_open()
@@ -738,30 +738,26 @@ cdef class Buffer:
     def __len__(self):
         return self.size
 
-    property size:
+    @property
+    def size(self):
+        return self.buffer.get().size()
 
-        def __get__(self):
-            return self.buffer.get().size()
+    @property
+    def address(self):
+        return <uintptr_t> self.buffer.get().data()
 
-    property address:
+    @property
+    def is_mutable(self):
+        return self.buffer.get().is_mutable()
 
-        def __get__(self):
-            return <uintptr_t> self.buffer.get().data()
+    @property
+    def parent(self):
+        cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()
 
-    property is_mutable:
-
-        def __get__(self):
-            return self.buffer.get().is_mutable()
-
-    property parent:
-
-        def __get__(self):
-            cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()
-
-            if parent_buf.get() == NULL:
-                return None
-            else:
-                return pyarrow_wrap_buffer(parent_buf)
+        if parent_buf.get() == NULL:
+            return None
+        else:
+            return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
         if PySlice_Check(key):

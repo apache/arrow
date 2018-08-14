@@ -514,10 +514,9 @@ cdef class Array:
                              null_count, offset)
         return pyarrow_wrap_array(MakeArray(ad))
 
-    property null_count:
-
-        def __get__(self):
-            return self.sp_array.get().null_count()
+    @property
+    def null_count(self):
+        return self.sp_array.get().null_count()
 
     def __iter__(self):
         for i in range(len(self)):
@@ -683,15 +682,14 @@ cdef class Array:
         with nogil:
             check_status(ValidateArray(deref(self.ap)))
 
-    property offset:
-
-        def __get__(self):
-            """
-            A relative position into another array's data, to enable zero-copy
-            slicing. This value defaults to zero but must be applied on all
-            operations with the physical storage buffers.
-            """
-            return self.sp_array.get().offset()
+    @property
+    def offset(self):
+        """
+        A relative position into another array's data, to enable zero-copy
+        slicing. This value defaults to zero but must be applied on all
+        operations with the physical storage buffers.
+        """
+        return self.sp_array.get().offset()
 
     def buffers(self):
         """
@@ -1034,25 +1032,23 @@ cdef class DictionaryArray(Array):
     def dictionary_encode(self):
         return self
 
-    property dictionary:
+    @property
+    def dictionary(self):
+        cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
 
-        def __get__(self):
-            cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
+        if self._dictionary is None:
+            self._dictionary = pyarrow_wrap_array(darr.dictionary())
 
-            if self._dictionary is None:
-                self._dictionary = pyarrow_wrap_array(darr.dictionary())
+        return self._dictionary
 
-            return self._dictionary
+    @property
+    def indices(self):
+        cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
 
-    property indices:
+        if self._indices is None:
+            self._indices = pyarrow_wrap_array(darr.indices())
 
-        def __get__(self):
-            cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
-
-            if self._indices is None:
-                self._indices = pyarrow_wrap_array(darr.indices())
-
-            return self._indices
+        return self._indices
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, ordered=False,
