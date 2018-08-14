@@ -28,10 +28,21 @@ import pyarrow as pa
 
 def test_chunked_array_basics():
     data = pa.chunked_array([], type=pa.string())
+    assert data.type == pa.string()
     assert data.to_pylist() == []
 
     with pytest.raises(ValueError):
         pa.chunked_array([])
+
+    data = pa.chunked_array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9]
+    ])
+    assert isinstance(data.chunks, list)
+    assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
+    assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
+    assert len(data.chunks) == 3
 
 
 def test_chunked_array_str():

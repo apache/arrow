@@ -16,7 +16,9 @@
 # under the License.
 
 import six
+
 from pyarrow.compat import tobytes
+
 
 cdef class StringBuilder:
     """
@@ -74,10 +76,9 @@ cdef class StringBuilder:
             self.builder.get().Finish(&out)
         return pyarrow_wrap_array(out)
 
-    property null_count:
-
-        def __get__(self):
-            return self.builder.get().null_count()
+    @property
+    def null_count(self):
+        return self.builder.get().null_count()
 
     def __len__(self):
         return self.builder.get().length()

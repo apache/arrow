@@ -30,24 +30,21 @@ cdef class Message:
                         "`pyarrow.ipc.read_message` function instead."
                         .format(self.__class__.__name__))
 
-    property type:
+    @property
+    def type(self):
+        return frombytes(FormatMessageType(self.message.get().type()))
 
-        def __get__(self):
-            return frombytes(FormatMessageType(self.message.get().type()))
+    @property
+    def metadata(self):
+        return pyarrow_wrap_buffer(self.message.get().metadata())
 
-    property metadata:
-
-        def __get__(self):
-            return pyarrow_wrap_buffer(self.message.get().metadata())
-
-    property body:
-
-        def __get__(self):
-            cdef shared_ptr[CBuffer] body = self.message.get().body()
-            if body.get() == NULL:
-                return None
-            else:
-                return pyarrow_wrap_buffer(body)
+    @property
+    def body(self):
+        cdef shared_ptr[CBuffer] body = self.message.get().body()
+        if body.get() == NULL:
+            return None
+        else:
+            return pyarrow_wrap_buffer(body)
 
     def equals(self, Message other):
         """
@@ -357,10 +354,9 @@ cdef class _RecordBatchFileReader:
 
         self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
-    property num_record_batches:
-
-        def __get__(self):
-            return self.reader.get().num_record_batches()
+    @property
+    def num_record_batches(self):
+        return self.reader.get().num_record_batches()
 
     def get_batch(self, int i):
         cdef shared_ptr[CRecordBatch] batch

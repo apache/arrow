@@ -124,6 +124,23 @@ class TestFeatherReader(unittest.TestCase):
         data = FeatherDataset(paths).read_pandas()
         assert_frame_equal(data, df)
 
+    def test_num_columns_attr(self):
+        df0 = pd.DataFrame({})
+        df1 = pd.DataFrame({
+            'foo': [1, 2, 3, 4, 5]
+        })
+        df2 = pd.DataFrame({
+            'foo': [1, 2, 3, 4, 5],
+            'bar': [1, 2, 3, 4, 5]
+        })
+        for df, ncols in zip([df0, df1, df2], [0, 1, 2]):
+            path = random_path()
+            self.test_files.append(path)
+            write_feather(df, path)
+
+            reader = FeatherReader(path)
+            assert reader.num_columns == ncols
+
     def test_num_rows_attr(self):
         df = pd.DataFrame({'foo': [1, 2, 3, 4, 5]})
         path = random_path()
