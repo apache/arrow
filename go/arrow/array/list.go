@@ -51,6 +51,11 @@ func (a *List) Len() int { return a.array.Len() }
 
 func (a *List) Offsets() []int32 { return a.offsets }
 
+func (a *List) Release() {
+	a.array.Release()
+	a.values.Release()
+}
+
 var (
 	_ Interface = (*List)(nil)
 )

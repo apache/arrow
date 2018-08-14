@@ -51,6 +51,7 @@ func (b *Int64Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -183,6 +184,7 @@ func (b *Uint64Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -315,6 +317,7 @@ func (b *Float64Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -447,6 +450,7 @@ func (b *Int32Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -579,6 +583,7 @@ func (b *Uint32Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -711,6 +716,7 @@ func (b *Float32Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -843,6 +849,7 @@ func (b *Int16Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -975,6 +982,7 @@ func (b *Uint16Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -1107,6 +1115,7 @@ func (b *Int8Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -1239,6 +1248,7 @@ func (b *Uint8Builder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
@@ -1372,6 +1382,7 @@ func (b *TimestampBuilder) Release() {
 		if b.data != nil {
 			b.data.Release()
 			b.data = nil
+			b.rawData = nil
 		}
 	}
 }
