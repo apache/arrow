@@ -144,7 +144,7 @@ func (b *BooleanBuilder) newData() *Data {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	res := NewData(arrow.FixedWidthTypes.Boolean, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	res := NewData(arrow.FixedWidthTypes.Boolean, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 	b.reset()
 
 	if b.data != nil {

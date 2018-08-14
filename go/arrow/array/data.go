@@ -29,12 +29,13 @@ type Data struct {
 	refCount  int64
 	dtype     arrow.DataType
 	nulls     int
+	offset    int
 	length    int
 	buffers   []*memory.Buffer // TODO(sgc): should this be an interface?
 	childData []*Data          // TODO(sgc): managed by ListArray, StructArray and UnionArray types
 }
 
-func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls int) *Data {
+func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls, offset int) *Data {
 	for _, b := range buffers {
 		if b != nil {
 			b.Retain()
@@ -52,6 +53,7 @@ func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childDa
 		dtype:     dtype,
 		nulls:     nulls,
 		length:    length,
+		offset:    offset,
 		buffers:   buffers,
 		childData: childData,
 	}
@@ -86,3 +88,44 @@ func (d *Data) Release() {
 func (d *Data) DataType() arrow.DataType { return d.dtype }
 func (d *Data) NullN() int               { return d.nulls }
 func (d *Data) Len() int                 { return d.length }
+
+// NewSliceData returns a new slice that shares backing data with the input.
+// The returned Data slice starts at i and extends j-i elements, such as:
+//    slice := data[i:j]
+// The returned value must be Release'd after use.
+//
+// NewSliceData panics if the slice is outside the valid range of the input Data.
+// NewSliceData panics if j < i.
+func NewSliceData(data *Data, i, j int64) *Data {
+	if j > int64(data.length) || i > j || data.offset+int(i) > data.length {
+		panic("arrow/array: index out of range")
+	}
+
+	for _, b := range data.buffers {
+		if b != nil {
+			b.Retain()
+		}
+	}
+
+	for _, child := range data.childData {
+		if child != nil {
+			child.Retain()
+		}
+	}
+
+	o := &Data{
+		refCount:  1,
+		dtype:     data.dtype,
+		nulls:     UnknownNullCount,
+		length:    int(j - i),
+		offset:    data.offset + int(i),
+		buffers:   data.buffers,
+		childData: data.childData,
+	}
+
+	if data.nulls == 0 {
+		o.nulls = 0
+	}
+
+	return o
+}

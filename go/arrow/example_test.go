@@ -288,3 +288,35 @@ func Example_structArray() {
 	// Struct[2] = (null)
 	// Struct[3] = [[m, a, r, k], 4]
 }
+
+// This example shows how one can slice an array.
+// The initial (float64) array is:
+//  [1, 2, 3, (null), 4, 5]
+//
+// and the sub-slice is:
+//  [3, (null), 4]
+func Example_float64Slice() {
+	pool := memory.NewGoAllocator()
+
+	b := array.NewFloat64Builder(pool)
+	defer b.Release()
+
+	b.AppendValues(
+		[]float64{1, 2, 3, -1, 4, 5},
+		[]bool{true, true, true, false, true, true},
+	)
+
+	arr := b.NewFloat64Array()
+	defer arr.Release()
+
+	fmt.Printf("array = %v\n", arr.Float64Values())
+
+	sli := array.NewSlice(arr, 2, 5).(*array.Float64)
+	defer sli.Release()
+
+	fmt.Printf("slice = %v\n", sli.Float64Values())
+
+	// Output:
+	// array = [1 2 3 -1 4 5]
+	// slice = [3 -1 4]
+}

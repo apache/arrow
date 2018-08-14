@@ -155,9 +155,9 @@ func (b *{{.Name}}Builder) newData() (data *Data) {
 		b.data.Resize(bytesRequired)
 	}
 {{if .Opt.Parametric -}}
-	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 {{else -}}
-	data = NewData(arrow.PrimitiveTypes.{{.Name}}, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls)
+	data = NewData(arrow.PrimitiveTypes.{{.Name}}, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
 {{end -}}
 	b.reset()
 

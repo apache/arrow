@@ -17,6 +17,7 @@
 package bitutil_test
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/internal/bitutil"
@@ -99,24 +100,70 @@ func TestCountSetBits(t *testing.T) {
 	tests := []struct {
 		name string
 		buf  []byte
+		off  int
 		n    int
 		exp  int
 	}{
-		{"some 03 bits", bbits(0x11000000), 3, 2},
-		{"some 11 bits", bbits(0x11000011, 0x01000000), 11, 5},
-		{"some 72 bits", bbits(0x11001010, 0x11110000, 0x00001111, 0x11000011, 0x11001010, 0x11110000, 0x00001111, 0x11000011, 0x10001001), 9 * 8, 35},
-		{"all  03 bits", bbits(0x11100001), 3, 3},
-		{"all  11 bits", bbits(0x11111111, 0x11111111), 11, 11},
-		{"all  72 bits", bbits(0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111), 9 * 8, 72},
-		{"none 03 bits", bbits(0x00000001), 3, 0},
-		{"none 11 bits", bbits(0x00000000, 0x00000000), 11, 0},
-		{"none 72 bits", bbits(0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000), 9 * 8, 0},
+		{"some 03 bits", bbits(0x11000000), 0, 3, 2},
+		{"some 11 bits", bbits(0x11000011, 0x01000000), 0, 11, 5},
+		{"some 72 bits", bbits(0x11001010, 0x11110000, 0x00001111, 0x11000011, 0x11001010, 0x11110000, 0x00001111, 0x11000011, 0x10001001), 0, 9 * 8, 35},
+		{"all  08 bits", bbits(0x11111110), 0, 8, 7},
+		{"all  03 bits", bbits(0x11100001), 0, 3, 3},
+		{"all  11 bits", bbits(0x11111111, 0x11111111), 0, 11, 11},
+		{"all  72 bits", bbits(0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111, 0x11111111), 0, 9 * 8, 72},
+		{"none 03 bits", bbits(0x00000001), 0, 3, 0},
+		{"none 11 bits", bbits(0x00000000, 0x00000000), 0, 11, 0},
+		{"none 72 bits", bbits(0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000), 0, 9 * 8, 0},
+
+		{"some 03 bits - offset+1", bbits(0x11000000), 1, 3, 1},
+		{"some 03 bits - offset+2", bbits(0x11000000), 2, 3, 0},
+		{"some 11 bits - offset+1", bbits(0x11000011, 0x01000000, 0x00000000), 1, 11, 4},
+		{"some 11 bits - offset+2", bbits(0x11000011, 0x01000000, 0x00000000), 2, 11, 3},
+		{"some 11 bits - offset+3", bbits(0x11000011, 0x01000000, 0x00000000), 3, 11, 3},
+		{"some 11 bits - offset+6", bbits(0x11000011, 0x01000000, 0x00000000), 6, 11, 3},
+		{"some 11 bits - offset+7", bbits(0x11000011, 0x01000000, 0x00000000), 7, 11, 2},
+		{"some 11 bits - offset+8", bbits(0x11000011, 0x01000000, 0x00000000), 8, 11, 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := bitutil.CountSetBits(test.buf, test.n)
+			got := bitutil.CountSetBits(test.buf, test.off, test.n)
 			assert.Equal(t, test.exp, got)
 		})
+	}
+}
+
+func TestCountSetBitsOffset(t *testing.T) {
+	slowCountSetBits := func(buf []byte, offset, n int) int {
+		count := 0
+		for i := offset; i < offset+n; i++ {
+			if bitutil.BitIsSet(buf, i) {
+				count++
+			}
+		}
+		return count
+	}
+
+	const (
+		bufSize = 1000
+		nbits   = bufSize * 8
+	)
+
+	offsets := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 32, 37, 63, 64, 128, nbits - 30, nbits - 64}
+
+	buf := make([]byte, bufSize)
+
+	rng := rand.New(rand.NewSource(0))
+	_, err := rng.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, offset := range offsets {
+		want := slowCountSetBits(buf, offset, nbits-offset)
+		got := bitutil.CountSetBits(buf, offset, nbits-offset)
+		if got != want {
+			t.Errorf("offset[%2d/%2d]=%5d. got=%5d, want=%5d", i+1, len(offsets), offset, got, want)
+		}
 	}
 }
 
@@ -153,7 +200,7 @@ var (
 	intval int
 )
 
-func benchmarkCountSetBitsN(b *testing.B, n int) {
+func benchmarkCountSetBitsN(b *testing.B, offset, n int) {
 	nn := n/8 + 1
 	buf := make([]byte, nn)
 	//src := [4]byte{0x1f, 0xaa, 0xba, 0x11}
@@ -164,27 +211,47 @@ func benchmarkCountSetBitsN(b *testing.B, n int) {
 	b.ResetTimer()
 	var res int
 	for i := 0; i < b.N; i++ {
-		res = bitutil.CountSetBits(buf, n)
+		res = bitutil.CountSetBits(buf, offset, n-offset)
 	}
 	intval = res
 }
 
 func BenchmarkCountSetBits_3(b *testing.B) {
-	benchmarkCountSetBitsN(b, 3)
+	benchmarkCountSetBitsN(b, 0, 3)
 }
 
 func BenchmarkCountSetBits_32(b *testing.B) {
-	benchmarkCountSetBitsN(b, 32)
+	benchmarkCountSetBitsN(b, 0, 32)
 }
 
 func BenchmarkCountSetBits_128(b *testing.B) {
-	benchmarkCountSetBitsN(b, 128)
+	benchmarkCountSetBitsN(b, 0, 128)
 }
 
 func BenchmarkCountSetBits_1000(b *testing.B) {
-	benchmarkCountSetBitsN(b, 1000)
+	benchmarkCountSetBitsN(b, 0, 1000)
 }
 
 func BenchmarkCountSetBits_1024(b *testing.B) {
-	benchmarkCountSetBitsN(b, 1024)
+	benchmarkCountSetBitsN(b, 0, 1024)
+}
+
+func BenchmarkCountSetBitsOffset_3(b *testing.B) {
+	benchmarkCountSetBitsN(b, 1, 3)
+}
+
+func BenchmarkCountSetBitsOffset_32(b *testing.B) {
+	benchmarkCountSetBitsN(b, 1, 32)
+}
+
+func BenchmarkCountSetBitsOffset_128(b *testing.B) {
+	benchmarkCountSetBitsN(b, 1, 128)
+}
+
+func BenchmarkCountSetBitsOffset_1000(b *testing.B) {
+	benchmarkCountSetBitsN(b, 1, 1000)
+}
+
+func BenchmarkCountSetBitsOffset_1024(b *testing.B) {
+	benchmarkCountSetBitsN(b, 1, 1024)
 }

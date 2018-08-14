@@ -55,7 +55,11 @@ func SetBitTo(buf []byte, i int, val bool) {
 }
 
 // CountSetBits counts the number of 1's in buf up to n bits.
-func CountSetBits(buf []byte, n int) int {
+func CountSetBits(buf []byte, offset, n int) int {
+	if offset > 0 {
+		return countSetBitsWithOffset(buf, offset, n)
+	}
+
 	count := 0
 
 	uint64Bytes := n / uint64SizeBits * 8
@@ -75,6 +79,55 @@ func CountSetBits(buf []byte, n int) int {
 	}
 
 	return count
+}
+
+func countSetBitsWithOffset(buf []byte, offset, n int) int {
+	count := 0
+
+	beg := offset
+	end := offset + n
+
+	begU8 := roundUp(beg, uint64SizeBits)
+
+	init := min(n, begU8-beg)
+	for i := offset; i < beg+init; i++ {
+		if BitIsSet(buf, i) {
+			count++
+		}
+	}
+
+	nU64 := (n - init) / uint64SizeBits
+	begU64 := begU8 / uint64SizeBits
+	endU64 := begU64 + nU64
+	bufU64 := bytesToUint64(buf)
+	if begU64 < len(bufU64) {
+		for _, v := range bufU64[begU64:endU64] {
+			count += bits.OnesCount64(v)
+		}
+	}
+
+	// FIXME: use a fallback to bits.OnesCount8
+	// before counting the tail bits.
+
+	tail := beg + init + nU64*uint64SizeBits
+	for i := tail; i < end; i++ {
+		if BitIsSet(buf, i) {
+			count++
+		}
+	}
+
+	return count
+}
+
+func roundUp(v, f int) int {
+	return (v + (f - 1)) / f * f
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 const (
