@@ -96,7 +96,7 @@
     "ts-jest": "22.4.6",
     "ts-node": "7.0.0",
     "tslint": "5.10.0",
-    "typedoc": "0.11.1",
+    "typedoc": "github:typestrong/typedoc#1780beb1448d",
     "typescript": "2.9.2",
     "uglifyjs-webpack-plugin": "1.1.6",
     "webpack": "4.14.0",
