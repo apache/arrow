@@ -171,7 +171,7 @@ def _iterate_python_module_paths(package_name):
     if PY2:
         import imp
         try:
-            file, pathname, description = imp.find_module("tensorflow")
+            _, pathname, _ = imp.find_module(package_name)
         except ImportError:
             return
         else:
