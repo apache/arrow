@@ -30,7 +30,7 @@ use arrow::datatypes::*;
 fn array_from_vec(n: usize) {
     let mut v: Vec<u8> = Vec::with_capacity(n);
     for i in 0..n {
-        v.push((i % 0xffff) as u8);
+        v.push((i & 0xffff) as u8);
     }
     let arr_data = ArrayDataBuilder::new(DataType::Int32)
         .add_buffer(Buffer::from(v))

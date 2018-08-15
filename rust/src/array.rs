@@ -576,6 +576,15 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "")]
+    fn test_primitive_array_invalid_buffer_len() {
+        let data = ArrayData::builder(DataType::Int32)
+            .len(5)
+            .build();
+        PrimitiveArray::<i32>::from(data);
+    }
+
+    #[test]
     fn test_list_array() {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
