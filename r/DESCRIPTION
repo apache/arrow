@@ -25,5 +25,6 @@ RoxygenNote: 6.0.1.9000
 Collate: 
     'RcppExports.R'
     'R6.R'
+    'array.R'
     'enums.R'
     'zzz.R'

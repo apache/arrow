@@ -25,13 +25,28 @@
   NextMethod()
 }
 
+#' @importFrom rlang seq2 quo_name set_names
+#' @importFrom purrr map_chr
 enum <- function(class, ...){
-  structure(list(...), class = c( class, "arrow-enum" ))
+  names <- purrr::map_chr(rlang::quos(...), rlang::quo_name)
+  names[is.na(names)] <- "NA"
+
+  structure(
+    rlang::set_names(rlang::seq2(0L, length(names)-1), names),
+    class = c(class, "arrow-enum")
+  )
 }
 
 
 #' @export
-TimeUnit <- enum("arrow::TimeUnit::type", SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L)
+TimeUnit <- enum("arrow::TimeUnit::type", SECOND, MILLI, MICRO, NANO)
 
 #' @export
-DateUnit <- enum("arrow::DateUnit", DAY = 0L, MILLI = 1L)
+DateUnit <- enum("arrow::DateUnit", DAY, MILLI)
+
+#' @export
+Type <- enum("arrow::Type::type",
+  NA, BOOL, UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64,
+  HALF_FLOAT, FLOAT, DOUBLE, STRING, BINARY, DATE32, DATE64, TIMESTAMP,
+  INTERVAL, DECIMAL, LIST, STRUCT, UNION, DICTIONARY, MAP
+)
