@@ -1403,6 +1403,22 @@ class TestConvertDecimalTypes(object):
         series = pd.Series([decimal.Decimal('3.14'), None])
         _check_series_roundtrip(series, expected_pa_type=pa.decimal128(3, 2))
 
+    def test_hdf5_decimal_roundtrip(self, tmpdir):
+        # see ARROW-3053
+        pytest.importorskip('tables')
+
+        path = tmpdir.join('test.h5')
+        data = {
+            'a': {0: 'a'},
+            'b': {0: decimal.Decimal('0.0')}
+        }
+
+        df = pd.DataFrame.from_dict(data)
+        df.to_hdf(path, 'test')
+
+        df = pd.read_hdf(path, 'test')
+        _check_pandas_roundtrip(df)
+
 
 class TestListTypes(object):
     """

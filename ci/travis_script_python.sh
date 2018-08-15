@@ -112,6 +112,8 @@ pushd $ARROW_PYTHON_DIR
 
 # Other stuff pip install
 pip install -q -r requirements.txt
+pip install tables
+
 if [ "$PYTHON_VERSION" == "3.6" ]; then
     pip install -q pickle5
 fi
