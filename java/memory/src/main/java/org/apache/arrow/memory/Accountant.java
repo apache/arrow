@@ -255,7 +255,9 @@ class Accountant implements AutoCloseable {
       return localHeadroom;
     }
 
-    return Math.min(localHeadroom, parent.getHeadroom());
+    // Amount of reserved memory left on top of what parent has
+    long reservedHeadroom = Math.max(0, reservation - locallyHeldMemory.get());
+    return Math.min(localHeadroom, parent.getHeadroom() + reservedHeadroom);
   }
 
 }
