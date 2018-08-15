@@ -21,6 +21,40 @@
 using namespace Rcpp;
 // [[Rcpp::plugins(cpp11)]]
 
+// [[Rcpp::export]]
+xptr_ArrayData ArrayData_initialize(xptr_DataType type, int length, int null_count, int offset){
+  xptr_ArrayData out(
+    new std::shared_ptr<arrow::ArrayData>(new arrow::ArrayData( *type, length, null_count, offset))
+  );
+  return out ;
+}
+
+// [[Rcpp::export]]
+xptr_DataType ArrayData_get_type(xptr_ArrayData x){
+  return xptr_DataType(&std::shared_ptr<arrow::ArrayData>(*x)->type);
+}
+
+// [[Rcpp::export]]
+int ArrayData_get_length(xptr_ArrayData x){
+  return std::shared_ptr<arrow::ArrayData>(*x)->length;
+}
+
+// [[Rcpp::export]]
+int ArrayData_get_null_count(xptr_ArrayData x){
+  return std::shared_ptr<arrow::ArrayData>(*x)->null_count;
+}
+
+// [[Rcpp::export]]
+int ArrayData_get_offset(xptr_ArrayData x){
+  return std::shared_ptr<arrow::ArrayData>(*x)->offset;
+}
+
+// [[Rcpp::export]]
+xptr_Array Array_initialize(xptr_ArrayData data){
+  auto a = MakeArray(*data) ;
+  xptr_Array arr(new std::shared_ptr<arrow::Array>(a));
+  return arr;
+}
 
 // [[Rcpp::export]]
 bool Array_IsNull(xptr_Array x, int i){

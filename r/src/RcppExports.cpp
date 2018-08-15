@@ -6,6 +6,75 @@
 
 using namespace Rcpp;
 
+// ArrayData_initialize
+xptr_ArrayData ArrayData_initialize(xptr_DataType type, int length, int null_count, int offset);
+RcppExport SEXP _arrow_ArrayData_initialize(SEXP typeSEXP, SEXP lengthSEXP, SEXP null_countSEXP, SEXP offsetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
+    Rcpp::traits::input_parameter< int >::type null_count(null_countSEXP);
+    Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData_initialize(type, length, null_count, offset));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayData_get_type
+xptr_DataType ArrayData_get_type(xptr_ArrayData x);
+RcppExport SEXP _arrow_ArrayData_get_type(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_ArrayData >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData_get_type(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayData_get_length
+int ArrayData_get_length(xptr_ArrayData x);
+RcppExport SEXP _arrow_ArrayData_get_length(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_ArrayData >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData_get_length(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayData_get_null_count
+int ArrayData_get_null_count(xptr_ArrayData x);
+RcppExport SEXP _arrow_ArrayData_get_null_count(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_ArrayData >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData_get_null_count(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ArrayData_get_offset
+int ArrayData_get_offset(xptr_ArrayData x);
+RcppExport SEXP _arrow_ArrayData_get_offset(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_ArrayData >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(ArrayData_get_offset(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array_initialize
+xptr_Array Array_initialize(xptr_ArrayData data);
+RcppExport SEXP _arrow_Array_initialize(SEXP dataSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_ArrayData >::type data(dataSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_initialize(data));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Array_IsNull
 bool Array_IsNull(xptr_Array x, int i);
 RcppExport SEXP _arrow_Array_IsNull(SEXP xSEXP, SEXP iSEXP) {
@@ -582,6 +651,12 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_arrow_ArrayData_initialize", (DL_FUNC) &_arrow_ArrayData_initialize, 4},
+    {"_arrow_ArrayData_get_type", (DL_FUNC) &_arrow_ArrayData_get_type, 1},
+    {"_arrow_ArrayData_get_length", (DL_FUNC) &_arrow_ArrayData_get_length, 1},
+    {"_arrow_ArrayData_get_null_count", (DL_FUNC) &_arrow_ArrayData_get_null_count, 1},
+    {"_arrow_ArrayData_get_offset", (DL_FUNC) &_arrow_ArrayData_get_offset, 1},
+    {"_arrow_Array_initialize", (DL_FUNC) &_arrow_Array_initialize, 1},
     {"_arrow_Array_IsNull", (DL_FUNC) &_arrow_Array_IsNull, 2},
     {"_arrow_Array_IsValid", (DL_FUNC) &_arrow_Array_IsValid, 2},
     {"_arrow_Array_length", (DL_FUNC) &_arrow_Array_length, 1},
