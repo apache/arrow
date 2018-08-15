@@ -32,14 +32,9 @@ The current code demonstrates arrays of primitive types and structs.
 
 ```rust
 // create a memory-aligned Arrow array from an existing Vec
-let array = Array::from(vec![1,2,3,4,5]);
+let array = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
 
-match array.data() {
-    &ArrayData::Int32(ref buffer) => {
-        println!("array contents: {:?}", buffer.iter().collect::<Vec<i32>>());
-    }
-    _ => {}
-}
+println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
 ```
 
 ## Creating an Array from a Builder
@@ -50,7 +45,9 @@ for i in 0..10 {
     builder.push(i);
 }
 let buffer = builder.finish();
-let array = Array::from(buffer);
+let array = PrimitiveArray::from(buffer);
+
+println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
 ```
 
 ## Run Examples
