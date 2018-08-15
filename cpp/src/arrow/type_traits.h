@@ -337,6 +337,16 @@ using enable_if_integer =
     typename std::enable_if<std::is_base_of<Integer, T>::value>::type;
 
 template <typename T>
+using enable_if_signed_integer =
+    typename std::enable_if<std::is_base_of<Integer, T>::value &&
+                            std::is_signed<typename T::c_type>::value>::type;
+
+template <typename T>
+using enable_if_unsigned_integer =
+    typename std::enable_if<std::is_base_of<Integer, T>::value &&
+                            std::is_unsigned<typename T::c_type>::value>::type;
+
+template <typename T>
 using enable_if_floating_point =
     typename std::enable_if<std::is_base_of<FloatingPoint, T>::value>::type;
 

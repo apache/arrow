@@ -17,12 +17,10 @@
 
 #include "arrow/compute/kernels/cast.h"
 
-#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <limits>
-#include <locale>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -40,6 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/parsing.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
@@ -732,72 +731,6 @@ struct CastFunctor<T, DictionaryType,
 // ----------------------------------------------------------------------
 // String to Number
 
-// Cast a string to a number.  Returns true on success, false on error.
-// We rely on C++ istringstream for locale-independent parsing, which might
-// not be the fastest option.
-
-template <typename T>
-typename std::enable_if<std::is_floating_point<T>::value,
-                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
-                                                              T* out) {
-  ibuf >> *out;
-  return !ibuf.fail() && ibuf.eof();
-}
-
-// For integers, not all integer widths are handled by the C++ stdlib, so
-// we check for limits outselves.
-
-template <typename T>
-typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value,
-                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
-                                                              T* out) {
-  static constexpr bool need_long_long = sizeof(T) > sizeof(long);  // NOLINT
-  static constexpr T min_value = std::numeric_limits<T>::min();
-  static constexpr T max_value = std::numeric_limits<T>::max();
-
-  if (need_long_long) {
-    long long res;  // NOLINT
-    ibuf >> res;
-    *out = static_cast<T>(res);  // may downcast
-    if (res < min_value || res > max_value) {
-      return false;
-    }
-  } else {
-    long res;  // NOLINT
-    ibuf >> res;
-    *out = static_cast<T>(res);  // may downcast
-    if (res < min_value || res > max_value) {
-      return false;
-    }
-  }
-  return !ibuf.fail() && ibuf.eof();
-}
-
-template <typename T>
-typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value,
-                        bool>::type static CastStringToNumber(std::istringstream& ibuf,
-                                                              T* out) {
-  static constexpr bool need_long_long = sizeof(T) > sizeof(unsigned long);  // NOLINT
-  static constexpr T max_value = std::numeric_limits<T>::max();
-
-  if (need_long_long) {
-    unsigned long long res;  // NOLINT
-    ibuf >> res;
-    *out = static_cast<T>(res);  // may downcast
-    if (res > max_value) {
-      return false;
-    }
-  } else {
-    unsigned long res;  // NOLINT
-    ibuf >> res;
-    *out = static_cast<T>(res);  // may downcast
-    if (res > max_value) {
-      return false;
-    }
-  }
-  return !ibuf.fail() && ibuf.eof();
-}
-
 template <typename O>
 struct CastFunctor<O, StringType, enable_if_number<O>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
@@ -806,19 +739,17 @@ struct CastFunctor<O, StringType, enable_if_number<O>> {
 
     StringArray input_array(input.Copy());
     auto out_data = GetMutableValues<out_type>(output, 1);
-    errno = 0;
-    // Instantiate the stringstream outside of the loop
-    std::istringstream ibuf;
-    ibuf.imbue(std::locale::classic());
+    internal::StringConverter<O> converter;
 
     for (int64_t i = 0; i < input.length; ++i, ++out_data) {
       if (input_array.IsNull(i)) {
         continue;
       }
-      auto str = input_array.GetString(i);
-      ibuf.clear();
-      ibuf.str(str);
-      if (!CastStringToNumber(ibuf, out_data)) {
+
+      int32_t length = -1;
+      auto str = input_array.GetValue(i, &length);
+      if (!converter(reinterpret_cast<const char*>(str), static_cast<size_t>(length),
+                     out_data)) {
         std::stringstream ss;
         ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
         ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
@@ -831,38 +762,6 @@ struct CastFunctor<O, StringType, enable_if_number<O>> {
 // ----------------------------------------------------------------------
 // String to Boolean
 
-// Helper function to cast a C string to a boolean.  Returns true on success,
-// false on error.
-
-static bool CastStringtoBoolean(const char* s, size_t length, bool* out) {
-  if (length == 1) {
-    // "0" or "1"?
-    if (s[0] == '0') {
-      *out = false;
-      return true;
-    }
-    if (s[0] == '1') {
-      *out = true;
-      return true;
-    }
-    return false;
-  }
-  if (length == 4) {
-    // "true"?
-    *out = true;
-    return ((s[0] == 't' || s[0] == 'T') && (s[1] == 'r' || s[1] == 'R') &&
-            (s[2] == 'u' || s[2] == 'U') && (s[3] == 'e' || s[3] == 'E'));
-  }
-  if (length == 5) {
-    // "false"?
-    *out = false;
-    return ((s[0] == 'f' || s[0] == 'F') && (s[1] == 'a' || s[1] == 'A') &&
-            (s[2] == 'l' || s[2] == 'L') && (s[3] == 's' || s[3] == 'S') &&
-            (s[4] == 'e' || s[4] == 'E'));
-  }
-  return false;
-}
-
 template <typename O>
 struct CastFunctor<O, StringType,
                    typename std::enable_if<std::is_same<BooleanType, O>::value>::type> {
@@ -871,6 +770,7 @@ struct CastFunctor<O, StringType,
     StringArray input_array(input.Copy());
     internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
                                            output->offset, input.length);
+    internal::StringConverter<O> converter;
 
     for (int64_t i = 0; i < input.length; ++i) {
       if (input_array.IsNull(i)) {
@@ -881,8 +781,8 @@ struct CastFunctor<O, StringType,
       int32_t length = -1;
       auto str = input_array.GetValue(i, &length);
       bool value;
-      if (!CastStringtoBoolean(reinterpret_cast<const char*>(str),
-                               static_cast<size_t>(length), &value)) {
+      if (!converter(reinterpret_cast<const char*>(str), static_cast<size_t>(length),
+                     &value)) {
         std::stringstream ss;
         ss << "Failed to cast String '" << input_array.GetString(i) << "' into "
            << output->type->ToString();
