@@ -18,9 +18,47 @@
 #include <Rcpp.h>
 #include "arrow_types.h"
 
+using namespace Rcpp;
 // [[Rcpp::plugins(cpp11)]]
 
-using namespace Rcpp;
+
+// [[Rcpp::export]]
+bool Array_IsNull(xptr_Array x, int i){
+  return std::shared_ptr<arrow::Array>(*x)->IsNull(i);
+}
+
+// [[Rcpp::export]]
+bool Array_IsValid(xptr_Array x, int i){
+  return std::shared_ptr<arrow::Array>(*x)->IsValid(i);
+}
+
+// [[Rcpp::export]]
+int Array_length(xptr_Array x){
+  return std::shared_ptr<arrow::Array>(*x)->length();
+}
+
+// [[Rcpp::export]]
+int Array_offset(xptr_Array x){
+  return std::shared_ptr<arrow::Array>(*x)->offset();
+}
+
+// [[Rcpp::export]]
+int Array_null_count(xptr_Array x){
+  return std::shared_ptr<arrow::Array>(*x)->null_count();
+}
+
+// [[Rcpp::export]]
+xptr_DataType Array_type(xptr_Array x){
+  // TODO: this is just an xp for now, the R6 DataType class should dispatch it to a real R6 object somehow
+  return xptr_DataType(new std::shared_ptr<arrow::DataType>(
+      std::shared_ptr<arrow::Array>(*x)->type()
+  ));
+}
+
+// [[Rcpp::export]]
+arrow::Type::type Array_type_id(xptr_Array x){
+  return std::shared_ptr<arrow::Array>(*x)->type_id();
+}
 
 //' @export
 // [[Rcpp::export]]

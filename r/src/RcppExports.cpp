@@ -6,6 +6,85 @@
 
 using namespace Rcpp;
 
+// Array_IsNull
+bool Array_IsNull(xptr_Array x, int i);
+RcppExport SEXP _arrow_Array_IsNull(SEXP xSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_IsNull(x, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array_IsValid
+bool Array_IsValid(xptr_Array x, int i);
+RcppExport SEXP _arrow_Array_IsValid(SEXP xSEXP, SEXP iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_IsValid(x, i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array_length
+int Array_length(xptr_Array x);
+RcppExport SEXP _arrow_Array_length(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_length(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array_offset
+int Array_offset(xptr_Array x);
+RcppExport SEXP _arrow_Array_offset(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_offset(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array_null_count
+int Array_null_count(xptr_Array x);
+RcppExport SEXP _arrow_Array_null_count(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_null_count(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array_type
+xptr_DataType Array_type(xptr_Array x);
+RcppExport SEXP _arrow_Array_type(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_type(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array_type_id
+arrow::Type::type Array_type_id(xptr_Array x);
+RcppExport SEXP _arrow_Array_type_id(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_type_id(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ArrayBuilder
 xptr_ArrayBuilder ArrayBuilder(xptr_DataType xptr_type);
 RcppExport SEXP _arrow_ArrayBuilder(SEXP xptr_typeSEXP) {
@@ -503,6 +582,13 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_arrow_Array_IsNull", (DL_FUNC) &_arrow_Array_IsNull, 2},
+    {"_arrow_Array_IsValid", (DL_FUNC) &_arrow_Array_IsValid, 2},
+    {"_arrow_Array_length", (DL_FUNC) &_arrow_Array_length, 1},
+    {"_arrow_Array_offset", (DL_FUNC) &_arrow_Array_offset, 1},
+    {"_arrow_Array_null_count", (DL_FUNC) &_arrow_Array_null_count, 1},
+    {"_arrow_Array_type", (DL_FUNC) &_arrow_Array_type, 1},
+    {"_arrow_Array_type_id", (DL_FUNC) &_arrow_Array_type_id, 1},
     {"_arrow_ArrayBuilder", (DL_FUNC) &_arrow_ArrayBuilder, 1},
     {"_arrow_ArrayBuilder__num_children", (DL_FUNC) &_arrow_ArrayBuilder__num_children, 1},
     {"_arrow_field_pointer", (DL_FUNC) &_arrow_field_pointer, 3},

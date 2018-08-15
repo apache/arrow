@@ -32,6 +32,8 @@ using xptr_TimestampType = Rcpp::XPtr<std::shared_ptr<arrow::TimestampType>>;
 using xptr_Field = Rcpp::XPtr<std::shared_ptr<arrow::Field>>;
 using xptr_Schema = Rcpp::XPtr<std::shared_ptr<arrow::Schema>>;
 using xptr_ListType = Rcpp::XPtr<std::shared_ptr<arrow::ListType>>;
+using xptr_Array = Rcpp::XPtr<std::shared_ptr<arrow::Array>>;
+
 using xptr_ArrayBuilder = Rcpp::XPtr<std::unique_ptr<arrow::ArrayBuilder>>;
 
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
