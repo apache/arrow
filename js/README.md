@@ -248,7 +248,7 @@ If you think we missed a compilation target and it's a blocker for adoption, ple
 
 Full list of broader Apache Arrow [committers](https://arrow.apache.org/committers/).
 
-* Brian Hulette, CCRi,  _contributor_
+* Brian Hulette,  _committer_
 * Paul Taylor, Graphistry, Inc.,  _committer_
 
 # Powered By Apache Arrow in JS
