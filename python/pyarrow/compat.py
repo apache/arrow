@@ -164,34 +164,39 @@ def _iterate_python_module_paths(package_name):
     """
     Return an iterator to full paths of a python package.
 
-    This is a best effort and might fail (for example on Python 2).
+    This is a best effort and might fail.
     It uses the official way of loading modules from
     https://docs.python.org/3/library/importlib.html#approximating-importlib-import-module
     """
-    try:
-        import importlib
-        absolute_name = importlib.util.resolve_name(package_name, None)
-    except (ImportError, AttributeError):
-        # Sometimes, importlib is not available (e.g. Python 2)
-        # or importlib.util is not available (e.g. Python 2.7)
-        spec = None
+    if PY2:
+        import imp
+        file, pathname, description = imp.find_module("tensorflow")
+        yield pathname
     else:
-        import sys
-        for finder in sys.meta_path:
-            try:
-                spec = finder.find_spec(absolute_name, None)
-            except AttributeError:
-                # On Travis (Python 3.5) the above produced:
-                # AttributeError: 'VendorImporter' object has no
-                # attribute 'find_spec'
-                spec = None
-            if spec is not None:
-                break
+        try:
+            import importlib
+            absolute_name = importlib.util.resolve_name(package_name, None)
+        except (ImportError, AttributeError):
+            # Sometimes, importlib is not available (e.g. Python 2)
+            # or importlib.util is not available (e.g. Python 2.7)
+            spec = None
+        else:
+            import sys
+            for finder in sys.meta_path:
+                try:
+                    spec = finder.find_spec(absolute_name, None)
+                except AttributeError:
+                    # On Travis (Python 3.5) the above produced:
+                    # AttributeError: 'VendorImporter' object has no
+                    # attribute 'find_spec'
+                    spec = None
+                if spec is not None:
+                    break
 
-    if spec:
-        module = importlib.util.module_from_spec(spec)
-        for path in module.__path__:
-            yield path
+        if spec:
+            module = importlib.util.module_from_spec(spec)
+            for path in module.__path__:
+                yield path
 
 def import_tensorflow_extension():
     """
