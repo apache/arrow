@@ -17,21 +17,19 @@
 FROM maven:3.5.2-jdk-8-slim
 
 # Basic OS utilities
-RUN apt-get update && \
-    apt-get install -y \
-        wget \
-        git \
-        build-essential \
-        software-properties-common && \
-    apt-get clean && \
-    # install conda in /home/ubuntu/miniconda
-    wget -O /tmp/miniconda.sh \
-    https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash /tmp/miniconda.sh -b -p /opt/conda && \
-    rm /tmp/miniconda.sh && \
-    # Python dependencies
-    apt-get install -y \
-        pkg-config && \
+RUN apt-get update \
+ && apt-get install -y \
+      wget \
+      git \
+      pkg-config \
+      build-essential \
+      software-properties-common \
+ && apt-get clean
+
+# install conda in /home/ubuntu/miniconda
+RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh \
+  && /bin/bash conda.sh -b -p /opt/conda \
+  && rm conda.sh
 
 ENV PATH="/opt/conda/bin:${PATH}"
 
