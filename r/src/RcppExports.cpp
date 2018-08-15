@@ -65,13 +65,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // Array_initialize
-xptr_Array Array_initialize(xptr_ArrayData data);
-RcppExport SEXP _arrow_Array_initialize(SEXP dataSEXP) {
+xptr_Array Array_initialize(xptr_ArrayData data_);
+RcppExport SEXP _arrow_Array_initialize(SEXP data_SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_ArrayData >::type data(dataSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array_initialize(data));
+    Rcpp::traits::input_parameter< xptr_ArrayData >::type data_(data_SEXP);
+    rcpp_result_gen = Rcpp::wrap(Array_initialize(data_));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -151,28 +151,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Array_type_id(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ArrayBuilder
-xptr_ArrayBuilder ArrayBuilder(xptr_DataType xptr_type);
-RcppExport SEXP _arrow_ArrayBuilder(SEXP xptr_typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DataType >::type xptr_type(xptr_typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(ArrayBuilder(xptr_type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ArrayBuilder__num_children
-int ArrayBuilder__num_children(xptr_ArrayBuilder xptr_type);
-RcppExport SEXP _arrow_ArrayBuilder__num_children(SEXP xptr_typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_ArrayBuilder >::type xptr_type(xptr_typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(ArrayBuilder__num_children(xptr_type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -664,8 +642,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array_null_count", (DL_FUNC) &_arrow_Array_null_count, 1},
     {"_arrow_Array_type", (DL_FUNC) &_arrow_Array_type, 1},
     {"_arrow_Array_type_id", (DL_FUNC) &_arrow_Array_type_id, 1},
-    {"_arrow_ArrayBuilder", (DL_FUNC) &_arrow_ArrayBuilder, 1},
-    {"_arrow_ArrayBuilder__num_children", (DL_FUNC) &_arrow_ArrayBuilder__num_children, 1},
     {"_arrow_field_pointer", (DL_FUNC) &_arrow_field_pointer, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},

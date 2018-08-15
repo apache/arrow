@@ -27,7 +27,7 @@ array_data <- function(...){
     initialize = function(data) {
       private$xp <- Array_initialize(data$pointer())
     },
-    IsNUll = function(i) Array_IsNull(private$xp, i),
+    IsNull = function(i) Array_IsNull(private$xp, i),
     IsValid = function(i) Array_IsValid(private$xp, i),
     length = function() Array_length(private$xp),
     offset = function() Array_offset(private$xp),
@@ -36,6 +36,9 @@ array_data <- function(...){
     type_id = function() Array_type_id(private$xp)
   )
 )
+
+#' @export
+"length.arrow::Array" <- function(x) x$length()
 
 #' @export
 MakeArray <- function(data){

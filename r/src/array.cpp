@@ -24,7 +24,7 @@ using namespace Rcpp;
 // [[Rcpp::export]]
 xptr_ArrayData ArrayData_initialize(xptr_DataType type, int length, int null_count, int offset){
   xptr_ArrayData out(
-    new std::shared_ptr<arrow::ArrayData>(new arrow::ArrayData( *type, length, null_count, offset))
+    new std::shared_ptr<arrow::ArrayData>(new arrow::ArrayData( *type, length, {nullptr, nullptr}, null_count, offset))
   );
   return out ;
 }
@@ -50,10 +50,8 @@ int ArrayData_get_offset(xptr_ArrayData x){
 }
 
 // [[Rcpp::export]]
-xptr_Array Array_initialize(xptr_ArrayData data){
-  auto a = MakeArray(*data) ;
-  xptr_Array arr(new std::shared_ptr<arrow::Array>(a));
-  return arr;
+xptr_Array Array_initialize(xptr_ArrayData data_){
+  return xptr_Array(new std::shared_ptr<arrow::Array>(MakeArray(*data_)));
 }
 
 // [[Rcpp::export]]
@@ -94,25 +92,25 @@ arrow::Type::type Array_type_id(xptr_Array x){
   return std::shared_ptr<arrow::Array>(*x)->type_id();
 }
 
-//' @export
-// [[Rcpp::export]]
-xptr_ArrayBuilder ArrayBuilder(xptr_DataType xptr_type) {
-  if (!Rf_inherits(xptr_type, "arrow::DataType")) stop("incompatible");
-
-  std::shared_ptr<arrow::DataType>& type = *xptr_type;
-
-  auto memory_pool = arrow::default_memory_pool();
-  std::unique_ptr<arrow::ArrayBuilder>* arrow_builder =
-      new std::unique_ptr<arrow::ArrayBuilder>;
-  auto status = arrow::MakeBuilder(memory_pool, type, arrow_builder);
-
-  xptr_ArrayBuilder res(arrow_builder);
-  res.attr("class") =
-      CharacterVector::create(DEMANGLE(**arrow_builder), "arrow::ArrayBuilder");
-  return res;
-}
-
-// [[Rcpp::export]]
-int ArrayBuilder__num_children(xptr_ArrayBuilder xptr_type) {
-  return (*xptr_type)->num_children();
-}
+// //' @export
+// // [[Rcpp::export]]
+// xptr_ArrayBuilder ArrayBuilder(xptr_DataType xptr_type) {
+//   if (!Rf_inherits(xptr_type, "arrow::DataType")) stop("incompatible");
+//
+//   std::shared_ptr<arrow::DataType>& type = *xptr_type;
+//
+//   auto memory_pool = arrow::default_memory_pool();
+//   std::unique_ptr<arrow::ArrayBuilder>* arrow_builder =
+//       new std::unique_ptr<arrow::ArrayBuilder>;
+//   auto status = arrow::MakeBuilder(memory_pool, type, arrow_builder);
+//
+//   xptr_ArrayBuilder res(arrow_builder);
+//   res.attr("class") =
+//       CharacterVector::create(DEMANGLE(**arrow_builder), "arrow::ArrayBuilder");
+//   return res;
+// }
+//
+// // [[Rcpp::export]]
+// int ArrayBuilder__num_children(xptr_ArrayBuilder xptr_type) {
+//   return (*xptr_type)->num_children();
+// }

@@ -21,8 +21,8 @@ ArrayData_get_offset <- function(x) {
     .Call(`_arrow_ArrayData_get_offset`, x)
 }
 
-Array_initialize <- function(data) {
-    .Call(`_arrow_Array_initialize`, data)
+Array_initialize <- function(data_) {
+    .Call(`_arrow_Array_initialize`, data_)
 }
 
 Array_IsNull <- function(x, i) {
@@ -51,15 +51,6 @@ Array_type <- function(x) {
 
 Array_type_id <- function(x) {
     .Call(`_arrow_Array_type_id`, x)
-}
-
-#' @export
-ArrayBuilder <- function(xptr_type) {
-    .Call(`_arrow_ArrayBuilder`, xptr_type)
-}
-
-ArrayBuilder__num_children <- function(xptr_type) {
-    .Call(`_arrow_ArrayBuilder__num_children`, xptr_type)
 }
 
 #' @export
