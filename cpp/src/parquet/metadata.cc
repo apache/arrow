@@ -731,7 +731,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     int64_t total_byte_size = 0;
 
     for (int i = 0; i < schema_->num_columns(); i++) {
-      if (!(row_group_->columns[i].file_offset > 0)) {
+      if (!(row_group_->columns[i].file_offset >= 0)) {
         std::stringstream ss;
         ss << "Column " << i << " is not complete.";
         throw ParquetException(ss.str());

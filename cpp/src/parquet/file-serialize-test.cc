@@ -176,6 +176,27 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
       column_writer->Close();
     }
   }
+
+  void ZeroRowsRowGroup() {
+    std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
+    auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
+
+    std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
+
+    auto file_writer = ParquetFileWriter::Open(sink, gnode, props);
+
+    RowGroupWriter* row_group_writer;
+    row_group_writer = file_writer->AppendRowGroup();
+
+    for (int col = 0; col < num_columns_; ++col) {
+      auto column_writer =
+          static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
+      column_writer->Close();
+    }
+
+    row_group_writer->Close();
+    file_writer->Close();
+  }
 };
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
@@ -197,6 +218,8 @@ TYPED_TEST(TestSerialize, TooManyRows) {
   std::vector<int64_t> num_rows = {100, 100, 100, 101};
   ASSERT_THROW(this->UnequalNumRows(101, num_rows), ParquetException);
 }
+
+TYPED_TEST(TestSerialize, ZeroRows) { ASSERT_NO_THROW(this->ZeroRowsRowGroup()); }
 
 TYPED_TEST(TestSerialize, RepeatedTooFewRows) {
   ASSERT_THROW(this->RepeatedUnequalRows(), ParquetException);

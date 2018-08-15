@@ -432,12 +432,13 @@ int64_t ColumnWriter::Close() {
     FlushBufferedDataPages();
 
     EncodedStatistics chunk_statistics = GetChunkStatistics();
+    // Write stats only if the column has atleast one row written
     // From parquet-mr
     // Don't write stats larger than the max size rather than truncating. The
     // rationale is that some engines may use the minimum value in the page as
     // the true minimum for aggregations and there is no way to mark that a
     // value has been truncated and is a lower bound and not in the page.
-    if (chunk_statistics.is_set() &&
+    if (rows_written_ > 0 && chunk_statistics.is_set() &&
         chunk_statistics.max_stat_length() <=
             properties_->max_statistics_size(descr_->path())) {
       metadata_->SetStatistics(SortOrder::SIGNED == descr_->sort_order(),
