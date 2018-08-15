@@ -17,6 +17,7 @@
 
 # Headers: top level
 install(FILES
+  bloom_filter.h
   column_reader.h
   column_page.h
   column_scanner.h
@@ -25,7 +26,9 @@ install(FILES
   exception.h
   file_reader.h
   file_writer.h
+  hasher.h
   metadata.h
+  murmur3.h
   printer.h
   properties.h
   schema.h
@@ -50,6 +53,7 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
+ADD_PARQUET_TEST(bloom_filter-test)
 ADD_PARQUET_TEST(column_reader-test)
 ADD_PARQUET_TEST(column_scanner-test)
 ADD_PARQUET_TEST(column_writer-test)
