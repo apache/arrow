@@ -34,17 +34,6 @@ using xptr_Schema = Rcpp::XPtr<std::shared_ptr<arrow::Schema>>;
 using xptr_ListType = Rcpp::XPtr<std::shared_ptr<arrow::ListType>>;
 using xptr_ArrayBuilder = Rcpp::XPtr<std::unique_ptr<arrow::ArrayBuilder>>;
 
-namespace Rcpp {
-template <>
-arrow::TimeUnit::type as<arrow::TimeUnit::type>(SEXP);
-
-template <>
-arrow::DateUnit as<arrow::DateUnit>(SEXP);
-
-template <>
-SEXP wrap<arrow::TimeUnit::type>(const arrow::TimeUnit::type&);
-
-template <>
-SEXP wrap<arrow::DateUnit>(const arrow::DateUnit&);
-
-}
+RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
+RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)

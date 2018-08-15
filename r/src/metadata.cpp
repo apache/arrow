@@ -112,35 +112,6 @@ xptr_DataType FixedSizeBinary_initialize(int32_t byte_width) {
                   "arrow::FixedWidthType", "arrow::DataType");
 }
 
-namespace Rcpp {
-template <>
-arrow::TimeUnit::type as<arrow::TimeUnit::type>(SEXP x) {
-  if (!Rf_inherits(x, "arrow::TimeUnit::type")) stop("incompatible");
-  return static_cast<arrow::TimeUnit::type>(as<int>(x));
-}
-
-template <>
-arrow::DateUnit as<arrow::DateUnit>(SEXP x) {
-  if (!Rf_inherits(x, "arrow::DateUnit")) stop("incompatible");
-  return static_cast<arrow::DateUnit>(as<int>(x));
-}
-
-template <>
-SEXP wrap<arrow::DateUnit>(const arrow::DateUnit& x) {
-  List out = List::create(static_cast<int>(x));
-  out.attr("class") = CharacterVector::create("arrow::DateUnit", "arrow-enum");
-  return out;
-}
-
-template <>
-SEXP wrap<arrow::TimeUnit::type>(const arrow::TimeUnit::type& x) {
-  List out = List::create(static_cast<int>(x));
-  out.attr("class") = CharacterVector::create("arrow::TimeUnit::type", "arrow-enum");
-  return out;
-}
-
-}  // namespace Rcpp
-
 // [[Rcpp::export]]
 xptr_DataType Timestamp_initialize1(arrow::TimeUnit::type unit) {
   return metadata(arrow::timestamp(unit), "arrow::TimestampType", "arrow::FixedWidthType",
