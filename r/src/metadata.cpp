@@ -197,6 +197,11 @@ List DataType_children_pointer(xptr_DataType type) {
   return out;
 }
 
+// [[Rcpp::export]]
+arrow::Type::type DataType_id(xptr_DataType type) {
+  return std::shared_ptr<arrow::DataType>(*type)->id();
+}
+
 
 // [[Rcpp::export]]
 xptr_Schema schema_(ListOf<xptr_Field> fields) {

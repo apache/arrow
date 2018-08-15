@@ -143,6 +143,10 @@ DataType_children_pointer <- function(type) {
     .Call(`_arrow_DataType_children_pointer`, type)
 }
 
+DataType_id <- function(type) {
+    .Call(`_arrow_DataType_id`, type)
+}
+
 schema_ <- function(fields) {
     .Call(`_arrow_schema_`, fields)
 }

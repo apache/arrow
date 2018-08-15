@@ -35,6 +35,9 @@ NAMESPACE <- environment()
     },
     children = function() {
       map(DataType_children_pointer(private$xp), field)
+    },
+    id = function(){
+      DataType_id(private$xp)
     }
   )
 )
