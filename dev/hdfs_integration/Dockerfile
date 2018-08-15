@@ -33,8 +33,10 @@ RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -
  && /bin/bash conda.sh -b -p /opt/conda \
  && rm conda.sh
 
+ENV PATH="/opt/conda/bin:${PATH}"
+
 RUN conda create -y -q -c conda-forge -n pyarrow-dev \
-      python=$1 \
+      python=3.6 \
       ipython \
       matplotlib \
       nomkl \
@@ -59,8 +61,6 @@ RUN conda create -y -q -c conda-forge -n pyarrow-dev \
       setuptools \
       setuptools_scm \
  && conda clean --all
-
-ENV PATH="/opt/conda/bin:${PATH}"
 
 # installing in the previous step boost=1.60 and boost-cpp=1.67 gets installed,
 # cmake finds 1.60 and parquet fails to compile
