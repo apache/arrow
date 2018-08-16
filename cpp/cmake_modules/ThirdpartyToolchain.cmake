@@ -31,6 +31,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(LZ4_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZSTD_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(THRIFT_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
 
   if (NOT DEFINED ENV{BOOST_ROOT})
     # Since we have to set this in the environment, we check whether
@@ -77,6 +78,10 @@ endif()
 
 if (DEFINED ENV{PROTOBUF_HOME})
   set(PROTOBUF_HOME "$ENV{PROTOBUF_HOME}")
+endif()
+
+if (DEFINED ENV{THRIFT_HOME})
+  set(THRIFT_HOME "$ENV{THRIFT_HOME}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -190,6 +195,12 @@ if (DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
   set(ORC_SOURCE_URL "https://github.com/apache/orc/archive/rel/release-${ORC_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_THRIFT_URL})
+  set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
+else()
+  set(THRIFT_SOURCE_URL "http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
@@ -1084,3 +1095,136 @@ if (ARROW_ORC)
   endif()
 
 endif()
+
+# ----------------------------------------------------------------------
+# Thrift
+
+if (ARROW_HIVESERVER2)
+
+# find thrift headers and libs
+find_package(Thrift)
+
+if (NOT THRIFT_FOUND)
+  set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
+  set(ZLIB_HOME "${ZLIB_PREFIX}")
+  set(ZLIB_INCLUDE_DIR "${ZLIB_PREFIX}/include")
+  if (MSVC)
+    if (${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+      set(ZLIB_STATIC_LIB_NAME zlibstaticd.lib)
+    else()
+      set(ZLIB_STATIC_LIB_NAME zlibstatic.lib)
+    endif()
+  else()
+    set(ZLIB_STATIC_LIB_NAME libz.a)
+  endif()
+  set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
+  set(ZLIB_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    -DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}
+    -DCMAKE_C_FLAGS=${EP_C_FLAGS}
+    -DBUILD_SHARED_LIBS=OFF)
+  ExternalProject_Add(zlib_ep
+    URL "http://zlib.net/fossils/zlib-1.2.8.tar.gz"
+    BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
+    ${ZLIB_BUILD_BYPRODUCTS}
+    ${EP_LOG_OPTIONS}
+    CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
+
+  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep/src/thrift_ep-install")
+  set(THRIFT_HOME "${THRIFT_PREFIX}")
+  set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
+  set(THRIFT_COMPILER "${THRIFT_PREFIX}/bin/thrift")
+  set(THRIFT_CMAKE_ARGS "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+                        "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+                        "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+                        "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
+                        "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
+                        "-DBUILD_SHARED_LIBS=OFF"
+                        "-DBUILD_TESTING=OFF"
+                        "-DBUILD_EXAMPLES=OFF"
+                        "-DBUILD_TUTORIALS=OFF"
+                        "-DWITH_QT4=OFF"
+                        "-DWITH_C_GLIB=OFF"
+                        "-DWITH_JAVA=OFF"
+                        "-DWITH_PYTHON=OFF"
+                        "-DWITH_HASKELL=OFF"
+                        "-DWITH_CPP=ON"
+                        "-DWITH_STATIC_LIB=ON"
+                        "-DWITH_LIBEVENT=OFF"
+                        )
+
+  # Thrift also uses boost. Forward important boost settings if there were ones passed.
+  if (DEFINED BOOST_ROOT)
+    set(THRIFT_CMAKE_ARGS ${THRIFT_CMAKE_ARGS} "-DBOOST_ROOT=${BOOST_ROOT}")
+  endif()
+  if (DEFINED Boost_NAMESPACE)
+    set(THRIFT_CMAKE_ARGS ${THRIFT_CMAKE_ARGS} "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
+  endif()
+
+  set(THRIFT_STATIC_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}thrift")
+  if (MSVC)
+    if (ARROW_USE_STATIC_CRT)
+      set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}mt")
+      set(THRIFT_CMAKE_ARGS ${THRIFT_CMAKE_ARGS} "-DWITH_MT=ON")
+    else()
+      set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}md")
+      set(THRIFT_CMAKE_ARGS ${THRIFT_CMAKE_ARGS} "-DWITH_MT=OFF")
+    endif()
+  endif()
+  if (${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    set(THRIFT_STATIC_LIB_NAME "${THRIFT_STATIC_LIB_NAME}d")
+  endif()
+  set(THRIFT_STATIC_LIB "${THRIFT_PREFIX}/lib/${THRIFT_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  if (MSVC)
+    set(WINFLEXBISON_VERSION 2.4.9)
+    set(WINFLEXBISON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/winflexbison_ep/src/winflexbison_ep-install")
+    ExternalProject_Add(winflexbison_ep
+      URL https://github.com/lexxmark/winflexbison/releases/download/v.${WINFLEXBISON_VERSION}/win_flex_bison-${WINFLEXBISON_VERSION}.zip
+      URL_HASH MD5=a2e979ea9928fbf8567e995e9c0df765
+      SOURCE_DIR ${WINFLEXBISON_PREFIX}
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND ""
+      INSTALL_COMMAND ""
+      ${EP_LOG_OPTIONS})
+    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} winflexbison_ep)
+
+    set(THRIFT_CMAKE_ARGS "-DFLEX_EXECUTABLE=${WINFLEXBISON_PREFIX}/win_flex.exe"
+                          "-DBISON_EXECUTABLE=${WINFLEXBISON_PREFIX}/win_bison.exe"
+                          "-DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIR}"
+                          "-DZLIB_LIBRARY=${ZLIB_STATIC_LIB}"
+                          "-DWITH_SHARED_LIB=OFF"
+                          "-DWITH_PLUGIN=OFF"
+                          ${THRIFT_CMAKE_ARGS})
+    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} zlib_ep)
+  elseif (APPLE)
+    if (DEFINED BISON_EXECUTABLE)
+      set(THRIFT_CMAKE_ARGS "-DBISON_EXECUTABLE=${BISON_EXECUTABLE}"
+                            ${THRIFT_CMAKE_ARGS})
+    endif()
+  endif()
+
+  ExternalProject_Add(thrift_ep
+    URL ${THRIFT_SOURCE_URL}
+    BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}" "${THRIFT_COMPILER}"
+    CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
+    DEPENDS ${THRIFT_DEPENDENCIES}
+    ${EP_LOG_OPTIONS})
+
+  set(THRIFT_VENDORED 1)
+else()
+  set(THRIFT_VENDORED 0)
+endif()
+
+include_directories(SYSTEM ${THRIFT_INCLUDE_DIR} ${THRIFT_INCLUDE_DIR}/thrift)
+message(STATUS "Thrift include dir: ${THRIFT_INCLUDE_DIR}")
+message(STATUS "Thrift static library: ${THRIFT_STATIC_LIB}")
+message(STATUS "Thrift compiler: ${THRIFT_COMPILER}")
+message(STATUS "Thrift version: ${THRIFT_VERSION}")
+add_library(thriftstatic STATIC IMPORTED)
+set_target_properties(thriftstatic PROPERTIES IMPORTED_LOCATION ${THRIFT_STATIC_LIB})
+
+if (THRIFT_VENDORED)
+  add_dependencies(thriftstatic thrift_ep)
+endif()
+
+endif()  # ARROW_HIVESERVER2

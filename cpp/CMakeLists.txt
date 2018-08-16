@@ -203,6 +203,10 @@ Pass multiple labels by dividing with semicolons")
     "Build Arrow libraries with install_name set to @rpath"
     ON)
 
+  option(ARROW_HIVESERVER2
+    "Build the HiveServer2 client and Arrow adapter"
+    OFF)
+
   option(ARROW_PLASMA
     "Build the plasma object store along with Arrow"
     OFF)
@@ -720,4 +724,8 @@ add_subdirectory(src/arrow)
 
 if(ARROW_PYTHON)
   add_subdirectory(src/arrow/python)
+endif()
+
+if(ARROW_HIVESERVER2)
+  add_subdirectory(src/arrow/dbi/hiveserver2)
 endif()

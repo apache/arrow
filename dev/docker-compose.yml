@@ -36,6 +36,12 @@ services:
     links:
       - hdfs-namenode:hdfs-namenode
 
+  impala:
+    image: cpcloud86/impala:java8-1
+    ports:
+      - "21050"
+    hostname: impala
+
   hdfs_integration:
     links:
       - hdfs-namenode:hdfs-namenode
@@ -48,6 +54,14 @@ services:
       context: hdfs_integration
     volumes:
      - ../..:/apache-arrow
+
+  hiveserver2:
+    links:
+      - impala
+    build:
+      context: hiveserver2
+    volumes:
+      - ../..:/apache-arrow
 
   spark_integration:
     build:

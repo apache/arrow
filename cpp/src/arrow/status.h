@@ -84,6 +84,7 @@ enum class StatusCode : char {
   PlasmaObjectNonexistent = 21,
   PlasmaStoreFull = 22,
   PlasmaObjectAlreadySealed = 23,
+  StillExecuting = 24
 };
 
 #if defined(__clang__)
@@ -121,6 +122,9 @@ class ARROW_EXPORT Status {
 
   // Return a success status.
   static Status OK() { return Status(); }
+
+  // Return a success status with extra info
+  static Status OK(const std::string& msg) { return Status(StatusCode::OK, msg); }
 
   // Return error status of an appropriate type.
   static Status OutOfMemory(const std::string& msg) {
@@ -175,6 +179,8 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::PlasmaStoreFull, msg);
   }
 
+  static Status StillExecuting() { return Status(StatusCode::StillExecuting, ""); }
+
   // Returns true iff the status indicates success.
   bool ok() const { return (state_ == NULL); }
 
@@ -202,6 +208,8 @@ class ARROW_EXPORT Status {
   }
   // An object is too large to fit into the plasma store.
   bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
+
+  bool IsStillExecuting() const { return code() == StatusCode::StillExecuting; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.
