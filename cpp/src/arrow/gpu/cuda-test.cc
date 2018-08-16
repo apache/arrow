@@ -72,7 +72,7 @@ TEST_F(TestCudaBuffer, CopyFromHost) {
   ASSERT_OK(context_->Allocate(kSize, &device_buffer));
 
   std::shared_ptr<ResizableBuffer> host_buffer;
-  ASSERT_OK(test::MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
+  ASSERT_OK(MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
 
   ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), 500));
   ASSERT_OK(device_buffer->CopyFromHost(500, host_buffer->data() + 500, kSize - 500));
@@ -86,7 +86,7 @@ TEST_F(TestCudaBuffer, FromBuffer) {
   std::shared_ptr<ResizableBuffer> host_buffer;
   std::shared_ptr<CudaBuffer> device_buffer;
   ASSERT_OK(context_->Allocate(kSize, &device_buffer));
-  ASSERT_OK(test::MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
+  ASSERT_OK(MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
   ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), 1000));
   // Sanity check
   AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
@@ -133,7 +133,7 @@ TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
   ASSERT_OK(context_->Allocate(kSize, &device_buffer));
 
   std::shared_ptr<ResizableBuffer> host_buffer;
-  ASSERT_OK(test::MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
+  ASSERT_OK(MakeRandomByteBuffer(kSize, default_memory_pool(), &host_buffer));
   ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), kSize));
 
   // Export for IPC and serialize
@@ -172,7 +172,7 @@ class TestCudaBufferWriter : public TestCudaBufferBase {
   void TestWrites(const int64_t total_bytes, const int64_t chunksize,
                   const int64_t buffer_size = 0) {
     std::shared_ptr<ResizableBuffer> buffer;
-    ASSERT_OK(test::MakeRandomByteBuffer(total_bytes, default_memory_pool(), &buffer));
+    ASSERT_OK(MakeRandomByteBuffer(total_bytes, default_memory_pool(), &buffer));
 
     if (buffer_size > 0) {
       ASSERT_OK(writer_->SetBufferSize(buffer_size));
@@ -223,7 +223,7 @@ TEST_F(TestCudaBufferWriter, EdgeCases) {
   Allocate(1000);
 
   std::shared_ptr<ResizableBuffer> buffer;
-  ASSERT_OK(test::MakeRandomByteBuffer(1000, default_memory_pool(), &buffer));
+  ASSERT_OK(MakeRandomByteBuffer(1000, default_memory_pool(), &buffer));
   const uint8_t* host_data = buffer->data();
 
   ASSERT_EQ(0, writer_->buffer_size());
@@ -274,7 +274,7 @@ TEST_F(TestCudaBufferReader, Basics) {
   ASSERT_OK(context_->Allocate(size, &device_buffer));
 
   std::shared_ptr<ResizableBuffer> buffer;
-  ASSERT_OK(test::MakeRandomByteBuffer(1000, default_memory_pool(), &buffer));
+  ASSERT_OK(MakeRandomByteBuffer(1000, default_memory_pool(), &buffer));
   const uint8_t* host_data = buffer->data();
 
   ASSERT_OK(device_buffer->CopyFromHost(0, host_data, 1000));

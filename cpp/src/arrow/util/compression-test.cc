@@ -73,7 +73,7 @@ void CheckCodec() {
   int sizes[] = {0, 10000, 100000};
   for (int data_size : sizes) {
     vector<uint8_t> data(data_size);
-    test::random_bytes(data_size, 1234, data.data());
+    random_bytes(data_size, 1234, data.data());
     CheckCodecRoundtrip<CODEC>(data);
   }
 }

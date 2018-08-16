@@ -37,10 +37,10 @@ std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fie
   auto type = TypeTraits<TYPE>::type_singleton();
 
   std::vector<bool> is_valid;
-  test::random_is_valid(length, 0.1, &is_valid);
+  random_is_valid(length, 0.1, &is_valid);
 
   std::vector<T> values;
-  test::randint<T>(length, 0, 100, &values);
+  randint<T>(length, 0, 100, &values);
 
   typename TypeTraits<TYPE>::BuilderType builder(type, default_memory_pool());
   for (size_t i = 0; i < values.size(); ++i) {

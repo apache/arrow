@@ -302,7 +302,7 @@ TYPED_TEST_CASE(TestGenerateBits, GenerateBitsTypes);
 TYPED_TEST(TestGenerateBits, NormalOperation) {
   const int kSourceSize = 256;
   uint8_t source[kSourceSize];
-  test::random_bytes(kSourceSize, 0, source);
+  random_bytes(kSourceSize, 0, source);
 
   const int64_t start_offsets[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 21, 31, 32};
   const int64_t lengths[] = {0,  1,  2,  3,  4,   5,   6,   7,   8,   9,   12,  16,
@@ -410,7 +410,7 @@ TEST(BitUtilTests, TestCountSetBits) {
   const int kBufferSize = 1000;
   uint8_t buffer[kBufferSize] = {0};
 
-  test::random_bytes(kBufferSize, 0, buffer);
+  random_bytes(kBufferSize, 0, buffer);
 
   const int num_bits = kBufferSize * 8;
 
@@ -430,7 +430,7 @@ TEST(BitUtilTests, TestCopyBitmap) {
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
   memset(buffer->mutable_data(), 0, kBufferSize);
-  test::random_bytes(kBufferSize, 0, buffer->mutable_data());
+  random_bytes(kBufferSize, 0, buffer->mutable_data());
 
   const uint8_t* src = buffer->data();
 

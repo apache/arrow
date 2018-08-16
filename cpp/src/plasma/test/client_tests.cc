@@ -42,8 +42,8 @@ std::string test_executable;  // NOLINT
 void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
                              const std::vector<uint8_t>& metadata,
                              const std::vector<uint8_t>& data) {
-  arrow::test::AssertBufferEqual(*object_buffer.metadata, metadata);
-  arrow::test::AssertBufferEqual(*object_buffer.data, data);
+  arrow::AssertBufferEqual(*object_buffer.metadata, metadata);
+  arrow::AssertBufferEqual(*object_buffer.data, data);
 }
 
 class TestPlasmaStore : public ::testing::Test {
@@ -288,7 +288,7 @@ TEST_F(TestPlasmaStore, GetTest) {
   {
     auto metadata = object_buffers[0].metadata;
     object_buffers.clear();
-    ::arrow::test::AssertBufferEqual(*metadata, {42});
+    ::arrow::AssertBufferEqual(*metadata, {42});
     ARROW_CHECK_OK(client_.FlushReleaseHistory());
     EXPECT_TRUE(client_.IsInUse(object_id));
   }

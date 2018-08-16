@@ -49,7 +49,7 @@ static void CudaBufferWriterBenchmark(benchmark::State& state, const int64_t tot
   }
 
   std::shared_ptr<ResizableBuffer> buffer;
-  ASSERT_OK(test::MakeRandomByteBuffer(total_bytes, default_memory_pool(), &buffer));
+  ASSERT_OK(MakeRandomByteBuffer(total_bytes, default_memory_pool(), &buffer));
 
   const uint8_t* host_data = buffer->data();
   while (state.KeepRunning()) {

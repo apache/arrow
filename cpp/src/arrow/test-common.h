@@ -68,7 +68,7 @@ std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_co
   EXPECT_OK(AllocateBuffer(pool_, data_nbytes, &data));
 
   // Fill with random data
-  test::random_bytes(data_nbytes, random_seed_++, data->mutable_data());
+  random_bytes(data_nbytes, random_seed_++, data->mutable_data());
   std::shared_ptr<Buffer> null_bitmap = MakeRandomNullBitmap(length, null_count);
 
   return std::make_shared<ArrayType>(length, data, null_bitmap, null_count);
@@ -88,7 +88,7 @@ std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
   std::shared_ptr<Buffer> data;
   EXPECT_OK(AllocateBuffer(pool_, byte_width * length, &data));
 
-  ::arrow::test::random_bytes(data->size(), 0, data->mutable_data());
+  ::arrow::random_bytes(data->size(), 0, data->mutable_data());
   return std::make_shared<FixedSizeBinaryArray>(fixed_size_binary(byte_width), length,
                                                 data, null_bitmap, null_count);
 }
@@ -108,7 +108,7 @@ std::shared_ptr<Array> TestBase::MakeRandomArray<BinaryArray>(int64_t length,
     if (!valid_bytes[i]) {
       EXPECT_OK(builder.AppendNull());
     } else {
-      ::arrow::test::random_bytes(kBufferSize, static_cast<uint32_t>(i), buffer);
+      ::arrow::random_bytes(kBufferSize, static_cast<uint32_t>(i), buffer);
       EXPECT_OK(builder.Append(buffer, kBufferSize));
     }
   }

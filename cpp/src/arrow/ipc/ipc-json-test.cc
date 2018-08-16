@@ -183,8 +183,8 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   std::vector<int32_t> offsets = {0, 0, 0, 1, 4, 7};
 
   std::shared_ptr<Buffer> list_bitmap;
-  ASSERT_OK(test::GetBitmapFromVector(list_is_valid, &list_bitmap));
-  std::shared_ptr<Buffer> offsets_buffer = test::GetBufferFromVector(offsets);
+  ASSERT_OK(GetBitmapFromVector(list_is_valid, &list_bitmap));
+  std::shared_ptr<Buffer> offsets_buffer = GetBufferFromVector(offsets);
 
   ListArray list_array(list(value_type), 5, offsets_buffer, values_array, list_bitmap, 1);
 
@@ -193,7 +193,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   // Struct
   std::vector<bool> struct_is_valid = {true, false, true, true, true, false, true};
   std::shared_ptr<Buffer> struct_bitmap;
-  ASSERT_OK(test::GetBitmapFromVector(struct_is_valid, &struct_bitmap));
+  ASSERT_OK(GetBitmapFromVector(struct_is_valid, &struct_bitmap));
 
   auto struct_type =
       struct_({field("f1", int32()), field("f2", int32()), field("f3", int32())});
@@ -218,13 +218,13 @@ TEST(TestJsonArrayWriter, Unions) {
 void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
                      std::vector<std::shared_ptr<Array>>* arrays) {
   std::vector<bool> is_valid;
-  test::random_is_valid(num_rows, 0.25, &is_valid);
+  random_is_valid(num_rows, 0.25, &is_valid);
 
   std::vector<int8_t> v1_values;
   std::vector<int32_t> v2_values;
 
-  test::randint(num_rows, 0, 100, &v1_values);
-  test::randint(num_rows, 0, 100, &v2_values);
+  randint(num_rows, 0, 100, &v1_values);
+  randint(num_rows, 0, 100, &v2_values);
 
   std::shared_ptr<Array> v1;
   ArrayFromVector<Int8Type, int8_t>(is_valid, v1_values, &v1);
@@ -240,7 +240,7 @@ void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
     if (!is_valid[i]) {
       ASSERT_OK(string_builder.AppendNull());
     } else {
-      test::random_ascii(kBufferSize, seed++, buffer);
+      random_ascii(kBufferSize, seed++, buffer);
       ASSERT_OK(string_builder.Append(buffer, kBufferSize));
     }
   }

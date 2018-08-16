@@ -93,8 +93,6 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
     }                                                                                  \
   } while (false)
 
-namespace test {
-
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
   const int random_seed = 0;
@@ -280,7 +278,7 @@ static inline void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
   rand_uniform_int(n, seed, static_cast<int32_t>('A'), static_cast<int32_t>('z'), out);
 }
 
-static inline int64_t null_count(const std::vector<uint8_t>& valid_bytes) {
+static inline int64_t CountNulls(const std::vector<uint8_t>& valid_bytes) {
   return static_cast<int64_t>(std::count(valid_bytes.cbegin(), valid_bytes.cend(), '\0'));
 }
 
@@ -289,8 +287,8 @@ Status MakeRandomInt32Buffer(int64_t length, MemoryPool* pool,
   DCHECK(pool);
   std::shared_ptr<ResizableBuffer> result;
   RETURN_NOT_OK(AllocateResizableBuffer(pool, sizeof(int32_t) * length, &result));
-  test::rand_uniform_int(length, seed, 0, std::numeric_limits<int32_t>::max(),
-                         reinterpret_cast<int32_t*>(result->mutable_data()));
+  rand_uniform_int(length, seed, 0, std::numeric_limits<int32_t>::max(),
+                   reinterpret_cast<int32_t*>(result->mutable_data()));
   *out = result;
   return Status::OK();
 }
@@ -299,7 +297,7 @@ Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
                             std::shared_ptr<ResizableBuffer>* out, uint32_t seed = 0) {
   std::shared_ptr<ResizableBuffer> result;
   RETURN_NOT_OK(AllocateResizableBuffer(pool, length, &result));
-  test::random_bytes(length, seed, result->mutable_data());
+  random_bytes(length, seed, result->mutable_data());
   *out = result;
   return Status::OK();
 }
@@ -367,8 +365,6 @@ void AssertTablesEqual(const Table& expected, const Table& actual,
     }
   }
 }
-
-}  // namespace test
 
 template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
