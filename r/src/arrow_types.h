@@ -17,10 +17,29 @@
 
 #pragma once
 
-#include <Rcpp.h>
+#include <RcppCommon.h>
+
 #undef Free
 #include <arrow/api.h>
 #include <arrow/type.h>
+
+namespace Rcpp{
+namespace traits{
+  struct wrap_type_shared_ptr_tag{};
+
+  template <typename T>
+  struct wrap_type_traits<std::shared_ptr<T>>{
+    using wrap_category = wrap_type_shared_ptr_tag;
+  };
+
+}
+namespace internal{
+  template <typename T>
+    inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) ;
+  }
+}
+
+#include <Rcpp.h>
 
 using xptr_DataType = Rcpp::XPtr<std::shared_ptr<arrow::DataType>>;
 using xptr_FixedWidthType = Rcpp::XPtr<std::shared_ptr<arrow::FixedWidthType>>;
@@ -40,3 +59,14 @@ using xptr_ArrayBuilder = Rcpp::XPtr<std::unique_ptr<arrow::ArrayBuilder>>;
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
+
+namespace Rcpp{
+namespace internal{
+  template <typename T>
+  inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag){
+    return Rcpp::XPtr<std::shared_ptr<typename T::element_type>>(new std::shared_ptr<typename T::element_type>(x));
+  }
+}
+
+}
+
