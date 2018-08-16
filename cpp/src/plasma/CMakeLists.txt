@@ -199,4 +199,5 @@ endif()
 ADD_ARROW_TEST(test/serialization_tests
   EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS})
 ADD_ARROW_TEST(test/client_tests
-  EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS})
+  EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS}
+  EXTRA_DEPENDENCIES plasma_store)
