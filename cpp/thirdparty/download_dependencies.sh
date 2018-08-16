@@ -65,6 +65,8 @@ wget -c -O $_DST/grpc.tar.gz https://github.com/grpc/grpc/archive/v$GRPC_VERSION
 
 wget -c -O $_DST/orc.tar.gz https://github.com/apache/orc/archive/rel/release-$ORC_VERSION.tar.gz
 
+wget -c -O $_DST/thrift.tar.gz http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
+
 echo "
 # Environment variables for offline Arrow build
 export ARROW_BOOST_URL=$_DST/boost.tar.gz
@@ -81,4 +83,5 @@ export ARROW_ZSTD_URL=$_DST/zstd.tar.gz
 export ARROW_PROTOBUF_URL=$_DST/protobuf.tar.gz
 export ARROW_GRPC_URL=$_DST/grpc.tar.gz
 export ARROW_ORC_URL=$_DST/orc.tar.gz
+export ARROW_THRIFT_URL=$_DST/thrift.tar.gz
 "
