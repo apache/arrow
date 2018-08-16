@@ -31,7 +31,7 @@ static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const ref
   std::shared_ptr<Buffer> buffer1, buffer2;
   ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer1));
   ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer2));
-  test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
+  random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
   while (state.KeepRunning()) {
     io::FixedSizeBufferWriter writer(buffer1);
@@ -47,7 +47,7 @@ static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const r
   ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer1));
   ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer2));
 
-  test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
+  random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
   while (state.KeepRunning()) {
     io::FixedSizeBufferWriter writer(buffer1);

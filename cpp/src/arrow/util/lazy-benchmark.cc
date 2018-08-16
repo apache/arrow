@@ -31,7 +31,7 @@ static constexpr int64_t kSize = 100000000;
 template <typename T = int32_t>
 std::vector<T> generate_junk(int64_t size) {
   std::vector<T> v(size);
-  test::randint(size, 0, 100000, &v);
+  randint(size, 0, 100000, &v);
   return v;
 }
 

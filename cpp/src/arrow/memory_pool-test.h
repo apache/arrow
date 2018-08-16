@@ -26,8 +26,6 @@
 
 namespace arrow {
 
-namespace test {
-
 class TestMemoryPoolBase : public ::testing::Test {
  public:
   virtual ::arrow::MemoryPool* memory_pool() = 0;
@@ -84,5 +82,4 @@ class TestMemoryPoolBase : public ::testing::Test {
   }
 };
 
-}  // namespace test
 }  // namespace arrow

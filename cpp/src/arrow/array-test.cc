@@ -308,7 +308,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     Attrs::draw(N, &draws_);
 
     valid_bytes_.resize(static_cast<size_t>(N));
-    test::random_null_bytes(N, pct_null, valid_bytes_.data());
+    random_null_bytes(N, pct_null, valid_bytes_.data());
   }
 
   void Check(const std::unique_ptr<BuilderType>& builder, bool nullable) {
@@ -323,7 +323,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     if (nullable) {
       ASSERT_OK(
           BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &ex_null_bitmap));
-      ex_null_count = test::null_count(valid_bytes_);
+      ex_null_count = CountNulls(valid_bytes_);
     } else {
       ex_null_bitmap = nullptr;
     }
@@ -381,23 +381,23 @@ struct UniformIntSampleType<int8_t> {
                                         \
   static std::shared_ptr<DataType> type() { return std::make_shared<Type>(); }
 
-#define PINT_DECL(CapType, c_type)                                                       \
-  struct P##CapType {                                                                    \
-    PTYPE_DECL(CapType, c_type)                                                          \
-    static void draw(int64_t N, vector<T>* draws) {                                      \
-      using sample_type = typename UniformIntSampleType<c_type>::type;                   \
-      const T lower = std::numeric_limits<T>::min();                                     \
-      const T upper = std::numeric_limits<T>::max();                                     \
-      test::randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper), \
-                    draws);                                                              \
-    }                                                                                    \
+#define PINT_DECL(CapType, c_type)                                                 \
+  struct P##CapType {                                                              \
+    PTYPE_DECL(CapType, c_type)                                                    \
+    static void draw(int64_t N, vector<T>* draws) {                                \
+      using sample_type = typename UniformIntSampleType<c_type>::type;             \
+      const T lower = std::numeric_limits<T>::min();                               \
+      const T upper = std::numeric_limits<T>::max();                               \
+      randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper), \
+              draws);                                                              \
+    }                                                                              \
   }
 
 #define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)  \
   struct P##CapType {                               \
     PTYPE_DECL(CapType, c_type)                     \
     static void draw(int64_t N, vector<T>* draws) { \
-      test::random_real(N, 0, LOWER, UPPER, draws); \
+      random_real(N, 0, LOWER, UPPER, draws);       \
     }                                               \
   }
 
@@ -423,8 +423,8 @@ void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
   draws_.resize(static_cast<size_t>(N));
   valid_bytes_.resize(static_cast<size_t>(N));
 
-  test::random_null_bytes(N, 0.5, draws_.data());
-  test::random_null_bytes(N, pct_null, valid_bytes_.data());
+  random_null_bytes(N, 0.5, draws_.data());
+  random_null_bytes(N, pct_null, valid_bytes_.data());
 }
 
 template <>
@@ -445,7 +445,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   ASSERT_OK(BitUtil::BytesToBits(draws_, default_memory_pool(), &ex_data));
   if (nullable) {
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &ex_null_bitmap));
-    ex_null_count = test::null_count(valid_bytes_);
+    ex_null_count = CountNulls(valid_bytes_);
   } else {
     ex_null_bitmap = nullptr;
   }
@@ -923,8 +923,8 @@ TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
   std::vector<bool> values, is_valid;
 
   const int length = 10000;
-  test::random_is_valid(length, 0.5, &values);
-  test::random_is_valid(length, 0.1, &is_valid);
+  random_is_valid(length, 0.5, &values);
+  random_is_valid(length, 0.1, &is_valid);
 
   const int chunksize = 1000;
   for (int chunk = 0; chunk < length / chunksize; ++chunk) {
@@ -963,8 +963,8 @@ void CheckSliceApproxEquals() {
   vector<T> draws2;
 
   const uint32_t kSeed = 0;
-  test::random_real(kSize, kSeed, 0.0, 100.0, &draws1);
-  test::random_real(kSize, kSeed + 1, 0.0, 100.0, &draws2);
+  random_real(kSize, kSeed, 0.0, 100.0, &draws1);
+  random_real(kSize, kSeed + 1, 0.0, 100.0, &draws2);
 
   // Make the draws equal in the sliced segment, but unequal elsewhere (to
   // catch not using the slice offset)
@@ -973,7 +973,7 @@ void CheckSliceApproxEquals() {
   }
 
   vector<bool> is_valid;
-  test::random_is_valid(kSize, 0.1, &is_valid);
+  random_is_valid(kSize, 0.1, &is_valid);
 
   std::shared_ptr<Array> array1, array2;
   ArrayFromVector<TYPE, T>(is_valid, draws1, &array1);
@@ -1006,10 +1006,10 @@ class TestStringArray : public ::testing::Test {
 
   void MakeArray() {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
-    value_buf_ = test::GetBufferFromVector(chars_);
-    offsets_buf_ = test::GetBufferFromVector(offsets_);
+    value_buf_ = GetBufferFromVector(chars_);
+    offsets_buf_ = GetBufferFromVector(offsets_);
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
-    null_count_ = test::null_count(valid_bytes_);
+    null_count_ = CountNulls(valid_bytes_);
 
     strings_ = std::make_shared<StringArray>(length_, offsets_buf_, value_buf_,
                                              null_bitmap_, null_count_);
@@ -1071,7 +1071,7 @@ TEST_F(TestStringArray, TestGetString) {
 
 TEST_F(TestStringArray, TestEmptyStringComparison) {
   offsets_ = {0, 0, 0, 0, 0, 0};
-  offsets_buf_ = test::GetBufferFromVector(offsets_);
+  offsets_buf_ = GetBufferFromVector(offsets_);
   length_ = static_cast<int64_t>(offsets_.size() - 1);
 
   auto strings_a = std::make_shared<StringArray>(length_, offsets_buf_, nullptr,
@@ -1318,11 +1318,11 @@ class TestBinaryArray : public ::testing::Test {
 
   void MakeArray() {
     length_ = static_cast<int64_t>(offsets_.size() - 1);
-    value_buf_ = test::GetBufferFromVector(chars_);
-    offsets_buf_ = test::GetBufferFromVector(offsets_);
+    value_buf_ = GetBufferFromVector(chars_);
+    offsets_buf_ = GetBufferFromVector(offsets_);
 
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
-    null_count_ = test::null_count(valid_bytes_);
+    null_count_ = CountNulls(valid_bytes_);
 
     strings_ = std::make_shared<BinaryArray>(length_, offsets_buf_, value_buf_,
                                              null_bitmap_, null_count_);
@@ -1610,10 +1610,10 @@ TEST_F(TestFWBinaryArray, Builder) {
   int64_t nbytes = length * byte_width;
 
   vector<uint8_t> data(nbytes);
-  test::random_bytes(nbytes, 0, data.data());
+  random_bytes(nbytes, 0, data.data());
 
   vector<uint8_t> is_valid(length);
-  test::random_null_bytes(length, 0.1, is_valid.data());
+  random_null_bytes(length, 0.1, is_valid.data());
 
   const uint8_t* raw_data = data.data();
 
@@ -2885,19 +2885,19 @@ TEST_F(TestListArray, TestFromArrays) {
 
   ListArray expected1(list_type, length, offsets1->data()->buffers[1], values,
                       offsets1->data()->buffers[0], 0);
-  test::AssertArraysEqual(expected1, *list1);
+  AssertArraysEqual(expected1, *list1);
 
   // Use null bitmap from offsets3, but clean offsets from non-null version
   ListArray expected3(list_type, length, offsets1->data()->buffers[1], values,
                       offsets3->data()->buffers[0], 1);
-  test::AssertArraysEqual(expected3, *list3);
+  AssertArraysEqual(expected3, *list3);
 
   // Check that the last offset bit is zero
   ASSERT_FALSE(BitUtil::GetBit(list3->null_bitmap()->data(), length + 1));
 
   ListArray expected4(list_type, length, offsets2->data()->buffers[1], values,
                       offsets4->data()->buffers[0], 1);
-  test::AssertArraysEqual(expected4, *list4);
+  AssertArraysEqual(expected4, *list4);
 
   // Test failure modes
 
@@ -3682,7 +3682,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     ASSERT_OK(
         BitUtil::BytesToBits(valid_bytes, default_memory_pool(), &expected_null_bitmap));
 
-    int64_t expected_null_count = test::null_count(valid_bytes);
+    int64_t expected_null_count = CountNulls(valid_bytes);
     auto expected = std::make_shared<Decimal128Array>(
         type, size, expected_data, expected_null_bitmap, expected_null_count);
 
