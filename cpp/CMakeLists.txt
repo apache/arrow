@@ -642,7 +642,7 @@ if(POLICY CMP0063)
   cmake_policy(SET CMP0063 NEW)
 endif()
 
-if (PARQUET_BUILD_SHARED)
+if (ARROW_BUILD_SHARED)
   if (POLICY CMP0063)
     set_target_properties(arrow_shared
       PROPERTIES
