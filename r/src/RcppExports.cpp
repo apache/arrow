@@ -201,7 +201,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Int8_initialize
-xptr_DataType Int8_initialize();
+std::shared_ptr<arrow::DataType> Int8_initialize();
 RcppExport SEXP _arrow_Int8_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -211,7 +211,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Int16_initialize
-xptr_DataType Int16_initialize();
+std::shared_ptr<arrow::DataType> Int16_initialize();
 RcppExport SEXP _arrow_Int16_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -221,7 +221,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Int32_initialize
-xptr_DataType Int32_initialize();
+std::shared_ptr<arrow::DataType> Int32_initialize();
 RcppExport SEXP _arrow_Int32_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -231,7 +231,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Int64_initialize
-xptr_DataType Int64_initialize();
+std::shared_ptr<arrow::DataType> Int64_initialize();
 RcppExport SEXP _arrow_Int64_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -241,7 +241,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // UInt8_initialize
-xptr_DataType UInt8_initialize();
+std::shared_ptr<arrow::DataType> UInt8_initialize();
 RcppExport SEXP _arrow_UInt8_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -251,7 +251,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // UInt16_initialize
-xptr_DataType UInt16_initialize();
+std::shared_ptr<arrow::DataType> UInt16_initialize();
 RcppExport SEXP _arrow_UInt16_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -261,7 +261,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // UInt32_initialize
-xptr_DataType UInt32_initialize();
+std::shared_ptr<arrow::DataType> UInt32_initialize();
 RcppExport SEXP _arrow_UInt32_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -271,7 +271,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // UInt64_initialize
-xptr_DataType UInt64_initialize();
+std::shared_ptr<arrow::DataType> UInt64_initialize();
 RcppExport SEXP _arrow_UInt64_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -281,7 +281,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Float16_initialize
-xptr_DataType Float16_initialize();
+std::shared_ptr<arrow::DataType> Float16_initialize();
 RcppExport SEXP _arrow_Float16_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -291,7 +291,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Float32_initialize
-xptr_DataType Float32_initialize();
+std::shared_ptr<arrow::DataType> Float32_initialize();
 RcppExport SEXP _arrow_Float32_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -301,7 +301,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Float64_initialize
-xptr_DataType Float64_initialize();
+std::shared_ptr<arrow::DataType> Float64_initialize();
 RcppExport SEXP _arrow_Float64_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -311,7 +311,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Boolean_initialize
-xptr_DataType Boolean_initialize();
+std::shared_ptr<arrow::DataType> Boolean_initialize();
 RcppExport SEXP _arrow_Boolean_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -321,7 +321,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Utf8_initialize
-xptr_DataType Utf8_initialize();
+std::shared_ptr<arrow::DataType> Utf8_initialize();
 RcppExport SEXP _arrow_Utf8_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -331,7 +331,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Date32_initialize
-xptr_DataType Date32_initialize();
+std::shared_ptr<arrow::DataType> Date32_initialize();
 RcppExport SEXP _arrow_Date32_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -341,7 +341,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Date64_initialize
-xptr_DataType Date64_initialize();
+std::shared_ptr<arrow::DataType> Date64_initialize();
 RcppExport SEXP _arrow_Date64_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -351,7 +351,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Null_initialize
-xptr_DataType Null_initialize();
+std::shared_ptr<arrow::DataType> Null_initialize();
 RcppExport SEXP _arrow_Null_initialize() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -361,7 +361,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Decimal128Type_initialize
-xptr_DataType Decimal128Type_initialize(int32_t precision, int32_t scale);
+std::shared_ptr<arrow::DataType> Decimal128Type_initialize(int32_t precision, int32_t scale);
 RcppExport SEXP _arrow_Decimal128Type_initialize(SEXP precisionSEXP, SEXP scaleSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -373,7 +373,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // FixedSizeBinary_initialize
-xptr_DataType FixedSizeBinary_initialize(int32_t byte_width);
+std::shared_ptr<arrow::DataType> FixedSizeBinary_initialize(int32_t byte_width);
 RcppExport SEXP _arrow_FixedSizeBinary_initialize(SEXP byte_widthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -384,7 +384,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Timestamp_initialize1
-xptr_DataType Timestamp_initialize1(arrow::TimeUnit::type unit);
+std::shared_ptr<arrow::DataType> Timestamp_initialize1(arrow::TimeUnit::type unit);
 RcppExport SEXP _arrow_Timestamp_initialize1(SEXP unitSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -395,7 +395,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Timestamp_initialize2
-xptr_DataType Timestamp_initialize2(arrow::TimeUnit::type unit, const std::string& timezone);
+std::shared_ptr<arrow::DataType> Timestamp_initialize2(arrow::TimeUnit::type unit, const std::string& timezone);
 RcppExport SEXP _arrow_Timestamp_initialize2(SEXP unitSEXP, SEXP timezoneSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -407,7 +407,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Time32_initialize
-xptr_DataType Time32_initialize(arrow::TimeUnit::type unit);
+std::shared_ptr<arrow::DataType> Time32_initialize(arrow::TimeUnit::type unit);
 RcppExport SEXP _arrow_Time32_initialize(SEXP unitSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -418,7 +418,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Time64_initialize
-xptr_DataType Time64_initialize(arrow::TimeUnit::type unit);
+std::shared_ptr<arrow::DataType> Time64_initialize(arrow::TimeUnit::type unit);
 RcppExport SEXP _arrow_Time64_initialize(SEXP unitSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -440,12 +440,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // struct_
-xptr_DataType struct_(ListOf<xptr_Field> fields);
+std::shared_ptr<arrow::DataType> struct_(Rcpp::ListOf<xptr_Field> fields);
 RcppExport SEXP _arrow_struct_(SEXP fieldsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< ListOf<xptr_Field> >::type fields(fieldsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::ListOf<xptr_Field> >::type fields(fieldsSEXP);
     rcpp_result_gen = Rcpp::wrap(struct_(fields));
     return rcpp_result_gen;
 END_RCPP

@@ -15,137 +15,96 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <Rcpp.h>
 #include "arrow_types.h"
-
-// [[Rcpp::plugins(cpp11)]]
 
 using namespace Rcpp;
 
-template <typename... String>
-xptr_DataType metadata(const std::shared_ptr<arrow::DataType>& ptr, String... strings) {
-  xptr_DataType res(new std::shared_ptr<arrow::DataType>(ptr));
-  res.attr("class") = CharacterVector::create(ptr->name(), strings...);
-  return res;
-}
-
-xptr_DataType metadata_integer(const std::shared_ptr<arrow::DataType>& ptr) {
-  return metadata(ptr, "arrow::Integer", "arrow::Number", "arrow::PrimitiveCType",
-                  "arrow::FixedWidthType", "arrow::DataType");
-}
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> Int8_initialize() { return arrow::int8(); }
 
 // [[Rcpp::export]]
-xptr_DataType Int8_initialize() { return metadata_integer(arrow::int8()); }
+std::shared_ptr<arrow::DataType> Int16_initialize() { return arrow::int16(); }
 
 // [[Rcpp::export]]
-xptr_DataType Int16_initialize() { return metadata_integer(arrow::int16()); }
+std::shared_ptr<arrow::DataType> Int32_initialize() { return arrow::int32(); }
 
 // [[Rcpp::export]]
-xptr_DataType Int32_initialize() { return metadata_integer(arrow::int32()); }
+std::shared_ptr<arrow::DataType> Int64_initialize() { return arrow::int64(); }
 
 // [[Rcpp::export]]
-xptr_DataType Int64_initialize() { return metadata_integer(arrow::int64()); }
+std::shared_ptr<arrow::DataType> UInt8_initialize() { return arrow::uint8(); }
 
 // [[Rcpp::export]]
-xptr_DataType UInt8_initialize() { return metadata_integer(arrow::uint8()); }
+std::shared_ptr<arrow::DataType> UInt16_initialize() { return arrow::uint16(); }
 
 // [[Rcpp::export]]
-xptr_DataType UInt16_initialize() { return metadata_integer(arrow::uint16()); }
+std::shared_ptr<arrow::DataType> UInt32_initialize() { return arrow::uint32(); }
 
 // [[Rcpp::export]]
-xptr_DataType UInt32_initialize() { return metadata_integer(arrow::uint32()); }
+std::shared_ptr<arrow::DataType> UInt64_initialize() { return arrow::uint64(); }
 
 // [[Rcpp::export]]
-xptr_DataType UInt64_initialize() { return metadata_integer(arrow::uint64()); }
-
-xptr_DataType metadata_float(const std::shared_ptr<arrow::DataType>& ptr) {
-  return metadata(ptr, "arrow::FloatingPoint", "arrow::Number", "arrow::PrimitiveCType",
-                  "arrow::FixedWidthType", "arrow::DataType");
-}
+std::shared_ptr<arrow::DataType> Float16_initialize() { return arrow::float16(); }
 
 // [[Rcpp::export]]
-xptr_DataType Float16_initialize() { return metadata_float(arrow::float16()); }
+std::shared_ptr<arrow::DataType> Float32_initialize() { return arrow::float32(); }
 
 // [[Rcpp::export]]
-xptr_DataType Float32_initialize() { return metadata_float(arrow::float32()); }
+std::shared_ptr<arrow::DataType> Float64_initialize() { return arrow::float64(); }
 
 // [[Rcpp::export]]
-xptr_DataType Float64_initialize() { return metadata_float(arrow::float64()); }
+std::shared_ptr<arrow::DataType> Boolean_initialize() { return arrow::boolean(); }
 
 // [[Rcpp::export]]
-xptr_DataType Boolean_initialize() {
-  return metadata(arrow::boolean(), "arrow::BooleanType", "arrow::FixedWidthType",
-                  "arrow::DataType");
+std::shared_ptr<arrow::DataType> Utf8_initialize() { return arrow::utf8(); }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> Date32_initialize() { return arrow::date32(); }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> Date64_initialize() { return arrow::date64(); }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> Null_initialize() { return arrow::null(); }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> Decimal128Type_initialize(int32_t precision, int32_t scale) {
+  return arrow::decimal(precision, scale);
 }
 
 // [[Rcpp::export]]
-xptr_DataType Utf8_initialize() {
-  return metadata(arrow::utf8(), "arrow::StringType", "arrow::BinaryType",
-                  "arrow::DataType");
-}
-
-// binary ?
-
-xptr_DataType metadata_date(const std::shared_ptr<arrow::DataType>& ptr) {
-  return metadata(ptr, "arrow::DateType", "arrow::FixedWidthType", "arrow::DataType");
+std::shared_ptr<arrow::DataType> FixedSizeBinary_initialize(int32_t byte_width) {
+  return arrow::fixed_size_binary(byte_width);
 }
 
 // [[Rcpp::export]]
-xptr_DataType Date32_initialize() { return metadata_date(arrow::date32()); }
-
-// [[Rcpp::export]]
-xptr_DataType Date64_initialize() { return metadata_date(arrow::date64()); }
-
-// [[Rcpp::export]]
-xptr_DataType Null_initialize() {
-  return metadata(arrow::null(), "arrow::NullType", "arrow::DataType");
+std::shared_ptr<arrow::DataType> Timestamp_initialize1(arrow::TimeUnit::type unit) {
+  return arrow::timestamp(unit);
 }
 
 // [[Rcpp::export]]
-xptr_DataType Decimal128Type_initialize(int32_t precision, int32_t scale) {
-  return metadata(arrow::decimal(precision, scale), "arrow::Decimal128Type", "arrow::DecimalType", "arrow::FixedSizeBinaryType", "arrow::FixedWidthType", "arrow::DataType");
+std::shared_ptr<arrow::DataType> Timestamp_initialize2(arrow::TimeUnit::type unit, const std::string& timezone) {
+  return arrow::timestamp(unit, timezone);
 }
 
 // [[Rcpp::export]]
-xptr_DataType FixedSizeBinary_initialize(int32_t byte_width) {
-  return metadata(arrow::fixed_size_binary(byte_width), "arrow::FixedSizeBinaryType",
-                  "arrow::FixedWidthType", "arrow::DataType");
+std::shared_ptr<arrow::DataType> Time32_initialize(arrow::TimeUnit::type unit) {
+  return arrow::time32(unit);
 }
 
 // [[Rcpp::export]]
-xptr_DataType Timestamp_initialize1(arrow::TimeUnit::type unit) {
-  return metadata(arrow::timestamp(unit), "arrow::TimestampType", "arrow::FixedWidthType",
-                  "arrow::DataType");
-}
-
-// [[Rcpp::export]]
-xptr_DataType Timestamp_initialize2(arrow::TimeUnit::type unit, const std::string& timezone) {
-  return metadata(arrow::timestamp(unit, timezone), "arrow::TimestampType",
-                  "arrow::FixedWidthType", "arrow::DataType");
-}
-
-// [[Rcpp::export]]
-xptr_DataType Time32_initialize(arrow::TimeUnit::type unit) {
-  return metadata(arrow::time32(unit), "arrow::Time32Type", "arrow::TimeType",
-                  "arrow::FixedWidthType", "arrow::DataType");
-}
-
-// [[Rcpp::export]]
-xptr_DataType Time64_initialize(arrow::TimeUnit::type unit) {
-  return metadata(arrow::time64(unit), "arrow::Time64Type", "arrow::TimeType",
-                  "arrow::FixedWidthType", "arrow::DataType");
+std::shared_ptr<arrow::DataType> Time64_initialize(arrow::TimeUnit::type unit) {
+  return arrow::time64(unit);
 }
 
 // [[Rcpp::export]]
 SEXP list__(SEXP x) {
   if (Rf_inherits(x, "arrow::Field")) {
-    return metadata(arrow::list(*xptr_Field(x)), "arrow::ListType", "arrow::NestedType",
-                    "arrow::DataType");
+    return wrap(arrow::list(*xptr_Field(x)));
   }
 
   if (Rf_inherits(x, "arrow::DataType")) {
-    return metadata(arrow::list(*xptr_DataType(x)), "arrow::ListType",
-                    "arrow::NestedType", "arrow::DataType");
+    return wrap(arrow::list(*xptr_DataType(x)));
   }
 
   stop("incompatible");
@@ -153,15 +112,14 @@ SEXP list__(SEXP x) {
 }
 
 // [[Rcpp::export]]
-xptr_DataType struct_(ListOf<xptr_Field> fields) {
+std::shared_ptr<arrow::DataType> struct_(Rcpp::ListOf<xptr_Field> fields) {
   int n = fields.size();
   std::vector<std::shared_ptr<arrow::Field>> vec_fields;
   for (int i = 0; i < n; i++) {
     vec_fields.emplace_back(*fields[i]);
   }
 
-  std::shared_ptr<arrow::DataType> s(arrow::struct_(vec_fields));
-  return metadata(s, "arrow::StructType", "arrow::NestedType", "arrow::DataType");
+  return arrow::struct_(vec_fields);
 }
 
 // [[Rcpp::export]]
