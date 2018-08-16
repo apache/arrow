@@ -584,7 +584,9 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
   Status status;
   std::shared_ptr<ProjectorHolder> holder = projector_modules_.Lookup(module_id);
   if (holder == nullptr) {
-    env->ThrowNew(gandiva_exception_, "Unknown module id\n");
+    std::stringstream ss;
+    ss << "Unknown module id " << module_id;
+    env->ThrowNew(gandiva_exception_, ss.str().c_str());
     return;
   }
 

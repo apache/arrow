@@ -27,6 +27,8 @@ class TestSelectionVector : public ::testing::Test {
   arrow::MemoryPool *pool_;
 };
 
+static inline uint32_t RoundUpNumi64(uint32_t value) { return (value + 63) >> 6; }
+
 TEST_F(TestSelectionVector, TestInt16Make) {
   int max_slots = 10;
 
@@ -96,7 +98,7 @@ TEST_F(TestSelectionVector, TestInt16PopulateFromBitMap) {
   auto status = SelectionVector::MakeInt16(max_slots, pool_, &selection);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  int bitmap_size = arrow::BitUtil::RoundUpNumi64(max_slots) * 8;
+  int bitmap_size = RoundUpNumi64(max_slots) * 8;
   std::unique_ptr<uint8_t> bitmap(new uint8_t[bitmap_size]);
   memset(bitmap.get(), 0, bitmap_size);
 
@@ -169,7 +171,7 @@ TEST_F(TestSelectionVector, TestInt32PopulateFromBitMap) {
   auto status = SelectionVector::MakeInt32(max_slots, pool_, &selection);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  int bitmap_size = arrow::BitUtil::RoundUpNumi64(max_slots) * 8;
+  int bitmap_size = RoundUpNumi64(max_slots) * 8;
   std::unique_ptr<uint8_t> bitmap(new uint8_t[bitmap_size]);
   memset(bitmap.get(), 0, bitmap_size);
 

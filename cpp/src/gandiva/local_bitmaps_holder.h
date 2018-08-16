@@ -59,7 +59,8 @@ inline LocalBitMapsHolder::LocalBitMapsHolder(int num_records, int num_local_bit
   }
 
   // 64-bit aligned bitmaps.
-  local_bitmap_size_ = arrow::BitUtil::RoundUpNumi64(num_records_) * 8;
+  uint32_t roundUp64Multiple = (num_records_ + 63) >> 6;
+  local_bitmap_size_ = roundUp64Multiple * 8;
 
   // Alloc 'num_local_bitmaps_' number of bitmaps, each of capacity 'num_records_'.
   for (int i = 0; i < num_local_bitmaps; ++i) {
