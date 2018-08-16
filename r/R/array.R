@@ -33,12 +33,21 @@ array_data <- function(...){
     offset = function() Array_offset(self),
     null_count = function() Array_null_count(self),
     type = function() Array_type(self),
-    type_id = function() Array_type_id(self)
+    type_id = function() Array_type_id(self),
+    Equals = function(other) Array_Equals(self, other),
+    ApproxEquals = function(othet) Array_ApproxEquals(self, other),
+    data = function() Array_data(self)
   )
 )
 
 #' @export
-"length.arrow::Array" <- function(x) x$length()
+`length.arrow::Array` <- function(x) x$length()
+
+#' @export
+`==.arrow::Array` <- function(x, y) x$Equals(y)
+
+#' @export
+`!=.arrow::Array` <- function(x, y) !x$Equals(y)
 
 #' @export
 MakeArray <- function(data){

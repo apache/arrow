@@ -53,6 +53,18 @@ Array_type_id <- function(x) {
     .Call(`_arrow_Array_type_id`, x)
 }
 
+Array_Equals <- function(lhs, rhs) {
+    .Call(`_arrow_Array_Equals`, lhs, rhs)
+}
+
+Array_ApproxEquals <- function(lhs, rhs) {
+    .Call(`_arrow_Array_ApproxEquals`, lhs, rhs)
+}
+
+Array_data <- function(array) {
+    .Call(`_arrow_Array_data`, array)
+}
+
 #' @export
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)

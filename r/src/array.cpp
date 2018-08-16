@@ -87,6 +87,23 @@ arrow::Type::type Array_type_id(const std::shared_ptr<arrow::Array>& x){
   return x->type_id();
 }
 
+// TODO: null_bitmap when class Buffer is available
+
+// [[Rcpp::export]]
+bool Array_Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs){
+  return lhs->Equals(rhs);
+}
+
+// [[Rcpp::export]]
+bool Array_ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs){
+  return lhs->ApproxEquals(rhs);
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::ArrayData> Array_data(const std::shared_ptr<arrow::Array>& array){
+  return array->data();
+}
+
 // //' @export
 // // [[Rcpp::export]]
 // xptr_ArrayBuilder ArrayBuilder(xptr_DataType xptr_type) {
