@@ -307,8 +307,8 @@ endfunction()
 # Arguments after the test name will be passed to set_tests_properties().
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options NO_VALGRIND)
-  set(single_value_args)
-  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES LABELS)
+  set(one_value_args)
+  set(multi_value_args STATIC_LINK_LIBS EXTRA_LINK_LIBS EXTRA_INCLUDES EXTRA_DEPENDENCIES LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -352,6 +352,11 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
         ${ARG_EXTRA_INCLUDES}
         )
     endif()
+
+    if (ARG_EXTRA_DEPENDENCIES)
+      add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
+    endif()
+
     add_dependencies(unittest ${TEST_NAME})
   else()
     # No executable, just invoke the test (probably a script) directly.
