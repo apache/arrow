@@ -917,9 +917,9 @@ TEST_F(TestCast, DictToNonDictNoNulls) {
   std::vector<int32_t> i1 = {1, 0, 1};
   std::vector<int32_t> i2 = {2, 1, 0, 1};
   auto c1 = std::make_shared<NumericArray<Int32Type>>(
-      3, arrow::test::GetBufferFromVector<int32_t>(i1));
+      3, arrow::GetBufferFromVector<int32_t>(i1));
   auto c2 = std::make_shared<NumericArray<Int32Type>>(
-      4, arrow::test::GetBufferFromVector<int32_t>(i2));
+      4, arrow::GetBufferFromVector<int32_t>(i2));
 
   ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, c1),
                              std::make_shared<DictionaryArray>(dict_type, c2)};

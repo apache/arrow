@@ -147,7 +147,7 @@ TEST(TestMemcopy, ParallelMemcopy) {
     ASSERT_OK(AllocateBuffer(total_size, &buffer1));
     ASSERT_OK(AllocateBuffer(total_size, &buffer2));
 
-    test::random_bytes(total_size, 0, buffer2->mutable_data());
+    random_bytes(total_size, 0, buffer2->mutable_data());
 
     io::FixedSizeBufferWriter writer(buffer1);
     writer.set_memcopy_threads(4);

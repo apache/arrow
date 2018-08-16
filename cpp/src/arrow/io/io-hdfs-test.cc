@@ -42,7 +42,7 @@ namespace io {
 
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);
-  test::random_bytes(size, 0, buffer.data());
+  random_bytes(size, 0, buffer.data());
   return buffer;
 }
 

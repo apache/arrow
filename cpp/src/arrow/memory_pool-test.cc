@@ -25,7 +25,7 @@
 
 namespace arrow {
 
-class TestDefaultMemoryPool : public ::arrow::test::TestMemoryPoolBase {
+class TestDefaultMemoryPool : public ::arrow::TestMemoryPoolBase {
  public:
   ::arrow::MemoryPool* memory_pool() override { return ::arrow::default_memory_pool(); }
 };
