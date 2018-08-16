@@ -78,7 +78,7 @@ export class Col<T= any> extends Value<T> {
 export abstract class Predicate {
     abstract bind(batch: RecordBatch): PredicateFunc;
     and(...expr: Predicate[]): And { return new And(this, ...expr); }
-    or(...expr: Predicate[]): And { return new Or(this, ...expr); }
+    or(...expr: Predicate[]): Or { return new Or(this, ...expr); }
     not(): Predicate { return new Not(this); }
 }
 
@@ -270,8 +270,8 @@ export class CustomPredicate extends Predicate {
 
 export function lit(v: any): Value<any> { return new Literal(v); }
 export function col(n: string): Col<any> { return new Col(n); }
-export function and(...p: Predicate[]): Predicate { return new And(...p); }
-export function or(...p: Predicate[]): Predicate { return new Or(...p); }
+export function and(...p: Predicate[]): And { return new And(...p); }
+export function or(...p: Predicate[]): Or { return new Or(...p); }
 export function custom(next: PredicateFunc, bind: (batch: RecordBatch) => void) {
     return new CustomPredicate(next, bind);
 }
