@@ -24,25 +24,21 @@ using namespace Rcpp;
 
 //' @export
 // [[Rcpp::export]]
-xptr_Field field_pointer(const std::string& name, xptr_DataType type, bool nullable = true) {
-  auto ptr = arrow::field(name, *type, nullable);
-  xptr_Field res(new std::shared_ptr<arrow::Field>(ptr));
-  res.attr("name") = ptr->name();
-  res.attr("class") = CharacterVector::create("arrow::Field");
-  return res;
+std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable = true) {
+  return arrow::field(name, type, nullable);
 }
 
 // [[Rcpp::export]]
-std::string Field_ToString(xptr_Field type) {
-  return std::shared_ptr<arrow::Field>(*type)->ToString();
+std::string Field_ToString(const std::shared_ptr<arrow::Field>& type) {
+  return type->ToString();
 }
 
 // [[Rcpp::export]]
-std::string Field_name(xptr_Field type) {
-  return std::shared_ptr<arrow::Field>(*type)->name();
+std::string Field_name(std::shared_ptr<arrow::Field> type) {
+  return type->name();
 }
 
 // [[Rcpp::export]]
-bool Field_nullable(xptr_Field type) {
-  return std::shared_ptr<arrow::Field>(*type)->nullable();
+bool Field_nullable(std::shared_ptr<arrow::Field> type) {
+  return type->nullable();
 }

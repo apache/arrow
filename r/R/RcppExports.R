@@ -54,8 +54,8 @@ Array_type_id <- function(x) {
 }
 
 #' @export
-field_pointer <- function(name, type, nullable = TRUE) {
-    .Call(`_arrow_field_pointer`, name, type, nullable)
+Field_initialize <- function(name, type, nullable = TRUE) {
+    .Call(`_arrow_Field_initialize`, name, type, nullable)
 }
 
 Field_ToString <- function(type) {
@@ -194,8 +194,8 @@ schema_ <- function(fields) {
     .Call(`_arrow_schema_`, fields)
 }
 
-Schema_ToString <- function(type) {
-    .Call(`_arrow_Schema_ToString`, type)
+Schema_ToString <- function(s) {
+    .Call(`_arrow_Schema_ToString`, s)
 }
 
 ListType_ToString <- function(type) {

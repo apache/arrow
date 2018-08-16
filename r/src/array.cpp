@@ -22,74 +22,69 @@ using namespace Rcpp;
 // [[Rcpp::plugins(cpp11)]]
 
 // [[Rcpp::export]]
-xptr_ArrayData ArrayData_initialize(xptr_DataType type, int length, int null_count, int offset){
-  xptr_ArrayData out(
-    new std::shared_ptr<arrow::ArrayData>(new arrow::ArrayData( *type, length, {nullptr, nullptr}, null_count, offset))
-  );
-  return out ;
+std::shared_ptr<arrow::ArrayData> ArrayData_initialize(const std::shared_ptr<arrow::DataType>& type, int length, int null_count, int offset){
+  return arrow::ArrayData::Make( type, length, {nullptr, nullptr}, null_count, offset);
 }
 
 // [[Rcpp::export]]
-xptr_DataType ArrayData_get_type(xptr_ArrayData x){
-  return xptr_DataType(&std::shared_ptr<arrow::ArrayData>(*x)->type);
+std::shared_ptr<arrow::DataType> ArrayData_get_type(const std::shared_ptr<arrow::ArrayData>& x){
+  return x->type;
 }
 
 // [[Rcpp::export]]
-int ArrayData_get_length(xptr_ArrayData x){
-  return std::shared_ptr<arrow::ArrayData>(*x)->length;
+int ArrayData_get_length(const std::shared_ptr<arrow::ArrayData>& x){
+  return x->length;
 }
 
 // [[Rcpp::export]]
-int ArrayData_get_null_count(xptr_ArrayData x){
-  return std::shared_ptr<arrow::ArrayData>(*x)->null_count;
+int ArrayData_get_null_count(const std::shared_ptr<arrow::ArrayData>& x){
+  return x->null_count;
 }
 
 // [[Rcpp::export]]
-int ArrayData_get_offset(xptr_ArrayData x){
-  return std::shared_ptr<arrow::ArrayData>(*x)->offset;
+int ArrayData_get_offset(const std::shared_ptr<arrow::ArrayData>& x){
+  return x->offset;
 }
 
 // [[Rcpp::export]]
-xptr_Array Array_initialize(xptr_ArrayData data_){
-  return xptr_Array(new std::shared_ptr<arrow::Array>(MakeArray(*data_)));
+std::shared_ptr<arrow::Array> Array_initialize(const std::shared_ptr<arrow::ArrayData>& data_){
+  return MakeArray(data_);
 }
 
 // [[Rcpp::export]]
-bool Array_IsNull(xptr_Array x, int i){
-  return std::shared_ptr<arrow::Array>(*x)->IsNull(i);
+bool Array_IsNull(const std::shared_ptr<arrow::Array>& x, int i){
+  return x->IsNull(i);
 }
 
 // [[Rcpp::export]]
-bool Array_IsValid(xptr_Array x, int i){
-  return std::shared_ptr<arrow::Array>(*x)->IsValid(i);
+bool Array_IsValid(const std::shared_ptr<arrow::Array>& x, int i){
+  return x->IsValid(i);
 }
 
 // [[Rcpp::export]]
-int Array_length(xptr_Array x){
-  return std::shared_ptr<arrow::Array>(*x)->length();
+int Array_length(const std::shared_ptr<arrow::Array>& x){
+  return x->length();
 }
 
 // [[Rcpp::export]]
-int Array_offset(xptr_Array x){
-  return std::shared_ptr<arrow::Array>(*x)->offset();
+int Array_offset(const std::shared_ptr<arrow::Array>& x){
+  return x->offset();
 }
 
 // [[Rcpp::export]]
-int Array_null_count(xptr_Array x){
-  return std::shared_ptr<arrow::Array>(*x)->null_count();
+int Array_null_count(const std::shared_ptr<arrow::Array>& x){
+  return x->null_count();
 }
 
 // [[Rcpp::export]]
-xptr_DataType Array_type(xptr_Array x){
+std::shared_ptr<arrow::DataType> Array_type(const std::shared_ptr<arrow::Array>& x){
   // TODO: this is just an xp for now, the R6 DataType class should dispatch it to a real R6 object somehow
-  return xptr_DataType(new std::shared_ptr<arrow::DataType>(
-      std::shared_ptr<arrow::Array>(*x)->type()
-  ));
+  return x->type();
 }
 
 // [[Rcpp::export]]
-arrow::Type::type Array_type_id(xptr_Array x){
-  return std::shared_ptr<arrow::Array>(*x)->type_id();
+arrow::Type::type Array_type_id(const std::shared_ptr<arrow::Array>& x){
+  return x->type_id();
 }
 
 // //' @export

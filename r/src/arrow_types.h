@@ -25,47 +25,63 @@
 
 namespace Rcpp{
 namespace traits{
-  struct wrap_type_shared_ptr_tag{};
 
-  template <typename T>
-  struct wrap_type_traits<std::shared_ptr<T>>{
-    using wrap_category = wrap_type_shared_ptr_tag;
-  };
+struct wrap_type_shared_ptr_tag{};
+
+template <typename T>
+struct wrap_type_traits<std::shared_ptr<T>>{
+  using wrap_category = wrap_type_shared_ptr_tag;
+};
+
+template <typename T>
+class Exporter<std::shared_ptr<T>>;
 
 }
 namespace internal{
-  template <typename T>
-    inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) ;
-  }
+
+template <typename T>
+  inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) ;
+}
+
 }
 
 #include <Rcpp.h>
-
-using xptr_DataType = Rcpp::XPtr<std::shared_ptr<arrow::DataType>>;
-using xptr_FixedWidthType = Rcpp::XPtr<std::shared_ptr<arrow::FixedWidthType>>;
-using xptr_DateType = Rcpp::XPtr<std::shared_ptr<arrow::DateType>>;
-using xptr_TimeType = Rcpp::XPtr<std::shared_ptr<arrow::TimeType>>;
-using xptr_DecimalType = Rcpp::XPtr<std::shared_ptr<arrow::DecimalType>>;
-using xptr_Decimal128Type = Rcpp::XPtr<std::shared_ptr<arrow::Decimal128Type>>;
-using xptr_TimestampType = Rcpp::XPtr<std::shared_ptr<arrow::TimestampType>>;
-using xptr_Field = Rcpp::XPtr<std::shared_ptr<arrow::Field>>;
-using xptr_Schema = Rcpp::XPtr<std::shared_ptr<arrow::Schema>>;
-using xptr_ListType = Rcpp::XPtr<std::shared_ptr<arrow::ListType>>;
-using xptr_ArrayData = Rcpp::XPtr<std::shared_ptr<arrow::ArrayData>>;
-using xptr_Array = Rcpp::XPtr<std::shared_ptr<arrow::Array>>;
-
-using xptr_ArrayBuilder = Rcpp::XPtr<std::unique_ptr<arrow::ArrayBuilder>>;
 
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 
 namespace Rcpp{
-namespace internal{
-  template <typename T>
-  inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag){
-    return Rcpp::XPtr<std::shared_ptr<typename T::element_type>>(new std::shared_ptr<typename T::element_type>(x));
+namespace traits{
+
+template <typename T>
+class Exporter<std::shared_ptr<T>> {
+public:
+  Exporter(SEXP self) : xp(extract_xp(self)){}
+
+  inline std::shared_ptr<T> get(){
+    return *Rcpp::XPtr<std::shared_ptr<T>>(xp);
   }
+
+private:
+  SEXP xp;
+
+  SEXP extract_xp(SEXP self){
+    static SEXP symb_xp = Rf_install(".:xp:.");
+    return Rf_findVarInFrame(self, symb_xp) ;
+  }
+
+};
+
+}
+
+namespace internal{
+
+template <typename T>
+inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag){
+  return Rcpp::XPtr<std::shared_ptr<typename T::element_type>>(new std::shared_ptr<typename T::element_type>(x));
+}
+
 }
 
 }

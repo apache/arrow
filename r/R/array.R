@@ -5,14 +5,14 @@
 
   public = list(
     initialize = function(type, length, null_count = -1, offset = 0) {
-      private$xp <- ArrayData_initialize(type$pointer(), length, null_count, offset)
+      self$set_pointer(ArrayData_initialize(type, length, null_count, offset))
     }
   ),
   active = list(
-    type = function() ArrayData_get_type(private$xp),
-    length = function() ArrayData_get_length(private$xp),
-    null_count = function() ArrayData_get_null_count(private$xp),
-    offset = function() ArrayData_get_offset(private$xp)
+    type = function() ArrayData_get_type(self),
+    length = function() ArrayData_get_length(self),
+    null_count = function() ArrayData_get_null_count(self),
+    offset = function() ArrayData_get_offset(self)
   )
 )
 
@@ -25,15 +25,15 @@ array_data <- function(...){
   inherit = `arrow::Object`,
   public = list(
     initialize = function(data) {
-      private$xp <- Array_initialize(data$pointer())
+      self$set_pointer(Array_initialize(data))
     },
-    IsNull = function(i) Array_IsNull(private$xp, i),
-    IsValid = function(i) Array_IsValid(private$xp, i),
-    length = function() Array_length(private$xp),
-    offset = function() Array_offset(private$xp),
-    null_count = function() Array_null_count(private$xp),
-    type = function() Array_type(private$xp),
-    type_id = function() Array_type_id(private$xp)
+    IsNull = function(i) Array_IsNull(self, i),
+    IsValid = function(i) Array_IsValid(self, i),
+    length = function() Array_length(self),
+    offset = function() Array_offset(self),
+    null_count = function() Array_null_count(self),
+    type = function() Array_type(self),
+    type_id = function() Array_type_id(self)
   )
 )
 

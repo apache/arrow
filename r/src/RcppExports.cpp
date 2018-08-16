@@ -7,12 +7,12 @@
 using namespace Rcpp;
 
 // ArrayData_initialize
-xptr_ArrayData ArrayData_initialize(xptr_DataType type, int length, int null_count, int offset);
+std::shared_ptr<arrow::ArrayData> ArrayData_initialize(const std::shared_ptr<arrow::DataType>& type, int length, int null_count, int offset);
 RcppExport SEXP _arrow_ArrayData_initialize(SEXP typeSEXP, SEXP lengthSEXP, SEXP null_countSEXP, SEXP offsetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     Rcpp::traits::input_parameter< int >::type length(lengthSEXP);
     Rcpp::traits::input_parameter< int >::type null_count(null_countSEXP);
     Rcpp::traits::input_parameter< int >::type offset(offsetSEXP);
@@ -21,181 +21,181 @@ BEGIN_RCPP
 END_RCPP
 }
 // ArrayData_get_type
-xptr_DataType ArrayData_get_type(xptr_ArrayData x);
+std::shared_ptr<arrow::DataType> ArrayData_get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData_get_type(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_ArrayData >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(ArrayData_get_type(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // ArrayData_get_length
-int ArrayData_get_length(xptr_ArrayData x);
+int ArrayData_get_length(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData_get_length(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_ArrayData >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(ArrayData_get_length(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // ArrayData_get_null_count
-int ArrayData_get_null_count(xptr_ArrayData x);
+int ArrayData_get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData_get_null_count(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_ArrayData >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(ArrayData_get_null_count(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // ArrayData_get_offset
-int ArrayData_get_offset(xptr_ArrayData x);
+int ArrayData_get_offset(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData_get_offset(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_ArrayData >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(ArrayData_get_offset(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // Array_initialize
-xptr_Array Array_initialize(xptr_ArrayData data_);
+std::shared_ptr<arrow::Array> Array_initialize(const std::shared_ptr<arrow::ArrayData>& data_);
 RcppExport SEXP _arrow_Array_initialize(SEXP data_SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_ArrayData >::type data_(data_SEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ArrayData>& >::type data_(data_SEXP);
     rcpp_result_gen = Rcpp::wrap(Array_initialize(data_));
     return rcpp_result_gen;
 END_RCPP
 }
 // Array_IsNull
-bool Array_IsNull(xptr_Array x, int i);
+bool Array_IsNull(const std::shared_ptr<arrow::Array>& x, int i);
 RcppExport SEXP _arrow_Array_IsNull(SEXP xSEXP, SEXP iSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
     Rcpp::traits::input_parameter< int >::type i(iSEXP);
     rcpp_result_gen = Rcpp::wrap(Array_IsNull(x, i));
     return rcpp_result_gen;
 END_RCPP
 }
 // Array_IsValid
-bool Array_IsValid(xptr_Array x, int i);
+bool Array_IsValid(const std::shared_ptr<arrow::Array>& x, int i);
 RcppExport SEXP _arrow_Array_IsValid(SEXP xSEXP, SEXP iSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
     Rcpp::traits::input_parameter< int >::type i(iSEXP);
     rcpp_result_gen = Rcpp::wrap(Array_IsValid(x, i));
     return rcpp_result_gen;
 END_RCPP
 }
 // Array_length
-int Array_length(xptr_Array x);
+int Array_length(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array_length(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Array_length(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // Array_offset
-int Array_offset(xptr_Array x);
+int Array_offset(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array_offset(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Array_offset(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // Array_null_count
-int Array_null_count(xptr_Array x);
+int Array_null_count(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array_null_count(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Array_null_count(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // Array_type
-xptr_DataType Array_type(xptr_Array x);
+std::shared_ptr<arrow::DataType> Array_type(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array_type(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Array_type(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // Array_type_id
-arrow::Type::type Array_type_id(xptr_Array x);
+arrow::Type::type Array_type_id(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array_type_id(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Array >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Array_type_id(x));
     return rcpp_result_gen;
 END_RCPP
 }
-// field_pointer
-xptr_Field field_pointer(const std::string& name, xptr_DataType type, bool nullable);
-RcppExport SEXP _arrow_field_pointer(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
+// Field_initialize
+std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable);
+RcppExport SEXP _arrow_Field_initialize(SEXP nameSEXP, SEXP typeSEXP, SEXP nullableSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type name(nameSEXP);
-    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     Rcpp::traits::input_parameter< bool >::type nullable(nullableSEXP);
-    rcpp_result_gen = Rcpp::wrap(field_pointer(name, type, nullable));
+    rcpp_result_gen = Rcpp::wrap(Field_initialize(name, type, nullable));
     return rcpp_result_gen;
 END_RCPP
 }
 // Field_ToString
-std::string Field_ToString(xptr_Field type);
+std::string Field_ToString(const std::shared_ptr<arrow::Field>& type);
 RcppExport SEXP _arrow_Field_ToString(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Field >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Field>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(Field_ToString(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // Field_name
-std::string Field_name(xptr_Field type);
+std::string Field_name(std::shared_ptr<arrow::Field> type);
 RcppExport SEXP _arrow_Field_name(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Field >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(Field_name(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // Field_nullable
-bool Field_nullable(xptr_Field type);
+bool Field_nullable(std::shared_ptr<arrow::Field> type);
 RcppExport SEXP _arrow_Field_nullable(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Field >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< std::shared_ptr<arrow::Field> >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(Field_nullable(type));
     return rcpp_result_gen;
 END_RCPP
@@ -440,189 +440,189 @@ BEGIN_RCPP
 END_RCPP
 }
 // struct_
-std::shared_ptr<arrow::DataType> struct_(Rcpp::ListOf<xptr_Field> fields);
+std::shared_ptr<arrow::DataType> struct_(List fields);
 RcppExport SEXP _arrow_struct_(SEXP fieldsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::ListOf<xptr_Field> >::type fields(fieldsSEXP);
+    Rcpp::traits::input_parameter< List >::type fields(fieldsSEXP);
     rcpp_result_gen = Rcpp::wrap(struct_(fields));
     return rcpp_result_gen;
 END_RCPP
 }
 // DataType_ToString
-std::string DataType_ToString(xptr_DataType type);
+std::string DataType_ToString(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType_ToString(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DataType_ToString(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // DataType_name
-std::string DataType_name(xptr_DataType type);
+std::string DataType_name(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType_name(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DataType_name(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // DataType_Equals
-bool DataType_Equals(xptr_DataType lhs, xptr_DataType rhs);
+bool DataType_Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
 RcppExport SEXP _arrow_DataType_Equals(SEXP lhsSEXP, SEXP rhsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DataType >::type lhs(lhsSEXP);
-    Rcpp::traits::input_parameter< xptr_DataType >::type rhs(rhsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type lhs(lhsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type rhs(rhsSEXP);
     rcpp_result_gen = Rcpp::wrap(DataType_Equals(lhs, rhs));
     return rcpp_result_gen;
 END_RCPP
 }
 // DataType_num_children
-int DataType_num_children(xptr_DataType type);
+int DataType_num_children(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType_num_children(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DataType_num_children(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // DataType_children_pointer
-List DataType_children_pointer(xptr_DataType type);
+List DataType_children_pointer(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType_children_pointer(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DataType_children_pointer(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // DataType_id
-arrow::Type::type DataType_id(xptr_DataType type);
+arrow::Type::type DataType_id(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType_id(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DataType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DataType_id(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // schema_
-xptr_Schema schema_(ListOf<xptr_Field> fields);
+std::shared_ptr<arrow::Schema> schema_(List fields);
 RcppExport SEXP _arrow_schema_(SEXP fieldsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< ListOf<xptr_Field> >::type fields(fieldsSEXP);
+    Rcpp::traits::input_parameter< List >::type fields(fieldsSEXP);
     rcpp_result_gen = Rcpp::wrap(schema_(fields));
     return rcpp_result_gen;
 END_RCPP
 }
 // Schema_ToString
-std::string Schema_ToString(xptr_Schema type);
-RcppExport SEXP _arrow_Schema_ToString(SEXP typeSEXP) {
+std::string Schema_ToString(const std::shared_ptr<arrow::Schema>& s);
+RcppExport SEXP _arrow_Schema_ToString(SEXP sSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_Schema >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Schema_ToString(type));
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type s(sSEXP);
+    rcpp_result_gen = Rcpp::wrap(Schema_ToString(s));
     return rcpp_result_gen;
 END_RCPP
 }
 // ListType_ToString
-std::string ListType_ToString(xptr_ListType type);
+std::string ListType_ToString(const std::shared_ptr<arrow::ListType>& type);
 RcppExport SEXP _arrow_ListType_ToString(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_ListType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ListType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(ListType_ToString(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // FixedWidthType_bit_width
-int FixedWidthType_bit_width(xptr_FixedWidthType type);
+int FixedWidthType_bit_width(const std::shared_ptr<arrow::FixedWidthType>& type);
 RcppExport SEXP _arrow_FixedWidthType_bit_width(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_FixedWidthType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::FixedWidthType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(FixedWidthType_bit_width(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // DateType_unit
-arrow::DateUnit DateType_unit(xptr_DateType type);
+arrow::DateUnit DateType_unit(const std::shared_ptr<arrow::DateType>& type);
 RcppExport SEXP _arrow_DateType_unit(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DateType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DateType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DateType_unit(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // TimeType_unit
-arrow::TimeUnit::type TimeType_unit(xptr_TimeType type);
+arrow::TimeUnit::type TimeType_unit(const std::shared_ptr<arrow::TimeType>& type);
 RcppExport SEXP _arrow_TimeType_unit(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_TimeType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimeType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(TimeType_unit(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // DecimalType_precision
-int32_t DecimalType_precision(xptr_DecimalType type);
+int32_t DecimalType_precision(const std::shared_ptr<arrow::DecimalType>& type);
 RcppExport SEXP _arrow_DecimalType_precision(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DecimalType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DecimalType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DecimalType_precision(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // DecimalType_scale
-int32_t DecimalType_scale(xptr_DecimalType type);
+int32_t DecimalType_scale(const std::shared_ptr<arrow::DecimalType>& type);
 RcppExport SEXP _arrow_DecimalType_scale(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_DecimalType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DecimalType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DecimalType_scale(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // TimestampType_timezone
-std::string TimestampType_timezone(xptr_TimestampType type);
+std::string TimestampType_timezone(const std::shared_ptr<arrow::TimestampType>& type);
 RcppExport SEXP _arrow_TimestampType_timezone(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_TimestampType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimestampType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(TimestampType_timezone(type));
     return rcpp_result_gen;
 END_RCPP
 }
 // TimestampType_unit
-arrow::TimeUnit::type TimestampType_unit(xptr_TimestampType type);
+arrow::TimeUnit::type TimestampType_unit(const std::shared_ptr<arrow::TimestampType>& type);
 RcppExport SEXP _arrow_TimestampType_unit(SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< xptr_TimestampType >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::TimestampType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(TimestampType_unit(type));
     return rcpp_result_gen;
 END_RCPP
@@ -642,7 +642,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array_null_count", (DL_FUNC) &_arrow_Array_null_count, 1},
     {"_arrow_Array_type", (DL_FUNC) &_arrow_Array_type, 1},
     {"_arrow_Array_type_id", (DL_FUNC) &_arrow_Array_type_id, 1},
-    {"_arrow_field_pointer", (DL_FUNC) &_arrow_field_pointer, 3},
+    {"_arrow_Field_initialize", (DL_FUNC) &_arrow_Field_initialize, 3},
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},
     {"_arrow_Field_nullable", (DL_FUNC) &_arrow_Field_nullable, 1},
