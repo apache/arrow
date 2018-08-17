@@ -9,7 +9,7 @@
     }
   ),
   active = list(
-    type = function() ArrayData_get_type(self),
+    type = function() `arrow::DataType`$dispatch(ArrayData_get_type(self)),
     length = function() ArrayData_get_length(self),
     null_count = function() ArrayData_get_null_count(self),
     offset = function() ArrayData_get_offset(self)
@@ -32,7 +32,7 @@ array_data <- function(...){
     length = function() Array_length(self),
     offset = function() Array_offset(self),
     null_count = function() Array_null_count(self),
-    type = function() Array_type(self),
+    type = function() `arrow::DataType`$dispatch(Array_type(self)),
     type_id = function() Array_type_id(self),
     Equals = function(other) Array_Equals(self, other),
     ApproxEquals = function(othet) Array_ApproxEquals(self, other),

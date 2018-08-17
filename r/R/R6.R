@@ -16,10 +16,10 @@
   )
 )
 
-
 `arrow::DataType` <- R6Class("arrow::DataType",
   inherit = `arrow::Object`,
   public = list(
+    initialize = function(xp) self$set_pointer(xp),
     ToString = function() {
       DataType_ToString(self)
     },
@@ -41,7 +41,7 @@
     id = function(){
       DataType_id(self)
     },
-    dispatch = function(){
+    ..dispatch = function(){
       switch(names(Type)[self$id()+1],
         "NA" = null(),
         BOOL = boolean(),
@@ -72,6 +72,10 @@
     }
   )
 )
+
+`arrow::DataType`$dispatch <- function(xp){
+  `arrow::DataType`$new(xp)$..dispatch()
+}
 
 #----- metadata
 
