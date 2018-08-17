@@ -254,3 +254,19 @@ TimestampType_unit <- function(type) {
     .Call(`_arrow_TimestampType_unit`, type)
 }
 
+Status_ToString <- function(status) {
+    .Call(`_arrow_Status_ToString`, status)
+}
+
+Status_CodeAsString <- function(status) {
+    .Call(`_arrow_Status_CodeAsString`, status)
+}
+
+Status_code <- function(status) {
+    .Call(`_arrow_Status_code`, status)
+}
+
+Status_message <- function(status) {
+    .Call(`_arrow_Status_message`, status)
+}
+

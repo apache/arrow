@@ -28,4 +28,5 @@ Collate:
     'RcppExports.R'
     'array.R'
     'memory_pool.R'
+    'status.R'
     'zzz.R'

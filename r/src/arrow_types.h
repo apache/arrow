@@ -44,7 +44,6 @@ namespace Rcpp{
 namespace traits{
 
 struct wrap_type_shared_ptr_tag{};
-
 struct wrap_type_static_ptr_tag{};
 
 template <typename T>
@@ -73,7 +72,6 @@ template <typename T>
 inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_static_ptr_tag) ;
 
 }
-
 
 }
 

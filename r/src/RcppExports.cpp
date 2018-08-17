@@ -694,6 +694,50 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Status_ToString
+std::string Status_ToString(const std::shared_ptr<arrow::Status>& status);
+RcppExport SEXP _arrow_Status_ToString(SEXP statusSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Status>& >::type status(statusSEXP);
+    rcpp_result_gen = Rcpp::wrap(Status_ToString(status));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Status_CodeAsString
+std::string Status_CodeAsString(const std::shared_ptr<arrow::Status>& status);
+RcppExport SEXP _arrow_Status_CodeAsString(SEXP statusSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Status>& >::type status(statusSEXP);
+    rcpp_result_gen = Rcpp::wrap(Status_CodeAsString(status));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Status_code
+arrow::StatusCode Status_code(const std::shared_ptr<arrow::Status>& status);
+RcppExport SEXP _arrow_Status_code(SEXP statusSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Status>& >::type status(statusSEXP);
+    rcpp_result_gen = Rcpp::wrap(Status_code(status));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Status_message
+std::string Status_message(const std::shared_ptr<arrow::Status>& status);
+RcppExport SEXP _arrow_Status_message(SEXP statusSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Status>& >::type status(statusSEXP);
+    rcpp_result_gen = Rcpp::wrap(Status_message(status));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ArrayData_initialize", (DL_FUNC) &_arrow_ArrayData_initialize, 4},
@@ -759,6 +803,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_DecimalType_scale", (DL_FUNC) &_arrow_DecimalType_scale, 1},
     {"_arrow_TimestampType_timezone", (DL_FUNC) &_arrow_TimestampType_timezone, 1},
     {"_arrow_TimestampType_unit", (DL_FUNC) &_arrow_TimestampType_unit, 1},
+    {"_arrow_Status_ToString", (DL_FUNC) &_arrow_Status_ToString, 1},
+    {"_arrow_Status_CodeAsString", (DL_FUNC) &_arrow_Status_CodeAsString, 1},
+    {"_arrow_Status_code", (DL_FUNC) &_arrow_Status_code, 1},
+    {"_arrow_Status_message", (DL_FUNC) &_arrow_Status_message, 1},
     {NULL, NULL, 0}
 };
 
