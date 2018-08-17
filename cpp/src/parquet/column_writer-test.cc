@@ -35,10 +35,18 @@ namespace test {
 
 // The default size used in most tests.
 const int SMALL_SIZE = 100;
+#ifdef PARQUET_VALGRIND
+// Larger size to test some corner cases, only used in some specific cases.
+const int LARGE_SIZE = 10000;
+// Very large size to test dictionary fallback.
+const int VERY_LARGE_SIZE = 40000;
+#else
 // Larger size to test some corner cases, only used in some specific cases.
 const int LARGE_SIZE = 100000;
 // Very large size to test dictionary fallback.
 const int VERY_LARGE_SIZE = 400000;
+#endif
+
 
 template <typename TestType>
 class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {

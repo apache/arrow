@@ -72,7 +72,7 @@ TEST(BasicTest, TestBloomFilter) {
   // Deserialize Bloom filter from memory
   InMemoryInputStream source(sink.GetBuffer());
 
-  BlockSplitBloomFilter de_bloom = std::move(BlockSplitBloomFilter::Deserialize(&source));
+  BlockSplitBloomFilter de_bloom = BlockSplitBloomFilter::Deserialize(&source);
 
   for (int i = 0; i < 10; i++) {
     EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(i)));
@@ -104,7 +104,11 @@ TEST(FPPTest, TestBloomFilter) {
   int exist = 0;
 
   // Total count of elements that will be used
+#ifdef PARQUET_VALGRIND
+  const int total_count = 5000;
+#else
   const int total_count = 100000;
+#endif
 
   // Bloom filter fpp parameter
   const double fpp = 0.01;
@@ -164,8 +168,7 @@ TEST(CompatibilityTest, TestBloomFilter) {
   handle->Read(size, &buffer);
 
   InMemoryInputStream source(buffer);
-  BlockSplitBloomFilter bloom_filter1 =
-      std::move(BlockSplitBloomFilter::Deserialize(&source));
+  BlockSplitBloomFilter bloom_filter1 = BlockSplitBloomFilter::Deserialize(&source);
 
   for (int i = 0; i < 4; i++) {
     const ByteArray tmp(static_cast<uint32_t>(test_string[i].length()),

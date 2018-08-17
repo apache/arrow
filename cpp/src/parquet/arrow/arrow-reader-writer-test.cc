@@ -64,8 +64,8 @@ using arrow::compute::DictionaryEncode;
 using arrow::compute::FunctionContext;
 using arrow::io::BufferReader;
 
-using arrow::test::randint;
-using arrow::test::random_is_valid;
+using arrow::randint;
+using arrow::random_is_valid;
 
 using ArrowId = ::arrow::Type;
 using ParquetType = parquet::Type;
@@ -80,7 +80,11 @@ namespace parquet {
 namespace arrow {
 
 static constexpr int SMALL_SIZE = 100;
+#ifdef PARQUET_VALGRIND
+static constexpr int LARGE_SIZE = 1000;
+#else
 static constexpr int LARGE_SIZE = 10000;
+#endif
 
 static constexpr uint32_t kDefaultSeed = 0;
 
@@ -375,29 +379,6 @@ void PrintColumn(const Column& col, std::stringstream* ss) {
   }
 }
 
-void AssertTablesEqual(const Table& expected, const Table& actual,
-                       bool same_chunk_layout = true) {
-  ASSERT_EQ(expected.num_columns(), actual.num_columns());
-
-  if (same_chunk_layout) {
-    for (int i = 0; i < actual.num_columns(); ++i) {
-      AssertChunkedEqual(*expected.column(i)->data(), *actual.column(i)->data());
-    }
-  } else {
-    std::stringstream ss;
-    if (!actual.Equals(expected)) {
-      for (int i = 0; i < expected.num_columns(); ++i) {
-        ss << "Actual column " << i << std::endl;
-        PrintColumn(*actual.column(i), &ss);
-
-        ss << "Expected column " << i << std::endl;
-        PrintColumn(*expected.column(i), &ss);
-      }
-      FAIL() << ss.str();
-    }
-  }
-}
-
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,
@@ -428,7 +409,7 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
   std::shared_ptr<Table> result;
   DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
                     arrow_properties);
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result, false));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result, false));
 }
 
 static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
@@ -1273,7 +1254,7 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
       table, false /* use_threads */, table->num_rows(), {}, &result,
       ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build()));
 
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 
   // Cast nanaoseconds to microseconds and use INT64 physical type
   ASSERT_NO_FATAL_FAILURE(
@@ -1281,7 +1262,7 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
   std::shared_ptr<Table> expected;
   MakeDateTimeTypesTable(&table, true);
 
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
 
 TEST(TestArrowReadWrite, CoerceTimestamps) {
@@ -1343,13 +1324,13 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
       input, false /* use_threads */, input->num_rows(), {}, &milli_result,
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MILLI)->build()));
 
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*ex_milli_result, *milli_result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_milli_result, *milli_result));
 
   std::shared_ptr<Table> micro_result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
       input, false /* use_threads */, input->num_rows(), {}, &micro_result,
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MICRO)->build()));
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*ex_micro_result, *micro_result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_micro_result, *micro_result));
 }
 
 TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
@@ -1476,7 +1457,7 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   ASSERT_NO_FATAL_FAILURE(
       DoSimpleRoundtrip(table, false /* use_threads */, table->num_rows(), {}, &result));
 
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*ex_table, *result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_table, *result));
 }
 
 // Regression for ARROW-2802
@@ -1612,7 +1593,7 @@ TEST(TestArrowReadWrite, MultithreadedRead) {
   ASSERT_NO_FATAL_FAILURE(
       DoSimpleRoundtrip(table, use_threads, table->num_rows(), {}, &result));
 
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
 
 TEST(TestArrowReadWrite, ReadSingleRowGroup) {
@@ -1723,7 +1704,7 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
 
   auto ex_schema = ::arrow::schema(ex_fields);
   auto expected = Table::Make(ex_schema, ex_columns);
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*expected, *result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *result));
 }
 
 TEST(TestArrowReadWrite, ListLargeRecords) {
@@ -1751,7 +1732,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   // Read everything
   std::shared_ptr<Table> result;
   ASSERT_OK_NO_THROW(reader->ReadTable(&result));
-  ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 
   // Read chunked
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
@@ -1927,7 +1908,7 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
 
   auto expected_table = Table::Make(schema, columns);
 
-  AssertTablesEqual(*expected_table, *result, false);
+  ::arrow::AssertTablesEqual(*expected_table, *result, false);
 }
 
 TEST(TestArrowWrite, CheckChunkSize) {
@@ -2276,8 +2257,13 @@ TEST_F(TestNestedSchemaRead, StructAndListTogetherUnsupported) {
 }
 
 TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
+#ifdef PARQUET_VALGRIND
+  const int num_trees = 3;
+  const int depth = 3;
+#else
   const int num_trees = 10;
   const int depth = 5;
+#endif
   const int num_children = 3;
   int num_rows = SMALL_SIZE * (depth + 2);
   ASSERT_NO_FATAL_FAILURE(CreateMultiLevelNestedParquet(num_trees, depth, num_children,
