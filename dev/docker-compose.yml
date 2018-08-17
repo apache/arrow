@@ -49,6 +49,12 @@ services:
     volumes:
      - ../..:/apache-arrow
 
+  hiveserver2:
+    build:
+      context: hiveserver2
+    volumes:
+      - ../..:/apache-arrow
+
   spark_integration:
     build:
       context: spark_integration
