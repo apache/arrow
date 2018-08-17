@@ -50,3 +50,11 @@ Type <- enum("arrow::Type::type",
   HALF_FLOAT, FLOAT, DOUBLE, STRING, BINARY, DATE32, DATE64, TIMESTAMP,
   INTERVAL, DECIMAL, LIST, STRUCT, UNION, DICTIONARY, MAP
 )
+
+#' @export
+StatusCode <- enum("arrow::StatusCode",
+  OK, OutOfMemory, KeyError, TypeError, Invalid, IOError,
+  CapacityError, UnknownError, NotImplemented, SerializationError,
+  PythonError, PlasmaObjectExists, PlasmaObjectNonexistent, PlasmaStoreFull,
+  PlasmaObjectAlreadySealed
+)

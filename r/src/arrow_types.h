@@ -82,6 +82,7 @@ inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_static_ptr_tag) ;
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
 RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 
 namespace Rcpp{
 namespace traits{
