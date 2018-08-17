@@ -5,8 +5,6 @@
 #' @importFrom rlang dots_n
 #' @importFrom assertthat assert_that
 
-NAMESPACE <- environment()
-
 `arrow::Object` <- R6Class("arrow::Object",
   public = list(
     `.:xp:.` = NULL,
