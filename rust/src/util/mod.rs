@@ -15,12 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-extern crate arrow;
-
-use arrow::array::*;
-
-fn main() {
-    // create a memory-aligned Arrow array from an existing Vec
-    let array = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
-    println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
-}
+pub mod bit_util;
+pub mod test_util;

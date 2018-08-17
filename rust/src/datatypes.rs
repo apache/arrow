@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::error::ArrowError;
-use serde_json::Value;
 use std::fmt;
+use std::mem::size_of;
+use std::slice::from_raw_parts;
+
+use error::ArrowError;
+use serde_json::Value;
 
 /// Arrow data type
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,6 +64,31 @@ impl ArrowPrimitiveType for i32 {}
 impl ArrowPrimitiveType for i64 {}
 impl ArrowPrimitiveType for f32 {}
 impl ArrowPrimitiveType for f64 {}
+
+pub trait ToByteSlice {
+    /// Converts this instance into a byte slice.
+    fn to_byte_slice(&self) -> &[u8];
+}
+
+impl<T> ToByteSlice for [T]
+where
+    T: ArrowPrimitiveType,
+{
+    fn to_byte_slice(&self) -> &[u8] {
+        let raw_ptr = self.as_ptr() as *const T as *const u8;
+        unsafe { from_raw_parts(raw_ptr, self.len() * size_of::<T>()) }
+    }
+}
+
+impl<T> ToByteSlice for T
+where
+    T: ArrowPrimitiveType,
+{
+    fn to_byte_slice(&self) -> &[u8] {
+        let raw_ptr = self as *const T as *const u8;
+        unsafe { from_raw_parts(raw_ptr, size_of::<T>()) }
+    }
+}
 
 impl DataType {
     /// Parse a data type from a JSON representation

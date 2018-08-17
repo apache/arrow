@@ -26,7 +26,7 @@ use super::memory::{allocate_aligned, free_aligned};
 pub trait MemoryPool {
     /// Allocate memory.
     /// The implementation should ensures that allocated memory is aligned.
-    fn allocate(&self, size: usize) -> Result<*const u8, ArrowError>;
+    fn allocate(&self, size: usize) -> Result<*mut u8, ArrowError>;
 
     /// Reallocate memory.
     /// If the implementation doesn't support reallocating aligned memory, it allocates new memory
@@ -47,7 +47,7 @@ pub trait MemoryPool {
 struct LibcMemoryPool;
 
 impl MemoryPool for LibcMemoryPool {
-    fn allocate(&self, size: usize) -> Result<*const u8, ArrowError> {
+    fn allocate(&self, size: usize) -> Result<*mut u8, ArrowError> {
         allocate_aligned(size as i64)
     }
 

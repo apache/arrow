@@ -15,283 +15,221 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use bytes::Bytes;
-use libc;
 use std::mem;
-use std::slice;
+use std::sync::Arc;
 
-use super::datatypes::*;
-use super::memory::*;
+use memory;
 
-/// Buffer<T> is essentially just a Vec<T> for fixed-width primitive types and the start of the
-/// memory region is aligned at a 64-byte boundary
-pub struct Buffer<T>
-where
-    T: ArrowPrimitiveType,
-{
-    /// Contiguous memory region holding instances of primitive T
-    data: *const T,
-    /// Number of elements in the buffer
+/// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
+/// boundary. Buffer is immutable.
+#[derive(PartialEq, Debug)]
+pub struct Buffer {
+    /// Reference-counted pointer to the internal byte buffer.
+    data: Arc<BufferData>,
+
+    /// The offset into the buffer.
+    offset: usize,
+}
+
+#[derive(Debug)]
+struct BufferData {
+    /// The raw pointer into the buffer bytes
+    ptr: *const u8,
+
+    /// The length of the buffer
     len: usize,
 }
 
-impl<T> Buffer<T>
-where
-    T: ArrowPrimitiveType,
-{
-    /// create a buffer from an existing region of memory (must already be byte-aligned)
-    pub unsafe fn from_raw_parts(data: *const T, len: usize) -> Self {
-        Buffer { data, len }
-    }
-
-    /// Get the number of elements in the buffer
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    /// Get a pointer to the data contained by the buffer
-    pub fn data(&self) -> *const T {
-        self.data
-    }
-
-    pub fn slice(&self, start: usize, end: usize) -> &[T] {
-        assert!(end <= self.len);
-        assert!(start <= end);
-        unsafe { slice::from_raw_parts(self.data.offset(start as isize), end - start) }
-    }
-
-    /// Get a reference to the value at the specified offset
-    pub fn get(&self, i: usize) -> &T {
-        assert!(i < self.len);
-        unsafe { &(*self.data.offset(i as isize)) }
-    }
-
-    /// Write to a slot in the buffer
-    pub fn set(&mut self, i: usize, v: T) {
-        assert!(i < self.len);
-        let p = self.data as *mut T;
-        unsafe {
-            *p.offset(i as isize) = v;
+impl PartialEq for BufferData {
+    fn eq(&self, other: &BufferData) -> bool {
+        if self.len != other.len {
+            return false;
         }
-    }
-
-    /// Return an iterator over the values in the buffer
-    pub fn iter(&self) -> BufferIterator<T> {
-        BufferIterator {
-            data: self.data,
-            len: self.len,
-            index: 0,
-        }
+        unsafe { memory::memcmp(self.ptr, other.ptr, self.len as usize) == 0 }
     }
 }
 
-/// Release the underlying memory when the Buffer goes out of scope
-impl<T> Drop for Buffer<T>
-where
-    T: ArrowPrimitiveType,
-{
+/// Release the underlying memory when the current buffer goes out of scope
+impl Drop for BufferData {
     fn drop(&mut self) {
-        free_aligned(self.data as *const u8);
+        memory::free_aligned(self.ptr);
     }
 }
 
-/// Iterator over the elements of a buffer
-pub struct BufferIterator<T>
-where
-    T: ArrowPrimitiveType,
-{
-    data: *const T,
-    len: usize,
-    index: isize,
+impl Buffer {
+    /// Creates a buffer from an existing memory region (must already be byte-aligned)
+    pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
+        assert!(memory::is_aligned(ptr, 64));
+        let buf_data = BufferData { ptr: ptr, len: len };
+        Buffer {
+            data: Arc::new(buf_data),
+            offset: 0,
+        }
+    }
+
+    /// Returns the number of bytes in the buffer
+    pub fn len(&self) -> usize {
+        self.data.len - self.offset as usize
+    }
+
+    /// Returns whether the buffer is empty.
+    pub fn is_empty(&self) -> bool {
+        self.data.len - self.offset == 0
+    }
+
+    /// Returns the byte slice stored in this buffer
+    pub fn data(&self) -> &[u8] {
+        unsafe { ::std::slice::from_raw_parts(self.raw_data(), self.len()) }
+    }
+
+    /// Returns a slice of this buffer, starting from `offset`.
+    pub fn slice(&self, offset: usize) -> Buffer {
+        assert!(self.offset + offset <= self.len());
+        Buffer {
+            data: self.data.clone(),
+            offset: self.offset + offset,
+        }
+    }
+
+    /// Returns a raw pointer for this buffer.
+    ///
+    /// Note that this should be used cautiously, and the returned pointer should not be
+    /// stored anywhere, to avoid dangling pointers.
+    pub fn raw_data(&self) -> *const u8 {
+        unsafe { self.data.ptr.offset(self.offset as isize) }
+    }
+
+    /// Returns an empty buffer.
+    pub fn empty() -> Buffer {
+        Buffer::from_raw_parts(::std::ptr::null(), 0)
+    }
 }
 
-impl<T> Iterator for BufferIterator<T>
-where
-    T: ArrowPrimitiveType,
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.len as isize {
-            let value = unsafe { *self.data.offset(self.index) };
-            self.index += 1;
-            Some(value)
-        } else {
-            None
+impl Clone for Buffer {
+    fn clone(&self) -> Buffer {
+        Buffer {
+            data: self.data.clone(),
+            offset: self.offset,
         }
     }
 }
 
-/// Copy the memory from a Vec<T> into a newly allocated Buffer<T>
-impl<T> From<Vec<T>> for Buffer<T>
-where
-    T: ArrowPrimitiveType,
-{
-    fn from(v: Vec<T>) -> Self {
+/// Creating a `Buffer` instance by copying the memory from a `AsRef<[u8]>` into a newly
+/// allocated memory region.
+impl<T: AsRef<[u8]>> From<T> for Buffer {
+    fn from(p: T) -> Self {
         // allocate aligned memory buffer
-        let len = v.len();
-        let sz = mem::size_of::<T>();
-        let buffer = allocate_aligned((len * sz) as i64).unwrap();
-        Buffer {
-            len,
-            data: unsafe {
-                let dst = mem::transmute::<*const u8, *mut libc::c_void>(buffer);
-                libc::memcpy(
-                    dst,
-                    mem::transmute::<*const T, *const libc::c_void>(v.as_ptr()),
-                    len * sz,
-                );
-                mem::transmute::<*mut libc::c_void, *const T>(dst)
-            },
+        let slice = p.as_ref();
+        let len = slice.len() * mem::size_of::<u8>();
+        let buffer = memory::allocate_aligned((len) as i64).unwrap();
+        unsafe {
+            memory::memcpy(buffer, slice.as_ptr(), len);
         }
+        Buffer::from_raw_parts(buffer, len)
     }
 }
 
-impl From<Bytes> for Buffer<u8> {
-    fn from(bytes: Bytes) -> Self {
-        // allocate aligned
-        let len = bytes.len();
-        let sz = mem::size_of::<u8>();
-        let buf_mem = allocate_aligned((len * sz) as i64).unwrap();
-        let dst = buf_mem as *mut libc::c_void;
-        Buffer {
-            len,
-            data: unsafe {
-                libc::memcpy(dst, bytes.as_ptr() as *const libc::c_void, len * sz);
-                dst as *mut u8
-            },
-        }
-    }
-}
-
-unsafe impl<T: ArrowPrimitiveType> Sync for Buffer<T> {}
-unsafe impl<T: ArrowPrimitiveType> Send for Buffer<T> {}
+unsafe impl Sync for Buffer {}
+unsafe impl Send for Buffer {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::ptr::null_mut;
     use std::thread;
 
+    use super::Buffer;
+
     #[test]
-    fn test_buffer_i32() {
-        let b: Buffer<i32> = Buffer::from(vec![1, 2, 3, 4, 5]);
-        assert_eq!(5, b.len);
+    fn test_buffer_data_equality() {
+        let buf1 = Buffer::from(&[0, 1, 2, 3, 4]);
+        let mut buf2 = Buffer::from(&[0, 1, 2, 3, 4]);
+        assert_eq!(buf1, buf2);
+
+        // slice with same offset should still preserve equality
+        let buf3 = buf1.slice(2);
+        assert!(buf1 != buf3);
+        let buf4 = buf2.slice(2);
+        assert_eq!(buf3, buf4);
+
+        // unequal because of different elements
+        buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
+        assert!(buf1 != buf2);
+
+        // unequal because of different length
+        buf2 = Buffer::from(&[0, 1, 2, 3]);
+        assert!(buf1 != buf2);
     }
 
     #[test]
-    fn test_iterator_i32() {
-        let b: Buffer<i32> = Buffer::from(vec![1, 2, 3, 4, 5]);
-        let it = b.iter();
-        let v: Vec<i32> = it.map(|n| n + 1).collect();
-        assert_eq!(vec![2, 3, 4, 5, 6], v);
+    fn test_from_raw_parts() {
+        let buf = Buffer::from_raw_parts(null_mut(), 0);
+        assert_eq!(0, buf.len());
+        assert_eq!(0, buf.data().len());
+        assert!(buf.raw_data().is_null());
+
+        let buf = Buffer::from(&[0, 1, 2, 3, 4]);
+        assert_eq!(5, buf.len());
+        assert!(!buf.raw_data().is_null());
+        assert_eq!(&[0, 1, 2, 3, 4], buf.data());
     }
 
     #[test]
-    fn test_buffer_eq() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
-            .zip(b.iter())
-            .map(|(a, b)| a == b)
-            .collect::<Vec<bool>>();
-        assert_eq!(c, vec![false, false, true, false, false]);
+    fn test_from_vec() {
+        let buf = Buffer::from(&[0, 1, 2, 3, 4]);
+        assert_eq!(5, buf.len());
+        assert!(!buf.raw_data().is_null());
+        assert_eq!(&[0, 1, 2, 3, 4], buf.data());
     }
 
     #[test]
-    fn test_buffer_lt() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
-            .zip(b.iter())
-            .map(|(a, b)| a < b)
-            .collect::<Vec<bool>>();
-        assert_eq!(c, vec![true, true, false, false, false]);
+    fn test_copy() {
+        let buf = Buffer::from(&[0, 1, 2, 3, 4]);
+        let buf2 = buf.clone();
+        assert_eq!(5, buf2.len());
+        assert!(!buf2.raw_data().is_null());
+        assert_eq!(&[0, 1, 2, 3, 4], buf2.data());
     }
 
     #[test]
-    fn test_buffer_gt() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
-            .zip(b.iter())
-            .map(|(a, b)| a > b)
-            .collect::<Vec<bool>>();
-        assert_eq!(c, vec![false, false, false, true, true]);
+    fn test_slice() {
+        let buf = Buffer::from(&[2, 4, 6, 8, 10]);
+        let buf2 = buf.slice(2);
+
+        assert_eq!(&[6, 8, 10], buf2.data());
+        assert_eq!(3, buf2.len());
+        assert_eq!(unsafe { buf.raw_data().offset(2) }, buf2.raw_data());
+
+        let buf3 = buf2.slice(1);
+        assert_eq!(&[8, 10], buf3.data());
+        assert_eq!(2, buf3.len());
+        assert_eq!(unsafe { buf.raw_data().offset(3) }, buf3.raw_data());
+
+        let buf4 = buf.slice(5);
+        let empty_slice: [u8; 0] = [];
+        assert_eq!(empty_slice, buf4.data());
+        assert_eq!(0, buf4.len());
+        assert!(buf4.is_empty());
     }
 
     #[test]
-    fn test_buffer_add() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
-            .zip(b.iter())
-            .map(|(a, b)| a + b)
-            .collect::<Vec<i32>>();
-        assert_eq!(c, vec![6, 6, 6, 6, 6]);
+    #[should_panic(expected = "")]
+    fn test_slice_offset_out_of_bound() {
+        let buf = Buffer::from(&[2, 4, 6, 8, 10]);
+        buf.slice(6);
     }
 
     #[test]
-    fn test_buffer_multiply() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        let b = Buffer::from(vec![5, 4, 3, 2, 1]);
-        let c = a
-            .iter()
-            .zip(b.iter())
-            .map(|(a, b)| a * b)
-            .collect::<Vec<i32>>();
-        assert_eq!(c, vec![5, 8, 9, 8, 5]);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_get_out_of_bounds() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        a.get(123); // should panic
-    }
-
-    #[test]
-    fn slice_empty_at_end() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        let s = a.slice(5, 5);
-        assert_eq!(0, s.len());
-    }
-
-    #[test]
-    #[should_panic]
-    fn slice_start_out_of_bounds() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        a.slice(6, 6); // should panic
-    }
-
-    #[test]
-    #[should_panic]
-    fn slice_end_out_of_bounds() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        a.slice(0, 6); // should panic
-    }
-
-    #[test]
-    #[should_panic]
-    fn slice_end_before_start() {
-        let a = Buffer::from(vec![1, 2, 3, 4, 5]);
-        a.slice(3, 2); // should panic
-    }
-
-    #[test]
-    fn test_access_buffer_concurrently() {
+    fn test_access_concurrently() {
         let buffer = Buffer::from(vec![1, 2, 3, 4, 5]);
-        assert_eq!(vec![1, 2, 3, 4, 5], buffer.iter().collect::<Vec<i32>>());
+        let buffer2 = buffer.clone();
+        assert_eq!(&[1, 2, 3, 4, 5], buffer.data());
 
-        let collected_vec = thread::spawn(move || {
+        let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.
-            buffer.iter().collect::<Vec<i32>>()
+            buffer.clone()
         }).join();
 
-        assert!(collected_vec.is_ok());
-        assert_eq!(vec![1, 2, 3, 4, 5], collected_vec.ok().unwrap());
+        assert!(buffer_copy.is_ok());
+        assert_eq!(buffer2, buffer_copy.ok().unwrap());
     }
 }
