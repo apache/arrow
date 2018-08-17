@@ -246,14 +246,24 @@ RecordBatch['from'] = RecordBatch.from;
 
 util_int_.Uint64['add'] = util_int_.Uint64.add;
 util_int_.Uint64['multiply'] = util_int_.Uint64.multiply;
+util_int_.Uint64['from'] = util_int_.Uint64.from;
+util_int_.Uint64['fromNumber'] = util_int_.Uint64.fromNumber;
+util_int_.Uint64['fromString'] = util_int_.Uint64.fromString;
+util_int_.Uint64['convertArray'] = util_int_.Uint64.convertArray;
 
 util_int_.Int64['add'] = util_int_.Int64.add;
 util_int_.Int64['multiply'] = util_int_.Int64.multiply;
+util_int_.Int64['from'] = util_int_.Int64.from;
+util_int_.Int64['fromNumber'] = util_int_.Int64.fromNumber;
 util_int_.Int64['fromString'] = util_int_.Int64.fromString;
+util_int_.Int64['convertArray'] = util_int_.Int64.convertArray;
 
 util_int_.Int128['add'] = util_int_.Int128.add;
 util_int_.Int128['multiply'] = util_int_.Int128.multiply;
+util_int_.Int128['from'] = util_int_.Int128.from;
+util_int_.Int128['fromNumber'] = util_int_.Int128.fromNumber;
 util_int_.Int128['fromString'] = util_int_.Int128.fromString;
+util_int_.Int128['convertArray'] = util_int_.Int128.convertArray;
 
 data_.ChunkedData['computeOffsets'] = data_.ChunkedData.computeOffsets;
 
@@ -301,6 +311,7 @@ type_.DataType['isMap'] = type_.DataType.isMap;
 type_.DataType['isDictionary'] = type_.DataType.isDictionary;
 
 vector_.BoolVector['from'] = vector_.BoolVector.from;
+vector_.DateVector['from'] = vector_.DateVector.from;
 vector_.IntVector['from'] = vector_.IntVector.from;
 vector_.FloatVector['from'] = vector_.FloatVector.from;
 

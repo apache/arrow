@@ -19,6 +19,7 @@ import { Data, ChunkedData, FlatData, BoolData, FlatListData, NestedData, Dictio
 import { VisitorNode, TypeVisitor, VectorVisitor } from './visitor';
 import { DataType, ListType, FlatType, NestedType, FlatListType, TimeUnit } from './type';
 import { IterableArrayLike, Precision, DateUnit, IntervalUnit, UnionMode } from './type';
+import * as IntUtil from './util/int';
 
 export interface VectorLike { length: number; nullCount: number; }
 
@@ -259,6 +260,10 @@ export class FloatVector<T extends Float = Float<any>> extends FlatVector<T> {
 }
 
 export class DateVector extends FlatVector<Date_> {
+    static from(data: Date[]): DateVector {
+        const converted = IntUtil.Int64.convertArray(data.map((d) => d.getTime()));
+        return new DateVector(new FlatData(new Date_(DateUnit.MILLISECOND), data.length, null, converted))
+    }
     static defaultView<T extends Date_>(data: Data<T>) {
         return data.type.unit === DateUnit.DAY ? new DateDayView(data) : new DateMillisecondView(data, 2);
     }

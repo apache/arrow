@@ -23,7 +23,7 @@ const utf8Encoder = new TextEncoder('utf-8');
 
 const { packBools } = Arrow.util;
 const { BoolData, FlatData, FlatListData, DictionaryData } = Arrow.data;
-const { Vector, IntVector, FloatVector, BoolVector, Utf8Vector, DictionaryVector } = Arrow.vector;
+const { Vector, IntVector, FloatVector, BoolVector, Utf8Vector, DateVector, DictionaryVector } = Arrow.vector;
 const {
     Dictionary, Utf8, Bool,
     Float16, Float32, Float64,
@@ -315,6 +315,21 @@ describe(`Utf8Vector`, () => {
     describe(`sliced`, () => {
         basicVectorTests(vector.slice(1,3), values.slice(1,3), ['foo', 'abc']);
     });
+});
+
+describe(`DateVector`, () => {
+    const values = [
+        new Date(1989, 5, 22, 1, 2, 3),
+        new Date(1988, 3, 25, 4, 5, 6),
+        new Date(1987, 2, 24, 7, 8, 9),
+        new Date(2018, 4, 12, 17, 30, 0)
+    ];
+    const extras = [
+        new Date(2000, 0, 1),
+        new Date(1991, 5, 28, 12, 11, 10)
+    ];
+    const vector = DateVector.from(values);
+    basicVectorTests(vector, values, extras);
 });
 
 describe(`DictionaryVector`, () => {
