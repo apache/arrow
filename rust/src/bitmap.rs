@@ -16,9 +16,11 @@
 // under the License.
 
 use super::buffer::Buffer;
+use util::bit_util;
 
+#[derive(PartialEq, Debug)]
 pub struct Bitmap {
-    bits: Buffer<u8>,
+    bits: Buffer,
 }
 
 impl Bitmap {
@@ -35,7 +37,7 @@ impl Bitmap {
             v.push(255); // 1 is not null
         }
         Bitmap {
-            bits: Buffer::from(v),
+            bits: Buffer::from(&v[..]),
         }
     }
 
@@ -43,21 +45,14 @@ impl Bitmap {
         self.bits.len()
     }
 
-    pub fn is_set(&self, i: usize) -> bool {
-        let byte_offset = i / 8;
-        self.bits.get(byte_offset) & (1_u8 << ((i % 8) as u8)) > 0
+    pub fn is_set(&self, i: i64) -> bool {
+        bit_util::get_bit(self.bits.data(), i)
     }
+}
 
-    pub fn set(&mut self, i: usize) {
-        let byte_offset = i / 8;
-        let v: u8 = { self.bits.get(byte_offset) | (1_u8 << ((i % 8) as u8)) };
-        self.bits.set(byte_offset, v);
-    }
-
-    pub fn clear(&mut self, i: usize) {
-        let byte_offset = i / 8;
-        let v: u8 = self.bits.get(byte_offset) ^ (1_u8 << ((i % 8) as u8));
-        self.bits.set(byte_offset, v);
+impl From<Buffer> for Bitmap {
+    fn from(buf: Buffer) -> Self {
+        Self { bits: buf }
     }
 }
 
@@ -73,13 +68,16 @@ mod tests {
     }
 
     #[test]
-    fn test_set_clear_bit() {
-        let mut b = Bitmap::new(64 * 8);
-        assert_eq!(true, b.is_set(12));
-        b.clear(12);
-        assert_eq!(false, b.is_set(12));
-        b.set(12);
-        assert_eq!(true, b.is_set(12));
+    fn test_bitmap_is_set() {
+        let bitmap = Bitmap::from(Buffer::from([0b01001010]));
+        assert_eq!(false, bitmap.is_set(0));
+        assert_eq!(true, bitmap.is_set(1));
+        assert_eq!(false, bitmap.is_set(2));
+        assert_eq!(true, bitmap.is_set(3));
+        assert_eq!(false, bitmap.is_set(4));
+        assert_eq!(false, bitmap.is_set(5));
+        assert_eq!(true, bitmap.is_set(6));
+        assert_eq!(false, bitmap.is_set(7));
     }
 
 }

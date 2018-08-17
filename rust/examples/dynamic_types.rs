@@ -43,9 +43,18 @@ fn main() {
     let id = PrimitiveArray::from(vec![1, 2, 3, 4, 5]);
 
     let nested = StructArray::from(vec![
-        Arc::new(ListArray::from(vec!["a", "b", "c", "d", "e"])) as Arc<Array>,
-        Arc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
-        Arc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
+        (
+            Field::new("a", DataType::Utf8, false),
+            Arc::new(BinaryArray::from(vec!["a", "b", "c", "d", "e"])) as Arc<Array>,
+        ),
+        (
+            Field::new("b", DataType::Float64, false),
+            Arc::new(PrimitiveArray::from(vec![1.1, 2.2, 3.3, 4.4, 5.5])),
+        ),
+        (
+            Field::new("c", DataType::Float64, false),
+            Arc::new(PrimitiveArray::from(vec![2.2, 3.3, 4.4, 5.5, 6.6])),
+        ),
     ]);
 
     // build a record batch
@@ -54,7 +63,7 @@ fn main() {
     process(&batch);
 }
 
-/// Create a new batch by performing a projection of id, (nested.b + nested.c) AS sum
+/// Create a new batch by performing a projection of id, nested.c
 fn process(batch: &RecordBatch) {
     let id = batch.column(0);
     let nested = batch
@@ -63,12 +72,12 @@ fn process(batch: &RecordBatch) {
         .downcast_ref::<StructArray>()
         .unwrap();
 
-    let nested_b = nested
+    let _nested_b = nested
         .column(1)
         .as_any()
         .downcast_ref::<PrimitiveArray<f64>>()
         .unwrap();
-    let nested_c = nested
+    let nested_c: &PrimitiveArray<f64> = nested
         .column(2)
         .as_any()
         .downcast_ref::<PrimitiveArray<f64>>()
@@ -83,7 +92,7 @@ fn process(batch: &RecordBatch) {
         Arc::new(projected_schema),
         vec![
             id.clone(), //NOTE: this is cloning the Arc not the array data
-            Arc::new(nested_b.add(nested_c)),
+            Arc::new(PrimitiveArray::<f64>::from(nested_c.data())),
         ],
     );
 }

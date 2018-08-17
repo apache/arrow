@@ -23,13 +23,19 @@ use criterion::Criterion;
 extern crate arrow;
 
 use arrow::array::*;
+use arrow::array_data::ArrayDataBuilder;
+use arrow::buffer::Buffer;
+use arrow::datatypes::*;
 
 fn array_from_vec(n: usize) {
-    let mut v: Vec<i32> = Vec::with_capacity(n);
+    let mut v: Vec<u8> = Vec::with_capacity(n);
     for i in 0..n {
-        v.push(i as i32);
+        v.push((i & 0xffff) as u8);
     }
-    PrimitiveArray::from(v);
+    let arr_data = ArrayDataBuilder::new(DataType::Int32)
+        .add_buffer(Buffer::from(v))
+        .build();
+    criterion::black_box(PrimitiveArray::<i32>::from(arr_data));
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
