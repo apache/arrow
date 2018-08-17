@@ -30,7 +30,7 @@ ROOT=$(cd $(dirname $BASH_SOURCE)/..; pwd)
 TEST_LOGDIR=$OUTPUT_ROOT/build/$1-logs
 mkdir -p $TEST_LOGDIR
 
-RUN_TYPE=$1
+RUN_TYPE=$2
 shift
 TEST_DEBUGDIR=$OUTPUT_ROOT/build/$RUN_TYPE-debug
 mkdir -p $TEST_DEBUGDIR
