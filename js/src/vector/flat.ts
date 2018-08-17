@@ -183,6 +183,15 @@ export class DateDayView extends PrimitiveView<Date_> {
 
 export class DateMillisecondView extends FixedSizeView<Date_> {
     public toArray() { return [...this]; }
+    public indexOf(search: Date) {
+        let index = 0;
+        for (let value of this) {
+            if (value.getTime() === search.getTime()) { return index; }
+            ++index;
+        }
+
+        return -1;
+    }
     protected getValue(values: Int32Array, index: number, size: number): Date {
         return epochMillisecondsLongToDate(values, index * size);
     }
