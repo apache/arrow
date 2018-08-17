@@ -20,7 +20,7 @@
 #include <memory>
 #include <string>
 
-#include "arrow/adapters/hiveserver2/api.h"
+#include "arrow/dbi/hiveserver2/api.h"
 
 namespace hs2 = arrow::hiveserver2;
 

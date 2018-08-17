@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/adapters/hiveserver2/service.h"
+#include "arrow/dbi/hiveserver2/service.h"
 
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <sstream>
 
-#include "arrow/adapters/hiveserver2/session.h"
-#include "arrow/adapters/hiveserver2/thrift-internal.h"
+#include "arrow/dbi/hiveserver2/session.h"
+#include "arrow/dbi/hiveserver2/thrift-internal.h"
 
-#include "arrow/adapters/hiveserver2/ImpalaHiveServer2Service.h"
-#include "arrow/adapters/hiveserver2/TCLIService.h"
+#include "arrow/dbi/hiveserver2/ImpalaHiveServer2Service.h"
+#include "arrow/dbi/hiveserver2/TCLIService.h"
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"

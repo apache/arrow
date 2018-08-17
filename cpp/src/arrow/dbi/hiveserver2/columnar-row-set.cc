@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/adapters/hiveserver2/columnar-row-set.h"
+#include "arrow/dbi/hiveserver2/columnar-row-set.h"
 
 #include <string>
 #include <vector>
 
-#include "arrow/adapters/hiveserver2/TCLIService.h"
-#include "arrow/adapters/hiveserver2/thrift-internal.h"
+#include "arrow/dbi/hiveserver2/TCLIService.h"
+#include "arrow/dbi/hiveserver2/thrift-internal.h"
 
 #include "arrow/util/logging.h"
 

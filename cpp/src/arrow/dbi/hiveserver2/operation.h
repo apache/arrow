@@ -21,8 +21,8 @@
 #include <string>
 #include <vector>
 
-#include "arrow/adapters/hiveserver2/columnar-row-set.h"
-#include "arrow/adapters/hiveserver2/types.h"
+#include "arrow/dbi/hiveserver2/columnar-row-set.h"
+#include "arrow/dbi/hiveserver2/types.h"
 
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"

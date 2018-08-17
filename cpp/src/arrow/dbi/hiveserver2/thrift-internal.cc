@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/adapters/hiveserver2/thrift-internal.h"
+#include "arrow/dbi/hiveserver2/thrift-internal.h"
 
 #include <map>
 #include <sstream>
 
-#include "arrow/adapters/hiveserver2/TCLIService_constants.h"
-#include "arrow/adapters/hiveserver2/service.h"
+#include "arrow/dbi/hiveserver2/TCLIService_constants.h"
+#include "arrow/dbi/hiveserver2/service.h"
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"

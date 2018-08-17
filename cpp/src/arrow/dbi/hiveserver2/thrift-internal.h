@@ -20,13 +20,13 @@
 #include <memory>
 #include <string>
 
-#include "arrow/adapters/hiveserver2/columnar-row-set.h"
-#include "arrow/adapters/hiveserver2/operation.h"
-#include "arrow/adapters/hiveserver2/service.h"
-#include "arrow/adapters/hiveserver2/types.h"
+#include "arrow/dbi/hiveserver2/columnar-row-set.h"
+#include "arrow/dbi/hiveserver2/operation.h"
+#include "arrow/dbi/hiveserver2/service.h"
+#include "arrow/dbi/hiveserver2/types.h"
 
-#include "arrow/adapters/hiveserver2/ImpalaHiveServer2Service.h"
-#include "arrow/adapters/hiveserver2/TCLIService.h"
+#include "arrow/dbi/hiveserver2/ImpalaHiveServer2Service.h"
+#include "arrow/dbi/hiveserver2/TCLIService.h"
 
 namespace arrow {
 namespace hiveserver2 {

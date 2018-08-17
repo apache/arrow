@@ -24,7 +24,7 @@ install(FILES
   session.h
   types.h
   util.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/hiveserver2")
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/dbi/hiveserver2")
 
 set(ARROW_HIVESERVER2_SRCS
   columnar-row-set.cc

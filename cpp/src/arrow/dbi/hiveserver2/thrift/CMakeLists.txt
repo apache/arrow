@@ -39,7 +39,7 @@ function(HS2_THRIFT_GEN VAR)
     # Get basename
     get_filename_component(FIL_WE ${FIL} NAME_WE)
 
-    set(GEN_DIR "${OUTPUT_DIR}/arrow/adapters/hiveserver2")
+    set(GEN_DIR "${OUTPUT_DIR}/arrow/dbi/hiveserver2")
 
     # All the output files we can determine based on filename.
     #   - Does not include .skeleton.cpp files

@@ -17,11 +17,20 @@
 
 #pragma once
 
-#include "arrow/adapters/hiveserver2/columnar-row-set.h"
-#include "arrow/adapters/hiveserver2/operation.h"
-#include "arrow/adapters/hiveserver2/service.h"
-#include "arrow/adapters/hiveserver2/session.h"
-#include "arrow/adapters/hiveserver2/types.h"
-#include "arrow/adapters/hiveserver2/util.h"
+#include <string>
 
-#include "arrow/status.h"
+#include "arrow/dbi/hiveserver2/operation.h"
+
+namespace arrow {
+namespace hiveserver2 {
+
+// Utility functions. Intended primary for testing purposes - clients should not
+// rely on stability of the behavior or API of these functions.
+class Util {
+ public:
+  // Fetches the operation's results and returns them in a nicely formatted string.
+  static void PrintResults(const Operation* op, std::ostream& out);
+};
+
+}  // namespace hiveserver2
+}  // namespace arrow

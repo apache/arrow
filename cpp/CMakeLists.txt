@@ -727,5 +727,5 @@ if(ARROW_PYTHON)
 endif()
 
 if(ARROW_HIVESERVER2)
-  add_subdirectory(src/arrow/adapters/hiveserver2)
+  add_subdirectory(src/arrow/dbi/hiveserver2)
 endif()

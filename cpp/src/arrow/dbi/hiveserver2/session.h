@@ -20,8 +20,8 @@
 #include <memory>
 #include <string>
 
-#include "arrow/adapters/hiveserver2/operation.h"
-#include "arrow/adapters/hiveserver2/service.h"
+#include "arrow/dbi/hiveserver2/operation.h"
+#include "arrow/dbi/hiveserver2/service.h"
 
 #include "arrow/util/visibility.h"
 
