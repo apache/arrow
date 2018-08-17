@@ -1,3 +1,4 @@
+VERSION < v"0.7.0-beta2.199" && __precompile__()
 module Arrow
 
 using CategoricalArrays, Compat, Compat.Dates
@@ -9,7 +10,7 @@ const ALIGNMENT = 8
 
 import Base: getindex, setindex!
 import Base: convert, show, unsafe_string, checkbounds, write, values, copy
-import Base: length, endof, size, eltype, getindex, isassigned, view
+import Base: length, size, eltype, getindex, isassigned, view
 import Base: IndexStyle
 import Base: >, ≥, <, ≤, ==
 import CategoricalArrays: levels

@@ -22,7 +22,11 @@ const MAX_STRING_LENGTH = 32
 const PRIMITIVE_ELTYPES = [Float32, Float64, Int32, Int64, UInt16]
 const OFFSET_ELTYPES = [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64]
 
-Compat.Random.seed!(SEED)
+if VERSION < v"0.7-"
+    Compat.Random.srand(SEED)
+else
+    Compat.Random.seed!(SEED)
+end
 
 include("testutils.jl")
 
