@@ -14,7 +14,7 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>0.10.0</version>
+    <version>0.11.0-SNAPSHOT</version>
   </parent>
   <artifactId>arrow-vector</artifactId>
   <name>Arrow Vectors</name>
