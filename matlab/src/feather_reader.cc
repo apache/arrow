@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+
 #include <arrow/io/file.h>
 #include <arrow/ipc/feather.h>
 #include <arrow/status.h>
 #include <arrow/table.h>
 #include <arrow/type.h>
+#include <arrow/util/bit-util.h>
 
 #include <mex.h>
 
@@ -102,11 +105,46 @@ mxArray* ReadVariableData(const std::shared_ptr<arrow::Column>& column) {
   return nullptr;
 }
 
-// Read the nulls of variable i from the Feather file as a mxArray*.
-mxArray* ReadVariableNulls(const std::shared_ptr<arrow::Column>& column) {
-  // TODO: Implement proper null value support. For the time being,
-  // we will simply return a zero initialized logical array to MATLAB.
-  return mxCreateLogicalMatrix(column->length(), 1);
+// Read the validity (null) bitmap of variable i from the Feather
+// file as an mxArray*.
+mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column) {
+  // Allocate an mxLogical array to store the validity (null) bitmap values.
+  // Note: All Arrow arrays can have an associated validity (null) bitmap.
+  // The Apache Arrow specification defines 0 (false) to represent an
+  // invalid (null) array entry and 1 (true) to represent a valid
+  // (non-null) array entry.
+  mxArray* validity_bitmap = mxCreateLogicalMatrix(column->length(), 1);
+  bool* validity_bitmap_unpacked = static_cast<bool*>(mxGetLogicals(validity_bitmap));
+
+  // The Apache Arrow specification allows validity (null) bitmaps
+  // to be unallocated if there are no null values. In this case,
+  // we simply return a logical array filled with the value true.
+  if (column->null_count() == 0) {
+    std::fill(validity_bitmap_unpacked, validity_bitmap_unpacked + column->length(),
+              true);
+    return validity_bitmap;
+  }
+
+  std::shared_ptr<arrow::ChunkedArray> chunked_array = column->data();
+  const int num_chunks = chunked_array->num_chunks();
+
+  int64_t mx_array_offset = 0;
+  // Iterate over each arrow::Array in the arrow::ChunkedArray.
+  for (int i = 0; i < num_chunks; ++i) {
+    std::shared_ptr<arrow::Array> array = chunked_array->chunk(i);
+    const int64_t chunk_length = array->length();
+
+    const uint8_t* validity_bitmap_packed = array->null_bitmap()->data();
+    // Unpack the bit-packed validity (null) bitmap.
+    for (int64_t j = 0; j < chunk_length; ++j) {
+      validity_bitmap_unpacked[mx_array_offset + j] =
+          arrow::BitUtil::GetBit(validity_bitmap_packed, j);
+    }
+
+    mx_array_offset += chunk_length;
+  }
+
+  return validity_bitmap;
 }
 
 // Read the type of variable i from the Feather file as a mxArray*.
@@ -187,9 +225,9 @@ mxArray* FeatherReader::ReadMetadata() const {
 // Read the table variables from the Feather file as a mxArray*.
 mxArray* FeatherReader::ReadVariables() const {
   const int num_variable_fields = 4;
-  const char* fieldnames[] = {"Name", "Data", "Nulls", "Type"};
+  const char* fieldnames[] = {"Name", "Type", "Data", "Valid"};
 
-  // Create an mxArray struct array containing the table variables to be passed back to
+  // Create an mxArray* struct array containing the table variables to be passed back to
   // MATLAB.
   mxArray* variables =
       mxCreateStructMatrix(1, num_variables_, num_variable_fields, fieldnames);
@@ -201,9 +239,9 @@ mxArray* FeatherReader::ReadVariables() const {
 
     // set the struct fields data
     mxSetField(variables, i, "Name", internal::ReadVariableName(column));
-    mxSetField(variables, i, "Data", internal::ReadVariableData(column));
-    mxSetField(variables, i, "Nulls", internal::ReadVariableNulls(column));
     mxSetField(variables, i, "Type", internal::ReadVariableType(column));
+    mxSetField(variables, i, "Data", internal::ReadVariableData(column));
+    mxSetField(variables, i, "Valid", internal::ReadVariableValidityBitmap(column));
   }
 
   return variables;

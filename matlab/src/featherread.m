@@ -50,10 +50,14 @@ end
 % the table VariableDescriptions property needs to be modified.
 variableDescriptions = cell(1, numel(variables));
 
-% Iterate over each table variable, handling null entries and invalid
-% variable names appropriately.
+% Iterate over each table variable, handling invalid (null) entries
+% and invalid MATLAB table variable names appropriately.
+% Note: All Arrow arrays can have an associated validity (null) bitmap.
+% The Apache Arrow specification defines 0 (false) to represent an
+% invalid (null) array entry and 1 (true) to represent a valid
+% (non-null) array entry.
 for ii = 1:length(variables)
-    if any(variables(ii).Nulls)
+    if any(~variables(ii).Valid)
         switch variables(ii).Type
             case {'uint8', 'uint16', 'uint32', 'uint64', 'int8', 'int16', 'int32', 'int64'}
                 % MATLAB does not support missing values for integer types, so
@@ -61,9 +65,9 @@ for ii = 1:length(variables)
                 variables(ii).Data = double(variables(ii).Data);
         end
 
-        % Set null entries to the appropriate MATLAB missing value using
+        % Set invalid (null) entries to the appropriate MATLAB missing value using
         % logical indexing.
-        variables(ii).Data(variables(ii).Nulls) = missing;
+        variables(ii).Data(~variables(ii).Valid) = missing;
     end
 
     % Store invalid variable names in the VariableDescriptons
