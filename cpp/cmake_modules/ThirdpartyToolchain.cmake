@@ -1099,6 +1099,8 @@ endif()
 # ----------------------------------------------------------------------
 # Thrift
 
+if (ARROW_HIVESERVER2)
+
 # find thrift headers and libs
 find_package(Thrift)
 
@@ -1202,7 +1204,7 @@ if (NOT THRIFT_FOUND)
   endif()
 
   ExternalProject_Add(thrift_ep
-    URL ${THRIFT_URL}
+    URL ${THRIFT_SOURCE_URL}
     BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}" "${THRIFT_COMPILER}"
     CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
     DEPENDS ${THRIFT_DEPENDENCIES}
@@ -1224,3 +1226,5 @@ set_target_properties(thriftstatic PROPERTIES IMPORTED_LOCATION ${THRIFT_STATIC_
 if (THRIFT_VENDORED)
   add_dependencies(thriftstatic thrift_ep)
 endif()
+
+endif()  # ARROW_HIVESERVER2
