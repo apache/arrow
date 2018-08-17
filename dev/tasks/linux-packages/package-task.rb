@@ -33,12 +33,12 @@ class PackageTask
 
     @rpm_package = @package
     case @version
-    when /-(rc\d+)\z/
+    when /-((?:dev|rc)\d+)\z/
       base_version = $PREMATCH
-      rc = $1
-      @deb_upstream_version = "#{base_version}~#{rc}"
+      sub_version = $1
+      @deb_upstream_version = "#{base_version}~#{sub_version}"
       @rpm_version = base_version
-      @rpm_release = "0.#{rc}"
+      @rpm_release = "0.#{sub_version}"
     else
       @deb_upstream_version = @version
       @rpm_version = @version
@@ -69,7 +69,15 @@ class PackageTask
     ENV["DEBUG"] != "no"
   end
 
+  def git_directory?(directory)
+    candidate_paths = [".git", "HEAD"]
+    candidate_paths.any? do |candidate_path|
+      File.exist?(File.join(directory, candidate_path))
+    end
+  end
+
   def latest_commit_time(git_directory)
+    return nil unless git_directory?(git_directory)
     cd(git_directory) do
       return Time.iso8601(`git log -n 1 --format=%aI`.chomp).utc
     end

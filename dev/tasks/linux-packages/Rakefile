@@ -21,35 +21,45 @@ require_relative "package-task"
 
 class ApacheArrowPackageTask < PackageTask
   def initialize
-    release_time = latest_commit_time(arrow_source_dir)
+    release_time = detect_release_time
     super("apache-arrow", detect_version(release_time), release_time)
     @rpm_package = "arrow"
   end
 
   private
+  def detect_release_time
+    release_time_env = ENV["ARROW_RELEASE_TIME"]
+    if release_time_env
+      Time.parse(release_time_env).utc
+    else
+      latest_commit_time(arrow_source_dir) || Time.now.utc
+    end
+  end
+
   def arrow_source_dir
     File.join(File.dirname(__FILE__), "..", "..", "..")
   end
 
   def detect_version(release_time)
+    version_env = ENV['ARROW_VERSION']
+    return version_env if version_env
+
     pom_xml_path = File.join(arrow_source_dir, "java", "pom.xml")
     version = File.read(pom_xml_path).scan(/^  <version>(.+?)<\/version>/)[0][0]
-    version = ENV['ARROW_VERSION'] || version  #try to read from env
     formatted_release_time = release_time.strftime("%Y%m%d")
-    version.gsub(/-SNAPSHOT\z/) {".#{formatted_release_time}"}
+    version.gsub(/-SNAPSHOT\z/) {"-dev#{formatted_release_time}"}
   end
 
   def define_archive_task
     file @archive_name do
-      # case @version
-      # when /\A\d+\.\d+\.\d+-rc\d+\z/
-      #   download_rc_archive
-      # when /\A\d+\.\d+\.\d+\z/
-      #   download_released_archive
-      # else
-      #   build_archive
-      # end
-      build_archive
+      case @version
+      when /\A\d+\.\d+\.\d+-rc\d+\z/
+        download_rc_archive
+      when /\A\d+\.\d+\.\d+\z/
+        download_released_archive
+      else
+        build_archive
+      end
     end
   end
 
@@ -74,48 +84,7 @@ class ApacheArrowPackageTask < PackageTask
     cd(arrow_source_dir) do
       sh("git", "archive", "HEAD",
          "--prefix", "#{@archive_base_name}/",
-         "--output", @archive_name)
-      rm_f(@archive_base_name)
-      sh("tar", "xf", @archive_name)
-      rm_f(@archive_name)
-
-      c_glib_tmp_dir = "c_glib_tmp"
-      rm_rf(c_glib_tmp_dir)
-      mkdir_p(c_glib_tmp_dir)
-      cp_r(@archive_base_name, c_glib_tmp_dir)
-      c_glib_dir = File.expand_path("#{@archive_base_name}/c_glib")
-      rm_rf(c_glib_dir)
-      cd("#{c_glib_tmp_dir}/#{@archive_base_name}") do
-        build_type = "debug"
-        cpp_dir = File.expand_path("cpp")
-        cpp_build_dir = File.expand_path("cpp_build")
-        mkdir_p(cpp_build_dir)
-        cd(cpp_build_dir) do
-          sh("cmake", cpp_dir,
-             "-DCMAKE_BUILD_TYPE=#{build_type}",
-             "-DARROW_BOOST_USE_SHARED=ON",
-             "-DARROW_BUILD_TESTS=OFF")
-          sh("make", "-j8")
-        end
-        cd("c_glib") do
-          sh("./autogen.sh")
-          sh("./configure",
-             "--with-arrow-cpp-build-dir=#{cpp_build_dir}",
-             "--with-arrow-cpp-build-type=#{build_type}",
-             "--enable-gtk-doc")
-          sh({"LD_LIBRARY_PATH" => "#{cpp_build_dir}/#{build_type}"},
-             "make", "-j8")
-          sh("make", "dist")
-          tar_gz = Dir.glob("*.tar.gz").first
-          sh("tar", "xf", tar_gz)
-          mv(File.basename(tar_gz, ".tar.gz"),
-             c_glib_dir)
-        end
-      end
-      rm_rf(c_glib_tmp_dir)
-
-      sh("tar", "czf", @full_archive_name, @archive_base_name)
-      rm_rf(@archive_base_name)
+         "--output", @full_archive_name)
     end
   end
 end
