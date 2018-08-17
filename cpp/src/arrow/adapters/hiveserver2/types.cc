@@ -30,7 +30,7 @@ const PrimitiveType* ColumnDesc::GetPrimitiveType() const {
 
 const CharacterType* ColumnDesc::GetCharacterType() const {
   DCHECK(type_->type_id() == ColumnType::TypeId::CHAR ||
-      type_->type_id() == ColumnType::TypeId::VARCHAR);
+         type_->type_id() == ColumnType::TypeId::VARCHAR);
   return static_cast<CharacterType*>(type_.get());
 }
 
@@ -39,9 +39,7 @@ const DecimalType* ColumnDesc::GetDecimalType() const {
   return static_cast<DecimalType*>(type_.get());
 }
 
-const std::string PrimitiveType::ToString() const {
-  return TypeIdToString(type_id_);
-}
+std::string PrimitiveType::ToString() const { return TypeIdToString(type_id_); }
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

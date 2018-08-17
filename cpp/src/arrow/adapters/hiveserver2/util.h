@@ -32,5 +32,5 @@ class Util {
   static void PrintResults(const Operation* op, std::ostream& out);
 };
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

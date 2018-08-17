@@ -55,13 +55,13 @@ class HS2ClientConfig {
 
 // Maps directly to TProtocolVersion in the HiveServer2 interface.
 enum class ProtocolVersion {
-  HS2CLIENT_PROTOCOL_V1, // not supported
-  HS2CLIENT_PROTOCOL_V2, // not supported
-  HS2CLIENT_PROTOCOL_V3, // not supported
-  HS2CLIENT_PROTOCOL_V4, // not supported
-  HS2CLIENT_PROTOCOL_V5, // not supported
-  HS2CLIENT_PROTOCOL_V6, // supported
-  HS2CLIENT_PROTOCOL_V7, // supported
+  PROTOCOL_V1,  // not supported
+  PROTOCOL_V2,  // not supported
+  PROTOCOL_V3,  // not supported
+  PROTOCOL_V4,  // not supported
+  PROTOCOL_V5,  // not supported
+  PROTOCOL_V6,  // supported
+  PROTOCOL_V7,  // supported
 };
 
 // Manages a connection to a HiveServer2 server. Primarily used to create
@@ -90,7 +90,8 @@ class Service {
   // Executing RPCs with an Session or Operation corresponding to a particular
   // Service after that Service has been closed or deleted in undefined.
   static Status Connect(const std::string& host, int port, int conn_timeout,
-      ProtocolVersion protocol_version, std::unique_ptr<Service>* service);
+                        ProtocolVersion protocol_version,
+                        std::unique_ptr<Service>* service);
 
   ~Service();
 
@@ -111,7 +112,7 @@ class Service {
   // The client calling OpenSession has ownership of the Session that is created.
   // Operations on the Session are undefined once it is closed.
   Status OpenSession(const std::string& user, const HS2ClientConfig& config,
-      std::unique_ptr<Session>* session) const;
+                     std::unique_ptr<Session>* session) const;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Service);
@@ -120,7 +121,7 @@ class Service {
   struct ServiceImpl;
 
   Service(const std::string& host, int port, int conn_timeout,
-      ProtocolVersion protocol_version);
+          ProtocolVersion protocol_version);
 
   // Opens the connection to the server. Called by Connect before new service is returned
   // to the user. Must be called before OpenSession.

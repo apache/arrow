@@ -17,12 +17,14 @@
 
 #include "arrow/adapters/hiveserver2/operation.h"
 
-#include "arrow/adapters/hiveserver2/logging.h"
-#include "arrow/adapters/hiveserver2/macros.h"
 #include "arrow/adapters/hiveserver2/thrift-internal.h"
 
 #include "arrow/adapters/hiveserver2/ImpalaService_types.h"
 #include "arrow/adapters/hiveserver2/TCLIService.h"
+
+#include "arrow/status.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace hs2 = apache::hive::service::cli::thrift;
 using std::unique_ptr;
@@ -34,18 +36,16 @@ namespace hiveserver2 {
 const static int DEFAULT_MAX_ROWS = 1024;
 
 Operation::Operation(const std::shared_ptr<ThriftRPC>& rpc)
-  : impl_(new OperationImpl()), rpc_(rpc), open_(false) {}
+    : impl_(new OperationImpl()), rpc_(rpc), open_(false) {}
 
-Operation::~Operation() {
-  DCHECK(!open_);
-}
+Operation::~Operation() { DCHECK(!open_); }
 
 Status Operation::GetState(Operation::State* out) const {
   hs2::TGetOperationStatusReq req;
   req.__set_operationHandle(impl_->handle);
   hs2::TGetOperationStatusResp resp;
   TRY_RPC_OR_RETURN(rpc_->client->GetOperationStatus(resp, req));
-  RETURN_NOT_OK(resp.status);
+  THRIFT_RETURN_NOT_OK(resp.status);
   *out = TOperationStateToOperationState(resp.operationState);
   return TStatusToStatus(resp.status);
 }
@@ -55,7 +55,7 @@ Status Operation::GetLog(std::string* out) const {
   req.__set_operationHandle(impl_->handle);
   hs2::TGetLogResp resp;
   TRY_RPC_OR_RETURN(rpc_->client->GetLog(resp, req));
-  RETURN_NOT_OK(resp.status);
+  THRIFT_RETURN_NOT_OK(resp.status);
   *out = resp.log;
   return TStatusToStatus(resp.status);
 }
@@ -66,7 +66,7 @@ Status Operation::GetProfile(std::string* out) const {
   req.__set_sessionHandle(impl_->session_handle);
   impala::TGetRuntimeProfileResp resp;
   TRY_RPC_OR_RETURN(rpc_->client->GetRuntimeProfile(resp, req));
-  RETURN_NOT_OK(resp.status);
+  THRIFT_RETURN_NOT_OK(resp.status);
   *out = resp.profile;
   return TStatusToStatus(resp.status);
 }
@@ -76,14 +76,14 @@ Status Operation::GetResultSetMetadata(std::vector<ColumnDesc>* column_descs) co
   req.__set_operationHandle(impl_->handle);
   hs2::TGetResultSetMetadataResp resp;
   TRY_RPC_OR_RETURN(rpc_->client->GetResultSetMetadata(resp, req));
-  RETURN_NOT_OK(resp.status);
+  THRIFT_RETURN_NOT_OK(resp.status);
 
   column_descs->clear();
   column_descs->reserve(resp.schema.columns.size());
-  for (const hs2::TColumnDesc& tcolumn_desc: resp.schema.columns) {
+  for (const hs2::TColumnDesc& tcolumn_desc : resp.schema.columns) {
     column_descs->emplace_back(tcolumn_desc.columnName,
-        TTypeDescToColumnType(tcolumn_desc.typeDesc), tcolumn_desc.position,
-        tcolumn_desc.comment);
+                               TTypeDescToColumnType(tcolumn_desc.typeDesc),
+                               tcolumn_desc.position, tcolumn_desc.comment);
   }
 
   return TStatusToStatus(resp.status);
@@ -94,7 +94,7 @@ Status Operation::Fetch(unique_ptr<ColumnarRowSet>* results, bool* has_more_rows
 }
 
 Status Operation::Fetch(int max_rows, FetchOrientation orientation,
-    unique_ptr<ColumnarRowSet>* results, bool* has_more_rows) const {
+                        unique_ptr<ColumnarRowSet>* results, bool* has_more_rows) const {
   hs2::TFetchResultsReq req;
   req.__set_operationHandle(impl_->handle);
   req.__set_orientation(FetchOrientationToTFetchOrientation(orientation));
@@ -102,7 +102,7 @@ Status Operation::Fetch(int max_rows, FetchOrientation orientation,
   std::unique_ptr<ColumnarRowSet::ColumnarRowSetImpl> row_set_impl(
       new ColumnarRowSet::ColumnarRowSetImpl());
   TRY_RPC_OR_RETURN(rpc_->client->FetchResults(row_set_impl->resp, req));
-  RETURN_NOT_OK(row_set_impl->resp.status);
+  THRIFT_RETURN_NOT_OK(row_set_impl->resp.status);
 
   if (has_more_rows != NULL) {
     *has_more_rows = row_set_impl->resp.hasMoreRows;
@@ -128,7 +128,7 @@ Status Operation::Close() {
   req.__set_operationHandle(impl_->handle);
   hs2::TCloseOperationResp resp;
   TRY_RPC_OR_RETURN(rpc_->client->CloseOperation(resp, req));
-  RETURN_NOT_OK(resp.status);
+  THRIFT_RETURN_NOT_OK(resp.status);
 
   open_ = false;
   return TStatusToStatus(resp.status);
@@ -146,5 +146,5 @@ bool Operation::IsColumnar() const {
   return true;
 }
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

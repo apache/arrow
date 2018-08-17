@@ -26,10 +26,10 @@
 #include "arrow/adapters/hiveserver2/session.h"
 #include "arrow/adapters/hiveserver2/thrift-internal.h"
 
+#include "arrow/status.h"
+
 namespace arrow {
 namespace hiveserver2 {
-
-const static std::string& TEST_DB = "hs2client_test_db";
 
 // Convenience functions for finding a row of values given several columns.
 template <typename VType, typename CType>
@@ -54,9 +54,9 @@ bool FindRow(V1Type value1, V2Type value2, C1Type* column1, C2Type* column2) {
 }
 
 template <typename V1Type, typename V2Type, typename V3Type, typename C1Type,
-    typename C2Type, typename C3Type>
+          typename C2Type, typename C3Type>
 bool FindRow(V1Type value1, V2Type value2, V3Type value3, C1Type* column1,
-    C2Type* column2, C3Type column3) {
+             C2Type* column2, C3Type column3) {
   EXPECT_EQ(column1->length(), column2->length());
   EXPECT_EQ(column1->length(), column3->length());
   for (int i = 0; i < column1->length(); ++i) {
@@ -71,14 +71,14 @@ bool FindRow(V1Type value1, V2Type value2, V3Type value3, C1Type* column1,
 // Waits for this operation to reach the given state, sleeping for sleep microseconds
 // between checks, and failing after max_retries checks.
 Status Wait(const std::unique_ptr<Operation>& op,
-    Operation::State state = Operation::State::FINISHED, int sleep_us = 10000,
-    int max_retries = 100) {
+            Operation::State state = Operation::State::FINISHED, int sleep_us = 10000,
+            int max_retries = 100) {
   int retries = 0;
   Operation::State op_state;
-  HS2CLIENT_RETURN_IF_ERROR(op->GetState(&op_state));
+  RETURN_NOT_OK(op->GetState(&op_state));
   while (op_state != state && retries < max_retries) {
     usleep(sleep_us);
-    HS2CLIENT_RETURN_IF_ERROR(op->GetState(&op_state));
+    RETURN_NOT_OK(op->GetState(&op_state));
     ++retries;
   }
 
@@ -87,36 +87,37 @@ Status Wait(const std::unique_ptr<Operation>& op,
   } else {
     std::stringstream ss;
     ss << "Failed to reach state '" << OperationStateToString(state) << "' after "
-        << retries << " retries.";
+       << retries << " retries.";
     return Status::Error(ss.str());
   }
 }
-
 
 // Creates a service, session, and database for use in tests.
 class HS2ClientTest : public ::testing::Test {
  protected:
   virtual void SetUp() {
+    static std::string kTestDB = "hs2client_test_db";
+
     int conn_timeout = 0;
-    ProtocolVersion protocol_version = ProtocolVersion::HS2CLIENT_PROTOCOL_V7;
-    EXPECT_OK(Service::Connect(hostname, port, conn_timeout, protocol_version,
-        &service_));
+    ProtocolVersion protocol_version = ProtocolVersion::PROTOCOL_V7;
+    EXPECT_OK(
+        Service::Connect(hostname, port, conn_timeout, protocol_version, &service_));
 
     std::string user = "user";
     HS2ClientConfig config;
     EXPECT_OK(service_->OpenSession(user, config, &session_));
 
     std::unique_ptr<Operation> drop_db_op;
-    EXPECT_OK(session_->ExecuteStatement("drop database if exists " + TEST_DB +
-        " cascade", &drop_db_op));
+    EXPECT_OK(session_->ExecuteStatement(
+        "drop database if exists " + kTestDB + " cascade", &drop_db_op));
     EXPECT_OK(drop_db_op->Close());
 
     std::unique_ptr<Operation> create_db_op;
-    EXPECT_OK(session_->ExecuteStatement("create database " + TEST_DB, &create_db_op));
+    EXPECT_OK(session_->ExecuteStatement("create database " + kTestDB, &create_db_op));
     EXPECT_OK(create_db_op->Close());
 
     std::unique_ptr<Operation> use_db_op;
-    EXPECT_OK(session_->ExecuteStatement("use " + TEST_DB, &use_db_op));
+    EXPECT_OK(session_->ExecuteStatement("use " + kTestDB, &use_db_op));
     EXPECT_OK(use_db_op->Close());
   }
 
@@ -126,8 +127,8 @@ class HS2ClientTest : public ::testing::Test {
     EXPECT_OK(use_db_op->Close());
 
     std::unique_ptr<Operation> drop_db_op;
-    EXPECT_OK(session_->ExecuteStatement("drop database " + TEST_DB + " cascade",
-        &drop_db_op));
+    EXPECT_OK(
+        session_->ExecuteStatement("drop database " + kTestDB + " cascade", &drop_db_op));
     EXPECT_OK(drop_db_op->Close());
 
     EXPECT_OK(session_->Close());
@@ -136,12 +137,14 @@ class HS2ClientTest : public ::testing::Test {
 
   void CreateTestTable() {
     std::unique_ptr<Operation> create_table_op;
-    EXPECT_OK(session_->ExecuteStatement("create table " + TEST_TBL +
-        " (" + TEST_COL1 + " int, " + TEST_COL2 + " string)", &create_table_op));
+    EXPECT_OK(session_->ExecuteStatement(
+        "create table " + TEST_TBL + " (" + TEST_COL1 + " int, " + TEST_COL2 + " string)",
+        &create_table_op));
     EXPECT_OK(create_table_op->Close());
   }
 
-  void InsertIntoTestTable(std::vector<int> int_col_data, std::vector<std::string> string_col_data) {
+  void InsertIntoTestTable(std::vector<int> int_col_data,
+                           std::vector<std::string> string_col_data) {
     EXPECT_EQ(int_col_data.size(), string_col_data.size());
 
     std::stringstream query;
@@ -186,5 +189,5 @@ class HS2ClientTest : public ::testing::Test {
   std::unique_ptr<Session> session_;
 };
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

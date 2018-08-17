@@ -17,17 +17,19 @@
 
 #include "arrow/adapters/hiveserver2/service.h"
 
-#include <sstream>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
+#include <sstream>
 
 #include "arrow/adapters/hiveserver2/session.h"
-#include "arrow/adapters/hiveserver2/logging.h"
 #include "arrow/adapters/hiveserver2/thrift-internal.h"
 
 #include "arrow/adapters/hiveserver2/ImpalaHiveServer2Service.h"
 #include "arrow/adapters/hiveserver2/TCLIService.h"
+
+#include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace hs2 = apache::hive::service::cli::thrift;
 
@@ -45,21 +47,18 @@ namespace hiveserver2 {
 
 struct Service::ServiceImpl {
   hs2::TProtocolVersion::type protocol_version;
-  // The use of boost here is required for Thrift compatibility.
-  boost::shared_ptr<TSocket> socket;
-  boost::shared_ptr<TTransport> transport;
-  boost::shared_ptr<TProtocol> protocol;
+  std::shared_ptr<TSocket> socket;
+  std::shared_ptr<TTransport> transport;
+  std::shared_ptr<TProtocol> protocol;
 };
 
 Status Service::Connect(const string& host, int port, int conn_timeout,
-    ProtocolVersion protocol_version, unique_ptr<Service>* service) {
+                        ProtocolVersion protocol_version, unique_ptr<Service>* service) {
   service->reset(new Service(host, port, conn_timeout, protocol_version));
   return (*service)->Open();
 }
 
-Service::~Service() {
-  DCHECK(!IsConnected());
-}
+Service::~Service() { DCHECK(!IsConnected()); }
 
 Status Service::Close() {
   if (!IsConnected()) return Status::OK();
@@ -71,24 +70,23 @@ bool Service::IsConnected() const {
   return impl_->transport && impl_->transport->isOpen();
 }
 
-void Service::SetRecvTimeout(int timeout) {
-  impl_->socket->setRecvTimeout(timeout);
-}
+void Service::SetRecvTimeout(int timeout) { impl_->socket->setRecvTimeout(timeout); }
 
-void Service::SetSendTimeout(int timeout) {
-  impl_->socket->setSendTimeout(timeout);
-}
+void Service::SetSendTimeout(int timeout) { impl_->socket->setSendTimeout(timeout); }
 
 Status Service::OpenSession(const string& user, const HS2ClientConfig& config,
-    unique_ptr<Session>* session) const {
+                            unique_ptr<Session>* session) const {
   session->reset(new Session(rpc_));
   return (*session)->Open(config, user);
 }
 
 Service::Service(const string& host, int port, int conn_timeout,
-    ProtocolVersion protocol_version)
-  : host_(host), port_(port), conn_timeout_(conn_timeout), impl_(new ServiceImpl()),
-    rpc_(new ThriftRPC()) {
+                 ProtocolVersion protocol_version)
+    : host_(host),
+      port_(port),
+      conn_timeout_(conn_timeout),
+      impl_(new ServiceImpl()),
+      rpc_(new ThriftRPC()) {
   impl_->protocol_version = ProtocolVersionToTProtocolVersion(protocol_version);
 }
 
@@ -96,7 +94,7 @@ Status Service::Open() {
   if (impl_->protocol_version < hs2::TProtocolVersion::HIVE_CLI_SERVICE_PROTOCOL_V6) {
     std::stringstream ss;
     ss << "Unsupported protocol: " << impl_->protocol_version;
-    return Status::Error(ss.str());
+    return Status::NotImplemented(ss.str());
   }
 
   impl_->socket.reset(new TSocket(host_, port_));
@@ -111,5 +109,5 @@ Status Service::Open() {
   return Status::OK();
 }
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

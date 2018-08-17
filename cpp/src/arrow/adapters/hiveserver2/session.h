@@ -17,10 +17,11 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 
-#include "arrow/adapters/hiveserver2/service.h"
 #include "arrow/adapters/hiveserver2/operation.h"
+#include "arrow/adapters/hiveserver2/service.h"
 
 namespace arrow {
 
@@ -50,9 +51,10 @@ class Session {
   Status Close();
 
   Status ExecuteStatement(const std::string& statement,
-      std::unique_ptr<Operation>* operation) const;
+                          std::unique_ptr<Operation>* operation) const;
   Status ExecuteStatement(const std::string& statement,
-      const HS2ClientConfig& conf_overlay, std::unique_ptr<Operation>* operation) const;
+                          const HS2ClientConfig& conf_overlay,
+                          std::unique_ptr<Operation>* operation) const;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Session);
@@ -76,5 +78,5 @@ class Session {
   bool open_;
 };
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

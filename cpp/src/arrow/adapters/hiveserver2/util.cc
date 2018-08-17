@@ -26,6 +26,8 @@
 #include "arrow/adapters/hiveserver2/TCLIService.h"
 #include "arrow/adapters/hiveserver2/TCLIService_types.h"
 
+#include "arrow/status.h"
+
 namespace hs2 = apache::hive::service::cli::thrift;
 using std::string;
 using std::unique_ptr;
@@ -72,7 +74,7 @@ static size_t NumSpaces(int64_t n) {
 }
 
 // Returns the max size needed to display a column of integer type.
-template<typename T>
+template <typename T>
 static size_t GetIntMaxSize(T* column, const string& column_name) {
   size_t max_size = column_name.size();
   for (int i = 0; i < column->length(); ++i) {
@@ -85,7 +87,7 @@ static size_t GetIntMaxSize(T* column, const string& column_name) {
   return max_size;
 }
 
-} // namespace
+}  // namespace
 
 void Util::PrintResults(const Operation* op, std::ostream& out) {
   unique_ptr<ColumnarRowSet> results;
@@ -93,7 +95,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
   while (has_more_rows) {
     Status s = op->Fetch(&results, &has_more_rows);
     if (!s.ok()) {
-      out << s.GetMessage();
+      out << s.ToString();
       return;
     }
 
@@ -101,7 +103,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
     s = op->GetResultSetMetadata(&column_descs);
 
     if (!s.ok()) {
-      out << s.GetMessage();
+      out << s.ToString();
       return;
     } else if (column_descs.size() == 0) {
       out << "No result set to print.\n";
@@ -109,7 +111,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
     }
 
     std::vector<PrintInfo> columns;
-    for (size_t i = 0; i < column_descs.size(); i++) {
+    for (int i = 0; i < static_cast<int>(column_descs.size()); i++) {
       const string column_name = column_descs[i].column_name();
       switch (column_descs[i].type()->type_id()) {
         case ColumnType::TypeId::BOOLEAN: {
@@ -149,8 +151,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
           break;
         }
         case ColumnType::TypeId::STRING: {
-          unique_ptr<StringColumn> string_col =
-              results->GetStringCol(i);
+          unique_ptr<StringColumn> string_col = results->GetStringCol(i);
 
           size_t max_size = column_name.size();
           for (int j = 0; j < string_col->length(); ++j) {
@@ -165,8 +166,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
           break;
         }
         case ColumnType::TypeId::BINARY:
-          columns.emplace_back(results->GetBinaryCol(i).release(),
-              column_name.size());
+          columns.emplace_back(results->GetBinaryCol(i).release(), column_name.size());
           break;
         default: {
           out << "Unrecognized ColumnType = " << column_descs[i].type()->ToString();
@@ -178,7 +178,8 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
     for (size_t i = 0; i < columns.size(); ++i) {
       out << "| " << column_descs[i].column_name() << " ";
 
-      int padding = columns[i].max_size - column_descs[i].column_name().size();
+      int padding =
+          static_cast<int>(columns[i].max_size - column_descs[i].column_name().size());
       while (padding > 0) {
         out << " ";
         --padding;
@@ -229,7 +230,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
 
         string value_str = value.str();
         out << "| " << value_str << " ";
-        int padding = columns[j].max_size - value_str.size();
+        int padding = static_cast<int>(columns[j].max_size - value_str.size());
         while (padding > 0) {
           out << " ";
           --padding;
@@ -241,5 +242,5 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
   }
 }
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

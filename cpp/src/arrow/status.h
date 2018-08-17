@@ -123,6 +123,9 @@ class ARROW_EXPORT Status {
   // Return a success status.
   static Status OK() { return Status(); }
 
+  // Return a success status with extra info
+  static Status OK(const std::string& msg) { return Status(StatusCode::OK, msg); }
+
   // Return error status of an appropriate type.
   static Status OutOfMemory(const std::string& msg) {
     return Status(StatusCode::OutOfMemory, msg);
@@ -175,6 +178,8 @@ class ARROW_EXPORT Status {
   static Status PlasmaStoreFull(const std::string& msg) {
     return Status(StatusCode::PlasmaStoreFull, msg);
   }
+
+  static Status StillExecuting() { return Status(StatusCode::StillExecuting, ""); }
 
   // Returns true iff the status indicates success.
   bool ok() const { return (state_ == NULL); }

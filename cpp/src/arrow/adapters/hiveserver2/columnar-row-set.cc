@@ -17,10 +17,13 @@
 
 #include "arrow/adapters/hiveserver2/columnar-row-set.h"
 
-#include "arrow/adapters/hiveserver2/logging.h"
-#include "arrow/adapters/hiveserver2/thrift-internal.h"
+#include <string>
+#include <vector>
 
 #include "arrow/adapters/hiveserver2/TCLIService.h"
+#include "arrow/adapters/hiveserver2/thrift-internal.h"
+
+#include "arrow/util/logging.h"
 
 namespace hs2 = apache::hive::service::cli::thrift;
 
@@ -30,7 +33,7 @@ namespace hiveserver2 {
 Column::Column(const std::string* nulls) {
   DCHECK(nulls);
   nulls_ = reinterpret_cast<const uint8_t*>(nulls->c_str());
-  nulls_size_ = nulls->size();
+  nulls_size_ = static_cast<int64_t>(nulls->size());
 }
 
 ColumnarRowSet::ColumnarRowSet(ColumnarRowSetImpl* impl) : impl_(impl) {}
@@ -40,16 +43,16 @@ ColumnarRowSet::~ColumnarRowSet() = default;
 template <typename T>
 struct type_helpers {};
 
-#define VALUE_GETTER(COLUMN_TYPE, VALUE_TYPE, ATTR_NAME)                \
-  template <>                                                           \
-  struct type_helpers<COLUMN_TYPE> {                                    \
+#define VALUE_GETTER(COLUMN_TYPE, VALUE_TYPE, ATTR_NAME)                       \
+  template <>                                                                  \
+  struct type_helpers<COLUMN_TYPE> {                                           \
     static const std::vector<VALUE_TYPE>* GetValues(const hs2::TColumn& col) { \
-      return &col.ATTR_NAME.values;                                     \
-    }                                                                   \
-                                                                        \
-    static const std::string* GetNulls(const hs2::TColumn& col) {       \
-      return &col.ATTR_NAME.nulls;                                      \
-    }                                                                   \
+      return &col.ATTR_NAME.values;                                            \
+    }                                                                          \
+                                                                               \
+    static const std::string* GetNulls(const hs2::TColumn& col) {              \
+      return &col.ATTR_NAME.nulls;                                             \
+    }                                                                          \
   };
 
 VALUE_GETTER(BoolColumn, bool, boolVal);
@@ -72,10 +75,10 @@ std::unique_ptr<T> ColumnarRowSet::GetCol(int i) const {
   return std::unique_ptr<T>(new T(helper::GetNulls(col), helper::GetValues(col)));
 }
 
-#define TYPED_GETTER(FUNC_NAME, TYPE)                                   \
-  std::unique_ptr<TYPE> ColumnarRowSet::FUNC_NAME(int i) const {        \
-    return GetCol<TYPE>(i);                                             \
-  }                                                                     \
+#define TYPED_GETTER(FUNC_NAME, TYPE)                            \
+  std::unique_ptr<TYPE> ColumnarRowSet::FUNC_NAME(int i) const { \
+    return GetCol<TYPE>(i);                                      \
+  }                                                              \
   template std::unique_ptr<TYPE> ColumnarRowSet::GetCol<TYPE>(int i) const;
 
 TYPED_GETTER(GetBoolCol, BoolColumn);
@@ -93,5 +96,5 @@ std::unique_ptr<BinaryColumn> ColumnarRowSet::GetBinaryCol(int i) const {
   return GetCol<BinaryColumn>(i);
 }
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

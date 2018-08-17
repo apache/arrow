@@ -18,6 +18,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <utility>
 
 namespace arrow {
 namespace hiveserver2 {
@@ -64,10 +66,10 @@ class ColumnType {
 
 class PrimitiveType : public ColumnType {
  public:
-  PrimitiveType(const TypeId& type_id) : type_id_(type_id) {}
+  explicit PrimitiveType(const TypeId& type_id) : type_id_(type_id) {}
 
-  const TypeId type_id() const { return type_id_; }
-  const std::string ToString() const;
+  TypeId type_id() const override { return type_id_; }
+  std::string ToString() const override;
 
  private:
   const TypeId type_id_;
@@ -77,7 +79,7 @@ class PrimitiveType : public ColumnType {
 class CharacterType : public PrimitiveType {
  public:
   CharacterType(const TypeId& type_id, int max_length)
-    : PrimitiveType(type_id), max_length_(max_length) {}
+      : PrimitiveType(type_id), max_length_(max_length) {}
 
   int max_length() const { return max_length_; }
 
@@ -89,7 +91,7 @@ class CharacterType : public PrimitiveType {
 class DecimalType : public PrimitiveType {
  public:
   DecimalType(const TypeId& type_id, int precision, int scale)
-    : PrimitiveType(type_id), precision_(precision), scale_(scale) {}
+      : PrimitiveType(type_id), precision_(precision), scale_(scale) {}
 
   int precision() const { return precision_; }
   int scale() const { return scale_; }
@@ -103,9 +105,11 @@ class DecimalType : public PrimitiveType {
 class ColumnDesc {
  public:
   ColumnDesc(const std::string& column_name, std::unique_ptr<ColumnType> type,
-      int position, const std::string& comment)
-    : column_name_(column_name), type_(move(type)), position_(position),
-      comment_(comment) {}
+             int position, const std::string& comment)
+      : column_name_(column_name),
+        type_(move(type)),
+        position_(position),
+        comment_(comment) {}
 
   const std::string& column_name() const { return column_name_; }
   const ColumnType* type() const { return type_.get(); }
@@ -123,5 +127,5 @@ class ColumnDesc {
   const std::string comment_;
 };
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

@@ -23,3 +23,5 @@
 #include "arrow/adapters/hiveserver2/session.h"
 #include "arrow/adapters/hiveserver2/types.h"
 #include "arrow/adapters/hiveserver2/util.h"
+
+#include "arrow/status.h"

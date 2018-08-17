@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "arrow/adapters/hiveserver2/columnar-row-set.h"
 #include "arrow/adapters/hiveserver2/types.h"
@@ -34,12 +36,12 @@ struct ThriftRPC;
 
 // Maps directly to TFetchOrientation in the HiveServer2 interface.
 enum class FetchOrientation {
-  NEXT, // supported
-  PRIOR, // not supported
-  RELATIVE, // not supported
-  ABSOLUTE, // not supported
-  FIRST, // supported if query result caching is enabled in Impala
-  LAST // not supported
+  NEXT,      // supported
+  PRIOR,     // not supported
+  RELATIVE,  // not supported
+  ABSOLUTE,  // not supported
+  FIRST,     // supported if query result caching is enabled in Impala
+  LAST       // not supported
 };
 
 // Represents a single HiveServer2 operation. Used to monitor the status of an operation
@@ -52,7 +54,6 @@ enum class FetchOrientation {
 // This class is not thread-safe.
 class Operation {
  public:
-
   // Maps directly to TOperationState in the HiveServer2 interface.
   enum class State {
     INITIALIZED,
@@ -87,7 +88,7 @@ class Operation {
   // Fetch will block if there aren't any results that are ready.
   Status Fetch(std::unique_ptr<ColumnarRowSet>* results, bool* has_more_rows) const;
   Status Fetch(int max_rows, FetchOrientation orientation,
-      std::unique_ptr<ColumnarRowSet>* results, bool* has_more_rows) const;
+               std::unique_ptr<ColumnarRowSet>* results, bool* has_more_rows) const;
 
   // May be called after successfully creating the operation and before calling Close.
   Status Cancel() const;
@@ -121,5 +122,5 @@ class Operation {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Operation);
 };
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

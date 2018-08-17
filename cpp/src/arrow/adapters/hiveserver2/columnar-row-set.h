@@ -57,14 +57,14 @@ class Column {
   virtual int64_t length() const = 0;
 
   const uint8_t* nulls() const { return nulls_; }
-  int nulls_size() const { return nulls_size_;}
+  int64_t nulls_size() const { return nulls_size_; }
 
   // Returns true iff the value for the i-th row within this set of data for this
   // column is null.
-  bool IsNull(int i) const { return (nulls_[i / 8] & (1 << (i % 8))) != 0; }
+  bool IsNull(int64_t i) const { return (nulls_[i / 8] & (1 << (i % 8))) != 0; }
 
  protected:
-  Column(const std::string* nulls);
+  explicit Column(const std::string* nulls);
 
   // The memory for these ptrs is owned by the ColumnarRowSet that
   // created this Column.
@@ -73,18 +73,17 @@ class Column {
   // bytes than expected for some versions of Hive, so we retain the ability to
   // check the buffer size in case this happens.
   const uint8_t* nulls_;
-  int nulls_size_;
+  int64_t nulls_size_;
 };
 
 template <class T>
 class TypedColumn : public Column {
  public:
-
   const std::vector<T>& data() const { return *data_; }
   int64_t length() const { return data().size(); }
 
   // Returns the value for the i-th row within this set of data for this column.
-  const T& GetData(int i) const { return data()[i]; }
+  const T& GetData(int64_t i) const { return data()[i]; }
 
  private:
   // For access to the c'tor.
@@ -146,11 +145,10 @@ class ColumnarRowSet {
   // For access to the c'tor.
   friend class Operation;
 
-  ColumnarRowSet(ColumnarRowSetImpl* impl);
+  explicit ColumnarRowSet(ColumnarRowSetImpl* impl);
 
   std::unique_ptr<ColumnarRowSetImpl> impl_;
 };
 
-
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

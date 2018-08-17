@@ -17,9 +17,10 @@
 
 #include "arrow/adapters/hiveserver2/session.h"
 
-#include "arrow/adapters/hiveserver2/thrift-internal.h"
 #include "arrow/adapters/hiveserver2/TCLIService.h"
+#include "arrow/adapters/hiveserver2/thrift-internal.h"
 
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 
 namespace hs2 = apache::hive::service::cli::thrift;
@@ -37,9 +38,7 @@ struct Session::SessionImpl {
 Session::Session(const std::shared_ptr<ThriftRPC>& rpc)
     : impl_(new SessionImpl()), rpc_(rpc), open_(false) {}
 
-Session::~Session() {
-  DCHECK(!open_);
-}
+Session::~Session() { DCHECK(!open_); }
 
 Status Session::Close() {
   if (!open_) return Status::OK();
@@ -48,7 +47,7 @@ Status Session::Close() {
   req.__set_sessionHandle(impl_->handle);
   hs2::TCloseSessionResp resp;
   TRY_RPC_OR_RETURN(rpc_->client->CloseSession(resp, req));
-  RETURN_NOT_OK(resp.status);
+  THRIFT_RETURN_NOT_OK(resp.status);
 
   open_ = false;
   return TStatusToStatus(resp.status);
@@ -60,7 +59,7 @@ Status Session::Open(const HS2ClientConfig& config, const string& user) {
   req.__set_username(user);
   hs2::TOpenSessionResp resp;
   TRY_RPC_OR_RETURN(rpc_->client->OpenSession(resp, req));
-  RETURN_NOT_OK(resp.status);
+  THRIFT_RETURN_NOT_OK(resp.status);
 
   impl_->handle = resp.sessionHandle;
   open_ = true;
@@ -73,14 +72,14 @@ class ExecuteStatementOperation : public Operation {
       : Operation(rpc) {}
 
   Status Open(hs2::TSessionHandle session_handle, const string& statement,
-      const HS2ClientConfig& config) {
+              const HS2ClientConfig& config) {
     hs2::TExecuteStatementReq req;
     req.__set_sessionHandle(session_handle);
     req.__set_statement(statement);
     req.__set_confOverlay(config.GetConfig());
     hs2::TExecuteStatementResp resp;
     TRY_RPC_OR_RETURN(rpc_->client->ExecuteStatement(resp, req));
-    RETURN_NOT_OK(resp.status);
+    THRIFT_RETURN_NOT_OK(resp.status);
 
     impl_->handle = resp.operationHandle;
     impl_->session_handle = session_handle;
@@ -90,16 +89,17 @@ class ExecuteStatementOperation : public Operation {
 };
 
 Status Session::ExecuteStatement(const string& statement,
-    unique_ptr<Operation>* operation) const {
+                                 unique_ptr<Operation>* operation) const {
   return ExecuteStatement(statement, HS2ClientConfig(), operation);
 }
 
 Status Session::ExecuteStatement(const string& statement,
-    const HS2ClientConfig& conf_overlay, unique_ptr<Operation>* operation) const {
+                                 const HS2ClientConfig& conf_overlay,
+                                 unique_ptr<Operation>* operation) const {
   ExecuteStatementOperation* op = new ExecuteStatementOperation(rpc_);
   operation->reset(op);
   return op->Open(impl_->handle, statement, conf_overlay);
 }
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow

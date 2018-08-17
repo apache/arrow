@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+
 #include "arrow/adapters/hiveserver2/columnar-row-set.h"
 #include "arrow/adapters/hiveserver2/operation.h"
 #include "arrow/adapters/hiveserver2/service.h"
@@ -48,10 +51,10 @@ const std::string TypeIdToString(const ColumnType::TypeId& type_id);
 
 // Functions for converting Thrift object to hs2client objects and vice-versa.
 apache::hive::service::cli::thrift::TFetchOrientation::type
-    FetchOrientationToTFetchOrientation(FetchOrientation orientation);
+FetchOrientationToTFetchOrientation(FetchOrientation orientation);
 
 apache::hive::service::cli::thrift::TProtocolVersion::type
-    ProtocolVersionToTProtocolVersion(ProtocolVersion protocol);
+ProtocolVersionToTProtocolVersion(ProtocolVersion protocol);
 
 Operation::State TOperationStateToOperationState(
     const apache::hive::service::cli::thrift::TOperationState::type& tstate);
@@ -67,24 +70,22 @@ std::unique_ptr<ColumnType> TTypeDescToColumnType(
 ColumnType::TypeId TTypeIdToTypeId(
     const apache::hive::service::cli::thrift::TTypeId::type& type_id);
 
-} // namespace hiveserver2
-} // namespace arrow
+}  // namespace hiveserver2
+}  // namespace arrow
 
-#define TRY_RPC_OR_RETURN(rpc)                 \
-  do {                                         \
-    try {                                      \
-      (rpc);                                   \
-    } catch (apache::thrift::TException& tx) { \
-      return Status::Error(tx.what());         \
-    }                                          \
+#define TRY_RPC_OR_RETURN(rpc)                  \
+  do {                                          \
+    try {                                       \
+      (rpc);                                    \
+    } catch (apache::thrift::TException & tx) { \
+      return Status::IOError(tx.what());        \
+    }                                           \
   } while (0)
 
-#define RETURN_NOT_OK(tstatus)                                              \
+#define THRIFT_RETURN_NOT_OK(tstatus)                                       \
   do {                                                                      \
     if (tstatus.statusCode != hs2::TStatusCode::SUCCESS_STATUS &&           \
         tstatus.statusCode != hs2::TStatusCode::SUCCESS_WITH_INFO_STATUS) { \
       return TStatusToStatus(tstatus);                                      \
     }                                                                       \
-  } while(0)
-
-#endif // HS2CLIENT_THRIFT_INTERNAL_H
+  } while (0)

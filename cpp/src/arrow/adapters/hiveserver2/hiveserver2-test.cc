@@ -36,13 +36,12 @@ TEST_F(OperationTest, TestFetch) {
 
   unique_ptr<Operation> select_op;
   EXPECT_OK(session_->ExecuteStatement("select * from " + TEST_TBL + " order by int_col",
-      &select_op));
+                                       &select_op));
 
   unique_ptr<ColumnarRowSet> results;
   bool has_more_rows = false;
   // Impala only supports NEXT and FIRST.
-  EXPECT_ERROR(select_op->Fetch(2, FetchOrientation::LAST, &results,
-      &has_more_rows));
+  EXPECT_ERROR(select_op->Fetch(2, FetchOrientation::LAST, &results, &has_more_rows));
 
   // Fetch the results in two batches by passing max_rows to Fetch.
   EXPECT_OK(select_op->Fetch(2, FetchOrientation::NEXT, &results, &has_more_rows));
@@ -81,11 +80,11 @@ TEST_F(OperationTest, TestIsNull) {
   CreateTestTable();
   // Insert some NULLs and ensure Column::IsNull() is correct.
   InsertIntoTestTable(vector<int>({1, 2, 3, 4, 5, NULL_INT_VALUE}),
-      vector<string>({"a", "b", "NULL", "d", "NULL", "f"}));
+                      vector<string>({"a", "b", "NULL", "d", "NULL", "f"}));
 
   unique_ptr<Operation> select_nulls_op;
   EXPECT_OK(session_->ExecuteStatement("select * from " + TEST_TBL + " order by int_col",
-      &select_nulls_op));
+                                       &select_nulls_op));
 
   unique_ptr<ColumnarRowSet> nulls_results;
   bool has_more_rows = false;
@@ -198,8 +197,9 @@ TEST_F(SessionTest, TestSessionConfig) {
   // Create a table in TEST_DB.
   const string& TEST_TBL = "hs2client_test_table";
   unique_ptr<Operation> create_table_op;
-  EXPECT_OK(session_->ExecuteStatement("create table " + TEST_TBL +
-      " (int_col int, string_col string)", &create_table_op));
+  EXPECT_OK(session_->ExecuteStatement(
+      "create table " + TEST_TBL + " (int_col int, string_col string)",
+      &create_table_op));
   EXPECT_OK(create_table_op->Close());
 
   // Start a new session with the use:database session option.
@@ -222,7 +222,57 @@ TEST_F(SessionTest, TestSessionConfig) {
 
   // Ensure the we can't access the table.
   unique_ptr<Operation> select_op_error;
-  EXPECT_ERROR(session_error->ExecuteStatement("select * from " + TEST_TBL,
-      &select_op_error));
+  EXPECT_ERROR(
+      session_error->ExecuteStatement("select * from " + TEST_TBL, &select_op_error));
   EXPECT_OK(session_error->Close());
+}
+
+TEST(ServiceTest, TestConnect) {
+  // Open a connection.
+  string host = "localhost";
+  int port = 21050;
+  int conn_timeout = 0;
+  ProtocolVersion protocol_version = ProtocolVersion::PROTOCOL_V7;
+  unique_ptr<Service> service;
+  EXPECT_OK(Service::Connect(host, port, conn_timeout, protocol_version, &service));
+  EXPECT_TRUE(service->IsConnected());
+
+  // Check that we can start a session.
+  string user = "user";
+  HS2ClientConfig config;
+  unique_ptr<Session> session1;
+  EXPECT_OK(service->OpenSession(user, config, &session1));
+  EXPECT_OK(session1->Close());
+
+  // Close the service. We should not be able to open a session.
+  EXPECT_OK(service->Close());
+  EXPECT_FALSE(service->IsConnected());
+  EXPECT_OK(service->Close());
+  unique_ptr<Session> session3;
+  EXPECT_ERROR(service->OpenSession(user, config, &session3));
+  EXPECT_OK(session3->Close());
+
+  // We should be able to call Close again without errors.
+  EXPECT_OK(service->Close());
+  EXPECT_FALSE(service->IsConnected());
+}
+
+TEST(ServiceTest, TestFailedConnect) {
+  string host = "localhost";
+  int port = 21050;
+  int conn_timeout = 0;
+  ProtocolVersion protocol_version = ProtocolVersion::PROTOCOL_V7;
+  unique_ptr<Service> service;
+
+  string invalid_host = "does_not_exist";
+  EXPECT_ERROR(
+      Service::Connect(invalid_host, port, conn_timeout, protocol_version, &service));
+
+  int invalid_port = -1;
+  EXPECT_ERROR(
+      Service::Connect(host, invalid_port, conn_timeout, protocol_version, &service));
+
+  ProtocolVersion invalid_protocol_version = ProtocolVersion::PROTOCOL_V2;
+  EXPECT_ERROR(
+      Service::Connect(host, port, conn_timeout, invalid_protocol_version, &service));
 }
