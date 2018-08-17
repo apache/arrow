@@ -15,16 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import OrderedDict
-import bz2
 import datetime
 import decimal
 import gzip
-import json
 import os
-import pickle
-import sys
 
+from pandas.util.testing import assert_frame_equal
+import pandas as pd
 import pytest
 
 import pyarrow as pa
@@ -47,10 +44,6 @@ def path_for_json_example(name):
     return os.path.join(orc_data_dir, '%s.jsn.gz' % name)
 
 
-def path_for_pickle_example(name):
-    return os.path.join(orc_data_dir, '%s.pickle.bz2' % name)
-
-
 def fix_example_values(actual_cols, expected_cols):
     """
     Fix type of expected values (as read from JSON) according to
@@ -58,8 +51,6 @@ def fix_example_values(actual_cols, expected_cols):
     """
     for name in expected_cols:
         expected = expected_cols[name]
-        if not expected:
-            continue
         actual = actual_cols[name]
         typ = actual[0].__class__
         if typ is bytes:
@@ -68,36 +59,31 @@ def fix_example_values(actual_cols, expected_cols):
             expected = [bytearray(v) for v in expected]
         elif issubclass(typ, datetime.datetime):
             # timestamp fields are represented as strings in JSON files
-            expected = [datetime.datetime.strptime(v, '%Y-%m-%d %H:%M:%S.%f')
-                        for v in expected]
+            expected = pd.to_datetime(expected)
         elif issubclass(typ, datetime.date):
-            # date fields are represented as strings in JSON files
-            expected = [datetime.datetime.strptime(v, '%Y-%m-%d').date()
-                        for v in expected]
+            # # date fields are represented as strings in JSON files
+            expected = expected.dt.date
         elif typ is decimal.Decimal:
+            converted_decimals = [None] * len(expected)
             # decimal fields are represented as reals in JSON files
             for i, (d, v) in enumerate(zip(actual, expected)):
-                if v is not None:
+                if not pd.isnull(v):
                     exp = d.as_tuple().exponent
                     factor = 10 ** -exp
-                    expected[i] = decimal.Decimal(round(v * factor)
-                                                  ).scaleb(exp)
+                    converted_decimals[i] = (
+                        decimal.Decimal(round(v * factor)).scaleb(exp))
+            expected = pd.Series(converted_decimals)
 
         expected_cols[name] = expected
 
 
-def check_example_values(orc_dict, json_dict, json_start=None, json_stop=None):
-    # Check column names
-    assert list(orc_dict) == list(json_dict)
-    # Check column values
-    for i, (actual, expected) in enumerate(zip(orc_dict.values(),
-                                               json_dict.values())):
-        expected = expected[json_start:json_stop]
-        assert actual == expected, \
-            "Mismatch for column '{}'".format(list(json_dict)[i])
+def check_example_values(orc_df, expected_df, start=None, stop=None):
+    if start is not None or stop is not None:
+        expected_df = expected_df[start:stop].reset_index(drop=True)
+    assert_frame_equal(orc_df, expected_df, check_dtype=False)
 
 
-def check_example_file(orc_path, expected_cols, need_fix=False):
+def check_example_file(orc_path, expected_df, need_fix=False):
     """
     Check a ORC file against the expected columns dictionary.
     """
@@ -107,17 +93,28 @@ def check_example_file(orc_path, expected_cols, need_fix=False):
     # Exercise ORCFile.read()
     table = orc_file.read()
     assert isinstance(table, pa.Table)
-    orc_cols = table.to_pydict()
+
+    # This workaround needed because of ARROW-3080
+    orc_df = pd.DataFrame(table.to_pydict())
+
+    assert set(expected_df.columns) == set(orc_df.columns)
+
+    # reorder columns if necessary
+    if not orc_df.columns.equals(expected_df.columns):
+        expected_df = expected_df.reindex(columns=orc_df.columns)
+
     if need_fix:
-        fix_example_values(orc_cols, expected_cols)
-    check_example_values(orc_cols, expected_cols)
+        fix_example_values(orc_df, expected_df)
+
+    check_example_values(orc_df, expected_df)
     # Exercise ORCFile.read_stripe()
     json_pos = 0
     for i in range(orc_file.nstripes):
         batch = orc_file.read_stripe(i)
-        check_example_values(batch.to_pydict(), expected_cols,
-                             json_start=json_pos,
-                             json_stop=json_pos + len(batch))
+        check_example_values(pd.DataFrame(batch.to_pydict()),
+                             expected_df,
+                             start=json_pos,
+                             stop=json_pos + len(batch))
         json_pos += len(batch)
     assert json_pos == orc_file.nrows
 
@@ -134,38 +131,11 @@ def check_example_using_json(example_name):
         f = gzip.open(json_path, 'rb')
     else:
         f = open(json_path, 'rb')
-    with f:
-        lines = list(f)
-    if sys.version_info[:2] == (3, 5):
-        # json on Python 3.5 rejects bytes objects
-        lines = [line.decode('utf8') for line in lines]
-    expected_rows = [json.loads(line, object_pairs_hook=OrderedDict)
-                     for line in lines]
-    expected_cols = OrderedDict()
-    for row in expected_rows:
-        for name, value in row.items():
-            expected_cols.setdefault(name, []).append(value)
-    # Check expected columns for correctness
-    for name, value in expected_cols.items():
-        assert len(value) == len(expected_rows)
 
-    check_example_file(path_for_orc_example(example_name), expected_cols,
+    table = pd.read_json(f, lines=True)
+
+    check_example_file(path_for_orc_example(example_name), table,
                        need_fix=True)
-
-
-def check_example_using_pickle(example_name):
-    """
-    Check a ORC file example against the equivalent pickle file.
-    See data/orc/json_to_pickle.py for generation of pickle files.
-
-    For non-tiny files, this is significantly faster than checking against
-    JSON files.
-    """
-    pickle_path = path_for_pickle_example(example_name)
-    with open(pickle_path, 'rb') as f:
-        expected_cols = pickle.loads(bz2.decompress(f.read()))
-
-    check_example_file(path_for_orc_example(example_name), expected_cols)
 
 
 @pytest.mark.xfail(strict=True, reason="ARROW-3049")
@@ -179,12 +149,12 @@ def test_orcfile_test1_json():
 
 
 def test_orcfile_test1_pickle():
-    check_example_using_pickle('TestOrcFile.test1')
+    check_example_using_json('TestOrcFile.test1')
 
 
 def test_orcfile_dates():
-    check_example_using_pickle('TestOrcFile.testDate1900')
+    check_example_using_json('TestOrcFile.testDate1900')
 
 
 def test_orcfile_decimals():
-    check_example_using_pickle('decimal')
+    check_example_using_json('decimal')
