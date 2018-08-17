@@ -37,9 +37,10 @@ services:
       - hdfs-namenode:hdfs-namenode
 
   impala:
-    image: cpcloud86:impala:java8-1
+    image: cpcloud86/impala:java8-1
     ports:
-      - 21050
+      - "21050"
+    hostname: impala
 
   hdfs_integration:
     links:
@@ -56,7 +57,7 @@ services:
 
   hiveserver2:
     links:
-      - impala:impala
+      - impala
     build:
       context: hiveserver2
     volumes:

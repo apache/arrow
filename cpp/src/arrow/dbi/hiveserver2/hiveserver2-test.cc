@@ -38,6 +38,11 @@ using std::vector;
 namespace arrow {
 namespace hiveserver2 {
 
+static std::string GetTestHost() {
+  const char* host = std::getenv("ARROW_HIVESERVER2_TEST_HOST");
+  return host == nullptr ? "localhost" : std::string(host);
+}
+
 // Convenience functions for finding a row of values given several columns.
 template <typename VType, typename CType>
 bool FindRow(VType value, CType* column) {
@@ -103,10 +108,12 @@ Status Wait(const std::unique_ptr<Operation>& op,
 class HS2ClientTest : public ::testing::Test {
  protected:
   virtual void SetUp() {
+    hostname_ = GetTestHost();
+
     int conn_timeout = 0;
     ProtocolVersion protocol_version = ProtocolVersion::PROTOCOL_V7;
     ASSERT_OK(
-        Service::Connect(hostname, port, conn_timeout, protocol_version, &service_));
+        Service::Connect(hostname_, port, conn_timeout, protocol_version, &service_));
 
     std::string user = "user";
     HS2ClientConfig config;
@@ -183,8 +190,8 @@ class HS2ClientTest : public ::testing::Test {
     ASSERT_EQ(insert_op_state, Operation::State::FINISHED);
     ASSERT_OK(insert_op->Close());
   }
+  std::string hostname_;
 
-  const std::string hostname = "localhost";
   int port = 21050;
 
   const std::string TEST_DB = "hs2client_test_db";
@@ -400,7 +407,7 @@ TEST_F(SessionTest, TestSessionConfig) {
 
 TEST(ServiceTest, TestConnect) {
   // Open a connection.
-  string host = "localhost";
+  string host = GetTestHost();
   int port = 21050;
   int conn_timeout = 0;
   ProtocolVersion protocol_version = ProtocolVersion::PROTOCOL_V7;
@@ -429,9 +436,12 @@ TEST(ServiceTest, TestConnect) {
 }
 
 TEST(ServiceTest, TestFailedConnect) {
-  string host = "localhost";
+  string host = GetTestHost();
   int port = 21050;
-  int conn_timeout = 0;
+
+  // Set 100ms timeout so these return quickly
+  int conn_timeout = 100;
+
   ProtocolVersion protocol_version = ProtocolVersion::PROTOCOL_V7;
   unique_ptr<Service> service;
 
@@ -444,8 +454,8 @@ TEST(ServiceTest, TestFailedConnect) {
                                           protocol_version, &service));
 
   ProtocolVersion invalid_protocol_version = ProtocolVersion::PROTOCOL_V2;
-  ASSERT_RAISES(IOError, Service::Connect(host, port, conn_timeout,
-                                          invalid_protocol_version, &service));
+  ASSERT_RAISES(NotImplemented, Service::Connect(host, port, conn_timeout,
+                                                 invalid_protocol_version, &service));
 }
 
 }  // namespace hiveserver2

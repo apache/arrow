@@ -37,7 +37,7 @@ export PYARROW_CMAKE_GENERATOR=Ninja
 
 _PWD=`pwd`
 ARROW_CPP_BUILD_DIR=$_PWD/arrow/cpp/hiveserver2-build
-PARQUET_CPP_BUILD_DIR=$_PWD/parquet-cpp/hiveserver2-build
+DOCKER_COMMON_DIR=$_PWD/arrow/dev/docker_common
 
 function cleanup {
     rm -rf $ARROW_CPP_BUILD_DIR
@@ -53,14 +53,15 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_HIVESERVER2=ON \
-      -DARROW_TEST_INCLUDE_LABELS=hiveserver2 \
       -DARROW_BUILD_TESTS=ON \
       -DCMAKE_CXX_FLAGS=$CXXFLAGS \
       ..
-ninja
-ninja install
+ninja hiveserver2-test
+
+$DOCKER_COMMON_DIR/wait-for-it.sh impala:21050 -t 300 -s -- echo "impala is up"
 
 # Run C++ unit tests
+export ARROW_HIVESERVER2_TEST_HOST=impala
 debug/hiveserver2-test
 
 popd
