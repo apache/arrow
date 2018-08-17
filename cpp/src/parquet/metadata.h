@@ -85,7 +85,7 @@ class ApplicationVersion {
   bool VersionEq(const ApplicationVersion& other_version) const;
 
   // Checks if the Version has the correct statistics for a given column
-  bool HasCorrectStatistics(Type::type primitive,
+  bool HasCorrectStatistics(Type::type primitive, EncodedStatistics& statistics,
                             SortOrder::type sort_order = SortOrder::SIGNED) const;
 };
 
