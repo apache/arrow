@@ -165,7 +165,7 @@ TEST(CompatibilityTest, TestBloomFilter) {
 
   std::unique_ptr<uint8_t[]> bitset(new uint8_t[size]());
   std::shared_ptr<Buffer> buffer(new Buffer(bitset.get(), size));
-  handle->Read(size, &buffer);
+  PARQUET_THROW_NOT_OK(handle->Read(size, &buffer));
 
   InMemoryInputStream source(buffer);
   BlockSplitBloomFilter bloom_filter1 = BlockSplitBloomFilter::Deserialize(&source);
@@ -192,10 +192,10 @@ TEST(CompatibilityTest, TestBloomFilter) {
   bloom_filter2.WriteTo(&sink);
   std::shared_ptr<Buffer> buffer1 = sink.GetBuffer();
 
-  handle->Seek(0);
-  handle->GetSize(&size);
+  PARQUET_THROW_NOT_OK(handle->Seek(0));
+  PARQUET_THROW_NOT_OK(handle->GetSize(&size));
   std::shared_ptr<Buffer> buffer2;
-  handle->Read(size, &buffer2);
+  PARQUET_THROW_NOT_OK(handle->Read(size, &buffer2));
 
   EXPECT_TRUE((*buffer1).Equals(*buffer2));
 }
