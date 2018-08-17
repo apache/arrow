@@ -44,6 +44,7 @@ BuildRequires:	python34-devel
 BuildRequires:	python34-numpy
 %endif
 %if %{use_glib}
+BuildRequires:	autoconf-archive
 BuildRequires:	gtk-doc
 BuildRequires:	gobject-introspection-devel
 %endif
@@ -75,9 +76,11 @@ cd -
 
 %if %{use_glib}
 cd c_glib
+./autogen.sh
 %configure \
   --with-arrow-cpp-build-dir=$PWD/../cpp/build \
-  --with-arrow-cpp-build-type=$build_type
+  --with-arrow-cpp-build-type=$build_type \
+  --enable-gtk-doc
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 LD_LIBRARY_PATH=$PWD/arrow-glib/.libs/:$PWD/../cpp/build/$build_type \

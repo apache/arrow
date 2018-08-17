@@ -25,10 +25,12 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
+    autoconf-archive \
     build-essential \
     cmake3 \
     debhelper\
     devscripts \
+    dh-autoreconf \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
