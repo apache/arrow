@@ -1,4 +1,4 @@
-#' @include RcppExports.R
+#' @include enums.R
 #' @importFrom R6 R6Class
 #' @importFrom glue glue
 #' @importFrom purrr map map_int map2
@@ -15,6 +15,7 @@
     list = function() list_(self)
   )
 )
+
 
 `arrow::DataType` <- R6Class("arrow::DataType",
   inherit = `arrow::Object`,
@@ -39,6 +40,35 @@
     },
     id = function(){
       DataType_id(self)
+    },
+    dispatch = function(){
+      switch(names(Type)[self$id()+1],
+        "NA" = null(),
+        BOOL = boolean(),
+        UINT8 = uint8(),
+        INT8 = int8(),
+        UINT16 = uint16(),
+        INT16 = int16(),
+        UINT32 = uint32(),
+        INT32 = int32(),
+        UINT64 = uint64(),
+        INT64 = int64(),
+        HALF_FLOAT = float16(),
+        FLOAT = float32(),
+        DOUBLE = float64(),
+        STRING = utf8(),
+        BINARY = stop("Type BINARY not implemented yet"),
+        DATE32 = date32(),
+        DATE64 = date64(),
+        TIMESTAMP = `arrow::Timestamp`$new(xp = self$pointer()),
+        INTERVAL = stop("Type INTERVAL not implemented yet"),
+        DECIMAL = `arrow::Decimal128Type`$new(xp = self$pointer()),
+        LIST = `arrow::ListType`$new(xp = self$pointer()),
+        STRUCT = `arrow::StructType`$new(xp = self$pointer()),
+        UNION = stop("Type UNION not implemented yet"),
+        DICTIONARY = stop("Type DICTIONARY not implemented yet"),
+        MAP = stop("Type MAP not implemented yet")
+      )
     }
   )
 )
@@ -199,14 +229,18 @@
 )
 
 `arrow::Timestamp` <- R6Class(
-  glue("arrow::Timestamp"),
+  "arrow::Timestamp",
   inherit = `arrow::FixedWidthType` ,
   public = list(
-    initialize = function(unit, timezone){
-      if (missing(timezone)) {
-        self$set_pointer(Timestamp_initialize1(unit))
+    initialize = function(unit, timezone, xp){
+      if(!missing(xp)){
+        self$set_pointer(xp)
       } else {
-        self$set_pointer(Timestamp_initialize2(unit, timezone))
+        if (missing(timezone)) {
+          self$set_pointer(Timestamp_initialize1(unit))
+        } else {
+          self$set_pointer(Timestamp_initialize2(unit, timezone))
+        }
       }
     },
 
@@ -226,7 +260,13 @@
 "arrow::Decimal128Type"    <- R6Class("arrow::Decimal128Type",
   inherit = `arrow::DecimalType`,
   public = list(
-    initialize = function(precision, scale) self$set_pointer(Decimal128Type_initialize(precision, scale))
+    initialize = function(precision, scale, xp) {
+      if (!missing(xp)){
+        self$set_pointer(xp)
+      } else {
+        self$set_pointer(Decimal128Type_initialize(precision, scale))
+      }
+    }
   )
 )
 
@@ -345,8 +385,12 @@ field <- function(name, type) `arrow::Field`$new(name, type)
     print = function(...) {
       cat( glue( "StructType({s})", s = DataType_ToString(self)))
     },
-    initialize = function(...){
-      self$set_pointer(struct_(.fields(list(...))))
+    initialize = function(..., xp){
+      if(!missing(xp)){
+        self$set_pointer(xp)
+      } else {
+        self$set_pointer(struct_(.fields(list(...))))
+      }
     }
   )
 )
@@ -377,11 +421,16 @@ schema <- function(...) `arrow::Schema`$new(...)
     print = function(...) {
       cat( glue( "ListType({s})", s = ListType_ToString(self)))
     },
-    initialize = function(x){
-      self$set_pointer(list__(x))
+    initialize = function(x, xp){
+      if (!missing(xp)){
+        self$set_pointer(xp)
+      } else {
+        self$set_pointer(list__(x))
+      }
     }
   )
 )
 
 #' @export
 list_of <- function(x) `arrow::ListType`$new(x)
+

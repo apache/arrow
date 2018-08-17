@@ -187,7 +187,6 @@ arrow::TimeUnit::type TimeType_unit(const std::shared_ptr<arrow::TimeType>& type
   return type->unit();
 }
 
-
 // [[Rcpp::export]]
 int32_t DecimalType_precision(const std::shared_ptr<arrow::DecimalType>& type) {
   return type->precision();
