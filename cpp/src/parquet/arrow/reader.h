@@ -196,7 +196,12 @@ class PARQUET_EXPORT FileReader {
 
   /// Set the number of threads to use during reads of multiple columns. By
   /// default only 1 thread is used
+  /// \deprecated Use set_use_threads instead.
   void set_num_threads(int num_threads);
+
+  /// Set whether to use multiple threads during reads of multiple columns.
+  /// By default only one thread is used.
+  void set_use_threads(bool use_threads);
 
   virtual ~FileReader();
 

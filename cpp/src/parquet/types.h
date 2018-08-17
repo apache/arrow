@@ -114,12 +114,8 @@ struct Compression {
 };
 
 struct Encryption {
-  enum type {
-    AES_GCM_V1 = 0,
-    AES_GCM_CTR_V1 = 1
-  };
+  enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1 };
 };
-
 
 // parquet::PageType
 struct PageType {

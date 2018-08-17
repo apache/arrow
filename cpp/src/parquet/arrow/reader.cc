@@ -31,7 +31,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/parallel.h"
+#include "arrow/util/thread-pool.h"
 
 #include "parquet/arrow/record_reader.h"
 #include "parquet/arrow/schema.h"
@@ -56,7 +56,6 @@ using parquet::schema::Node;
 
 // Help reduce verbosity
 using ParquetReader = parquet::ParquetFileReader;
-using arrow::ParallelFor;
 using arrow::RecordBatchReader;
 
 using parquet::internal::RecordReader;
@@ -212,7 +211,7 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
 class FileReader::Impl {
  public:
   Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
-      : pool_(pool), reader_(std::move(reader)), num_threads_(1) {}
+      : pool_(pool), reader_(std::move(reader)), use_threads_(false) {}
 
   virtual ~Impl() {}
 
@@ -244,15 +243,14 @@ class FileReader::Impl {
 
   int num_columns() const { return reader_->metadata()->num_columns(); }
 
-  void set_num_threads(int num_threads) { num_threads_ = num_threads; }
+  void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
   ParquetFileReader* reader() { return reader_.get(); }
 
  private:
   MemoryPool* pool_;
   std::unique_ptr<ParquetFileReader> reader_;
-
-  int num_threads_;
+  bool use_threads_;
 };
 
 class ColumnReader::ColumnReaderImpl {
@@ -462,14 +460,13 @@ Status FileReader::Impl::ReadColumnChunk(int column_index, int row_group_index,
 
 Status FileReader::Impl::ReadRowGroup(int row_group_index,
                                       const std::vector<int>& indices,
-                                      std::shared_ptr<::arrow::Table>* out) {
+                                      std::shared_ptr<Table>* out) {
   std::shared_ptr<::arrow::Schema> schema;
   RETURN_NOT_OK(GetSchema(indices, &schema));
 
   auto rg_metadata = reader_->metadata()->RowGroup(row_group_index);
 
   int num_columns = static_cast<int>(indices.size());
-  int nthreads = std::min<int>(num_threads_, num_columns);
   std::vector<std::shared_ptr<Column>> columns(num_columns);
 
   // TODO(wesm): Refactor to share more code with ReadTable
@@ -483,12 +480,24 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
     return Status::OK();
   };
 
-  if (nthreads == 1) {
+  if (use_threads_) {
+    std::vector<std::future<Status>> futures;
+    auto pool = ::arrow::internal::GetCpuThreadPool();
+    for (int i = 0; i < num_columns; i++) {
+      futures.push_back(pool->Submit(ReadColumnFunc, i));
+    }
+    Status final_status = Status::OK();
+    for (auto& fut : futures) {
+      Status st = fut.get();
+      if (!st.ok()) {
+        final_status = std::move(st);
+      }
+    }
+    RETURN_NOT_OK(final_status);
+  } else {
     for (int i = 0; i < num_columns; i++) {
       RETURN_NOT_OK(ReadColumnFunc(i));
     }
-  } else {
-    RETURN_NOT_OK(ParallelFor(nthreads, num_columns, ReadColumnFunc));
   }
 
   *out = Table::Make(schema, columns);
@@ -508,7 +517,9 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
     return Status::Invalid("Invalid column index");
   }
 
-  std::vector<std::shared_ptr<Column>> columns(field_indices.size());
+  int num_fields = static_cast<int>(field_indices.size());
+  std::vector<std::shared_ptr<Column>> columns(num_fields);
+
   auto ReadColumnFunc = [&indices, &field_indices, &schema, &columns, this](int i) {
     std::shared_ptr<Array> array;
     RETURN_NOT_OK(ReadSchemaField(field_indices[i], indices, &array));
@@ -516,14 +527,24 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
     return Status::OK();
   };
 
-  int num_fields = static_cast<int>(field_indices.size());
-  int nthreads = std::min<int>(num_threads_, num_fields);
-  if (nthreads == 1) {
+  if (use_threads_) {
+    std::vector<std::future<Status>> futures;
+    auto pool = ::arrow::internal::GetCpuThreadPool();
+    for (int i = 0; i < num_fields; i++) {
+      futures.push_back(pool->Submit(ReadColumnFunc, i));
+    }
+    Status final_status = Status::OK();
+    for (auto& fut : futures) {
+      Status st = fut.get();
+      if (!st.ok()) {
+        final_status = std::move(st);
+      }
+    }
+    RETURN_NOT_OK(final_status);
+  } else {
     for (int i = 0; i < num_fields; i++) {
       RETURN_NOT_OK(ReadColumnFunc(i));
     }
-  } else {
-    RETURN_NOT_OK(ParallelFor(nthreads, num_fields, ReadColumnFunc));
   }
 
   std::shared_ptr<Table> table = Table::Make(schema, columns);
@@ -669,7 +690,11 @@ std::shared_ptr<RowGroupReader> FileReader::RowGroup(int row_group_index) {
 
 int FileReader::num_row_groups() const { return impl_->num_row_groups(); }
 
-void FileReader::set_num_threads(int num_threads) { impl_->set_num_threads(num_threads); }
+void FileReader::set_num_threads(int num_threads) {}
+
+void FileReader::set_use_threads(bool use_threads) {
+  impl_->set_use_threads(use_threads);
+}
 
 Status FileReader::ScanContents(std::vector<int> columns, const int32_t column_batch_size,
                                 int64_t* num_rows) {
@@ -1350,7 +1375,7 @@ Status StructImpl::DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap_out
   const int16_t* def_levels_data;
   size_t def_levels_length;
   RETURN_NOT_OK(GetDefLevels(&def_levels_data, &def_levels_length));
-  RETURN_NOT_OK(GetEmptyBitmap(pool_, def_levels_length, &null_bitmap));
+  RETURN_NOT_OK(AllocateEmptyBitmap(pool_, def_levels_length, &null_bitmap));
   uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();
   for (size_t i = 0; i < def_levels_length; i++) {
     if (def_levels_data[i] < struct_def_level_) {

@@ -104,9 +104,9 @@ std::shared_ptr<::arrow::Table> TableFromVector(
     std::vector<uint8_t> valid_bytes(BENCHMARK_SIZE, 0);
     int n = {0};
     std::generate(valid_bytes.begin(), valid_bytes.end(), [&n] { return n++ % 2; });
-    EXIT_NOT_OK(builder.Append(vec.data(), vec.size(), valid_bytes.data()));
+    EXIT_NOT_OK(builder.AppendValues(vec.data(), vec.size(), valid_bytes.data()));
   } else {
-    EXIT_NOT_OK(builder.Append(vec.data(), vec.size(), nullptr));
+    EXIT_NOT_OK(builder.AppendValues(vec.data(), vec.size(), nullptr));
   }
   std::shared_ptr<::arrow::Array> array;
   EXIT_NOT_OK(builder.Finish(&array));
@@ -126,9 +126,9 @@ std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<b
     int n = {0};
     std::generate(valid_bytes.begin(), valid_bytes.end(),
                   [&n] { return (n++ % 2) != 0; });
-    EXIT_NOT_OK(builder.Append(vec, valid_bytes));
+    EXIT_NOT_OK(builder.AppendValues(vec, valid_bytes));
   } else {
-    EXIT_NOT_OK(builder.Append(vec));
+    EXIT_NOT_OK(builder.AppendValues(vec));
   }
   std::shared_ptr<::arrow::Array> array;
   EXIT_NOT_OK(builder.Finish(&array));

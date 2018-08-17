@@ -320,8 +320,7 @@ using ParquetDataType = DataType<test_traits<T>::parquet_enum>;
 template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 
-void WriteTableToBuffer(const std::shared_ptr<Table>& table, int num_threads,
-                        int64_t row_group_size,
+void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_size,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::shared_ptr<Buffer>* out) {
   auto sink = std::make_shared<InMemoryOutputStream>();
@@ -399,21 +398,21 @@ void AssertTablesEqual(const Table& expected, const Table& actual,
   }
 }
 
-void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
+void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,
                        const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
                            default_arrow_writer_properties()) {
   std::shared_ptr<Buffer> buffer;
   ASSERT_NO_FATAL_FAILURE(
-      WriteTableToBuffer(table, num_threads, row_group_size, arrow_properties, &buffer));
+      WriteTableToBuffer(table, row_group_size, arrow_properties, &buffer));
 
   std::unique_ptr<FileReader> reader;
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
                               ::arrow::default_memory_pool(),
                               ::parquet::default_reader_properties(), nullptr, &reader));
 
-  reader->set_num_threads(num_threads);
+  reader->set_use_threads(use_threads);
 
   if (column_subset.size() > 0) {
     ASSERT_OK_NO_THROW(reader->ReadTable(column_subset, out));
@@ -427,7 +426,8 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
                           const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
                               default_arrow_writer_properties()) {
   std::shared_ptr<Table> result;
-  DoSimpleRoundtrip(table, 1, row_group_size, {}, &result, arrow_properties);
+  DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
+                    arrow_properties);
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result, false));
 }
 
@@ -1270,13 +1270,14 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
   // Use deprecated INT96 type
   std::shared_ptr<Table> result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
-      table, 1, table->num_rows(), {}, &result,
+      table, false /* use_threads */, table->num_rows(), {}, &result,
       ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build()));
 
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result));
 
   // Cast nanaoseconds to microseconds and use INT64 physical type
-  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result));
+  ASSERT_NO_FATAL_FAILURE(
+      DoSimpleRoundtrip(table, false /* use_threads */, table->num_rows(), {}, &result));
   std::shared_ptr<Table> expected;
   MakeDateTimeTypesTable(&table, true);
 
@@ -1339,14 +1340,14 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
 
   std::shared_ptr<Table> milli_result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
-      input, 1, input->num_rows(), {}, &milli_result,
+      input, false /* use_threads */, input->num_rows(), {}, &milli_result,
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MILLI)->build()));
 
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*ex_milli_result, *milli_result));
 
   std::shared_ptr<Table> micro_result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
-      input, 1, input->num_rows(), {}, &micro_result,
+      input, false /* use_threads */, input->num_rows(), {}, &micro_result,
       ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MICRO)->build()));
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*ex_micro_result, *micro_result));
 }
@@ -1472,7 +1473,8 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   auto ex_table = Table::Make(ex_schema, ex_columns);
 
   std::shared_ptr<Table> result;
-  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result));
+  ASSERT_NO_FATAL_FAILURE(
+      DoSimpleRoundtrip(table, false /* use_threads */, table->num_rows(), {}, &result));
 
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*ex_table, *result));
 }
@@ -1515,7 +1517,8 @@ TEST(TestArrowReadWrite, CoerceTimestampsAndSupportDeprecatedInt96) {
                                      ->build();
 
   std::shared_ptr<Table> result;
-  DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result, arrow_writer_properties);
+  DoSimpleRoundtrip(table, false /* use_threads */, table->num_rows(), {}, &result,
+                    arrow_writer_properties);
 
   ASSERT_EQ(table->num_columns(), result->num_columns());
   ASSERT_EQ(table->num_rows(), result->num_rows());
@@ -1561,17 +1564,18 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
   *out = Table::Make(schema, columns);
 }
 
-void MakeListArray(int num_rows, std::shared_ptr<::DataType>* out_type,
+void MakeListArray(int num_rows, int max_value_length,
+                   std::shared_ptr<::DataType>* out_type,
                    std::shared_ptr<Array>* out_array) {
   std::vector<int32_t> length_draws;
-  randint(num_rows, 0, 100, &length_draws);
+  randint(num_rows, 0, max_value_length, &length_draws);
 
   std::vector<int32_t> offset_values;
 
   // Make sure some of them are length 0
   int32_t total_elements = 0;
   for (size_t i = 0; i < length_draws.size(); ++i) {
-    if (length_draws[i] < 10) {
+    if (length_draws[i] < max_value_length / 10) {
       length_draws[i] = 0;
     }
     offset_values.push_back(total_elements);
@@ -1599,14 +1603,14 @@ void MakeListArray(int num_rows, std::shared_ptr<::DataType>* out_type,
 TEST(TestArrowReadWrite, MultithreadedRead) {
   const int num_columns = 20;
   const int num_rows = 1000;
-  const int num_threads = 4;
+  const bool use_threads = true;
 
   std::shared_ptr<Table> table;
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
 
   std::shared_ptr<Table> result;
   ASSERT_NO_FATAL_FAILURE(
-      DoSimpleRoundtrip(table, num_threads, table->num_rows(), {}, &result));
+      DoSimpleRoundtrip(table, use_threads, table->num_rows(), {}, &result));
 
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result));
 }
@@ -1619,7 +1623,7 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, 1, num_rows / 2,
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
   std::unique_ptr<FileReader> reader;
@@ -1648,7 +1652,7 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) {
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, 1, num_rows / 2,
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
   std::unique_ptr<FileReader> reader;
@@ -1681,7 +1685,7 @@ TEST(TestArrowReadWrite, ScanContents) {
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, 1, num_rows / 2,
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
   std::unique_ptr<FileReader> reader;
@@ -1700,7 +1704,7 @@ TEST(TestArrowReadWrite, ScanContents) {
 TEST(TestArrowReadWrite, ReadColumnSubset) {
   const int num_columns = 20;
   const int num_rows = 1000;
-  const int num_threads = 4;
+  const bool use_threads = true;
 
   std::shared_ptr<Table> table;
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
@@ -1708,7 +1712,7 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
   std::shared_ptr<Table> result;
   std::vector<int> column_subset = {0, 4, 8, 10};
   ASSERT_NO_FATAL_FAILURE(
-      DoSimpleRoundtrip(table, num_threads, table->num_rows(), column_subset, &result));
+      DoSimpleRoundtrip(table, use_threads, table->num_rows(), column_subset, &result));
 
   std::vector<std::shared_ptr<::arrow::Column>> ex_columns;
   std::vector<std::shared_ptr<::arrow::Field>> ex_fields;
@@ -1723,19 +1727,21 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
 }
 
 TEST(TestArrowReadWrite, ListLargeRecords) {
-  const int num_rows = 50;
+  // PARQUET-1308: This test passed on Linux when num_rows was smaller
+  const int num_rows = 2000;
 
   std::shared_ptr<Array> list_array;
   std::shared_ptr<::DataType> list_type;
 
-  MakeListArray(num_rows, &list_type, &list_array);
+  MakeListArray(num_rows, 20, &list_type, &list_array);
 
   auto schema = ::arrow::schema({::arrow::field("a", list_type)});
+
   std::shared_ptr<Table> table = Table::Make(schema, {list_array});
 
   std::shared_ptr<Buffer> buffer;
   ASSERT_NO_FATAL_FAILURE(
-      WriteTableToBuffer(table, 1, 100, default_arrow_writer_properties(), &buffer));
+      WriteTableToBuffer(table, 100, default_arrow_writer_properties(), &buffer));
 
   std::unique_ptr<FileReader> reader;
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
@@ -1747,14 +1753,13 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   ASSERT_OK_NO_THROW(reader->ReadTable(&result));
   ASSERT_NO_FATAL_FAILURE(AssertTablesEqual(*table, *result));
 
+  // Read chunked
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
                               ::arrow::default_memory_pool(),
                               ::parquet::default_reader_properties(), nullptr, &reader));
 
   std::unique_ptr<ColumnReader> col_reader;
   ASSERT_OK(reader->GetColumn(0, &col_reader));
-
-  auto expected = table->column(0)->data()->chunk(0);
 
   std::vector<std::shared_ptr<Array>> pieces;
   for (int i = 0; i < num_rows; ++i) {
@@ -1809,7 +1814,7 @@ auto GenerateInt32 = [](int length, std::shared_ptr<::DataType>* type,
 
 auto GenerateList = [](int length, std::shared_ptr<::DataType>* type,
                        std::shared_ptr<Array>* array) {
-  MakeListArray(length, type, array);
+  MakeListArray(length, 100, type, array);
 };
 
 TEST(TestArrowReadWrite, TableWithChunkedColumns) {
