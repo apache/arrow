@@ -27,9 +27,9 @@
 #include "arrow/test-util.h"
 
 #include "arrow/python/arrow_to_pandas.h"
-#include "arrow/python/builtin_convert.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/python_to_arrow.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
