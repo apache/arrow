@@ -33,13 +33,25 @@ namespace parquet {
 #define COL_WIDTH "30"
 
 void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selected_columns,
-                                    bool print_values, const char* filename) {
+                                    bool print_values, bool print_key_value_metadata,
+                                    const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
 
   stream << "File Name: " << filename << "\n";
   stream << "Version: " << file_metadata->version() << "\n";
   stream << "Created By: " << file_metadata->created_by() << "\n";
   stream << "Total rows: " << file_metadata->num_rows() << "\n";
+
+  if (print_key_value_metadata) {
+    auto key_value_metadata = file_metadata->key_value_metadata();
+    int64_t size_of_key_value_metadata = key_value_metadata->size();
+    stream << "Key Value File Metadata: " << size_of_key_value_metadata << " entries\n";
+    for (int64_t i = 0; i < size_of_key_value_metadata; i++) {
+      stream << " Key nr " << i << " " << key_value_metadata->key(i) << ": "
+             << key_value_metadata->value(i) << "\n";
+    }
+  }
+
   stream << "Number of RowGroups: " << file_metadata->num_row_groups() << "\n";
   stream << "Number of Real Columns: "
          << file_metadata->schema()->group_node()->field_count() << "\n";
