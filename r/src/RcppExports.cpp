@@ -235,6 +235,38 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// MemoryPool_default
+static_ptr<arrow::MemoryPool> MemoryPool_default();
+RcppExport SEXP _arrow_MemoryPool_default() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(MemoryPool_default());
+    return rcpp_result_gen;
+END_RCPP
+}
+// MemoryPool_bytes_allocated
+int MemoryPool_bytes_allocated(static_ptr<arrow::MemoryPool> pool);
+RcppExport SEXP _arrow_MemoryPool_bytes_allocated(SEXP poolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< static_ptr<arrow::MemoryPool> >::type pool(poolSEXP);
+    rcpp_result_gen = Rcpp::wrap(MemoryPool_bytes_allocated(pool));
+    return rcpp_result_gen;
+END_RCPP
+}
+// MemoryPool_max_memory
+int MemoryPool_max_memory(static_ptr<arrow::MemoryPool> pool);
+RcppExport SEXP _arrow_MemoryPool_max_memory(SEXP poolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< static_ptr<arrow::MemoryPool> >::type pool(poolSEXP);
+    rcpp_result_gen = Rcpp::wrap(MemoryPool_max_memory(pool));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Int8_initialize
 std::shared_ptr<arrow::DataType> Int8_initialize();
 RcppExport SEXP _arrow_Int8_initialize() {
@@ -684,6 +716,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Field_ToString", (DL_FUNC) &_arrow_Field_ToString, 1},
     {"_arrow_Field_name", (DL_FUNC) &_arrow_Field_name, 1},
     {"_arrow_Field_nullable", (DL_FUNC) &_arrow_Field_nullable, 1},
+    {"_arrow_MemoryPool_default", (DL_FUNC) &_arrow_MemoryPool_default, 0},
+    {"_arrow_MemoryPool_bytes_allocated", (DL_FUNC) &_arrow_MemoryPool_bytes_allocated, 1},
+    {"_arrow_MemoryPool_max_memory", (DL_FUNC) &_arrow_MemoryPool_max_memory, 1},
     {"_arrow_Int8_initialize", (DL_FUNC) &_arrow_Int8_initialize, 0},
     {"_arrow_Int16_initialize", (DL_FUNC) &_arrow_Int16_initialize, 0},
     {"_arrow_Int32_initialize", (DL_FUNC) &_arrow_Int32_initialize, 0},

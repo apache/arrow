@@ -27,4 +27,5 @@ Collate:
     'R6.R'
     'RcppExports.R'
     'array.R'
+    'memory_pool.R'
     'zzz.R'

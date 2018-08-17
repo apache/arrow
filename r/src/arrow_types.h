@@ -23,10 +23,29 @@
 #include <arrow/api.h>
 #include <arrow/type.h>
 
+template <typename T>
+class static_ptr {
+public:
+  using element_type = T;
+
+  static_ptr(T* ptr_) : ptr(ptr_){}
+  inline T& operator*() const {
+    return *ptr;
+  }
+  inline T* operator->() const {
+    return ptr;
+  }
+
+private:
+  T* ptr;
+};
+
 namespace Rcpp{
 namespace traits{
 
 struct wrap_type_shared_ptr_tag{};
+
+struct wrap_type_static_ptr_tag{};
 
 template <typename T>
 struct wrap_type_traits<std::shared_ptr<T>>{
@@ -34,14 +53,27 @@ struct wrap_type_traits<std::shared_ptr<T>>{
 };
 
 template <typename T>
+struct wrap_type_traits<static_ptr<T>>{
+  using wrap_category = wrap_type_static_ptr_tag;
+};
+
+template <typename T>
 class Exporter<std::shared_ptr<T>>;
+
+template <typename T>
+class Exporter<static_ptr<T>>;
 
 }
 namespace internal{
 
 template <typename T>
-  inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) ;
+inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag) ;
+
+template <typename T>
+inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_static_ptr_tag) ;
+
 }
+
 
 }
 
@@ -73,6 +105,25 @@ private:
 
 };
 
+template <typename T>
+class Exporter<static_ptr<T>> {
+public:
+  Exporter(SEXP self) : xp(extract_xp(self)){}
+
+  inline static_ptr<T> get(){
+    return *Rcpp::XPtr<static_ptr<T>>(xp);
+  }
+
+private:
+  SEXP xp;
+
+  SEXP extract_xp(SEXP self){
+    static SEXP symb_xp = Rf_install(".:xp:.");
+    return Rf_findVarInFrame(self, symb_xp) ;
+  }
+
+};
+
 }
 
 namespace internal{
@@ -80,6 +131,11 @@ namespace internal{
 template <typename T>
 inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_shared_ptr_tag){
   return Rcpp::XPtr<std::shared_ptr<typename T::element_type>>(new std::shared_ptr<typename T::element_type>(x));
+}
+
+template <typename T>
+inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_static_ptr_tag){
+  return Rcpp::XPtr<static_ptr<typename T::element_type>>(new static_ptr<typename T::element_type>(x));
 }
 
 }

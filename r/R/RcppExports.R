@@ -82,6 +82,18 @@ Field_nullable <- function(type) {
     .Call(`_arrow_Field_nullable`, type)
 }
 
+MemoryPool_default <- function() {
+    .Call(`_arrow_MemoryPool_default`)
+}
+
+MemoryPool_bytes_allocated <- function(pool) {
+    .Call(`_arrow_MemoryPool_bytes_allocated`, pool)
+}
+
+MemoryPool_max_memory <- function(pool) {
+    .Call(`_arrow_MemoryPool_max_memory`, pool)
+}
+
 Int8_initialize <- function() {
     .Call(`_arrow_Int8_initialize`)
 }
