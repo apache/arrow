@@ -40,6 +40,8 @@ set(ARROW_HIVESERVER2_SRCS
 add_subdirectory(thrift)
 
 set(HIVESERVER2_THRIFT_SRC
+  "${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes_constants.cpp"
+  "${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes_types.cpp"
   "${CMAKE_CURRENT_BINARY_DIR}/ImpalaService.cpp"
   "${CMAKE_CURRENT_BINARY_DIR}/ImpalaService_constants.cpp"
   "${CMAKE_CURRENT_BINARY_DIR}/ImpalaService_types.cpp"
@@ -82,14 +84,6 @@ set_target_properties(arrow_hiveserver2_thrift
   PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
-set(ARROW_HIVESERVER2_SHARED_LINK_LIBS
-  arrow_hiveserver2_thrift
-  thriftstatic)
-
-set(ARROW_HIVESERVER2_STATIC_LINK_LIBS
-  arrow_hiveserver2_thrift
-  thriftstatic)
-
 ADD_ARROW_LIB(arrow_hiveserver2
   SOURCES ${ARROW_HIVESERVER2_SRCS}
   DEPENDENCIES arrow_hiveserver2_thrift
@@ -101,7 +95,17 @@ set_property(SOURCE ${ARROW_HIVESERVER2_SRCS}
   APPEND_STRING PROPERTY COMPILE_FLAGS
   " -Wno-shadow-field")
 
+set(ARROW_HIVESERVER2_TEST_LINK_LIBS
+  ${ARROW_TEST_LINK_LIBS}
+  arrow_hiveserver2_static
+  arrow_hiveserver2_thrift
+  thriftstatic)
+
 ADD_ARROW_TEST(hiveserver2-test
-  STATIC_LINK_LIBS "${ARROW_HIVESERVER2_STATIC_LINK_LIBS}"
+  STATIC_LINK_LIBS "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
   LABELS "hiveserver2"
 )
+
+set_property(TARGET hiveserver2-test
+  APPEND_STRING PROPERTY COMPILE_FLAGS
+  " -Wno-shadow-field")

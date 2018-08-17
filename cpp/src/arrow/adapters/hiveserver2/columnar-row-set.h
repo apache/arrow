@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace hiveserver2 {
@@ -50,7 +51,7 @@ namespace hiveserver2 {
 //     cout << col->data()[i] << "\n";
 //   }
 // }
-class Column {
+class ARROW_EXPORT Column {
  public:
   virtual ~Column() {}
 
@@ -77,7 +78,7 @@ class Column {
 };
 
 template <class T>
-class TypedColumn : public Column {
+class ARROW_EXPORT TypedColumn : public Column {
  public:
   const std::vector<T>& data() const { return *data_; }
   int64_t length() const { return data().size(); }
@@ -120,7 +121,7 @@ typedef TypedColumn<std::string> BinaryColumn;
 //   unique_ptr<Int32Column> int32_col = columnar_row_set->GetInt32Col(0);
 //   unique_ptr<StringColumn> string_col = columnar_row_set->GetStringCol(1);
 // }
-class ColumnarRowSet {
+class ARROW_EXPORT ColumnarRowSet {
  public:
   ~ColumnarRowSet();
 

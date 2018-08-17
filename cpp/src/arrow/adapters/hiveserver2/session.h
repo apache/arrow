@@ -23,6 +23,8 @@
 #include "arrow/adapters/hiveserver2/operation.h"
 #include "arrow/adapters/hiveserver2/service.h"
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Status;
@@ -41,7 +43,7 @@ struct ThriftRPC;
 // that Session has been closed or deleted is undefined.
 //
 // This class is not thread-safe.
-class Session {
+class ARROW_EXPORT Session {
  public:
   ~Session();
 

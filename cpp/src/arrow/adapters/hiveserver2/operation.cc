@@ -33,7 +33,7 @@ namespace arrow {
 namespace hiveserver2 {
 
 // Max rows to fetch, if not specified.
-const static int DEFAULT_MAX_ROWS = 1024;
+constexpr int kDefaultMaxRows = 1024;
 
 Operation::Operation(const std::shared_ptr<ThriftRPC>& rpc)
     : impl_(new OperationImpl()), rpc_(rpc), open_(false) {}
@@ -90,7 +90,7 @@ Status Operation::GetResultSetMetadata(std::vector<ColumnDesc>* column_descs) co
 }
 
 Status Operation::Fetch(unique_ptr<ColumnarRowSet>* results, bool* has_more_rows) const {
-  return Fetch(DEFAULT_MAX_ROWS, FetchOrientation::NEXT, results, has_more_rows);
+  return Fetch(kDefaultMaxRows, FetchOrientation::NEXT, results, has_more_rows);
 }
 
 Status Operation::Fetch(int max_rows, FetchOrientation orientation,

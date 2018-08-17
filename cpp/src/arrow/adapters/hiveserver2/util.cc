@@ -18,7 +18,9 @@
 #include "arrow/adapters/hiveserver2/util.h"
 
 #include <algorithm>
+#include <memory>
 #include <sstream>
+#include <vector>
 
 #include "arrow/adapters/hiveserver2/columnar-row-set.h"
 #include "arrow/adapters/hiveserver2/thrift-internal.h"
@@ -38,9 +40,9 @@ namespace hiveserver2 {
 // PrintResults
 namespace {
 
-const string NULL_SYMBOL = "NULL";
-const string TRUE_SYMBOL = "true";
-const string FALSE_SYMBOL = "false";
+const char kNullSymbol[] = "NULL";
+const char kTrueSymbol[] = "true";
+const char kFalseSymbol[] = "false";
 
 struct PrintInfo {
   // The PrintInfo takes ownership of the Column ptr.
@@ -81,7 +83,7 @@ static size_t GetIntMaxSize(T* column, const string& column_name) {
     if (!column->IsNull(i)) {
       max_size = std::max(max_size, NumSpaces(column->data()[i]));
     } else {
-      max_size = std::max(max_size, NULL_SYMBOL.size());
+      max_size = std::max(max_size, sizeof(kNullSymbol));
     }
   }
   return max_size;
@@ -117,12 +119,12 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
         case ColumnType::TypeId::BOOLEAN: {
           BoolColumn* bool_col = results->GetBoolCol(i).release();
 
-          // The largest symbol is TRUE/NULL_SYMBOL.size() = 4 unless there is a FALSE,
-          // then is it FALSE_SYMBOL.size() = 5.
-          size_t max_size = std::max(column_name.size(), TRUE_SYMBOL.size());
+          // The largest symbol is length 4 unless there is a FALSE, then is it
+          // kFalseSymbol.size() = 5.
+          size_t max_size = std::max(column_name.size(), sizeof(kTrueSymbol));
           for (int j = 0; j < bool_col->length(); ++j) {
             if (!bool_col->IsNull(j) && !bool_col->data()[j]) {
-              max_size = std::max(max_size, FALSE_SYMBOL.size());
+              max_size = std::max(max_size, sizeof(kFalseSymbol));
               break;
             }
           }
@@ -158,7 +160,7 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
             if (!string_col->IsNull(j)) {
               max_size = std::max(max_size, string_col->data()[j].size());
             } else {
-              max_size = std::max(max_size, NULL_SYMBOL.size());
+              max_size = std::max(max_size, sizeof(kNullSymbol));
             }
           }
 
@@ -193,34 +195,37 @@ void Util::PrintResults(const Operation* op, std::ostream& out) {
         std::stringstream value;
 
         if (columns[j].column->IsNull(i)) {
-          value << NULL_SYMBOL;
+          value << kNullSymbol;
         } else {
           switch (column_descs[j].type()->type_id()) {
             case ColumnType::TypeId::BOOLEAN:
-              if (((BoolColumn*)columns[j].column.get())->data()[i]) {
-                value << TRUE_SYMBOL;
+              if (reinterpret_cast<BoolColumn*>(columns[j].column.get())->data()[i]) {
+                value << kTrueSymbol;
               } else {
-                value << FALSE_SYMBOL;
+                value << kFalseSymbol;
               }
               break;
             case ColumnType::TypeId::TINYINT:
               // The cast prevents us from printing this as a char.
-              value << (int16_t)((ByteColumn*)columns[j].column.get())->data()[i];
+              value << static_cast<int16_t>(
+                  reinterpret_cast<ByteColumn*>(columns[j].column.get())->data()[i]);
               break;
             case ColumnType::TypeId::SMALLINT:
-              value << ((Int16Column*)columns[j].column.get())->data()[i];
+              value << reinterpret_cast<Int16Column*>(columns[j].column.get())->data()[i];
               break;
             case ColumnType::TypeId::INT:
-              value << ((Int32Column*)columns[j].column.get())->data()[i];
+              value << reinterpret_cast<Int32Column*>(columns[j].column.get())->data()[i];
               break;
             case ColumnType::TypeId::BIGINT:
-              value << ((Int64Column*)columns[j].column.get())->data()[i];
+              value << reinterpret_cast<Int64Column*>(columns[j].column.get())->data()[i];
               break;
             case ColumnType::TypeId::STRING:
-              value << ((StringColumn*)columns[j].column.get())->data()[i];
+              value
+                  << reinterpret_cast<StringColumn*>(columns[j].column.get())->data()[i];
               break;
             case ColumnType::TypeId::BINARY:
-              value << ((BinaryColumn*)columns[j].column.get())->data()[i];
+              value
+                  << reinterpret_cast<BinaryColumn*>(columns[j].column.get())->data()[i];
               break;
             default:
               value << "unrecognized type";

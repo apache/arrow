@@ -17,6 +17,7 @@
 
 #include "arrow/adapters/hiveserver2/thrift-internal.h"
 
+#include <map>
 #include <sstream>
 
 #include "arrow/adapters/hiveserver2/TCLIService_constants.h"
@@ -221,7 +222,7 @@ std::unique_ptr<ColumnType> TTypeDescToColumnType(const hs2::TTypeDesc& ttype_de
   if (type_id == ColumnType::TypeId::CHAR || type_id == ColumnType::TypeId::VARCHAR) {
     const std::map<std::string, hs2::TTypeQualifierValue>& qualifiers =
         ttype_desc.types[0].primitiveEntry.typeQualifiers.qualifiers;
-    DCHECK(qualifiers.count(hs2::g_TCLIService_constants.CHARACTER_MAXIMUM_LENGTH) == 1);
+    DCHECK_EQ(qualifiers.count(hs2::g_TCLIService_constants.CHARACTER_MAXIMUM_LENGTH), 1);
 
     try {
       return std::unique_ptr<ColumnType>(new CharacterType(
@@ -234,8 +235,8 @@ std::unique_ptr<ColumnType> TTypeDescToColumnType(const hs2::TTypeDesc& ttype_de
   } else if (type_id == ColumnType::TypeId::DECIMAL) {
     const std::map<std::string, hs2::TTypeQualifierValue>& qualifiers =
         ttype_desc.types[0].primitiveEntry.typeQualifiers.qualifiers;
-    DCHECK(qualifiers.count(hs2::g_TCLIService_constants.PRECISION) == 1);
-    DCHECK(qualifiers.count(hs2::g_TCLIService_constants.SCALE) == 1);
+    DCHECK_EQ(qualifiers.count(hs2::g_TCLIService_constants.PRECISION), 1);
+    DCHECK_EQ(qualifiers.count(hs2::g_TCLIService_constants.SCALE), 1);
 
     try {
       return std::unique_ptr<ColumnType>(new DecimalType(

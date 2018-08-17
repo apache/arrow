@@ -25,6 +25,7 @@
 #include "arrow/adapters/hiveserver2/types.h"
 
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -52,7 +53,7 @@ enum class FetchOrientation {
 // have Close called on them before they can be deleted.
 //
 // This class is not thread-safe.
-class Operation {
+class ARROW_EXPORT Operation {
  public:
   // Maps directly to TOperationState in the HiveServer2 interface.
   enum class State {

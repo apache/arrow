@@ -22,6 +22,7 @@
 #include <string>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -78,7 +79,7 @@ enum class ProtocolVersion {
 //   // do some work
 //   service->Close();
 // }
-class Service {
+class ARROW_EXPORT Service {
  public:
   // Creates a new connection to a HS2 service at the given host and port. If
   // conn_timeout > 0, connection attempts will timeout after conn_timeout ms, otherwise

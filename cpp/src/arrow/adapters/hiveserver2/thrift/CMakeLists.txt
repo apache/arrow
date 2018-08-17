@@ -59,6 +59,9 @@ function(HS2_THRIFT_GEN VAR)
       set(CPP_ARGS -r -nowarn --gen cpp -out ${GEN_DIR})
     ENDIF(FIL STREQUAL "beeswax.thrift")
 
+    # Be able to include generated ErrorCodes.thrift file
+    set(CPP_ARGS ${CPP_ARGS} -I ${CMAKE_CURRENT_BINARY_DIR})
+
     add_custom_command(
       OUTPUT ${OUTPUT_BE_FILE}
       COMMAND ${THRIFT_COMPILER} ${CPP_ARGS} ${FIL}
