@@ -24,13 +24,14 @@
 int main(int argc, char** argv) {
   if (argc > 5 || argc < 2) {
     std::cerr << "Usage: parquet_reader [--only-metadata] [--no-memory-map] [--json]"
-                 "[--columns=...] <file>"
+                 "[--print-key-value-metadata] [--columns=...] <file>"
               << std::endl;
     return -1;
   }
 
   std::string filename;
   bool print_values = true;
+  bool print_key_value_metadata = false;
   bool memory_map = true;
   bool format_json = false;
 
@@ -42,6 +43,8 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if ((param = std::strstr(argv[i], "--only-metadata"))) {
       print_values = false;
+    } else if ((param = std::strstr(argv[i], "--print-key-value-metadata"))) {
+      print_key_value_metadata = true;
     } else if ((param = std::strstr(argv[i], "--no-memory-map"))) {
       memory_map = false;
     } else if ((param = std::strstr(argv[i], "--json"))) {
@@ -64,7 +67,8 @@ int main(int argc, char** argv) {
     if (format_json) {
       printer.JSONPrint(std::cout, columns, filename.c_str());
     } else {
-      printer.DebugPrint(std::cout, columns, print_values, filename.c_str());
+      printer.DebugPrint(std::cout, columns, print_values,
+        print_key_value_metadata, filename.c_str());
     }
   } catch (const std::exception& e) {
     std::cerr << "Parquet error: " << e.what() << std::endl;
