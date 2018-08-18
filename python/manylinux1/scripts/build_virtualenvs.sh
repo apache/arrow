@@ -32,6 +32,8 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PIP="$(cpython_path $PYTHON ${U_WIDTH})/bin/pip"
     PATH="$PATH:$(cpython_path $PYTHON ${U_WIDTH})"
 
+    PANDAS_TEST_VERSION="0.23.4"
+
     echo "=== (${PYTHON}, ${U_WIDTH}) Installing build dependencies ==="
     $PIP install "numpy==1.10.4"
     $PIP install "cython==0.28.1"
@@ -41,7 +43,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}, ${U_WIDTH}) Preparing virtualenv for tests ==="
     "$(cpython_path $PYTHON ${U_WIDTH})/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download /venv-test-${PYTHON}-${U_WIDTH}
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
-    pip install pytest 'numpy==1.14.0' 'pandas==0.20.3'
+    pip install pytest 'numpy==1.14.0' 'pandas==$PANDAS_TEST_VERSION'
     deactivate
 done
 
