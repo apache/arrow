@@ -33,7 +33,9 @@
 #include "arrow/adapters/tensorflow/convert.h"
 #include "arrow/api.h"
 #include "arrow/io/api.h"
-#include "arrow/python/api.h"
+
+// This header does not include Python.h
+#include "arrow/python/serialize.h"
 
 #include "plasma/client.h"
 
