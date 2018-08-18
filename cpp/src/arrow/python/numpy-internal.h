@@ -56,9 +56,6 @@ class Ndarray1DIndexer {
 
   T* data() const { return data_; }
 
-  T* begin() const { return data(); }
-  T* end() const { return begin() + size() * stride_; }
-
   bool is_strided() const { return stride_ != 1; }
 
   T& operator[](size_type index) { return data_[index * stride_]; }
