@@ -17,7 +17,7 @@
 FROM quay.io/pypa/manylinux1_x86_64:latest
 
 # Install dependencies
-RUN yum install -y flex zlib-devel && yum clean all
+RUN yum install -y flex zlib-devel wget && yum clean all
 
 ADD scripts/build_openssl.sh /
 RUN /build_openssl.sh

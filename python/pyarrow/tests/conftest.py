@@ -21,6 +21,7 @@ from pytest import skip, mark
 groups = [
     'hdfs',
     'large_memory',
+    'orc',
     'parquet',
     'plasma',
     's3',
@@ -31,19 +32,24 @@ groups = [
 defaults = {
     'hdfs': False,
     'large_memory': False,
+    'orc': False,
     'parquet': False,
     'plasma': False,
-    'large_memory': False,
     's3': False,
     'tensorflow': False
 }
+
+try:
+    import pyarrow.orc # noqa
+    defaults['orc'] = True
+except ImportError:
+    pass
 
 try:
     import pyarrow.parquet  # noqa
     defaults['parquet'] = True
 except ImportError:
     pass
-
 
 try:
     import pyarrow.plasma as plasma  # noqa
