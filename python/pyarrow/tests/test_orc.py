@@ -128,9 +128,9 @@ def check_example_using_json(example_name):
     # Read JSON file
     json_path = path_for_json_example(example_name)
     if json_path.endswith('.gz'):
-        f = gzip.open(json_path, 'rb')
+        f = gzip.open(json_path, 'r')
     else:
-        f = open(json_path, 'rb')
+        f = open(json_path, 'r')
 
     table = pd.read_json(f, lines=True)
 
