@@ -22,7 +22,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/python/python_to_arrow.h"
+#include "arrow/python/serialize.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 

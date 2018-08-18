@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/arrow_to_python.h"
+#include "arrow/python/deserialize.h"
 
 #include "arrow/python/numpy_interop.h"
 
@@ -40,7 +40,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/pyarrow.h"
-#include "arrow/python/python_to_arrow.h"
+#include "arrow/python/serialize.h"
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
