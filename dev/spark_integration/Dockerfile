@@ -17,51 +17,47 @@
 FROM maven:3.5.2-jdk-8-slim
 
 # Basic OS utilities
-RUN apt-get update && \
-    apt-get install -y \
-        wget \
-        git \
-        build-essential \
-        software-properties-common && \
-    apt-get clean && \
-    # install conda in /home/ubuntu/miniconda
-    wget -O /tmp/miniconda.sh \
-    https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
-    rm /tmp/miniconda.sh && \
-    # Python dependencies
-    apt-get install -y \
-        pkg-config && \
-    # Create Conda environment
-    /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
-        # Python
-        python=2.7 \
-        numpy \
-        pandas \
-        pytest \
-        cython \
-        ipython \
-        matplotlib \
-        six \
-        setuptools \
-        setuptools_scm \
-        # C++
-        boost-cpp \
-        cmake \
-        flatbuffers \
-        rapidjson \
-        thrift-cpp \
-        snappy \
-        zlib \
-        gflags \
-        brotli \
-        jemalloc \
-        lz4-c \
-        zstd \
-        -c conda-forge && \
-    /home/ubuntu/miniconda/bin/conda clean --all
+RUN apt-get update \
+ && apt-get install -y \
+      wget \
+      git \
+      pkg-config \
+      build-essential \
+      software-properties-common \
+ && apt-get clean
 
-ENV PATH="/home/ubuntu/miniconda/bin:${PATH}"
+# install conda in /home/ubuntu/miniconda
+RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh \
+  && /bin/bash conda.sh -b -p /opt/conda \
+  && rm conda.sh
+
+ENV PATH="/opt/conda/bin:${PATH}"
+
+RUN conda create -y -q -c conda-forge -n pyarrow-dev \
+      python=2.7 \
+      ipython \
+      nomkl \
+      numpy \
+      six \
+      setuptools \
+      cython \
+      pandas \
+      pytest \
+      cmake \
+      flatbuffers \
+      rapidjson \
+      boost-cpp \
+      thrift-cpp \
+      snappy \
+      zlib \
+      gflags \
+      brotli \
+      jemalloc \
+      lz4-c \
+      zstd \
+      setuptools \
+      setuptools_scm \
+ && conda clean --all
 
 ADD . /apache-arrow
 WORKDIR /apache-arrow

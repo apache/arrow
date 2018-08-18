@@ -961,7 +961,7 @@ class ArrayReader {
     int length = static_cast<int>(is_valid.size());
 
     std::shared_ptr<Buffer> out_buffer;
-    RETURN_NOT_OK(GetEmptyBitmap(pool_, length, &out_buffer));
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool_, length, &out_buffer));
     uint8_t* bitmap = out_buffer->mutable_data();
 
     *null_count = 0;

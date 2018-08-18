@@ -111,11 +111,12 @@ inline Status CastSize(Py_ssize_t size, int32_t* out,
   return Status::OK();
 }
 
-Status BuilderAppend(StringBuilder* builder, PyObject* obj, bool check_valid = false,
-                     bool* is_full = NULLPTR);
-Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full = NULLPTR);
-Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
-                     bool* is_full = NULLPTR);
+// \brief Print the Python object's __str__ form along with the passed error
+// message
+Status InvalidValue(PyObject* obj, const std::string& why);
+
+Status IntegerScalarToDoubleSafe(PyObject* obj, double* result);
+Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
 
 }  // namespace internal
 }  // namespace py

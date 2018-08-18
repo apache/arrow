@@ -16,43 +16,29 @@
 # under the License.
 
 
-cdef _sequence_to_array(object sequence, object size, DataType type,
+cdef _sequence_to_array(object sequence, object mask, object size,
+                        DataType type,
                         CMemoryPool* pool, c_bool from_pandas):
-    cdef shared_ptr[CArray] out
     cdef int64_t c_size
-    if type is None:
-        if size is None:
-            with nogil:
-                check_status(
-                    ConvertPySequence(sequence, pool, from_pandas, &out)
-                )
-        else:
-            c_size = size
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, c_size, pool, from_pandas, &out
-                    )
-                )
-    else:
-        if size is None:
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, type.sp_type, pool, from_pandas, &out,
-                    )
-                )
-        else:
-            c_size = size
-            with nogil:
-                check_status(
-                    ConvertPySequence(
-                        sequence, c_size, type.sp_type, pool, from_pandas,
-                        &out,
-                    )
-                )
+    cdef PyConversionOptions options
 
-    return pyarrow_wrap_array(out)
+    if type is not None:
+        options.type = type.sp_type
+
+    if size is not None:
+        options.size = size
+
+    options.pool = pool
+    options.from_pandas = from_pandas
+
+    cdef shared_ptr[CChunkedArray] out
+    with nogil:
+        check_status(ConvertPySequence(sequence, mask, options, &out))
+
+    if out.get().num_chunks() == 1:
+        return pyarrow_wrap_array(out.get().chunk(0))
+    else:
+        return pyarrow_wrap_chunked_array(out)
 
 
 cdef _is_array_like(obj):
@@ -64,7 +50,7 @@ cdef _is_array_like(obj):
 
 
 cdef _ndarray_to_array(object values, object mask, DataType type,
-                       c_bool use_pandas_null_sentinels,
+                       c_bool from_pandas,
                        CMemoryPool* pool):
     cdef shared_ptr[CChunkedArray] chunked_out
     cdef shared_ptr[CDataType] c_type
@@ -79,8 +65,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         c_type = type.sp_type
 
     with nogil:
-        check_status(NdarrayToArrow(pool, values, mask,
-                                    use_pandas_null_sentinels,
+        check_status(NdarrayToArrow(pool, values, mask, from_pandas,
                                     c_type, &chunked_out))
 
     if chunked_out.get().num_chunks() > 1:
@@ -117,7 +102,6 @@ def array(object obj, type=None, mask=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
         memory pool
-
     size : int64, optional
         Size of the elements. If the imput is larger than size bail at this
         length. For iterators, if size is larger than the input iterator this
@@ -181,9 +165,7 @@ def array(object obj, type=None, mask=None,
                                                         type)
             return _ndarray_to_array(values, mask, type, from_pandas, pool)
     else:
-        if mask is not None:
-            raise ValueError("Masks only supported with ndarray-like inputs")
-        return _sequence_to_array(obj, size, type, pool, from_pandas)
+        return _sequence_to_array(obj, mask, size, type, pool, from_pandas)
 
 
 def asarray(values, type=None):
@@ -532,10 +514,9 @@ cdef class Array:
                              null_count, offset)
         return pyarrow_wrap_array(MakeArray(ad))
 
-    property null_count:
-
-        def __get__(self):
-            return self.sp_array.get().null_count()
+    @property
+    def null_count(self):
+        return self.sp_array.get().null_count()
 
     def __iter__(self):
         for i in range(len(self)):
@@ -620,7 +601,7 @@ cdef class Array:
                   c_bool zero_copy_only=False,
                   c_bool integer_object_nulls=False):
         """
-        Convert to an array object suitable for use in pandas
+        Convert to a NumPy array object suitable for use in pandas.
 
         Parameters
         ----------
@@ -659,14 +640,13 @@ cdef class Array:
 
     def to_numpy(self):
         """
-        EXPERIMENTAL: Construct a NumPy view of this array. Only supports
-        primitive arrays with the same memory layout as NumPy (i.e. integers,
-        floating point) without any nulls.
+        Experimental: return a NumPy view of this array. Only primitive
+        arrays with the same memory layout as NumPy (i.e. integers,
+        floating point), without any nulls, are supported.
 
         Returns
         -------
-        arr : numpy.ndarray
-
+        array : numpy.ndarray
         """
         if self.null_count:
             raise NotImplementedError('NumPy array view is only supported '
@@ -681,7 +661,11 @@ cdef class Array:
 
     def to_pylist(self):
         """
-        Convert to an list of native Python objects.
+        Convert to a list of native Python objects.
+
+        Returns
+        -------
+        lst : list
         """
         return [x.as_py() for x in self]
 
@@ -698,15 +682,14 @@ cdef class Array:
         with nogil:
             check_status(ValidateArray(deref(self.ap)))
 
-    property offset:
-
-        def __get__(self):
-            """
-            A relative position into another array's data, to enable zero-copy
-            slicing. This value defaults to zero but must be applied on all
-            operations with the physical storage buffers.
-            """
-            return self.sp_array.get().offset()
+    @property
+    def offset(self):
+        """
+        A relative position into another array's data, to enable zero-copy
+        slicing. This value defaults to zero but must be applied on all
+        operations with the physical storage buffers.
+        """
+        return self.sp_array.get().offset()
 
     def buffers(self):
         """
@@ -1049,25 +1032,23 @@ cdef class DictionaryArray(Array):
     def dictionary_encode(self):
         return self
 
-    property dictionary:
+    @property
+    def dictionary(self):
+        cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
 
-        def __get__(self):
-            cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
+        if self._dictionary is None:
+            self._dictionary = pyarrow_wrap_array(darr.dictionary())
 
-            if self._dictionary is None:
-                self._dictionary = pyarrow_wrap_array(darr.dictionary())
+        return self._dictionary
 
-            return self._dictionary
+    @property
+    def indices(self):
+        cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
 
-    property indices:
+        if self._indices is None:
+            self._indices = pyarrow_wrap_array(darr.indices())
 
-        def __get__(self):
-            cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
-
-            if self._indices is None:
-                self._indices = pyarrow_wrap_array(darr.indices())
-
-            return self._indices
+        return self._indices
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, ordered=False,

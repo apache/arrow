@@ -30,7 +30,6 @@ conda config --add channels https://repo.continuum.io/pkgs/free
 conda config --add channels conda-forge
 conda info -a
 
-if "%GENERATOR%"=="NMake Makefiles" set need_vcvarsall=1
 if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
 
 if defined need_vcvarsall (

@@ -92,13 +92,13 @@ struct HashParams {
     std::vector<int64_t> draws;
     std::vector<T> values;
     std::vector<bool> is_valid;
-    test::randint<int64_t>(length, 0, num_unique, &draws);
+    randint<int64_t>(length, 0, num_unique, &draws);
     for (int64_t draw : draws) {
       values.push_back(static_cast<T>(draw));
     }
 
     if (this->null_percent > 0) {
-      test::random_is_valid(length, this->null_percent, &is_valid);
+      random_is_valid(length, this->null_percent, &is_valid);
       ArrayFromVector<Type, T>(is_valid, values, arr);
     } else {
       ArrayFromVector<Type, T>(values, arr);
@@ -115,16 +115,16 @@ struct HashParams<StringType> {
   void GenerateTestData(const int64_t length, const int64_t num_unique,
                         std::shared_ptr<Array>* arr) const {
     std::vector<int64_t> draws;
-    test::randint<int64_t>(length, 0, num_unique, &draws);
+    randint<int64_t>(length, 0, num_unique, &draws);
 
     const int64_t total_bytes = this->byte_width * num_unique;
     std::vector<uint8_t> uniques(total_bytes);
     const uint32_t seed = 0;
-    test::random_bytes(total_bytes, seed, uniques.data());
+    random_bytes(total_bytes, seed, uniques.data());
 
     std::vector<bool> is_valid;
     if (this->null_percent > 0) {
-      test::random_is_valid(length, this->null_percent, &is_valid);
+      random_is_valid(length, this->null_percent, &is_valid);
     }
 
     StringBuilder builder;

@@ -45,8 +45,9 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
 
   def test_field_indexes
     require_gi(1, 42, 0)
+    require_gi_bindings(3, 2, 6)
     assert_nil(@reader.field_indexes)
-    @reader.set_field_indexes([1, 3])
+    @reader.field_indexes = [1, 3]
     assert_equal([1, 3], @reader.field_indexes)
   end
 
@@ -186,7 +187,8 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
     end
 
     test("select fields") do
-      @reader.set_field_indexes([1, 3])
+      require_gi_bindings(3, 2, 6)
+      @reader.field_indexes = [1, 3]
       table = @reader.read_stripes
       dump = table.n_columns.times.collect do |i|
         column = table.get_column(i)
@@ -332,7 +334,8 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
     end
 
     test("select fields") do
-      @reader.set_field_indexes([1, 3])
+      require_gi_bindings(3, 2, 6)
+      @reader.field_indexes = [1, 3]
       record_batch = @reader.read_stripe(0)
       dump = record_batch.n_columns.times.collect do |i|
         [

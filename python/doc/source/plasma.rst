@@ -291,7 +291,7 @@ process of storing an object in the Plasma store, however one cannot directly
 write the ``DataFrame`` to Plasma with Pandas alone. Plasma also needs to know
 the size of the ``DataFrame`` to allocate a buffer for.
 
-See :ref:`pandas` for more information on using Arrow with Pandas.
+See :ref:`pandas_interop` for more information on using Arrow with Pandas.
 
 You can create the pyarrow equivalent of a Pandas ``DataFrame`` by using
 ``pyarrow.from_pandas`` to convert it to a ``RecordBatch``.

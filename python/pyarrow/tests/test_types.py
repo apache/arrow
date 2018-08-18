@@ -23,34 +23,42 @@ import pyarrow as pa
 import pyarrow.types as types
 
 
-MANY_TYPES = [
-    pa.null(),
-    pa.bool_(),
-    pa.int32(),
-    pa.time32('s'),
-    pa.time64('us'),
-    pa.date32(),
-    pa.timestamp('us'),
-    pa.timestamp('us', tz='UTC'),
-    pa.timestamp('us', tz='Europe/Paris'),
-    pa.float16(),
-    pa.float32(),
-    pa.float64(),
-    pa.decimal128(19, 4),
-    pa.string(),
-    pa.binary(),
-    pa.binary(10),
-    pa.list_(pa.int32()),
-    pa.struct([pa.field('a', pa.int32()),
-               pa.field('b', pa.int8()),
-               pa.field('c', pa.string())]),
-    pa.union([pa.field('a', pa.binary(10)),
-              pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
-    pa.union([pa.field('a', pa.binary(10)),
-              pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-    # XXX Needs array pickling
-    # pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
-]
+def get_many_types():
+    # returning them from a function is required because of pa.dictionary
+    # type holds a pyarrow array and test_array.py::test_toal_bytes_allocated
+    # checks that the default memory pool has zero allocated bytes
+    return (
+        pa.null(),
+        pa.bool_(),
+        pa.int32(),
+        pa.time32('s'),
+        pa.time64('us'),
+        pa.date32(),
+        pa.timestamp('us'),
+        pa.timestamp('us', tz='UTC'),
+        pa.timestamp('us', tz='Europe/Paris'),
+        pa.float16(),
+        pa.float32(),
+        pa.float64(),
+        pa.decimal128(19, 4),
+        pa.string(),
+        pa.binary(),
+        pa.binary(10),
+        pa.list_(pa.int32()),
+        pa.struct([pa.field('a', pa.int32()),
+                   pa.field('b', pa.int8()),
+                   pa.field('c', pa.string())]),
+        pa.struct([pa.field('a', pa.int32(), nullable=False),
+                   pa.field('b', pa.int8(), nullable=False),
+                   pa.field('c', pa.string())]),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+        pa.union([pa.field('a', pa.binary(10), nullable=False),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+        pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+    )
 
 
 def test_is_boolean():
@@ -174,6 +182,45 @@ def test_is_primitive():
     assert not types.is_primitive(pa.list_(pa.int32()))
 
 
+def test_timestamp():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        for tz in (None, 'UTC', 'Europe/Paris'):
+            ty = pa.timestamp(unit, tz=tz)
+            assert ty.unit == unit
+            assert ty.tz == tz
+
+    for invalid_unit in ('m', 'arbit', 'rary'):
+        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+            pa.timestamp(invalid_unit)
+
+
+def test_time32_units():
+    for valid_unit in ('s', 'ms'):
+        ty = pa.time32(valid_unit)
+        assert ty.unit == valid_unit
+
+    for invalid_unit in ('m', 'us', 'ns'):
+        error_msg = 'Invalid TimeUnit for time32: {}'.format(invalid_unit)
+        with pytest.raises(ValueError, match=error_msg):
+            pa.time32(invalid_unit)
+
+
+def test_time64_units():
+    for valid_unit in ('us', 'ns'):
+        ty = pa.time64(valid_unit)
+        assert ty.unit == valid_unit
+
+    for invalid_unit in ('m', 's', 'ms'):
+        error_msg = 'Invalid TimeUnit for time64: {}'.format(invalid_unit)
+        with pytest.raises(ValueError, match=error_msg):
+            pa.time64(invalid_unit)
+
+
+def test_list_type():
+    ty = pa.list_(pa.int64())
+    assert ty.value_type == pa.int64()
+
+
 def test_struct_type():
     fields = [pa.field('a', pa.int64()),
               pa.field('a', pa.int32()),
@@ -207,33 +254,44 @@ def test_union_type():
             pa.union(fields, mode=mode)
 
 
+def test_dictionary_type():
+    ty0 = pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+    assert ty0.index_type == pa.int32()
+    assert isinstance(ty0.dictionary, pa.Array)
+    assert ty0.dictionary.to_pylist() == ['a', 'b', 'c']
+    assert ty0.ordered is False
+
+    ty1 = pa.dictionary(pa.float32(), pa.array([1.0, 2.0]), ordered=True)
+    assert ty1.index_type == pa.float32()
+    assert isinstance(ty0.dictionary, pa.Array)
+    assert ty1.dictionary.to_pylist() == [1.0, 2.0]
+    assert ty1.ordered is True
+
+
 def test_types_hashable():
+    many_types = get_many_types()
     in_dict = {}
-    for i, type_ in enumerate(MANY_TYPES):
+    for i, type_ in enumerate(many_types):
         assert hash(type_) == hash(type_)
         in_dict[type_] = i
-    assert len(in_dict) == len(MANY_TYPES)
-    for i, type_ in enumerate(MANY_TYPES):
+    assert len(in_dict) == len(many_types)
+    for i, type_ in enumerate(many_types):
         assert in_dict[type_] == i
 
 
-@pytest.mark.parametrize('ty', MANY_TYPES, ids=str)
-def test_types_picklable(ty):
-    data = pickle.dumps(ty)
-    assert pickle.loads(data) == ty
-
-
-def test_dictionary_type():
-    ty = pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
-    assert ty.index_type == pa.int32()
-    assert ty.dictionary.to_pylist() == ['a', 'b', 'c']
+def test_types_picklable():
+    for ty in get_many_types():
+        data = pickle.dumps(ty)
+        assert pickle.loads(data) == ty
 
 
 def test_fields_hashable():
     in_dict = {}
-    fields = [pa.field('a', pa.int64()),
-              pa.field('a', pa.int32()),
-              pa.field('b', pa.int32())]
+    fields = [pa.field('a', pa.int32()),
+              pa.field('a', pa.int64()),
+              pa.field('a', pa.int64(), nullable=False),
+              pa.field('b', pa.int32()),
+              pa.field('b', pa.int32(), nullable=False)]
     for i, field in enumerate(fields):
         in_dict[field] = i
     assert len(in_dict) == len(fields)
@@ -262,6 +320,12 @@ def test_exact_primitive_types(t, check_func):
     assert check_func(t)
 
 
+def test_type_id():
+    # enum values are not exposed publicly
+    for ty in get_many_types():
+        assert isinstance(ty.id, int)
+
+
 def test_bit_width():
     for ty, expected in [(pa.bool_(), 1),
                          (pa.int8(), 8),
@@ -280,21 +344,25 @@ def test_fixed_size_binary_byte_width():
     assert ty.byte_width == 5
 
 
-def test_decimal_byte_width():
+def test_decimal_properties():
     ty = pa.decimal128(19, 4)
     assert ty.byte_width == 16
+    assert ty.precision == 19
+    assert ty.scale == 4
 
 
-@pytest.mark.parametrize(('index', 'ty'), enumerate(MANY_TYPES), ids=str)
-def test_type_equality_operators(index, ty):
-    non_pyarrow = ['foo', 16, {'s', 'e', 't'}]
+def test_type_equality_operators():
+    many_types = get_many_types()
+    non_pyarrow = ('foo', 16, {'s', 'e', 't'})
 
-    # could use two parametrization levels, but that'd bloat pytest's output
-    for i, other in enumerate(MANY_TYPES + non_pyarrow):
-        if i == index:
-            assert ty == other
-        else:
-            assert ty != other
+    for index, ty in enumerate(many_types):
+        # could use two parametrization levels,
+        # but that'd bloat pytest's output
+        for i, other in enumerate(many_types + non_pyarrow):
+            if i == index:
+                assert ty == other
+            else:
+                assert ty != other
 
 
 def test_field_basic():

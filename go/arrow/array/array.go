@@ -88,14 +88,14 @@ func (a *array) Release() {
 }
 
 // DataType returns the type metadata for this instance.
-func (a *array) DataType() arrow.DataType { return a.data.typE }
+func (a *array) DataType() arrow.DataType { return a.data.dtype }
 
 // NullN returns the number of null values in the array.
 func (a *array) NullN() int {
-	if a.data.nullN < 0 {
-		a.data.nullN = a.data.length - bitutil.CountSetBits(a.nullBitmapBytes, a.data.length)
+	if a.data.nulls < 0 {
+		a.data.nulls = a.data.length - bitutil.CountSetBits(a.nullBitmapBytes, a.data.offset, a.data.length)
 	}
-	return a.data.nullN
+	return a.data.nulls
 }
 
 // NullBitmapBytes returns a byte slice of the validity bitmap.
@@ -109,13 +109,13 @@ func (a *array) Len() int { return a.data.length }
 // IsNull returns true if value at index is null.
 // NOTE: IsNull will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
 func (a *array) IsNull(i int) bool {
-	return len(a.nullBitmapBytes) != 0 && bitutil.BitIsNotSet(a.nullBitmapBytes, i)
+	return len(a.nullBitmapBytes) != 0 && bitutil.BitIsNotSet(a.nullBitmapBytes, a.data.offset+i)
 }
 
 // IsValid returns true if value at index is not null.
 // NOTE: IsValid will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
 func (a *array) IsValid(i int) bool {
-	return len(a.nullBitmapBytes) == 0 || bitutil.BitIsSet(a.nullBitmapBytes, i)
+	return len(a.nullBitmapBytes) == 0 || bitutil.BitIsSet(a.nullBitmapBytes, a.data.offset+i)
 }
 
 func (a *array) setData(data *Data) {
@@ -134,18 +134,18 @@ type arrayConstructorFn func(*Data) Interface
 
 var (
 	makeArrayFn = [...]arrayConstructorFn{
-		arrow.NULL:              unsupportedArrayType,
+		arrow.NULL:              func(data *Data) Interface { return NewNullData(data) },
 		arrow.BOOL:              func(data *Data) Interface { return NewBooleanData(data) },
-		arrow.UINT8:             unsupportedArrayType,
-		arrow.INT8:              unsupportedArrayType,
-		arrow.UINT16:            unsupportedArrayType,
-		arrow.INT16:             unsupportedArrayType,
-		arrow.UINT32:            unsupportedArrayType,
+		arrow.UINT8:             func(data *Data) Interface { return NewUint8Data(data) },
+		arrow.INT8:              func(data *Data) Interface { return NewInt8Data(data) },
+		arrow.UINT16:            func(data *Data) Interface { return NewUint16Data(data) },
+		arrow.INT16:             func(data *Data) Interface { return NewInt16Data(data) },
+		arrow.UINT32:            func(data *Data) Interface { return NewUint32Data(data) },
 		arrow.INT32:             func(data *Data) Interface { return NewInt32Data(data) },
 		arrow.UINT64:            func(data *Data) Interface { return NewUint64Data(data) },
 		arrow.INT64:             func(data *Data) Interface { return NewInt64Data(data) },
 		arrow.HALF_FLOAT:        unsupportedArrayType,
-		arrow.FLOAT32:           unsupportedArrayType,
+		arrow.FLOAT32:           func(data *Data) Interface { return NewFloat32Data(data) },
 		arrow.FLOAT64:           func(data *Data) Interface { return NewFloat64Data(data) },
 		arrow.STRING:            unsupportedArrayType,
 		arrow.BINARY:            func(data *Data) Interface { return NewBinaryData(data) },
@@ -172,14 +172,32 @@ var (
 )
 
 func unsupportedArrayType(data *Data) Interface {
-	panic("unsupported data type: " + data.typE.ID().String())
+	panic("unsupported data type: " + data.dtype.ID().String())
 }
 
 func invalidDataType(data *Data) Interface {
-	panic("invalid data type: " + data.typE.ID().String())
+	panic("invalid data type: " + data.dtype.ID().String())
 }
 
 // MakeFromData constructs a strongly-typed array instance from generic Data.
 func MakeFromData(data *Data) Interface {
-	return makeArrayFn[byte(data.typE.ID()&0x1f)](data)
+	return makeArrayFn[byte(data.dtype.ID()&0x1f)](data)
+}
+
+// NewSlice constructs a zero-copy slice of the array with the indicated
+// indices i and j, corresponding to array[i:j].
+// The returned array must be Release()'d after use.
+//
+// NewSlice panics if the slice is outside the valid range of the input array.
+// NewSlice panics if j < i.
+func NewSlice(arr Interface, i, j int64) Interface {
+	data := NewSliceData(arr.Data(), i, j)
+	slice := MakeFromData(data)
+	data.Release()
+	return slice
+}
+
+func init() {
+	makeArrayFn[arrow.LIST] = func(data *Data) Interface { return NewListData(data) }
+	makeArrayFn[arrow.STRUCT] = func(data *Data) Interface { return NewStructData(data) }
 }

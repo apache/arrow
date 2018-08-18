@@ -50,6 +50,15 @@ conda install -y -q pip \
       pandas \
       cython
 
+if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+  # Build documentation depedencies
+  conda install -y -q \
+        ipython \
+        numpydoc \
+        sphinx \
+        sphinx_bootstrap_theme
+fi
+
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
 # significantly, and so we have disabled these tests in Travis CI for now
 
@@ -81,6 +90,7 @@ fi
 cmake -GNinja \
       $CMAKE_COMMON_FLAGS \
       -DARROW_BUILD_TESTS=on \
+      -DARROW_TEST_INCLUDE_LABELS=python \
       -DARROW_BUILD_UTILITIES=off \
       -DARROW_PLASMA=on \
       -DARROW_TENSORFLOW=on \
@@ -102,6 +112,7 @@ pushd $ARROW_PYTHON_DIR
 
 # Other stuff pip install
 pip install -q -r requirements.txt
+
 if [ "$PYTHON_VERSION" == "3.6" ]; then
     pip install -q pickle5
 fi
@@ -117,16 +128,14 @@ export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_ORC=1
 
-python setup.py build_ext -q --inplace
+python setup.py develop
 
 # Basic sanity checks
 python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 python -c "import pyarrow.orc"
 
-if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
-  export PLASMA_VALGRIND=1
-fi
+echo "PLASMA_VALGRIND: $PLASMA_VALGRIND"
 
 # Set up huge pages for plasma test
 if [ $TRAVIS_OS_NAME == "linux" ]; then
@@ -164,25 +173,12 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     popd   # $TRAVIS_BUILD_DIR
 fi
 
-popd  # $ARROW_PYTHON_DIR
-
-
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
-  # Build documentation once
-  conda install -y -q \
-        ipython \
-        matplotlib \
-        numpydoc \
-        sphinx \
-        sphinx_bootstrap_theme
-
-  pushd $ARROW_PYTHON_DIR
-  # For autodoc, make sure PyArrow is installed
-  python setup.py install -q --single-version-externally-managed --record=record.text
   cd doc
   sphinx-build -q -b html -d _build/doctrees -W source _build/html
-  popd  # $ARROW_PYTHON_DIR
 fi
+
+popd  # $ARROW_PYTHON_DIR
 
 if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Check the ASV benchmarking setup.

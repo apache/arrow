@@ -119,6 +119,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow googletest unit tests"
     ON)
 
+  set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
+    "Only build unit tests having the indicated label or labels. \
+Pass multiple labels by dividing with semicolons")
+
   option(ARROW_BUILD_BENCHMARKS
     "Build the Arrow micro benchmarks"
     OFF)
@@ -673,7 +677,7 @@ if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
 
-  if (CMAKE_COMPILER_IS_GNUCXX)
+  if (CMAKE_COMPILER_IS_GNUCXX AND PTHREAD_LIBRARY)
     set(ARROW_JEMALLOC_LINK_LIBS
       jemalloc_static
       # For glibc <2.17 we need to link to librt.
@@ -693,7 +697,7 @@ if (ARROW_JEMALLOC)
   set(ARROW_STATIC_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
     ${ARROW_JEMALLOC_LINK_LIBS})
-elseif (NOT MSVC)
+elseif (PTHREAD_LIBRARY)
   # We need to separate this as otherwise CMake would mess with the library
   # linking order.
   set(ARROW_LINK_LIBS
@@ -715,12 +719,5 @@ endif()
 add_subdirectory(src/arrow)
 
 if(ARROW_PYTHON)
-  find_package(PythonLibsNew REQUIRED)
-  find_package(NumPy REQUIRED)
-
-  include_directories(SYSTEM
-    ${NUMPY_INCLUDE_DIRS}
-    ${PYTHON_INCLUDE_DIRS})
-
   add_subdirectory(src/arrow/python)
 endif()

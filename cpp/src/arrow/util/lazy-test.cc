@@ -28,7 +28,7 @@ class TestLazyIter : public ::testing::Test {
  public:
   int64_t kSize = 1000;
   void SetUp() {
-    test::randint(kSize, 0, 1000000, &source_);
+    randint(kSize, 0, 1000000, &source_);
     target_.resize(kSize);
   }
 

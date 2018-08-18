@@ -464,6 +464,7 @@ def test_allocate_buffer():
     buf = pa.allocate_buffer(100)
     assert buf.size == 100
     assert buf.is_mutable
+    assert buf.parent is None
 
     bit = b'abcde'
     writer = pa.FixedSizeBufferWriter(buf)

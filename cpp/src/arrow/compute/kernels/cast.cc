@@ -38,6 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/parsing.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
@@ -728,6 +729,79 @@ struct CastFunctor<T, DictionaryType,
 };
 
 // ----------------------------------------------------------------------
+// String to Number
+
+template <typename O>
+struct CastFunctor<O, StringType, enable_if_number<O>> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    using out_type = typename O::c_type;
+
+    StringArray input_array(input.Copy());
+    auto out_data = GetMutableValues<out_type>(output, 1);
+    internal::StringConverter<O> converter;
+
+    for (int64_t i = 0; i < input.length; ++i, ++out_data) {
+      if (input_array.IsNull(i)) {
+        continue;
+      }
+
+      int32_t length = -1;
+      auto str = input_array.GetValue(i, &length);
+      if (!converter(reinterpret_cast<const char*>(str), static_cast<size_t>(length),
+                     out_data)) {
+        std::stringstream ss;
+        ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
+        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        return;
+      }
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
+// String to Boolean
+
+template <typename O>
+struct CastFunctor<O, StringType,
+                   typename std::enable_if<std::is_same<BooleanType, O>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    StringArray input_array(input.Copy());
+    internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
+                                           output->offset, input.length);
+    internal::StringConverter<O> converter;
+
+    for (int64_t i = 0; i < input.length; ++i) {
+      if (input_array.IsNull(i)) {
+        writer.Next();
+        continue;
+      }
+
+      int32_t length = -1;
+      auto str = input_array.GetValue(i, &length);
+      bool value;
+      if (!converter(reinterpret_cast<const char*>(str), static_cast<size_t>(length),
+                     &value)) {
+        std::stringstream ss;
+        ss << "Failed to cast String '" << input_array.GetString(i) << "' into "
+           << output->type->ToString();
+        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        return;
+      }
+
+      if (value) {
+        writer.Set();
+      } else {
+        writer.Clear();
+      }
+      writer.Next();
+    }
+    writer.Finish();
+  }
+};
+
+// ----------------------------------------------------------------------
 
 typedef std::function<void(FunctionContext*, const CastOptions& options, const ArrayData&,
                            ArrayData*)>
@@ -905,6 +979,20 @@ class CastKernel : public UnaryKernel {
   FN(TimestampType, Date64Type);     \
   FN(TimestampType, Int64Type);
 
+#define STRING_CASES(FN, IN_TYPE) \
+  FN(StringType, StringType);     \
+  FN(StringType, BooleanType);    \
+  FN(StringType, UInt8Type);      \
+  FN(StringType, Int8Type);       \
+  FN(StringType, UInt16Type);     \
+  FN(StringType, Int16Type);      \
+  FN(StringType, UInt32Type);     \
+  FN(StringType, Int32Type);      \
+  FN(StringType, UInt64Type);     \
+  FN(StringType, Int64Type);      \
+  FN(StringType, FloatType);      \
+  FN(StringType, DoubleType);
+
 #define DICTIONARY_CASES(FN, IN_TYPE) \
   FN(IN_TYPE, NullType);              \
   FN(IN_TYPE, Time32Type);            \
@@ -962,6 +1050,7 @@ GET_CAST_FUNCTION(DATE64_CASES, Date64Type);
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type);
 GET_CAST_FUNCTION(TIME64_CASES, Time64Type);
 GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
+GET_CAST_FUNCTION(STRING_CASES, StringType);
 GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
 
 #define CAST_FUNCTION_CASE(InType)                      \
@@ -1009,6 +1098,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(Time32Type);
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
+    CAST_FUNCTION_CASE(StringType);
     CAST_FUNCTION_CASE(DictionaryType);
     case Type::LIST:
       RETURN_NOT_OK(GetListCastFunc(in_type, out_type, options, kernel));

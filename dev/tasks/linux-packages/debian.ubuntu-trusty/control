@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Kouhei Sutou <kou@clear-code.com>
 Build-Depends:
   debhelper (>= 9),
+  dh-autoreconf,
   pkg-config,
   cmake,
   git,

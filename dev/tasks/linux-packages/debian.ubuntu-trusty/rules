@@ -11,7 +11,10 @@ export DEB_BUILD_MAINT_OPTIONS=reproducible=-timeless
 BUILD_TYPE=release
 
 %:
-	dh $@ --with gir
+	dh $@ --with gir,autoreconf
+
+override_dh_autoreconf:
+	cd c_glib && ./autogen.sh
 
 override_dh_auto_configure:
 	dh_auto_configure \

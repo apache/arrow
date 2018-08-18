@@ -107,7 +107,9 @@ def test_cpu_count():
     pa.ListValue,
     pa.UnionValue,
     pa.StructValue,
-    pa.DictionaryValue
+    pa.DictionaryValue,
+    pa.ipc.Message,
+    pa.ipc.MessageReader
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly

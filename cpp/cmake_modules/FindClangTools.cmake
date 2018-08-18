@@ -31,7 +31,7 @@
 #  CLANG_TIDY_FOUND, Whether clang format was found
 
 if (DEFINED ENV{HOMEBREW_PREFIX})
-  set(HOMEBREW_PREFIX "${ENV{HOMEBREW_PREFIX}")
+  set(HOMEBREW_PREFIX "$ENV{HOMEBREW_PREFIX}")
 else()
   set(HOMEBREW_PREFIX "/usr/local")
 endif()

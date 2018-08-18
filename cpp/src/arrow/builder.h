@@ -1268,8 +1268,9 @@ class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType
 // ----------------------------------------------------------------------
 // Helper functions
 
-Status ARROW_EXPORT MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                                std::unique_ptr<ArrayBuilder>* out);
+ARROW_EXPORT
+Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   std::unique_ptr<ArrayBuilder>* out);
 
 }  // namespace arrow
 

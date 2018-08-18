@@ -49,9 +49,13 @@ run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
 run cd build
 run tar xfz ${PACKAGE}_${VERSION}.orig.tar.gz
 case "${VERSION}" in
+  *~dev*)
+    run mv ${PACKAGE}-$(echo $VERSION | sed -e 's/~dev/-dev/') \
+        ${PACKAGE}-${VERSION}
+    ;;
   *~rc*)
-    mv ${PACKAGE}-$(echo $VERSION | sed -r -e 's/~rc[0-9]+//') \
-       ${PACKAGE}-${VERSION}
+    run mv ${PACKAGE}-$(echo $VERSION | sed -r -e 's/~rc[0-9]+//') \
+        ${PACKAGE}-${VERSION}
     ;;
 esac
 run cd ${PACKAGE}-${VERSION}/

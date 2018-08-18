@@ -18,8 +18,7 @@
 FROM gelog/hadoop
 
 ENV CC=gcc \
-    CXX=g++ \
-    PATH=/opt/conda/bin:$PATH
+    CXX=g++
 
 RUN apt-get update -y \
  && apt-get install -y \
@@ -30,14 +29,16 @@ RUN apt-get update -y \
 	  pkg-config \
 	  ninja-build
 
-# Miniconda - Python 3.6, 64-bit, x86, latest
 RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh \
  && /bin/bash conda.sh -b -p /opt/conda \
  && rm conda.sh
 
-# create conda env with the required dependences
+ENV PATH="/opt/conda/bin:${PATH}"
+
 RUN conda create -y -q -c conda-forge -n pyarrow-dev \
       python=3.6 \
+      ipython \
+      matplotlib \
       nomkl \
       numpy \
       six \
@@ -57,6 +58,8 @@ RUN conda create -y -q -c conda-forge -n pyarrow-dev \
       jemalloc \
       lz4-c \
       zstd \
+      setuptools \
+      setuptools_scm \
  && conda clean --all
 
 # installing in the previous step boost=1.60 and boost-cpp=1.67 gets installed,

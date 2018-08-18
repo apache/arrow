@@ -20,6 +20,8 @@
 Apache Arrow for Go
 ===================
 
+[![GoDoc](https://godoc.org/github.com/apache/arrow/go/arrow?status.svg)](https://godoc.org/github.com/apache/arrow/go/arrow)
+
 [Apache Arrow][arrow] is a cross-language development platform for in-memory data. It specifies a 
 standardized language-independent columnar memory format for flat and hierarchical data, 
 organized for efficient analytic operations on modern hardware. It also provides computational 
@@ -131,7 +133,7 @@ them internally in the [ifql][] execution engine and storage layers of [InfluxDB
 - [x] Variable-length binary
 - [ ] String (valid UTF-8)
 - [ ] Half-float (16-bit)
-- [ ] Null (no physical storage)
+- [x] Null (no physical storage)
 
 **Parametric types**
 
@@ -143,8 +145,8 @@ them internally in the [ifql][] execution engine and storage layers of [InfluxDB
 - [ ] Time64 (microseconds or nanoseconds since midnight)
 - [ ] Decimal (128-bit)
 - [ ] Fixed-sized binary
-- [ ] List
-- [ ] Struct
+- [x] List
+- [x] Struct
 - [ ] Union
     - [ ] Dense
     - [ ] Sparse

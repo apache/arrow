@@ -102,7 +102,7 @@ const rainDates = Array.from({length: LENGTH}, (_, i) => Date.now() - 1000 * 60 
 const LENGTH = 2000;
 const rainfall = arrow.Table.from({
   schema: { fields: fields },
-  batches: [{ 
+  batches: [{
     count: LENGTH,
     columns: [
       {name: "precipitation", count: LENGTH, VALIDITY: [], DATA: rainAmounts },
@@ -122,7 +122,7 @@ fetch(require("simple.arrow")).then(response => {
 });
 ```
 
-## Columns are what you'd expect
+## Columns look like JS Arrays
 
 ```es6
 import { readFileSync } from 'fs';
@@ -133,9 +133,10 @@ const table = Table.from([
     'latlong/records.arrow'
 ].map(readFileSync));
 
-const column = table.col('origin_lat');
-const typed = column.slice();
+const column = table.getColumn('origin_lat');
 
+// Copy the data into a TypedArray
+const typed = column.slice();
 assert(typed instanceof Float32Array);
 
 for (let i = -1, n = column.length; ++i < n;) {
@@ -247,18 +248,18 @@ If you think we missed a compilation target and it's a blocker for adoption, ple
 
 Full list of broader Apache Arrow [committers](https://arrow.apache.org/committers/).
 
-* Brian Hulette, CCRi,  _contributor_
+* Brian Hulette,  _committer_
 * Paul Taylor, Graphistry, Inc.,  _committer_
 
-# Powered By Apache Arrow in JS 
+# Powered By Apache Arrow in JS
 
 Full list of broader Apache Arrow [projects & organizations](https://github.com/apache/arrow/blob/master/site/powered_by.md).
- 
+
 ## Open Source Projects
 
 * [Apache Arrow](https://arrow.apache.org) -- Parent project for Powering Columnar In-Memory Analytics, including affiliated open source projects
 * [rxjs-mapd](https://github.com/graphistry/rxjs-mapd) -- A MapD Core node-driver that returns query results as Arrow columns
-* [Perspective](https://github.com/jpmorganchase/perspective) -- Perspective is a streaming data visualization engine by J.P. Morgan for JavaScript for building real-time & user-configurable analytics entirely in the browser. 
+* [Perspective](https://github.com/jpmorganchase/perspective) -- Perspective is a streaming data visualization engine by J.P. Morgan for JavaScript for building real-time & user-configurable analytics entirely in the browser.
 
 ## Companies & Organizations
 

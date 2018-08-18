@@ -223,14 +223,13 @@ cdef class SerializedPyObject:
     cdef readonly:
         object base
 
-    property total_bytes:
+    @property
+    def total_bytes(self):
+        cdef CMockOutputStream mock_stream
+        with nogil:
+            check_status(self.data.WriteTo(&mock_stream))
 
-        def __get__(self):
-            cdef CMockOutputStream mock_stream
-            with nogil:
-                check_status(self.data.WriteTo(&mock_stream))
-
-            return mock_stream.GetExtentBytesWritten()
+        return mock_stream.GetExtentBytesWritten()
 
     def write_to(self, sink):
         """

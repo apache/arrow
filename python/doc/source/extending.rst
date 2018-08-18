@@ -15,7 +15,7 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. currentmodule:: pyarrow.lib
+.. currentmodule:: pyarrow
 .. _extending:
 
 Using pyarrow from C++ and Cython Code

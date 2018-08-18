@@ -30,9 +30,9 @@ type Boolean struct {
 
 // NewBoolean creates a boolean array from the data memory.Buffer and contains length elements.
 // The nullBitmap buffer can be nil of there are no null values.
-// If nullN is not known, use UnknownNullCount to calculate the value of NullN at runtime from the nullBitmap buffer.
-func NewBoolean(length int, data *memory.Buffer, nullBitmap *memory.Buffer, nullN int) *Boolean {
-	return NewBooleanData(NewData(arrow.FixedWidthTypes.Boolean, length, []*memory.Buffer{nullBitmap, data}, nullN))
+// If nulls is not known, use UnknownNullCount to calculate the value of NullN at runtime from the nullBitmap buffer.
+func NewBoolean(length int, data *memory.Buffer, nullBitmap *memory.Buffer, nulls int) *Boolean {
+	return NewBooleanData(NewData(arrow.FixedWidthTypes.Boolean, length, []*memory.Buffer{nullBitmap, data}, nil, nulls, 0))
 }
 
 func NewBooleanData(data *Data) *Boolean {

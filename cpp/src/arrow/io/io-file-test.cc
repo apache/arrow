@@ -594,7 +594,7 @@ TEST_F(TestMemoryMappedFile, WriteRead) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
 
-  test::random_bytes(1024, 0, buffer.data());
+  random_bytes(1024, 0, buffer.data());
 
   const int reps = 5;
 
@@ -620,7 +620,7 @@ TEST_F(TestMemoryMappedFile, WriteResizeRead) {
   std::vector<std::vector<uint8_t>> buffers(reps);
   for (auto& b : buffers) {
     b.resize(buffer_size);
-    test::random_bytes(buffer_size, 0, b.data());
+    random_bytes(buffer_size, 0, b.data());
   }
 
   std::string path = "io-memory-map-write-read-test";
@@ -647,7 +647,7 @@ TEST_F(TestMemoryMappedFile, WriteResizeRead) {
 TEST_F(TestMemoryMappedFile, ResizeRaisesOnExported) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
@@ -683,7 +683,7 @@ TEST_F(TestMemoryMappedFile, ResizeRaisesOnExported) {
 TEST_F(TestMemoryMappedFile, WriteReadZeroInitSize) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
@@ -703,7 +703,7 @@ TEST_F(TestMemoryMappedFile, WriteReadZeroInitSize) {
 TEST_F(TestMemoryMappedFile, WriteThenShrink) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
@@ -729,7 +729,7 @@ TEST_F(TestMemoryMappedFile, WriteThenShrink) {
 TEST_F(TestMemoryMappedFile, WriteThenShrinkToHalfThenWrite) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
@@ -766,7 +766,7 @@ TEST_F(TestMemoryMappedFile, WriteThenShrinkToHalfThenWrite) {
 TEST_F(TestMemoryMappedFile, ResizeToZeroThanWrite) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
@@ -810,7 +810,7 @@ TEST_F(TestMemoryMappedFile, ResizeToZeroThanWrite) {
 TEST_F(TestMemoryMappedFile, WriteAt) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
@@ -830,7 +830,7 @@ TEST_F(TestMemoryMappedFile, WriteAt) {
 TEST_F(TestMemoryMappedFile, WriteBeyondEnd) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
@@ -848,7 +848,7 @@ TEST_F(TestMemoryMappedFile, WriteBeyondEnd) {
 TEST_F(TestMemoryMappedFile, WriteAtBeyondEnd) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   std::string path = "io-memory-map-write-read-test";
   std::shared_ptr<MemoryMappedFile> result;
@@ -880,7 +880,7 @@ TEST_F(TestMemoryMappedFile, ReadOnly) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
 
-  test::random_bytes(1024, 0, buffer.data());
+  random_bytes(1024, 0, buffer.data());
 
   const int reps = 5;
 
@@ -914,7 +914,7 @@ TEST_F(TestMemoryMappedFile, DISABLED_ReadWriteOver4GbFile) {
   const int64_t buffer_size = 1000 * 1000;
   std::vector<uint8_t> buffer(buffer_size);
 
-  test::random_bytes(buffer_size, 0, buffer.data());
+  random_bytes(buffer_size, 0, buffer.data());
 
   const int64_t reps = 5000;
 
@@ -950,7 +950,7 @@ TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
 
-  test::random_bytes(1024, 0, buffer.data());
+  random_bytes(1024, 0, buffer.data());
 
   std::string path = "ipc-read-only-test";
   CreateFile(path, buffer_size);
@@ -979,7 +979,7 @@ TEST_F(TestMemoryMappedFile, InvalidMode) {
   const int64_t buffer_size = 1024;
   std::vector<uint8_t> buffer(buffer_size);
 
-  test::random_bytes(1024, 0, buffer.data());
+  random_bytes(1024, 0, buffer.data());
 
   std::string path = "ipc-invalid-mode-test";
   CreateFile(path, buffer_size);

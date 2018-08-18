@@ -231,6 +231,16 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 ARROW_EXPORT
 Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buffer>* out);
 
+/// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
+///
+/// \param[in] pool a memory pool
+/// \param[in] size size of buffer to allocate
+/// \param[out] out the allocated buffer (contains padding)
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::unique_ptr<Buffer>* out);
+
 /// \brief Allocate a fixed-size mutable buffer from the default memory pool
 ///
 /// \param[in] size size of buffer to allocate
@@ -239,6 +249,15 @@ Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buff
 /// \return Status message
 ARROW_EXPORT
 Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out);
+
+/// \brief Allocate a fixed-size mutable buffer from the default memory pool
+///
+/// \param[in] size size of buffer to allocate
+/// \param[out] out the allocated buffer (contains padding)
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out);
 
 /// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
 ///
@@ -251,6 +270,17 @@ ARROW_EXPORT
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out);
 
+/// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
+///
+/// \param[in] pool a memory pool
+/// \param[in] size size of buffer to allocate
+/// \param[out] out the allocated buffer
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
+                               std::unique_ptr<ResizableBuffer>* out);
+
 /// \brief Allocate a resizeable buffer from the default memory pool
 ///
 /// \param[in] size size of buffer to allocate
@@ -259,6 +289,43 @@ Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
 /// \return Status message
 ARROW_EXPORT
 Status AllocateResizableBuffer(const int64_t size, std::shared_ptr<ResizableBuffer>* out);
+
+/// \brief Allocate a resizeable buffer from the default memory pool
+///
+/// \param[in] size size of buffer to allocate
+/// \param[out] out the allocated buffer
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateResizableBuffer(const int64_t size, std::unique_ptr<ResizableBuffer>* out);
+
+/// \brief Allocate a zero-initialized bitmap buffer from a memory pool
+///
+/// \param[in] pool memory pool to allocate memory from
+/// \param[in] length size in bits of bitmap to allocate
+/// \param[out] out the resulting buffer
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
+                           std::shared_ptr<Buffer>* out);
+
+/// \brief Allocate a zero-initialized bitmap buffer from the default memory pool
+///
+/// \param[in] length size in bits of bitmap to allocate
+/// \param[out] out the resulting buffer
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
+
+/// \deprecated Use AllocateEmptyBitmap instead.
+ARROW_DEPRECATED("Use AllocateEmptyBitmap instead")
+ARROW_EXPORT
+Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out);
+
+// ----------------------------------------------------------------------
+// Buffer builder classes
 
 /// \class BufferBuilder
 /// \brief A class for incrementally building a contiguous chunk of in-memory data

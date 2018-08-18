@@ -26,8 +26,6 @@
 
 namespace arrow {
 
-namespace test {
-
 class TestMemoryPoolBase : public ::testing::Test {
  public:
   virtual ::arrow::MemoryPool* memory_pool() = 0;
@@ -40,7 +38,14 @@ class TestMemoryPoolBase : public ::testing::Test {
     EXPECT_EQ(static_cast<uint64_t>(0), reinterpret_cast<uint64_t>(data) % 64);
     ASSERT_EQ(100, pool->bytes_allocated());
 
+    uint8_t* data2;
+    ASSERT_OK(pool->Allocate(27, &data2));
+    EXPECT_EQ(static_cast<uint64_t>(0), reinterpret_cast<uint64_t>(data2) % 64);
+    ASSERT_EQ(127, pool->bytes_allocated());
+
     pool->Free(data, 100);
+    ASSERT_EQ(27, pool->bytes_allocated());
+    pool->Free(data2, 27);
     ASSERT_EQ(0, pool->bytes_allocated());
   }
 
@@ -77,5 +82,4 @@ class TestMemoryPoolBase : public ::testing::Test {
   }
 };
 
-}  // namespace test
 }  // namespace arrow

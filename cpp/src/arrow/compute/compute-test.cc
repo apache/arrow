@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <locale>
 #include <memory>
 #include <numeric>
 #include <sstream>
@@ -769,6 +770,123 @@ TEST_F(TestCast, OffsetOutputBuffer) {
                                                                 int16(), e3);
 }
 
+TEST_F(TestCast, StringToBoolean) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  vector<std::string> v1 = {"False", "true", "true", "True", "false"};
+  vector<std::string> v2 = {"0", "1", "1", "1", "0"};
+  vector<bool> e = {false, true, true, true, false};
+  CheckCase<StringType, std::string, BooleanType, bool>(utf8(), v1, is_valid, boolean(),
+                                                        e, options);
+  CheckCase<StringType, std::string, BooleanType, bool>(utf8(), v2, is_valid, boolean(),
+                                                        e, options);
+}
+
+TEST_F(TestCast, StringToBooleanErrors) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true};
+
+  CheckFails<StringType, std::string>(utf8(), {"false "}, is_valid, boolean(), options);
+  CheckFails<StringType, std::string>(utf8(), {"T"}, is_valid, boolean(), options);
+}
+
+TEST_F(TestCast, StringToNumber) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  // string to int
+  vector<std::string> v_int = {"0", "1", "127", "-1", "0"};
+  vector<int8_t> e_int8 = {0, 1, 127, -1, 0};
+  vector<int16_t> e_int16 = {0, 1, 127, -1, 0};
+  vector<int32_t> e_int32 = {0, 1, 127, -1, 0};
+  vector<int64_t> e_int64 = {0, 1, 127, -1, 0};
+  CheckCase<StringType, std::string, Int8Type, int8_t>(utf8(), v_int, is_valid, int8(),
+                                                       e_int8, options);
+  CheckCase<StringType, std::string, Int16Type, int16_t>(utf8(), v_int, is_valid, int16(),
+                                                         e_int16, options);
+  CheckCase<StringType, std::string, Int32Type, int32_t>(utf8(), v_int, is_valid, int32(),
+                                                         e_int32, options);
+  CheckCase<StringType, std::string, Int64Type, int64_t>(utf8(), v_int, is_valid, int64(),
+                                                         e_int64, options);
+
+  v_int = {"2147483647", "0", "-2147483648", "0", "0"};
+  e_int32 = {2147483647, 0, -2147483648LL, 0, 0};
+  CheckCase<StringType, std::string, Int32Type, int32_t>(utf8(), v_int, is_valid, int32(),
+                                                         e_int32, options);
+  v_int = {"9223372036854775807", "0", "-9223372036854775808", "0", "0"};
+  e_int64 = {9223372036854775807LL, 0, (-9223372036854775807LL - 1), 0, 0};
+  CheckCase<StringType, std::string, Int64Type, int64_t>(utf8(), v_int, is_valid, int64(),
+                                                         e_int64, options);
+
+  // string to uint
+  vector<std::string> v_uint = {"0", "1", "127", "255", "0"};
+  vector<uint8_t> e_uint8 = {0, 1, 127, 255, 0};
+  vector<uint16_t> e_uint16 = {0, 1, 127, 255, 0};
+  vector<uint32_t> e_uint32 = {0, 1, 127, 255, 0};
+  vector<uint64_t> e_uint64 = {0, 1, 127, 255, 0};
+  CheckCase<StringType, std::string, UInt8Type, uint8_t>(utf8(), v_uint, is_valid,
+                                                         uint8(), e_uint8, options);
+  CheckCase<StringType, std::string, UInt16Type, uint16_t>(utf8(), v_uint, is_valid,
+                                                           uint16(), e_uint16, options);
+  CheckCase<StringType, std::string, UInt32Type, uint32_t>(utf8(), v_uint, is_valid,
+                                                           uint32(), e_uint32, options);
+  CheckCase<StringType, std::string, UInt64Type, uint64_t>(utf8(), v_uint, is_valid,
+                                                           uint64(), e_uint64, options);
+
+  v_uint = {"4294967295", "0", "0", "0", "0"};
+  e_uint32 = {4294967295, 0, 0, 0, 0};
+  CheckCase<StringType, std::string, UInt32Type, uint32_t>(utf8(), v_uint, is_valid,
+                                                           uint32(), e_uint32, options);
+  v_uint = {"18446744073709551615", "0", "0", "0", "0"};
+  e_uint64 = {18446744073709551615ULL, 0, 0, 0, 0};
+  CheckCase<StringType, std::string, UInt64Type, uint64_t>(utf8(), v_uint, is_valid,
+                                                           uint64(), e_uint64, options);
+
+  // string to float
+  vector<std::string> v_float = {"0.1", "1.2", "127.3", "200.4", "0.5"};
+  vector<float> e_float = {0.1f, 1.2f, 127.3f, 200.4f, 0.5f};
+  vector<double> e_double = {0.1, 1.2, 127.3, 200.4, 0.5};
+  CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
+                                                       float32(), e_float, options);
+  CheckCase<StringType, std::string, DoubleType, double>(utf8(), v_float, is_valid,
+                                                         float64(), e_double, options);
+
+  // Test that casting is locale-independent
+  auto global_locale = std::locale();
+  try {
+    // French locale uses the comma as decimal point
+    std::locale::global(std::locale("fr_FR.UTF-8"));
+  } catch (std::runtime_error) {
+    // Locale unavailable, ignore
+  }
+  CheckCase<StringType, std::string, FloatType, float>(utf8(), v_float, is_valid,
+                                                       float32(), e_float, options);
+  CheckCase<StringType, std::string, DoubleType, double>(utf8(), v_float, is_valid,
+                                                         float64(), e_double, options);
+  std::locale::global(global_locale);
+}
+
+TEST_F(TestCast, StringToNumberErrors) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true};
+
+  CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, int8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"12 z"}, is_valid, int8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"128"}, is_valid, int8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"-129"}, is_valid, int8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"0.5"}, is_valid, int8(), options);
+
+  CheckFails<StringType, std::string>(utf8(), {"256"}, is_valid, uint8(), options);
+  CheckFails<StringType, std::string>(utf8(), {"-1"}, is_valid, uint8(), options);
+
+  CheckFails<StringType, std::string>(utf8(), {"z"}, is_valid, float32(), options);
+}
+
 template <typename TestType>
 class TestDictionaryCast : public TestCast {};
 
@@ -799,9 +917,9 @@ TEST_F(TestCast, DictToNonDictNoNulls) {
   std::vector<int32_t> i1 = {1, 0, 1};
   std::vector<int32_t> i2 = {2, 1, 0, 1};
   auto c1 = std::make_shared<NumericArray<Int32Type>>(
-      3, arrow::test::GetBufferFromVector<int32_t>(i1));
+      3, arrow::GetBufferFromVector<int32_t>(i1));
   auto c2 = std::make_shared<NumericArray<Int32Type>>(
-      4, arrow::test::GetBufferFromVector<int32_t>(i2));
+      4, arrow::GetBufferFromVector<int32_t>(i2));
 
   ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, c1),
                              std::make_shared<DictionaryArray>(dict_type, c2)};
@@ -1034,24 +1152,29 @@ TEST_F(TestHashKernel, DictEncodeBinary) {
 }
 
 TEST_F(TestHashKernel, BinaryResizeTable) {
-  const int64_t kTotalValues = 10000;
-  const int64_t kRepeats = 10;
+  const int32_t kTotalValues = 10000;
+#if !defined(ARROW_VALGRIND)
+  const int32_t kRepeats = 10;
+#else
+  // Mitigate Valgrind's slowness
+  const int32_t kRepeats = 3;
+#endif
 
   vector<std::string> values;
   vector<std::string> uniques;
   vector<int32_t> indices;
-  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
-    int64_t index = i % kTotalValues;
-    std::stringstream ss;
-    ss << "test" << index;
-    std::string val = ss.str();
+  char buf[20] = "test";
 
-    values.push_back(val);
+  for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int32_t index = i % kTotalValues;
+
+    ASSERT_GE(snprintf(buf + 4, sizeof(buf) - 4, "%d", index), 0);
+    values.emplace_back(buf);
 
     if (i < kTotalValues) {
-      uniques.push_back(val);
+      uniques.push_back(values.back());
     }
-    indices.push_back(static_cast<int32_t>(i % kTotalValues));
+    indices.push_back(index);
   }
 
   CheckUnique<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {});
@@ -1076,24 +1199,30 @@ TEST_F(TestHashKernel, DictEncodeFixedSizeBinary) {
 }
 
 TEST_F(TestHashKernel, FixedSizeBinaryResizeTable) {
-  const int64_t kTotalValues = 10000;
-  const int64_t kRepeats = 10;
+  const int32_t kTotalValues = 10000;
+#if !defined(ARROW_VALGRIND)
+  const int32_t kRepeats = 10;
+#else
+  // Mitigate Valgrind's slowness
+  const int32_t kRepeats = 3;
+#endif
 
   vector<std::string> values;
   vector<std::string> uniques;
   vector<int32_t> indices;
-  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
-    int64_t index = i % kTotalValues;
-    std::stringstream ss;
-    ss << "test" << static_cast<char>(index / 128) << static_cast<char>(index % 128);
-    std::string val = ss.str();
+  char buf[7] = "test..";
 
-    values.push_back(val);
+  for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int32_t index = i % kTotalValues;
+
+    buf[4] = static_cast<char>(index / 128);
+    buf[5] = static_cast<char>(index % 128);
+    values.emplace_back(buf, 6);
 
     if (i < kTotalValues) {
-      uniques.push_back(val);
+      uniques.push_back(values.back());
     }
-    indices.push_back(static_cast<int32_t>(i % kTotalValues));
+    indices.push_back(index);
   }
 
   auto type = fixed_size_binary(6);

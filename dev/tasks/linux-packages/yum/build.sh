@@ -71,7 +71,21 @@ run mkdir -p "${rpm_dir}" "${srpm_dir}"
 cd
 
 if [ -n "${SOURCE_ARCHIVE}" ]; then
-  run cp /host/tmp/${SOURCE_ARCHIVE} rpmbuild/SOURCES/
+  case "${RELEASE}" in
+    0.dev*)
+      run tar xf /host/tmp/${SOURCE_ARCHIVE}
+      run mv \
+          apache-${PACKAGE}-${VERSION}-$(echo $RELEASE | sed -e 's/^0\.//') \
+          apache-${PACKAGE}-${VERSION}
+      run tar czf \
+          rpmbuild/SOURCES/${SOURCE_ARCHIVE} \
+          apache-${PACKAGE}-${VERSION}
+      run rm -rf apache-${PACKAGE}-${VERSION}
+      ;;
+    *)
+      run cp /host/tmp/${SOURCE_ARCHIVE} rpmbuild/SOURCES/
+      ;;
+  esac
 else
   run cp /host/tmp/${PACKAGE}-${VERSION}.* rpmbuild/SOURCES/
 fi

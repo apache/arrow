@@ -22,6 +22,8 @@
 
 #include "arrow/python/numpy_interop.h"
 
+#include "arrow/status.h"
+
 #include "arrow/python/platform.h"
 
 #include <cstdint>
@@ -53,9 +55,6 @@ class Ndarray1DIndexer {
   int64_t size() const { return PyArray_SIZE(arr_); }
 
   T* data() const { return data_; }
-
-  T* begin() const { return data(); }
-  T* end() const { return begin() + size() * stride_; }
 
   bool is_strided() const { return stride_ != 1; }
 
@@ -150,6 +149,23 @@ inline Status VisitNumpyArrayInline(PyArrayObject* arr, VISITOR* visitor) {
 }
 
 #undef TYPE_VISIT_INLINE
+
+namespace internal {
+
+inline bool PyFloatScalar_Check(PyObject* obj) {
+  return PyFloat_Check(obj) || PyArray_IsScalar(obj, Floating);
+}
+
+inline bool PyIntScalar_Check(PyObject* obj) {
+#if PY_MAJOR_VERSION < 3
+  if (PyInt_Check(obj)) {
+    return true;
+  }
+#endif
+  return PyLong_Check(obj) || PyArray_IsScalar(obj, Integer);
+}
+
+}  // namespace internal
 
 }  // namespace py
 }  // namespace arrow
