@@ -31,12 +31,14 @@
 #endif
 
 #include "arrow/adapters/tensorflow/convert.h"
-#include "arrow/io/memory.h"
-#include "arrow/python/arrow_to_python.h"
-#include "arrow/python/python_to_arrow.h"
-#include "arrow/tensor.h"
-#include "plasma/client.h"
+#include "arrow/api.h"
+#include "arrow/io/api.h"
 
+// These headers do not include Python.h
+#include "arrow/python/deserialize.h"
+#include "arrow/python/serialize.h"
+
+#include "plasma/client.h"
 
 namespace tf = tensorflow;
 

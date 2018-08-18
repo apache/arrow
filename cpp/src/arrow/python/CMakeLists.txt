@@ -24,12 +24,11 @@ find_package(NumPy REQUIRED)
 
 set(ARROW_PYTHON_SRCS
   arrow_to_pandas.cc
-  arrow_to_python.cc
   benchmark.cc
-  builtin_convert.cc
   common.cc
   config.cc
   decimal.cc
+  deserialize.cc
   helpers.cc
   inference.cc
   init.cc
@@ -38,6 +37,7 @@ set(ARROW_PYTHON_SRCS
   numpy_to_arrow.cc
   python_to_arrow.cc
   pyarrow.cc
+  serialize.cc
 )
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -82,12 +82,11 @@ endif()
 install(FILES
   api.h
   arrow_to_pandas.h
-  arrow_to_python.h
   benchmark.h
-  builtin_convert.h
   common.h
   config.h
   decimal.h
+  deserialize.h
   helpers.h
   inference.h
   init.h
@@ -99,6 +98,7 @@ install(FILES
   python_to_arrow.h
   platform.h
   pyarrow.h
+  serialize.h
   type_traits.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 

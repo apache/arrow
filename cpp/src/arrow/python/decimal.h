@@ -28,6 +28,8 @@ class Decimal128;
 
 namespace py {
 
+class OwnedRef;
+
 //
 // Python Decimal support
 //
