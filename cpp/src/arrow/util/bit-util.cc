@@ -106,8 +106,9 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   return count;
 }
 
-Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
-                  std::shared_ptr<Buffer>* out) {
+template <bool invert_bits>
+Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
+                      int64_t length, std::shared_ptr<Buffer>* out) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
@@ -129,12 +130,22 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t
     int64_t i = num_bytes - 1;
     while (i + 1 > 0) {
       uint8_t cur_byte = data[byte_offset + i];
-      dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
+      if (invert_bits) {
+        dest[i] = ~static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
+      } else {
+        dest[i] = static_cast<uint8_t>((cur_byte >> bit_offset) | carry);
+      }
       carry = (cur_byte & carry_mask) << carry_shift;
       --i;
     }
   } else {
-    std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
+    if (invert_bits) {
+      for (int64_t i = 0; i < num_bytes; i++) {
+        dest[i] = ~(data[byte_offset + i]);
+      }
+    } else {
+      std::memcpy(dest, data + byte_offset, static_cast<size_t>(num_bytes));
+    }
   }
 
   for (int64_t i = length; i < length + bits_to_zero; ++i) {
@@ -144,6 +155,16 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t
 
   *out = buffer;
   return Status::OK();
+}
+
+Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
+                  std::shared_ptr<Buffer>* out) {
+  return TransferBitmap<false>(pool, data, offset, length, out);
+}
+
+Status InvertBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
+                    std::shared_ptr<Buffer>* out) {
+  return TransferBitmap<true>(pool, data, offset, length, out);
 }
 
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,

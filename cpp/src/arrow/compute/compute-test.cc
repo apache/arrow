@@ -40,6 +40,7 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/cast.h"
 #include "arrow/compute/kernels/hash.h"
 
@@ -1283,6 +1284,40 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
   ASSERT_TRUE(encoded_out.chunked_array()->Equals(*dict_carr));
+}
+
+class TestBooleanKernel : public ComputeFixture, public TestBase {};
+
+TEST_F(TestBooleanKernel, Invert) {
+  vector<bool> values1 = {true, false, true};
+  vector<bool> values2 = {false, true, false};
+
+  auto type = boolean();
+  auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
+  auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
+
+  // Plain array
+  Datum result;
+  ASSERT_OK(Invert(&this->ctx_, Datum(a1), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  std::shared_ptr<Array> result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a2));
+
+  // Array with offset
+  ASSERT_OK(Invert(&this->ctx_, Datum(a1->Slice(1)), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a2->Slice(1)));
+
+  // ChunkedArray
+  std::vector<std::shared_ptr<Array>> ca1_arrs = {a1, a1->Slice(1)};
+  auto ca1 = std::make_shared<ChunkedArray>(ca1_arrs);
+  std::vector<std::shared_ptr<Array>> ca2_arrs = {a2, a2->Slice(1)};
+  auto ca2 = std::make_shared<ChunkedArray>(ca2_arrs);
+  ASSERT_OK(Invert(&this->ctx_, Datum(ca1), &result));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+  std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
+  ASSERT_TRUE(result_ca->Equals(ca2));
 }
 
 }  // namespace compute

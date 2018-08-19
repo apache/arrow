@@ -16,6 +16,7 @@
 # under the License.
 
 install(FILES
+  boolean.h
   cast.h
   hash.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute/kernels")
