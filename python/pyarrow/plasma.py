@@ -53,18 +53,21 @@ def build_plasma_tensorflow_op():
         pass
     else:
         print("Compiling Plasma TensorFlow Op...")
+        pa_include_flag = "-I" + pa.get_include()
+        pa_lib_flags = ["-L" + dir for dir in pa.get_library_dirs()]
         dir_path = os.path.dirname(os.path.realpath(__file__))
         cc_path = os.path.join(dir_path, "tensorflow", "plasma_op.cc")
         so_path = os.path.join(dir_path, "tensorflow", "plasma_op.so")
         tf_cflags = tf.sysconfig.get_compile_flags()
         if sys.platform == 'darwin':
             tf_cflags = ["-undefined", "dynamic_lookup"] + tf_cflags
+        tf_lflags = tf.sysconfig.get_link_flags()
         cmd = ["g++", "-std=c++11", "-g", "-shared", cc_path,
-               "-o", so_path, "-DNDEBUG", "-I" + pa.get_include()]
-        cmd += ["-L" + dir for dir in pa.get_library_dirs()]
+               "-o", so_path, "-DNDEBUG", pa_include_flag]
+        cmd += pa_lib_flags
         cmd += ["-lplasma", "-larrow_python", "-larrow", "-fPIC"]
         cmd += tf_cflags
-        cmd += tf.sysconfig.get_link_flags()
+        cmd += tf_lflags
         cmd += ["-O2"]
         if tf.test.is_built_with_cuda():
             cmd += ["-DGOOGLE_CUDA"]
@@ -100,7 +103,8 @@ def start_plasma_store(plasma_store_memory,
     tmpdir = tempfile.mkdtemp(prefix='test_plasma-')
     try:
         plasma_store_name = os.path.join(tmpdir, 'plasma.sock')
-        plasma_store_executable = os.path.join(pa.__path__[0], "plasma_store")
+        plasma_store_executable =
+            os.path.join(pa.__path__[0], "plasma_store_server")
         command = [plasma_store_executable,
                    "-s", plasma_store_name,
                    "-m", str(plasma_store_memory)]
