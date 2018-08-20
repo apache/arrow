@@ -31,12 +31,8 @@ pub trait MemoryPool {
     /// Reallocate memory.
     /// If the implementation doesn't support reallocating aligned memory, it allocates new memory
     /// and copied old memory to it.
-    fn reallocate(
-        &self,
-        old_size: usize,
-        new_size: usize,
-        pointer: *const u8,
-    ) -> Result<*const u8>;
+    fn reallocate(&self, old_size: usize, new_size: usize, pointer: *const u8)
+        -> Result<*const u8>;
 
     /// Free memory.
     fn free(&self, ptr: *const u8);
@@ -75,6 +71,7 @@ impl MemoryPool for LibcMemoryPool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     const ALIGNMENT: usize = 64;
 
     #[test]

@@ -332,7 +332,10 @@ impl From<ArrayDataRef> for ListArray {
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
             assert_eq!(*value_offsets.offset(0), 0);
-            assert_eq!(*value_offsets.offset(data.len() as isize), values.data().len() as i32);
+            assert_eq!(
+                *value_offsets.offset(data.len() as isize),
+                values.data().len() as i32
+            );
         }
         Self {
             data: data.clone(),
@@ -478,10 +481,7 @@ impl From<ArrayDataRef> for StructArray {
         for cd in data.child_data() {
             boxed_fields.push(make_array(cd.clone()));
         }
-        Self {
-            data,
-            boxed_fields,
-        }
+        Self { data, boxed_fields }
     }
 }
 
