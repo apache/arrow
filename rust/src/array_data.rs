@@ -156,7 +156,7 @@ pub struct ArrayDataBuilder {
 impl ArrayDataBuilder {
     pub fn new(data_type: DataType) -> Self {
         Self {
-            data_type: data_type,
+            data_type,
             len: 0,
             null_count: UNKNOWN_NULL_COUNT,
             null_bit_buffer: None,
