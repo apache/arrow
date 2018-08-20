@@ -26,6 +26,10 @@ cache:
   directories:
     - $HOME/.m2  # Maven
 
+git:
+  # ARROW-3083: We use a higher clone depth to also have the latest tag in the cloned history.
+  depth: 250
+
 
 before_install:
   # Common pre-install steps for all builds
