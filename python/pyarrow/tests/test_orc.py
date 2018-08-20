@@ -93,6 +93,7 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     # Exercise ORCFile.read()
     table = orc_file.read()
     assert isinstance(table, pa.Table)
+    table._validate()
 
     # This workaround needed because of ARROW-3080
     orc_df = pd.DataFrame(table.to_pydict())
@@ -138,9 +139,41 @@ def check_example_using_json(example_name):
                        need_fix=True)
 
 
-@pytest.mark.xfail(strict=True, reason="ARROW-3049")
 def test_orcfile_empty():
-    check_example_using_json('TestOrcFile.emptyFile')
+    from pyarrow import orc
+    f = orc.ORCFile(path_for_orc_example('TestOrcFile.emptyFile'))
+    table = f.read()
+    assert table.num_rows == 0
+    schema = table.schema
+    expected_schema = pa.schema([
+        ('boolean1', pa.bool_()),
+        ('byte1', pa.int8()),
+        ('short1', pa.int16()),
+        ('int1', pa.int32()),
+        ('long1', pa.int64()),
+        ('float1', pa.float32()),
+        ('double1', pa.float64()),
+        ('bytes1', pa.binary()),
+        ('string1', pa.string()),
+        ('middle', pa.struct([
+            ('list', pa.list_(pa.struct([
+                ('int1', pa.int32()),
+                ('string1', pa.string()),
+                ]))),
+            ])),
+        ('list', pa.list_(pa.struct([
+            ('int1', pa.int32()),
+            ('string1', pa.string()),
+            ]))),
+        ('map', pa.list_(pa.struct([
+            ('key', pa.string()),
+            ('value', pa.struct([
+                ('int1', pa.int32()),
+                ('string1', pa.string()),
+                ])),
+            ]))),
+        ])
+    assert schema == expected_schema
 
 
 def test_orcfile_test1_json():
