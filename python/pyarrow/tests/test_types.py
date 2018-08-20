@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
 import pickle
 
 import pytest
@@ -230,6 +231,23 @@ def test_struct_type():
     assert len(ty) == ty.num_children == 3
     assert list(ty) == fields
 
+    for a, b in zip(ty, fields):
+        a == b
+
+    # Construct from list of tuples
+    ty = pa.struct([('a', pa.int64()),
+                    ('a', pa.int32()),
+                    ('b', pa.int32())])
+    assert list(ty) == fields
+    for a, b in zip(ty, fields):
+        a == b
+
+    # Construct from mapping
+    fields = [pa.field('a', pa.int64()),
+              pa.field('b', pa.int32())]
+    ty = pa.struct(OrderedDict([('a', pa.int64()),
+                                ('b', pa.int32())]))
+    assert list(ty) == fields
     for a, b in zip(ty, fields):
         a == b
 
