@@ -240,7 +240,7 @@ macro_rules! def_primitive_array {
 /// Constructs a `PrimitiveArray` from an array data reference.
 impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     fn from(data: ArrayDataRef) -> Self {
-        assert!(data.buffers().len() == 1);
+        assert_eq!(data.buffers().len(), 1);
         let raw_values = data.buffers()[0].raw_data();
         assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()));
         Self {
@@ -321,8 +321,8 @@ impl ListArray {
 /// Constructs a `ListArray` from an array data reference.
 impl From<ArrayDataRef> for ListArray {
     fn from(data: ArrayDataRef) -> Self {
-        assert!(data.buffers().len() == 1);
-        assert!(data.child_data().len() == 1);
+        assert_eq!(data.buffers().len(), 1);
+        assert_eq!(data.child_data().len(), 1);
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
         assert!(memory::is_aligned(
@@ -331,8 +331,8 @@ impl From<ArrayDataRef> for ListArray {
         ));
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
-            assert!(*value_offsets.offset(0) == 0);
-            assert!(*value_offsets.offset(data.len() as isize) == values.data().len() as i32);
+            assert_eq!(*value_offsets.offset(0), 0);
+            assert_eq!(*value_offsets.offset(data.len() as isize), values.data().len() as i32);
         }
         Self {
             data: data.clone(),
@@ -410,7 +410,7 @@ impl BinaryArray {
 
 impl From<ArrayDataRef> for BinaryArray {
     fn from(data: ArrayDataRef) -> Self {
-        assert!(data.buffers().len() == 2);
+        assert_eq!(data.buffers().len(), 2);
         let raw_value_offsets = data.buffers()[0].raw_data();
         assert!(memory::is_aligned(
             raw_value_offsets,
