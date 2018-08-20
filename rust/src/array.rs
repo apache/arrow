@@ -106,7 +106,7 @@ struct RawPtrBox<T> {
 
 impl<T> RawPtrBox<T> {
     fn new(inner: *const T) -> Self {
-        Self { inner: inner }
+        Self { inner }
     }
 
     fn get(&self) -> *const T {
@@ -244,7 +244,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
         let raw_values = data.buffers()[0].raw_data();
         assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()));
         Self {
-            data: data,
+            data,
             raw_values: RawPtrBox::new(raw_values as *const T),
         }
     }
@@ -336,7 +336,7 @@ impl From<ArrayDataRef> for ListArray {
         }
         Self {
             data: data.clone(),
-            values: values,
+            values,
             value_offsets: RawPtrBox::new(value_offsets),
         }
     }
@@ -479,8 +479,8 @@ impl From<ArrayDataRef> for StructArray {
             boxed_fields.push(make_array(cd.clone()));
         }
         Self {
-            data: data,
-            boxed_fields: boxed_fields,
+            data,
+            boxed_fields,
         }
     }
 }

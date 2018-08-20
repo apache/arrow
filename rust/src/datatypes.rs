@@ -193,8 +193,8 @@ impl Field {
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
         Field {
             name: name.to_string(),
-            data_type: data_type,
-            nullable: nullable,
+            data_type,
+            nullable,
         }
     }
 
@@ -284,7 +284,7 @@ impl Schema {
     }
 
     pub fn new(columns: Vec<Field>) -> Self {
-        Schema { columns: columns }
+        Schema { columns }
     }
 
     pub fn columns(&self) -> &Vec<Field> {

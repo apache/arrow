@@ -60,7 +60,7 @@ impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
         assert!(memory::is_aligned(ptr, 64));
-        let buf_data = BufferData { ptr: ptr, len: len };
+        let buf_data = BufferData { ptr, len };
         Buffer {
             data: Arc::new(buf_data),
             offset: 0,
