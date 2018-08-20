@@ -15,99 +15,69 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_PYTHON_TO_ARROW_H
-#define ARROW_PYTHON_PYTHON_TO_ARROW_H
+// Functions for converting between CPython built-in data structures and Arrow
+// data structures
 
+#ifndef ARROW_PYTHON_ADAPTERS_BUILTIN_H
+#define ARROW_PYTHON_ADAPTERS_BUILTIN_H
+
+#include "arrow/python/platform.h"
+
+#include <cstdint>
 #include <memory>
-#include <vector>
 
-#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-// Forward declaring PyObject, see
-// https://mail.python.org/pipermail/python-dev/2003-August/037601.html
-#ifndef PyObject_HEAD
-struct _object;
-typedef _object PyObject;
-#endif
+#include "arrow/python/common.h"
 
 namespace arrow {
 
-class Buffer;
-class DataType;
-class MemoryPool;
-class RecordBatch;
-class Tensor;
-
-namespace io {
-
-class OutputStream;
-
-}  // namespace io
+class Array;
+class Status;
 
 namespace py {
 
-struct ARROW_EXPORT SerializedPyObject {
-  std::shared_ptr<RecordBatch> batch;
-  std::vector<std::shared_ptr<Tensor>> tensors;
-  std::vector<std::shared_ptr<Buffer>> buffers;
+struct PyConversionOptions {
+  PyConversionOptions() : type(NULLPTR), size(-1), pool(NULLPTR), from_pandas(false) {}
 
-  /// \brief Write serialized Python object to OutputStream
-  /// \param[in,out] dst an OutputStream
-  /// \return Status
-  Status WriteTo(io::OutputStream* dst);
+  PyConversionOptions(const std::shared_ptr<DataType>& type, int64_t size,
+                      MemoryPool* pool, bool from_pandas)
+      : type(type), size(size), pool(default_memory_pool()), from_pandas(from_pandas) {}
 
-  /// \brief Convert SerializedPyObject to a dict containing the message
-  /// components as Buffer instances with minimal memory allocation
-  ///
-  /// {
-  ///   'num_tensors': N,
-  ///   'num_buffers': K,
-  ///   'data': [Buffer]
-  /// }
-  ///
-  /// Each tensor is written as two buffers, one for the metadata and one for
-  /// the body. Therefore, the number of buffers in 'data' is 2 * N + K + 1,
-  /// with the first buffer containing the serialized record batch containing
-  /// the UnionArray that describes the whole object
-  Status GetComponents(MemoryPool* pool, PyObject** out);
+  // Set to null if to be inferred
+  std::shared_ptr<DataType> type;
+
+  // Default is -1: infer from data
+  int64_t size;
+
+  // Memory pool to use for allocations
+  MemoryPool* pool;
+
+  // Default false
+  bool from_pandas;
 };
 
-/// \brief Serialize Python sequence as a SerializedPyObject.
-/// \param[in] context Serialization context which contains custom serialization
-/// and deserialization callbacks. Can be any Python object with a
-/// _serialize_callback method for serialization and a _deserialize_callback
-/// method for deserialization. If context is None, no custom serialization
-/// will be attempted.
-/// \param[in] sequence A Python sequence object to serialize to Arrow data
-/// structures
-/// \param[out] out The serialized representation
+/// \brief Convert sequence (list, generator, NumPy array with dtype object) of
+/// Python objects.
+/// \param[in] obj the sequence to convert
+/// \param[in] mask a NumPy array of true/false values to indicate whether
+/// values in the sequence are null (true) or not null (false). This parameter
+/// may be null
+/// \param[in] options various conversion options
+/// \param[out] out a ChunkedArray containing one or more chunks
 /// \return Status
-///
-/// Release GIL before calling
 ARROW_EXPORT
-Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out);
+Status ConvertPySequence(PyObject* obj, PyObject* mask,
+                         const PyConversionOptions& options,
+                         std::shared_ptr<ChunkedArray>* out);
 
-/// \brief Serialize an Arrow Tensor as a SerializedPyObject.
-/// \param[in] tensor Tensor to be serialized
-/// \param[out] out The serialized representation
-/// \return Status
 ARROW_EXPORT
-Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* out);
-
-/// \brief Write the Tensor metadata header to an OutputStream.
-/// \param[in] dtype DataType of the Tensor
-/// \param[in] shape The shape of the tensor
-/// \param[in] tensor_num_bytes The lengh of the Tensor data in bytes
-/// \param[in] dst The OutputStream to write the Tensor header to
-/// \return Status
-ARROW_EXPORT
-Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
-                         const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
-                         io::OutputStream* dst);
+Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
+                         std::shared_ptr<ChunkedArray>* out);
 
 }  // namespace py
-
 }  // namespace arrow
 
-#endif  // ARROW_PYTHON_PYTHON_TO_ARROW_H
+#endif  // ARROW_PYTHON_ADAPTERS_BUILTIN_H

@@ -18,810 +18,952 @@
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/numpy_interop.h"
 
-#include <cstdint>
+#include <datetime.h>
+
+#include <algorithm>
 #include <limits>
-#include <memory>
+#include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
-
-#include <numpy/arrayobject.h>
-#include <numpy/arrayscalars.h>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/io/interfaces.h"
-#include "arrow/io/memory.h"
-#include "arrow/ipc/writer.h"
-#include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
-#include "arrow/tensor.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/python/common.h"
+#include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/inference.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
-#include "arrow/python/platform.h"
-#include "arrow/python/pyarrow.h"
+#include "arrow/python/type_traits.h"
 #include "arrow/python/util/datetime.h"
-
-constexpr int32_t kMaxRecursionDepth = 100;
 
 namespace arrow {
 namespace py {
 
-/// A Sequence is a heterogeneous collections of elements. It can contain
-/// scalar Python types, lists, tuples, dictionaries and tensors.
-class SequenceBuilder {
+// ----------------------------------------------------------------------
+// Sequence converter base and CRTP "middle" subclasses
+
+class SeqConverter;
+
+// Forward-declare converter factory
+Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
+                    bool strict_conversions, std::unique_ptr<SeqConverter>* out);
+
+// Marshal Python sequence (list, tuple, etc.) to Arrow array
+class SeqConverter {
  public:
-  explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : pool_(pool),
-        types_(::arrow::int8(), pool),
-        offsets_(::arrow::int32(), pool),
-        nones_(pool),
-        bools_(::arrow::boolean(), pool),
-        ints_(::arrow::int64(), pool),
-        py2_ints_(::arrow::int64(), pool),
-        bytes_(::arrow::binary(), pool),
-        strings_(pool),
-        half_floats_(::arrow::float16(), pool),
-        floats_(::arrow::float32(), pool),
-        doubles_(::arrow::float64(), pool),
-        date64s_(::arrow::date64(), pool),
-        tensor_indices_(::arrow::int32(), pool),
-        buffer_indices_(::arrow::int32(), pool),
-        list_offsets_({0}),
-        tuple_offsets_({0}),
-        dict_offsets_({0}),
-        set_offsets_({0}) {}
+  virtual ~SeqConverter() = default;
 
-  /// Appending a none to the sequence
-  Status AppendNone() {
-    RETURN_NOT_OK(offsets_.Append(0));
-    RETURN_NOT_OK(types_.Append(0));
-    return nones_.AppendNull();
-  }
+  // Initialize the sequence converter with an ArrayBuilder created
+  // externally. The reason for this interface is that we have
+  // arrow::MakeBuilder which also creates child builders for nested types, so
+  // we have to pass in the child builders to child SeqConverter in the case of
+  // converting Python objects to Arrow nested types
+  virtual Status Init(ArrayBuilder* builder) = 0;
 
-  Status Update(int64_t offset, int8_t* tag) {
-    if (*tag == -1) {
-      *tag = num_tags_++;
-    }
-    int32_t offset32;
-    RETURN_NOT_OK(internal::CastSize(offset, &offset32));
-    RETURN_NOT_OK(offsets_.Append(offset32));
-    RETURN_NOT_OK(types_.Append(*tag));
-    return nones_.Append(true);
-  }
+  // Append a single (non-sequence) Python datum to the underlying builder,
+  // virtual function
+  virtual Status AppendSingleVirtual(PyObject* obj) = 0;
 
-  template <typename BuilderType, typename T>
-  Status AppendPrimitive(const T val, int8_t* tag, BuilderType* out) {
-    RETURN_NOT_OK(Update(out->length(), tag));
-    return out->Append(val);
-  }
+  // Append the contents of a Python sequence to the underlying builder,
+  // virtual version
+  virtual Status AppendMultiple(PyObject* seq, int64_t size) = 0;
 
-  /// Appending a boolean to the sequence
-  Status AppendBool(const bool data) {
-    return AppendPrimitive(data, &bool_tag_, &bools_);
-  }
+  // Append the contents of a Python sequence to the underlying builder,
+  // virtual version
+  virtual Status AppendMultipleMasked(PyObject* seq, PyObject* mask, int64_t size) = 0;
 
-  /// Appending a python 2 int64_t to the sequence
-  Status AppendPy2Int64(const int64_t data) {
-    return AppendPrimitive(data, &py2_int_tag_, &py2_ints_);
-  }
+  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+    *chunks = chunks_;
 
-  /// Appending an int64_t to the sequence
-  Status AppendInt64(const int64_t data) {
-    return AppendPrimitive(data, &int_tag_, &ints_);
-  }
-
-  /// Appending an uint64_t to the sequence
-  Status AppendUInt64(const uint64_t data) {
-    // TODO(wesm): Bounds check
-    return AppendPrimitive(static_cast<int64_t>(data), &int_tag_, &ints_);
-  }
-
-  /// Append a list of bytes to the sequence
-  Status AppendBytes(const uint8_t* data, int32_t length) {
-    RETURN_NOT_OK(Update(bytes_.length(), &bytes_tag_));
-    return bytes_.Append(data, length);
-  }
-
-  /// Appending a string to the sequence
-  Status AppendString(const char* data, int32_t length) {
-    RETURN_NOT_OK(Update(strings_.length(), &string_tag_));
-    return strings_.Append(data, length);
-  }
-
-  /// Appending a half_float to the sequence
-  Status AppendHalfFloat(const npy_half data) {
-    return AppendPrimitive(data, &half_float_tag_, &half_floats_);
-  }
-
-  /// Appending a float to the sequence
-  Status AppendFloat(const float data) {
-    return AppendPrimitive(data, &float_tag_, &floats_);
-  }
-
-  /// Appending a double to the sequence
-  Status AppendDouble(const double data) {
-    return AppendPrimitive(data, &double_tag_, &doubles_);
-  }
-
-  /// Appending a Date64 timestamp to the sequence
-  Status AppendDate64(const int64_t timestamp) {
-    return AppendPrimitive(timestamp, &date64_tag_, &date64s_);
-  }
-
-  /// Appending a tensor to the sequence
-  ///
-  /// \param tensor_index Index of the tensor in the object.
-  Status AppendTensor(const int32_t tensor_index) {
-    RETURN_NOT_OK(Update(tensor_indices_.length(), &tensor_tag_));
-    return tensor_indices_.Append(tensor_index);
-  }
-
-  /// Appending a buffer to the sequence
-  ///
-  /// \param buffer_index Indes of the buffer in the object.
-  Status AppendBuffer(const int32_t buffer_index) {
-    RETURN_NOT_OK(Update(buffer_indices_.length(), &buffer_tag_));
-    return buffer_indices_.Append(buffer_index);
-  }
-
-  /// Add a sublist to the sequence. The data contained in the sublist will be
-  /// specified in the "Finish" method.
-  ///
-  /// To construct l = [[11, 22], 33, [44, 55]] you would for example run
-  /// list = ListBuilder();
-  /// list.AppendList(2);
-  /// list.Append(33);
-  /// list.AppendList(2);
-  /// list.Finish([11, 22, 44, 55]);
-  /// list.Finish();
-
-  /// \param size
-  /// The size of the sublist
-  Status AppendList(Py_ssize_t size) {
-    int32_t offset;
-    RETURN_NOT_OK(internal::CastSize(list_offsets_.back() + size, &offset));
-    RETURN_NOT_OK(Update(list_offsets_.size() - 1, &list_tag_));
-    list_offsets_.push_back(offset);
-    return Status::OK();
-  }
-
-  Status AppendTuple(Py_ssize_t size) {
-    int32_t offset;
-    RETURN_NOT_OK(internal::CastSize(tuple_offsets_.back() + size, &offset));
-    RETURN_NOT_OK(Update(tuple_offsets_.size() - 1, &tuple_tag_));
-    tuple_offsets_.push_back(offset);
-    return Status::OK();
-  }
-
-  Status AppendDict(Py_ssize_t size) {
-    int32_t offset;
-    RETURN_NOT_OK(internal::CastSize(dict_offsets_.back() + size, &offset));
-    RETURN_NOT_OK(Update(dict_offsets_.size() - 1, &dict_tag_));
-    dict_offsets_.push_back(offset);
-    return Status::OK();
-  }
-
-  Status AppendSet(Py_ssize_t size) {
-    int32_t offset;
-    RETURN_NOT_OK(internal::CastSize(set_offsets_.back() + size, &offset));
-    RETURN_NOT_OK(Update(set_offsets_.size() - 1, &set_tag_));
-    set_offsets_.push_back(offset);
-    return Status::OK();
-  }
-
-  template <typename BuilderType>
-  Status AddElement(const int8_t tag, BuilderType* out, const std::string& name = "") {
-    if (tag != -1) {
-      fields_[tag] = ::arrow::field(name, out->type());
-      RETURN_NOT_OK(out->Finish(&children_[tag]));
-      RETURN_NOT_OK(nones_.Append(true));
-      type_ids_.push_back(tag);
+    // Still some accumulated data in the builder. If there are no chunks, we
+    // always call Finish to deal with the edge case where a size-0 sequence
+    // was converted with a specific output type, like array([], type=t)
+    if (chunks_.size() == 0 || builder_->length() > 0) {
+      std::shared_ptr<Array> last_chunk;
+      RETURN_NOT_OK(builder_->Finish(&last_chunk));
+      chunks->emplace_back(std::move(last_chunk));
     }
     return Status::OK();
   }
 
-  Status AddSubsequence(int8_t tag, const Array* data,
-                        const std::vector<int32_t>& offsets, const std::string& name) {
-    if (data != nullptr) {
-      DCHECK(data->length() == offsets.back());
-      std::shared_ptr<Array> offset_array;
-      Int32Builder builder(::arrow::int32(), pool_);
-      RETURN_NOT_OK(builder.AppendValues(offsets.data(), offsets.size()));
-      RETURN_NOT_OK(builder.Finish(&offset_array));
-      std::shared_ptr<Array> list_array;
-      RETURN_NOT_OK(ListArray::FromArrays(*offset_array, *data, pool_, &list_array));
-      auto field = ::arrow::field(name, list_array->type());
-      auto type = ::arrow::struct_({field});
-      fields_[tag] = ::arrow::field("", type);
-      children_[tag] = std::shared_ptr<StructArray>(
-          new StructArray(type, list_array->length(), {list_array}));
-      RETURN_NOT_OK(nones_.Append(true));
-      type_ids_.push_back(tag);
-    } else {
-      DCHECK_EQ(offsets.size(), 1);
-    }
-    return Status::OK();
-  }
+  ArrayBuilder* builder() const { return builder_; }
 
-  /// Finish building the sequence and return the result.
-  /// Input arrays may be nullptr
-  Status Finish(const Array* list_data, const Array* tuple_data, const Array* dict_data,
-                const Array* set_data, std::shared_ptr<Array>* out) {
-    fields_.resize(num_tags_);
-    children_.resize(num_tags_);
-
-    RETURN_NOT_OK(AddElement(bool_tag_, &bools_));
-    RETURN_NOT_OK(AddElement(int_tag_, &ints_));
-    RETURN_NOT_OK(AddElement(py2_int_tag_, &py2_ints_, "py2_int"));
-    RETURN_NOT_OK(AddElement(string_tag_, &strings_));
-    RETURN_NOT_OK(AddElement(bytes_tag_, &bytes_));
-    RETURN_NOT_OK(AddElement(half_float_tag_, &half_floats_));
-    RETURN_NOT_OK(AddElement(float_tag_, &floats_));
-    RETURN_NOT_OK(AddElement(double_tag_, &doubles_));
-    RETURN_NOT_OK(AddElement(date64_tag_, &date64s_));
-    RETURN_NOT_OK(AddElement(tensor_tag_, &tensor_indices_, "tensor"));
-    RETURN_NOT_OK(AddElement(buffer_tag_, &buffer_indices_, "buffer"));
-
-    RETURN_NOT_OK(AddSubsequence(list_tag_, list_data, list_offsets_, "list"));
-    RETURN_NOT_OK(AddSubsequence(tuple_tag_, tuple_data, tuple_offsets_, "tuple"));
-    RETURN_NOT_OK(AddSubsequence(dict_tag_, dict_data, dict_offsets_, "dict"));
-    RETURN_NOT_OK(AddSubsequence(set_tag_, set_data, set_offsets_, "set"));
-
-    std::shared_ptr<Array> types_array;
-    RETURN_NOT_OK(types_.Finish(&types_array));
-    const auto& types = checked_cast<const Int8Array&>(*types_array);
-
-    std::shared_ptr<Array> offsets_array;
-    RETURN_NOT_OK(offsets_.Finish(&offsets_array));
-    const auto& offsets = checked_cast<const Int32Array&>(*offsets_array);
-
-    std::shared_ptr<Array> nones_array;
-    RETURN_NOT_OK(nones_.Finish(&nones_array));
-    const auto& nones = checked_cast<const BooleanArray&>(*nones_array);
-
-    auto type = ::arrow::union_(fields_, type_ids_, UnionMode::DENSE);
-    out->reset(new UnionArray(type, types.length(), children_, types.values(),
-                              offsets.values(), nones.null_bitmap(), nones.null_count()));
-    return Status::OK();
-  }
-
- private:
-  MemoryPool* pool_;
-
-  Int8Builder types_;
-  Int32Builder offsets_;
-
-  BooleanBuilder nones_;
-  BooleanBuilder bools_;
-  Int64Builder ints_;
-  Int64Builder py2_ints_;
-  BinaryBuilder bytes_;
-  StringBuilder strings_;
-  HalfFloatBuilder half_floats_;
-  FloatBuilder floats_;
-  DoubleBuilder doubles_;
-  Date64Builder date64s_;
-
-  Int32Builder tensor_indices_;
-  Int32Builder buffer_indices_;
-
-  std::vector<int32_t> list_offsets_;
-  std::vector<int32_t> tuple_offsets_;
-  std::vector<int32_t> dict_offsets_;
-  std::vector<int32_t> set_offsets_;
-
-  // Tags for members of the sequence. If they are set to -1 it means
-  // they are not used and will not part be of the metadata when we call
-  // SequenceBuilder::Finish. If a member with one of the tags is added,
-  // the associated variable gets a unique index starting from 0. This
-  // happens in the UPDATE macro in sequence.cc.
-  int8_t bool_tag_ = -1;
-  int8_t int_tag_ = -1;
-  int8_t py2_int_tag_ = -1;
-  int8_t string_tag_ = -1;
-  int8_t bytes_tag_ = -1;
-  int8_t half_float_tag_ = -1;
-  int8_t float_tag_ = -1;
-  int8_t double_tag_ = -1;
-  int8_t date64_tag_ = -1;
-
-  int8_t tensor_tag_ = -1;
-  int8_t buffer_tag_ = -1;
-  int8_t list_tag_ = -1;
-  int8_t tuple_tag_ = -1;
-  int8_t dict_tag_ = -1;
-  int8_t set_tag_ = -1;
-
-  int8_t num_tags_ = 0;
-
-  // Members for the output union constructed in Finish
-  std::vector<std::shared_ptr<Field>> fields_;
-  std::vector<std::shared_ptr<Array>> children_;
-  std::vector<uint8_t> type_ids_;
+ protected:
+  ArrayBuilder* builder_;
+  bool unfinished_builder_;
+  std::vector<std::shared_ptr<Array>> chunks_;
 };
 
-/// Constructing dictionaries of key/value pairs. Sequences of
-/// keys and values are built separately using a pair of
-/// SequenceBuilders. The resulting Arrow representation
-/// can be obtained via the Finish method.
-class DictBuilder {
+enum class NullCoding : char { NONE_ONLY, PANDAS_SENTINELS };
+
+template <NullCoding kind>
+struct NullChecker {};
+
+template <>
+struct NullChecker<NullCoding::NONE_ONLY> {
+  static inline bool Check(PyObject* obj) { return obj == Py_None; }
+};
+
+template <>
+struct NullChecker<NullCoding::PANDAS_SENTINELS> {
+  static inline bool Check(PyObject* obj) { return internal::PandasObjectIsNull(obj); }
+};
+
+// ----------------------------------------------------------------------
+// Helper templates to append PyObject* to builder for each target conversion
+// type
+
+template <typename Type, typename Enable = void>
+struct Unbox {};
+
+template <typename Type>
+struct Unbox<Type, enable_if_integer<Type>> {
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  static inline Status Append(BuilderType* builder, PyObject* obj) {
+    typename Type::c_type value;
+    RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
+    return builder->Append(value);
+  }
+};
+
+template <>
+struct Unbox<HalfFloatType> {
+  static inline Status Append(HalfFloatBuilder* builder, PyObject* obj) {
+    npy_half val;
+    RETURN_NOT_OK(PyFloat_AsHalf(obj, &val));
+    return builder->Append(val);
+  }
+};
+
+template <>
+struct Unbox<FloatType> {
+  static inline Status Append(FloatBuilder* builder, PyObject* obj) {
+    if (internal::PyFloatScalar_Check(obj)) {
+      float val = static_cast<float>(PyFloat_AsDouble(obj));
+      RETURN_IF_PYERROR();
+      return builder->Append(val);
+    } else if (internal::PyIntScalar_Check(obj)) {
+      float val = 0;
+      RETURN_NOT_OK(internal::IntegerScalarToFloat32Safe(obj, &val));
+      return builder->Append(val);
+    } else {
+      return internal::InvalidValue(obj, "tried to convert to float32");
+    }
+  }
+};
+
+template <>
+struct Unbox<DoubleType> {
+  static inline Status Append(DoubleBuilder* builder, PyObject* obj) {
+    if (PyFloat_Check(obj)) {
+      double val = PyFloat_AS_DOUBLE(obj);
+      return builder->Append(val);
+    } else if (internal::PyFloatScalar_Check(obj)) {
+      // Other kinds of float-y things
+      double val = PyFloat_AsDouble(obj);
+      RETURN_IF_PYERROR();
+      return builder->Append(val);
+    } else if (internal::PyIntScalar_Check(obj)) {
+      double val = 0;
+      RETURN_NOT_OK(internal::IntegerScalarToDoubleSafe(obj, &val));
+      return builder->Append(val);
+    } else {
+      return internal::InvalidValue(obj, "tried to convert to double");
+    }
+  }
+};
+
+// We use CRTP to avoid virtual calls to the AppendItem(), AppendNull(), and
+// IsNull() on the hot path
+template <typename Type, class Derived,
+          NullCoding null_coding = NullCoding::PANDAS_SENTINELS>
+class TypedConverter : public SeqConverter {
  public:
-  explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {}
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
 
-  /// Builder for the keys of the dictionary
-  SequenceBuilder& keys() { return keys_; }
-  /// Builder for the values of the dictionary
-  SequenceBuilder& vals() { return vals_; }
-
-  /// Construct an Arrow StructArray representing the dictionary.
-  /// Contains a field "keys" for the keys and "vals" for the values.
-  /// \param val_list_data
-  ///    List containing the data from nested lists in the value
-  ///   list of the dictionary
-  ///
-  /// \param val_dict_data
-  ///   List containing the data from nested dictionaries in the
-  ///   value list of the dictionary
-  Status Finish(const Array* key_tuple_data, const Array* key_dict_data,
-                const Array* val_list_data, const Array* val_tuple_data,
-                const Array* val_dict_data, const Array* val_set_data,
-                std::shared_ptr<Array>* out) {
-    // lists and sets can't be keys of dicts in Python, that is why for
-    // the keys we do not need to collect sublists
-    std::shared_ptr<Array> keys, vals;
-    RETURN_NOT_OK(keys_.Finish(nullptr, key_tuple_data, key_dict_data, nullptr, &keys));
-    RETURN_NOT_OK(
-        vals_.Finish(val_list_data, val_tuple_data, val_dict_data, val_set_data, &vals));
-    auto keys_field = std::make_shared<Field>("keys", keys->type());
-    auto vals_field = std::make_shared<Field>("vals", vals->type());
-    auto type = std::make_shared<StructType>(
-        std::vector<std::shared_ptr<Field>>({keys_field, vals_field}));
-    std::vector<std::shared_ptr<Array>> field_arrays({keys, vals});
-    DCHECK(keys->length() == vals->length());
-    out->reset(new StructArray(type, keys->length(), field_arrays));
+  Status Init(ArrayBuilder* builder) override {
+    builder_ = builder;
+    DCHECK_NE(builder_, nullptr);
+    typed_builder_ = checked_cast<BuilderType*>(builder);
     return Status::OK();
   }
 
- private:
-  SequenceBuilder keys_;
-  SequenceBuilder vals_;
+  bool CheckNull(PyObject* obj) const { return NullChecker<null_coding>::Check(obj); }
+
+  // Append a missing item (default implementation)
+  Status AppendNull() { return this->typed_builder_->AppendNull(); }
+
+  // This is overridden in several subclasses, but if an Unbox implementation
+  // is defined, it will be used here
+  Status AppendItem(PyObject* obj) { return Unbox<Type>::Append(typed_builder_, obj); }
+
+  Status AppendSingle(PyObject* obj) {
+    auto self = checked_cast<Derived*>(this);
+    return CheckNull(obj) ? self->AppendNull() : self->AppendItem(obj);
+  }
+
+  Status AppendSingleVirtual(PyObject* obj) override { return AppendSingle(obj); }
+
+  Status AppendMultiple(PyObject* obj, int64_t size) override {
+    /// Ensure we've allocated enough space
+    RETURN_NOT_OK(this->typed_builder_->Reserve(size));
+    // Iterate over the items adding each one
+    auto self = checked_cast<Derived*>(this);
+    return internal::VisitSequence(obj,
+                                   [self](PyObject* item, bool* keep_going /* unused */) {
+                                     return self->AppendSingle(item);
+                                   });
+  }
+
+  Status AppendMultipleMasked(PyObject* obj, PyObject* mask, int64_t size) override {
+    /// Ensure we've allocated enough space
+    RETURN_NOT_OK(this->typed_builder_->Reserve(size));
+    // Iterate over the items adding each one
+    auto self = checked_cast<Derived*>(this);
+    return internal::VisitSequenceMasked(
+        obj, mask, [self](PyObject* item, bool is_masked, bool* keep_going /* unused */) {
+          if (is_masked) {
+            return self->AppendNull();
+          } else {
+            // This will also apply the null-checking convention in the event
+            // that the value is not masked
+            return self->AppendSingle(item);
+          }
+        });
+  }
+
+ protected:
+  BuilderType* typed_builder_;
 };
 
-Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* elem,
-                          PyObject** result) {
-  *result = NULL;
-  if (context == Py_None) {
-    std::stringstream ss;
-    ss << "error while calling callback on " << internal::PyObject_StdStringRepr(elem)
-       << ": handler not registered";
-    return Status::SerializationError(ss.str());
-  } else {
-    *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
-    return PassPyError();
+// ----------------------------------------------------------------------
+// Sequence converter for null type
+
+class NullConverter : public TypedConverter<NullType, NullConverter> {
+ public:
+  Status AppendItem(PyObject* obj) {
+    return internal::InvalidValue(obj, "converting to null type");
   }
-  return Status::OK();
-}
+};
 
-Status CallSerializeCallback(PyObject* context, PyObject* value,
-                             PyObject** serialized_object) {
-  OwnedRef method_name(PyUnicode_FromString("_serialize_callback"));
-  RETURN_NOT_OK(CallCustomCallback(context, method_name.obj(), value, serialized_object));
-  if (!PyDict_Check(*serialized_object)) {
-    return Status::TypeError("serialization callback must return a valid dictionary");
-  }
-  return Status::OK();
-}
+// ----------------------------------------------------------------------
+// Sequence converter for boolean type
 
-Status CallDeserializeCallback(PyObject* context, PyObject* value,
-                               PyObject** deserialized_object) {
-  OwnedRef method_name(PyUnicode_FromString("_deserialize_callback"));
-  return CallCustomCallback(context, method_name.obj(), value, deserialized_object);
-}
-
-Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
-                     int32_t recursion_depth, std::shared_ptr<Array>* out,
-                     SerializedPyObject* blobs_out);
-
-Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
-                      std::vector<PyObject*>* subdicts, SerializedPyObject* blobs_out);
-
-Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
-                          int32_t recursion_depth, std::shared_ptr<Array>* out,
-                          SerializedPyObject* blobs_out);
-
-Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
-  if (PyArray_IsScalar(obj, Bool)) {
-    return builder->AppendBool(reinterpret_cast<PyBoolScalarObject*>(obj)->obval != 0);
-  } else if (PyArray_IsScalar(obj, Half)) {
-    return builder->AppendHalfFloat(reinterpret_cast<PyHalfScalarObject*>(obj)->obval);
-  } else if (PyArray_IsScalar(obj, Float)) {
-    return builder->AppendFloat(reinterpret_cast<PyFloatScalarObject*>(obj)->obval);
-  } else if (PyArray_IsScalar(obj, Double)) {
-    return builder->AppendDouble(reinterpret_cast<PyDoubleScalarObject*>(obj)->obval);
-  }
-  int64_t value = 0;
-  if (PyArray_IsScalar(obj, Byte)) {
-    value = reinterpret_cast<PyByteScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, UByte)) {
-    value = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, Short)) {
-    value = reinterpret_cast<PyShortScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, UShort)) {
-    value = reinterpret_cast<PyUShortScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, Int)) {
-    value = reinterpret_cast<PyIntScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, UInt)) {
-    value = reinterpret_cast<PyUIntScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, Long)) {
-    value = reinterpret_cast<PyLongScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, ULong)) {
-    value = reinterpret_cast<PyULongScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, LongLong)) {
-    value = reinterpret_cast<PyLongLongScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, Int64)) {
-    value = reinterpret_cast<PyInt64ScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, ULongLong)) {
-    value = reinterpret_cast<PyULongLongScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, UInt64)) {
-    value = reinterpret_cast<PyUInt64ScalarObject*>(obj)->obval;
-  } else {
-    DCHECK(false) << "scalar type not recognized";
-  }
-  return builder->AppendInt64(value);
-}
-
-Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
-              std::vector<PyObject*>* sublists, std::vector<PyObject*>* subtuples,
-              std::vector<PyObject*>* subdicts, std::vector<PyObject*>* subsets,
-              SerializedPyObject* blobs_out) {
-  // The bool case must precede the int case (PyInt_Check passes for bools)
-  if (PyBool_Check(elem)) {
-    RETURN_NOT_OK(builder->AppendBool(elem == Py_True));
-  } else if (PyArray_DescrFromScalar(elem)->type_num == NPY_HALF) {
-    npy_half halffloat = reinterpret_cast<PyHalfScalarObject*>(elem)->obval;
-    RETURN_NOT_OK(builder->AppendHalfFloat(halffloat));
-  } else if (PyFloat_Check(elem)) {
-    RETURN_NOT_OK(builder->AppendDouble(PyFloat_AS_DOUBLE(elem)));
-  } else if (PyLong_Check(elem)) {
-    int overflow = 0;
-    int64_t data = PyLong_AsLongLongAndOverflow(elem, &overflow);
-    if (!overflow) {
-      RETURN_NOT_OK(builder->AppendInt64(data));
+class BoolConverter : public TypedConverter<BooleanType, BoolConverter> {
+ public:
+  Status AppendItem(PyObject* obj) {
+    if (obj == Py_True) {
+      return typed_builder_->Append(true);
+    } else if (obj == Py_False) {
+      return typed_builder_->Append(false);
     } else {
-      // Attempt to serialize the object using the custom callback.
-      PyObject* serialized_object;
-      // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallSerializeCallback(context, elem, &serialized_object));
-      RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
-      subdicts->push_back(serialized_object);
-    }
-#if PY_MAJOR_VERSION < 3
-  } else if (PyInt_Check(elem)) {
-    RETURN_NOT_OK(builder->AppendPy2Int64(static_cast<int64_t>(PyInt_AS_LONG(elem))));
-#endif
-  } else if (PyBytes_Check(elem)) {
-    auto data = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(elem));
-    int32_t size;
-    RETURN_NOT_OK(internal::CastSize(PyBytes_GET_SIZE(elem), &size));
-    RETURN_NOT_OK(builder->AppendBytes(data, size));
-  } else if (PyUnicode_Check(elem)) {
-    PyBytesView view;
-    RETURN_NOT_OK(view.FromString(elem));
-    int32_t size;
-    RETURN_NOT_OK(internal::CastSize(view.size, &size));
-    RETURN_NOT_OK(builder->AppendString(view.bytes, size));
-  } else if (PyList_CheckExact(elem)) {
-    RETURN_NOT_OK(builder->AppendList(PyList_Size(elem)));
-    sublists->push_back(elem);
-  } else if (PyDict_CheckExact(elem)) {
-    RETURN_NOT_OK(builder->AppendDict(PyDict_Size(elem)));
-    subdicts->push_back(elem);
-  } else if (PyTuple_CheckExact(elem)) {
-    RETURN_NOT_OK(builder->AppendTuple(PyTuple_Size(elem)));
-    subtuples->push_back(elem);
-  } else if (PySet_Check(elem)) {
-    RETURN_NOT_OK(builder->AppendSet(PySet_Size(elem)));
-    subsets->push_back(elem);
-  } else if (PyArray_IsScalar(elem, Generic)) {
-    RETURN_NOT_OK(AppendScalar(elem, builder));
-  } else if (PyArray_CheckExact(elem)) {
-    RETURN_NOT_OK(SerializeArray(context, reinterpret_cast<PyArrayObject*>(elem), builder,
-                                 subdicts, blobs_out));
-  } else if (elem == Py_None) {
-    RETURN_NOT_OK(builder->AppendNone());
-  } else if (PyDateTime_Check(elem)) {
-    PyDateTime_DateTime* datetime = reinterpret_cast<PyDateTime_DateTime*>(elem);
-    RETURN_NOT_OK(builder->AppendDate64(PyDateTime_to_us(datetime)));
-  } else if (is_buffer(elem)) {
-    RETURN_NOT_OK(builder->AppendBuffer(static_cast<int32_t>(blobs_out->buffers.size())));
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(unwrap_buffer(elem, &buffer));
-    blobs_out->buffers.push_back(buffer);
-  } else {
-    // Attempt to serialize the object using the custom callback.
-    PyObject* serialized_object;
-    // The reference count of serialized_object will be decremented in SerializeDict
-    RETURN_NOT_OK(CallSerializeCallback(context, elem, &serialized_object));
-    RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
-    subdicts->push_back(serialized_object);
-  }
-  return Status::OK();
-}
-
-Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
-                      std::vector<PyObject*>* subdicts, SerializedPyObject* blobs_out) {
-  int dtype = PyArray_TYPE(array);
-  switch (dtype) {
-    case NPY_UINT8:
-    case NPY_INT8:
-    case NPY_UINT16:
-    case NPY_INT16:
-    case NPY_UINT32:
-    case NPY_INT32:
-    case NPY_UINT64:
-    case NPY_INT64:
-    case NPY_HALF:
-    case NPY_FLOAT:
-    case NPY_DOUBLE: {
-      RETURN_NOT_OK(
-          builder->AppendTensor(static_cast<int32_t>(blobs_out->tensors.size())));
-      std::shared_ptr<Tensor> tensor;
-      RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
-                                    reinterpret_cast<PyObject*>(array), &tensor));
-      blobs_out->tensors.push_back(tensor);
-    } break;
-    default: {
-      PyObject* serialized_object;
-      // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallSerializeCallback(context, reinterpret_cast<PyObject*>(array),
-                                          &serialized_object));
-      RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
-      subdicts->push_back(serialized_object);
+      return internal::InvalidValue(obj, "tried to convert to boolean");
     }
   }
-  return Status::OK();
-}
+};
 
-Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
-                          int32_t recursion_depth, std::shared_ptr<Array>* out,
-                          SerializedPyObject* blobs_out) {
-  DCHECK(out);
-  if (recursion_depth >= kMaxRecursionDepth) {
-    return Status::NotImplemented(
-        "This object exceeds the maximum recursion depth. It may contain itself "
-        "recursively.");
-  }
-  SequenceBuilder builder;
-  std::vector<PyObject*> sublists, subtuples, subdicts, subsets;
-  for (const auto& sequence : sequences) {
-    RETURN_NOT_OK(internal::VisitIterable(
-        sequence, [&](PyObject* obj, bool* keep_going /* unused */) {
-          return Append(context, obj, &builder, &sublists, &subtuples, &subdicts,
-                        &subsets, blobs_out);
-        }));
-  }
-  std::shared_ptr<Array> list;
-  if (sublists.size() > 0) {
-    RETURN_NOT_OK(
-        SerializeSequences(context, sublists, recursion_depth + 1, &list, blobs_out));
-  }
-  std::shared_ptr<Array> tuple;
-  if (subtuples.size() > 0) {
-    RETURN_NOT_OK(
-        SerializeSequences(context, subtuples, recursion_depth + 1, &tuple, blobs_out));
-  }
-  std::shared_ptr<Array> dict;
-  if (subdicts.size() > 0) {
-    RETURN_NOT_OK(
-        SerializeDict(context, subdicts, recursion_depth + 1, &dict, blobs_out));
-  }
-  std::shared_ptr<Array> set;
-  if (subsets.size() > 0) {
-    RETURN_NOT_OK(
-        SerializeSequences(context, subsets, recursion_depth + 1, &set, blobs_out));
-  }
-  return builder.Finish(list.get(), tuple.get(), dict.get(), set.get(), out);
-}
+// ----------------------------------------------------------------------
+// Sequence converter template for numeric (integer and floating point) types
 
-Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
-                     int32_t recursion_depth, std::shared_ptr<Array>* out,
-                     SerializedPyObject* blobs_out) {
-  DictBuilder result;
-  if (recursion_depth >= kMaxRecursionDepth) {
-    return Status::NotImplemented(
-        "This object exceeds the maximum recursion depth. It may contain itself "
-        "recursively.");
+template <typename Type, NullCoding null_coding>
+class NumericConverter
+    : public TypedConverter<Type, NumericConverter<Type, null_coding>, null_coding> {};
+
+// ----------------------------------------------------------------------
+// Sequence converters for temporal types
+
+class Date32Converter : public TypedConverter<Date32Type, Date32Converter> {
+ public:
+  Status AppendItem(PyObject* obj) {
+    int32_t t;
+    if (PyDate_Check(obj)) {
+      auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
+      t = static_cast<int32_t>(PyDate_to_s(pydate));
+    } else {
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
+    }
+    return typed_builder_->Append(t);
   }
-  std::vector<PyObject*> key_tuples, key_dicts, val_lists, val_tuples, val_dicts,
-      val_sets, dummy;
-  for (const auto& dict : dicts) {
-    PyObject* key;
-    PyObject* value;
-    Py_ssize_t pos = 0;
-    while (PyDict_Next(dict, &pos, &key, &value)) {
-      RETURN_NOT_OK(Append(context, key, &result.keys(), &dummy, &key_tuples, &key_dicts,
-                           &dummy, blobs_out));
-      DCHECK_EQ(dummy.size(), 0);
-      RETURN_NOT_OK(Append(context, value, &result.vals(), &val_lists, &val_tuples,
-                           &val_dicts, &val_sets, blobs_out));
+};
+
+class Date64Converter : public TypedConverter<Date64Type, Date64Converter> {
+ public:
+  Status AppendItem(PyObject* obj) {
+    int64_t t;
+    if (PyDate_Check(obj)) {
+      auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
+      t = PyDate_to_ms(pydate);
+    } else {
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date64"));
+    }
+    return typed_builder_->Append(t);
+  }
+};
+
+class TimeConverter : public TypedConverter<Time64Type, TimeConverter> {
+ public:
+  Status AppendItem(PyObject* obj) {
+    if (PyTime_Check(obj)) {
+      // datetime.time stores microsecond resolution
+      return typed_builder_->Append(PyTime_to_us(obj));
+    } else {
+      return internal::InvalidValue(obj, "converting to time64");
     }
   }
-  std::shared_ptr<Array> key_tuples_arr;
-  if (key_tuples.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(context, key_tuples, recursion_depth + 1,
-                                     &key_tuples_arr, blobs_out));
-  }
-  std::shared_ptr<Array> key_dicts_arr;
-  if (key_dicts.size() > 0) {
-    RETURN_NOT_OK(SerializeDict(context, key_dicts, recursion_depth + 1, &key_dicts_arr,
-                                blobs_out));
-  }
-  std::shared_ptr<Array> val_list_arr;
-  if (val_lists.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(context, val_lists, recursion_depth + 1,
-                                     &val_list_arr, blobs_out));
-  }
-  std::shared_ptr<Array> val_tuples_arr;
-  if (val_tuples.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(context, val_tuples, recursion_depth + 1,
-                                     &val_tuples_arr, blobs_out));
-  }
-  std::shared_ptr<Array> val_dict_arr;
-  if (val_dicts.size() > 0) {
-    RETURN_NOT_OK(
-        SerializeDict(context, val_dicts, recursion_depth + 1, &val_dict_arr, blobs_out));
-  }
-  std::shared_ptr<Array> val_set_arr;
-  if (val_sets.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1, &val_set_arr,
-                                     blobs_out));
-  }
-  RETURN_NOT_OK(result.Finish(key_tuples_arr.get(), key_dicts_arr.get(),
-                              val_list_arr.get(), val_tuples_arr.get(),
-                              val_dict_arr.get(), val_set_arr.get(), out));
+};
 
-  // This block is used to decrement the reference counts of the results
-  // returned by the serialization callback, which is called in SerializeArray,
-  // in DeserializeDict and in Append
-  static PyObject* py_type = PyUnicode_FromString("_pytype_");
-  for (const auto& dict : dicts) {
-    if (PyDict_Contains(dict, py_type)) {
-      // If the dictionary contains the key "_pytype_", then the user has to
-      // have registered a callback.
-      if (context == Py_None) {
-        return Status::Invalid("No serialization callback set");
+class TimestampConverter : public TypedConverter<TimestampType, TimestampConverter> {
+ public:
+  explicit TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
+
+  Status AppendItem(PyObject* obj) {
+    int64_t t;
+    if (PyDateTime_Check(obj)) {
+      auto pydatetime = reinterpret_cast<PyDateTime_DateTime*>(obj);
+
+      switch (unit_) {
+        case TimeUnit::SECOND:
+          t = PyDateTime_to_s(pydatetime);
+          break;
+        case TimeUnit::MILLI:
+          t = PyDateTime_to_ms(pydatetime);
+          break;
+        case TimeUnit::MICRO:
+          t = PyDateTime_to_us(pydatetime);
+          break;
+        case TimeUnit::NANO:
+          t = PyDateTime_to_ns(pydatetime);
+          break;
+        default:
+          return Status::UnknownError("Invalid time unit");
       }
-      Py_XDECREF(dict);
+    } else if (PyArray_CheckAnyScalarExact(obj)) {
+      // numpy.datetime64
+      std::shared_ptr<DataType> type;
+      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
+      if (type->id() != Type::TIMESTAMP) {
+        std::ostringstream ss;
+        ss << "Expected np.datetime64 but got: ";
+        ss << type->ToString();
+        return Status::Invalid(ss.str());
+      }
+      const TimestampType& ttype = checked_cast<const TimestampType&>(*type);
+      if (unit_ != ttype.unit()) {
+        return Status::NotImplemented(
+            "Cannot convert NumPy datetime64 objects with differing unit");
+      }
+
+      t = reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
+    } else {
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t));
     }
+    return typed_builder_->Append(t);
   }
 
+ private:
+  TimeUnit::type unit_;
+};
+
+// ----------------------------------------------------------------------
+// Sequence converters for Binary, FixedSizeBinary, String
+
+namespace detail {
+
+template <typename BuilderType, typename AppendFunc>
+inline Status AppendPyString(BuilderType* builder, const PyBytesView& view, bool* is_full,
+                             AppendFunc&& append_func) {
+  int32_t length;
+  RETURN_NOT_OK(internal::CastSize(view.size, &length));
+  // Did we reach the builder size limit?
+  if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+    *is_full = true;
+    return Status::OK();
+  }
+  RETURN_NOT_OK(append_func(view.bytes, length));
+  *is_full = false;
   return Status::OK();
 }
 
-std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
-  auto field = std::make_shared<Field>("list", data->type());
-  auto schema = ::arrow::schema({field});
-  return RecordBatch::Make(schema, data->length(), {data});
+inline Status BuilderAppend(BinaryBuilder* builder, PyObject* obj, bool* is_full) {
+  PyBytesView view;
+  RETURN_NOT_OK(view.FromString(obj));
+  return AppendPyString(builder, view, is_full,
+                        [&builder](const char* bytes, int32_t length) {
+                          return builder->Append(bytes, length);
+                        });
 }
 
-Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
-  PyAcquireGIL lock;
-  PyDateTime_IMPORT;
-  import_pyarrow();
-  std::vector<PyObject*> sequences = {sequence};
-  std::shared_ptr<Array> array;
-  RETURN_NOT_OK(SerializeSequences(context, sequences, 0, &array, out));
-  out->batch = MakeBatch(array);
-  return Status::OK();
-}
-
-Status SerializeTensor(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) {
-  std::shared_ptr<Array> array;
-  SequenceBuilder builder;
-  RETURN_NOT_OK(builder.AppendTensor(static_cast<int32_t>(out->tensors.size())));
-  out->tensors.push_back(tensor);
-  RETURN_NOT_OK(builder.Finish(nullptr, nullptr, nullptr, nullptr, &array));
-  out->batch = MakeBatch(array);
-  return Status::OK();
-}
-
-Status WriteTensorHeader(std::shared_ptr<DataType> dtype,
-                         const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
-                         io::OutputStream* dst) {
-  auto empty_tensor = std::make_shared<Tensor>(
-      dtype, std::make_shared<Buffer>(nullptr, tensor_num_bytes), shape);
-  SerializedPyObject serialized_tensor;
-  RETURN_NOT_OK(SerializeTensor(empty_tensor, &serialized_tensor));
-  return serialized_tensor.WriteTo(dst);
-}
-
-Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
-  int32_t num_tensors = static_cast<int32_t>(this->tensors.size());
-  int32_t num_buffers = static_cast<int32_t>(this->buffers.size());
-  RETURN_NOT_OK(
-      dst->Write(reinterpret_cast<const uint8_t*>(&num_tensors), sizeof(int32_t)));
-  RETURN_NOT_OK(
-      dst->Write(reinterpret_cast<const uint8_t*>(&num_buffers), sizeof(int32_t)));
-  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, dst));
-
-  int32_t metadata_length;
-  int64_t body_length;
-  for (const auto& tensor : this->tensors) {
-    RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
+inline Status BuilderAppend(FixedSizeBinaryBuilder* builder, PyObject* obj,
+                            bool* is_full) {
+  PyBytesView view;
+  RETURN_NOT_OK(view.FromString(obj));
+  const auto expected_length =
+      checked_cast<const FixedSizeBinaryType&>(*builder->type()).byte_width();
+  if (ARROW_PREDICT_FALSE(view.size != expected_length)) {
+    std::stringstream ss;
+    ss << "expected to be length " << expected_length << " was " << view.size;
+    return internal::InvalidValue(obj, ss.str());
   }
 
-  for (const auto& buffer : this->buffers) {
-    int64_t size = buffer->size();
-    RETURN_NOT_OK(dst->Write(reinterpret_cast<const uint8_t*>(&size), sizeof(int64_t)));
-    RETURN_NOT_OK(dst->Write(buffer->data(), size));
-  }
-
-  return Status::OK();
+  return AppendPyString(
+      builder, view, is_full,
+      [&builder](const char* bytes, int32_t length) { return builder->Append(bytes); });
 }
 
-Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out) {
-  PyAcquireGIL py_gil;
+}  // namespace detail
 
-  OwnedRef result(PyDict_New());
-  PyObject* buffers = PyList_New(0);
+template <typename Type>
+class BinaryLikeConverter : public TypedConverter<Type, BinaryLikeConverter<Type>> {
+ public:
+  Status AppendItem(PyObject* obj) {
+    // Accessing members of the templated base requires using this-> here
+    bool is_full = false;
+    RETURN_NOT_OK(detail::BuilderAppend(this->typed_builder_, obj, &is_full));
 
-  // TODO(wesm): Not sure how pedantic we need to be about checking the return
-  // values of these functions. There are other places where we do not check
-  // PyDict_SetItem/SetItemString return value, but these failures would be
-  // quite esoteric
-  PyDict_SetItemString(result.obj(), "num_tensors",
-                       PyLong_FromSize_t(this->tensors.size()));
-  PyDict_SetItemString(result.obj(), "num_buffers",
-                       PyLong_FromSize_t(this->buffers.size()));
-  PyDict_SetItemString(result.obj(), "data", buffers);
-  RETURN_IF_PYERROR();
+    // Exceeded capacity of builder
+    if (ARROW_PREDICT_FALSE(is_full)) {
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(this->typed_builder_->Finish(&chunk));
+      this->chunks_.emplace_back(std::move(chunk));
 
-  Py_DECREF(buffers);
+      // Append the item now that the builder has been reset
+      return detail::BuilderAppend(this->typed_builder_, obj, &is_full);
+    }
+    return Status::OK();
+  }
+};
 
-  auto PushBuffer = [&buffers](const std::shared_ptr<Buffer>& buffer) {
-    PyObject* wrapped_buffer = wrap_buffer(buffer);
-    RETURN_IF_PYERROR();
-    if (PyList_Append(buffers, wrapped_buffer) < 0) {
-      Py_DECREF(wrapped_buffer);
+class BytesConverter : public BinaryLikeConverter<BinaryType> {};
+
+class FixedWidthBytesConverter : public BinaryLikeConverter<FixedSizeBinaryType> {};
+
+// For String/UTF8, if strict_conversions enabled, we reject any non-UTF8,
+// otherwise we allow but return results as BinaryArray
+template <bool STRICT>
+class StringConverter : public TypedConverter<StringType, StringConverter<STRICT>> {
+ public:
+  StringConverter() : binary_count_(0) {}
+
+  Status Append(PyObject* obj, bool* is_full) {
+    if (STRICT) {
+      // Force output to be unicode / utf8 and validate that any binary values
+      // are utf8
+      bool is_utf8 = false;
+      RETURN_NOT_OK(string_view_.FromString(obj, &is_utf8));
+      if (!is_utf8) {
+        return internal::InvalidValue(obj, "was not a utf8 string");
+      }
+    } else {
+      // Non-strict conversion; keep track of whether values are unicode or
+      // bytes; if any bytes are observe, the result will be bytes
+      if (PyUnicode_Check(obj)) {
+        RETURN_NOT_OK(string_view_.FromUnicode(obj));
+      } else {
+        // If not unicode or bytes, FromBinary will error
+        RETURN_NOT_OK(string_view_.FromBinary(obj));
+        ++binary_count_;
+      }
+    }
+
+    return detail::AppendPyString(this->typed_builder_, string_view_, is_full,
+                                  [this](const char* bytes, int32_t length) {
+                                    return this->typed_builder_->Append(bytes, length);
+                                  });
+  }
+
+  Status AppendItem(PyObject* obj) {
+    bool is_full = false;
+    RETURN_NOT_OK(Append(obj, &is_full));
+
+    // Exceeded capacity of builder
+    if (ARROW_PREDICT_FALSE(is_full)) {
+      std::shared_ptr<Array> chunk;
+      RETURN_NOT_OK(this->typed_builder_->Finish(&chunk));
+      this->chunks_.emplace_back(std::move(chunk));
+
+      // Append the item now that the builder has been reset
+      RETURN_NOT_OK(Append(obj, &is_full));
+    }
+    return Status::OK();
+  }
+
+  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* out) {
+    RETURN_NOT_OK(SeqConverter::GetResult(out));
+
+    // If we saw any non-unicode, cast results to BinaryArray
+    if (binary_count_) {
+      // We should have bailed out earlier
+      DCHECK(!STRICT);
+
+      for (size_t i = 0; i < out->size(); ++i) {
+        auto binary_data = (*out)[i]->data()->Copy();
+        binary_data->type = ::arrow::binary();
+        (*out)[i] = std::make_shared<BinaryArray>(binary_data);
+      }
+    }
+    return Status::OK();
+  }
+
+ private:
+  // Create a single instance of PyBytesView here to prevent unnecessary object
+  // creation/destruction
+  PyBytesView string_view_;
+
+  int64_t binary_count_;
+};
+
+// ----------------------------------------------------------------------
+// Convert lists (NumPy arrays containing lists or ndarrays as values)
+
+class ListConverter : public TypedConverter<ListType, ListConverter> {
+ public:
+  explicit ListConverter(bool from_pandas, bool strict_conversions)
+      : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
+
+  Status Init(ArrayBuilder* builder) {
+    builder_ = builder;
+    typed_builder_ = checked_cast<ListBuilder*>(builder);
+
+    value_type_ = checked_cast<const ListType&>(*builder->type()).value_type();
+    RETURN_NOT_OK(
+        GetConverter(value_type_, from_pandas_, strict_conversions_, &value_converter_));
+    return value_converter_->Init(typed_builder_->value_builder());
+  }
+
+  template <int NUMPY_TYPE, typename Type>
+  Status AppendNdarrayTypedItem(PyArrayObject* arr);
+  Status AppendNdarrayItem(PyObject* arr);
+
+  Status AppendItem(PyObject* obj) {
+    RETURN_NOT_OK(typed_builder_->Append());
+    if (PyArray_Check(obj)) {
+      return AppendNdarrayItem(obj);
+    }
+    const auto list_size = static_cast<int64_t>(PySequence_Size(obj));
+    if (ARROW_PREDICT_FALSE(list_size == -1)) {
       RETURN_IF_PYERROR();
     }
-    Py_DECREF(wrapped_buffer);
-    return Status::OK();
-  };
-
-  constexpr int64_t kInitialCapacity = 1024;
-
-  // Write the record batch describing the object structure
-  std::shared_ptr<io::BufferOutputStream> stream;
-  std::shared_ptr<Buffer> buffer;
-
-  py_gil.release();
-  RETURN_NOT_OK(io::BufferOutputStream::Create(kInitialCapacity, memory_pool, &stream));
-  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, stream.get()));
-  RETURN_NOT_OK(stream->Finish(&buffer));
-  py_gil.acquire();
-
-  RETURN_NOT_OK(PushBuffer(buffer));
-
-  // For each tensor, get a metadata buffer and a buffer for the body
-  for (const auto& tensor : this->tensors) {
-    std::unique_ptr<ipc::Message> message;
-    RETURN_NOT_OK(ipc::GetTensorMessage(*tensor, memory_pool, &message));
-    RETURN_NOT_OK(PushBuffer(message->metadata()));
-    RETURN_NOT_OK(PushBuffer(message->body()));
+    return value_converter_->AppendMultiple(obj, list_size);
   }
 
-  for (const auto& buf : this->buffers) {
-    RETURN_NOT_OK(PushBuffer(buf));
-  }
+  // virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+  //   // TODO: Handle chunked children
+  //   return SeqConverter::GetResult(chunks);
+  // }
 
-  *out = result.detach();
+ protected:
+  std::shared_ptr<DataType> value_type_;
+  std::unique_ptr<SeqConverter> value_converter_;
+  bool from_pandas_;
+  bool strict_conversions_;
+};
+
+template <int NUMPY_TYPE, typename Type>
+Status ListConverter::AppendNdarrayTypedItem(PyArrayObject* arr) {
+  using traits = internal::npy_traits<NUMPY_TYPE>;
+  using T = typename traits::value_type;
+  using ValueBuilderType = typename TypeTraits<Type>::BuilderType;
+
+  const bool null_sentinels_possible = (from_pandas_ && traits::supports_nulls);
+
+  auto child_builder = checked_cast<ValueBuilderType*>(value_converter_->builder());
+
+  // TODO(wesm): Vector append when not strided
+  Ndarray1DIndexer<T> values(arr);
+  if (null_sentinels_possible) {
+    for (int64_t i = 0; i < values.size(); ++i) {
+      if (traits::isnull(values[i])) {
+        RETURN_NOT_OK(child_builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(child_builder->Append(values[i]));
+      }
+    }
+  } else {
+    for (int64_t i = 0; i < values.size(); ++i) {
+      RETURN_NOT_OK(child_builder->Append(values[i]));
+    }
+  }
   return Status::OK();
+}
+
+// If the value type does not match the expected NumPy dtype, then fall through
+// to a slower PySequence-based path
+#define LIST_FAST_CASE(TYPE, NUMPY_TYPE, ArrowType)               \
+  case Type::TYPE: {                                              \
+    if (PyArray_DESCR(arr)->type_num != NUMPY_TYPE) {             \
+      return value_converter_->AppendMultiple(obj, value_length); \
+    }                                                             \
+    return AppendNdarrayTypedItem<NUMPY_TYPE, ArrowType>(arr);    \
+  }
+
+// Use internal::VisitSequence, fast for NPY_OBJECT but slower otherwise
+#define LIST_SLOW_CASE(TYPE)                                    \
+  case Type::TYPE: {                                            \
+    return value_converter_->AppendMultiple(obj, value_length); \
+  }
+
+Status ListConverter::AppendNdarrayItem(PyObject* obj) {
+  PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(obj);
+
+  if (PyArray_NDIM(arr) != 1) {
+    return Status::Invalid("Can only convert 1-dimensional array values");
+  }
+
+  const int64_t value_length = PyArray_SIZE(arr);
+
+  switch (value_type_->id()) {
+    LIST_SLOW_CASE(NA)
+    LIST_FAST_CASE(UINT8, NPY_UINT8, UInt8Type)
+    LIST_FAST_CASE(INT8, NPY_INT8, Int8Type)
+    LIST_FAST_CASE(UINT16, NPY_UINT16, UInt16Type)
+    LIST_FAST_CASE(INT16, NPY_INT16, Int16Type)
+    LIST_FAST_CASE(UINT32, NPY_UINT32, UInt32Type)
+    LIST_FAST_CASE(INT32, NPY_INT32, Int32Type)
+    LIST_FAST_CASE(UINT64, NPY_UINT64, UInt64Type)
+    LIST_FAST_CASE(INT64, NPY_INT64, Int64Type)
+    LIST_SLOW_CASE(DATE32)
+    LIST_SLOW_CASE(DATE64)
+    LIST_SLOW_CASE(TIME64)
+    LIST_FAST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
+    LIST_FAST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
+    LIST_FAST_CASE(FLOAT, NPY_FLOAT, FloatType)
+    LIST_FAST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
+    LIST_SLOW_CASE(BINARY)
+    LIST_SLOW_CASE(FIXED_SIZE_BINARY)
+    LIST_SLOW_CASE(STRING)
+    case Type::LIST: {
+      return value_converter_->AppendSingleVirtual(obj);
+    }
+    default: {
+      std::stringstream ss;
+      ss << "Unknown list item type: ";
+      ss << value_type_->ToString();
+      return Status::TypeError(ss.str());
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
+// Convert structs
+
+class StructConverter : public TypedConverter<StructType, StructConverter> {
+ public:
+  explicit StructConverter(bool from_pandas, bool strict_conversions)
+      : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
+
+  Status Init(ArrayBuilder* builder) {
+    builder_ = builder;
+    typed_builder_ = checked_cast<StructBuilder*>(builder);
+    const auto& struct_type = checked_cast<const StructType&>(*builder->type());
+
+    num_fields_ = typed_builder_->num_fields();
+    DCHECK_EQ(num_fields_, struct_type.num_children());
+
+    field_name_list_.reset(PyList_New(num_fields_));
+    RETURN_IF_PYERROR();
+
+    // Initialize the child converters and field names
+    for (int i = 0; i < num_fields_; i++) {
+      const std::string& field_name(struct_type.child(i)->name());
+      std::shared_ptr<DataType> field_type(struct_type.child(i)->type());
+
+      std::unique_ptr<SeqConverter> value_converter;
+      RETURN_NOT_OK(
+          GetConverter(field_type, from_pandas_, strict_conversions_, &value_converter));
+      RETURN_NOT_OK(value_converter->Init(typed_builder_->field_builder(i)));
+      value_converters_.push_back(std::move(value_converter));
+
+      // Store the field name as a PyObject, for dict matching
+      PyObject* nameobj =
+          PyUnicode_FromStringAndSize(field_name.c_str(), field_name.size());
+      RETURN_IF_PYERROR();
+      PyList_SET_ITEM(field_name_list_.obj(), i, nameobj);
+    }
+
+    return Status::OK();
+  }
+
+  Status AppendItem(PyObject* obj) {
+    RETURN_NOT_OK(typed_builder_->Append());
+    // Note heterogenous sequences are not allowed
+    if (ARROW_PREDICT_FALSE(source_kind_ == UNKNOWN)) {
+      if (PyDict_Check(obj)) {
+        source_kind_ = DICTS;
+      } else if (PyTuple_Check(obj)) {
+        source_kind_ = TUPLES;
+      }
+    }
+    if (PyDict_Check(obj) && source_kind_ == DICTS) {
+      return AppendDictItem(obj);
+    } else if (PyTuple_Check(obj) && source_kind_ == TUPLES) {
+      return AppendTupleItem(obj);
+    } else {
+      return Status::TypeError("Expected sequence of dicts or tuples for struct type");
+    }
+  }
+
+  // Append a missing item
+  Status AppendNull() {
+    RETURN_NOT_OK(typed_builder_->AppendNull());
+    // Need to also insert a missing item on all child builders
+    // (compare with ListConverter)
+    for (int i = 0; i < num_fields_; i++) {
+      RETURN_NOT_OK(value_converters_[i]->AppendSingleVirtual(Py_None));
+    }
+    return Status::OK();
+  }
+
+ protected:
+  Status AppendDictItem(PyObject* obj) {
+    // NOTE we're ignoring any extraneous dict items
+    for (int i = 0; i < num_fields_; i++) {
+      PyObject* nameobj = PyList_GET_ITEM(field_name_list_.obj(), i);
+      PyObject* valueobj = PyDict_GetItem(obj, nameobj);  // borrowed
+      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(
+          value_converters_[i]->AppendSingleVirtual(valueobj ? valueobj : Py_None));
+    }
+    return Status::OK();
+  }
+
+  Status AppendTupleItem(PyObject* obj) {
+    if (PyTuple_GET_SIZE(obj) != num_fields_) {
+      return Status::Invalid("Tuple size must be equal to number of struct fields");
+    }
+    for (int i = 0; i < num_fields_; i++) {
+      PyObject* valueobj = PyTuple_GET_ITEM(obj, i);
+      RETURN_NOT_OK(value_converters_[i]->AppendSingleVirtual(valueobj));
+    }
+    return Status::OK();
+  }
+
+  std::vector<std::unique_ptr<SeqConverter>> value_converters_;
+  OwnedRef field_name_list_;
+  int num_fields_;
+  // Whether we're converting from a sequence of dicts or tuples
+  enum { UNKNOWN, DICTS, TUPLES } source_kind_ = UNKNOWN;
+  bool from_pandas_;
+  bool strict_conversions_;
+};
+
+class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalConverter> {
+ public:
+  using BASE = TypedConverter<arrow::Decimal128Type, DecimalConverter>;
+
+  Status Init(ArrayBuilder* builder) override {
+    RETURN_NOT_OK(BASE::Init(builder));
+    decimal_type_ = checked_cast<const DecimalType*>(typed_builder_->type().get());
+    return Status::OK();
+  }
+
+  Status AppendItem(PyObject* obj) {
+    if (internal::PyDecimal_Check(obj)) {
+      Decimal128 value;
+      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(obj, *decimal_type_, &value));
+      return typed_builder_->Append(value);
+    } else {
+      // PyObject_IsInstance could error and set an exception
+      RETURN_IF_PYERROR();
+      return internal::InvalidValue(obj, "converting to Decimal128");
+    }
+  }
+
+ private:
+  const DecimalType* decimal_type_;
+};
+
+#define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                           \
+  case Type::TYPE_ENUM:                                              \
+    if (from_pandas) {                                               \
+      *out = std::unique_ptr<SeqConverter>(                          \
+          new NumericConverter<TYPE, NullCoding::PANDAS_SENTINELS>); \
+    } else {                                                         \
+      *out = std::unique_ptr<SeqConverter>(                          \
+          new NumericConverter<TYPE, NullCoding::NONE_ONLY>);        \
+    }                                                                \
+    break;
+
+#define SIMPLE_CONVERTER_CASE(TYPE_ENUM, TYPE_CLASS)      \
+  case Type::TYPE_ENUM:                                   \
+    *out = std::unique_ptr<SeqConverter>(new TYPE_CLASS); \
+    break;
+
+// Dynamic constructor for sequence converters
+Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
+                    bool strict_conversions, std::unique_ptr<SeqConverter>* out) {
+  switch (type->id()) {
+    SIMPLE_CONVERTER_CASE(NA, NullConverter);
+    SIMPLE_CONVERTER_CASE(BOOL, BoolConverter);
+    NUMERIC_CONVERTER(INT8, Int8Type);
+    NUMERIC_CONVERTER(INT16, Int16Type);
+    NUMERIC_CONVERTER(INT32, Int32Type);
+    NUMERIC_CONVERTER(INT64, Int64Type);
+    NUMERIC_CONVERTER(UINT8, UInt8Type);
+    NUMERIC_CONVERTER(UINT16, UInt16Type);
+    NUMERIC_CONVERTER(UINT32, UInt32Type);
+    NUMERIC_CONVERTER(UINT64, UInt64Type);
+    SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
+    SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
+    NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
+    NUMERIC_CONVERTER(FLOAT, FloatType);
+    NUMERIC_CONVERTER(DOUBLE, DoubleType);
+    case Type::STRING:
+      if (strict_conversions) {
+        *out = std::unique_ptr<SeqConverter>(new StringConverter<true>());
+      } else {
+        *out = std::unique_ptr<SeqConverter>(new StringConverter<false>());
+      }
+      break;
+      SIMPLE_CONVERTER_CASE(BINARY, BytesConverter);
+      SIMPLE_CONVERTER_CASE(FIXED_SIZE_BINARY, FixedWidthBytesConverter);
+    case Type::TIMESTAMP: {
+      *out = std::unique_ptr<SeqConverter>(
+          new TimestampConverter(checked_cast<const TimestampType&>(*type).unit()));
+      break;
+    }
+    case Type::TIME32: {
+      return Status::NotImplemented("No sequence converter for time32 available");
+    }
+      SIMPLE_CONVERTER_CASE(TIME64, TimeConverter);
+      SIMPLE_CONVERTER_CASE(DECIMAL, DecimalConverter);
+    case Type::LIST:
+      *out = std::unique_ptr<SeqConverter>(
+          new ListConverter(from_pandas, strict_conversions));
+      break;
+    case Type::STRUCT:
+      *out = std::unique_ptr<SeqConverter>(
+          new StructConverter(from_pandas, strict_conversions));
+      break;
+    default:
+      std::stringstream ss;
+      ss << "Sequence converter for type " << type->ToString() << " not implemented";
+      return Status::NotImplemented(ss.str());
+  }
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+
+// Convert *obj* to a sequence if necessary
+// Fill *size* to its length.  If >= 0 on entry, *size* is an upper size
+// bound that may lead to truncation.
+Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* size) {
+  if (PySequence_Check(obj)) {
+    // obj is already a sequence
+    int64_t real_size = static_cast<int64_t>(PySequence_Size(obj));
+    if (*size < 0) {
+      *size = real_size;
+    } else {
+      *size = std::min(real_size, *size);
+    }
+    Py_INCREF(obj);
+    *seq = obj;
+  } else if (*size < 0) {
+    // unknown size, exhaust iterator
+    *seq = PySequence_List(obj);
+    RETURN_IF_PYERROR();
+    *size = static_cast<int64_t>(PyList_GET_SIZE(*seq));
+  } else {
+    // size is known but iterator could be infinite
+    Py_ssize_t i, n = *size;
+    PyObject* iter = PyObject_GetIter(obj);
+    RETURN_IF_PYERROR();
+    OwnedRef iter_ref(iter);
+    PyObject* lst = PyList_New(n);
+    RETURN_IF_PYERROR();
+    for (i = 0; i < n; i++) {
+      PyObject* item = PyIter_Next(iter);
+      if (!item) break;
+      PyList_SET_ITEM(lst, i, item);
+    }
+    // Shrink list if len(iterator) < size
+    if (i < n && PyList_SetSlice(lst, i, n, NULL)) {
+      Py_DECREF(lst);
+      return Status::UnknownError("failed to resize list");
+    }
+    *seq = lst;
+    *size = std::min<int64_t>(i, *size);
+  }
+  return Status::OK();
+}
+
+Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
+                         const PyConversionOptions& options,
+                         std::shared_ptr<ChunkedArray>* out) {
+  PyAcquireGIL lock;
+
+  PyDateTime_IMPORT;
+
+  PyObject* seq;
+  OwnedRef tmp_seq_nanny;
+
+  std::shared_ptr<DataType> real_type;
+
+  int64_t size = options.size;
+  RETURN_NOT_OK(ConvertToSequenceAndInferSize(sequence_source, &seq, &size));
+  tmp_seq_nanny.reset(seq);
+
+  // In some cases, type inference may be "loose", like strings. If the user
+  // passed pa.string(), then we will error if we encounter any non-UTF8
+  // value. If not, then we will allow the result to be a BinaryArray
+  bool strict_conversions = false;
+
+  if (options.type == nullptr) {
+    RETURN_NOT_OK(InferArrowType(seq, &real_type));
+  } else {
+    real_type = options.type;
+    strict_conversions = true;
+  }
+  DCHECK_GE(size, 0);
+
+  // Handle NA / NullType case
+  if (real_type->id() == Type::NA) {
+    ArrayVector chunks = {std::make_shared<NullArray>(size)};
+    *out = std::make_shared<ChunkedArray>(chunks);
+    return Status::OK();
+  }
+
+  // Create the sequence converter, initialize with the builder
+  std::unique_ptr<SeqConverter> converter;
+  RETURN_NOT_OK(
+      GetConverter(real_type, options.from_pandas, strict_conversions, &converter));
+
+  // Create ArrayBuilder for type, then pass into the SeqConverter
+  // instance. The reason this is created here rather than in GetConverter is
+  // because of nested types (child SeqConverter objects need the child
+  // builders created by MakeBuilder)
+  std::unique_ptr<ArrayBuilder> type_builder;
+  RETURN_NOT_OK(MakeBuilder(options.pool, real_type, &type_builder));
+  RETURN_NOT_OK(converter->Init(type_builder.get()));
+
+  // Convert values
+  if (mask != nullptr && mask != Py_None) {
+    RETURN_NOT_OK(converter->AppendMultipleMasked(seq, mask, size));
+  } else {
+    RETURN_NOT_OK(converter->AppendMultiple(seq, size));
+  }
+
+  // Retrieve result. Conversion may yield one or more array values
+  std::vector<std::shared_ptr<Array>> chunks;
+  RETURN_NOT_OK(converter->GetResult(&chunks));
+
+  *out = std::make_shared<ChunkedArray>(chunks);
+  return Status::OK();
+}
+
+Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
+                         std::shared_ptr<ChunkedArray>* out) {
+  return ConvertPySequence(obj, nullptr, options, out);
 }
 
 }  // namespace py

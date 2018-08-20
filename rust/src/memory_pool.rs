@@ -19,24 +19,20 @@ use libc;
 use std::cmp;
 use std::mem;
 
-use super::error::ArrowError;
+use super::error::Result;
 use super::memory::{allocate_aligned, free_aligned};
 
 /// Memory pool for allocating memory. It's also responsible for tracking memory usage.
 pub trait MemoryPool {
     /// Allocate memory.
     /// The implementation should ensures that allocated memory is aligned.
-    fn allocate(&self, size: usize) -> Result<*mut u8, ArrowError>;
+    fn allocate(&self, size: usize) -> Result<*mut u8>;
 
     /// Reallocate memory.
     /// If the implementation doesn't support reallocating aligned memory, it allocates new memory
     /// and copied old memory to it.
-    fn reallocate(
-        &self,
-        old_size: usize,
-        new_size: usize,
-        pointer: *const u8,
-    ) -> Result<*const u8, ArrowError>;
+    fn reallocate(&self, old_size: usize, new_size: usize, pointer: *const u8)
+        -> Result<*const u8>;
 
     /// Free memory.
     fn free(&self, ptr: *const u8);
@@ -47,7 +43,7 @@ pub trait MemoryPool {
 struct LibcMemoryPool;
 
 impl MemoryPool for LibcMemoryPool {
-    fn allocate(&self, size: usize) -> Result<*mut u8, ArrowError> {
+    fn allocate(&self, size: usize) -> Result<*mut u8> {
         allocate_aligned(size as i64)
     }
 
@@ -56,7 +52,7 @@ impl MemoryPool for LibcMemoryPool {
         old_size: usize,
         new_size: usize,
         pointer: *const u8,
-    ) -> Result<*const u8, ArrowError> {
+    ) -> Result<*const u8> {
         unsafe {
             let old_src = mem::transmute::<*const u8, *mut libc::c_void>(pointer);
             let result = self.allocate(new_size)?;
@@ -75,6 +71,7 @@ impl MemoryPool for LibcMemoryPool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     const ALIGNMENT: usize = 64;
 
     #[test]

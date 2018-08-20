@@ -45,13 +45,13 @@
 
 #include "arrow/compute/api.h"
 
-#include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy-internal.h"
 #include "arrow/python/numpy_convert.h"
+#include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
 #include "arrow/python/util/datetime.h"
 

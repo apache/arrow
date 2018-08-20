@@ -19,14 +19,14 @@
 #define ARROW_PYTHON_API_H
 
 #include "arrow/python/arrow_to_pandas.h"
-#include "arrow/python/arrow_to_python.h"
-#include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
+#include "arrow/python/deserialize.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/inference.h"
 #include "arrow/python/io.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/numpy_to_arrow.h"
 #include "arrow/python/python_to_arrow.h"
+#include "arrow/python/serialize.h"
 
 #endif  // ARROW_PYTHON_API_H
