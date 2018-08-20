@@ -58,8 +58,9 @@ class TestPlasmaStore : public ::testing::Test {
 
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
-    std::string plasma_command = plasma_directory + "/plasma_store_server -m 1000000000 -s " +
-                                 store_socket_name_ + " 1> /dev/null 2> /dev/null &";
+    std::string plasma_command =
+        plasma_directory + "/plasma_store_server -m 1000000000 " +
+        "-s " + store_socket_name_ + " 1> /dev/null 2> /dev/null &";
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
     ARROW_CHECK_OK(client2_.Connect(store_socket_name_, ""));
