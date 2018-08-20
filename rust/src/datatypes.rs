@@ -93,7 +93,6 @@ where
 impl DataType {
     /// Parse a data type from a JSON representation
     fn from(json: &Value) -> Result<DataType> {
-        //println!("DataType::from({:?})", json);
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "bool" => Ok(DataType::Boolean),
@@ -212,7 +211,6 @@ impl Field {
 
     /// Parse a field definition from a JSON representation
     pub fn from(json: &Value) -> Result<Self> {
-        //println!("Field::from({:?}", json);
         match *json {
             Value::Object(ref map) => {
                 let name = match map.get("name") {
