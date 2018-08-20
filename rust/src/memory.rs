@@ -18,7 +18,7 @@
 use libc;
 use std::mem;
 
-use super::error::ArrowError;
+use super::error::{ArrowError, Result};
 
 const ALIGNMENT: usize = 64;
 
@@ -30,7 +30,7 @@ extern "C" {
 }
 
 #[cfg(windows)]
-pub fn allocate_aligned(size: i64) -> Result<*mut u8, ArrowError> {
+pub fn allocate_aligned(size: i64) -> Result<*mut u8> {
     let page = unsafe { _aligned_malloc(size as libc::size_t, ALIGNMENT as libc::size_t) };
     match page {
         0 => Err(ArrowError::MemoryError(
@@ -41,7 +41,7 @@ pub fn allocate_aligned(size: i64) -> Result<*mut u8, ArrowError> {
 }
 
 #[cfg(not(windows))]
-pub fn allocate_aligned(size: i64) -> Result<*mut u8, ArrowError> {
+pub fn allocate_aligned(size: i64) -> Result<*mut u8> {
     unsafe {
         let mut page: *mut libc::c_void = mem::uninitialized();
         let result = libc::posix_memalign(&mut page, ALIGNMENT, size as usize);

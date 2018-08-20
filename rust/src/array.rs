@@ -106,7 +106,7 @@ struct RawPtrBox<T> {
 
 impl<T> RawPtrBox<T> {
     fn new(inner: *const T) -> Self {
-        Self { inner: inner }
+        Self { inner }
     }
 
     fn get(&self) -> *const T {
@@ -240,11 +240,11 @@ macro_rules! def_primitive_array {
 /// Constructs a `PrimitiveArray` from an array data reference.
 impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     fn from(data: ArrayDataRef) -> Self {
-        assert!(data.buffers().len() == 1);
+        assert_eq!(data.buffers().len(), 1);
         let raw_values = data.buffers()[0].raw_data();
         assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()));
         Self {
-            data: data,
+            data,
             raw_values: RawPtrBox::new(raw_values as *const T),
         }
     }
@@ -321,8 +321,8 @@ impl ListArray {
 /// Constructs a `ListArray` from an array data reference.
 impl From<ArrayDataRef> for ListArray {
     fn from(data: ArrayDataRef) -> Self {
-        assert!(data.buffers().len() == 1);
-        assert!(data.child_data().len() == 1);
+        assert_eq!(data.buffers().len(), 1);
+        assert_eq!(data.child_data().len(), 1);
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
         assert!(memory::is_aligned(
@@ -331,12 +331,15 @@ impl From<ArrayDataRef> for ListArray {
         ));
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
-            assert!(*value_offsets.offset(0) == 0);
-            assert!(*value_offsets.offset(data.len() as isize) == values.data().len() as i32);
+            assert_eq!(*value_offsets.offset(0), 0);
+            assert_eq!(
+                *value_offsets.offset(data.len() as isize),
+                values.data().len() as i32
+            );
         }
         Self {
             data: data.clone(),
-            values: values,
+            values,
             value_offsets: RawPtrBox::new(value_offsets),
         }
     }
@@ -410,7 +413,7 @@ impl BinaryArray {
 
 impl From<ArrayDataRef> for BinaryArray {
     fn from(data: ArrayDataRef) -> Self {
-        assert!(data.buffers().len() == 2);
+        assert_eq!(data.buffers().len(), 2);
         let raw_value_offsets = data.buffers()[0].raw_data();
         assert!(memory::is_aligned(
             raw_value_offsets,
@@ -478,10 +481,7 @@ impl From<ArrayDataRef> for StructArray {
         for cd in data.child_data() {
             boxed_fields.push(make_array(cd.clone()));
         }
-        Self {
-            data: data,
-            boxed_fields: boxed_fields,
-        }
+        Self { data, boxed_fields }
     }
 }
 

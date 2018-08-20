@@ -60,7 +60,7 @@ impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
         assert!(memory::is_aligned(ptr, 64));
-        let buf_data = BufferData { ptr: ptr, len: len };
+        let buf_data = BufferData { ptr, len };
         Buffer {
             data: Arc::new(buf_data),
             offset: 0,
@@ -147,17 +147,17 @@ mod tests {
 
         // slice with same offset should still preserve equality
         let buf3 = buf1.slice(2);
-        assert!(buf1 != buf3);
+        assert_ne!(buf1, buf3);
         let buf4 = buf2.slice(2);
         assert_eq!(buf3, buf4);
 
         // unequal because of different elements
         buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
-        assert!(buf1 != buf2);
+        assert_ne!(buf1, buf2);
 
         // unequal because of different length
         buf2 = Buffer::from(&[0, 1, 2, 3]);
-        assert!(buf1 != buf2);
+        assert_ne!(buf1, buf2);
     }
 
     #[test]
