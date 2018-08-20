@@ -19,7 +19,7 @@ use std::fmt;
 use std::mem::size_of;
 use std::slice::from_raw_parts;
 
-use error::ArrowError;
+use error::{ArrowError, Result};
 use serde_json::Value;
 
 /// Arrow data type
@@ -92,7 +92,7 @@ where
 
 impl DataType {
     /// Parse a data type from a JSON representation
-    fn from(json: &Value) -> Result<DataType, ArrowError> {
+    fn from(json: &Value) -> Result<DataType> {
         //println!("DataType::from({:?})", json);
         match *json {
             Value::Object(ref map) => match map.get("name") {
@@ -148,7 +148,7 @@ impl DataType {
                         let fields = fields_array
                             .iter()
                             .map(|f| Field::from(f))
-                            .collect::<Result<Vec<Field>, ArrowError>>();
+                            .collect::<Result<Vec<Field>>>();
                         Ok(DataType::Struct(fields?))
                     }
                     _ => Err(ArrowError::ParseError("empty type".to_string())),
@@ -211,7 +211,7 @@ impl Field {
     }
 
     /// Parse a field definition from a JSON representation
-    pub fn from(json: &Value) -> Result<Self, ArrowError> {
+    pub fn from(json: &Value) -> Result<Self> {
         //println!("Field::from({:?}", json);
         match *json {
             Value::Object(ref map) => {
