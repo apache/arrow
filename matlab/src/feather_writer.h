@@ -48,7 +48,8 @@ class FeatherWriter {
   ///         - "Name" :: Nx1 mxChar array, name of the column
   ///         - "Type" :: Nx1 mxChar array, the variable's MATLAB datatype
   ///         - "Data" :: Nx1 mxArray, data for this variable
-  ///         - "Nulls" :: Nx1 mxLogical array, represents null values
+  ///         - "Valid" :: Nx1 mxLogical array, 0 represents invalid (null) values and
+  ///                                           1 represents valid (non-null) values
   /// \param[in] variables mxArray* struct array containing table variable data
   /// \return status
   arrow::Status WriteVariables(const mxArray* variables);
@@ -62,15 +63,6 @@ class FeatherWriter {
 
  private:
   FeatherWriter() = default;
-
-  // Dispatches MATLAB mxArray types to the appropriate Feather column writer.
-  arrow::Status WriteVariableData(const mxArray* name, const mxArray* data,
-                                  const mxArray* type, const mxArray* nulls);
-
-  // Writes numeric datatypes to the Feather file.
-  template <typename ArrowDataType>
-  arrow::Status WriteNumericData(const mxArray* name, const mxArray* data,
-                                 const mxArray* nulls);
 
   std::unique_ptr<arrow::ipc::feather::TableWriter> table_writer_;
   int64_t num_rows_;

@@ -50,6 +50,11 @@ end
 % the table VariableDescriptions property needs to be modified.
 variableDescriptions = cell(1, numel(variables));
 
+% This flag indicates whether the variableDescriptions property needs to be set
+% in the MATLAB table generated from the Feather file. This is only necessary if
+% the Feather file has column names that cannot be converted to valid MATLAB identifiers.
+setVariableDescriptions = false;
+
 % Iterate over each table variable, handling invalid (null) entries
 % and invalid MATLAB table variable names appropriately.
 % Note: All Arrow arrays can have an associated validity (null) bitmap.
@@ -73,7 +78,6 @@ for ii = 1:length(variables)
     % Store invalid variable names in the VariableDescriptons
     % property, and convert any invalid variable names into valid variable
     % names.
-    setVariableDescriptions = false;
     if ~isvarname(variables(ii).Name)
         variableDescriptions{ii} = sprintf('Original variable name: ''%s''', variables(ii).Name);
         setVariableDescriptions = true;

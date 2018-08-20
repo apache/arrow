@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+#include <functional> /* for std::multiplies */
+#include <numeric>    /* for std::accumulate */
+
 #include <arrow/array.h>
 #include <arrow/buffer.h>
 #include <arrow/io/file.h>
@@ -22,6 +26,7 @@
 #include <arrow/status.h>
 #include <arrow/table.h>
 #include <arrow/type.h>
+#include <arrow/util/bit-util.h>
 
 #include <mex.h>
 
@@ -41,6 +46,11 @@ void ValidateMxStructSchema(const mxArray* array, int num_fields, const char** f
   if (!mxIsStruct(array)) {
     mexErrMsgIdAndTxt("MATLAB:arrow:IncorrectDimensionsOrType",
                       "Input needs to be a struct array");
+  }
+
+  // Return early if an empty table is provided as input.
+  if (mxIsEmpty(array)) {
+    return;
   }
 
   // Iterate over desired fieldnames and verify existence in the input struct array.
@@ -94,6 +104,162 @@ std::string MxArrayToString(const mxArray* array) {
   return output;
 }
 
+// Compare number of columns and exit out to the MATLAB layer if incorrect.
+void ValidateNumColumns(int64_t actual, int64_t expected) {
+  if (actual != expected) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:IncorrectNumberOfColumns",
+                      "Received only '%d' columns but expected '%d' columns", actual,
+                      expected);
+  }
+}
+
+// Compare number of rows and exit out to the MATLAB layer if incorrect.
+void ValidateNumRows(int64_t actual, int64_t expected) {
+  if (actual != expected) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:IncorrectNumberOfRows",
+                      "Received only '%d' rows but expected '%d' rows", actual, expected);
+  }
+}
+
+// Calculate the number of bytes required in the bit-packed validity buffer.
+constexpr int64_t BitPackedLength(int64_t num_elements) {
+  // Since mxLogicalArray encodes [0, 1] in a full byte, we can compress that byte
+  // down to a bit...therefore dividing the mxLogicalArray length by 8 here.
+  return static_cast<int64_t>(std::ceil(num_elements / 8.0));
+}
+
+// Construct a bit-packed buffer on the heap for validity information.
+std::shared_ptr<uint8_t> MakePackedValidityBuffer(int64_t num_elements) {
+  return std::shared_ptr<uint8_t>(new uint8_t[BitPackedLength(num_elements)]);
+}
+
+// Calculate the total number of elements in an mxArray
+// We have to do this separately since mxGetNumberOfElements only works in numeric arrays
+size_t GetNumberOfElements(const mxArray* array) {
+  // Get the dimensions and the total number of dimensions from the mxArray*.
+  const size_t num_dimensions = mxGetNumberOfDimensions(array);
+  const size_t* dimensions = mxGetDimensions(array);
+
+  // Iterate over the dimensions array and accumulate the total number of elements.
+  return std::accumulate(dimensions, dimensions + num_dimensions, 1,
+                         std::multiplies<size_t>());
+}
+
+// Write an mxLogicalArray* into a bit-packed arrow::MutableBuffer
+void MxLogicalArray2Buffer(const mxArray* logical_array,
+                           std::shared_ptr<arrow::MutableBuffer> packed_buffer) {
+  // Error out if the incorrect type is passed in.
+  if (!mxIsLogical(logical_array)) {
+    mexErrMsgIdAndTxt(
+        "MATLAB:arrow:IncorrectType",
+        "Expected mxLogical array as input but received mxArray of class '%s'",
+        mxGetClassName(logical_array));
+  }
+
+  // Validate that the input arrow::Buffer has sufficent size to store a full bit-packed
+  // representation of the input mxLogicalArray
+  int64_t unpacked_buffer_length = GetNumberOfElements(logical_array);
+  if (BitPackedLength(unpacked_buffer_length) > packed_buffer->capacity()) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:BufferSizeExceeded",
+                      "Buffer of size %d bytes cannot store %d bytes of data",
+                      packed_buffer->capacity(), BitPackedLength(unpacked_buffer_length));
+  }
+
+  // Get pointers to the internal uint8_t arrays behind arrow::Buffer and mxArray
+  uint8_t* packed_buffer_ptr = packed_buffer->mutable_data();
+  const uint8_t* unpacked_buffer_ptr =
+      reinterpret_cast<const uint8_t*>(mxGetLogicals(logical_array));
+
+  // Iterate over the mxLogical array and write bit-packed bools to the arrow::Buffer.
+  for (int64_t idx = 0; idx < unpacked_buffer_length; ++idx) {
+    // If the mxLogical value is true, set the corresponding bit in the bit-packed
+    // buffer. Otherwise, clear that bit.
+    if (unpacked_buffer_ptr[idx]) {
+      arrow::BitUtil::SetBit(packed_buffer_ptr, idx);
+    } else {
+      arrow::BitUtil::ClearBit(packed_buffer_ptr, idx);
+    }
+  }
+}
+
+void WriteVariableValidityBitmap(const mxArray* valid,
+                                 std::shared_ptr<arrow::MutableBuffer> validity_bitmap) {
+  // Call a helper function that writes mxLogical values into a bit-packed arrow::Buffer.
+  MxLogicalArray2Buffer(valid, validity_bitmap);
+}
+
+// Write numeric datatypes to the Feather file.
+template <typename ArrowDataType>
+std::unique_ptr<arrow::Array> WriteNumericData(
+    const mxArray* data, const std::shared_ptr<arrow::Buffer> validity_bitmap) {
+  // Alias the type name for the underlying MATLAB type.
+  using MatlabType = typename MatlabTraits<ArrowDataType>::MatlabType;
+
+  // Get a pointer to the underlying mxArray data.
+  // We need to (temporarily) cast away const here since the mxGet* functions do not
+  // accept a const input parameter for compatibility reasons.
+  const MatlabType* dt = MatlabTraits<ArrowDataType>::GetData(const_cast<mxArray*>(data));
+
+  // Construct an arrow::Buffer that points to the underlying mxArray without copying.
+  // - The lifetime of the mxArray buffer exceeds that of the arrow::Buffer here since
+  //   MATLAB should only free this region on garbage-collection after the MEX function
+  //   is executed. Therefore it is safe for arrow::Buffer to point to this location.
+  // - However arrow::Buffer must not free this region by itself, since that could cause
+  //   segfaults if the input array is used later in MATLAB.
+  //   - The Doxygen doc for arrow::Buffer's constructor implies that it is not an RAII
+  //     type, so this should be safe from possible double-free here.
+  std::shared_ptr<arrow::Buffer> buffer(
+      new arrow::Buffer(reinterpret_cast<const uint8_t*>(dt),
+                        mxGetElementSize(data) * mxGetNumberOfElements(data)));
+
+  // Construct arrow::NumericArray specialization using arrow::Buffer.
+  // pass in nulls information...we could compute and provide the number of nulls here too
+  std::unique_ptr<arrow::Array> array_wrapper(new arrow::NumericArray<ArrowDataType>(
+      mxGetNumberOfElements(data), buffer, validity_bitmap, -1));
+
+  return array_wrapper;
+}
+
+// Dispatch MATLAB column data to the correct arrow::Array converter.
+std::unique_ptr<arrow::Array> WriteVariableData(
+    const mxArray* data, const std::string& type,
+    const std::shared_ptr<arrow::Buffer> validity_bitmap) {
+  // Get the underlying type of the mxArray data.
+  const mxClassID mxclass = mxGetClassID(data);
+
+  switch (mxclass) {
+    case mxSINGLE_CLASS:
+      return WriteNumericData<arrow::FloatType>(data, validity_bitmap);
+    case mxDOUBLE_CLASS:
+      return WriteNumericData<arrow::DoubleType>(data, validity_bitmap);
+    case mxUINT8_CLASS:
+      return WriteNumericData<arrow::UInt8Type>(data, validity_bitmap);
+    case mxUINT16_CLASS:
+      return WriteNumericData<arrow::UInt16Type>(data, validity_bitmap);
+    case mxUINT32_CLASS:
+      return WriteNumericData<arrow::UInt32Type>(data, validity_bitmap);
+    case mxUINT64_CLASS:
+      return WriteNumericData<arrow::UInt64Type>(data, validity_bitmap);
+    case mxINT8_CLASS:
+      return WriteNumericData<arrow::Int8Type>(data, validity_bitmap);
+    case mxINT16_CLASS:
+      return WriteNumericData<arrow::Int16Type>(data, validity_bitmap);
+    case mxINT32_CLASS:
+      return WriteNumericData<arrow::Int32Type>(data, validity_bitmap);
+    case mxINT64_CLASS:
+      return WriteNumericData<arrow::Int64Type>(data, validity_bitmap);
+
+    default: {
+      mexErrMsgIdAndTxt("MATLAB:arrow:UnsupportedArrowType",
+                        "Unsupported arrow::Type '%s' for variable '%s'",
+                        mxGetClassName(data), type.c_str());
+    }
+  }
+
+  // We shouldn't ever reach this branch, but if we do, return a null unique_ptr.
+  return std::unique_ptr<arrow::Array>();
+}
+
 }  // namespace internal
 
 arrow::Status FeatherWriter::Open(const std::string& filename,
@@ -106,7 +272,7 @@ arrow::Status FeatherWriter::Open(const std::string& filename,
   ARROW_RETURN_NOT_OK(arrow::io::FileOutputStream::Open(filename, &writable_file));
 
   // TableWriter::Open expects a shared_ptr to an OutputStream.
-  // Open the Feather file for writing with a TableWriter
+  // Open the Feather file for writing with a TableWriter.
   ARROW_RETURN_NOT_OK(arrow::ipc::feather::TableWriter::Open(
       writable_file, &(*feather_writer)->table_writer_));
 
@@ -135,7 +301,8 @@ arrow::Status FeatherWriter::WriteMetadata(const mxArray* metadata) {
   this->num_rows_ = static_cast<int64_t>(mxGetScalar(mxGetField(metadata, 0, "NumRows")));
   this->table_writer_->SetNumRows(this->num_rows_);
 
-  // Get the total number of variables.
+  // Get the total number of variables. This is checked later for consistency with
+  // the provided number of columns before finishing the file write.
   this->num_variables_ =
       static_cast<int64_t>(mxGetScalar(mxGetField(metadata, 0, "NumVariables")));
 
@@ -149,108 +316,64 @@ arrow::Status FeatherWriter::WriteMetadata(const mxArray* metadata) {
 arrow::Status FeatherWriter::WriteVariables(const mxArray* variables) {
   // Required fields for the input struct array.
   const int num_fields = 4;
-  const char* fieldnames[num_fields] = {"Name", "Type", "Data", "Nulls"};
+  const char* fieldnames[num_fields] = {"Name", "Type", "Data", "Valid"};
   const mxClassID class_ids[num_fields] = {mxCHAR_CLASS, mxCHAR_CLASS, mxUNKNOWN_CLASS,
                                            mxLOGICAL_CLASS};
 
   // Verify that all required fieldnames are provided.
   internal::ValidateMxStructSchema(variables, num_fields, fieldnames, class_ids);
 
-  // Get the number of table columns in the struct array.
-  int num_columns = (mxGetM(variables) == 1) ? mxGetN(variables) : mxGetM(variables);
+  // Get the number of columns in the struct array.
+  size_t num_columns = internal::GetNumberOfElements(variables);
+
+  // Verify that we have all the columns required for writing
+  // Currently we need all columns to be passed in together in the WriteVariables method.
+  internal::ValidateNumColumns(static_cast<int64_t>(num_columns), this->num_variables_);
+
+  // Set up packed validity buffer for later arrow::Buffers to reference and populate.
+  // Since this is defined in the enclosing scope around any arrow::Buffer usage, this
+  // should outlive any arrow::Buffers created on this range, thus avoiding dangling
+  // references.
+  std::shared_ptr<uint8_t> packed_validity_buffer =
+      internal::MakePackedValidityBuffer(this->num_rows_);
 
   // Iterate over the input columns and generate arrow arrays.
   for (int idx = 0; idx < num_columns; ++idx) {
+    // Unwrap constituent mxArray*s from the mxStructArray*. This is safe since we
+    // already checked for existence and non-nullness of these types.
     const mxArray* name = mxGetField(variables, idx, "Name");
     const mxArray* data = mxGetField(variables, idx, "Data");
     const mxArray* type = mxGetField(variables, idx, "Type");
-    const mxArray* nulls = mxGetField(variables, idx, "Nulls");
+    const mxArray* valid = mxGetField(variables, idx, "Valid");
 
-    // Pass mxArray data to internal function that uses the Arrow libraries.
-    ARROW_RETURN_NOT_OK(this->WriteVariableData(name, data, type, nulls));
+    // Convert column and type name to a std::string from mxArray*.
+    std::string name_str = internal::MxArrayToString(name);
+    std::string type_str = internal::MxArrayToString(type);
+
+    // Set up an arrow::Buffer which can be populated by the validity bitmap information
+    // for the current column.
+    int64_t packed_validity_buffer_len = internal::BitPackedLength(this->num_rows_);
+    std::shared_ptr<arrow::MutableBuffer> validity_bitmap(new arrow::MutableBuffer(
+        packed_validity_buffer.get(), packed_validity_buffer_len));
+
+    // Populate bit-packed arrow::Buffer using validity data in the mxArray*.
+    internal::WriteVariableValidityBitmap(valid, validity_bitmap);
+
+    // Wrap mxArray data in an arrow::Array of the equivalent type.
+    std::unique_ptr<arrow::Array> array =
+        internal::WriteVariableData(data, type_str, validity_bitmap);
+
+    // Verify that the arrow::Array has the right number of elements.
+    internal::ValidateNumRows(array->length(), this->num_rows_);
+
+    // Write another column to the Feather file.
+    ARROW_RETURN_NOT_OK(this->table_writer_->Append(name_str, *array));
   }
 
   // Write the Feather file metadata to the end of the file.
   arrow::Status status = this->table_writer_->Finalize();
 
   return status;
-}
-
-// Dispatch MATLAB table data to the correct column writer.
-arrow::Status FeatherWriter::WriteVariableData(const mxArray* name, const mxArray* data,
-                                               const mxArray* type,
-                                               const mxArray* nulls) {
-  // Get the underlying type of the mxArray data.
-  const mxClassID mxclass = mxGetClassID(data);
-
-  switch (mxclass) {
-    case mxSINGLE_CLASS:
-      return WriteNumericData<arrow::FloatType>(name, data, nulls);
-    case mxDOUBLE_CLASS:
-      return WriteNumericData<arrow::DoubleType>(name, data, nulls);
-    case mxUINT8_CLASS:
-      return WriteNumericData<arrow::UInt8Type>(name, data, nulls);
-    case mxUINT16_CLASS:
-      return WriteNumericData<arrow::UInt16Type>(name, data, nulls);
-    case mxUINT32_CLASS:
-      return WriteNumericData<arrow::UInt32Type>(name, data, nulls);
-    case mxUINT64_CLASS:
-      return WriteNumericData<arrow::UInt64Type>(name, data, nulls);
-    case mxINT8_CLASS:
-      return WriteNumericData<arrow::Int8Type>(name, data, nulls);
-    case mxINT16_CLASS:
-      return WriteNumericData<arrow::Int16Type>(name, data, nulls);
-    case mxINT32_CLASS:
-      return WriteNumericData<arrow::Int32Type>(name, data, nulls);
-    case mxINT64_CLASS:
-      return WriteNumericData<arrow::Int64Type>(name, data, nulls);
-
-    default: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:UnsupportedArrowType",
-                        "Unsupported arrow::Type '%s' for variable '%s'",
-                        mxGetClassName(data), mxArrayToUTF8String(name));
-    }
-  }
-
-  return arrow::Status::UnknownError("unknown error occurred in unreachable branch");
-}
-
-// Write numeric datatypes to the Feather file.
-template <typename ArrowDataType>
-arrow::Status FeatherWriter::WriteNumericData(const mxArray* name, const mxArray* data,
-                                              const mxArray* nulls) {
-  // Alias the type name for the underlying MATLAB type.
-  using MatlabType = typename MatlabTraits<ArrowDataType>::MatlabType;
-
-  // Get a pointer to the underlying mxArray data.
-  // We need to (temporarily) cast away const here since the mxGet* functions do not
-  // accept a const input parameter for compatibility reasons.
-  const MatlabType* dt = MatlabTraits<ArrowDataType>::GetData(const_cast<mxArray*>(data));
-
-  // Construct an arrow::Buffer that points to the underlying mxArray without copying.
-  // - The lifetime of the mxArray buffer exceeds that of the arrow::Buffer here since
-  //   MATLAB should only free this region on garbage-collection after the MEX function
-  //   is executed. Therefore it is safe for arrow::Buffer to point to this location.
-  // - However arrow::Buffer must not free this region by itself, since that could cause
-  //   segfaults if the input array is used later in MATLAB.
-  //   - The Doxygen doc for arrow::Buffer's constructor implies that it is not an RAII
-  //     type, so this should be safe from possible double-free here.
-  std::shared_ptr<arrow::Buffer> buffer(
-      new arrow::Buffer(reinterpret_cast<const uint8_t*>(dt),
-                        mxGetElementSize(data) * mxGetNumberOfElements(data)));
-
-  // TODO : add support for nulls in data
-
-  // Construct arrow::NumericArray specialization using arrow::Buffer.
-  const arrow::NumericArray<ArrowDataType> arr(mxGetNumberOfElements(data), buffer);
-
-  // Convert column name to a std::string from mxArray*.
-  std::string name_str = internal::MxArrayToString(name);
-
-  // Append new column to table writer.
-  this->table_writer_->Append(name_str, arr);
-
-  return arrow::Status::OK();
 }
 
 }  // namespace mlarrow

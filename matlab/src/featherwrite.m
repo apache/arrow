@@ -41,7 +41,7 @@ featherVersion = 2;
 % in the given table.
 variables = repmat(struct('Type', '', ...
                           'Data', [], ...
-                          'Nulls', [], ...
+                          'Valid', [], ...
                           'Name', ''), 1, width(t));
 
 % Struct representing table-level metadata.
@@ -73,7 +73,7 @@ for ii = 1:width(t)
             error('MATLAB:arrow:UnsupportedVariableType', ...
                  ['Type ' variables(ii).Type ' is unsupported by featherwrite.']);
     end
-    variables(ii).Nulls = ismissing(data);
+    variables(ii).Valid = ~ismissing(data);
     variables(ii).Name = t.Properties.VariableNames{ii};
 end
 
