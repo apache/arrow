@@ -36,7 +36,7 @@ To start running the Plasma object store so that clients may
 connect and access the data, run the following command:
 
 ```
-plasma_store -m 1000000000 -s /tmp/plasma
+plasma_store_server -m 1000000000 -s /tmp/plasma
 ```
 
 The `-m` flag specifies the size of the object store in bytes. The `-s` flag
@@ -45,7 +45,7 @@ specifies the path of the Unix domain socket that the store will listen at.
 Therefore, the above command initializes a Plasma store up to 1 GB of memory
 and sets the socket to `/tmp/plasma.`
 
-The Plasma store will remain available as long as the `plasma_store` process is
+The Plasma store will remain available as long as the `plasma_store_server` process is
 running in a terminal window. Messages, such as alerts for disconnecting
 clients, may occasionally be output. To stop running the Plasma store, you
 can press `Ctrl-C` in the terminal window.
@@ -54,14 +54,14 @@ Alternatively, you can run the Plasma store in the background and ignore all
 message output with the following terminal command:
 
 ```
-plasma_store -m 1000000000 -s /tmp/plasma 1> /dev/null 2> /dev/null &
+plasma_store_server -m 1000000000 -s /tmp/plasma 1> /dev/null 2> /dev/null &
 ```
 
 The Plasma store will instead run silently in the background. To stop running
 the Plasma store in this case, issue the command below:
 
 ```
-killall plasma_store
+killall plasma_store_server
 ```
 
 Creating a Plasma client
