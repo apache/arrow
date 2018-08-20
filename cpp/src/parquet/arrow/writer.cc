@@ -824,8 +824,8 @@ Status ArrowColumnWriter::TypedWriteBatch<FLBAType, ::arrow::Decimal128Type>(
   const bool does_not_have_nulls =
       writer_->descr()->schema_node()->is_required() || data.null_count() == 0;
 
-  // TODO(phillipc): This is potentially very wasteful if we have a lot of nulls
-  std::vector<uint64_t> big_endian_values(static_cast<size_t>(length) * 2);
+  const auto valid_value_count = static_cast<size_t>(length - data.null_count()) * 2;
+  std::vector<uint64_t> big_endian_values(valid_value_count);
 
   // TODO(phillipc): Look into whether our compilers will perform loop unswitching so we
   // don't have to keep writing two loops to handle the case where we know there are no
