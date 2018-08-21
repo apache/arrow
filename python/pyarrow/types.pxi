@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import abc
+import collections
 import re
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
@@ -1268,7 +1268,7 @@ def struct(fields):
         vector[shared_ptr[CField]] c_fields
         cdef shared_ptr[CDataType] struct_type
 
-    if isinstance(fields, abc.Mapping):
+    if isinstance(fields, collections.Mapping):
         fields = fields.items()
 
     for item in fields:
@@ -1426,7 +1426,7 @@ def schema(fields, dict metadata=None):
         Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    if isinstance(fields, abc.Mapping):
+    if isinstance(fields, collections.Mapping):
         fields = fields.items()
 
     for item in fields:
