@@ -18,8 +18,8 @@
 .. currentmodule:: pyarrow
 .. _data:
 
-In-Memory Data Model
-====================
+Data Types and In-Memory Data Model
+===================================
 
 Apache Arrow defines columnar array data structures by composing type metadata
 with memory buffers, like the ones explained in the documentation on
@@ -107,11 +107,21 @@ A `struct` is a collection of named fields:
        pa.field('s0', t1),
        pa.field('s1', t2),
        pa.field('s2', t4),
-       pa.field('s3', t6)
+       pa.field('s3', t6),
    ]
 
    t7 = pa.struct(fields)
    print(t7)
+
+For convenience, you can pass ``(name, type)`` tuples directly instead of
+:class:`~pyarrow.Field` instances:
+
+.. ipython:: python
+
+   t8 = pa.struct([('s0', t1), ('s1', t2), ('s2', t4), ('s3', t6)])
+   print(t8)
+   t8 == t7
+
 
 See :ref:`Data Types API <api.types>` for a full listing of data type
 functions.
@@ -123,19 +133,15 @@ Schemas
 
 The :class:`~pyarrow.Schema` type is similar to the ``struct`` array type; it
 defines the column names and types in a record batch or table data
-structure. The ``pyarrow.schema`` factory function makes new Schema objects in
+structure. The :func:`pyarrow.schema` factory function makes new Schema objects in
 Python:
 
 .. ipython:: python
 
-   fields = [
-       pa.field('s0', t1),
-       pa.field('s1', t2),
-       pa.field('s2', t4),
-       pa.field('s3', t6)
-   ]
-
-   my_schema = pa.schema(fields)
+   my_schema = pa.schema([('field0', t1),
+                          ('field1', t2),
+                          ('field2', t4),
+                          ('field3', t6)])
    my_schema
 
 In some applications, you may not create schemas directly, only using the ones
@@ -233,10 +239,8 @@ sequence of Python dicts or tuples:
 
 .. ipython:: python
 
-   ty = pa.struct([
-       pa.field('x', pa.int8()),
-       pa.field('y', pa.bool_()),
-   ])
+   ty = pa.struct([('x', pa.int8()),
+                   ('y', pa.bool_())])
    pa.array([{'x': 1, 'y': True}, {'x': 2, 'y': False}], type=ty)
    pa.array([(3, True), (4, False)], type=ty)
 
