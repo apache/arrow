@@ -100,7 +100,8 @@ def start_plasma_store(plasma_store_memory,
     tmpdir = tempfile.mkdtemp(prefix='test_plasma-')
     try:
         plasma_store_name = os.path.join(tmpdir, 'plasma.sock')
-        plasma_store_executable = os.path.join(pa.__path__[0], "plasma_store")
+        plasma_store_executable = os.path.join(
+            pa.__path__[0], "plasma_store_server")
         command = [plasma_store_executable,
                    "-s", plasma_store_name,
                    "-m", str(plasma_store_memory)]

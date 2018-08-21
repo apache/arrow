@@ -24,7 +24,7 @@ PLASMA_JAVA_DIR=${TRAVIS_BUILD_DIR}/java/plasma
 pushd $PLASMA_JAVA_DIR
 
 mvn clean install
-export PLASMA_STORE=${TRAVIS_BUILD_DIR}/cpp-install/bin/plasma_store
+export PLASMA_STORE=${TRAVIS_BUILD_DIR}/cpp-install/bin/plasma_store_server
 java -cp target/test-classes:target/classes -Djava.library.path=${TRAVIS_BUILD_DIR}/cpp-build/debug/ org.apache.arrow.plasma.PlasmaClientTest
 
 popd

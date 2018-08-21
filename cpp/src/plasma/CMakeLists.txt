@@ -124,8 +124,8 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
     " -Wno-conversion")
 endif()
 
-add_executable(plasma_store store.cc)
-target_link_libraries(plasma_store plasma_static ${PLASMA_LINK_LIBS})
+add_executable(plasma_store_server store.cc)
+target_link_libraries(plasma_store_server plasma_static ${PLASMA_LINK_LIBS})
 
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)
@@ -133,7 +133,7 @@ if (ARROW_RPATH_ORIGIN)
   else()
     set(_lib_install_rpath "\$ORIGIN")
   endif()
-  set_target_properties(plasma_store PROPERTIES
+  set_target_properties(plasma_store_server PROPERTIES
       INSTALL_RPATH ${_lib_install_rpath})
 endif()
 
@@ -146,8 +146,8 @@ install(FILES
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # Plasma store
-set_target_properties(plasma_store PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS plasma_store DESTINATION ${CMAKE_INSTALL_BINDIR})
+set_target_properties(plasma_store_server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+install(TARGETS plasma_store_server DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support
 configure_file(plasma.pc.in
@@ -200,4 +200,4 @@ ADD_ARROW_TEST(test/serialization_tests
   EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS})
 ADD_ARROW_TEST(test/client_tests
   EXTRA_LINK_LIBS plasma_static ${PLASMA_LINK_LIBS}
-  EXTRA_DEPENDENCIES plasma_store)
+  EXTRA_DEPENDENCIES plasma_store_server)

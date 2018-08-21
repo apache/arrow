@@ -58,7 +58,8 @@ class TestPlasmaStore : public ::testing::Test {
 
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
-    std::string plasma_command = plasma_directory + "/plasma_store -m 1000000000 -s " +
+    std::string plasma_command = plasma_directory +
+                                 "/plasma_store_server -m 1000000000 -s " +
                                  store_socket_name_ + " 1> /dev/null 2> /dev/null &";
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
@@ -72,10 +73,10 @@ class TestPlasmaStore : public ::testing::Test {
 #ifdef COVERAGE_BUILD
     // Ask plasma_store to exit gracefully and give it time to write out
     // coverage files
-    system("killall -TERM plasma_store");
+    system("killall -TERM plasma_store_server");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 #endif
-    system("killall -KILL plasma_store");
+    system("killall -KILL plasma_store_server");
   }
 
   void CreateObject(PlasmaClient& client, const ObjectID& object_id,
