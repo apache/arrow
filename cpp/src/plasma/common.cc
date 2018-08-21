@@ -30,35 +30,6 @@ namespace plasma {
 
 using arrow::Status;
 
-std::mt19937 RandomlySeededMersenneTwister() {
-  // We use the "/dev/urandom" argument here. Without it, the libstdc++
-  // std::random_device gets randomness using a special CPU instruction
-  // (RDRND) which crashes the valgrind shipped with Ubuntu 16.04.
-  std::random_device urandom("/dev/urandom");
-  std::vector<std::mt19937::result_type> seeds;
-  for (size_t i = 0; i < std::mt19937::state_size; ++i) {
-    seeds.push_back(urandom());
-  }
-  std::seed_seq seq(seeds.begin(), seeds.end());
-  return std::mt19937(seq);
-}
-
-UniqueID UniqueID::from_random() {
-  UniqueID id;
-  uint8_t* data = id.mutable_data();
-  // NOTE(pcm): The right way to do this is to have one std::mt19937 per
-  // thread (using the thread_local keyword), but that's not supported on
-  // older versions of macOS (see https://stackoverflow.com/a/29929949)
-  static std::mutex mutex;
-  std::lock_guard<std::mutex> lock(mutex);
-  static std::mt19937 generator = RandomlySeededMersenneTwister();
-  std::uniform_int_distribution<uint32_t> dist(0, std::numeric_limits<uint8_t>::max());
-  for (int i = 0; i < kUniqueIDSize; i++) {
-    data[i] = static_cast<uint8_t>(dist(generator));
-  }
-  return id;
-}
-
 UniqueID UniqueID::from_binary(const std::string& binary) {
   UniqueID id;
   std::memcpy(&id, binary.data(), sizeof(id));

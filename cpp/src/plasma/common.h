@@ -39,7 +39,6 @@ constexpr int64_t kUniqueIDSize = 20;
 
 class ARROW_EXPORT UniqueID {
  public:
-  static UniqueID from_random();
   static UniqueID from_binary(const std::string& binary);
   bool operator==(const UniqueID& rhs) const;
   const uint8_t* data() const;

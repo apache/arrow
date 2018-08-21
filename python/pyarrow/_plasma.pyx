@@ -44,9 +44,6 @@ cdef extern from "plasma/common.h" nogil:
         @staticmethod
         CUniqueID from_binary(const c_string& binary)
 
-        @staticmethod
-        CUniqueID from_random()
-
         c_bool operator==(const CUniqueID& rhs) const
 
         c_string hex() const
@@ -166,11 +163,6 @@ cdef class ObjectID:
             Binary representation of the ObjectID.
         """
         return self.data.binary()
-
-    @staticmethod
-    def from_random():
-        cdef CUniqueID data = CUniqueID.from_random()
-        return ObjectID(data.binary())
 
 
 cdef class ObjectNotAvailable:
