@@ -55,6 +55,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
 include(CMakeParseArguments)
 include(ExternalProject)
+include(FindPkgConfig)
 
 # This ensures that things like gnu++11 get passed correctly
 set(CMAKE_CXX_STANDARD 11)
@@ -234,6 +235,14 @@ Pass multiple labels by dividing with semicolons")
   option(ARROW_WITH_ZLIB
     "Build with zlib compression"
     ON)
+
+  option(ARROW_ZLIB_VENDORED
+    "Use vendored Boost instead of existing Boost"
+    ON)
+
+  option(ARROW_ZLIB_USE_SHARED
+    "Rely on zlib shared libraries where relevant"
+    OFF)
 
   option(ARROW_WITH_ZSTD
     "Build with zstd compression"
@@ -619,7 +628,11 @@ if (ARROW_WITH_SNAPPY)
 endif()
 
 if (ARROW_WITH_ZLIB)
-  SET(ARROW_STATIC_LINK_LIBS zlib ${ARROW_STATIC_LINK_LIBS})
+  if (ARROW_ZLIB_USE_SHARED)
+    SET(ARROW_LINK_LIBS zlib ${ARROW_LINK_LIBS})
+  else()
+    SET(ARROW_STATIC_LINK_LIBS zlib ${ARROW_STATIC_LINK_LIBS})
+  endif()
 endif()
 
 if (ARROW_WITH_ZSTD)

@@ -39,45 +39,76 @@ elseif ( ZLIB_HOME )
     list( APPEND _zlib_roots ${ZLIB_HOME} )
 endif()
 
+set(ZLIB_LIB_NAME z)
+if (MSVC)
+  if (NOT ZLIB_MSVC_STATIC_LIB_SUFFIX)
+    set(ZLIB_MSVC_STATIC_LIB_SUFFIX libstatic)
+  endif ()
+  set(ZLIB_MSVC_SHARED_LIB_SUFFIX lib)
+endif ()
+set(ZLIB_STATIC_LIB_NAME
+  ${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_LIB_NAME}${ZLIB_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(ZLIB_SHARED_LIB_NAME
+  ${CMAKE_SHARED_LIBRARY_PREFIX}${ZLIB_LIB_NAME}${ZLIB_MSVC_SHARED_LIB_SUFFIX}${CMAKE_SHARED_LIBRARY_SUFFIX})
+
 # Try the parameterized roots, if they exist
-if ( _zlib_roots )
-    find_path( ZLIB_INCLUDE_DIR NAMES zlib.h
-        PATHS ${_zlib_roots} NO_DEFAULT_PATH
-        PATH_SUFFIXES "include" )
-    find_library( ZLIB_LIBRARIES NAMES libz.a zlib
-        PATHS ${_zlib_roots} NO_DEFAULT_PATH
-        PATH_SUFFIXES "lib" )
+if (_zlib_roots)
+  find_path(ZLIB_INCLUDE_DIR NAMES zlib.h
+    PATHS ${_zlib_roots} NO_DEFAULT_PATH
+    PATH_SUFFIXES "include")
+  find_library(ZLIB_STATIC_LIB NAMES ${ZLIB_STATIC_LIB_NAME}
+    PATHS ${_zlib_roots} NO_DEFAULT_PATH
+    PATH_SUFFIXES "lib")
+  find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME}
+    PATHS ${_zlib_roots} NO_DEFAULT_PATH
+    PATH_SUFFIXES "lib")
 else ()
-    find_path( ZLIB_INCLUDE_DIR NAMES zlib.h )
-    # Only look for the static library
-    find_library( ZLIB_LIBRARIES NAMES libz.a zlib )
+  pkg_check_modules(ZLIB zlib)
+  if (ZLIB_FOUND)
+    set(ZLIB_INCLUDE_DIR ${ZLIB_INCLUDEDIR})
+    find_library(ZLIB_STATIC_LIB NAMES ${ZLIB_STATIC_LIB_NAME}
+      PATHS ${ZLIB_LIB_DIR} NO_DEFAULT_PATHS)
+    find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME}
+      PATHS ${ZLIB_LIB_DIR} NO_DEFAULT_PATHS)
+  else ()
+    find_path(ZLIB_INCLUDE_DIR NAMES zlib.h)
+    find_library(ZLIB_STATIC_LIB NAMES ${ZLIB_STATIC_LIB_NAME})
+    find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME})
+  endif ()
+endif ()
+
+if (ZLIB_INCLUDE_DIR AND (ZLIB_STATIC_LIB OR ZLIB_SHARED_LIB))
+  set(ZLIB_FOUND TRUE)
+else ()
+  set(ZLIB_FOUND FALSE)
 endif ()
 
 
-if (ZLIB_INCLUDE_DIR AND (PARQUET_MINIMAL_DEPENDENCY OR ZLIB_LIBRARIES))
-  set(ZLIB_FOUND TRUE)
-  get_filename_component( ZLIB_LIBS ${ZLIB_LIBRARIES} PATH )
+if (ZLIB_FOUND)
+  set(ZLIB_LIBS)
+  if (ZLIB_STATIC_LIB)
+    get_filename_component(ZLIB_STATIC_LIB_DIR ${ZLIB_STATIC_LIB} DIRECTORY)
+    list(APPEND ZLIB_LIBS ${ZLIB_STATIC_LIB_DIR})
+  endif ()
+  if (ZLIB_SHARED_LIB)
+    get_filename_component(ZLIB_SHARED_LIB_DIR ${ZLIB_SHARED_LIB} DIRECTORY)
+    list(APPEND ZLIB_LIBS ${ZLIB_STATIC_LIB_DIR})
+  endif ()
   set(ZLIB_HEADER_NAME zlib.h)
   set(ZLIB_HEADER ${ZLIB_INCLUDE_DIR}/${ZLIB_HEADER_NAME})
-  set(ZLIB_LIB_NAME z)
-  if (MSVC)
-    if (NOT ZLIB_MSVC_STATIC_LIB_SUFFIX)
-      set(ZLIB_MSVC_STATIC_LIB_SUFFIX libstatic)
-    endif()
-    set(ZLIB_MSVC_SHARED_LIB_SUFFIX lib)
-  endif()
-  set(ZLIB_STATIC_LIB ${ZLIB_LIBS}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_LIB_NAME}${ZLIB_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
-  set(ZLIB_SHARED_LIB ${ZLIB_LIBS}/${CMAKE_SHARED_LIBRARY_PREFIX}${ZLIB_LIB_NAME}${ZLIB_MSVC_SHARED_LIB_SUFFIX}${CMAKE_SHARED_LIBRARY_SUFFIX})
-else ()
-  set(ZLIB_FOUND FALSE)
 endif ()
 
 if (ZLIB_FOUND)
   if (NOT ZLIB_FIND_QUIETLY)
     if (PARQUET_MINIMAL_DEPENDENCY)
       message(STATUS "Found the ZLIB header: ${ZLIB_HEADER}")
-    else()
-      message(STATUS "Found the ZLIB library: ${ZLIB_LIBRARIES}")
+    else ()
+      if (ZLIB_STATIC_LIB)
+	message(STATUS "Found the ZLIB static library: ${ZLIB_STATIC_LIB}")
+      endif ()
+      if (ZLIB_SHARED_LIB)
+	message(STATUS "Found the ZLIB shared library: ${ZLIB_SHARED_LIB}")
+      endif ()
     endif ()
   endif ()
 else ()
