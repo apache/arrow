@@ -40,30 +40,31 @@ set(ARROW_HIVESERVER2_SRCS
 add_subdirectory(thrift)
 
 set(HIVESERVER2_THRIFT_SRC
-  "${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes_constants.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes_types.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/ImpalaService.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/ImpalaService_constants.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/ImpalaService_types.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/ImpalaHiveServer2Service.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/beeswax_constants.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/beeswax_types.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/BeeswaxService.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/TCLIService.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/TCLIService_constants.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/TCLIService_types.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/ExecStats_constants.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/ExecStats_types.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/hive_metastore_constants.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/hive_metastore_types.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/Status_constants.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/Status_types.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/Types_constants.cpp"
-  "${CMAKE_CURRENT_BINARY_DIR}/Types_types.cpp"
+  ErrorCodes_constants.cpp
+  ErrorCodes_types.cpp
+  ImpalaService.cpp
+  ImpalaService_constants.cpp
+  ImpalaService_types.cpp
+  ImpalaHiveServer2Service.cpp
+  beeswax_constants.cpp
+  beeswax_types.cpp
+  BeeswaxService.cpp
+  TCLIService.cpp
+  TCLIService_constants.cpp
+  TCLIService_types.cpp
+  ExecStats_constants.cpp
+  ExecStats_types.cpp
+  hive_metastore_constants.cpp
+  hive_metastore_types.cpp
+  Status_constants.cpp
+  Status_types.cpp
+  Types_constants.cpp
+  Types_types.cpp
 )
 
 set_source_files_properties(${HIVESERVER2_THRIFT_SRC} PROPERTIES
-  COMPILE_FLAGS "-Wno-unused-variable -Wno-shadow-field")
+  COMPILE_FLAGS "-Wno-unused-variable -Wno-shadow-field"
+  GENERATED TRUE)
 
 # keep everything in one library, the object files reference
 # each other
@@ -75,8 +76,6 @@ add_library(arrow_hiveserver2_thrift STATIC ${HIVESERVER2_THRIFT_SRC})
 # TODO(wesm): Something is broken with the dependency chain with
 # ImpalaService.cpp and others. Couldn't figure out what is different between
 # this setup and Impala.
-
-set_source_files_properties(${HIVESERVER2_THRIFT_SRC} PROPERTIES GENERATED TRUE)
 
 add_dependencies(arrow_hiveserver2_thrift hs2-thrift-cpp)
 

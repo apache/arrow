@@ -102,9 +102,9 @@ SET_SOURCE_FILES_PROPERTIES(Status.thrift PROPERTIES OBJECT_DEPENDS
 # a list of files they produce
 HS2_THRIFT_GEN(THRIFT_ALL_FILES ${SRC_FILES})
 
-add_custom_target(hs2-thrift-generated-files-error DEPENDS
-  ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
-
 # Add a custom target that generates all the thrift files
 add_custom_target(hs2-thrift-cpp ALL DEPENDS ${THRIFT_ALL_FILES})
+
+add_custom_target(hs2-thrift-generated-files-error DEPENDS
+  ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
 add_dependencies(hs2-thrift-cpp hs2-thrift-generated-files-error)
