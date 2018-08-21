@@ -60,7 +60,7 @@ static std::vector<std::string> MakeFloatStrings(int32_t num_items) {
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
 static void BM_IntegerParsing(benchmark::State& state) {  // NOLINT non-const reference
   auto strings = MakeIntStrings<C_TYPE>(1000);
-  auto converter = StringConverter<ARROW_TYPE>();
+  StringConverter<ARROW_TYPE> converter;
 
   while (state.KeepRunning()) {
     C_TYPE total = 0;
@@ -80,7 +80,7 @@ static void BM_IntegerParsing(benchmark::State& state) {  // NOLINT non-const re
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
 static void BM_FloatParsing(benchmark::State& state) {  // NOLINT non-const reference
   auto strings = MakeFloatStrings(1000);
-  auto converter = StringConverter<ARROW_TYPE>();
+  StringConverter<ARROW_TYPE> converter;
 
   while (state.KeepRunning()) {
     C_TYPE total = 0;
