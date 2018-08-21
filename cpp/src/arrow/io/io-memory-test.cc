@@ -103,10 +103,40 @@ TEST(TestFixedSizeBufferWriter, Basics) {
   ASSERT_OK(writer.Tell(&position));
   ASSERT_EQ(4, position);
 
+  ASSERT_OK(writer.Seek(1024));
+  ASSERT_OK(writer.Tell(&position));
+  ASSERT_EQ(1024, position);
+
+  // Write out of bounds
+  ASSERT_RAISES(IOError, writer.Write(data.c_str(), 1));
+
+  // Seek out of bounds
   ASSERT_RAISES(IOError, writer.Seek(-1));
-  ASSERT_RAISES(IOError, writer.Seek(1024));
+  ASSERT_RAISES(IOError, writer.Seek(1025));
 
   ASSERT_OK(writer.Close());
+}
+
+TEST(TestBufferReader, Seeking) {
+  std::string data = "data123456";
+
+  auto buffer = std::make_shared<Buffer>(data);
+  BufferReader reader(buffer);
+  int64_t pos;
+  ASSERT_OK(reader.Tell(&pos));
+  ASSERT_EQ(pos, 0);
+
+  ASSERT_OK(reader.Seek(9));
+  ASSERT_OK(reader.Tell(&pos));
+  ASSERT_EQ(pos, 9);
+
+  ASSERT_OK(reader.Seek(10));
+  ASSERT_OK(reader.Tell(&pos));
+  ASSERT_EQ(pos, 10);
+
+  ASSERT_RAISES(IOError, reader.Seek(11));
+  ASSERT_OK(reader.Tell(&pos));
+  ASSERT_EQ(pos, 10);
 }
 
 TEST(TestBufferReader, RetainParentReference) {

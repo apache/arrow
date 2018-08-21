@@ -167,6 +167,9 @@ def test_bytes_reader():
     f.seek(0)
     assert f.tell() == 0
 
+    f.seek(0, 2)
+    assert f.tell() == len(data)
+
     f.seek(5)
     assert f.tell() == 5
 
