@@ -20,7 +20,6 @@
 #include <limits>
 #include <mutex>
 #include <random>
-#include <vector>
 
 #include "plasma/plasma_generated.h"
 

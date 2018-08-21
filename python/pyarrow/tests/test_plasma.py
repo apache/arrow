@@ -23,7 +23,6 @@ import os
 import pytest
 import random
 import signal
-import subprocess
 import sys
 
 import numpy as np
