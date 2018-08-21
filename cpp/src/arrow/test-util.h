@@ -44,20 +44,24 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
-#define ASSERT_RAISES(ENUM, expr) \
-  do {                            \
-    ::arrow::Status s = (expr);   \
-    if (!s.Is##ENUM()) {          \
-      FAIL() << s.ToString();     \
-    }                             \
+#define STRINGIFY(x) #x
+
+#define ASSERT_RAISES(ENUM, expr)                                         \
+  do {                                                                    \
+    ::arrow::Status s = (expr);                                           \
+    if (!s.Is##ENUM()) {                                                  \
+      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
+                    ENUM) ", but got "                                    \
+             << s.ToString();                                             \
+    }                                                                     \
   } while (false)
 
-#define ASSERT_OK(expr)         \
-  do {                          \
-    ::arrow::Status s = (expr); \
-    if (!s.ok()) {              \
-      FAIL() << s.ToString();   \
-    }                           \
+#define ASSERT_OK(expr)                                               \
+  do {                                                                \
+    ::arrow::Status s = (expr);                                       \
+    if (!s.ok()) {                                                    \
+      FAIL() << "'" STRINGIFY(expr) "' failed with " << s.ToString(); \
+    }                                                                 \
   } while (false)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
