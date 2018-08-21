@@ -52,5 +52,5 @@ pushd ../../cpp
 popd
 
 mvn clean install
-export PLASMA_STORE=$ROOT_DIR/../../cpp/release/release/plasma_store
+export PLASMA_STORE=$ROOT_DIR/../../cpp/release/release/plasma_store_server
 java -cp target/test-classes:target/classes -Djava.library.path=$ROOT_DIR/../../cpp/release/release/ org.apache.arrow.plasma.PlasmaClientTest
