@@ -70,7 +70,7 @@ static void BM_IntegerParsing(benchmark::State& state) {  // NOLINT non-const re
         std::cerr << "Conversion failed for '" << s << "'";
         std::abort();
       }
-      total += value;
+      total = static_cast<C_TYPE>(total + value);
     }
     benchmark::DoNotOptimize(total);
   }
