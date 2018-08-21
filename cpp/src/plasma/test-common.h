@@ -33,4 +33,4 @@ ObjectID random_object_id() {
 
 }  // namespace plasma
 
-#endif // PLASMA_TEST_COMMON_H
+#endif  // PLASMA_TEST_COMMON_H
