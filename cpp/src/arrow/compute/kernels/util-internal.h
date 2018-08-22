@@ -52,6 +52,9 @@ namespace detail {
 Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
                               const Datum& value, std::vector<Datum>* outputs);
 
+Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
+                              const Datum& left, const Datum& right, std::vector<Datum>* outputs);
+
 Datum WrapArraysLike(const Datum& value,
                      const std::vector<std::shared_ptr<Array>>& arrays);
 
