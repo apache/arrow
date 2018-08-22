@@ -10,7 +10,7 @@
   language governing permissions and limitations under the License. -->
 
 <!-- This can be used when running tests with Maven by specifying the following option:
-$ mvn -Dlogback.configurationFile=file:${ARROW_HOME}/java/dev/logback.xml
+$ mvn -Dlogback.configurationFile=file:${ARROW_HOME}/java/dev/logback.xml test
 -->
 
 <configuration>
