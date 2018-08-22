@@ -118,12 +118,11 @@ export class Uint64 extends BaseInt64 {
         return this;
     }
 
-    static from(val: number|string, out_buffer = new Uint32Array(2)): Uint64 {
-        if (typeof(val) === 'number') {
-            return Uint64.fromNumber(val as number, out_buffer);
-        } else {
-            return Uint64.fromString(val as string, out_buffer);
-        }
+    static from(val: any, out_buffer = new Uint32Array(2)): Uint64 {
+        return Uint64.fromString(
+            typeof(val) === 'string' ? val : val.toString(),
+            out_buffer
+        );
     }
 
     static fromNumber(num: number, out_buffer = new Uint32Array(2)): Uint64 {
@@ -201,12 +200,11 @@ export class Int64 extends BaseInt64 {
             (this_high === other_high && this.buffer[0] < other.buffer[0]);
     }
 
-    static from(val: number|string, out_buffer = new Uint32Array(2)) {
-        if (typeof(val) === 'number') {
-            return Int64.fromNumber(val as number, out_buffer);
-        } else {
-            return Int64.fromString(val as string, out_buffer);
-        }
+    static from(val: any, out_buffer = new Uint32Array(2)): Int64 {
+        return Int64.fromString(
+            typeof(val) === 'string' ? val : val.toString(),
+            out_buffer
+        );
     }
 
     static fromNumber(num: number, out_buffer = new Uint32Array(2)): Int64 {
@@ -367,12 +365,11 @@ export class Int128 {
         return rtrn.plus(right);
     }
 
-    static from(val: number|string, out_buffer = new Uint32Array(4)) {
-        if (typeof(val) === 'number') {
-            return Int128.fromNumber(val as number, out_buffer);
-        } else {
-            return Int128.fromString(val as string, out_buffer);
-        }
+    static from(val: any, out_buffer = new Uint32Array(4)): Int128 {
+        return Int128.fromString(
+            typeof(val) === 'string' ? val : val.toString(),
+            out_buffer
+        );
     }
 
     static fromNumber(num: number, out_buffer = new Uint32Array(4)): Int128 {
