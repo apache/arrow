@@ -87,8 +87,9 @@ class SequenceBuilder {
     if (*tag == -1) {
       *tag = num_tags_++;
     }
-    int32_t offset32;
+    int32_t offset32 = -1;
     RETURN_NOT_OK(internal::CastSize(offset, &offset32));
+    DCHECK_GE(offset32, 0);
     RETURN_NOT_OK(offsets_.Append(offset32));
     RETURN_NOT_OK(types_.Append(*tag));
     return nones_.Append(true);
