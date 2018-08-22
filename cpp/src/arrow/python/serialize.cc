@@ -115,12 +115,6 @@ class SequenceBuilder {
     return AppendPrimitive(data, &int_tag_, &ints_);
   }
 
-  /// Appending an uint64_t to the sequence
-  Status AppendUInt64(const uint64_t data) {
-    // TODO(wesm): Bounds check
-    return AppendPrimitive(static_cast<int64_t>(data), &int_tag_, &ints_);
-  }
-
   /// Append a list of bytes to the sequence
   Status AppendBytes(const uint8_t* data, int32_t length) {
     RETURN_NOT_OK(Update(bytes_.length(), &bytes_tag_));
