@@ -143,7 +143,8 @@ class ARROW_EXPORT UnaryKernel : public OpKernel {
 /// \brief An array-valued function of a two input arguments
 class ARROW_EXPORT BinaryKernel : public OpKernel {
  public:
-  virtual Status Call(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) = 0;
+  virtual Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+                      Datum* out) = 0;
 };
 
 }  // namespace compute

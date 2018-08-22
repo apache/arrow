@@ -407,8 +407,8 @@ TEST(BitmapOr, Aligned) {
                        &length);
       for (int64_t out_offset : {left_offset, left_offset + 16, left_offset + 24}) {
         ASSERT_OK(BitmapOr(default_memory_pool(), left->mutable_data(), left_offset,
-                            right->mutable_data(), right_offset, length, out_offset,
-                            &out));
+                           right->mutable_data(), right_offset, length, out_offset,
+                           &out));
         auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
         ASSERT_READER_VALUES(reader, {0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0});
       }
@@ -431,8 +431,8 @@ TEST(BitmapOr, Unaligned) {
 
       for (int64_t out_offset : offset_values) {
         ASSERT_OK(BitmapOr(default_memory_pool(), left->mutable_data(), left_offset,
-                            right->mutable_data(), right_offset, length, out_offset,
-                            &out));
+                           right->mutable_data(), right_offset, length, out_offset,
+                           &out));
         auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
         ASSERT_READER_VALUES(reader, {0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0});
       }

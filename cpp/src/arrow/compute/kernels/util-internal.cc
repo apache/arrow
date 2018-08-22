@@ -17,6 +17,7 @@
 
 #include "arrow/compute/kernels/util-internal.h"
 
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -51,7 +52,8 @@ Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
 }
 
 Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
-                              const Datum& left, const Datum& right, std::vector<Datum>* outputs) {
+                               const Datum& left, const Datum& right,
+                               std::vector<Datum>* outputs) {
   int64_t left_length;
   std::vector<std::shared_ptr<Array>> left_arrays;
   if (left.kind() == Datum::ARRAY) {
@@ -117,6 +119,14 @@ Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
     }
   }
 
+  return Status::OK();
+}
+
+Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
+                               const Datum& left, const Datum& right, Datum* output) {
+  std::vector<Datum> result;
+  RETURN_NOT_OK(InvokeBinaryArrayKernel(ctx, kernel, left, right, &result));
+  *output = detail::WrapDatumsLike(left, result);
   return Status::OK();
 }
 

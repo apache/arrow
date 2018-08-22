@@ -21,6 +21,8 @@
 #include "arrow/compute/kernels/util-internal.h"
 #include "arrow/util/logging.h"
 
+#include <vector>
+
 namespace arrow {
 namespace compute {
 
@@ -66,9 +68,12 @@ Status Invert(FunctionContext* ctx, const Datum& value, Datum* out) {
   return Status::OK();
 }
 
-class AndKernel : public BinaryKernel {
+class BinaryBooleanKernel : public BinaryKernel {
+  virtual Status Compute(FunctionContext* ctx, const ArrayData& left,
+                         const ArrayData& right, ArrayData* out) = 0;
 
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) override {
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, right.kind());
     DCHECK_EQ(Datum::ARRAY, left.kind());
 
@@ -84,107 +89,67 @@ class AndKernel : public BinaryKernel {
 
     // If one of the arrays has a null value, the result will have a null.
     std::shared_ptr<Buffer> validity_bitmap;
-    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left_data.buffers[0]->data(), left_data.offset, right_data.buffers[0]->data(), right_data.offset, right_data.length, 0, &validity_bitmap));
+    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left_data.buffers[0]->data(),
+                            left_data.offset, right_data.buffers[0]->data(),
+                            right_data.offset, right_data.length, 0, &validity_bitmap));
     result->buffers.push_back(validity_bitmap);
 
-    result->null_count = result->length - CountSetBits(validity_bitmap->data(), 0, result->length);
+    result->null_count =
+        result->length - CountSetBits(validity_bitmap->data(), 0, result->length);
 
+    return Compute(ctx, left_data, right_data, result);
+  }
+};
+
+class AndKernel : public BinaryBooleanKernel {
+  Status Compute(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
+                 ArrayData* out) override {
     std::shared_ptr<Buffer> data_bitmap;
-    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left_data.buffers[1]->data(), left_data.offset, right_data.buffers[1]->data(), right_data.offset, right_data.length, 0, &data_bitmap));
-    result->buffers.push_back(data_bitmap);
-
+    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left.buffers[1]->data(), left.offset,
+                            right.buffers[1]->data(), right.offset, right.length, 0,
+                            &data_bitmap));
+    out->buffers.push_back(data_bitmap);
     return Status::OK();
   }
 };
 
 Status And(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
   AndKernel kernel;
-
-  std::vector<Datum> result;
-  RETURN_NOT_OK(detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, &result));
-
-  *out = detail::WrapDatumsLike(left, result);
-  return Status::OK();
+  return detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, out);
 }
 
-class OrKernel : public BinaryKernel {
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) override {
-    DCHECK_EQ(Datum::ARRAY, right.kind());
-    DCHECK_EQ(Datum::ARRAY, left.kind());
-
-    const ArrayData& left_data = *left.array();
-    const ArrayData& right_data = *right.array();
-    ArrayData* result;
-
-    if (out->kind() == Datum::NONE) {
-      out->value = ArrayData::Make(boolean(), right_data.length);
-    }
-
-    result = out->array().get();
-
-    // If one of the arrays has a null value, the result will have a null.
-    std::shared_ptr<Buffer> validity_bitmap;
-    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left_data.buffers[0]->data(), left_data.offset, right_data.buffers[0]->data(), right_data.offset, right_data.length, 0, &validity_bitmap));
-    result->buffers.push_back(validity_bitmap);
-
-    result->null_count = result->length - CountSetBits(validity_bitmap->data(), 0, result->length);
-
+class OrKernel : public BinaryBooleanKernel {
+  Status Compute(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
+                 ArrayData* out) override {
     std::shared_ptr<Buffer> data_bitmap;
-    RETURN_NOT_OK(BitmapOr(ctx->memory_pool(), left_data.buffers[1]->data(), left_data.offset, right_data.buffers[1]->data(), right_data.offset, right_data.length, 0, &data_bitmap));
-    result->buffers.push_back(data_bitmap);
-
+    RETURN_NOT_OK(BitmapOr(ctx->memory_pool(), left.buffers[1]->data(), left.offset,
+                           right.buffers[1]->data(), right.offset, right.length, 0,
+                           &data_bitmap));
+    out->buffers.push_back(data_bitmap);
     return Status::OK();
   }
 };
 
 Status Or(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
   OrKernel kernel;
-
-  std::vector<Datum> result;
-  RETURN_NOT_OK(detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, &result));
-
-  *out = detail::WrapDatumsLike(left, result);
-  return Status::OK();
+  return detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, out);
 }
 
-class XorKernel : public BinaryKernel {
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) override {
-    DCHECK_EQ(Datum::ARRAY, right.kind());
-    DCHECK_EQ(Datum::ARRAY, left.kind());
-
-    const ArrayData& left_data = *left.array();
-    const ArrayData& right_data = *right.array();
-    ArrayData* result;
-
-    if (out->kind() == Datum::NONE) {
-      out->value = ArrayData::Make(boolean(), right_data.length);
-    }
-
-    result = out->array().get();
-
-    // If one of the arrays has a null value, the result will have a null.
-    std::shared_ptr<Buffer> validity_bitmap;
-    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left_data.buffers[0]->data(), left_data.offset, right_data.buffers[0]->data(), right_data.offset, right_data.length, 0, &validity_bitmap));
-    result->buffers.push_back(validity_bitmap);
-
-    result->null_count = result->length - CountSetBits(validity_bitmap->data(), 0, result->length);
-
+class XorKernel : public BinaryBooleanKernel {
+  Status Compute(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
+                 ArrayData* out) override {
     std::shared_ptr<Buffer> data_bitmap;
-    RETURN_NOT_OK(BitmapXor(ctx->memory_pool(), left_data.buffers[1]->data(), left_data.offset, right_data.buffers[1]->data(), right_data.offset, right_data.length, 0, &data_bitmap));
-    result->buffers.push_back(data_bitmap);
-
+    RETURN_NOT_OK(BitmapXor(ctx->memory_pool(), left.buffers[1]->data(), left.offset,
+                            right.buffers[1]->data(), right.offset, right.length, 0,
+                            &data_bitmap));
+    out->buffers.push_back(data_bitmap);
     return Status::OK();
   }
 };
 
 Status Xor(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
   XorKernel kernel;
-
-  std::vector<Datum> result;
-  RETURN_NOT_OK(detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, &result));
-
-  *out = detail::WrapDatumsLike(left, result);
-  return Status::OK();
+  return detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, out);
 }
 
 }  // namespace compute

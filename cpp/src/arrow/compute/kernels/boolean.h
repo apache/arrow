@@ -46,8 +46,8 @@ Status Invert(FunctionContext* context, const Datum& value, Datum* out);
 
 /// \brief Element-wise AND of two boolean dates
 /// \param[in] context the FunctionContext
-/// \param[in] left
-/// \param[in] right
+/// \param[in] left left operand (array)
+/// \param[in] right right operand (array)
 /// \param[out] out resulting datum
 ///
 /// \since 0.11.0
@@ -57,8 +57,8 @@ Status And(FunctionContext* context, const Datum& left, const Datum& right, Datu
 
 /// \brief Element-wise OR of two boolean dates
 /// \param[in] context the FunctionContext
-/// \param[in] left
-/// \param[in] right
+/// \param[in] left left operand (array)
+/// \param[in] right right operand (array)
 /// \param[out] out resulting datum
 ///
 /// \since 0.11.0
@@ -68,8 +68,8 @@ Status Or(FunctionContext* context, const Datum& left, const Datum& right, Datum
 
 /// \brief Element-wise XOR of two boolean dates
 /// \param[in] context the FunctionContext
-/// \param[in] left
-/// \param[in] right
+/// \param[in] left left operand (array)
+/// \param[in] right right operand (array)
 /// \param[out] out resulting datum
 ///
 /// \since 0.11.0

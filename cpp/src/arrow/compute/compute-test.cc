@@ -1354,7 +1354,8 @@ TEST_F(TestBooleanKernel, And) {
   ASSERT_TRUE(result_array->Equals(a3->Slice(1)));
 
   // Array with offset and nulls
-  ASSERT_OK(And(&this->ctx_, Datum(a1_nulls->Slice(1)), Datum(a2_nulls->Slice(1)), &result));
+  ASSERT_OK(
+      And(&this->ctx_, Datum(a1_nulls->Slice(1)), Datum(a2_nulls->Slice(1)), &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
   result_array = result.make_array();
   ASSERT_TRUE(result_array->Equals(a3_nulls->Slice(1)));
@@ -1372,7 +1373,8 @@ TEST_F(TestBooleanKernel, And) {
   ASSERT_TRUE(result_ca->Equals(ca3));
 
   // ChunkedArray with different chunks
-  std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1), a1->Slice(1, 1), a1->Slice(2)};
+  std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1),
+                                                  a1->Slice(1, 1), a1->Slice(2)};
   auto ca4 = std::make_shared<ChunkedArray>(ca4_arrs);
   ASSERT_OK(And(&this->ctx_, Datum(ca4), Datum(ca2), &result));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
@@ -1414,7 +1416,8 @@ TEST_F(TestBooleanKernel, Or) {
   ASSERT_TRUE(result_array->Equals(a3->Slice(1)));
 
   // Array with offset and nulls
-  ASSERT_OK(Or(&this->ctx_, Datum(a1_nulls->Slice(1)), Datum(a2_nulls->Slice(1)), &result));
+  ASSERT_OK(
+      Or(&this->ctx_, Datum(a1_nulls->Slice(1)), Datum(a2_nulls->Slice(1)), &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
   result_array = result.make_array();
   ASSERT_TRUE(result_array->Equals(a3_nulls->Slice(1)));
@@ -1432,7 +1435,8 @@ TEST_F(TestBooleanKernel, Or) {
   ASSERT_TRUE(result_ca->Equals(ca3));
 
   // ChunkedArray with different chunks
-  std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1), a1->Slice(1, 1), a1->Slice(2)};
+  std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1),
+                                                  a1->Slice(1, 1), a1->Slice(2)};
   auto ca4 = std::make_shared<ChunkedArray>(ca4_arrs);
   ASSERT_OK(Or(&this->ctx_, Datum(ca4), Datum(ca2), &result));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
@@ -1474,7 +1478,8 @@ TEST_F(TestBooleanKernel, Xor) {
   ASSERT_TRUE(result_array->Equals(a3->Slice(1)));
 
   // Array with offset and nulls
-  ASSERT_OK(Xor(&this->ctx_, Datum(a1_nulls->Slice(1)), Datum(a2_nulls->Slice(1)), &result));
+  ASSERT_OK(
+      Xor(&this->ctx_, Datum(a1_nulls->Slice(1)), Datum(a2_nulls->Slice(1)), &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
   result_array = result.make_array();
   ASSERT_TRUE(result_array->Equals(a3_nulls->Slice(1)));
@@ -1492,7 +1497,8 @@ TEST_F(TestBooleanKernel, Xor) {
   ASSERT_TRUE(result_ca->Equals(ca3));
 
   // ChunkedArray with different chunks
-  std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1), a1->Slice(1, 1), a1->Slice(2)};
+  std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1),
+                                                  a1->Slice(1, 1), a1->Slice(2)};
   auto ca4 = std::make_shared<ChunkedArray>(ca4_arrs);
   ASSERT_OK(Xor(&this->ctx_, Datum(ca4), Datum(ca2), &result));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
@@ -1503,7 +1509,8 @@ TEST_F(TestBooleanKernel, Xor) {
 class TestInvokeBinaryKernel : public ComputeFixture, public TestBase {};
 
 class DummyBinaryKernel : public BinaryKernel {
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) override {
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) override {
     return Status::OK();
   }
 };
@@ -1520,11 +1527,14 @@ TEST_F(TestInvokeBinaryKernel, Exceptions) {
   auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
 
   // Left is not an array-like
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(table), Datum(a2), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(
+                             &this->ctx_, &kernel, Datum(table), Datum(a2), &outputs));
   // Right is not an array-like
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1), Datum(table), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1),
+                                                         Datum(table), &outputs));
   // Different sized inputs
-  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1), Datum(a1->Slice(1)), &outputs));
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1),
+                                                         Datum(a1->Slice(1)), &outputs));
 }
 
 }  // namespace compute
