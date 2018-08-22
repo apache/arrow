@@ -76,6 +76,11 @@ class StringConverter<BooleanType> {
   }
 };
 
+// Ideas for faster float parsing:
+// - http://rapidjson.org/md_doc_internals.html#ParsingDouble
+// - https://github.com/google/double-conversion
+// - https://github.com/achan001/dtoa-fast
+
 template <class ARROW_TYPE>
 class StringToFloatConverterMixin {
  public:
