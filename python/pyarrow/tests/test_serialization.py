@@ -115,7 +115,8 @@ PRIMITIVE_OBJECTS = [
     {True: "hello", False: "world"}, {"hello": "world", 1: 42, 2.5: 45},
     {"hello": set([2, 3]), "world": set([42.0]), "this": None},
     np.int8(3), np.int32(4), np.int64(5),
-    np.uint8(3), np.uint32(4), np.uint64(5), np.float16(1.9), np.float32(1.9),
+    np.uint8(3), np.uint32(4), np.uint64(5),
+    np.float16(1.9), np.float32(1.9),
     np.float64(1.9), np.zeros([8, 20]),
     np.random.normal(size=[17, 10]), np.array(["hi", 3]),
     np.array(["hi", 3], dtype=object),
@@ -286,6 +287,25 @@ def test_clone():
 def test_primitive_serialization(large_buffer):
     for obj in PRIMITIVE_OBJECTS:
         serialization_roundtrip(obj, large_buffer)
+
+
+def test_integer_limits(large_buffer):
+    # Check that Numpy scalars can be represented up to their limit values
+    # (except np.uint64 which is limited to 2**63 - 1)
+    for dt in [np.int8, np.int64, np.int32, np.int64,
+               np.uint8, np.uint64, np.uint32, np.uint64]:
+        scal = dt(np.iinfo(dt).min)
+        serialization_roundtrip(scal, large_buffer)
+        if dt is not np.uint64:
+            scal = dt(np.iinfo(dt).max)
+            serialization_roundtrip(scal, large_buffer)
+        else:
+            scal = dt(2**63 - 1)
+            serialization_roundtrip(scal, large_buffer)
+            for v in (2**63, 2**64 - 1):
+                scal = dt(v)
+                with pytest.raises(pa.ArrowInvalid):
+                    pa.serialize(scal)
 
 
 def test_serialize_to_buffer():
