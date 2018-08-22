@@ -395,6 +395,51 @@ TEST(BitmapAnd, Unaligned) {
   }
 }
 
+TEST(BitmapOr, Aligned) {
+  std::shared_ptr<Buffer> left, right, out;
+  int64_t length;
+
+  for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120}) {
+    BitmapFromVector({0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0}, left_offset, &left,
+                     &length);
+    for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
+      BitmapFromVector({0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0}, right_offset, &right,
+                       &length);
+      for (int64_t out_offset : {left_offset, left_offset + 16, left_offset + 24}) {
+        ASSERT_OK(BitmapOr(default_memory_pool(), left->mutable_data(), left_offset,
+                            right->mutable_data(), right_offset, length, out_offset,
+                            &out));
+        auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+        ASSERT_READER_VALUES(reader, {0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0});
+      }
+    }
+  }
+}
+
+TEST(BitmapOr, Unaligned) {
+  std::shared_ptr<Buffer> left, right, out;
+  int64_t length;
+  auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120};
+
+  for (int64_t left_offset : offset_values) {
+    BitmapFromVector({0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0}, left_offset, &left,
+                     &length);
+
+    for (int64_t right_offset : offset_values) {
+      BitmapFromVector({0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0}, right_offset, &right,
+                       &length);
+
+      for (int64_t out_offset : offset_values) {
+        ASSERT_OK(BitmapOr(default_memory_pool(), left->mutable_data(), left_offset,
+                            right->mutable_data(), right_offset, length, out_offset,
+                            &out));
+        auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+        ASSERT_READER_VALUES(reader, {0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0});
+      }
+    }
+  }
+}
+
 static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
                                     int64_t length) {
   int64_t count = 0;
@@ -404,6 +449,51 @@ static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
     }
   }
   return count;
+}
+
+TEST(BitmapXor, Aligned) {
+  std::shared_ptr<Buffer> left, right, out;
+  int64_t length;
+
+  for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120}) {
+    BitmapFromVector({0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1}, left_offset, &left,
+                     &length);
+    for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
+      BitmapFromVector({0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0}, right_offset, &right,
+                       &length);
+      for (int64_t out_offset : {left_offset, left_offset + 16, left_offset + 24}) {
+        ASSERT_OK(BitmapXor(default_memory_pool(), left->mutable_data(), left_offset,
+                            right->mutable_data(), right_offset, length, out_offset,
+                            &out));
+        auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+        ASSERT_READER_VALUES(reader, {0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1});
+      }
+    }
+  }
+}
+
+TEST(BitmapXor, Unaligned) {
+  std::shared_ptr<Buffer> left, right, out;
+  int64_t length;
+  auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120};
+
+  for (int64_t left_offset : offset_values) {
+    BitmapFromVector({0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1}, left_offset, &left,
+                     &length);
+
+    for (int64_t right_offset : offset_values) {
+      BitmapFromVector({0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0}, right_offset, &right,
+                       &length);
+
+      for (int64_t out_offset : offset_values) {
+        ASSERT_OK(BitmapXor(default_memory_pool(), left->mutable_data(), left_offset,
+                            right->mutable_data(), right_offset, length, out_offset,
+                            &out));
+        auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+        ASSERT_READER_VALUES(reader, {0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1});
+      }
+    }
+  }
 }
 
 TEST(BitUtilTests, TestCountSetBits) {

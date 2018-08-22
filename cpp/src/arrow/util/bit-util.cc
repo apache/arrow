@@ -229,6 +229,70 @@ void UnalignedBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t*
   writer.Finish();
 }
 
+void AlignedBitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                      int64_t right_offset, uint8_t* out, int64_t out_offset,
+                      int64_t length) {
+  DCHECK_EQ(left_offset % 8, right_offset % 8);
+  DCHECK_EQ(left_offset % 8, out_offset % 8);
+
+  const int64_t nbytes = BitUtil::BytesForBits(length + left_offset);
+  left += left_offset / 8;
+  right += right_offset / 8;
+  out += out_offset / 8;
+  for (int64_t i = 0; i < nbytes; ++i) {
+    out[i] = left[i] | right[i];
+  }
+}
+
+void UnalignedBitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                        int64_t right_offset, uint8_t* out, int64_t out_offset,
+                        int64_t length) {
+  auto left_reader = internal::BitmapReader(left, left_offset, length);
+  auto right_reader = internal::BitmapReader(right, right_offset, length);
+  auto writer = internal::BitmapWriter(out, out_offset, length);
+  for (int64_t i = 0; i < length; ++i) {
+    if (left_reader.IsSet() || right_reader.IsSet()) {
+      writer.Set();
+    }
+    left_reader.Next();
+    right_reader.Next();
+    writer.Next();
+  }
+  writer.Finish();
+}
+
+void AlignedBitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                      int64_t right_offset, uint8_t* out, int64_t out_offset,
+                      int64_t length) {
+  DCHECK_EQ(left_offset % 8, right_offset % 8);
+  DCHECK_EQ(left_offset % 8, out_offset % 8);
+
+  const int64_t nbytes = BitUtil::BytesForBits(length + left_offset);
+  left += left_offset / 8;
+  right += right_offset / 8;
+  out += out_offset / 8;
+  for (int64_t i = 0; i < nbytes; ++i) {
+    out[i] = left[i] ^ right[i];
+  }
+}
+
+void UnalignedBitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                        int64_t right_offset, uint8_t* out, int64_t out_offset,
+                        int64_t length) {
+  auto left_reader = internal::BitmapReader(left, left_offset, length);
+  auto right_reader = internal::BitmapReader(right, right_offset, length);
+  auto writer = internal::BitmapWriter(out, out_offset, length);
+  for (int64_t i = 0; i < length; ++i) {
+    if (left_reader.IsSet() ^ right_reader.IsSet()) {
+      writer.Set();
+    }
+    left_reader.Next();
+    right_reader.Next();
+    writer.Next();
+  }
+  writer.Finish();
+}
+
 }  // namespace
 
 Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
@@ -248,5 +312,42 @@ Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
   }
   return Status::OK();
 }
+
+Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
+    // Fast case: can use bytewise AND
+    const int64_t phys_bits = length + out_offset;
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, out_buffer));
+    AlignedBitmapOr(left, left_offset, right, right_offset,
+                    (*out_buffer)->mutable_data(), out_offset, length);
+  } else {
+    // Unaligned
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, length + out_offset, out_buffer));
+    UnalignedBitmapOr(left, left_offset, right, right_offset,
+                      (*out_buffer)->mutable_data(), out_offset, length);
+  }
+  return Status::OK();
+}
+
+Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
+    // Fast case: can use bytewise AND
+    const int64_t phys_bits = length + out_offset;
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, out_buffer));
+    AlignedBitmapXor(left, left_offset, right, right_offset,
+                     (*out_buffer)->mutable_data(), out_offset, length);
+  } else {
+    // Unaligned
+    RETURN_NOT_OK(AllocateEmptyBitmap(pool, length + out_offset, out_buffer));
+    UnalignedBitmapXor(left, left_offset, right, right_offset,
+                       (*out_buffer)->mutable_data(), out_offset, length);
+  }
+  return Status::OK();
+}
+
 
 }  // namespace arrow

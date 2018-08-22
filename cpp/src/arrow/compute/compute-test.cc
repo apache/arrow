@@ -1331,8 +1331,8 @@ TEST_F(TestBooleanKernel, And) {
   auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
   auto a3 = _MakeArray<BooleanType, bool>(type, values3, {});
   auto a1_nulls = _MakeArray<BooleanType, bool>(type, values1, values1);
-  auto a2_nulls = _MakeArray<BooleanType, bool>(type, values2, values1);
-  auto a3_nulls = _MakeArray<BooleanType, bool>(type, values3, values1);
+  auto a2_nulls = _MakeArray<BooleanType, bool>(type, values2, values2);
+  auto a3_nulls = _MakeArray<BooleanType, bool>(type, values3, values3);
 
   // Plain array
   Datum result;
@@ -1374,8 +1374,127 @@ TEST_F(TestBooleanKernel, And) {
   // ChunkedArray with different chunks
   std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1), a1->Slice(1, 1), a1->Slice(2)};
   auto ca4 = std::make_shared<ChunkedArray>(ca4_arrs);
-  std::cout << ca4->length() << ", " << ca1->length() << std::endl;
   ASSERT_OK(And(&this->ctx_, Datum(ca4), Datum(ca2), &result));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+  result_ca = result.chunked_array();
+  ASSERT_TRUE(result_ca->Equals(ca3));
+}
+
+TEST_F(TestBooleanKernel, Or) {
+  vector<bool> values1 = {true, false, true, false, true, true};
+  vector<bool> values2 = {true, true, false, false, true, false};
+  vector<bool> values3 = {true, true, true, false, true, true};
+  vector<bool> values3_nulls = {true, false, false, false, true, false};
+
+  auto type = boolean();
+  auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
+  auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
+  auto a3 = _MakeArray<BooleanType, bool>(type, values3, {});
+  auto a1_nulls = _MakeArray<BooleanType, bool>(type, values1, values1);
+  auto a2_nulls = _MakeArray<BooleanType, bool>(type, values2, values2);
+  auto a3_nulls = _MakeArray<BooleanType, bool>(type, values3, values3_nulls);
+
+  // Plain array
+  Datum result;
+  ASSERT_OK(Or(&this->ctx_, Datum(a1), Datum(a2), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  std::shared_ptr<Array> result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a3));
+
+  // Plain array with nulls
+  ASSERT_OK(Or(&this->ctx_, Datum(a1_nulls), Datum(a2_nulls), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a3_nulls));
+
+  // Array with offset
+  ASSERT_OK(Or(&this->ctx_, Datum(a1->Slice(1)), Datum(a2->Slice(1)), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a3->Slice(1)));
+
+  // Array with offset and nulls
+  ASSERT_OK(Or(&this->ctx_, Datum(a1_nulls->Slice(1)), Datum(a2_nulls->Slice(1)), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a3_nulls->Slice(1)));
+
+  // ChunkedArray
+  std::vector<std::shared_ptr<Array>> ca1_arrs = {a1, a1->Slice(1)};
+  auto ca1 = std::make_shared<ChunkedArray>(ca1_arrs);
+  std::vector<std::shared_ptr<Array>> ca2_arrs = {a2, a2->Slice(1)};
+  auto ca2 = std::make_shared<ChunkedArray>(ca2_arrs);
+  std::vector<std::shared_ptr<Array>> ca3_arrs = {a3, a3->Slice(1)};
+  auto ca3 = std::make_shared<ChunkedArray>(ca3_arrs);
+  ASSERT_OK(Or(&this->ctx_, Datum(ca1), Datum(ca2), &result));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+  std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
+  ASSERT_TRUE(result_ca->Equals(ca3));
+
+  // ChunkedArray with different chunks
+  std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1), a1->Slice(1, 1), a1->Slice(2)};
+  auto ca4 = std::make_shared<ChunkedArray>(ca4_arrs);
+  ASSERT_OK(Or(&this->ctx_, Datum(ca4), Datum(ca2), &result));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+  result_ca = result.chunked_array();
+  ASSERT_TRUE(result_ca->Equals(ca3));
+}
+
+TEST_F(TestBooleanKernel, Xor) {
+  vector<bool> values1 = {true, false, true, false, true, true};
+  vector<bool> values2 = {true, true, false, false, true, false};
+  vector<bool> values3 = {false, true, true, false, false, true};
+  vector<bool> values3_nulls = {true, false, false, false, true, false};
+
+  auto type = boolean();
+  auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
+  auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
+  auto a3 = _MakeArray<BooleanType, bool>(type, values3, {});
+  auto a1_nulls = _MakeArray<BooleanType, bool>(type, values1, values1);
+  auto a2_nulls = _MakeArray<BooleanType, bool>(type, values2, values2);
+  auto a3_nulls = _MakeArray<BooleanType, bool>(type, values3, values3_nulls);
+
+  // Plain array
+  Datum result;
+  ASSERT_OK(Xor(&this->ctx_, Datum(a1), Datum(a2), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  std::shared_ptr<Array> result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a3));
+
+  // Plain array with nulls
+  ASSERT_OK(Xor(&this->ctx_, Datum(a1_nulls), Datum(a2_nulls), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a3_nulls));
+
+  // Array with offset
+  ASSERT_OK(Xor(&this->ctx_, Datum(a1->Slice(1)), Datum(a2->Slice(1)), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a3->Slice(1)));
+
+  // Array with offset and nulls
+  ASSERT_OK(Xor(&this->ctx_, Datum(a1_nulls->Slice(1)), Datum(a2_nulls->Slice(1)), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a3_nulls->Slice(1)));
+
+  // ChunkedArray
+  std::vector<std::shared_ptr<Array>> ca1_arrs = {a1, a1->Slice(1)};
+  auto ca1 = std::make_shared<ChunkedArray>(ca1_arrs);
+  std::vector<std::shared_ptr<Array>> ca2_arrs = {a2, a2->Slice(1)};
+  auto ca2 = std::make_shared<ChunkedArray>(ca2_arrs);
+  std::vector<std::shared_ptr<Array>> ca3_arrs = {a3, a3->Slice(1)};
+  auto ca3 = std::make_shared<ChunkedArray>(ca3_arrs);
+  ASSERT_OK(Xor(&this->ctx_, Datum(ca1), Datum(ca2), &result));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+  std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
+  ASSERT_TRUE(result_ca->Equals(ca3));
+
+  // ChunkedArray with different chunks
+  std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1), a1->Slice(1, 1), a1->Slice(2)};
+  auto ca4 = std::make_shared<ChunkedArray>(ca4_arrs);
+  ASSERT_OK(Xor(&this->ctx_, Datum(ca4), Datum(ca2), &result));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
   result_ca = result.chunked_array();
   ASSERT_TRUE(result_ca->Equals(ca3));
