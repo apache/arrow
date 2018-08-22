@@ -116,12 +116,6 @@ class SequenceBuilder {
     return AppendPrimitive(data, &int_tag_, &ints_);
   }
 
-  /// Appending an uint64_t to the sequence
-  Status AppendUInt64(const uint64_t data) {
-    // TODO(wesm): Bounds check
-    return AppendPrimitive(static_cast<int64_t>(data), &int_tag_, &ints_);
-  }
-
   /// Append a list of bytes to the sequence
   Status AppendBytes(const uint8_t* data, int32_t length) {
     RETURN_NOT_OK(Update(bytes_.length(), &bytes_tag_));
@@ -435,6 +429,25 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
                           int32_t recursion_depth, std::shared_ptr<Array>* out,
                           SerializedPyObject* blobs_out);
 
+template <typename NumpyScalarObject>
+Status AppendIntegerScalar(PyObject* obj, SequenceBuilder* builder) {
+  int64_t value = reinterpret_cast<NumpyScalarObject*>(obj)->obval;
+  return builder->AppendInt64(value);
+}
+
+// Append a potentially 64-bit wide unsigned Numpy scalar.
+// Must check for overflow as we reinterpret it as signed int64.
+template <typename NumpyScalarObject>
+Status AppendLargeUnsignedScalar(PyObject* obj, SequenceBuilder* builder) {
+  constexpr uint64_t max_value = std::numeric_limits<int64_t>::max();
+
+  uint64_t value = reinterpret_cast<NumpyScalarObject*>(obj)->obval;
+  if (value > max_value) {
+    return Status::Invalid("cannot serialize Numpy uint64 scalar >= 2**63");
+  }
+  return builder->AppendInt64(static_cast<int64_t>(value));
+}
+
 Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
   if (PyArray_IsScalar(obj, Bool)) {
     return builder->AppendBool(reinterpret_cast<PyBoolScalarObject*>(obj)->obval != 0);
@@ -445,35 +458,32 @@ Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
   } else if (PyArray_IsScalar(obj, Double)) {
     return builder->AppendDouble(reinterpret_cast<PyDoubleScalarObject*>(obj)->obval);
   }
-  int64_t value = 0;
   if (PyArray_IsScalar(obj, Byte)) {
-    value = reinterpret_cast<PyByteScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, UByte)) {
-    value = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
+    return AppendIntegerScalar<PyByteScalarObject>(obj, builder);
   } else if (PyArray_IsScalar(obj, Short)) {
-    value = reinterpret_cast<PyShortScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, UShort)) {
-    value = reinterpret_cast<PyUShortScalarObject*>(obj)->obval;
+    return AppendIntegerScalar<PyShortScalarObject>(obj, builder);
   } else if (PyArray_IsScalar(obj, Int)) {
-    value = reinterpret_cast<PyIntScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, UInt)) {
-    value = reinterpret_cast<PyUIntScalarObject*>(obj)->obval;
+    return AppendIntegerScalar<PyIntScalarObject>(obj, builder);
   } else if (PyArray_IsScalar(obj, Long)) {
-    value = reinterpret_cast<PyLongScalarObject*>(obj)->obval;
-  } else if (PyArray_IsScalar(obj, ULong)) {
-    value = reinterpret_cast<PyULongScalarObject*>(obj)->obval;
+    return AppendIntegerScalar<PyLongScalarObject>(obj, builder);
   } else if (PyArray_IsScalar(obj, LongLong)) {
-    value = reinterpret_cast<PyLongLongScalarObject*>(obj)->obval;
+    return AppendIntegerScalar<PyLongLongScalarObject>(obj, builder);
   } else if (PyArray_IsScalar(obj, Int64)) {
-    value = reinterpret_cast<PyInt64ScalarObject*>(obj)->obval;
+    return AppendIntegerScalar<PyInt64ScalarObject>(obj, builder);
+  } else if (PyArray_IsScalar(obj, UByte)) {
+    return AppendIntegerScalar<PyUByteScalarObject>(obj, builder);
+  } else if (PyArray_IsScalar(obj, UShort)) {
+    return AppendIntegerScalar<PyUShortScalarObject>(obj, builder);
+  } else if (PyArray_IsScalar(obj, UInt)) {
+    return AppendIntegerScalar<PyUIntScalarObject>(obj, builder);
+  } else if (PyArray_IsScalar(obj, ULong)) {
+    return AppendLargeUnsignedScalar<PyULongScalarObject>(obj, builder);
   } else if (PyArray_IsScalar(obj, ULongLong)) {
-    value = reinterpret_cast<PyULongLongScalarObject*>(obj)->obval;
+    return AppendLargeUnsignedScalar<PyULongLongScalarObject>(obj, builder);
   } else if (PyArray_IsScalar(obj, UInt64)) {
-    value = reinterpret_cast<PyUInt64ScalarObject*>(obj)->obval;
-  } else {
-    DCHECK(false) << "scalar type not recognized";
+    return AppendLargeUnsignedScalar<PyUInt64ScalarObject>(obj, builder);
   }
-  return builder->AppendInt64(value);
+  return Status::NotImplemented("Numpy scalar type not recognized");
 }
 
 Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
