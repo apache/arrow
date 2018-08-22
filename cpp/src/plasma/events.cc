@@ -70,6 +70,9 @@ void EventLoop::Start() { aeMain(loop_); }
 
 void EventLoop::Stop() {
   aeStop(loop_);
+}
+
+void EventLoop::Shutdown() {
   aeDeleteEventLoop(loop_);
 }
 
