@@ -382,8 +382,9 @@ namespace detail {
 template <typename BuilderType, typename AppendFunc>
 inline Status AppendPyString(BuilderType* builder, const PyBytesView& view, bool* is_full,
                              AppendFunc&& append_func) {
-  int32_t length;
+  int32_t length = -1;
   RETURN_NOT_OK(internal::CastSize(view.size, &length));
+  DCHECK_GE(length, 0);
   // Did we reach the builder size limit?
   if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
     *is_full = true;
