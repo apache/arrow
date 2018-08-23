@@ -28,6 +28,7 @@ from cpython.pycapsule cimport *
 
 import collections
 import pyarrow
+import random
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
@@ -43,6 +44,9 @@ cdef extern from "plasma/common.h" nogil:
 
         @staticmethod
         CUniqueID from_binary(const c_string& binary)
+
+        @staticmethod
+        CUniqueID from_random()
 
         c_bool operator==(const CUniqueID& rhs) const
 
@@ -163,6 +167,11 @@ cdef class ObjectID:
             Binary representation of the ObjectID.
         """
         return self.data.binary()
+
+    @staticmethod
+    def from_random():
+        random_id = bytes(random.getrandbits(8) for i in range(20))
+        return ObjectID(random_id)
 
 
 cdef class ObjectNotAvailable:
