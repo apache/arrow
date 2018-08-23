@@ -288,15 +288,17 @@ def resolve_jira(title, merge_branches, comment):
 
 
 def _get_fix_version(merge_branches):
+    unreleased_versions = [x for x in ASF_JIRA.project_versions("ARROW")
+                           if not x.raw['released']]
+    unreleased_versions = sorted(unreleased_versions, key=lambda x: x.name, reverse=True)
+
     # Only suggest versions starting with a number, like 0.x but not JS-0.x
     mainline_version_regex = re.compile('\d.*')
-    versions = [x for x in ASF_JIRA.project_versions("ARROW")
-                if not x.raw['released'] and
-                mainline_version_regex.match(x.name)]
+    mainline_versions = [x for x in unreleased_versions
+                         if mainline_version_regex.match(x.name)]
 
-    versions = sorted(versions, key=lambda x: x.name, reverse=True)
 
-    default_fix_versions = [fix_version_from_branch(x, versions).name
+    default_fix_versions = [fix_version_from_branch(x, mainline_versions).name
                             for x in merge_branches]
 
     for v in default_fix_versions:
