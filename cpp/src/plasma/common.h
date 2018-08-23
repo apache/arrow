@@ -25,6 +25,7 @@
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #endif
+#include <unordered_map>
 
 #include "plasma/compat.h"
 
@@ -82,6 +83,72 @@ struct ObjectRequest {
   ///  - ObjectLocation::Nonexistent: object does not exist in the system.
   ObjectLocation location;
 };
+
+// TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
+struct PlasmaObject {
+#ifdef PLASMA_GPU
+  // IPC handle for Cuda.
+  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
+#endif
+  /// The file descriptor of the memory mapped file in the store. It is used as
+  /// a unique identifier of the file in the client to look up the corresponding
+  /// file descriptor on the client's side.
+  int store_fd;
+  /// The offset in bytes in the memory mapped file of the data.
+  ptrdiff_t data_offset;
+  /// The offset in bytes in the memory mapped file of the metadata.
+  ptrdiff_t metadata_offset;
+  /// The size in bytes of the data.
+  int64_t data_size;
+  /// The size in bytes of the metadata.
+  int64_t metadata_size;
+  /// Device number object is on.
+  int device_num;
+};
+
+enum class ObjectState : int {
+  /// Object was created but not sealed in the local Plasma Store.
+  PLASMA_CREATED = 1,
+  /// Object is sealed and stored in the local Plasma Store.
+  PLASMA_SEALED
+};
+
+/// This type is used by the Plasma store. It is here because it is exposed to
+/// the eviction policy.
+struct ObjectTableEntry {
+  ObjectTableEntry();
+
+  ~ObjectTableEntry();
+
+  /// Memory mapped file containing the object.
+  int fd;
+  /// Device number.
+  int device_num;
+  /// Size of the underlying map.
+  int64_t map_size;
+  /// Offset from the base of the mmap.
+  ptrdiff_t offset;
+  /// Pointer to the object data. Needed to free the object.
+  uint8_t* pointer;
+  /// Size of the object in bytes.
+  int64_t data_size;
+  /// Size of the object metadata in bytes.
+  int64_t metadata_size;
+#ifdef PLASMA_GPU
+  /// IPC GPU handle to share with clients.
+  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
+#endif
+  /// Number of clients currently using this object.
+  int ref_count;
+
+  /// The state of the object, e.g., whether it is open or sealed.
+  ObjectState state;
+  /// The digest of the object. Used to see if two objects are the same.
+  unsigned char digest[kDigestSize];
+};
+
+/// Mapping from ObjectIDs to information about the object.
+typedef std::unordered_map<ObjectID, std::unique_ptr<ObjectTableEntry>> ObjectTable;
 
 /// Globally accessible reference to plasma store configuration.
 /// TODO(pcm): This can be avoided with some refactoring of existing code

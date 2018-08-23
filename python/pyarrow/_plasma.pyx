@@ -58,6 +58,15 @@ cdef extern from "plasma/common.h" nogil:
         int type
         int location
 
+    cdef struct CObjectTableEntry" plasma::ObjectTableEntry":
+        int fd
+        int device_num
+        int64_t map_size
+        ptrdiff_t offset
+        uint8_t* pointer
+        int64_t data_size
+        int64_t metadata_size
+
 
 cdef extern from "plasma/common.h":
     cdef int64_t kDigestSize" plasma::kDigestSize"

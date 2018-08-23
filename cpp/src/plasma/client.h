@@ -151,6 +151,8 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Contains(const ObjectID& object_id, bool* has_object);
 
+  Status List(ObjectTable* objects);
+
   /// Abort an unsealed object in the object store. If the abort succeeds, then
   /// it will be as if the object was never created at all. The unsealed object
   /// must have only a single reference (the one that would have been removed by
