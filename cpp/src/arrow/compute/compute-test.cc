@@ -1290,6 +1290,8 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
 struct KernelFunc {
   virtual Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
                       Datum* out) const = 0;
+
+  virtual ~KernelFunc() = default;
 };
 
 struct AndKernelFunc : KernelFunc {

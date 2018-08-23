@@ -33,10 +33,7 @@ class InvertKernel : public UnaryKernel {
     const ArrayData& in_data = *input.array();
     ArrayData* result;
 
-    if (out->kind() == Datum::NONE) {
-      out->value = ArrayData::Make(boolean(), in_data.length);
-    }
-
+    out->value = ArrayData::Make(boolean(), in_data.length);
     result = out->array().get();
 
     // Allocate or copy bitmap
@@ -80,10 +77,7 @@ class BinaryBooleanKernel : public BinaryKernel {
     const ArrayData& left_data = *left.array();
     const ArrayData& right_data = *right.array();
     ArrayData* result;
-
-    if (out->kind() == Datum::NONE) {
-      out->value = ArrayData::Make(boolean(), right_data.length);
-    }
+    out->value = ArrayData::Make(boolean(), right_data.length);
 
     result = out->array().get();
 
