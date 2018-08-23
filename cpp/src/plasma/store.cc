@@ -879,8 +879,6 @@ void HandleSignal(int signal) {
     if (g_runner != nullptr) {
       g_runner->Stop();
     }
-    // Report "success" to valgrind.
-    //exit(0);
   }
 }
 
