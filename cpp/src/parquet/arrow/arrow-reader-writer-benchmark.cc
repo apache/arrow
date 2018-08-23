@@ -195,6 +195,69 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, DoubleType);
 BENCHMARK_TEMPLATE2(BM_ReadColumn, false, BooleanType);
 BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType);
 
+static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
+  std::vector<int64_t> values(BENCHMARK_SIZE, 128);
+  std::shared_ptr<::arrow::Table> table = TableFromVector<Int64Type>(values, true);
+  auto output = std::make_shared<InMemoryOutputStream>();
+  // This writes 10 RowGroups
+  EXIT_NOT_OK(
+      WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
+  std::shared_ptr<Buffer> buffer = output->GetBuffer();
+
+  while (state.KeepRunning()) {
+    auto reader =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+    FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
+
+    std::vector<std::shared_ptr<::arrow::Table>> tables;
+    for (int i = 0; i < filereader.num_row_groups(); i++) {
+      // Only read the even numbered RowGroups
+      if ((i % 2) == 0) {
+        std::shared_ptr<::arrow::Table> table;
+        EXIT_NOT_OK(filereader.RowGroup(i)->ReadTable(&table));
+        tables.push_back(table);
+      }
+    }
+
+    std::shared_ptr<::arrow::Table> final_table;
+    EXIT_NOT_OK(ConcatenateTables(tables, &final_table));
+  }
+  SetBytesProcessed<true, Int64Type>(state);
+}
+
+BENCHMARK(BM_ReadIndividualRowGroups);
+
+static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
+  std::vector<int64_t> values(BENCHMARK_SIZE, 128);
+  std::shared_ptr<::arrow::Table> table = TableFromVector<Int64Type>(values, true);
+  auto output = std::make_shared<InMemoryOutputStream>();
+  // This writes 10 RowGroups
+  EXIT_NOT_OK(
+      WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
+  std::shared_ptr<Buffer> buffer = output->GetBuffer();
+
+  while (state.KeepRunning()) {
+    auto reader =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+    FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
+
+    std::vector<std::shared_ptr<::arrow::Table>> tables;
+    std::vector<int> rgs;
+    for (int i = 0; i < filereader.num_row_groups(); i++) {
+      // Only read the even numbered RowGroups
+      if ((i % 2) == 0) {
+        rgs.push_back(i);
+      }
+    }
+
+    std::shared_ptr<::arrow::Table> table;
+    EXIT_NOT_OK(filereader.ReadRowGroups(rgs, &table));
+  }
+  SetBytesProcessed<true, Int64Type>(state);
+}
+
+BENCHMARK(BM_ReadMultipleRowGroups);
+
 }  // namespace benchmark
 
 }  // namespace parquet

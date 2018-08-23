@@ -1614,14 +1614,21 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
 
   ASSERT_EQ(2, reader->num_row_groups());
 
-  std::shared_ptr<Table> r1, r2;
+  std::shared_ptr<Table> r1, r2, r3, r4;
   // Read everything
   ASSERT_OK_NO_THROW(reader->ReadRowGroup(0, &r1));
   ASSERT_OK_NO_THROW(reader->RowGroup(1)->ReadTable(&r2));
+  ASSERT_OK_NO_THROW(reader->ReadRowGroups({0, 1}, &r3));
+  ASSERT_OK_NO_THROW(reader->ReadRowGroups({1}, &r4));
 
   std::shared_ptr<Table> concatenated;
-  ASSERT_OK(ConcatenateTables({r1, r2}, &concatenated));
 
+  ASSERT_OK(ConcatenateTables({r1, r2}, &concatenated));
+  ASSERT_TRUE(table->Equals(*concatenated));
+
+  ASSERT_TRUE(table->Equals(*r3));
+  ASSERT_TRUE(r2->Equals(*r4));
+  ASSERT_OK(ConcatenateTables({r1, r4}, &concatenated));
   ASSERT_TRUE(table->Equals(*concatenated));
 }
 

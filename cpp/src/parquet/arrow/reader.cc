@@ -228,11 +228,15 @@ class FileReader::Impl {
   Status GetSchema(std::shared_ptr<::arrow::Schema>* out);
   Status GetSchema(const std::vector<int>& indices,
                    std::shared_ptr<::arrow::Schema>* out);
+  Status ReadRowGroup(int row_group_index, std::shared_ptr<Table>* table);
   Status ReadRowGroup(int row_group_index, const std::vector<int>& indices,
                       std::shared_ptr<::arrow::Table>* out);
   Status ReadTable(const std::vector<int>& indices, std::shared_ptr<Table>* table);
   Status ReadTable(std::shared_ptr<Table>* table);
-  Status ReadRowGroup(int i, std::shared_ptr<Table>* table);
+  Status ReadRowGroups(const std::vector<int>& row_groups, std::shared_ptr<Table>* table);
+  Status ReadRowGroups(const std::vector<int>& row_groups,
+                       const std::vector<int>& indices,
+                       std::shared_ptr<::arrow::Table>* out);
 
   bool CheckForFlatColumn(const ColumnDescriptor* descr);
   bool CheckForFlatListColumn(const ColumnDescriptor* descr);
@@ -562,6 +566,29 @@ Status FileReader::Impl::ReadTable(std::shared_ptr<Table>* table) {
   return ReadTable(indices, table);
 }
 
+Status FileReader::Impl::ReadRowGroups(const std::vector<int>& row_groups,
+                                       const std::vector<int>& indices,
+                                       std::shared_ptr<Table>* table) {
+  // TODO(PARQUET-1393): Modify the record readers to already read this into a single,
+  // continuous array.
+  std::vector<std::shared_ptr<Table>> tables(row_groups.size(), nullptr);
+
+  for (size_t i = 0; i < row_groups.size(); ++i) {
+    RETURN_NOT_OK(ReadRowGroup(row_groups[i], indices, &tables[i]));
+  }
+  return ConcatenateTables(tables, table);
+}
+
+Status FileReader::Impl::ReadRowGroups(const std::vector<int>& row_groups,
+                                       std::shared_ptr<Table>* table) {
+  std::vector<int> indices(reader_->metadata()->num_columns());
+
+  for (size_t i = 0; i < indices.size(); ++i) {
+    indices[i] = static_cast<int>(i);
+  }
+  return ReadRowGroups(row_groups, indices, table);
+}
+
 Status FileReader::Impl::ReadRowGroup(int i, std::shared_ptr<Table>* table) {
   std::vector<int> indices(reader_->metadata()->num_columns());
 
@@ -678,6 +705,25 @@ Status FileReader::ReadRowGroup(int i, const std::vector<int>& indices,
                                 std::shared_ptr<Table>* out) {
   try {
     return impl_->ReadRowGroup(i, indices, out);
+  } catch (const ::parquet::ParquetException& e) {
+    return ::arrow::Status::IOError(e.what());
+  }
+}
+
+Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
+                                 std::shared_ptr<Table>* out) {
+  try {
+    return impl_->ReadRowGroups(row_groups, out);
+  } catch (const ::parquet::ParquetException& e) {
+    return ::arrow::Status::IOError(e.what());
+  }
+}
+
+Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
+                                 const std::vector<int>& indices,
+                                 std::shared_ptr<Table>* out) {
+  try {
+    return impl_->ReadRowGroups(row_groups, indices, out);
   } catch (const ::parquet::ParquetException& e) {
     return ::arrow::Status::IOError(e.what());
   }
