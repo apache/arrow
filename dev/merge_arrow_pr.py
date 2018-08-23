@@ -37,12 +37,11 @@ import six
 
 try:
     import jira.client
-    JIRA_IMPORTED = True
 except ImportError:
-    JIRA_IMPORTED = False
-    print("Could not find jira-python library. "
-          "Run 'sudo pip install jira-python' to install.")
+    print("Could not find jira library. "
+          "Run 'sudo pip install jira' to install.")
     print("Exiting without trying to close the associated JIRA.")
+    sys.exit(1)
 
 # Location of your Arrow git clone
 SEP = os.path.sep
