@@ -14,7 +14,24 @@
 
 #include "gandiva/configuration.h"
 
+#include "boost/functional/hash.hpp"
+
 namespace gandiva {
+
 const std::shared_ptr<Configuration> ConfigurationBuilder::default_configuration_ =
     InitDefaultConfig();
+
+std::size_t Configuration::Hash() const {
+  boost::hash<std::string> string_hash;
+  return string_hash(byte_code_file_path_);
 }
+
+bool Configuration::operator==(const Configuration &other) const {
+  return other.byte_code_file_path() == byte_code_file_path();
+}
+
+bool Configuration::operator!=(const Configuration &other) const {
+  return !(*this == other);
+}
+
+}  // namespace gandiva

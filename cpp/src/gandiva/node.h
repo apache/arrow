@@ -183,13 +183,18 @@ class BooleanNode : public Node {
 
   std::string ToString() override {
     std::stringstream ss;
-    ss << children_.at(0)->ToString();
-    if (expr_type() == BooleanNode::AND) {
-      ss << " && ";
-    } else {
-      ss << " || ";
+    bool first = true;
+    for (auto &child : children_) {
+      if (!first) {
+        if (expr_type() == BooleanNode::AND) {
+          ss << " && ";
+        } else {
+          ss << " || ";
+        }
+      }
+      ss << child->ToString();
+      first = false;
     }
-    ss << children_.at(1)->ToString();
     return ss.str();
   }
 

@@ -41,21 +41,19 @@ class Projector {
   ///
   /// \param[in] : schema schema for the record batches, and the expressions.
   /// \param[in] : exprs vector of expressions.
-  /// \param[in] : pool memory pool used to allocate output arrays (if required).
   /// \param[out]: projector the returned projector object
   static Status Make(SchemaPtr schema, const ExpressionVector &exprs,
-                     arrow::MemoryPool *pool, std::shared_ptr<Projector> *projector);
+                     std::shared_ptr<Projector> *projector);
 
   /// Build a projector for the given schema to evaluate the vector of expressions.
   /// Customize the projector with runtime configuration.
   ///
   /// \param[in] : schema schema for the record batches, and the expressions.
   /// \param[in] : exprs vector of expressions.
-  /// \param[in] : pool memory pool used to allocate output arrays (if required).
   /// \param[in] : run time configuration.
   /// \param[out]: projector the returned projector object
   static Status Make(SchemaPtr schema, const ExpressionVector &exprs,
-                     arrow::MemoryPool *pool, std::shared_ptr<Configuration>,
+                     std::shared_ptr<Configuration>,
                      std::shared_ptr<Projector> *projector);
 
   /// Evaluate the specified record batch, and return the allocated and populated output
@@ -63,8 +61,10 @@ class Projector {
   /// to the vector 'output'.
   ///
   /// \param[in] : batch the record batch. schema should be the same as the one in 'Make'
+  /// \param[in] : pool memory pool used to allocate output arrays (if required).
   /// \param[out]: output the vector of allocated/populated arrays.
-  Status Evaluate(const arrow::RecordBatch &batch, arrow::ArrayVector *ouput);
+  Status Evaluate(const arrow::RecordBatch &batch, arrow::MemoryPool *pool,
+                  arrow::ArrayVector *ouput);
 
   /// Evaluate the specified record batch, and populate the output arrays. The output
   /// arrays of sufficient capacity must be allocated by the caller.
@@ -76,11 +76,11 @@ class Projector {
 
  private:
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
-            const FieldVector &output_fields, arrow::MemoryPool *pool,
-            std::shared_ptr<Configuration>);
+            const FieldVector &output_fields, std::shared_ptr<Configuration>);
 
   /// Allocate an ArrowData of length 'length'.
-  Status AllocArrayData(const DataTypePtr &type, int length, ArrayDataPtr *array_data);
+  Status AllocArrayData(const DataTypePtr &type, int length, arrow::MemoryPool *pool,
+                        ArrayDataPtr *array_data);
 
   /// Validate that the ArrayData has sufficient capacity to accomodate 'num_records'.
   Status ValidateArrayDataCapacity(const arrow::ArrayData &array_data,
@@ -92,7 +92,6 @@ class Projector {
   const std::unique_ptr<LLVMGenerator> llvm_generator_;
   const SchemaPtr schema_;
   const FieldVector output_fields_;
-  arrow::MemoryPool *pool_;
   const std::shared_ptr<Configuration> configuration_;
 };
 

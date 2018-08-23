@@ -54,13 +54,14 @@ TEST_F(TestBenchmarks, TimedTestAdd3) {
   auto sum_expr = TreeExprBuilder::MakeExpression(sum, field_sum);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {sum_expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {sum_expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   int64_t elapsed_millis;
   Int64DataGenerator data_generator;
-  status = TimedEvaluate<arrow::Int64Type, int64_t>(
-      schema, projector, data_generator, 100 * MILLION, 16 * THOUSAND, elapsed_millis);
+  status = TimedEvaluate<arrow::Int64Type, int64_t>(schema, projector, data_generator,
+                                                    pool_, 100 * MILLION, 16 * THOUSAND,
+                                                    elapsed_millis);
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for Add3 " << elapsed_millis << " ms\n";
 }
@@ -97,13 +98,14 @@ TEST_F(TestBenchmarks, TimedTestBigNested) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   int64_t elapsed_millis;
   BoundedInt32DataGenerator data_generator(250);
-  status = TimedEvaluate<arrow::Int32Type, int32_t>(
-      schema, projector, data_generator, 100 * MILLION, 16 * THOUSAND, elapsed_millis);
+  status = TimedEvaluate<arrow::Int32Type, int32_t>(schema, projector, data_generator,
+                                                    pool_, 100 * MILLION, 16 * THOUSAND,
+                                                    elapsed_millis);
   ASSERT_TRUE(status.ok());
   std::cout << "Time taken for BigNestedIf " << elapsed_millis << " ms\n";
 }

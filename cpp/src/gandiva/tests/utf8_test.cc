@@ -58,7 +58,7 @@ TEST_F(TestUtf8, TestSimple) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr_a, expr_b}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr_a, expr_b}, &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -75,7 +75,7 @@ TEST_F(TestUtf8, TestSimple) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -101,7 +101,7 @@ TEST_F(TestUtf8, TestLiteral) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -117,7 +117,7 @@ TEST_F(TestUtf8, TestLiteral) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -143,7 +143,7 @@ TEST_F(TestUtf8, TestNullLiteral) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -160,7 +160,7 @@ TEST_F(TestUtf8, TestNullLiteral) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results

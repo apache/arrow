@@ -94,9 +94,18 @@ public class ProjectorTest extends BaseEvaluatorTest {
     ExpressionTree expr = TreeBuilder.makeExpression(ifNode, Field.nullable("c", int64));
     List<ExpressionTree> exprs = Lists.newArrayList(expr);
 
+    long startTime = System.currentTimeMillis();
     Projector evaluator1 = Projector.make(schema, exprs);
+    System.out.println((System.currentTimeMillis() - startTime));
+    startTime = System.currentTimeMillis();
     Projector evaluator2 = Projector.make(schema, exprs);
+    System.out.println((System.currentTimeMillis() - startTime));
+    startTime = System.currentTimeMillis();
     Projector evaluator3 = Projector.make(schema, exprs);
+    long timeToMakeProjector = (System.currentTimeMillis() - startTime);
+    // should be getting the projector from the cache;
+    // giving 5ms for varying system load.
+    Assert.assertTrue(timeToMakeProjector < 5L);
 
     evaluator1.close();
     evaluator2.close();

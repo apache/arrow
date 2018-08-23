@@ -84,8 +84,8 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr_a, expr_b, expr_c, expr_d, expr_e}, pool_,
-                                  &projector);
+  Status status =
+      Projector::Make(schema, {expr_a, expr_b, expr_c, expr_d, expr_e}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -109,7 +109,7 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -138,7 +138,7 @@ TEST_F(TestLiteral, TestNullLiteral) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -154,7 +154,7 @@ TEST_F(TestLiteral, TestNullLiteral) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results
@@ -180,7 +180,7 @@ TEST_F(TestLiteral, TestNullLiteralInIf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -195,7 +195,7 @@ TEST_F(TestLiteral, TestNullLiteralInIf) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results

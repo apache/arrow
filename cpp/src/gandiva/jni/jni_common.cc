@@ -551,7 +551,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   }
 
   // good to invoke the evaluator now
-  status = Projector::Make(schema_ptr, expr_vector, nullptr, config, &projector);
+  status = Projector::Make(schema_ptr, expr_vector, config, &projector);
 
   if (!status.ok()) {
     ss << "Failed to make LLVM module due to " << status.message() << "\n";

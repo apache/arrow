@@ -34,6 +34,9 @@ class Configuration {
  public:
   const std::string &byte_code_file_path() const { return byte_code_file_path_; }
   friend class ConfigurationBuilder;
+  std::size_t Hash() const;
+  bool operator==(const Configuration &other) const;
+  bool operator!=(const Configuration &other) const;
 
  private:
   explicit Configuration(const std::string byte_code_file_path)

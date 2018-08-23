@@ -69,8 +69,7 @@ TEST_F(TestProjector, TestIsNull) {
   auto isnotnull_expr = TreeExprBuilder::MakeExpression("isnotnull", {t0}, b0);
 
   std::shared_ptr<Projector> projector;
-  Status status =
-      Projector::Make(schema, {isnull_expr, isnotnull_expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {isnull_expr, isnotnull_expr}, &projector);
   ASSERT_TRUE(status.ok());
 
   int num_records = 4;
@@ -92,7 +91,7 @@ TEST_F(TestProjector, TestIsNull) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -124,8 +123,7 @@ TEST_F(TestProjector, TestDateTime) {
 
   std::shared_ptr<Projector> projector;
   Status status = Projector::Make(
-      schema, {date2year_expr, date2month_expr, ts2month_expr, ts2day_expr}, pool_,
-      &projector);
+      schema, {date2year_expr, date2month_expr, ts2month_expr, ts2day_expr}, &projector);
   ASSERT_TRUE(status.ok());
 
   struct tm y1970 = {0};
@@ -169,7 +167,7 @@ TEST_F(TestProjector, TestDateTime) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -193,8 +191,7 @@ TEST_F(TestProjector, TestTime) {
       TreeExprBuilder::MakeExpression("extractHour", {field0}, field_hour);
 
   std::shared_ptr<Projector> projector;
-  Status status =
-      Projector::Make(schema, {time2min_expr, time2hour_expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {time2min_expr, time2hour_expr}, &projector);
   ASSERT_TRUE(status.ok());
 
   // create input data
@@ -218,7 +215,7 @@ TEST_F(TestProjector, TestTime) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -262,7 +259,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   std::shared_ptr<Projector> projector;
   auto exprs = {diff_secs_expr,  diff_mins_expr,   diff_hours_expr,    diff_days_expr,
                 diff_weeks_expr, diff_months_expr, diff_quarters_expr, diff_years_expr};
-  Status status = Projector::Make(schema, exprs, pool_, &projector);
+  Status status = Projector::Make(schema, exprs, &projector);
   ASSERT_TRUE(status.ok());
 
   struct tm y1970 = {0};
@@ -313,7 +310,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results

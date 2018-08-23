@@ -18,29 +18,29 @@
 #include <utility>
 #include <vector>
 
+#include "codegen/cache.h"
 #include "codegen/expr_validator.h"
 #include "codegen/llvm_generator.h"
+#include "codegen/projector_cache_key.h"
 #include "gandiva/status.h"
 
 namespace gandiva {
 
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
-                     const FieldVector &output_fields, arrow::MemoryPool *pool,
+                     const FieldVector &output_fields,
                      std::shared_ptr<Configuration> configuration)
     : llvm_generator_(std::move(llvm_generator)),
       schema_(schema),
       output_fields_(output_fields),
-      pool_(pool),
       configuration_(configuration) {}
 
 Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
-                       arrow::MemoryPool *pool, std::shared_ptr<Projector> *projector) {
-  return Projector::Make(schema, exprs, pool,
-                         ConfigurationBuilder::DefaultConfiguration(), projector);
+                       std::shared_ptr<Projector> *projector) {
+  return Projector::Make(schema, exprs, ConfigurationBuilder::DefaultConfiguration(),
+                         projector);
 }
 
 Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
-                       arrow::MemoryPool *pool,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector> *projector) {
   GANDIVA_RETURN_FAILURE_IF_FALSE(schema != nullptr,
@@ -49,6 +49,15 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
                                   Status::Invalid("expressions need to be non-empty"));
   GANDIVA_RETURN_FAILURE_IF_FALSE(configuration != nullptr,
                                   Status::Invalid("configuration cannot be null"));
+
+  // see if equivalent projector was already built
+  static Cache<ProjectorCacheKey, std::shared_ptr<Projector>> cache;
+  ProjectorCacheKey cache_key(schema, configuration, exprs);
+  std::shared_ptr<Projector> cached_projector = cache.GetCachedModule(cache_key);
+  if (cached_projector != nullptr) {
+    *projector = cached_projector;
+    return Status::OK();
+  }
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
   Status status = LLVMGenerator::Make(configuration, &llvm_gen);
@@ -74,7 +83,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
 
   // Instantiate the projector with the completely built llvm generator
   *projector = std::shared_ptr<Projector>(
-      new Projector(std::move(llvm_gen), schema, output_fields, pool, configuration));
+      new Projector(std::move(llvm_gen), schema, output_fields, configuration));
+  cache.CacheModule(cache_key, *projector);
   return Status::OK();
 }
 
@@ -106,7 +116,8 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch,
   return llvm_generator_->Execute(batch, output_data_vecs);
 }
 
-Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::ArrayVector *output) {
+Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::MemoryPool *pool,
+                           arrow::ArrayVector *output) {
   Status status = ValidateEvaluateArgsCommon(batch);
   GANDIVA_RETURN_NOT_OK(status);
 
@@ -114,7 +125,7 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::ArrayVector *
     return Status::Invalid("output must be non-null.");
   }
 
-  if (pool_ == nullptr) {
+  if (pool == nullptr) {
     return Status::Invalid("memory pool must be non-null.");
   }
 
@@ -123,7 +134,7 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::ArrayVector *
   for (auto &field : output_fields_) {
     ArrayDataPtr output_data;
 
-    status = AllocArrayData(field->type(), batch.num_rows(), &output_data);
+    status = AllocArrayData(field->type(), batch.num_rows(), pool, &output_data);
     GANDIVA_RETURN_NOT_OK(status);
 
     output_data_vecs.push_back(output_data);
@@ -143,7 +154,7 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::ArrayVector *
 
 // TODO : handle variable-len vectors
 Status Projector::AllocArrayData(const DataTypePtr &type, int num_records,
-                                 ArrayDataPtr *array_data) {
+                                 arrow::MemoryPool *pool, ArrayDataPtr *array_data) {
   if (!arrow::is_primitive(type->id())) {
     return Status::Invalid("Unsupported output data type " + type->ToString());
   }
@@ -151,13 +162,13 @@ Status Projector::AllocArrayData(const DataTypePtr &type, int num_records,
   arrow::Status astatus;
   std::shared_ptr<arrow::Buffer> null_bitmap;
   int64_t size = arrow::BitUtil::BytesForBits(num_records);
-  astatus = arrow::AllocateBuffer(pool_, size, &null_bitmap);
+  astatus = arrow::AllocateBuffer(pool, size, &null_bitmap);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
   std::shared_ptr<arrow::Buffer> data;
   const auto &fw_type = dynamic_cast<const arrow::FixedWidthType &>(*type);
   int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
-  astatus = arrow::AllocateBuffer(pool_, data_len, &data);
+  astatus = arrow::AllocateBuffer(pool, data_len, &data);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
   *array_data = arrow::ArrayData::Make(type, num_records, {null_bitmap, data});

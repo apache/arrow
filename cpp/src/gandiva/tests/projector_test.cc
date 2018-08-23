@@ -32,6 +32,48 @@ class TestProjector : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
+TEST_F(TestProjector, TestProjectCache) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto field1 = field("f2", int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_sum = field("add", int32());
+  auto field_sub = field("subtract", int32());
+
+  // Build expression
+  auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
+  auto sub_expr =
+      TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
+
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {sum_expr, sub_expr}, &projector);
+  EXPECT_TRUE(status.ok());
+
+  // everything is same, should return the same projector.
+  auto schema_same = arrow::schema({field0, field1});
+  std::shared_ptr<Projector> cached_projector;
+  status = Projector::Make(schema_same, {sum_expr, sub_expr}, &cached_projector);
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(cached_projector.get() == projector.get());
+
+  // schema is different should return a new projector.
+  auto field2 = field("f2", int32());
+  auto different_schema = arrow::schema({field0, field1, field2});
+  std::shared_ptr<Projector> should_be_new_projector;
+  status =
+      Projector::Make(different_schema, {sum_expr, sub_expr}, &should_be_new_projector);
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(cached_projector.get() != should_be_new_projector.get());
+
+  // expression list is different should return a new projector.
+  std::shared_ptr<Projector> should_be_new_projector1;
+  status = Projector::Make(schema, {sum_expr}, &should_be_new_projector1);
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(cached_projector.get() != should_be_new_projector1.get());
+}
+
 TEST_F(TestProjector, TestIntSumSub) {
   // schema for input fields
   auto field0 = field("f0", int32());
@@ -48,7 +90,7 @@ TEST_F(TestProjector, TestIntSumSub) {
       TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {sum_expr, sub_expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {sum_expr, sub_expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -64,7 +106,7 @@ TEST_F(TestProjector, TestIntSumSub) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -91,8 +133,7 @@ TEST_F(TestProjector, TestIntSumSubCustomConfig) {
   ConfigurationBuilder config_builder;
   std::shared_ptr<Configuration> config = config_builder.build();
 
-  Status status =
-      Projector::Make(schema, {sum_expr, sub_expr}, pool_, config, &projector);
+  Status status = Projector::Make(schema, {sum_expr, sub_expr}, config, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -108,7 +149,7 @@ TEST_F(TestProjector, TestIntSumSubCustomConfig) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -144,9 +185,8 @@ static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
   auto lt_expr = TreeExprBuilder::MakeExpression("less_than", {field0, field1}, field_lt);
 
   std::shared_ptr<Projector> projector;
-  Status status =
-      Projector::Make(schema, {sum_expr, sub_expr, mul_expr, div_expr, eq_expr, lt_expr},
-                      pool, &projector);
+  Status status = Projector::Make(
+      schema, {sum_expr, sub_expr, mul_expr, div_expr, eq_expr, lt_expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -185,7 +225,7 @@ static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -223,7 +263,7 @@ TEST_F(TestProjector, TestFloatLessThan) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {lt_expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {lt_expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -238,7 +278,7 @@ TEST_F(TestProjector, TestFloatLessThan) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -258,7 +298,7 @@ TEST_F(TestProjector, TestIsNotNull) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {myexpr}, pool_, &projector);
+  Status status = Projector::Make(schema, {myexpr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -272,7 +312,7 @@ TEST_F(TestProjector, TestIsNotNull) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -292,7 +332,7 @@ TEST_F(TestProjector, TestNullInternal) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {myexpr}, pool_, &projector);
+  Status status = Projector::Make(schema, {myexpr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -308,7 +348,7 @@ TEST_F(TestProjector, TestNullInternal) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -339,7 +379,7 @@ TEST_F(TestProjector, TestNestedFunctions) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr1, expr2}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr1, expr2}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -356,7 +396,7 @@ TEST_F(TestProjector, TestNestedFunctions) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -376,7 +416,7 @@ TEST_F(TestProjector, TestZeroCopy) {
   auto cast_expr = TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {cast_expr}, nullptr /*pool*/, &projector);
+  Status status = Projector::Make(schema, {cast_expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -422,7 +462,7 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   auto cast_expr = TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res);
 
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {cast_expr}, nullptr /*pool*/, &projector);
+  Status status = Projector::Make(schema, {cast_expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data

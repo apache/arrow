@@ -32,6 +32,50 @@ class TestFilter : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
+TEST_F(TestFilter, TestFilterCache) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto field1 = field("f1", int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // Build condition f0 + f1 < 10
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+  auto node_f1 = TreeExprBuilder::MakeField(field1);
+  auto sum_func =
+      TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int32());
+  auto literal_10 = TreeExprBuilder::MakeLiteral((int32_t)10);
+  auto less_than_10 = TreeExprBuilder::MakeFunction("less_than", {sum_func, literal_10},
+                                                    arrow::boolean());
+  auto condition = TreeExprBuilder::MakeCondition(less_than_10);
+
+  std::shared_ptr<Filter> filter;
+  Status status = Filter::Make(schema, condition, &filter);
+  EXPECT_TRUE(status.ok());
+
+  // same schema and condition, should return the same filter as above.
+  std::shared_ptr<Filter> cached_filter;
+  status = Filter::Make(schema, condition, &cached_filter);
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(cached_filter.get() == filter.get());
+
+  // schema is different should return a new filter.
+  auto field2 = field("f2", int32());
+  auto different_schema = arrow::schema({field0, field1, field2});
+  std::shared_ptr<Filter> should_be_new_filter;
+  status = Filter::Make(different_schema, condition, &should_be_new_filter);
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(cached_filter.get() != should_be_new_filter.get());
+
+  // condition is different, should return a new filter.
+  auto greater_than_10 = TreeExprBuilder::MakeFunction(
+      "greater_than", {sum_func, literal_10}, arrow::boolean());
+  auto new_condition = TreeExprBuilder::MakeCondition(greater_than_10);
+  std::shared_ptr<Filter> should_be_new_filter1;
+  status = Filter::Make(schema, new_condition, &should_be_new_filter1);
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(cached_filter.get() != should_be_new_filter1.get());
+}
+
 TEST_F(TestFilter, TestSimple) {
   // schema for input fields
   auto field0 = field("f0", int32());

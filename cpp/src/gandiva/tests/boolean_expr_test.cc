@@ -56,7 +56,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // FALSE_VALID && ?  => FALSE_VALID
@@ -67,7 +67,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
 
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -78,7 +78,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
   exp = MakeArrowArrayBool({false, false, false, false}, {true, false, false, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, &outputs);
+  projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -89,7 +89,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
   exp = MakeArrowArrayBool({false, false, true, false}, {true, false, true, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, &outputs);
+  projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -100,7 +100,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
   exp = MakeArrowArrayBool({false, false, false, false}, {true, false, false, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, &outputs);
+  projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
@@ -129,7 +129,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // TRUE_VALID && ?  => TRUE_VALID
@@ -140,7 +140,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
 
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -151,7 +151,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
   exp = MakeArrowArrayBool({false, false, true, false}, {false, false, true, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, &outputs);
+  projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -162,7 +162,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
   exp = MakeArrowArrayBool({false, false, true, false}, {true, false, true, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, &outputs);
+  projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
@@ -173,7 +173,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
   exp = MakeArrowArrayBool({false, false, true, false}, {false, false, true, false});
   in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
   outputs.clear();
-  projector->Evaluate(*in_batch, &outputs);
+  projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
@@ -206,7 +206,7 @@ TEST_F(TestBooleanExpr, AndThree) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 8;
@@ -220,7 +220,7 @@ TEST_F(TestBooleanExpr, AndThree) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb, arrayc});
 
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
@@ -253,7 +253,7 @@ TEST_F(TestBooleanExpr, OrThree) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 8;
@@ -267,7 +267,7 @@ TEST_F(TestBooleanExpr, OrThree) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb, arrayc});
 
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
@@ -313,7 +313,7 @@ TEST_F(TestBooleanExpr, BooleanAndInsideIf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 4;
@@ -325,7 +325,7 @@ TEST_F(TestBooleanExpr, BooleanAndInsideIf) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
 
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
@@ -364,7 +364,7 @@ TEST_F(TestBooleanExpr, IfInsideBooleanAnd) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 4;
@@ -376,7 +376,7 @@ TEST_F(TestBooleanExpr, IfInsideBooleanAnd) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {arraya, arrayb});
 
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }

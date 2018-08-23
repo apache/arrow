@@ -96,4 +96,5 @@ add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_build
 add_gandiva_unit_test(status_test.cc status.cc)
 add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
 add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc status.cc)
+add_gandiva_unit_test(lru_cache_test.cc)
 

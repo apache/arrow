@@ -57,7 +57,7 @@ TEST_F(TestIfExpr, TestSimple) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -73,7 +73,7 @@ TEST_F(TestIfExpr, TestSimple) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -106,7 +106,7 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -122,7 +122,7 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -161,7 +161,7 @@ TEST_F(TestIfExpr, TestNested) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -177,7 +177,7 @@ TEST_F(TestIfExpr, TestNested) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -224,7 +224,7 @@ TEST_F(TestIfExpr, TestNestedInIf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -246,7 +246,7 @@ TEST_F(TestIfExpr, TestNestedInIf) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
@@ -285,7 +285,7 @@ TEST_F(TestIfExpr, TestBigNested) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, pool_, &projector);
+  Status status = Projector::Make(schema, {expr}, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -300,7 +300,7 @@ TEST_F(TestIfExpr, TestBigNested) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, &outputs);
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results

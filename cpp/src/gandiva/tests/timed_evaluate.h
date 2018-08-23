@@ -39,8 +39,8 @@ std::vector<C_TYPE> GenerateData(int num_records, DataGenerator<C_TYPE> &data_ge
 
 template <typename TYPE, typename C_TYPE>
 Status TimedEvaluate(SchemaPtr schema, std::shared_ptr<Projector> projector,
-                     DataGenerator<C_TYPE> &data_generator, int num_records,
-                     int batch_size, int64_t &num_millis) {
+                     DataGenerator<C_TYPE> &data_generator, arrow::MemoryPool *pool,
+                     int num_records, int batch_size, int64_t &num_millis) {
   int num_remaining = num_records;
   int num_fields = schema->num_fields();
   int num_calls = 0;
@@ -71,7 +71,7 @@ Status TimedEvaluate(SchemaPtr schema, std::shared_ptr<Projector> projector,
     // evaluate
     arrow::ArrayVector outputs;
     start = std::chrono::high_resolution_clock::now();
-    status = projector->Evaluate(*in_batch, &outputs);
+    status = projector->Evaluate(*in_batch, pool, &outputs);
     finish = std::chrono::high_resolution_clock::now();
     if (!status.ok()) {
       return status;
