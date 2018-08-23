@@ -435,6 +435,16 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
              : ObjectStatus::OBJECT_NOT_FOUND;
 }
 
+void PlasmaStore::ListObjects() {
+  flatbuffers::FlatBufferBuilder fbb;
+  std::vector<flatbuffers::Offset<fb::ObjectInfo>> object_infos;
+  for (auto const& entry : store_info_.objects) {
+    auto info = fb::CreateObjectInfo(fbb, fbb.CreateString(entry.first.binary()), entry.second->data_size, entry.second->metadata_size);
+    object_infos.push_back(info);
+  }
+  auto list = fbb.CreateVector(object_infos);
+}
+
 // Seal an object that has been created in the hash table.
 void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) {
   ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();

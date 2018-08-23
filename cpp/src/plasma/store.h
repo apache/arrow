@@ -150,6 +150,8 @@ class PlasmaStore {
   /// not
   ObjectStatus ContainsObject(const ObjectID& object_id);
 
+  void ListObjects();
+
   /// Record the fact that a particular client is no longer using an object.
   ///
   /// @param object_id The object ID of the object that is being released.
