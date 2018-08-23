@@ -321,61 +321,62 @@ def _get_fix_version(merge_branches):
     fix_versions = fix_versions.replace(" ", "").split(",")
 
     def get_version_json(version_str):
-        return [x for x in versions if x.name == version_str][0].raw
+        return [x for x in unreleased_versions if x.name == version_str][0].raw
 
     return [get_version_json(v) for v in fix_versions]
 
 
-branches = get_json("%s/branches" % GITHUB_API_BASE)
-branch_names = [x['name'] for x in branches if x['name'].startswith('branch-')]
+if __name__ == "__main__":
+    branches = get_json("%s/branches" % GITHUB_API_BASE)
+    branch_names = [x['name'] for x in branches if x['name'].startswith('branch-')]
 
-# Assumes branch names can be sorted lexicographically
-# Julien: I commented this out as we don't have any "branch-*" branch yet
-# latest_branch = sorted(branch_names, reverse=True)[0]
+    # Assumes branch names can be sorted lexicographically
+    # Julien: I commented this out as we don't have any "branch-*" branch yet
+    # latest_branch = sorted(branch_names, reverse=True)[0]
 
-pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
-pr = get_json("%s/pulls/%s" % (GITHUB_API_BASE, pr_num))
+    pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
+    pr = get_json("%s/pulls/%s" % (GITHUB_API_BASE, pr_num))
 
-url = pr["url"]
-title = pr["title"]
-check_jira(title)
-body = pr["body"]
-target_ref = pr["base"]["ref"]
-user_login = pr["user"]["login"]
-base_ref = pr["head"]["ref"]
-pr_repo_desc = "%s/%s" % (user_login, base_ref)
+    url = pr["url"]
+    title = pr["title"]
+    check_jira(title)
+    body = pr["body"]
+    target_ref = pr["base"]["ref"]
+    user_login = pr["user"]["login"]
+    base_ref = pr["head"]["ref"]
+    pr_repo_desc = "%s/%s" % (user_login, base_ref)
 
-if pr["merged"] is True:
-    print("Pull request %s has already been merged, "
-          "assuming you want to backport" % pr_num)
-    merge_commit_desc = run_cmd([
-        'git', 'log', '--merges', '--first-parent',
-        '--grep=pull request #%s' % pr_num, '--oneline']).split("\n")[0]
-    if merge_commit_desc == "":
-        fail("Couldn't find any merge commit for #%s, "
-             "you may need to update HEAD." % pr_num)
+    if pr["merged"] is True:
+        print("Pull request %s has already been merged, "
+              "assuming you want to backport" % pr_num)
+        merge_commit_desc = run_cmd([
+            'git', 'log', '--merges', '--first-parent',
+            '--grep=pull request #%s' % pr_num, '--oneline']).split("\n")[0]
+        if merge_commit_desc == "":
+            fail("Couldn't find any merge commit for #%s, "
+                 "you may need to update HEAD." % pr_num)
 
-    merge_hash = merge_commit_desc[:7]
-    message = merge_commit_desc[8:]
+        merge_hash = merge_commit_desc[:7]
+        message = merge_commit_desc[8:]
 
-    print("Found: %s" % message)
-    sys.exit(0)
+        print("Found: %s" % message)
+        sys.exit(0)
 
-if not bool(pr["mergeable"]):
-    msg = ("Pull request %s is not mergeable in its current form.\n"
-           % pr_num + "Continue? (experts only!)")
-    continue_maybe(msg)
+    if not bool(pr["mergeable"]):
+        msg = ("Pull request %s is not mergeable in its current form.\n"
+               % pr_num + "Continue? (experts only!)")
+        continue_maybe(msg)
 
-print("\n=== Pull Request #%s ===" % pr_num)
-print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
-      % (title, pr_repo_desc, target_ref, url))
-continue_maybe("Proceed with merging pull request #%s?" % pr_num)
+    print("\n=== Pull Request #%s ===" % pr_num)
+    print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
+          % (title, pr_repo_desc, target_ref, url))
+    continue_maybe("Proceed with merging pull request #%s?" % pr_num)
 
-merged_refs = [target_ref]
+    merged_refs = [target_ref]
 
-merge_hash = merge_pr(pr_num, target_ref)
+    merge_hash = merge_pr(pr_num, target_ref)
 
-continue_maybe("Would you like to update the associated JIRA?")
-jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
-                % (pr_num, GITHUB_BASE, pr_num))
-resolve_jira(title, merged_refs, jira_comment)
+    continue_maybe("Would you like to update the associated JIRA?")
+    jira_comment = ("Issue resolved by pull request %s\n[%s/%s]"
+                    % (pr_num, GITHUB_BASE, pr_num))
+    resolve_jira(title, merged_refs, jira_comment)
