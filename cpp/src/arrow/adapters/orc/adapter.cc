@@ -259,6 +259,18 @@ class ORCFileReader::Impl {
     return GetArrowSchema(type, out);
   }
 
+  Status ReadSchema(const liborc::RowReaderOptions& opts,
+                    std::shared_ptr<Schema>* out) {
+    std::unique_ptr<liborc::RowReader> row_reader;
+    try {
+      row_reader = reader_->createRowReader(opts);
+    } catch (const liborc::ParseError& e) {
+      return Status::Invalid(e.what());
+    }
+    const liborc::Type& type = row_reader->getSelectedType();
+    return GetArrowSchema(type, out);
+  }
+
   Status GetArrowSchema(const liborc::Type& type, std::shared_ptr<Schema>* out) {
     if (type.getKind() != liborc::STRUCT) {
       return Status::NotImplemented(
@@ -289,7 +301,7 @@ class ORCFileReader::Impl {
   Status Read(std::shared_ptr<Table>* out) {
     liborc::RowReaderOptions opts;
     std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(&schema));
+    RETURN_NOT_OK(ReadSchema(opts, &schema));
     return ReadTable(opts, schema, out);
   }
 
@@ -300,9 +312,9 @@ class ORCFileReader::Impl {
 
   Status Read(const std::vector<int>& include_indices, std::shared_ptr<Table>* out) {
     liborc::RowReaderOptions opts;
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(&schema));
     RETURN_NOT_OK(SelectIndices(&opts, include_indices));
+    std::shared_ptr<Schema> schema;
+    RETURN_NOT_OK(ReadSchema(opts, &schema));
     return ReadTable(opts, schema, out);
   }
 
