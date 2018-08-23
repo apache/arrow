@@ -170,8 +170,7 @@ cdef class ObjectID:
 
     @staticmethod
     def from_random():
-        size = 20
-        random_id = random.getrandbits(8 * size).to_bytes(size, "little")
+        random_id = bytes(bytearray(random.getrandbits(8) for _ in range(20)))
         return ObjectID(random_id)
 
 
