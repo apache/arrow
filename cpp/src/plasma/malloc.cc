@@ -122,6 +122,13 @@ int create_buffer(int64_t size) {
       return -1;
     }
   }
+  int ret = dup(fd);
+  if (ret < 0) {
+    ARROW_LOG(FATAL) << "failed to dup the descriptor";
+  } else {
+    fclose(file);
+    fd = ret;
+  }
 #endif
   return fd;
 }
