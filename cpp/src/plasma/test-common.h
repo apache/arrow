@@ -27,7 +27,7 @@ namespace plasma {
 
 ObjectID random_object_id() {
   ObjectID result;
-  arrow::test::random_bytes(kUniqueIDSize, 0, result.mutable_data());
+  arrow::random_bytes(kUniqueIDSize, 0, result.mutable_data());
   return result;
 }
 
