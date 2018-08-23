@@ -25,19 +25,15 @@ template <class KeyType, typename ValueType>
 class Cache {
  public:
   Cache(size_t capacity = CACHE_SIZE) : cache_(capacity) {}
-  ValueType GetCachedModule(KeyType cache_key) {
+  ValueType GetModule(KeyType cache_key) {
     boost::optional<ValueType> result;
-    result = cache_.get(cache_key);
-    if (result != boost::none) {
-      return result.value();
-    }
     mtx_.lock();
     result = cache_.get(cache_key);
     mtx_.unlock();
     return result != boost::none ? result.value() : nullptr;
   }
 
-  void CacheModule(KeyType cache_key, ValueType module) {
+  void PutModule(KeyType cache_key, ValueType module) {
     mtx_.lock();
     cache_.insert(cache_key, module);
     mtx_.unlock();

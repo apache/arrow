@@ -42,6 +42,9 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -75,6 +78,48 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
   List<ArrowBuf> binaryBufs(String[] strings) {
     return varBufs(strings, utf16Charset);
+  }
+
+  @Test
+  public void testMakeProjectorParallel() throws GandivaException, InterruptedException {
+    List<Schema> schemas = Lists.newArrayList();
+    Field a = Field.nullable("a", int64);
+    Field b = Field.nullable("b", int64);
+    IntStream.range(0, 1000).forEach(i -> {
+      Field c = Field.nullable("" + i, int64);
+      List<Field> cols = Lists.newArrayList(a, b, c);
+      schemas.add(new Schema(cols));
+    });
+
+    TreeNode aNode = TreeBuilder.makeField(a);
+    TreeNode bNode = TreeBuilder.makeField(b);
+    List<TreeNode> args = Lists.newArrayList(aNode, bNode);
+
+
+    TreeNode cond = TreeBuilder.makeFunction("greater_than", args, boolType);
+    TreeNode ifNode = TreeBuilder.makeIf(cond, aNode, bNode, int64);
+
+    ExpressionTree expr = TreeBuilder.makeExpression(ifNode, Field.nullable("c", int64));
+    List<ExpressionTree> exprs = Lists.newArrayList(expr);
+
+    // build projectors in parallel choosing schema at random
+    // this should hit the same cache entry thus exposing
+    // any threading issues.
+    ExecutorService executors = Executors.newFixedThreadPool(16);
+
+    IntStream.range(0, 1000).forEach(i -> {
+      executors.submit(() -> {
+        try {
+          Projector evaluator = Projector.make(schemas.get((int) (Math.random() * 100)),
+                  exprs);
+          evaluator.close();
+        } catch (GandivaException e) {
+          e.printStackTrace();
+        }
+      });
+    });
+    executors.shutdown();
+    executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
   }
 
   @Test

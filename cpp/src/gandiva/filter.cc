@@ -46,7 +46,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                                   Status::Invalid("configuration cannot be null"));
   static Cache<FilterCacheKey, std::shared_ptr<Filter>> cache;
   FilterCacheKey cacheKey(schema, configuration, *(condition.get()));
-  std::shared_ptr<Filter> cachedFilter = cache.GetCachedModule(cacheKey);
+  std::shared_ptr<Filter> cachedFilter = cache.GetModule(cacheKey);
   if (cachedFilter != nullptr) {
     *filter = cachedFilter;
     return Status::OK();
@@ -67,7 +67,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-  cache.CacheModule(cacheKey, *filter);
+  cache.PutModule(cacheKey, *filter);
   return Status::OK();
 }
 
