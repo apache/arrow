@@ -34,8 +34,8 @@ mvn install
 
 ## Test Logging Configuration
 
-When running tests, Arrow Java uses the LOGBack logger with SLF4J. By default,
-LOGBack has a log level set to DEBUG. Besides setting this level
+When running tests, Arrow Java uses the Logback logger with SLF4J. By default,
+Logback has a log level set to DEBUG. Besides setting this level
 programmatically, it can also be configured with a file named either
 "logback.xml" or "logback-test.xml" residing in the classpath. The file
 location can also be specified in the Maven command line with the following
@@ -48,6 +48,6 @@ root directory:
 mvn -Dlogback.configurationFile=file:`pwd`/dev/logback.xml
 ```
 
-See [LOGBack Configuration][1] for more details.
+See [Logback Configuration][1] for more details.
 
 [1]: https://logback.qos.ch/manual/configuration.html
