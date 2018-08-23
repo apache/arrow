@@ -986,6 +986,7 @@ int main(int argc, char* argv[]) {
   plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
                       use_one_memory_mapped_file);
   plasma::g_runner->Shutdown();
+  plasma::g_runner = nullptr;
 
   return 0;
 }
