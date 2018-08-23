@@ -857,9 +857,7 @@ class PlasmaStoreRunner {
     loop_->Start();
   }
 
-  void Stop() {
-    loop_->Stop();
-  }
+  void Stop() { loop_->Stop(); }
 
   void Shutdown() {
     loop_->Shutdown();
