@@ -259,8 +259,7 @@ class ORCFileReader::Impl {
     return GetArrowSchema(type, out);
   }
 
-  Status ReadSchema(const liborc::RowReaderOptions& opts,
-                    std::shared_ptr<Schema>* out) {
+  Status ReadSchema(const liborc::RowReaderOptions& opts, std::shared_ptr<Schema>* out) {
     std::unique_ptr<liborc::RowReader> row_reader;
     try {
       row_reader = reader_->createRowReader(opts);
