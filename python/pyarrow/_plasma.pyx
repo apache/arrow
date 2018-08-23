@@ -54,6 +54,9 @@ cdef extern from "plasma/common.h" nogil:
 
         c_string binary() const
 
+        @staticmethod
+        int64_t size()
+
     cdef struct CObjectRequest" plasma::ObjectRequest":
         CUniqueID object_id
         int type
@@ -137,7 +140,8 @@ cdef class ObjectID:
         CUniqueID data
 
     def __cinit__(self, object_id):
-        if not isinstance(object_id, bytes) or len(object_id) != 20:
+        if (not isinstance(object_id, bytes) or
+                len(object_id) != CUniqueID.size()):
             raise ValueError("Object ID must by 20 bytes,"
                              " is " + str(object_id))
         self.data = CUniqueID.from_binary(object_id)
@@ -170,7 +174,16 @@ cdef class ObjectID:
 
     @staticmethod
     def from_random():
-        random_id = bytes(bytearray(random.getrandbits(8) for _ in range(20)))
+        """
+        Returns a randomly generated ObjectID.
+
+        Returns
+        -------
+        ObjectID
+            A randomly generated ObjectID.
+        """
+        random_id = bytes(bytearray(
+            random.getrandbits(8) for _ in range(CUniqueID.size())))
         return ObjectID(random_id)
 
 
@@ -628,7 +641,7 @@ cdef class PlasmaClient:
         int
             The metadata size of the object that was stored.
         """
-        cdef ObjectID object_id = ObjectID(20 * b"\0")
+        cdef ObjectID object_id = ObjectID(CUniqueID.size() * b"\0")
         cdef int64_t data_size
         cdef int64_t metadata_size
         with nogil:

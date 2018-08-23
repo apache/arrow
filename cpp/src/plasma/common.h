@@ -46,6 +46,7 @@ class ARROW_EXPORT UniqueID {
   std::string binary() const;
   std::string hex() const;
   size_t hash() const;
+  static int64_t size() { return kUniqueIDSize; }
 
  private:
   uint8_t id_[kUniqueIDSize];
