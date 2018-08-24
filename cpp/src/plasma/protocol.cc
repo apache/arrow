@@ -427,7 +427,7 @@ Status SendListReply(int sock, const ObjectTable& objects) {
     auto info = fb::CreateObjectInfo(fbb, fbb.CreateString(entry.first.binary()), entry.second->data_size, entry.second->metadata_size);
     object_infos.push_back(info);
   }
-  auto message = fbb.CreateVector(object_infos);
+  auto message = fb::CreatePlasmaListReply(fbb, fbb.CreateVector(object_infos));
   return PlasmaSend(sock, MessageType::PlasmaListReply, &fbb, message);
 }
 

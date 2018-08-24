@@ -84,28 +84,6 @@ struct ObjectRequest {
   ObjectLocation location;
 };
 
-// TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
-struct PlasmaObject {
-#ifdef PLASMA_GPU
-  // IPC handle for Cuda.
-  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
-#endif
-  /// The file descriptor of the memory mapped file in the store. It is used as
-  /// a unique identifier of the file in the client to look up the corresponding
-  /// file descriptor on the client's side.
-  int store_fd;
-  /// The offset in bytes in the memory mapped file of the data.
-  ptrdiff_t data_offset;
-  /// The offset in bytes in the memory mapped file of the metadata.
-  ptrdiff_t metadata_offset;
-  /// The size in bytes of the data.
-  int64_t data_size;
-  /// The size in bytes of the metadata.
-  int64_t metadata_size;
-  /// Device number object is on.
-  int device_num;
-};
-
 enum class ObjectState : int {
   /// Object was created but not sealed in the local Plasma Store.
   PLASMA_CREATED = 1,

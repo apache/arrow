@@ -23,7 +23,9 @@ from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
+from libcpp.unordered_map cimport unordered_map
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
+from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
 
 import collections
@@ -67,6 +69,8 @@ cdef extern from "plasma/common.h" nogil:
         int64_t data_size
         int64_t metadata_size
 
+    ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]] CObjectTable" plasma::ObjectTable"
+
 
 cdef extern from "plasma/common.h":
     cdef int64_t kDigestSize" plasma::kDigestSize"
@@ -105,6 +109,8 @@ cdef extern from "plasma/client.h" nogil:
         CStatus Release(const CUniqueID& object_id)
 
         CStatus Contains(const CUniqueID& object_id, c_bool* has_object)
+
+        CStatus List(CObjectTable* objects)
 
         CStatus Subscribe(int* fd)
 
@@ -672,6 +678,22 @@ cdef class PlasmaClient:
             ids.push_back(object_id.data)
         with nogil:
             check_status(self.client.get().Delete(ids))
+
+    def list(self):
+       cdef CObjectTable objects
+       with nogil:
+           check_status(self.client.get().List(&objects))
+       result = dict()
+       cdef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]].iterator it  = objects.begin()
+       cdef ObjectID object_id
+       while it != objects.end():
+           object_id = ObjectID(deref(it).first.binary())
+           result[object_id] = {
+               "size": deref(deref(it).second).data_size,
+               "metadata_size": deref(deref(it).second).metadata_size
+           }
+           inc(it)
+       return result
 
 
 def connect(store_socket_name, manager_socket_name, int release_delay,
