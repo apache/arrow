@@ -41,7 +41,7 @@ TEST_F(TestToString, TestAll) {
   auto literal_node = TreeExprBuilder::MakeLiteral((uint64_t)100);
   auto literal_expr =
       TreeExprBuilder::MakeExpression(literal_node, arrow::field("r", int64()));
-  CHECK_EXPR_TO_STRING(literal_expr, "100");
+  CHECK_EXPR_TO_STRING(literal_expr, "(uint64) 100");
 
   auto f0 = arrow::field("f0", float64());
   auto f0_node = TreeExprBuilder::MakeField(f0);
@@ -63,8 +63,8 @@ TEST_F(TestToString, TestAll) {
 
   auto if_node = TreeExprBuilder::MakeIf(cond_node, then_node, else_node, int64());
   auto if_expr = TreeExprBuilder::MakeExpression(if_node, f1);
-  CHECK_EXPR_TO_STRING(if_expr,
-                       "if (bool lesser_than(double, 0)) { int64 } else { int64 }");
+  CHECK_EXPR_TO_STRING(
+      if_expr, "if (bool lesser_than(double, (float) 0)) { int64 } else { int64 }");
 
   auto f1_gt_100 =
       TreeExprBuilder::MakeFunction("greater_than", {f1_node, literal_node}, boolean());
@@ -73,8 +73,9 @@ TEST_F(TestToString, TestAll) {
   auto and_node = TreeExprBuilder::MakeAnd({f1_gt_100, f2_equals_100});
   auto and_expr =
       TreeExprBuilder::MakeExpression(and_node, arrow::field("f0", boolean()));
-  CHECK_EXPR_TO_STRING(and_expr,
-                       "bool greater_than(int64, 100) && bool equals(int64, 100)");
+  CHECK_EXPR_TO_STRING(
+      and_expr,
+      "bool greater_than(int64, (uint64) 100) && bool equals(int64, (uint64) 100)");
 }
 
 }  // namespace gandiva

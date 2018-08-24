@@ -120,6 +120,29 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_e, outputs.at(4));
 }
 
+TEST_F(TestLiteral, TestLiteralHash) {
+  auto schema = arrow::schema({});
+  // output fields
+  auto res = field("a", int32());
+  auto int_literal = TreeExprBuilder::MakeLiteral((int32_t)2);
+  auto expr = TreeExprBuilder::MakeExpression(int_literal, res);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto res1 = field("a", int64());
+  auto int_literal1 = TreeExprBuilder::MakeLiteral((int64_t)2);
+  auto expr1 = TreeExprBuilder::MakeExpression(int_literal1, res1);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector1;
+  status = Projector::Make(schema, {expr1}, &projector1);
+  EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_TRUE(projector.get() != projector1.get());
+}
+
 TEST_F(TestLiteral, TestNullLiteral) {
   // schema for input fields
   auto field_a = field("a", int32());

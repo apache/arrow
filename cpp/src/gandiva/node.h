@@ -59,11 +59,12 @@ class LiteralNode : public Node {
   bool is_null() const { return is_null_; }
 
   std::string ToString() override {
-    if (is_null()) {
-      return std::string("null");
-    }
-
     std::stringstream ss;
+    ss << "(" << return_type()->ToString() << ") ";
+    if (is_null()) {
+      ss << std::string("null");
+      return ss.str();
+    }
     ss << holder();
     return ss.str();
   }

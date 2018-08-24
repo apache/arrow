@@ -212,7 +212,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData &array_data,
   int64_t data_len = array_data.buffers[1]->capacity();
   if (data_len < min_data_len) {
     std::stringstream ss;
-    ss << "data buffer for output field " << field.name() << "has size " << data_len
+    ss << "data buffer for output field " << field.name() << " has size " << data_len
        << ", must have minimum size " << min_data_len;
     return Status::Invalid(ss.str());
   }
