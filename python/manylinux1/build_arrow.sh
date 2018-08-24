@@ -26,7 +26,7 @@
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
 
 # Build different python versions with various unicode widths
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7,16 2.7,32 3.5,16 3.6,16}"
+PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7,16 2.7,32 3.5,16 3.6,16 3.7,16}"
 
 source /multibuild/manylinux_utils.sh
 
@@ -58,10 +58,11 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PIP="${CPYTHON_PATH}/bin/pip"
     PATH="$PATH:${CPYTHON_PATH}"
 
-    # TensorFlow is not supported for Python 2.7 with unicode width 16
-    if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]
-    then
-      $PIP install --ignore-installed --upgrade tensorflow
+    # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
+    if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
+      if [ $PYTHON != "3.7" ]; then
+        $PIP install --ignore-installed --upgrade tensorflow
+      fi
     fi
 
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="

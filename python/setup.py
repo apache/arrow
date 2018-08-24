@@ -515,9 +515,13 @@ class BinaryDistribution(Distribution):
 
 
 install_requires = (
-    'numpy >= 1.10',
+    # Use the minimal possible NumPy version. 1.10 works for all supported
+    # Python versions except 3.7. For Python 3.7, NumPy 1.14 is the minimal
+    # working version.
+    'numpy >= 1.10; python_version < "3.7"',
+    'numpy >= 1.14; python_version >= "3.7"',
     'six >= 1.0.0',
-    'futures;python_version<"3.2"'
+    'futures; python_version < "3.2"'
 )
 
 
@@ -561,7 +565,8 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6'
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         ],
     license='Apache License, Version 2.0',
     maintainer="Apache Arrow Developers",
