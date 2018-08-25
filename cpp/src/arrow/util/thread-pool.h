@@ -25,6 +25,7 @@
 #include <exception>
 #include <functional>
 #include <future>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <type_traits>
@@ -117,7 +118,8 @@ class ARROW_EXPORT ThreadPool {
     Status st = SpawnReal(detail::packaged_task_wrapper<Result>(std::move(task)));
     if (!st.ok()) {
       // This happens when Submit() is called after Shutdown()
-      throw std::runtime_error(st.ToString());
+      std::cerr << st.ToString() << std::endl;
+      std::abort();
     }
     return fut;
   }
