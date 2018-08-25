@@ -803,22 +803,22 @@ def test_plasma_list():
 
         # Test sizes
         x, _, _ = create_object(plasma_client, 11, metadata_size=7, seal=False)
-        l = plasma_client.list()
-        assert l[x]["data_size"] == 11
-        assert l[x]["metadata_size"] == 7
+        l1 = plasma_client.list()
+        assert l1[x]["data_size"] == 11
+        assert l1[x]["metadata_size"] == 7
 
         # Test ref_count
         y = plasma_client.put(np.zeros(3))
-        l = plasma_client.list()
-        assert l[y]["ref_count"] == 0 # Ref count has already been released
+        l2 = plasma_client.list()
+        assert l2[y]["ref_count"] == 0 # Ref count has already been released
         a = plasma_client.get(y)
-        l = plasma_client.list()
-        assert l[y]["ref_count"] == 1
+        l3 = plasma_client.list()
+        assert l3[y]["ref_count"] == 1
 
         # Test state
         z, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
-        l = plasma_client.list()
-        assert l[z]["state"] == "created"
+        l4 = plasma_client.list()
+        assert l4[z]["state"] == "created"
         plasma_client.seal(z)
-        l = plasma_client.list()
-        assert l[z]["state"] == "sealed"
+        l5 = plasma_client.list()
+        assert l5[z]["state"] == "sealed"
