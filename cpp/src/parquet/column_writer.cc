@@ -249,6 +249,16 @@ class SerializedPageWriter : public PageWriter {
 
   bool has_compressor() override { return (compressor_ != nullptr); }
 
+  int64_t num_values() { return num_values_; }
+
+  int64_t dictionary_page_offset() { return dictionary_page_offset_; }
+
+  int64_t data_page_offset() { return data_page_offset_; }
+
+  int64_t total_compressed_size() { return total_compressed_size_; }
+
+  int64_t total_uncompressed_size() { return total_uncompressed_size_; }
+
  private:
   OutputStream* sink_;
   ColumnChunkMetaDataBuilder* metadata_;
@@ -263,11 +273,64 @@ class SerializedPageWriter : public PageWriter {
   std::unique_ptr<::arrow::Codec> compressor_;
 };
 
+// This implementation of the PageWriter writes to the final sink on Close .
+class BufferedPageWriter : public PageWriter {
+ public:
+  BufferedPageWriter(OutputStream* sink, Compression::type codec,
+                     ColumnChunkMetaDataBuilder* metadata,
+                     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : final_sink_(sink),
+        metadata_(metadata),
+        in_memory_sink_(new InMemoryOutputStream(pool)),
+        pager_(new SerializedPageWriter(in_memory_sink_.get(), codec, metadata, pool)) {}
+
+  int64_t WriteDictionaryPage(const DictionaryPage& page) override {
+    return pager_->WriteDictionaryPage(page);
+  }
+
+  void Close(bool has_dictionary, bool fallback) override {
+    // index_page_offset = -1 since they are not supported
+    metadata_->Finish(
+        pager_->num_values(), pager_->dictionary_page_offset() + final_sink_->Tell(), -1,
+        pager_->data_page_offset() + final_sink_->Tell(), pager_->total_compressed_size(),
+        pager_->total_uncompressed_size(), has_dictionary, fallback);
+
+    // Write metadata at end of column chunk
+    metadata_->WriteTo(in_memory_sink_.get());
+
+    // flush everything to the serialized sink
+    auto buffer = in_memory_sink_->GetBuffer();
+    final_sink_->Write(buffer->data(), buffer->size());
+  }
+
+  int64_t WriteDataPage(const CompressedDataPage& page) override {
+    return pager_->WriteDataPage(page);
+  }
+
+  void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) override {
+    pager_->Compress(src_buffer, dest_buffer);
+  }
+
+  bool has_compressor() override { return pager_->has_compressor(); }
+
+ private:
+  OutputStream* final_sink_;
+  ColumnChunkMetaDataBuilder* metadata_;
+  std::unique_ptr<InMemoryOutputStream> in_memory_sink_;
+  std::unique_ptr<SerializedPageWriter> pager_;
+};
+
 std::unique_ptr<PageWriter> PageWriter::Open(OutputStream* sink, Compression::type codec,
                                              ColumnChunkMetaDataBuilder* metadata,
-                                             ::arrow::MemoryPool* pool) {
-  return std::unique_ptr<PageWriter>(
-      new SerializedPageWriter(sink, codec, metadata, pool));
+                                             ::arrow::MemoryPool* pool,
+                                             bool buffered_row_group) {
+  if (buffered_row_group) {
+    return std::unique_ptr<PageWriter>(
+        new BufferedPageWriter(sink, codec, metadata, pool));
+  } else {
+    return std::unique_ptr<PageWriter>(
+        new SerializedPageWriter(sink, codec, metadata, pool));
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -294,6 +357,7 @@ ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
       num_buffered_encoded_values_(0),
       rows_written_(0),
       total_bytes_written_(0),
+      total_compressed_bytes_(0),
       closed_(false),
       fallback_(false) {
   definition_levels_sink_.reset(new InMemoryOutputStream(allocator_));
@@ -404,6 +468,7 @@ void ColumnWriter::AddDataPage() {
     CompressedDataPage page(compressed_data_copy,
                             static_cast<int32_t>(num_buffered_values_), encoding_,
                             Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
+    total_compressed_bytes_ += page.size() + sizeof(format::PageHeader);
     data_pages_.push_back(std::move(page));
   } else {  // Eagerly write pages
     CompressedDataPage page(compressed_data, static_cast<int32_t>(num_buffered_values_),
@@ -432,7 +497,7 @@ int64_t ColumnWriter::Close() {
     FlushBufferedDataPages();
 
     EncodedStatistics chunk_statistics = GetChunkStatistics();
-    // Write stats only if the column has atleast one row written
+    // Write stats only if the column has at least one row written
     // From parquet-mr
     // Don't write stats larger than the max size rather than truncating. The
     // rationale is that some engines may use the minimum value in the page as
@@ -459,6 +524,7 @@ void ColumnWriter::FlushBufferedDataPages() {
     WriteDataPage(data_pages_[i]);
   }
   data_pages_.clear();
+  total_compressed_bytes_ = 0;
 }
 
 // ----------------------------------------------------------------------

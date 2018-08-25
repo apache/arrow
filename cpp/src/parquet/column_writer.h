@@ -75,7 +75,8 @@ class PageWriter {
 
   static std::unique_ptr<PageWriter> Open(
       OutputStream* sink, Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      bool buffered_row_group = false);
 
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary
@@ -116,6 +117,12 @@ class PARQUET_EXPORT ColumnWriter {
   int64_t Close();
 
   int64_t rows_written() const { return rows_written_; }
+
+  // Only considers the size of the compressed pages + page header
+  // Some values might be still buffered an not written to a page yet
+  int64_t total_compressed_bytes() const { return total_compressed_bytes_; }
+
+  int64_t total_bytes_written() const { return total_bytes_written_; }
 
   const WriterProperties* properties() { return properties_; }
 
@@ -192,6 +199,9 @@ class PARQUET_EXPORT ColumnWriter {
   // Records the total number of bytes written by the serializer
   int64_t total_bytes_written_;
 
+  // Records the current number of compressed bytes in a column
+  int64_t total_compressed_bytes_;
+
   // Flag to check if the Writer has been closed
   bool closed_;
 
@@ -257,6 +267,11 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values);
+
+  // Estimated size of the values that are not written to a page yet
+  int64_t EstimatedBufferedValueBytes() const {
+    return current_encoder_->EstimatedDataEncodedSize();
+  }
 
  protected:
   std::shared_ptr<Buffer> GetValuesBuffer() override {

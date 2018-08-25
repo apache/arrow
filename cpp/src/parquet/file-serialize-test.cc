@@ -41,8 +41,9 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
 
   void SetUp() {
     num_columns_ = 4;
-    num_rowgroups_ = 2;
+    num_rowgroups_ = 4;
     rows_per_rowgroup_ = 50;
+    rows_per_batch_ = 10;
     this->SetUpSchema(Repetition::OPTIONAL, num_columns_);
   }
 
@@ -50,6 +51,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
   int num_columns_;
   int num_rowgroups_;
   int rows_per_rowgroup_;
+  int rows_per_batch_;
 
   void FileSerializeTest(Compression::type codec_type) {
     std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
@@ -63,18 +65,42 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();
 
     auto file_writer = ParquetFileWriter::Open(sink, gnode, writer_properties);
-    for (int rg = 0; rg < num_rowgroups_; ++rg) {
+    this->GenerateData(rows_per_rowgroup_);
+    for (int rg = 0; rg < num_rowgroups_ / 2; ++rg) {
       RowGroupWriter* row_group_writer;
       row_group_writer = file_writer->AppendRowGroup();
-      this->GenerateData(rows_per_rowgroup_);
       for (int col = 0; col < num_columns_; ++col) {
         auto column_writer =
             static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
         column_writer->WriteBatch(rows_per_rowgroup_, this->def_levels_.data(), nullptr,
                                   this->values_ptr_);
         column_writer->Close();
+        // Ensure column() API which is specific to BufferedRowGroup cannot be called
+        ASSERT_THROW(row_group_writer->column(col), ParquetException);
       }
 
+      row_group_writer->Close();
+    }
+    // Write half BufferedRowGroups
+    for (int rg = 0; rg < num_rowgroups_ / 2; ++rg) {
+      RowGroupWriter* row_group_writer;
+      row_group_writer = file_writer->AppendBufferedRowGroup();
+      for (int batch = 0; batch < (rows_per_rowgroup_ / rows_per_batch_); ++batch) {
+        for (int col = 0; col < num_columns_; ++col) {
+          auto column_writer =
+              static_cast<TypedColumnWriter<TestType>*>(row_group_writer->column(col));
+          column_writer->WriteBatch(
+              rows_per_batch_, this->def_levels_.data() + (batch * rows_per_batch_),
+              nullptr, this->values_ptr_ + (batch * rows_per_batch_));
+          // Ensure NextColumn() API which is specific to RowGroup cannot be called
+          ASSERT_THROW(row_group_writer->NextColumn(), ParquetException);
+        }
+      }
+      for (int col = 0; col < num_columns_; ++col) {
+        auto column_writer =
+            static_cast<TypedColumnWriter<TestType>*>(row_group_writer->column(col));
+        column_writer->Close();
+      }
       row_group_writer->Close();
     }
     file_writer->Close();
@@ -137,6 +163,30 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     file_writer->Close();
   }
 
+  void UnequalNumRowsBuffered(int64_t max_rows,
+                              const std::vector<int64_t> rows_per_column) {
+    std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
+    auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
+
+    std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
+
+    auto file_writer = ParquetFileWriter::Open(sink, gnode, props);
+
+    RowGroupWriter* row_group_writer;
+    row_group_writer = file_writer->AppendBufferedRowGroup();
+
+    this->GenerateData(max_rows);
+    for (int col = 0; col < num_columns_; ++col) {
+      auto column_writer =
+          static_cast<TypedColumnWriter<TestType>*>(row_group_writer->column(col));
+      column_writer->WriteBatch(rows_per_column[col], this->def_levels_.data(), nullptr,
+                                this->values_ptr_);
+      column_writer->Close();
+    }
+    row_group_writer->Close();
+    file_writer->Close();
+  }
+
   void RepeatedUnequalRows() {
     // Optional and repeated, so definition and repetition levels
     this->SetUpSchema(Repetition::REPEATED);
@@ -186,15 +236,23 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     auto file_writer = ParquetFileWriter::Open(sink, gnode, props);
 
     RowGroupWriter* row_group_writer;
-    row_group_writer = file_writer->AppendRowGroup();
 
+    row_group_writer = file_writer->AppendRowGroup();
     for (int col = 0; col < num_columns_; ++col) {
       auto column_writer =
           static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
       column_writer->Close();
     }
-
     row_group_writer->Close();
+
+    row_group_writer = file_writer->AppendBufferedRowGroup();
+    for (int col = 0; col < num_columns_; ++col) {
+      auto column_writer =
+          static_cast<TypedColumnWriter<TestType>*>(row_group_writer->column(col));
+      column_writer->Close();
+    }
+    row_group_writer->Close();
+
     file_writer->Close();
   }
 };
@@ -212,11 +270,13 @@ TYPED_TEST(TestSerialize, SmallFileUncompressed) {
 TYPED_TEST(TestSerialize, TooFewRows) {
   std::vector<int64_t> num_rows = {100, 100, 100, 99};
   ASSERT_THROW(this->UnequalNumRows(100, num_rows), ParquetException);
+  ASSERT_THROW(this->UnequalNumRowsBuffered(100, num_rows), ParquetException);
 }
 
 TYPED_TEST(TestSerialize, TooManyRows) {
   std::vector<int64_t> num_rows = {100, 100, 100, 101};
   ASSERT_THROW(this->UnequalNumRows(101, num_rows), ParquetException);
+  ASSERT_THROW(this->UnequalNumRowsBuffered(101, num_rows), ParquetException);
 }
 
 TYPED_TEST(TestSerialize, ZeroRows) { ASSERT_NO_THROW(this->ZeroRowsRowGroup()); }

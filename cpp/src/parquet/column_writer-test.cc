@@ -47,7 +47,6 @@ const int LARGE_SIZE = 100000;
 const int VERY_LARGE_SIZE = 400000;
 #endif
 
-
 template <typename TestType>
 class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
  public:
