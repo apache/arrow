@@ -19,6 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import math
 import os
 import pytest
 import random
@@ -831,4 +832,11 @@ def test_plasma_list():
         x, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
         t2 = time.time()
         l6 = plasma_client.list()
-        assert t1 - 1.0 <= l6[x]["create_time"] <= t2
+        assert math.floor(t1) <= l6[x]["create_time"] <= math.ceil(t2)
+        time.sleep(2.0)
+        t3 = time.time()
+        plasma_client.seal(x)
+        t4 = time.time()
+        l7 = plasma_client.list()
+        assert math.floor(t3 - t2) <= l7[x]["construct_duration"]
+        assert l7[x]["construct_duration"] <= math.ceil(t4 - t1)
