@@ -75,7 +75,7 @@ cdef extern from "plasma/common.h" nogil:
         int ref_count
         CObjectState state
 
-    ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]]
+    ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]] \
              CObjectTable" plasma::ObjectTable"
 
 
