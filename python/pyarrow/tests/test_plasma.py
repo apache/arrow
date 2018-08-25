@@ -810,10 +810,12 @@ def test_plasma_list():
         # Test ref_count
         y = plasma_client.put(np.zeros(3))
         l2 = plasma_client.list()
-        assert l2[y]["ref_count"] == 0 # Ref count has already been released
+        # Ref count has already been released
+        assert l2[y]["ref_count"] == 0
         a = plasma_client.get(y)
         l3 = plasma_client.list()
         assert l3[y]["ref_count"] == 1
+        del a
 
         # Test state
         z, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
