@@ -119,6 +119,10 @@ struct ObjectTableEntry {
 #endif
   /// Number of clients currently using this object.
   int ref_count;
+  /// Unix epoch of when this object was created.
+  int64_t create_time;
+  /// How long creation of this object took.
+  int64_t construct_duration;
 
   /// The state of the object, e.g., whether it is open or sealed.
   ObjectState state;

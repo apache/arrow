@@ -24,6 +24,7 @@ import pytest
 import random
 import signal
 import sys
+import time
 
 import numpy as np
 import pyarrow as pa
@@ -802,25 +803,32 @@ def test_plasma_list():
         plasma_client = plasma.connect(plasma_store_name, "", 0)
 
         # Test sizes
-        x, _, _ = create_object(plasma_client, 11, metadata_size=7, seal=False)
+        u, _, _ = create_object(plasma_client, 11, metadata_size=7, seal=False)
         l1 = plasma_client.list()
-        assert l1[x]["data_size"] == 11
-        assert l1[x]["metadata_size"] == 7
+        assert l1[u]["data_size"] == 11
+        assert l1[u]["metadata_size"] == 7
 
         # Test ref_count
-        y = plasma_client.put(np.zeros(3))
+        v = plasma_client.put(np.zeros(3))
         l2 = plasma_client.list()
         # Ref count has already been released
-        assert l2[y]["ref_count"] == 0
-        a = plasma_client.get(y)
+        assert l2[v]["ref_count"] == 0
+        a = plasma_client.get(v)
         l3 = plasma_client.list()
-        assert l3[y]["ref_count"] == 1
+        assert l3[v]["ref_count"] == 1
         del a
 
         # Test state
-        z, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
+        w, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
         l4 = plasma_client.list()
-        assert l4[z]["state"] == "created"
-        plasma_client.seal(z)
+        assert l4[w]["state"] == "created"
+        plasma_client.seal(w)
         l5 = plasma_client.list()
-        assert l5[z]["state"] == "sealed"
+        assert l5[w]["state"] == "sealed"
+
+        # Test timestamps
+        t1 = time.time()
+        x, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
+        t2 = time.time()
+        l6 = plasma_client.list()
+        assert t1 - 1.0 <= l6[x]["create_time"] <= t2

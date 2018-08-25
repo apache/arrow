@@ -432,7 +432,8 @@ Status SendListReply(int sock, const ObjectTable& objects) {
                                          kDigestSize);
     auto info = fb::CreateObjectInfo(fbb, fbb.CreateString(entry.first.binary()),
                                      entry.second->data_size, entry.second->metadata_size,
-                                     entry.second->ref_count, 0, 0, digest);
+                                     entry.second->ref_count, entry.second->create_time,
+                                     entry.second->construct_duration, digest);
     object_infos.push_back(info);
   }
   auto message = fb::CreatePlasmaListReply(fbb, fbb.CreateVector(object_infos));
@@ -449,6 +450,8 @@ Status ReadListReply(uint8_t* data, size_t size, ObjectTable* objects) {
     entry->data_size = object->data_size();
     entry->metadata_size = object->metadata_size();
     entry->ref_count = object->ref_count();
+    entry->create_time = object->create_time();
+    entry->construct_duration = object->construct_duration();
     entry->state = object->digest()->size() == 0 ? ObjectState::PLASMA_CREATED
                                                  : ObjectState::PLASMA_SEALED;
     (*objects)[object_id] = std::move(entry);
