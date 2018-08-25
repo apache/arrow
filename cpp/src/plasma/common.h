@@ -18,6 +18,8 @@
 #ifndef PLASMA_COMMON_H
 #define PLASMA_COMMON_H
 
+#include <stddef.h>
+
 #include <cstring>
 #include <memory>
 #include <string>
