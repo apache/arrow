@@ -790,3 +790,29 @@ def test_plasma_client_sharing():
         del plasma_client
         assert (buf == np.zeros(3)).all()
         del buf  # This segfaulted pre ARROW-2448.
+
+
+@pytest.mark.plasma
+def test_plasma_list():
+    import pyarrow.plasma as plasma
+
+    with plasma.start_plasma_store(
+            plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
+            as (plasma_store_name, p):
+        plasma_client = plasma.connect(plasma_store_name, "", 0)
+
+        # Test ref_count
+        x = plasma_client.put(np.zeros(3))
+        l = plasma_client.list()
+        assert l[x]["ref_count"] == 0 # Ref count has already been released
+        a = plasma_client.get(x)
+        l = plasma_client.list()
+        assert l[x]["ref_count"] == 1
+
+        # Test state
+        y = create_object(plasma_client, 3, metadata_size=0, seal=False)
+        l = plasma_client.list()
+        assert l[y]["state"] == "created"
+        plasma_client.seal(y)
+        l = plasma_client.list()
+        assert l[y]["state"] == "sealed"

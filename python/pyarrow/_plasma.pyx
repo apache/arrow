@@ -60,6 +60,10 @@ cdef extern from "plasma/common.h" nogil:
         int type
         int location
 
+    cdef enum CObjectState" plasma::ObjectState":
+        PLASMA_CREATED" plasma::ObjectState::PLASMA_CREATED"
+        PLASMA_SEALED" plasma::ObjectState::PLASMA_SEALED"
+
     cdef struct CObjectTableEntry" plasma::ObjectTableEntry":
         int fd
         int device_num
@@ -68,6 +72,8 @@ cdef extern from "plasma/common.h" nogil:
         uint8_t* pointer
         int64_t data_size
         int64_t metadata_size
+        int ref_count
+        CObjectState state
 
     ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]] CObjectTable" plasma::ObjectTable"
 
@@ -688,9 +694,15 @@ cdef class PlasmaClient:
        cdef ObjectID object_id
        while it != objects.end():
            object_id = ObjectID(deref(it).first.binary())
+           if deref(deref(it).second).state == CObjectState.PLASMA_CREATED:
+               state = "created"
+           else:
+               state = "sealed"
            result[object_id] = {
                "size": deref(deref(it).second).data_size,
-               "metadata_size": deref(deref(it).second).metadata_size
+               "metadata_size": deref(deref(it).second).metadata_size,
+               "ref_count": deref(deref(it).second).ref_count,
+               "state": state
            }
            inc(it)
        return result

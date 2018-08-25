@@ -424,7 +424,7 @@ Status SendListReply(int sock, const ObjectTable& objects) {
   flatbuffers::FlatBufferBuilder fbb;
   std::vector<flatbuffers::Offset<fb::ObjectInfo>> object_infos;
   for (auto const& entry : objects) {
-    auto info = fb::CreateObjectInfo(fbb, fbb.CreateString(entry.first.binary()), entry.second->data_size, entry.second->metadata_size);
+    auto info = fb::CreateObjectInfo(fbb, fbb.CreateString(entry.first.binary()), entry.second->data_size, entry.second->metadata_size, entry.second->ref_count, 0, 0, fbb.CreateString(reinterpret_cast<char*>(entry.second->digest), kDigestSize));
     object_infos.push_back(info);
   }
   auto message = fb::CreatePlasmaListReply(fbb, fbb.CreateVector(object_infos));
@@ -440,6 +440,8 @@ Status ReadListReply(uint8_t* data, size_t size, ObjectTable* objects) {
     auto entry = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
     entry->data_size = object->data_size();
     entry->metadata_size = object->metadata_size();
+    entry->ref_count = object->ref_count();
+    entry->state = object->digest()->size() == 0 ? ObjectState::PLASMA_CREATED : ObjectState::PLASMA_SEALED;
     (*objects)[object_id] = std::move(entry);
   }
   return Status::OK();

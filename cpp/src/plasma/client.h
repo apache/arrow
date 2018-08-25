@@ -151,6 +151,13 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Contains(const ObjectID& object_id, bool* has_object);
 
+  /// List all the objects in the object store.
+  ///
+  /// \param[out] objects ObjectTable of objects in the store. For each entry
+  ///             in the map, the following fields are available:
+  ///             - metadata_size: Size of the object metadata in bytes
+  ///             - data_size: Size of the object data in bytes
+  /// \return The return status.
   Status List(ObjectTable* objects);
 
   /// Abort an unsealed object in the object store. If the abort succeeds, then
