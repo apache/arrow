@@ -19,6 +19,7 @@
 #define PLASMA_COMMON_H
 
 #include <cstring>
+#include <memory>
 #include <string>
 // TODO(pcm): Convert getopt and sscanf in the store to use more idiomatic C++
 // and get rid of the next three lines:

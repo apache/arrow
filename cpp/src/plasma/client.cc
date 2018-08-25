@@ -1066,9 +1066,7 @@ Status PlasmaClient::Contains(const ObjectID& object_id, bool* has_object) {
   return impl_->Contains(object_id, has_object);
 }
 
-Status PlasmaClient::List(ObjectTable* objects) {
-  return impl_->List(objects);
-}
+Status PlasmaClient::List(ObjectTable* objects) { return impl_->List(objects); }
 
 Status PlasmaClient::Abort(const ObjectID& object_id) { return impl_->Abort(object_id); }
 
