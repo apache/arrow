@@ -75,7 +75,8 @@ cdef extern from "plasma/common.h" nogil:
         int ref_count
         CObjectState state
 
-    ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]] CObjectTable" plasma::ObjectTable"
+    ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]]
+             CObjectTable" plasma::ObjectTable"
 
 
 cdef extern from "plasma/common.h":
@@ -692,7 +693,7 @@ cdef class PlasmaClient:
         result = dict()
         cdef ObjectID object_id
         cdef CObjectTableEntry entry
-        it  = objects.begin()
+        it = objects.begin()
         while it != objects.end():
             object_id = ObjectID(deref(it).first.binary())
             entry = deref(deref(it).second)
