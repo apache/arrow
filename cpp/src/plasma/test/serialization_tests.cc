@@ -18,12 +18,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "plasma/test-common.h"
+
 #include "plasma/common.h"
 #include "plasma/io.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
-
-#include "gtest/gtest.h"
 
 namespace fb = plasma::flatbuf;
 
@@ -76,7 +76,7 @@ PlasmaObject random_plasma_object(void) {
 
 TEST(PlasmaSerialization, CreateRequest) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   int64_t data_size1 = 42;
   int64_t metadata_size1 = 11;
   int device_num1 = 0;
@@ -99,7 +99,7 @@ TEST(PlasmaSerialization, CreateRequest) {
 
 TEST(PlasmaSerialization, CreateReply) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   PlasmaObject object1 = random_plasma_object();
   int64_t mmap_size1 = 1000000;
   ARROW_CHECK_OK(SendCreateReply(fd, object_id1, &object1, PlasmaError::OK, mmap_size1));
@@ -120,7 +120,7 @@ TEST(PlasmaSerialization, CreateReply) {
 
 TEST(PlasmaSerialization, SealRequest) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   unsigned char digest1[kDigestSize];
   memset(&digest1[0], 7, kDigestSize);
   ARROW_CHECK_OK(SendSealRequest(fd, object_id1, &digest1[0]));
@@ -135,7 +135,7 @@ TEST(PlasmaSerialization, SealRequest) {
 
 TEST(PlasmaSerialization, SealReply) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   ARROW_CHECK_OK(SendSealReply(fd, object_id1, PlasmaError::ObjectExists));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaSealReply);
   ObjectID object_id2;
@@ -148,8 +148,8 @@ TEST(PlasmaSerialization, SealReply) {
 TEST(PlasmaSerialization, GetRequest) {
   int fd = create_temp_file();
   ObjectID object_ids[2];
-  object_ids[0] = ObjectID::from_random();
-  object_ids[1] = ObjectID::from_random();
+  object_ids[0] = random_object_id();
+  object_ids[1] = random_object_id();
   int64_t timeout_ms = 1234;
   ARROW_CHECK_OK(SendGetRequest(fd, object_ids, 2, timeout_ms));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaGetRequest);
@@ -166,8 +166,8 @@ TEST(PlasmaSerialization, GetRequest) {
 TEST(PlasmaSerialization, GetReply) {
   int fd = create_temp_file();
   ObjectID object_ids[2];
-  object_ids[0] = ObjectID::from_random();
-  object_ids[1] = ObjectID::from_random();
+  object_ids[0] = random_object_id();
+  object_ids[1] = random_object_id();
   std::unordered_map<ObjectID, PlasmaObject> plasma_objects;
   plasma_objects[object_ids[0]] = random_plasma_object();
   plasma_objects[object_ids[1]] = random_plasma_object();
@@ -200,7 +200,7 @@ TEST(PlasmaSerialization, GetReply) {
 
 TEST(PlasmaSerialization, ReleaseRequest) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   ARROW_CHECK_OK(SendReleaseRequest(fd, object_id1));
   std::vector<uint8_t> data =
       read_message_from_file(fd, MessageType::PlasmaReleaseRequest);
@@ -212,7 +212,7 @@ TEST(PlasmaSerialization, ReleaseRequest) {
 
 TEST(PlasmaSerialization, ReleaseReply) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   ARROW_CHECK_OK(SendReleaseReply(fd, object_id1, PlasmaError::ObjectExists));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaReleaseReply);
   ObjectID object_id2;
@@ -224,7 +224,7 @@ TEST(PlasmaSerialization, ReleaseReply) {
 
 TEST(PlasmaSerialization, DeleteRequest) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   ARROW_CHECK_OK(SendDeleteRequest(fd, std::vector<ObjectID>{object_id1}));
   std::vector<uint8_t> data =
       read_message_from_file(fd, MessageType::PlasmaDeleteRequest);
@@ -237,7 +237,7 @@ TEST(PlasmaSerialization, DeleteRequest) {
 
 TEST(PlasmaSerialization, DeleteReply) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   PlasmaError error1 = PlasmaError::ObjectExists;
   ARROW_CHECK_OK(SendDeleteReply(fd, std::vector<ObjectID>{object_id1},
                                  std::vector<PlasmaError>{error1}));
@@ -257,8 +257,8 @@ TEST(PlasmaSerialization, StatusRequest) {
   int fd = create_temp_file();
   constexpr int64_t num_objects = 2;
   ObjectID object_ids[num_objects];
-  object_ids[0] = ObjectID::from_random();
-  object_ids[1] = ObjectID::from_random();
+  object_ids[0] = random_object_id();
+  object_ids[1] = random_object_id();
   ARROW_CHECK_OK(SendStatusRequest(fd, object_ids, num_objects));
   std::vector<uint8_t> data =
       read_message_from_file(fd, MessageType::PlasmaStatusRequest);
@@ -273,8 +273,8 @@ TEST(PlasmaSerialization, StatusRequest) {
 TEST(PlasmaSerialization, StatusReply) {
   int fd = create_temp_file();
   ObjectID object_ids[2];
-  object_ids[0] = ObjectID::from_random();
-  object_ids[1] = ObjectID::from_random();
+  object_ids[0] = random_object_id();
+  object_ids[1] = random_object_id();
   int object_statuses[2] = {42, 43};
   ARROW_CHECK_OK(SendStatusReply(fd, object_ids, object_statuses, 2));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaStatusReply);
@@ -316,8 +316,8 @@ TEST(PlasmaSerialization, EvictReply) {
 TEST(PlasmaSerialization, FetchRequest) {
   int fd = create_temp_file();
   ObjectID object_ids[2];
-  object_ids[0] = ObjectID::from_random();
-  object_ids[1] = ObjectID::from_random();
+  object_ids[0] = random_object_id();
+  object_ids[1] = random_object_id();
   ARROW_CHECK_OK(SendFetchRequest(fd, object_ids, 2));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaFetchRequest);
   std::vector<ObjectID> object_ids_read;
@@ -331,9 +331,9 @@ TEST(PlasmaSerialization, WaitRequest) {
   int fd = create_temp_file();
   const int num_objects_in = 2;
   ObjectRequest object_requests_in[num_objects_in] = {
-      ObjectRequest({ObjectID::from_random(), ObjectRequestType::PLASMA_QUERY_ANYWHERE,
+      ObjectRequest({random_object_id(), ObjectRequestType::PLASMA_QUERY_ANYWHERE,
                      ObjectLocation::Local}),
-      ObjectRequest({ObjectID::from_random(), ObjectRequestType::PLASMA_QUERY_LOCAL,
+      ObjectRequest({random_object_id(), ObjectRequestType::PLASMA_QUERY_LOCAL,
                      ObjectLocation::Local})};
   const int num_ready_objects_in = 1;
   int64_t timeout_ms = 1000;
@@ -365,10 +365,10 @@ TEST(PlasmaSerialization, WaitReply) {
   const int num_objects_in = 2;
   /* Create a map with two ObjectRequests in it. */
   ObjectRequestMap objects_in(num_objects_in);
-  ObjectID id1 = ObjectID::from_random();
+  ObjectID id1 = random_object_id();
   objects_in[id1] =
       ObjectRequest({id1, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectLocation::Local});
-  ObjectID id2 = ObjectID::from_random();
+  ObjectID id2 = random_object_id();
   objects_in[id2] = ObjectRequest(
       {id2, ObjectRequestType::PLASMA_QUERY_LOCAL, ObjectLocation::Nonexistent});
 
@@ -393,7 +393,7 @@ TEST(PlasmaSerialization, WaitReply) {
 
 TEST(PlasmaSerialization, DataRequest) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   const char* address1 = "address1";
   int port1 = 12345;
   ARROW_CHECK_OK(SendDataRequest(fd, object_id1, address1, port1));
@@ -413,7 +413,7 @@ TEST(PlasmaSerialization, DataRequest) {
 
 TEST(PlasmaSerialization, DataReply) {
   int fd = create_temp_file();
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   int64_t object_size1 = 146;
   int64_t metadata_size1 = 198;
   ARROW_CHECK_OK(SendDataReply(fd, object_id1, object_size1, metadata_size1));

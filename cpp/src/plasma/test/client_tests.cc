@@ -26,14 +26,12 @@
 #include <random>
 #include <thread>
 
-#include "arrow/test-util.h"
+#include "plasma/test-common.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
-
-#include "gtest/gtest.h"
 
 namespace plasma {
 
@@ -106,7 +104,7 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
   ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
   ARROW_CHECK_OK(local_client2.Connect(store_socket_name_, ""));
 
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
 
   // Test for the object being in local Plasma store.
   // First create object.
@@ -123,7 +121,7 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
   ARROW_CHECK_OK(local_client2.Subscribe(&fd));
   ASSERT_GT(fd, 0);
 
-  ObjectID object_id2 = ObjectID::from_random();
+  ObjectID object_id2 = random_object_id();
   int64_t data_size2 = 0;
   int64_t metadata_size2 = 0;
   ARROW_CHECK_OK(
@@ -147,7 +145,7 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
 }
 
 TEST_F(TestPlasmaStore, SealErrorsTest) {
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
 
   Status result = client_.Seal(object_id);
   ASSERT_TRUE(result.IsPlasmaObjectNonexistent());
@@ -162,7 +160,7 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
 }
 
 TEST_F(TestPlasmaStore, DeleteTest) {
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
 
   // Test for deleting non-existance object.
   Status result = client_.Delete(object_id);
@@ -192,8 +190,8 @@ TEST_F(TestPlasmaStore, DeleteTest) {
 }
 
 TEST_F(TestPlasmaStore, DeleteObjectsTest) {
-  ObjectID object_id1 = ObjectID::from_random();
-  ObjectID object_id2 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
+  ObjectID object_id2 = random_object_id();
 
   // Test for deleting non-existance object.
   Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
@@ -242,7 +240,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsTest) {
 }
 
 TEST_F(TestPlasmaStore, ContainsTest) {
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
 
   // Test for object non-existence.
   bool has_object;
@@ -263,7 +261,7 @@ TEST_F(TestPlasmaStore, ContainsTest) {
 TEST_F(TestPlasmaStore, GetTest) {
   std::vector<ObjectBuffer> object_buffers;
 
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
 
   // Test for object non-existence.
   ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
@@ -300,7 +298,7 @@ TEST_F(TestPlasmaStore, GetTest) {
 
 TEST_F(TestPlasmaStore, LegacyGetTest) {
   // Test for old non-releasing Get() variant
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
   {
     ObjectBuffer object_buffer;
 
@@ -328,8 +326,8 @@ TEST_F(TestPlasmaStore, LegacyGetTest) {
 }
 
 TEST_F(TestPlasmaStore, MultipleGetTest) {
-  ObjectID object_id1 = ObjectID::from_random();
-  ObjectID object_id2 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
+  ObjectID object_id2 = random_object_id();
   std::vector<ObjectID> object_ids = {object_id1, object_id2};
   std::vector<ObjectBuffer> object_buffers;
 
@@ -351,7 +349,7 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
 }
 
 TEST_F(TestPlasmaStore, AbortTest) {
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence.
@@ -397,7 +395,7 @@ TEST_F(TestPlasmaStore, AbortTest) {
 }
 
 TEST_F(TestPlasmaStore, MultipleClientTest) {
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence on the first client.
@@ -421,7 +419,7 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
 
   // Test that one client disconnecting does not interfere with the other.
   // First create object on the second client.
-  object_id = ObjectID::from_random();
+  object_id = random_object_id();
   ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
   // Disconnect the first client.
   ARROW_CHECK_OK(client_.Disconnect());
@@ -438,7 +436,7 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
   // and leave the last third unsealed.
   std::vector<ObjectID> object_ids;
   for (int i = 0; i < 100; i++) {
-    ObjectID object_id = ObjectID::from_random();
+    ObjectID object_id = random_object_id();
     object_ids.push_back(object_id);
 
     // Test for object non-existence on the first client.
@@ -522,7 +520,7 @@ void AssertCudaRead(const std::shared_ptr<Buffer>& buffer,
 }  // namespace
 
 TEST_F(TestPlasmaStore, GetGPUTest) {
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence.
@@ -556,7 +554,7 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
 }
 
 TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
-  ObjectID object_id = ObjectID::from_random();
+  ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;
 
   // Test for object non-existence on the first client.
@@ -580,7 +578,7 @@ TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
 
   // Test that one client disconnecting does not interfere with the other.
   // First create object on the second client.
-  object_id = ObjectID::from_random();
+  object_id = random_object_id();
   ARROW_CHECK_OK(
       client2_.Create(object_id, data_size, metadata, metadata_size, &data, 1));
   // Disconnect the first client.
