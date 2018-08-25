@@ -686,26 +686,28 @@ cdef class PlasmaClient:
             check_status(self.client.get().Delete(ids))
 
     def list(self):
-       cdef CObjectTable objects
-       with nogil:
-           check_status(self.client.get().List(&objects))
-       result = dict()
-       cdef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]].iterator it  = objects.begin()
-       cdef ObjectID object_id
-       while it != objects.end():
-           object_id = ObjectID(deref(it).first.binary())
-           if deref(deref(it).second).state == CObjectState.PLASMA_CREATED:
-               state = "created"
-           else:
-               state = "sealed"
-           result[object_id] = {
-               "data_size": deref(deref(it).second).data_size,
-               "metadata_size": deref(deref(it).second).metadata_size,
-               "ref_count": deref(deref(it).second).ref_count,
-               "state": state
-           }
-           inc(it)
-       return result
+        cdef CObjectTable objects
+        with nogil:
+            check_status(self.client.get().List(&objects))
+        result = dict()
+        cdef ObjectID object_id
+        cdef CObjectTableEntry entry
+        it  = objects.begin()
+        while it != objects.end():
+            object_id = ObjectID(deref(it).first.binary())
+            entry = deref(deref(it).second)
+            if entry.state == CObjectState.PLASMA_CREATED:
+                state = "created"
+            else:
+                state = "sealed"
+            result[object_id] = {
+                "data_size": entry.data_size,
+                "metadata_size": entry.metadata_size,
+                "ref_count": entry.ref_count,
+                "state": state
+            }
+            inc(it)
+        return result
 
 
 def connect(store_socket_name, manager_socket_name, int release_delay,
