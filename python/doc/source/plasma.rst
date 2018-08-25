@@ -232,13 +232,7 @@ of the object info might change in the future):
   client.create(object_id, 100)
   print(client.list())
 
-  >>> {ObjectID(a111b337aa5218595c3bdc8d317aae0769adab88): {'construct_duration': 0,
-  >>>  'create_time': 1535223628,
-  >>>  'data_size': 460,
-  >>>  'metadata_size': 0,
-  >>>  'ref_count': 0,
-  >>>  'state': 'sealed'},
-  >>> ObjectID(4cba8f80c54c6d265b46c2cdfcee6e32348b12be): {'construct_duration': 0,
+  >>> {ObjectID(4cba8f80c54c6d265b46c2cdfcee6e32348b12be): {'construct_duration': 0,
   >>>  'create_time': 1535223642,
   >>>  'data_size': 460,
   >>>  'metadata_size': 0,
