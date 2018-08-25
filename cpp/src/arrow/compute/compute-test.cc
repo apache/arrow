@@ -1287,59 +1287,34 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_TRUE(encoded_out.chunked_array()->Equals(*dict_carr));
 }
 
-struct KernelFunc {
-  virtual Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
-                      Datum* out) const = 0;
-
-  virtual ~KernelFunc() = default;
-};
-
-struct AndKernelFunc : KernelFunc {
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
-              Datum* out) const override {
-    return And(ctx, left, right, out);
-  }
-};
-
-struct OrKernelFunc : KernelFunc {
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
-              Datum* out) const override {
-    return Or(ctx, left, right, out);
-  }
-};
-
-struct XorKernelFunc : KernelFunc {
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
-              Datum* out) const override {
-    return Xor(ctx, left, right, out);
-  }
-};
+using BinaryKernelFunc =
+    std::function<Status(FunctionContext*, const Datum&, const Datum&, Datum* out)>;
 
 class TestBooleanKernel : public ComputeFixture, public TestBase {
  public:
-  void TestArrayBinary(const KernelFunc& kernel, const std::shared_ptr<Array>& left,
+  void TestArrayBinary(const BinaryKernelFunc& kernel, const std::shared_ptr<Array>& left,
                        const std::shared_ptr<Array>& right,
                        const std::shared_ptr<Array>& expected) {
     Datum result;
-    ASSERT_OK(kernel.Call(&this->ctx_, Datum(left), Datum(right), &result));
+    ASSERT_OK(kernel(&this->ctx_, Datum(left), Datum(right), &result));
     ASSERT_EQ(Datum::ARRAY, result.kind());
     std::shared_ptr<Array> result_array = result.make_array();
     ASSERT_TRUE(result_array->Equals(expected));
   }
 
-  void TestChunkedArrayBinary(const KernelFunc& kernel,
+  void TestChunkedArrayBinary(const BinaryKernelFunc& kernel,
                               const std::shared_ptr<ChunkedArray>& left,
                               const std::shared_ptr<ChunkedArray>& right,
                               const std::shared_ptr<ChunkedArray>& expected) {
     Datum result;
     std::shared_ptr<Array> result_array;
-    ASSERT_OK(kernel.Call(&this->ctx_, Datum(left), Datum(right), &result));
+    ASSERT_OK(kernel(&this->ctx_, Datum(left), Datum(right), &result));
     ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
     std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
     ASSERT_TRUE(result_ca->Equals(expected));
   }
 
-  void TestBinaryKernel(const KernelFunc& kernel, const std::vector<bool>& values1,
+  void TestBinaryKernel(const BinaryKernelFunc& kernel, const std::vector<bool>& values1,
                         const std::vector<bool>& values2,
                         const std::vector<bool>& values3,
                         const std::vector<bool>& values3_nulls) {
@@ -1406,29 +1381,26 @@ TEST_F(TestBooleanKernel, Invert) {
 }
 
 TEST_F(TestBooleanKernel, And) {
-  AndKernelFunc kernel;
   vector<bool> values1 = {true, false, true, false, true, true};
   vector<bool> values2 = {true, true, false, false, true, false};
   vector<bool> values3 = {true, false, false, false, true, false};
-  TestBinaryKernel(kernel, values1, values2, values3, values3);
+  TestBinaryKernel(And, values1, values2, values3, values3);
 }
 
 TEST_F(TestBooleanKernel, Or) {
-  OrKernelFunc kernel;
   vector<bool> values1 = {true, false, true, false, true, true};
   vector<bool> values2 = {true, true, false, false, true, false};
   vector<bool> values3 = {true, true, true, false, true, true};
   vector<bool> values3_nulls = {true, false, false, false, true, false};
-  TestBinaryKernel(kernel, values1, values2, values3, values3_nulls);
+  TestBinaryKernel(Or, values1, values2, values3, values3_nulls);
 }
 
 TEST_F(TestBooleanKernel, Xor) {
-  XorKernelFunc kernel;
   vector<bool> values1 = {true, false, true, false, true, true};
   vector<bool> values2 = {true, true, false, false, true, false};
   vector<bool> values3 = {false, true, true, false, false, true};
   vector<bool> values3_nulls = {true, false, false, false, true, false};
-  TestBinaryKernel(kernel, values1, values2, values3, values3_nulls);
+  TestBinaryKernel(Xor, values1, values2, values3, values3_nulls);
 }
 
 class TestInvokeBinaryKernel : public ComputeFixture, public TestBase {};
