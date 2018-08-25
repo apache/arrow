@@ -703,6 +703,36 @@ cdef class PlasmaClient:
             check_status(self.client.get().Delete(ids))
 
     def list(self):
+        """
+        List the objects in the store.
+
+        This API is experimental and might change in the future.
+
+        Returns
+        -------
+        dict
+            Dictionary from ObjectIDs to an "info" dictionary describing the
+            object. The "info" dictionary has the following entries:
+
+            data_size
+              size of the object in bytes
+
+            metadata_size
+              size of the object metadata in bytes
+
+            ref_count
+              Number of clients referencing the object buffer
+
+            create_time
+              Unix timestamp of the creation of the object
+
+            construct_duration
+              Time the creation of the object took in seconds
+
+            state
+              created" if the object is still being created and
+              "sealed" if it is already sealed
+        """
         cdef CObjectTable objects
         with nogil:
             check_status(self.client.get().List(&objects))
