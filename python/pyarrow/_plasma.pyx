@@ -699,7 +699,7 @@ cdef class PlasmaClient:
            else:
                state = "sealed"
            result[object_id] = {
-               "size": deref(deref(it).second).data_size,
+               "data_size": deref(deref(it).second).data_size,
                "metadata_size": deref(deref(it).second).metadata_size,
                "ref_count": deref(deref(it).second).ref_count,
                "state": state

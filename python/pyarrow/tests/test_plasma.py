@@ -801,18 +801,24 @@ def test_plasma_list():
             as (plasma_store_name, p):
         plasma_client = plasma.connect(plasma_store_name, "", 0)
 
+        # Test sizes
+        x, _, _ = create_object(plasma_client, 11, metadata_size=7, seal=False)
+        l = plasma_client.list()
+        assert l[x]["data_size"] == 11
+        assert l[x]["metadata_size"] == 7
+
         # Test ref_count
-        x = plasma_client.put(np.zeros(3))
+        y = plasma_client.put(np.zeros(3))
         l = plasma_client.list()
-        assert l[x]["ref_count"] == 0 # Ref count has already been released
-        a = plasma_client.get(x)
+        assert l[y]["ref_count"] == 0 # Ref count has already been released
+        a = plasma_client.get(y)
         l = plasma_client.list()
-        assert l[x]["ref_count"] == 1
+        assert l[y]["ref_count"] == 1
 
         # Test state
-        y = create_object(plasma_client, 3, metadata_size=0, seal=False)
+        z, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
         l = plasma_client.list()
-        assert l[y]["state"] == "created"
-        plasma_client.seal(y)
+        assert l[z]["state"] == "created"
+        plasma_client.seal(z)
         l = plasma_client.list()
-        assert l[y]["state"] == "sealed"
+        assert l[z]["state"] == "sealed"
