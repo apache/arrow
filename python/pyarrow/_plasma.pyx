@@ -704,9 +704,7 @@ cdef class PlasmaClient:
 
     def list(self):
         """
-        List the objects in the store.
-
-        This API is experimental and might change in the future.
+        Experimental: List the objects in the store.
 
         Returns
         -------
