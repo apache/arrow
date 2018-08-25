@@ -730,7 +730,7 @@ cdef class PlasmaClient:
               Time the creation of the object took in seconds
 
             state
-              created" if the object is still being created and
+              "created" if the object is still being created and
               "sealed" if it is already sealed
         """
         cdef CObjectTable objects
