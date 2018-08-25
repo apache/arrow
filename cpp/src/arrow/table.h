@@ -103,6 +103,7 @@ class ARROW_EXPORT Column {
 
   // Construct from name and array
   Column(const std::string& name, const std::shared_ptr<Array>& data);
+  Column(const std::string& name, const std::shared_ptr<ChunkedArray>& data);
 
   int64_t length() const { return data_->length(); }
 
