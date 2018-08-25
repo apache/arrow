@@ -17,6 +17,7 @@
 
 #include "arrow/compute/kernels/util-internal.h"
 
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -47,6 +48,85 @@ Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
   } else {
     return Status::Invalid("Input Datum was not array-like");
   }
+  return Status::OK();
+}
+
+Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
+                               const Datum& left, const Datum& right,
+                               std::vector<Datum>* outputs) {
+  int64_t left_length;
+  std::vector<std::shared_ptr<Array>> left_arrays;
+  if (left.kind() == Datum::ARRAY) {
+    left_length = left.array()->length;
+    left_arrays.push_back(left.make_array());
+  } else if (left.kind() == Datum::CHUNKED_ARRAY) {
+    left_length = left.chunked_array()->length();
+    left_arrays = left.chunked_array()->chunks();
+  } else {
+    return Status::Invalid("Left input Datum was not array-like");
+  }
+
+  int64_t right_length;
+  std::vector<std::shared_ptr<Array>> right_arrays;
+  if (right.kind() == Datum::ARRAY) {
+    right_length = right.array()->length;
+    right_arrays.push_back(right.make_array());
+  } else if (right.kind() == Datum::CHUNKED_ARRAY) {
+    right_length = right.chunked_array()->length();
+    right_arrays = right.chunked_array()->chunks();
+  } else {
+    return Status::Invalid("Right input Datum was not array-like");
+  }
+
+  if (right_length != left_length) {
+    return Status::Invalid("Right and left have different lengths");
+  }
+
+  // TODO: Remove duplication with ChunkedArray::Equals
+  int left_chunk_idx = 0;
+  int64_t left_start_idx = 0;
+  int right_chunk_idx = 0;
+  int64_t right_start_idx = 0;
+
+  int64_t elements_compared = 0;
+  while (elements_compared < left_length) {
+    const std::shared_ptr<Array> left_array = left_arrays[left_chunk_idx];
+    const std::shared_ptr<Array> right_array = right_arrays[right_chunk_idx];
+    int64_t common_length = std::min(left_array->length() - left_start_idx,
+                                     right_array->length() - right_start_idx);
+
+    std::shared_ptr<Array> left_op = left_array->Slice(left_start_idx, common_length);
+    std::shared_ptr<Array> right_op = right_array->Slice(right_start_idx, common_length);
+    Datum output;
+    RETURN_NOT_OK(kernel->Call(ctx, Datum(left_op), Datum(right_op), &output));
+    outputs->push_back(output);
+
+    elements_compared += common_length;
+
+    // If we have exhausted the current chunk, proceed to the next one individually.
+    if (left_start_idx + common_length == left_array->length()) {
+      left_chunk_idx++;
+      left_start_idx = 0;
+    } else {
+      left_start_idx += common_length;
+    }
+
+    if (right_start_idx + common_length == right_array->length()) {
+      right_chunk_idx++;
+      right_start_idx = 0;
+    } else {
+      right_start_idx += common_length;
+    }
+  }
+
+  return Status::OK();
+}
+
+Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
+                               const Datum& left, const Datum& right, Datum* output) {
+  std::vector<Datum> result;
+  RETURN_NOT_OK(InvokeBinaryArrayKernel(ctx, kernel, left, right, &result));
+  *output = detail::WrapDatumsLike(left, result);
   return Status::OK();
 }
 

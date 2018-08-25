@@ -570,6 +570,19 @@ ARROW_EXPORT
 Status CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset, int64_t length,
                   std::shared_ptr<Buffer>* out);
 
+/// Invert a bit range of an existing bitmap
+///
+/// \param[in] pool memory pool to allocate memory from
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to copy
+/// \param[out] out the resulting copy
+///
+/// \return Status message
+ARROW_EXPORT
+Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
+                    int64_t length, std::shared_ptr<Buffer>* out);
+
 /// Compute the number of 1's in the given data array
 ///
 /// \param[in] data a packed LSB-ordered bitmap as a byte array
@@ -586,6 +599,16 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
 
 ARROW_EXPORT
 Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
+
+ARROW_EXPORT
+Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+                const uint8_t* right, int64_t right_offset, int64_t length,
+                int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
+
+ARROW_EXPORT
+Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
                  int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
 

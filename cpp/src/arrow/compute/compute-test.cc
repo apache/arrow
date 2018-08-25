@@ -40,8 +40,10 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/cast.h"
 #include "arrow/compute/kernels/hash.h"
+#include "arrow/compute/kernels/util-internal.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -1283,6 +1285,181 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
   ASSERT_TRUE(encoded_out.chunked_array()->Equals(*dict_carr));
+}
+
+struct KernelFunc {
+  virtual Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+                      Datum* out) const = 0;
+
+  virtual ~KernelFunc() = default;
+};
+
+struct AndKernelFunc : KernelFunc {
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) const override {
+    return And(ctx, left, right, out);
+  }
+};
+
+struct OrKernelFunc : KernelFunc {
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) const override {
+    return Or(ctx, left, right, out);
+  }
+};
+
+struct XorKernelFunc : KernelFunc {
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) const override {
+    return Xor(ctx, left, right, out);
+  }
+};
+
+class TestBooleanKernel : public ComputeFixture, public TestBase {
+ public:
+  void TestArrayBinary(const KernelFunc& kernel, const std::shared_ptr<Array>& left,
+                       const std::shared_ptr<Array>& right,
+                       const std::shared_ptr<Array>& expected) {
+    Datum result;
+    ASSERT_OK(kernel.Call(&this->ctx_, Datum(left), Datum(right), &result));
+    ASSERT_EQ(Datum::ARRAY, result.kind());
+    std::shared_ptr<Array> result_array = result.make_array();
+    ASSERT_TRUE(result_array->Equals(expected));
+  }
+
+  void TestChunkedArrayBinary(const KernelFunc& kernel,
+                              const std::shared_ptr<ChunkedArray>& left,
+                              const std::shared_ptr<ChunkedArray>& right,
+                              const std::shared_ptr<ChunkedArray>& expected) {
+    Datum result;
+    std::shared_ptr<Array> result_array;
+    ASSERT_OK(kernel.Call(&this->ctx_, Datum(left), Datum(right), &result));
+    ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+    std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
+    ASSERT_TRUE(result_ca->Equals(expected));
+  }
+
+  void TestBinaryKernel(const KernelFunc& kernel, const std::vector<bool>& values1,
+                        const std::vector<bool>& values2,
+                        const std::vector<bool>& values3,
+                        const std::vector<bool>& values3_nulls) {
+    auto type = boolean();
+    auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
+    auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
+    auto a3 = _MakeArray<BooleanType, bool>(type, values3, {});
+    auto a1_nulls = _MakeArray<BooleanType, bool>(type, values1, values1);
+    auto a2_nulls = _MakeArray<BooleanType, bool>(type, values2, values2);
+    auto a3_nulls = _MakeArray<BooleanType, bool>(type, values3, values3_nulls);
+
+    TestArrayBinary(kernel, a1, a2, a3);
+    TestArrayBinary(kernel, a1_nulls, a2_nulls, a3_nulls);
+    TestArrayBinary(kernel, a1->Slice(1), a2->Slice(1), a3->Slice(1));
+    TestArrayBinary(kernel, a1_nulls->Slice(1), a2_nulls->Slice(1), a3_nulls->Slice(1));
+
+    // ChunkedArray
+    std::vector<std::shared_ptr<Array>> ca1_arrs = {a1, a1->Slice(1)};
+    auto ca1 = std::make_shared<ChunkedArray>(ca1_arrs);
+    std::vector<std::shared_ptr<Array>> ca2_arrs = {a2, a2->Slice(1)};
+    auto ca2 = std::make_shared<ChunkedArray>(ca2_arrs);
+    std::vector<std::shared_ptr<Array>> ca3_arrs = {a3, a3->Slice(1)};
+    auto ca3 = std::make_shared<ChunkedArray>(ca3_arrs);
+    TestChunkedArrayBinary(kernel, ca1, ca2, ca3);
+
+    // ChunkedArray with different chunks
+    std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1),
+                                                    a1->Slice(1, 1), a1->Slice(2)};
+    auto ca4 = std::make_shared<ChunkedArray>(ca4_arrs);
+    TestChunkedArrayBinary(kernel, ca4, ca2, ca3);
+  }
+};
+
+TEST_F(TestBooleanKernel, Invert) {
+  vector<bool> values1 = {true, false, true};
+  vector<bool> values2 = {false, true, false};
+
+  auto type = boolean();
+  auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
+  auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
+
+  // Plain array
+  Datum result;
+  ASSERT_OK(Invert(&this->ctx_, Datum(a1), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  std::shared_ptr<Array> result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a2));
+
+  // Array with offset
+  ASSERT_OK(Invert(&this->ctx_, Datum(a1->Slice(1)), &result));
+  ASSERT_EQ(Datum::ARRAY, result.kind());
+  result_array = result.make_array();
+  ASSERT_TRUE(result_array->Equals(a2->Slice(1)));
+
+  // ChunkedArray
+  std::vector<std::shared_ptr<Array>> ca1_arrs = {a1, a1->Slice(1)};
+  auto ca1 = std::make_shared<ChunkedArray>(ca1_arrs);
+  std::vector<std::shared_ptr<Array>> ca2_arrs = {a2, a2->Slice(1)};
+  auto ca2 = std::make_shared<ChunkedArray>(ca2_arrs);
+  ASSERT_OK(Invert(&this->ctx_, Datum(ca1), &result));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+  std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
+  ASSERT_TRUE(result_ca->Equals(ca2));
+}
+
+TEST_F(TestBooleanKernel, And) {
+  AndKernelFunc kernel;
+  vector<bool> values1 = {true, false, true, false, true, true};
+  vector<bool> values2 = {true, true, false, false, true, false};
+  vector<bool> values3 = {true, false, false, false, true, false};
+  TestBinaryKernel(kernel, values1, values2, values3, values3);
+}
+
+TEST_F(TestBooleanKernel, Or) {
+  OrKernelFunc kernel;
+  vector<bool> values1 = {true, false, true, false, true, true};
+  vector<bool> values2 = {true, true, false, false, true, false};
+  vector<bool> values3 = {true, true, true, false, true, true};
+  vector<bool> values3_nulls = {true, false, false, false, true, false};
+  TestBinaryKernel(kernel, values1, values2, values3, values3_nulls);
+}
+
+TEST_F(TestBooleanKernel, Xor) {
+  XorKernelFunc kernel;
+  vector<bool> values1 = {true, false, true, false, true, true};
+  vector<bool> values2 = {true, true, false, false, true, false};
+  vector<bool> values3 = {false, true, true, false, false, true};
+  vector<bool> values3_nulls = {true, false, false, false, true, false};
+  TestBinaryKernel(kernel, values1, values2, values3, values3_nulls);
+}
+
+class TestInvokeBinaryKernel : public ComputeFixture, public TestBase {};
+
+class DummyBinaryKernel : public BinaryKernel {
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) override {
+    return Status::OK();
+  }
+};
+
+TEST_F(TestInvokeBinaryKernel, Exceptions) {
+  DummyBinaryKernel kernel;
+  std::vector<Datum> outputs;
+  std::shared_ptr<Table> table;
+  vector<bool> values1 = {true, false, true};
+  vector<bool> values2 = {false, true, false};
+
+  auto type = boolean();
+  auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
+  auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
+
+  // Left is not an array-like
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(
+                             &this->ctx_, &kernel, Datum(table), Datum(a2), &outputs));
+  // Right is not an array-like
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1),
+                                                         Datum(table), &outputs));
+  // Different sized inputs
+  ASSERT_RAISES(Invalid, detail::InvokeBinaryArrayKernel(&this->ctx_, &kernel, Datum(a1),
+                                                         Datum(a1->Slice(1)), &outputs));
 }
 
 }  // namespace compute
