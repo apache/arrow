@@ -403,6 +403,20 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   return Status::OK();
 }
 
+Status PrettyPrint(const Table& table, int indent, std::ostream* sink) {
+  auto schema = table.schema();
+  PrettyPrint(*schema, indent, sink);
+  for (int i = 0; i < table.num_columns(); ++i) {
+    const auto column = table.column(i);
+    const std::string& name = column->name();
+    (*sink) << name << ": ";
+    RETURN_NOT_OK(PrettyPrint(*column->data(), indent + 2, sink));
+    (*sink) << "\n";
+  }
+  (*sink) << std::flush;
+  return Status::OK();
+}
+
 Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
   for (int i = 0; i < batch.num_columns(); ++i) {
     const std::string& name = batch.column_name(i);

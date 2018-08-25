@@ -50,6 +50,9 @@ struct PrettyPrintOptions {
   /// String to use for representing a null value, defaults to "null"
   std::string null_rep;
 };
+/// \brief Print human-readable representation of Table
+ARROW_EXPORT
+Status PrettyPrint(const Table& table, int indent, std::ostream* sink);
 
 /// \brief Print human-readable representation of RecordBatch
 ARROW_EXPORT
