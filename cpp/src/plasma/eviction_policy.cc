@@ -84,7 +84,8 @@ bool EvictionPolicy::RequireSpace(int64_t size, std::vector<ObjectID>* objects_t
   int64_t num_bytes_evicted = ChooseObjectsToEvict(space_to_free, objects_to_evict);
   ARROW_LOG(INFO) << "There is not enough space to create this object, so evicting "
                   << objects_to_evict->size() << " objects to free up "
-                  << num_bytes_evicted << " bytes.";
+                  << num_bytes_evicted << " bytes. The number of bytes in use (before "
+                  << "this eviction) is " << memory_used_ << ".";
   return num_bytes_evicted >= required_space && num_bytes_evicted > 0;
 }
 

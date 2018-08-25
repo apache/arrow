@@ -177,6 +177,8 @@ export namespace view {
 export namespace predicate {
     export import col = predicate_.col;
     export import lit = predicate_.lit;
+    export import and = predicate_.and;
+    export import or = predicate_.or;
     export import custom = predicate_.custom;
 
     export import Or = predicate_.Or;
