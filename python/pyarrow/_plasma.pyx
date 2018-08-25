@@ -73,10 +73,12 @@ cdef extern from "plasma/common.h" nogil:
         int64_t data_size
         int64_t metadata_size
         int ref_count
+        int64_t create_time
+        int64_t construct_duration
         CObjectState state
 
     ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]] \
-             CObjectTable" plasma::ObjectTable"
+        CObjectTable" plasma::ObjectTable"
 
 
 cdef extern from "plasma/common.h":
@@ -705,6 +707,8 @@ cdef class PlasmaClient:
                 "data_size": entry.data_size,
                 "metadata_size": entry.metadata_size,
                 "ref_count": entry.ref_count,
+                "create_time": entry.create_time,
+                "construct_duration": entry.construct_duration,
                 "state": state
             }
             inc(it)
