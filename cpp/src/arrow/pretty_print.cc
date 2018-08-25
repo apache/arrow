@@ -405,7 +405,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
 
 Status PrettyPrint(const Table& table, int indent, std::ostream* sink) {
   auto schema = table.schema();
-  PrettyPrint(*schema, indent, sink);
+  RETURN_NOT_OK(PrettyPrint(*schema, indent, sink));
   for (int i = 0; i < table.num_columns(); ++i) {
     const auto column = table.column(i);
     const std::string& name = column->name();
