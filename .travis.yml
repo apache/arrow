@@ -46,7 +46,8 @@ before_install:
 matrix:
   fast_finish: true
   allow_failures:
-  - jdk: oraclejdk9
+    - rust: nightly
+    - jdk: oraclejdk9
   include:
   # C++ & Python w/ clang 6.0
   - compiler: gcc
@@ -212,7 +213,10 @@ matrix:
   # Rust
   - language: rust
     cache: cargo
-    rust: stable
+    rust:
+      - stable
+      - beta
+      - nightly
     addons:
       apt:
         packages:
