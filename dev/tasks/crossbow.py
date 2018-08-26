@@ -418,17 +418,20 @@ def load_tasks_from_config(config_path, task_names, group_names):
     with Path(config_path).open() as fp:
         config = yaml.load(fp)
 
-    valid_groups = set(config['groups'].keys())
+    groups = config['groups']
+    tasks = config['tasks']
+
+    valid_groups = set(groups.keys())
+    valid_tasks = set(tasks.keys())
+
     requested_groups = set(group_names)
     invalid_groups = requested_groups - valid_groups
     if invalid_groups:
         raise click.ClickException('Invalid group(s) {!r}. Must be one of {!r}'
                                    .format(invalid_groups, valid_groups))
 
-    valid_tasks = set(config['tasks'].keys())
-    requested_tasks = set(
-        sum([config['groups'][g] for g in group_names], list(task_names))
-    )
+    requested_tasks = [list(groups[name]) for name in group_names]
+    requested_tasks = set(sum(requested_tasks, list(task_names)))
     invalid_tasks = requested_tasks - valid_tasks
     if invalid_tasks:
         raise click.ClickException('Invalid task(s) {!r}. Must be one of {!r}'
