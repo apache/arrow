@@ -215,7 +215,6 @@ matrix:
     cache: cargo
     rust:
       - stable
-      - beta
       - nightly
     addons:
       apt:
