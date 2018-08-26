@@ -95,13 +95,6 @@ struct PlasmaObject {
   int device_num;
 };
 
-enum class ObjectState : int {
-  /// Object was created but not sealed in the local Plasma Store.
-  PLASMA_CREATED = 1,
-  /// Object is sealed and stored in the local Plasma Store.
-  PLASMA_SEALED
-};
-
 enum class ObjectStatus : int {
   /// The object was not found.
   OBJECT_NOT_FOUND = 0,
@@ -109,44 +102,10 @@ enum class ObjectStatus : int {
   OBJECT_FOUND = 1
 };
 
-/// This type is used by the Plasma store. It is here because it is exposed to
-/// the eviction policy.
-struct ObjectTableEntry {
-  ObjectTableEntry();
-
-  ~ObjectTableEntry();
-
-  /// Memory mapped file containing the object.
-  int fd;
-  /// Device number.
-  int device_num;
-  /// Size of the underlying map.
-  int64_t map_size;
-  /// Offset from the base of the mmap.
-  ptrdiff_t offset;
-  /// Pointer to the object data. Needed to free the object.
-  uint8_t* pointer;
-  /// Size of the object in bytes.
-  int64_t data_size;
-  /// Size of the object metadata in bytes.
-  int64_t metadata_size;
-#ifdef PLASMA_GPU
-  /// IPC GPU handle to share with clients.
-  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
-#endif
-  /// Number of clients currently using this object.
-  int ref_count;
-
-  /// The state of the object, e.g., whether it is open or sealed.
-  ObjectState state;
-  /// The digest of the object. Used to see if two objects are the same.
-  unsigned char digest[kDigestSize];
-};
-
 /// The plasma store information that is exposed to the eviction policy.
 struct PlasmaStoreInfo {
   /// Objects that are in the Plasma store.
-  std::unordered_map<ObjectID, std::unique_ptr<ObjectTableEntry>> objects;
+  ObjectTable objects;
   /// The amount of memory (in bytes) that we allow to be allocated in the
   /// store.
   int64_t memory_capacity;

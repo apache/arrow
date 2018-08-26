@@ -209,6 +209,49 @@ milliseconds). After the timeout, the interpreter will yield control back.
   b'\x01\x02\x03'
 
 
+Listing objects in the store
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The objects in the store can be listed in the following way (note that
+this functionality is currently experimental and the concrete representation
+of the object info might change in the future):
+
+.. code-block:: python
+
+  import pyarrow.plasma as plasma
+  import time
+
+  client = plasma.connect("/tmp/plasma", "", 0)
+
+  client.put("hello, world")
+  # Sleep a little so we get different creation times
+  time.sleep(2)
+  client.put("another object")
+  # Create an object that is not sealed yet
+  object_id = plasma.ObjectID.from_random()
+  client.create(object_id, 100)
+  print(client.list())
+
+  >>> {ObjectID(4cba8f80c54c6d265b46c2cdfcee6e32348b12be): {'construct_duration': 0,
+  >>>  'create_time': 1535223642,
+  >>>  'data_size': 460,
+  >>>  'metadata_size': 0,
+  >>>  'ref_count': 0,
+  >>>  'state': 'sealed'},
+  >>> ObjectID(a7598230b0c26464c9d9c99ae14773ee81485428): {'construct_duration': 0,
+  >>>  'create_time': 1535223644,
+  >>>  'data_size': 460,
+  >>>  'metadata_size': 0,
+  >>>  'ref_count': 0,
+  >>>  'state': 'sealed'},
+  >>> ObjectID(e603ab0c92098ebf08f90bfcea33ff98f6476870): {'construct_duration': -1,
+  >>>  'create_time': 1535223644,
+  >>>  'data_size': 100,
+  >>>  'metadata_size': 0,
+  >>>  'ref_count': 1,
+  >>>  'state': 'created'}}
+
+
 Using Arrow and Pandas with Plasma
 ----------------------------------
 

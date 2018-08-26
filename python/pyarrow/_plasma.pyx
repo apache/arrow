@@ -23,7 +23,9 @@ from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
+from libcpp.unordered_map cimport unordered_map
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
+from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
 
 import collections
@@ -61,6 +63,26 @@ cdef extern from "plasma/common.h" nogil:
         CUniqueID object_id
         int type
         int location
+
+    cdef enum CObjectState" plasma::ObjectState":
+        PLASMA_CREATED" plasma::ObjectState::PLASMA_CREATED"
+        PLASMA_SEALED" plasma::ObjectState::PLASMA_SEALED"
+
+    cdef struct CObjectTableEntry" plasma::ObjectTableEntry":
+        int fd
+        int device_num
+        int64_t map_size
+        ptrdiff_t offset
+        uint8_t* pointer
+        int64_t data_size
+        int64_t metadata_size
+        int ref_count
+        int64_t create_time
+        int64_t construct_duration
+        CObjectState state
+
+    ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]] \
+        CObjectTable" plasma::ObjectTable"
 
 
 cdef extern from "plasma/common.h":
@@ -100,6 +122,8 @@ cdef extern from "plasma/client.h" nogil:
         CStatus Release(const CUniqueID& object_id)
 
         CStatus Contains(const CUniqueID& object_id, c_bool* has_object)
+
+        CStatus List(CObjectTable* objects)
 
         CStatus Subscribe(int* fd)
 
@@ -677,6 +701,60 @@ cdef class PlasmaClient:
             ids.push_back(object_id.data)
         with nogil:
             check_status(self.client.get().Delete(ids))
+
+    def list(self):
+        """
+        Experimental: List the objects in the store.
+
+        Returns
+        -------
+        dict
+            Dictionary from ObjectIDs to an "info" dictionary describing the
+            object. The "info" dictionary has the following entries:
+
+            data_size
+              size of the object in bytes
+
+            metadata_size
+              size of the object metadata in bytes
+
+            ref_count
+              Number of clients referencing the object buffer
+
+            create_time
+              Unix timestamp of the creation of the object
+
+            construct_duration
+              Time the creation of the object took in seconds
+
+            state
+              "created" if the object is still being created and
+              "sealed" if it is already sealed
+        """
+        cdef CObjectTable objects
+        with nogil:
+            check_status(self.client.get().List(&objects))
+        result = dict()
+        cdef ObjectID object_id
+        cdef CObjectTableEntry entry
+        it = objects.begin()
+        while it != objects.end():
+            object_id = ObjectID(deref(it).first.binary())
+            entry = deref(deref(it).second)
+            if entry.state == CObjectState.PLASMA_CREATED:
+                state = "created"
+            else:
+                state = "sealed"
+            result[object_id] = {
+                "data_size": entry.data_size,
+                "metadata_size": entry.metadata_size,
+                "ref_count": entry.ref_count,
+                "create_time": entry.create_time,
+                "construct_duration": entry.construct_duration,
+                "state": state
+            }
+            inc(it)
+        return result
 
 
 def connect(store_socket_name, manager_socket_name, int release_delay,
