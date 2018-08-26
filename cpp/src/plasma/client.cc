@@ -184,6 +184,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Contains(const ObjectID& object_id, bool* has_object);
 
+  Status List(ObjectTable* objects);
+
   Status Abort(const ObjectID& object_id);
 
   Status Seal(const ObjectID& object_id);
@@ -705,6 +707,13 @@ Status PlasmaClient::Impl::Contains(const ObjectID& object_id, bool* has_object)
   return Status::OK();
 }
 
+Status PlasmaClient::Impl::List(ObjectTable* objects) {
+  RETURN_NOT_OK(SendListRequest(store_conn_));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaListReply, &buffer));
+  return ReadListReply(buffer.data(), buffer.size(), objects);
+}
+
 static void ComputeBlockHash(const unsigned char* data, int64_t nbytes, uint64_t* hash) {
   XXH64_state_t hash_state;
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
@@ -1056,6 +1065,8 @@ Status PlasmaClient::Release(const ObjectID& object_id) {
 Status PlasmaClient::Contains(const ObjectID& object_id, bool* has_object) {
   return impl_->Contains(object_id, has_object);
 }
+
+Status PlasmaClient::List(ObjectTable* objects) { return impl_->List(objects); }
 
 Status PlasmaClient::Abort(const ObjectID& object_id) { return impl_->Abort(object_id); }
 

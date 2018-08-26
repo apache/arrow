@@ -43,6 +43,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <ctime>
 #include <deque>
 #include <memory>
 #include <string>
@@ -214,6 +215,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->offset = offset;
   entry->state = ObjectState::PLASMA_CREATED;
   entry->device_num = device_num;
+  entry->create_time = std::time(nullptr);
+  entry->construct_duration = -1;
 #ifdef PLASMA_GPU
   if (device_num != 0) {
     DCHECK_OK(gpu_handle->ExportForIpc(&entry->ipc_handle));
@@ -445,6 +448,8 @@ void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) 
   entry->state = ObjectState::PLASMA_SEALED;
   // Set the object digest.
   std::memcpy(&entry->digest[0], &digest[0], kDigestSize);
+  // Set object construction duration.
+  entry->construct_duration = std::time(nullptr) - entry->create_time;
   // Inform all subscribers that a new object has been sealed.
   ObjectInfoT info;
   info.object_id = object_id.binary();
@@ -783,6 +788,10 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       } else {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 0), client->fd);
       }
+    } break;
+    case fb::MessageType::PlasmaListRequest: {
+      RETURN_NOT_OK(ReadListRequest(input, input_size));
+      HANDLE_SIGPIPE(SendListReply(client->fd, store_info_.objects), client->fd);
     } break;
     case fb::MessageType::PlasmaSealRequest: {
       unsigned char digest[kDigestSize];

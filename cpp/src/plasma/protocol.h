@@ -141,6 +141,16 @@ Status SendContainsReply(int sock, ObjectID object_id, bool has_object);
 Status ReadContainsReply(uint8_t* data, size_t size, ObjectID* object_id,
                          bool* has_object);
 
+/* Plasma List message functions. */
+
+Status SendListRequest(int sock);
+
+Status ReadListRequest(uint8_t* data, size_t size);
+
+Status SendListReply(int sock, const ObjectTable& objects);
+
+Status ReadListReply(uint8_t* data, size_t size, ObjectTable* objects);
+
 /* Plasma Connect message functions. */
 
 Status SendConnectRequest(int sock);

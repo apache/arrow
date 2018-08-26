@@ -17,6 +17,8 @@
 
 #include "plasma/protocol.h"
 
+#include <utility>
+
 #include "flatbuffers/flatbuffers.h"
 #include "plasma/plasma_generated.h"
 
@@ -407,6 +409,53 @@ Status ReadContainsReply(uint8_t* data, size_t size, ObjectID* object_id,
   DCHECK(VerifyFlatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
   *has_object = message->has_object();
+  return Status::OK();
+}
+
+// List messages.
+
+Status SendListRequest(int sock) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = fb::CreatePlasmaListRequest(fbb);
+  return PlasmaSend(sock, MessageType::PlasmaListRequest, &fbb, message);
+}
+
+Status ReadListRequest(uint8_t* data, size_t size) { return Status::OK(); }
+
+Status SendListReply(int sock, const ObjectTable& objects) {
+  flatbuffers::FlatBufferBuilder fbb;
+  std::vector<flatbuffers::Offset<fb::ObjectInfo>> object_infos;
+  for (auto const& entry : objects) {
+    auto digest = entry.second->state == ObjectState::PLASMA_CREATED
+                      ? fbb.CreateString("")
+                      : fbb.CreateString(reinterpret_cast<char*>(entry.second->digest),
+                                         kDigestSize);
+    auto info = fb::CreateObjectInfo(fbb, fbb.CreateString(entry.first.binary()),
+                                     entry.second->data_size, entry.second->metadata_size,
+                                     entry.second->ref_count, entry.second->create_time,
+                                     entry.second->construct_duration, digest);
+    object_infos.push_back(info);
+  }
+  auto message = fb::CreatePlasmaListReply(fbb, fbb.CreateVector(object_infos));
+  return PlasmaSend(sock, MessageType::PlasmaListReply, &fbb, message);
+}
+
+Status ReadListReply(uint8_t* data, size_t size, ObjectTable* objects) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaListReply>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  for (auto const& object : *message->objects()) {
+    ObjectID object_id = ObjectID::from_binary(object->object_id()->str());
+    auto entry = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
+    entry->data_size = object->data_size();
+    entry->metadata_size = object->metadata_size();
+    entry->ref_count = object->ref_count();
+    entry->create_time = object->create_time();
+    entry->construct_duration = object->construct_duration();
+    entry->state = object->digest()->size() == 0 ? ObjectState::PLASMA_CREATED
+                                                 : ObjectState::PLASMA_SEALED;
+    (*objects)[object_id] = std::move(entry);
+  }
   return Status::OK();
 }
 
