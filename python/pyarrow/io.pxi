@@ -942,15 +942,6 @@ cdef class BufferOutputStream(NativeFile):
         self.is_writable = True
         self.closed = False
 
-    def get_result(self):
-        """
-        Deprecated as of 0.10.0. Alias for getvalue()
-        """
-        warnings.warn("BufferOutputStream.get_result() has been renamed "
-                      "to getvalue(), will be removed in 0.11.0",
-                      FutureWarning)
-        return self.getvalue()
-
     def getvalue(self):
         """
         Finalize output stream and return result as pyarrow.Buffer.

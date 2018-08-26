@@ -166,7 +166,7 @@ def serialize_pandas(df, nthreads=None, preserve_index=True):
     writer = pa.RecordBatchStreamWriter(sink, batch.schema)
     writer.write_batch(batch)
     writer.close()
-    return sink.get_result()
+    return sink.getvalue()
 
 
 def deserialize_pandas(buf, nthreads=None, use_threads=False):
