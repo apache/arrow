@@ -209,10 +209,9 @@ matrix:
     script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
-  # Rust Stable
+  # Rust
   - language: rust
     cache: cargo
-    rust: stable
     addons:
       apt:
         packages:
@@ -225,30 +224,14 @@ matrix:
     - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+    - rustup default stable && $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+    - rustup default nightly && { $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh || true }
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/rust
     # Run coverage for codecov.io
     - mkdir -p target/kcov
     - RUST_BACKTRACE=1 cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-  # Rust Nightly
-  - language: rust
-    cache: cargo
-    rust: nightly
-    addons:
-      apt:
-        packages:
-          - libcurl4-openssl-dev
-          - libelf-dev
-          - libdw-dev
-          - binutils-dev
-          - cmake
-    before_script:
-    - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
   # Go
   - language: go
     go_import_path: github.com/apache/arrow

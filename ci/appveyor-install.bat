@@ -21,6 +21,8 @@ if "%JOB%" == "Rust_Stable" (
     curl -sSf -o rustup-init.exe https://win.rustup.rs/
     rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
     set "PATH=%PATH%;C:\Users\Appveyor\.cargo\bin"
+    rustup install stable
+    rustup install nightly
     rustc -Vv
     cargo -V
 ) else (
