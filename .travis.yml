@@ -225,7 +225,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
     script:
     - rustup default stable && $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
-    - rustup default nightly && { $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh || true }
+    - rustup default nightly && $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh || true
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/rust
     # Run coverage for codecov.io
