@@ -34,6 +34,7 @@ set(ARROW_SRCS
   io/file.cc
   io/interfaces.cc
   io/memory.cc
+  io/readahead.cc
 
   util/bit-util.cc
   util/compression.cc

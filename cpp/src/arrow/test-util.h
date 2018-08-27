@@ -330,11 +330,24 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
 }
 
 void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected) {
-  ASSERT_EQ(buffer.size(), expected.size());
+  ASSERT_EQ(buffer.size(), expected.size()) << "Mismatching buffer size";
   const uint8_t* buffer_data = buffer.data();
   for (size_t i = 0; i < expected.size(); ++i) {
     ASSERT_EQ(buffer_data[i], expected[i]);
   }
+}
+
+void AssertBufferEqual(const Buffer& buffer, const std::string& expected) {
+  ASSERT_EQ(buffer.size(), expected.length()) << "Mismatching buffer size";
+  const uint8_t* buffer_data = buffer.data();
+  for (size_t i = 0; i < expected.size(); ++i) {
+    ASSERT_EQ(buffer_data[i], expected[i]);
+  }
+}
+
+void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
+  ASSERT_EQ(buffer.size(), expected.size()) << "Mismatching buffer size";
+  ASSERT_TRUE(buffer.Equals(expected));
 }
 
 void PrintColumn(const Column& col, std::stringstream* ss) {
