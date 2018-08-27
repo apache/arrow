@@ -239,4 +239,3 @@ describe(`Int128`, () => {
         expect(Int128.fromNumber(-8086463330923024)).toEqual(new Int128(new Uint32Array([0x89abcdf0, 0xffe34567, 0xffffffff, 0xffffffff])));
     });
 });
-

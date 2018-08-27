@@ -31,6 +31,8 @@ const {
     Uint8, Uint16, Uint32, Uint64,
 } = Arrow.type;
 
+const { DateUnit } = Arrow.enum_;
+
 const FixedSizeVectors = {
     Int64Vector: [IntVector, Int64] as [typeof IntVector, typeof Int64],
     Uint64Vector: [IntVector, Uint64] as [typeof IntVector, typeof Uint64],
@@ -318,18 +320,31 @@ describe(`Utf8Vector`, () => {
 });
 
 describe(`DateVector`, () => {
-    const values = [
-        new Date(1989, 5, 22, 1, 2, 3),
-        new Date(1988, 3, 25, 4, 5, 6),
-        new Date(1987, 2, 24, 7, 8, 9),
-        new Date(2018, 4, 12, 17, 30, 0)
-    ];
     const extras = [
         new Date(2000, 0, 1),
         new Date(1991, 5, 28, 12, 11, 10)
     ];
-    const vector = DateVector.from(values);
-    basicVectorTests(vector, values, extras);
+    describe(`unit = MILLISECOND`, () => {
+        const values = [
+            new Date(1989, 5, 22, 1, 2, 3),
+            new Date(1988, 3, 25, 4, 5, 6),
+            new Date(1987, 2, 24, 7, 8, 9),
+            new Date(2018, 4, 12, 17, 30, 0)
+        ];
+        const vector = DateVector.from(values);
+        basicVectorTests(vector, values, extras);
+    });
+    describe(`unit = DAY`, () => {
+        // Use UTC to ensure that dates are always at midnight
+        const values = [
+            new Date(Date.UTC(1989, 5, 22)),
+            new Date(Date.UTC(1988, 3, 25)),
+            new Date(Date.UTC(1987, 2, 24)),
+            new Date(Date.UTC(2018, 4, 12))
+        ];
+        const vector = DateVector.from(values, DateUnit.DAY);
+        basicVectorTests(vector, values, extras);
+    });
 });
 
 describe(`DictionaryVector`, () => {
