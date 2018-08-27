@@ -35,9 +35,9 @@
     // of the repository.
     "repo_subdir": "python",
 
-    "build_command": ["/bin/bash", "asv-build.sh"],
-    "install_command": ["/bin/bash", "asv-install.sh"],
-    "uninstall_command": ["/bin/bash", "asv-uninstall.sh"],
+    "build_command": ["/bin/bash {build_dir}/asv-build.sh"],
+    "install_command": ["/bin/bash {build_dir}/asv-install.sh"],
+    "uninstall_command": ["/bin/bash {build_dir}/asv-uninstall.sh"],
 
     // List of branches to benchmark. If not provided, defaults to "master"
     // (for git) or "default" (for mercurial).
@@ -81,11 +81,11 @@
     //     "pip+emcee": [""],   // emcee is only available for install with pip.
     // },
     "matrix": {
-        "boost-cpp": [],
+        "boost-cpp": ["1.67.0"],
         "brotli": [],
         "cmake": [],
         "cython": [],
-        "flatbuffers": [],
+        "flatbuffers": ["1.7.1"],
         "libprotobuf": [],
         "lz4-c": [],
         "ninja": [],
