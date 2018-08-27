@@ -22,6 +22,7 @@
 #include <lz4.h>
 
 #include "arrow/status.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -31,13 +32,33 @@ namespace arrow {
 
 Status Lz4Codec::Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
                             uint8_t* output_buffer) {
-  int64_t decompressed_size = LZ4_decompress_safe(
+  int64_t decompressed_size;
+
+  // For hadoop lz4 compression format, the compressed data is prefixed
+  // with original data length (big-endian) and then compressed data
+  // length (big-endian).  For details, please refer to JIRA ticket:
+  //
+  //     https://issues.apache.org/jira/browse/HADOOP-12990
+  //
+  // If the prefix could match the format, try to decompress from 'input + 8'.
+  if (BitUtil::FromBigEndian(*(reinterpret_cast<const uint32_t*>(input))) == output_len
+      && BitUtil::FromBigEndian(*(reinterpret_cast<const uint32_t*>(input) + 1)) == input_len - 8) {
+    decompressed_size = LZ4_decompress_safe(
+        reinterpret_cast<const char*>(input) + 8, reinterpret_cast<char*>(output_buffer),
+        static_cast<int>(input_len) - 8, static_cast<int>(output_len));
+    if (decompressed_size >= 0) {
+      return Status::OK();
+    }
+  // For normal lz4 compression, decompress the entire 'input'.
+  } else {
+    decompressed_size = LZ4_decompress_safe(
       reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
       static_cast<int>(input_len), static_cast<int>(output_len));
-  if (decompressed_size < 0) {
-    return Status::IOError("Corrupt Lz4 compressed data.");
+    if (decompressed_size >= 0) {
+      return Status::OK();
+    }
   }
-  return Status::OK();
+  return Status::IOError("Corrupt Lz4 compressed data.");
 }
 
 int64_t Lz4Codec::MaxCompressedLen(int64_t input_len,
