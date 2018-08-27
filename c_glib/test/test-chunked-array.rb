@@ -109,4 +109,23 @@ class TestChunkedArray < Test::Unit::TestCase
     sub_chunked_array = chunked_array.slice(1, 3)
     assert_equal(chunks2, sub_chunked_array.chunks)
   end
+
+  def test_to_s
+    chunks = [
+      build_boolean_array([true, false]),
+      build_boolean_array([true]),
+    ]
+    chunked_array = Arrow::ChunkedArray.new(chunks)
+    assert_equal(<<-PRETTY_PRINT.chomp, chunked_array.to_s)
+[
+  [
+    true,
+    false
+  ],
+  [
+    true
+  ]
+]
+    PRETTY_PRINT
+  end
 end
