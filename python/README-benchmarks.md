@@ -32,10 +32,10 @@ use your current Python interpreter and environment.
 ## Running with arbitrary revisions
 
 ASV allows to store results and generate graphs of the benchmarks over
-the project's evolution.  For this you have to install our fork of ASV:
+the project's evolution.  For this you have the latest development version of ASV:
 
 ```shell
-pip install git+https://github.com/pitrou/asv.git@customize_commands
+pip install git+https://github.com/airspeed-velocity/asv
 ```
 
 Now you should be ready to run `asv run` or whatever other command
