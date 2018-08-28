@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,12 +16,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
+=======
+>>>>>>> Initial work for type metadata, with tests.
 #' @include enums.R
 #' @importFrom R6 R6Class
 #' @importFrom glue glue
 #' @importFrom purrr map map_int map2
 #' @importFrom rlang dots_n
 #' @importFrom assertthat assert_that
+<<<<<<< HEAD
+=======
+
+>>>>>>> Initial work for type metadata, with tests.
 `arrow::Object` <- R6Class("arrow::Object",
   public = list(
     `.:xp:.` = NULL,
@@ -290,6 +297,7 @@
   )
 )
 
+<<<<<<< HEAD
 #' Apache Arrow data types
 #'
 #' Apache Arrow data types
@@ -361,11 +369,59 @@ date32 <- function() `arrow::Date32`$new()
 date64 <- function() `arrow::Date64`$new()
 
 #' @rdname DataType
+=======
+#' @export
+int8 <- function() `arrow::Int8`$new()
+
+#' @export
+int16 <- function() `arrow::Int16`$new()
+
+#' @export
+int32 <- function() `arrow::Int32`$new()
+
+#' @export
+int64 <- function() `arrow::Int64`$new()
+
+#' @export
+uint8 <- function() `arrow::UInt8`$new()
+
+#' @export
+uint16 <- function() `arrow::UInt16`$new()
+
+#' @export
+uint32 <- function() `arrow::UInt32`$new()
+
+#' @export
+uint64 <- function() `arrow::UInt64`$new()
+
+#' @export
+float16 <- function() `arrow::Float16`$new()
+
+#' @export
+float32 <- function() `arrow::Float32`$new()
+
+#' @export
+float64 <- function() `arrow::Float64`$new()
+
+#' @export
+boolean <- function() `arrow::Boolean`$new()
+
+#' @export
+utf8 <- function() `arrow::Utf8`$new()
+
+#' @export
+date32 <- function() `arrow::Date32`$new()
+
+#' @export
+date64 <- function() `arrow::Date64`$new()
+
+>>>>>>> Initial work for type metadata, with tests.
 #' @export
 time32 <- function(unit) {
   `arrow::Time32`$new(unit)
 }
 
+<<<<<<< HEAD
 #' @rdname DataType
 #' @export
 time64 <- function(unit) `arrow::Time64`$new(unit)
@@ -379,6 +435,17 @@ null <- function() `arrow::Null`$new()
 timestamp <- function(...) `arrow::Timestamp`$new(...)
 
 #' @rdname DataType
+=======
+#' @export
+time64 <- function(unit) `arrow::Time64`$new(unit)
+
+#' @export
+null <- function() `arrow::Null`$new()
+
+#' @export
+timestamp <- function(...) `arrow::Timestamp`$new(...)
+
+>>>>>>> Initial work for type metadata, with tests.
 #' @export
 decimal <- function(precision, scale) `arrow::Decimal128Type`$new(precision, scale)
 
@@ -461,11 +528,17 @@ field <- function(name, type) `arrow::Field`$new(name, type)
   )
 )
 
+<<<<<<< HEAD
 #' @rdname DataType
 #' @export
 struct <- function(...) `arrow::StructType`$new(...)
 
 #' @rdname DataType
+=======
+#' @export
+struct <- function(...) `arrow::StructType`$new(...)
+
+>>>>>>> Initial work for type metadata, with tests.
 #' @export
 schema <- function(...) `arrow::Schema`$new(...)
 
@@ -487,7 +560,12 @@ schema <- function(...) `arrow::Schema`$new(...)
   )
 )
 
+<<<<<<< HEAD
 #' @rdname DataType
 #' @export
 list_of <- function(type) `arrow::ListType`$new(type)
+=======
+#' @export
+list_of <- function(x) `arrow::ListType`$new(x)
+>>>>>>> Initial work for type metadata, with tests.
 

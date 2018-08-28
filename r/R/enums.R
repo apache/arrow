@@ -38,13 +38,28 @@ enum <- function(class, ...){
 }
 
 
+<<<<<<< HEAD
 TimeUnit <- enum("arrow::TimeUnit::type", SECOND, MILLI, MICRO, NANO)
 DateUnit <- enum("arrow::DateUnit", DAY, MILLI)
+=======
+#' @export
+TimeUnit <- enum("arrow::TimeUnit::type", SECOND, MILLI, MICRO, NANO)
+
+#' @export
+DateUnit <- enum("arrow::DateUnit", DAY, MILLI)
+
+#' @export
+>>>>>>> Initial work for type metadata, with tests.
 Type <- enum("arrow::Type::type",
   NA, BOOL, UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64,
   HALF_FLOAT, FLOAT, DOUBLE, STRING, BINARY, DATE32, DATE64, TIMESTAMP,
   INTERVAL, DECIMAL, LIST, STRUCT, UNION, DICTIONARY, MAP
 )
+<<<<<<< HEAD
+=======
+
+#' @export
+>>>>>>> Initial work for type metadata, with tests.
 StatusCode <- enum("arrow::StatusCode",
   OK, OutOfMemory, KeyError, TypeError, Invalid, IOError,
   CapacityError, UnknownError, NotImplemented, SerializationError,

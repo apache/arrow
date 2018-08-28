@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,6 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+=======
+>>>>>>> Initial work for type metadata, with tests.
 #' @include R6.R
 
 `arrow::ArrayData` <- R6Class("arrow::ArrayData",
@@ -33,6 +36,10 @@
   )
 )
 
+<<<<<<< HEAD
+=======
+#' @export
+>>>>>>> Initial work for type metadata, with tests.
 array_data <- function(...){
   `arrow::ArrayData`$new(...)
 }
@@ -65,6 +72,10 @@ array_data <- function(...){
 #' @export
 `!=.arrow::Array` <- function(x, y) !x$Equals(y)
 
+<<<<<<< HEAD
+=======
+#' @export
+>>>>>>> Initial work for type metadata, with tests.
 MakeArray <- function(data){
   assert_that(inherits(data, "arrow::ArrayData"))
   `arrow::Array`$new(data)

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-git rm ---
-=======
 ---
->>>>>>> + installation instructions
 output: github_document
 ---
 
@@ -18,11 +14,7 @@ knitr::opts_chunk$set(
 ```
 # arrow
 
-<<<<<<< HEAD
 R integration with Apache Arrow.
-=======
-Low level bindings to the C++ Apache Arrow library
->>>>>>> + installation instructions
 
 ## Installation
 
@@ -37,11 +29,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
 make install
 ```
 
-<<<<<<< HEAD
 Then the R package:
-=======
-Then the R package: 
->>>>>>> + installation instructions
 
 ```r
 devtools::install_github("apache/arrow/r")
