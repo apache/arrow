@@ -127,4 +127,7 @@ r/.Rbuildignore
 r/arrow.Rproj
 r/README.md
 r/README.Rmd
+<<<<<<< HEAD
 r/man/*.Rd
+=======
+>>>>>>> + installation instructions

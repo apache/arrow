@@ -1,8 +1,12 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 <<<<<<< HEAD
+<<<<<<< HEAD
 ^README\.Rmd$
 src/.clang-format
 LICENSE.md
 =======
 >>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
+=======
+^README\.Rmd$
+>>>>>>> + installation instructions
