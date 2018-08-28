@@ -17,8 +17,4 @@
 
 #' @useDynLib arrow, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
-<<<<<<< HEAD
-#' @exportPattern "^.*$"
-=======
->>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
 NULL

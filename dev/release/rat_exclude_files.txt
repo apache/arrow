@@ -121,13 +121,19 @@ c_glib/doc/reference/gtk-doc.make
 r/R/RcppExports.R
 r/src/RcppExports.cpp
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> not checking for headers on these files
 r/DESCRIPTION
 r/LICENSE.md
 r/NAMESPACE
 r/.Rbuildignore
 r/arrow.Rproj
+<<<<<<< HEAD
 r/README.md
 r/README.Rmd
 r/man/*.Rd
 =======
 >>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
+=======
+>>>>>>> not checking for headers on these files
