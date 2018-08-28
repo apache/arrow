@@ -15,17 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-<<<<<<< HEAD
-#include "r_arrow_types.h"
-=======
+#pragma once
+
 #include <Rcpp.h>
-#include "rrrow_types.h"
->>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
-
-using namespace Rcpp ;
-using namespace arrow ;
-
-// [[Rcpp::export]]
-std::string ping_arrow(){
-  return arrow::int32()->name();
-}
+#undef Free
+#include <arrow/api.h>
