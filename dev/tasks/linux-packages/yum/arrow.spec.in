@@ -27,12 +27,10 @@ Version:	@VERSION@
 Release:	@RELEASE@%{?dist}
 Summary:	Apache Arrow is a data processing library for analysis
 
-Group:		Development/Libraries
 License:	Apache-2.0
 URL:		https://arrow.apache.org/
 Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
 
-BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-%(%{__id_u} -n)
 BuildRequires:	pkgconfig
 BuildRequires:	gcc-c++
 BuildRequires:	cmake3
@@ -102,7 +100,6 @@ cd -
 
 %package libs
 Summary:	Runtime libraries for Apache Arrow C++
-Group:		System Environment/Libraries
 License:	Apache-2.0
 Requires:	boost-system
 Requires:	boost-filesystem
@@ -119,7 +116,6 @@ This package contains the libraries for Apache Arrow C++.
 
 %package devel
 Summary:	Libraries and header files for Apache Arrow C++
-Group:		Development/Libraries
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
 
@@ -139,7 +135,6 @@ Libraries and header files for Apache Arrow C++.
 %if %{use_python}
 %package python-libs
 Summary:	Apache Arrow CPython extensions
-Group:		System Environment/Libraries
 License:	Apache-2.0
 Requires:	arrow-libs = %{version}-%{release}
 Requires:	python34-numpy
@@ -154,7 +149,6 @@ This package contains the Apache Arrow CPython extensions.
 
 %package python-devel
 Summary:	Libraries and header files for Apache Arrow CPython extensions
-Group:		Development/Libraries
 License:	Apache-2.0
 Requires:	arrow-devel = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
@@ -174,7 +168,6 @@ Libraries and header files for Apache Arrow CPython extensions.
 %if %{use_glib}
 %package glib-libs
 Summary:	Runtime libraries for Apache Arrow GLib
-Group:		System Environment/Libraries
 License:	Apache-2.0
 Requires:	arrow-libs = %{version}-%{release}
 Requires:	glib2
@@ -190,7 +183,6 @@ This package contains the libraries for Apache Arrow GLib.
 
 %package glib-devel
 Summary:	Libraries and header files for Apache Arrow GLib
-Group:		Development/Libraries
 License:	Apache-2.0
 Requires:	arrow-devel = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
@@ -213,7 +205,6 @@ Libraries and header files for Apache Arrow GLib.
 
 %package glib-doc
 Summary:	Documentation for Apache Arrow GLib
-Group:		Documentation
 License:	Apache-2.0
 Requires:	arrow-devel = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
