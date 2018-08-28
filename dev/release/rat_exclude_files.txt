@@ -75,6 +75,7 @@ dev/tasks/linux-packages/debian/patches/series
 dev/tasks/linux-packages/debian/rules
 dev/tasks/linux-packages/debian/source/format
 dev/tasks/linux-packages/debian/watch
+go/arrow/go.sum
 go/arrow/Gopkg.lock
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
