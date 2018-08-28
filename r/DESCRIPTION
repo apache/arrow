@@ -2,7 +2,7 @@ Package: arrow
 Title: R Integration to 'Apache' 'Arrow'
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")), 
+    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: R Integration to 'Apache' 'Arrow'.
@@ -11,11 +11,11 @@ License: Apache License (>= 2.0)
 Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
-LinkingTo: 
+LinkingTo:
     Rcpp
-Imports: 
+Imports:
     Rcpp
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.0.1.9000
-Suggests: 
+Suggests:
     testthat
