@@ -15,11 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PKG_CPPFLAGS=@cflags@
-PKG_CXXFLAGS=$(C_VISIBILITY)
-CXX_STD=CXX11
-<<<<<<< HEAD
-PKG_LIBS=@libs@
-=======
-PKG_LIBS=@libs@ -Wl,-rpath,/usr/local/lib
->>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
+context("test-arrow.R")
+
+test_that("can use arrow C++ library", {
+  expect_equal(arrow:::ping_arrow(), "int32")
+})

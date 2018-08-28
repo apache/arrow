@@ -15,21 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include <Rcpp.h>
+#include "rrrow_types.h"
 
-using namespace Rcpp;
-
-// [[Rcpp::export]]
-static_ptr<arrow::MemoryPool> MemoryPool_default(){
-  return arrow::default_memory_pool();
-}
+using namespace Rcpp ;
+using namespace arrow ;
 
 // [[Rcpp::export]]
-int MemoryPool_bytes_allocated(static_ptr<arrow::MemoryPool> pool){
-  return pool->bytes_allocated();
-}
-
-// [[Rcpp::export]]
-int MemoryPool_max_memory(static_ptr<arrow::MemoryPool> pool){
-  return pool->max_memory();
+std::string ping_arrow(){
+  return arrow::int32()->name();
 }
