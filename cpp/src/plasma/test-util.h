@@ -19,7 +19,6 @@
 #define PLASMA_TEST_UTIL_H
 
 #include "arrow/test-util.h"
-#include "gtest/gtest.h"
 
 #include "plasma/common.h"
 
