@@ -143,6 +143,7 @@ install(FILES
   compat.h
   client.h
   events.h
+  test-util.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # Plasma store

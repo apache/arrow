@@ -113,11 +113,18 @@ stored in shared memory. Each object in the Plasma store should be associated
 with a unique ID. The Object ID is then a key that can be used by **any** client
 to fetch that object from the Plasma store.
 
-Random generation of Object IDs is often good enough to ensure unique IDs:
+Random generation of Object IDs is often good enough to ensure unique IDs.
+For test purposes, you can use the function `random_object_id` from the header
+`plasma/test-util.h` to generate random Object IDs, which uses a global random
+number generator. In your own applications, we recommend to generate a string of
+`ObjectID::size()` many random bytes using your own random number generator
+and pass them to `ObjectID::from_bytes` to generate the ObjectID.
 
 ```cpp
+#include <plasma/test-util.h>
+
 // Randomly generate an Object ID.
-ObjectID object_id = ObjectID::from_random();
+ObjectID object_id = random_object_id();
 ```
 
 Now, any connected client that knows the object's Object ID can access the
@@ -142,11 +149,12 @@ Here is a test program you can run:
 #include <iostream>
 #include <string>
 #include <plasma/client.h>
+#include <plasma/test-util.h>
 
 using namespace plasma;
 
 int main(int argc, char** argv) {
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   std::cout << "object_id1 is " << object_id1.hex() << std::endl;
 
   std::string id_string = object_id1.binary();

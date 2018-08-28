@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_TEST_COMMON_H
-#define PLASMA_TEST_COMMON_H
+#ifndef PLASMA_TEST_UTIL_H
+#define PLASMA_TEST_UTIL_H
 
 #include "arrow/test-util.h"
 #include "gtest/gtest.h"
@@ -34,4 +34,4 @@ ObjectID random_object_id() {
 
 }  // namespace plasma
 
-#endif  // PLASMA_TEST_COMMON_H
+#endif  // PLASMA_TEST_UTIL_H

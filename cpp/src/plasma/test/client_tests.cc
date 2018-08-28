@@ -26,7 +26,7 @@
 #include <random>
 #include <thread>
 
-#include "plasma/test-common.h"
+#include "plasma/test-util.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"

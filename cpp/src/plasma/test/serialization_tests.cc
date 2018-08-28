@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "plasma/test-common.h"
+#include "plasma/test-util.h"
 
 #include "plasma/common.h"
 #include "plasma/io.h"
