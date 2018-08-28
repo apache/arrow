@@ -19,8 +19,11 @@
 
 # Anticonf (tm) script by Jeroen Ooms, Jim Hester (2017)
 <<<<<<< HEAD
+<<<<<<< HEAD
 # License: MIT
 #
+=======
+>>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
 =======
 >>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
 # This script will query 'pkg-config' for the required cflags and ldflags.

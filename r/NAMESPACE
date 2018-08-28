@@ -2,6 +2,7 @@
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> Initial work for type metadata, with tests.
 S3method("!=","arrow::Array")
@@ -68,4 +69,7 @@ importFrom(Rcpp,sourceCpp)
 >>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
 =======
 >>>>>>> Initial work for type metadata, with tests.
+=======
+importFrom(Rcpp,sourceCpp)
+>>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
 useDynLib(arrow, .registration = TRUE)

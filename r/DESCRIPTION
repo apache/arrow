@@ -1,4 +1,5 @@
 Package: arrow
+<<<<<<< HEAD
 Title: R Integration to 'Apache' 'Arrow'
 Version: 0.0.0.9000
 Authors@R: c(
@@ -6,11 +7,20 @@ Authors@R: c(
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: R Integration to 'Apache' 'Arrow'.
+=======
+Title: Bindings to 'Apache' 'Arrow'
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre"))
+  )
+Description: R bindings to Apache Arrow.
+>>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
 Depends: R (>= 3.5)
 License: Apache License (>= 2.0)
 Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
+<<<<<<< HEAD
 LinkingTo:
     Rcpp (>= 0.12.18)
 Imports:
@@ -32,3 +42,13 @@ Collate:
     'memory_pool.R'
     'status.R'
     'zzz.R'
+=======
+LinkingTo: 
+    Rcpp
+Imports: 
+    Rcpp
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 6.0.1.9000
+Suggests: 
+    testthat
+>>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()

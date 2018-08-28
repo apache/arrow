@@ -15,10 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @useDynLib arrow, .registration = TRUE
-#' @importFrom Rcpp sourceCpp
-<<<<<<< HEAD
-#' @exportPattern "^.*$"
-=======
->>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
-NULL
+context("test-arrow.R")
+
+test_that("can use arrow C++ library", {
+  expect_equal(arrow:::ping_arrow(), "int32")
+})

@@ -120,6 +120,7 @@ c_glib/doc/reference/gtk-doc.make
 *.scss
 r/R/RcppExports.R
 r/src/RcppExports.cpp
+<<<<<<< HEAD
 r/DESCRIPTION
 r/LICENSE.md
 r/NAMESPACE
@@ -128,3 +129,5 @@ r/arrow.Rproj
 r/README.md
 r/README.Rmd
 r/man/*.Rd
+=======
+>>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
