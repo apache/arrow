@@ -235,8 +235,7 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-=======
->>>>>>> initial R :package: with travis setup and testthat suite, that links to arrow c++ library and calls arrow::int32()
+
 // ping_arrow
 std::string ping_arrow();
 RcppExport SEXP _arrow_ping_arrow() {
@@ -247,7 +246,7 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-<<<<<<< HEAD
+
 // MemoryPool_default
 static_ptr<arrow::MemoryPool> MemoryPool_default();
 RcppExport SEXP _arrow_MemoryPool_default() {

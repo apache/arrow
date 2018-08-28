@@ -3,7 +3,11 @@
 
 # arrow
 
+<<<<<<< HEAD
 R integration with Apache Arrow.
+=======
+Low level bindings to the C++ Apache Arrow library
+>>>>>>> + installation instructions
 
 ## Installation
 
