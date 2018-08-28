@@ -18,6 +18,8 @@
 #ifndef PLASMA_TEST_UTIL_H
 #define PLASMA_TEST_UTIL_H
 
+#include <algorithm>
+#include <limits>
 #include <random>
 
 #include "plasma/common.h"
