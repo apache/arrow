@@ -123,3 +123,5 @@ r/LICENSE.md
 r/NAMESPACE
 r/.Rbuildignore
 r/arrow.Rproj
+r/README.md
+r/README.Rmd
