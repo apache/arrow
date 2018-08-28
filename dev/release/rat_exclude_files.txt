@@ -118,3 +118,8 @@ c_glib/doc/reference/gtk-doc.make
 *.scss
 r/R/RcppExports.R
 r/src/RcppExports.cpp
+r/DESCRIPTION
+r/LICENSE.md
+r/NAMESPACE
+r/.Rbuildignore
+r/arrow.Rproj
