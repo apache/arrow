@@ -1,0 +1,32 @@
+Package: arrow
+Title: Bindings to 'Apache' 'Arrow'
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")), 
+    person("The Apache Software Foundation", email = "dev@arrow.apache.org", role = c("aut", "cph"))
+  )
+Description: R bindings to Apache Arrow.
+Depends: R (>= 3.4.3)
+License: Apache License (>= 2.0)
+Encoding: UTF-8
+LazyData: true
+SystemRequirements: C++11
+LinkingTo: 
+    Rcpp (>= 0.12.18)
+Imports: 
+    Rcpp (>= 0.12.18),
+    rlang,
+    purrr,
+    assertthat,
+    glue,
+    R6
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 6.0.1.9000
+Collate: 
+    'enums.R'
+    'R6.R'
+    'RcppExports.R'
+    'array.R'
+    'memory_pool.R'
+    'status.R'
+    'zzz.R'
