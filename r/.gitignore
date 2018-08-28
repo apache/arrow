@@ -1,0 +1,10 @@
+*.o
+*.o-*
+*.d
+*.so
+*.dll
+.RData
+.Rproj.user
+.Rhistory
+src/Makevars
+

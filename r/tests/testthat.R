@@ -15,27 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-MANIFEST
+library(testthat)
+library(arrow)
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
-
-cpp/.idea/
-python/.eggs/
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
+test_check("arrow")

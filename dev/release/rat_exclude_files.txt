@@ -116,3 +116,5 @@ c_glib/doc/reference/gtk-doc.make
 *.svg
 *.devhelp2
 *.scss
+r/R/RcppExports.R
+r/src/RcppExports.cpp
