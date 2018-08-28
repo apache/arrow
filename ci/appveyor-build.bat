@@ -18,7 +18,7 @@
 @echo on
 
 if "%JOB%" == "Rust" (
-    cd rust
+    pushd rust
 
     rustup default stable
     rustup show
@@ -33,6 +33,10 @@ if "%JOB%" == "Rust" (
     cargo build --target %TARGET% --release
     cargo test --target %TARGET%
     cargo test --target %TARGET% --release
+
+    rustup default stable
+
+    popd
 ) else (
     git config core.symlinks true
     git reset --hard
