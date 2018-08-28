@@ -38,50 +38,48 @@ namespace mlarrow {
 
 namespace internal {
 
-// Verify that the input mxStructArray has the right field names and types.
+// Verify that the input mxArray struct field has the right field name and type.
 // Returns void since these errors should stop execution and throw in the MATLAB layer.
-void ValidateMxStructSchema(const mxArray* array, int num_fields, const char** fieldnames,
-                            const mxClassID* class_ids) {
+void ValidateMxStructField(const mxArray* struct_array, const char* fieldname,
+                           const mxClassID expected_class_id, const bool can_be_empty) {
   // Check that the input mxArray is a struct array.
-  if (!mxIsStruct(array)) {
+  if (!mxIsStruct(struct_array)) {
     mexErrMsgIdAndTxt("MATLAB:arrow:IncorrectDimensionsOrType",
                       "Input needs to be a struct array");
   }
 
   // Return early if an empty table is provided as input.
-  if (mxIsEmpty(array)) {
+  if (mxIsEmpty(struct_array)) {
     return;
   }
 
-  // Iterate over desired fieldnames and verify existence in the input struct array.
-  for (int i = 0; i < num_fields; ++i) {
-    mxArray* field = mxGetField(array, 0, fieldnames[i]);
+  mxArray* field = mxGetField(struct_array, 0, fieldname);
 
-    if (!field) {
+  if (!field) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:MissingStructField",
+                      "Missing field '%s' in input struct array", fieldname);
+  }
+
+  mxClassID actual_class_id = mxGetClassID(field);
+
+  // Avoid type check if an mxUNKNOWN_CLASS is provided since the UNKNOWN type is used to
+  // signify genericity in the input type.
+  if (expected_class_id != mxUNKNOWN_CLASS) {
+    if (expected_class_id != actual_class_id) {
       mexErrMsgIdAndTxt("MATLAB:arrow:MissingStructField",
-                        "Missing field '%s' in input struct array", fieldnames[i]);
+                        "Incorrect type '%s' for struct array field '%s'",
+                        mxGetClassName(field), fieldname);
     }
+  }
 
-    mxClassID class_id = mxGetClassID(field);
-
-    // Avoid type check if an mxUNKNOWN_CLASS is passed in since we use this to
-    // signify genericity in the input type
-    if (class_ids[i] != mxUNKNOWN_CLASS) {
-      if (class_ids[i] != class_id) {
-        mexErrMsgIdAndTxt("MATLAB:arrow:MissingStructField",
-                          "Incorrect type '%s' for struct array field '%s'",
-                          mxGetClassName(field), fieldnames[i]);
-      }
-    }
-
-    // Avoid empty check for mxChar arrays since Description can be empty.
-    if (class_ids[i] != mxCHAR_CLASS) {
-      // Ensure that each individual mxStructArray field is non-empty.
-      // we can call mxGetData after this without needing another null-check
-      if (mxIsEmpty(field)) {
-        mexErrMsgIdAndTxt("MATLAB:arrow:EmptyStructField",
-                          "Struct array field '%s' cannot be empty", fieldnames[i]);
-      }
+  // Some struct fields (like the table description) can be empty, while others 
+  // (like NumRows) should never be empty. This conditional helps account for both cases.
+  if (!can_be_empty) {
+    // Ensure that individual mxStructArray fields are non-empty.
+    // We can call mxGetData after this without needing another null check.
+    if (mxIsEmpty(field)) {
+      mexErrMsgIdAndTxt("MATLAB:arrow:EmptyStructField",
+                        "Struct array field '%s' cannot be empty", fieldname);
     }
   }
 }
@@ -281,15 +279,11 @@ arrow::Status FeatherWriter::Open(const std::string& filename,
 
 // Write table metadata to the Feather file from a mxArray*.
 arrow::Status FeatherWriter::WriteMetadata(const mxArray* metadata) {
-  // Input metadata mxStructArray* must contain these fields.
-  const int num_fields = 4;
-  const char* fieldnames[num_fields] = {"Description", "NumRows", "NumVariables",
-                                        "Version"};
-  const mxClassID class_ids[num_fields] = {mxCHAR_CLASS, mxDOUBLE_CLASS, mxDOUBLE_CLASS,
-                                           mxDOUBLE_CLASS};
-
   // Verify that all required fieldnames are provided.
-  internal::ValidateMxStructSchema(metadata, num_fields, fieldnames, class_ids);
+  internal::ValidateMxStructField(metadata, "Description", mxCHAR_CLASS, true);
+  internal::ValidateMxStructField(metadata, "Version", mxDOUBLE_CLASS, false);
+  internal::ValidateMxStructField(metadata, "NumRows", mxDOUBLE_CLASS, false);
+  internal::ValidateMxStructField(metadata, "NumVariables", mxDOUBLE_CLASS, false);
 
   // Convert Description to a std::string and set on FeatherWriter and TableWriter.
   std::string description =
@@ -314,14 +308,11 @@ arrow::Status FeatherWriter::WriteMetadata(const mxArray* metadata) {
 
 // Write mxArrays from MATLAB into a Feather file.
 arrow::Status FeatherWriter::WriteVariables(const mxArray* variables) {
-  // Required fields for the input struct array.
-  const int num_fields = 4;
-  const char* fieldnames[num_fields] = {"Name", "Type", "Data", "Valid"};
-  const mxClassID class_ids[num_fields] = {mxCHAR_CLASS, mxCHAR_CLASS, mxUNKNOWN_CLASS,
-                                           mxLOGICAL_CLASS};
-
   // Verify that all required fieldnames are provided.
-  internal::ValidateMxStructSchema(variables, num_fields, fieldnames, class_ids);
+  internal::ValidateMxStructField(variables, "Name", mxCHAR_CLASS, true);
+  internal::ValidateMxStructField(variables, "Type", mxCHAR_CLASS, false);
+  internal::ValidateMxStructField(variables, "Data", mxUNKNOWN_CLASS, true);
+  internal::ValidateMxStructField(variables, "Valid", mxLOGICAL_CLASS, true);
 
   // Get the number of columns in the struct array.
   size_t num_columns = internal::GetNumberOfElements(variables);

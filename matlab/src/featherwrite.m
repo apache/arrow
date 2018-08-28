@@ -78,6 +78,6 @@ for ii = 1:width(t)
 end
 
 % Write the table to a Feather file.
-featherwritemex(filename, metadata, variables);
+featherwritemex(filename, variables, metadata);
 
 end
