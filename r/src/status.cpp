@@ -15,12 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "r_arrow_types.h"
+#include "arrow_types.h"
 
-using namespace Rcpp ;
-using namespace arrow ;
+using namespace Rcpp;
 
 // [[Rcpp::export]]
-std::string ping_arrow(){
-  return arrow::int32()->name();
+std::string Status_ToString(const std::shared_ptr<arrow::Status>& status){
+  return status->ToString();
+}
+// [[Rcpp::export]]
+std::string Status_CodeAsString(const std::shared_ptr<arrow::Status>& status){
+  return status->CodeAsString();
+}
+// [[Rcpp::export]]
+arrow::StatusCode Status_code(const std::shared_ptr<arrow::Status>& status){
+  return status->code();
+}
+// [[Rcpp::export]]
+std::string Status_message(const std::shared_ptr<arrow::Status>& status){
+  return status->message();
 }
