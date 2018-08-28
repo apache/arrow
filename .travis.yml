@@ -224,13 +224,13 @@ matrix:
     - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
     script:
-    - rustup default stable && $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
-    - rustup default nightly && $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh || true
+    - RUSTUP_TOOLCHAIN=stable $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+    - RUSTUP_TOOLCHAIN=nightly $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh || true
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/rust
     # Run coverage for codecov.io
     - mkdir -p target/kcov
-    - RUST_BACKTRACE=1 cargo coverage --verbose
+    - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=stable cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   # Go
   - language: go
