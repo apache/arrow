@@ -65,7 +65,6 @@ Array_data <- function(array) {
     .Call(`_arrow_Array_data`, array)
 }
 
-#' @export
 Field_initialize <- function(name, type, nullable = TRUE) {
     .Call(`_arrow_Field_initialize`, name, type, nullable)
 }

@@ -4,7 +4,6 @@
 #' @importFrom purrr map map_int map2
 #' @importFrom rlang dots_n
 #' @importFrom assertthat assert_that
-
 `arrow::Object` <- R6Class("arrow::Object",
   public = list(
     `.:xp:.` = NULL,
@@ -274,65 +273,95 @@
   )
 )
 
+#' Apache Arrow data types
+#'
+#' Apache Arrow data types
+#'
+#' @param unit time unit
+#' @param precision precision
+#' @param scale scale
+#' @param type type
+#' @param ... ...
+#'
+#' @rdname DataType
 #' @export
 int8 <- function() `arrow::Int8`$new()
 
+#' @rdname DataType
 #' @export
 int16 <- function() `arrow::Int16`$new()
 
+#' @rdname DataType
 #' @export
 int32 <- function() `arrow::Int32`$new()
 
+#' @rdname DataType
 #' @export
 int64 <- function() `arrow::Int64`$new()
 
+#' @rdname DataType
 #' @export
 uint8 <- function() `arrow::UInt8`$new()
 
+#' @rdname DataType
 #' @export
 uint16 <- function() `arrow::UInt16`$new()
 
+#' @rdname DataType
 #' @export
 uint32 <- function() `arrow::UInt32`$new()
 
+#' @rdname DataType
 #' @export
 uint64 <- function() `arrow::UInt64`$new()
 
+#' @rdname DataType
 #' @export
 float16 <- function() `arrow::Float16`$new()
 
+#' @rdname DataType
 #' @export
 float32 <- function() `arrow::Float32`$new()
 
+#' @rdname DataType
 #' @export
 float64 <- function() `arrow::Float64`$new()
 
+#' @rdname DataType
 #' @export
 boolean <- function() `arrow::Boolean`$new()
 
+#' @rdname DataType
 #' @export
 utf8 <- function() `arrow::Utf8`$new()
 
+#' @rdname DataType
 #' @export
 date32 <- function() `arrow::Date32`$new()
 
+#' @rdname DataType
 #' @export
 date64 <- function() `arrow::Date64`$new()
 
+#' @rdname DataType
 #' @export
 time32 <- function(unit) {
   `arrow::Time32`$new(unit)
 }
 
+#' @rdname DataType
 #' @export
 time64 <- function(unit) `arrow::Time64`$new(unit)
 
+#' @rdname DataType
 #' @export
 null <- function() `arrow::Null`$new()
 
+#' @rdname DataType
 #' @export
 timestamp <- function(...) `arrow::Timestamp`$new(...)
 
+#' @rdname DataType
 #' @export
 decimal <- function(precision, scale) `arrow::Decimal128Type`$new(precision, scale)
 
@@ -415,9 +444,11 @@ field <- function(name, type) `arrow::Field`$new(name, type)
   )
 )
 
+#' @rdname DataType
 #' @export
 struct <- function(...) `arrow::StructType`$new(...)
 
+#' @rdname DataType
 #' @export
 schema <- function(...) `arrow::Schema`$new(...)
 
@@ -439,6 +470,7 @@ schema <- function(...) `arrow::Schema`$new(...)
   )
 )
 
+#' @rdname DataType
 #' @export
-list_of <- function(x) `arrow::ListType`$new(x)
+list_of <- function(type) `arrow::ListType`$new(type)
 

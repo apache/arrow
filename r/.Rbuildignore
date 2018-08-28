@@ -2,3 +2,4 @@
 ^\.Rproj\.user$
 ^README\.Rmd$
 src/.clang-format
+LICENSE.md

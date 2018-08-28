@@ -22,7 +22,6 @@
 
 using namespace Rcpp;
 
-//' @export
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Field> Field_initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& type, bool nullable = true) {
   return arrow::field(name, type, nullable);

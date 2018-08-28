@@ -33,7 +33,6 @@
   )
 )
 
-#' @export
 array_data <- function(...){
   `arrow::ArrayData`$new(...)
 }
@@ -66,7 +65,6 @@ array_data <- function(...){
 #' @export
 `!=.arrow::Array` <- function(x, y) !x$Equals(y)
 
-#' @export
 MakeArray <- function(data){
   assert_that(inherits(data, "arrow::ArrayData"))
   `arrow::Array`$new(data)
