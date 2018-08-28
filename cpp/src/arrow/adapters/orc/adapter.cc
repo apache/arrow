@@ -259,6 +259,17 @@ class ORCFileReader::Impl {
     return GetArrowSchema(type, out);
   }
 
+  Status ReadSchema(const liborc::RowReaderOptions& opts, std::shared_ptr<Schema>* out) {
+    std::unique_ptr<liborc::RowReader> row_reader;
+    try {
+      row_reader = reader_->createRowReader(opts);
+    } catch (const liborc::ParseError& e) {
+      return Status::Invalid(e.what());
+    }
+    const liborc::Type& type = row_reader->getSelectedType();
+    return GetArrowSchema(type, out);
+  }
+
   Status GetArrowSchema(const liborc::Type& type, std::shared_ptr<Schema>* out) {
     if (type.getKind() != liborc::STRUCT) {
       return Status::NotImplemented(
@@ -288,19 +299,37 @@ class ORCFileReader::Impl {
 
   Status Read(std::shared_ptr<Table>* out) {
     liborc::RowReaderOptions opts;
-    return ReadTable(opts, out);
+    std::shared_ptr<Schema> schema;
+    RETURN_NOT_OK(ReadSchema(opts, &schema));
+    return ReadTable(opts, schema, out);
+  }
+
+  Status Read(const std::shared_ptr<Schema>& schema, std::shared_ptr<Table>* out) {
+    liborc::RowReaderOptions opts;
+    return ReadTable(opts, schema, out);
   }
 
   Status Read(const std::vector<int>& include_indices, std::shared_ptr<Table>* out) {
     liborc::RowReaderOptions opts;
     RETURN_NOT_OK(SelectIndices(&opts, include_indices));
-    return ReadTable(opts, out);
+    std::shared_ptr<Schema> schema;
+    RETURN_NOT_OK(ReadSchema(opts, &schema));
+    return ReadTable(opts, schema, out);
+  }
+
+  Status Read(const std::shared_ptr<Schema>& schema,
+              const std::vector<int>& include_indices, std::shared_ptr<Table>* out) {
+    liborc::RowReaderOptions opts;
+    RETURN_NOT_OK(SelectIndices(&opts, include_indices));
+    return ReadTable(opts, schema, out);
   }
 
   Status ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out) {
     liborc::RowReaderOptions opts;
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
-    return ReadBatch(opts, stripes_[stripe].num_rows, out);
+    std::shared_ptr<Schema> schema;
+    RETURN_NOT_OK(ReadSchema(opts, &schema));
+    return ReadBatch(opts, schema, stripes_[stripe].num_rows, out);
   }
 
   Status ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
@@ -308,7 +337,9 @@ class ORCFileReader::Impl {
     liborc::RowReaderOptions opts;
     RETURN_NOT_OK(SelectIndices(&opts, include_indices));
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
-    return ReadBatch(opts, stripes_[stripe].num_rows, out);
+    std::shared_ptr<Schema> schema;
+    RETURN_NOT_OK(ReadSchema(opts, &schema));
+    return ReadBatch(opts, schema, stripes_[stripe].num_rows, out);
   }
 
   Status SelectStripe(liborc::RowReaderOptions* opts, int64_t stripe) {
@@ -335,17 +366,18 @@ class ORCFileReader::Impl {
   }
 
   Status ReadTable(const liborc::RowReaderOptions& row_opts,
-                   std::shared_ptr<Table>* out) {
+                   const std::shared_ptr<Schema>& schema, std::shared_ptr<Table>* out) {
     liborc::RowReaderOptions opts(row_opts);
     std::vector<std::shared_ptr<RecordBatch>> batches(stripes_.size());
     for (size_t stripe = 0; stripe < stripes_.size(); stripe++) {
       opts.range(stripes_[stripe].offset, stripes_[stripe].length);
-      RETURN_NOT_OK(ReadBatch(opts, stripes_[stripe].num_rows, &batches[stripe]));
+      RETURN_NOT_OK(ReadBatch(opts, schema, stripes_[stripe].num_rows, &batches[stripe]));
     }
-    return Table::FromRecordBatches(batches, out);
+    return Table::FromRecordBatches(schema, batches, out);
   }
 
-  Status ReadBatch(const liborc::RowReaderOptions& opts, int64_t nrows,
+  Status ReadBatch(const liborc::RowReaderOptions& opts,
+                   const std::shared_ptr<Schema>& schema, int64_t nrows,
                    std::shared_ptr<RecordBatch>* out) {
     std::unique_ptr<liborc::RowReader> rowreader;
     std::unique_ptr<liborc::ColumnVectorBatch> batch;
@@ -355,16 +387,13 @@ class ORCFileReader::Impl {
     } catch (const liborc::ParseError& e) {
       return Status::Invalid(e.what());
     }
-    const liborc::Type& type = rowreader->getSelectedType();
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(GetArrowSchema(type, &schema));
-
     std::unique_ptr<RecordBatchBuilder> builder;
     RETURN_NOT_OK(RecordBatchBuilder::Make(schema, pool_, nrows, &builder));
 
     // The top-level type must be a struct to read into an arrow table
     const auto& struct_batch = checked_cast<liborc::StructVectorBatch&>(*batch);
 
+    const liborc::Type& type = rowreader->getSelectedType();
     while (rowreader->next(*batch)) {
       for (int i = 0; i < builder->num_fields(); i++) {
         RETURN_NOT_OK(AppendBatch(type.getSubtype(i), struct_batch.fields[i], 0,
@@ -674,9 +703,20 @@ Status ORCFileReader::ReadSchema(std::shared_ptr<Schema>* out) {
 
 Status ORCFileReader::Read(std::shared_ptr<Table>* out) { return impl_->Read(out); }
 
+Status ORCFileReader::Read(const std::shared_ptr<Schema>& schema,
+                           std::shared_ptr<Table>* out) {
+  return impl_->Read(schema, out);
+}
+
 Status ORCFileReader::Read(const std::vector<int>& include_indices,
                            std::shared_ptr<Table>* out) {
   return impl_->Read(include_indices, out);
+}
+
+Status ORCFileReader::Read(const std::shared_ptr<Schema>& schema,
+                           const std::vector<int>& include_indices,
+                           std::shared_ptr<Table>* out) {
+  return impl_->Read(schema, include_indices, out);
 }
 
 Status ORCFileReader::ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out) {
