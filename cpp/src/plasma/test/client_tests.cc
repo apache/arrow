@@ -28,6 +28,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/test-util.h"
+
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"

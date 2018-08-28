@@ -18,7 +18,7 @@
 #ifndef PLASMA_TEST_UTIL_H
 #define PLASMA_TEST_UTIL_H
 
-#include "arrow/test-util.h"
+#include <random>
 
 #include "plasma/common.h"
 
@@ -26,8 +26,13 @@ namespace plasma {
 
 ObjectID random_object_id() {
   static uint32_t random_seed = 0;
+  std::mt19937 gen(random_seed);
+  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
   ObjectID result;
-  arrow::random_bytes(kUniqueIDSize, random_seed++, result.mutable_data());
+  uint8_t* data = result.mutable_data();
+  std::generate(data, data + kUniqueIDSize, [&d, &gen] {
+    return static_cast<uint8_t>(d(gen));
+  });
   return result;
 }
 
