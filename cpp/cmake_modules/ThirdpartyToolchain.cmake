@@ -720,11 +720,7 @@ if (ARROW_WITH_ZLIB)
 # ZLIB
 
   if("${ZLIB_HOME}" STREQUAL "")
-    if(ARROW_ZLIB_VENDORED)
-      set(ZLIB_FOUND FALSE)
-    else()
-      find_package(ZLIB REQUIRED)
-    endif()
+    find_package(ZLIB)
   else()
     find_package(ZLIB REQUIRED)
   endif()

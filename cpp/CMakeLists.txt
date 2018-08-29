@@ -236,10 +236,6 @@ Pass multiple labels by dividing with semicolons")
     "Build with zlib compression"
     ON)
 
-  option(ARROW_ZLIB_VENDORED
-    "Use vendored Boost instead of existing Boost"
-    ON)
-
   option(ARROW_WITH_ZSTD
     "Build with zstd compression"
     ON)
