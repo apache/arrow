@@ -77,11 +77,18 @@ call activate arrow
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
   conda install -q -y -c conda-forge ^
-      flatbuffers rapidjson ^
-      cmake ^
-      git ^
       boost-cpp ^
-      snappy zlib brotli gflags lz4-c zstd
+      brotli ^
+      cmake ^
+      flatbuffers ^
+      gflags ^
+      gtest ^
+      git ^
+      lz4-c ^
+      rapidjson ^
+      snappy ^
+      zlib ^
+      zstd
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
 

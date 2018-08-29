@@ -31,8 +31,8 @@
 #  GTEST_SHARED_LIB, path to libgtest's shared library
 #  GTEST_FOUND, whether gtest has been found
 
-if( NOT "$ENV{GTEST_HOME}" STREQUAL "")
-    file( TO_CMAKE_PATH "$ENV{GTEST_HOME}" _native_path )
+if( NOT "${GTEST_HOME}" STREQUAL "")
+    file( TO_CMAKE_PATH "${GTEST_HOME}" _native_path )
     list( APPEND _gtest_roots ${_native_path} )
 elseif ( GTest_HOME )
     list( APPEND _gtest_roots ${GTest_HOME} )
