@@ -17,13 +17,19 @@ classdef tfeather < matlab.unittest.TestCase
     % permissions and limitations under the License.
     
     methods(TestClassSetup)
-
-        function addFeatherreadToMATLABPath(testcase)
+        
+        function addFeatherFunctionsToMATLABPath(testcase)
             import matlab.unittest.fixtures.PathFixture
-            % Add featherread.m to the MATLAB path.
-            testcase.applyFixture(PathFixture('../'));
+            % Add featherread and featherwrite to the MATLAB path.
+            testcase.applyFixture(PathFixture(fullfile('..', 'src')));
+            % featherreadmex must be on the MATLAB path.
+            testcase.assertTrue(~isempty(which('featherreadmex')), ...
+                '''featherreadmex'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
+            % featherwritemex must be on the MATLAB path.
+            testcase.assertTrue(~isempty(which('featherwritemex')), ...
+                '''featherwritemex'' must be on to the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
         end
-
+        
     end
     
     methods(Test)
