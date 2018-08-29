@@ -55,25 +55,24 @@ std::shared_ptr<BufferReader> DataReader(const std::string& data) {
   return std::make_shared<BufferReader>(std::move(buffer));
 }
 
-static int64_t WaitForPosition(std::shared_ptr<RandomAccessFile> file, int64_t expected,
+static int64_t WaitForPosition(const RandomAccessFile& file, int64_t expected,
                                double seconds = 0.2) {
   int64_t pos = -1;
   busy_wait(seconds, [&]() -> bool {
-    ABORT_NOT_OK(file->Tell(&pos));
+    ABORT_NOT_OK(file.Tell(&pos));
     return pos >= expected;
   });
   return pos;
 }
 
-static void AssertEventualPosition(std::shared_ptr<RandomAccessFile> file,
-                                   int64_t expected) {
+static void AssertEventualPosition(const RandomAccessFile& file, int64_t expected) {
   int64_t pos = WaitForPosition(file, expected);
   ASSERT_EQ(pos, expected) << "File didn't reach expected position";
 }
 
-static void AssertPosition(std::shared_ptr<RandomAccessFile> file, int64_t expected) {
+static void AssertPosition(const RandomAccessFile& file, int64_t expected) {
   int64_t pos = -1;
-  ABORT_NOT_OK(file->Tell(&pos));
+  ABORT_NOT_OK(file.Tell(&pos));
   ASSERT_EQ(pos, expected) << "File didn't reach expected position";
 }
 
@@ -102,14 +101,14 @@ TEST(ReadaheadSpooler, BasicReads) {
   ReadaheadSpooler spooler(data_reader, 2, 3);
   ReadaheadBuffer buf;
 
-  AssertEventualPosition(data_reader, 3 * 2);
+  AssertEventualPosition(*data_reader, 3 * 2);
 
   ASSERT_OK(spooler.Read(&buf));
   AssertReadaheadBuffer(buf, {0}, {0}, "01");
-  AssertEventualPosition(data_reader, 4 * 2);
+  AssertEventualPosition(*data_reader, 4 * 2);
   ASSERT_OK(spooler.Read(&buf));
   AssertReadaheadBuffer(buf, {0}, {0}, "23");
-  AssertEventualPosition(data_reader, 5 * 2);
+  AssertEventualPosition(*data_reader, 5 * 2);
   ASSERT_OK(spooler.Read(&buf));
   AssertReadaheadBuffer(buf, {0}, {0}, "45");
   ASSERT_OK(spooler.Read(&buf));
@@ -127,7 +126,7 @@ TEST(ReadaheadSpooler, ShortReadAtEnd) {
   ReadaheadSpooler spooler(data_reader, 3, 2);
   ReadaheadBuffer buf;
 
-  AssertEventualPosition(data_reader, 5);
+  AssertEventualPosition(*data_reader, 5);
 
   ASSERT_OK(spooler.Read(&buf));
   AssertReadaheadBuffer(buf, {0}, {0}, "012");
@@ -143,7 +142,7 @@ TEST(ReadaheadSpooler, Close) {
   ReadaheadSpooler spooler(data_reader, 2, 2);
   ReadaheadBuffer buf;
 
-  AssertEventualPosition(data_reader, 2 * 2);
+  AssertEventualPosition(*data_reader, 2 * 2);
   ASSERT_OK(spooler.Close());
 
   // XXX not sure this makes sense
@@ -153,7 +152,7 @@ TEST(ReadaheadSpooler, Close) {
   AssertReadaheadBuffer(buf, {0}, {0}, "23");
   ASSERT_OK(spooler.Read(&buf));
   AssertReadaheadBufferEOF(buf);
-  AssertPosition(data_reader, 2 * 2);
+  AssertPosition(*data_reader, 2 * 2);
 
   // Idempotency
   ASSERT_OK(spooler.Close());
@@ -165,7 +164,7 @@ TEST(ReadaheadSpooler, Paddings) {
                            4 /* right_padding */);
   ReadaheadBuffer buf;
 
-  AssertEventualPosition(data_reader, 2 * 2);
+  AssertEventualPosition(*data_reader, 2 * 2);
   ASSERT_EQ(spooler.GetLeftPadding(), 1);
   ASSERT_EQ(spooler.GetRightPadding(), 4);
   spooler.SetLeftPadding(3);

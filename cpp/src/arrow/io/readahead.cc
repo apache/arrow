@@ -84,7 +84,6 @@ class ReadaheadSpooler::Impl {
         return read_status_;
       }
       if (eof_) {
-        // XXX maybe we need a EOF status code
         out->buffer.reset();
         return Status::OK();
       }
