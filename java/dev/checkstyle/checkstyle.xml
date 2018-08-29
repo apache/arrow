@@ -211,11 +211,6 @@
             <property name="option" value="top"/>
             <property name="sortStaticImportsAlphabetically" value="true"/>
         </module>
-        <module name="CustomImportOrder">
-            <property name="separateLineBetweenGroups" value="true"/>
-            <property name="sortImportsInGroupAlphabetically" value="true"/>
-            <property name="customImportOrderRules" value="STANDARD_JAVA_PACKAGE###THIRD_PARTY_PACKAGE"/>
-        </module>
         <module name="MethodParamPad"/>
         <module name="OperatorWrap">
             <property name="option" value="NL"/>
