@@ -27,7 +27,7 @@ import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.AutoCloseables;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.base.Preconditions;
@@ -73,9 +73,9 @@ public class FlightHolder implements AutoCloseable {
     for(Stream s : streams) {
       endpoints.add(
           new FlightEndpoint(
-              l,
               new ExampleTicket(descriptor.getPath(), i, s.getUuid())
-                .toTicket()));
+                .toTicket()
+                , l));
       i++;
     }
     return new FlightInfo(schema,  descriptor, endpoints, bytes, records);

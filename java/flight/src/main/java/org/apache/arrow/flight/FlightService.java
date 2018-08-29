@@ -48,11 +48,19 @@ class FlightService extends FlightServiceImplBase {
 
   @Override
   public void listFlights(Flight.Criteria criteria, StreamObserver<FlightGetInfo> responseObserver) {
-    producer.listFlights(new Criteria(criteria), StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
+    try {
+      producer.listFlights(new Criteria(criteria), StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
+    } catch (Exception ex) {
+      responseObserver.onError(ex);
+    }
   }
 
   public void doGetCustom(Flight.Ticket ticket, StreamObserver<ArrowMessage> responseObserver) {
-    producer.getStream(new Ticket(ticket), new GetListener(responseObserver));
+    try {
+      producer.getStream(new Ticket(ticket), new GetListener(responseObserver));
+    } catch (Exception ex) {
+      responseObserver.onError(ex);
+    }
   }
 
   @Override
@@ -67,7 +75,11 @@ class FlightService extends FlightServiceImplBase {
 
   @Override
   public void listActions(Empty request, StreamObserver<ActionType> responseObserver) {
-    producer.listActions(StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
+    try {
+      producer.listActions(StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
+    } catch (Exception ex) {
+      responseObserver.onError(ex);
+    }
   }
 
   private static class GetListener implements ServerStreamListener {

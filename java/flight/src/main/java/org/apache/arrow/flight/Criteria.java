@@ -19,25 +19,28 @@ package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
 
+import com.google.protobuf.ByteString;
+
 public class Criteria {
 
-  private static final long SLICE_TARGET = 10_000_000;
-  private final long slice_target;
+  public static Criteria ALL = new Criteria((byte[]) null);
 
-  public Criteria() {
-    slice_target = SLICE_TARGET;
-  }
+  private final byte[] bytes;
 
-  public Criteria(long slice_target) {
-    super();
-    this.slice_target = slice_target;
+  public Criteria(byte[] bytes) {
+    this.bytes = bytes;
   }
 
   Criteria(Flight.Criteria criteria){
-    slice_target = criteria.getSliceTarget() != 0 ? criteria.getSliceTarget() : SLICE_TARGET;
+    this.bytes = criteria.getExpression().toByteArray();
   }
 
   Flight.Criteria asCriteria(){
-    return Flight.Criteria.newBuilder().setSliceTarget(slice_target).build();
+    Flight.Criteria.Builder b = Flight.Criteria.newBuilder();
+    if(bytes != null) {
+      b.setExpression(ByteString.copyFrom(bytes));
+    }
+
+    return b.build();
   }
 }

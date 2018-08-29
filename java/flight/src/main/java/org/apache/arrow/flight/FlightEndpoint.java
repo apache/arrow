@@ -17,25 +17,31 @@
  */
 package org.apache.arrow.flight;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.apache.arrow.flight.impl.Flight;
 
+import com.google.common.collect.ImmutableList;
+
 public class FlightEndpoint {
-  private Location location;
+  private List<Location> locations;
   private Ticket ticket;
 
-  public FlightEndpoint(Location location, Ticket ticket) {
+  public FlightEndpoint(Ticket ticket, Location... locations) {
     super();
-    this.location = location;
+    this.locations = ImmutableList.copyOf(locations);
     this.ticket = ticket;
   }
 
   public FlightEndpoint(Flight.FlightEndpoint flt) {
-    location = new Location(flt.getLocation());
+    locations = flt.getLocationList().stream()
+        .map(t -> new Location(t)).collect(Collectors.toList());
     ticket = new Ticket(flt.getTicket());
   }
 
-  public Location getLocation() {
-    return location;
+  public List<Location> getLocations() {
+    return locations;
   }
 
   public Ticket getTicket() {
@@ -43,9 +49,15 @@ public class FlightEndpoint {
   }
 
   Flight.FlightEndpoint toProtocol(){
-    return Flight.FlightEndpoint.newBuilder()
-        .setLocation(location.toProtocol())
-        .setTicket(ticket.toProtocol())
-        .build();
+    Flight.FlightEndpoint.Builder b = Flight.FlightEndpoint.newBuilder()
+        .setTicket(ticket.toProtocol());
+
+    for(Location l : locations) {
+      b.addLocation(Flight.Location.newBuilder()
+          .setHost(l.getHost())
+          .setPort(l.getPort())
+          .build());
+    }
+    return b.build();
   }
 }

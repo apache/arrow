@@ -50,10 +50,6 @@ public class VectorSchemaRoot implements AutoCloseable {
         );
   }
 
-  public VectorSchemaRoot(FieldVector...vectors) {
-    this(ImmutableList.copyOf(vectors));
-  }
-
   public VectorSchemaRoot(FieldVector parent) {
     this(parent.getField().getChildren(), parent.getChildrenFromFields(), parent.getValueCount());
   }
@@ -90,21 +86,25 @@ public class VectorSchemaRoot implements AutoCloseable {
     return new VectorSchemaRoot(schema, fieldVectors, 0);
   }
 
+  public static VectorSchemaRoot of(FieldVector... vectors) {
+    return new VectorSchemaRoot(ImmutableList.copyOf(vectors));
+  }
+
   /**
    * Do an adaptive allocation of each vector for memory purposes. Sizes will be based on previously
    * defined initial allocation for each vector (and subsequent size learnings).
    */
   public void allocateNew() {
-    for(FieldVector v : getFieldVectors()) {
+    for(FieldVector v : fieldVectors) {
       v.allocateNew();
     }
   }
 
   /**
-   * Release all the memory for each vector held in this root.
+   * Release all the memory for each vector held in this root. This DOES NOT remove vectors from the container.
    */
   public void clear() {
-    for(FieldVector v : getFieldVectors()) {
+    for(FieldVector v : fieldVectors) {
       v.clear();
     }
   }

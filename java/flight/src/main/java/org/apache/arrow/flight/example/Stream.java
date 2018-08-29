@@ -24,10 +24,10 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
-import org.apache.arrow.flight.VectorRoot;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.AutoCloseables;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -67,7 +67,7 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
   }
 
   public void sendTo(BufferAllocator allocator, ServerStreamListener listener) {
-    try(VectorRoot root = VectorRoot.create(schema, allocator)){
+    try(VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)){
       listener.start(root);
       final VectorLoader loader = new VectorLoader(root);
       for(ArrowRecordBatch batch : batches) {

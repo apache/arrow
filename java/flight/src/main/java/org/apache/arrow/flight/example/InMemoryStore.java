@@ -31,11 +31,11 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.VectorRoot;
 import org.apache.arrow.flight.example.Stream.StreamCreator;
 import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.AutoCloseables;
+import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -105,7 +105,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     return () -> {
       StreamCreator creator = null;
       boolean success = false;
-      try(VectorRoot root = flightStream.getRoot()){
+      try(VectorSchemaRoot root = flightStream.getRoot()){
         final FlightHolder h = holders.computeIfAbsent(
             flightStream.getDescriptor(),
             t -> new FlightHolder(allocator, t, flightStream.getSchema()));
@@ -133,7 +133,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   public Result doAction(Action action) {
     switch(action.getType()) {
     case "drop":
-      return new Result("not-yet-implemented", new byte[0]);
+      return new Result(new byte[0]);
       // not implemented.
     }
 

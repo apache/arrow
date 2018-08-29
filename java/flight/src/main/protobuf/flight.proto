@@ -2,8 +2,6 @@ syntax = "proto3";
 
 option java_package = "org.apache.arrow.flight.impl";
 
-A flight service is a endpoint for retrieving or storing Arrow data. The flight service can expose one or more predefined endpoints that can be access using the Arrow Flight Protocol. Additionally, the a flight service and expose a set of actions that are available.   
-
 /*
  * A flight service is an endpoint for retrieving or storing Arrow data. A flight service can expose
  * one or more predefined endpoints that can be access using the Arrow Flight Protocol.
@@ -66,7 +64,7 @@ service FlightService {
 message Empty {}
 
 /*
- * Describes each available action, including both the name used for execution along with a short
+ * Describes an available action, including both the name used for execution along with a short
  * description of the purpose of the action.
  */
 message ActionType {
@@ -74,83 +72,152 @@ message ActionType {
   string description = 2;
 }
 
+/*
+ * A service specific expression that can be used to return a limited the set of available Arrow
+ * Flight streams.
+ */
 message Criteria {
-  int64 slice_target = 1; 
-  bytes pattern = 2;
+  bytes expression = 1;
 }
 
+/*
+ * An opaque action specific for the service.
+ */
 message Action {
   string type = 1;
   bytes body = 2;
 }
 
+/*
+ * An opaque result returned after execution an action. 
+ */
 message Result {
-  string type = 1;
-  bytes body = 2;
+  bytes body = 1;
 }
 
+/*
+ * The name or tag for a Flight. May be used as a way to retrieve or generate 
+ * a flight or be used to expose a set of previously defined flights.
+ */
 message FlightDescriptor {
+
+  /* 
+   * Describes what type of descriptor is defined.
+   */
   enum DescriptorType {
+  
+    // Protobuf pattern, not used.
     UNKNOWN = 0;
+    
+    /*
+     * A named path that identifies a dataset. A path is composed of a string 
+     * or list of strings describing a particular dataset. This is conceptually
+     *  similar to a path inside a filesystem.
+     */
     PATH = 1;
+    
+    /*
+     * An opaque command to generate a dataset. 
+     */
     CMD = 2;
   }
   
   DescriptorType type = 1;
-  string cmd = 2;
+  
+  /*
+   * Opaque value used to express a command. Should only be defined when 
+   * type = CMD.
+   */
+  bytes cmd = 2;
+  
+  /*
+   * List of strings identifying a particular dataset. Should only be defined 
+   * when type = PATH.
+   */
   repeated string path = 3;
 }
 
+/*
+ * The access coordinates for retrieval of a dataset. With a FlightGetInfo, a
+ * consumer is able to determine how to retrieve a dataset.
+ */
 message FlightGetInfo {
   // schema of the dataset as described in Schema.fbs::Schema
   bytes schema = 1;
   
+  /*
+   * The descriptor associated with this info.
+   */
   FlightDescriptor flight_descriptor = 2;
   
+  /*
+   * A list of endpoints associated with the flight. To consume the whole 
+   * flight, all endpoints must be consumed.
+   */ 
   repeated FlightEndpoint endpoint = 3;
   
   uint64 total_records = 4;
   uint64 total_bytes = 5;
 }
 
-message FlightPutRequest {
-  FlightDescriptor flight_descriptor = 1;
-  
-  // schema of the dataset as described in Schema.fbs::Schema
-  bytes schema = 2;
-  
-  int32 ticket_count = 3;
-}
-
-message FlightPutInstruction {
-  repeated Ticket ticket = 1;
-}
-
+/*
+ * A particular stream or split associated with a flight.
+ */
 message FlightEndpoint {
+
+  /*
+   * Token used to retrieve this stream.
+   */
   Ticket ticket = 1;
-  Location location = 2;
+  
+  /*
+   * A list of locations where this ticket can be redeemed. If the list is 
+   * empty, the expectation is that the ticket can only be redeemed on the 
+   * current service where the ticket was generated. 
+   */
+  repeated Location location = 2;
 }
 
+/*
+ * A location where a flight service will accept retrieval of a particular
+ *  stream given a ticket.
+ */
 message Location {
   string host = 1;
   int32 port = 2;
 }
 
-// An opaque, split identifier.
+/*
+ * An opaque identifier that the service can use to retrieve a particular 
+ * portion of a stream.
+ */
 message Ticket {
   bytes ticket = 1;
 }
 
+/*
+ * A batch of Arrow data as part of a stream of batches.
+ */
 message FlightData {
-  // included only when putting data.
+
+  /*
+   * The descriptor of the data. This is only relevant when a client is starting a new DoPut stream
+   */
   FlightDescriptor flight_descriptor = 1;
   
-  // header for message data as described in Message.fbs::Message
+  /*
+   * Header for message data as described in Message.fbs::Message
+   */
   bytes data_header = 2;
   
-  // the actual data. preferrably handled with minimal-copies
-  // comes last in the definition to help with sidecar patterns.
+  /*
+   * The actual batch of Arrow data. Preferrably handled with minimal-copies
+   * comes last in the definition to help with sidecar patterns.
+   */
   bytes data_body = 1000;
 }
 
+/**
+ * The response message (currently empty) associated with the submission of a DoPut.
+ */
 message PutResult {}

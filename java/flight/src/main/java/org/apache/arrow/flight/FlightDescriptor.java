@@ -25,20 +25,21 @@ import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 
 public class FlightDescriptor {
 
   private boolean isCmd;
   private List<String> path;
-  private String cmd;
+  private byte[] cmd;
 
-  private FlightDescriptor(boolean isCmd, List<String> path, String cmd) {
+  private FlightDescriptor(boolean isCmd, List<String> path, byte[] cmd) {
     super();
     this.isCmd = isCmd;
     this.path = path;
     this.cmd = cmd;
   }
-  public static FlightDescriptor command(String cmd) {
+  public static FlightDescriptor command(byte[] cmd) {
     return new FlightDescriptor(true, null, cmd);
   }
 
@@ -53,7 +54,7 @@ public class FlightDescriptor {
   FlightDescriptor(Flight.FlightDescriptor descriptor){
     if(descriptor.getType() == DescriptorType.CMD) {
       isCmd = true;
-      cmd = descriptor.getCmd();
+      cmd = descriptor.getCmd().toByteArray();
     } else if(descriptor.getType() == DescriptorType.PATH) {
       isCmd = false;
       path = descriptor.getPathList();
@@ -71,7 +72,7 @@ public class FlightDescriptor {
     return path;
   }
 
-  public String getCommand() {
+  public byte[] getCommand() {
     Preconditions.checkArgument(isCmd);
     return cmd;
   }
@@ -80,18 +81,27 @@ public class FlightDescriptor {
     Flight.FlightDescriptor.Builder b = Flight.FlightDescriptor.newBuilder();
 
     if(isCmd) {
-      return b.setType(DescriptorType.PATH).setCmd(cmd).build();
+      return b.setType(DescriptorType.PATH).setCmd(ByteString.copyFrom(cmd)).build();
     }
     return b.setType(DescriptorType.PATH).addAllPath(path).build();
   }
   @Override
   public String toString() {
     if(isCmd) {
-      return cmd;
+      return toHex(cmd);
     } else {
       return Joiner.on('.').join(path);
     }
   }
+
+  private String toHex(byte[] bytes) {
+    StringBuilder sb = new StringBuilder();
+    for (byte b : bytes) {
+        sb.append(String.format("%02X ", b));
+    }
+    return sb.toString();
+  }
+
   @Override
   public int hashCode() {
     final int prime = 31;

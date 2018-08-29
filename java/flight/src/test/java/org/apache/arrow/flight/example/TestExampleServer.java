@@ -20,16 +20,16 @@ package org.apache.arrow.flight.example;
 import java.io.IOException;
 
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.VectorRoot;
-import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.AutoCloseables;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -72,7 +72,7 @@ public class TestExampleServer {
 
     IntVector iv = new IntVector("c1", a);
 
-    VectorRoot root = new VectorRoot(iv);
+    VectorSchemaRoot root = VectorSchemaRoot.of(iv);
     ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root);
 
     //batch 1
@@ -81,7 +81,6 @@ public class TestExampleServer {
       iv.set(i, i);
     }
     iv.setValueCount(size);
-    root.setValueCount(size);
     root.setRowCount(size);
     listener.putNext();
 
@@ -92,7 +91,6 @@ public class TestExampleServer {
       iv.set(i, i + size);
     }
     iv.setValueCount(size);
-    root.setValueCount(size);
     root.setRowCount(size);
     listener.putNext();
     root.clear();

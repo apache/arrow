@@ -21,20 +21,25 @@ import org.apache.arrow.flight.impl.Flight;
 
 import com.google.protobuf.ByteString;
 
-public class Result extends GenericOperation {
+public class Result {
 
-  public Result(String type, byte[] body) {
-    super(type, body);
+  private final byte[] body;
+
+  public Result(byte[] body) {
+    this.body = body;
   }
 
-  public Result(Flight.Result Result) {
-    this(Result.getType(), Result.getBody().toByteArray());
+  public Result(Flight.Result result) {
+    this.body = result.getBody().toByteArray();
+  }
+
+  public byte[] getBody() {
+    return body;
   }
 
   Flight.Result toProtocol(){
     return Flight.Result.newBuilder()
-        .setType(getType())
-        .setBody(ByteString.copyFrom(getBody()))
+        .setBody(ByteString.copyFrom(body))
         .build();
   }
 }

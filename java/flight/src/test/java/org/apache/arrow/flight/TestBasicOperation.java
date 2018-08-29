@@ -34,6 +34,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
+import com.google.protobuf.ByteString;
 
 /**
  * Test the operations of a basic flight service.
@@ -43,7 +44,7 @@ public class TestBasicOperation {
   @Test
   public void getDescriptors() throws Exception {
     test(c -> {
-      for(FlightInfo i : c.listFlights(new Criteria())) {
+      for(FlightInfo i : c.listFlights(Criteria.ALL)) {
         System.out.println(i.getDescriptor());
       }
     });
@@ -80,7 +81,7 @@ public class TestBasicOperation {
 
       IntVector iv = new IntVector("c1", a);
 
-      VectorSchemaRoot root = new VectorSchemaRoot(iv);
+      VectorSchemaRoot root = VectorSchemaRoot.of(iv);
       ClientStreamListener listener = c.startPut(FlightDescriptor.path("hello"), root);
 
       //batch 1
@@ -89,7 +90,6 @@ public class TestBasicOperation {
         iv.set(i, i);
       }
       iv.setValueCount(size);
-      root.setValueCount(size);
       root.setRowCount(size);
       listener.putNext();
 
@@ -100,7 +100,6 @@ public class TestBasicOperation {
         iv.set(i, i + size);
       }
       iv.setValueCount(size);
-      root.setValueCount(size);
       root.setRowCount(size);
       listener.putNext();
       root.clear();
@@ -116,7 +115,7 @@ public class TestBasicOperation {
   public void getStream() throws Exception {
     test(c -> {
       FlightStream stream = c.getStream(new Ticket(new byte[0]));
-      VectorRoot root = stream.getRoot();
+      VectorSchemaRoot root = stream.getRoot();
       IntVector iv = (IntVector) root.getVector("c1");
       int value = 0;
       while(stream.next()) {
@@ -164,7 +163,11 @@ public class TestBasicOperation {
 
     @Override
     public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
-      FlightGetInfo getInfo = FlightGetInfo.newBuilder().setFlightDescriptor(Flight.FlightDescriptor.newBuilder().setType(DescriptorType.CMD).setCmd("cool thing")).build();
+      FlightGetInfo getInfo = FlightGetInfo.newBuilder()
+          .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
+              .setType(DescriptorType.CMD)
+              .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
+          .build();
       listener.onNext(new FlightInfo(getInfo));
       listener.onCompleted();
     }
@@ -172,7 +175,7 @@ public class TestBasicOperation {
     @Override
     public Callable<PutResult> acceptPut(FlightStream flightStream) {
       return () -> {
-        try(VectorRoot root = flightStream.getRoot()){
+        try(VectorSchemaRoot root = flightStream.getRoot()){
           while(flightStream.next()) {
 
           }
@@ -186,7 +189,7 @@ public class TestBasicOperation {
       final int size = 10;
 
       IntVector iv = new IntVector("c1", allocator);
-      VectorRoot root = new VectorRoot(iv);
+      VectorSchemaRoot root = VectorSchemaRoot.of(iv);
       listener.start(root);
 
       //batch 1
@@ -195,7 +198,6 @@ public class TestBasicOperation {
         iv.set(i, i);
       }
       iv.setValueCount(size);
-      root.setValueCount(size);
       root.setRowCount(size);
       listener.putNext();
 
@@ -206,7 +208,6 @@ public class TestBasicOperation {
         iv.set(i, i + size);
       }
       iv.setValueCount(size);
-      root.setValueCount(size);
       root.setRowCount(size);
       listener.putNext();
       root.clear();
@@ -220,7 +221,11 @@ public class TestBasicOperation {
 
     @Override
     public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
-      FlightGetInfo getInfo = FlightGetInfo.newBuilder().setFlightDescriptor(Flight.FlightDescriptor.newBuilder().setType(DescriptorType.CMD).setCmd("cool thing")).build();
+      FlightGetInfo getInfo = FlightGetInfo.newBuilder()
+          .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
+              .setType(DescriptorType.CMD)
+              .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
+          .build();
       return new FlightInfo(getInfo);
     }
 
@@ -228,7 +233,7 @@ public class TestBasicOperation {
     public Result doAction(Action action) {
       switch(action.getType()) {
       case "hello":
-        return new Result("hello", "world".getBytes(Charsets.UTF_8));
+        return new Result("world".getBytes(Charsets.UTF_8));
       default:
         throw new UnsupportedOperationException();
       }
