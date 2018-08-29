@@ -58,6 +58,9 @@ endif()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  option(PYARROW_BUILD_ARROW_GPU
+    "Build the PyArrow GPU support"
+    OFF)
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
@@ -275,6 +278,12 @@ if (PYARROW_BUNDLE_ARROW_CPP)
     ABI_VERSION ${ARROW_ABI_VERSION}
     SO_VERSION ${ARROW_SO_VERSION})
 
+  if (ARROW_GPU_FOUND)
+    bundle_arrow_lib(ARROW_GPU_SHARED_LIB
+      ABI_VERSION ${ARROW_ABI_VERSION}
+      SO_VERSION ${ARROW_SO_VERSION})
+  endif()
+  
   # boost
   if (PYARROW_BOOST_USE_SHARED AND PYARROW_BUNDLE_BOOST)
     set(Boost_USE_STATIC_LIBS OFF)
@@ -305,6 +314,9 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   if (MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
+    if (ARROW_GPU_FOUND)
+      bundle_arrow_implib(ARROW_GPU_SHARED_IMP_LIB)
+    endif()
   endif()
 endif()
 
@@ -313,11 +325,19 @@ if (MSVC)
     SHARED_LIB ${ARROW_SHARED_IMP_LIB})
   ADD_THIRDPARTY_LIB(arrow_python
     SHARED_LIB ${ARROW_PYTHON_SHARED_IMP_LIB})
+  if (ARROW_GPU_FOUND)
+    ADD_THIRDPARTY_LIB(arrow_gpu
+      SHARED_LIB ${ARROW_GPU_SHARED_IMP_LIB})
+  endif()
 else()
   ADD_THIRDPARTY_LIB(arrow
     SHARED_LIB ${ARROW_SHARED_LIB})
   ADD_THIRDPARTY_LIB(arrow_python
     SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
+  if (ARROW_GPU_FOUND)
+    ADD_THIRDPARTY_LIB(arrow_gpu
+      SHARED_LIB ${ARROW_GPU_SHARED_LIB})
+  endif()
 endif()
 
 ############################################################
@@ -330,12 +350,18 @@ endif()
 
 set(CYTHON_EXTENSIONS
   lib
-)
+  )
 
 set(LINK_LIBS
   arrow_shared
   arrow_python_shared
-)
+  )
+
+
+if (ARROW_GPU_FOUND)
+  set(LINK_LIBS ${LINK_LIBS} arrow_gpu_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} lib_gpu)
+endif()
 
 if (PYARROW_BUILD_PARQUET)
   ## Parquet
