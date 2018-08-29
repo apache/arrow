@@ -270,7 +270,7 @@ Component-based Serialization
 For serializing Python objects containing some number of NumPy arrays, Arrow
 buffers, or other data types, it may be desirable to transport their serialized
 representation without having to produce an intermediate copy using the
-``to_buffer`` method. To motivate this, support we have a list of NumPy arrays:
+``to_buffer`` method. To motivate this, suppose we have a list of NumPy arrays:
 
 .. ipython:: python
 
