@@ -146,6 +146,11 @@ class ARROW_EXPORT Buffer {
                                     static_cast<int64_t>(sizeof(T) * data.size()));
   }  // namespace arrow
 
+  /// \brief Copy buffer contents into a new std::string
+  /// \return std::string
+  /// \note Can throw std::bad_alloc if buffer is large
+  std::string ToString() const;
+
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
 

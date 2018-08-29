@@ -20,7 +20,6 @@ install(FILES
   comparison.h
   macros.h
   memory.h
-  stopwatch.h
   visibility.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/util")
 

@@ -31,6 +31,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
     set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   endif()
   set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(GRPC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(LZ4_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   # orc disabled as it's not in conda-forge (but in Anaconda with an incompatible ABI)
   # set(ORC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -210,7 +211,7 @@ if (DEFINED ENV{ARROW_PROTOBUF_URL})
   set(PROTOBUF_SOURCE_URL "$ENV{ARROW_PROTOBUF_URL}")
 else()
   string(SUBSTRING ${PROTOBUF_VERSION} 1 -1 STRIPPED_PROTOBUF_VERSION)  # strip the leading `v`
-  set(PROTOBUF_SOURCE_URL "https://github.com/google/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-${STRIPPED_PROTOBUF_VERSION}.tar.gz")
+  set(PROTOBUF_SOURCE_URL "https://github.com/protocolbuffers/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-all-${STRIPPED_PROTOBUF_VERSION}.tar.gz")
 endif()
 
 set(RAPIDJSON_SOURCE_MD5 "badd12c511e081fec6c89c43a7027bce")
@@ -1009,54 +1010,11 @@ if (ARROW_WITH_ZSTD)
   endif()
 endif()
 
-if (ARROW_WITH_GRPC)
+
 # ----------------------------------------------------------------------
-# GRPC
-  if ("${GRPC_HOME}" STREQUAL "")
-    set(GRPC_VENDORED 1)
-    set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
-    set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep/src/grpc_ep-install")
-    set(GRPC_HOME "${GRPC_PREFIX}")
-    set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
-    set(GRPC_STATIC_LIBRARY_GPR "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GRPC_STATIC_LIBRARY_GRPC "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GRPC_STATIC_LIBRARY_GRPCPP "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GRPC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                          "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-                          "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
-                          -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
-                          -DBUILD_SHARED_LIBS=OFF)
+# Protocol Buffers (required for ORC and Flight libraries)
 
-    ExternalProject_Add(grpc_ep
-      GIT_REPOSITORY "https://github.com/grpc/grpc"
-      GIT_TAG ${GRPC_VERSION}
-      BUILD_BYPRODUCTS "${GRPC_STATIC_LIBRARY_GPR}" "${GRPC_STATIC_LIBRARY_GRPC}" "${GRPC_STATIC_LIBRARY_GRPCPP}"
-      ${GRPC_BUILD_BYPRODUCTS}
-      ${EP_LOG_OPTIONS}
-      CMAKE_ARGS ${GRPC_CMAKE_ARGS}
-      ${EP_LOG_OPTIONS})
-  else()
-    find_package(gRPC CONFIG REQUIRED)
-    set(GRPC_VENDORED 0)
-  endif()
-
-  include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(grpc_grp
-    STATIC_LIB ${GRPC_STATIC_LIBRARY_GPR})
-  ADD_THIRDPARTY_LIB(grpc_grpc
-    STATIC_LIB ${GRPC_STATIC_LIBRARY_GRPC})
-  ADD_THIRDPARTY_LIB(grpc_grpcpp
-    STATIC_LIB ${GRPC_STATIC_LIBRARY_GRPCPP})
-
-  if (GRPC_VENDORED)
-    add_dependencies(grpc_grp grpc_ep)
-    add_dependencies(grpc_grpc grpc_ep)
-    add_dependencies(grpc_grpcpp grpc_ep)
-  endif()
-
-endif()
-
-if (ARROW_ORC)
+if (ARROW_ORC OR ARROW_FLIGHT)
   # protobuf
   if ("${PROTOBUF_HOME}" STREQUAL "")
     set (PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")
@@ -1089,9 +1047,69 @@ if (ARROW_ORC)
   if (PROTOBUF_VENDORED)
     add_dependencies (protobuf protobuf_ep)
   endif ()
+endif()
 
+# ----------------------------------------------------------------------
+# Dependencies for Arrow Flight RPC
+
+if (ARROW_FLIGHT)
+  if ("${GRPC_HOME}" STREQUAL "")
+    set(GRPC_VENDORED 1)
+    set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
+    set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep/src/grpc_ep-install")
+    set(GRPC_HOME "${GRPC_PREFIX}")
+    set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
+    set(GRPC_STATIC_LIBRARY_GPR "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_GRPC "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_GRPCPP "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+                        "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+                        -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
+                        -DBUILD_SHARED_LIBS=OFF)
+
+    ExternalProject_Add(grpc_ep
+      GIT_REPOSITORY "https://github.com/grpc/grpc"
+      GIT_TAG ${GRPC_VERSION}
+      BUILD_BYPRODUCTS "${GRPC_STATIC_LIBRARY_GPR}" "${GRPC_STATIC_LIBRARY_GRPC}" "${GRPC_STATIC_LIBRARY_GRPCPP}"
+      ${GRPC_BUILD_BYPRODUCTS}
+      ${EP_LOG_OPTIONS}
+      CMAKE_ARGS ${GRPC_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
+    include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
+  else()
+    find_package(gRPC CONFIG REQUIRED)
+    set(GRPC_VENDORED 0)
+  endif()
+
+  get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
+  ADD_THIRDPARTY_LIB(grpc_gpr
+    STATIC_LIB ${GPR_STATIC_LIB})
+
+  get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
+  ADD_THIRDPARTY_LIB(grpc_grpc
+    STATIC_LIB ${GRPC_STATIC_LIB})
+
+  get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
+  ADD_THIRDPARTY_LIB(grpc_grpcpp
+    STATIC_LIB ${GRPCPP_STATIC_LIB})
+
+  get_property(GRPC_ADDRESS_SORTING_STATIC_LIB
+    TARGET gRPC::address_sorting PROPERTY LOCATION)
+  ADD_THIRDPARTY_LIB(grpc_address_sorting
+    STATIC_LIB ${GRPC_ADDRESS_SORTING_STATIC_LIB})
+
+  # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
+  get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
+  ADD_THIRDPARTY_LIB(cares
+    STATIC_LIB ${CARES_STATIC_LIB})
+endif()
+
+# ----------------------------------------------------------------------
+# Apache ORC
+
+if (ARROW_ORC)
   # orc
-
   if ("${ORC_HOME}" STREQUAL "")
     set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
     set(ORC_HOME "${ORC_PREFIX}")
@@ -1274,10 +1292,10 @@ endif()
 
 endif()  # ARROW_HIVESERVER2
 
-if (ARROW_USE_GLOG)
 # ----------------------------------------------------------------------
 # GLOG
 
+if (ARROW_USE_GLOG)
   if("${GLOG_HOME}" STREQUAL "")
     set(GLOG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/glog_ep-prefix/src/glog_ep")
     set(GLOG_INCLUDE_DIR "${GLOG_BUILD_DIR}/include")
