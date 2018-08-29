@@ -21,7 +21,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -38,10 +40,10 @@ public class FlightStream {
 
   private final BufferAllocator allocator;
   private final LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
-  private final SettableFuture<VectorRoot> root = SettableFuture.create();
+  private final SettableFuture<VectorSchemaRoot> root = SettableFuture.create();
 
   private boolean completed = false;
-  private volatile VectorRoot fulfilledRoot;
+  private volatile VectorSchemaRoot fulfilledRoot;
   private volatile VectorLoader loader;
   private volatile Throwable ex;
   private volatile FlightDescriptor descriptor;
@@ -101,7 +103,7 @@ public class FlightStream {
     }
   }
 
-  public VectorRoot getRoot() {
+  public VectorSchemaRoot getRoot() {
     try {
       return root.get();
     } catch (InterruptedException | ExecutionException e) {
@@ -117,7 +119,7 @@ public class FlightStream {
         switch(msg.getMessageType()) {
         case SCHEMA:
           schema = msg.asSchema();
-          fulfilledRoot = VectorRoot.create(schema, allocator);
+          fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
           loader = new VectorLoader(fulfilledRoot);
           descriptor = msg.getDescriptor() != null ? new FlightDescriptor(msg.getDescriptor()) : null;
           root.set(fulfilledRoot);

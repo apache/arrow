@@ -29,6 +29,7 @@ import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.flight.impl.Flight.Result;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 
 import com.google.common.base.Preconditions;
@@ -79,7 +80,7 @@ class FlightService extends FlightServiceImplBase {
     }
 
     @Override
-    public void start(VectorRoot root) {
+    public void start(VectorSchemaRoot root) {
       responseObserver.onNext(new ArrowMessage(null, root.getSchema()));
       unloader = new VectorUnloader(root, true, false);
     }

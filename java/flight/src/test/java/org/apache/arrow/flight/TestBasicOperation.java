@@ -29,6 +29,7 @@ import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -79,7 +80,7 @@ public class TestBasicOperation {
 
       IntVector iv = new IntVector("c1", a);
 
-      VectorRoot root = new VectorRoot(iv);
+      VectorSchemaRoot root = new VectorSchemaRoot(iv);
       ClientStreamListener listener = c.startPut(FlightDescriptor.path("hello"), root);
 
       //batch 1

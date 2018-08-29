@@ -22,12 +22,12 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.flight.AutoCloseables;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.AutoCloseables;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.base.Preconditions;

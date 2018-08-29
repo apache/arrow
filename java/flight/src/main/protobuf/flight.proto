@@ -2,36 +2,81 @@ syntax = "proto3";
 
 option java_package = "org.apache.arrow.flight.impl";
 
+A flight service is a endpoint for retrieving or storing Arrow data. The flight service can expose one or more predefined endpoints that can be access using the Arrow Flight Protocol. Additionally, the a flight service and expose a set of actions that are available.   
+
+/*
+ * A flight service is an endpoint for retrieving or storing Arrow data. A flight service can expose
+ * one or more predefined endpoints that can be access using the Arrow Flight Protocol.
+ * Additionally, the a flight service and expose a set of actions that are available.
+ */
 service FlightService {
 
-  // get a list of available streams.
+  /*
+   * Get a list of available streams given a particular criteria. Most flight services will expose one
+   * or more streams that are readily available for retrieval. This api allows listing the streams
+   * available for consumption. A user can also provide a criteria. The criteria can limit the subset
+   * of streams that can be listed via this interface. Each flight service allows its own definition
+   * of how to consume criteria.
+   */
   rpc ListFlights(Criteria) returns (stream FlightGetInfo) {}
   
-    // get a list of available streams.
+  /*
+   * For a given FlightDescriptor, get information about how the flight can be consumed. This is a
+   * useful interface if the consumer of the interface already can identify the specific flight to
+   * consume. This interface can also allow a consumer to generate a flight stream through a specified
+   * descriptor. For example, a flight descriptor might be something that includes a SQL statement or
+   * a Pickled Python operation that will be executed. In those cases, the descriptor will not be
+   * previously available within the list of available streams provided by ListFlights but will be
+   * available for consumption for the duration defined by the specific flight service.
+   */  
   rpc GetFlightInfo(FlightDescriptor) returns (FlightGetInfo) {}
   
-  // get stream data.
+  /*
+   * Retrieve a single stream associated with a particular descriptor associated with the referenced
+   * ticket. A Flight can be composed of one or more streams where each stream can be retrieved using
+   * a separate opaque ticket that the flight service uses for managing a collection of streams.
+   */
   rpc DoGet(Ticket) returns (stream FlightData) {}
 
-  // create or append a stream. 
+  /*
+   * Push a stream to the flight service using associated with a particular flight stream. This allows
+   * a client of a flight service to upload a stream of data. Depending on the particular flight
+   * service, a client consumer could be allowed to upload a single stream per descriptor or an
+   * unlimited number. (In the latter, the service might implement a 'seal' action that can be applied
+   * to a descriptor once all streams are uploaded.
+   */  
   rpc DoPut(stream FlightData) returns (PutResult) {}
   
+  /*
+   * Flight services can support an arbitrary number of simple actions in addition to the possible
+   * ListFlights, GetFlightInfo, DoGet, DoPut operations that are potentially available. DoAction
+   * allows a flight client to do a specific action against a flight service. An action includes
+   * opaque request and response objects that are specific to the type action being undertaken.
+   */  
   rpc DoAction(Action) returns (Result) {}
   
+  /*
+   * A flight service exposes all of the available action types that it has along with descriptions.
+   * This allows different flight consumers to understand the capabilities of the flight servic
+   */
   rpc ListActions(Empty) returns (stream ActionType) {}
   
 }
 
 message Empty {}
 
+/*
+ * Describes each available action, including both the name used for execution along with a short
+ * description of the purpose of the action.
+ */
 message ActionType {
   string type = 1;
   string description = 2;
 }
 
 message Criteria {
-  // TODO: criteria pattern to be added.
-  int64 slice_target = 1;  
+  int64 slice_target = 1; 
+  bytes pattern = 2;
 }
 
 message Action {

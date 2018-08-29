@@ -19,11 +19,11 @@ package org.apache.arrow.flight.example;
 
 import java.io.IOException;
 
-import org.apache.arrow.flight.AutoCloseables;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.AutoCloseables;
 
 /**
  * An Example Flight Server that provides access to the InMemoryStore

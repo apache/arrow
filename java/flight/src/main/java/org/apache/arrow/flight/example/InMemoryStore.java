@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
-import org.apache.arrow.flight.AutoCloseables;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
@@ -36,6 +35,7 @@ import org.apache.arrow.flight.VectorRoot;
 import org.apache.arrow.flight.example.Stream.StreamCreator;
 import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.AutoCloseables;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.types.pojo.Schema;
 

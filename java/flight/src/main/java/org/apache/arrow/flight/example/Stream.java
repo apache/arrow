@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-import org.apache.arrow.flight.AutoCloseables;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.VectorRoot;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;

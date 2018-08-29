@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import java.util.concurrent.Callable;
 
 import org.apache.arrow.flight.impl.Flight.PutResult;
+import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
  * API to Implement an Arrow Flight server.
@@ -34,7 +35,7 @@ public interface FlightProducer {
   public void listActions(StreamListener<ActionType> listener);
 
   public interface ServerStreamListener {
-    void start(VectorRoot root);
+    void start(VectorSchemaRoot root);
     void putNext();
     void error(Throwable ex);
     void completed();

@@ -19,7 +19,6 @@ package org.apache.arrow.flight.example;
 
 import java.io.IOException;
 
-import org.apache.arrow.flight.AutoCloseables;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
@@ -29,6 +28,7 @@ import org.apache.arrow.flight.VectorRoot;
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.AutoCloseables;
 import org.apache.arrow.vector.IntVector;
 import org.junit.After;
 import org.junit.Before;
