@@ -18,20 +18,20 @@
 
 package org.apache.arrow.memory;
 
-import com.google.common.base.Preconditions;
-
-import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.UnsafeDirectLittleEndian;
-import io.netty.util.internal.OutOfDirectMemoryError;
+import java.util.Arrays;
+import java.util.IdentityHashMap;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.arrow.memory.AllocationManager.BufferLedger;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 
-import java.util.Arrays;
-import java.util.IdentityHashMap;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
+import com.google.common.base.Preconditions;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.UnsafeDirectLittleEndian;
+import io.netty.util.internal.OutOfDirectMemoryError;
 
 public abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
