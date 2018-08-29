@@ -968,6 +968,12 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                            const shared_ptr[CDataType]& type,
                            shared_ptr[CChunkedArray]* out)
 
+    CStatus NdarrayToArrow(CMemoryPool* pool, object ao, object mo,
+                           c_bool from_pandas,
+                           const shared_ptr[CDataType]& type,
+                           const CCastOptions& cast_options,
+                           shared_ptr[CChunkedArray]* out)
+
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
                             shared_ptr[CTensor]* out)
 

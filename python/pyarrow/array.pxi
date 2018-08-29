@@ -17,8 +17,8 @@
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,
-                        DataType type,
-                        CMemoryPool* pool, c_bool from_pandas):
+                        DataType type, CMemoryPool* pool, c_bool from_pandas,
+                        c_bool safe):
     cdef int64_t c_size
     cdef PyConversionOptions options
 
@@ -50,10 +50,14 @@ cdef _is_array_like(obj):
 
 
 cdef _ndarray_to_array(object values, object mask, DataType type,
-                       c_bool from_pandas,
-                       CMemoryPool* pool):
-    cdef shared_ptr[CChunkedArray] chunked_out
-    cdef shared_ptr[CDataType] c_type
+                       c_bool from_pandas, c_bool safe, CMemoryPool* pool):
+    cdef:
+        shared_ptr[CChunkedArray] chunked_out
+        shared_ptr[CDataType] c_type
+        CCastOptions cast_options
+
+    cast_options.allow_int_overflow = not safe
+    cast_options.allow_time_truncate = not safe
 
     dtype = values.dtype
 
@@ -66,7 +70,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
 
     with nogil:
         check_status(NdarrayToArrow(pool, values, mask, from_pandas,
-                                    c_type, &chunked_out))
+                                    c_type, cast_options, &chunked_out))
 
     if chunked_out.get().num_chunks() > 1:
         return pyarrow_wrap_chunked_array(chunked_out)
@@ -85,7 +89,7 @@ cdef inline DataType _ensure_type(object type):
 
 def array(object obj, type=None, mask=None,
           MemoryPool memory_pool=None, size=None,
-          from_pandas=False):
+          from_pandas=False, safe=True):
     """
     Create pyarrow.Array instance from a Python object
 
@@ -113,6 +117,8 @@ def array(object obj, type=None, mask=None,
         data. If passed, the mask tasks precendence, but if a value is unmasked
         (not-null), but still null according to pandas semantics, then it is
         null
+    safe : boolean, default True
+        Check for overflows or other unsafe conversions
 
     Notes
     -----
@@ -158,14 +164,16 @@ def array(object obj, type=None, mask=None,
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, ordered=values.ordered,
-                from_pandas=from_pandas,
+                from_pandas=from_pandas, safe=safe,
                 memory_pool=memory_pool)
         else:
             values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
                                                         type)
-            return _ndarray_to_array(values, mask, type, from_pandas, pool)
+            return _ndarray_to_array(values, mask, type, from_pandas, safe,
+                                     pool)
     else:
-        return _sequence_to_array(obj, mask, size, type, pool, from_pandas)
+        return _sequence_to_array(obj, mask, size, type, pool, from_pandas,
+                                  safe)
 
 
 def asarray(values, type=None):
@@ -339,6 +347,10 @@ cdef class Array:
                         "the `pyarrow.Array.from_*` functions instead."
                         .format(self.__class__.__name__))
 
+    # from_ptr
+    # from_ndarray or from_numpy
+    # from_sequence
+
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
@@ -439,7 +451,8 @@ cdef class Array:
         return wrap_datum(out)
 
     @staticmethod
-    def from_pandas(obj, mask=None, type=None, MemoryPool memory_pool=None):
+    def from_pandas(obj, mask=None, type=None, safe=True,
+                    MemoryPool memory_pool=None):
         """
         Convert pandas.Series to an Arrow Array, using pandas's semantics about
         what values indicate nulls. See pyarrow.array for more general
@@ -453,6 +466,8 @@ cdef class Array:
         type : pyarrow.DataType
             Explicit type to attempt to coerce to, otherwise will be inferred
             from the data
+        safe : boolean, default True
+            Check for overflows or other unsafe conversions
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the currently-set default
             memory pool
@@ -468,8 +483,8 @@ cdef class Array:
         array : pyarrow.Array or pyarrow.ChunkedArray (if object data
         overflows binary buffer)
         """
-        return array(obj, mask=mask, type=type, memory_pool=memory_pool,
-                     from_pandas=True)
+        return array(obj, mask=mask, type=type, safe=safe, from_pandas=True,
+                     memory_pool=memory_pool)
 
     def __reduce__(self):
         return _restore_array, \
