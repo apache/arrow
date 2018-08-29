@@ -729,9 +729,9 @@ if (ARROW_WITH_ZLIB)
     find_package(ZLIB REQUIRED)
   endif()
   if(ZLIB_FOUND)
-    set(ZLIB_VENDORED 0)
+    ADD_THIRDPARTY_LIB(zlib
+      SHARED_LIB ${ZLIB_SHARED_LIB})
   else()
-    set(ZLIB_VENDORED 1)
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     set(ZLIB_HOME "${ZLIB_PREFIX}")
     set(ZLIB_INCLUDE_DIR "${ZLIB_PREFIX}/include")
@@ -751,26 +751,18 @@ if (ARROW_WITH_ZLIB)
                         -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
                         -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
                         -DBUILD_SHARED_LIBS=OFF)
+    ADD_THIRDPARTY_LIB(zlib
+      STATIC_LIB ${ZLIB_STATIC_LIB})
 
     ExternalProject_Add(zlib_ep
       URL ${ZLIB_SOURCE_URL}
       ${EP_LOG_OPTIONS}
       BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
       CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
+    add_dependencies(zlib zlib_ep)
   endif()
 
   include_directories(SYSTEM ${ZLIB_INCLUDE_DIR})
-  if (ARROW_ZLIB_USE_SHARED)
-    ADD_THIRDPARTY_LIB(zlib
-      SHARED_LIB ${ZLIB_SHARED_LIB})
-  else()
-    ADD_THIRDPARTY_LIB(zlib
-      STATIC_LIB ${ZLIB_STATIC_LIB})
-  endif()
-
-  if (ZLIB_VENDORED)
-    add_dependencies(zlib zlib_ep)
-  endif()
 endif()
 
 if (ARROW_WITH_SNAPPY)
