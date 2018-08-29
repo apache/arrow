@@ -34,6 +34,8 @@
 
 namespace gandiva {
 
+class FunctionHolder;
+
 /// Builds an LLVM module and generates code for the specified set of expressions.
 class LLVMGenerator {
  public:
@@ -98,7 +100,8 @@ class LLVMGenerator {
     LValuePtr BuildValueAndValidity(const ValueValidityPair &pair);
 
     // Generate code to build the params.
-    std::vector<llvm::Value *> BuildParams(const ValueValidityPairVector &args,
+    std::vector<llvm::Value *> BuildParams(FunctionHolder *holder,
+                                           const ValueValidityPairVector &args,
                                            bool with_validity);
 
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
@@ -154,10 +157,15 @@ class LLVMGenerator {
   void ClearPackedBitValueIfFalse(llvm::Value *bitmap, llvm::Value *position,
                                   llvm::Value *value);
 
+  /// For non-IR functions, add prototype to the module on first encounter.
+  void CheckAndAddPrototype(const std::string &full_name, llvm::Type *ret_type,
+                            const std::vector<llvm::Value *> &args);
+
   /// Generate code to make a function call (to a pre-compiled IR function) which takes
   /// 'args' and has a return type 'ret_type'.
   llvm::Value *AddFunctionCall(const std::string &full_name, llvm::Type *ret_type,
-                               const std::vector<llvm::Value *> &args);
+                               const std::vector<llvm::Value *> &args,
+                               bool has_holder = false);
 
   /// Compute the result bitmap for the expression.
   ///

@@ -374,6 +374,52 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }
 
+  @Ignore
+  @Test
+  public void testRegex() throws GandivaException {
+    /*
+     * like "map%"
+     */
+
+    Field x = Field.nullable("x", new ArrowType.Utf8());
+
+    TreeNode cond = TreeBuilder.makeFunction("like",
+      Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeStringLiteral("map%")),
+      boolType);
+    ExpressionTree expr = TreeBuilder.makeExpression(cond, Field.nullable("res", boolType));
+    Schema schema = new Schema(Lists.newArrayList(x));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 5;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    String[] valuesX = new String[]{"mapD", "maps", "google maps", "map", "MapR" };
+    boolean[] expected = new boolean[]{true, true, false, true, false};
+
+    ArrowBuf validityX = buf(validity);
+    List<ArrowBuf> dataBufsX = stringBufs(valuesX);
+
+    ArrowRecordBatch batch = new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(new ArrowFieldNode(numRows, 0)),
+            Lists.newArrayList(validityX, dataBufsX.get(0), dataBufsX.get(1)));
+
+    BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    bitVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bitVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < numRows; i++) {
+      assertFalse(bitVector.isNull(i));
+      assertEquals(expected[i], bitVector.getObject(i).booleanValue());
+    }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
   @Test
   public void testBinaryFields() throws GandivaException {
     Field a = Field.nullable("a", new ArrowType.Binary());

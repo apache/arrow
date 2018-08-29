@@ -339,8 +339,11 @@ NativeFunction FunctionRegistry::pc_registry_[] = {
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than),
     VAR_LEN_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, greater_than_or_equal_to),
 
+    NativeFunction("like", DataTypeVector{utf8(), utf8()}, boolean(), true /*null_safe*/,
+                   RESULT_NULL_IF_NULL, "like_utf8_utf8", true /*needs_holder*/),
+
     // Null internal (sample)
-    NativeFunction("half_or_null", DataTypeVector{int32()}, int32(), true,
+    NativeFunction("half_or_null", DataTypeVector{int32()}, int32(), true /*null_safe*/,
                    RESULT_NULL_INTERNAL, "half_or_null_int32"),
 };  // namespace gandiva
 

@@ -35,8 +35,10 @@ set(SRC_FILES annotator.cc
       function_signature.cc
       llvm_generator.cc
       llvm_types.cc
+      like_holder.cc
       projector.cc
       selection_vector.cc
+      regex_util.cc
       status.cc
       tree_expr_builder.cc
       ${BC_FILE_PATH_CC})
@@ -84,17 +86,16 @@ install(
 
 #args: label test-file src-files
 add_gandiva_unit_test(bitmap_accumulator_test.cc bitmap_accumulator.cc)
-add_gandiva_unit_test(dex_llvm_test.cc)
 add_gandiva_unit_test(engine_llvm_test.cc engine.cc llvm_types.cc status.cc configuration.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(function_signature_test.cc function_signature.cc)
 add_gandiva_unit_test(function_registry_test.cc function_registry.cc function_signature.cc)
 add_gandiva_unit_test(llvm_types_test.cc llvm_types.cc)
-add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc status.cc bitmap_accumulator.cc configuration.cc  function_signature.cc ${BC_FILE_PATH_CC})
+add_gandiva_unit_test(llvm_generator_test.cc llvm_generator.cc regex_util.cc engine.cc llvm_types.cc expr_decomposer.cc function_registry.cc annotator.cc status.cc bitmap_accumulator.cc configuration.cc  function_signature.cc like_holder.cc regex_util.cc ${BC_FILE_PATH_CC})
 add_gandiva_unit_test(annotator_test.cc annotator.cc function_signature.cc)
-add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc)
-add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc)
+add_gandiva_unit_test(tree_expr_test.cc tree_expr_builder.cc expr_decomposer.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc status.cc)
+add_gandiva_unit_test(expr_decomposer_test.cc expr_decomposer.cc tree_expr_builder.cc annotator.cc function_registry.cc function_signature.cc like_holder.cc regex_util.cc status.cc)
 add_gandiva_unit_test(status_test.cc status.cc)
 add_gandiva_unit_test(expression_registry_test.cc llvm_types.cc expression_registry.cc function_signature.cc function_registry.cc)
 add_gandiva_unit_test(selection_vector_test.cc selection_vector.cc status.cc)
 add_gandiva_unit_test(lru_cache_test.cc)
-
+add_gandiva_unit_test(like_holder_test.cc like_holder.cc regex_util.cc status.cc)

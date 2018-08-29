@@ -42,6 +42,11 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 
   llvm::Module *module = generator->module();
   for (auto &iter : registry_) {
+    if (iter.needs_holder()) {
+      // TODO : need a way to verify these too.
+      continue;
+    }
+
     llvm::Function *fn = module->getFunction(iter.pc_name());
     EXPECT_NE(fn, nullptr) << "function " << iter.pc_name()
                            << " missing in precompiled module\n";
@@ -76,7 +81,8 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       generator->function_registry_.LookupSignature(signature);
 
   std::vector<ValueValidityPairPtr> pairs{pair0, pair1};
-  auto func_dex = std::make_shared<NonNullableFuncDex>(func_desc, native_func, pairs);
+  auto func_dex = std::make_shared<NonNullableFuncDex>(func_desc, native_func,
+                                                       FunctionHolderPtr(nullptr), pairs);
 
   auto field_sum = std::make_shared<arrow::Field>("out", arrow::int32());
   auto desc_sum = annotator.CheckAndAddInputFieldDescriptor(field_sum);
@@ -135,8 +141,8 @@ TEST_F(TestLLVMGenerator, TestNullInternal) {
 
   int local_bitmap_idx = annotator.AddLocalBitMap();
   std::vector<ValueValidityPairPtr> pairs{pair0};
-  auto func_dex = std::make_shared<NullableInternalFuncDex>(func_desc, native_func, pairs,
-                                                            local_bitmap_idx);
+  auto func_dex = std::make_shared<NullableInternalFuncDex>(
+      func_desc, native_func, FunctionHolderPtr(nullptr), pairs, local_bitmap_idx);
 
   auto field_result = std::make_shared<arrow::Field>("out", arrow::int32());
   auto desc_result = annotator.CheckAndAddInputFieldDescriptor(field_result);

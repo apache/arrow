@@ -29,27 +29,26 @@ ExpressionRegistry::~ExpressionRegistry() {}
 
 const ExpressionRegistry::FunctionSignatureIterator
 ExpressionRegistry::function_signature_begin() {
-  return FunctionSignatureIterator(function_registry_->begin(),
-                                   function_registry_->end());
+  return FunctionSignatureIterator(function_registry_->begin());
 }
 
 const ExpressionRegistry::FunctionSignatureIterator
 ExpressionRegistry::function_signature_end() const {
-  return FunctionSignatureIterator(function_registry_->end(), function_registry_->end());
+  return FunctionSignatureIterator(function_registry_->end());
 }
 
 bool ExpressionRegistry::FunctionSignatureIterator::operator!=(
     const FunctionSignatureIterator &func_sign_it) {
-  return func_sign_it.it != this->it;
+  return func_sign_it.it_ != this->it_;
 }
 
 FunctionSignature ExpressionRegistry::FunctionSignatureIterator::operator*() {
-  return (*it).signature();
+  return (*it_).signature();
 }
 
 ExpressionRegistry::iterator ExpressionRegistry::FunctionSignatureIterator::operator++(
     int increment) {
-  return it++;
+  return it_++;
 }
 
 DataTypeVector ExpressionRegistry::supported_types_ =

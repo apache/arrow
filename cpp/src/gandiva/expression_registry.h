@@ -39,7 +39,7 @@ class ExpressionRegistry {
   static DataTypeVector supported_types() { return supported_types_; }
   class FunctionSignatureIterator {
    public:
-    FunctionSignatureIterator(iterator begin, iterator end) : it(begin), end(end) {}
+    FunctionSignatureIterator(iterator it) : it_(it) {}
 
     bool operator!=(const FunctionSignatureIterator &func_sign_it);
 
@@ -48,8 +48,7 @@ class ExpressionRegistry {
     iterator operator++(int);
 
    private:
-    iterator it;
-    iterator end;
+    iterator it_;
   };
   const FunctionSignatureIterator function_signature_begin();
   const FunctionSignatureIterator function_signature_end() const;

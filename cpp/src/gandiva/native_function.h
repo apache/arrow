@@ -40,14 +40,16 @@ class NativeFunction {
   std::string pc_name() const { return pc_name_; }
   ResultNullableType result_nullable_type() const { return result_nullable_type_; }
   bool param_null_safe() const { return param_null_safe_; }
+  bool needs_holder() const { return needs_holder_; }
 
  private:
   NativeFunction(const std::string &base_name, const DataTypeVector &param_types,
                  DataTypePtr ret_type, bool param_null_safe,
                  const ResultNullableType &result_nullable_type,
-                 const std::string &pc_name)
+                 const std::string &pc_name, bool needs_holder = false)
       : signature_(base_name, param_types, ret_type),
         param_null_safe_(param_null_safe),
+        needs_holder_(needs_holder),
         result_nullable_type_(result_nullable_type),
         pc_name_(pc_name) {}
 
@@ -55,6 +57,7 @@ class NativeFunction {
 
   /// attributes
   bool param_null_safe_;
+  bool needs_holder_;
   ResultNullableType result_nullable_type_;
 
   /// pre-compiled function name.

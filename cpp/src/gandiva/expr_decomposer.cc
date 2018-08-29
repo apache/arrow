@@ -21,6 +21,7 @@
 
 #include "codegen/annotator.h"
 #include "codegen/dex.h"
+#include "codegen/function_holder_registry.h"
 #include "codegen/function_registry.h"
 #include "codegen/node.h"
 #include "gandiva/function_signature.h"
@@ -53,8 +54,17 @@ Status ExprDecomposer::Visit(const FunctionNode &node) {
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
   for (auto &child : node.children()) {
-    child->Accept(*this);
+    auto status = child->Accept(*this);
+    GANDIVA_RETURN_NOT_OK(status);
+
     args.push_back(result());
+  }
+
+  // Make a function holder, if required.
+  std::shared_ptr<FunctionHolder> holder;
+  if (native_function->needs_holder()) {
+    auto status = FunctionHolderRegistry::Make(desc->name(), node, &holder);
+    GANDIVA_RETURN_NOT_OK(status);
   }
 
   if (native_function->result_nullable_type() == RESULT_NULL_IF_NULL) {
@@ -68,11 +78,13 @@ Status ExprDecomposer::Visit(const FunctionNode &node) {
                              decomposed->validity_exprs().end());
     }
 
-    auto value_dex = std::make_shared<NonNullableFuncDex>(desc, native_function, args);
+    auto value_dex =
+        std::make_shared<NonNullableFuncDex>(desc, native_function, holder, args);
     result_ = std::make_shared<ValueValidityPair>(merged_validity, value_dex);
   } else if (native_function->result_nullable_type() == RESULT_NULL_NEVER) {
     // These functions always output valid results. So, no validity dex.
-    auto value_dex = std::make_shared<NullableNeverFuncDex>(desc, native_function, args);
+    auto value_dex =
+        std::make_shared<NullableNeverFuncDex>(desc, native_function, holder, args);
     result_ = std::make_shared<ValueValidityPair>(value_dex);
   } else {
     DCHECK(native_function->result_nullable_type() == RESULT_NULL_INTERNAL);
@@ -81,8 +93,8 @@ Status ExprDecomposer::Visit(const FunctionNode &node) {
     int local_bitmap_idx = annotator_.AddLocalBitMap();
     auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
 
-    auto value_dex = std::make_shared<NullableInternalFuncDex>(desc, native_function,
-                                                               args, local_bitmap_idx);
+    auto value_dex = std::make_shared<NullableInternalFuncDex>(
+        desc, native_function, holder, args, local_bitmap_idx);
     result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   }
   return Status::OK();
@@ -91,16 +103,19 @@ Status ExprDecomposer::Visit(const FunctionNode &node) {
 // Decompose an IfNode
 Status ExprDecomposer::Visit(const IfNode &node) {
   // Add a local bitmap to track the output validity.
-  node.condition()->Accept(*this);
+  auto status = node.condition()->Accept(*this);
+  GANDIVA_RETURN_NOT_OK(status);
   auto condition_vv = result();
 
   int local_bitmap_idx = PushThenEntry(node);
-  node.then_node()->Accept(*this);
+  status = node.then_node()->Accept(*this);
+  GANDIVA_RETURN_NOT_OK(status);
   auto then_vv = result();
   PopThenEntry(node);
 
   PushElseEntry(node, local_bitmap_idx);
-  node.else_node()->Accept(*this);
+  status = node.else_node()->Accept(*this);
+  GANDIVA_RETURN_NOT_OK(status);
   auto else_vv = result();
   bool is_terminal_else = PopElseEntry(node);
 
@@ -118,7 +133,9 @@ Status ExprDecomposer::Visit(const BooleanNode &node) {
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
   for (auto &child : node.children()) {
-    child->Accept(*this);
+    auto status = child->Accept(*this);
+    GANDIVA_RETURN_NOT_OK(status);
+
     args.push_back(result());
   }
 

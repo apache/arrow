@@ -25,7 +25,7 @@ namespace gandiva {
 /// backed by an arrow-array.
 class SelectionVector {
  public:
-  ~SelectionVector() = default;
+  virtual ~SelectionVector() = default;
 
   /// Get the value at a given index.
   virtual uint GetIndex(int index) const = 0;

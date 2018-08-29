@@ -21,6 +21,7 @@
 #include "codegen/dex_visitor.h"
 #include "codegen/field_descriptor.h"
 #include "codegen/func_descriptor.h"
+#include "codegen/function_holder.h"
 #include "codegen/literal_holder.h"
 #include "codegen/native_function.h"
 #include "codegen/value_validity_pair.h"
@@ -104,20 +105,24 @@ class LocalBitMapValidityDex : public Dex {
 class FuncDex : public Dex {
  public:
   FuncDex(FuncDescriptorPtr func_descriptor, const NativeFunction *native_function,
-          const ValueValidityPairVector &args)
+          FunctionHolderPtr function_holder, const ValueValidityPairVector &args)
       : func_descriptor_(func_descriptor),
         native_function_(native_function),
+        function_holder_(function_holder),
         args_(args) {}
 
   FuncDescriptorPtr func_descriptor() const { return func_descriptor_; }
 
   const NativeFunction *native_function() const { return native_function_; }
 
+  FunctionHolderPtr function_holder() const { return function_holder_; }
+
   const ValueValidityPairVector &args() const { return args_; }
 
  private:
   FuncDescriptorPtr func_descriptor_;
   const NativeFunction *native_function_;
+  FunctionHolderPtr function_holder_;
   ValueValidityPairVector args_;
 };
 
@@ -127,8 +132,9 @@ class NonNullableFuncDex : public FuncDex {
  public:
   NonNullableFuncDex(FuncDescriptorPtr func_descriptor,
                      const NativeFunction *native_function,
+                     FunctionHolderPtr function_holder,
                      const ValueValidityPairVector &args)
-      : FuncDex(func_descriptor, native_function, args) {}
+      : FuncDex(func_descriptor, native_function, function_holder, args) {}
 
   void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
 };
@@ -139,8 +145,9 @@ class NullableNeverFuncDex : public FuncDex {
  public:
   NullableNeverFuncDex(FuncDescriptorPtr func_descriptor,
                        const NativeFunction *native_function,
+                       FunctionHolderPtr function_holder,
                        const ValueValidityPairVector &args)
-      : FuncDex(func_descriptor, native_function, args) {}
+      : FuncDex(func_descriptor, native_function, function_holder, args) {}
 
   void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }
 };
@@ -151,8 +158,9 @@ class NullableInternalFuncDex : public FuncDex {
  public:
   NullableInternalFuncDex(FuncDescriptorPtr func_descriptor,
                           const NativeFunction *native_function,
+                          FunctionHolderPtr function_holder,
                           const ValueValidityPairVector &args, int local_bitmap_idx)
-      : FuncDex(func_descriptor, native_function, args),
+      : FuncDex(func_descriptor, native_function, function_holder, args),
         local_bitmap_idx_(local_bitmap_idx) {}
 
   void Accept(DexVisitor &visitor) override { visitor.Visit(*this); }

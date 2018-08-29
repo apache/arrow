@@ -167,4 +167,45 @@ TEST_F(TestUtf8, TestNullLiteral) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestUtf8, TestLike) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res = field("res", boolean());
+
+  // build expressions.
+  // like(literal(s), a)
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto literal_s = TreeExprBuilder::MakeStringLiteral("%spark%");
+  auto is_like = TreeExprBuilder::MakeFunction("like", {node_a, literal_s}, boolean());
+  auto expr = TreeExprBuilder::MakeExpression(is_like, res);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  Status status = Projector::Make(schema, {expr}, &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a = MakeArrowArrayUtf8({"park", "sparkle", "bright spark and fire", "spark"},
+                                    {true, true, true, true});
+
+  // expected output
+  auto exp = MakeArrowArrayBool({false, true, true, true}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 }  // namespace gandiva

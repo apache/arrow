@@ -36,9 +36,12 @@ class ExprDecomposer : public NodeVisitor {
   explicit ExprDecomposer(const FunctionRegistry &registry, Annotator &annotator)
       : registry_(registry), annotator_(annotator) {}
 
-  ValueValidityPairPtr Decompose(const Node &root) {
-    root.Accept(*this);
-    return result();
+  Status Decompose(const Node &root, ValueValidityPairPtr *out) {
+    auto status = root.Accept(*this);
+    if (status.ok()) {
+      *out = std::move(result_);
+    }
+    return status;
   }
 
  private:
