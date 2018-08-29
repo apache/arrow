@@ -21,11 +21,12 @@ package org.apache.arrow.vector;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampMicroReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.holders.TimeStampMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
+import org.apache.arrow.vector.holders.TimeStampMicroHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+
 import org.joda.time.LocalDateTime;
 
 /**

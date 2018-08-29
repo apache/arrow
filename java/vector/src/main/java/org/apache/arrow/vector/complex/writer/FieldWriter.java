@@ -19,8 +19,8 @@
 package org.apache.arrow.vector.complex.writer;
 
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ScalarWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 
 public interface FieldWriter extends StructWriter, ListWriter, ScalarWriter {
   void allocate();

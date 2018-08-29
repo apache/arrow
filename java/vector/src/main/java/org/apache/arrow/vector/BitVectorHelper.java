@@ -18,9 +18,10 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Helper class for performing generic operations on a bit vector buffer.

@@ -18,15 +18,16 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeSecReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.holders.TimeSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeSecHolder;
+import org.apache.arrow.vector.holders.TimeSecHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * TimeSecVector implements a fixed width (4 bytes) vector of

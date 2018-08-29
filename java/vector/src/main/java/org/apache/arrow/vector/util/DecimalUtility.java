@@ -18,13 +18,11 @@
 
 package org.apache.arrow.vector.util;
 
-import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
+import io.netty.buffer.ArrowBuf;
 
 public class DecimalUtility {
 
