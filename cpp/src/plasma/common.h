@@ -34,6 +34,9 @@
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#ifdef PLASMA_GPU
+#include "arrow/gpu/cuda_api.h"
+#endif
 
 namespace plasma {
 
@@ -117,7 +120,7 @@ struct ObjectTableEntry {
   int64_t metadata_size;
 #ifdef PLASMA_GPU
   /// IPC GPU handle to share with clients.
-  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
+  std::shared_ptr<::arrow::gpu::CudaIpcMemHandle> ipc_handle;
 #endif
   /// Number of clients currently using this object.
   int ref_count;
