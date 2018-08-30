@@ -113,11 +113,18 @@ stored in shared memory. Each object in the Plasma store should be associated
 with a unique ID. The Object ID is then a key that can be used by **any** client
 to fetch that object from the Plasma store.
 
-Random generation of Object IDs is often good enough to ensure unique IDs:
+Random generation of Object IDs is often good enough to ensure unique IDs.
+For test purposes, you can use the function `random_object_id` from the header
+`plasma/test-util.h` to generate random Object IDs, which uses a global random
+number generator. In your own applications, we recommend to generate a string of
+`ObjectID::size()` many random bytes using your own random number generator
+and pass them to `ObjectID::from_bytes` to generate the ObjectID.
 
 ```cpp
+#include <plasma/test-util.h>
+
 // Randomly generate an Object ID.
-ObjectID object_id = ObjectID::from_random();
+ObjectID object_id = random_object_id();
 ```
 
 Now, any connected client that knows the object's Object ID can access the
@@ -142,11 +149,12 @@ Here is a test program you can run:
 #include <iostream>
 #include <string>
 #include <plasma/client.h>
+#include <plasma/test-util.h>
 
 using namespace plasma;
 
 int main(int argc, char** argv) {
-  ObjectID object_id1 = ObjectID::from_random();
+  ObjectID object_id1 = random_object_id();
   std::cout << "object_id1 is " << object_id1.hex() << std::endl;
 
   std::string id_string = object_id1.binary();
@@ -222,12 +230,13 @@ int main(int argc, char** argv) {
   // Create an object with a fixed ObjectID.
   ObjectID object_id = ObjectID::from_binary("00000000000000000000");
   int64_t data_size = 1000;
-  uint8_t *data;
+  std::shared_ptr<Buffer> data;
   std::string metadata = "{'author': 'john'}";
   ARROW_CHECK_OK(client.Create(object_id, data_size, (uint8_t*) metadata.data(), metadata.size(), &data));
   // Write some data into the object.
+  auto d = data->mutable_data();
   for (int64_t i = 0; i < data_size; i++) {
-    data[i] = static_cast<uint8_t>(i % 4);
+    d[i] = static_cast<uint8_t>(i % 4);
   }
   // Seal the object.
   ARROW_CHECK_OK(client.Seal(object_id));
@@ -329,8 +338,9 @@ int main(int argc, char** argv) {
   ARROW_CHECK_OK(client.Get(&object_id, 1, -1, &object_buffer));
 
   // Retrieve object data.
-  uint8_t* data = object_buffer.data;
-  int64_t data_size = object_buffer.data_size;
+  auto buffer = object_buffer.data;
+  const uint8_t* data = buffer->data();
+  int64_t data_size = buffer->size();
 
   // Check that the data agrees with what was written in the other process.
   for (int64_t i = 0; i < data_size; i++) {

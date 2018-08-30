@@ -26,12 +26,15 @@
 #include <random>
 #include <thread>
 
-#include "plasma/test-common.h"
+#include <gtest/gtest.h>
+
+#include "arrow/test-util.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
+#include "plasma/test-util.h"
 
 namespace plasma {
 
