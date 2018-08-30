@@ -23,26 +23,25 @@ source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
 if [ ! -e $CPP_TOOLCHAIN ]; then
     # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN python=3.6 \
-        nomkl \
+    conda create -y -q -p $CPP_TOOLCHAIN python=3.6 nomkl \
         boost-cpp \
-        libprotobuf \
-        rapidjson \
-        flatbuffers \
-        gflags \
-        gtest \
-        lz4-c \
-        snappy \
-        ccache \
-        zstd \
         brotli \
-        zlib \
+        ccache \
         cmake \
         curl \
+        flatbuffers \
+        lz4-c \
+        gflags \
+        gtest \
+        libprotobuf \
+        ninja \
+        rapidjson \
+        snappy \
         thrift-cpp=0.11.0 \
-        ninja
+        zlib \
+        zstd
 
     # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
     # updated sometime on October 2 or October 3
-    conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
+#     conda update -y -q -p $CPP_TOOLCHAIN ca-certificates -c defaults
 fi
