@@ -19,10 +19,20 @@
 
 package org.apache.arrow.tools;
 
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.write;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -40,20 +50,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.Map;
-
-import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
-import static org.apache.arrow.tools.ArrowFileTestFixtures.write;
-import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
-import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class TestIntegration {
 

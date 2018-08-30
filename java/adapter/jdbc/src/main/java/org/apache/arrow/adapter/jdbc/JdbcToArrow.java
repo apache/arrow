@@ -18,18 +18,18 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import org.apache.arrow.memory.BaseAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.VectorSchemaRoot;
-
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Calendar;
 import java.util.Locale;
 import java.util.TimeZone;
+
+import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.google.common.base.Preconditions;
 

@@ -18,7 +18,8 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
+import java.math.BigDecimal;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.DecimalReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -29,7 +30,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.TransferPair;
 
-import java.math.BigDecimal;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * DecimalVector implements a fixed width vector (16 bytes) of

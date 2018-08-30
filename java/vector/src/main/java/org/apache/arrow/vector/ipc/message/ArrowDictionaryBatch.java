@@ -18,8 +18,9 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.flatbuf.DictionaryBatch;
+
+import com.google.flatbuffers.FlatBufferBuilder;
 
 public class ArrowDictionaryBatch implements ArrowMessage {
 

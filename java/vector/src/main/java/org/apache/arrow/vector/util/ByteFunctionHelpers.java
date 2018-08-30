@@ -19,12 +19,12 @@
 
 package org.apache.arrow.vector.util;
 
-import io.netty.buffer.ArrowBuf;
-import io.netty.util.internal.PlatformDependent;
-
 import org.apache.arrow.memory.BoundsChecking;
 
 import com.google.common.primitives.UnsignedLongs;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);

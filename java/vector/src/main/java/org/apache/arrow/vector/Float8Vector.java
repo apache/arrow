@@ -18,7 +18,6 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.Float8ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -27,6 +26,8 @@ import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Float8Vector implements a fixed width vector (8 bytes) of
