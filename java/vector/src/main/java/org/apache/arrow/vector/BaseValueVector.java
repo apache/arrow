@@ -23,7 +23,6 @@ import java.util.Iterator;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.util.TransferPair;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

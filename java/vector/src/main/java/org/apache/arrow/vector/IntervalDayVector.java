@@ -26,7 +26,6 @@ import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
 import org.joda.time.Period;
 
 import io.netty.buffer.ArrowBuf;

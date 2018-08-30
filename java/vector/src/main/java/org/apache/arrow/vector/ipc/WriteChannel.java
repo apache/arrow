@@ -24,7 +24,6 @@ import java.nio.channels.WritableByteChannel;
 
 import org.apache.arrow.vector.ipc.message.FBSerializable;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

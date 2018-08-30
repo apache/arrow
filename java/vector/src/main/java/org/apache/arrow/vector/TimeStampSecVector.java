@@ -26,7 +26,6 @@ import org.apache.arrow.vector.holders.TimeStampSecHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
 import org.joda.time.LocalDateTime;
 
 /**
