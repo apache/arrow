@@ -40,13 +40,12 @@ endif()
 
 if (MSVC)
   # zlib uses zlib.lib for Windows.
-  set(ZLIB_LIB_NAME zlib)
+  set(ZLIB_SHARED_LIB_NAME zlib.lib)
 else()
   # zlib uses libz.so for non Windows.
-  set(ZLIB_LIB_NAME z)
+  set(ZLIB_SHARED_LIB_NAME
+    ${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX})
 endif ()
-set(ZLIB_SHARED_LIB_NAME
-  ${CMAKE_SHARED_LIBRARY_PREFIX}${ZLIB_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 
 # Try the parameterized roots, if they exist
 if (_zlib_roots)
