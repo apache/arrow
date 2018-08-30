@@ -136,8 +136,10 @@ class build_ext(_build_ext):
 
         self.with_arrow_gpu = strtobool(
             os.environ.get('PYARROW_WITH_ARROW_GPU', '0'))
-        self.without_arrow_gpu = not strtobool(
-            os.environ.get('PYARROW_WITH_ARROW_GPU', self.with_arrow_gpu))
+        if 'PYARROW_WITH_ARROW_GPU' in os.environ:
+            self.without_arrow_gpu = not self.with_arrow_gpu
+        else:
+            self.without_arrow_gpu = None
         print( self.with_arrow_gpu, self.without_arrow_gpu )
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))

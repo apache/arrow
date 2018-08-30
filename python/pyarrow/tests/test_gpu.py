@@ -15,28 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.lib cimport *
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_gpu cimport *
+import pytest
+import pyarrow as pa
 
-cdef class CudaDeviceManager:
-    cdef:
-        CCudaDeviceManager* manager
+gpu_support = pytest.mark.skipif(not pa.has_gpu_support, reason='Arrow not built with GPU support')
 
-cdef class CudaContext:
-    cdef:
-        shared_ptr[CCudaContext] context
+@gpu_support
+def test_CudaDeviceManager():
+    manager = pa.CudaDeviceManager()
+    assert manager.num_devices > 0
 
-    cdef void init(self, shared_ptr[CCudaContext]& ctx)
+    # expected to fail, but fails only occasionally:
+    #manager.get_context(manager.num_devices+1) 
 
-cdef class CudaIpcMemHandle:
-    cdef:
-        shared_ptr[CCudaIpcMemHandle] handle
+@gpu_support
+def test_CudaContext():
+    manager = pa.CudaDeviceManager()
+    context = manager.get_context()
+    assert context.bytes_allocated == 0
+    cudabuf = context.allocate(128)
+    assert context.bytes_allocated == 128
+    context.close()
 
-    cdef void init(self, shared_ptr[CCudaIpcMemHandle]& h)
+@gpu_support
+def _test_buffer_bytes():
+    val = b'some data'
+    buf = pa.py_cudabuffer(val) # TODO: fix impl
+    assert isinstance(buf, pa.CudaBuffer)
     
-cdef class CudaBuffer(Buffer):
-
-    cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer)
-

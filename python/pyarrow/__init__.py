@@ -120,9 +120,6 @@ from pyarrow.lib import (ArrowException,
                          ArrowSerializationError,
                          PlasmaObjectExists)
 
-# GPU support, TODO: make it conditional
-#from pyarrow.lib import (CudaBuffer, )
-                         
 # Serialization
 from pyarrow.lib import (deserialize_from, deserialize,
                          deserialize_components,
@@ -153,6 +150,26 @@ from pyarrow.serialization import (default_serialization_context,
                                    register_torch_serialization_handlers)
 
 import pyarrow.types as types
+
+# GPU support
+#
+
+try:
+    import pyarrow.lib_gpu as _lib_gpu
+except ImportError as _msg:
+    if str(_msg) == "'No module named 'pyarrow.lib_gpu":
+        has_gpu_support = False
+    else: # do not silence ImportError in case of any bugs
+        raise
+else:
+    has_gpu_support = True
+
+if has_gpu_support:
+    from pyarrow.lib_gpu \
+        import (CudaDeviceManager, CudaContext, CudaIpcMemHandle,
+                CudaBuffer, py_cudabuffer, as_cudabuffer)
+
+
 
 # Entry point for starting the plasma store
 
