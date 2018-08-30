@@ -18,6 +18,10 @@
 
 package org.apache.arrow.vector.ipc;
 
+import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -25,12 +29,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -69,11 +72,9 @@ import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.netty.buffer.ArrowBuf;
+import com.google.common.collect.ImmutableList;
 
-import static org.apache.arrow.vector.TestUtils.newVarCharVector;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Helps testing the file formats
