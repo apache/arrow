@@ -51,7 +51,7 @@ conda install -y -q pip \
       cython
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
-  # Build documentation depedencies
+  # Install documentation dependencies
   conda install -y -q \
         ipython \
         numpydoc \
