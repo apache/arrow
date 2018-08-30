@@ -71,7 +71,7 @@ namespace arrow {
 /// Examples with bit-width 1 (eg encoding booleans):
 /// ----------------------------------------
 /// 100 1s followed by 100 0s:
-/// <varint(100 << 1)> <1, padded to 1 byte>  <varint(100 << 1)> <0, padded to 1 byte>
+/// <varint(100 << 1)> <1, padded to 1 byte> <varint(100 << 1)> <0, padded to 1 byte>
 ///  - (total 4 bytes)
 //
 /// alternating 1s and 0s (200 total):
