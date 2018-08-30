@@ -261,9 +261,9 @@ Pass multiple labels by dividing with semicolons")
     ON)
 
   if (MSVC)
-    option(ARROW_USE_CLCACHE
-      "Use clcache if available"
-      ON)
+#     option(ARROW_USE_CLCACHE
+#       "Use clcache if available"
+#       ON)
 
     set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
       "Brotli static lib suffix used on Windows with MSVC (default -static)")
@@ -341,14 +341,15 @@ if (ARROW_TENSORFLOW)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
-if (MSVC AND ARROW_USE_CLCACHE AND
-     (("${CMAKE_GENERATOR}" STREQUAL "NMake Makefiles") OR
-      ("${CMAKE_GENERATOR}" STREQUAL "Ninja")))
-  find_program(CLCACHE_FOUND clcache)
-  if(CLCACHE_FOUND)
-    set(CMAKE_CXX_COMPILER ${CLCACHE_FOUND})
-  endif(CLCACHE_FOUND)
-endif()
+# if (MSVC AND ARROW_USE_CLCACHE AND
+#      (NOT ${CMAKE_CXX_COMPILER} MATCHES "clcache") AND
+#      (("${CMAKE_GENERATOR}" STREQUAL "NMake Makefiles") OR
+#       ("${CMAKE_GENERATOR}" STREQUAL "Ninja")))
+#   find_program(CLCACHE_FOUND clcache)
+#   if(CLCACHE_FOUND)
+#     set(CMAKE_CXX_COMPILER ${CLCACHE_FOUND})
+#   endif(CLCACHE_FOUND)
+# endif()
 
 ############################################################
 # Compiler flags
@@ -608,6 +609,8 @@ set(ARROW_LINK_LIBS)
 
 # Libraries to link statically with libarrow.so
 set(ARROW_STATIC_LINK_LIBS)
+
+set(ARROW_STATIC_LINK_LIBS absl::strings ${ARROW_STATIC_LINK_LIBS})
 
 if (ARROW_WITH_BROTLI)
   SET(ARROW_STATIC_LINK_LIBS

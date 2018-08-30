@@ -273,9 +273,12 @@ endif()
 
 if (NOT MSVC)
   # Set -fPIC on all external projects
-  set(EP_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
-  set(EP_C_FLAGS "${EP_C_FLAGS} -fPIC")
+  set(EP_EXTRA_CXX_FLAGS "-fPIC")
+  set(EP_EXTRA_C_FLAGS "-fPIC")
 endif()
+
+set(EP_CXX_FLAGS "${EP_CXX_FLAGS} ${EP_EXTRA_CXX_FLAGS}")
+set(EP_C_FLAGS "${EP_C_FLAGS} ${EP_EXTRA_C_FLAGS}")
 
 # Ensure that a default make is set
 if ("${MAKE}" STREQUAL "")
@@ -293,6 +296,37 @@ else()
   find_library(PTHREAD_LIBRARY pthread)
   message(STATUS "Found pthread: ${PTHREAD_LIBRARY}")
 endif()
+
+
+# ----------------------------------------------------------------------
+# Add abseil dependency (mandatory)
+
+# We only use a private abseil-cpp as we want to control its version.
+
+# XXX FetchContent needs CMake 3.11+, use a git submodule in the meantime
+# FetchContent_Declare(
+#   abseil
+#   URL "https://github.com/abseil/abseil-cpp/archive/${ABSEIL_VERSION}.tar.gz"
+# )
+# FetchContent_Populate(abseil)
+
+set(abseil_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/abseil/abseil-cpp)
+set(abseil_BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/abseil_ep-build)
+
+set(ABSL_COMPILE_CXXFLAGS ${EP_EXTRA_CXX_FLAGS})
+
+# add_subdirectory() is the "natural" way to incorporate Abseil.
+# Another way is to use ExternalProject_Add, see example at
+# https://github.com/googlecartographer/cartographer/blob/master/cmake/modules/FindAbseil.cmake
+add_subdirectory(${abseil_SOURCE_DIR} ${abseil_BINARY_DIR})
+
+# Abseil currently doesn't support installing (https://github.com/abseil/abseil-cpp/issues/111),
+# still we need to install the Abseil headers since we expose Abseil types
+# in our public APIs.
+install(DIRECTORY ${abseil_SOURCE_DIR}/ DESTINATION include
+        FILES_MATCHING PATTERN "*.h")
+
+include_directories(SYSTEM ${abseil_SOURCE_DIR})
 
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))

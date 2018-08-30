@@ -21,7 +21,7 @@
 set -ex
 
 pushd python/manylinux1
-git clone ../../ arrow
+git clone --recurse-submodules ../../ arrow
 docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
 docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
 

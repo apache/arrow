@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-thirdparty/
 CMakeFiles/
 CMakeCache.txt
 CTestTestfile.cmake
@@ -24,6 +23,8 @@ cmake_install.cmake
 build/
 *-build/
 Testing/
+*_ep-build
+*_ep-install
 
 #########################################
 # Editor temporary/working/backup files #

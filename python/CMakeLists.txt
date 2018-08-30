@@ -300,6 +300,7 @@ endfunction()
 
 # Always bundle includes
 file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+file(COPY ${ARROW_INCLUDE_DIR}/absl DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
 if (PYARROW_BUNDLE_ARROW_CPP)
   # arrow

@@ -38,7 +38,7 @@ directory, `/io`.
 
 ```
 $ mkdir -p io/arrow
-$ git clone https://github.com/apache/arrow.git io/arrow
+$ git clone --recurse-submodules https://github.com/apache/arrow.git io/arrow
 $ mkdir -p io/parquet-cpp
 $ git clone https://github.com/apache/parquet-cpp.git io/parquet-cpp
 ```

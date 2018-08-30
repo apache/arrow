@@ -1189,7 +1189,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
       result_->GetValue(i, &length);
       ASSERT_EQ(pos, result_->value_offset(i));
       ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
-      ASSERT_EQ(strings[i % N], result_->GetString(i));
+      ASSERT_EQ(strings[i % N], result_->GetView(i));
 
       pos += length;
     }
@@ -1220,7 +1220,7 @@ TEST_F(TestStringBuilder, TestAppendVector) {
       result_->GetValue(i, &length);
       ASSERT_EQ(pos, result_->value_offset(i));
       ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
-      ASSERT_EQ(strings[i % N], result_->GetString(i));
+      ASSERT_EQ(strings[i % N], result_->GetView(i));
 
       pos += length;
     } else {
@@ -1254,7 +1254,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
       result_->GetValue(i, &length);
       ASSERT_EQ(pos, result_->value_offset(i));
       ASSERT_EQ(static_cast<int32_t>(strlen(string)), length);
-      ASSERT_EQ(strings[i % N], result_->GetString(i));
+      ASSERT_EQ(strings[i % N], result_->GetView(i));
 
       pos += length;
     } else {
@@ -1286,7 +1286,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
       result_->GetValue(i, &length);
       ASSERT_EQ(pos, result_->value_offset(i));
       ASSERT_EQ(static_cast<int32_t>(strlen(strings[i % N])), length);
-      ASSERT_EQ(strings[i % N], result_->GetString(i));
+      ASSERT_EQ(strings[i % N], result_->GetView(i));
 
       pos += length;
     } else {
@@ -1375,9 +1375,8 @@ TEST_F(TestBinaryArray, TestGetValue) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
     } else {
-      int32_t len = -1;
-      const uint8_t* bytes = strings_->GetValue(i, &len);
-      ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
+      ASSERT_FALSE(strings_->IsNull(i));
+      ASSERT_EQ(strings_->GetView(i), expected_[i]);
     }
   }
 }
@@ -1387,9 +1386,8 @@ TEST_F(TestBinaryArray, TestNullValuesInitialized) {
     if (valid_bytes_[i] == 0) {
       ASSERT_TRUE(strings_->IsNull(i));
     } else {
-      int32_t len = -1;
-      const uint8_t* bytes = strings_->GetValue(i, &len);
-      ASSERT_EQ(0, std::memcmp(expected_[i].data(), bytes, len));
+      ASSERT_FALSE(strings_->IsNull(i));
+      ASSERT_EQ(strings_->GetView(i), expected_[i]);
     }
   }
   TestInitialized(*strings_);

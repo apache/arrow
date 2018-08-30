@@ -189,7 +189,11 @@ def run_from_travis():
         else:
             # Test affected topics
             affected_files = list_travis_affected_files()
-            perr("Affected files:", affected_files)
+            if len(affected_files) > 100:
+                perr("Affected files: too many to list ({0})"
+                     .format(len(affected_files)))
+            else:
+                perr("Affected files:", affected_files)
             affected = get_affected_topics(affected_files)
             assert set(affected) <= set(ALL_TOPICS), affected
 

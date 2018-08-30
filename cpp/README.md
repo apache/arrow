@@ -45,7 +45,7 @@ sudo apt-get install cmake \
 On macOS, you can use [Homebrew][1]:
 
 ```shell
-git clone https://github.com/apache/arrow.git
+git clone --recurse-submodules https://github.com/apache/arrow.git
 cd arrow
 brew update && brew bundle --file=c_glib/Brewfile
 ```
@@ -56,7 +56,7 @@ If you are developing on Windows, see the [Windows developer guide][2].
 
 Simple debug build:
 
-    git clone https://github.com/apache/arrow.git
+    git clone --recurse-submodules https://github.com/apache/arrow.git
     cd arrow/cpp
     mkdir debug
     cd debug
@@ -65,7 +65,7 @@ Simple debug build:
 
 Simple release build:
 
-    git clone https://github.com/apache/arrow.git
+    git clone --recurse-submodules https://github.com/apache/arrow.git
     cd arrow/cpp
     mkdir release
     cd release

@@ -27,6 +27,9 @@
 #include <string>
 #include <vector>
 
+#include <absl/strings/string_view.h>
+#include <absl/types/span.h>
+
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -846,8 +849,8 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
     return Append(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  Status Append(const std::string& value) {
-    return Append(value.c_str(), static_cast<int32_t>(value.size()));
+  Status Append(absl::string_view value) {
+    return Append(value.data(), static_cast<int32_t>(value.size()));
   }
 
   Status AppendNull();
@@ -870,6 +873,11 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   ///
   /// This pointer becomes invalid on the next modifying operation.
   const uint8_t* GetValue(int64_t i, int32_t* out_length) const;
+
+  /// Temporary access to a value.
+  ///
+  /// This view becomes invalid on the next modifying operation.
+  absl::string_view GetView(int64_t i) const;
 
  protected:
   TypedBufferBuilder<int32_t> offsets_builder_;
@@ -953,6 +961,11 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   /// This pointer becomes invalid on the next modifying operation.
   const uint8_t* GetValue(int64_t i) const;
 
+  /// Temporary access to a value.
+  ///
+  /// This view becomes invalid on the next modifying operation.
+  absl::string_view GetView(int64_t i) const;
+
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
@@ -1024,9 +1037,13 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
 namespace internal {
 
-// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
+// TODO deprecate this
 struct WrappedBinary {
   WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
+
+  operator absl::string_view() const {
+    return absl::string_view(reinterpret_cast<const char*>(ptr_), length_);
+  }
 
   const uint8_t* ptr_;
   int32_t length_;
@@ -1039,12 +1056,12 @@ struct DictionaryScalar {
 
 template <>
 struct DictionaryScalar<BinaryType> {
-  using type = WrappedBinary;
+  using type = absl::string_view;
 };
 
 template <>
 struct DictionaryScalar<StringType> {
-  using type = WrappedBinary;
+  using type = absl::string_view;
 };
 
 template <>
@@ -1154,17 +1171,11 @@ class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType
   using DictionaryBuilder::DictionaryBuilder;
 
   Status Append(const uint8_t* value, int32_t length) {
-    return Append(internal::WrappedBinary(value, length));
+    return Append(reinterpret_cast<const char*>(value), length);
   }
 
   Status Append(const char* value, int32_t length) {
-    return Append(
-        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
-  }
-
-  Status Append(const std::string& value) {
-    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
-                                          static_cast<int32_t>(value.size())));
+    return Append(absl::string_view(value, length));
   }
 };
 
@@ -1175,17 +1186,11 @@ class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType
   using DictionaryBuilder::DictionaryBuilder;
 
   Status Append(const uint8_t* value, int32_t length) {
-    return Append(internal::WrappedBinary(value, length));
+    return Append(reinterpret_cast<const char*>(value), length);
   }
 
   Status Append(const char* value, int32_t length) {
-    return Append(
-        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
-  }
-
-  Status Append(const std::string& value) {
-    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
-                                          static_cast<int32_t>(value.size())));
+    return Append(absl::string_view(value, length));
   }
 };
 

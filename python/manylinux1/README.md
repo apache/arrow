@@ -33,7 +33,7 @@ for all supported Python versions and place them in the `dist` folder.
 
 ```bash
 # Create a clean copy of the arrow source tree
-git clone ../../ arrow
+git clone --recurse-submodules ../../ arrow
 # Build the native baseimage
 docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
 # Build the python packages

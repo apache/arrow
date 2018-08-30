@@ -66,7 +66,7 @@ script:
   # to build against a specific branch of a fork
   # git clone -b <branch> https://github.com/<user>/arrow
   - pushd ..
-  - git clone -b master https://github.com/apache/arrow
+  - git clone -b master --recurse-submodules https://github.com/apache/arrow
 
   # submit packaging tasks
   - |

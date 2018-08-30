@@ -60,7 +60,7 @@ First, let's clone the Arrow git repository:
 
    mkdir repos
    cd repos
-   git clone https://github.com/apache/arrow.git
+   git clone --recurse-submodules https://github.com/apache/arrow.git
 
 You should now see
 
@@ -264,7 +264,7 @@ First, starting from fresh clones of Apache Arrow:
 
 .. code-block:: shell
 
-   git clone https://github.com/apache/arrow.git
+   git clone --recurse-submodules https://github.com/apache/arrow.git
 
 .. code-block:: shell
 

@@ -17,6 +17,11 @@
 
 @echo on
 
+set CMAKE_COMMON_FLAGS=
+if "%USE_CLCACHE%" == "true" (
+  set CMAKE_COMMON_FLAGS=%CMAKE_COMMON_FLAGS% -DCMAKE_CXX_COMPILER=clcache
+)
+
 if "%JOB%" == "Static_Crt_Build" (
   @rem Since we link the CRT statically, we should also disable building
   @rem the Arrow shared library to link the tests statically, otherwise
@@ -26,7 +31,7 @@ if "%JOB%" == "Static_Crt_Build" (
   mkdir cpp\build-debug
   pushd cpp\build-debug
 
-  cmake -G "%GENERATOR%" ^
+  cmake -G "%GENERATOR%" %CMAKE_COMMON_FLAGS% ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
@@ -41,7 +46,7 @@ if "%JOB%" == "Static_Crt_Build" (
   mkdir cpp\build-release
   pushd cpp\build-release
 
-  cmake -G "%GENERATOR%" ^
+  cmake -G "%GENERATOR%" %CMAKE_COMMON_FLAGS% ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
@@ -65,7 +70,7 @@ if "%JOB%" == "Build_Debug" (
   mkdir cpp\build-debug
   pushd cpp\build-debug
 
-  cmake -G "%GENERATOR%" ^
+  cmake -G "%GENERATOR%" %CMAKE_COMMON_FLAGS% ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
         -DARROW_BUILD_STATIC=OFF ^
@@ -119,7 +124,7 @@ set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 mkdir cpp\build
 pushd cpp\build
 
-cmake -G "%GENERATOR%" ^
+cmake -G "%GENERATOR%" %CMAKE_COMMON_FLAGS% ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
