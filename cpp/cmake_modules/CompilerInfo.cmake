@@ -33,7 +33,7 @@ string(TOLOWER "${COMPILER_VERSION_FULL}" COMPILER_VERSION_FULL_LOWER)
 
 if(MSVC)
   set(COMPILER_FAMILY "msvc")
-  if ("${COMPILER_VERSION_FULL}" MATCHES ".*Microsoft \\(R\\) C/C\\+\\+ Optimizing Compiler Version 19.*x64")
+  if ("${COMPILER_VERSION_FULL}" MATCHES ".*Microsoft ?\\(R\\) C/C\\+\\+ Optimizing Compiler Version 19.*x64")
     string(REGEX REPLACE ".*Optimizing Compiler Version ([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+).*" "\\1"
       COMPILER_VERSION "${COMPILER_VERSION_FULL}")
   elseif(NOT "${COMPILER_VERSION_FULL}" STREQUAL "")
