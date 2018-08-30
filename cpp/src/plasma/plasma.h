@@ -40,7 +40,9 @@
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 
+#ifdef PLASMA_GPU
 using arrow::gpu::CudaIpcMemHandle;
+#endif
 
 namespace plasma {
 
