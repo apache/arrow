@@ -61,7 +61,6 @@ if (_zlib_roots)
     PATHS ${_zlib_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES "lib")
 else ()
-  pkg_check_modules(PKG_ZLIB zlib)
   # Use shared library for non ZLIB_HOME case
   if (MSVC)
     # zlib uses zlib.lib for Windows.
@@ -72,6 +71,7 @@ else ()
   endif ()
   set(ZLIB_SHARED_LIB_NAME
     ${CMAKE_SHARED_LIBRARY_PREFIX}${ZLIB_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  pkg_check_modules(PKG_ZLIB zlib)
   if (PKG_ZLIB_FOUND)
     set(ZLIB_INCLUDE_DIR ${PKG_ZLIB_INCLUDEDIR})
     find_library(ZLIB_SHARED_LIB
