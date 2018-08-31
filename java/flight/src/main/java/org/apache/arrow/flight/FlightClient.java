@@ -20,9 +20,9 @@ package org.apache.arrow.flight;
 import static io.grpc.stub.ClientCalls.asyncClientStreamingCall;
 import static io.grpc.stub.ClientCalls.asyncServerStreamingCall;
 
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.Empty;
 import org.apache.arrow.flight.impl.Flight.PutResult;
@@ -36,6 +36,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.ManagedChannel;
@@ -82,8 +83,8 @@ public class FlightClient implements AutoCloseable {
         .collect(Collectors.toList());
   }
 
-  public Result doAction(Action action) {
-    return new Result(blockingStub.doAction(action.toProtocol()));
+  public Iterator<Result> doAction(Action action) {
+    return Iterators.transform(blockingStub.doAction(action.toProtocol()), t -> new Result(t));
   }
 
   /**

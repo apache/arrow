@@ -69,7 +69,7 @@ public class TestBasicOperation {
   @Test
   public void doAction() throws Exception {
     test(c -> {
-      Result r = c.doAction(new Action("hello"));
+      Result r = c.doAction(new Action("hello")).next();
       System.out.println(new String(r.getBody(), Charsets.UTF_8));
     });
   }

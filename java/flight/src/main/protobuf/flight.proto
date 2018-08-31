@@ -10,6 +10,12 @@ option java_package = "org.apache.arrow.flight.impl";
 service FlightService {
   
   /*
+   * Handshake between client and server. Server expects to receive handshake message before 
+   * responding to any message types.
+   */
+  rpc Handshake(HandshakeRequest) returns (HandshakeResponse) {}
+  
+  /*
    * Get a list of available streams given a particular criteria. Most flight services will expose one
    * or more streams that are readily available for retrieval. This api allows listing the streams
    * available for consumption. A user can also provide a criteria. The criteria can limit the subset
@@ -51,7 +57,7 @@ service FlightService {
    * allows a flight client to do a specific action against a flight service. An action includes
    * opaque request and response objects that are specific to the type action being undertaken.
    */  
-  rpc DoAction(Action) returns (Result) {}
+  rpc DoAction(Action) returns (stream Result) {}
   
   /*
    * A flight service exposes all of the available action types that it has along with descriptions.
@@ -59,6 +65,37 @@ service FlightService {
    */
   rpc ListActions(Empty) returns (stream ActionType) {}
   
+}
+
+/*
+ * The request that a client provides to a server on handshake.
+ */
+message HandshakeRequest {
+
+  /*
+   * A defined protocol version
+   */
+  uint64 protocol_version = 1;
+  Credential credential = 2;
+  bytes payload = 3;
+}
+
+message HandshakeResponse {
+  uint64 protocol_version = 1;
+  bytes payload = 2;
+}
+
+message Credential {
+  enum CredentialType {
+    UNKNOWN = 0;
+    BASIC = 1;
+    OPAQUE = 2;
+  }
+  
+  CredentialType type = 1;
+  string username = 2;
+  string password = 3;
+  bytes opaque_value = 4;
 }
 
 message Empty {}
