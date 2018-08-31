@@ -175,7 +175,7 @@ tasks:
     params:
       numpy_build_version: 1.10.4
       numpy_test_version: 1.14.0
-      pandas_version: 0.20.3
+      pandas_version: 0.23.0
       python_version: 2.7
     artifacts:
       - pyarrow-{version}-cp27-cp27m-macosx_10_6_intel.whl
@@ -186,7 +186,7 @@ tasks:
     params:
       numpy_build_version: 1.10.4
       numpy_test_version: 1.14.0
-      pandas_version: 0.20.3
+      pandas_version: 0.23.0
       python_version: 3.5
     artifacts:
       - pyarrow-{version}-cp35-cp35m-macosx_10_6_intel.whl
@@ -197,7 +197,7 @@ tasks:
     params:
       numpy_build_version: 1.11.3
       numpy_test_version: 1.14.0
-      pandas_version: 0.20.3
+      pandas_version: 0.23.0
       python_version: 3.6
     artifacts:
       - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
