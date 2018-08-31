@@ -18,6 +18,7 @@
 
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_gpu cimport *
+from pyarrow.lib import py_buffer, allocate_buffer
 
 cdef class CudaDeviceManager:
 
@@ -126,9 +127,17 @@ cdef class CudaBuffer(Buffer):
         check_status(CCudaBuffer.FromBuffer(buf, &cbuf))
         return pyarrow_wrap_cudabuffer(cbuf)
 
-    #TODO: CStatus CopyToHost(const int64_t position, const int64_t nbytes, void* out) const
-    #TODO: CStatus CopyFromHost(const int64_t position, const void* data, int64_t nbytes)
-
+    def copy_to_host(self, position, nbytes, MemoryPool memory_pool=None, c_bool resizable=False):
+        buf = allocate_buffer(nbytes, memory_pool=memory_pool, resizable=resizable)
+        cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
+        check_status(self.cuda_buffer.get().CopyToHost(position, nbytes, buf_.get().mutable_data()))
+        return buf
+    
+    def copy_from_host(self, position, data, nbytes):
+        buf = data if isinstance(data, Buffer) else py_buffer(data)
+        cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
+        check_status(self.cuda_buffer.get().CopyFromHost(position, buf_.get().data(), nbytes))
+    
     def export_for_ipc(self):
         cdef shared_ptr[CCudaIpcMemHandle] handle
         check_status(self.cuda_buffer.get().ExportForIpc(&handle))

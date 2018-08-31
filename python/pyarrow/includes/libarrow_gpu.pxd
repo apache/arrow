@@ -78,7 +78,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
     CStatus AllocateCudaHostBuffer(const int64_t size,
                                    shared_ptr[CCudaHostBuffer]* out)
 
-    # Adding Cuda prefix to avoid picking up arrow::gpu functions from arrow namespace.
+    # Cuda prefix is added to avoid picking up arrow::gpu functions from arrow namespace.
     CStatus CudaSerializeRecordBatch" arrow::gpu::SerializeRecordBatch"\
         (const CRecordBatch& batch,
          CCudaContext* ctx,

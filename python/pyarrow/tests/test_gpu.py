@@ -17,26 +17,58 @@
 
 import pytest
 import pyarrow as pa
+import numpy as np
 
 gpu_support = pytest.mark.skipif(not pa.has_gpu_support, reason='Arrow not built with GPU support')
 
+def setup_module(module):
+    if pa.has_gpu_support:
+        module.manager = pa.CudaDeviceManager()
+        module.context = module.manager.get_context()
+        
+def teardown_module(module):
+    if pa.has_gpu_support:
+        module.context.close()
+
 @gpu_support
-def test_CudaDeviceManager():
-    manager = pa.CudaDeviceManager()
+def test_manager_num_devices():
     assert manager.num_devices > 0
 
     # expected to fail, but fails only occasionally:
     #manager.get_context(manager.num_devices+1) 
 
 @gpu_support
-def test_CudaContext():
-    manager = pa.CudaDeviceManager()
-    context = manager.get_context()
-    assert context.bytes_allocated == 0
+def test_context_allocate():
+    bytes_allocated = context.bytes_allocated
     cudabuf = context.allocate(128)
-    assert context.bytes_allocated == 128
-    context.close()
+    assert context.bytes_allocated == bytes_allocated + 128
 
+@gpu_support
+def test_copy_from_to_host():
+    size = 1024
+
+    # Create a buffer in host containing range(size)
+    buf = pa.allocate_buffer(size, resizable=True) # in host
+    assert isinstance(buf, pa.Buffer)
+    assert not isinstance(buf, pa.CudaBuffer)
+    arr = np.frombuffer(buf, dtype=np.uint8)
+    assert arr.size == size
+    arr[:] = range(size)
+    arr_ = np.frombuffer(buf, dtype=np.uint8)
+    assert (arr==arr_).all()
+    
+    device_buffer = context.allocate(size)
+    assert isinstance(device_buffer, pa.CudaBuffer)
+    assert isinstance(device_buffer, pa.Buffer)
+    assert device_buffer.size == size
+    
+    device_buffer.copy_from_host(0, buf, size)
+    
+    buf2 = device_buffer.copy_to_host(0, size)
+    arr2 = np.frombuffer(buf2, dtype=np.uint8)
+    assert (arr==arr2).all()
+    
+    
 @gpu_support
 def _test_buffer_bytes():
     val = b'some data'
