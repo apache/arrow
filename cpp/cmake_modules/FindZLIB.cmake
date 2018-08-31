@@ -27,7 +27,6 @@
 # - Find ZLIB (zlib.h, libz.a, libz.so, and libz.so.1)
 # This module defines
 #  ZLIB_INCLUDE_DIR, directory containing headers
-#  ZLIB_LIBS, directory containing zlib libraries
 #  ZLIB_STATIC_LIB, path to libz.a
 #  ZLIB_SHARED_LIB, path to libz's shared library
 #  ZLIB_FOUND, whether zlib has been found
@@ -92,20 +91,6 @@ endif ()
 
 
 if (ZLIB_FOUND)
-  set(ZLIB_LIBS)
-  if (ZLIB_STATIC_LIB)
-    get_filename_component(ZLIB_STATIC_LIB_DIR ${ZLIB_STATIC_LIB} DIRECTORY)
-    list(APPEND ZLIB_LIBS ${ZLIB_STATIC_LIB_DIR})
-  endif ()
-  if (ZLIB_SHARED_LIB)
-    get_filename_component(ZLIB_SHARED_LIB_DIR ${ZLIB_SHARED_LIB} DIRECTORY)
-    list(APPEND ZLIB_LIBS ${ZLIB_SHARED_LIB_DIR})
-  endif ()
-  set(ZLIB_HEADER_NAME zlib.h)
-  set(ZLIB_HEADER ${ZLIB_INCLUDE_DIR}/${ZLIB_HEADER_NAME})
-endif ()
-
-if (ZLIB_FOUND)
   if (NOT ZLIB_FIND_QUIETLY)
     if (ZLIB_STATIC_LIB)
       message(STATUS "Found the ZLIB static library: ${ZLIB_STATIC_LIB}")
@@ -132,7 +117,6 @@ endif ()
 
 mark_as_advanced(
   ZLIB_INCLUDE_DIR
-  ZLIB_LIBS
   ZLIB_LIBRARIES
   ZLIB_STATIC_LIB
   ZLIB_SHARED_LIB
