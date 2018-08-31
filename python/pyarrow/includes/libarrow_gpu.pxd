@@ -52,7 +52,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
 
         CStatus CopyToHost(const int64_t position, const int64_t nbytes, void* out) const
         CStatus CopyFromHost(const int64_t position, const void* data, int64_t nbytes)
-        CStatus ExportForIpc(shared_ptr[CCudaIpcMemHandle]* handle) # TODO: virtual method
+        CStatus ExportForIpc(shared_ptr[CCudaIpcMemHandle]* handle)
         shared_ptr[CCudaContext] context() const
 
     cdef cppclass CCudaHostBuffer" arrow::gpu::CudaHostBuffer"(CMutableBuffer):
@@ -78,12 +78,16 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::gpu" nogil:
     CStatus AllocateCudaHostBuffer(const int64_t size,
                                    shared_ptr[CCudaHostBuffer]* out)
 
-    CStatus SerializeRecordBatch(const CRecordBatch& batch,
-                                 CCudaContext* ctx,
-                                 shared_ptr[CCudaBuffer]* out)
-    CStatus ReadMessage(CCudaBufferReader* reader,
-                        CMemoryPool* pool,
-                        unique_ptr[CMessage]* message)
-    CStatus ReadRecordBatch(const shared_ptr[CSchema]& schema,
-                            const shared_ptr[CCudaBuffer]& buffer,
-                            CMemoryPool* pool, shared_ptr[CRecordBatch]* out)
+    # Adding Cuda prefix to avoid picking up arrow::gpu functions from arrow namespace.
+    CStatus CudaSerializeRecordBatch" arrow::gpu::SerializeRecordBatch"\
+        (const CRecordBatch& batch,
+         CCudaContext* ctx,
+         shared_ptr[CCudaBuffer]* out)
+    CStatus CudaReadMessage" arrow::gpu::ReadMessage"\
+        (CCudaBufferReader* reader,
+         CMemoryPool* pool,
+         unique_ptr[CMessage]* message)
+    CStatus CudaReadRecordBatch" arrow::gpu::ReadRecordBatch"\
+        (const shared_ptr[CSchema]& schema,
+         const shared_ptr[CCudaBuffer]& buffer,
+         CMemoryPool* pool, shared_ptr[CRecordBatch]* out)

@@ -167,7 +167,10 @@ else:
 if has_gpu_support:
     from pyarrow.lib_gpu \
         import (CudaDeviceManager, CudaContext, CudaIpcMemHandle,
-                CudaBuffer, py_cudabuffer, as_cudabuffer)
+                CudaBuffer, CudaHostBuffer, CudaBufferReader, CudaBufferWriter,
+                allocate_cuda_host_buffer, cuda_serialize_record_batch,
+                cuda_read_message, cuda_read_record_batch,
+                py_cudabuffer, as_cudabuffer)
 
 
 
