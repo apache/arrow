@@ -127,16 +127,73 @@ cdef class CudaBuffer(Buffer):
         check_status(CCudaBuffer.FromBuffer(buf, &cbuf))
         return pyarrow_wrap_cudabuffer(cbuf)
 
-    def copy_to_host(self, position, nbytes, MemoryPool memory_pool=None, c_bool resizable=False):
-        buf = allocate_buffer(nbytes, memory_pool=memory_pool, resizable=resizable)
+    def copy_to_host(self, int64_t position=0, int64_t nbytes=-1, Buffer buf=None,
+                     MemoryPool memory_pool=None, c_bool resizable=False):
+        """Copy memory from GPU device to CPU host
+
+        Parameters
+        ----------
+        position : int
+          Specify the starting position of the copy in GPU
+          device buffer. Default: 0.
+        nbytes : int
+          Specify the number of bytes to copy. Default: -1 (all from
+          the position until host buffer is full).
+        buf : Buffer
+          Specify a pre-allocated output buffer in host. Default: None
+          (allocate new output buffer).
+        memory_pool : MemoryPool
+        resizable : bool
+          Specify extra arguments to allocate_buffer. Used only when
+          buf is None.
+
+        Returns
+        -------
+        buf : Buffer
+          Output buffer in host.
+
+        """
+        nbytes_ = self.size - position if nbytes<0 else nbytes
+        if nbytes_ < 0 or position < 0 or position > self.size:
+            raise ValueError('inconsistent input parameters for device size=%s:'
+                             ' position=%s, nbytes=%s' % (self.size, position, nbytes))
+        if buf is None:
+            buf = allocate_buffer(nbytes_, memory_pool=memory_pool, resizable=resizable)
+        elif nbytes < 0:
+            nbytes_ = min(nbytes_, buf.size)
+
+        if position + nbytes_ > self.size or nbytes_ > buf.size:
+            raise ValueError('inconsistent input parameters for device size=%s:'
+                             ' position=%s, nbytes=%s, buffer size=%s'
+                             % (self.size, position, nbytes, buf.size))
+            
         cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
-        check_status(self.cuda_buffer.get().CopyToHost(position, nbytes, buf_.get().mutable_data()))
+        check_status(self.cuda_buffer.get().CopyToHost(position, nbytes_, buf_.get().mutable_data()))
         return buf
     
-    def copy_from_host(self, position, data, nbytes):
-        buf = data if isinstance(data, Buffer) else py_buffer(data)
+    def copy_from_host(self, source, int64_t position=0, int64_t nbytes=-1):
+        """Copy memory from CPU host to GPU device.
+
+        The device buffer must be pre-allocated.
+
+        Parameters
+        ----------
+        source : {Buffer, buffer-like}
+          Specify source of data in host. It can be buffer-like that
+          is valid argument to py_buffer
+        position : int
+          Specify the starting position of the copy in GPU devive
+          buffer.  Default: 0.
+        nbytes : int
+          Specify the number of bytes to copy. Default: -1 (all from
+          source until device buffer starting from position is full)
+
+        """
+        buf = source if isinstance(source, Buffer) else py_buffer(source)
+        nbytes_ = min(self.size-position, buf.size) if nbytes<0 else nbytes
         cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
-        check_status(self.cuda_buffer.get().CopyFromHost(position, buf_.get().data(), nbytes))
+        check_status(self.cuda_buffer.get().
+                     CopyFromHost(position, buf_.get().data(), nbytes_))
     
     def export_for_ipc(self):
         cdef shared_ptr[CCudaIpcMemHandle] handle

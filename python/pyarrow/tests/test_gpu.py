@@ -43,6 +43,26 @@ def test_context_allocate():
     cudabuf = context.allocate(128)
     assert context.bytes_allocated == bytes_allocated + 128
 
+def make_random_buffer(size, target='host'):
+    if target == 'host':
+        assert size >= 0
+        buf = pa.allocate_buffer(size, resizable=True)
+        assert buf.size == size
+        arr = np.frombuffer(buf, dtype=np.uint8)
+        assert arr.size == size
+        arr[:] = np.random.randint(low=0, high=255, size=size, dtype=np.uint8)
+        assert arr.sum()>0
+        arr_ = np.frombuffer(buf, dtype=np.uint8)
+        assert (arr == arr_).all()
+        return arr, buf
+    if target == 'device':
+        arr, buf = make_random_buffer(size, target='host')
+        dbuf = context.allocate(size)
+        assert dbuf.size == size
+        dbuf.copy_from_host(buf, position=0, nbytes=size)
+        return arr, dbuf
+    raise ValueError('invalid target value')
+    
 @gpu_support
 def test_copy_from_to_host():
     size = 1024
@@ -62,13 +82,61 @@ def test_copy_from_to_host():
     assert isinstance(device_buffer, pa.Buffer)
     assert device_buffer.size == size
     
-    device_buffer.copy_from_host(0, buf, size)
+    device_buffer.copy_from_host(buf, position=0, nbytes=size)
     
-    buf2 = device_buffer.copy_to_host(0, size)
+    buf2 = device_buffer.copy_to_host(position=0, nbytes=size)
     arr2 = np.frombuffer(buf2, dtype=np.uint8)
     assert (arr==arr2).all()
     
+@gpu_support
+def test_copy_to_host():
+    size = 1024
+    arr, dbuf = make_random_buffer(size, target='device')
+
+    buf = dbuf.copy_to_host()
+    assert (arr == np.frombuffer(buf, dtype=np.uint8)).all()
+
+    buf = dbuf.copy_to_host(position=size//4)
+    assert (arr[size//4:] == np.frombuffer(buf, dtype=np.uint8)).all()
+
+    buf = dbuf.copy_to_host(position=size//4, nbytes=size//8)
+    assert (arr[size//4:size//4+size//8] == np.frombuffer(buf, dtype=np.uint8)).all()
+
+    buf = dbuf.copy_to_host(position=size//4, nbytes=0)
+    assert buf.size == 0
+    x
+    for (position, nbytes) in [
+            (size+2, -1), (-2, -1), (0, size + 10), (10, size-5),
+    ]:
+        with pytest.raises(ValueError) as e_info:
+            dbuf.copy_to_host(position=position, nbytes=nbytes)
+        assert str(e_info.value).startswith('inconsistent input parameters')
+
+    buf = pa.allocate_buffer(size//4)
+    dbuf.copy_to_host(buf=buf)
+    assert (arr[:size//4] == np.frombuffer(buf, dtype=np.uint8)).all()
+
+    dbuf.copy_to_host(buf=buf, position=12)
+    assert (arr[12:12+size//4] == np.frombuffer(buf, dtype=np.uint8)).all()
     
+    dbuf.copy_to_host(buf=buf, nbytes=12)
+    assert (arr[:12] == np.frombuffer(buf, dtype=np.uint8)[:12]).all()
+
+    dbuf.copy_to_host(buf=buf, nbytes=12, position=6)
+    assert (arr[6:6+12] == np.frombuffer(buf, dtype=np.uint8)[:12]).all()
+
+    for (position, nbytes) in [
+            (size+2, -1), (-2, -1), (0, size + 10), (10, size-5),
+            (0, size//2), (size//4, size//4+1)
+    ]:
+        with pytest.raises(ValueError) as e_info:
+            dbuf.copy_to_host(buf=buf, position=position, nbytes=nbytes)
+            print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
+                  .format(dbuf.size, buf.size, position, nbytes))
+        assert str(e_info.value).startswith('inconsistent input parameters')
+
+
+        
 @gpu_support
 def _test_buffer_bytes():
     val = b'some data'
