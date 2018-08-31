@@ -90,6 +90,9 @@ If you decided to use pre-built 3rd party dependencies libs, it's possible to
 configure Arrow's cmake build script to search for customized names of 3rd
 party static libs.
 
+`zlib`. Set `ZLIB_HOME` environment variable. Pass
+`-DZLIB_MSVC_STATIC_LIB_SUFFIX=%ZLIB_SUFFIX%` to link with z%ZLIB_SUFFIX%.lib
+
 `brotli`. Set `BROTLI_HOME` environment variable. Pass
 `-DBROTLI_MSVC_STATIC_LIB_SUFFIX=%BROTLI_SUFFIX%` to link with
 brotli*%BROTLI_SUFFIX%.lib. For brotli versions <= 0.6.0 installed from
