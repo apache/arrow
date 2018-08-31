@@ -17,7 +17,6 @@
  */
 package org.apache.arrow.flight;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,7 +25,6 @@ import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
 import com.google.protobuf.ByteString;
 
 public class FlightInfo {
@@ -74,15 +72,9 @@ public class FlightInfo {
   }
 
   FlightGetInfo toProtocol() {
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int schemaOffset = schema.getSchema(builder);
-    builder.finish(schemaOffset);
-    ByteBuffer bb = builder.dataBuffer();
-    byte[] bytes = new byte[bb.remaining()];
-    bb.get(bytes);
     return Flight.FlightGetInfo.newBuilder()
         .addAllEndpoint(endpoints.stream().map(t -> t.toProtocol()).collect(Collectors.toList()))
-        .setSchema(ByteString.copyFrom(bytes))
+        .setSchema(ByteString.copyFrom(schema.toByteArray()))
         .setFlightDescriptor(descriptor.toProtocol())
         .setTotalBytes(FlightInfo.this.bytes)
         .setTotalRecords(records)

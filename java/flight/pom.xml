@@ -115,6 +115,12 @@
       </extension>
     </extensions>
     <plugins>
+        <plugin>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <enableAssertions>false</enableAssertions>
+          </configuration>
+        </plugin>    
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -153,21 +159,32 @@
         <version>0.5.0</version>
         <configuration>
           <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
-          <protoSourceRoot>${basedir}/src/main/protobuf</protoSourceRoot>
           <clearOutputDirectory>false</clearOutputDirectory>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
-          <outputDirectory>${project.build.directory}/generated-sources/protobuf</outputDirectory>
         </configuration>
         <executions>
           <execution>
+            <id>src</id>
+            <configuration>
+              <protoSourceRoot>${basedir}/src/main/protobuf</protoSourceRoot>
+              <outputDirectory>${project.build.directory}/generated-sources/protobuf</outputDirectory>
+            </configuration>
             <goals>
               <goal>compile</goal>
               <goal>compile-custom</goal>
             </goals>
+          </execution>
+          <execution>
+            <id>test</id>
             <configuration>
-
+              <protoSourceRoot>${basedir}/src/test/protobuf</protoSourceRoot>
+              <outputDirectory>${project.build.directory}/generated-test-sources//protobuf</outputDirectory>
             </configuration>
+            <goals>
+              <goal>compile</goal>
+              <goal>compile-custom</goal>
+            </goals>
           </execution>
         </executions>
       </plugin>

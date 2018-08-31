@@ -163,6 +163,15 @@ public class Schema {
     return org.apache.arrow.flatbuf.Schema.endSchema(builder);
   }
 
+  public byte[] toByteArray() {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int schemaOffset = this.getSchema(builder);
+    builder.finish(schemaOffset);
+    ByteBuffer bb = builder.dataBuffer();
+    byte[] bytes = new byte[bb.remaining()];
+    bb.get(bytes);
+    return bytes;
+  }
 
   @Override
   public int hashCode() {

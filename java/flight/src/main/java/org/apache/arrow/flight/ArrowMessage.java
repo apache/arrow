@@ -60,6 +60,8 @@ import io.netty.buffer.CompositeByteBuf;
  */
 class ArrowMessage {
 
+  public static final boolean FAST_PATH = true;
+
   private static final int DESCRIPTOR_TAG = (FlightData.FLIGHT_DESCRIPTOR_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
   private static final int BODY_TAG = (FlightData.DATA_BODY_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
   private static final int HEADER_TAG = (FlightData.DATA_HEADER_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
@@ -95,7 +97,7 @@ class ArrowMessage {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int schemaOffset = schema.getSchema(builder);
     ByteBuffer serializedMessage = MessageSerializer.serializeMessage(builder, MessageHeader.Schema, schemaOffset, 0);
-    //serializedMessage.flip();
+    serializedMessage = serializedMessage.slice();
     message = Message.getRootAsMessage(serializedMessage);
     bufs = ImmutableList.of();
     this.descriptor = descriptor;
@@ -105,6 +107,7 @@ class ArrowMessage {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
     ByteBuffer serializedMessage = MessageSerializer.serializeMessage(builder, MessageHeader.RecordBatch, batchOffset, batch.computeBodyLength());
+    serializedMessage = serializedMessage.slice();
     this.message = Message.getRootAsMessage(serializedMessage);
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
     this.descriptor = null;
@@ -182,7 +185,7 @@ class ArrowMessage {
           }
           int size = readRawVarint32(stream);
           body = allocator.buffer(size);
-          ReadableBuffer readableBuffer = GetReadableBuffer.getReadableBuffer(stream);
+          ReadableBuffer readableBuffer = FAST_PATH ? GetReadableBuffer.getReadableBuffer(stream) : null;
           if(readableBuffer != null) {
             readableBuffer.readBytes(body.nioBuffer(0, size));
           } else {
@@ -273,9 +276,11 @@ class ArrowMessage {
     @Override
     public int drainTo(OutputStream target) throws IOException {
       int size = buf.readableBytes();
-      if(!AddWritableBuffer.add(buf, target)) {
-        buf.getBytes(0, target, buf.readableBytes());
+      if(FAST_PATH && AddWritableBuffer.add(buf, target)) {
+        return size;
       }
+
+      buf.getBytes(0, target, buf.readableBytes());
       return size;
     }
 

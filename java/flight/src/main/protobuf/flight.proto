@@ -8,7 +8,7 @@ option java_package = "org.apache.arrow.flight.impl";
  * Additionally, the a flight service and expose a set of actions that are available.
  */
 service FlightService {
-
+  
   /*
    * Get a list of available streams given a particular criteria. Most flight services will expose one
    * or more streams that are readily available for retrieval. This api allows listing the streams

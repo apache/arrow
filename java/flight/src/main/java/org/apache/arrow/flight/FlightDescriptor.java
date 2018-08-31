@@ -81,7 +81,7 @@ public class FlightDescriptor {
     Flight.FlightDescriptor.Builder b = Flight.FlightDescriptor.newBuilder();
 
     if(isCmd) {
-      return b.setType(DescriptorType.PATH).setCmd(ByteString.copyFrom(cmd)).build();
+      return b.setType(DescriptorType.CMD).setCmd(ByteString.copyFrom(cmd)).build();
     }
     return b.setType(DescriptorType.PATH).addAllPath(path).build();
   }

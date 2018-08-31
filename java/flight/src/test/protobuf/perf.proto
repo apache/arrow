@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option java_package = "org.apache.arrow.flight.perf.impl";
+
+message Perf {
+  bytes schema = 1;
+  int32 stream_count = 2;
+  int64 records_per_stream = 3;
+  int32 records_per_batch = 4;
+}
+
+/*
+ * Payload of ticket
+ */
+message Token {
+
+  // definition of entire flight.
+  Perf definition = 1;
+  
+  // inclusive start
+  int64 start = 2;
+  
+  // exclusive end
+  int64 end = 3;
+  
+}
+
