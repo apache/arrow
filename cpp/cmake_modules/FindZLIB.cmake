@@ -89,7 +89,6 @@ else ()
   set(ZLIB_FOUND FALSE)
 endif ()
 
-
 if (ZLIB_FOUND)
   if (NOT ZLIB_FIND_QUIETLY)
     if (ZLIB_STATIC_LIB)
