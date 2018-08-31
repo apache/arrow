@@ -37,6 +37,7 @@ requirements:
     - {{ compiler('cxx') }}
   host:
     - boost-cpp
+    - libprotobuf
     - flatbuffers
     - rapidjson
     - zlib
