@@ -20,12 +20,9 @@ package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
 
-import io.netty.buffer.ByteBuf;
-
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 
+import io.netty.buffer.ByteBuf;
 
 public class TestEndianess {
 

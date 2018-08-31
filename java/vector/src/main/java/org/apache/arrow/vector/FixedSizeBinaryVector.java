@@ -18,7 +18,6 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -29,6 +28,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
+import io.netty.buffer.ArrowBuf;
 
 /**
  * FixedSizeBinaryVector implements a fixed width vector of

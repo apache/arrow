@@ -25,31 +25,30 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.SchemaChangeCallBack;
-import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SchemaChangeCallBack;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
+import org.apache.arrow.vector.complex.impl.SingleStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionReader;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
-import org.apache.arrow.vector.complex.impl.SingleStructWriter;
-import org.apache.arrow.vector.complex.reader.IntReader;
-import org.apache.arrow.vector.complex.reader.Float8Reader;
-import org.apache.arrow.vector.complex.reader.Float4Reader;
-import org.apache.arrow.vector.complex.reader.BigIntReader;
 import org.apache.arrow.vector.complex.reader.BaseReader.StructReader;
+import org.apache.arrow.vector.complex.reader.BigIntReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.reader.Float4Reader;
+import org.apache.arrow.vector.complex.reader.Float8Reader;
+import org.apache.arrow.vector.complex.reader.IntReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
@@ -75,6 +74,8 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
 import org.junit.Assert;
 import org.junit.Test;
+
+import io.netty.buffer.ArrowBuf;
 
 public class TestComplexWriter {
 

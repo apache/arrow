@@ -28,25 +28,26 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.google.common.collect.ImmutableList;
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.*;
-import org.apache.arrow.vector.dictionary.Dictionary;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.BufferLayout.BufferType;
 import org.apache.arrow.vector.TypeLayout;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DecimalUtility;
+import org.apache.arrow.vector.util.DictionaryUtility;
+import org.apache.commons.codec.binary.Hex;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
-import org.apache.arrow.vector.util.DecimalUtility;
-import org.apache.arrow.vector.util.DictionaryUtility;
-import org.apache.commons.codec.binary.Hex;
+import com.google.common.collect.ImmutableList;
+
+import io.netty.buffer.ArrowBuf;
 
 public class JsonFileWriter implements AutoCloseable {
 

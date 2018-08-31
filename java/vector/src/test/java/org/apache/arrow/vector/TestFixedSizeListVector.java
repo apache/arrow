@@ -18,8 +18,6 @@
 
 package org.apache.arrow.vector;
 
-import com.google.common.collect.Lists;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -34,6 +32,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import com.google.common.collect.Lists;
 
 public class TestFixedSizeListVector {
 

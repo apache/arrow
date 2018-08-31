@@ -18,15 +18,15 @@
 
 package io.netty.buffer;
 
-import io.netty.util.internal.StringUtil;
-
-import org.apache.arrow.memory.OutOfMemoryException;
+import static org.apache.arrow.memory.util.AssertionUtil.ASSERT_ENABLED;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.apache.arrow.memory.util.AssertionUtil.ASSERT_ENABLED;
+import org.apache.arrow.memory.OutOfMemoryException;
+
+import io.netty.util.internal.StringUtil;
 
 /**
  * The base allocator that we use for all of Arrow's memory management. Returns

@@ -18,8 +18,9 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.flatbuf.Message;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Class to hold the Message metadata and body data when reading messages through a

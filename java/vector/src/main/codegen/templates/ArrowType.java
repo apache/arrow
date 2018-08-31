@@ -27,7 +27,6 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import java.util.Objects;
 
 import org.apache.arrow.flatbuf.Type;
-
 import org.apache.arrow.vector.types.*;
 
 import com.fasterxml.jackson.annotation.JsonCreator;

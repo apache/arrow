@@ -18,6 +18,7 @@
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getCharArrayWithCharSet;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -39,8 +40,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getCharArrayWithCharSet;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with UTF-8 Charset, including

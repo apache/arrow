@@ -18,7 +18,9 @@
 
 package org.apache.arrow.tools;
 
-import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -28,9 +30,7 @@ import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
+import com.google.common.base.Preconditions;
 
 public class EchoServer {
   private static final Logger LOGGER = LoggerFactory.getLogger(EchoServer.class);

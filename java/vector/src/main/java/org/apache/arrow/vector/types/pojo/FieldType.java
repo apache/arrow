@@ -22,13 +22,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Map;
 
-import com.google.common.collect.ImmutableMap;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.CallBack;
+
+import com.google.common.collect.ImmutableMap;
 
 public class FieldType {
 

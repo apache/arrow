@@ -18,17 +18,17 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeMilliReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.holders.TimeMilliHolder;
 import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
+import org.apache.arrow.vector.holders.TimeMilliHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
-import org.slf4j.Logger;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * TimeMilliVector implements a fixed width (4 bytes) vector of

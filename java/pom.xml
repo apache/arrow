@@ -37,7 +37,7 @@
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <fbs.version>1.2.0-3f79e055</fbs.version>
     <forkCount>2</forkCount>
-    <checkstyle.failOnViolation>false</checkstyle.failOnViolation>
+    <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
   </properties>
 
   <scm>
@@ -307,6 +307,7 @@
           <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
           <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <encoding>UTF-8</encoding>
           <consoleOutput>true</consoleOutput>
           <failsOnError>${checkstyle.failOnViolation}</failsOnError>

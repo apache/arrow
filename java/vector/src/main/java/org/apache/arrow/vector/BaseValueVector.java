@@ -18,19 +18,15 @@
 
 package org.apache.arrow.vector;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 
-import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.util.TransferPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
 
 import io.netty.buffer.ArrowBuf;
 
