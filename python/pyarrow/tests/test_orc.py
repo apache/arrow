@@ -17,7 +17,6 @@
 
 import datetime
 import decimal
-import gzip
 import os
 
 from pandas.util.testing import assert_frame_equal
