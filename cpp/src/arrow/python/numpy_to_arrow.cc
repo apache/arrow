@@ -174,7 +174,7 @@ class NumPyConverter {
  public:
   NumPyConverter(MemoryPool* pool, PyObject* arr, PyObject* mo,
                  const std::shared_ptr<DataType>& type, bool from_pandas,
-                 const compute::CastOptions& cast_options=compute::CastOptions())
+                 const compute::CastOptions& cast_options = compute::CastOptions())
       : pool_(pool),
         type_(type),
         arr_(reinterpret_cast<PyArrayObject*>(arr)),
@@ -413,7 +413,8 @@ inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
 
   if (!input_type->Equals(*type_)) {
-    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_, pool_, data));
+    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_,
+                             cast_options_, pool_, data));
   }
 
   return Status::OK();
@@ -473,7 +474,8 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
       RETURN_NOT_OK(
-          CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_, pool_, data));
+          CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_,
+                     pool_, data));
     }
   }
 
@@ -520,7 +522,8 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
       RETURN_NOT_OK(
-          CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_, pool_, data));
+          CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_,
+                     pool_, data));
     }
   }
 

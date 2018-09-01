@@ -55,7 +55,7 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
                       std::shared_ptr<ChunkedArray>* out);
 
 /// Safely convert NumPy arrays to Arrow. If target data type is not known,
-/// pass a type with null. 
+/// pass a type with null.
 ///
 /// \param[in] pool Memory pool for any memory allocations
 /// \param[in] ao an ndarray with the array data
