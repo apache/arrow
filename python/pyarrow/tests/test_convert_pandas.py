@@ -1887,8 +1887,8 @@ class TestConvertMisc(object):
             arr = np.array([], dtype=dtype)
             _check_array_roundtrip(arr, type=pa_type)
 
-    def test_threaded_conversion(self):
-        _threaded_conversion()
+    def test_non_threaded_conversion(self):
+        _non_threaded_conversion()
 
     def test_threaded_conversion_multiprocess(self):
         # Parallel conversion should work from child processes too (ARROW-2963)
