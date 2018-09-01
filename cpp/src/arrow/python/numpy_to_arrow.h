@@ -26,7 +26,6 @@
 
 #include "arrow/compute/kernels/cast.h"
 #include "arrow/util/visibility.h"
-#include "arrow/compute/kernels/cast.h"
 
 namespace arrow {
 
