@@ -130,7 +130,8 @@ class TestPlasmaClient(object):
             # Valgrind misses SIGTERM if it is delivered before the
             # event loop is ready; this race condition is mitigated
             # but not solved by time.sleep().
-            time.sleep(1.0)
+            if USE_VALGRIND:
+                time.sleep(1.0)
             self.p.send_signal(signal.SIGTERM)
             if sys.version_info >= (3, 3):
                 self.p.wait(timeout=5)
