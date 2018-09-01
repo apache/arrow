@@ -323,8 +323,8 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
                   const std::shared_ptr<Buffer>& input, const int64_t length,
                   const std::shared_ptr<Buffer>& valid_bitmap, const int64_t null_count,
                   const std::shared_ptr<DataType>& out_type,
-                  const compute::CastOptions& cast_options,
-                  MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+                  const compute::CastOptions& cast_options, MemoryPool* pool,
+                  std::shared_ptr<Buffer>* out) {
   // Must cast
   auto tmp_data = ArrayData::Make(in_type, length, {valid_bitmap, input}, null_count);
 
@@ -413,8 +413,8 @@ inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
 
   if (!input_type->Equals(*type_)) {
-    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_,
-                             cast_options_, pool_, data));
+    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_,
+                             pool_, data));
   }
 
   return Status::OK();
@@ -473,9 +473,8 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
   } else {
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
-      RETURN_NOT_OK(
-          CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_,
-                     pool_, data));
+      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_,
+                               cast_options_, pool_, data));
     }
   }
 
@@ -521,9 +520,8 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
   } else {
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
-      RETURN_NOT_OK(
-          CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_,
-                     pool_, data));
+      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_,
+                               cast_options_, pool_, data));
     }
   }
 
