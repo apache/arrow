@@ -332,9 +332,6 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
   std::shared_ptr<Array> casted_array;
 
   compute::FunctionContext context(pool);
-  // compute::CastOptions cast_options;
-  // cast_options.allow_int_overflow = false;
-  // cast_options.allow_time_truncate = false;
 
   RETURN_NOT_OK(
       compute::Cast(&context, *tmp_array, out_type, cast_options, &casted_array));

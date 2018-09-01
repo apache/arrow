@@ -347,10 +347,6 @@ cdef class Array:
                         "the `pyarrow.Array.from_*` functions instead."
                         .format(self.__class__.__name__))
 
-    # from_ptr
-    # from_ndarray or from_numpy
-    # from_sequence
-
     cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
