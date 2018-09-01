@@ -87,9 +87,8 @@ cdef inline DataType _ensure_type(object type):
         return type
 
 
-def array(object obj, type=None, mask=None,
-          MemoryPool memory_pool=None, size=None,
-          from_pandas=False, safe=True):
+def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
+          bint safe=True, MemoryPool memory_pool=None):
     """
     Create pyarrow.Array instance from a Python object
 
@@ -98,14 +97,11 @@ def array(object obj, type=None, mask=None,
     obj : sequence, iterable, ndarray or Series
         If both type and size are specified may be a single use iterable. If
         not strongly-typed, Arrow type will be inferred for resulting array
-    mask : array (boolean), optional
-        Indicate which values are null (True) or not null (False).
     type : pyarrow.DataType
         Explicit type to attempt to coerce to, otherwise will be inferred from
         the data
-    memory_pool : pyarrow.MemoryPool, optional
-        If not passed, will allocate memory from the currently-set default
-        memory pool
+    mask : array (boolean), optional
+        Indicate which values are null (True) or not null (False).
     size : int64, optional
         Size of the elements. If the imput is larger than size bail at this
         length. For iterators, if size is larger than the input iterator this
@@ -119,6 +115,9 @@ def array(object obj, type=None, mask=None,
         null
     safe : boolean, default True
         Check for overflows or other unsafe conversions
+    memory_pool : pyarrow.MemoryPool, optional
+        If not passed, will allocate memory from the currently-set default
+        memory pool
 
     Notes
     -----
@@ -360,7 +359,7 @@ cdef class Array:
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
 
-    def cast(self, object target_type, safe=True):
+    def cast(self, object target_type, bint safe=True):
         """
         Cast array values to another data type.
 
@@ -447,7 +446,7 @@ cdef class Array:
         return wrap_datum(out)
 
     @staticmethod
-    def from_pandas(obj, mask=None, type=None, safe=True,
+    def from_pandas(obj, mask=None, type=None, bint safe=True,
                     MemoryPool memory_pool=None):
         """
         Convert pandas.Series to an Arrow Array, using pandas's semantics about
@@ -608,9 +607,8 @@ cdef class Array:
 
         return pyarrow_wrap_array(result)
 
-    def to_pandas(self, c_bool strings_to_categorical=False,
-                  c_bool zero_copy_only=False,
-                  c_bool integer_object_nulls=False):
+    def to_pandas(self, bint strings_to_categorical=False,
+                  bint zero_copy_only=False, bint integer_object_nulls=False):
         """
         Convert to a NumPy array object suitable for use in pandas.
 
@@ -1062,8 +1060,8 @@ cdef class DictionaryArray(Array):
         return self._indices
 
     @staticmethod
-    def from_arrays(indices, dictionary, mask=None, ordered=False,
-                    from_pandas=False, safe=True,
+    def from_arrays(indices, dictionary, mask=None, bint ordered=False,
+                    bint from_pandas=False, bint safe=True,
                     MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
