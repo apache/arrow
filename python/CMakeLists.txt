@@ -278,7 +278,8 @@ function(bundle_zlib zlib_home)
     PATHS $ENV{ZLIB_HOME} NO_DEFAULT_PATH
     PATH_SUFFIXES "lib" "bin")
   if (ZLIB_SHARED_LIB)
-    install(FILES ${ZLIB_SHARED_LIB}}
+    get_filename_component(ZLIB_SHARED_LIB_REAL ${ZLIB_SHARED_LIB} REALPATH)
+    install(FILES ${ZLIB_SHARED_LIB_REAL}
       DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
   endif()
 endfunction()
