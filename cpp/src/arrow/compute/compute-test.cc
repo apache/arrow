@@ -292,11 +292,11 @@ TEST_F(TestCast, FloatingPointToInt) {
   vector<bool> all_valid = {true, true, true, true, true};
 
   // float32 point to integer
-  vector<double> v1 = {1.5, 0, 0.5, -1.5, 5.5};
+  vector<float> v1 = {1.5, 0, 0.5, -1.5, 5.5};
   vector<int32_t> e1 = {1, 0, 0, -1, 5};
-  CheckCase<FloatType, double, Int32Type, int32_t>(float32(), v1, is_valid, int32(), e1,
+  CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, is_valid, int32(), e1,
                                                    options);
-  CheckCase<FloatType, double, Int32Type, int32_t>(float32(), v1, all_valid, int32(), e1,
+  CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, all_valid, int32(), e1,
                                                    options);
 
   // float64 point to integer
