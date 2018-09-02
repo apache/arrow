@@ -17,8 +17,7 @@
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,
-                        DataType type, CMemoryPool* pool, c_bool from_pandas,
-                        c_bool safe):
+                        DataType type, CMemoryPool* pool, c_bool from_pandas):
     cdef int64_t c_size
     cdef PyConversionOptions options
 
@@ -171,8 +170,8 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
             return _ndarray_to_array(values, mask, type, from_pandas, safe,
                                      pool)
     else:
-        return _sequence_to_array(obj, mask, size, type, pool, from_pandas,
-                                  safe)
+        # ConvertPySequence does strict conversion if type is explicitly passed
+        return _sequence_to_array(obj, mask, size, type, pool, from_pandas)
 
 
 def asarray(values, type=None):
