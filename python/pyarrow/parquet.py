@@ -371,7 +371,7 @@ class ParquetDatasetPiece(object):
     """
 
     def __init__(self, path, row_group=None, partition_keys=None):
-        self.path = path
+        self.path = _ensure_str_path(path)
         self.row_group = row_group
         self.partition_keys = partition_keys or []
 
@@ -647,7 +647,7 @@ class ParquetManifest(object):
                  partition_scheme='hive', metadata_nthreads=1):
         self.filesystem = filesystem or _get_fs_from_path(dirpath)
         self.pathsep = pathsep
-        self.dirpath = dirpath
+        self.dirpath = _ensure_str_path(dirpath)
         self.partition_scheme = partition_scheme
         self.partitions = ParquetPartitions()
         self.pieces = []
@@ -974,6 +974,15 @@ def _ensure_filesystem(fs):
         raise IOError('Unrecognized filesystem: {0}'.format(fs_type))
     else:
         return fs
+
+
+def _ensure_str_path(path):
+    if isinstance(path, six.string_types):
+        return path
+    elif _has_pathlib and isinstance(path, pathlib.Path):
+        return str(path)
+    else:
+        raise TypeError('Path must be a string or an instance of pathlib.Path')
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
