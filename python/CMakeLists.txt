@@ -263,6 +263,26 @@ function(bundle_boost_lib library_path)
   endif()
 endfunction()
 
+function(bundle_zlib zlib_home)
+  if (MSVC)
+    # zlib uses zlib.dll for Windows.
+    set(ZLIB_SHARED_LIB_NAME
+      ${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX})
+  else()
+    # zlib uses libz.so for non Windows.
+    set(ZLIB_SHARED_LIB_NAME
+      ${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX})
+  endif()
+  find_library(ZLIB_SHARED_LIB
+    NAMES ${ZLIB_SHARED_LIB_NAME}
+    PATHS $ENV{ZLIB_HOME} NO_DEFAULT_PATH
+    PATH_SUFFIXES "lib" "bin")
+  if (ZLIB_SHARED_LIB)
+    install(FILES ${ZLIB_SHARED_LIB}}
+      DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+  endif()
+endfunction()
+
 # Always bundle includes
 file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
@@ -300,6 +320,10 @@ if (PYARROW_BUNDLE_ARROW_CPP)
     bundle_boost_lib(Boost_REGEX_LIBRARY)
     bundle_boost_lib(Boost_FILESYSTEM_LIBRARY)
     bundle_boost_lib(Boost_SYSTEM_LIBRARY)
+  endif()
+
+  if (NOT "$ENV{ZLIB_HOME}" STREQUAL "")
+    bundle_zlib($ENV{ZLIB_HOME})
   endif()
 
   if (MSVC)
