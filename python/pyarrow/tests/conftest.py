@@ -123,6 +123,12 @@ def pytest_runtest_setup(item):
             pytest.skip('Only running some groups with only flags')
 
 
+@pytest.fixture
+def tempdir(tmpdir):
+    # convert pytest's LocalPath to pathlib.Path
+    return pathlib.Path(tmpdir)
+
+
 @pytest.fixture(scope='session')
 def datadir():
     return pathlib.Path(__file__).parent / 'data'
