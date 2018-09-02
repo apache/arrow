@@ -865,8 +865,8 @@ def test_write_tensor_cpp_interop():
         inputs = [b'1'*20]
 
         # Construct Object ID and perform a batch get
-        oids = [plasma.ObjectID(inp) for inp in inputs]
-        buffers = plasma_client.get_buffers(oids)
+        object_ids = [plasma.ObjectID(inp) for inp in inputs]
+        buffers = plasma_client.get_buffers(object_ids)
 
         # Read the tensor and convert to numpy array for each object
         arrs = []
