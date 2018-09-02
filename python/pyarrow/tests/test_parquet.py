@@ -23,22 +23,28 @@ import io
 import json
 import os
 import sys
-
 import pytest
-
-from pyarrow.compat import guid, u, BytesIO, unichar
-from pyarrow.tests import util
-from pyarrow.filesystem import LocalFileSystem
-from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
+import pathlib
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pandas.util.testing as tm
 
+from pyarrow.compat import guid, u, BytesIO, unichar
+from pyarrow.tests import util
+from pyarrow.filesystem import LocalFileSystem
+from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
+
+
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
+
+
+@pytest.fixture(scope='module')
+def datadir(datadir):
+    return datadir / 'parquet'
 
 
 def _write_table(table, path, **kwargs):
@@ -1802,13 +1808,11 @@ def test_read_non_existent_file(tmpdir):
         assert path in e.args[0]
 
 
-def test_read_table_doesnt_warn():
+def test_read_table_doesnt_warn(datadir):
     import pyarrow.parquet as pq
 
-    path = os.path.join(os.path.dirname(__file__), 'data', 'v0.7.1.parquet')
-
     with pytest.warns(None) as record:
-        pq.read_table(path)
+        pq.read_table(datadir / 'v0.7.1.parquet')
 
     assert len(record) == 0
 
@@ -1972,7 +1976,7 @@ def test_parquet_nested_convenience(tmpdir):
     tm.assert_frame_equal(read.to_pandas(), df)
 
 
-def test_backwards_compatible_index_naming():
+def test_backwards_compatible_index_naming(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -1988,13 +1992,12 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     expected = pd.read_csv(
         io.BytesIO(expected_string), sep=r'\s{2,}', index_col=None, header=0
     )
-    path = os.path.join(os.path.dirname(__file__), 'data', 'v0.7.1.parquet')
-    t = _read_table(path)
-    result = t.to_pandas()
+    table = _read_table(datadir / 'v0.7.1.parquet')
+    result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
-def test_backwards_compatible_index_multi_level_named():
+def test_backwards_compatible_index_multi_level_named(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -2011,15 +2014,13 @@ carat        cut  color  clarity  depth  table  price     x     y     z
         io.BytesIO(expected_string),
         sep=r'\s{2,}', index_col=['cut', 'color', 'clarity'], header=0
     ).sort_index()
-    path = os.path.join(
-        os.path.dirname(__file__), 'data', 'v0.7.1.all-named-index.parquet'
-    )
-    t = _read_table(path)
-    result = t.to_pandas()
+
+    table = _read_table(datadir / 'v0.7.1.all-named-index.parquet')
+    result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
-def test_backwards_compatible_index_multi_level_some_named():
+def test_backwards_compatible_index_multi_level_some_named(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -2037,15 +2038,13 @@ carat        cut  color  clarity  depth  table  price     x     y     z
         sep=r'\s{2,}', index_col=['cut', 'color', 'clarity'], header=0
     ).sort_index()
     expected.index = expected.index.set_names(['cut', None, 'clarity'])
-    path = os.path.join(
-        os.path.dirname(__file__), 'data', 'v0.7.1.some-named-index.parquet'
-    )
-    t = _read_table(path)
-    result = t.to_pandas()
+
+    table = _read_table(datadir / 'v0.7.1.some-named-index.parquet')
+    result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
-def test_backwards_compatible_column_metadata_handling():
+def test_backwards_compatible_column_metadata_handling(datadir):
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
          'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
@@ -2054,16 +2053,13 @@ def test_backwards_compatible_column_metadata_handling():
          pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')],
         names=['index', None])
 
-    path = os.path.join(
-        os.path.dirname(__file__), 'data',
-        'v0.7.1.column-metadata-handling.parquet'
-    )
-    t = _read_table(path)
-    result = t.to_pandas()
+    path = datadir / 'v0.7.1.column-metadata-handling.parquet'
+    table = _read_table(path)
+    result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
-    t = _read_table(path, columns=['a'])
-    result = t.to_pandas()
+    table = _read_table(path, columns=['a'])
+    result = table.to_pandas()
     tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
 
 
@@ -2071,7 +2067,6 @@ def test_decimal_roundtrip(tmpdir):
     num_values = 10
 
     columns = {}
-
     for precision in range(1, 39):
         for scale in range(0, precision + 1):
             with util.random_seed(0):
@@ -2086,8 +2081,8 @@ def test_decimal_roundtrip(tmpdir):
     expected = pd.DataFrame(columns)
     filename = tmpdir.join('decimals.parquet')
     string_filename = str(filename)
-    t = pa.Table.from_pandas(expected)
-    _write_table(t, string_filename)
+    table = pa.Table.from_pandas(expected)
+    _write_table(table, string_filename)
     result_table = _read_table(string_filename)
     result = result_table.to_pandas()
     tm.assert_frame_equal(result, expected)
