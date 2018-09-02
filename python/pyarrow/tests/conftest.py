@@ -16,7 +16,11 @@
 # under the License.
 
 import pytest
-import pathlib
+
+try:
+    import pathlib
+except ImportError:
+    import pathlib2 as pathlib  # py2 compat
 
 
 groups = [

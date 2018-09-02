@@ -362,7 +362,7 @@ class ParquetDatasetPiece(object):
 
     Parameters
     ----------
-    path : str
+    path : str or pathlib.Path
         Path to file in the file system where this piece is located
     partition_keys : list of tuples
       [(column name, ordinal index)]
