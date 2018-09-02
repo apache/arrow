@@ -12,20 +12,20 @@
   limitations under the License. See accompanying LICENSE file.
 -->
 
-Use Plasma to Access Tensor from C++ in Python
+Use Plasma to Access Tensors from C++ in Python
 ==============================================
 
-This short tutorial shows how to use Arrow and Plasma Store to send data 
-from C++ to Python. 
+This short tutorial shows how to use Arrow and the Plasma Store to send data
+from C++ to Python.
 
 In detail, we will show how to:
-1. Serialize a floating-point array in C++ into Arrow Tensor
-2. Save the Arrow Tensor to Plasma In-Memory Object Store
-3. Access the Tensor in a Python Process
+1. Serialize a floating-point array in C++ into an Arrow tensor
+2. Save the Arrow tensor to Plasma
+3. Access the Tensor in a Python process
 
-This approach has the advantage that multiple python processes can all read 
+This approach has the advantage that multiple python processes can all read
 the tensor with zero-copy. Therefore, only one copy is necessary when we send
-a tensor from one C++ process to many python processes. 
+a tensor from one C++ process to many python processes.
 
 
 Step 0: Set up
@@ -45,77 +45,77 @@ ARROW_CHECK_OK(client_.Connect("/tmp/plasma", "", 0));
 ```
 
 
-Step 1: Serialize a floating point array in C++ into Arrow Tensor
----------------------------------------------
-In this step, we will construct a floating-point array in C++. `generate_input`
-function takes the input length and returns the pointer to a `float` array 
-filled with random elements. 
+Step 1: Serialize a floating point array in C++ into an Arrow Tensor
+--------------------------------------------------------------------
+In this step, we will construct a floating-point array in C++.
 
 ```cpp
-// Generate Random Object ID for Plasma, 20 bytes
-ObjectID object_id = ObjectID::from_random();
+// Generate an Object ID for Plasma
+ObjectID object_id = ObjectID::from_binary("11111111111111111111");
 
 // Generate Float Array
 int64_t input_length = 1000;
-float* input = generate_input(input_length);
+std::vector<float> input(input_length);
+for (int64_t i = 0; i < input_length; ++i) {
+  input[i] = 2.0;
+}
 
 // Cast float array to bytes array
-const uint8_t* bytes_array = reinterpret_cast<const uint8_t*>(input);
+const uint8_t* bytes_array = reinterpret_cast<const uint8_t*>(input.data());
 
 // Create Arrow Tensor Object, no copy made!
 // {input_length} is the shape of the tensor
-auto value_buffer = std::make_shared<Buffer>(bytes_array, sizeof(float)*input_length);
+auto value_buffer = std::make_shared<Buffer>(bytes_array, sizeof(float) * input_length);
 Tensor t(float32(), value_buffer, {input_length});
 ```
 
 Step 2: Save the Arrow Tensor to Plasma In-Memory Object Store
 --------------------------------------------------------------
 Continuing from Step 1, this step will save the tensor to Plasma Store. We
-use `arrow::ipc::WriteTensor` to write the data. 
+use `arrow::ipc::WriteTensor` to write the data.
 
-Note that the `meta_len` is set to `0` for a Tensor message. 
+The variable `meta_len` will contain the length of the tensor metadata
+after the call to `arrow::ipc::WriteTensor`.
 
 ```cpp
-// Get the size of tensor for Plasma
+// Get the size of the tensor to be stored in Plasma
 int64_t datasize;
 ARROW_CHECK_OK(ipc::GetTensorSize(t, &datasize));
 int32_t meta_len = 0;
 
-// Create Plasma Object
+// Create the Plasma Object
 // Plasma is responsible for initializing and resizing the buffer
-// This buffer will contain _serialized_ tensor
+// This buffer will contain the _serialized_ tensor
 std::shared_ptr<Buffer> buffer;
 ARROW_CHECK_OK(
     client_.Create(object_id, datasize, NULL, 0, &buffer));
 
-// Writing Process, Copy made!
+// Writing Process, this will copy the tensor into Plasma
 io::FixedSizeBufferWriter stream(buffer);
 ARROW_CHECK_OK(arrow::ipc::WriteTensor(t, &stream, &meta_len, &datasize));
 
 // Seal Plasma Object
-// Perform a hash by default 
-// (Clipper turned it off by making build a custom fork of arrow)
+// This computes a hash of the object data by default
 ARROW_CHECK_OK(client_.Seal(object_id));
 ```
 
 Step 3: Access the Tensor in a Python Process
 ---------------------------------------------
-In Python, we will construct the Plasma client and point it to the same socket.
-The `inputs` variable will be a list of oids in their raw byte string form. 
+In Python, we will construct a Plasma client and point it to the store's socket.
+The `inputs` variable will be a list of Object IDs in their raw byte string form.
 
 ```python
 import pyarrow as pa
 import pyarrow.plasma as plasma
 
-plasma_client = plasma.connect('/tmp/plasma','',0)
+plasma_client = plasma.connect('/tmp/plasma', '', 0)
 
-# inputs: a list of length 20 bytes object ids
-# For example
-inputs = [b'a'*20]
+# inputs: a list of object ids
+inputs = [20 * b'1']
 
 # Construct Object ID and perform a batch get
-oids = [plasma.ObjectID(inp) for inp in inputs]
-buffers = plasma_client.get_buffers(oids)
+object_ids = [plasma.ObjectID(inp) for inp in inputs]
+buffers = plasma_client.get_buffers(object_ids)
 
 # Read the tensor and convert to numpy array for each object
 arrs = []
@@ -124,5 +124,7 @@ for buffer in buffers:
     t = pa.read_tensor(reader)
     arr = t.to_numpy()
     arrs.append(arr)
-# arrs is now a list of numpy array
+
+# arrs is now a list of numpy arrays
+assert np.all(arrs[0] == 2.0 * np.ones(1000, dtype="float32"))
 ```
