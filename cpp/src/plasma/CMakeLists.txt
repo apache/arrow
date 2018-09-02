@@ -127,6 +127,9 @@ endif()
 add_executable(plasma_store_server store.cc)
 target_link_libraries(plasma_store_server plasma_static ${PLASMA_LINK_LIBS})
 
+add_executable(plasma_integration_test integration_test.cc)
+target_link_libraries(plasma_integration_test plasma_static ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS})
+
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)
     set(_lib_install_rpath "@loader_path")
@@ -134,6 +137,8 @@ if (ARROW_RPATH_ORIGIN)
     set(_lib_install_rpath "\$ORIGIN")
   endif()
   set_target_properties(plasma_store_server PROPERTIES
+      INSTALL_RPATH ${_lib_install_rpath})
+  set_target_properties(plasma_integration_test properties
       INSTALL_RPATH ${_lib_install_rpath})
 endif()
 
@@ -149,6 +154,10 @@ install(FILES
 # Plasma store
 set_target_properties(plasma_store_server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 install(TARGETS plasma_store_server DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Integration tests
+set_target_properties(plasma_integration_test PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+install(TARGETS plasma_integration_test DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support
 configure_file(plasma.pc.in

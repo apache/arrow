@@ -350,6 +350,13 @@ class build_ext(_build_ext):
                                       self._get_build_dir(),
                                       "plasma_store_server")
                 shutil.move(source, target)
+                # Move the integration test
+                source = os.path.join(self.build_type,
+                                      "plasma_integration_test")
+                target = os.path.join(build_lib,
+                                      self._get_build_dir(),
+                                      "plasma_integration_test")
+                shutil.move(source, target)
 
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:

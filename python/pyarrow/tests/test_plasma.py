@@ -849,3 +849,31 @@ def test_object_id_randomness():
     first_object_id = subprocess.check_output(["python", "-c", cmd])
     second_object_id = subprocess.check_output(["python", "-c", cmd])
     assert first_object_id != second_object_id
+
+
+@pytest.mark.plasma
+def test_write_tensor_cpp_interop():
+    import pyarrow.plasma as plasma
+
+    with plasma.start_plasma_store(
+            plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
+            as (plasma_store_name, p):
+        plasma_integration_test_name = os.path.join(pa.__path__[0], "plasma_integration_test")
+        subprocess.check_call([plasma_integration_test_name, plasma_store_name])
+        plasma_client = plasma.connect(plasma_store_name, "", 0)
+
+        inputs = [b'1'*20]
+
+        # Construct Object ID and perform a batch get
+        oids = [plasma.ObjectID(inp) for inp in inputs]
+        buffers = plasma_client.get_buffers(oids)
+
+        # Read the tensor and convert to numpy array for each object
+        arrs = []
+        for buffer in buffers:
+            reader = pa.BufferReader(buffer)
+            t = pa.read_tensor(reader)
+            arr = t.to_numpy()
+            arrs.append(arr)
+
+        assert np.all(arrs[0] == 2.0 * np.ones(1000, dtype="float32"))
