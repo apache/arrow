@@ -295,9 +295,9 @@ TEST_F(TestCast, FloatingPointToInt) {
   vector<float> v1 = {1.5, 0, 0.5, -1.5, 5.5};
   vector<int32_t> e1 = {1, 0, 0, -1, 5};
   CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, is_valid, int32(), e1,
-                                                   options);
+                                                  options);
   CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, all_valid, int32(), e1,
-                                                   options);
+                                                  options);
 
   // float64 point to integer
   vector<double> v2 = {1.0, 0, 0.0, -1.0, 5.0};
