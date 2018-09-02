@@ -479,12 +479,17 @@ def test_string_from_buffers():
 
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
-
-    in_arr = pa.array(in_data, type=in_type)
-
-    casted = in_arr.cast(out_type, safe=safe)
     expected = pa.array(out_data, type=out_type)
+
+    # check casting an already created array
+    in_arr = pa.array(in_data, type=in_type)
+    casted = in_arr.cast(out_type, safe=safe)
     assert casted.equals(expected)
+
+    # constructing an array with out type which optionally involves casting
+    # for more see ARROW-1949
+    in_arr = pa.array(in_data, type=out_type, safe=safe)
+    assert in_arr.equals(expected)
 
 
 def test_cast_integers_safe():
@@ -571,6 +576,22 @@ def test_cast_timestamp_unit():
         arr.cast(target)
 
     result = arr.cast(target, safe=False)
+    assert result.equals(expected)
+
+    # ARROW-1949
+    series = pd.Series([pd.Timestamp(1), pd.Timestamp(10), pd.Timestamp(1000)])
+    expected = pa.array([0, 0, 1], type=pa.timestamp('us'))
+
+    with pytest.raises(ValueError):
+        pa.array(series, type=pa.timestamp('us'))
+
+    with pytest.raises(ValueError):
+        pa.Array.from_pandas(series, type=pa.timestamp('us'))
+
+    result = pa.Array.from_pandas(series, type=pa.timestamp('us'), safe=False)
+    assert result.equals(expected)
+
+    result = pa.array(series, type=pa.timestamp('us'), safe=False)
     assert result.equals(expected)
 
 
