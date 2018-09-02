@@ -23,7 +23,7 @@ set -e
 cd /apache-arrow
 
 # Activate our pyarrow-dev conda env
-source activate pyarrow-dev
+conda activate pyarrow-dev
 
 export ARROW_HOME=$(pwd)/arrow
 export ARROW_BUILD_TYPE=release

@@ -44,7 +44,7 @@ pushd $ARROW_INTEGRATION_DIR
 
 CONDA_ENV_NAME=arrow-integration-test
 conda create -y -q -n $CONDA_ENV_NAME python=3.5
-source activate $CONDA_ENV_NAME
+conda activate $CONDA_ENV_NAME
 
 # faster builds, please
 conda install -y nomkl

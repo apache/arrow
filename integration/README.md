@@ -44,7 +44,7 @@ bash miniconda.sh -b -p miniconda
 export PATH=`pwd`/miniconda/bin:$PATH
 
 conda create -n arrow-integration python=3.6 nomkl numpy six
-source activate arrow-integration
+conda activate arrow-integration
 ```
 
 If you are on macOS, instead use the URL:

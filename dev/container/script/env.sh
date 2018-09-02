@@ -17,7 +17,7 @@
 #
 
 # See also https://arrow.apache.org/docs/python/development.html#build-and-test
-source activate pyarrow-dev
+conda activate pyarrow-dev
 export ARROW_BUILD_TYPE=release
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX

@@ -143,7 +143,7 @@ setup_miniconda() {
         pandas \
         six \
         cython -c conda-forge
-  source activate arrow-test
+  conda activate arrow-test
 }
 
 # Build and test C++

@@ -32,7 +32,7 @@ bootstrap_python_env() {
   CONDA_ENV_DIR=$BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
   conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
-  source activate $CONDA_ENV_DIR
+  conda activate $CONDA_ENV_DIR
 
   python --version
   which python

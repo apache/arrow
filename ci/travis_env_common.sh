@@ -20,7 +20,6 @@
 # hide nodejs experimental-feature warnings
 export NODE_NO_WARNINGS=1
 export MINICONDA=$HOME/miniconda
-export PATH="$MINICONDA/bin:$PATH"
 export CONDA_PKGS_DIRS=$HOME/.conda_packages
 
 export ARROW_CPP_DIR=$TRAVIS_BUILD_DIR/cpp
