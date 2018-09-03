@@ -11,16 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef ENV_HELPER_H
-#define ENV_HELPER_H
 
-#include <jni.h>
+#include "codegen/like_holder.h"
 
-// class references
-extern jclass configuration_builder_class_;
-
-// method references
-extern jmethodID byte_code_accessor_method_id_;
-extern jmethodID helper_library_accessor_method_id_;
-
-#endif  // ENV_HELPER_H
+// Wrapper C functions for "like" to be invoked from LLVM.
+extern "C" bool like_utf8_utf8(int64_t ptr, const char *data, int data_len,
+                               const char *pattern, int pattern_len) {
+  gandiva::helpers::LikeHolder *holder =
+      reinterpret_cast<gandiva::helpers::LikeHolder *>(ptr);
+  return (*holder)(std::string(data, data_len));
+}

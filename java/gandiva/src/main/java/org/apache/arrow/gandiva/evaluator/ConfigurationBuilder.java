@@ -24,6 +24,7 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 public class ConfigurationBuilder {
 
   private String byteCodeFilePath = "";
+  private String helperLibraryFilePath = "";
 
   private static volatile long defaultConfiguration = 0L;
 
@@ -40,8 +41,17 @@ public class ConfigurationBuilder {
     return this;
   }
 
+  public ConfigurationBuilder withHelperLibraryFilePath(final String helperLibraryFilePath) {
+    this.helperLibraryFilePath = helperLibraryFilePath;
+    return this;
+  }
+
   public String getByteCodeFilePath() {
     return byteCodeFilePath;
+  }
+
+  public String getHelperLibraryFilePath() {
+    return helperLibraryFilePath;
   }
 
   /**
@@ -53,10 +63,13 @@ public class ConfigurationBuilder {
     if (defaultConfiguration == 0L) {
       synchronized (ConfigurationBuilder.class) {
         if (defaultConfiguration == 0L) {
-          ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
-          String defaultFilePath = JniWrapper.getInstance().getByteCodeFilePath();
-          configurationBuilder.withByteCodeFilePath(defaultFilePath);
-          defaultConfiguration = configurationBuilder.buildConfigInstance();
+          String defaultByteCodeFilePath = JniWrapper.getInstance().getByteCodeFilePath();
+          String defaultHelperLibraryFilePath = JniWrapper.getInstance().getHelperLibraryFilePath();
+
+          defaultConfiguration = new ConfigurationBuilder()
+            .withByteCodeFilePath(defaultByteCodeFilePath)
+            .withHelperLibraryFilePath(defaultHelperLibraryFilePath)
+            .buildConfigInstance();
         }
       }
     }

@@ -20,6 +20,10 @@
 
 namespace gandiva {
 
+#ifdef GDV_HELPERS
+namespace helpers {
+#endif
+
 /// \brief Utility class for converting sql patterns to posix patterns.
 class RegexUtil {
  public:
@@ -33,9 +37,12 @@ class RegexUtil {
   }
 
  private:
-  // set of characters that std::regex treats as special.
   static const std::set<char> posix_regex_specials_;
 };
+
+#ifdef GDV_HELPERS
+}  // namespace helpers
+#endif
 
 }  // namespace gandiva
 

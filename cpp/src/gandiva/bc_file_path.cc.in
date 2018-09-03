@@ -17,4 +17,7 @@ namespace gandiva {
 // Path to the byte-code file.
 extern const char kByteCodeFilePath[] = "${GANDIVA_BC_OUTPUT_PATH}";
 
+// Path to the pre-compiled solib file.
+extern const char kHelperLibFilePath[] = "${GANDIVA_HELPER_LIB_OUTPUT_PATH}";
+
 } // namespace gandiva

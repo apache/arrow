@@ -18,6 +18,7 @@
 #ifndef GANDIVA_STATUS_H
 #define GANDIVA_STATUS_H
 
+#include <assert.h>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -196,5 +197,64 @@ inline Status& Status::operator&=(Status&& s) {
   return *this;
 }
 
+inline Status::Status(StatusCode code, const std::string& msg) {
+  assert(code != StatusCode::OK);
+  state_ = new State;
+  state_->code = code;
+  state_->msg = msg;
+}
+
+inline void Status::CopyFrom(const Status& s) {
+  delete state_;
+  if (s.state_ == nullptr) {
+    state_ = nullptr;
+  } else {
+    state_ = new State(*s.state_);
+  }
+}
+
+inline std::string Status::CodeAsString() const {
+  if (state_ == nullptr) {
+    return "OK";
+  }
+
+  const char* type;
+  switch (code()) {
+    case StatusCode::OK:
+      type = "OK";
+      break;
+    case StatusCode::CodeGenError:
+      type = "CodeGenError";
+      break;
+    case StatusCode::Invalid:
+      type = "Invalid";
+      break;
+    case StatusCode::ExpressionValidationError:
+      type = "ExpressionValidationError";
+      break;
+    default:
+      type = "Unknown";
+      break;
+  }
+  return std::string(type);
+}
+
+inline void Status::MoveFrom(Status& s) {
+  delete state_;
+  state_ = s.state_;
+  s.state_ = NULL;
+}
+
+inline std::string Status::ToString() const {
+  std::string result(CodeAsString());
+  if (state_ == NULL) {
+    return result;
+  }
+  result += ": ";
+  result += state_->msg;
+  return result;
+}
+
 }  // namespace gandiva
+
 #endif  // GANDIVA_STATUS_H

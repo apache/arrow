@@ -130,6 +130,12 @@
                 </includes>
             </resource>
             <resource>
+                <directory>${gandiva.cpp.build.dir}/src/codegen</directory>
+                <includes>
+                    <include>**/libgandiva_helpers.*</include>
+                </includes>
+            </resource>
+            <resource>
                 <directory>${gandiva.cpp.build.dir}</directory>
                 <includes>
                     <include>irhelpers.bc</include>

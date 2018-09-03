@@ -39,8 +39,11 @@
 
 namespace gandiva {
 
-bool Engine::init_once_done_ = false;
 std::once_flag init_once_flag;
+
+bool Engine::init_once_done_ = false;
+std::set<std::string> Engine::loaded_libs_ = {};
+std::mutex Engine::mtx_;
 
 // One-time initializations.
 void Engine::InitOnce() {
@@ -78,10 +81,33 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
     return Status::CodeGenError(engine_obj->llvm_error_);
   }
 
-  Status result = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
-  GANDIVA_RETURN_NOT_OK(result);
+  auto status = engine_obj->LoadPreCompiledHelperLibs(config->helper_lib_file_path());
+  GANDIVA_RETURN_NOT_OK(status);
+
+  status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
+  GANDIVA_RETURN_NOT_OK(status);
+
   *engine = std::move(engine_obj);
   return Status::OK();
+}
+
+Status Engine::LoadPreCompiledHelperLibs(const std::string &file_path) {
+  int err = 0;
+
+  mtx_.lock();
+  // Load each so lib only once.
+  if (loaded_libs_.find(file_path) == loaded_libs_.end()) {
+    err = llvm::sys::DynamicLibrary::LoadLibraryPermanently(file_path.c_str());
+    if (!err) {
+      loaded_libs_.insert(file_path);
+    }
+  }
+  mtx_.unlock();
+
+  return (err == 0)
+             ? Status::OK()
+             : Status::CodeGenError("loading precompiled native file " + file_path +
+                                    " failed with error " + std::to_string(err));
 }
 
 // Handling for pre-compiled IR libraries.

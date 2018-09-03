@@ -16,13 +16,17 @@
 
 namespace gandiva {
 
-/// Characters that are considered special by posix regex. These needs to be
-/// escaped with '\\'.
+#ifdef GDV_HELPERS
+namespace helpers {
+#endif
+
 const std::set<char> RegexUtil::posix_regex_specials_ = {
     '[', ']', '(', ')', '|', '^', '-', '+', '*', '?', '{', '}', '$', '\\'};
 
 Status RegexUtil::SqlLikePatternToPosix(const std::string &sql_pattern, char escape_char,
                                         std::string &posix_pattern) {
+  /// Characters that are considered special by posix regex. These needs to be
+  /// escaped with '\\'.
   posix_pattern.clear();
   for (size_t idx = 0; idx < sql_pattern.size(); ++idx) {
     auto cur = sql_pattern.at(idx);
@@ -60,5 +64,9 @@ Status RegexUtil::SqlLikePatternToPosix(const std::string &sql_pattern, char esc
   }
   return Status::OK();
 }
+
+#ifdef GDV_HELPERS
+}  // namespace helpers
+#endif
 
 }  // namespace gandiva

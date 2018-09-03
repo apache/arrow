@@ -22,6 +22,10 @@
 
 namespace gandiva {
 
+#ifdef GDV_HELPERS
+namespace helpers {
+#endif
+
 /// Function Holder for SQL 'like'
 class LikeHolder : public FunctionHolder {
  public:
@@ -40,6 +44,10 @@ class LikeHolder : public FunctionHolder {
   std::string pattern_;  // posix pattern string, to help debugging
   std::regex regex_;     // compiled regex for the pattern
 };
+
+#ifdef GDV_HELPERS
+}
+#endif
 
 }  // namespace gandiva
 

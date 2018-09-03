@@ -65,6 +65,7 @@ static jint JNI_VERSION = JNI_VERSION_1_6;
 // extern refs - initialized for other modules.
 jclass configuration_builder_class_;
 jmethodID byte_code_accessor_method_id_;
+jmethodID helper_library_accessor_method_id_;
 
 // refs for self.
 static jclass gandiva_exception_;
@@ -93,6 +94,10 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
   const char return_type[] = "()Ljava/lang/String;";
   byte_code_accessor_method_id_ =
       env->GetMethodID(configuration_builder_class_, method_name, return_type);
+
+  const char helper_method_name[] = "getHelperLibraryFilePath";
+  helper_library_accessor_method_id_ =
+      env->GetMethodID(configuration_builder_class_, helper_method_name, return_type);
   env->ExceptionDescribe();
 
   return JNI_VERSION;

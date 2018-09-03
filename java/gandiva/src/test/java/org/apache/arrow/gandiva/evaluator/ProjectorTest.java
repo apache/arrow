@@ -141,10 +141,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     long startTime = System.currentTimeMillis();
     Projector evaluator1 = Projector.make(schema, exprs);
-    System.out.println((System.currentTimeMillis() - startTime));
+    System.out.println("Projector build: iteration 1 took " + (System.currentTimeMillis() - startTime) + " ms");
     startTime = System.currentTimeMillis();
     Projector evaluator2 = Projector.make(schema, exprs);
-    System.out.println((System.currentTimeMillis() - startTime));
+    System.out.println("Projector build: iteration 2 took " + (System.currentTimeMillis() - startTime) + " ms");
     startTime = System.currentTimeMillis();
     Projector evaluator3 = Projector.make(schema, exprs);
     long timeToMakeProjector = (System.currentTimeMillis() - startTime);
@@ -374,7 +374,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }
 
-  @Ignore
   @Test
   public void testRegex() throws GandivaException {
     /*
@@ -1001,7 +1000,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   // This test is ignored until the cpp layer handles errors gracefully
-  @Ignore
   @Test
   public void testUnknownFunction() {
     Field c1 = Field.nullable("c1", int8);

@@ -16,6 +16,7 @@
 #define GANDIVA_ENGINE_H
 
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -67,7 +68,10 @@ class Engine {
 
   llvm::ExecutionEngine &execution_engine() { return *execution_engine_.get(); }
 
-  /// load pre-compiled modules and merge them into the main module.
+  /// load pre-compiled so libraries and merge them into the main module.
+  Status LoadPreCompiledHelperLibs(const std::string &helper_lib_file_path);
+
+  /// load pre-compiled IR modules and merge them into the main module.
   Status LoadPreCompiledIRFiles(const std::string &byte_code_file_path);
 
   /// dump the IR code to stdout with the prefix string.
@@ -83,6 +87,9 @@ class Engine {
 
   bool module_finalized_;
   std::string llvm_error_;
+
+  static std::set<std::string> loaded_libs_;
+  static std::mutex mtx_;
 };
 
 }  // namespace gandiva

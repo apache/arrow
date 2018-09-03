@@ -38,7 +38,7 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   std::unique_ptr<LLVMGenerator> generator;
   Status status =
       LLVMGenerator::Make(ConfigurationBuilder::DefaultConfiguration(), &generator);
-  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(status.ok()) << status.message();
 
   llvm::Module *module = generator->module();
   for (auto &iter : registry_) {
