@@ -266,25 +266,60 @@ endfunction()
 function(bundle_zlib zlib_home)
   if (MSVC)
     # zlib uses zlib.dll for Windows
-    set(ZLIB_SHARED_LIB_NAME
-      ${CMAKE_SHARED_LIBRARY_PREFIX}zlib${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set(ZLIB_SHARED_LIB_NAME zlib.dll)
+    if ("${zlib_home}" STREQUAL "")
+      find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME})
+    else()
+      find_library(ZLIB_SHARED_LIB
+	NAMES ${ZLIB_SHARED_LIB_NAME}
+	PATHS ${zlib_home} NO_DEFAULT_PATH
+	PATH_SUFFIXES "bin")
+    endif()
+    if (ZLIB_SHARED_LIB)
+      file(COPY
+	${ZLIB_SHARED_LIB}
+	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    endif()
   else()
     # zlib uses libz.so for non Windows
-    set(ZLIB_SHARED_LIB_NAME
-      ${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX})
-  endif()
-  find_library(ZLIB_SHARED_LIB
-    NAMES ${ZLIB_SHARED_LIB_NAME}
-    PATHS ${zlib_home} NO_DEFAULT_PATH
-    PATH_SUFFIXES "lib" "bin")
-  if (ZLIB_SHARED_LIB)
-    file(COPY
-      ${ZLIB_SHARED_LIB}
-      DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    get_filename_component(ZLIB_SHARED_LIB_REAL ${ZLIB_SHARED_LIB} REALPATH)
-    file(COPY
-      ${ZLIB_SHARED_LIB_REAL}
-      DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    set(ZLIB_SHARED_LIB_NAME_PREFIX ${CMAKE_SHARED_LIBRARY_PREFIX}z)
+    if ("${zlib_home}" STREQUAL "")
+      find_library(ZLIB_SHARED_LIB
+	NAMES ${ZLIB_SHARED_LIB_NAME_PREFIX}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    else()
+      find_library(ZLIB_SHARED_LIB
+	NAMES ${ZLIB_SHARED_LIB_NAME_PREFIX}${CMAKE_SHARED_LIBRARY_SUFFIX}
+	PATHS ${zlib_home} NO_DEFAULT_PATH
+	PATH_SUFFIXES "lib")
+    endif()
+    if (ZLIB_SHARED_LIB)
+      file(COPY
+	${ZLIB_SHARED_LIB}
+	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+      get_filename_component(ZLIB_SHARED_LIB_REAL ${ZLIB_SHARED_LIB} REALPATH)
+      file(COPY
+	${ZLIB_SHARED_LIB_REAL}
+	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    endif()
+    # zlib uses libz.so.1 or libz.1.dylib for non Windows
+    set(ZLIB_MAJOR_VERSION 1)
+    set(ZLIB_SHARED_LIB_VERSIONED_NAMES
+      ${ZLIB_SHARED_LIB_NAME_PREFIX}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ZLIB_MAJOR_VERSION}
+      ${ZLIB_SHARED_LIB_NAME_PREFIX}.${ZLIB_MAJOR_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    if ("${zlib_home}" STREQUAL "")
+      find_library(ZLIB_SHARED_LIB_VERSIONED
+	NAMES ${ZLIB_SHARED_LIB_VERSIONED_NAMES})
+    else()
+      find_library(ZLIB_SHARED_LIB_VERSIONED
+	NAMES ${ZLIB_SHARED_LIB_VERSIONED_NAMES}
+	PATHS ${zlib_home} NO_DEFAULT_PATH
+	PATH_SUFFIXES "lib")
+    endif()
+    if (ZLIB_SHARED_LIB_VERSIONED)
+      file(COPY
+	${ZLIB_SHARED_LIB_VERSIONED}
+	DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    endif()
   endif()
 endfunction()
 
@@ -333,9 +368,7 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
     set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   endif()
-  if (NOT "${ZLIB_HOME}" STREQUAL "")
-    bundle_zlib(${ZLIB_HOME})
-  endif()
+  bundle_zlib("${ZLIB_HOME}")
 
   if (MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
