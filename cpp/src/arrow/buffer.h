@@ -319,11 +319,6 @@ Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
 ARROW_EXPORT
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
 
-/// \deprecated Use AllocateEmptyBitmap instead.
-ARROW_DEPRECATED("Use AllocateEmptyBitmap instead")
-ARROW_EXPORT
-Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out);
-
 // ----------------------------------------------------------------------
 // Buffer builder classes
 

@@ -84,7 +84,7 @@ cdef class Message:
             check_status(self.message.get()
                          .SerializeTo(stream.wr_file.get(),
                                       &output_length))
-        return stream.get_result()
+        return stream.getvalue()
 
     def __repr__(self):
         metadata_len = self.metadata.size
