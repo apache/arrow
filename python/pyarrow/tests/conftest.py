@@ -126,7 +126,7 @@ def pytest_runtest_setup(item):
 @pytest.fixture
 def tempdir(tmpdir):
     # convert pytest's LocalPath to pathlib.Path
-    return pathlib.Path(tmpdir)
+    return pathlib.Path(tmpdir.strpath)
 
 
 @pytest.fixture(scope='session')

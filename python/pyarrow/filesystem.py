@@ -16,26 +16,14 @@
 # under the License.
 
 import os
-import six
 import inspect
 import posixpath
 
 from os.path import join as pjoin
 from six.moves.urllib.parse import urlparse
 
-try:
-    # pathlib might not be available
-    try:
-        import pathlib
-    except ImportError:
-        # python 2 backport
-        import pathlib2 as pathlib
-    _has_pathlib = True
-except ImportError:
-    _has_pathlib = False
-
 import pyarrow as pa
-from pyarrow.util import implements
+from pyarrow.util import implements, _stringify_path
 
 
 class FileSystem(object):
@@ -84,7 +72,7 @@ class FileSystem(object):
         -------
         usage : int
         """
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         path_info = self.stat(path)
         if path_info['kind'] == 'file':
             return path_info['size']
@@ -216,12 +204,12 @@ class LocalFileSystem(FileSystem):
 
     @implements(FileSystem.ls)
     def ls(self, path):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return sorted(pjoin(path, x) for x in os.listdir(path))
 
     @implements(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         if create_parents:
             os.makedirs(path)
         else:
@@ -229,12 +217,12 @@ class LocalFileSystem(FileSystem):
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return os.path.isdir(path)
 
     @implements(FileSystem.isfile)
     def isfile(self, path):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return os.path.isfile(path)
 
     @implements(FileSystem._isfilestore)
@@ -243,7 +231,7 @@ class LocalFileSystem(FileSystem):
 
     @implements(FileSystem.exists)
     def exists(self, path):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return os.path.exists(path)
 
     @implements(FileSystem.open)
@@ -251,7 +239,7 @@ class LocalFileSystem(FileSystem):
         """
         Open file for reading or writing
         """
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return open(path, mode=mode)
 
     @property
@@ -262,7 +250,7 @@ class LocalFileSystem(FileSystem):
         """
         Directory tree generator, see os.walk
         """
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return os.walk(path)
 
 
@@ -292,17 +280,17 @@ class DaskFileSystem(FileSystem):
 
     @implements(FileSystem.delete)
     def delete(self, path, recursive=False):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return self.fs.rm(path, recursive=recursive)
 
     @implements(FileSystem.exists)
     def exists(self, path):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return self.fs.exists(path)
 
     @implements(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         if create_parents:
             return self.fs.mkdirs(path)
         else:
@@ -313,18 +301,18 @@ class DaskFileSystem(FileSystem):
         """
         Open file for reading or writing
         """
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return self.fs.open(path, mode=mode)
 
     def ls(self, path, detail=False):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return self.fs.ls(path, detail=detail)
 
     def walk(self, path):
         """
         Directory tree generator, like os.walk
         """
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         return self.fs.walk(path)
 
 
@@ -332,7 +320,7 @@ class S3FSWrapper(DaskFileSystem):
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         try:
             contents = self.fs.ls(path)
             if len(contents) == 1 and contents[0] == path:
@@ -344,7 +332,7 @@ class S3FSWrapper(DaskFileSystem):
 
     @implements(FileSystem.isfile)
     def isfile(self, path):
-        path = _ensure_str_path(path)
+        path = _stringify_path(path)
         try:
             contents = self.fs.ls(path)
             return len(contents) == 1 and contents[0] == path
@@ -358,7 +346,7 @@ class S3FSWrapper(DaskFileSystem):
         Generator version of what is in s3fs, which yields a flattened list of
         files
         """
-        path = _ensure_str_path(path).replace('s3://', '')
+        path = _stringify_path(path).replace('s3://', '')
         directories = set()
         files = set()
 
@@ -382,21 +370,6 @@ class S3FSWrapper(DaskFileSystem):
         for directory in directories:
             for tup in self.walk(directory, refresh=refresh):
                 yield tup
-
-
-def is_path(x):
-    return (isinstance(x, six.string_types)
-            or (_has_pathlib and isinstance(x, pathlib.Path)))
-
-
-def _ensure_str_path(path):
-    if isinstance(path, six.string_types):
-        return path
-    elif _has_pathlib and isinstance(path, pathlib.Path):
-        return str(path)
-    else:
-        raise TypeError('Path must be a string or an instance of pathlib.Path,'
-                        ' got object with type: {}'.format(type(path)))
 
 
 def _ensure_filesystem(fs):
@@ -423,7 +396,7 @@ def _get_fs_from_path(path):
     return filesystem from path which could be an HDFS URI
     """
     # input can be hdfs URI such as hdfs://host:port/myfile.parquet
-    path = _ensure_str_path(path)
+    path = _stringify_path(path)
     # if _has_pathlib and isinstance(path, pathlib.Path):
     #     path = str(path)
     parsed_uri = urlparse(path)

@@ -23,15 +23,16 @@ import re
 
 import numpy as np
 
-from pyarrow.filesystem import (LocalFileSystem, is_path,  _ensure_str_path,
-                                _ensure_filesystem, _get_fs_from_path)
+import pyarrow as pa
+import pyarrow._parquet as _parquet
+import pyarrow.lib as lib
 from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema)
-import pyarrow._parquet as _parquet
-import pyarrow.lib as lib
-import pyarrow as pa
+from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
+                                _get_fs_from_path)
+from pyarrow.util import _is_path_like, _stringify_path
 
 
 # ----------------------------------------------------------------------
@@ -44,7 +45,7 @@ class ParquetFile(object):
 
     Parameters
     ----------
-    source : str, pyarrow.NativeFile, or file-like object
+    source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
         Readable source. For passing bytes or buffer-like file containing a
         Parquet file, use pyarorw.BufferReader
     metadata : ParquetFileMetadata, default None
@@ -288,7 +289,7 @@ schema : arrow Schema
         # to be closed
         self.file_handle = None
 
-        if is_path(where):
+        if _is_path_like(where):
             fs = _get_fs_from_path(where)
             sink = self.file_handle = fs.open(where, 'wb')
         else:
@@ -363,7 +364,7 @@ class ParquetDatasetPiece(object):
     """
 
     def __init__(self, path, row_group=None, partition_keys=None):
-        self.path = _ensure_str_path(path)
+        self.path = _stringify_path(path)
         self.row_group = row_group
         self.partition_keys = partition_keys or []
 
@@ -634,7 +635,7 @@ class ParquetManifest(object):
                  partition_scheme='hive', metadata_nthreads=1):
         self.filesystem = filesystem or _get_fs_from_path(dirpath)
         self.pathsep = pathsep
-        self.dirpath = _ensure_str_path(dirpath)
+        self.dirpath = _stringify_path(dirpath)
         self.partition_scheme = partition_scheme
         self.partitions = ParquetPartitions()
         self.pieces = []
@@ -953,7 +954,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
         # Dask passes a directory as a list of length 1
         path_or_paths = path_or_paths[0]
 
-    if is_path(path_or_paths) and fs.isdir(path_or_paths):
+    if _is_path_like(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    pathsep=fs.pathsep,
                                    metadata_nthreads=metadata_nthreads)
@@ -1008,7 +1009,7 @@ Returns
 
 def read_table(source, columns=None, nthreads=1, metadata=None,
                use_pandas_metadata=False):
-    if is_path(source):
+    if _is_path_like(source):
         fs = _get_fs_from_path(source)
         return fs.read_parquet(source, columns=columns, metadata=metadata,
                                use_pandas_metadata=use_pandas_metadata)
@@ -1060,9 +1061,9 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
-        if is_path(where):
+        if _is_path_like(where):
             try:
-                os.remove(_ensure_str_path(where))
+                os.remove(_stringify_path(where))
             except os.error:
                 pass
         raise

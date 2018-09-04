@@ -19,8 +19,6 @@
 # arrow::ipc
 
 from libc.stdlib cimport malloc, free
-from pyarrow.compat import builtin_pickle, frombytes, tobytes, encode_file_path
-from io import BufferedIOBase, UnsupportedOperation
 
 import re
 import six
@@ -28,6 +26,10 @@ import sys
 import threading
 import time
 import warnings
+from io import BufferedIOBase, UnsupportedOperation
+
+from pyarrow.util import _stringify_path
+from pyarrow.compat import builtin_pickle, frombytes, tobytes, encode_file_path
 
 
 # 64K
@@ -38,18 +40,6 @@ DEFAULT_BUFFER_SIZE = 2 ** 16
 cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
-
-
-def _stringify_path(path):
-    """
-    Convert *path* to a string or unicode path if possible.
-    """
-    if isinstance(path, six.string_types):
-        return path
-    try:
-        return path.__fspath__()
-    except AttributeError:
-        raise TypeError("not a path-like object")
 
 
 cdef class NativeFile:

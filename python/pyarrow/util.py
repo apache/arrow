@@ -15,9 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Miscellaneous utility code
+
+import six
 import warnings
 
-# Miscellaneous utility code
+try:
+    # pathlib might not be available
+    try:
+        import pathlib
+    except ImportError:
+        import pathlib2 as pathlib  # python 2 backport
+    _has_pathlib = True
+except ImportError:
+    _has_pathlib = False
 
 
 def implements(f):
@@ -35,3 +46,26 @@ def _deprecate_api(old_name, new_name, api, next_version):
         warnings.warn(msg, FutureWarning)
         return api(*args)
     return wrapper
+
+
+def _is_path_like(path):
+    # PEP519 filesystem path protocol is available from python 3.6, so pathlib
+    # doesn't implement __fspath__ for earlier versions
+    return (isinstance(path, six.string_types) or
+            isinstance(path, pathlib.Path) or
+            hasattr(path, '__fspath__'))
+
+
+def _stringify_path(path):
+    """
+    Convert *path* to a string or unicode path if possible.
+    """
+    if isinstance(path, six.string_types):
+        return path
+    elif isinstance(path, pathlib.Path):
+        return str(path)
+    else:
+        try:
+            return path.__fspath__()  # new in python 3.6
+        except AttributeError:
+            raise TypeError("not a path-like object")
