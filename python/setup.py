@@ -150,6 +150,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
         self.bundle_boost = strtobool(
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
+        self.bundle_zlib = \
+            'ARROW_BUILD_TOOLCHAIN' in os.environ or 'ZLIB_HOME' in os.environ
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -291,6 +293,14 @@ class build_ext(_build_ext):
                     move_shared_libs(
                         build_prefix, build_lib,
                         "{}_regex".format(self.boost_namespace))
+                if self.bundle_zlib:
+                    if sys.platform == 'win32':
+                        # zlib uses zlib.dll for Windows
+                        zlib_lib_name = 'zlib'
+                    else:
+                        # zlib uses libz.so for non Windows
+                        zlib_lib_name = 'z'
+                    move_shared_libs(build_prefix, build_lib, zlib_lib_name)
 
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):

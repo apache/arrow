@@ -265,21 +265,25 @@ endfunction()
 
 function(bundle_zlib zlib_home)
   if (MSVC)
-    # zlib uses zlib.dll for Windows.
+    # zlib uses zlib.dll for Windows
     set(ZLIB_SHARED_LIB_NAME
-      ${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX})
+      ${CMAKE_SHARED_LIBRARY_PREFIX}zlib${CMAKE_SHARED_LIBRARY_SUFFIX})
   else()
-    # zlib uses libz.so for non Windows.
+    # zlib uses libz.so for non Windows
     set(ZLIB_SHARED_LIB_NAME
       ${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
   find_library(ZLIB_SHARED_LIB
     NAMES ${ZLIB_SHARED_LIB_NAME}
-    PATHS $ENV{ZLIB_HOME} NO_DEFAULT_PATH
+    PATHS ${zlib_home} NO_DEFAULT_PATH
     PATH_SUFFIXES "lib" "bin")
   if (ZLIB_SHARED_LIB)
+    file(COPY
+      ${ZLIB_SHARED_LIB}
+      DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
     get_filename_component(ZLIB_SHARED_LIB_REAL ${ZLIB_SHARED_LIB} REALPATH)
-    install(FILES ${ZLIB_SHARED_LIB_REAL}
+    file(COPY
+      ${ZLIB_SHARED_LIB_REAL}
       DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
   endif()
 endfunction()
