@@ -173,13 +173,15 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
 class NumPyConverter {
  public:
   NumPyConverter(MemoryPool* pool, PyObject* arr, PyObject* mo,
-                 const std::shared_ptr<DataType>& type, bool from_pandas)
+                 const std::shared_ptr<DataType>& type, bool from_pandas,
+                 const compute::CastOptions& cast_options = compute::CastOptions())
       : pool_(pool),
         type_(type),
         arr_(reinterpret_cast<PyArrayObject*>(arr)),
         dtype_(PyArray_DESCR(arr_)),
         mask_(nullptr),
         from_pandas_(from_pandas),
+        cast_options_(cast_options),
         null_bitmap_data_(nullptr),
         null_count_(0) {
     if (mo != nullptr && mo != Py_None) {
@@ -289,6 +291,7 @@ class NumPyConverter {
   int itemsize_;
 
   bool from_pandas_;
+  compute::CastOptions cast_options_;
 
   // Used in visitor pattern
   ArrayVector out_arrays_;
@@ -319,7 +322,8 @@ namespace {
 Status CastBuffer(const std::shared_ptr<DataType>& in_type,
                   const std::shared_ptr<Buffer>& input, const int64_t length,
                   const std::shared_ptr<Buffer>& valid_bitmap, const int64_t null_count,
-                  const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
+                  const std::shared_ptr<DataType>& out_type,
+                  const compute::CastOptions& cast_options, MemoryPool* pool,
                   std::shared_ptr<Buffer>* out) {
   // Must cast
   auto tmp_data = ArrayData::Make(in_type, length, {valid_bitmap, input}, null_count);
@@ -328,9 +332,6 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
   std::shared_ptr<Array> casted_array;
 
   compute::FunctionContext context(pool);
-  compute::CastOptions cast_options;
-  cast_options.allow_int_overflow = false;
-  cast_options.allow_time_truncate = false;
 
   RETURN_NOT_OK(
       compute::Cast(&context, *tmp_array, out_type, cast_options, &casted_array));
@@ -412,7 +413,8 @@ inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
 
   if (!input_type->Equals(*type_)) {
-    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_, pool_, data));
+    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_,
+                             pool_, data));
   }
 
   return Status::OK();
@@ -465,14 +467,14 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
       if (!input_type->Equals(*type_)) {
         // The null bitmap was already computed in VisitNative()
         RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
-                                 type_, pool_, data));
+                                 type_, cast_options_, pool_, data));
       }
     }
   } else {
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
-      RETURN_NOT_OK(
-          CastBuffer(input_type, *data, length_, nullptr, 0, type_, pool_, data));
+      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_,
+                               cast_options_, pool_, data));
     }
   }
 
@@ -512,14 +514,14 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
       if (!input_type->Equals(*type_)) {
         // The null bitmap was already computed in VisitNative()
         RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
-                                 type_, pool_, data));
+                                 type_, cast_options_, pool_, data));
       }
     }
   } else {
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
-      RETURN_NOT_OK(
-          CastBuffer(input_type, *data, length_, nullptr, 0, type_, pool_, data));
+      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_,
+                               cast_options_, pool_, data));
     }
   }
 
@@ -770,6 +772,7 @@ Status NumPyConverter::Visit(const StructType& type) {
 
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
+                      const compute::CastOptions& cast_options,
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
     return Status::Invalid("Input object was not a NumPy array");
@@ -784,12 +787,18 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
     return ConvertPySequence(ao, mo, py_options, out);
   }
 
-  NumPyConverter converter(pool, ao, mo, type, from_pandas);
+  NumPyConverter converter(pool, ao, mo, type, from_pandas, cast_options);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();
   DCHECK_GT(output_arrays.size(), 0);
   *out = std::make_shared<ChunkedArray>(output_arrays);
   return Status::OK();
+}
+
+Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
+                      const std::shared_ptr<DataType>& type,
+                      std::shared_ptr<ChunkedArray>* out) {
+  return NdarrayToArrow(pool, ao, mo, from_pandas, type, compute::CastOptions(), out);
 }
 
 }  // namespace py
