@@ -153,20 +153,27 @@ cdef class CudaBuffer(Buffer):
           Output buffer in host.
 
         """
-        nbytes_ = self.size - position if nbytes<0 else nbytes
-        if nbytes_ < 0 or position < 0 or position > self.size:
-            raise ValueError('inconsistent input parameters for device size=%s:'
-                             ' position=%s, nbytes=%s' % (self.size, position, nbytes))
+        if position < 0 or position > self.size:
+            raise ValueError('position argument is out-of-range')
         if buf is None:
+            if nbytes < 0:
+                # copy all starting from position to new host buffer
+                nbytes_ = self.size - position 
+            else:
+                if nbytes > self.size - position:
+                    raise ValueError('requested more to copy than available from device buffer')
+                # copy nbytes starting from position to new host buffeer
+                nbytes_ = nbytes
             buf = allocate_buffer(nbytes_, memory_pool=memory_pool, resizable=resizable)
-        elif nbytes < 0:
-            nbytes_ = min(nbytes_, buf.size)
-
-        if position + nbytes_ > self.size or nbytes_ > buf.size:
-            raise ValueError('inconsistent input parameters for device size=%s:'
-                             ' position=%s, nbytes=%s, buffer size=%s'
-                             % (self.size, position, nbytes, buf.size))
-            
+        else:
+            if nbytes < 0:
+                # copy all from position until given host buffer is full
+                nbytes_ = min(self.size - position, buf.size) 
+            else:
+                if nbytes > buf.size:
+                    raise ValueError('requested copy does not fit into host buffer')
+                # copy nbytes from position to given host buffer
+                nbytes_ = nbytes
         cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
         check_status(self.cuda_buffer.get().CopyToHost(position, nbytes_, buf_.get().mutable_data()))
         return buf
@@ -188,13 +195,35 @@ cdef class CudaBuffer(Buffer):
           Specify the number of bytes to copy. Default: -1 (all from
           source until device buffer starting from position is full)
 
+        Returns
+        -------
+        nbytes : int
+          Number of bytes copied.
         """
+        if position < 0 or position > self.size:
+            raise ValueError('position argument is out-of-range')        
         buf = source if isinstance(source, Buffer) else py_buffer(source)
-        nbytes_ = min(self.size-position, buf.size) if nbytes<0 else nbytes
+
+        if nbytes < 0:
+            # copy from host buffer to device buffer starting from
+            # position until device buffer is full
+            nbytes_ = min(self.size - position, buf.size)
+        else:
+            if nbytes > buf.size:
+                raise ValueError(
+                    'requested more to copy than available from host buffer')
+            if nbytes > self.size - position:
+                raise ValueError(
+                    'requested more to copy than available in device buffer')
+            # copy nbytes from host buffer to device buffer starting
+            # from position
+            nbytes_ = nbytes
+
         cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
         check_status(self.cuda_buffer.get().
                      CopyFromHost(position, buf_.get().data(), nbytes_))
-    
+        return nbytes_
+        
     def export_for_ipc(self):
         cdef shared_ptr[CCudaIpcMemHandle] handle
         check_status(self.cuda_buffer.get().ExportForIpc(&handle))

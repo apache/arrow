@@ -104,13 +104,20 @@ def test_copy_to_host():
 
     buf = dbuf.copy_to_host(position=size//4, nbytes=0)
     assert buf.size == 0
-    x
+
     for (position, nbytes) in [
-            (size+2, -1), (-2, -1), (0, size + 10), (10, size-5),
+        (size+2, -1), (-2, -1), (size+1,0), (-3,0),
     ]:
         with pytest.raises(ValueError) as e_info:
             dbuf.copy_to_host(position=position, nbytes=nbytes)
-        assert str(e_info.value).startswith('inconsistent input parameters')
+        assert str(e_info.value).startswith('position argument is out-of-range')
+
+    for (position, nbytes) in [
+        (0, size+1), (size//2, size//2+1), (size, 1)
+    ]:
+        with pytest.raises(ValueError) as e_info:
+            dbuf.copy_to_host(position=position, nbytes=nbytes)
+        assert str(e_info.value).startswith('requested more to copy than available from device buffer')
 
     buf = pa.allocate_buffer(size//4)
     dbuf.copy_to_host(buf=buf)
@@ -126,15 +133,58 @@ def test_copy_to_host():
     assert (arr[6:6+12] == np.frombuffer(buf, dtype=np.uint8)[:12]).all()
 
     for (position, nbytes) in [
-            (size+2, -1), (-2, -1), (0, size + 10), (10, size-5),
+            (0, size + 10), (10, size-5),
             (0, size//2), (size//4, size//4+1)
     ]:
         with pytest.raises(ValueError) as e_info:
             dbuf.copy_to_host(buf=buf, position=position, nbytes=nbytes)
             print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
                   .format(dbuf.size, buf.size, position, nbytes))
-        assert str(e_info.value).startswith('inconsistent input parameters')
+        assert str(e_info.value).startswith('requested copy does not fit into host buffer')
 
+@gpu_support
+def test_copy_from_host():
+    size = 1024
+    size = 8
+    arr, buf = make_random_buffer(size=size, target='host')
+    lst = arr.tolist()
+    dbuf = context.allocate(size)
+
+    def put(*args, **kwargs):
+        nbytes = dbuf.copy_from_host(buf, *args, **kwargs)
+        rbuf = dbuf.copy_to_host()
+        return np.frombuffer(rbuf, dtype=np.uint8).tolist()
+    assert put() == lst
+    assert put(position=size//4) == lst[:size//4]+lst[:-size//4]
+    assert put() == lst
+    assert put(position=1, nbytes=size//2) == lst[:1] + lst[:size//2] + lst[-(size-size//2-1):]
+    
+    for (position, nbytes) in [
+            (size+2, -1), (-2, -1), (size+1,0), (-3,0),
+    ]:
+        with pytest.raises(ValueError) as e_info:
+            put(position=position, nbytes=nbytes)
+            print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
+                  .format(dbuf.size, buf.size, position, nbytes))
+        assert str(e_info.value).startswith('position argument is out-of-range')
+
+    for (position, nbytes) in [
+        (0, size+1),
+    ]:
+        with pytest.raises(ValueError) as e_info:
+            put(position=position, nbytes=nbytes)
+            print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
+                  .format(dbuf.size, buf.size, position, nbytes))
+        assert str(e_info.value).startswith('requested more to copy than available from host buffer')
+
+    for (position, nbytes) in [
+        (size//2, size//2+1)
+    ]:
+        with pytest.raises(ValueError) as e_info:
+            put(position=position, nbytes=nbytes)
+            print('dbuf.size={}, buf.size={}, position={}, nbytes={}'
+                  .format(dbuf.size, buf.size, position, nbytes))
+        assert str(e_info.value).startswith('requested more to copy than available in device buffer')
 
         
 @gpu_support
