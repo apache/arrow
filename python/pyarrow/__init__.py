@@ -171,8 +171,6 @@ def _plasma_store_entry_point():
 
 from pyarrow.util import _deprecate_api  # noqa
 
-frombuffer = _deprecate_api('frombuffer', 'py_buffer', py_buffer, '0.9.0')
-
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in
 # wheels)

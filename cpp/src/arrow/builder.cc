@@ -234,12 +234,6 @@ Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t lengt
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
-                                   const uint8_t* valid_bytes) {
-  return AppendValues(values, length, valid_bytes);
-}
-
-template <typename T>
 Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
                                          const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
@@ -256,31 +250,14 @@ Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t lengt
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
-                                   const std::vector<bool>& is_valid) {
-  return AppendValues(values, length, is_valid);
-}
-
-template <typename T>
 Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values,
                                          const std::vector<bool>& is_valid) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values,
-                                   const std::vector<bool>& is_valid) {
-  return AppendValues(values, is_valid);
-}
-
-template <typename T>
 Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()));
-}
-
-template <typename T>
-Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values) {
-  return AppendValues(values);
 }
 
 template <typename T>
@@ -425,11 +402,6 @@ Status AdaptiveIntBuilder::AppendValues(const int64_t* values, int64_t length,
   // length_ is update by these
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
   return Status::OK();
-}
-
-Status AdaptiveIntBuilder::Append(const int64_t* values, int64_t length,
-                                  const uint8_t* valid_bytes) {
-  return AppendValues(values, length, valid_bytes);
 }
 
 template <typename new_type, typename old_type>
@@ -585,11 +557,6 @@ Status AdaptiveUIntBuilder::AppendValues(const uint64_t* values, int64_t length,
   return Status::OK();
 }
 
-Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
-                                   const uint8_t* valid_bytes) {
-  return AppendValues(values, length, valid_bytes);
-}
-
 template <typename new_type, typename old_type>
 typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
 AdaptiveUIntBuilder::ExpandIntSizeInternal() {
@@ -733,11 +700,6 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
   return Status::OK();
 }
 
-Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
-                              const uint8_t* valid_bytes) {
-  return AppendValues(values, length, valid_bytes);
-}
-
 Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
@@ -752,27 +714,13 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
   return Status::OK();
 }
 
-Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
-                              const std::vector<bool>& is_valid) {
-  return AppendValues(values, length, is_valid);
-}
-
 Status BooleanBuilder::AppendValues(const std::vector<uint8_t>& values,
                                     const std::vector<bool>& is_valid) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
 }
 
-Status BooleanBuilder::Append(const std::vector<uint8_t>& values,
-                              const std::vector<bool>& is_valid) {
-  return AppendValues(values, is_valid);
-}
-
 Status BooleanBuilder::AppendValues(const std::vector<uint8_t>& values) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()));
-}
-
-Status BooleanBuilder::Append(const std::vector<uint8_t>& values) {
-  return AppendValues(values);
 }
 
 Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
@@ -790,11 +738,6 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
   return Status::OK();
 }
 
-Status BooleanBuilder::Append(const std::vector<bool>& values,
-                              const std::vector<bool>& is_valid) {
-  return AppendValues(values, is_valid);
-}
-
 Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
@@ -806,10 +749,6 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   // this updates length_
   ArrayBuilder::UnsafeSetNotNull(length);
   return Status::OK();
-}
-
-Status BooleanBuilder::Append(const std::vector<bool>& values) {
-  return AppendValues(values);
 }
 
 // ----------------------------------------------------------------------
@@ -1236,11 +1175,6 @@ Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
   return Status::OK();
 }
 
-Status ListBuilder::Append(const int32_t* offsets, int64_t length,
-                           const uint8_t* valid_bytes) {
-  return AppendValues(offsets, length, valid_bytes);
-}
-
 Status ListBuilder::AppendNextOffset() {
   int64_t num_values = value_builder_->length();
   if (ARROW_PREDICT_FALSE(num_values > kListMaximumElements)) {
@@ -1418,11 +1352,6 @@ Status StringBuilder::AppendValues(const std::vector<std::string>& values,
   return Status::OK();
 }
 
-Status StringBuilder::Append(const std::vector<std::string>& values,
-                             const uint8_t* valid_bytes) {
-  return AppendValues(values, valid_bytes);
-}
-
 Status StringBuilder::AppendValues(const char** values, int64_t length,
                                    const uint8_t* valid_bytes) {
   std::size_t total_length = 0;
@@ -1481,11 +1410,6 @@ Status StringBuilder::AppendValues(const char** values, int64_t length,
   return Status::OK();
 }
 
-Status StringBuilder::Append(const char** values, int64_t length,
-                             const uint8_t* valid_bytes) {
-  return AppendValues(values, length, valid_bytes);
-}
-
 // ----------------------------------------------------------------------
 // Fixed width binary
 
@@ -1500,11 +1424,6 @@ Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   return byte_builder_.Append(data, length * byte_width_);
-}
-
-Status FixedSizeBinaryBuilder::Append(const uint8_t* data, int64_t length,
-                                      const uint8_t* valid_bytes) {
-  return AppendValues(data, length, valid_bytes);
 }
 
 Status FixedSizeBinaryBuilder::Append(const std::string& value) {

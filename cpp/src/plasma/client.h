@@ -34,10 +34,6 @@ using arrow::Status;
 
 namespace plasma {
 
-ARROW_DEPRECATED("PLASMA_DEFAULT_RELEASE_DELAY is deprecated")
-constexpr int64_t kDeprecatedPlasmaDefaultReleaseDelay = 64;
-#define PLASMA_DEFAULT_RELEASE_DELAY plasma::kDeprecatedPlasmaDefaultReleaseDelay
-
 /// We keep a queue of unreleased objects cached in the client until we start
 /// sending release requests to the store. This is to avoid frequently mapping
 /// and unmapping objects and evicting data from processor caches.

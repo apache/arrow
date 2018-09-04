@@ -210,8 +210,4 @@ Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
   return AllocateEmptyBitmap(default_memory_pool(), length, out);
 }
 
-Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out) {
-  return AllocateEmptyBitmap(pool, length, out);
-}
-
 }  // namespace arrow

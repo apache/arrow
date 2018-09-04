@@ -27,8 +27,6 @@ except ImportError:
 else:
     import pyarrow.pandas_compat as pdcompat
 
-from .util import _deprecate_nthreads
-
 
 cdef class ChunkedArray:
     """
@@ -865,15 +863,19 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-    def to_pandas(self, nthreads=None, use_threads=False):
+    def to_pandas(self, use_threads=True):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
+
+        Parameters
+        ----------
+        use_threads : boolean, default True
+            Use multiple threads for conversion
 
         Returns
         -------
         pandas.DataFrame
         """
-        use_threads = _deprecate_nthreads(use_threads, nthreads)
         return Table.from_batches([self]).to_pandas(use_threads=use_threads)
 
     @classmethod
@@ -1289,9 +1291,9 @@ cdef class Table:
 
         return result
 
-    def to_pandas(self, nthreads=None, strings_to_categorical=False,
+    def to_pandas(self, strings_to_categorical=False,
                   memory_pool=None, zero_copy_only=False, categories=None,
-                  integer_object_nulls=False, use_threads=False):
+                  integer_object_nulls=False, use_threads=True):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -1308,7 +1310,7 @@ cdef class Table:
             List of columns that should be returned as pandas.Categorical
         integer_object_nulls : boolean, default False
             Cast integers with nulls to objects
-        use_threads: boolean, default False
+        use_threads: boolean, default True
             Whether to parallelize the conversion using multiple threads
 
         Returns
@@ -1317,8 +1319,6 @@ cdef class Table:
         """
         cdef:
             PandasOptions options
-
-        use_threads = _deprecate_nthreads(use_threads, nthreads)
 
         options = PandasOptions(
             strings_to_categorical=strings_to_categorical,

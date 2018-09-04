@@ -57,7 +57,7 @@ def _alltypes_example(size=100):
     })
 
 
-def _check_pandas_roundtrip(df, expected=None, use_threads=False,
+def _check_pandas_roundtrip(df, expected=None, use_threads=True,
                             expected_schema=None,
                             check_dtype=True, schema=None,
                             preserve_index=False,
@@ -1836,6 +1836,12 @@ class TestZeroCopyConversion(object):
 
 
 # This function must be at the top-level for Python 2.7's multiprocessing
+def _non_threaded_conversion():
+    df = _alltypes_example()
+    _check_pandas_roundtrip(df, use_threads=False)
+    _check_pandas_roundtrip(df, use_threads=False, as_batch=True)
+
+
 def _threaded_conversion():
     df = _alltypes_example()
     _check_pandas_roundtrip(df, use_threads=True)
@@ -1881,8 +1887,8 @@ class TestConvertMisc(object):
             arr = np.array([], dtype=dtype)
             _check_array_roundtrip(arr, type=pa_type)
 
-    def test_threaded_conversion(self):
-        _threaded_conversion()
+    def test_non_threaded_conversion(self):
+        _non_threaded_conversion()
 
     def test_threaded_conversion_multiprocess(self):
         # Parallel conversion should work from child processes too (ARROW-2963)
