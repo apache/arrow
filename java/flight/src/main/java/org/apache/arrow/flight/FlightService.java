@@ -34,6 +34,7 @@ import org.apache.arrow.vector.VectorUnloader;
 
 import com.google.common.base.Preconditions;
 
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
 class FlightService extends FlightServiceImplBase {
@@ -83,12 +84,19 @@ class FlightService extends FlightServiceImplBase {
   }
 
   private static class GetListener implements ServerStreamListener {
-    private StreamObserver<ArrowMessage> responseObserver;
+    private ServerCallStreamObserver<ArrowMessage> responseObserver;
     private volatile VectorUnloader unloader;
 
     public GetListener(StreamObserver<ArrowMessage> responseObserver) {
       super();
-      this.responseObserver = responseObserver;
+      this.responseObserver = (ServerCallStreamObserver<ArrowMessage>) responseObserver;
+      this.responseObserver.disableAutoInboundFlowControl();
+    }
+
+    @Override
+    public boolean isReady() {
+
+      return responseObserver.isReady();
     }
 
     @Override

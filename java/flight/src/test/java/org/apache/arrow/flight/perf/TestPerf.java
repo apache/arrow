@@ -55,54 +55,54 @@ public class TestPerf {
 
   @Test
   public void throughput() throws Exception {
+    for(int i =0 ; i < 10; i++) {
+      final Location l = new Location("localhost", 12233);
+      try(
+          final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+          final PerformanceTestServer server = new PerformanceTestServer(a, l);
+          final FlightClient client = new FlightClient(a, l);
+          ){
 
-    final Location l = new Location("localhost", 12233);
-    try(
-        final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        final PerformanceTestServer server = new PerformanceTestServer(a, l);
-        final FlightClient client = new FlightClient(a, l);
-        ){
+        server.start();
 
-      server.start();
+        final Schema pojoSchema = new Schema(ImmutableList.of(
+            Field.nullable("a", MinorType.BIGINT.getType()),
+            Field.nullable("b", MinorType.BIGINT.getType()),
+            Field.nullable("c", MinorType.BIGINT.getType()),
+            Field.nullable("d", MinorType.BIGINT.getType())
+            ));
 
-      final Schema pojoSchema = new Schema(ImmutableList.of(
-          Field.nullable("a", MinorType.BIGINT.getType()),
-          Field.nullable("b", MinorType.BIGINT.getType()),
-          Field.nullable("c", MinorType.BIGINT.getType()),
-          Field.nullable("d", MinorType.BIGINT.getType())
-          ));
+        FlatBufferBuilder builder = new FlatBufferBuilder();
+        pojoSchema.getSchema(builder);
 
-      FlatBufferBuilder builder = new FlatBufferBuilder();
-      pojoSchema.getSchema(builder);
+        final FlightDescriptor descriptor = FlightDescriptor.command(Perf.newBuilder()
+            .setRecordsPerStream(50_000_000l)
+            .setRecordsPerBatch(4095)
+            .setSchema(ByteString.copyFrom(pojoSchema.toByteArray()))
+            .setStreamCount(1)
+            .build()
+            .toByteArray());
 
-      final FlightDescriptor descriptor = FlightDescriptor.command(Perf.newBuilder()
-          .setRecordsPerStream(500_000_000l)
-          .setRecordsPerBatch(4095)
-          .setSchema(ByteString.copyFrom(pojoSchema.toByteArray()))
-          .setStreamCount(1)
-          .build()
-          .toByteArray());
+        final FlightInfo info = client.getInfo(descriptor);
+        ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
+        List<ListenableFuture<Result>> results = info.getEndpoints()
+            .stream()
+            .map(t -> new Consumer(client, t.getTicket()))
+            .map(t -> pool.submit(t))
+            .collect(Collectors.toList());
 
-      final FlightInfo info = client.getInfo(descriptor);
-      ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
-      List<ListenableFuture<Result>> results = info.getEndpoints()
-          .stream()
-          .map(t -> new Consumer(client, t.getTicket()))
-          .map(t -> pool.submit(t))
-          .collect(Collectors.toList());
+        Futures.whenAllSucceed(results);
+        Result r = new Result();
+        for(ListenableFuture<Result> f : results) {
+          r.add(f.get());
+        }
 
-      Futures.whenAllSucceed(results);
-      Result r = new Result();
-      for(ListenableFuture<Result> f : results) {
-        r.add(f.get());
+        double seconds = r.nanos*1.0d/1000/1000/1000;
+        System.out.println(String.format(
+            "Transferred %d records totaling %s bytes at %f mb/s. %f record/s. %f batch/s.", r.rows, r.bytes, (r.bytes*1.0d/1024/1024)/seconds, (r.rows*1.0d)/seconds, (r.batches*1.0d)/seconds
+            ));
       }
-
-      double seconds = r.nanos*1.0d/1000/1000/1000;
-      System.out.println(String.format(
-          "Transferred %d records totaling %s bytes at %f mb/s. %f record/s. %f batch/s.", r.rows, r.bytes, (r.bytes*1.0d/1024/1024)/seconds, (r.rows*1.0d)/seconds, (r.batches*1.0d)/seconds
-          ));
     }
-
   }
 
   private final class Consumer implements Callable<Result> {

@@ -108,6 +108,10 @@ public class PerformanceTestServer implements AutoCloseable {
           current++;
           if (i % perf.getRecordsPerBatch() == 0) {
             root.setRowCount(current);
+
+            while(!listener.isReady()) {
+              //Thread.sleep(0, nanos);
+            }
             listener.putNext();
             batches++;
             current = 0;

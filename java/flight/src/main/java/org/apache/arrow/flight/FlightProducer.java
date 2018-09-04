@@ -35,6 +35,7 @@ public interface FlightProducer {
   public void listActions(StreamListener<ActionType> listener);
 
   public interface ServerStreamListener {
+    boolean isReady();
     void start(VectorSchemaRoot root);
     void putNext();
     void error(Throwable ex);

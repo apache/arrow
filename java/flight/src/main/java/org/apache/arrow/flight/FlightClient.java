@@ -42,6 +42,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
+import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
 public class FlightClient implements AutoCloseable {
@@ -54,8 +55,7 @@ public class FlightClient implements AutoCloseable {
 
   /** Construct client for accessing RouteGuide server using the existing channel. */
   public FlightClient(BufferAllocator allocator, Location location) {
-    ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(), location.getPort())
-        .usePlaintext();
+    final ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(), location.getPort()).usePlaintext();
     this.allocator = allocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     channel = channelBuilder.build();
     blockingStub = FlightServiceGrpc.newBlockingStub(channel);
@@ -98,7 +98,7 @@ public class FlightClient implements AutoCloseable {
     Preconditions.checkNotNull(root);
 
     SetStreamObserver<PutResult> resultObserver = new SetStreamObserver<>();
-    StreamObserver<ArrowMessage> observer = asyncClientStreamingCall(channel.newCall(doPutDescriptor, asyncStub.getCallOptions()), resultObserver);
+    ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>) asyncClientStreamingCall(channel.newCall(doPutDescriptor, asyncStub.getCallOptions()), resultObserver);
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
@@ -140,11 +140,11 @@ public class FlightClient implements AutoCloseable {
   }
 
   private static class PutObserver implements ClientStreamListener {
-    private final StreamObserver<ArrowMessage> observer;
+    private final ClientCallStreamObserver<ArrowMessage> observer;
     private final VectorUnloader unloader;
     private final ListenableFuture<PutResult> futureResult;
 
-    public PutObserver(VectorUnloader unloader, StreamObserver<ArrowMessage> observer, ListenableFuture<PutResult> futureResult) {
+    public PutObserver(VectorUnloader unloader, ClientCallStreamObserver<ArrowMessage> observer, ListenableFuture<PutResult> futureResult) {
       this.observer = observer;
       this.unloader = unloader;
       this.futureResult = futureResult;

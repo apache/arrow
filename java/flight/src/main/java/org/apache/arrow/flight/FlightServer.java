@@ -30,6 +30,7 @@ public class FlightServer implements AutoCloseable {
   private final Server server;
 
   public FlightServer(BufferAllocator allocator, int port, FlightProducer producer) {
+
     this.server = ServerBuilder.forPort(port)
         .addService(new FlightBindingService(allocator, producer))
         .build();
