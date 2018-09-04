@@ -457,10 +457,10 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir):
 
     arrow_table = pa.Table.from_pandas(df)
 
-    with open(filename, 'wb') as f:
+    with filename.open('wb') as f:
         _write_table(arrow_table, f, version="1.0")
 
-    data = io.BytesIO(open(filename, 'rb').read())
+    data = io.BytesIO(filename.read_bytes())
 
     table_read = _read_table(data)
     df_read = table_read.to_pandas()
@@ -1425,10 +1425,10 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
                     _write_table(part_table, f)
                 assert fs.exists(file_path)
 
-                _touch(level_dir / '_SUCCESS')
+                (level_dir / '_SUCCESS').touch()
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
-                _touch(level_dir / '_SUCCESS')
+                (level_dir / '_SUCCESS').touch()
 
     _visit_level(base_dir, 0, [])
 
@@ -1528,11 +1528,6 @@ def _filter_partition(df, part_keys):
     return df[predicate].drop(to_drop, axis=1)
 
 
-def _touch(path):
-    with open(path, 'wb'):
-        pass
-
-
 def test_read_multiple_files(tempdir):
     import pyarrow.parquet as pq
 
@@ -1540,7 +1535,7 @@ def test_read_multiple_files(tempdir):
     size = 5
 
     dirpath = tempdir / guid()
-    os.mkdir(dirpath)
+    dirpath.mkdir()
 
     test_data = []
     paths = []
@@ -1559,7 +1554,7 @@ def test_read_multiple_files(tempdir):
         paths.append(path)
 
     # Write a _SUCCESS.crc file
-    _touch(dirpath / '_SUCCESS.crc')
+    (dirpath / '_SUCCESS.crc').touch()
 
     def read_multiple_files(paths, columns=None, nthreads=None, **kwargs):
         dataset = pq.ParquetDataset(paths, **kwargs)
@@ -1621,7 +1616,7 @@ def test_dataset_read_pandas(tempdir):
     size = 5
 
     dirpath = tempdir / guid()
-    os.mkdir(dirpath)
+    dirpath.mkdir()
 
     test_data = []
     frames = []
@@ -1656,7 +1651,7 @@ def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
     size = 5
 
     dirpath = tempdir / guid()
-    os.mkdir(dirpath)
+    dirpath.mkdir()
 
     test_data = []
     frames = []
@@ -1708,13 +1703,13 @@ def test_ignore_private_directories(tempdir):
     import pyarrow.parquet as pq
 
     dirpath = tempdir / guid()
-    os.mkdir(dirpath)
+    dirpath.mkdir()
 
     paths = _make_example_multifile_dataset(dirpath, nfiles=10,
                                             file_nrows=5)
 
     # private directory
-    os.mkdir(dirpath / '_impala_staging')
+    (dirpath / '_impala_staging').mkdir()
 
     dataset = pq.ParquetDataset(dirpath)
     assert set(map(str, paths)) == set(x.path for x in dataset.pieces)
@@ -1724,15 +1719,15 @@ def test_ignore_hidden_files(tempdir):
     import pyarrow.parquet as pq
 
     dirpath = tempdir / guid()
-    os.mkdir(dirpath)
+    dirpath.mkdir()
 
     paths = _make_example_multifile_dataset(dirpath, nfiles=10,
                                             file_nrows=5)
 
-    with open(dirpath / '.DS_Store', 'wb') as f:
+    with (dirpath / '.DS_Store').open('wb') as f:
         f.write(b'gibberish')
 
-    with open(dirpath / '.private', 'wb') as f:
+    with (dirpath / '.private').open('wb') as f:
         f.write(b'gibberish')
 
     dataset = pq.ParquetDataset(dirpath)
@@ -1781,7 +1776,7 @@ def test_write_error_deletes_incomplete_file(tempdir):
     except pa.ArrowException:
         pass
 
-    assert not os.path.exists(filename)
+    assert not filename.exists()
 
 
 def test_read_non_existent_file(tempdir):

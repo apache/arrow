@@ -18,21 +18,13 @@
 from collections import defaultdict
 from concurrent import futures
 import os
-import inspect
 import json
 import re
-import six
-from six.moves.urllib.parse import urlparse
-# pathlib might not be available in Python 2
-try:
-    import pathlib
-    _has_pathlib = True
-except ImportError:
-    _has_pathlib = False
 
 import numpy as np
 
-from pyarrow.filesystem import FileSystem, LocalFileSystem, S3FSWrapper
+from pyarrow.filesystem import (LocalFileSystem, is_path,  _ensure_str_path,
+                                _ensure_filesystem, _get_fs_from_path)
 from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
@@ -634,11 +626,6 @@ class ParquetPartitions(object):
                              filter[1])
 
 
-def is_path(x):
-    return (isinstance(x, six.string_types)
-            or (_has_pathlib and isinstance(x, pathlib.Path)))
-
-
 class ParquetManifest(object):
     """
 
@@ -957,34 +944,6 @@ class ParquetDataset(object):
         self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
 
-def _ensure_filesystem(fs):
-    fs_type = type(fs)
-
-    # If the arrow filesystem was subclassed, assume it supports the full
-    # interface and return it
-    if not issubclass(fs_type, FileSystem):
-        for mro in inspect.getmro(fs_type):
-            if mro.__name__ is 'S3FileSystem':
-                return S3FSWrapper(fs)
-            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
-            # FS
-            elif mro.__name__ is 'LocalFileSystem':
-                return LocalFileSystem.get_instance()
-
-        raise IOError('Unrecognized filesystem: {0}'.format(fs_type))
-    else:
-        return fs
-
-
-def _ensure_str_path(path):
-    if isinstance(path, six.string_types):
-        return path
-    elif _has_pathlib and isinstance(path, pathlib.Path):
-        return str(path)
-    else:
-        raise TypeError('Path must be a string or an instance of pathlib.Path')
-
-
 def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
     partitions = None
     common_metadata_path = None
@@ -1103,7 +1062,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
     except Exception:
         if is_path(where):
             try:
-                os.remove(where)
+                os.remove(_ensure_str_path(where))
             except os.error:
                 pass
         raise
@@ -1267,26 +1226,3 @@ def read_schema(where):
     schema : pyarrow.Schema
     """
     return ParquetFile(where).schema.to_arrow_schema()
-
-
-def _get_fs_from_path(path):
-    """
-    return filesystem from path which could be an HDFS URI
-    """
-    # input can be hdfs URI such as hdfs://host:port/myfile.parquet
-    if _has_pathlib and isinstance(path, pathlib.Path):
-        path = str(path)
-    parsed_uri = urlparse(path)
-    if parsed_uri.scheme == 'hdfs':
-        netloc_split = parsed_uri.netloc.split(':')
-        host = netloc_split[0]
-        if host == '':
-            host = 'default'
-        port = 0
-        if len(netloc_split) == 2 and netloc_split[1].isnumeric():
-            port = int(netloc_split[1])
-        fs = pa.hdfs.connect(host=host, port=port)
-    else:
-        fs = LocalFileSystem.get_instance()
-
-    return fs
