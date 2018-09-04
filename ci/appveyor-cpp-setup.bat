@@ -46,6 +46,9 @@ if "%GENERATOR%"=="Ninja" conda install -y -q -c conda-forge ninja
 if "%USE_CLCACHE%" == "true" (
     @rem Use clcache for faster builds
     pip install -q git+https://github.com/frerich/clcache.git
+    @rem Limit cache size to 150 MB
+    clcache -M 150000000
+    clcache -c
     clcache -s
     set CLCACHE_SERVER=1
     set CLCACHE_HARDLINK=1
