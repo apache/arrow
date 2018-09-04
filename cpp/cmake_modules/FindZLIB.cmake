@@ -52,7 +52,7 @@ if (_zlib_roots)
     PATHS ${_zlib_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES "include")
   find_library(ZLIB_SHARED_LIB
-    NAMES ${ZLIB_SHARED_LIB_NAME}
+    NAMES ${ZLIB_LIB_NAME}
     PATHS ${_zlib_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES "lib")
 else ()
@@ -60,11 +60,11 @@ else ()
   if (PKG_ZLIB_FOUND)
     set(ZLIB_INCLUDE_DIR ${PKG_ZLIB_INCLUDEDIR})
     find_library(ZLIB_SHARED_LIB
-      NAMES ${ZLIB_SHARED_LIB_NAME}
+      NAMES ${ZLIB_LIB_NAME}
       PATHS ${PKG_ZLIB_LIBDIR} NO_DEFAULT_PATH)
   else ()
     find_path(ZLIB_INCLUDE_DIR NAMES zlib.h)
-    find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME})
+    find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_LIB_NAME})
   endif ()
 endif ()
 
