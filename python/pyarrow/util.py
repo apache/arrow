@@ -52,8 +52,8 @@ def _is_path_like(path):
     # PEP519 filesystem path protocol is available from python 3.6, so pathlib
     # doesn't implement __fspath__ for earlier versions
     return (isinstance(path, six.string_types) or
-            isinstance(path, pathlib.Path) or
-            hasattr(path, '__fspath__'))
+            hasattr(path, '__fspath__') or
+            (_has_pathlib and isinstance(path, pathlib.Path)))
 
 
 def _stringify_path(path):
@@ -62,10 +62,13 @@ def _stringify_path(path):
     """
     if isinstance(path, six.string_types):
         return path
-    elif isinstance(path, pathlib.Path):
-        return str(path)
-    else:
-        try:
-            return path.__fspath__()  # new in python 3.6
-        except AttributeError:
-            raise TypeError("not a path-like object")
+
+    # checking whether path implements the filesystem protocol
+    try:
+        return path.__fspath__()  # new in python 3.6
+    except AttributeError:
+        # fallback pathlib ckeck for earlier python versions than 3.6
+        if _has_pathlib and isinstance(path, pathlib.Path):
+            return str(path)
+
+    raise TypeError("not a path-like object")
