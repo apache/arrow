@@ -184,12 +184,6 @@ TEST_F(TestCast, ToIntUpcast) {
   vector<int16_t> e3 = {0, 100, 200, 255, 0};
   CheckCase<UInt8Type, uint8_t, Int16Type, int16_t>(uint8(), v3, is_valid, int16(), e3,
                                                     options);
-
-  // floating point to integer
-  vector<double> v4 = {1.5, 0, 0.5, -1.5, 5.5};
-  vector<int32_t> e4 = {1, 0, 0, -1, 5};
-  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v4, is_valid, int32(), e4,
-                                                    options);
 }
 
 TEST_F(TestCast, OverflowInNullSlot) {
@@ -218,32 +212,32 @@ TEST_F(TestCast, ToIntDowncastSafe) {
   vector<bool> is_valid = {true, false, true, true, true};
 
   // int16 to uint8, no overflow/underrun
-  vector<int16_t> v5 = {0, 100, 200, 1, 2};
-  vector<uint8_t> e5 = {0, 100, 200, 1, 2};
-  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v5, is_valid, uint8(), e5,
+  vector<int16_t> v1 = {0, 100, 200, 1, 2};
+  vector<uint8_t> e1 = {0, 100, 200, 1, 2};
+  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v1, is_valid, uint8(), e1,
                                                     options);
 
   // int16 to uint8, with overflow
-  vector<int16_t> v6 = {0, 100, 256, 0, 0};
-  CheckFails<Int16Type>(int16(), v6, is_valid, uint8(), options);
+  vector<int16_t> v2 = {0, 100, 256, 0, 0};
+  CheckFails<Int16Type>(int16(), v2, is_valid, uint8(), options);
 
   // underflow
-  vector<int16_t> v7 = {0, 100, -1, 0, 0};
-  CheckFails<Int16Type>(int16(), v7, is_valid, uint8(), options);
+  vector<int16_t> v3 = {0, 100, -1, 0, 0};
+  CheckFails<Int16Type>(int16(), v3, is_valid, uint8(), options);
 
   // int32 to int16, no overflow
-  vector<int32_t> v8 = {0, 1000, 2000, 1, 2};
-  vector<int16_t> e8 = {0, 1000, 2000, 1, 2};
-  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v8, is_valid, int16(), e8,
+  vector<int32_t> v4 = {0, 1000, 2000, 1, 2};
+  vector<int16_t> e4 = {0, 1000, 2000, 1, 2};
+  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v4, is_valid, int16(), e4,
                                                     options);
 
   // int32 to int16, overflow
-  vector<int32_t> v9 = {0, 1000, 2000, 70000, 0};
-  CheckFails<Int32Type>(int32(), v9, is_valid, int16(), options);
+  vector<int32_t> v5 = {0, 1000, 2000, 70000, 0};
+  CheckFails<Int32Type>(int32(), v5, is_valid, int16(), options);
 
   // underflow
-  vector<int32_t> v10 = {0, 1000, 2000, -70000, 0};
-  CheckFails<Int32Type>(int32(), v9, is_valid, int16(), options);
+  vector<int32_t> v6 = {0, 1000, 2000, -70000, 0};
+  CheckFails<Int32Type>(int32(), v6, is_valid, int16(), options);
 }
 
 TEST_F(TestCast, ToIntDowncastUnsafe) {
@@ -253,41 +247,75 @@ TEST_F(TestCast, ToIntDowncastUnsafe) {
   vector<bool> is_valid = {true, false, true, true, true};
 
   // int16 to uint8, no overflow/underrun
-  vector<int16_t> v5 = {0, 100, 200, 1, 2};
-  vector<uint8_t> e5 = {0, 100, 200, 1, 2};
-  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v5, is_valid, uint8(), e5,
+  vector<int16_t> v1 = {0, 100, 200, 1, 2};
+  vector<uint8_t> e1 = {0, 100, 200, 1, 2};
+  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v1, is_valid, uint8(), e1,
                                                     options);
 
   // int16 to uint8, with overflow
-  vector<int16_t> v6 = {0, 100, 256, 0, 0};
-  vector<uint8_t> e6 = {0, 100, 0, 0, 0};
-  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v6, is_valid, uint8(), e6,
+  vector<int16_t> v2 = {0, 100, 256, 0, 0};
+  vector<uint8_t> e2 = {0, 100, 0, 0, 0};
+  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v2, is_valid, uint8(), e2,
                                                     options);
 
   // underflow
-  vector<int16_t> v7 = {0, 100, -1, 0, 0};
-  vector<uint8_t> e7 = {0, 100, 255, 0, 0};
-  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v7, is_valid, uint8(), e7,
+  vector<int16_t> v3 = {0, 100, -1, 0, 0};
+  vector<uint8_t> e3 = {0, 100, 255, 0, 0};
+  CheckCase<Int16Type, int16_t, UInt8Type, uint8_t>(int16(), v3, is_valid, uint8(), e3,
                                                     options);
 
   // int32 to int16, no overflow
-  vector<int32_t> v8 = {0, 1000, 2000, 1, 2};
-  vector<int16_t> e8 = {0, 1000, 2000, 1, 2};
-  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v8, is_valid, int16(), e8,
+  vector<int32_t> v4 = {0, 1000, 2000, 1, 2};
+  vector<int16_t> e4 = {0, 1000, 2000, 1, 2};
+  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v4, is_valid, int16(), e4,
                                                     options);
 
   // int32 to int16, overflow
   // TODO(wesm): do we want to allow this? we could set to null
-  vector<int32_t> v9 = {0, 1000, 2000, 70000, 0};
-  vector<int16_t> e9 = {0, 1000, 2000, 4464, 0};
-  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v9, is_valid, int16(), e9,
+  vector<int32_t> v5 = {0, 1000, 2000, 70000, 0};
+  vector<int16_t> e5 = {0, 1000, 2000, 4464, 0};
+  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v5, is_valid, int16(), e5,
                                                     options);
 
   // underflow
   // TODO(wesm): do we want to allow this? we could set overflow to null
-  vector<int32_t> v10 = {0, 1000, 2000, -70000, 0};
-  vector<int16_t> e10 = {0, 1000, 2000, -4464, 0};
-  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v10, is_valid, int16(), e10,
+  vector<int32_t> v6 = {0, 1000, 2000, -70000, 0};
+  vector<int16_t> e6 = {0, 1000, 2000, -4464, 0};
+  CheckCase<Int32Type, int32_t, Int16Type, int16_t>(int32(), v6, is_valid, int16(), e6,
+                                                    options);
+}
+
+TEST_F(TestCast, FloatingPointToInt) {
+  auto options = CastOptions::Safe();
+
+  vector<bool> is_valid = {true, false, true, true, true};
+  vector<bool> all_valid = {true, true, true, true, true};
+
+  // float32 point to integer
+  vector<float> v1 = {1.5, 0, 0.5, -1.5, 5.5};
+  vector<int32_t> e1 = {1, 0, 0, -1, 5};
+  CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, is_valid, int32(), e1,
+                                                  options);
+  CheckCase<FloatType, float, Int32Type, int32_t>(float32(), v1, all_valid, int32(), e1,
+                                                  options);
+
+  // float64 point to integer
+  vector<double> v2 = {1.0, 0, 0.0, -1.0, 5.0};
+  vector<int32_t> e2 = {1, 0, 0, -1, 5};
+  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v2, is_valid, int32(), e2,
+                                                    options);
+  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v2, all_valid, int32(), e2,
+                                                    options);
+
+  vector<double> v3 = {1.5, 0, 0.5, -1.5, 5.5};
+  vector<int32_t> e3 = {1, 0, 0, -1, 5};
+  CheckFails<DoubleType>(float64(), v3, is_valid, int32(), options);
+  CheckFails<DoubleType>(float64(), v3, all_valid, int32(), options);
+
+  options.allow_float_truncate = true;
+  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v3, is_valid, int32(), e3,
+                                                    options);
+  CheckCase<DoubleType, double, Int32Type, int32_t>(float64(), v3, all_valid, int32(), e3,
                                                     options);
 }
 
@@ -982,18 +1010,14 @@ TEST_F(TestCast, ListToList) {
   ASSERT_OK(
       ListArray::FromArrays(*offsets, *float64_plain_array, pool_, &float64_list_array));
 
-  this->CheckPass(*int32_list_array, *int64_list_array, int64_list_array->type(),
-                  options);
-  this->CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(),
-                  options);
-  this->CheckPass(*int64_list_array, *int32_list_array, int32_list_array->type(),
-                  options);
-  this->CheckPass(*int64_list_array, *float64_list_array, float64_list_array->type(),
-                  options);
-  this->CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(),
-                  options);
-  this->CheckPass(*float64_list_array, *int64_list_array, int64_list_array->type(),
-                  options);
+  CheckPass(*int32_list_array, *int64_list_array, int64_list_array->type(), options);
+  CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options);
+  CheckPass(*int64_list_array, *int32_list_array, int32_list_array->type(), options);
+  CheckPass(*int64_list_array, *float64_list_array, float64_list_array->type(), options);
+
+  options.allow_float_truncate = true;
+  CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options);
+  CheckPass(*float64_list_array, *int64_list_array, int64_list_array->type(), options);
 }
 
 // ----------------------------------------------------------------------

@@ -35,10 +35,23 @@ class DataType;
 namespace compute {
 
 struct ARROW_EXPORT CastOptions {
-  CastOptions() : allow_int_overflow(false), allow_time_truncate(false) {}
+  CastOptions()
+      : allow_int_overflow(false),
+        allow_time_truncate(false),
+        allow_float_truncate(true) {}
+
+  explicit CastOptions(bool safe)
+      : allow_int_overflow(!safe),
+        allow_time_truncate(!safe),
+        allow_float_truncate(!safe) {}
+
+  static CastOptions Safe() { return CastOptions(true); }
+
+  static CastOptions Unsafe() { return CastOptions(false); }
 
   bool allow_int_overflow;
   bool allow_time_truncate;
+  bool allow_float_truncate;
 };
 
 /// \since 0.7.0
