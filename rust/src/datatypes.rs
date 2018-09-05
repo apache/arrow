@@ -15,13 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/*!
-Defines the data-types of Arrow arrays.
-
-For an overview of the terminology used within the arrow project and more general information
-regarding data-types and memory layouts see
-[here](https://arrow.apache.org/docs/memory_layout.html).
-*/
+//! Defines the data-types of Arrow arrays.
+//! 
+//! For an overview of the terminology used within the arrow project and more general information
+//! regarding data-types and memory layouts see
+//! [here](https://arrow.apache.org/docs/memory_layout.html).
 
 use std::fmt;
 use std::mem::size_of;
