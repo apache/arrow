@@ -15,32 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import datetime
-import decimal
-import os
-
-from pandas.util.testing import assert_frame_equal
-import pandas as pd
 import pytest
+import decimal
+import datetime
 
+import pandas as pd
 import pyarrow as pa
 
+from pandas.util.testing import assert_frame_equal
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not orc'
 pytestmark = pytest.mark.orc
 
 
-here = os.path.abspath(os.path.dirname(__file__))
-orc_data_dir = os.path.join(here, 'data', 'orc')
-
-
-def path_for_orc_example(name):
-    return os.path.join(orc_data_dir, '%s.orc' % name)
-
-
-def path_for_json_example(name):
-    return os.path.join(orc_data_dir, '%s.jsn.gz' % name)
+@pytest.fixture(scope='module')
+def datadir(datadir):
+    return datadir / 'orc'
 
 
 def fix_example_values(actual_cols, expected_cols):
@@ -119,31 +110,29 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     assert json_pos == orc_file.nrows
 
 
-@pytest.mark.parametrize('example_name', [
-    'TestOrcFile.test1',
-    'TestOrcFile.testDate1900',
-    'decimal'
+@pytest.mark.parametrize('filename', [
+    'TestOrcFile.test1.orc',
+    'TestOrcFile.testDate1900.orc',
+    'decimal.orc'
 ])
-def test_example_using_json(example_name):
+def test_example_using_json(filename, datadir):
     """
     Check a ORC file example against the equivalent JSON file, as given
     in the Apache ORC repository (the JSON file has one JSON object per
     line, corresponding to one row in the ORC file).
     """
     # Read JSON file
-    json_path = path_for_json_example(example_name)
-    table = pd.read_json(json_path, lines=True)
-
-    check_example_file(path_for_orc_example(example_name), table,
-                       need_fix=True)
+    path = datadir / filename
+    table = pd.read_json(str(path.with_suffix('.jsn.gz')), lines=True)
+    check_example_file(path, table, need_fix=True)
 
 
-def test_orcfile_empty():
+def test_orcfile_empty(datadir):
     from pyarrow import orc
-    f = orc.ORCFile(path_for_orc_example('TestOrcFile.emptyFile'))
-    table = f.read()
+
+    table = orc.ORCFile(datadir / 'TestOrcFile.emptyFile.orc').read()
     assert table.num_rows == 0
-    schema = table.schema
+
     expected_schema = pa.schema([
         ('boolean1', pa.bool_()),
         ('byte1', pa.int8()),
@@ -172,4 +161,4 @@ def test_orcfile_empty():
                 ])),
             ]))),
         ])
-    assert schema == expected_schema
+    assert table.schema == expected_schema
