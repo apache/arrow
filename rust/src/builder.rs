@@ -67,8 +67,14 @@ where
 
     /// Get the internal byte-aligned memory buffer as a mutable slice
     pub fn slice_mut(&mut self, start: usize, end: usize) -> &mut [T] {
-        assert!(end <= self.capacity as usize);
-        assert!(start <= end);
+        assert!(
+            end <= self.capacity as usize,
+            "the end of the slice must be within the capacity"
+        );
+        assert!(
+            start <= end,
+            "the start of the slice cannot exceed the end of the slice"
+        );
         unsafe {
             slice::from_raw_parts_mut(self.data.offset(start as isize), (end - start) as usize)
         }
@@ -81,13 +87,13 @@ where
 
     /// Push a value into the builder, growing the internal buffer as needed
     pub fn push(&mut self, v: T) {
-        assert!(!self.data.is_null());
+        assert!(!self.data.is_null(), "cannot push onto uninitialized data");
         if self.len == self.capacity {
             // grow capacity by 64 bytes or double the current capacity, whichever is greater
             let new_capacity = cmp::max(64, self.capacity * 2);
             self.grow(new_capacity);
         }
-        assert!(self.len < self.capacity);
+        assert!(self.len < self.capacity, "new length exceeds capacity");
         unsafe {
             *self.data.offset(self.len as isize) = v;
         }
@@ -96,8 +102,11 @@ where
 
     /// Set a value at a slot in the allocated memory without adjusting the length
     pub fn set(&mut self, i: usize, v: T) {
-        assert!(!self.data.is_null());
-        assert!(i < self.capacity);
+        assert!(
+            !self.data.is_null(),
+            "cannot set value if data is uninitialized"
+        );
+        assert!(i < self.capacity, "index exceeds capacity");
         unsafe {
             *self.data.offset(i as isize) = v;
         }
@@ -144,7 +153,7 @@ where
 
     /// Build a Buffer from the existing memory
     pub fn finish(&mut self) -> Buffer {
-        assert!(!self.data.is_null());
+        assert!(!self.data.is_null(), "data has not been initialized");
         let p = self.data;
         self.data = ptr::null_mut(); // ensure builder cannot be re-used
         Buffer::from_raw_parts(p as *mut u8, self.len)

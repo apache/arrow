@@ -59,7 +59,7 @@ impl Drop for BufferData {
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
-        assert!(memory::is_aligned(ptr, 64));
+        assert!(memory::is_aligned(ptr, 64), "memory not aligned");
         let buf_data = BufferData { ptr, len };
         Buffer {
             data: Arc::new(buf_data),
@@ -83,9 +83,12 @@ impl Buffer {
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
-    pub fn slice(&self, offset: usize) -> Buffer {
-        assert!(self.offset + offset <= self.len());
-        Buffer {
+    pub fn slice(&self, offset: usize) -> Self {
+        assert!(
+            self.offset + offset <= self.len(),
+            "the offset of the new Buffer cannot exceed the existing length"
+        );
+        Self {
             data: self.data.clone(),
             offset: self.offset + offset,
         }
@@ -100,8 +103,8 @@ impl Buffer {
     }
 
     /// Returns an empty buffer.
-    pub fn empty() -> Buffer {
-        Buffer::from_raw_parts(::std::ptr::null(), 0)
+    pub fn empty() -> Self {
+        Self::from_raw_parts(::std::ptr::null(), 0)
     }
 }
 
