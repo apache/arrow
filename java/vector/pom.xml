@@ -67,8 +67,8 @@
       <artifactId>netty-common</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.vlkan</groupId>
-      <artifactId>flatbuffers</artifactId>
+      <groupId>com.google.flatbuffers</groupId>
+      <artifactId>flatbuffers-java</artifactId>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
