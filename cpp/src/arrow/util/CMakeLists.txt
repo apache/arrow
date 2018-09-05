@@ -62,6 +62,7 @@ ADD_ARROW_TEST(parsing-util-test)
 ADD_ARROW_TEST(stl-util-test)
 ADD_ARROW_TEST(thread-pool-test)
 ADD_ARROW_TEST(lazy-test)
+ADD_ARROW_TEST(logging-test)
 
 ADD_ARROW_BENCHMARK(bit-util-benchmark)
 ADD_ARROW_BENCHMARK(decimal-benchmark)

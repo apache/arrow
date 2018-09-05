@@ -256,6 +256,10 @@ Pass multiple labels by dividing with semicolons")
     "If off, 'quiet' flags will be passed to linting tools"
     OFF)
 
+  option(ARROW_USE_GLOG
+    "Build the Plasma logging system using glog"
+    ON)
+
   if (MSVC)
     option(ARROW_USE_CLCACHE
       "Use clcache if available"
@@ -302,6 +306,8 @@ endif()
 if (MSVC)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
+  # Plasma using glog is not fully tested on windows.
+  set(ARROW_USE_GLOG OFF)
 endif()
 
 if(ARROW_ORC)
@@ -643,6 +649,13 @@ if (ARROW_ORC)
   set_target_properties(orc
     PROPERTIES INTERFACE_LINK_LIBRARIES
     protobuf)
+endif()
+
+if (ARROW_USE_GLOG)
+  SET(ARROW_STATIC_LINK_LIBS
+      glog
+      ${ARROW_STATIC_LINK_LIBS})
+  add_definitions(-DARROW_USE_GLOG)
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
