@@ -240,9 +240,11 @@ macro_rules! def_primitive_array {
 /// Constructs a `PrimitiveArray` from an array data reference.
 impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(data.buffers().len(), 1);
+        assert_eq!(data.buffers().len(), 1,
+                   "PrimitiveArray data should contain a single buffer only (values buffer)");
         let raw_values = data.buffers()[0].raw_data();
-        assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()));
+        assert!(memory::is_aligned::<u8>(raw_values, mem::align_of::<T>()),
+                "memory is not aligned");
         Self {
             data,
             raw_values: RawPtrBox::new(raw_values as *const T),
@@ -321,21 +323,23 @@ impl ListArray {
 /// Constructs a `ListArray` from an array data reference.
 impl From<ArrayDataRef> for ListArray {
     fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(data.buffers().len(), 1);
-        assert_eq!(data.child_data().len(), 1);
+        assert_eq!(data.buffers().len(), 1,
+                   "ListArray data should contain a single buffer only (value offsets)");
+        assert_eq!(data.child_data().len(), 1,
+                   "ListArray should contain a single child array (values array)");
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
         assert!(memory::is_aligned(
             raw_value_offsets,
             mem::align_of::<i32>()
-        ));
+        ), "memory is not aligned");
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
-            assert_eq!(*value_offsets.offset(0), 0);
+            assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
             assert_eq!(
                 *value_offsets.offset(data.len() as isize),
-                values.data().len() as i32
-            );
+                values.data().len() as i32,
+            "inconsistent offsets buffer and values array");
         }
         Self {
             data: data.clone(),
@@ -369,7 +373,7 @@ pub struct BinaryArray {
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
     pub fn get_value(&self, i: i64) -> &[u8] {
-        assert!(i >= 0 && i < self.data.len());
+        assert!(i >= 0 && i < self.data.len(), "BinaryArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
@@ -413,12 +417,13 @@ impl BinaryArray {
 
 impl From<ArrayDataRef> for BinaryArray {
     fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(data.buffers().len(), 2);
+        assert_eq!(data.buffers().len(), 2,
+                   "BinaryArray data should contain 2 buffers only (offsets and values)");
         let raw_value_offsets = data.buffers()[0].raw_data();
         assert!(memory::is_aligned(
             raw_value_offsets,
             mem::align_of::<i32>()
-        ));
+        ), "memory not aligned");
         let value_data = data.buffers()[1].raw_data();
         Self {
             data: data.clone(),
