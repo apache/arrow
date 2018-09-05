@@ -38,6 +38,22 @@ def test_manager_num_devices():
     #manager.get_context(manager.num_devices+1) 
 
 @gpu_support
+def test_manage_allocate_free_host():
+    size = 1024
+    size = 8
+    buf = manager.allocate_host(size)
+    arr = np.frombuffer(buf, dtype=np.uint8)
+    arr[size//4:3*size//4] = 1
+    arr_cp = arr.copy()
+    arr2 = np.frombuffer(buf, dtype=np.uint8)
+    assert arr2.tolist() == arr_cp.tolist()
+    assert buf.size == size
+    manager.free_host(buf)
+    assert buf.size == 0
+    arr3 = np.frombuffer(buf, dtype=np.uint8)
+    assert arr3.tolist() == []
+    
+@gpu_support
 def test_context_allocate():
     bytes_allocated = context.bytes_allocated
     cudabuf = context.allocate(128)

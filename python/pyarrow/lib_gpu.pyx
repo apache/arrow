@@ -86,8 +86,12 @@ cdef class CudaDeviceManager:
         hbuf : CudaHostBuffer
           Specify host buffer to be deallocated.
         """
-        check_status(self.manager.FreeHost(hbuf_.get().mutable_data(), hbuf.size))
-
+        if not pyarrow_is_cudahostbuffer(hbuf):
+            raise TypeError('expected CudaHostBuffer instance')
+        cdef CudaHostBuffer buf = <CudaHostBuffer>(hbuf)
+        if not buf._freed:
+            check_status(self.manager.FreeHost(buf.host_buffer.get().mutable_data(), hbuf.size))
+            buf._freed = True
         
 cdef class CudaContext:
     """ CUDA driver context
@@ -232,9 +236,9 @@ cdef class CudaBuffer(Buffer):
         dbuf : CudaBuffer
           Resulting device buffer.
         """
-        buf = pyarrow_unwrap_buffer(buffer)
+        buf_ = pyarrow_unwrap_buffer(buf)
         cdef shared_ptr[CCudaBuffer] cbuf
-        check_status(CCudaBuffer.FromBuffer(buf, &cbuf))
+        check_status(CCudaBuffer.FromBuffer(buf_, &cbuf))
         return pyarrow_wrap_cudabuffer(cbuf)
 
     def copy_to_host(self, int64_t position=0, int64_t nbytes=-1, Buffer buf=None,
@@ -360,8 +364,15 @@ cdef class CudaHostBuffer(Buffer):
     """
 
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer):
+        self.host_buffer = buffer
         self.init(<shared_ptr[CBuffer]> buffer)
-    
+        self._freed = False
+
+    @property
+    def size(self):
+        if self._freed: return 0
+        return self.host_buffer.get().size()
+        
 cdef class CudaBufferReader(NativeFile):
     """File interface for zero-copy read from CUDA buffers.
 
@@ -515,6 +526,9 @@ def cuda_read_record_batch(object schema, object buffer, pool = None):
 cdef public api bint pyarrow_is_cudabuffer(object buffer):
     return isinstance(buffer, CudaBuffer)
 
+cdef public api bint pyarrow_is_cudahostbuffer(object buffer):
+    return isinstance(buffer, CudaHostBuffer)
+
 cdef public api bint pyarrow_is_cudacontext(object ctx):
     return isinstance(ctx, CudaContext)
 
@@ -561,3 +575,10 @@ cdef public api shared_ptr[CCudaBuffer] pyarrow_unwrap_cudabuffer(object obj):
         buf = <CudaBuffer>(obj)
         return buf.cuda_buffer
     return shared_ptr[CCudaBuffer]()
+
+cdef public api shared_ptr[CCudaHostBuffer] pyarrow_unwrap_cudahostbuffer(object obj):
+    cdef CudaHostBuffer buf
+    if pyarrow_is_cudahostbuffer(obj):
+        buf = <CudaHostBuffer>(obj)
+        return buf.host_buffer
+    return shared_ptr[CCudaHostBuffer]()

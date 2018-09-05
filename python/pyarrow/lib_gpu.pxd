@@ -48,6 +48,9 @@ cdef class CudaBuffer(Buffer):
 
 
 cdef class CudaHostBuffer(Buffer):
+    cdef:
+        shared_ptr[CCudaHostBuffer] host_buffer
+        c_bool _freed
 
     cdef void init_host(self, const shared_ptr[CCudaHostBuffer]& buffer)
 
